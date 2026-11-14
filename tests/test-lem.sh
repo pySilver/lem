@@ -352,7 +352,13 @@ else
 fi
 if [ "$(status_of board --repo "$OLD")" = 1 ]; then pass "outside an agterm session board opens nothing and says so"; else fail "board outside agterm"; fi
 board --repo "$OLD" --no-open --demo >/dev/null
-if grep -q '"demo": true' "$OLD/.git/lem/meta.js"; then pass "board --demo marks the state folder's tasks as examples for the page"; else fail "board --demo: $(cat "$OLD/.git/lem/meta.js")"; fi
+board --repo "$OLD" --no-open --task with-a-worktree >/dev/null
+if grep -q '"demo": true' "$OLD/.git/lem/meta.js" && [ -f "$OLD/.git/lem/demo" ]; then
+  pass "board --demo marks the state folder's tasks as examples, and a later open with no flag keeps the mark"
+else
+  fail "board --demo: $(cat "$OLD/.git/lem/meta.js")"
+fi
+rm "$OLD/.git/lem/demo"
 board --repo "$OLD" --no-open >/dev/null
 
 # Two repositories' Lem sessions in one window each have a page named "Lem board": a board reloads

@@ -4,7 +4,7 @@
     board.py [--repo DIR] [--follow]               the board of all tasks
     board.py [--repo DIR] [--follow] --task SLUG   the board of one task
     board.py [--repo DIR] [--task SLUG] --no-open  write the page's files and print where; open nothing
-    board.py ... --demo                            say on the page that its tasks are examples
+    board.py ... --demo                            mark the state folder's tasks as examples, for good
 
 The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`
 and `review-queue.js`, which `project.py` and `review_queue.py` append to, and `meta.js`, which
@@ -71,8 +71,13 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> Pa
     listed = subprocess.run(["git", "-C", repo, "worktree", "list", "--porcelain"], capture_output=True, text=True, check=False)
     main = next((line.removeprefix("worktree ") for line in listed.stdout.splitlines() if line.startswith("worktree ")), settings["root"])
     meta = {"repo": Path(main).name, "base": settings["branch"]["base"], "session": session}
+    # A board of made-up tasks must say so itself: a line under "Waits for you" reads as a call to
+    # act. The mark is a file beside the events, because it is a fact about the data and not about
+    # one open: `/lem status` opens the same folder later with no flag, and the page must still say it.
+    marker = state / "demo"
     if demo:
-        # A board of made-up tasks must say so itself: a line under "Waits for you" reads as a call to act.
+        marker.write_text("The tasks in this folder are examples, written by a fixture. board.py --demo made this file.\n")
+    if marker.is_file():
         meta["demo"] = True
     (state / "meta.js").write_text(f"lemMeta({json.dumps(meta, ensure_ascii=False)});\n", encoding="utf-8")
     page = state / (f"task-{slug}.html" if slug else "board.html")
@@ -128,7 +133,7 @@ def main() -> None:
     parser.add_argument("--task", metavar="SLUG", help="open the board of this task instead of the board of all tasks")
     parser.add_argument("--follow", action="store_true", help="switch to the board after it opens")
     parser.add_argument("--no-open", action="store_true", help="write the files and print the page's path; open nothing")
-    parser.add_argument("--demo", action="store_true", help="the state folder holds example tasks: the page says so at its top")
+    parser.add_argument("--demo", action="store_true", help="the state folder holds example tasks: every board of it says so from now on")
     args = parser.parse_args()
     session = env("AGT_SESSION_ID", "AGTERM_SESSION_ID")
     socket = env("AGT_SOCKET", "AGTERM_SOCKET")
