@@ -6,7 +6,7 @@ require.
 
 ## interview-me
 
-`skills/interview-me/SKILL.md` is adapted from the
+`skills/lem-interview-me/SKILL.md` is adapted from the
 `interview-me` skill in [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills).
 
 The interview mechanism is retained as published: the hypothesis-with-confidence
@@ -46,7 +46,7 @@ SOFTWARE.
 
 ## backlog
 
-`skills/backlog/SKILL.md` is adapted from the `backlog` skill
+`skills/lem-backlog/SKILL.md` is adapted from the `backlog` skill
 in the `workflow` plugin of [umputun/cc-thingz](https://github.com/umputun/cc-thingz).
 
 Retained as published: the fixed `docs/backlog/` store with one slug-named file
@@ -92,7 +92,7 @@ SOFTWARE.
 
 ## huddle
 
-`skills/huddle/` is adapted from the `huddle` plugin in
+`skills/lem-huddle/` is adapted from the `huddle` plugin in
 [skkap/claude-skills](https://github.com/skkap/claude-skills), as of commit
 `29d6db7` (huddle 1.0.0).
 
@@ -104,7 +104,7 @@ loop with `huddle wait` resume, the sidebar status glyph, the browser
 fallback, `~/.config/huddle/defaults.json`, and the ten templates and five
 demos.
 
-Changes made: the launcher moved from `skills/huddle/scripts/huddle.py` to the
+Changes made: the launcher moved from `skills/lem-huddle/scripts/huddle.py` to the
 plugin's `bin/huddle`, so it is a bare command on the Bash tool's `PATH` and
 `allowed-tools: Bash(huddle *)` pre-authorizes it; it refuses to open a page
 in an unattended run (`CLAUDE_CODE_SESSION_ATTENDED=0`); outside agterm the
@@ -150,9 +150,9 @@ SOFTWARE.
 
 ## dialectic, root-cause-investigator, release, last-tag and pr-review
 
-`skills/dialectic/` and `skills/root-cause-investigator/` are copied unchanged from the
-`thinking-tools` plugin, and `skills/release/` (there `new`), `skills/last-tag/` and
-`skills/pr-review/` (there `pr`) from the `release-tools` and `review` plugins, renamed and with
+`skills/lem-dialectic/` and `skills/lem-root-cause/` are copied unchanged from the
+`thinking-tools` plugin, and `skills/lem-release/` (there `new`), `skills/lem-last-tag/` and
+`skills/lem-pr-review/` (there `pr`) from the `release-tools` and `review` plugins, renamed and with
 their script paths and one cross-reference changed, of [umputun/cc-thingz](https://github.com/umputun/cc-thingz), as of commit
 68d29a4 (2026-11-03).
 
@@ -182,7 +182,7 @@ SOFTWARE.
 
 ## webrev
 
-`skills/webrev/assets/` holds markdown-it 14.1.0 and highlight.js 11.11.1, each with its license
+`skills/lem-webrev/assets/` holds markdown-it 14.1.0 and highlight.js 11.11.1, each with its license
 file beside it.
 
 ## gate, panel, huddle, backlog and interview-me

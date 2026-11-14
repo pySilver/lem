@@ -69,20 +69,28 @@ A repository that already keeps some of these for an older tool (`.claude/rules`
 
 ## What comes with it
 
-An opinionated set, kept small. Shipped here, beside `lem`:
+An opinionated set, kept small. Each shipped skill has the id `lem-<name>` and runs as
+`/lem <name>`.
+
+The ones you call:
+
+| Command | For |
+| --- | --- |
+| `/lem interview-me` | an unclear ask, and the onboarding interview: one question at a time, each with a guess |
+| `/lem backlog` | deferred work, one file per item |
+| `/lem dialectic` | a claim argued both ways before a decision rests on it |
+| `/lem root-cause` | a defect nobody can explain after two tries |
+| `/lem webrev` | a document you mark up in an agterm overlay |
+| `/lem release`, `/lem last-tag` | cutting a release with notes, and what changed since the last one |
+| `/lem pr-review` | reviewing a pull request or an issue and drafting the comment |
+
+The ones Lem uses by itself:
 
 | Skill | For |
 | --- | --- |
-| `interview-me` | the onboarding interview and an unclear ask: one question at a time, each with a guess |
-| `gate` | whether a question reaches the owner at all: a ruling, a probe or the agent may answer it |
-| `panel` | the people a decision affects answer it first, from the project's own cast |
-| `huddle` | a question to the owner as a page, options side by side |
-| `webrev` | a document the owner marks up in an agterm overlay |
-| `backlog` | deferred work, one file per item |
-| `dialectic` | a claim argued both ways before a decision rests on it |
-| `root-cause-investigator` | a defect nobody can explain after two tries |
-| `release`, `last-tag` | cutting a release with notes, and what changed since the last one |
-| `pr-review` | reviewing a pull request or an issue and drafting the comment |
+| `lem-huddle` | every question that asks you to choose or approve, as a page with the options side by side |
+| `lem-gate` | whether a question reaches you at all: a ruling, a probe or the agent may answer it |
+| `lem-panel` | the people a decision affects answer it first, from the project's own cast |
 
 Not shipped, and checked for by `python3 skills/lem/scripts/doctor.py`. Required: git, Python
 3.11 or newer, [revmux](https://github.com/umputun/revmux) for the review rounds, agterm with
@@ -100,7 +108,7 @@ Link the skill from a clone, so an edit here is what the next session reads:
 
 ```bash
 for d in "$PWD"/skills/*/; do ln -s "${d%/}" ~/.claude/skills/"$(basename "$d")"; done
-ln -s "$PWD/skills/huddle/bin/huddle" ~/.local/bin/huddle
+ln -s "$PWD/skills/lem-huddle/bin/huddle" ~/.local/bin/huddle
 ```
 
 A skill of the same name that a plugin already provides has to be switched off first.

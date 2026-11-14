@@ -36,7 +36,7 @@ one finds what the run before it finished.
      README, the agent document, the style guide), and corrects every sentence the change made
      false, as `docs:` commits;
    - *the outside defects* the report lists: one that is cheap and small is fixed in place, in a
-     commit of its own. Each of the others is written as a proposed item, in the `backlog`
+     commit of its own. Each of the others is written as a proposed item, in the `lem-backlog`
      skill's item format, as a file in the task directory (`proposed/`), and is not committed:
      filing is offered to the owner, never done for him.
    Its last act is to bring `report.md` up to what it did: the documents it corrected, the defects
@@ -79,7 +79,8 @@ one finds what the run before it finished.
 6. **Report to the owner**, once, in plain words, from `report.md`: what they get, how to see it,
    the gate's last lines, the decisions taken without them, what was not verified, and the review
    item's risk. Offer each proposed backlog item by its first line; the ones the owner takes go
-   to the `backlog` skill, which files them, and the others are dropped with the task's state. A `high` item is reviewed today: `stages/review.md`, rule 1.
+   to the `lem-backlog` skill, which files them, and the others are dropped with the task's
+   state. A `high` item is reviewed today: `stages/review.md`, rule 1.
 7. **`clean`** removes the task's worktree and its branch, after it has checked that the base
    holds the branch's tip. It refuses a worktree with changes or files of its own: those are
    someone's work until the owner says otherwise. Do what the project's `AGENTS.md` adds for a

@@ -4,8 +4,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-B=skills/huddle/bin/huddle
-SKILL=skills/huddle
+B=skills/lem-huddle/bin/huddle
+SKILL=skills/lem-huddle
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 # The real interpreter, resolved before HOME moves: a version-manager shim reads its config from HOME.
@@ -227,9 +227,9 @@ check "a timed-out question leaves a glyph that a visit clears" timeout \
 nohook=$(env -u AGTERM_ENABLED "$PY" -I -B "$B" hook-stop < /dev/null; echo "rc=$?")
 if [ "$nohook" = "rc=0" ]; then pass "Stop hook is silent and exits 0 outside agterm"; else fail "Stop hook outside agterm: $nohook"; fi
 # The hooks.json command itself, run the way Claude Code runs a command with no args: through a shell.
-HOOKCMD=$("$PY" -I -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["hooks"]["Stop"][0]["hooks"][0]["command"])' skills/huddle/hooks/hooks.json)
-guard1=$(env -u AGTERM_SESSION_ID CLAUDE_PLUGIN_ROOT="$PWD/skills/huddle" sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
-guard2=$(env AGTERM_SESSION_ID=S1 PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$PWD/skills/huddle" /bin/sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
+HOOKCMD=$("$PY" -I -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["hooks"]["Stop"][0]["hooks"][0]["command"])' skills/lem-huddle/hooks/hooks.json)
+guard1=$(env -u AGTERM_SESSION_ID CLAUDE_PLUGIN_ROOT="$PWD/skills/lem-huddle" sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
+guard2=$(env AGTERM_SESSION_ID=S1 PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$PWD/skills/lem-huddle" /bin/sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
 if [ "$guard1" = "rc=0" ] && [ "$guard2" = "rc=0" ]; then
   pass "hooks.json guard: silent exit 0 with no agterm session, and with no python3"
 else

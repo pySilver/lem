@@ -1,6 +1,6 @@
 ---
-name: root-cause-investigator
-description: Systematic root cause analysis for errors, bugs, and unexpected behaviors using 5-Why methodology. Use when user reports errors, build failures, test failures, performance issues, integration problems, or any "it's not working" scenarios.
+name: lem-root-cause
+description: Systematic root cause analysis for errors, bugs, and unexpected behaviors using 5-Why methodology. Use when user reports errors, build failures, test failures, performance issues, integration problems, or any "it's not working" scenarios. Also runs as "/lem root-cause".
 ---
 
 # Root Cause Investigator

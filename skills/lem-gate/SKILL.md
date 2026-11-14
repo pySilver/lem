@@ -1,5 +1,5 @@
 ---
-name: gate
+name: lem-gate
 description: >
   The question gate: run it before any question that asks the user to rule
   reaches them, so the user sees fewer and better questions. A judge checks
@@ -73,19 +73,19 @@ and tell the user in one line with the reason. Only **held** goes on to step 3.
 ### 3. The card
 
 A question the judge called **held** whose options each cost something goes through the persona
-panel (`panel`), which writes the card and runs the framing check. That holds for a
+panel (`lem-panel`), which writes the card and runs the framing check. That holds for a
 technical fork as much as for one users would see: the panel brings the people who run and build
 the system to a technical question, and its practice scout checks the facts an option turns on,
 so the card's recommendation is not the asking agent's view alone. In shadow mode the verdict only
 picks which card is made; the question still reaches the user either way, and the card never shows
 the verdict. Any other question still goes out as a card in the panel's format (the question in
 user terms, the options, the recommendation and what it costs, the strongest dissent, "wrong if",
-the undo cost), and gets the same framing check through `jev`, the spec in `panel`'s
+the undo cost), and gets the same framing check through `jev`, the spec in `lem-panel`'s
 `references/messages.md`.
 
 ### 4. Ask the user
 
-In agterm with the `huddle` skill, otherwise as plain text. Then log the answer:
+In agterm with the `lem-huddle` skill, otherwise as plain text. Then log the answer:
 `gate-log.py answer --id ID --answer "<the user's choice and their words>"`.
 
 ### 5. Is the answer a durable ruling?

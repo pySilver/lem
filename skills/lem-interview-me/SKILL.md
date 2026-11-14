@@ -1,5 +1,5 @@
 ---
-name: interview-me
+name: lem-interview-me
 description: >
   Extracts what the user actually wants instead of what they think they
   should want, through a one-question-at-a-time interview until ~95%
@@ -11,6 +11,7 @@ description: >
   requirements before any plan, spec, ADR, or code exists. Activates on
   "interview me", "grill me", "before we start, are we sure?", or
   "stress-test my thinking".
+  Also runs as "/lem interview-me".
 ---
 
 # Interview Me
@@ -151,7 +152,7 @@ The output of this skill is a **confirmed statement of intent**: the restate fro
 
 A short before-and-after.
 
-**Without `interview-me`:**
+**Without `lem-interview-me`:**
 
 ```
 User:  build me a dashboard for our metrics
@@ -160,7 +161,7 @@ Agent: <starts proposing chart libraries and layouts>
 
 The agent has assumed: who it's for, what metrics, what "for our team" means, what success looks like. None of these are stated. Every assumption is a place the user can later say "that's not what I meant."
 
-**With `interview-me`:**
+**With `lem-interview-me`:**
 
 ```
 User: build me a dashboard for our metrics
@@ -194,7 +195,7 @@ This skill produces **intent**. Everything below consumes it, and none of them p
 - **A brainstorm or ideation skill** — downstream. It generates and compares approaches, which is only worth doing once the target is explicit. Hand it the confirmed intent, not the original ask.
 - **A planner** (`/planning:make` and equivalents) — downstream. A plan built on an unconfirmed ask inherits the misfit into every task.
 - **An ADR** — downstream. The decision an ADR records is a choice *between* options that serve a known intent; without the intent the alternatives can't be weighed honestly.
-- **`brief`** — adjacent but opposite direction. `brief` rebuilds *the user's* context so they can choose; `interview-me` rebuilds *your* context so you stop guessing.
+- **`brief`** — adjacent but opposite direction. `brief` rebuilds *the user's* context so they can choose; `lem-interview-me` rebuilds *your* context so you stop guessing.
 - **A review panel** — opposite end of the timeline. Review checks a drafted artifact against the code and the conventions. It cannot tell you the artifact was aimed at the wrong target, because it never saw the intent.
 
 ## Common Rationalizations

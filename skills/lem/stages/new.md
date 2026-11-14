@@ -89,12 +89,12 @@ A builder's reply is the path of its report. A session's lead sends one message 
   - *The owner asked for the plan only*: show the owner the plan through the settings'
     `tools.annotate`, and leave the task as it is until the owner says build or drop.
 - **`held`**: the report holds one or more decisions that are the owner's, each in the form
-  `stages/plan.md` gives under "A held decision". Take each through the `gate` skill, then the
-  `panel` skill with the project's cast; the panel writes the card the owner sees and says how
+  `stages/plan.md` gives under "A held decision". Take each through the `lem-gate` skill, then the
+  `lem-panel` skill with the project's cast; the panel writes the card the owner sees and says how
   its page opens. Put the report's run above the card, with whether it was reproduced or derived,
   and its one line on why the case became possible and how far the same cause reaches. Ask all
   held decisions of one task in one go. Write each answer in the task's `decisions.md`, then
-  start a lead. The `panel` skill asks for what users would see under each option; that is in
+  start a lead. The `lem-panel` skill asks for what users would see under each option; that is in
   the report, and what is missing there the lead adds, not you.
 - **`blocked`**: the report says what the lead could not settle and what it tried. A missing
   tool, a base branch that does not build, a conflict with another task: settle it, then start a

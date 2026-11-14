@@ -25,8 +25,10 @@ And three roles a stage names instead of a skill id, because the id differs per 
 | the persona panel | has the people a decision affects answer it, from the project's cast, before the owner sees it |
 | the review tool | runs one review round over a range with the project's lenses and profile |
 
-A stage may name a skill this repository ships (`interview-me`, `huddle`, `webrev`, `backlog`,
-`dialectic`, `root-cause-investigator`, `release`, `last-tag`, `pr-review`, `gate`, `panel`) by its name: the name is the same in every agent.
+A stage may name a skill this repository ships by its id, which is the same in every agent:
+`lem-interview-me`, `lem-huddle`, `lem-webrev`, `lem-backlog`, `lem-dialectic`, `lem-root-cause`,
+`lem-release`, `lem-last-tag`, `lem-pr-review`, `lem-gate`, `lem-panel`. Each id starts with
+`lem-`, so it cannot collide with another skill in an agent that keeps all skills in one flat list.
 
 Each agent's file answers every row, or says the capability is absent and what the stage does
 then. A file exists only for an agent the contract was checked in.

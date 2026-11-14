@@ -8,7 +8,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-LOG=$PWD/skills/gate/scripts/gate-log.py
+LOG=$PWD/skills/lem-gate/scripts/gate-log.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
@@ -39,7 +39,7 @@ else
 fi
 if [ -d "$(dirname "$LOG")/__pycache__" ]; then fail "the script left no __pycache__"; else pass "the script left no __pycache__"; fi
 
-CAST=$PWD/skills/panel/scripts/cast.py
+CAST=$PWD/skills/lem-panel/scripts/cast.py
 PANEL=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$WORK" "$PANEL"' EXIT
 export HOME=$PANEL/home

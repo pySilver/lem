@@ -38,7 +38,7 @@ by line before the build.
 5. **A held decision goes to the owner, the others do not.** For each decision of the plan: a
    ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and write it
    in `decisions.md`. It turns on a claim that can be argued both ways ("this will not scale",
-   "nobody uses that") → the `dialectic` skill settles the claim first. Its options each cost a
+   "nobody uses that") → the `lem-dialectic` skill settles the claim first. Its options each cost a
    person something and nothing answers it → it is held, and it is not yours to ask. Write it in
    `report.md` under "held", so that Lem can ask it without reading the code:
    - one concrete case in numbered steps that ends badly, with real names and values and where

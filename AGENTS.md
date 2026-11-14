@@ -30,7 +30,7 @@ in that project's repository. `README.md` says what it does; this file says how 
 
 ## The owner's rulings
 
-Decisions the owner took on 2026-11-14. Each is reopened only by asking him.
+Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
 
 - **agterm is a hard dependency**, and so is the mailbox chat from its cookbook. Lem does not run
   outside agterm.
@@ -53,6 +53,19 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him.
   only when the owner agrees.
 - **The logo is the owner's pick** ("The Line in the Field"). Change it only on his word. The
   night palette of its dark-theme version is his pick too.
+- **Each task of a plan gets a fresh builder** ("I usually start fresh executor for every task..
+  since forever"). No threshold decides it.
+- **A small defect outside the task is fixed at the end**, in the landing's closing pass, and a
+  larger one is offered to him as a backlog item ("Polishing step fixes it in place, right away
+  if thats cheap small fixes and offer a backlog filing otherwise").
+- **A builder's question about the outcome goes to the personas**, not to the reviewer.
+- **Lem asks through huddle**, and he never types it: "every question goes via huddle, unless its
+  something fixed choice, trivial, without additional context".
+- **A shipped skill's name follows `/lem`** ("/lem interview-me sounds perfect like a callout
+  command"). The form that was built from it, the id `lem-<name>` and the dispatcher in
+  `SKILL.md`, is the starting session's design and open to him.
+- **A board of example tasks says so on the page**, and a line that waits for him says where he
+  answers. He took a fixture's line for a real one on 2026-11-14.
 
 ## Checks
 
@@ -81,16 +94,16 @@ real task, so say in the commit which task showed the need.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
   `assets/lem-night.svg` and `assets/lem-mark-night.svg` are the same drawings in the night
   palette, written by `assets/night.py`; the README shows the night one in a dark theme.
-- `skills/huddle/`, `skills/webrev/`, `skills/backlog/`, `skills/interview-me/`, `skills/dialectic/`,
-  `skills/root-cause-investigator/`, `skills/release/`, `skills/last-tag/`, `skills/pr-review/`,
-  `skills/gate/`, `skills/panel/`: the skills Lem names and ships. `NOTICE` says where
+- `skills/lem-huddle/`, `skills/lem-webrev/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
+  `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
+  `skills/lem-gate/`, `skills/lem-panel/`: the skills Lem names and ships. `NOTICE` says where
   each came from.
 
 ## The shipped skills are copies, not yet under the rules above
 
 Each was copied from where it worked and changed only as far as the new layout needed. Their text
-still names Claude Code's tools, `skills/backlog` and `skills/webrev` use `${CLAUDE_SKILL_DIR}`,
-and huddle's Stop hook (`skills/huddle/hooks/hooks.json`) is registered by nothing. Bring one under
+still names Claude Code's tools, `skills/lem-backlog` and `skills/lem-webrev` use `${CLAUDE_SKILL_DIR}`,
+and huddle's Stop hook (`skills/lem-huddle/hooks/hooks.json`) is registered by nothing. Bring one under
 the capability rule when a second agent has to run it, not before.
 
 The set is deliberately small. A tool with its own life (revmux, agterm, cronn, plannotator, Codex)

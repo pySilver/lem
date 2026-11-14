@@ -1,5 +1,5 @@
 ---
-name: panel
+name: lem-panel
 description: >
   Run a persona panel on a question before it reaches the user, and turn the
   answers into a question card: what each option looks like to the people it
@@ -220,7 +220,7 @@ goes to the user with the check's result on it, never silently.
 
 ### 6. Ask the user
 
-Put the card to the user: in agterm with the `huddle` skill, the options carrying their "what you
+Put the card to the user: in agterm with the `lem-huddle` skill, the options carrying their "what you
 would see" text, the recommendation marked with the reason that names what backs it, and the
 checked facts in the page's context with their links; elsewhere as plain text, which also reads on a
 phone. A card with "No clear pick" marks no option recommended: the badge appears only when the
@@ -287,7 +287,7 @@ review informs whoever acts next, and a decision that follows from it still goes
      unavailable, and "no project profile" when there is none.
 
 The caller reports the review with the artifact it was about. Reviewing a backlog item, the
-`tracking:backlog` skill may offer to fold what the review changed into the item; the panel never
+`lem-backlog` skill may offer to fold what the review changed into the item; the panel never
 edits the artifact itself.
 
 ## The card

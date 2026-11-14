@@ -48,13 +48,13 @@ builder can start builders in your agent, and what to do when it cannot.
    Must-fix items go back to a builder. A task of a plan that is not careful is not reviewed here;
    its review comes from the queue after the landing.
 3. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
-   - *a failure nobody can explain after two tries*: the `root-cause-investigator` skill, before
+   - *a failure nobody can explain after two tries*: the `lem-root-cause` skill, before
      a third try;
    - *an approach that failed twice*: it is not tried a third time with a patch. State the problem
      again in plain terms, name what the two tries assumed, and brief the next builder with a
      different approach and why it avoids that assumption;
    - *a question of what a person should see* (which of two results serves the people of the
-     project better, where the ask and the rulings leave it open): the `panel` skill in its
+     project better, where the ask and the rulings leave it open): the `lem-panel` skill in its
      reviewing mode, with the project's cast, gives the people's reading of the two results. It
      asks the owner nothing and decides nothing. Take the decision yourself with that reading,
      write it in `decisions.md` with what the personas said, and brief the next builder. It is

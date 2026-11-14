@@ -9,10 +9,10 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    report. A plan is written against the code as
    it stood that night, so a draft nobody starts ages, and a third one only adds to the pile.
 2. **The candidates.** Read the items in the backlog path (`project.py path backlog`), in the
-   `backlog` skill's format. Leave out an item that is decided against, one a branch, a worktree,
+   `lem-backlog` skill's format. Leave out an item that is decided against, one a branch, a worktree,
    an open plan or a task directory already holds, and one whose files match a careful pattern
    (`project.py careful`): a careful plan needs the reviewer, and that is a day's work. When the
-   `backlog` skill's triage has verdicts, take the items it gives to an agent, the surest first.
+   `lem-backlog` skill's triage has verdicts, take the items it gives to an agent, the surest first.
    Without verdicts, read each item and keep the ones that state a defect or a job, not a choice.
 3. **One item, planned.** For the first candidate, open the task as `stages/new.md` does, on a
    branch `plan/<slug>`, and start a builder with `stop after the plan: yes`. Never ask: nobody is

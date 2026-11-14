@@ -50,7 +50,7 @@ the interview is about what the owner plans to build.
 
 ## 3. Interview the owner
 
-Hold the interview by the rules of the `interview-me` skill (`load-skill`): open with a
+Hold the interview by the rules of the `lem-interview-me` skill (`load-skill`): open with a
 one-sentence hypothesis and how sure you are, ask one question at a time through `ask-owner`, each
 with your own guess so the owner corrects a draft instead of composing one, restate what you
 heard at the end, and take only an explicit yes. Ask only what the examination could not answer;

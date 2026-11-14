@@ -1,6 +1,6 @@
 ---
-name: webrev
-description: Review any text that is not a diff - a plan, a markdown or text document, or a draft such as a PR body, an issue comment or a commit message - as a rendered page in a chromeless agterm HTML overlay, with notes on blocks, code lines and the whole file handed back as annotation records. Use when the user says "webrev", "/webrev", "web review", "review this file", "review this plan", "review this doc", "let me annotate this", "webrev <file>", "review this draft before posting", "let me review the PR body first", or "let me review the commit message". Not for diffs.
+name: lem-webrev
+description: Review any text that is not a diff - a plan, a markdown or text document, or a draft such as a PR body, an issue comment or a commit message - as a rendered page in a chromeless agterm HTML overlay, with notes on blocks, code lines and the whole file handed back as annotation records. Use when the user says "webrev", "/webrev", "web review", "review this file", "review this plan", "review this doc", "let me annotate this", "webrev <file>", "review this draft before posting", "let me review the PR body first", or "let me review the commit message". Not for diffs. Also runs as "/lem webrev".
 allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/webrev.py:*)
 ---
 

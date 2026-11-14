@@ -6,8 +6,8 @@ You run in Claude Code. This file answers `README.md` beside it.
 
 The `Skill` tool. Do not load a skill whose instructions are already in context.
 
-- the question gate: the `gate` skill of this repository.
-- the persona panel: the `panel` skill of this repository. It finds the cast and the profile
+- the question gate: the `lem-gate` skill of this repository.
+- the persona panel: the `lem-panel` skill of this repository. It finds the cast and the profile
   through the project's settings.
 - the review tool: `revmux:revmux`, with `--config-dir` set to the settings' `review` path.
   Its starter set: `revmux init` at the root of the checkout always writes `./.revmux/`
@@ -17,9 +17,12 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
 
 ## ask-owner
 
-The `huddle` skill: one page, each option with what the owner would see and what it costs.
-A value the owner types (a name, a path) is asked in the terminal. The owner's global
-instructions say how a question is told; they outrank this file.
+The `lem-huddle` skill, for every question that asks the owner to choose or to approve: one page,
+each option with what the owner would see and what it costs. The owner never types `/lem huddle`;
+Lem opens the page. Three kinds of question stay in the terminal: a value the owner types (a name,
+a path, a number), a bare go-ahead on a step just described, and a fixed, trivial choice that
+needs no context. The owner's global instructions say how a question is told; they outrank this
+file.
 
 ## spawn-builder
 
@@ -157,5 +160,5 @@ Several `Agent` calls in one message. The `Workflow` tool only when the owner as
 An HTML file opened as an overlay of this session
 (`agtermctl session overlay open --html FILE --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`).
 A document the owner should mark up (a plan, a draft profile) goes through the settings'
-`tools.annotate`: a skill of that name when the session lists one (`webrev` by default), otherwise
+`tools.annotate`: a skill of that name when the session lists one (`lem-webrev` by default), otherwise
 a command of that name given the file's path.

@@ -1,5 +1,5 @@
 ---
-name: backlog
+name: lem-backlog
 description: >
   Read, work, and maintain a Git repo's deferred-work items in docs/backlog/,
   one file per item — a defect a change did not introduce, an open decision,
@@ -11,6 +11,7 @@ description: >
   issue", "park this as an issue", "register this decision", "triage this
   item with the personas", or when a review or task produced items that are
   real but not being fixed now.
+  Also runs as "/lem backlog".
 allowed-tools: Read, Edit, Write, Bash, Grep, Glob, AskUserQuestion
 ---
 
@@ -215,7 +216,7 @@ down to fit.
 ## Personas on one item
 
 When the user asks to triage or evaluate an item with the personas, run the persona panel's review
-(`decide:panel`, "Reviewing") on the item. The brief restates it in user terms: what the defect or
+(`lem-panel`, "Reviewing") on the item. The brief restates it in user terms: what the defect or
 decision means to a person and the outcomes the item's options lead to. It leaves out the item's
 `where:`, its code names and its recommendation, so the personas judge the outcomes and not the
 author's lean. Report

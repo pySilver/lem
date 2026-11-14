@@ -142,9 +142,9 @@ max_tasks = {max_tasks}
 {reviewer}
 
 [tools]
-# The skill or command the owner marks up a plan or a draft with. "webrev" comes with the skill;
+# The skill or command the owner marks up a plan or a draft with. "lem-webrev" comes with Lem;
 # name your own instead.
-annotate = "webrev"
+annotate = "lem-webrev"
 """
 
 
@@ -220,7 +220,7 @@ def load(root: Path) -> dict:
     protected = strings(branch.get("protected", []), "branch.protected")
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
-    annotate = raw.get("tools", {}).get("annotate", "webrev")
+    annotate = raw.get("tools", {}).get("annotate", "lem-webrev")
     if not isinstance(annotate, str) or not annotate.strip():
         raise SettingsError(f"{SETTINGS}: tools.annotate must name a skill or a command")
 
