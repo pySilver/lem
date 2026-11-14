@@ -29,5 +29,7 @@ The move is a change like any other: it runs on a task's branch and lands throug
      that one path;
    - the folder for worktrees, which holds live checkouts and is not moved.
    The harness file says what was checked about each link in your agent.
-5. **After the landing**, `project.py migrate plan` shows nothing linked but the worktrees. Say
-   in the report which rule files stayed and why.
+5. **After the landing**, `project.py migrate plan` shows what is still linked. That is nothing,
+   or the style guide alone when the owner left every rule where it was: then the rules folder is
+   still the style guide's home, and that is a valid end. The folder for worktrees is never in
+   that list. Say in the report which rule files stayed and why.

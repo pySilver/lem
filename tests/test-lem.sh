@@ -484,6 +484,77 @@ else
   fail "migrate run output: $out / $(git -C "$MIG" status --porcelain)"
 fi
 
+# More shapes of an adoption. small_repo NAME makes a linked repository on a task's branch, ready for a run.
+small_repo() {
+  local r=$WORK/$1
+  git init -q -b main "$r"
+  git -C "$r" config user.name t && git -C "$r" config user.email t@t
+  mkdir -p "$r/.claude/rules" "$r/.revmux" "$r/.personas/cast"
+  echo 'Type every function.' > "$r/.claude/rules/a.md" && echo config > "$r/.revmux/config" && echo shopper > "$r/.personas/cast/shopper.md"
+  echo 'The other one is .personas/cast/b.md.' > "$r/.personas/cast/a.md"
+  project --repo "$r" init --base main --existing link >/dev/null
+  git -C "$r" add -A && git -C "$r" commit -q -m "chore: start" && git -C "$r" checkout -q -b chore/move
+  echo "$r"
+}
+r=$(small_repo twice)
+mkdir -p "$r/.lem/styleguide" && echo taken > "$r/.lem/styleguide/sub" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: a file in the way"
+mkdir "$r/.claude/rules/sub" && echo 'Nested.' > "$r/.claude/rules/sub/b.md" && git -C "$r" add -A && git -C "$r" commit -q -m "docs: a nested rule"
+if [ "$(status_of project --repo "$r" migrate run --styleguide a.md a.md)" = 1 ] && [ "$(status_of project --repo "$r" migrate run --styleguide sub/b.md)" = 1 ] \
+  && [ -z "$(git -C "$r" status --porcelain)" ] && [ -d "$r/.personas/cast" ] && [ ! -L "$r/.revmux" ]; then
+  pass "a rule named twice, and a rule whose new place has a file in the way, are refused before anything moves"
+else
+  fail "migrate preflight: $(git -C "$r" status --porcelain)"
+fi
+r=$(small_repo ignored)
+printf '%s\n' '.revmux' > "$r/.gitignore" && mkdir "$r/.revmux/tasks" && echo session > "$r/.revmux/tasks/session"
+git -C "$r" add -A && git -C "$r" commit -q -m "chore: ignore the review folder, keep its config"
+out=$(project --repo "$r" migrate run --styleguide)
+if [ "$(cat "$r/.lem/review/tasks/session")" = session ] && [ "$(cat "$r/.revmux/config")" = config ] && [ -L "$r/.revmux" ] \
+  && [ "$(git -C "$r" ls-files .lem/review .revmux | tr '\n' ' ')" = ".lem/review/config .revmux " ] \
+  && [ "$(field '[x["name"] for x in d["left"]]' <<<"$out")" = "['styleguide']" ] && [ "$(project --repo "$r" migrate plan | field 'sorted(d["linked"])')" = "['styleguide']" ] \
+  && [ "$(field 'd["mentions"][".personas/cast"]' <<<"$out")" = "['.lem/personas/a.md']" ]; then
+  pass "an ignored review folder moves with its untracked files, its tracked file and its link stay tracked, an empty rule list leaves the rules linked, and a moved file that names an old path is in the mentions"
+else
+  fail "migrate with an ignored review folder: $out / $(git -C "$r" status --porcelain)"
+fi
+r=$(small_repo untracked)
+git -C "$r" rm -q --cached .lem/project.toml && git -C "$r" commit -q -m "chore: stop tracking the settings" && echo '.lem/project.toml' > "$r/.gitignore" && git -C "$r" add .gitignore && git -C "$r" commit -q -m "chore: ignore them"
+err=$(project --repo "$r" migrate run --styleguide 2>&1 || true)
+if grep -q "is not tracked by git" <<<"$err" && [ -d "$r/.revmux" ] && [ ! -L "$r/.revmux" ] && [ -z "$(git -C "$r" status --porcelain)" ]; then
+  pass "settings that git does not track stop the move before it starts"
+else
+  fail "migrate with untracked settings: $err"
+fi
+r=$(small_repo linked)
+git -C "$r" mv .revmux old-review && ln -s old-review "$r/.revmux" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: the review folder behind a link"
+err=$(project --repo "$r" migrate run --styleguide 2>&1 || true)
+if grep -q ".revmux is a link to old-review" <<<"$err" && [ "$(cat "$r/.revmux/config")" = config ] && [ -d "$r/.personas/cast" ] && [ -z "$(git -C "$r" status --porcelain)" ]; then
+  pass "a linked folder that is itself a link is refused with the two ways to fix it, and nothing moves"
+else
+  fail "migrate with a link as the source: $err"
+fi
+r=$(small_repo slash)
+sed -i.bak 's|^review = ".revmux"$|review = ".revmux/"|' "$r/.lem/project.toml" && rm "$r/.lem/project.toml.bak" && git -C "$r" commit -q -am "chore: a trailing slash"
+if [ "$(project --repo "$r" migrate plan | field '"review" in d["linked"]')" = True ] && project --repo "$r" migrate run --styleguide >/dev/null \
+  && [ "$(project --repo "$r" show | field 'd["paths"]["review"]["path"].endswith("/.lem/review")')" = True ] && [ -L "$r/.revmux" ]; then
+  pass "a path written with a trailing slash is the same folder, and it moves"
+else
+  fail "migrate with a trailing slash"
+fi
+# A step that fails after the first move: the git directory cannot be written, so nothing can be staged.
+r=$(small_repo rollback)
+mkdir "$r/.revmux/tasks" && echo session > "$r/.revmux/tasks/session" && echo '.revmux/tasks/' > "$r/.gitignore" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: ignore the rounds"
+settings_before=$(cat "$r/.lem/project.toml")
+chmod u-w "$r/.git"
+err=$(project --repo "$r" migrate run --styleguide a.md 2>&1 || true)
+chmod u+w "$r/.git"
+if grep -q "every file was put back" <<<"$err" && [ -z "$(git -C "$r" status --porcelain)" ] && [ "$(cat "$r/.revmux/tasks/session")" = session ] && [ ! -L "$r/.revmux" ] \
+  && [ ! -L "$r/.claude/rules/a.md" ] && [ ! -e "$r/.lem/styleguide" ] && [ ! -e "$r/.lem/review" ] && [ "$(cat "$r/.lem/project.toml")" = "$settings_before" ]; then
+  pass "a move that fails in the middle puts every file back, the ignored ones too, and leaves the settings as they were"
+else
+  fail "migrate rollback: $err / $(git -C "$r" status --porcelain) / $(ls -a "$r/.lem")"
+fi
+
 # The board: board.py writes the page and what it reads beside the events, and the page draws them.
 BOARD=$PWD/skills/lem/scripts/board.py
 board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" "$@"; }

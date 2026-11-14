@@ -464,16 +464,22 @@ def linked(root: Path) -> dict[str, tuple[str, str]]:
     raw = read_settings(root / SETTINGS, SETTINGS, tuple(TABLES)).get("paths", {})
     return {
         name: (older, default) for name, (default, older) in PATHS.items()
-        # worktrees are live checkouts, not settings: git moves one only by `git worktree move`
-        if older and name != "worktrees" and raw.get(name) == older and (root / older).exists()
+        # worktrees are live checkouts, not settings: git moves one only by `git worktree move`.
+        # Path() makes `.revmux/` and `.revmux` the same folder, as the loader already reads them.
+        if older and name != "worktrees" and isinstance(raw.get(name), str) and Path(raw[name]) == Path(older)
+        and ((root / older).exists() or (root / older).is_symlink())
     }
+
+
+def tracked_files(root: Path, path: str) -> list[str]:
+    listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--", path], capture_output=True, text=True, check=True)
+    return sorted(field for field in listed.stdout.split("\0") if field)
 
 
 def rule_files(root: Path, folder: str) -> list[dict]:
     """Each tracked file of the rules folder, with whether it scopes itself to paths: a hint for the owner's split."""
-    listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--", folder], capture_output=True, text=True, check=True)
     files = []
-    for path in sorted(field for field in listed.stdout.split("\0") if field):
+    for path in tracked_files(root, folder):
         file = root / path
         head = file.read_text(errors="replace").split("\n---", 1)[0] if file.is_file() and not file.is_symlink() else ""
         files.append({
@@ -486,17 +492,18 @@ def rule_files(root: Path, folder: str) -> list[dict]:
 def cmd_migrate_plan(root: Path) -> None:
     found = linked(root)
     plan: dict = {"linked": {name: {"from": old, "to": new} for name, (old, new) in found.items()}}
-    if "styleguide" in found:
+    if "styleguide" in found and not (root / found["styleguide"][0]).is_symlink():
         plan["rules"] = rule_files(root, found["styleguide"][0])
     print(json.dumps(plan, indent=2))
 
 
 def cmd_migrate_run(root: Path, styleguide: list[str] | None) -> None:
-    """Move the linked folders under .lem. Everything is checked before the first move."""
+    """Move the linked folders under .lem. What can be checked is checked before the first move, and a
+    step that still fails puts every file back where it was."""
     def git(*args: str, check: bool = True) -> str:
         ran = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False)
         if check and ran.returncode != 0:
-            raise SettingsError(f"git {' '.join(args[:2])} failed: {ran.stderr.strip()}; `git reset --hard` puts the tree back as it was")
+            raise SettingsError(f"git {' '.join(args[:2])} failed: {ran.stderr.strip()}")
         return ran.stdout
 
     settings = load(root)
@@ -510,70 +517,126 @@ def cmd_migrate_run(root: Path, styleguide: list[str] | None) -> None:
         raise SettingsError(
             f"the move is a change like any other and lands through the gate: run it on a task's branch, not on {branch or 'a detached commit'}",
         )
-    text = (root / SETTINGS).read_text()
+    if not tracked_files(root, str(SETTINGS)):
+        raise SettingsError(f"{SETTINGS} is not tracked by git, so the new paths could not land with the move; commit it first")
+    text = original = (root / SETTINGS).read_text()
     for name, (old, _new) in found.items():
-        if len(re.findall(rf'(?m)^{name} = "{re.escape(old)}"\s*$', text)) != 1:
+        if len(re.findall(rf'(?m)^{name} = "{re.escape(old)}/?"\s*$', text)) != 1:
             raise SettingsError(f'{SETTINGS}: expected one line `{name} = "{old}"` under [paths]; write it that way first')
+        if (root / old).is_symlink():
+            # moving a link moves the name and breaks where it points
+            raise SettingsError(
+                f"{old} is a link to {os.readlink(root / old)}: point {name} in {SETTINGS} at the real folder, "
+                "or put the folder in the link's place, and run this again",
+            )
+
+    def free(target: Path, what: str) -> None:
+        """Refuse a place that is taken, or whose parent is a file."""
+        if target.exists() or target.is_symlink():
+            raise SettingsError(f"{target.relative_to(root)} already exists, so {what} cannot move there; merge the two by hand first")
+        for parent in target.relative_to(root).parents:
+            if (root / parent).exists() and not (root / parent).is_dir():
+                raise SettingsError(f"{parent} is a file, so nothing can be put under it; {what} cannot move to {target.relative_to(root)}")
+
     rules: list[str] = []
     if "styleguide" in found:
-        folder = found["styleguide"][0]
+        folder, home = found["styleguide"]
         if styleguide is None:
             raise SettingsError(
                 f"{folder} holds the project's rules, and only the ones about how code is written move: name them with --styleguide "
                 "(`migrate plan` lists them), or pass --styleguide with no file to leave them all where they are",
             )
-        tracked = {entry["file"]: entry for entry in rule_files(root, folder)}
+        known = {entry["file"]: entry for entry in rule_files(root, folder)}
         for file in styleguide:
-            if file not in tracked or tracked[file]["link"]:
+            if styleguide.count(file) > 1:
+                raise SettingsError(f"{file!r} is named twice")
+            if file not in known or known[file]["link"]:
                 raise SettingsError(f"{file!r} is not a tracked rule file of {folder}; `migrate plan` lists them")
-            if (root / found["styleguide"][1] / file).exists():
-                raise SettingsError(f"{found['styleguide'][1]}/{file} already exists")
+            free(root / home / file, f"{folder}/{file}")
         rules = styleguide
     for name, (old, new) in found.items():
-        if name != "styleguide" and (root / new).exists():
-            raise SettingsError(f"{new} already exists, so {old} cannot move there; merge the two by hand first")
+        if name != "styleguide":
+            free(root / new, old)
 
+    # What git tracks now is what it tracks after the move, at the new path, and nothing else is added.
+    before = {name: tracked_files(root, old) for name, (old, _new) in found.items()}
+    journal: list[tuple[str, Path, Path | None]] = []
     moved, links, left = [], [], []
-    for name, (old, new) in found.items():
-        if name == "styleguide":
-            for file in rules:
-                target = root / new / file
-                target.parent.mkdir(parents=True, exist_ok=True)
-                git("mv", f"{old}/{file}", f"{new}/{file}")
-                # a link per file, so an agent that loads the old folder by itself still loads this rule
-                link = root / old / file
-                link.symlink_to(os.path.relpath(target, link.parent))
-                git("add", "--", f"{old}/{file}")
-                links.append({"link": f"{old}/{file}", "to": f"{new}/{file}"})
-            if rules:
-                moved.append({"name": name, "from": old, "to": new, "files": rules})
-            else:
-                left.append({"name": name, "at": old, "why": "no rule file was named"})
-            continue
-        (root / new).parent.mkdir(parents=True, exist_ok=True)
-        git("mv", old, new)
-        moved.append({"name": name, "from": old, "to": new})
-        if name == "review":
-            # the review tool reads ./.revmux and nothing else
-            (root / old).symlink_to(os.path.relpath(root / new, (root / old).parent))
-            git("add", "--", old)
-            links.append({"link": old, "to": new})
-    for entry in moved:
-        text = re.sub(rf'(?m)^{entry["name"]} = "{re.escape(entry["from"])}"\s*$', f'{entry["name"]} = "{entry["to"]}"', text)
-    (root / SETTINGS).write_text(text)
-    git("add", "--", str(SETTINGS))
-    load(root)
 
-    # Every tracked file that still names an old path: a builder corrects them, the script does not guess.
+    def make_parents(target: Path) -> None:
+        missing = [parent for parent in reversed(target.relative_to(root).parents) if str(parent) != "." and not (root / parent).exists()]
+        for parent in missing:
+            (root / parent).mkdir()
+            journal.append(("made", root / parent, None))
+
+    def move(source: Path, target: Path) -> None:
+        make_parents(target)
+        # a rename of the folder itself, so files git ignores travel with it and stay unstaged
+        os.rename(source, target)
+        journal.append(("moved", source, target))
+
+    def link(at: Path, to: Path) -> None:
+        at.symlink_to(os.path.relpath(to, at.parent))
+        journal.append(("linked", at, None))
+
+    try:
+        stage: list[str] = []
+        unstage: list[str] = []
+        for name, (old, new) in found.items():
+            if name == "styleguide":
+                for file in rules:
+                    move(root / old / file, root / new / file)
+                    # a link per file, so an agent that loads the old folder by itself still loads this rule
+                    link(root / old / file, root / new / file)
+                    links.append({"link": f"{old}/{file}", "to": f"{new}/{file}"})
+                    unstage.append(f"{old}/{file}")
+                    stage += [f"{new}/{file}", f"{old}/{file}"]
+                if rules:
+                    moved.append({"name": name, "from": old, "to": new, "files": rules})
+                else:
+                    left.append({"name": name, "at": old, "why": "no rule file was named"})
+                continue
+            move(root / old, root / new)
+            moved.append({"name": name, "from": old, "to": new})
+            unstage += before[name]
+            stage += [new + file[len(old):] for file in before[name]]
+            if name == "review":
+                # the review tool reads ./.revmux and nothing else
+                link(root / old, root / new)
+                links.append({"link": old, "to": new})
+                stage.append(old)
+        for entry in moved:
+            text = re.sub(rf'(?m)^{entry["name"]} = "{re.escape(entry["from"])}/?"\s*$', f'{entry["name"]} = "{entry["to"]}"', text)
+        journal.append(("settings", root / SETTINGS, None))
+        (root / SETTINGS).write_text(text)
+        stage.append(str(SETTINGS))
+        for start in range(0, len(unstage), 200):
+            git("rm", "-q", "--cached", "--", *unstage[start:start + 200])
+        # -f: a file that was tracked stays tracked where an ignore rule covers its new place, and
+        # a link the review tool needs is committed where the old folder was ignored
+        for start in range(0, len(stage), 200):
+            git("add", "-f", "--", *stage[start:start + 200])
+        load(root)
+    except (SettingsError, OSError) as error:
+        for kind, path, other in reversed(journal):
+            if kind == "linked":
+                path.unlink(missing_ok=True)
+            elif kind == "moved" and other is not None:
+                os.rename(other, path)
+            elif kind == "made":
+                path.rmdir()
+            elif kind == "settings":
+                path.write_text(original)
+        subprocess.run(["git", "-C", str(root), "reset", "-q"], capture_output=True, check=False)
+        raise SettingsError(f"{error}\nevery file was put back where it was, and nothing is staged") from error
+
+    # Every tracked file that still names an old path, the moved ones and the settings too: a builder
+    # corrects them, the script does not guess. A link holds only its new target and never matches.
     mentions = {}
     for entry in moved:
-        old = entry["from"]
-        named = [f for f in git("grep", "-l", "-z", "-F", "-e", old, check=False).split("\0") if f]
-        keep = [f for f in named if not f.startswith(f"{entry['to']}/") and f != str(SETTINGS)]
-        if keep:
-            mentions[old] = keep
-    if "worktrees" in PATHS and read_settings(root / SETTINGS, SETTINGS, tuple(TABLES)).get("paths", {}).get("worktrees") == PATHS["worktrees"][1]:
-        left.append({"name": "worktrees", "at": PATHS["worktrees"][1], "why": "live checkouts; a task's worktree stays where it was made"})
+        named = [f for f in git("grep", "-l", "-z", "-F", "-e", entry["from"], check=False).split("\0") if f]
+        if named:
+            mentions[entry["from"]] = named
     print(json.dumps({"branch": branch, "moved": moved, "links": links, "left": left, "mentions": mentions}, indent=2))
 
 
