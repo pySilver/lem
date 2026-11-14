@@ -31,8 +31,8 @@ typing and so a reviewer can tell what was meant; it is not argued line by line 
    owner. Ask all
    held decisions of the plan in one go, and build the tasks that do not depend on them meanwhile.
    The `panel` skill writes the card the owner sees and says how its page opens. Add the two
-   things a card does not carry: above it, one concrete run in numbered steps, with real values,
-   that ends badly, and whether it was reproduced or derived; and one line on why it became
+   things a card does not carry: above it, the run `SKILL.md` asks for, ending badly, and
+   whether it was reproduced or derived; and one line on why it became
    possible and how far the same cause reaches. When the owner wants to read or mark up the
    plan itself, open it with the settings' `tools.annotate`.
 5. **Go on to `build`.** Write a block in `state.md`.

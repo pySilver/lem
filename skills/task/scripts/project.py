@@ -17,6 +17,7 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py init [--base NAME] [--existing link|new] [--reviewer claude|codex]
                                     write .agents/project.toml
     project.py task-dir SLUG        make and print one task's state directory
+    project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
     project.py tasks                every task's ask and newest state block, as JSON
     project.py state-dir            the folder that holds every task, the review queue and the night reports
 
@@ -48,6 +49,7 @@ PATHS: dict[str, tuple[str, str | None]] = {
     "rulings": ("docs/rulings", None),
     "backlog": ("docs/backlog", None),
     "plans": ("docs/plans", None),
+    "worktrees": (".worktrees", ".claude/worktrees"),
 }
 LAND = ("owner", "agent")
 # the agents that can sit in the reviewer's pane
@@ -277,6 +279,19 @@ def cmd_task_dir(root: Path, slug: str) -> None:
     print(directory)
 
 
+def cmd_worktree_dir(settings: dict, slug: str) -> None:
+    """Print where a task's worktree goes, and keep the folder that holds worktrees out of git status."""
+    if not SLUG.fullmatch(slug):
+        raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
+    parent = Path(settings["paths"]["worktrees"]["path"])
+    parent.mkdir(parents=True, exist_ok=True)
+    ignore = parent / ".gitignore"
+    if not ignore.is_file():
+        # `*` ignores the folder's content and this file, so the project needs no ignore rule
+        ignore.write_text("*\n")
+    print(parent / slug)
+
+
 def cmd_tasks(root: Path) -> None:
     tasks = []
     parent = state_root(root) / "tasks"
@@ -300,6 +315,7 @@ def main() -> None:
     commands.add_parser("path").add_argument("name")
     commands.add_parser("careful").add_argument("files", nargs="+")
     commands.add_parser("may-land").add_argument("branch")
+    commands.add_parser("worktree-dir").add_argument("slug")
     init = commands.add_parser("init")
     init.add_argument("--base")
     init.add_argument("--existing", choices=("link", "new"))
@@ -332,6 +348,8 @@ def main() -> None:
             print(json.dumps(settings, indent=2))
         elif args.command == "path":
             cmd_path(settings, args.name)
+        elif args.command == "worktree-dir":
+            cmd_worktree_dir(settings, args.slug)
         elif args.command == "may-land":
             cmd_may_land(settings, args.branch)
         else:

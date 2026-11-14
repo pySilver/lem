@@ -125,6 +125,13 @@ if [ "$dir" = "$OLD/.git/task/tasks/report-dates-stay-whole" ] && [ -d "$dir/rep
 else
   fail "task-dir: $dir"
 fi
+settings '[branch]' 'base = "master"'
+where=$(project --repo "$OLD" worktree-dir report-dates-stay-whole)
+if [ "$where" = "$OLD/.worktrees/report-dates-stay-whole" ] && [ ! -e "$where" ] && [ -z "$(git -C "$OLD" status --porcelain -- .worktrees)" ]; then
+  pass "worktree-dir names a path under a folder git status never shows, and makes no worktree itself"
+else
+  fail "worktree-dir: $where / $(git -C "$OLD" status --porcelain -- .worktrees)"
+fi
 if [ "$(project --repo "$WORK/wt" state-dir)" = "$OLD/.git/task" ]; then pass "state-dir prints the one folder every worktree shares"; else fail "state-dir"; fi
 if [ "$(status_of project --repo "$OLD" task-dir "Report Dates")" = 1 ]; then pass "a slug that is not hyphenated lower-case words is refused"; else fail "slug form"; fi
 printf '%s\n' 'Keep report dates whole.' '' 'more' > "$dir/task.md"

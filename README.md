@@ -46,6 +46,9 @@ nowhere else.
   lessons.md     corrections with no better file
 ```
 
+A task's worktree goes under `.worktrees/` in the checkout, and its state (the ask, the decisions,
+the reports) inside the git directory, where it outlives the worktree.
+
 A repository that already keeps some of these for an older tool (`.claude/rules`, `.revmux`,
 `.personas`) may link them instead: the settings file points at them and nothing moves.
 

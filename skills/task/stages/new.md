@@ -5,10 +5,12 @@
 1. **The slug and the branch.** A slug of two to five plain words that say what the owner gets
    ("report-dates-stay-whole"), never a code. The branch is `<type>/<slug>` with a semantic type
    (`feat`, `fix`, `chore`, `docs`), unless the project's `AGENTS.md` gives its own scheme.
-2. **The worktree.** One worktree per task, from the settings' base branch. Use the project's own
-   worktree script when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test
-   database, an environment). Otherwise `git worktree add` in the folder the project's other
-   worktrees are in. Every later path in this task is inside that worktree.
+2. **The worktree.** One worktree per task, from the settings' base branch, at the path
+   `project.py worktree-dir SLUG` prints. Use the project's own worktree script when `AGENTS.md`
+   names one, since it sets up what a plain worktree lacks (a test database, an environment);
+   otherwise `git worktree add`. Every later path in this task is inside that worktree. The
+   worktree is in the checkout, not in the task's state directory: an agent's sandbox may not
+   write inside the git directory, and the state has to outlive the worktree.
 3. **The task directory.** `project.py task-dir SLUG`, then write `task.md`:
    - the ask, verbatim;
    - the outcome in one or two sentences, as the person it is for would see it;

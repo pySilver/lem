@@ -71,10 +71,12 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 - **Careful paths take the careful flow.** `project.py careful FILE...` says which files of a
   change the project's patterns match. One match makes the task careful: its plan is read by a
   second opinion before the build, and each of its tasks is reviewed before the next.
-- **A confused owner gets an explanation, not a fix.** "I thought X did Y", "why is this
-  happening": find out what the code does and say it as one short run in numbered steps, with
-  the source. About half the time the owner's instinct is right and it is a defect: say which of
-  the two it is before changing anything.
+- **What the owner has to understand is told as one run.** A decision you bring and a confusion
+  the owner brings ("I thought X did Y", "why is this happening") get the same form: one
+  concrete case in numbered steps, with real names and values, and where each step was read. For
+  a confusion, find out what the code does first; about half the time the owner's instinct is
+  right and it is a defect, so say which of the two it is before changing anything. For a
+  decision, `stages/plan.md` says what follows the run.
 - **Numbers carry their source.** A count is a command's output, a time is `date -u`, a test
   result is the exact last line of the run. One coordinator made four factual errors in owner
   reports in its first 28 hours: clock values it estimated, a count and a claim about the gate.
