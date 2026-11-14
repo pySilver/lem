@@ -88,7 +88,9 @@ For a repository that has code:
   the read of a careful plan. No answer means the agent's own default.
 - **The folders already here**, when `project.py existing` listed any: link them, so the older
   tools and this skill read one copy and nothing moves; or generate new profiles under
-  `.lem/`, and leave the old folders for the owner to remove.
+  `.lem/`, and leave the old folders for the owner to remove. Linking is the way to try Lem in a
+  project that works today. Say that it is a first step: `/lem migrate` moves the linked
+  settings under `.lem` once the owner stays with Lem.
 
 Stop when you could predict the owner's answer to the next question. An answer of "whatever you
 think" is not an answer to the careful paths or to who lands: say what you will assume and ask
@@ -128,8 +130,9 @@ it is.
 - **The gate of a new project** does not exist yet. Leave `gate.commands` empty and name "set up
   the checks" (formatter, linter, type checker, a first test) as the task to run first: nothing
   lands through this skill before it.
-- **The review configuration**: the review tool's own starter set, moved to the settings' `review`
-  path (the harness file says how), and its project profile: what the project is, what a reviewer
+- **The review configuration**: the review tool's own starter set at the settings' `review`
+  path, with what the review tool needs to find it there (the harness file says how), and its
+  project profile: what the project is, what a reviewer
   here must read first, and an empty list of rejected findings.
 - **The lessons file**, with one line that says what it is for and nothing else.
 

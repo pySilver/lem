@@ -66,7 +66,8 @@ A task's worktree goes under `.lem/worktrees/`, which git ignores, and its state
 state blocks, the report, the decisions) inside the git directory, where it outlives the worktree.
 
 A repository that already keeps some of these for an older tool (`.claude/rules`, `.revmux`,
-`.personas`) may link them instead: the settings file points at them and nothing moves.
+`.personas`) may link them at first: the settings file points at them and nothing moves. Later
+`/lem migrate` moves them under `.lem/`, as a task, and leaves the links two tools need.
 
 ## What comes with it
 

@@ -9,11 +9,23 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
 - the question gate: the `lem-gate` skill of this repository.
 - the persona panel: the `lem-panel` skill of this repository. It finds the cast and the profile
   through the project's settings.
-- the review tool: `revmux:revmux`, with `--config-dir` set to the settings' `review` path.
-  Its starter set: `revmux init` at the root of the checkout always writes `./.revmux/`
-  (config, lenses, prompts), whatever `--config-dir` says; when the settings' `review` path is
-  another folder, move `.revmux` there afterwards. `revmux --config-dir PATH config` then
-  prints that folder as its `config_dir` (checked on revmux v0.2.7).
+- the review tool: `revmux:revmux`. It reads the project's lenses, prompts and profile from
+  `./.revmux` at the root of the checkout and from no other path. So a project whose settings
+  keep the review folder elsewhere (`.lem/review`) has a link `.revmux` that points at it, and
+  git stores the link; `project.py migrate run` makes it. Its starter set: `revmux init` always
+  writes `./.revmux/` (config, lenses, prompts); move that folder to the settings' `review` path
+  and leave the link.
+  Checked on revmux v0.2.7, 2026-11-15, with `revmux config`: through the link it reports
+  `project_dir` as `./.revmux` and keeps the user's own folder as `config_dir`. The flag
+  `--config-dir PATH` is not the way: it puts PATH in the place of the user's own config folder,
+  and no project folder is reported.
+- the rules folder. Claude Code loads `.claude/rules/` by itself: a file with a `paths:` line
+  when a matching file is read, the others in every session. After `project.py migrate run`
+  that folder holds a link for each moved rule. Checked by the session that started Lem, in
+  Claude Code 2.1.325 on 2026-11-14, with all tools off so that only a loaded rule could give
+  the answer: a linked file in a real rules folder is loaded; a rule with a `paths:` line
+  reached through a link is loaded when a matching file is read and not before; an `@` import
+  line inside a rules file is not expanded, so a rules file cannot stand in for a moved one.
 
 ## ask-owner
 

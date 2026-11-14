@@ -19,6 +19,9 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]
                                     who reviews on this machine, until `reviewer default`
     project.py reviewer default     the project's own reviewer again
+    project.py migrate plan         the linked folders and the rule files, as JSON; changes nothing
+    project.py migrate run [--styleguide FILE ...]
+                                    move the linked folders under .lem on the current branch
     project.py task-dir SLUG        make and print one task's state directory
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
     project.py state SLUG STATUS LINE...
@@ -49,6 +52,16 @@ because a task's worktree has no copy of a file git does not track. It may hold 
 the project's rules, and a file nobody reviews must not open them. `show` names each setting that
 came from it.
 
+Linking the folders of an older tool is the first step of an adoption, not its end. `migrate run`
+moves each linked folder to its place under `.lem/` with `git mv`, on a task's branch and from a
+clean tree, and rewrites the paths in the settings file. Two tools read a fixed path, so each
+keeps a link there: the review tool reads `./.revmux` and nothing else, so `.revmux` becomes a
+link to `.lem/review`; an agent that loads `.claude/rules/` by itself goes on doing so through a
+link per file, and that folder stays a real one, because only the files that say how code is
+written here move. Which files those are is the owner's call, so they are named with
+`--styleguide` and never guessed. The command ends with every tracked file that still names an
+old path, for a builder to correct.
+
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
 """
@@ -57,6 +70,7 @@ import argparse
 import difflib
 import fnmatch
 import json
+import os
 import re
 import subprocess
 import sys
@@ -445,6 +459,124 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     print(json.dumps({"reviewer": resolved["seats"]["reviewer"], "local": resolved["local"]}, indent=2))
 
 
+def linked(root: Path) -> dict[str, tuple[str, str]]:
+    """The settings that still point at an older tool's folder: name -> (where it is, where Lem keeps it)."""
+    raw = read_settings(root / SETTINGS, SETTINGS, tuple(TABLES)).get("paths", {})
+    return {
+        name: (older, default) for name, (default, older) in PATHS.items()
+        # worktrees are live checkouts, not settings: git moves one only by `git worktree move`
+        if older and name != "worktrees" and raw.get(name) == older and (root / older).exists()
+    }
+
+
+def rule_files(root: Path, folder: str) -> list[dict]:
+    """Each tracked file of the rules folder, with whether it scopes itself to paths: a hint for the owner's split."""
+    listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--", folder], capture_output=True, text=True, check=True)
+    files = []
+    for path in sorted(field for field in listed.stdout.split("\0") if field):
+        file = root / path
+        head = file.read_text(errors="replace").split("\n---", 1)[0] if file.is_file() and not file.is_symlink() else ""
+        files.append({
+            "file": Path(path).relative_to(folder).as_posix(), "link": file.is_symlink(),
+            "scoped_to_paths": head.startswith("---") and bool(re.search(r"(?m)^paths:", head)),
+        })
+    return files
+
+
+def cmd_migrate_plan(root: Path) -> None:
+    found = linked(root)
+    plan: dict = {"linked": {name: {"from": old, "to": new} for name, (old, new) in found.items()}}
+    if "styleguide" in found:
+        plan["rules"] = rule_files(root, found["styleguide"][0])
+    print(json.dumps(plan, indent=2))
+
+
+def cmd_migrate_run(root: Path, styleguide: list[str] | None) -> None:
+    """Move the linked folders under .lem. Everything is checked before the first move."""
+    def git(*args: str, check: bool = True) -> str:
+        ran = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False)
+        if check and ran.returncode != 0:
+            raise SettingsError(f"git {' '.join(args[:2])} failed: {ran.stderr.strip()}; `git reset --hard` puts the tree back as it was")
+        return ran.stdout
+
+    settings = load(root)
+    found = linked(root)
+    if not found:
+        raise SettingsError(f"no path in {SETTINGS} points at an older tool's folder: there is nothing to move")
+    if git("status", "--porcelain").strip():
+        raise SettingsError("the tree has changes of its own; commit or remove them first, so the move is the only change")
+    branch = git("branch", "--show-current").strip()
+    if not branch or branch == settings["branch"]["base"] or branch in settings["branch"]["protected"]:
+        raise SettingsError(
+            f"the move is a change like any other and lands through the gate: run it on a task's branch, not on {branch or 'a detached commit'}",
+        )
+    text = (root / SETTINGS).read_text()
+    for name, (old, _new) in found.items():
+        if len(re.findall(rf'(?m)^{name} = "{re.escape(old)}"\s*$', text)) != 1:
+            raise SettingsError(f'{SETTINGS}: expected one line `{name} = "{old}"` under [paths]; write it that way first')
+    rules: list[str] = []
+    if "styleguide" in found:
+        folder = found["styleguide"][0]
+        if styleguide is None:
+            raise SettingsError(
+                f"{folder} holds the project's rules, and only the ones about how code is written move: name them with --styleguide "
+                "(`migrate plan` lists them), or pass --styleguide with no file to leave them all where they are",
+            )
+        tracked = {entry["file"]: entry for entry in rule_files(root, folder)}
+        for file in styleguide:
+            if file not in tracked or tracked[file]["link"]:
+                raise SettingsError(f"{file!r} is not a tracked rule file of {folder}; `migrate plan` lists them")
+            if (root / found["styleguide"][1] / file).exists():
+                raise SettingsError(f"{found['styleguide'][1]}/{file} already exists")
+        rules = styleguide
+    for name, (old, new) in found.items():
+        if name != "styleguide" and (root / new).exists():
+            raise SettingsError(f"{new} already exists, so {old} cannot move there; merge the two by hand first")
+
+    moved, links, left = [], [], []
+    for name, (old, new) in found.items():
+        if name == "styleguide":
+            for file in rules:
+                target = root / new / file
+                target.parent.mkdir(parents=True, exist_ok=True)
+                git("mv", f"{old}/{file}", f"{new}/{file}")
+                # a link per file, so an agent that loads the old folder by itself still loads this rule
+                link = root / old / file
+                link.symlink_to(os.path.relpath(target, link.parent))
+                git("add", "--", f"{old}/{file}")
+                links.append({"link": f"{old}/{file}", "to": f"{new}/{file}"})
+            if rules:
+                moved.append({"name": name, "from": old, "to": new, "files": rules})
+            else:
+                left.append({"name": name, "at": old, "why": "no rule file was named"})
+            continue
+        (root / new).parent.mkdir(parents=True, exist_ok=True)
+        git("mv", old, new)
+        moved.append({"name": name, "from": old, "to": new})
+        if name == "review":
+            # the review tool reads ./.revmux and nothing else
+            (root / old).symlink_to(os.path.relpath(root / new, (root / old).parent))
+            git("add", "--", old)
+            links.append({"link": old, "to": new})
+    for entry in moved:
+        text = re.sub(rf'(?m)^{entry["name"]} = "{re.escape(entry["from"])}"\s*$', f'{entry["name"]} = "{entry["to"]}"', text)
+    (root / SETTINGS).write_text(text)
+    git("add", "--", str(SETTINGS))
+    load(root)
+
+    # Every tracked file that still names an old path: a builder corrects them, the script does not guess.
+    mentions = {}
+    for entry in moved:
+        old = entry["from"]
+        named = [f for f in git("grep", "-l", "-z", "-F", "-e", old, check=False).split("\0") if f]
+        keep = [f for f in named if not f.startswith(f"{entry['to']}/") and f != str(SETTINGS)]
+        if keep:
+            mentions[old] = keep
+    if "worktrees" in PATHS and read_settings(root / SETTINGS, SETTINGS, tuple(TABLES)).get("paths", {}).get("worktrees") == PATHS["worktrees"][1]:
+        left.append({"name": "worktrees", "at": PATHS["worktrees"][1], "why": "live checkouts; a task's worktree stays where it was made"})
+    print(json.dumps({"branch": branch, "moved": moved, "links": links, "left": left, "mentions": mentions}, indent=2))
+
+
 def state_root(root: Path) -> Path:
     """The folder task state lives in: inside the git directory every worktree shares."""
     common = subprocess.run(
@@ -607,6 +739,9 @@ def main() -> None:
     init.add_argument("--reviewer", choices=REVIEWERS)
     commands.add_parser("existing")
     commands.add_parser("reviewer").add_argument("words", nargs="+", metavar="AGENT|default")
+    migrate = commands.add_parser("migrate")
+    migrate.add_argument("step", choices=("plan", "run"))
+    migrate.add_argument("--styleguide", nargs="*", metavar="FILE", help="the rule files that say how code is written here, relative to the rules folder")
     commands.add_parser("task-dir").add_argument("slug")
     state = commands.add_parser("state")
     state.add_argument("slug")
@@ -627,6 +762,12 @@ def main() -> None:
             return
         if args.command == "reviewer":
             cmd_reviewer(root, args.words)
+            return
+        if args.command == "migrate":
+            if args.step == "plan":
+                cmd_migrate_plan(root)
+            else:
+                cmd_migrate_run(root, args.styleguide)
             return
         if args.command == "existing":
             print(json.dumps(older_folders(root), indent=2))

@@ -64,6 +64,11 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **A shipped skill's name follows `/lem`** ("/lem interview-me sounds perfect like a callout
   command"). The form that was built from it, the id `lem-<name>` and the dispatcher in
   `SKILL.md`, is the starting session's design and open to him.
+- **Linking an older tool's folders is the first step of an adoption, never its end**: "its
+  crucial that we first make some test with those linked settings but migrated to settings under
+  .lem right after it, like most users will do". `/lem migrate` is that second step; its
+  mechanics (a link per moved rule, a link for the review folder) are the starting session's
+  design from his remark that "not all rules are about code style".
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
 

@@ -12,8 +12,8 @@ ones first.
    seven days is closed by `review_queue.py expire` as `not reviewed`, and the status and the next
    report say how many: an unread item is a fact the owner sees, never a silent backlog.
 3. **One review is one round of the project's review tool** over the item's landed range, with the
-   project's own lenses and profile (`project.py path review`; with revmux, that directory is its
-   `--config-dir`). The project's `AGENTS.md` names the profile for a `high` item and for a
+   project's own lenses and profile (`project.py path review`; the harness file says how the
+   review tool finds that folder). The project's `AGENTS.md` names the profile for a `high` item and for a
    `normal` one. A finding is confirmed against the code before it counts.
    The round and the confirming run in a context of their own, since both read the diff: give the
    item to a fresh agent through `spawn-builder`, told to change nothing. It writes

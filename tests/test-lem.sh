@@ -432,6 +432,58 @@ for block in 'building|plan committed, 3 tasks' 'building|task 3 of 3' 'ready|th
   project --repo "$OLD" state owner-lands-it "${block%%|*}" "${block#*|}" >/dev/null
 done
 
+# The move of linked settings under .lem: on a task's branch, from a clean tree, with the links two tools need.
+MIG=$WORK/mig
+git init -q -b main "$MIG"
+git -C "$MIG" config user.name t && git -C "$MIG" config user.email t@t
+mkdir -p "$MIG/.claude/rules/nested" "$MIG/.revmux/lenses" "$MIG/.revmux/tasks" "$MIG/.personas/cast" "$MIG/docs"
+printf '%s\n' '---' 'paths: ["src/**/*.py"]' '---' 'Type every function.' > "$MIG/.claude/rules/10-python.md"
+printf '%s\n' 'Never dig up a deleted document.' > "$MIG/.claude/rules/20-conduct.md"
+printf '%s\n' '---' 'paths: ["api/**"]' '---' 'Version every route.' > "$MIG/.claude/rules/nested/30-api.md"
+echo lens > "$MIG/.revmux/lenses/a.md" && echo round > "$MIG/.revmux/tasks/round-1" && echo shopper > "$MIG/.personas/cast/shopper.md" && echo profile > "$MIG/.personas/profile.md"
+printf '%s\n' '.revmux/tasks/' > "$MIG/.gitignore"
+printf '%s\n' 'Read .claude/rules/10-python.md first. The lenses are in .revmux/lenses.' > "$MIG/docs/guide.md"
+project --repo "$MIG" init --base main --existing link >/dev/null
+git -C "$MIG" add -A && git -C "$MIG" commit -q -m "chore: start"
+out=$(project --repo "$MIG" migrate plan)
+if [ "$(field 'sorted(d["linked"])' <<<"$out")" = "['personas', 'profile', 'review', 'styleguide']" ] \
+  && [ "$(field '[(r["file"], r["scoped_to_paths"]) for r in d["rules"]]' <<<"$out")" = "[('10-python.md', True), ('20-conduct.md', False), ('nested/30-api.md', True)]" ] \
+  && [ -z "$(git -C "$MIG" status --porcelain)" ]; then
+  pass "migrate plan lists the linked folders and each rule file with whether it scopes itself to paths, and changes nothing"
+else
+  fail "migrate plan: $out"
+fi
+err=$(project --repo "$MIG" migrate run --styleguide 10-python.md 2>&1 || true)
+git -C "$MIG" checkout -q -b chore/settings-move-under-lem
+echo stray > "$MIG/stray.txt"
+dirty=$(status_of project --repo "$MIG" migrate run --styleguide 10-python.md)
+rm "$MIG/stray.txt"
+if grep -q "run it on a task's branch, not on main" <<<"$err" && [ "$dirty" = 1 ] && [ "$(status_of project --repo "$MIG" migrate run)" = 1 ] \
+  && [ "$(status_of project --repo "$MIG" migrate run --styleguide 99-missing.md)" = 1 ] && [ -z "$(git -C "$MIG" status --porcelain)" ] && [ -d "$MIG/.revmux/lenses" ]; then
+  pass "migrate run refuses the base branch, a tree with changes, a rules folder with no file named and an unknown rule file, and moves nothing then"
+else
+  fail "migrate run refusals: $err"
+fi
+out=$(project --repo "$MIG" migrate run --styleguide 10-python.md nested/30-api.md)
+shown=$(project --repo "$MIG" show)
+if [ "$(cat "$MIG/.claude/rules/10-python.md" | tail -1)" = "Type every function." ] && [ -L "$MIG/.claude/rules/10-python.md" ] && [ ! -L "$MIG/.lem/styleguide/10-python.md" ] \
+  && [ "$(tail -1 "$MIG/.claude/rules/nested/30-api.md")" = "Version every route." ] && [ -L "$MIG/.claude/rules/nested/30-api.md" ] \
+  && [ ! -L "$MIG/.claude/rules/20-conduct.md" ] && [ ! -e "$MIG/.lem/styleguide/20-conduct.md" ] \
+  && [ -L "$MIG/.revmux" ] && [ "$(cat "$MIG/.revmux/lenses/a.md")" = lens ] && [ "$(readlink "$MIG/.revmux")" = ".lem/review" ] \
+  && [ "$(cat "$MIG/.lem/review/tasks/round-1")" = round ] && [ "$(cat "$MIG/.lem/personas/shopper.md")" = shopper ] && [ "$(cat "$MIG/.lem/profile.md")" = profile ] && [ ! -e "$MIG/.personas/cast" ] \
+  && [ "$(field '[d["paths"][n]["path"].split("/mig/")[1] for n in ("styleguide", "review", "personas", "profile")]' <<<"$shown")" = "['.lem/styleguide', '.lem/review', '.lem/personas', '.lem/profile.md']" ]; then
+  pass "migrate run moves the named rules, the review folder, the cast and the profile under .lem, leaves a link for each rule and for the review folder, and rewrites the settings"
+else
+  fail "migrate run: $out / $(git -C "$MIG" status --porcelain)"
+fi
+if [ "$(field '(d["mentions"][".claude/rules"], d["mentions"][".revmux"])' <<<"$out")" = "(['docs/guide.md'], ['.gitignore', 'docs/guide.md'])" ] \
+  && [ "$(git -C "$MIG" status --porcelain | grep -c '^?? ')" = 1 ] && git -C "$MIG" status --porcelain | grep -q '^?? .lem/review/tasks/' \
+  && [ "$(git -C "$MIG" diff --cached --name-status | grep -c '^R')" = 3 ] && [ "$(git -C "$MIG" diff --cached --name-status | grep -c '^T')" = 2 ] && [ "$(status_of project --repo "$MIG" migrate run --styleguide)" = 1 ]; then
+  pass "it names every tracked file that still holds an old path, stages its own moves and nothing that git ignored, and a second run finds nothing to move"
+else
+  fail "migrate run output: $out / $(git -C "$MIG" status --porcelain)"
+fi
+
 # The board: board.py writes the page and what it reads beside the events, and the page draws them.
 BOARD=$PWD/skills/lem/scripts/board.py
 board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" "$@"; }
