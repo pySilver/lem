@@ -135,14 +135,65 @@ fi
 if [ "$(project --repo "$WORK/wt" state-dir)" = "$OLD/.git/lem" ]; then pass "state-dir prints the one folder every worktree shares"; else fail "state-dir"; fi
 if [ "$(status_of project --repo "$OLD" task-dir "Report Dates")" = 1 ]; then pass "a slug that is not hyphenated lower-case words is refused"; else fail "slug form"; fi
 printf '%s\n' 'Keep report dates whole.' '' 'more' > "$dir/task.md"
-printf '%s\n' '2026-01-02 build: task 2 of 3 running' 'next: land' '' '2026-01-01 plan written' > "$dir/state.md"
+project --repo "$OLD" state report-dates-stay-whole queued "waits for a free place" >/dev/null
+project --repo "$WORK/wt" state report-dates-stay-whole building "task 2 of 3" "next: the report" >/dev/null
 out=$(project --repo "$OLD" tasks)
-if [ "$(field 'd[0]["ask"]' <<<"$out")" = "Keep report dates whole." ] && [ "$(field 'd[0]["state"].splitlines()[-1]' <<<"$out")" = "next: land" ] \
-  && [ "$(field 'len(d)' <<<"$out")" = 1 ]; then
-  pass "tasks lists each task with its ask and only the newest state block"
+if [ "$(field 'd[0]["ask"]' <<<"$out")" = "Keep report dates whole." ] && [ "$(field 'd[0]["state"].splitlines()[-1]' <<<"$out")" = "next: the report" ] \
+  && [ "$(field 'len(d)' <<<"$out")" = 1 ] && [ "$(field 'd[0]["status"]' <<<"$out")" = "building" ] \
+  && [ "$(field 'd[0]["state"].splitlines()[0] == d[0]["since"] + " building: task 2 of 3"' <<<"$out")" = "True" ] \
+  && [ "$(grep -c '' "$dir/state.md")" = 4 ] && [ "$(sed -n 4p "$dir/state.md" | cut -d' ' -f2-)" = "queued: waits for a free place" ]; then
+  pass "state puts a block with the clock's time above the older ones, and tasks lists the ask, the status and only the newest block"
 else
-  fail "tasks: $out"
+  fail "state and tasks: $out / $(cat "$dir/state.md")"
 fi
+err=$(project --repo "$OLD" state report-dates-stay-whole build "task 3" 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" state report-dates-stay-whole build "task 3")" = 1 ] && grep -q "did you mean 'building'" <<<"$err" \
+  && [ "$(status_of project --repo "$OLD" state no-such-task ready "report written")" = 1 ] \
+  && [ "$(status_of project --repo "$OLD" state report-dates-stay-whole ready "report written" "")" = 1 ] \
+  && [ "$(status_of project --repo "$OLD" state report-dates-stay-whole ready)" != 0 ] && [ "$(grep -c '' "$dir/state.md")" = 4 ]; then
+  pass "state refuses a status no task has, a task that was never opened and an empty line, and writes nothing then"
+else
+  fail "state refusals: $err / $(cat "$dir/state.md")"
+fi
+other=$(project --repo "$OLD" task-dir written-by-hand)
+printf '%s\n' '2026-01-02 build: task 2 of 3 running' > "$other/state.md"
+out=$(project --repo "$OLD" tasks)
+if [ "$(field '[(t["slug"], t["status"]) for t in d]' <<<"$out")" = "[('report-dates-stay-whole', 'building'), ('written-by-hand', None)]" ]; then
+  pass "a state block that state did not write has no status"
+else
+  fail "hand-written state: $out"
+fi
+
+# The limit on tasks that build at one time.
+if [ "$(project --repo "$OLD" show | field 'd["flow"]["max_tasks"]')" = 4 ] && grep -q '^max_tasks = 4$' "$NEW/.lem/project.toml"; then
+  pass "four tasks build at one time unless the settings say otherwise, and init writes that number where the owner sees it"
+else
+  fail "max_tasks default"
+fi
+settings '[branch]' 'base = "master"' '[flow]' 'max_tasks = 2'
+out=$(project --repo "$OLD" may-start)
+if [ "$(field 'd["running"]' <<<"$out")" = "['report-dates-stay-whole']" ] && [ "$(field 'd["limit"]' <<<"$out")" = 2 ]; then
+  pass "may-start names the tasks that build and the limit while a place is free"
+else
+  fail "may-start below the limit: $out"
+fi
+project --repo "$OLD" task-dir second-task >/dev/null
+project --repo "$OLD" state second-task building "the plan" >/dev/null
+err=$(project --repo "$OLD" may-start 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" may-start)" = 1 ] && grep -q "flow.max_tasks is 2" <<<"$err" && grep -q "queued" <<<"$err"; then
+  pass "may-start refuses a new task at the limit and says to queue it"
+else
+  fail "may-start at the limit: $err"
+fi
+project --repo "$OLD" state second-task ready "the report is written" >/dev/null
+if [ "$(status_of project --repo "$OLD" may-start)" = 0 ]; then pass "a task that waits for its landing takes no place"; else fail "may-start after ready"; fi
+accepted=""
+for bad in 0 true '"four"' 2.5; do
+  settings '[flow]' "max_tasks = $bad"
+  if [ "$(status_of project --repo "$OLD" show)" != 1 ]; then accepted="$accepted $bad"; fi
+done
+if [ -z "$accepted" ]; then pass "a limit that is not a whole number of 1 or more is refused"; else fail "max_tasks accepted:$accepted"; fi
+settings '[branch]' 'base = "master"'
 
 # The review queue: a landing adds an item, high risk first, and an unread normal item expires.
 QUEUE=$PWD/skills/lem/scripts/review_queue.py

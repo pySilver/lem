@@ -1,6 +1,6 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `review`, `night`, `status`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), builds first and reviews the landed change from a queue, and keeps the pair flow for the paths the project calls careful. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem review\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `review`, `night`, `status`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each task to a lead in a context of its own, lands one branch at a time and reports to the owner. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), builds first and reviews the landed change from a queue, and keeps the pair flow for the paths the project calls careful. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem review\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
@@ -18,6 +18,31 @@ The price is known too. Per-task review found a must-fix on 184 of 414 tasks in 
 (mybaze, 2026-11-11), so those defects now land and wait for the review, and after those 28 hours
 43 of 48 review items were still open. Two rules below pay that price down: the project's
 careful paths keep the slow flow, and review takes a fixed share of the same day.
+
+## Two levels
+
+**Lem** is the one session of a repository in which the owner types `/lem`. It takes the asks,
+opens the tasks, starts each task's lead, lands one branch at a time, queues the reviews and
+reports to the owner. It holds no task's details. Of a task it reads three things: the ask it wrote
+down, the newest state block and the report file. It does not read the plan's reasoning, the diff
+or what a builder printed, and it writes no code. Lem is the only context that knows every
+task. When it fills with one task's code, it loses the others.
+
+**A task's lead** owns one task from its plan to its report, in a context of its own:
+
+- **a builder**, for a plain task: one fresh agent that writes the plan and builds it;
+- **a session**, for a task that is careful or too large for one builder: an agent in a session
+  of its own under Lem's, with the reviewer in its other pane. It coordinates builders, and each
+  task of a careful plan is reviewed before the next.
+
+Every task starts with a builder, unless the owner calls it careful or large in the ask. The plan
+says which of the two it is (`stages/plan.md`), because only the plan names the files. A lead
+answers to Lem and never asks the owner, so the owner has one place to answer.
+
+A lead's standing brief is `prompts/lead.md`. If your first message named that file, you are a
+lead: your stages are `stages/plan.md` and `stages/build.md`, and the subcommands below are
+Lem's. When the owner types `/lem` in a lead's session, say that the ask belongs in Lem's
+session, and change nothing.
 
 ## Before any subcommand
 
@@ -42,10 +67,11 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 
 | Subcommand | Does | Read |
 | --- | --- | --- |
-| `new <what>` | opens the task: its worktree, its branch and the ask in the owner's words | `stages/new.md` |
-| `plan` | a short plan as the branch's first commit; a second opinion when the task is careful | `stages/plan.md` |
-| `build` | builders do the plan and report to a file | `stages/build.md` |
-| `land` | the gate runs; the change lands or waits for the owner; a review item is queued | `stages/land.md` |
+| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and starts its lead | `stages/new.md` |
+| `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read | `stages/new.md` |
+| `build <task>` | starts a lead on a task whose plan waits: a night draft, a plan the owner read | `stages/new.md` |
+| a lead stopped | its reply or its message arrived: act on the task's newest state | `stages/new.md` |
+| `land` | the oldest ready task: the gate runs; it lands or waits for the owner; a review item is queued | `stages/land.md` |
 | `review` | works the review queue by risk; confirmed findings become tasks | `stages/review.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
@@ -53,7 +79,8 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `status`, bare `/lem` | every open task, the review queue and what waits for the owner | below |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
-`new` runs on into `plan`, `build` and `land` without stopping, unless a stage file names a stop.
+A task runs on from `new` to its landing without the owner, unless a stage file names a stop.
+Between two of the owner's messages Lem only waits: a lead that stops wakes it.
 
 ## What holds in every stage
 
@@ -70,8 +97,13 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
   touching production, bending a gate, pushing to a branch the settings do not name: stop and
   ask, with the evidence.
 - **Careful paths take the careful flow.** `project.py careful FILE...` says which files of a
-  change the project's patterns match. One match makes the task careful: its plan is read by a
-  second opinion before the build, and each of its tasks is reviewed before the next.
+  change the project's patterns match. One match makes the task careful: a session leads it, its
+  plan is read by a second opinion before the build, and each of its tasks is reviewed before the
+  next.
+- **Only so many tasks build at one time.** `project.py may-start` exits 1 at the settings'
+  `flow.max_tasks`. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
+  16 and unstable browser tests (convertiser-server, as its owner reported it on 2026-11-14). A
+  task over the limit is queued, never started "just this once"; only the owner raises the limit.
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion
   the owner brings ("I thought X did Y", "why is this happening") get the same form: one
   concrete case in numbered steps, with real names and values, and where each step was read. For
@@ -85,9 +117,9 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
   the code and into its report. Before a brief goes out, every sentence about the code is one you
   read in the code, and a sentence with "never", "always" or "the same" gets its counterexample
   looked for first.
-- **Capabilities, not tools.** A stage says `spawn-builder`, `second-opinion`, `ask-owner`,
-  `fan-out`, `show-page` or `load-skill`, and names the question gate, the persona panel and the
-  review tool by role. Read, once per session, the file in this skill's `harness/` folder named
+- **Capabilities, not tools.** A stage says `spawn-builder`, `open-task-session`,
+  `tell-coordinator`, `second-opinion`, `ask-owner`, `fan-out`, `show-page` or `load-skill`, and
+  names the question gate, the persona panel and the review tool by role. Read, once per session, the file in this skill's `harness/` folder named
   after the agent you run in (`harness/claude-code.md`); it says what each means there. When
   there is no file for your agent, say so and stop: the contract was not checked in it.
 
@@ -98,16 +130,46 @@ python3 SKILL_DIR/scripts/project.py task-dir SLUG
 ```
 
 It makes and prints the task's directory inside the repository's git directory, shared by every
-worktree, never committed and not removed with a worktree. It holds `task.md` (the ask and the
-outcome), `decisions.md`, `state.md` (newest block first: what is running, what is next) and
-`reports/`. A session that was compacted or replaced reads `state.md` and goes on; write a block
-there at every stage boundary. The plan itself is a file in the repository, in the settings'
-`plans` path.
+worktree, never committed and not removed with a worktree. It holds:
+
+- `task.md`: the ask and the outcome. Lem writes it.
+- `state.md`: newest block first. Lem and the lead write it, and only through the script.
+- `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that
+  stops. `stages/build.md` gives its form.
+- `decisions.md`: one line per decision taken without the owner, and each answer the owner gave.
+- `reports/`: one file per builder of a session's task. Lem does not read these.
+
+The plan itself is a file in the repository, in the settings' `plans` path.
+
+```bash
+python3 SKILL_DIR/scripts/project.py state SLUG STATUS "one line" ["a further line" ...]
+```
+
+It puts a block at the top of `state.md` with the clock's time. Write one at every stage boundary
+and before you stop. The status says who acts next:
+
+| Status | Means | Who acts |
+| --- | --- | --- |
+| `queued` | the ask is written and no lead runs: the limit was reached | Lem, when a lead stops |
+| `building` | a lead plans or builds | the lead |
+| `planned` | the plan is committed and nothing builds it | Lem opens a session, or the owner reads the plan |
+| `held` | it waits for the owner: a held decision, or a landing that is the owner's | the owner, through Lem |
+| `blocked` | the lead stopped on something it could not settle | Lem |
+| `ready` | the report is written and the branch waits for its landing | Lem |
+| `landing` | the gate runs on it | Lem |
+| `landed` | it is on the base branch and its review is queued | nobody |
+| `drafted` | a plan written at night that waits for the owner's word | the owner |
+| `dropped` | nobody will build it | nobody |
+
+Nothing else keeps a task's place. A session that was compacted or replaced, Lem's or a lead's,
+reads `project.py tasks`, then the state file and the report of the task it acts on, and goes on.
+Lem keeps no notes of its own beside these files.
 
 ## Status
 
 `python3 SKILL_DIR/scripts/project.py tasks` lists every task directory with the first line of
-its `task.md` and the newest block of its `state.md`. Say, in plain names and never in task
-codes: what is in flight and what each waits on, what landed today, how many review items are
-open and how many are due today, and what waits for the owner. Open with the newest night report
-when one is newer than the last status shown. Change nothing.
+its `task.md`, its status and the newest block of its `state.md`. Say, in plain names and never
+in task codes: what builds and what each other task waits on, what landed today, how many review
+items are open and how many are due today, and what waits for the owner. A task whose status is
+null has a state nobody wrote through the script: say so. Open with the newest night report when
+one is newer than the last status shown. Change nothing.

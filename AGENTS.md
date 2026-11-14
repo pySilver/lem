@@ -20,6 +20,9 @@ in that project's repository. `README.md` says what it does; this file says how 
   says so; a rule that rests on a guess says that instead (`EXPIRE_AFTER` in `review_queue.py`).
 - **One stage file per subcommand, read only when it runs.** `SKILL.md` holds what is true in
   every stage. A rule that one stage needs goes in that stage.
+- **Lem's stages and a lead's stages stay apart.** `plan` and `build` are a lead's; the others
+  are Lem's. A step that reads a task's code or its diff goes to a lead or to a fresh agent,
+  never into `new`, `land` or `review`.
 - **Scripts are standard-library Python, 3.11 or newer**, print JSON for an agent to read, and
   refuse a wrong input with exit 1 and a message that names the fix. No silent default for a
   choice that is the owner's (`project.py init --existing`).
@@ -70,7 +73,7 @@ real task, so say in the commit which task showed the need.
 - `skills/lem/scripts/`: `project.py` (a repository's settings and task state), `doctor.py`
   (the machine), `review_queue.py` (landed changes that wait for a review).
 - `skills/lem/templates/`: the shapes onboarding fills.
-- `skills/lem/prompts/`: the reviewer's standing brief.
+- `skills/lem/prompts/`: the standing briefs of a task's lead and of the reviewer.
 - `skills/lem/references/`: the catalog of published style guides.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
 - `skills/huddle/`, `skills/webrev/`, `skills/backlog/`, `skills/interview-me/`, `skills/dialectic/`,

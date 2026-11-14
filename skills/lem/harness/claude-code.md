@@ -33,10 +33,72 @@ A builder in a worktree session meets Claude Code's Bash guard. Tell it to write
 paths and plain commands: no shell variables, no `$(...)`, no loops, and a file instead of a
 heredoc when the text names git.
 
+A builder is one context with no pane of its own, so no reviewer sits beside it and the owner
+cannot type to it. A careful or large task gets a session for that reason.
+
+## open-task-session
+
+A companion session of this one, which runs Claude Code with the brief's file named in its first
+prompt.
+
+1. **Write the brief** to a file in the task directory (`brief.md`). Add one line to it:
+   `coordinator: SESSION:PANE`, with this session's `AGTERM_SESSION_ID` and this pane's
+   `AGTERM_PANE_ID`.
+2. **Open the session**:
+
+   ```bash
+   agtermctl session new --parent "$AGTERM_SESSION_ID" --cwd WORKTREE --name SLUG --no-select \
+     --command "LOGIN_SHELL -l -c 'claude \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
+   ```
+
+   `LOGIN_SHELL` is the owner's login shell by absolute path
+   (`dscl . -read /Users/NAME UserShell`), not the shell of your own Bash tool. agterm starts the
+   command with its own `PATH`, and only the login shell finds `claude` the way the owner's
+   terminal does: on a Mac whose login shell is fish, `zsh -lc` answered `command not found:
+   claude`. The line has no command substitution, so zsh and fish read it the same way. Pass no
+   flag that widens the session's permissions: it runs in the permission mode the owner's
+   settings give a new session.
+3. **Confirm it runs**: the command prints the new session's id. In `agtermctl tree --json` the
+   node with that id has `parent` set to this session and a `foreground` that ends in the
+   `claude` line. A node that is gone at once means the command failed; open it again with
+   `--wait` and read its screen with `agtermctl session text --target ID`. Write the id in the
+   task's state.
+4. **Send it a message** later (the owner's answers, a changed base):
+   `agtermctl msg send --stdin --to ID:left --socket "$AGTERM_SOCKET" < FILE`. The mailbox hook of
+   the mailbox chat hands it to the agent there at the end of its turn. When the session is gone,
+   open one again: the new lead reads the task's files.
+5. **Close it** after the landing: `agtermctl session close --target ID --socket "$AGTERM_SOCKET"`.
+
+Under agterm's rerun restore mode a relaunch of agterm starts each session's command again. A
+lead started that way is a fresh agent with the same brief; `prompts/lead.md` tells it to read the
+task's state first, so it goes on or stops.
+
+Checked on 2026-11-14 with agterm 0.41.1 in its rerun restore mode: a companion session opened
+with this line through a fish login shell, Claude Code ran its prompt there, and `foreground` and
+`parent` read back from the tree. Not run yet: a lead that took a whole task this way, a message
+sent to a lead (step 4), and a relaunch of agterm with a lead's session open.
+
+## tell-coordinator
+
+In a task's session, with the address from the brief's `coordinator:` line:
+
+```bash
+agtermctl msg send "lem: SLUG is STATUS" --to SESSION:PANE --socket "$AGTERM_SOCKET"
+```
+
+One line, after the report and the state are written. It reaches Lem as mail that starts with
+`[agterm mailbox, not a peer chat message]`; Lem reads the task's state, never the line's claim.
+Mail is kept in memory only, so a pane that was restarted has lost it. That costs nothing but
+time: the state block is on disk, and `/lem status` shows it.
+
+Checked on 2026-11-14: this command, run by Claude Code in a companion session, put its line in
+the mailbox of the pane that opened the session. Not run yet: the hook waking an idle Lem with it.
+
 ## second-opinion
 
-The reviewer is a second agent in the split pane of this session, of the family the settings'
-`seats.reviewer` names (`claude` or `codex`); the owner reads both panes. When the setting is null,
+The reviewer is a second agent in the split pane of the session that asks (a task's session, for
+a careful task), of the family the settings' `seats.reviewer` names (`claude` or `codex`); the
+owner reads both panes. When the setting is null,
 ask the owner once and write the answer into `.lem/project.toml`.
 
 1. **Is a reviewer there?** `mailbox-chat.py status` names the other pane and what serves it:

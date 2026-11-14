@@ -8,7 +8,8 @@ sessions, and the owner gave that correction again to eight sessions in two minu
 ## learn, in the session
 
 When the owner corrects you, disagrees with an approach, or tells you something for the second
-time ("again", "I told you", "we discussed"), do this in the same reply, before going on:
+time ("again", "I told you", "we discussed"), do this in the same reply, before going on. The
+owner may correct Lem or, in a task's session, its lead; whoever was corrected does it:
 
 1. **Say the lesson in one sentence** an agent could follow next time.
 2. **Find the file that owns the step**, the first that fits:
@@ -27,8 +28,9 @@ time ("again", "I told you", "we discussed"), do this in the same reply, before 
      plan and build stages read.
 3. **When the owner asked for the change, make it** and say what changed in one to three lines.
    When you found the lesson yourself, show the edit and make it on the owner's "apply".
-4. Project files are committed on the task's branch with the work. Skill files are committed in
-   their clone and never pushed from here.
+4. A lead commits a project file on the task's branch with the work. Lem has no task's branch:
+   there the edit of a project file is a task of its own (`/lem new`), so it lands through the
+   gate like any change. Skill files are committed in their clone and never pushed from here.
 
 A lesson about one project never goes into a skill, and the lessons file never holds what a style
 guide file, a persona or a lens could hold: it is the last target, and it stays short enough to be
@@ -37,7 +39,7 @@ read whole.
 ## retro
 
 `/lem retro` reads what the sessions did since the last retro: each task's `decisions.md`, the
-reports' "not verified" and "outside defects" lines, the review queue's outcomes, and the owner's
+"not verified" and "outside defects" lines of each `report.md`, the review queue's outcomes, and the owner's
 corrections where the project records them. It looks for what came back:
 
 - a correction the owner gave more than once: the record it had did not reach the step; move it

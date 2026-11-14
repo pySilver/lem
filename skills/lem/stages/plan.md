@@ -1,11 +1,13 @@
 # plan
 
-A plan here is short and written by whoever builds. It exists so the builder has thought before
-typing and so a reviewer can tell what was meant; it is not argued line by line before the build.
+The lead's first stage. A plan here is short and written by whoever builds. It exists so the
+builder has thought before typing and so a reviewer can tell what was meant; it is not argued line
+by line before the build.
 
 1. **Write the plan** as one file in the settings' `plans` path, named `YYYYMMDD-<slug>.md`, and
    commit it as the branch's first commit:
-   - the outcome and the "done when" from `task.md`;
+   - the outcome and the "done when" from `task.md`, each "done when" line sharpened to a command
+     or a look at the product now that you have read the code;
    - what changes for a person, as one short run in numbered steps, when a person observes a
      change; "no person observes a change" otherwise;
    - the tasks, three to seven, each an outcome a reviewer can check alone, with the files it
@@ -15,24 +17,36 @@ typing and so a reviewer can tell what was meant; it is not argued line by line 
    Before writing, read the style guide files whose scope covers the files the plan touches
    (`project.py path styleguide`; a file's frontmatter says its paths) and the project's lessons
    (`project.py path lessons`).
-2. **Is the task careful?** Run `project.py careful` over the files the plan names. The task is
-   careful when a file matches, and also when the plan starts a pattern other code will copy (a
-   first service layer, a first use of a library, a new kind of test).
-3. **A careful plan gets a second opinion before any code.** `second-opinion` reads the plan
-   against the code, read-only, in a fresh context, and replies with the design failures it can
-   show with a cite. Fix the plan for each one that holds. One such read took nine minutes and
-   found three design failures before any code (convertiser-server, 2026-11-14). A plan that is
-   not careful skips this.
-4. **A held decision goes to the owner now, the others do not.** For each decision of the plan:
-   a ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and log it.
-   It turns on a claim that can be argued both ways ("this will not scale", "nobody uses that")
-   → the `dialectic` skill settles the claim first. Its options each cost a person something and
-   nothing answers it → the `gate` skill, then the `panel` skill with the project's cast, then the
-   owner. Ask all
-   held decisions of the plan in one go, and build the tasks that do not depend on them meanwhile.
-   The `panel` skill writes the card the owner sees and says how its page opens. Add the two
-   things a card does not carry: above it, the run `SKILL.md` asks for, ending badly, and
-   whether it was reproduced or derived; and one line on why it became
-   possible and how far the same cause reaches. When the owner wants to read or mark up the
-   plan itself, open it with the settings' `tools.annotate`.
-5. **Go on to `build`.** Write a block in `state.md`.
+   When the branch already holds a plan (a night draft, a builder that stopped at the plan), do
+   not write another: read it against the code as it is now, and commit a fix for what the code
+   has outgrown.
+2. **Is the task careful, or large?** Run `project.py careful` over the files the plan names. The
+   task is careful when a file matches, and also when the plan starts a pattern other code will
+   copy (a first service layer, a first use of a library, a new kind of test). It is large when
+   the outcome needs more than seven tasks. Seven is this file's own upper bound for a plan: a
+   guess, not a measurement.
+3. **A builder does not lead a careful or large task.** When you are a builder and step 2 says
+   careful or large: write `report.md` with which of the two, and the pattern or the count that
+   says so; write the state `planned` with the line `needs a session: careful` or `needs a
+   session: large`; and stop. Lem opens a session, and its lead starts from your plan. When your
+   brief says `stop after the plan: yes`, stop the same way with the line `the owner reads the
+   plan`.
+4. **A held decision goes to the owner, the others do not.** For each decision of the plan: a
+   ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and write it
+   in `decisions.md`. It turns on a claim that can be argued both ways ("this will not scale",
+   "nobody uses that") → the `dialectic` skill settles the claim first. Its options each cost a
+   person something and nothing answers it → it is held, and it is not yours to ask. Write it in
+   `report.md` under "held", so that Lem can ask it without reading the code:
+   - one concrete case in numbered steps that ends badly, with real names and values and where
+     each step was read, and whether you reproduced it or derived it;
+   - one line on why the case became possible and how far the same cause reaches;
+   - the options, each as what a person would see and what it costs, and what you would choose.
+   Then build the tasks that do not depend on a held decision. Write the state `held` and stop
+   only when every task that is left depends on one.
+5. **A careful plan gets a second opinion before any code.** This is the session's step.
+   `second-opinion` reads the plan against the code, read-only, in a fresh context, and replies
+   with the design failures it can show with a cite. Fix the plan for each one that holds. One
+   such read took nine minutes and found three design failures before any code
+   (convertiser-server, 2026-11-14). A plan that is not careful skips this.
+6. **Go on to `build`.** Write the state `building` with the line `plan committed` and how many
+   tasks it has.

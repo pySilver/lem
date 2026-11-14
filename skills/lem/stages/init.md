@@ -98,6 +98,8 @@ python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --exist
 Leave `--existing` out when step 2 found no older folder. Then edit `.lem/project.toml`: the
 gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, the
 protected branches, and `tools.annotate` when the owner marks up plans with a tool of their own.
+Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
+and say so in the handover.
 
 ## 5. Generate what is absent
 

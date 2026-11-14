@@ -7,6 +7,10 @@ landed, reviewed change, the same way in every repository: `new`, `plan`, `build
 `review`, `night`, `status`, `learn`, `retro` and `init`. Lem holds the flow. What differs between
 projects lives in each project's repository, where `/lem init` writes it.
 
+There is one Lem per repository, in the session where you type `/lem`. It takes the asks, gives
+each task to a lead in a context of its own, lands one branch at a time, queues the reviews and
+reports to you. It holds no task's details: of a task it reads the state and the report.
+
 The name is Stanisław Lem's. Lem is the one in the middle: it builds nothing itself, it holds the
 line the other agents work on, and it answers to you for all of them.
 
@@ -17,8 +21,11 @@ nowhere else.
 ## How it works
 
 - **Build first, review after.** A builder writes a short plan and builds it; machine checks gate
-  the landing; the landed change joins a review queue. Paths the project calls careful keep a
-  second opinion on the plan and a review of each task.
+  the landing; the landed change joins a review queue. A task on paths the project calls careful
+  gets a session of its own with a reviewer in its other pane: a second opinion on the plan and a
+  review of each task.
+- **Only so many tasks build at one time.** The limit is a setting, `flow.max_tasks`; a task over
+  it waits in a queue.
 - **The review queue is honest.** A high-risk landing is due the day it lands. A normal item
   nobody read in seven days is closed as "not reviewed" and reported, so unread changes are a
   number someone sees.
@@ -37,7 +44,8 @@ nowhere else.
 
 ```
 .lem/
-  project.toml   paths, base branch, who lands, who reviews, gate commands, careful paths
+  project.toml   paths, base branch, who lands, who reviews, gate commands, careful paths,
+                 how many tasks build at one time
   profile.md     what the project is
   styleguide/    how code is written here, by path
   personas/      the people a decision affects
@@ -45,15 +53,15 @@ nowhere else.
   lessons.md     corrections with no better file
 ```
 
-A task's worktree goes under `.lem/worktrees/`, which git ignores, and its state (the ask, the decisions,
-the reports) inside the git directory, where it outlives the worktree.
+A task's worktree goes under `.lem/worktrees/`, which git ignores, and its state (the ask, the
+state blocks, the report, the decisions) inside the git directory, where it outlives the worktree.
 
 A repository that already keeps some of these for an older tool (`.claude/rules`, `.revmux`,
 `.personas`) may link them instead: the settings file points at them and nothing moves.
 
 ## What comes with it
 
-An opinionated set, kept small. Shipped here, beside `task`:
+An opinionated set, kept small. Shipped here, beside `lem`:
 
 | Skill | For |
 | --- | --- |
@@ -74,8 +82,9 @@ its skill, and `mailbox-chat.py` from agterm's cookbook, which carries the messa
 coordinator and the reviewer in the other pane. Optional, each with a fallback the check names:
 plannotator (recommended), Codex, jev and cronn.
 
-The agent that runs `/lem` builds, and the reviewer's pane holds Codex or a second Claude, as
-the project's `seats.reviewer` says. A Codex that runs `/lem` itself waits for its harness file. A project that prefers its own tool for a role points its settings at it.
+The agent that runs `/lem` coordinates and its builders build. The reviewer's pane holds Codex or
+a second Claude, as the project's `seats.reviewer` says. A Codex that runs `/lem` itself waits for
+its harness file. A project that prefers its own tool for a role points its settings at it.
 
 ## Trying it in Claude Code
 
@@ -92,5 +101,6 @@ A skill of the same name that a plugin already provides has to be switched off f
 
 ```bash
 bash tests/test-lem.sh
+bash tests/test-gate-panel.sh
 bash tests/test-huddle.sh
 ```

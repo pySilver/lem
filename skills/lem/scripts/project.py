@@ -18,7 +18,10 @@ two is the owner's choice, so `init` refuses to guess it.
                                     write .lem/project.toml
     project.py task-dir SLUG        make and print one task's state directory
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
-    project.py tasks                every task's ask and newest state block, as JSON
+    project.py state SLUG STATUS LINE...
+                                    put a new block at the top of the task's state.md, with the time
+    project.py tasks                every task's ask, status and newest state block, as JSON
+    project.py may-start            exit 1 when as many tasks build as flow.max_tasks allows
     project.py state-dir            the folder that holds every task, the review queue and the night reports
 
 Task state is kept inside the git directory every worktree shares: it is never committed, a
@@ -36,6 +39,7 @@ import re
 import subprocess
 import sys
 import tomllib
+from datetime import datetime, timezone
 from pathlib import Path
 
 SETTINGS = Path(".lem") / "project.toml"
@@ -56,11 +60,31 @@ LAND = ("owner", "agent")
 REVIEWERS = ("claude", "codex")
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
+# What a task's newest state block may say, and who acts next:
+#   queued    the ask is written and no lead runs yet: the limit was reached
+#   building  a lead plans or builds
+#   planned   the plan is committed and nothing builds it: it needs a session, or the owner reads it
+#   held      it waits for the owner: a held decision, or a landing that is the owner's
+#   blocked   the lead stopped on something the coordinator has to settle
+#   ready     the report is written and the branch waits for its landing
+#   landing   the gate runs on it
+#   landed    it is on the base branch and its review is queued
+#   drafted   a plan written at night that waits for the owner's word
+#   dropped   nobody will build it
+STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "landed", "drafted", "dropped")
+# the states in which an agent works on the task and loads the machine
+RUNNING = ("building",)
+# The first line of a state block: the time in UTC, the status, one line of text.
+STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
+# How many tasks build at one time when the settings do not say. Four to five ran well on one Mac;
+# six gave a load average of 12 to 16 and unstable browser tests (convertiser-server, as its owner
+# reported it on 2026-11-14). The right number depends on the machine and on the project's tests.
+MAX_TASKS = 4
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
     "branch": ("base", "land", "protected"),
     "gate": ("commands",),
-    "flow": ("careful",),
+    "flow": ("careful", "max_tasks"),
     "seats": ("reviewer",),
     "tools": ("annotate",),
 }
@@ -88,10 +112,14 @@ commands = []
 # Paths whose change takes the careful flow: the plan is read by the reviewer and each task
 # is reviewed before the next starts. A `*` crosses directories.
 careful = []
+# How many tasks build at one time. Four to five ran well on one Mac; six gave a load average of
+# 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when the tests
+# share one database or drive a browser.
+max_tasks = {max_tasks}
 
 [seats]
-# The agent in the reviewer's pane: "claude" or "codex". The agent that runs /lem builds; this one
-# reads its plans and diffs. The same family twice is allowed.
+# The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one reads the
+# plan and the diffs of a careful task. The same family twice is allowed.
 {reviewer}
 
 [tools]
@@ -177,6 +205,10 @@ def load(root: Path) -> dict:
     reviewer = raw.get("seats", {}).get("reviewer")
     if reviewer is not None and reviewer not in REVIEWERS:
         raise SettingsError(f"{SETTINGS}: seats.reviewer = {reviewer!r} must be one of {', '.join(REVIEWERS)}")
+    max_tasks = raw.get("flow", {}).get("max_tasks", MAX_TASKS)
+    # a bool is an int in Python, and `max_tasks = true` is a mistake, not the number 1
+    if isinstance(max_tasks, bool) or not isinstance(max_tasks, int) or max_tasks < 1:
+        raise SettingsError(f"{SETTINGS}: flow.max_tasks = {max_tasks!r} must be a whole number, 1 or more")
 
     return {
         "root": str(root),
@@ -184,7 +216,7 @@ def load(root: Path) -> dict:
         "paths": paths,
         "branch": {"base": base, "land": land, "protected": protected},
         "gate": {"commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands")},
-        "flow": {"careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful")},
+        "flow": {"careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"), "max_tasks": max_tasks},
         "seats": {"reviewer": reviewer},
         "tools": {"annotate": annotate},
     }
@@ -259,7 +291,7 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
         lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
     seat = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex"'
-    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=seat))
+    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=seat, max_tasks=MAX_TASKS))
     print(file)
 
 
@@ -292,19 +324,61 @@ def cmd_worktree_dir(settings: dict, slug: str) -> None:
     print(parent / slug)
 
 
-def cmd_tasks(root: Path) -> None:
+def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
+    """Put a new block at the top of the task's state.md: the time, the status and what the lines say."""
+    if not SLUG.fullmatch(slug):
+        raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
+    directory = state_root(root) / "tasks" / slug
+    if not directory.is_dir():
+        raise SettingsError(f"no task {slug!r}; `project.py task-dir {slug}` makes its directory")
+    if status not in STATES:
+        raise SettingsError(f"status {status!r} is not one a task has{nearest(status, STATES)}")
+    if any(not line.strip() or "\n" in line for line in lines):
+        # a blank line ends a block, so one inside a block would hide the lines after it
+        raise SettingsError("each LINE of a state block is one line of text, and none is empty")
+    # the time is the clock's, never a writer's estimate
+    since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+    block = "\n".join([f"{since} {status}: {lines[0].strip()}", *(line.strip() for line in lines[1:])])
+    file = directory / "state.md"
+    older = file.read_text().strip() if file.is_file() else ""
+    fresh = directory / "state.md.new"
+    fresh.write_text(block + ("\n\n" + older if older else "") + "\n")
+    fresh.replace(file)
+    print(json.dumps({"slug": slug, "status": status, "since": since}))
+
+
+def read_tasks(root: Path) -> list[dict]:
     tasks = []
     parent = state_root(root) / "tasks"
     for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
         ask = directory / "task.md"
         state = directory / "state.md"
+        # state.md is newest block first; a block ends at the first blank line
+        block = state.read_text().strip().split("\n\n")[0] if state.is_file() and state.read_text().strip() else None
+        first = STATE_LINE.fullmatch(block.splitlines()[0]) if block else None
+        known = first is not None and first["status"] in STATES
         tasks.append({
             "slug": directory.name,
             "ask": ask.read_text().strip().splitlines()[0] if ask.is_file() and ask.read_text().strip() else None,
-            # state.md is newest block first; a block ends at the first blank line
-            "state": state.read_text().strip().split("\n\n")[0] if state.is_file() else None,
+            # null when no block was written through `project.py state`: nobody can tell who acts next
+            "status": first["status"] if known else None,
+            "since": first["since"] if known else None,
+            "state": block,
         })
-    print(json.dumps(tasks, indent=2))
+    return tasks
+
+
+def cmd_may_start(settings: dict, root: Path) -> None:
+    """Exit 1 when as many tasks build as the project allows at one time."""
+    limit = settings["flow"]["max_tasks"]
+    running = [task["slug"] for task in read_tasks(root) if task["status"] in RUNNING]
+    if len(running) >= limit:
+        raise SettingsError(
+            f"{len(running)} tasks build ({', '.join(running)}) and flow.max_tasks is {limit}: "
+            f"write the new task's state as `queued` and start it when one of them stops; "
+            f"only the owner raises the limit, in {SETTINGS}",
+        )
+    print(json.dumps({"running": running, "limit": limit}))
 
 
 def main() -> None:
@@ -322,7 +396,12 @@ def main() -> None:
     init.add_argument("--reviewer", choices=REVIEWERS)
     commands.add_parser("existing")
     commands.add_parser("task-dir").add_argument("slug")
+    state = commands.add_parser("state")
+    state.add_argument("slug")
+    state.add_argument("status")
+    state.add_argument("lines", nargs="+", metavar="LINE")
     commands.add_parser("tasks")
+    commands.add_parser("may-start")
     commands.add_parser("state-dir")
     args = parser.parse_args()
     try:
@@ -336,8 +415,11 @@ def main() -> None:
         if args.command == "task-dir":
             cmd_task_dir(root, args.slug)
             return
+        if args.command == "state":
+            cmd_state(root, args.slug, args.status, args.lines)
+            return
         if args.command == "tasks":
-            cmd_tasks(root)
+            print(json.dumps(read_tasks(root), indent=2))
             return
         if args.command == "state-dir":
             state_root(root).mkdir(exist_ok=True)
@@ -352,6 +434,8 @@ def main() -> None:
             cmd_worktree_dir(settings, args.slug)
         elif args.command == "may-land":
             cmd_may_land(settings, args.branch)
+        elif args.command == "may-start":
+            cmd_may_start(settings, root)
         else:
             cmd_careful(settings, args.files)
     except SettingsError as error:
