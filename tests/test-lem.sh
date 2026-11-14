@@ -336,6 +336,11 @@ else
   fail "board --task: $out / $err"
 fi
 if [ "$(status_of board --repo "$OLD")" = 1 ]; then pass "outside an agterm session board opens nothing and says so"; else fail "board outside agterm"; fi
+if sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$PWD/skills/lem/assets/board.html" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark.svg"; then
+  pass "the mark in the board's header is the logo's own file, line for line"
+else
+  fail "the mark inside board.html differs from assets/lem-mark.svg: copy the file between the two lem-mark comments again"
+fi
 
 SHOWN=$(cat <<'PY'
 import sys
