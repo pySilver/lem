@@ -41,22 +41,38 @@ contract is written for Claude Code only. `task-skills` is a working name.
 A repository that already keeps some of these for an older tool (`.claude/rules`, `.revmux`,
 `.personas`) may link them instead: the settings file points at them and nothing moves.
 
-## The machine
+## What comes with it
 
-`python3 skills/task/scripts/doctor.py` says what is there. Required: git, Python 3.11 or newer,
-and [revmux](https://github.com/umputun/revmux) for the review rounds. Optional, each with a
-plain fallback: agterm and its skill, huddle, Codex, `mailbox-chat.py`, cronn.
+An opinionated set, kept small. Shipped here, beside `task`:
+
+| Skill | For |
+| --- | --- |
+| `interview-me` | the onboarding interview and an unclear ask: one question at a time, each with a guess |
+| `huddle` | a question to the owner as a page, options side by side |
+| `webrev` | a document the owner marks up in an agterm overlay |
+| `backlog` | deferred work, one file per item |
+| `dialectic` | a claim argued both ways before a decision rests on it |
+| `root-cause-investigator` | a defect nobody can explain after two tries |
+
+Not shipped, and checked for by `python3 skills/task/scripts/doctor.py`: git, Python 3.11 or
+newer and [revmux](https://github.com/umputun/revmux) are required; agterm and its skill,
+plannotator (recommended), Codex, `mailbox-chat.py`, jev and cronn are optional, each with a plain
+fallback the check names. A project that prefers its own tool for a role points its settings at it.
 
 ## Trying it in Claude Code
 
 Link the skill from a clone, so an edit here is what the next session reads:
 
 ```bash
-ln -s "$PWD/skills/task" ~/.claude/skills/task
+for d in "$PWD"/skills/*/; do ln -s "${d%/}" ~/.claude/skills/"$(basename "$d")"; done
+ln -s "$PWD/skills/huddle/bin/huddle" ~/.local/bin/huddle
 ```
+
+A skill of the same name that a plugin already provides has to be switched off first.
 
 ## Tests
 
 ```bash
 bash tests/test-task.sh
+bash tests/test-huddle.sh
 ```

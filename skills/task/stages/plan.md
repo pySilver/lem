@@ -25,7 +25,9 @@ typing and so a reviewer can tell what was meant; it is not argued line by line 
    not careful skips this.
 4. **A held decision goes to the owner now, the others do not.** For each decision of the plan:
    a ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and log it.
-   Its options each cost a person something and nothing answers it → the question gate, then the
+   It turns on a claim that can be argued both ways ("this will not scale", "nobody uses that")
+   → the `dialectic` skill settles the claim first. Its options each cost a person something and
+   nothing answers it → the question gate, then the
    persona panel with the project's cast (`project.py path personas`), then the owner. Ask all
    held decisions of the plan in one go, and build the tasks that do not depend on them meanwhile.
 5. **Go on to `build`.** Write a block in `state.md`.

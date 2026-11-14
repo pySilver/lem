@@ -164,7 +164,8 @@ fi
 fake revmux "revmux v9.9.9"
 out=$(doctor)
 if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row revmux detail <<<"$out")" = "revmux v9.9.9" ] && [ "$(row agterm found <<<"$out")" = "False" ] \
-  && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "agterm skill"]' <<<"$out")" = "[]" ] && [ "$(row cronn found <<<"$out")" = "False" ]; then
+  && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "agterm skill"]' <<<"$out")" = "[]" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
+  && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ]; then
   pass "with the required tools, doctor passes and reports agterm and cronn as absent, with no row for the agterm skill"
 else
   fail "doctor with revmux: $out"

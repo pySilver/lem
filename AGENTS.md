@@ -12,7 +12,8 @@ in that project's repository. `README.md` says what it does; this file says how 
 - **A stage names a capability or a role, never a tool.** `spawn-builder`, `second-opinion`,
   `ask-owner`, `fan-out`, `show-page`, `load-skill`; the question gate, the persona panel, the
   review tool. `skills/task/harness/README.md` is the contract. A tool's name belongs in the one
-  harness file of its agent.
+  harness file of its agent. A skill this repository ships is named by its name, which is the
+  same in every agent.
 - **A harness file exists only for an agent the contract was checked in.** Do not write one from
   another project's notes about an agent.
 - **A number in a skill file carries its source and date.** A rule that rests on a measurement
@@ -27,7 +28,8 @@ in that project's repository. `README.md` says what it does; this file says how 
 ## Checks
 
 ```bash
-bash tests/test-task.sh        # the three scripts, in throwaway repositories
+bash tests/test-task.sh        # the task skill's three scripts, in throwaway repositories
+bash tests/test-huddle.sh      # huddle's spec checks and every template; loads pages in headless Chrome when one is installed
 shellcheck tests/*.sh
 ```
 
@@ -42,3 +44,17 @@ real task, so say in the commit which task showed the need.
 - `skills/task/scripts/`: `project.py` (a repository's settings and task state), `doctor.py`
   (the machine), `review_queue.py` (landed changes that wait for a review).
 - `skills/task/templates/`: the shapes onboarding fills.
+- `skills/huddle/`, `skills/webrev/`, `skills/backlog/`, `skills/interview-me/`, `skills/dialectic/`,
+  `skills/root-cause-investigator/`: the skills the task skill names and ships. `NOTICE` says where
+  each came from.
+
+## The shipped skills are copies, not yet under the rules above
+
+Each was copied from where it worked and changed only as far as the new layout needed. Their text
+still names Claude Code's tools, `skills/backlog` and `skills/webrev` use `${CLAUDE_SKILL_DIR}`,
+and huddle's Stop hook (`skills/huddle/hooks/hooks.json`) is registered by nothing. Bring one under
+the capability rule when a second agent has to run it, not before.
+
+The set is deliberately small. A tool with its own life (revmux, agterm, cronn, plannotator, Codex)
+is checked for by `doctor.py` and never copied in, and a project that prefers its own tool for a
+role says so in its settings or its `AGENTS.md`.

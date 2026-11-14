@@ -40,11 +40,30 @@ onboarding directory, every line with the path it was read from:
 In a large repository, `fan-out` one reader per area and merge what they return. A reader reports
 what it read and where; it proposes nothing.
 
+A repository with no code yet (`git ls-files` lists nothing beyond a README, a license or an
+ignore file) has nothing to examine. Write that one line in `examined.md` and go to step 3, where
+the interview is about what the owner plans to build.
+
 ## 3. Interview the owner
 
-Ask only what the examination could not answer, one question at a time through `ask-owner`, each
-with your own guess from `examined.md` so the owner corrects a draft instead of composing one.
-What the examination answered is stated as an assumption in step 6, never asked.
+Hold the interview by the rules of the `interview-me` skill (`load-skill`): open with a
+one-sentence hypothesis and how sure you are, ask one question at a time through `ask-owner`, each
+with your own guess so the owner corrects a draft instead of composing one, restate what you
+heard at the end, and take only an explicit yes. Ask only what the examination could not answer;
+what it answered is stated as an assumption in step 6, never asked.
+
+**A new project** has a different interview, because there is no code to guess from:
+
+- **What the owner plans to build**: the product, who it is for, and the first thing such a
+  person should be able to do with it. That first thing becomes the first task after onboarding.
+- **How big it is meant to get**, and what would make it a failure.
+- **The stack**: what the owner wants, or "choose for me"; then propose one with its reason and
+  what it costs to change later.
+- **The people** a decision here will affect, and **what must never break** once it exists.
+- **A starting style guide**: when another of the owner's repositories uses the same stack and
+  has a style guide, offer to start from a copy of it, marked as copied and from where.
+
+For a repository that has code:
 
 - **The product in the owner's words**: what it is for, who it is for, how big it is meant to
   get. The code shows what exists; only the owner knows what it is judged against.
@@ -83,7 +102,11 @@ it is.
   reason, and the file it was read from. Write only conventions `examined.md` shows the code
   already keeps, and say at the top of each file that it is a draft read from the code. A rule
   nobody has yet needed is not written: the style guide grows when a review finding or a
-  correction repeats (`stages/learn.md`).
+  correction repeats (`stages/learn.md`). A new project gets the copy the owner accepted in the
+  interview, or no style guide yet.
+- **The gate of a new project** does not exist yet. Leave `gate.commands` empty and name "set up
+  the checks" (formatter, linter, type checker, a first test) as the task to run first: nothing
+  lands through this skill before it.
 - **The review configuration**: the review tool's own starter set, moved to the settings' `review`
   path (the harness file says how), and its project profile: what the project is, what a reviewer
   here must read first, and an empty list of rejected findings.
@@ -96,3 +119,17 @@ generated, each assumption taken from the code with its source, and the settings
 generated file is a draft; say which three the owner should read first (the careful paths, the
 gate, the personas). Commit the settings and the generated files on a branch of their own,
 `chore/task-onboarding`, and do not land it: the owner's read of the drafts is the review.
+
+## 7. Scheduled work for this repository
+
+Only when step 1 showed cronn running. Offer two jobs that belong to this repository, each a
+session started in it with nobody at the terminal:
+
+- a retro each morning (`/task retro`), so a correction that came back is moved before the next
+  day's work;
+- a pass over the review queue (`/task review`), so a `high` item is not left to whoever lands
+  next.
+
+Add a job only on the owner's yes, through the `cronn` skill when it is installed, and name the
+job after the repository. A scheduled job starts an agent that nobody watches: that choice is
+never the agent's.

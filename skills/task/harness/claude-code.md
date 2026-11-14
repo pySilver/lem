@@ -18,7 +18,7 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
 
 ## ask-owner
 
-Inside agterm (`AGTERM_SESSION_ID` is set), the `huddle:huddle` skill: one page, each option with
+Inside agterm (`AGTERM_SESSION_ID` is set), the `huddle` skill: one page, each option with
 what the owner would see and what it costs. Elsewhere, `AskUserQuestion`. The owner's global
 instructions say how a question is told; they outrank this file.
 
@@ -48,5 +48,6 @@ Several `Agent` calls in one message. The `Workflow` tool only when the owner as
 ## show-page
 
 Inside agterm, an HTML file opened as an overlay of this session
-(`agtermctl session overlay open --html FILE --target "$AGTERM_SESSION_ID"`). Elsewhere, the text
-in the reply.
+(`agtermctl session overlay open --html FILE --target "$AGTERM_SESSION_ID"`). A document the
+owner should mark up (a plan, a draft profile) goes through the `webrev` skill, or through
+plannotator when the machine check found it. Elsewhere, the text in the reply.

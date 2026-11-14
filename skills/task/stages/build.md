@@ -21,14 +21,15 @@ writes the code loses the plan when its context fills.
    - decisions it took that the plan did not, each with its reason;
    - defects it saw in code outside its task and did not touch.
    Read the report file, never a summary of it. Copy its decisions into `decisions.md` and its
-   outside defects into the project's backlog path as items, or into the report to the owner when
-   the project has no backlog.
+   outside defects into the project's backlog path as items, in the `backlog` skill's item format,
+   or into the report to the owner when the project has no backlog.
 3. **A careful task is reviewed before the next one starts.** Send the diff of that task to
    `second-opinion` with the plan section and the style guide files: does the change deliver the
    task, and is any existing caller or reverse path left inconsistent? Must-fix items go back to a
    builder. A task that is not careful is not reviewed here; its review comes from the queue after
    the landing.
-4. **A builder that is blocked** reports the blocker in its file. Decide it if it is yours to
+4. **A builder that is blocked** reports the blocker in its file. A defect nobody can explain
+   after two tries goes to the `root-cause-investigator` skill before a third. Decide it if it is yours to
    decide; if it is a held decision, treat it as `plan.md` step 4 does and keep the other tasks
    moving.
 5. **When every task has its report, go on to `land`.** Write a block in `state.md`.
