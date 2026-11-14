@@ -53,6 +53,29 @@ variables, the project's documents or the server itself, because status names ar
 own. Before the first write it calls `whoami` and stops on the wrong workspace. Its
 `task new <tracker URL>` takes the tracker's branch name instead of a slug of the URL.
 
+## What the real server returned (2026-11-14)
+
+The owner connected his workspace under the name `linear`, at user scope, and a fresh Claude Code
+run read the trial ticket with only read tools allowed. Facts for whoever builds the skill:
+
+- The server gives 59 tools as `mcp__linear__<name>`. The ones this work needs: `whoami`,
+  `get_issue`, `get_team`, `list_issue_statuses`, `list_comments`, `save_issue`, `save_comment`.
+  A session that was already running when the server was added does not get them; a new one does.
+- `whoami` returns the workspace and the user, which is the check before the first write.
+- `get_issue` for `MBZ-1` returns the identifier, title, state name with its type, assignee, URL,
+  description and `gitBranchName`. It does not return the team's key; `get_team` on the team id
+  does.
+- `gitBranchName` was `antek/mbz-1-do-nothing`: the user's display name, a slash, then the
+  identifier and the title. That is not Lem's `<type>/<slug>` form, so the skill has to say which
+  of the two a task's branch takes and how the other is still found from it.
+- That team has eight statuses, and two of them have the type `started` ("In Progress" and
+  "In Review"); the others are Backlog (`backlog`), Todo (`unstarted`), Done (`completed`),
+  Canceled (`canceled`), Duplicate (`duplicate`) and Triage (`triage`). So a type does not name
+  one status: the project's settings have to name the status for "work started" and the one for
+  "landed", or the skill asks once and writes them down.
+- `MBZ-1` is titled "Do nothing", in Todo, and its description says it is a sample ticket for
+  the integration test.
+
 The owner asked for this on 2026-11-14, in the session that started Lem: "put on queue:
 integration with Linear".
 
