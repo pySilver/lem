@@ -212,6 +212,15 @@ if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "\[gate\] is the
 else
   fail "a gate in the local file: $err"
 fi
+printf '%s\n' '[tools]' 'annotate = 42' > "$OLD/.lem/project.local.toml"
+err=$(project --repo "$OLD" reviewer claude 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer default)" = 1 ] \
+  && grep -q "project.py: .lem/project.local.toml: tools.annotate = 42 must name" <<<"$err" && ! grep -q Traceback <<<"$err" \
+  && [ "$(cat "$OLD/.lem/project.local.toml")" = "$(printf '%s\n' '[tools]' 'annotate = 42')" ]; then
+  pass "a wrong value already in the machine's own file is refused with its fix, and the file is left as it was"
+else
+  fail "a number as the local annotate tool: $err"
+fi
 rm "$OLD/.lem/project.local.toml"
 if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer codex a b c d)" = 1 ] && [ ! -e "$OLD/.lem/project.local.toml" ]; then
   pass "reviewer refuses an agent that cannot review and a fifth word, and writes nothing then"

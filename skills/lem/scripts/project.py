@@ -260,6 +260,16 @@ def seat(raw: dict, name: Path) -> dict | None:
     return {key: given.get(key) for key in SEAT}
 
 
+def annotate_of(raw: dict, name: Path) -> str | None:
+    """The tool one file names for marking up a plan, checked; None when the file names none."""
+    if "annotate" not in raw.get("tools", {}):
+        return None
+    tool = raw["tools"]["annotate"]
+    if not isinstance(tool, str) or not tool.strip():
+        raise SettingsError(f'{name}: tools.annotate = {tool!r} must name a skill or a command in quotes, as in annotate = "lem-webrev"')
+    return tool
+
+
 def load(root: Path) -> dict:
     file = root / SETTINGS
     raw = read_settings(file, SETTINGS, tuple(TABLES))
@@ -289,13 +299,10 @@ def load(root: Path) -> dict:
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
     overridden = []
-    annotate = raw.get("tools", {}).get("annotate", "lem-webrev")
-    if not isinstance(annotate, str) or not annotate.strip():
-        raise SettingsError(f"{SETTINGS}: tools.annotate must name a skill or a command")
-    if "annotate" in local.get("tools", {}):
-        annotate = local["tools"]["annotate"]
-        if not isinstance(annotate, str) or not annotate.strip():
-            raise SettingsError(f"{LOCAL}: tools.annotate must name a skill or a command")
+    annotate = annotate_of(raw, SETTINGS) or "lem-webrev"
+    local_annotate = annotate_of(local, LOCAL)
+    if local_annotate is not None:
+        annotate = local_annotate
         overridden.append("tools.annotate")
 
     # A local seat replaces the project's whole: its model and effort belong to the project's agent.
@@ -410,6 +417,9 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     """Write, or with `default` remove, this machine's own reviewer seat."""
     file = main_checkout(root) / LOCAL
     local = read_settings(file, LOCAL, LOCAL_TABLES)
+    # What the file already holds is checked before any of it is written again: a wrong value is
+    # refused with its fix, and the file stays as the owner left it.
+    annotate_of(local, LOCAL)
     if words == ["default"]:
         local.get("seats", {}).pop("reviewer", None)
     else:
