@@ -25,6 +25,31 @@ in that project's repository. `README.md` says what it does; this file says how 
   choice that is the owner's (`project.py init --existing`).
 - **Documentation describes the current state.** No changelog paragraphs, no "previously".
 
+## The owner's rulings
+
+Decisions the owner took on 2026-11-14. Each is reopened only by asking him.
+
+- **agterm is a hard dependency**, and so is the mailbox chat from its cookbook. Lem does not run
+  outside agterm.
+- **One Lem for one repository.** It coordinates many tasks there. No ability across repositories.
+- **Build first, review after.** The persona panel and the review tool with the project's own
+  lenses stay; a plan argued question by question and a review of every plain task do not.
+- **Claude Code first.** The harness file for Codex comes after that works. The reviewer may be
+  Codex or a second Claude; Codex as the builder is wanted later.
+- **Opinionated and small.** A developer may use their own tool for a role (`tools.annotate`). Out
+  of scope: a peer-planning flow, a skill-activation hook, language-server plugins, output styles,
+  a brainstorm skill, clipboard helpers, a writing-style skill.
+- **A project can close branches** (`branch.protected`): a rewrite that lands on a branch of its
+  own never lands on the release branches.
+- **The monitor is required**, "as beautiful as it is now or better" than peer-planning's: a board
+  of all tasks, and the board of one task on request.
+- **The free hour may edit Lem's skills on a branch of the clone.** It never pushes; the owner or
+  a session merges.
+- **The first run is in a scratch repository**, then in a real project.
+- **The correction hook is an optional part.** Lem recommends jev when it is absent and uses it
+  only when the owner agrees.
+- **The logo is the owner's pick** ("The Line in the Field"). Change it only on his word.
+
 ## Checks
 
 ```bash
