@@ -41,10 +41,14 @@ the page says so at its top.*
 
 The board shows these things:
 
-- Each task is in one of four lanes: it waits for you, it builds or waits to build, it is in the
-  landing line, or it is done.
-- Each card says who acts next, and it shows the lead, the newest commit, the gate result and
-  the review item.
+- Each task is in one of four lanes:
+  - it waits for you
+  - it builds, or it waits to build
+  - it is in the landing line
+  - it is done
+- Each card shows the status of the task, the lead, the newest commit, the gate result and the
+  review item.
+- The board of one task says who acts next.
 - A line that waits for you says where you answer.
 - The page reads its data again each two seconds.
 
