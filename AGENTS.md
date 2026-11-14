@@ -64,6 +64,13 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **A shipped skill's name follows `/lem`** ("/lem interview-me sounds perfect like a callout
   command"). The form that was built from it, the id `lem-<name>` and the dispatcher in
   `SKILL.md`, is the starting session's design and open to him.
+- **The README is in ASD-STE100 Simplified Technical English**: "We need to use ASD-STE100
+  Simplified Technical English (STE) style to describe what we offer here". One topic in each
+  sentence, 20 words at most in an instruction and 25 in a description, the active voice, no
+  "-ing" verb form except in a technical name, a vertical list for steps. Technical names stay
+  exact. This file and the skill files keep their own voice. The README also has diagrams,
+  examples and pictures of the board; an example that no run produced says that it is an
+  illustration, and a picture of demo data says so in its caption.
 - **Linking an older tool's folders is the first step of an adoption, never its end**: "its
   crucial that we first make some test with those linked settings but migrated to settings under
   .lem right after it, like most users will do". `/lem migrate` is that second step; its
@@ -115,6 +122,8 @@ real task, so say in the commit which task showed the need.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
   `assets/lem-night.svg` and `assets/lem-mark-night.svg` are the same drawings in the night
   palette, written by `assets/night.py`; the README shows the night one in a dark theme.
+- `assets/screens/`: the README's pictures of the board, for a light and a dark theme. They are
+  renders of `skills/lem/assets/board.html` over demo data, at two device pixels for each pixel.
 - `skills/lem-huddle/`, `skills/lem-webrev/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
   `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
   `skills/lem-gate/`, `skills/lem-panel/`: the skills Lem names and ships. `NOTICE` says where

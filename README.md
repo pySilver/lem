@@ -7,108 +7,262 @@
 
 # Lem
 
-Lem coordinates coding agents. One command, `/lem`, carries a unit of work from the ask to a
-landed, reviewed change, the same way in every repository: `new`, `plan`, `build`, `land`,
-`review`, `night`, `status`, `learn`, `retro` and `init`. Lem holds the flow. What differs between
-projects lives in each project's repository, where `/lem init` writes it.
+Lem coordinates the agents that write code in one repository. You type `/lem` and your ask. Lem
+gives the work to builders, lands the change, and puts the change in a review queue.
 
-There is one Lem per repository, in the session where you type `/lem`. It takes the asks, gives
-each task to a lead in a context of its own, lands one branch at a time, queues the reviews and
-reports to you. It holds no task's details: of a task it reads the state and the report.
+The name is from Stanisław Lem. Lem is the one in the middle. It builds nothing. It holds the
+line that the other agents work on, and it answers to you for all of them.
 
-The name is Stanisław Lem's. Lem is the one in the middle: it builds nothing itself, it holds the
-line the other agents work on, and it answers to you for all of them.
+> **State: a first version.** No real task has gone through Lem. Lem runs in
+> [agterm](https://agterm.com) only. Claude Code is the only agent with a checked contract.
 
-**State: a first version.** No real task has run through it, there is no installer, and the
-contract is written for Claude Code only. Lem runs inside [agterm](https://agterm.com) and
-nowhere else.
+## The board
 
-## How it works
+`/lem status` opens the board of all tasks. `/lem status <task>` opens the board of one task.
 
-- **Build first, review after.** A builder writes a short plan, and each task of the plan gets a
-  fresh builder; machine checks gate the landing; the landed change joins a review queue. A task
-  on paths the project calls careful gets a session of its own with a reviewer in its other pane:
-  a second opinion on the plan and a review of each task.
-- **Only so many tasks build at one time.** The limit is a setting, `flow.max_tasks`; a task over
-  it waits in a queue.
-- **A board shows all of it.** `/lem status` opens a live page under Lem's session: each task in
-  the lane of who acts on it, with its lead, its newest commit, its gate result and its review
-  item. `/lem status <task>` opens the board of one task.
-- **The review queue is honest.** A high-risk landing is due the day it lands. A normal item
-  nobody read in seven days is closed as "not reviewed" and reported, so unread changes are a
-  number someone sees.
-- **The owner is needed at three points**: the ask, a decision whose options each cost a person
-  something, and the report. Every other decision is taken, logged and listed for the owner to
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screens/board-dark.png">
+    <img src="assets/screens/board-light.png" alt="The board of all tasks: four lanes of task cards, the places in use, the time of each task and the review queue" width="900">
+  </picture>
+</p>
+
+*The board of all tasks. This picture shows demo data from a fixture. The tasks are examples, and
+the page says so at its top.*
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screens/task-dark.png">
+    <img src="assets/screens/task-light.png" alt="The board of one task: who acts now, the phases, the state blocks and the result of each gate command" width="900">
+  </picture>
+</p>
+
+*The board of one task, also with demo data.*
+
+The board shows these things:
+
+- Each task is in the lane of the one who acts on it: you, a builder, the gate, or nobody.
+- Each card shows the lead, the newest commit, the gate result and the review item.
+- A line that waits for you says where you answer.
+- The page reads its data again each two seconds.
+
+## How one task goes
+
+```mermaid
+flowchart TD
+    ask([You: /lem and your ask]) --> open[Lem opens the task:<br/>a branch, a worktree, the ask in your words]
+    open --> plan[A builder writes a short plan<br/>as the first commit]
+    plan --> careful{Does the plan touch<br/>a careful path?}
+    careful -- no --> build[One new builder<br/>for each task of the plan]
+    careful -- yes --> session[A session of its own<br/>with a reviewer in the other pane]
+    session --> opinion[The reviewer reads the plan<br/>before any code]
+    opinion --> buildc[One new builder for each task,<br/>and a review of each task]
+    build --> report[The lead writes the report<br/>and the state: ready]
+    buildc --> report
+    report --> base[Lem brings the base branch in]
+    base --> closing[Closing pass: the documents,<br/>and small defects outside the task]
+    closing --> gate{The gate:<br/>the machine checks}
+    gate -- red --> repair[A builder repairs it] --> base
+    gate -- green --> land[Lem lands the branch,<br/>or you land it]
+    land --> queue[(The review queue)]
+    queue --> review[A review round reads the landed change.<br/>A confirmed defect becomes a new task]
+```
+
+These rules hold for each task:
+
+- **Build first, review after.** Machine checks gate the landing. A review reads the landed change
+  from a queue.
+- **Careful paths keep the slow flow.** The project names the paths where a defect costs most. A
+  plan that touches one gets a second opinion, and each of its tasks gets a review.
+- **One builder for each task of a plan.** Each builder starts with an empty context.
+- **One branch lands at a time.** The gate result is about one tip on one base.
+- **The review queue is honest.** A high-risk item is due on the day it lands. A normal item that
+  nobody read in seven days is closed as "not reviewed", and the report says so.
+- **You are necessary at three points**: the ask, a decision whose options each cost a person
+  something, and the report. Lem takes each other decision, logs it, and lists it for you to
   overturn.
-- **A correction edits the file that owns the step**: a stage of this skill, a style guide file,
-  a persona, a review lens. Notes read at session start do not hold.
-- **Stages name capabilities, not tools**, so another agent is one more file in
-  `skills/lem/harness/`.
+- **Only some tasks build at one time.** The limit is the setting `flow.max_tasks`. A task over the
+  limit waits in a queue.
 
-## What a project keeps
+## Two levels
 
-`/lem init` checks the machine, examines the repository, interviews the owner and writes
-`.lem/project.toml` with draft profiles:
-
-```
-.lem/
-  project.toml   paths, base branch, who lands, who reviews and with which model and effort,
-                 gate commands, careful paths, how many tasks build at one time
-  project.local.toml   this machine's own reviewer for now; git does not track it
-  profile.md     what the project is
-  styleguide/    how code is written here, by path
-  personas/      the people a decision affects
-  review/        the review tool's lenses, profile and rejected findings
-  lessons.md     corrections with no better file
+```mermaid
+flowchart LR
+    you([You]) <-- asks, held decisions, reports --> lem[Lem<br/>one session for the repository]
+    lem -- starts, reads the state and the report --> leadA[Lead of a plain task<br/>a builder]
+    lem -- starts, reads the state and the report --> leadB[Lead of a careful task<br/>a session of its own]
+    leadA --> b1[Builder: task 1]
+    leadA --> b2[Builder: task 2]
+    leadB --> b3[Builder: task 1]
+    leadB <-- plan and diffs --> rev[Reviewer<br/>in the other pane]
+    lem -- lands one branch at a time --> basebranch[(The base branch)]
 ```
 
-A task's worktree goes under `.lem/worktrees/`, which git ignores, and its state (the ask, the
-state blocks, the report, the decisions) inside the git directory, where it outlives the worktree.
+There is one Lem for one repository. It is the session where you type `/lem`.
 
-A repository that already keeps some of these for an older tool (`.claude/rules`, `.revmux`,
-`.personas`) may link them at first: the settings file points at them and nothing moves. Later
-`/lem migrate` moves them under `.lem/`, as a task, and leaves the links two tools need.
+- Lem takes the asks, starts each task, lands the branches, and reports to you.
+- Lem holds no details of a task. It reads the ask, the newest state block and the report.
+- A lead owns one task from its plan to its report. A lead never asks you a question. It writes
+  the question in its report, and Lem asks you.
+- When Lem asks you to choose or to approve, it opens a page with the options side by side. You
+  do not type a command for that.
 
-## What comes with it
+## Where things are
 
-An opinionated set, kept small. Each shipped skill has the id `lem-<name>` and runs as
-`/lem <name>`.
+```mermaid
+flowchart TD
+    subgraph checkout [The checkout]
+        toml[.lem/project.toml<br/>the settings, in git]
+        local[.lem/project.local.toml<br/>the settings of this computer, not in git]
+        profiles[.lem/profile.md, styleguide/, personas/, review/, lessons.md<br/>in git]
+        wt[.lem/worktrees/<br/>one worktree for each task, ignored by git]
+    end
+    subgraph gitdir [The git directory, shared by all worktrees]
+        tasks[lem/tasks/NAME/<br/>task.md, brief.md, state.md, report.md, decisions.md]
+        events[lem/events.jsonl<br/>each state block and gate result]
+        queue[lem/review-queue.jsonl<br/>the landed changes that wait for a review]
+    end
+    wt -. writes the state .-> tasks
+    tasks --> board[The board]
+    events --> board
+    queue --> board
+```
 
-The ones you call:
+- The settings of a project are in its repository. `/lem init` writes them.
+- The state of a task is in the git directory. It is not committed, and it stays when the
+  worktree is removed.
+- A repository that already has `.claude/rules`, `.revmux` or `.personas` can link them first.
+  Then `/lem migrate` moves them into `.lem/` as a task.
 
-| Command | For |
+## Examples
+
+These examples are illustrations of the flow. No real run exists yet. The names and the answers
+are examples, not results.
+
+### Set up a repository
+
+1. You type `/lem init`.
+2. Lem does a check of the computer. It tells you which necessary tool is absent, and it stops if
+   one is absent.
+3. Lem reads the repository: the README, the dependencies, the tests, the CI files, the last
+   merges.
+4. Lem asks you one question at a time, each with its own guess. Example: "This is a shop back
+   end for small merchants. Is that correct?"
+5. Lem asks which paths must never break. Its guess comes from the repository, for example
+   `app/payments/*` and the migrations.
+6. Lem writes `.lem/project.toml` and the drafts: the profile, the personas, the style guide.
+7. Lem shows you one page: what the computer has, what Lem wrote, and each assumption with its
+   source.
+8. Lem commits the drafts on the branch `chore/lem-onboarding`. You read them. That is the review.
+
+### Do an item from the backlog
+
+1. You type `/lem new docs/backlog/export-drops-custom-columns.md`.
+2. Lem opens the task `export-keeps-its-columns` and starts a builder.
+3. The builder writes a plan with one task and builds it. It runs the tests of the files that it
+   changed.
+4. The builder writes the report: what you get, the proof for each "done when" line, and what it
+   did not verify.
+5. Lem brings the base branch in, and a builder does the closing pass.
+6. Lem runs the gate. The gate is green.
+7. Lem lands the branch and adds a review item with the risk `normal`.
+8. Lem reports to you in plain words: what you get, how to see it, the last line of each gate
+   command, and the decisions that it took without you.
+
+Lem does not read tickets from a tracker yet. [docs/linear.md](docs/linear.md) says how a project
+connects Linear, and what is not built.
+
+### Start from an idea
+
+1. You type `/lem customers must see their VAT number on the invoice page`.
+2. Lem writes the ask in your words, the outcome, and the "done when" lines.
+3. If the ask has two meanings that give you different results, Lem asks you one time. Each
+   option says what you get.
+4. If the ask is not clear to you, type `/lem interview-me`. Lem asks one question at a time
+   until the ask is clear.
+5. The task goes on as in the example above.
+6. If the plan touches a careful path, Lem opens a session for the task. A reviewer reads the plan
+   before any code.
+7. If a decision is yours, Lem shows it to you as a page. The page starts with one concrete case
+   and has the options side by side.
+
+## Commands
+
+| Command | What it does |
 | --- | --- |
-| `/lem interview-me` | an unclear ask, and the onboarding interview: one question at a time, each with a guess |
-| `/lem backlog` | deferred work, one file per item |
-| `/lem dialectic` | a claim argued both ways before a decision rests on it |
-| `/lem root-cause` | a defect nobody can explain after two tries |
-| `/lem webrev` | a document you mark up in an agterm overlay |
-| `/lem release`, `/lem last-tag` | cutting a release with notes, and what changed since the last one |
-| `/lem pr-review` | reviewing a pull request or an issue and drafting the comment |
+| `/lem <your ask>` or `/lem new <what>` | opens a task and starts it |
+| `/lem plan <what>` | opens a task and stops after the plan, for you to read |
+| `/lem build <task>` | builds a plan that waits: a night draft, or a plan that you read |
+| `/lem land` | lands the oldest task that is ready |
+| `/lem status`, `/lem status <task>` | opens the board of all tasks, or of one task |
+| `/lem review` | does the review queue, the high-risk items first |
+| `/lem reviewer <agent> [model [effort]]` | names the reviewer on this computer for now |
+| `/lem reviewer default` | gives the reviewer of the project back |
+| `/lem migrate` | moves linked settings into `.lem/` |
+| `/lem night` | writes a plan for one backlog item when nobody is there |
+| `/lem learn`, `/lem retro` | changes the file that owns a step after a correction |
+| `/lem init` | sets up a repository |
 
-The ones Lem uses by itself:
+Each skill that comes with Lem has the id `lem-<name>` and starts with `/lem <name>`.
 
-| Skill | For |
+The skills that you call:
+
+| Command | Use |
 | --- | --- |
-| `lem-huddle` | every question that asks you to choose or approve, as a page with the options side by side |
-| `lem-gate` | whether a question reaches you at all: a ruling, a probe or the agent may answer it |
-| `lem-panel` | the people a decision affects answer it first, from the project's own cast |
+| `/lem interview-me` | an ask that is not clear: one question at a time, each with a guess |
+| `/lem backlog` | work for later, one file for each item |
+| `/lem dialectic` | a claim that two agents argue from the two sides |
+| `/lem root-cause` | a defect that nobody can explain after two tries |
+| `/lem webrev` | a document that you mark in an agterm overlay |
+| `/lem release`, `/lem last-tag` | a release with notes, and the changes after the last release |
+| `/lem pr-review` | a review of a pull request or an issue, with a draft comment |
 
-Not shipped, and checked for by `python3 skills/lem/scripts/doctor.py`. Required: git, Python
-3.11 or newer, [revmux](https://github.com/umputun/revmux) for the review rounds, agterm with
-its skill, and `mailbox-chat.py` from agterm's cookbook, which carries the messages between the
-coordinator and the reviewer in the other pane. Optional, each with a fallback the check names:
-plannotator (recommended), Codex, jev and cronn.
+The skills that Lem uses without a command from you:
 
-The agent that runs `/lem` coordinates and its builders build. The reviewer's pane holds Codex or
-a second Claude, as the project's `[seats.reviewer]` says; `/lem reviewer claude` changes that on
-one machine, for a day when the usual reviewer is down, and `/lem reviewer default` ends it. A Codex that runs `/lem` itself waits for
-its harness file. A project that prefers its own tool for a role points its settings at it.
+| Skill | Use |
+| --- | --- |
+| `lem-huddle` | each question that asks you to choose or to approve, as a page |
+| `lem-gate` | the decision if a question must go to you at all |
+| `lem-panel` | the answers of the persons that a decision has an effect on |
 
-## Trying it in Claude Code
+## Settings
 
-Link the skills, the builder agent and the `huddle` command from a clone, so an edit here is what
-the next session reads:
+`.lem/project.toml` holds the rules of the project:
+
+| Setting | Meaning |
+| --- | --- |
+| `[paths]` | where the profile, the style guide, the personas and the review files are |
+| `branch.base`, `branch.protected` | the branch that tasks land on, and the branches that nothing lands on |
+| `branch.land` | who lands: `owner` or `agent` |
+| `branch.history` | what lands: the commits of the branch (`keep`) or one commit (`squash`) |
+| `gate.commands`, `gate.ignores` | the machine checks, and the paths that the gate does not read |
+| `flow.careful` | the paths that get the careful flow |
+| `flow.max_tasks` | how many tasks build or land at one time |
+| `[seats.reviewer]` | the reviewer: the agent, and optionally the model and the effort |
+| `tools.annotate` | the tool with which you mark a plan |
+
+`.lem/project.local.toml` is for one computer. Git does not track it. It can change the reviewer
+and the mark tool only.
+
+## What is necessary
+
+Run this check: `python3 skills/lem/scripts/doctor.py`.
+
+Necessary:
+
+- git, and Python 3.11 or newer
+- [agterm](https://agterm.com) and its skill
+- `mailbox-chat.py` from the agterm cookbook:
+  [two-agent-mailbox-chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat).
+  It carries the messages between an agent and the reviewer in the other pane.
+- [revmux](https://github.com/umputun/revmux) for the review rounds
+- on a computer with Claude Code: the `lem-builder` agent, which the setup links
+
+Optional, each with a fallback that the check names: plannotator, Codex, jev and cronn.
+
+## Setup in Claude Code
+
+Do these steps from a clone. The links make each change in the clone active in the next session.
 
 ```bash
 for d in "$PWD"/skills/*/; do ln -s "${d%/}" ~/.claude/skills/"$(basename "$d")"; done
@@ -117,8 +271,11 @@ ln -s "$PWD/skills/lem-huddle/bin/huddle" ~/.local/bin/huddle
 python3 skills/lem/scripts/doctor.py
 ```
 
-The last line checks the machine. A project that wants another builder keeps a file of the same
-name in its own `.claude/agents/`.
+- The last line is the check of the computer.
+- A project that wants a different builder keeps a file with the same name in its own
+  `.claude/agents/`.
+- The agent that runs `/lem` coordinates. The reviewer is Codex or a second Claude, as
+  `[seats.reviewer]` says.
 
 ## Tests
 
@@ -126,4 +283,5 @@ name in its own `.claude/agents/`.
 bash tests/test-lem.sh
 bash tests/test-gate-panel.sh
 bash tests/test-huddle.sh
+shellcheck tests/*.sh
 ```
