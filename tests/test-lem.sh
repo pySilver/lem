@@ -541,6 +541,17 @@ if [ "$(project --repo "$r" migrate plan | field '"review" in d["linked"]')" = T
 else
   fail "migrate with a trailing slash"
 fi
+# A rule file whose name reads as a pattern, beside an ignored file that the pattern would match.
+r=$(small_repo pattern)
+echo 'Brackets.' > "$r/.claude/rules/rule[ab].md" && mkdir -p "$r/.lem/styleguide" && echo local > "$r/.lem/styleguide/rulea.md"
+echo '.lem/styleguide/rulea.md' > "$r/.gitignore" && git -C "$r" add -A && git -C "$r" commit -q -m "docs: a rule with brackets in its name"
+project --repo "$r" migrate run --styleguide 'rule[ab].md' >/dev/null
+if [ "$(git -C "$r" ls-files .lem/styleguide)" = ".lem/styleguide/rule[ab].md" ] && [ -L "$r/.claude/rules/rule[ab].md" ] && [ "$(cat "$r/.claude/rules/rule[ab].md")" = "Brackets." ] \
+  && [ "$(cat "$r/.lem/styleguide/rulea.md")" = local ] && [ ! -L "$r/.claude/rules/a.md" ]; then
+  pass "a rule file with brackets in its name moves as that one file, and an ignored file the name would match as a pattern is not staged"
+else
+  fail "migrate with a pattern-like file name: $(git -C "$r" ls-files .lem/styleguide)"
+fi
 # A step that fails after the first move: the git directory cannot be written, so nothing can be staged.
 r=$(small_repo rollback)
 mkdir "$r/.revmux/tasks" && echo session > "$r/.revmux/tasks/session" && echo '.revmux/tasks/' > "$r/.gitignore" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: ignore the rounds"

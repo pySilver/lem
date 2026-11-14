@@ -472,7 +472,10 @@ def linked(root: Path) -> dict[str, tuple[str, str]]:
 
 
 def tracked_files(root: Path, path: str) -> list[str]:
-    listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--", path], capture_output=True, text=True, check=True)
+    # --literal-pathspecs: a file may be named `rule[ab].md`, and git would read that as a pattern
+    listed = subprocess.run(
+        ["git", "--literal-pathspecs", "-C", str(root), "ls-files", "-z", "--", path], capture_output=True, text=True, check=True,
+    )
     return sorted(field for field in listed.stdout.split("\0") if field)
 
 
@@ -501,7 +504,10 @@ def cmd_migrate_run(root: Path, styleguide: list[str] | None) -> None:
     """Move the linked folders under .lem. What can be checked is checked before the first move, and a
     step that still fails puts every file back where it was."""
     def git(*args: str, check: bool = True) -> str:
-        ran = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False)
+        # Every path here is one file or folder by its exact name. Without --literal-pathspecs git
+        # reads `[`, `*` and `?` in a name as a pattern, and `add -f` would then stage another file
+        # that matches it, an ignored one too.
+        ran = subprocess.run(["git", "--literal-pathspecs", "-C", str(root), *args], capture_output=True, text=True, check=False)
         if check and ran.returncode != 0:
             raise SettingsError(f"git {' '.join(args[:2])} failed: {ran.stderr.strip()}")
         return ran.stdout
