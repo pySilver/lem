@@ -68,9 +68,7 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> Pa
             known = ", ".join(task["slug"] for task in json.loads(project(repo, "tasks"))) or "none yet"
             raise BoardError(f"no task {slug!r}; the tasks are: {known}")
     # The main checkout names the repository; a worktree's folder is named after its task.
-    listed = subprocess.run(["git", "-C", repo, "worktree", "list", "--porcelain"], capture_output=True, text=True, check=False)
-    main = next((line.removeprefix("worktree ") for line in listed.stdout.splitlines() if line.startswith("worktree ")), settings["root"])
-    meta = {"repo": Path(main).name, "base": settings["branch"]["base"], "session": session}
+    meta = {"repo": Path(settings["main"]).name, "base": settings["branch"]["base"], "session": session}
     # A board of made-up tasks must say so itself: a line under "Waits for you" reads as a call to
     # act. The mark is a file beside the events, because it is a fact about the data and not about
     # one open: `/lem status` opens the same folder later with no flag, and the page must still say it.

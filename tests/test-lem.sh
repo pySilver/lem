@@ -194,11 +194,13 @@ if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent
 else
   fail "reviewer override: $out"
 fi
-printf '%s\n' '[tools]' 'annotate = "my-own-rev"' >> "$OLD/.lem/project.local.toml"
+# A value the owner wrote by hand keeps every character through a rewrite: a rocket, a quote, a backslash.
+printf '%s\n' '[tools]' 'annotate = "/opt/my \"own\" rev-🚀\\x"' >> "$OLD/.lem/project.local.toml"
+project --repo "$OLD" reviewer claude >/dev/null
 out=$(project --repo "$OLD" reviewer default)
 if [ "$(field '(d["reviewer"]["agent"], d["reviewer"]["model"], d["local"]["overrides"])' <<<"$out")" = "('codex', 'the-usual', ['tools.annotate'])" ] \
-  && grep -q 'annotate = "my-own-rev"' "$OLD/.lem/project.local.toml" && ! grep -q "seats" "$OLD/.lem/project.local.toml"; then
-  pass "reviewer default gives the project's reviewer back and keeps what else the machine set"
+  && [ "$(project --repo "$OLD" show | field 'd["tools"]["annotate"]')" = '/opt/my "own" rev-🚀\x' ] && ! grep -q "seats" "$OLD/.lem/project.local.toml"; then
+  pass "reviewer default gives the project's reviewer back and keeps what else the machine set, character for character"
 else
   fail "reviewer default: $out / $(cat "$OLD/.lem/project.local.toml")"
 fi
@@ -219,6 +221,19 @@ fi
 project --repo "$OLD" reviewer codex >/dev/null && project --repo "$OLD" reviewer default >/dev/null
 if [ ! -e "$OLD/.lem/project.local.toml" ]; then pass "a local file with nothing left in it is removed"; else fail "empty local file stays"; fi
 settings '[branch]' 'base = "master"'
+# A checkout whose folder name holds a line break is still one path.
+ODD="$WORK/odd
+name"
+git init -q -b main "$ODD"
+commit "$ODD" start
+project --repo "$ODD" init --base main --reviewer codex >/dev/null
+project --repo "$ODD" reviewer claude >/dev/null
+git -C "$ODD" worktree add -q "$WORK/odd-wt" -b feat/odd
+if [ "$(project --repo "$WORK/odd-wt" show | field '(d["seats"]["reviewer"]["agent"], d["main"] == d["local"]["file"][:len(d["main"])], "\n" in d["main"])')" = "('claude', True, True)" ]; then
+  pass "the main checkout is found whole when its path holds a line break, so a worktree reads its local settings"
+else
+  fail "a checkout path with a line break: $(project --repo "$WORK/odd-wt" show | field '(d["main"], d["local"])')"
+fi
 
 # The event log: every state block is an event the board can load, with the worktree's newest commit.
 events() { "$PY" -c 'import json, sys; d = [json.loads(line) for line in open(sys.argv[1])]; print(eval(sys.argv[2], {"d": d}))' "$OLD/.git/lem/events.jsonl" "$1"; }

@@ -84,9 +84,10 @@ class Task:
             raise LandError(f"no task {slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
         self.others_landing = [task["slug"] for task in tasks if task["status"] == "landing" and task["slug"] != slug]
         self.directory = Path(script("project.py", repo, "state-dir").stdout.strip()) / "tasks" / slug
-        listed = git(repo, "worktree", "list", "--porcelain")
-        entries = [block.splitlines() for block in listed.split("\n\n") if block.strip()]
-        self.main = Path(entries[0][0].removeprefix("worktree "))
+        # -z: a NUL ends each field and an empty field ends each worktree, so a path with a line break stays whole
+        listed = run(["git", "-C", str(repo), "worktree", "list", "--porcelain", "-z"]).stdout
+        entries = [block.split("\0") for block in listed.split("\0\0") if block.strip("\0")]
+        self.main = Path(self.settings["main"])
         relative = Path(self.settings["paths"]["worktrees"]["path"]).relative_to(Path(self.settings["root"]).resolve())
         self.worktree = self.main / relative / slug
         # the checkout that holds the base branch, when one does

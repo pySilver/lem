@@ -205,9 +205,16 @@ def inside(root: Path, relative: str, where: str) -> Path:
 
 def main_checkout(root: Path) -> Path:
     """The checkout every worktree hangs off: the first entry git lists. A file git does not track lives only there."""
-    listed = subprocess.run(["git", "-C", str(root), "worktree", "list", "--porcelain"], capture_output=True, text=True, check=False)
-    first = next((line.removeprefix("worktree ") for line in listed.stdout.splitlines() if line.startswith("worktree ")), None)
+    # -z ends each field with a NUL: a path may hold a line break, and a split on lines would cut it
+    listed = subprocess.run(["git", "-C", str(root), "worktree", "list", "--porcelain", "-z"], capture_output=True, text=True, check=False)
+    first = next((field.removeprefix("worktree ") for field in listed.stdout.split("\0") if field.startswith("worktree ")), None)
     return Path(first) if first else root
+
+
+def toml_string(value: str) -> str:
+    """A string as TOML writes it. JSON's own escapes would turn a character outside the basic plane into two halves TOML refuses."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return '"' + "".join(f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c for c in escaped) + '"'
 
 
 def read_settings(file: Path, name: Path, tables: tuple[str, ...]) -> dict:
@@ -304,6 +311,8 @@ def load(root: Path) -> dict:
 
     return {
         "root": str(root),
+        # the checkout every worktree hangs off; it is `root` unless this ran in a task's worktree
+        "main": str(main_checkout(root)),
         "settings": str(file) if file.is_file() else None,
         "paths": paths,
         "branch": {"base": base, "land": land, "history": history, "protected": protected},
@@ -413,10 +422,10 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
         body = local.get(table) or {}
         plain = {key: value for key, value in body.items() if not isinstance(value, dict)}
         if plain:
-            lines += ["", f"[{table}]", *(f"{key} = {json.dumps(value)}" for key, value in plain.items())]
+            lines += ["", f"[{table}]", *(f"{key} = {toml_string(value)}" for key, value in plain.items())]
         for key, value in body.items():
             if isinstance(value, dict) and value:
-                lines += ["", f"[{table}.{key}]", *(f"{k} = {json.dumps(v)}" for k, v in value.items())]
+                lines += ["", f"[{table}.{key}]", *(f"{k} = {toml_string(v)}" for k, v in value.items())]
     if len(lines) == 1:
         file.unlink(missing_ok=True)
     else:
@@ -482,13 +491,8 @@ def task_worktree(root: Path, settings: dict, slug: str) -> dict:
         ran = subprocess.run(["git", "-C", str(where), *args], capture_output=True, text=True, check=False)
         return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
 
-    # Worktrees hang off the main checkout, and this may run in one of them: the first entry git
-    # lists is the main checkout.
-    listed = git(root, "worktree", "list", "--porcelain") or ""
-    main = next((line.removeprefix("worktree ") for line in listed.splitlines() if line.startswith("worktree ")), None)
-    if main is None:
-        return {}
-    path = Path(main) / Path(settings["paths"]["worktrees"]["path"]).relative_to(root.resolve()) / slug
+    # Worktrees hang off the main checkout, and this may run in one of them.
+    path = main_checkout(root) / Path(settings["paths"]["worktrees"]["path"]).relative_to(root.resolve()) / slug
     if not (path / ".git").exists():
         return {}
     commit = git(path, "log", "-1", "--format=%h%x00%s")
