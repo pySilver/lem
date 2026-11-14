@@ -148,10 +148,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## dialectic and root-cause-investigator
+## dialectic, root-cause-investigator, release, last-tag and pr-review
 
 `skills/dialectic/` and `skills/root-cause-investigator/` are copied unchanged from the
-`thinking-tools` plugin of [umputun/cc-thingz](https://github.com/umputun/cc-thingz), as of commit
+`thinking-tools` plugin, and `skills/release/` (there `new`), `skills/last-tag/` and
+`skills/pr-review/` (there `pr`) from the `release-tools` and `review` plugins, renamed and with
+their script paths and one cross-reference changed, of [umputun/cc-thingz](https://github.com/umputun/cc-thingz), as of commit
 68d29a4 (2026-11-03).
 
 ```

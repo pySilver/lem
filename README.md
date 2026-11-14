@@ -1,11 +1,19 @@
-# task-skills
+<p align="center"><img src="assets/lem.svg" alt="Lem" width="410"></p>
 
-One entry point for a unit of work, the same in every repository: `/task new`, `plan`, `build`,
-`land`, `review`, `status`, `learn`, `retro` and `init`. The flow lives here. What differs between
+# Lem
+
+Lem coordinates coding agents. One command, `/task`, carries a unit of work from the ask to a
+landed, reviewed change, the same way in every repository: `new`, `plan`, `build`, `land`,
+`review`, `night`, `status`, `learn`, `retro` and `init`. Lem holds the flow. What differs between
 projects lives in each project's repository, where `/task init` writes it.
 
+The name is Stanisław Lem's. In his "Cyberiad" two constructors, Trurl and Klapaucius, build
+machines and check each other's work; here one agent builds and one reviews, in two panes of one
+terminal.
+
 **State: a first version.** No real task has run through it, there is no installer, and the
-contract is written for Claude Code only. `task-skills` is a working name.
+contract is written for Claude Code only. Lem runs inside [agterm](https://agterm.com) and
+nowhere else.
 
 ## How it works
 
@@ -53,6 +61,8 @@ An opinionated set, kept small. Shipped here, beside `task`:
 | `backlog` | deferred work, one file per item |
 | `dialectic` | a claim argued both ways before a decision rests on it |
 | `root-cause-investigator` | a defect nobody can explain after two tries |
+| `release`, `last-tag` | cutting a release with notes, and what changed since the last one |
+| `pr-review` | reviewing a pull request or an issue and drafting the comment |
 
 Not shipped, and checked for by `python3 skills/task/scripts/doctor.py`. Required: git, Python
 3.11 or newer, [revmux](https://github.com/umputun/revmux) for the review rounds, agterm with

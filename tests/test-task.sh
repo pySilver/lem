@@ -90,6 +90,18 @@ settings '[seats]' 'reviewer = "gemini"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a reviewer that is neither claude nor codex is refused"; else fail "reviewer value"; fi
 settings '[seats]' 'reviewer = "claude"'
 if [ "$(project --repo "$OLD" show | field 'd["seats"]["reviewer"]')" = "claude" ]; then pass "the reviewer seat may be the same family as the builder"; else fail "reviewer claude"; fi
+settings '[branch]' 'base = "v2"' 'protected = ["master", "develop"]'
+err=$(project --repo "$OLD" may-land master 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" may-land master)" = 1 ] && grep -q "protected" <<<"$err" && [ "$(status_of project --repo "$OLD" may-land feature)" = 1 ] \
+  && [ "$(status_of project --repo "$OLD" may-land v2)" = 0 ]; then
+  pass "may-land refuses a protected branch and any branch but the base, and accepts the base"
+else
+  fail "may-land: $err"
+fi
+settings '[branch]' 'base = "master"' 'protected = ["master"]'
+if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a base branch that is also protected is refused as a contradiction"; else fail "protected base"; fi
+settings '[tools]' 'annotate = "my-own-rev"'
+if [ "$(project --repo "$OLD" show | field 'd["tools"]["annotate"]')" = "my-own-rev" ]; then pass "a project names its own tool for marking up a plan"; else fail "tools.annotate"; fi
 settings 'not toml ['
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a settings file that does not parse is refused"; else fail "parse error"; fi
 
@@ -113,6 +125,7 @@ if [ "$dir" = "$OLD/.git/task/tasks/report-dates-stay-whole" ] && [ -d "$dir/rep
 else
   fail "task-dir: $dir"
 fi
+if [ "$(project --repo "$WORK/wt" state-dir)" = "$OLD/.git/task" ]; then pass "state-dir prints the one folder every worktree shares"; else fail "state-dir"; fi
 if [ "$(status_of project --repo "$OLD" task-dir "Report Dates")" = 1 ]; then pass "a slug that is not hyphenated lower-case words is refused"; else fail "slug form"; fi
 printf '%s\n' 'Keep report dates whole.' '' 'more' > "$dir/task.md"
 printf '%s\n' '2026-01-02 build: task 2 of 3 running' 'next: land' '' '2026-01-01 plan written' > "$dir/state.md"

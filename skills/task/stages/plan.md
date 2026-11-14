@@ -30,4 +30,10 @@ typing and so a reviewer can tell what was meant; it is not argued line by line 
    nothing answers it → the question gate, then the
    persona panel with the project's cast (`project.py path personas`), then the owner. Ask all
    held decisions of the plan in one go, and build the tasks that do not depend on them meanwhile.
+   A held decision reaches the owner in this order: one concrete run in numbered steps, with
+   real values, that ends badly, and whether it was reproduced or derived; why it became
+   possible, and how far the same cause reaches; two to four options, each replaying that run
+   to its new ending, with its cost now and its cost later; one recommendation; pointers to
+   files last. When the owner wants to read or mark up the plan itself, open it with the
+   settings' `tools.annotate`.
 5. **Go on to `build`.** Write a block in `state.md`.

@@ -21,6 +21,10 @@ careful paths keep the slow flow, and review takes a fixed share of the same day
 
 ## Before any subcommand
 
+`/task` runs inside agterm only: the reviewer's pane, the pages for the owner and the mailbox
+between the two agents are agterm's. When `AGTERM_SESSION_ID` is not set, say that the session
+must be started in agterm, and stop.
+
 ```bash
 python3 SKILL_DIR/scripts/project.py show
 ```
@@ -45,6 +49,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `review` | works the review queue by risk; confirmed findings become tasks | `stages/review.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
+| `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
 | `status`, bare `/task` | every open task, the review queue and what waits for the owner | below |
 
 `new` runs on into `plan`, `build` and `land` without stopping, unless a stage file names a stop.
@@ -66,6 +71,10 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 - **Careful paths take the careful flow.** `project.py careful FILE...` says which files of a
   change the project's patterns match. One match makes the task careful: its plan is read by a
   second opinion before the build, and each of its tasks is reviewed before the next.
+- **A confused owner gets an explanation, not a fix.** "I thought X did Y", "why is this
+  happening": find out what the code does and say it as one short run in numbered steps, with
+  the source. About half the time the owner's instinct is right and it is a defect: say which of
+  the two it is before changing anything.
 - **Numbers carry their source.** A count is a command's output, a time is `date -u`, a test
   result is the exact last line of the run. One coordinator made four factual errors in owner
   reports in its first 28 hours: clock values it estimated, a count and a claim about the gate.
@@ -97,4 +106,5 @@ there at every stage boundary. The plan itself is a file in the repository, in t
 `python3 SKILL_DIR/scripts/project.py tasks` lists every task directory with the first line of
 its `task.md` and the newest block of its `state.md`. Say, in plain names and never in task
 codes: what is in flight and what each waits on, what landed today, how many review items are
-open and how many are due today, and what waits for the owner. Change nothing.
+open and how many are due today, and what waits for the owner. Open with the newest night report
+when one is newer than the last status shown. Change nothing.

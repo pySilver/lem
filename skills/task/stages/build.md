@@ -29,7 +29,10 @@ writes the code loses the plan when its context fills.
    builder. A task that is not careful is not reviewed here; its review comes from the queue after
    the landing.
 4. **A builder that is blocked** reports the blocker in its file. A defect nobody can explain
-   after two tries goes to the `root-cause-investigator` skill before a third. Decide it if it is yours to
+   after two tries goes to the `root-cause-investigator` skill before a third. An approach that
+   failed twice, or that the owner calls wrong, is not tried a third time with a patch: state the
+   problem again in plain terms, name what the two tries assumed, and brief the next builder
+   with a different approach and why it avoids that assumption. Decide it if it is yours to
    decide; if it is a held decision, treat it as `plan.md` step 4 does and keep the other tasks
    moving.
 5. **When every task has its report, go on to `land`.** Write a block in `state.md`.

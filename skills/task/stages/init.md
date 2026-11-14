@@ -73,6 +73,9 @@ For a repository that has code:
 - **What must never break**: confirm or correct the proposed careful paths. This is the one
   setting that is the owner's to choose.
 - **Who lands**: the owner, or the agent once the gate is green; and the branch tasks land on.
+- **Which branches are closed**: branches nothing may land on or be pushed to, such as a
+  release branch during a rewrite that lands on a branch of its own. They go into
+  `branch.protected`.
 - **Who reviews**: the agent in the reviewer's pane, Codex or a second Claude. Guess Codex when
   step 1 found it, since two model families disagree more usefully than one family twice.
 - **The folders already here**, when `project.py existing` listed any: link them, so the older
@@ -90,7 +93,8 @@ python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --exist
 ```
 
 Leave `--existing` out when step 2 found no older folder. Then edit `.agents/project.toml`: the
-gate commands from `examined.md`, the careful patterns the owner confirmed, and `land`.
+gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, the
+protected branches, and `tools.annotate` when the owner marks up plans with a tool of their own.
 
 ## 5. Generate what is absent
 
@@ -127,13 +131,15 @@ gate, the personas). Commit the settings and the generated files on a branch of 
 
 ## 7. Scheduled work for this repository
 
-Only when step 1 showed cronn running. Offer two jobs that belong to this repository, each a
+Only when step 1 showed cronn running. Offer three jobs that belong to this repository, each a
 session started in it with nobody at the terminal:
 
 - a retro each morning (`/task retro`), so a correction that came back is moved before the next
   day's work;
 - a pass over the review queue (`/task review`), so a `high` item is not left to whoever lands
-  next.
+  next;
+- a night plan (`/task night`), which leaves the owner a plan each morning for one backlog item
+  that needs no decision.
 
 Add a job only on the owner's yes, through the `cronn` skill when it is installed, and name the
 job after the repository. A scheduled job starts an agent that nobody watches: that choice is

@@ -24,7 +24,7 @@ And three roles a stage names instead of a skill id, because the id differs per 
 | the review tool | runs one review round over a range with the project's lenses and profile |
 
 A stage may name a skill this repository ships (`interview-me`, `huddle`, `webrev`, `backlog`,
-`dialectic`, `root-cause-investigator`) by its name: the name is the same in every agent.
+`dialectic`, `root-cause-investigator`, `release`, `last-tag`, `pr-review`) by its name: the name is the same in every agent.
 
 Each agent's file answers every row, or says the capability is absent and what the stage does
 then. A file exists only for an agent the contract was checked in.

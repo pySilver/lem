@@ -1,6 +1,6 @@
-# task-skills
+# Lem
 
-The `task` skill: one flow for a unit of work in any repository, with each project's settings kept
+Lem is the `task` skill and the skills it ships: one flow for a unit of work in any repository, with each project's settings kept
 in that project's repository. `README.md` says what it does; this file says how to change it.
 
 ## Rules for a change here
@@ -44,8 +44,11 @@ real task, so say in the commit which task showed the need.
 - `skills/task/scripts/`: `project.py` (a repository's settings and task state), `doctor.py`
   (the machine), `review_queue.py` (landed changes that wait for a review).
 - `skills/task/templates/`: the shapes onboarding fills.
+- `skills/task/prompts/`: the reviewer's standing brief.
+- `skills/task/references/`: the catalog of published style guides.
+- `assets/lem.svg`: the logo.
 - `skills/huddle/`, `skills/webrev/`, `skills/backlog/`, `skills/interview-me/`, `skills/dialectic/`,
-  `skills/root-cause-investigator/`: the skills the task skill names and ships. `NOTICE` says where
+  `skills/root-cause-investigator/`, `skills/release/`, `skills/last-tag/`, `skills/pr-review/`: the skills the task skill names and ships. `NOTICE` says where
   each came from.
 
 ## The shipped skills are copies, not yet under the rules above

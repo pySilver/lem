@@ -12,11 +12,13 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py show                 everything, resolved, as JSON
     project.py path NAME            one path, absolute
     project.py careful FILE...      which of the files take the careful flow
+    project.py may-land BRANCH      exit 1 unless tasks of this project may land on BRANCH
     project.py existing             the folders an older tool already reads here, as JSON
     project.py init [--base NAME] [--existing link|new] [--reviewer claude|codex]
                                     write .agents/project.toml
     project.py task-dir SLUG        make and print one task's state directory
     project.py tasks                every task's ask and newest state block, as JSON
+    project.py state-dir            the folder that holds every task, the review queue and the night reports
 
 Task state is kept inside the git directory every worktree shares: it is never committed, a
 worktree's removal does not take it, and a session that replaces another finds it.
@@ -54,10 +56,11 @@ REVIEWERS = ("claude", "codex")
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
-    "branch": ("base", "land"),
+    "branch": ("base", "land", "protected"),
     "gate": ("commands",),
     "flow": ("careful",),
     "seats": ("reviewer",),
+    "tools": ("annotate",),
 }
 
 TEMPLATE = """\
@@ -72,6 +75,8 @@ TEMPLATE = """\
 base = "{base}"
 # Who lands a finished task: "owner", or "agent" once the gate is green.
 land = "owner"
+# Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
+protected = []
 
 [gate]
 # The machine checks that gate a landing, each run at the root of the checkout.
@@ -86,6 +91,11 @@ careful = []
 # The agent in the reviewer's pane: "claude" or "codex". The agent that runs /task builds; this one
 # reads its plans and diffs. The same family twice is allowed.
 {reviewer}
+
+[tools]
+# The skill or command the owner marks up a plan or a draft with. "webrev" comes with the skill;
+# name your own instead.
+annotate = "webrev"
 """
 
 
@@ -155,6 +165,13 @@ def load(root: Path) -> dict:
     if land not in LAND:
         raise SettingsError(f"{SETTINGS}: branch.land = {land!r} must be one of {', '.join(LAND)}")
 
+    protected = strings(branch.get("protected", []), "branch.protected")
+    if base in protected:
+        raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
+    annotate = raw.get("tools", {}).get("annotate", "webrev")
+    if not isinstance(annotate, str) or not annotate.strip():
+        raise SettingsError(f"{SETTINGS}: tools.annotate must name a skill or a command")
+
     reviewer = raw.get("seats", {}).get("reviewer")
     if reviewer is not None and reviewer not in REVIEWERS:
         raise SettingsError(f"{SETTINGS}: seats.reviewer = {reviewer!r} must be one of {', '.join(REVIEWERS)}")
@@ -163,10 +180,11 @@ def load(root: Path) -> dict:
         "root": str(root),
         "settings": str(file) if file.is_file() else None,
         "paths": paths,
-        "branch": {"base": base, "land": land},
+        "branch": {"base": base, "land": land, "protected": protected},
         "gate": {"commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands")},
         "flow": {"careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful")},
         "seats": {"reviewer": reviewer},
+        "tools": {"annotate": annotate},
     }
 
 
@@ -189,6 +207,18 @@ def cmd_careful(settings: dict, files: list[str]) -> None:
         else:
             plain.append(relative.as_posix())
     print(json.dumps({"careful": careful, "plain": plain}, indent=2))
+
+
+def cmd_may_land(settings: dict, target: str) -> None:
+    """Exit 1 unless TARGET is the branch this project's tasks land on."""
+    branch = settings["branch"]
+    if target in branch["protected"]:
+        raise SettingsError(f"{target!r} is protected in {SETTINGS}: nothing lands on it or is pushed to it")
+    if branch["base"] is None:
+        raise SettingsError(f"{SETTINGS} names no branch.base, so no branch can be landed on")
+    if target != branch["base"]:
+        raise SettingsError(f"tasks of this project land on {branch['base']!r}, not on {target!r}")
+    print(f"{target}: tasks land here; the {branch['land']} lands")
 
 
 def default_branch(root: Path) -> str | None:
@@ -269,6 +299,7 @@ def main() -> None:
     commands.add_parser("show")
     commands.add_parser("path").add_argument("name")
     commands.add_parser("careful").add_argument("files", nargs="+")
+    commands.add_parser("may-land").add_argument("branch")
     init = commands.add_parser("init")
     init.add_argument("--base")
     init.add_argument("--existing", choices=("link", "new"))
@@ -276,6 +307,7 @@ def main() -> None:
     commands.add_parser("existing")
     commands.add_parser("task-dir").add_argument("slug")
     commands.add_parser("tasks")
+    commands.add_parser("state-dir")
     args = parser.parse_args()
     try:
         root = repo_root(Path(args.repo))
@@ -291,11 +323,17 @@ def main() -> None:
         if args.command == "tasks":
             cmd_tasks(root)
             return
+        if args.command == "state-dir":
+            state_root(root).mkdir(exist_ok=True)
+            print(state_root(root))
+            return
         settings = load(root)
         if args.command == "show":
             print(json.dumps(settings, indent=2))
         elif args.command == "path":
             cmd_path(settings, args.name)
+        elif args.command == "may-land":
+            cmd_may_land(settings, args.branch)
         else:
             cmd_careful(settings, args.files)
     except SettingsError as error:
