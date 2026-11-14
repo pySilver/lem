@@ -47,5 +47,5 @@ otherwise the `ready` task with the oldest state time. Its branch and tip are in
    item's risk. Then remove the worktree the way the project does, close the task's session when
    it had one, and write the state `landed` with the landed range.
 
-Then the next: a `ready` task lands, and a `queued` task starts when `project.py may-start` exits
-0 (`stages/new.md`, step 5).
+Then the next: a `ready` task lands, and the queue is looked at as `stages/new.md` ends: a
+landing holds a place, so its end may free one.

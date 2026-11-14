@@ -675,6 +675,8 @@ function derive(now) {
     forOwner: list.filter(t => t.forOwner).sort((a, b) => OWNER_ORDER.indexOf(a.status) - OWNER_ORDER.indexOf(b.status) || a.since - b.since),
     landedToday: list.filter(t => t.status === 'landed' && dayKey(t.since) === dayKey(now)),
     due: open.filter(r => r.due !== 'when the day allows'),
+    // What project.py may-start counts: a task that builds, and the one the gate runs on.
+    places: list.filter(t => t.status === 'building' || t.status === 'landing').length,
     unknown: list.filter(t => !STATUS[t.status]),
     task: view ? tasks.get(view) ?? null : null,
   };
@@ -857,13 +859,14 @@ const stat = (label, value, sub, cls = '') => h('div', {class: `stat ${cls}`, ti
 
 function buildBoardProgress(m) {
   const limit = m.limit ?? '?';
-  const n = m.building.length;
-  return keyed(`prog:${n}:${limit}:${m.queued.length}:${m.ready.length}:${m.landing.length}:${m.forOwner.length}:${m.landedToday.length}:${m.open.length}:${m.due.length}:${m.blocked.length}`,
+  const n = m.places;
+  return keyed(`prog:${n}:${m.building.length}:${limit}:${m.queued.length}:${m.ready.length}:${m.landing.length}:${m.forOwner.length}:${m.landedToday.length}:${m.open.length}:${m.due.length}:${m.blocked.length}`,
     h('div', {class: 'prog'},
       ring(0, n, typeof limit === 'number' ? limit : Math.max(n, 1), `${n}/${limit}`, 'places'),
       h('div', {},
-        h('div', {class: 'now-head'}, n ? `${plural(n, 'task')} build${n === 1 ? 's' : ''}` : 'No task builds'),
-        h('div', {class: 'dim'}, typeof limit === 'number' ? `The project lets ${plural(limit, 'task')} build at one time (flow.max_tasks).` : 'The limit comes with the first state block.')),
+        h('div', {class: 'now-head'}, n ? `${plural(n, 'place')} taken` : 'No place is taken'),
+        h('div', {class: 'dim'}, n ? `${m.building.length} build${m.building.length === 1 ? 's' : ''}, ${m.landing.length} land${m.landing.length === 1 ? 's' : ''}. ` : '',
+          typeof limit === 'number' ? `The project lets ${plural(limit, 'task')} build or land at one time (flow.max_tasks).` : 'The limit comes with the first state block.')),
       h('div', {class: 'stats'},
         stat('Waits for you', m.forOwner.length, m.forOwner.length ? 'a held decision, a plan or a draft' : 'nothing', m.forOwner.length ? 'you' : ''),
         stat('Queued', m.queued.length, 'asks that wait for a place'),
@@ -1019,7 +1022,7 @@ function render() {
     $('ask').textContent = '';
     patch($('meta'), [
       meta.base ? chip('base', 'branch', '', 'tasks land on ', h('b', {}, meta.base)) : null,
-      chip('limit', 'layers', '', h('b', {}, `${m.building.length} of ${m.limit ?? '?'}`), ' places taken'),
+      chip(`limit:${m.places}`, 'layers', '', h('b', {}, `${m.places} of ${m.limit ?? '?'}`), ' places taken'),
       chip(`review:${m.open.length}:${m.due.length}`, 'eye', m.due.length ? 'you' : '', h('b', {}, m.open.length), ` review ${m.open.length === 1 ? 'item' : 'items'} open`, m.due.length ? `, ${m.due.length} due` : ''),
       m.blocked.length ? chip('blocked', 'alert', 'bad', h('b', {}, m.blocked.length), ' blocked') : null,
     ]);

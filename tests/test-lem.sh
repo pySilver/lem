@@ -223,6 +223,14 @@ else
 fi
 project --repo "$OLD" state second-task ready "the report is written" >/dev/null
 if [ "$(status_of project --repo "$OLD" may-start)" = 0 ]; then pass "a task that waits for its landing takes no place"; else fail "may-start after ready"; fi
+project --repo "$OLD" state second-task landing "the gate runs" >/dev/null
+err=$(project --repo "$OLD" may-start 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" may-start)" = 1 ] && grep -q "report-dates-stay-whole, second-task" <<<"$err"; then
+  pass "a task whose gate runs holds a place, because a builder may repair what the gate shows"
+else
+  fail "may-start during a landing: $err"
+fi
+project --repo "$OLD" state second-task ready "the gate was cut off" >/dev/null
 accepted=""
 for bad in 0 true '"four"' 2.5; do
   settings '[flow]' "max_tasks = $bad"
@@ -374,7 +382,7 @@ if [ -n "$chrome" ]; then
   }
   draw board
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 builds, 1 in the landing line" "Report dates stay whole" "Keep report dates whole." \
-    "Building: task 2 of 3" "Second task" "Ready to land: the report is written" "normal, due when the day allows" "tasks land on master"); then
+    "Building: task 2 of 3" "Second task" "Ready to land: the gate was cut off" "1 of 2" "normal, due when the day allows" "tasks land on master"); then
     pass "the board draws each task in its lane from the events, with the review queue"
   else
     fail "the board: missing $why"

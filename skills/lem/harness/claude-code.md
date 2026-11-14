@@ -41,9 +41,8 @@ cannot type to it. A careful or large task gets a session for that reason.
 A companion session of this one, which runs Claude Code with the brief's file named in its first
 prompt.
 
-1. **Write the brief** to a file in the task directory (`brief.md`). Add one line to it:
-   `coordinator: SESSION:PANE`, with this session's `AGTERM_SESSION_ID` and this pane's
-   `AGTERM_PANE_ID`.
+1. **The brief** is the task's `brief.md`. Add one line to it: `coordinator: SESSION:PANE`, with
+   this session's `AGTERM_SESSION_ID` and this pane's `AGTERM_PANE_ID`.
 2. **Open the session**:
 
    ```bash
@@ -114,6 +113,10 @@ ask the owner once and write the answer into `.lem/project.toml`.
      - Claude Code: `claude --append-system-prompt "$(cat PATH/prompts/reviewer.md)" "You are the reviewer. Wait for the first message."`
    - read `agtermctl tree --json` and confirm the session's `splitForeground` is that agent, then
      `mailbox-chat.py status` again.
+   - Codex asks "Trust this folder?" the first time it starts in a repository, and it saves the
+     answer in the owner's Codex configuration. That answer is the owner's: tell the owner that
+     the reviewer's pane waits for it, and do not type into the pane. `mailbox-chat.py status`
+     says `codex` once the pane listens.
    Under agterm's Live sessions mode, `agtermctl session restart --pane-id ID --command LINE` starts
    the same line without typing; in the other restore modes it is refused.
 3. **Send the request** through the `mailbox-chat` skill: what to review (the plan's path, or the
@@ -127,9 +130,11 @@ ask the owner once and write the answer into `.lem/project.toml`.
 Say in the report which family reviewed. Two agents of one family agree more easily than two of
 different ones; the report says "same family" when that was the case.
 
-Checked on 2026-11-14 with agterm in its rerun restore mode: a split opened on a background
-session, a program started by a typed line, and its name read back from `splitForeground`. Not
-run yet: a real reviewer started this way and a mail round trip with it.
+Checked on 2026-11-14 with agterm 0.41.1 in its rerun restore mode and a fish login shell: a
+split opened on a background session, Codex started by the typed line with the reviewer's brief,
+its name read back from `splitForeground`, and one review went to it and came back through the
+mailbox. The reply waited in the mailbox while the coordinator's turn ran, and reached it only
+when the coordinator read its mail. Not run yet: a Claude Code reviewer started this way.
 
 ## fan-out
 

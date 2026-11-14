@@ -45,7 +45,7 @@ plan when its context fills.
    failed twice is not tried a third time with a patch: state the problem again in plain terms,
    name what the two tries assumed, and brief the next builder with a different approach and why
    it avoids that assumption. Decide it if it is yours to decide; if it is a held decision, treat
-   it as `plan.md` step 4 does and keep the other tasks moving.
+   it as `plan.md` does under "A held decision" and keep the other tasks moving.
 4. **Go on to "The report"** when every task has its report.
 
 ## The report
@@ -60,8 +60,8 @@ Write `report.md` in the task directory, whole, each time:
 - **not verified**: what you could not or did not check;
 - **decisions**: each one taken without the owner, with why and what it would take to undo. Add
   the same lines to `decisions.md`;
-- **held**: each decision that is the owner's, in the form of `plan.md` step 4. Leave the heading
-  out when there is none;
+- **held**: each decision that is the owner's, in the form `plan.md` gives under "A held
+  decision". Leave the heading out when there is none;
 - **outside defects**: each defect seen in code outside the task and not touched. Write each as an
   item in the project's backlog path, in the `backlog` skill's item format, commit the items on
   the task's branch, and list their paths here. A project with no backlog gets the defects

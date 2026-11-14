@@ -101,8 +101,9 @@ Between two of the owner's messages Lem only waits: a lead that stops wakes it.
   change the project's patterns match. One match makes the task careful: a session leads it, its
   plan is read by a second opinion before the build, and each of its tasks is reviewed before the
   next.
-- **Only so many tasks build at one time.** `project.py may-start` exits 1 at the settings'
-  `flow.max_tasks`. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
+- **Only so many tasks build or land at one time.** `project.py may-start` exits 1 at the
+  settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
+  the gate runs and a builder may repair what it showed. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
   16 and unstable browser tests (convertiser-server, as its owner reported it on 2026-11-14). A
   task over the limit is queued, never started "just this once"; only the owner raises the limit.
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion
@@ -157,7 +158,7 @@ and before you stop. The status says who acts next:
 | `held` | it waits for the owner: a held decision, or a landing that is the owner's | the owner, through Lem |
 | `blocked` | the lead stopped on something it could not settle | Lem |
 | `ready` | the report is written and the branch waits for its landing | Lem |
-| `landing` | the gate runs on it | Lem |
+| `landing` | the gate runs on it, or a builder repairs what the gate showed | Lem |
 | `landed` | it is on the base branch and its review is queued | nobody |
 | `drafted` | a plan written at night that waits for the owner's word | the owner |
 | `dropped` | nobody will build it | nobody |

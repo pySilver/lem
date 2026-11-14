@@ -23,7 +23,7 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py tasks                every task's ask, status and newest state block, as JSON
     project.py log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
-    project.py may-start            exit 1 when as many tasks build as flow.max_tasks allows
+    project.py may-start            exit 1 when as many tasks build or land as flow.max_tasks allows
     project.py state-dir            the folder that holds every task, the review queue and the night reports
 
 Task state is kept inside the git directory every worktree shares: it is never committed, a
@@ -78,16 +78,17 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   held      it waits for the owner: a held decision, or a landing that is the owner's
 #   blocked   the lead stopped on something the coordinator has to settle
 #   ready     the report is written and the branch waits for its landing
-#   landing   the gate runs on it
+#   landing   the gate runs on it, or a builder repairs what the gate or the base showed
 #   landed    it is on the base branch and its review is queued
 #   drafted   a plan written at night that waits for the owner's word
 #   dropped   nobody will build it
 STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "landed", "drafted", "dropped")
-# the states in which an agent works on the task and loads the machine
-RUNNING = ("building",)
+# The states in which the task loads the machine: a lead builds, or the gate runs and a builder may
+# repair a conflict or a red gate.
+RUNNING = ("building", "landing")
 # The first line of a state block: the time in UTC, the status, one line of text.
 STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
-# How many tasks build at one time when the settings do not say. Four to five ran well on one Mac;
+# How many tasks build or land at one time when the settings do not say. Four to five ran well on one Mac;
 # six gave a load average of 12 to 16 and unstable browser tests (convertiser-server, as its owner
 # reported it on 2026-11-14). The right number depends on the machine and on the project's tests.
 MAX_TASKS = 4
@@ -123,9 +124,9 @@ commands = []
 # Paths whose change takes the careful flow: the plan is read by the reviewer and each task
 # is reviewed before the next starts. A `*` crosses directories.
 careful = []
-# How many tasks build at one time. Four to five ran well on one Mac; six gave a load average of
-# 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when the tests
-# share one database or drive a browser.
+# How many tasks build or land at one time. Four to five ran well on one Mac; six gave a load
+# average of 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when
+# the tests share one database or drive a browser.
 max_tasks = {max_tasks}
 
 [seats]
@@ -446,12 +447,12 @@ def read_tasks(root: Path) -> list[dict]:
 
 
 def cmd_may_start(settings: dict, root: Path) -> None:
-    """Exit 1 when as many tasks build as the project allows at one time."""
+    """Exit 1 when as many tasks build or land as the project allows at one time."""
     limit = settings["flow"]["max_tasks"]
     running = [task["slug"] for task in read_tasks(root) if task["status"] in RUNNING]
     if len(running) >= limit:
         raise SettingsError(
-            f"{len(running)} tasks build ({', '.join(running)}) and flow.max_tasks is {limit}: "
+            f"{len(running)} tasks build or land ({', '.join(running)}) and flow.max_tasks is {limit}: "
             f"write the new task's state as `queued` and start it when one of them stops; "
             f"only the owner raises the limit, in {SETTINGS}",
         )

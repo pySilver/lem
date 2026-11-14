@@ -31,7 +31,13 @@ by line before the build.
    session: large`; and stop. Lem opens a session, and its lead starts from your plan. When your
    brief says `stop after the plan: yes`, stop the same way with the line `the owner reads the
    plan`.
-4. **A held decision goes to the owner, the others do not.** For each decision of the plan: a
+4. **A careful plan gets a second opinion before any code.** This is the session's step, and it
+   comes before step 5 lets any task be built.
+   `second-opinion` reads the plan against the code, read-only, in a fresh context, and replies
+   with the design failures it can show with a cite. Fix the plan for each one that holds. One
+   such read took nine minutes and found three design failures before any code
+   (convertiser-server, 2026-11-14). A plan that is not careful skips this.
+5. **A held decision goes to the owner, the others do not.** For each decision of the plan: a
    ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and write it
    in `decisions.md`. It turns on a claim that can be argued both ways ("this will not scale",
    "nobody uses that") → the `dialectic` skill settles the claim first. Its options each cost a
@@ -42,10 +48,6 @@ by line before the build.
    - one line on why the case became possible and how far the same cause reaches;
    - the options, each as what a person would see and what it costs, and what you would choose.
    Then build the tasks that do not depend on a held decision. Write the state `held` and stop
-   only when every task that is left depends on one.
-5. **A careful plan gets a second opinion before any code.** This is the session's step.
-   `second-opinion` reads the plan against the code, read-only, in a fresh context, and replies
-   with the design failures it can show with a cite. Fix the plan for each one that holds. One
-   such read took nine minutes and found three design failures before any code
-   (convertiser-server, 2026-11-14). A plan that is not careful skips this.
+   only when every task that is left depends on one. A builder whose plan is careful or large has
+   stopped at step 3 before this, and the session that takes the plan over does step 4 first.
 6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.
