@@ -7,9 +7,11 @@ tokens at the median, 252k to 967k (mybaze, 2026-09-29/30, from that project's r
 that plans, briefs and reports while it also writes several tasks loses the plan when its context
 fills.
 
-## A plan of one task: you build it
+## A builder with a plan of one task: you build it
 
-You wrote the plan, and you are its one builder.
+Your brief says `lead: builder` and the plan has one task: you wrote the plan, and you are its
+one builder. A session never takes this section. Its plan is careful, so its one task gets a
+builder of its own and a review of its diff, as the next section says.
 
 1. **Build the task.** Write it, run the tests of the files you wrote or edited and the
    formatter, linter and type checker the project's `AGENTS.md` names, and commit on the task's
@@ -20,7 +22,7 @@ You wrote the plan, and you are its one builder.
    and stop: Lem gives the task to a fresh builder.
 3. **Go on to "The report".**
 
-## A plan of more tasks: you coordinate
+## A plan of more tasks, or any plan of a session: you coordinate
 
 You write no code. A builder leads this way as a session does; the harness file says whether a
 builder can start builders in your agent, and what to do when it cannot.
@@ -51,9 +53,15 @@ builder can start builders in your agent, and what to do when it cannot.
    - *an approach that failed twice*: it is not tried a third time with a patch. State the problem
      again in plain terms, name what the two tries assumed, and brief the next builder with a
      different approach and why it avoids that assumption;
-   - *a question of what the right outcome is* (what a person should see, which of two readings
-     of the ask holds): the `panel` skill with the project's cast answers it. Write the answer in
-     `decisions.md` and brief the next builder with it. It is not a question for the reviewer;
+   - *a question of what a person should see* (which of two results serves the people of the
+     project better, where the ask and the rulings leave it open): the `panel` skill in its
+     reviewing mode, with the project's cast, gives the people's reading of the two results. It
+     asks the owner nothing and decides nothing. Take the decision yourself with that reading,
+     write it in `decisions.md` with what the personas said, and brief the next builder. It is
+     not a question for the reviewer;
+   - *a question of what the owner meant* (two readings of the ask that give the owner different
+     things) or of taste: the personas do not answer for the owner, and neither do you. It is a
+     held decision;
    - *a held decision*: treat it as `plan.md` does under "A held decision", and keep the other
      tasks moving.
 4. **Go on to "The report"** when every task has its report.
@@ -74,7 +82,7 @@ Write `report.md` in the task directory, whole, each time:
   decision". Leave the heading out when there is none;
 - **outside defects**: each defect seen in code outside the task, with its file and one line on
   what is wrong. Do not fix it and do not file it: the closing pass of the landing fixes the
-  small ones in place and files the others (`stages/land.md`, step 3);
+  small ones in place and proposes the others to the owner (`stages/land.md`, step 3);
 - **review risk**: `high` when the task was careful, or touches authentication, money, a
   migration, a security boundary or the gate's own tooling; `normal` otherwise. One line says
   which of these it was;

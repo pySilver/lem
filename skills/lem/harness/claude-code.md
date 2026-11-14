@@ -127,7 +127,17 @@ ask the owner once and write the answer into `.lem/project.toml`.
 4. **The reply arrives in this pane by itself.** Never poll for it, and check every claim it makes
    about the code with your own read before you act on it.
 5. **A reviewer is fresh for each review.** Before the next one, `agtermctl session split close`
-   on this session ends the pane and its agent, and step 2 opens a new one.
+   on this session ends the pane and its agent, and step 2 opens a new one. The dispute of a
+   review's points and the check of the fixes it asked for belong to that review and stay in its
+   pane.
+   A new pane is not always a new Codex. With agterm's cookbook recipe for Codex session resume
+   installed, a `codex` typed in a session continues that session's conversation: its wrapper
+   keeps the session's Codex thread in `~/.codex/agterm/SESSION-ID` (the id in lower case). On
+   2026-11-14 four reviewer panes opened one after the other all registered the same thread, and
+   the pane's status line went on from 12% of the context to 17%, 32% and 40%. So before the
+   launch of step 2, remove that file when it is there; after the launch, the pane's status line
+   must show a context near zero. A reviewer that carries the last review reads the next one
+   with it.
 
 Say in the report which family reviewed. Two agents of one family agree more easily than two of
 different ones; the report says "same family" when that was the case.

@@ -36,12 +36,15 @@ one finds what the run before it finished.
      README, the agent document, the style guide), and corrects every sentence the change made
      false, as `docs:` commits;
    - *the outside defects* the report lists: one that is cheap and small is fixed in place, in a
-     commit of its own; each of the others becomes an item in the project's backlog path, in the
-     `backlog` skill's item format, committed on the branch.
-   Its reply is the documents it corrected, the defects it fixed and the items it filed, or that
-   there was nothing of a kind. Name the filed items in the owner's report, so the owner can drop
-   one. This runs once for a task, here, and never after each task of a plan. The next step runs
-   the gate over all of it, and a project's own document checks are gate commands.
+     commit of its own. Each of the others is written as a proposed item, in the `backlog`
+     skill's item format, as a file in the task directory (`proposed/`), and is not committed:
+     filing is offered to the owner, never done for him.
+   Its last act is to bring `report.md` up to what it did: the documents it corrected, the defects
+   it fixed, the items it proposes, and the review risk again, judged over the whole range as it
+   is now. A small fix in a file the report's risk rule names makes the risk `high`. Its reply is
+   that the report is current, or that there was nothing of either kind. This runs once for a
+   task, here, and never after each task of a plan. The next step runs the gate over all of it,
+   and a project's own document checks are gate commands.
 4. **`gate`.** Every command of the settings' `gate.commands` runs at the root of the task's
    worktree, on the tip that will land, each with its output in a file of the task directory. The
    step keeps the exact last line of each, logs each result for the board, and records the commit
@@ -55,7 +58,7 @@ one finds what the run before it finished.
    again, and it takes its turn in the landing line. Skipping or changing a gate command is
    the owner's decision only. After two builders on the same failure, write the state `blocked`
    and tell the owner.
-5. **`land`**, with `--risk` from the report and, when the settings' `branch.history` is
+5. **`land`**, with `--risk` from the report as the closing pass left it and, when the settings' `branch.history` is
    `squash`, `--message` with the report's commit subject. It lands only the tree the gate passed
    on, as a fast-forward: pushed to the base branch of `origin` with a plain push, or, in a
    repository with no remote, by a fast-forward of the base branch itself. It queues the review
@@ -75,7 +78,8 @@ one finds what the run before it finished.
    reason. The next task's worktree starts from that checkout's base branch, so say that too.
 6. **Report to the owner**, once, in plain words, from `report.md`: what they get, how to see it,
    the gate's last lines, the decisions taken without them, what was not verified, and the review
-   item's risk. A `high` item is reviewed today: `stages/review.md`, rule 1.
+   item's risk. Offer each proposed backlog item by its first line; the ones the owner takes go
+   to the `backlog` skill, which files them, and the others are dropped with the task's state. A `high` item is reviewed today: `stages/review.md`, rule 1.
 7. **`clean`** removes the task's worktree and its branch, after it has checked that the base
    holds the branch's tip. It refuses a worktree with changes or files of its own: those are
    someone's work until the owner says otherwise. Do what the project's `AGENTS.md` adds for a
