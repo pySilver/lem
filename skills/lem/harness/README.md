@@ -1,6 +1,6 @@
 # The harness contract
 
-A stage of the task skill says what to do. How an agent starts a builder, asks the owner or loads
+A stage of Lem says what to do. How an agent starts a builder, asks the owner or loads
 another skill differs between Claude Code, Codex and the next agent the owner tries, and that
 difference belongs to the agent, not to the stage. It is written once per agent in this folder,
 in a file named after the agent. A stage names a capability from the table and never a tool, so a

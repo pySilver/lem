@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The task skill's project settings, offline: project.py resolves where a repository keeps what
+# Lem's project settings, offline: project.py resolves where a repository keeps what
 # the skill reads. With no settings file it answers from the skill's own layout; init points at the
 # folders an older tool already reads instead of moving them; a settings file with an unknown key,
 # a wrong value or a path that leaves the repository is refused; careful names the files a
@@ -7,7 +7,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-PROJECT=$PWD/skills/task/scripts/project.py
+PROJECT=$PWD/skills/lem/scripts/project.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
@@ -120,7 +120,7 @@ commit() { git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty 
 commit "$OLD" start
 git -C "$OLD" worktree add -q "$WORK/wt" -b feat/x
 dir=$(project --repo "$WORK/wt" task-dir report-dates-stay-whole)
-if [ "$dir" = "$OLD/.git/task/tasks/report-dates-stay-whole" ] && [ -d "$dir/reports" ] && [ -z "$(git -C "$WORK/wt" status --porcelain)" ]; then
+if [ "$dir" = "$OLD/.git/lem/tasks/report-dates-stay-whole" ] && [ -d "$dir/reports" ] && [ -z "$(git -C "$WORK/wt" status --porcelain)" ]; then
   pass "task-dir, run in a worktree, makes the task's directory in the shared git directory"
 else
   fail "task-dir: $dir"
@@ -132,7 +132,7 @@ if [ "$where" = "$OLD/.lem/worktrees/report-dates-stay-whole" ] && [ ! -e "$wher
 else
   fail "worktree-dir: $where / $(git -C "$OLD" status --porcelain -- .lem/worktrees)"
 fi
-if [ "$(project --repo "$WORK/wt" state-dir)" = "$OLD/.git/task" ]; then pass "state-dir prints the one folder every worktree shares"; else fail "state-dir"; fi
+if [ "$(project --repo "$WORK/wt" state-dir)" = "$OLD/.git/lem" ]; then pass "state-dir prints the one folder every worktree shares"; else fail "state-dir"; fi
 if [ "$(status_of project --repo "$OLD" task-dir "Report Dates")" = 1 ]; then pass "a slug that is not hyphenated lower-case words is refused"; else fail "slug form"; fi
 printf '%s\n' 'Keep report dates whole.' '' 'more' > "$dir/task.md"
 printf '%s\n' '2026-01-02 build: task 2 of 3 running' 'next: land' '' '2026-01-01 plan written' > "$dir/state.md"
@@ -145,7 +145,7 @@ else
 fi
 
 # The review queue: a landing adds an item, high risk first, and an unread normal item expires.
-QUEUE=$PWD/skills/task/scripts/review_queue.py
+QUEUE=$PWD/skills/lem/scripts/review_queue.py
 queue() { "$PY" -B "$QUEUE" --repo "$OLD" "$@"; }
 first=$(queue add report-dates --range abc..def --risk normal)
 second=$("$PY" -B "$QUEUE" --repo "$WORK/wt" add auth-token-index --range def..123 --risk high --note "touches the token lookup")
@@ -162,7 +162,7 @@ else
   fail "close refusals"
 fi
 printf '%s\n' '{"id": 3, "slug": "old-normal", "range": "a..b", "risk": "normal", "note": null, "added": "2020-01-01T00:00:00+00:00", "outcome": null}' \
-  '{"id": 4, "slug": "old-high", "range": "b..c", "risk": "high", "note": null, "added": "2020-01-01T00:00:00+00:00", "outcome": null}' >> "$OLD/.git/task/review-queue.jsonl"
+  '{"id": 4, "slug": "old-high", "range": "b..c", "risk": "high", "note": null, "added": "2020-01-01T00:00:00+00:00", "outcome": null}' >> "$OLD/.git/lem/review-queue.jsonl"
 out=$(queue expire)
 left=$(queue list)
 if [ "$(field 'd["expired"]' <<<"$out")" = "[3]" ] && [ "$(field '[(i["id"], i["due"]) for i in d]' <<<"$left")" = "[(4, 'overdue'), (1, 'when the day allows')]" ]; then
@@ -172,7 +172,7 @@ else
 fi
 
 # The machine check: a required tool that is absent fails it, an optional one only changes its row.
-DOCTOR=$PWD/skills/task/scripts/doctor.py
+DOCTOR=$PWD/skills/lem/scripts/doctor.py
 BIN=$WORK/bin
 FAKEHOME=$WORK/home
 mkdir -p "$BIN" "$FAKEHOME"

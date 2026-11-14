@@ -1,6 +1,6 @@
 # night
 
-`/task night` runs with nobody at the terminal, started by a scheduled job. It reads the backlog,
+`/lem night` runs with nobody at the terminal, started by a scheduled job. It reads the backlog,
 picks what an agent can take without a decision from the owner, and leaves a plan for the morning.
 It never builds: a plan is the owner's to start.
 
@@ -30,5 +30,5 @@ It never builds: a plan is the owner's to start.
    - **drop**: the item is gone from the backlog or another branch took it.
    Write the last block of `state.md` as `drafted at night`, with the date.
 
-In the morning `/task status` opens with the night report. The owner starts a draft with
-`/task build` in its worktree, or says hold or drop.
+In the morning `/lem status` opens with the night report. The owner starts a draft with
+`/lem build` in its worktree, or says hold or drop.

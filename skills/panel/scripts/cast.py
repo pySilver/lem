@@ -58,13 +58,13 @@ import sys
 from pathlib import Path
 
 # Where a project keeps its personas, its profile and its panels' files, relative to the checkout.
-# These are the task skill's own layout; configure() replaces them with what the project's
+# These are Lem's own layout; configure() replaces them with what the project's
 # settings say, so a project that keeps its cast where an older tool reads it is served too.
 PROJECT_CAST = Path(".lem") / "personas"
 PROJECT_PROFILE = Path(".lem") / "profile.md"
 RUNS = Path(".lem") / "runs"
 BUILT_IN = Path(__file__).resolve().parent.parent / "cast"
-PROJECT_SETTINGS = Path(__file__).resolve().parents[2] / "task" / "scripts" / "project.py"
+PROJECT_SETTINGS = Path(__file__).resolve().parents[2] / "lem" / "scripts" / "project.py"
 
 
 def fail(message: str) -> None:

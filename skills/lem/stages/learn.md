@@ -36,7 +36,7 @@ read whole.
 
 ## retro
 
-`/task retro` reads what the sessions did since the last retro: each task's `decisions.md`, the
+`/lem retro` reads what the sessions did since the last retro: each task's `decisions.md`, the
 reports' "not verified" and "outside defects" lines, the review queue's outcomes, and the owner's
 corrections where the project records them. It looks for what came back:
 

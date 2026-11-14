@@ -14,7 +14,7 @@ one repository, the queue held 48 items and 43 were still open (convertiser-serv
    project's own lenses and profile (`project.py path review`; with revmux, that directory is its
    `--config-dir`). The project's `AGENTS.md` names the profile for a `high` item and for a
    `normal` one. A finding is confirmed against the code before it counts.
-4. **A confirmed finding becomes a task**: `/task new` with the finding as the ask, for a major
+4. **A confirmed finding becomes a task**: `/lem new` with the finding as the ask, for a major
    one at once, for minor ones as one task per item reviewed. A finding the project decides
    against is recorded where its review tool keeps rejected findings, so no later round raises it
    again.

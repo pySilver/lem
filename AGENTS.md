@@ -1,17 +1,17 @@
 # Lem
 
-Lem is the `task` skill and the skills it ships: one flow for a unit of work in any repository, with each project's settings kept
+Lem is the `lem` skill and the skills it ships: one flow for a unit of work in any repository, with each project's settings kept
 in that project's repository. `README.md` says what it does; this file says how to change it.
 
 ## Rules for a change here
 
 - **The skill knows no project.** No repository, product, path or person of a real project appears
-  in `skills/task/SKILL.md`, the stage files, the harness files or the templates, except as the
+  in `skills/lem/SKILL.md`, the stage files, the harness files or the templates, except as the
   dated source of a measurement ("convertiser-server, 2026-11-14"). What a project needs to say,
   it says in its own `.lem/` folder or its own `AGENTS.md`.
 - **A stage names a capability or a role, never a tool.** `spawn-builder`, `second-opinion`,
   `ask-owner`, `fan-out`, `show-page`, `load-skill`; the question gate, the persona panel, the
-  review tool. `skills/task/harness/README.md` is the contract. A tool's name belongs in the one
+  review tool. `skills/lem/harness/README.md` is the contract. A tool's name belongs in the one
   harness file of its agent. A skill this repository ships is named by its name, which is the
   same in every agent.
 - **A harness file exists only for an agent the contract was checked in.** Do not write one from
@@ -28,7 +28,7 @@ in that project's repository. `README.md` says what it does; this file says how 
 ## Checks
 
 ```bash
-bash tests/test-task.sh        # the task skill's three scripts, in throwaway repositories
+bash tests/test-lem.sh        # Lem's three scripts, in throwaway repositories
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-huddle.sh      # huddle's spec checks and every template; loads pages in headless Chrome when one is installed
 shellcheck tests/*.sh
@@ -39,18 +39,18 @@ real task, so say in the commit which task showed the need.
 
 ## Layout
 
-- `skills/task/SKILL.md`: the entry point and what holds in every stage.
-- `skills/task/stages/`: one file per subcommand.
-- `skills/task/harness/`: the capability contract and one file per agent.
-- `skills/task/scripts/`: `project.py` (a repository's settings and task state), `doctor.py`
+- `skills/lem/SKILL.md`: the entry point and what holds in every stage.
+- `skills/lem/stages/`: one file per subcommand.
+- `skills/lem/harness/`: the capability contract and one file per agent.
+- `skills/lem/scripts/`: `project.py` (a repository's settings and task state), `doctor.py`
   (the machine), `review_queue.py` (landed changes that wait for a review).
-- `skills/task/templates/`: the shapes onboarding fills.
-- `skills/task/prompts/`: the reviewer's standing brief.
-- `skills/task/references/`: the catalog of published style guides.
+- `skills/lem/templates/`: the shapes onboarding fills.
+- `skills/lem/prompts/`: the reviewer's standing brief.
+- `skills/lem/references/`: the catalog of published style guides.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
 - `skills/huddle/`, `skills/webrev/`, `skills/backlog/`, `skills/interview-me/`, `skills/dialectic/`,
   `skills/root-cause-investigator/`, `skills/release/`, `skills/last-tag/`, `skills/pr-review/`,
-  `skills/gate/`, `skills/panel/`: the skills the task skill names and ships. `NOTICE` says where
+  `skills/gate/`, `skills/panel/`: the skills Lem names and ships. `NOTICE` says where
   each came from.
 
 ## The shipped skills are copies, not yet under the rules above

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Say which of the tools the task skill uses this machine has.
+"""Say which of the tools Lem uses this machine has.
 
 Onboarding runs it first, so a repository is never set up for a flow its machine cannot run. It
 prints one row per tool as JSON and exits 1 when a required one is absent. An optional tool that

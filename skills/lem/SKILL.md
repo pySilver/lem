@@ -1,9 +1,9 @@
 ---
-name: task
-description: "One entry point for a unit of work in any repository: `/task new`, `plan`, `build`, `land`, `review`, `status`, `learn`, `retro` and `init`. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), builds first and reviews the landed change from a queue, and keeps the pair flow for the paths the project calls careful. Use when the user says \"task new\", \"new task\", \"task plan\", \"task build\", \"task land\", \"task review\", \"task status\", \"task learn\", \"task retro\", \"task init\", or a bare \"/task\"."
+name: lem
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `review`, `night`, `status`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), builds first and reviews the landed change from a queue, and keeps the pair flow for the paths the project calls careful. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem review\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
-# task
+# Lem
 
 One command carries a unit of work from the ask to a landed, reviewed change, the same way in
 every repository. What differs between repositories is in the repository: its settings file names
@@ -21,7 +21,7 @@ careful paths keep the slow flow, and review takes a fixed share of the same day
 
 ## Before any subcommand
 
-`/task` runs inside agterm only: the reviewer's pane, the pages for the owner and the mailbox
+`/lem` runs inside agterm only: the reviewer's pane, the pages for the owner and the mailbox
 between the two agents are agterm's. When `AGTERM_SESSION_ID` is not set, say that the session
 must be started in agterm, and stop.
 
@@ -50,7 +50,8 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
-| `status`, bare `/task` | every open task, the review queue and what waits for the owner | below |
+| `status`, bare `/lem` | every open task, the review queue and what waits for the owner | below |
+| anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 `new` runs on into `plan`, `build` and `land` without stopping, unless a stage file names a stop.
 

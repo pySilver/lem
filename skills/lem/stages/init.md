@@ -1,6 +1,6 @@
 # init: onboarding a repository
 
-`/task init` takes a repository from nothing to a first task: it checks the machine, examines the
+`/lem init` takes a repository from nothing to a first task: it checks the machine, examines the
 project, interviews the owner about what the code cannot say, and writes the project's settings
 and profiles as drafts the owner adjusts. It runs once per repository and stops before any task.
 
@@ -127,18 +127,18 @@ it is.
 generated, each assumption taken from the code with its source, and the settings file. Every
 generated file is a draft; say which three the owner should read first (the careful paths, the
 gate, the personas). Commit the settings and the generated files on a branch of their own,
-`chore/task-onboarding`, and do not land it: the owner's read of the drafts is the review.
+`chore/lem-onboarding`, and do not land it: the owner's read of the drafts is the review.
 
 ## 7. Scheduled work for this repository
 
 Only when step 1 showed cronn running. Offer three jobs that belong to this repository, each a
 session started in it with nobody at the terminal:
 
-- a retro each morning (`/task retro`), so a correction that came back is moved before the next
+- a retro each morning (`/lem retro`), so a correction that came back is moved before the next
   day's work;
-- a pass over the review queue (`/task review`), so a `high` item is not left to whoever lands
+- a pass over the review queue (`/lem review`), so a `high` item is not left to whoever lands
   next;
-- a night plan (`/task night`), which leaves the owner a plan each morning for one backlog item
+- a night plan (`/lem night`), which leaves the owner a plan each morning for one backlog item
   that needs no decision.
 
 Add a job only on the owner's yes, through the `cronn` skill when it is installed, and name the

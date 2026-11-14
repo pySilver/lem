@@ -1,6 +1,6 @@
 # new
 
-`/task new <what>` opens one task. `<what>` is the owner's words, an issue link or a backlog item.
+`/lem new <what>` opens one task. `<what>` is the owner's words, an issue link or a backlog item.
 
 1. **The slug and the branch.** A slug of two to five plain words that say what the owner gets
    ("report-dates-stay-whole"), never a code. The branch is `<type>/<slug>` with a semantic type

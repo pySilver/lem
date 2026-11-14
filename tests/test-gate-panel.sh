@@ -191,7 +191,7 @@ fi
 dir=$(cast run-dir linked-run --repo "$LINKED")
 if [ "$(dirname "$dir")" = "$LINKED/.personas/runs" ]; then pass "a linked cast's panels write beside it"; else fail "linked run-dir: $dir"; fi
 printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/project.toml"
-if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file the task skill refuses stops the panel too"; else fail "bad settings passed"; fi
+if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
 if [ -d "$(dirname "$CAST")/__pycache__" ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
 
 [ "$fails" -eq 0 ] || { printf '%d failure(s)\n' "$fails"; exit 1; }

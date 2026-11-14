@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Say where one repository keeps what the task skill reads, and what its flow settings are.
+"""Say where one repository keeps what Lem reads, and what its flow settings are.
 
 Every project keeps its own settings in its repository: what the project is, its style guide, its
 personas, its review configuration, its lessons, the checks that gate a landing, and the paths
@@ -66,7 +66,7 @@ TABLES: dict[str, tuple[str, ...]] = {
 }
 
 TEMPLATE = """\
-# What the task skill reads in this repository. `project.py show` prints it resolved.
+# What Lem reads in this repository. `project.py show` prints it resolved.
 
 [paths]
 # Where each kind of setting lives, relative to the root of the checkout.
@@ -90,7 +90,7 @@ commands = []
 careful = []
 
 [seats]
-# The agent in the reviewer's pane: "claude" or "codex". The agent that runs /task builds; this one
+# The agent in the reviewer's pane: "claude" or "codex". The agent that runs /lem builds; this one
 # reads its plans and diffs. The same family twice is allowed.
 {reviewer}
 
@@ -268,7 +268,7 @@ def state_root(root: Path) -> Path:
     common = subprocess.run(
         ["git", "-C", str(root), "rev-parse", "--git-common-dir"], capture_output=True, text=True, check=True,
     ).stdout.strip()
-    return (root / common).resolve() / "task"
+    return (root / common).resolve() / "lem"
 
 
 def cmd_task_dir(root: Path, slug: str) -> None:

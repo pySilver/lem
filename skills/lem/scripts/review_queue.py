@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The queue of landed changes that wait for a review.
 
-The task skill lands a change when the gate is green and reviews it afterwards. This queue is
+Lem lands a change when the gate is green and reviews it afterwards. This queue is
 what keeps "afterwards" from meaning "never": every landing adds an item, a high-risk item is due
 the day it lands, and an item nobody read within EXPIRE_AFTER is closed as "not reviewed" so the
 count of unread changes is a number someone sees instead of a backlog that only grows.
@@ -36,7 +36,7 @@ def queue_file(repo: Path) -> Path:
     if found.returncode != 0:
         sys.exit(f"review_queue.py: {repo} is not inside a git checkout")
     top, common = found.stdout.strip().splitlines()
-    directory = (Path(top) / common).resolve() / "task"
+    directory = (Path(top) / common).resolve() / "lem"
     directory.mkdir(exist_ok=True)
     return directory / "review-queue.jsonl"
 

@@ -2,10 +2,10 @@
 
 # Lem
 
-Lem coordinates coding agents. One command, `/task`, carries a unit of work from the ask to a
+Lem coordinates coding agents. One command, `/lem`, carries a unit of work from the ask to a
 landed, reviewed change, the same way in every repository: `new`, `plan`, `build`, `land`,
 `review`, `night`, `status`, `learn`, `retro` and `init`. Lem holds the flow. What differs between
-projects lives in each project's repository, where `/task init` writes it.
+projects lives in each project's repository, where `/lem init` writes it.
 
 The name is Stanisław Lem's. Lem is the one in the middle: it builds nothing itself, it holds the
 line the other agents work on, and it answers to you for all of them.
@@ -28,11 +28,11 @@ nowhere else.
 - **A correction edits the file that owns the step**: a stage of this skill, a style guide file,
   a persona, a review lens. Notes read at session start do not hold.
 - **Stages name capabilities, not tools**, so another agent is one more file in
-  `skills/task/harness/`.
+  `skills/lem/harness/`.
 
 ## What a project keeps
 
-`/task init` checks the machine, examines the repository, interviews the owner and writes
+`/lem init` checks the machine, examines the repository, interviews the owner and writes
 `.lem/project.toml` with draft profiles:
 
 ```
@@ -68,14 +68,14 @@ An opinionated set, kept small. Shipped here, beside `task`:
 | `release`, `last-tag` | cutting a release with notes, and what changed since the last one |
 | `pr-review` | reviewing a pull request or an issue and drafting the comment |
 
-Not shipped, and checked for by `python3 skills/task/scripts/doctor.py`. Required: git, Python
+Not shipped, and checked for by `python3 skills/lem/scripts/doctor.py`. Required: git, Python
 3.11 or newer, [revmux](https://github.com/umputun/revmux) for the review rounds, agterm with
 its skill, and `mailbox-chat.py` from agterm's cookbook, which carries the messages between the
 coordinator and the reviewer in the other pane. Optional, each with a fallback the check names:
 plannotator (recommended), Codex, jev and cronn.
 
-The agent that runs `/task` builds, and the reviewer's pane holds Codex or a second Claude, as
-the project's `seats.reviewer` says. A Codex that runs `/task` itself waits for its harness file. A project that prefers its own tool for a role points its settings at it.
+The agent that runs `/lem` builds, and the reviewer's pane holds Codex or a second Claude, as
+the project's `seats.reviewer` says. A Codex that runs `/lem` itself waits for its harness file. A project that prefers its own tool for a role points its settings at it.
 
 ## Trying it in Claude Code
 
@@ -91,6 +91,6 @@ A skill of the same name that a plugin already provides has to be switched off f
 ## Tests
 
 ```bash
-bash tests/test-task.sh
+bash tests/test-lem.sh
 bash tests/test-huddle.sh
 ```
