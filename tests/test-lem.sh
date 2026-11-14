@@ -183,6 +183,7 @@ if [ "$(events '(d[-1]["branch"], d[-1]["subject"], d[-1]["head"])')" = "('fix/w
 else
   fail "worktree commit in the event: $(events 'd[-1]')"
 fi
+project --repo "$OLD" log with-a-worktree gate command="make test" exit:=1 tip=0000 "last=1 failed, 4 passed" >/dev/null
 out=$(project --repo "$OLD" log with-a-worktree gate command="make test" exit:=0 tip=0123 "last=5 passed in 0.1s")
 if [ "$(field '(d["event"], d["task"], d["exit"], d["tip"], d["last"])' <<<"$out")" = "('gate', 'with-a-worktree', 0, '0123', '5 passed in 0.1s')" ] \
   && [ "$(events '(d[-1]["event"], d[-1]["exit"])')" = "('gate', 0)" ]; then
@@ -320,6 +321,12 @@ if [ "$(row cronn found <<<"$out")" = "True" ] && [ "$(row cronn running <<<"$ou
 else
   fail "doctor with cronn: $out"
 fi
+# A task whose gate is green and whose landing is the owner's: it waits, and it does not go back a phase.
+project --repo "$OLD" task-dir owner-lands-it >/dev/null
+for block in 'building|plan committed, 3 tasks' 'building|task 3 of 3' 'ready|the report is written' 'landing|the gate runs' 'held|the gate is green on abc1234: the owner lands'; do
+  project --repo "$OLD" state owner-lands-it "${block%%|*}" "${block#*|}" >/dev/null
+done
+
 # The board: board.py writes the page and what it reads beside the events, and the page draws them.
 BOARD=$PWD/skills/lem/scripts/board.py
 board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" "$@"; }
@@ -344,6 +351,35 @@ else
   fail "board --task: $out / $err"
 fi
 if [ "$(status_of board --repo "$OLD")" = 1 ]; then pass "outside an agterm session board opens nothing and says so"; else fail "board outside agterm"; fi
+board --repo "$OLD" --no-open --demo >/dev/null
+if grep -q '"demo": true' "$OLD/.git/lem/meta.js"; then pass "board --demo marks the state folder's tasks as examples for the page"; else fail "board --demo: $(cat "$OLD/.git/lem/meta.js")"; fi
+board --repo "$OLD" --no-open >/dev/null
+
+# Two repositories' Lem sessions in one window each have a page named "Lem board": a board reloads
+# its own and never closes the other's. agtermctl is a stand-in that prints a tree and records its calls.
+FAKE=$WORK/fake
+mkdir -p "$FAKE"
+# shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs
+printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$AGT_CALLS"' 'case "$1" in tree) cat "$AGT_TREE" ;; *) echo "{\"result\": {\"id\": \"NEW\"}}" ;; esac' > "$FAKE/agtermctl"
+chmod +x "$FAKE/agtermctl"
+printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [' \
+  '{"id": "AAA", "name": "lem a"}, {"id": "BBB", "name": "lem b"}, {"id": "CCC", "name": "lem c"},' \
+  '{"id": "PA", "name": "Lem board", "content": "page", "parent": "AAA"},' \
+  '{"id": "PB", "name": "Lem board", "content": "page", "parent": "BBB"}]}]}}}' > "$WORK/tree.json"
+opened() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID="$1" AGTERM_SOCKET=/none "$PY" -B "$BOARD" --repo "$OLD"; }
+out=$(opened AAA)
+if [ "$(field '(d["companion"], d["reloaded"])' <<<"$out")" = "('PA', True)" ] && grep -q "session overlay reload --target PA" "$WORK/calls" && ! grep -q "session close" "$WORK/calls"; then
+  pass "a board that is already under this session is reloaded, and another session's board of the same name is left alone"
+else
+  fail "board reload: $out / $(cat "$WORK/calls")"
+fi
+out=$(opened CCC)
+if [ "$(field '(d["companion"], d["reloaded"], d["parent"])' <<<"$out")" = "('NEW', False, 'CCC')" ] && grep -q "session overlay open --html $OLD/.git/lem/board.html .* --companion --target CCC" "$WORK/calls" \
+  && ! grep -q "session close" "$WORK/calls"; then
+  pass "a session with no board opens one as its own page companion and closes nobody's"
+else
+  fail "board open: $out / $(cat "$WORK/calls")"
+fi
 if sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$PWD/skills/lem/assets/board.html" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark.svg"; then
   pass "the mark in the board's header is the logo's own file, line for line"
 else
@@ -365,7 +401,8 @@ class P(HTMLParser):
         elif not self.skip: self.text.append(data)
 p = P(); p.feed(open(sys.argv[1], encoding="utf-8").read())
 shown = " ".join(" ".join(p.text).split())
-missing = [want for want in sys.argv[2:] if want not in shown and want not in p.title]
+missing = [want for want in sys.argv[2:] if not want.startswith("!") and want not in shown and want not in p.title]
+missing += [f"no {want[1:]!r}" for want in sys.argv[2:] if want.startswith("!") and (want[1:] in shown or want[1:] in p.title)]
 if "PROBLEM" in p.title or "does not parse" in shown: missing.append(f"no problem on the page (title {p.title!r})")
 print("; ".join(missing))
 sys.exit(bool(missing))
@@ -384,8 +421,9 @@ if [ -n "$chrome" ]; then
   if [ ! -s "$WORK/board.dom" ]; then
     # A Chrome that cannot start (a sandbox that forbids it) says nothing about the page.
     printf 'SKIP the board pages: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 builds, 1 in the landing line" "Report dates stay whole" "Keep report dates whole." \
-    "Building: task 2 of 3" "Second task" "Ready to land: the gate was cut off" "1 of 2" "normal, due when the day allows" "tasks land on master"); then
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 waits for you, 1 builds, 1 in the landing line" "Report dates stay whole" \
+    "Owner lands it" "Land the branch, then tell Lem in its session that it landed." "!Demo data" "Keep report dates whole." \
+    "Building: task 2 of 3" "Second task" "Ready to land: the gate was cut off" "1 of 4" "normal, due when the day allows" "tasks land on master"); then
     pass "the board draws each task in its lane from the events, with the review queue"
   else
     fail "the board: missing $why"
@@ -394,11 +432,27 @@ if [ -n "$chrome" ]; then
   if [ ! -s "$WORK/task-with-a-worktree.dom" ]; then
     printf 'SKIP the board of one task: %s printed no page\n' "$chrome"
   elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-with-a-worktree.dom" "With a worktree · Dropped" "fix/with-a-worktree" "fix: 0123 is a string" \
-    "make test" "5 passed in 0.1s" "the test is over" "All tasks"); then
-    pass "a task's board draws its state blocks, its newest commit and its gate result"
+    "make test" "5 passed in 0.1s" "the test is over" "All tasks" "gate green: 1" "!gate red"); then
+    pass "a task's board draws its state blocks, its newest commit and the gate's newest result, not a failure a later run repaired"
   else
     fail "a task's board: missing $why"
   fi
+  board --repo "$OLD" --no-open --task owner-lands-it >/dev/null
+  draw task-owner-lands-it
+  if [ -s "$WORK/task-owner-lands-it.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-owner-lands-it.dom" "Owner lands it · Waits for you" "3/3" "Where you answer:" "!2/3"); then
+    pass "a task that waits for the owner after a green gate keeps the phase and the plan tasks it reached"
+  elif [ -s "$WORK/task-owner-lands-it.dom" ]; then
+    fail "a task that waits after the gate: missing $why"
+  fi
+  # A file that does not parse is a problem on the page, never a quiet default.
+  printf 'lemMeta({"repo": \n' > "$OLD/.git/lem/meta.js"
+  draw board
+  if [ -s "$WORK/board.dom" ] && grep -q "<title>PROBLEM" "$WORK/board.dom" && grep -q "meta.js does not parse" "$WORK/board.dom"; then
+    pass "a meta.js that does not parse is shown as a problem"
+  elif [ -s "$WORK/board.dom" ]; then
+    fail "a broken meta.js shows no problem: $(grep -o '<title>[^<]*' "$WORK/board.dom")"
+  fi
+  board --repo "$OLD" --no-open >/dev/null
 else
   printf 'SKIP the board pages: no Chrome or Chromium found\n'
 fi

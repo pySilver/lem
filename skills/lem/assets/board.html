@@ -113,6 +113,9 @@
   .banner.problem { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); border-color: color-mix(in srgb, var(--bad) 65%, transparent); background: color-mix(in srgb, var(--bad) 14%, transparent); }
   .banner span { color: var(--fg); flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .banner .sub { color: var(--dim); font-weight: 400; }
+  .banner .where { display: block; }
+  .banner.demo { color: var(--fg); border-style: dashed; border-color: var(--line-strong); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--fg) 7%, transparent) 0 12px, transparent 12px 24px); }
+  .tc-where { font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
   .banners { display: flex; flex-direction: column; gap: 8px; }
   .banners:empty { display: none; }
 
@@ -510,7 +513,8 @@ function readScript(file, hook, known) {
       else if (got.length < known) resolve({problem: `${file} shrank from ${known} to ${got.length} records`});
       else resolve({records: got});
     };
-    tag.onerror = () => { loading = false; tag.remove(); resolve({missing: true}); };
+    // A file that was read before and is gone now is a problem too: the last read stays on the page.
+    tag.onerror = () => { loading = false; tag.remove(); resolve(known > 0 ? {problem: `${file} is gone; showing its last read`} : {missing: true}); };
     document.head.appendChild(tag);
   });
 }
@@ -606,7 +610,14 @@ function derive(now) {
     if (!e.task) continue;
     let t = tasks.get(e.task);
     if (!t) tasks.set(e.task, t = {slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], lead: null, session: null, progress: null, commit: null, branch: null});
-    if (e.event === 'gate') { t.gates.push({ts: at(e), command: e.command, exit: e.exit, last: e.last, tip: e.tip}); continue; }
+    if (e.event === 'gate') {
+      // A repaired failure runs the gate again inside one landing: a result on another tip starts
+      // a new run, and a command's newer result replaces its older one.
+      const result = {ts: at(e), command: e.command, exit: e.exit, last: e.last, tip: e.tip};
+      if (t.gates.some(g => g.tip !== result.tip)) t.gates = [];
+      t.gates = [...t.gates.filter(g => g.command !== result.command), result];
+      continue;
+    }
     if (e.event !== 'task.state') continue;
     const ts = at(e);
     const lines = [e.text, ...(e.lines ?? [])].map(String);
@@ -654,6 +665,9 @@ function derive(now) {
       if (prev && prev.status === b.status) prev.end = end;
       else t.segments.push({status: b.status, start: b.ts, end, open: k === t.blocks.length - 1 && !t.closed});
     }
+    // Where the task got to: the newest status that is a step forward. A task that waits for the
+    // owner or is blocked stays at the phase it reached.
+    t.reached = t.blocks.findLast(b => !['held', 'blocked'].includes(b.status))?.status ?? t.status;
     t.planCommitted = t.blocks.some(b => b.status === 'planned' || b.status === 'drafted' || /\bplan committed\b/.test([b.text, ...b.lines].join(' ')));
     t.gateBad = t.gates.filter(g => g.exit !== 0).length;
   }
@@ -662,7 +676,8 @@ function derive(now) {
   for (const r of reviews) items.set(r.id, {...(items.get(r.id) ?? {}), ...r});
   const open = [...items.values()].filter(r => r.outcome == null)
     .map(r => ({...r, added_ms: new Date(r.added).getTime()}))
-    .map(r => ({...r, due: r.risk !== 'high' ? 'when the day allows' : dayKey(r.added_ms) === dayKey(now) ? 'today' : 'overdue'}))
+    // review_queue.py compares UTC dates; the page must give the same answer near midnight.
+    .map(r => ({...r, due: r.risk !== 'high' ? 'when the day allows' : new Date(r.added_ms).toISOString().slice(0, 10) === new Date(now).toISOString().slice(0, 10) ? 'today' : 'overdue'}))
     .sort((a, b) => (a.risk === b.risk ? a.added_ms - b.added_ms : a.risk === 'high' ? -1 : 1));
   const closed = [...items.values()].filter(r => r.outcome != null);
   for (const t of list) t.review = [...items.values()].filter(r => r.slug === t.slug);
@@ -713,12 +728,25 @@ function tags(t) {
   return out;
 }
 
+// Where the owner answers what waits for them. Lem is the one voice to the owner, so the answer is
+// always given in Lem's session; what differs is what the owner does there.
+function answerOf(t) {
+  if (t.status === 'held' && /\bowner lands\b/.test(t.text)) return 'Land the branch, then tell Lem in its session that it landed.';
+  if (t.status === 'held') return 'Lem puts this question to you in its session, as a page. Answer it there.';
+  if (t.status === 'planned') return 'Read the plan, then tell Lem in its session: build it or drop it.';
+  return `Tell Lem in its session: /lem build ${t.slug}, or drop it.`;
+}
+const toLem = () => { const lem = paneOf(meta.session); return lem ? jump(lem.id, 'Go to Lem') : null; };
+
 function buildBanners(m) {
   const out = [];
+  if (meta.demo) out.push(keyed('demo', h('div', {class: 'banner demo'}, icon('alert'),
+    h('span', {}, h('b', {}, 'Demo data. '), 'These tasks are examples and not real work. Nothing on this page waits for you.'))));
   // A banner is for what stops work: a held decision and a blocked task. A draft waits in its lane.
   for (const t of view ? [] : m.forOwner.filter(x => x.status === 'held')) {
     out.push(keyed(`you:${t.slug}:${t.status}`, h('div', {class: 'banner attention'}, icon('user'),
-      h('span', {}, h('b', {}, `${t.info.label}: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.text} · `, live(t.since))))));
+      h('span', {}, h('b', {}, `${t.info.label}: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.text} · `, live(t.since)),
+        h('span', {class: 'sub where'}, answerOf(t))), toLem())));
   }
   for (const t of view ? [] : m.blocked) {
     out.push(keyed(`blocked:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
@@ -882,6 +910,7 @@ function taskCard(t) {
     h('div', {class: 'tc-top'}, h('div', {class: 'tc-title'}, t.title), h('div', {class: 'tc-time'}, t.closed ? '' : live(t.since))),
     t.ask ? h('div', {class: 'tc-ask'}, t.ask) : '',
     h('div', {class: 'tc-text'}, `${t.info.label}: ${t.text}`),
+    t.forOwner ? h('div', {class: 'tc-where'}, answerOf(t)) : '',
     t.progress && t.status === 'building' ? h('div', {class: 'mini'}, h('span', {style: `width:${(100 * (t.progress.n - 1)) / t.progress.of}%`}),
       h('span', {class: 'cur', style: `left:${(100 * (t.progress.n - 1)) / t.progress.of}%;width:${100 / t.progress.of}%`})) : '',
     h('div', {class: 'tc-row'}, tags(t), pane?.status ? h('span', {class: 'tag', title: 'The agent status agterm shows for the task’s session'}, icon('cpu'), h('span', {}, `session ${pane.status}`)) : '')));
@@ -919,6 +948,7 @@ function buildTaskNow(t) {
         h('div', {class: 'now-head'}, head),
         h('div', {class: 'now-status'}, t.text),
         t.blocks.at(-1).lines.length ? h('div', {class: 'now-ctx'}, t.blocks.at(-1).lines.join(' · ')) : '',
+        t.forOwner ? h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t)) : '',
         h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, t.closed ? stamp(t.since, Date.now()) : live(t.since, 'clock')),
           h('span', {class: 'note'}, t.closed ? `after ${span(t.since - t.first)}` : 'in this state')))),
     h('div', {class: 'now-spacer'}),
@@ -928,17 +958,18 @@ function buildTaskNow(t) {
 }
 
 function phaseIndex(t) {
-  if (t.status === 'landed') return PHASES.length;
-  if (t.status === 'landing') return 4;
-  if (t.status === 'ready') return 3;
-  if (t.status === 'queued') return 0;
-  return t.planCommitted && t.status !== 'planned' && t.status !== 'drafted' ? 2 : 1;
+  const reached = t.reached;
+  if (reached === 'landed') return PHASES.length;
+  if (reached === 'landing') return 4;
+  if (reached === 'ready') return 3;
+  if (reached === 'queued' && !t.planCommitted) return 0;
+  return t.planCommitted && reached !== 'planned' && reached !== 'drafted' ? 2 : 1;
 }
 
 function buildTaskProgress(t) {
   const at_ = phaseIndex(t);
   const p = t.progress;
-  const done = t.status === 'landed' || t.status === 'ready' || t.status === 'landing';
+  const done = ['landed', 'ready', 'landing'].includes(t.reached);
   const total = p?.of ?? 0, finished = done ? total : Math.max(0, (p?.n ?? 1) - 1), current = !done && p && t.status === 'building' ? 1 : 0;
   const sub = k => (k === 2 && p ? `task ${done ? p.of : p.n} of ${p.of}` : k === 4 && t.gates.length ? (t.gateBad ? `${t.gateBad} red` : `${t.gates.length} green`) : '');
   const openReview = t.review.filter(r => r.outcome == null);
@@ -989,7 +1020,7 @@ function render() {
   const page = $('page');
   page.className = `page a-${t ? t.info.actor : focusOf(m)?.t.info.actor ?? 'quiet'}`;
   $('beacon').className = `beacon${trouble.length ? ' bad' : ''}`;
-  $('eyebrow').textContent = view ? `Lem · ${repo} · one task` : `Lem · ${repo}`;
+  $('eyebrow').textContent = (meta.demo ? 'Demo data · ' : '') + (view ? `Lem · ${repo} · one task` : `Lem · ${repo}`);
   patch($('banners'), buildBanners(m));
 
   const lem = paneOf(meta.session);
@@ -1054,7 +1085,7 @@ function render() {
   ]);
   tick(now);
 
-  const title = (trouble.length ? 'PROBLEM · ' : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.building.length} build · ${m.forOwner.length} for you`);
+  const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.building.length} build · ${m.forOwner.length} for you`);
   if (title !== lastTitle) document.title = lastTitle = title;
 }
 
@@ -1074,7 +1105,8 @@ async function pollFiles() {
   const queue = await readScript('review-queue.js', 'lemReview', reviews.length);
   if (queue.records) { reviews = queue.records; delete problems.reviews; } else if (queue.missing) { reviews = []; delete problems.reviews; } else problems.reviews = queue.problem;
   const about = await readScript('meta.js', 'lemMeta', 0);
-  if (about.records?.length) meta = about.records.at(-1);
+  if (about.records?.length) { meta = about.records.at(-1); delete problems.meta; }
+  else problems.meta = about.problem ?? 'meta.js is missing or empty: open the board with board.py';
   render();
   setTimeout(pollFiles, FEED_EVERY_MS);
 }

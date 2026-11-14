@@ -4,6 +4,7 @@
     board.py [--repo DIR] [--follow]               the board of all tasks
     board.py [--repo DIR] [--follow] --task SLUG   the board of one task
     board.py [--repo DIR] [--task SLUG] --no-open  write the page's files and print where; open nothing
+    board.py ... --demo                            say on the page that its tasks are examples
 
 The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`
 and `review-queue.js`, which `project.py` and `review_queue.py` append to, and `meta.js`, which
@@ -54,7 +55,7 @@ def project(repo: str, *args: str) -> str:
     return ran.stdout.strip()
 
 
-def prepare(repo: str, slug: str | None, session: str) -> Path:
+def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> Path:
     """Write the page and meta.js into the state folder, and return the page's path."""
     if not ASSET.is_file():
         raise BoardError(f"{ASSET} is missing")
@@ -70,6 +71,9 @@ def prepare(repo: str, slug: str | None, session: str) -> Path:
     listed = subprocess.run(["git", "-C", repo, "worktree", "list", "--porcelain"], capture_output=True, text=True, check=False)
     main = next((line.removeprefix("worktree ") for line in listed.stdout.splitlines() if line.startswith("worktree ")), settings["root"])
     meta = {"repo": Path(main).name, "base": settings["branch"]["base"], "session": session}
+    if demo:
+        # A board of made-up tasks must say so itself: a line under "Waits for you" reads as a call to act.
+        meta["demo"] = True
     (state / "meta.js").write_text(f"lemMeta({json.dumps(meta, ensure_ascii=False)});\n", encoding="utf-8")
     page = state / (f"task-{slug}.html" if slug else "board.html")
     shutil.copyfile(ASSET, page)
@@ -95,9 +99,11 @@ def show(page: Path, name: str, session: str, socket: str, window: str, follow: 
         raise BoardError(f"this session ({session}) is not in the window agterm answered for")
     # A companion's companion becomes its sibling, so the parent is the top of the group.
     parent = (owner.get("parent") or owner["id"]).upper()
-    named = [s for s in live if s.get("name") == name]
-    kept = next((s for s in named if s.get("content") == "page" and (s.get("parent") or "").upper() == parent), None)
-    stale = [s for s in named if s is not kept and s.get("content") == "page"]
+    # Only pages under this session's own group: another repository's Lem in the same window has a
+    # board of the same name, and it is not this one's to reload or close.
+    named = [s for s in live if s.get("name") == name and s.get("content") == "page" and (s.get("parent") or "").upper() == parent]
+    kept = named[0] if named else None
+    stale = named[1:]
     if stale:
         ctl(socket, "session", "close", *[arg for s in stale for arg in ("--target", s["id"])])
     if kept:
@@ -122,13 +128,14 @@ def main() -> None:
     parser.add_argument("--task", metavar="SLUG", help="open the board of this task instead of the board of all tasks")
     parser.add_argument("--follow", action="store_true", help="switch to the board after it opens")
     parser.add_argument("--no-open", action="store_true", help="write the files and print the page's path; open nothing")
+    parser.add_argument("--demo", action="store_true", help="the state folder holds example tasks: the page says so at its top")
     args = parser.parse_args()
     session = env("AGT_SESSION_ID", "AGTERM_SESSION_ID")
     socket = env("AGT_SOCKET", "AGTERM_SOCKET")
     try:
         if not args.no_open and not (session and socket):
             raise BoardError("not inside an agterm session; --no-open writes the page without one")
-        page = prepare(args.repo, args.task, session)
+        page = prepare(args.repo, args.task, session, args.demo)
         result: dict = {"page": str(page), "name": f"{args.task} board" if args.task else "Lem board"}
         if not args.no_open:
             result |= show(page, result["name"], session, socket, env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), args.follow)
