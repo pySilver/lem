@@ -63,7 +63,7 @@ ahead of writing, with routing for findings that fail it (fix now, the status
 board, a dated review's own register); the free body gained a contract — the
 concrete run with real values, the misreading to prevent, options with costs
 and a recommendation for a `later`, and a provenance line; the slug form is
-`/tracking:backlog <slug>`; and the skill's triggers absorb those of the
+`/lem backlog <slug>`; and the skill's triggers absorb those of the
 `log-issue` skill it replaces.
 
 ```
@@ -148,10 +148,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## dialectic, root-cause-investigator, release, last-tag and pr-review
+## lem-dialectic, lem-root-cause, lem-release, lem-last-tag and lem-pr-review
 
-`skills/lem-dialectic/` and `skills/lem-root-cause/` are copied unchanged from the
-`thinking-tools` plugin, and `skills/lem-release/` (there `new`), `skills/lem-last-tag/` and
+`skills/lem-dialectic/` and `skills/lem-root-cause/` (there `root-cause-investigator`) are copied
+from the `thinking-tools` plugin with their name, the command in their examples and one sentence
+of their description changed, and `skills/lem-release/` (there `new`), `skills/lem-last-tag/` and
 `skills/lem-pr-review/` (there `pr`) from the `release-tools` and `review` plugins, renamed and with
 their script paths and one cross-reference changed, of [umputun/cc-thingz](https://github.com/umputun/cc-thingz), as of commit
 68d29a4 (2026-11-03).

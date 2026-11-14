@@ -139,7 +139,8 @@ ask the owner once and write the answer into `.lem/project.toml`.
    2026-11-14 four reviewer panes opened one after the other all registered the same thread, and
    the pane's status line went on from 12% of the context to 17%, 32% and 40%. So before the
    launch of step 2, remove that file when it is there; after the launch, the pane's status line
-   must show a context near zero. A reviewer that carries the last review reads the next one
+   must show a context near zero. With the file removed, the fifth pane of that day started at
+   2% and registered a new thread. A reviewer that carries the last review reads the next one
    with it.
 
 Say in the report which family reviewed. Two agents of one family agree more easily than two of
