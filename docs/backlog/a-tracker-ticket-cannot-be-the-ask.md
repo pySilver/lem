@@ -57,5 +57,6 @@ The owner asked for this on 2026-11-14, in the session that started Lem: "put on
 integration with Linear".
 
 The owner has a Linear workspace of his own (said on 2026-11-14), so the `linear` skill can be
-tried against a real workspace before it is called done. Ask him for the workspace, the team and a
-ticket made for the trial; do not write into a team's real tickets.
+tried against a real workspace before it is called done. He named the ticket for the trial:
+`MBZ-1` (2026-11-14). `docs/linear.md` says how the server is connected, under the name `linear`;
+he sets that up himself and says when it is done. Do not write into any other ticket of that team.
