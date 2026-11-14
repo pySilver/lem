@@ -66,19 +66,19 @@ printf '# Reader\n' >"$HOME/.config/personas/cast/reader.md"
 if [ "$(layer_of "$REPO")" = "user 1" ]; then pass "the user's cast replaces the built-in one whole"; else fail "user layer: $(layer_of "$REPO")"; fi
 
 git -C "$REPO" branch old
-mkdir -p "$REPO/.agents/personas"
-printf '# Shopper\n' >"$REPO/.agents/personas/shopper.md"
-printf '# Merchant\n' >"$REPO/.agents/personas/merchant.md"
+mkdir -p "$REPO/.lem/personas"
+printf '# Shopper\n' >"$REPO/.lem/personas/shopper.md"
+printf '# Merchant\n' >"$REPO/.lem/personas/merchant.md"
 if [ "$(layer_of "$REPO")" = "project 2" ]; then pass "the project's cast replaces the user's whole"; else fail "project layer: $(layer_of "$REPO")"; fi
-printf '# Profile\n' >"$REPO/.agents/profile.md"
+printf '# Profile\n' >"$REPO/.lem/profile.md"
 if [ "$(profile_of "$REPO")" = "checkout" ]; then pass "the checkout's profile is read, beside a cast from any layer"; else fail "checkout profile: $(profile_of "$REPO")"; fi
 
 # The cast lands on local main only; origin/HEAD still names a main without it.
-git -C "$REPO" add .agents
+git -C "$REPO" add .lem
 commit "$REPO" "cast"
 git -C "$REPO" worktree add -q "$PANEL/old" old
 source_of() { cast --repo "$1" | "$PY" -c 'import json, sys; c = json.load(sys.stdin); print(c["layer"], c["source"].split(" at ")[0], len(c["personas"]))'; }
-if [ "$(source_of "$PANEL/old")" = "project main 2" ] && [ ! -e "$PANEL/old/.agents" ]; then
+if [ "$(source_of "$PANEL/old")" = "project main 2" ] && [ ! -e "$PANEL/old/.lem" ]; then
   pass "a worktree older than the cast reads it from the local default branch before it is pushed"
   profile=$(cast --repo "$PANEL/old" | "$PY" -c 'import json, sys; print(json.load(sys.stdin)["profile"]["path"])')
   if [ "$(profile_of "$PANEL/old")" = "main" ] && grep -q '^# Profile$' "$profile"; then
@@ -104,8 +104,8 @@ if [ "$(source_of "$PANEL/old")" = "project trunk 2" ]; then pass "a default bra
 
 # A persona edit lands on the remote from another clone; the local branch is left behind.
 git clone -q -b trunk "$PANEL/origin.git" "$PANEL/other"
-printf '# Shopper, edited\n' >"$PANEL/other/.agents/personas/shopper.md"
-git -C "$PANEL/other" add .agents
+printf '# Shopper, edited\n' >"$PANEL/other/.lem/personas/shopper.md"
+git -C "$PANEL/other" add .lem
 commit "$PANEL/other" "edit shopper"
 git -C "$PANEL/other" push -q origin trunk
 git -C "$REPO" fetch -q origin
@@ -131,11 +131,11 @@ if [ "$(source_of "$PANEL/newer")" = "project origin/trunk 2" ] && grep -q 'edit
 else
   fail "older copy: $(source_of "$PANEL/newer"), profile $(profile_of "$PANEL/newer")"
 fi
-printf '# Shopper, this branch\n' >"$PANEL/newer/.agents/personas/shopper.md"
+printf '# Shopper, this branch\n' >"$PANEL/newer/.lem/personas/shopper.md"
 if [ "$(source_of "$PANEL/newer")" = "project checkout 2" ]; then pass "a branch that edits its cast keeps its own"; else fail "edited cast: $(source_of "$PANEL/newer")"; fi
-git -C "$PANEL/newer" checkout -q -- .agents
-printf '# Profile, with versions\n' >"$PANEL/other/.agents/profile.md"
-git -C "$PANEL/other" add .agents
+git -C "$PANEL/newer" checkout -q -- .lem
+printf '# Profile, with versions\n' >"$PANEL/other/.lem/profile.md"
+git -C "$PANEL/other" add .lem
 commit "$PANEL/other" "profile versions"
 git -C "$PANEL/other" push -q origin trunk
 git -C "$REPO" fetch -q origin
@@ -151,7 +151,7 @@ if [ "$(status_of cast --repo "$PANEL/no-such-dir")" = 1 ]; then pass "a --repo 
 FRESH=$PANEL/fresh
 git init -q -b main "$FRESH"
 cast init --repo "$FRESH" >/dev/null
-if [ -f "$FRESH/.agents/personas/reader.md" ] && [ -f "$FRESH/.agents/personas/README.md" ] && [ "$(layer_of "$FRESH")" = "project 1" ]; then
+if [ -f "$FRESH/.lem/personas/reader.md" ] && [ -f "$FRESH/.lem/personas/README.md" ] && [ "$(layer_of "$FRESH")" = "project 1" ]; then
   pass "init copies the cast that resolves into the project"
 else
   fail "init did not copy the resolved cast"
@@ -159,9 +159,9 @@ fi
 if [ "$(status_of cast init --repo "$FRESH")" = 1 ]; then pass "init refuses a project that already has a cast"; else fail "init overwrote a project cast"; fi
 README_ONLY=$PANEL/readme-only
 git init -q -b main "$README_ONLY"
-mkdir -p "$README_ONLY/.agents/personas"
-printf '# Ours\n' >"$README_ONLY/.agents/personas/README.md"
-if [ "$(status_of cast init --repo "$README_ONLY")" = 1 ] && grep -q '^# Ours$' "$README_ONLY/.agents/personas/README.md"; then
+mkdir -p "$README_ONLY/.lem/personas"
+printf '# Ours\n' >"$README_ONLY/.lem/personas/README.md"
+if [ "$(status_of cast init --repo "$README_ONLY")" = 1 ] && grep -q '^# Ours$' "$README_ONLY/.lem/personas/README.md"; then
   pass "init refuses a cast folder that holds only an index, and leaves it as it was"
 else
   fail "init overwrote an index"
@@ -178,10 +178,10 @@ if [ "$(status_of cast run-dir pack-size --repo "$REPO")" = 1 ]; then pass "run-
 # A project that keeps its cast where an older tool reads it says so in its settings.
 LINKED=$PANEL/linked
 git init -q -b main "$LINKED"
-mkdir -p "$LINKED/.personas/cast" "$LINKED/.agents"
+mkdir -p "$LINKED/.personas/cast" "$LINKED/.lem"
 printf '# Shopper\n' > "$LINKED/.personas/cast/shopper.md"
 printf '# Profile\n' > "$LINKED/.personas/profile.md"
-printf '%s\n' '[paths]' 'personas = ".personas/cast"' 'profile = ".personas/profile.md"' > "$LINKED/.agents/project.toml"
+printf '%s\n' '[paths]' 'personas = ".personas/cast"' 'profile = ".personas/profile.md"' > "$LINKED/.lem/project.toml"
 linked=$(cast --repo "$LINKED")
 if [ "$("$PY" -c 'import json, sys; c = json.load(sys.stdin); print(c["layer"], c["dir"], c["profile"]["path"])' <<<"$linked")" = "project $LINKED/.personas/cast $LINKED/.personas/profile.md" ]; then
   pass "a cast and a profile at the paths the project's settings name are the project's"
@@ -190,7 +190,7 @@ else
 fi
 dir=$(cast run-dir linked-run --repo "$LINKED")
 if [ "$(dirname "$dir")" = "$LINKED/.personas/runs" ]; then pass "a linked cast's panels write beside it"; else fail "linked run-dir: $dir"; fi
-printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.agents/project.toml"
+printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/project.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file the task skill refuses stops the panel too"; else fail "bad settings passed"; fi
 if [ -d "$(dirname "$CAST")/__pycache__" ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
 

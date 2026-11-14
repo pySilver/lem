@@ -80,7 +80,7 @@ For a repository that has code:
   step 1 found it, since two model families disagree more usefully than one family twice.
 - **The folders already here**, when `project.py existing` listed any: link them, so the older
   tools and this skill read one copy and nothing moves; or generate new profiles under
-  `.agents/`, and leave the old folders for the owner to remove.
+  `.lem/`, and leave the old folders for the owner to remove.
 
 Stop when you could predict the owner's answer to the next question. An answer of "whatever you
 think" is not an answer to the careful paths or to who lands: say what you will assume and ask
@@ -92,7 +92,7 @@ for a yes.
 python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --existing link    # or: --existing new
 ```
 
-Leave `--existing` out when step 2 found no older folder. Then edit `.agents/project.toml`: the
+Leave `--existing` out when step 2 found no older folder. Then edit `.lem/project.toml`: the
 gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, the
 protected branches, and `tools.annotate` when the owner marks up plans with a tool of their own.
 

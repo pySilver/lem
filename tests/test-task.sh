@@ -23,7 +23,7 @@ field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.a
 NEW=$WORK/new
 git init -q -b main "$NEW"
 out=$(project --repo "$NEW" show)
-if [ "$(field 'd["settings"]' <<<"$out")" = "None" ] && [ "$(field 'd["paths"]["styleguide"]["path"]' <<<"$out")" = "$NEW/.agents/styleguide" ] \
+if [ "$(field 'd["settings"]' <<<"$out")" = "None" ] && [ "$(field 'd["paths"]["styleguide"]["path"]' <<<"$out")" = "$NEW/.lem/styleguide" ] \
   && [ "$(field 'd["branch"]["land"]' <<<"$out")" = "owner" ]; then
   pass "with no settings file, show answers from the skill's own layout and the owner lands"
 else
@@ -32,7 +32,7 @@ fi
 if [ "$(status_of project --repo "$NEW" init)" = 1 ]; then pass "init refuses a checkout whose base branch it cannot tell"; else fail "init without a base"; fi
 project --repo "$NEW" init --base main --reviewer codex >/dev/null
 out=$(project --repo "$NEW" show)
-if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["paths"]["personas"]["path"]' <<<"$out")" = "$NEW/.agents/personas" ] \
+if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["paths"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
   && [ "$(field 'd["seats"]["reviewer"]' <<<"$out")" = "codex" ]; then
   pass "init in a new project writes the skill's own layout, the given base and the reviewer seat"
 else
@@ -45,7 +45,7 @@ git init -q -b master "$OLD"
 mkdir -p "$OLD/.claude/rules" "$OLD/.revmux" "$OLD/.personas/cast" "$OLD/docs/plans"
 touch "$OLD/.personas/profile.md"
 err=$(project --repo "$OLD" init --base master 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" init --base master)" = 1 ] && grep -q "styleguide in .claude/rules" <<<"$err" && [ ! -e "$OLD/.agents" ]; then
+if [ "$(status_of project --repo "$OLD" init --base master)" = 1 ] && grep -q "styleguide in .claude/rules" <<<"$err" && [ ! -e "$OLD/.lem" ]; then
   pass "init refuses to choose between the folders already there and a new layout, and names them"
 else
   fail "init without --existing: $err"
@@ -59,7 +59,7 @@ NEWLAYOUT=$WORK/newlayout
 git init -q -b master "$NEWLAYOUT"
 mkdir -p "$NEWLAYOUT/.claude/rules"
 project --repo "$NEWLAYOUT" init --base master --existing new >/dev/null
-if [ "$(project --repo "$NEWLAYOUT" path styleguide)" = "$NEWLAYOUT/.agents/styleguide" ]; then
+if [ "$(project --repo "$NEWLAYOUT" path styleguide)" = "$NEWLAYOUT/.lem/styleguide" ]; then
   pass "init --existing new starts the skill's own layout beside the older folders"
 else
   fail "init --existing new"
@@ -76,7 +76,7 @@ fi
 if [ "$(project --repo "$OLD/docs" path plans)" = "$OLD/docs/plans" ]; then pass "path prints one absolute path, from any directory of the checkout"; else fail "path plans"; fi
 if [ "$(status_of project --repo "$OLD" path plan)" = 1 ]; then pass "an unknown path name is refused"; else fail "unknown path name"; fi
 
-settings() { printf '%s\n' "$@" > "$OLD/.agents/project.toml"; }
+settings() { printf '%s\n' "$@" > "$OLD/.lem/project.toml"; }
 settings '[branch]' 'base = "master"' 'lands = "agent"'
 err=$(project --repo "$OLD" show 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "did you mean 'land'" <<<"$err"; then pass "an unknown key is refused with the nearest valid one"; else fail "unknown key: $err"; fi
@@ -127,10 +127,10 @@ else
 fi
 settings '[branch]' 'base = "master"'
 where=$(project --repo "$OLD" worktree-dir report-dates-stay-whole)
-if [ "$where" = "$OLD/.worktrees/report-dates-stay-whole" ] && [ ! -e "$where" ] && [ -z "$(git -C "$OLD" status --porcelain -- .worktrees)" ]; then
+if [ "$where" = "$OLD/.lem/worktrees/report-dates-stay-whole" ] && [ ! -e "$where" ] && [ -z "$(git -C "$OLD" status --porcelain -- .lem/worktrees)" ]; then
   pass "worktree-dir names a path under a folder git status never shows, and makes no worktree itself"
 else
-  fail "worktree-dir: $where / $(git -C "$OLD" status --porcelain -- .worktrees)"
+  fail "worktree-dir: $where / $(git -C "$OLD" status --porcelain -- .lem/worktrees)"
 fi
 if [ "$(project --repo "$WORK/wt" state-dir)" = "$OLD/.git/task" ]; then pass "state-dir prints the one folder every worktree shares"; else fail "state-dir"; fi
 if [ "$(status_of project --repo "$OLD" task-dir "Report Dates")" = 1 ]; then pass "a slug that is not hyphenated lower-case words is refused"; else fail "slug form"; fi

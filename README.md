@@ -34,10 +34,10 @@ nowhere else.
 ## What a project keeps
 
 `/task init` checks the machine, examines the repository, interviews the owner and writes
-`.agents/project.toml` with draft profiles:
+`.lem/project.toml` with draft profiles:
 
 ```
-.agents/
+.lem/
   project.toml   paths, base branch, who lands, who reviews, gate commands, careful paths
   profile.md     what the project is
   styleguide/    how code is written here, by path
@@ -46,7 +46,7 @@ nowhere else.
   lessons.md     corrections with no better file
 ```
 
-A task's worktree goes under `.worktrees/` in the checkout, and its state (the ask, the decisions,
+A task's worktree goes under `.lem/worktrees/`, which git ignores, and its state (the ask, the decisions,
 the reports) inside the git directory, where it outlives the worktree.
 
 A repository that already keeps some of these for an older tool (`.claude/rules`, `.revmux`,

@@ -1,6 +1,6 @@
 ---
 name: task
-description: "One entry point for a unit of work in any repository: `/task new`, `plan`, `build`, `land`, `review`, `status`, `learn`, `retro` and `init`. It reads the repository's own settings (`.agents/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), builds first and reviews the landed change from a queue, and keeps the pair flow for the paths the project calls careful. Use when the user says \"task new\", \"new task\", \"task plan\", \"task build\", \"task land\", \"task review\", \"task status\", \"task learn\", \"task retro\", \"task init\", or a bare \"/task\"."
+description: "One entry point for a unit of work in any repository: `/task new`, `plan`, `build`, `land`, `review`, `status`, `learn`, `retro` and `init`. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), builds first and reviews the landed change from a queue, and keeps the pair flow for the paths the project calls careful. Use when the user says \"task new\", \"new task\", \"task plan\", \"task build\", \"task land\", \"task review\", \"task status\", \"task learn\", \"task retro\", \"task init\", or a bare \"/task\"."
 ---
 
 # task

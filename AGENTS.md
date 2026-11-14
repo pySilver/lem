@@ -8,7 +8,7 @@ in that project's repository. `README.md` says what it does; this file says how 
 - **The skill knows no project.** No repository, product, path or person of a real project appears
   in `skills/task/SKILL.md`, the stage files, the harness files or the templates, except as the
   dated source of a measurement ("convertiser-server, 2026-11-14"). What a project needs to say,
-  it says in its own `.agents/` folder or its own `AGENTS.md`.
+  it says in its own `.lem/` folder or its own `AGENTS.md`.
 - **A stage names a capability or a role, never a tool.** `spawn-builder`, `second-opinion`,
   `ask-owner`, `fan-out`, `show-page`, `load-skill`; the question gate, the persona panel, the
   review tool. `skills/task/harness/README.md` is the contract. A tool's name belongs in the one

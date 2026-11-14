@@ -3,7 +3,7 @@
 
 Every project keeps its own settings in its repository: what the project is, its style guide, its
 personas, its review configuration, its lessons, the checks that gate a landing, and the paths
-whose change takes the careful flow. `.agents/project.toml` at the root of the checkout names
+whose change takes the careful flow. `.lem/project.toml` at the root of the checkout names
 them. A project that keeps some of these where an older tool already reads them (`.claude/rules`,
 `.revmux`, `.personas`) may point at them there (`init --existing link`), so adopting the skill
 moves nothing, or start the skill's own layout beside them (`init --existing new`). Which of the
@@ -15,7 +15,7 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py may-land BRANCH      exit 1 unless tasks of this project may land on BRANCH
     project.py existing             the folders an older tool already reads here, as JSON
     project.py init [--base NAME] [--existing link|new] [--reviewer claude|codex]
-                                    write .agents/project.toml
+                                    write .lem/project.toml
     project.py task-dir SLUG        make and print one task's state directory
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
     project.py tasks                every task's ask and newest state block, as JSON
@@ -38,18 +38,18 @@ import sys
 import tomllib
 from pathlib import Path
 
-SETTINGS = Path(".agents") / "project.toml"
+SETTINGS = Path(".lem") / "project.toml"
 # name -> (where the skill's own layout keeps it, where an older tool keeps it)
 PATHS: dict[str, tuple[str, str | None]] = {
-    "profile": (".agents/profile.md", ".personas/profile.md"),
-    "styleguide": (".agents/styleguide", ".claude/rules"),
-    "personas": (".agents/personas", ".personas/cast"),
-    "review": (".agents/review", ".revmux"),
-    "lessons": (".agents/lessons.md", None),
+    "profile": (".lem/profile.md", ".personas/profile.md"),
+    "styleguide": (".lem/styleguide", ".claude/rules"),
+    "personas": (".lem/personas", ".personas/cast"),
+    "review": (".lem/review", ".revmux"),
+    "lessons": (".lem/lessons.md", None),
     "rulings": ("docs/rulings", None),
     "backlog": ("docs/backlog", None),
     "plans": ("docs/plans", None),
-    "worktrees": (".worktrees", ".claude/worktrees"),
+    "worktrees": (".lem/worktrees", ".claude/worktrees"),
 }
 LAND = ("owner", "agent")
 # the agents that can sit in the reviewer's pane

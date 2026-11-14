@@ -10,7 +10,7 @@ its directory, its index (README.md, or null), each persona's stem and path, and
 profile (`profile`: its path and source, or null). The cast comes from
 the first of three layers that holds any persona file, a `*.md` other than README.md:
 
-  project   the personas path of the project's settings (.agents/personas/ unless they say
+  project   the personas path of the project's settings (.lem/personas/ unless they say
             otherwise) in the checkout, or else on the repository's default branch
   user      ~/.config/personas/cast/
   built-in  the cast shipped beside this script
@@ -28,7 +28,7 @@ remote default branch, the newer one is read: work can land on either side first
 are written once per commit under the repository's git directory (personas-cast/<sha>/), which is
 never committed and is shared by every worktree; `source` names the branch and commit.
 
-The profile, at the settings' profile path (.agents/profile.md unless they say otherwise), says
+The profile, at the settings' profile path (.lem/profile.md unless they say otherwise), says
 what the project is: the product, its scale, its rules and
 the teams it compares itself with. Every persona, the practice scout and the moderator read it first.
 It has one layer, the project's: a profile is about one project, so no user or built-in profile
@@ -60,9 +60,9 @@ from pathlib import Path
 # Where a project keeps its personas, its profile and its panels' files, relative to the checkout.
 # These are the task skill's own layout; configure() replaces them with what the project's
 # settings say, so a project that keeps its cast where an older tool reads it is served too.
-PROJECT_CAST = Path(".agents") / "personas"
-PROJECT_PROFILE = Path(".agents") / "profile.md"
-RUNS = Path(".agents") / "runs"
+PROJECT_CAST = Path(".lem") / "personas"
+PROJECT_PROFILE = Path(".lem") / "profile.md"
+RUNS = Path(".lem") / "runs"
 BUILT_IN = Path(__file__).resolve().parent.parent / "cast"
 PROJECT_SETTINGS = Path(__file__).resolve().parents[2] / "task" / "scripts" / "project.py"
 
@@ -73,7 +73,7 @@ def fail(message: str) -> None:
 
 
 def configure(root: Path) -> None:
-    """Take the personas and profile paths from the project's settings (.agents/project.toml)."""
+    """Take the personas and profile paths from the project's settings (.lem/project.toml)."""
     global PROJECT_CAST, PROJECT_PROFILE, RUNS
     done = subprocess.run(
         [sys.executable, "-B", str(PROJECT_SETTINGS), "--repo", str(root), "show"], capture_output=True, text=True

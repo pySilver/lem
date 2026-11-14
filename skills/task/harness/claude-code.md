@@ -37,7 +37,7 @@ heredoc when the text names git.
 
 The reviewer is a second agent in the split pane of this session, of the family the settings'
 `seats.reviewer` names (`claude` or `codex`); the owner reads both panes. When the setting is null,
-ask the owner once and write the answer into `.agents/project.toml`.
+ask the owner once and write the answer into `.lem/project.toml`.
 
 1. **Is a reviewer there?** `mailbox-chat.py status` names the other pane and what serves it:
    `claude`, `codex` or `none`.

@@ -47,7 +47,7 @@ each from what they would actually see, and the user gets a card instead of a li
 
 ## The project profile
 
-The project's profile (`.agents/profile.md`, unless the project's settings name another path) says what the project is: the product, who uses
+The project's profile (`.lem/profile.md`, unless the project's settings name another path) says what the project is: the product, who uses
 it and where, its scale, the rules every answer works within, the tools and versions it runs,
 what a newcomer gets wrong, and the teams to compare with. Every persona reads it before its own file, and so do the practice scout and
 the moderator. Without it a persona judges a fifty-million-item catalog as if it held a thousand,
@@ -66,7 +66,7 @@ project's own documents, for the user to finish and commit.
 The cast is a folder of persona files, one person each, with a `README.md` index. It comes from
 the first of three layers that has any persona file, the same order revmux reads its prompts in:
 
-1. the project's personas folder (`.agents/personas/`, unless its settings name another path), the project's own people (in mybaze a shopper, a
+1. the project's personas folder (`.lem/personas/`, unless its settings name another path), the project's own people (in mybaze a shopper, a
    merchant, an ops admin, the engineer on call and the CEO);
 2. `~/.config/personas/cast/`, the user's;
 3. the built-in cast in this skill's `cast/`: a person who uses the product, the engineer who runs
