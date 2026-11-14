@@ -26,11 +26,13 @@ one finds what the run before it finished.
    `landing` holds a place, so it is written when a gate will run and never before a stop.
 2. **`base`.** The base branch is brought in by a rebase. A conflict is where two tasks on the
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
-   rebase. `spawn-builder` in the worktree with the two branches and those files; it rebases,
-   resolves, runs the tests of the files it touched and commits. Then run the step again.
+   rebase. `spawn-builder` in the worktree with a brief that names the job, the repair of a
+   conflict with the base, and gives the two branches and those files; it rebases the task's
+   branch, resolves, runs the tests of the files it touched and commits. Then run the step again.
 3. **The closing pass.** The task's own work is done, so this is the one moment for what was
-   left around it. `spawn-builder` in the worktree with the task's plan and report, by path. It
-   does two things, each in commits of its own:
+   left around it. `spawn-builder` in the worktree with a brief that names the job, the closing
+   pass, and gives the task's plan and report by path. It does two things, each in commits of its
+   own:
    - *the documents*: it lists what the change renamed, moved or removed (symbols, paths,
      commands, settings), searches the repository's durable documents for each (the guides, the
      README, the agent document, the style guide), and corrects every sentence the change made
@@ -49,8 +51,9 @@ one finds what the run before it finished.
    worktree, on the tip that will land, each with its output in a file of the task directory. The
    step keeps the exact last line of each, logs each result for the board, and records the commit
    and the tree that passed. Do not read the output files.
-   A red gate is work, and a builder's: `spawn-builder` in the worktree with the commands that
-   failed, their output files and the task's plan, by path. The builder runs the same command on
+   A red gate is work, and a builder's: `spawn-builder` in the worktree with a brief that names
+   the job, the repair of a red gate, and gives the commands that failed, their output files and
+   the task's plan, by path. The builder runs the same command on
    the base. A failure the change caused, it fixes and commits, and the landing goes on from
    step 2. A failure the base already has is not this task's to carry and not this gate's to
    hide: write this task's state as `blocked` with the line `the base is red`, open a task for the
