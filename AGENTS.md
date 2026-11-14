@@ -51,7 +51,8 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him.
 - **The first run is in a scratch repository**, then in a real project.
 - **The correction hook is an optional part.** Lem recommends jev when it is absent and uses it
   only when the owner agrees.
-- **The logo is the owner's pick** ("The Line in the Field"). Change it only on his word.
+- **The logo is the owner's pick** ("The Line in the Field"). Change it only on his word. The
+  night palette of its dark-theme version is his pick too.
 
 ## Checks
 
@@ -78,6 +79,8 @@ real task, so say in the commit which task showed the need.
 - `skills/lem/prompts/`: the standing briefs of a task's lead and of the reviewer.
 - `skills/lem/references/`: the catalog of published style guides.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
+  `assets/lem-night.svg` and `assets/lem-mark-night.svg` are the same drawings in the night
+  palette, written by `assets/night.py`; the README shows the night one in a dark theme.
 - `skills/huddle/`, `skills/webrev/`, `skills/backlog/`, `skills/interview-me/`, `skills/dialectic/`,
   `skills/root-cause-investigator/`, `skills/release/`, `skills/last-tag/`, `skills/pr-review/`,
   `skills/gate/`, `skills/panel/`: the skills Lem names and ships. `NOTICE` says where

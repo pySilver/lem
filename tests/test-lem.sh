@@ -399,6 +399,15 @@ if [ "$(field '(d["companion"], d["reloaded"], d["parent"])' <<<"$out")" = "('NE
 else
   fail "board open: $out / $(cat "$WORK/calls")"
 fi
+night=0
+for name in lem lem-mark; do
+  "$PY" -B "$PWD/assets/night.py" "$PWD/assets/$name.svg" "$WORK/$name-night.svg" && cmp -s "$WORK/$name-night.svg" "$PWD/assets/$name-night.svg" || night=1
+done
+if [ "$night" = 0 ]; then
+  pass "each night logo is the day logo's drawing in the night palette, as assets/night.py writes it"
+else
+  fail "a night logo differs from what assets/night.py writes from the day file: run it again"
+fi
 if sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$PWD/skills/lem/assets/board.html" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark.svg"; then
   pass "the mark in the board's header is the logo's own file, line for line"
 else
