@@ -67,6 +67,16 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
 
+Designs the starting session took on 2026-11-14 after a question of the owner's. They are open
+to him, and they are not his rulings until he says so:
+
+- **The reviewer's seat is a table**, after "should we or can we specify model and effort level
+  of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `effort`, `plan_effort`.
+- **One machine may name its own reviewer for a while**, after "I may want to have a session
+  based reviewer ... Codex is down or I run out of tokens there": `.lem/project.local.toml`,
+  untracked, read from the main checkout, limited to `[seats]` and `[tools]`, written by
+  `/lem reviewer`. Lem never changes the seat by itself.
+
 ## Checks
 
 ```bash

@@ -33,8 +33,9 @@ if [ "$(status_of project --repo "$NEW" init)" = 1 ]; then pass "init refuses a 
 project --repo "$NEW" init --base main --reviewer codex >/dev/null
 out=$(project --repo "$NEW" show)
 if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["paths"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
-  && [ "$(field 'd["seats"]["reviewer"]' <<<"$out")" = "codex" ]; then
-  pass "init in a new project writes the skill's own layout, the given base and the reviewer seat"
+  && [ "$(field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"])' <<<"$out")" = "('codex', None)" ] \
+  && [ "$(cat "$NEW/.lem/.gitignore")" = "project.local.toml" ] && [ "$(field 'd["local"]' <<<"$out")" = "{'file': None, 'overrides': []}" ]; then
+  pass "init in a new project writes the skill's own layout, the given base, the reviewer's agent, and an ignore rule for the machine's own settings"
 else
   fail "init in a new project: $out"
 fi
@@ -94,10 +95,21 @@ if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], d["gate"]["
 else
   fail "history and gate.ignores"
 fi
-settings '[seats]' 'reviewer = "gemini"'
+settings '[seats.reviewer]' 'agent = "gemini"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a reviewer that is neither claude nor codex is refused"; else fail "reviewer value"; fi
 settings '[seats]' 'reviewer = "claude"'
-if [ "$(project --repo "$OLD" show | field 'd["seats"]["reviewer"]')" = "claude" ]; then pass "the reviewer seat may be the same family as the builder"; else fail "reviewer claude"; fi
+err=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "seats.reviewer is a table" <<<"$err"; then pass "the reviewer as a bare word is refused, with the table to write instead"; else fail "reviewer as a string: $err"; fi
+settings '[seats.reviewer]' 'model = "some-model"'
+if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a reviewer's model with no agent is refused"; else fail "model without agent"; fi
+settings '[seats.reviewer]' 'agent = "codex"' 'modle = "some-model"'
+if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "an unknown key of the reviewer's seat is refused"; else fail "unknown seat key"; fi
+settings '[seats.reviewer]' 'agent = "claude"' 'model = "some-model"' 'effort = "high"' 'plan_effort = "xhigh"'
+if [ "$(project --repo "$OLD" show | field 'd["seats"]["reviewer"]')" = "{'agent': 'claude', 'model': 'some-model', 'effort': 'high', 'plan_effort': 'xhigh'}" ]; then
+  pass "the reviewer's seat names the agent, which may be the builder's family, and what its pane starts with"
+else
+  fail "reviewer seat: $(project --repo "$OLD" show | field 'd["seats"]')"
+fi
 settings '[branch]' 'base = "v2"' 'protected = ["master", "develop"]'
 err=$(project --repo "$OLD" may-land master 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" may-land master)" = 1 ] && grep -q "protected" <<<"$err" && [ "$(status_of project --repo "$OLD" may-land feature)" = 1 ] \
@@ -171,6 +183,42 @@ if [ "$(field '[(t["slug"], t["status"]) for t in d]' <<<"$out")" = "[('report-d
 else
   fail "hand-written state: $out"
 fi
+
+# This machine's own settings: read from the main checkout in a worktree too, only seats and tools.
+settings '[branch]' 'base = "master"' '[seats.reviewer]' 'agent = "codex"' 'model = "the-usual" ' 'effort = "high"'
+out=$(project --repo "$WORK/wt" reviewer claude a-claude-model high)
+if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'effort': 'high', 'plan_effort': None}, ['seats.reviewer'])" ] \
+  && [ -f "$OLD/.lem/project.local.toml" ] && [ ! -e "$WORK/wt/.lem/project.local.toml" ] \
+  && [ "$(project --repo "$OLD" show | field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"], d["local"]["file"])')" = "('claude', 'a-claude-model', '$OLD/.lem/project.local.toml')" ]; then
+  pass "reviewer, run in a worktree, writes this machine's seat in the main checkout; it replaces the project's seat whole and show says so"
+else
+  fail "reviewer override: $out"
+fi
+printf '%s\n' '[tools]' 'annotate = "my-own-rev"' >> "$OLD/.lem/project.local.toml"
+out=$(project --repo "$OLD" reviewer default)
+if [ "$(field '(d["reviewer"]["agent"], d["reviewer"]["model"], d["local"]["overrides"])' <<<"$out")" = "('codex', 'the-usual', ['tools.annotate'])" ] \
+  && grep -q 'annotate = "my-own-rev"' "$OLD/.lem/project.local.toml" && ! grep -q "seats" "$OLD/.lem/project.local.toml"; then
+  pass "reviewer default gives the project's reviewer back and keeps what else the machine set"
+else
+  fail "reviewer default: $out / $(cat "$OLD/.lem/project.local.toml")"
+fi
+printf '%s\n' '[gate]' 'commands = []' > "$OLD/.lem/project.local.toml"
+err=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "\[gate\] is the project's rule" <<<"$err" \
+  && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ]; then
+  pass "the machine's own file may not hold the gate or any other rule of the project"
+else
+  fail "a gate in the local file: $err"
+fi
+rm "$OLD/.lem/project.local.toml"
+if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer codex a b c d)" = 1 ] && [ ! -e "$OLD/.lem/project.local.toml" ]; then
+  pass "reviewer refuses an agent that cannot review and a fifth word, and writes nothing then"
+else
+  fail "reviewer refusals"
+fi
+project --repo "$OLD" reviewer codex >/dev/null && project --repo "$OLD" reviewer default >/dev/null
+if [ ! -e "$OLD/.lem/project.local.toml" ]; then pass "a local file with nothing left in it is removed"; else fail "empty local file stays"; fi
+settings '[branch]' 'base = "master"'
 
 # The event log: every state block is an event the board can load, with the worktree's newest commit.
 events() { "$PY" -c 'import json, sys; d = [json.loads(line) for line in open(sys.argv[1])]; print(eval(sys.argv[2], {"d": d}))' "$OLD/.git/lem/events.jsonl" "$1"; }

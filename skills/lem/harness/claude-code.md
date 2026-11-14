@@ -101,9 +101,19 @@ the mailbox of the pane that opened the session. Not run yet: the hook waking an
 ## second-opinion
 
 The reviewer is a second agent in the split pane of the session that asks (a task's session, for
-a careful task), of the family the settings' `seats.reviewer` names (`claude` or `codex`); the
-owner reads both panes. When the setting is null,
-ask the owner once and write the answer into `.lem/project.toml`.
+a careful task); the owner reads both panes. `project.py show` gives the seat as
+`seats.reviewer`: its `agent` (`claude` or `codex`) and, when the project or this machine set
+them, its `model`, its `effort` for the review of a diff and its `plan_effort` for the read of a
+careful plan. When `agent` is null, ask the owner once and write the answer into
+`.lem/project.toml`.
+
+The seat may be this machine's own for a while: the usual reviewer is down, or out of tokens.
+`/lem reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]` runs `project.py reviewer` with those words,
+which writes the seat into `.lem/project.local.toml`, a file git does not track; `/lem reviewer
+default` removes it. Never change the seat by yourself. When the reviewer does not answer, or
+says it is out of tokens, ask the owner once whether the other agent reviews for now, and write
+the seat on his yes. While `project.py show` lists `seats.reviewer` under `local.overrides`,
+every report says that the reviewer is this machine's choice, and "same family" when it is.
 
 1. **Is a reviewer there?** `mailbox-chat.py status` names the other pane and what serves it:
    `claude`, `codex` or `none`.
@@ -114,8 +124,17 @@ ask the owner once and write the answer into `.lem/project.toml`.
      The line starts the agent with the reviewer's brief, `prompts/reviewer.md` in this skill's
      directory, by absolute path:
      - Codex: `codex "$(cat PATH/prompts/reviewer.md)"`. A Codex pane receives mail only after
-       its first prompt, and the brief is that prompt.
+       its first prompt, and the brief is that prompt. With a model, add `-m MODEL` before the
+       prompt; with an effort, `-c model_reasoning_effort=EFFORT`.
      - Claude Code: `claude --append-system-prompt "$(cat PATH/prompts/reviewer.md)" "You are the reviewer. Wait for the first message."`
+       With a model, add `--model MODEL`; with an effort, `--effort EFFORT`.
+     The effort is `plan_effort` when the review is the read of a plan, and `effort` otherwise.
+     Leave a flag out when the seat does not name its value: the agent's own default holds then.
+     The reviewer's pane is new for each review, so a plan read simply starts with its own effort.
+   - read the model and the effort back from the pane's status line, and name those in the
+     report, never the ones you asked for. In one repository seven or more tasks were reviewed on
+     another model than the run's log said (mybaze, 2026-11-07, from that project's
+     retrospective of 2026-11-08).
    - read `agtermctl tree --json` and confirm the session's `splitForeground` is that agent, then
      `mailbox-chat.py status` again.
    - Codex asks "Trust this folder?" the first time it starts in a repository, and it saves the
@@ -129,6 +148,12 @@ ask the owner once and write the answer into `.lem/project.toml`.
    that cover it. A message that names git goes from a file, never a heredoc.
 4. **The reply arrives in this pane by itself.** Never poll for it, and check every claim it makes
    about the code with your own read before you act on it.
+   A reply that may not be whole ("so far", a numbered point with no end, no closing `Changed:`
+   line for a diff) is answered in the same turn: accept or dispute its points and ask whether
+   more follows. End the turn to wait only when the reviewer said that more follows. In one run a
+   reply that ended "Source inspection only so far" was taken as partial, both panes waited 137
+   minutes, and the reviewer answered in about 90 seconds once asked (mybaze, 2026-09-29, from
+   that project's notes).
 5. **A reviewer is fresh for each review.** Before the next one, `agtermctl session split close`
    on this session ends the pane and its agent, and step 2 opens a new one. The dispute of a
    review's points and the check of the fixes it asked for belong to that review and stay in its
@@ -150,7 +175,9 @@ Checked on 2026-11-14 with agterm 0.41.1 in its rerun restore mode and a fish lo
 split opened on a background session, Codex started by the typed line with the reviewer's brief,
 its name read back from `splitForeground`, and one review went to it and came back through the
 mailbox. The reply waited in the mailbox while the coordinator's turn ran, and reached it only
-when the coordinator read its mail. Not run yet: a Claude Code reviewer started this way.
+when the coordinator read its mail. Not run yet: a Claude Code reviewer started this way, and a
+launch with a model or an effort flag (the flags are in each command's `--help`, read the same
+day: `codex -m`, `codex -c`, `claude --model`, `claude --effort`).
 
 ## fan-out
 

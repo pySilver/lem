@@ -81,6 +81,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
 | `status`, bare `/lem` | the board of all tasks, and in words: every open task, the review queue and what waits for the owner | below |
 | `status <task>` | the board of one task | below |
+| `reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]`, `reviewer default` | who sits in the reviewer's pane on this machine for now, and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
 | a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic`, `root-cause` and `webrev` this way; `huddle`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 

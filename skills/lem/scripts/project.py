@@ -16,6 +16,9 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py existing             the folders an older tool already reads here, as JSON
     project.py init [--base NAME] [--existing link|new] [--reviewer claude|codex]
                                     write .lem/project.toml
+    project.py reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]
+                                    who reviews on this machine, until `reviewer default`
+    project.py reviewer default     the project's own reviewer again
     project.py task-dir SLUG        make and print one task's state directory
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
     project.py state SLUG STATUS LINE...
@@ -38,6 +41,14 @@ the branch and newest commit of the task's worktree, so the board needs no agent
 second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
 JSON, so a commit made only of digits stays a string and an exit code stays a number.
 
+`.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
+reviewer's pane (the usual reviewer is down, or out of tokens) and which tool marks up a plan. It
+is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
+because a task's worktree has no copy of a file git does not track. It may hold `[seats]` and
+`[tools]` and nothing else: the gate, the careful paths, the protected branches and who lands are
+the project's rules, and a file nobody reviews must not open them. `show` names each setting that
+came from it.
+
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
 """
@@ -54,6 +65,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SETTINGS = Path(".lem") / "project.toml"
+LOCAL = Path(".lem") / "project.local.toml"
+# the tables one machine may set for itself
+LOCAL_TABLES = ("seats", "tools")
 # name -> (where the skill's own layout keeps it, where an older tool keeps it)
 PATHS: dict[str, tuple[str, str | None]] = {
     "profile": (".lem/profile.md", ".personas/profile.md"),
@@ -71,6 +85,10 @@ LAND = ("owner", "agent")
 HISTORY = ("keep", "squash")
 # the agents that can sit in the reviewer's pane
 REVIEWERS = ("claude", "codex")
+# The reviewer's seat: the agent, and what its pane is started with. A model and an effort are
+# not checked against a list: their names change with each release of an agent's command, and
+# that command refuses a wrong one loudly when the pane starts.
+SEAT = ("agent", "model", "effort", "plan_effort")
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 # What a task's newest state block may say, and who acts next:
@@ -136,10 +154,14 @@ careful = []
 # the tests share one database or drive a browser.
 max_tasks = {max_tasks}
 
-[seats]
+[seats.reviewer]
 # The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one reads the
 # plan and the diffs of a careful task. The same family twice is allowed.
 {reviewer}
+# What its pane starts with. Leave one out and the agent's own default holds.
+# model = ""
+# effort = ""        # for the review of a diff
+# plan_effort = ""   # for the read of a careful plan
 
 [tools]
 # The skill or command the owner marks up a plan or a draft with. "lem-webrev" comes with Lem;
@@ -181,22 +203,61 @@ def inside(root: Path, relative: str, where: str) -> Path:
     return resolved
 
 
-def load(root: Path) -> dict:
-    file = root / SETTINGS
-    raw: dict = {}
-    if file.is_file():
-        try:
-            raw = tomllib.loads(file.read_text())
-        except tomllib.TOMLDecodeError as error:
-            raise SettingsError(f"{SETTINGS}: {error}") from error
+def main_checkout(root: Path) -> Path:
+    """The checkout every worktree hangs off: the first entry git lists. A file git does not track lives only there."""
+    listed = subprocess.run(["git", "-C", str(root), "worktree", "list", "--porcelain"], capture_output=True, text=True, check=False)
+    first = next((line.removeprefix("worktree ") for line in listed.stdout.splitlines() if line.startswith("worktree ")), None)
+    return Path(first) if first else root
+
+
+def read_settings(file: Path, name: Path, tables: tuple[str, ...]) -> dict:
+    """One settings file as a dict, with every table and key it may not hold refused."""
+    if not file.is_file():
+        return {}
+    try:
+        raw = tomllib.loads(file.read_text())
+    except tomllib.TOMLDecodeError as error:
+        raise SettingsError(f"{name}: {error}") from error
     for table, body in raw.items():
         if table not in TABLES:
-            raise SettingsError(f"{SETTINGS}: unknown table [{table}]{nearest(table, tuple(TABLES))}")
+            raise SettingsError(f"{name}: unknown table [{table}]{nearest(table, tuple(TABLES))}")
+        if table not in tables:
+            raise SettingsError(
+                f"{name}: [{table}] is the project's rule and belongs in {SETTINGS}; "
+                f"this file may hold only {', '.join(f'[{t}]' for t in tables)}",
+            )
         if not isinstance(body, dict):
-            raise SettingsError(f"{SETTINGS}: [{table}] must be a table")
+            raise SettingsError(f"{name}: [{table}] must be a table")
         for key in body:
             if key not in TABLES[table]:
-                raise SettingsError(f"{SETTINGS}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
+                raise SettingsError(f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
+    return raw
+
+
+def seat(raw: dict, name: Path) -> dict | None:
+    """The reviewer's seat one file names, checked; None when the file names none."""
+    given = raw.get("seats", {}).get("reviewer")
+    if given is None:
+        return None
+    if not isinstance(given, dict):
+        raise SettingsError(f'{name}: seats.reviewer is a table: write [seats.reviewer] and under it agent = "codex"')
+    for key, value in given.items():
+        if key not in SEAT:
+            raise SettingsError(f"{name}: unknown key seats.reviewer.{key}{nearest(key, SEAT)}")
+        if not isinstance(value, str) or not value.strip():
+            raise SettingsError(f"{name}: seats.reviewer.{key} must be a word, not {value!r}; leave the line out for the agent's own default")
+    if "agent" in given and given["agent"] not in REVIEWERS:
+        raise SettingsError(f"{name}: seats.reviewer.agent = {given['agent']!r} must be one of {', '.join(REVIEWERS)}")
+    if "agent" not in given and given:
+        raise SettingsError(f"{name}: seats.reviewer names a model or an effort and no agent; a model belongs to one agent")
+    return {key: given.get(key) for key in SEAT}
+
+
+def load(root: Path) -> dict:
+    file = root / SETTINGS
+    raw = read_settings(file, SETTINGS, tuple(TABLES))
+    local_file = main_checkout(root) / LOCAL
+    local = read_settings(local_file, LOCAL, LOCAL_TABLES)
 
     paths = {}
     for name, (default, _older) in PATHS.items():
@@ -220,13 +281,22 @@ def load(root: Path) -> dict:
     protected = strings(branch.get("protected", []), "branch.protected")
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
+    overridden = []
     annotate = raw.get("tools", {}).get("annotate", "lem-webrev")
     if not isinstance(annotate, str) or not annotate.strip():
         raise SettingsError(f"{SETTINGS}: tools.annotate must name a skill or a command")
+    if "annotate" in local.get("tools", {}):
+        annotate = local["tools"]["annotate"]
+        if not isinstance(annotate, str) or not annotate.strip():
+            raise SettingsError(f"{LOCAL}: tools.annotate must name a skill or a command")
+        overridden.append("tools.annotate")
 
-    reviewer = raw.get("seats", {}).get("reviewer")
-    if reviewer is not None and reviewer not in REVIEWERS:
-        raise SettingsError(f"{SETTINGS}: seats.reviewer = {reviewer!r} must be one of {', '.join(REVIEWERS)}")
+    # A local seat replaces the project's whole: its model and effort belong to the project's agent.
+    reviewer = seat(raw, SETTINGS) or {key: None for key in SEAT}
+    local_seat = seat(local, LOCAL)
+    if local_seat is not None:
+        reviewer = local_seat
+        overridden.append("seats.reviewer")
     max_tasks = raw.get("flow", {}).get("max_tasks", MAX_TASKS)
     # a bool is an int in Python, and `max_tasks = true` is a mistake, not the number 1
     if isinstance(max_tasks, bool) or not isinstance(max_tasks, int) or max_tasks < 1:
@@ -244,6 +314,8 @@ def load(root: Path) -> dict:
         "flow": {"careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"), "max_tasks": max_tasks},
         "seats": {"reviewer": reviewer},
         "tools": {"annotate": annotate},
+        # what this machine set for itself, so a report can say that the reviewer is not the project's
+        "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
     }
 
 
@@ -315,9 +387,43 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
         chosen = older[name] if existing == "link" and name in older else default
         lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
-    seat = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex"'
-    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=seat, max_tasks=MAX_TASKS))
+    agent = f'agent = "{reviewer}"' if reviewer else '# agent = "codex"'
+    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS))
+    # one machine's own settings are never committed
+    ignore = file.parent / ".gitignore"
+    known = ignore.read_text().splitlines() if ignore.is_file() else []
+    if LOCAL.name not in known:
+        ignore.write_text("\n".join([*known, LOCAL.name]) + "\n")
     print(file)
+
+
+def cmd_reviewer(root: Path, words: list[str]) -> None:
+    """Write, or with `default` remove, this machine's own reviewer seat."""
+    file = main_checkout(root) / LOCAL
+    local = read_settings(file, LOCAL, LOCAL_TABLES)
+    if words == ["default"]:
+        local.get("seats", {}).pop("reviewer", None)
+    else:
+        if len(words) > len(SEAT):
+            raise SettingsError(f"reviewer takes AGENT [MODEL [EFFORT [PLAN_EFFORT]]], not {len(words)} words")
+        local.setdefault("seats", {})["reviewer"] = dict(zip(SEAT, words))
+        seat(local, LOCAL)
+    lines = ["# This machine's own settings for Lem. Not committed; `project.py reviewer` writes the seat."]
+    for table in LOCAL_TABLES:
+        body = local.get(table) or {}
+        plain = {key: value for key, value in body.items() if not isinstance(value, dict)}
+        if plain:
+            lines += ["", f"[{table}]", *(f"{key} = {json.dumps(value)}" for key, value in plain.items())]
+        for key, value in body.items():
+            if isinstance(value, dict) and value:
+                lines += ["", f"[{table}.{key}]", *(f"{k} = {json.dumps(v)}" for k, v in value.items())]
+    if len(lines) == 1:
+        file.unlink(missing_ok=True)
+    else:
+        file.parent.mkdir(exist_ok=True)
+        file.write_text("\n".join(lines) + "\n")
+    resolved = load(root)
+    print(json.dumps({"reviewer": resolved["seats"]["reviewer"], "local": resolved["local"]}, indent=2))
 
 
 def state_root(root: Path) -> Path:
@@ -486,6 +592,7 @@ def main() -> None:
     init.add_argument("--existing", choices=("link", "new"))
     init.add_argument("--reviewer", choices=REVIEWERS)
     commands.add_parser("existing")
+    commands.add_parser("reviewer").add_argument("words", nargs="+", metavar="AGENT|default")
     commands.add_parser("task-dir").add_argument("slug")
     state = commands.add_parser("state")
     state.add_argument("slug")
@@ -503,6 +610,9 @@ def main() -> None:
         root = repo_root(Path(args.repo))
         if args.command == "init":
             cmd_init(root, args.base, args.existing, args.reviewer)
+            return
+        if args.command == "reviewer":
+            cmd_reviewer(root, args.words)
             return
         if args.command == "existing":
             print(json.dumps(older_folders(root), indent=2))

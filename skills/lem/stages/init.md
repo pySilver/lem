@@ -82,7 +82,10 @@ For a repository that has code:
   release branch during a rewrite that lands on a branch of its own. They go into
   `branch.protected`.
 - **Who reviews**: the agent in the reviewer's pane, Codex or a second Claude. Guess Codex when
-  step 1 found it, since two model families disagree more usefully than one family twice.
+  step 1 found it, since two model families disagree more usefully than one family twice, and a
+  reviewer on another provider's quota does not spend the builders'. Then, only when the owner
+  has a preference: the reviewer's model, its effort for the review of a diff and its effort for
+  the read of a careful plan. No answer means the agent's own default.
 - **The folders already here**, when `project.py existing` listed any: link them, so the older
   tools and this skill read one copy and nothing moves; or generate new profiles under
   `.lem/`, and leave the old folders for the owner to remove.
@@ -99,8 +102,8 @@ python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --exist
 
 Leave `--existing` out when step 2 found no older folder. Then edit `.lem/project.toml`: the
 gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, `history`,
-the protected branches, and `tools.annotate` when the owner marks up plans with a tool of their
-own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
+the protected branches, the reviewer's `model`, `effort` and `plan_effort` when the owner named
+them, and `tools.annotate` when the owner marks up plans with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
 only means the gate runs again whenever the base moves.
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
 and say so in the handover.

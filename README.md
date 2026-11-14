@@ -52,8 +52,9 @@ nowhere else.
 
 ```
 .lem/
-  project.toml   paths, base branch, who lands, who reviews, gate commands, careful paths,
-                 how many tasks build at one time
+  project.toml   paths, base branch, who lands, who reviews and with which model and effort,
+                 gate commands, careful paths, how many tasks build at one time
+  project.local.toml   this machine's own reviewer for now; git does not track it
   profile.md     what the project is
   styleguide/    how code is written here, by path
   personas/      the people a decision affects
@@ -99,7 +100,8 @@ coordinator and the reviewer in the other pane. Optional, each with a fallback t
 plannotator (recommended), Codex, jev and cronn.
 
 The agent that runs `/lem` coordinates and its builders build. The reviewer's pane holds Codex or
-a second Claude, as the project's `seats.reviewer` says. A Codex that runs `/lem` itself waits for
+a second Claude, as the project's `[seats.reviewer]` says; `/lem reviewer claude` changes that on
+one machine, for a day when the usual reviewer is down, and `/lem reviewer default` ends it. A Codex that runs `/lem` itself waits for
 its harness file. A project that prefers its own tool for a role points its settings at it.
 
 ## Trying it in Claude Code
