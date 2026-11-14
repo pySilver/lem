@@ -6,10 +6,9 @@ You run in Claude Code. This file answers `README.md` beside it.
 
 The `Skill` tool. Do not load a skill whose instructions are already in context.
 
-- the question gate: `decide:gate`
-- the persona panel: `decide:panel`. It reads the cast from `.personas/cast/`; a project whose
-  settings name another personas path is not served by it yet, so say so instead of running it on
-  a built-in cast.
+- the question gate: the `gate` skill of this repository.
+- the persona panel: the `panel` skill of this repository. It finds the cast and the profile
+  through the project's settings.
 - the review tool: `revmux:revmux`, with `--config-dir` set to the settings' `review` path.
   Its starter set: `revmux init` at the root of the checkout always writes `./.revmux/`
   (config, lenses, prompts), whatever `--config-dir` says; when the settings' `review` path is

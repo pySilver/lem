@@ -29,6 +29,7 @@ in that project's repository. `README.md` says what it does; this file says how 
 
 ```bash
 bash tests/test-task.sh        # the task skill's three scripts, in throwaway repositories
+bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-huddle.sh      # huddle's spec checks and every template; loads pages in headless Chrome when one is installed
 shellcheck tests/*.sh
 ```
@@ -48,7 +49,8 @@ real task, so say in the commit which task showed the need.
 - `skills/task/references/`: the catalog of published style guides.
 - `assets/lem.svg`: the logo.
 - `skills/huddle/`, `skills/webrev/`, `skills/backlog/`, `skills/interview-me/`, `skills/dialectic/`,
-  `skills/root-cause-investigator/`, `skills/release/`, `skills/last-tag/`, `skills/pr-review/`: the skills the task skill names and ships. `NOTICE` says where
+  `skills/root-cause-investigator/`, `skills/release/`, `skills/last-tag/`, `skills/pr-review/`,
+  `skills/gate/`, `skills/panel/`: the skills the task skill names and ships. `NOTICE` says where
   each came from.
 
 ## The shipped skills are copies, not yet under the rules above

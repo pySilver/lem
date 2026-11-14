@@ -56,6 +56,8 @@ An opinionated set, kept small. Shipped here, beside `task`:
 | Skill | For |
 | --- | --- |
 | `interview-me` | the onboarding interview and an unclear ask: one question at a time, each with a guess |
+| `gate` | whether a question reaches the owner at all: a ruling, a probe or the agent may answer it |
+| `panel` | the people a decision affects answer it first, from the project's own cast |
 | `huddle` | a question to the owner as a page, options side by side |
 | `webrev` | a document the owner marks up in an agterm overlay |
 | `backlog` | deferred work, one file per item |

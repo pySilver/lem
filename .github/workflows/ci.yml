@@ -15,4 +15,5 @@ jobs:
       - name: Tests
         run: |
           bash tests/test-task.sh
+          bash tests/test-gate-panel.sh
           bash tests/test-huddle.sh
