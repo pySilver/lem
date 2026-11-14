@@ -381,14 +381,19 @@ if [ -n "$chrome" ]; then
       --virtual-time-budget=5000 --dump-dom "file://$OLD/.git/lem/$1.html" > "$WORK/$1.dom" 2>/dev/null || true
   }
   draw board
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 builds, 1 in the landing line" "Report dates stay whole" "Keep report dates whole." \
+  if [ ! -s "$WORK/board.dom" ]; then
+    # A Chrome that cannot start (a sandbox that forbids it) says nothing about the page.
+    printf 'SKIP the board pages: %s printed no page\n' "$chrome"
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 builds, 1 in the landing line" "Report dates stay whole" "Keep report dates whole." \
     "Building: task 2 of 3" "Second task" "Ready to land: the gate was cut off" "1 of 2" "normal, due when the day allows" "tasks land on master"); then
     pass "the board draws each task in its lane from the events, with the review queue"
   else
     fail "the board: missing $why"
   fi
   draw task-with-a-worktree
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-with-a-worktree.dom" "With a worktree · Dropped" "fix/with-a-worktree" "fix: 0123 is a string" \
+  if [ ! -s "$WORK/task-with-a-worktree.dom" ]; then
+    printf 'SKIP the board of one task: %s printed no page\n' "$chrome"
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-with-a-worktree.dom" "With a worktree · Dropped" "fix/with-a-worktree" "fix: 0123 is a string" \
     "make test" "5 passed in 0.1s" "the test is over" "All tasks"); then
     pass "a task's board draws its state blocks, its newest commit and its gate result"
   else
