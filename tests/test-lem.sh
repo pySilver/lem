@@ -164,6 +164,42 @@ else
   fail "hand-written state: $out"
 fi
 
+# The event log: every state block is an event the board can load, with the worktree's newest commit.
+events() { "$PY" -c 'import json, sys; d = [json.loads(line) for line in open(sys.argv[1])]; print(eval(sys.argv[2], {"d": d}))' "$OLD/.git/lem/events.jsonl" "$1"; }
+if [ "$(events '[(e["event"], e["task"], e["status"], e["text"], e["lines"]) for e in d[:2]]')" = "[('task.state', 'report-dates-stay-whole', 'queued', 'waits for a free place', []), ('task.state', 'report-dates-stay-whole', 'building', 'task 2 of 3', ['next: the report'])]" ] \
+  && [ "$(events 'len(d)')" = 2 ] && [ "$(events 'd[1]["ask"], d[1]["limit"], "head" in d[1]')" = "('Keep report dates whole.', 4, False)" ] \
+  && [ "$(sed -n 2p "$OLD/.git/lem/events.js")" = "lemEvent($(sed -n 2p "$OLD/.git/lem/events.jsonl"));" ]; then
+  pass "each state block is one event with the ask and the limit, a refused one is none, and the board's copy holds the same record"
+else
+  fail "events: $(cat "$OLD/.git/lem/events.jsonl")"
+fi
+tree=$(project --repo "$OLD" worktree-dir with-a-worktree)
+git -C "$OLD" worktree add -q "$tree" -b fix/with-a-worktree
+commit "$tree" "fix: 0123 is a string"
+project --repo "$OLD" task-dir with-a-worktree >/dev/null
+project --repo "$tree" state with-a-worktree building "task 1 of 1" >/dev/null
+if [ "$(events '(d[-1]["branch"], d[-1]["subject"], d[-1]["head"])')" = "('fix/with-a-worktree', 'fix: 0123 is a string', '$(git -C "$tree" rev-parse --short HEAD)')" ]; then
+  pass "a state written from the task's worktree carries that worktree's branch and newest commit"
+else
+  fail "worktree commit in the event: $(events 'd[-1]')"
+fi
+out=$(project --repo "$OLD" log with-a-worktree gate command="make test" exit:=0 tip=0123 "last=5 passed in 0.1s")
+if [ "$(field '(d["event"], d["task"], d["exit"], d["tip"], d["last"])' <<<"$out")" = "('gate', 'with-a-worktree', 0, '0123', '5 passed in 0.1s')" ] \
+  && [ "$(events '(d[-1]["event"], d[-1]["exit"])')" = "('gate', 0)" ]; then
+  pass "log appends any other event, a number typed as JSON and a commit of digits kept a string"
+else
+  fail "log: $out"
+fi
+before=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+if [ "$(status_of project --repo "$OLD" log with-a-worktree task.state status=landed)" = 1 ] && [ "$(status_of project --repo "$OLD" log no-such-task gate exit:=0)" = 1 ] \
+  && [ "$(status_of project --repo "$OLD" log with-a-worktree gate exit:=zero)" = 1 ] && [ "$(status_of project --repo "$OLD" log with-a-worktree gate task=other)" = 1 ] \
+  && [ "$(status_of project --repo "$OLD" log with-a-worktree gate exit)" = 1 ] && [ "$(grep -c '' "$OLD/.git/lem/events.jsonl")" = "$before" ]; then
+  pass "log refuses a state event, an unknown task, a value that is not JSON, a field the log sets and a bare word, and appends nothing then"
+else
+  fail "log refusals"
+fi
+project --repo "$OLD" state with-a-worktree dropped "the test is over" >/dev/null
+
 # The limit on tasks that build at one time.
 if [ "$(project --repo "$OLD" show | field 'd["flow"]["max_tasks"]')" = 4 ] && grep -q '^max_tasks = 4$' "$NEW/.lem/project.toml"; then
   pass "four tasks build at one time unless the settings say otherwise, and init writes that number where the owner sees it"
@@ -207,6 +243,12 @@ else
   fail "queue order: $out"
 fi
 queue close 2 --outcome "fixed in token-index-added"
+if [ "$(grep -c '' "$OLD/.git/lem/review-queue.js")" = 3 ] \
+  && [ "$(sed -n 3p "$OLD/.git/lem/review-queue.js")" = "lemReview($(sed -n 3p "$OLD/.git/lem/review-queue.jsonl"));" ]; then
+  pass "each queue event is also a line the board can load"
+else
+  fail "review-queue.js: $(cat "$OLD/.git/lem/review-queue.js")"
+fi
 if [ "$(status_of queue close 2 --outcome again)" = 1 ] && [ "$(status_of queue close 9 --outcome x)" = 1 ]; then
   pass "closing an item twice, or one that does not exist, is refused"
 else
@@ -269,6 +311,78 @@ if [ "$(row cronn found <<<"$out")" = "True" ] && [ "$(row cronn running <<<"$ou
   pass "an installed cronn that does not answer is reported as not running"
 else
   fail "doctor with cronn: $out"
+fi
+# The board: board.py writes the page and what it reads beside the events, and the page draws them.
+BOARD=$PWD/skills/lem/scripts/board.py
+board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" "$@"; }
+# The test's settings file is not committed, so a worktree has none: the worktree run shows where
+# the page goes and whose name it carries, the run in the main checkout shows the base.
+out=$(board --repo "$WORK/wt" --no-open)
+named=$(cat "$OLD/.git/lem/meta.js")
+board --repo "$OLD" --no-open >/dev/null
+if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.git/lem/board.html" ] && cmp -s "$OLD/.git/lem/board.html" "$PWD/skills/lem/assets/board.html" \
+  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": ""});' ] \
+  && [ "$(cat "$OLD/.git/lem/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": ""});' ]; then
+  pass "board --no-open writes the page into the shared state folder, from a worktree too, with the repository's name and its base"
+else
+  fail "board --no-open: $out / $named / $(cat "$OLD/.git/lem/meta.js" 2>&1)"
+fi
+out=$(board --repo "$OLD" --no-open --task with-a-worktree)
+err=$(board --repo "$OLD" --no-open --task no-such-task 2>&1 || true)
+if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.git/lem/task-with-a-worktree.html" ] && [ "$(field 'd["name"]' <<<"$out")" = "with-a-worktree board" ] \
+  && [ "$(status_of board --repo "$OLD" --no-open --task no-such-task)" = 1 ] && grep -q "the tasks are: .*second-task" <<<"$err" && [ ! -e "$OLD/.git/lem/task-no-such-task.html" ]; then
+  pass "a task's board is a copy named after the task, and an unknown task is refused with the names of the known ones"
+else
+  fail "board --task: $out / $err"
+fi
+if [ "$(status_of board --repo "$OLD")" = 1 ]; then pass "outside an agterm session board opens nothing and says so"; else fail "board outside agterm"; fi
+
+SHOWN=$(cat <<'PY'
+import sys
+from html.parser import HTMLParser
+class P(HTMLParser):
+    def __init__(self):
+        super().__init__(); self.skip = 0; self.text = []; self.title = ""; self.in_title = False
+    def handle_starttag(self, tag, attrs):
+        self.skip += tag in ("script", "style"); self.in_title = tag == "title" and not self.skip
+    def handle_endtag(self, tag):
+        self.skip -= tag in ("script", "style"); self.in_title = False
+    def handle_data(self, data):
+        if self.in_title and not self.title: self.title = data
+        elif not self.skip: self.text.append(data)
+p = P(); p.feed(open(sys.argv[1], encoding="utf-8").read())
+shown = " ".join(" ".join(p.text).split())
+missing = [want for want in sys.argv[2:] if want not in shown and want not in p.title]
+if "PROBLEM" in p.title or "does not parse" in shown: missing.append(f"no problem on the page (title {p.title!r})")
+print("; ".join(missing))
+sys.exit(bool(missing))
+PY
+)
+chrome=""
+for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
+  if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then chrome=$c; break; fi
+done
+if [ -n "$chrome" ]; then
+  draw() {
+    "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+      --virtual-time-budget=5000 --dump-dom "file://$OLD/.git/lem/$1.html" > "$WORK/$1.dom" 2>/dev/null || true
+  }
+  draw board
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 builds, 1 in the landing line" "Report dates stay whole" "Keep report dates whole." \
+    "Building: task 2 of 3" "Second task" "Ready to land: the report is written" "normal, due when the day allows" "tasks land on master"); then
+    pass "the board draws each task in its lane from the events, with the review queue"
+  else
+    fail "the board: missing $why"
+  fi
+  draw task-with-a-worktree
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-with-a-worktree.dom" "With a worktree · Dropped" "fix/with-a-worktree" "fix: 0123 is a string" \
+    "make test" "5 passed in 0.1s" "the test is over" "All tasks"); then
+    pass "a task's board draws its state blocks, its newest commit and its gate result"
+  else
+    fail "a task's board: missing $why"
+  fi
+else
+  printf 'SKIP the board pages: no Chrome or Chromium found\n'
 fi
 if [ -d "$(dirname "$PROJECT")/__pycache__" ]; then fail "the scripts left no __pycache__"; else pass "the scripts left no __pycache__"; fi
 

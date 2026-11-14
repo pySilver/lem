@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lem board</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--agterm-background, Canvas);
+    color: var(--agterm-foreground, CanvasText);
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    --bg: var(--agterm-background, Canvas);
+    --fg: var(--agterm-foreground, CanvasText);
+    --ok: var(--agterm-color-2, #3fb950);
+    --bad: var(--agterm-color-1, #f85149);
+    --lead: var(--agterm-color-6, #39c5cf);
+    --lem: var(--agterm-color-5, #bc8cff);
+    --you: var(--agterm-color-3, #d29922);
+    --gate: var(--agterm-color-4, #58a6ff);
+    --quiet: color-mix(in srgb, var(--fg) 58%, var(--bg));
+    --actor: var(--quiet);
+    --card: color-mix(in srgb, var(--fg) 4.5%, var(--bg));
+    --card-hi: color-mix(in srgb, var(--fg) 8%, var(--bg));
+    --line: color-mix(in srgb, var(--fg) 11%, transparent);
+    --line-strong: color-mix(in srgb, var(--fg) 22%, transparent);
+    --dim: color-mix(in srgb, var(--fg) 64%, var(--bg));
+    --faint: color-mix(in srgb, var(--fg) 50%, var(--bg));
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 22px 28px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .dim { color: var(--dim); }
+  .faint { color: var(--faint); }
+  .small { font-size: 12px; }
+  b { font-weight: 650; }
+  .ic { width: 14px; height: 14px; flex: none; }
+  [hidden] { display: none !important; }
+
+  /* Every animation's period divides 2s, and a node inserted later gets a negative delay that puts
+     it on the same 2s clock (phase() below), so a block rebuilt on a later tick carries on where
+     the one it replaced left off. */
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
+  @keyframes halo { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--actor) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 12px transparent; } }
+  @keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+  @keyframes stripes { to { background-position: 20px 0; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+  /* the actor a status belongs to */
+  .a-lead { --actor: var(--lead); } .a-lem { --actor: var(--lem); } .a-you { --actor: var(--you); }
+  .a-gate { --actor: var(--gate); } .a-done { --actor: var(--ok); } .a-bad { --actor: var(--bad); }
+  .a-quiet { --actor: var(--quiet); }
+
+  /* header */
+  .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px 24px; flex-wrap: wrap; }
+  .ident { min-width: 0; }
+  .eyebrow { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
+  .beacon { width: 8px; height: 8px; border-radius: 50%; color: var(--ok); background: currentColor; animation: ping 2s ease-out infinite; }
+  .beacon.bad { color: var(--bad); }
+  h1 { margin: 3px 0 4px; font-size: 25px; line-height: 1.2; font-weight: 720; letter-spacing: -.012em; overflow-wrap: anywhere; }
+  .ask { margin: 0 0 9px; color: var(--dim); font-size: 14px; max-width: 86ch; overflow-wrap: anywhere; }
+  .ask:empty { display: none; }
+  button { font: inherit; color: inherit; }
+  button:focus-visible { outline: 2px solid var(--gate); outline-offset: 2px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; max-width: 100%;
+    border: 1px solid var(--line); background: var(--card); color: var(--dim); font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chip .ic { width: 13px; height: 13px; }
+  .chip b { color: var(--fg); font-weight: 600; }
+  .chip.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+  .chip.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
+  .chip.you { color: var(--you); border-color: color-mix(in srgb, var(--you) 45%, transparent); }
+  .top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 550; border: 1px solid var(--line); background: var(--card); color: var(--actor); white-space: nowrap; }
+  .pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pill.live i { animation: ping 2s ease-out infinite; }
+  .pill span { color: var(--fg); }
+  .jump {
+    appearance: none; font-size: 12px; font-weight: 600; color: var(--fg); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 8px;
+    background: color-mix(in srgb, var(--fg) 7%, transparent); border: 1px solid var(--line-strong);
+  }
+  .jump:hover { background: color-mix(in srgb, var(--fg) 13%, transparent); }
+  .jump .ic { width: 13px; height: 13px; }
+  .jump.back .ic { transform: rotate(180deg); }
+
+  .banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; border: 1px solid; font-weight: 550; }
+  .banner .ic { width: 16px; height: 16px; }
+  .banner.attention { color: var(--you); border-color: color-mix(in srgb, var(--you) 55%, transparent); background: color-mix(in srgb, var(--you) 12%, transparent); }
+  .banner.problem { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 60%, transparent); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+  .banner span { color: var(--fg); flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .banner .sub { color: var(--dim); font-weight: 400; }
+  .banners { display: flex; flex-direction: column; gap: 8px; }
+  .banners:empty { display: none; }
+
+  .card { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; min-width: 0; }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; margin-bottom: 12px; }
+  h2 { margin: 0; font-size: 11px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
+
+  .hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+  .stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  @media (max-width: 1080px) { .hero, .cols { grid-template-columns: minmax(0, 1fr); } }
+
+  /* now */
+  .now { overflow: hidden; border-color: color-mix(in srgb, var(--actor) 38%, var(--line)); display: flex; flex-direction: column; }
+  .now > div { flex: 1; display: flex; flex-direction: column; }
+  .now::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--actor) 15%, transparent), transparent 58%);
+  }
+  .now.a-you, .now.a-bad { background: color-mix(in srgb, var(--actor) 7%, var(--card)); }
+  .now-in { position: relative; display: flex; gap: 18px; align-items: flex-start; }
+  .avatar {
+    width: 58px; height: 58px; border-radius: 17px; flex: none; display: grid; place-items: center;
+    color: var(--actor); background: color-mix(in srgb, var(--actor) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--actor) 42%, transparent);
+    animation: halo 2s ease-out infinite;
+  }
+  .avatar .ic { width: 27px; height: 27px; }
+  .still .avatar { animation: none; }
+  .now-body { min-width: 0; flex: 1; }
+  .now-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--actor); }
+  .now-head { font-size: 19px; line-height: 1.3; font-weight: 680; margin-top: 2px; overflow-wrap: anywhere; }
+  .now-status { margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--actor); overflow-wrap: anywhere; }
+  .now-ctx { margin-top: 3px; color: var(--dim); overflow-wrap: anywhere; }
+  .timer-row { display: flex; align-items: baseline; gap: 14px; margin-top: 12px; flex-wrap: wrap; }
+  .timer { font: 680 42px/1 -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .a-you .timer, .a-bad .timer { color: var(--actor); }
+  .note { font-size: 12px; color: var(--dim); }
+  .now-next { position: relative; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; font-size: 12px; color: var(--dim); }
+  .now-next .lbl { font-size: 10.5px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+  .now-next .right { margin-left: auto; }
+  .now-spacer { height: 16px; }
+
+  /* progress */
+  .prog { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 20px; align-items: center; }
+  .ring-wrap { position: relative; width: 116px; height: 116px; }
+  .ring { display: block; }
+  .ring circle { fill: none; stroke-width: 10; }
+  .ring .done { stroke: var(--ok); }
+  .ring .cur { stroke: var(--lead); animation: breathe 2s ease-in-out infinite; }
+  .ring .todo { stroke: color-mix(in srgb, var(--fg) 12%, transparent); }
+  .ring-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+  .ring-center b { font: 700 25px/1 var(--mono); letter-spacing: -.03em; }
+  .ring-center span { font-size: 10.5px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
+  .phases { display: flex; align-items: flex-start; }
+  .phase { flex: 1; min-width: 0; position: relative; padding-top: 20px; font-size: 11.5px; color: var(--faint); }
+  .phase::before { content: ""; position: absolute; top: 6px; left: 14px; right: 0; height: 2px; background: var(--line); }
+  .phase:last-child { flex: 0 0 auto; }
+  .phase:last-child::before { display: none; }
+  .phase i { position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--card); }
+  .phase.past { color: var(--dim); } .phase.past::before { background: color-mix(in srgb, var(--ok) 60%, transparent); }
+  .phase.past i { background: var(--ok); border-color: var(--ok); }
+  .phase.cur { color: var(--fg); font-weight: 600; }
+  .phase.cur i { border-color: var(--actor); background: color-mix(in srgb, var(--actor) 35%, var(--card)); animation: halo 2s ease-out infinite; }
+  .phase small { display: block; font-weight: 400; color: var(--dim); font-size: 11px; }
+  .stats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .stat { min-width: 0; }
+  .stat .sk { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); font-weight: 650; }
+  .stat .sv { font: 650 16px/1.3 var(--mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; margin-top: 1px; }
+  .stat .ss { font-size: 11px; line-height: 1.35; color: var(--dim); }
+  .stat.ok .sv { color: var(--ok); } .stat.you .sv { color: var(--you); } .stat.bad .sv { color: var(--bad); }
+
+  /* timeline */
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .legend i { width: 9px; height: 9px; border-radius: 3px; background: var(--actor); }
+  .tl-svg { display: block; overflow: visible; }
+  .tl-svg .lane-label { font: 550 11.5px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; fill: var(--dim); }
+  .tl-svg .track { fill: color-mix(in srgb, var(--fg) 4%, transparent); }
+  .tl-svg .grid { stroke: var(--line); stroke-dasharray: 2 4; }
+  .tl-svg .axis { font: 10.5px var(--mono); fill: var(--dim); }
+  .tl-svg .seg { fill: var(--actor); }
+  .tl-svg .seg.s-queued { fill: color-mix(in srgb, var(--quiet) 45%, transparent); }
+  .tl-svg .seg.s-ready { fill: color-mix(in srgb, var(--gate) 45%, transparent); }
+  .tl-svg .seg.live { animation: breathe 2s ease-in-out infinite; }
+  .tl-svg .end { fill: var(--actor); stroke: var(--card); stroke-width: 1.5; }
+  .tl-svg .nowline { stroke: var(--line-strong); stroke-width: 1.5; }
+  .tl-svg a { cursor: pointer; }
+  .tl-empty, .empty { padding: 22px 0; text-align: center; color: var(--faint); }
+
+  /* the board's columns */
+  .lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  @media (max-width: 1180px) { .lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .lanes { grid-template-columns: minmax(0, 1fr); } }
+  .lane { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .lane-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; font-size: 11px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
+  .lane-head i { width: 8px; height: 8px; border-radius: 3px; background: var(--actor); }
+  .lane-head em { margin-left: auto; font: 600 11.5px var(--mono); font-style: normal; letter-spacing: 0; color: var(--fg); }
+  .lane-empty { border: 1px dashed var(--line-strong); border-radius: 14px; padding: 18px 14px; text-align: center; color: var(--faint); font-size: 12px; }
+  .tcard {
+    appearance: none; text-align: left; cursor: pointer; width: 100%; display: flex; flex-direction: column; gap: 8px;
+    background: var(--card); border: 1px solid color-mix(in srgb, var(--actor) 30%, var(--line)); border-radius: 14px; padding: 13px 14px 12px;
+    position: relative; overflow: hidden;
+  }
+  .tcard::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--actor); }
+  .tcard:hover { background: var(--card-hi); }
+  .tcard.s-queued, .tcard.s-dropped { border-style: dashed; }
+  .tcard.s-queued::before, .tcard.s-dropped::before { background: transparent; }
+  .tcard.s-dropped .tc-title { color: var(--faint); text-decoration: line-through; }
+  .tc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .tc-title { font-weight: 640; font-size: 13.5px; line-height: 1.35; overflow-wrap: anywhere; min-width: 0; }
+  .tc-time { flex: none; font: 12px var(--mono); color: var(--dim); white-space: nowrap; padding-top: 1px; }
+  .tc-ask { color: var(--dim); font-size: 12px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .tc-text { font-size: 12.5px; color: var(--actor); font-weight: 560; overflow-wrap: anywhere; }
+  .tc-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag {
+    --c: var(--quiet);
+    display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 11.5px; max-width: 100%;
+    background: color-mix(in srgb, var(--c) 11%, transparent); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tag .ic { width: 12px; height: 12px; color: var(--c); }
+  .tag.c-lead { --c: var(--lead); } .tag.c-ok { --c: var(--ok); } .tag.c-bad { --c: var(--bad); } .tag.c-gate { --c: var(--gate); } .tag.c-you { --c: var(--you); } .tag.c-lem { --c: var(--lem); }
+  .tag.live {
+    border-color: var(--c);
+    background-image: linear-gradient(45deg,
+      color-mix(in srgb, var(--c) 24%, transparent) 25%, color-mix(in srgb, var(--c) 9%, transparent) 25%,
+      color-mix(in srgb, var(--c) 9%, transparent) 50%, color-mix(in srgb, var(--c) 24%, transparent) 50%,
+      color-mix(in srgb, var(--c) 24%, transparent) 75%, color-mix(in srgb, var(--c) 9%, transparent) 75%);
+    background-size: 20px 20px;
+    animation: stripes 1s linear infinite;
+  }
+  .tag span { overflow: hidden; text-overflow: ellipsis; }
+  .mini { position: relative; height: 5px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--fg) 6%, transparent); }
+  .mini span { position: absolute; top: 0; bottom: 0; left: 0; background: var(--ok); border-radius: 3px; }
+  .mini span.cur { background: var(--lead); animation: breathe 2s ease-in-out infinite; }
+  .more { padding: 0 4px; font-size: 12px; color: var(--faint); }
+
+  /* lists: state blocks, gate commands, review items, activity */
+  .rows { display: flex; flex-direction: column; }
+  .row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 6px 0; position: relative; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .fi { position: relative; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; color: var(--actor); background: color-mix(in srgb, var(--actor) 15%, var(--card)); border: 1px solid color-mix(in srgb, var(--actor) 25%, transparent); }
+  .fi .ic { width: 12px; height: 12px; }
+  .rtext { font-size: 12.5px; line-height: 1.4; padding-top: 3px; min-width: 0; overflow-wrap: anywhere; }
+  .rtext b { color: var(--actor); }
+  .rtext .sub { display: block; color: var(--dim); }
+  .rtext .cmd { font-family: var(--mono); font-size: 11.5px; }
+  .rtime { font: 11px var(--mono); color: var(--dim); white-space: nowrap; padding-top: 5px; text-align: right; }
+  .rlink { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+  .feed { max-height: 460px; overflow: auto; margin: 0 -10px; padding: 0 10px; }
+
+  .foot { display: flex; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; font-size: 11.5px; color: var(--dim); }
+  .foot .error { color: var(--bad); font-weight: 600; }
+</style>
+</head>
+<body>
+<main class="page" id="page">
+  <div id="banners" class="banners"></div>
+  <header class="top">
+    <div class="ident">
+      <div class="eyebrow"><span id="beacon" class="beacon"></span><span id="eyebrow">Lem</span></div>
+      <h1 id="title">Waiting for the first task</h1>
+      <p id="ask" class="ask"></p>
+      <div id="meta" class="meta"></div>
+    </div>
+    <div id="top-right" class="top-right"></div>
+  </header>
+
+  <section class="hero">
+    <div id="now" class="card now"></div>
+    <div id="progress" class="card"></div>
+  </section>
+
+  <section id="lanes-section">
+    <div id="lanes" class="lanes"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Where the time went</h2><div id="legend" class="legend"></div></div>
+    <div id="tl-wrap"><div id="timeline"></div></div>
+  </section>
+
+  <div class="cols">
+    <div class="stack">
+      <section id="states-card" class="card">
+        <div class="card-head"><h2>State blocks</h2><div id="states-sum" class="dim small"></div></div>
+        <div id="states" class="rows"></div>
+      </section>
+      <section id="gate-card" class="card">
+        <div class="card-head"><h2>Gate</h2><div id="gate-sum" class="dim small"></div></div>
+        <div id="gate" class="rows"></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Review queue</h2><div id="review-sum" class="dim small"></div></div>
+        <div id="review" class="rows"></div>
+      </section>
+    </div>
+    <section class="card">
+      <div class="card-head"><h2>Activity</h2><div id="feed-sum" class="dim small"></div></div>
+      <div id="feed" class="feed rows"></div>
+    </section>
+  </div>
+
+  <footer id="foot" class="foot"></footer>
+</main>
+
+<script type="module">
+// The board of one repository's tasks, and the board of one task. It draws three files that sit
+// beside it in the state folder: events.js (project.py: every state block and gate result),
+// review-queue.js (review_queue.py) and meta.js (board.py: the repository, the base branch, Lem's
+// session). A copy named task-SLUG.html opens on that task; any other name opens on all tasks.
+//
+// No wait turns amber or red by its length here. The monitor this page follows had limits measured
+// on its own runs; no task has run through Lem yet, so there is nothing to take a limit from.
+// Colour says who acts, and a task that waits for the owner is the only one that asks for attention.
+const FEED_EVERY_MS = 2000;
+const TREE_EVERY_MS = 3000;
+const DONE_SHOWN = 6;
+
+const START_VIEW = (decodeURIComponent(location.pathname.split('/').at(-1)).match(/^task-([a-z0-9-]+)\.html$/) ?? [])[1] ?? null;
+let view = START_VIEW;
+
+// Who acts in each status, in the words of SKILL.md's table.
+const STATUS = {
+  queued: {actor: 'quiet', who: 'Lem', label: 'Queued', icon: 'clock', live: false},
+  building: {actor: 'lead', who: 'The lead', label: 'Building', icon: 'code', live: true},
+  planned: {actor: 'lem', who: 'Lem', label: 'Planned', icon: 'file', live: false},
+  held: {actor: 'you', who: 'You', label: 'Waits for you', icon: 'user', live: true},
+  blocked: {actor: 'bad', who: 'Lem', label: 'Blocked', icon: 'alert', live: false},
+  ready: {actor: 'gate', who: 'Lem', label: 'Ready to land', icon: 'flag', live: false},
+  landing: {actor: 'gate', who: 'The gate', label: 'Landing', icon: 'play', live: true},
+  landed: {actor: 'done', who: 'Nobody', label: 'Landed', icon: 'check', live: false},
+  drafted: {actor: 'you', who: 'You', label: 'Drafted at night', icon: 'moon', live: false},
+  dropped: {actor: 'quiet', who: 'Nobody', label: 'Dropped', icon: 'x', live: false},
+};
+const UNKNOWN = {actor: 'bad', who: 'Nobody', label: 'No status', icon: 'alert', live: false};
+const LANES = [
+  {key: 'you', title: 'Waits for you', actor: 'you', empty: 'Nothing waits for you'},
+  {key: 'build', title: 'Building, or about to', actor: 'lead', empty: 'No task builds'},
+  {key: 'land', title: 'Landing line', actor: 'gate', empty: 'No branch waits to land'},
+  {key: 'done', title: 'Done', actor: 'done', empty: 'Nothing landed yet'},
+];
+const PHASES = ['Opened', 'Plan', 'Build', 'Ready', 'Gate', 'Landed'];
+const OWNER_ORDER = ['held', 'planned', 'drafted'];
+
+const ICONS = {
+  code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+  user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  check: '<polyline points="20 6 9 17 4 12"/>',
+  commit: '<circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/>',
+  alert: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  play: '<polygon points="6 4 20 12 6 20 6 4"/>',
+  flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+  branch: '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  arrow: '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
+  eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>',
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  split: '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/>',
+  cpu: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/>',
+  dot: '<circle cx="12" cy="12" r="3"/>',
+};
+
+let events = [];
+let reviews = [];
+let meta = {};
+let problems = {};
+let lastGoodRead = 0;
+let sessions = null;
+let treeProblem = null;
+
+// ---- reading the three files ----
+//
+// A syntax error in a loaded script still fires the tag's onload, with nothing collected, and a
+// file:// page gets it muted to "Script error." with no file name. The files are read one after
+// the other, so an error while one is in flight is that file's, and the read is refused instead of
+// taken as an empty log. A log only grows, so a read with fewer records than the last good one is
+// refused too.
+let loading = false;
+let parseError = null;
+window.addEventListener('error', err => { if (loading) parseError = err.message || 'script error'; });
+
+function readScript(file, hook, known) {
+  return new Promise(resolve => {
+    const got = [];
+    parseError = null;
+    loading = true;
+    window[hook] = record => got.push(record);
+    const tag = document.createElement('script');
+    tag.src = `${file}?t=${Date.now()}`;
+    tag.onload = () => {
+      loading = false;
+      tag.remove();
+      if (parseError) resolve({problem: `${file} does not parse (${parseError})`});
+      else if (got.length < known) resolve({problem: `${file} shrank from ${known} to ${got.length} records`});
+      else resolve({records: got});
+    };
+    tag.onerror = () => { loading = false; tag.remove(); resolve({missing: true}); };
+    document.head.appendChild(tag);
+  });
+}
+
+// ---- formatting ----
+
+function span(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 10) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  if (m < 60) return `${m}m`;
+  const hours = Math.floor(m / 60);
+  return hours < 48 ? `${hours}h ${String(m % 60).padStart(2, '0')}m` : `${Math.floor(hours / 24)}d ${hours % 24}h`;
+}
+function clock(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return (hours ? `${hours}:` : '') + `${String(m).padStart(hours ? 2 : 1, '0')}:${String(sec).padStart(2, '0')}`;
+}
+const ago = ms => (ms < 5000 ? 'just now' : `${span(ms)} ago`);
+const at = e => new Date(e.ts).getTime();
+const hhmm = ms => new Date(ms).toLocaleTimeString([], {hour12: false, hour: '2-digit', minute: '2-digit'});
+const dayKey = ms => new Date(ms).toDateString();
+const dayLabel = ms => new Date(ms).toLocaleDateString([], {day: 'numeric', month: 'short'});
+// A time on another day than today carries its date, or 00:10 and 23:50 read as one evening.
+const stamp = (ms, now) => (dayKey(ms) === dayKey(now) ? '' : `${dayLabel(ms)} `) + hhmm(ms);
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// "report-dates-stay-whole" -> "Report dates stay whole": the owner reads names, never codes.
+const titleOf = slug => { const words = String(slug).replace(/-+/g, ' ').trim(); return words ? words[0].toUpperCase() + words.slice(1) : 'A task'; };
+
+const NICE_MINUTES = [1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 480, 720, 1080, 1440];
+const niceCeil = ms => (NICE_MINUTES.find(m => m * 60000 >= ms) ?? Math.ceil(ms / 86400000) * 1440) * 60000;
+
+// ---- DOM ----
+
+function h(tag, attrs, ...kids) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs ?? {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') node.className = v; else if (k === 'style') node.style.cssText = v; else node.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) {
+    if (c == null || c === false || c === '') continue;
+    node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return node;
+}
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function s(tag, attrs, ...kids) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs ?? {})) if (v != null && v !== false) node.setAttribute(k, v);
+  for (const c of kids.flat()) if (c != null && c !== false && c !== '') node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return node;
+}
+function icon(name, cls = 'ic') {
+  const t = document.createElement('template');
+  t.innerHTML = `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] ?? ICONS.dot}</svg>`;
+  return t.content.firstElementChild;
+}
+// A text node tick() rewrites every second, so the block around it keeps the same markup.
+const live = (since, fmt = 'span') => h('span', {'data-since': since, 'data-fmt': fmt});
+const keyed = (key, node) => { node.dataset.key = key; return node; };
+
+// A block whose markup has not changed keeps its node, so a running animation, a text selection and
+// a hover survive the once-a-second render; only the blocks that did change are swapped.
+const SIGNATURE = new WeakMap();
+function patch(parent, nodes) {
+  const old = new Map([...parent.children].map(c => [c.dataset.key, c]));
+  const next = nodes.filter(Boolean).map(n => {
+    const signature = n.outerHTML;
+    const kept = old.get(n.dataset.key);
+    if (kept && SIGNATURE.get(kept) === signature) { old.delete(n.dataset.key); return kept; }
+    SIGNATURE.set(n, signature);
+    phase(n);
+    return n;
+  });
+  for (const gone of old.values()) gone.remove();
+  next.forEach((n, i) => { if (parent.children[i] !== n) parent.insertBefore(n, parent.children[i] ?? null); });
+}
+const ANIMATED = '.avatar, .pill i, .phase.cur i, .ring .cur, .tag.live, .mini .cur, .seg.live, .beacon';
+function phase(node) {
+  const delay = `${-(performance.now() % 2000) / 1000}s`;
+  for (const n of [node, ...node.querySelectorAll(ANIMATED)]) if (n.matches(ANIMATED)) n.style.animationDelay = delay;
+}
+
+// ---- the model ----
+
+function derive(now) {
+  const tasks = new Map();
+  let limit = null;
+  for (const e of events) {
+    if (!e.task) continue;
+    let t = tasks.get(e.task);
+    if (!t) tasks.set(e.task, t = {slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], lead: null, session: null, progress: null, commit: null, branch: null});
+    if (e.event === 'gate') { t.gates.push({ts: at(e), command: e.command, exit: e.exit, last: e.last, tip: e.tip}); continue; }
+    if (e.event !== 'task.state') continue;
+    const ts = at(e);
+    const lines = [e.text, ...(e.lines ?? [])].map(String);
+    // A landing that starts is a new run of the gate; the results of an earlier one are history.
+    if (e.status === 'landing' && t.blocks.at(-1)?.status !== 'landing') t.gates = [];
+    t.blocks.push({ts, status: e.status, text: String(e.text ?? ''), lines: (e.lines ?? []).map(String)});
+    t.ask = e.ask ?? t.ask;
+    limit = e.limit ?? limit;
+    for (const line of lines) {
+      const lead = line.match(/^lead: (builder|session)\b/);
+      if (lead) { t.lead = lead[1]; if (lead[1] === 'builder') t.session = null; }
+      const session = line.match(/^session: (\S+)/);
+      if (session) t.session = session[1];
+      const progress = e.status === 'building' && line.match(/\btask (\d+) of (\d+)\b/);
+      if (progress) t.progress = {n: Number(progress[1]), of: Number(progress[2])};
+    }
+    // The block that says the plan is committed also says how many tasks it has; the lead is then on the first.
+    const planned = e.status === 'building' && /\bplan committed\b/.test(lines.join(' ')) && lines.join(' ').match(/\b(\d+) tasks?\b/);
+    if (planned) t.progress = {n: 1, of: Number(planned[1])};
+    if (e.branch) t.branch = e.branch;
+    if (e.head && e.head !== t.commit?.head) t.commit = {head: e.head, subject: e.subject ?? '', seen: ts};
+  }
+
+  const list = [...tasks.values()].filter(t => t.blocks.length);
+  for (const t of list) {
+    const last = t.blocks.at(-1);
+    t.status = last.status;
+    t.info = STATUS[t.status] ?? UNKNOWN;
+    t.text = last.text;
+    t.lastTs = last.ts;
+    // "since" is when the task entered the status it has now, not when its newest block was written.
+    let i = t.blocks.length - 1;
+    while (i > 0 && t.blocks[i - 1].status === t.status) i--;
+    t.since = t.blocks[i].ts;
+    t.first = t.blocks[0].ts;
+    t.closed = t.status === 'landed' || t.status === 'dropped';
+    // A planned task waits for the owner only when its lead said the owner reads the plan.
+    t.forOwner = t.status === 'held' || t.status === 'drafted' || (t.status === 'planned' && /\bowner\b/.test(t.text));
+    if (t.status === 'planned' && t.forOwner) t.info = {...t.info, actor: 'you', who: 'You'};
+    t.lane = t.forOwner ? 'you' : t.closed ? 'done' : t.status === 'ready' || t.status === 'landing' ? 'land' : 'build';
+    t.segments = [];
+    for (const [k, b] of t.blocks.entries()) {
+      const end = t.blocks[k + 1]?.ts ?? (t.closed ? b.ts : now);
+      const prev = t.segments.at(-1);
+      if (prev && prev.status === b.status) prev.end = end;
+      else t.segments.push({status: b.status, start: b.ts, end, open: k === t.blocks.length - 1 && !t.closed});
+    }
+    t.planCommitted = t.blocks.some(b => b.status === 'planned' || b.status === 'drafted' || /\bplan committed\b/.test([b.text, ...b.lines].join(' ')));
+    t.gateBad = t.gates.filter(g => g.exit !== 0).length;
+  }
+
+  const items = new Map();
+  for (const r of reviews) items.set(r.id, {...(items.get(r.id) ?? {}), ...r});
+  const open = [...items.values()].filter(r => r.outcome == null)
+    .map(r => ({...r, added_ms: new Date(r.added).getTime()}))
+    .map(r => ({...r, due: r.risk !== 'high' ? 'when the day allows' : dayKey(r.added_ms) === dayKey(now) ? 'today' : 'overdue'}))
+    .sort((a, b) => (a.risk === b.risk ? a.added_ms - b.added_ms : a.risk === 'high' ? -1 : 1));
+  const closed = [...items.values()].filter(r => r.outcome != null);
+  for (const t of list) t.review = [...items.values()].filter(r => r.slug === t.slug);
+
+  const by = status => list.filter(t => t.status === status).sort((a, b) => a.since - b.since);
+  const m = {
+    now, list, limit, open, closed,
+    building: by('building'), queued: by('queued'), ready: by('ready'), landing: by('landing'), blocked: by('blocked'),
+    // A held decision stops work, a plan and a night draft only wait: in that order, the oldest first.
+    forOwner: list.filter(t => t.forOwner).sort((a, b) => OWNER_ORDER.indexOf(a.status) - OWNER_ORDER.indexOf(b.status) || a.since - b.since),
+    landedToday: list.filter(t => t.status === 'landed' && dayKey(t.since) === dayKey(now)),
+    due: open.filter(r => r.due !== 'when the day allows'),
+    unknown: list.filter(t => !STATUS[t.status]),
+    task: view ? tasks.get(view) ?? null : null,
+  };
+  return m;
+}
+
+// ---- blocks shared by both views ----
+
+const jump = (target, label) => h('button', {class: 'jump', type: 'button', 'data-jump': target}, label, ' ', icon('arrow'));
+const open = (slug, ...kids) => h('button', {class: 'rlink', type: 'button', 'data-open': slug}, ...kids);
+
+function paneOf(id) {
+  if (!id || !sessions) return null;
+  return sessions.find(x => x.id.toUpperCase() === id.toUpperCase() || x.id.toUpperCase().startsWith(id.toUpperCase()) || x.name === id) ?? null;
+}
+
+function statusPill(t) {
+  return h('span', {class: `pill a-${t.info.actor}${t.info.live ? ' live' : ''}`}, h('i'), t.info.label, ' ', h('span', {}, live(t.since)));
+}
+
+function tags(t) {
+  const out = [];
+  if (t.lead) out.push(h('span', {class: `tag c-lead${t.status === 'building' ? ' live' : ''}`, title: t.lead === 'session' ? 'A session of its own leads this task, with a reviewer in its other pane' : 'One builder leads this task'},
+    icon(t.lead === 'session' ? 'split' : 'code'), h('span', {}, t.lead === 'session' ? 'session' : 'builder')));
+  if (t.progress && t.status === 'building') out.push(h('span', {class: 'tag', title: 'The task of the plan the lead is on'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
+  if (t.commit) out.push(h('span', {class: 'tag mono', title: `${t.commit.head} ${t.commit.subject}${t.branch ? ` · ${t.branch}` : ''}`}, icon('commit'), h('span', {}, `${t.commit.head} ${t.commit.subject}`)));
+  if (t.gates.length) out.push(h('span', {class: `tag ${t.gateBad ? 'c-bad' : 'c-ok'}`, title: t.gates.map(g => `${g.exit === 0 ? 'green' : `exit ${g.exit}`}  ${g.command}  ${g.last ?? ''}`).join('\n')},
+    icon(t.gateBad ? 'alert' : 'check'), h('span', {}, t.gateBad ? `gate red: ${t.gateBad} of ${t.gates.length}` : `gate green: ${t.gates.length}`)));
+  for (const r of t.review) {
+    const closed = r.outcome != null;
+    out.push(h('span', {class: `tag ${closed ? (r.outcome === 'not reviewed' ? 'c-bad' : 'c-ok') : r.risk === 'high' ? 'c-you' : 'c-gate'}`, title: `review item ${r.id} · ${r.range}`},
+      icon('eye'), h('span', {}, closed ? `review: ${r.outcome}` : `review ${r.risk}, open`)));
+  }
+  return out;
+}
+
+function buildBanners(m) {
+  const out = [];
+  // A banner is for what stops work: a held decision and a blocked task. A draft waits in its lane.
+  for (const t of view ? [] : m.forOwner.filter(x => x.status === 'held')) {
+    out.push(keyed(`you:${t.slug}:${t.status}`, h('div', {class: 'banner attention'}, icon('user'),
+      h('span', {}, h('b', {}, `${t.info.label}: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.text} · `, live(t.since))))));
+  }
+  for (const t of view ? [] : m.blocked) {
+    out.push(keyed(`blocked:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
+      h('span', {}, h('b', {}, 'Blocked: '), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.text} · `, live(t.since))))));
+  }
+  for (const t of m.unknown) {
+    out.push(keyed(`unknown:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
+      h('span', {}, `${t.title} has the status "${t.status}", which no stage writes; nobody acts on it`))));
+  }
+  if (view && !m.task) out.push(keyed('notask', h('div', {class: 'banner problem'}, icon('alert'), h('span', {}, `No state block was written yet for the task "${view}"`))));
+  return out;
+}
+
+function buildTimeline(m, tasks, width) {
+  const rows = tasks.filter(t => t.segments.length);
+  if (!rows.length) return keyed('tl', h('div', {class: 'tl-empty'}, 'A lane appears with a task’s first state block'));
+  const padL = view ? 14 : Math.min(230, Math.max(120, Math.round(width * 0.2))), padR = 14, rowH = 26, top = 6;
+  const t0 = Math.min(...rows.map(t => t.first));
+  // Drawn to a coarser clock than the page's, so the markup holds still between steps.
+  const coarse = Math.ceil(m.now / 15000) * 15000;
+  const span0 = niceCeil(Math.max(60000, coarse - t0));
+  const W = Math.max(320, width), H = top + rows.length * rowH + 22;
+  const x = ms => padL + ((W - padL - padR) * Math.min(span0, Math.max(0, ms - t0))) / span0;
+  const svg = s('svg', {class: 'tl-svg', width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'What each task waited on, over time'});
+  const steps = 6;
+  for (let i = 0; i <= steps; i++) {
+    const ms = t0 + (span0 * i) / steps, gx = x(ms);
+    svg.append(s('line', {class: 'grid', x1: gx, x2: gx, y1: top, y2: H - 20}));
+    svg.append(s('text', {class: 'axis', x: gx, y: H - 6, 'text-anchor': i === 0 ? 'start' : i === steps ? 'end' : 'middle'}, stamp(ms, m.now)));
+  }
+  rows.forEach((t, r) => {
+    const y = top + r * rowH;
+    const label = t.title.length > 30 ? `${t.title.slice(0, 29)}…` : t.title;
+    if (!view) svg.append(s('a', {'data-open': t.slug}, s('text', {class: 'lane-label', x: 0, y: y + 15}, label, s('title', {}, t.title))));
+    svg.append(s('rect', {class: 'track', x: padL, y: y + 5, width: W - padL - padR, height: 14, rx: 4}));
+    for (const g of t.segments) {
+      const info = STATUS[g.status] ?? UNKNOWN;
+      const x1 = x(g.start), x2 = x(g.open ? coarse : g.end);
+      if (g.end === g.start && !g.open) {
+        svg.append(s('circle', {class: `end a-${info.actor}`, cx: x1, cy: y + 12, r: 5}, s('title', {}, `${info.label} at ${stamp(g.start, m.now)}`)));
+        continue;
+      }
+      svg.append(s('rect', {class: `seg s-${g.status} a-${info.actor}${g.open && info.live ? ' live' : ''}`, x: x1, y: y + 5, width: Math.max(2, x2 - x1), height: 14, rx: 4},
+        s('title', {}, `${info.label} · ${info.who} · ${stamp(g.start, m.now)} to ${g.open ? 'now' : stamp(g.end, m.now)} · ${span((g.open ? m.now : g.end) - g.start)}`)));
+    }
+  });
+  if (coarse - t0 <= span0) svg.append(s('line', {class: 'nowline', x1: x(coarse), x2: x(coarse), y1: top, y2: H - 20}));
+  return keyed('tl', h('div', {}, svg));
+}
+
+function buildLegend(m, tasks) {
+  const total = new Map();
+  for (const t of tasks) for (const g of t.segments) total.set(g.status, (total.get(g.status) ?? 0) + (g.open ? m.now : g.end) - g.start);
+  return Object.keys(STATUS).filter(k => total.get(k) > 0).map(k => keyed(`lg:${k}`, h('span', {class: `a-${STATUS[k].actor}`, title: `${STATUS[k].who} acts`}, h('i'), STATUS[k].label)));
+}
+
+function describe(e, m) {
+  const title = titleOf(e.task);
+  if (e.event === 'task.state') {
+    const info = STATUS[e.status] ?? UNKNOWN;
+    return {info, head: info.label, text: e.text, sub: (e.lines ?? []).join(' · '), title};
+  }
+  if (e.event === 'gate') {
+    const ok = e.exit === 0;
+    return {info: {actor: ok ? 'done' : 'bad', icon: ok ? 'check' : 'alert'}, head: ok ? 'Gate green' : `Gate red, exit ${e.exit}`, text: e.command, sub: e.last ?? '', title, mono: true};
+  }
+  const rest = Object.entries(e).filter(([k]) => !['ts', 'event', 'task'].includes(k)).map(([k, v]) => `${k} ${typeof v === 'string' ? v : JSON.stringify(v)}`).join(' · ');
+  return {info: {actor: 'quiet', icon: 'dot'}, head: e.event, text: rest, sub: '', title};
+}
+
+function buildFeed(m, list) {
+  if (!list.length) return [keyed('empty', h('div', {class: 'empty'}, 'No events yet'))];
+  return list.slice(-200).reverse().map((e, i) => {
+    const d = describe(e, m);
+    return keyed(`f:${e.ts}:${e.task}:${list.length - i}`, h('div', {class: `row a-${d.info.actor}`},
+      h('span', {class: 'fi'}, icon(d.info.icon)),
+      h('div', {class: 'rtext'}, view ? '' : [open(e.task, d.title), ' · '], h('b', {}, d.head), d.text ? ' · ' : '', h('span', {class: d.mono ? 'cmd' : ''}, d.text),
+        d.sub ? h('span', {class: 'sub'}, d.sub) : ''),
+      h('span', {class: 'rtime'}, stamp(at(e), m.now))));
+  });
+}
+
+function buildReview(m, items) {
+  if (!items.length) return [keyed('empty', h('div', {class: 'empty'}, view ? 'This task has no review item yet' : 'No landed change waits for a review'))];
+  return items.map(r => {
+    const closed = r.outcome != null;
+    const actor = closed ? (r.outcome === 'not reviewed' ? 'bad' : 'done') : r.due === 'when the day allows' ? 'gate' : 'you';
+    return keyed(`r:${r.id}:${r.outcome ?? ''}`, h('div', {class: `row a-${actor}`},
+      h('span', {class: 'fi'}, icon(closed ? 'check' : 'eye')),
+      h('div', {class: 'rtext'}, view ? '' : [open(r.slug, titleOf(r.slug)), ' · '], h('b', {}, closed ? r.outcome : `${r.risk}, due ${r.due}`),
+        h('span', {class: 'sub mono'}, r.range, r.note ? ` · ${r.note}` : '')),
+      h('span', {class: 'rtime'}, closed ? stamp(new Date(r.closed).getTime(), m.now) : live(new Date(r.added).getTime()))));
+  });
+}
+
+// ---- the board of all tasks ----
+
+function focusOf(m) {
+  const t = m.forOwner[0] ?? m.blocked[0] ?? m.landing[0] ?? m.building[0] ?? m.ready[0] ?? m.queued[0] ?? null;
+  if (!t) return null;
+  const others = (m.forOwner.includes(t) ? m.forOwner : m[t.status] ?? []).length - 1;
+  return {t, others};
+}
+
+function buildBoardNow(m) {
+  const f = focusOf(m);
+  if (!f) {
+    return keyed('now:idle', h('div', {class: 'still'}, h('div', {class: 'now-in'},
+      h('div', {class: 'avatar'}, icon('check')),
+      h('div', {class: 'now-body'}, h('div', {class: 'now-eyebrow'}, 'Lem'), h('div', {class: 'now-head'}, m.list.length ? 'Nothing runs' : 'No task was opened yet'),
+        h('div', {class: 'now-ctx'}, m.list.length ? 'Every task has landed or was dropped.' : 'Type /lem and an ask in Lem’s session.')))));
+  }
+  const {t, others} = f;
+  const pane = paneOf(t.session);
+  return keyed(`now:${t.slug}:${t.status}:${t.text}:${others}:${pane?.status ?? ''}`, h('div', {class: t.info.live ? '' : 'still'},
+    h('div', {class: 'now-in'},
+      h('div', {class: 'avatar'}, icon(t.info.icon)),
+      h('div', {class: 'now-body'},
+        h('div', {class: 'now-eyebrow'}, `${t.info.who} · ${t.info.label}`),
+        h('div', {class: 'now-head'}, t.title),
+        h('div', {class: 'now-status'}, t.text),
+        t.ask ? h('div', {class: 'now-ctx'}, t.ask) : '',
+        h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, live(t.since, 'clock')),
+          h('span', {class: 'note'}, 'in this state', others > 0 ? ` · ${plural(others, 'more task')} like it` : '')))),
+    h('div', {class: 'now-spacer'}),
+    h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last block'), h('span', {}, h('span', {'data-ago': t.lastTs})),
+      h('span', {class: 'right'}, h('button', {class: 'jump', type: 'button', 'data-open': t.slug}, 'Open the task', ' ', icon('arrow'))))));
+}
+
+function ring(done, current, total, big, small) {
+  const R = 48, C = 2 * Math.PI * R, safe = Math.max(1, total);
+  const arc = (cls, from, n) => n > 0 ? s('circle', {class: cls, cx: 58, cy: 58, r: R, 'stroke-dasharray': `${(C * n) / safe} ${C}`, 'stroke-dashoffset': -(C * from) / safe, transform: 'rotate(-90 58 58)'}) : null;
+  return h('div', {class: 'ring-wrap'},
+    s('svg', {class: 'ring', width: 116, height: 116, viewBox: '0 0 116 116'}, s('circle', {class: 'todo', cx: 58, cy: 58, r: R}), arc('done', 0, done), arc('cur', done, current)),
+    h('div', {class: 'ring-center'}, h('b', {}, big), h('span', {}, small)));
+}
+const stat = (label, value, sub, cls = '') => h('div', {class: `stat ${cls}`, title: sub ?? ''}, h('div', {class: 'sk'}, label), h('div', {class: 'sv'}, value), h('div', {class: 'ss'}, sub ?? ''));
+
+function buildBoardProgress(m) {
+  const limit = m.limit ?? '?';
+  const n = m.building.length;
+  return keyed(`prog:${n}:${limit}:${m.queued.length}:${m.ready.length}:${m.landing.length}:${m.forOwner.length}:${m.landedToday.length}:${m.open.length}:${m.due.length}:${m.blocked.length}`,
+    h('div', {class: 'prog'},
+      ring(0, n, typeof limit === 'number' ? limit : Math.max(n, 1), `${n}/${limit}`, 'places'),
+      h('div', {},
+        h('div', {class: 'now-head'}, n ? `${plural(n, 'task')} build${n === 1 ? 's' : ''}` : 'No task builds'),
+        h('div', {class: 'dim'}, typeof limit === 'number' ? `The project lets ${plural(limit, 'task')} build at one time (flow.max_tasks).` : 'The limit comes with the first state block.')),
+      h('div', {class: 'stats'},
+        stat('Waits for you', m.forOwner.length, m.forOwner.length ? 'a held decision, a plan or a draft' : 'nothing', m.forOwner.length ? 'you' : ''),
+        stat('Queued', m.queued.length, 'asks that wait for a place'),
+        stat('Landing line', m.ready.length + m.landing.length, m.landing.length ? 'the gate runs on one' : 'one branch lands at a time'),
+        stat('Landed today', m.landedToday.length, 'on the base branch', m.landedToday.length ? 'ok' : ''),
+        stat('Review open', m.open.length, m.due.length ? `${m.due.length} due or overdue` : 'none due today', m.due.length ? 'you' : ''),
+        stat('Blocked', m.blocked.length, 'Lem has to settle these', m.blocked.length ? 'bad' : ''))));
+}
+
+function taskCard(t) {
+  const pane = paneOf(t.session);
+  return keyed(`c:${t.slug}`, h('button', {class: `tcard s-${t.status} a-${t.info.actor}`, type: 'button', 'data-open': t.slug, title: 'Open the board of this task'},
+    h('div', {class: 'tc-top'}, h('div', {class: 'tc-title'}, t.title), h('div', {class: 'tc-time'}, t.closed ? '' : live(t.since))),
+    t.ask ? h('div', {class: 'tc-ask'}, t.ask) : '',
+    h('div', {class: 'tc-text'}, `${t.info.label}: ${t.text}`),
+    t.progress && t.status === 'building' ? h('div', {class: 'mini'}, h('span', {style: `width:${(100 * (t.progress.n - 1)) / t.progress.of}%`}),
+      h('span', {class: 'cur', style: `left:${(100 * (t.progress.n - 1)) / t.progress.of}%;width:${100 / t.progress.of}%`})) : '',
+    h('div', {class: 'tc-row'}, tags(t), pane?.status ? h('span', {class: 'tag', title: 'The agent status agterm shows for the task’s session'}, icon('cpu'), h('span', {}, `session ${pane.status}`)) : '')));
+}
+
+function buildLanes(m) {
+  return LANES.map(lane => {
+    let tasks = m.list.filter(t => t.lane === lane.key);
+    // The task that has waited longest comes first, except where the newest is the news.
+    tasks.sort(lane.key === 'done' ? (a, b) => b.since - a.since : (a, b) => (a.status === b.status ? a.since - b.since : Object.keys(STATUS).indexOf(a.status) - Object.keys(STATUS).indexOf(b.status)));
+    if (lane.key === 'land') tasks.sort((a, b) => (a.status === 'landing' ? -1 : b.status === 'landing' ? 1 : a.since - b.since));
+    const hidden = lane.key === 'done' ? Math.max(0, tasks.length - DONE_SHOWN) : 0;
+    if (hidden) tasks = tasks.slice(0, DONE_SHOWN);
+    return keyed(`lane:${lane.key}`, h('div', {class: `lane a-${lane.actor}`},
+      h('div', {class: 'lane-head'}, h('i'), lane.title, h('em', {}, lane.key === 'build' && tasks.some(t => t.status !== 'building')
+        ? `${m.building.length} of ${tasks.length}` : tasks.length + hidden)),
+      tasks.length ? tasks.map(taskCard).map(c => { phase(c); return c; }) : h('div', {class: 'lane-empty'}, lane.empty),
+      hidden ? h('div', {class: 'more'}, `and ${plural(hidden, 'older task')}`) : ''));
+  });
+}
+
+// ---- the board of one task ----
+
+function buildTaskNow(t) {
+  const pane = paneOf(t.session);
+  const head = {
+    queued: 'Waits for a free place', building: t.lead === 'session' ? 'Its session builds it' : 'Its builder builds it', planned: t.forOwner ? 'The plan waits for you' : 'The plan waits for a session',
+    held: 'Waits for you', blocked: 'The lead stopped; Lem has to settle it', ready: 'Waits for its landing', landing: 'The gate runs on it', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
+  }[t.status] ?? `Status "${t.status}"`;
+  return keyed(`now:${t.slug}:${t.status}:${t.text}:${t.lastTs}:${pane?.status ?? ''}`, h('div', {class: t.info.live ? '' : 'still'},
+    h('div', {class: 'now-in'},
+      h('div', {class: 'avatar'}, icon(t.info.icon)),
+      h('div', {class: 'now-body'},
+        h('div', {class: 'now-eyebrow'}, t.info.who === 'You' ? 'You act' : t.info.who === 'Nobody' ? 'Closed' : `${t.info.who} acts`),
+        h('div', {class: 'now-head'}, head),
+        h('div', {class: 'now-status'}, t.text),
+        t.blocks.at(-1).lines.length ? h('div', {class: 'now-ctx'}, t.blocks.at(-1).lines.join(' · ')) : '',
+        h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, t.closed ? stamp(t.since, Date.now()) : live(t.since, 'clock')),
+          h('span', {class: 'note'}, t.closed ? `after ${span(t.since - t.first)}` : 'in this state')))),
+    h('div', {class: 'now-spacer'}),
+    h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last block'), h('span', {}, h('span', {'data-ago': t.lastTs})),
+      pane?.status ? h('span', {}, `· the session is ${pane.status}`) : '',
+      pane ? h('span', {class: 'right'}, jump(pane.id, 'Go to the session')) : '')));
+}
+
+function phaseIndex(t) {
+  if (t.status === 'landed') return PHASES.length;
+  if (t.status === 'landing') return 4;
+  if (t.status === 'ready') return 3;
+  if (t.status === 'queued') return 0;
+  return t.planCommitted && t.status !== 'planned' && t.status !== 'drafted' ? 2 : 1;
+}
+
+function buildTaskProgress(t) {
+  const at_ = phaseIndex(t);
+  const p = t.progress;
+  const done = t.status === 'landed' || t.status === 'ready' || t.status === 'landing';
+  const total = p?.of ?? 0, finished = done ? total : Math.max(0, (p?.n ?? 1) - 1), current = !done && p && t.status === 'building' ? 1 : 0;
+  const sub = k => (k === 2 && p ? `task ${done ? p.of : p.n} of ${p.of}` : k === 4 && t.gates.length ? (t.gateBad ? `${t.gateBad} red` : `${t.gates.length} green`) : '');
+  const openReview = t.review.filter(r => r.outcome == null);
+  return keyed(`prog:${t.slug}:${at_}:${p?.n}:${p?.of}:${t.status}:${t.gates.length}:${t.gateBad}:${t.review.map(r => r.outcome).join()}:${t.commit?.head}`,
+    h('div', {class: 'prog'},
+      ring(finished, current, total || 1, total ? `${finished}/${total}` : '–', 'plan tasks'),
+      h('div', {class: `phases a-${t.info.actor}`}, PHASES.map((name, k) => h('div', {class: `phase ${k < at_ ? 'past' : k === at_ ? 'cur' : ''}`}, h('i'), name, h('small', {}, sub(k))))),
+      h('div', {class: 'stats'},
+        stat('Lead', t.lead ?? '–', t.lead === 'session' ? 'a session with a reviewer' : t.lead === 'builder' ? 'one builder plans and builds' : 'no lead was started yet'),
+        stat('Last commit', t.commit?.head ?? '–', t.commit ? t.commit.subject : 'no commit on its branch yet'),
+        stat('Open for', t.closed ? span(t.since - t.first) : live(t.first), `first block ${stamp(t.first, Date.now())}`),
+        stat('Gate', t.gates.length ? (t.gateBad ? 'red' : 'green') : '–', t.gates.length ? `${plural(t.gates.length, 'command')} in the last run` : 'it runs at the landing', t.gates.length ? (t.gateBad ? 'bad' : 'ok') : ''),
+        stat('Review', t.review.length ? (openReview.length ? 'open' : t.review.at(-1).outcome) : '–', t.review.length ? `risk ${t.review.at(-1).risk}` : 'queued when it lands', openReview.length ? 'you' : ''),
+        stat('State blocks', t.blocks.length, `the newest at ${stamp(t.lastTs, Date.now())}`))));
+}
+
+function buildStates(t, now) {
+  return t.blocks.map((b, k) => ({b, k})).reverse().map(({b, k}) => {
+    const info = STATUS[b.status] ?? UNKNOWN;
+    const next = t.blocks[k + 1]?.ts;
+    return keyed(`s:${k}:${next ?? 'open'}`, h('div', {class: `row a-${info.actor}`},
+      h('span', {class: 'fi'}, icon(info.icon)),
+      h('div', {class: 'rtext'}, h('b', {}, info.label), ' · ', b.text, b.lines.length ? h('span', {class: 'sub'}, b.lines.join(' · ')) : ''),
+      h('span', {class: 'rtime'}, stamp(b.ts, now), h('br'), next ? span(next - b.ts) : t.closed ? '' : live(b.ts))));
+  });
+}
+
+function buildGate(t, now) {
+  if (!t.gates.length) return [keyed('empty', h('div', {class: 'empty'}, 'The gate runs when the task lands'))];
+  return t.gates.map((g, k) => keyed(`g:${k}:${g.exit}`, h('div', {class: `row a-${g.exit === 0 ? 'done' : 'bad'}`},
+    h('span', {class: 'fi'}, icon(g.exit === 0 ? 'check' : 'alert')),
+    h('div', {class: 'rtext'}, h('b', {}, g.exit === 0 ? 'green' : `exit ${g.exit}`), ' · ', h('span', {class: 'cmd'}, g.command ?? ''),
+      h('span', {class: 'sub cmd'}, g.last ?? '', g.tip ? ` · on ${g.tip}` : '')),
+    h('span', {class: 'rtime'}, stamp(g.ts, now)))));
+}
+
+// ---- render ----
+
+const $ = id => document.getElementById(id);
+let lastTitle = '';
+
+function render() {
+  const now = Date.now();
+  const m = derive(now);
+  const t = m.task;
+  const trouble = [...Object.values(problems), treeProblem].filter(Boolean);
+  const repo = meta.repo ?? 'this repository';
+  const page = $('page');
+  page.className = `page a-${t ? t.info.actor : focusOf(m)?.t.info.actor ?? 'quiet'}`;
+  $('beacon').className = `beacon${trouble.length ? ' bad' : ''}`;
+  $('eyebrow').textContent = view ? `Lem · ${repo} · one task` : `Lem · ${repo}`;
+  patch($('banners'), buildBanners(m));
+
+  const lem = paneOf(meta.session);
+  const right = [];
+  if (view) right.push(keyed('back', h('button', {class: 'jump back', type: 'button', 'data-open': ''}, icon('arrow'), ' ', 'All tasks')));
+  if (lem) right.push(keyed(`lem:${lem.status ?? ''}`, jump(lem.id, `Go to Lem${lem.status ? ` (${lem.status})` : ''}`)));
+  patch($('top-right'), right);
+
+  const chip = (key, name, cls, ...kids) => keyed(key, h('span', {class: `chip ${cls}`}, icon(name), ...kids));
+  if (view) {
+    $('title').textContent = t?.title ?? titleOf(view);
+    $('ask').textContent = t?.ask ?? '';
+    patch($('meta'), t ? [
+      keyed(`st:${t.status}`, statusPill(t)),
+      t.branch ? chip('branch', 'branch', 'mono', t.branch) : null,
+      meta.base ? chip('base', 'flag', '', 'lands on ', h('b', {}, meta.base)) : null,
+      ...tags(t).map((n, i) => keyed(`tag:${i}`, n)),
+    ] : []);
+    $('now').className = `card now a-${t?.info.actor ?? 'quiet'}`;
+    patch($('now'), t ? [buildTaskNow(t)] : []);
+    patch($('progress'), t ? [buildTaskProgress(t)] : []);
+    patch($('states'), t ? buildStates(t, now) : []);
+    $('states-sum').textContent = t ? plural(t.blocks.length, 'block') : '';
+    patch($('gate'), t ? buildGate(t, now) : []);
+    $('gate-sum').textContent = t?.gates.length ? (t.gateBad ? `${t.gateBad} of ${t.gates.length} red` : `${plural(t.gates.length, 'command')} green`) : '';
+  } else {
+    const parts = [m.forOwner.length && `${m.forOwner.length} wait${m.forOwner.length === 1 ? 's' : ''} for you`, m.building.length && `${m.building.length} build${m.building.length === 1 ? 's' : ''}`,
+      (m.ready.length + m.landing.length) && `${m.ready.length + m.landing.length} in the landing line`, m.queued.length && `${m.queued.length} queued`].filter(Boolean);
+    $('title').textContent = parts.length ? parts.join(', ') : m.list.length ? 'Nothing runs' : 'Waiting for the first task';
+    $('ask').textContent = '';
+    patch($('meta'), [
+      meta.base ? chip('base', 'branch', '', 'tasks land on ', h('b', {}, meta.base)) : null,
+      chip('limit', 'layers', '', h('b', {}, `${m.building.length} of ${m.limit ?? '?'}`), ' places taken'),
+      chip(`review:${m.open.length}:${m.due.length}`, 'eye', m.due.length ? 'you' : '', h('b', {}, m.open.length), ` review ${m.open.length === 1 ? 'item' : 'items'} open`, m.due.length ? `, ${m.due.length} due` : ''),
+      m.blocked.length ? chip('blocked', 'alert', 'bad', h('b', {}, m.blocked.length), ' blocked') : null,
+    ]);
+    $('now').className = `card now a-${focusOf(m)?.t.info.actor ?? 'done'}`;
+    patch($('now'), [buildBoardNow(m)]);
+    patch($('progress'), [buildBoardProgress(m)]);
+    patch($('lanes'), buildLanes(m));
+  }
+  $('lanes-section').hidden = Boolean(view);
+  $('states-card').hidden = !view;
+  $('gate-card').hidden = !view;
+
+  // On the board the timeline holds the tasks that are open and the ones that closed today.
+  const shown = view ? (t ? [t] : []) : m.list.filter(x => !x.closed || dayKey(x.since) === dayKey(now)).sort((a, b) => a.first - b.first);
+  patch($('legend'), buildLegend(m, shown));
+  patch($('timeline'), [buildTimeline(m, shown, $('tl-wrap').clientWidth)]);
+
+  const reviewItems = view ? (t?.review ?? []).map(r => ({...r, due: m.open.find(o => o.id === r.id)?.due})) : m.open;
+  patch($('review'), buildReview(m, reviewItems));
+  $('review-sum').textContent = view ? '' : `${m.open.length} open · ${m.due.length} due · ${m.closed.length} closed`;
+  const feed = view ? events.filter(e => e.task === view) : events;
+  patch($('feed'), buildFeed(m, feed));
+  $('feed-sum').textContent = plural(feed.length, 'event');
+
+  patch($('foot'), [
+    keyed(`f:${trouble.join()}:${events.length}`, h('span', {}, trouble.length ? h('span', {class: 'error'}, `${trouble.join(' · ')} · `) : '',
+      'events.js last read cleanly ', h('span', {'data-ago': lastGoodRead}), ` · ${plural(events.length, 'event')}`)),
+    keyed('rates', h('span', {}, `files read every ${FEED_EVERY_MS / 1000}s · sessions every ${TREE_EVERY_MS / 1000}s`)),
+  ]);
+  tick(now);
+
+  const title = (trouble.length ? 'PROBLEM · ' : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.building.length} build · ${m.forOwner.length} for you`);
+  if (title !== lastTitle) document.title = lastTitle = title;
+}
+
+function tick(now) {
+  for (const n of document.querySelectorAll('[data-since]')) {
+    const ms = now - Number(n.dataset.since);
+    n.textContent = n.dataset.fmt === 'clock' ? clock(ms) : span(ms);
+  }
+  for (const n of document.querySelectorAll('[data-ago]')) n.textContent = Number(n.dataset.ago) ? ago(now - Number(n.dataset.ago)) : 'never';
+}
+
+async function pollFiles() {
+  const feed = await readScript('events.js', 'lemEvent', events.length);
+  if (feed.records) { events = feed.records; lastGoodRead = Date.now(); delete problems.events; }
+  else problems.events = feed.missing ? 'events.js is missing: no state block was written yet' : feed.problem;
+  // No landing yet means no review queue: a missing file is an empty queue, a broken one a problem.
+  const queue = await readScript('review-queue.js', 'lemReview', reviews.length);
+  if (queue.records) { reviews = queue.records; delete problems.reviews; } else if (queue.missing) { reviews = []; delete problems.reviews; } else problems.reviews = queue.problem;
+  const about = await readScript('meta.js', 'lemMeta', 0);
+  if (about.records?.length) meta = about.records.at(-1);
+  render();
+  setTimeout(pollFiles, FEED_EVERY_MS);
+}
+
+// The agent status of Lem's session and of each task's session, from agterm. A page opened outside
+// agterm has no bridge: it shows the files and no session.
+async function pollTree() {
+  if (typeof agterm === 'undefined') return;
+  try {
+    const reply = await agterm.request('tree');
+    sessions = (reply?.tree?.workspaces ?? []).flatMap(w => w.sessions ?? []);
+    treeProblem = null;
+  } catch (err) {
+    // An old status beside a failed read would pass for a current one.
+    sessions = null;
+    treeProblem = `tree failed: ${err?.message ?? err}`;
+  }
+}
+
+document.addEventListener('click', async ev => {
+  const to = ev.target.closest('[data-jump]');
+  if (to) {
+    try { await agterm.request('session.select', {target: to.dataset.jump}); } catch (err) { treeProblem = `could not switch: ${err?.message ?? err}`; render(); }
+    return;
+  }
+  const task = ev.target.closest('[data-open]');
+  if (task) {
+    view = task.dataset.open || null;
+    window.scrollTo(0, 0);
+    render();
+  }
+});
+window.addEventListener('resize', render);
+
+await pollFiles();
+await pollTree();
+render();
+setInterval(pollTree, TREE_EVERY_MS);
+setInterval(render, 1000);
+</script>
+</body>
+</html>

@@ -26,6 +26,9 @@ nowhere else.
   review of each task.
 - **Only so many tasks build at one time.** The limit is a setting, `flow.max_tasks`; a task over
   it waits in a queue.
+- **A board shows all of it.** `/lem status` opens a live page under Lem's session: each task in
+  the lane of who acts on it, with its lead, its newest commit, its gate result and its review
+  item. `/lem status <task>` opens the board of one task.
 - **The review queue is honest.** A high-risk landing is due the day it lands. A normal item
   nobody read in seven days is closed as "not reviewed" and reported, so unread changes are a
   number someone sees.

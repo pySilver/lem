@@ -48,5 +48,4 @@ by line before the build.
    with the design failures it can show with a cite. Fix the plan for each one that holds. One
    such read took nine minutes and found three design failures before any code
    (convertiser-server, 2026-11-14). A plan that is not careful skips this.
-6. **Go on to `build`.** Write the state `building` with the line `plan committed` and how many
-   tasks it has.
+6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.

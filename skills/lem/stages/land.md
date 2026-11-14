@@ -19,7 +19,8 @@ otherwise the `ready` task with the oldest state time. Its branch and tip are in
    git names as in conflict. Its reply is the new tip.
 2. **Run the gate.** Every command of the settings' `gate.commands`, at the root of the task's
    worktree, on the tip that will land, each with its output in a file of the task directory.
-   Keep the exact last line of each and do not read the rest. A project with no gate command
+   Keep the exact last line of each and do not read the rest, and log each result for the board:
+   `project.py log SLUG gate command="..." exit:=N last="..." tip=SHA`. A project with no gate command
    cannot land through this skill: say so and stop, because "nothing failed" would then mean
    "nothing ran".
 3. **A red gate is work, and a builder's.** `spawn-builder` in the worktree with the command, the

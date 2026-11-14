@@ -21,11 +21,22 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
     project.py tasks                every task's ask, status and newest state block, as JSON
+    project.py log SLUG EVENT [key=value ...] [key:=json ...]
+                                    append one event about a task to the log the board draws
     project.py may-start            exit 1 when as many tasks build as flow.max_tasks allows
     project.py state-dir            the folder that holds every task, the review queue and the night reports
 
 Task state is kept inside the git directory every worktree shares: it is never committed, a
 worktree's removal does not take it, and a session that replaces another finds it.
+
+Every state block is also an event. `events.jsonl` in the state folder is the record, one JSON
+object per line: `ts` (UTC to the second), `event`, `task`, then the event's fields. The same
+record goes to `events.js` as a `lemEvent({...});` line, because the board is a file:// page: it
+cannot read a file with fetch, and it can load a script (measured in agterm 0.34.0 by the monitor
+this one follows). `state` writes `task.state` with the status, the lines, the ask, the limit and
+the branch and newest commit of the task's worktree, so the board needs no agent to remember a
+second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
+JSON, so a commit made only of digits stays a string and an exit code stays a number.
 
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
@@ -324,13 +335,52 @@ def cmd_worktree_dir(settings: dict, slug: str) -> None:
     print(parent / slug)
 
 
-def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
-    """Put a new block at the top of the task's state.md: the time, the status and what the lines say."""
+def task_directory(root: Path, slug: str) -> Path:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     directory = state_root(root) / "tasks" / slug
     if not directory.is_dir():
         raise SettingsError(f"no task {slug!r}; `project.py task-dir {slug}` makes its directory")
+    return directory
+
+
+def append_event(root: Path, event: str, slug: str, fields: dict) -> dict:
+    """Append one record to the log, and to the copy of it the board can load."""
+    record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": slug, **fields}
+    line = json.dumps(record, ensure_ascii=False)
+    directory = state_root(root)
+    with (directory / "events.jsonl").open("a", encoding="utf-8") as log:
+        log.write(line + "\n")
+    with (directory / "events.js").open("a", encoding="utf-8") as feed:
+        feed.write(f"lemEvent({line});\n")
+    return record
+
+
+def task_worktree(root: Path, settings: dict, slug: str) -> dict:
+    """The branch and the newest commit of the task's worktree; nothing when it has no worktree."""
+    def git(where: Path, *args: str) -> str | None:
+        ran = subprocess.run(["git", "-C", str(where), *args], capture_output=True, text=True, check=False)
+        return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
+
+    # Worktrees hang off the main checkout, and this may run in one of them: the first entry git
+    # lists is the main checkout.
+    listed = git(root, "worktree", "list", "--porcelain") or ""
+    main = next((line.removeprefix("worktree ") for line in listed.splitlines() if line.startswith("worktree ")), None)
+    if main is None:
+        return {}
+    path = Path(main) / Path(settings["paths"]["worktrees"]["path"]).relative_to(root.resolve()) / slug
+    if not (path / ".git").exists():
+        return {}
+    commit = git(path, "log", "-1", "--format=%h%x00%s")
+    head, _, subject = (commit or "").partition("\0")
+    found = {"branch": git(path, "branch", "--show-current"), "head": head or None, "subject": subject or None}
+    return {key: value for key, value in found.items() if value}
+
+
+def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
+    """Put a new block at the top of the task's state.md, and the same as an event in the log."""
+    directory = task_directory(root, slug)
+    settings = load(root)
     if status not in STATES:
         raise SettingsError(f"status {status!r} is not one a task has{nearest(status, STATES)}")
     if any(not line.strip() or "\n" in line for line in lines):
@@ -344,7 +394,34 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
     fresh = directory / "state.md.new"
     fresh.write_text(block + ("\n\n" + older if older else "") + "\n")
     fresh.replace(file)
+    ask = directory / "task.md"
+    append_event(root, "task.state", slug, {
+        "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
+        "ask": ask.read_text().strip().splitlines()[0] if ask.is_file() and ask.read_text().strip() else None,
+        "limit": settings["flow"]["max_tasks"], **task_worktree(root, settings, slug),
+    })
     print(json.dumps({"slug": slug, "status": status, "since": since}))
+
+
+def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
+    """Append one event about a task; `state` is the only writer of task.state."""
+    task_directory(root, slug)
+    if event == "task.state":
+        raise SettingsError("task.state is written by `project.py state`, which also writes the state block")
+    fields: dict[str, object] = {}
+    for pair in pairs:
+        key, separator, raw = pair.partition("=")
+        typed = key.endswith(":")
+        key = key.removesuffix(":")
+        if not separator or not key:
+            raise SettingsError(f"{pair!r} is neither key=value nor key:=json")
+        if key in fields or key in ("ts", "event", "task"):
+            raise SettingsError(f"field {key!r} is given twice or is one the log sets itself")
+        try:
+            fields[key] = json.loads(raw) if typed else raw
+        except json.JSONDecodeError as error:
+            raise SettingsError(f"{key!r} is not JSON ({error}): {raw!r}") from error
+    print(json.dumps(append_event(root, event, slug, fields)))
 
 
 def read_tasks(root: Path) -> list[dict]:
@@ -401,6 +478,10 @@ def main() -> None:
     state.add_argument("status")
     state.add_argument("lines", nargs="+", metavar="LINE")
     commands.add_parser("tasks")
+    log = commands.add_parser("log")
+    log.add_argument("slug")
+    log.add_argument("event")
+    log.add_argument("fields", nargs="*", metavar="key=value")
     commands.add_parser("may-start")
     commands.add_parser("state-dir")
     args = parser.parse_args()
@@ -420,6 +501,9 @@ def main() -> None:
             return
         if args.command == "tasks":
             print(json.dumps(read_tasks(root), indent=2))
+            return
+        if args.command == "log":
+            cmd_log(root, args.slug, args.event, args.fields)
             return
         if args.command == "state-dir":
             state_root(root).mkdir(exist_ok=True)

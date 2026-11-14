@@ -56,7 +56,7 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him.
 ## Checks
 
 ```bash
-bash tests/test-lem.sh        # Lem's three scripts, in throwaway repositories
+bash tests/test-lem.sh        # Lem's scripts, in throwaway repositories; loads the board in headless Chrome when one is installed
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-huddle.sh      # huddle's spec checks and every template; loads pages in headless Chrome when one is installed
 shellcheck tests/*.sh
@@ -70,8 +70,10 @@ real task, so say in the commit which task showed the need.
 - `skills/lem/SKILL.md`: the entry point and what holds in every stage.
 - `skills/lem/stages/`: one file per subcommand.
 - `skills/lem/harness/`: the capability contract and one file per agent.
-- `skills/lem/scripts/`: `project.py` (a repository's settings and task state), `doctor.py`
-  (the machine), `review_queue.py` (landed changes that wait for a review).
+- `skills/lem/scripts/`: `project.py` (a repository's settings, task state and the event log),
+  `doctor.py` (the machine), `review_queue.py` (landed changes that wait for a review),
+  `board.py` (opens the board).
+- `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both.
 - `skills/lem/templates/`: the shapes onboarding fills.
 - `skills/lem/prompts/`: the standing briefs of a task's lead and of the reviewer.
 - `skills/lem/references/`: the catalog of published style guides.

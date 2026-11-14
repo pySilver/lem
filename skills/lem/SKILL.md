@@ -76,7 +76,8 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
-| `status`, bare `/lem` | every open task, the review queue and what waits for the owner | below |
+| `status`, bare `/lem` | the board of all tasks, and in words: every open task, the review queue and what waits for the owner | below |
+| `status <task>` | the board of one task | below |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A task runs on from `new` to its landing without the owner, unless a stage file names a stop.
@@ -161,15 +162,32 @@ and before you stop. The status says who acts next:
 | `drafted` | a plan written at night that waits for the owner's word | the owner |
 | `dropped` | nobody will build it | nobody |
 
+Every state block is also an event in the log the board draws, with the newest commit of the
+task's worktree, so the board needs no second command from anyone. Four lines have a fixed form,
+because the board reads them: `lead: builder` or `lead: session`, `session: ID`, `plan committed`
+with `N tasks`, and `task N of M`.
+
 Nothing else keeps a task's place. A session that was compacted or replaced, Lem's or a lead's,
 reads `project.py tasks`, then the state file and the report of the task it acts on, and goes on.
 Lem keeps no notes of its own beside these files.
 
 ## Status
 
-`python3 SKILL_DIR/scripts/project.py tasks` lists every task directory with the first line of
-its `task.md`, its status and the newest block of its `state.md`. Say, in plain names and never
-in task codes: what builds and what each other task waits on, what landed today, how many review
-items are open and how many are due today, and what waits for the owner. A task whose status is
-null has a state nobody wrote through the script: say so. Open with the newest night report when
-one is newer than the last status shown. Change nothing.
+```bash
+python3 SKILL_DIR/scripts/board.py             # the board of all tasks
+python3 SKILL_DIR/scripts/board.py --task SLUG # the board of one task
+```
+
+The board opens as a page under Lem's session and stays there: each task in the lane of who acts
+on it, with its lead, its newest commit, its gate result and its review item; the review queue;
+and where each task's time went. A task's own board adds its state blocks and each gate command.
+It reads the event log by itself every two seconds, so open it once, and again after agterm was
+started again.
+
+Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists every task
+directory with the first line of its `task.md`, its status and the newest block of its
+`state.md`. Say, in plain names and never in task codes: what builds and what each other task
+waits on, what landed today, how many review items are open and how many are due today, and what
+waits for the owner. A task whose status is null has a state nobody wrote through the script: say
+so. Open with the newest night report when one is newer than the last status shown. Change
+nothing.

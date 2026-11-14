@@ -64,8 +64,9 @@ A builder's reply is the path of its report. A session's lead sends one message 
 - **`planned`**: the report says why the lead stopped at the plan.
   - *It needs a session* (a careful file, or a plan too large for one builder): write the state
     `building` with the line `lead: session`, and `open-task-session` with the brief of step 6,
-    `lead: session` and the address the harness file tells you to add. Write the session's name
-    or id in a second state line, so the session can be closed after the landing.
+    `lead: session` and the address the harness file tells you to add. Write the state again
+    with the line `session: ID` and the id the session got, so the board can show the session and
+    it can be closed after the landing.
   - *The owner asked for the plan only*: show the owner the plan through the settings'
     `tools.annotate`, and leave the task as it is until the owner says build or drop.
 - **`held`**: the report holds one or more decisions that are the owner's, each in the form

@@ -12,7 +12,9 @@ count of unread changes is a number someone sees instead of a backlog that only 
     review_queue.py expire                close open normal items older than EXPIRE_AFTER
 
 The queue is one JSON-lines file inside the git directory every worktree shares. Each line is an
-event; an item's state is its newest event.
+event; an item's state is its newest event. Each event also goes to `review-queue.js` beside it,
+as a `lemReview({...});` line: the board is a file:// page, which can load a script and cannot
+read a file.
 """
 
 import argparse
@@ -51,8 +53,11 @@ def items(file: Path) -> dict[int, dict]:
 
 
 def append(file: Path, event: dict) -> None:
-    with file.open("a") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+    line = json.dumps(event, ensure_ascii=False)
+    with file.open("a", encoding="utf-8") as handle:
+        handle.write(line + "\n")
+    with file.with_suffix(".js").open("a", encoding="utf-8") as feed:
+        feed.write(f"lemReview({line});\n")
 
 
 def now() -> datetime:
