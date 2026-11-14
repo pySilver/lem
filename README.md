@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/lem.svg" alt="Lem" width="410"></p>
+<p align="center"><img src="assets/lem.svg" alt="Lem: a tall hooded figure holds one line, and four smaller figures and the name hang from it" width="720"></p>
 
 # Lem
 
@@ -7,9 +7,8 @@ landed, reviewed change, the same way in every repository: `new`, `plan`, `build
 `review`, `night`, `status`, `learn`, `retro` and `init`. Lem holds the flow. What differs between
 projects lives in each project's repository, where `/task init` writes it.
 
-The name is Stanisław Lem's. In his "Cyberiad" two constructors, Trurl and Klapaucius, build
-machines and check each other's work; here one agent builds and one reviews, in two panes of one
-terminal.
+The name is Stanisław Lem's. Lem is the one in the middle: it builds nothing itself, it holds the
+line the other agents work on, and it answers to you for all of them.
 
 **State: a first version.** No real task has run through it, there is no installer, and the
 contract is written for Claude Code only. Lem runs inside [agterm](https://agterm.com) and

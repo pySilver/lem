@@ -47,7 +47,7 @@ real task, so say in the commit which task showed the need.
 - `skills/task/templates/`: the shapes onboarding fills.
 - `skills/task/prompts/`: the reviewer's standing brief.
 - `skills/task/references/`: the catalog of published style guides.
-- `assets/lem.svg`: the logo.
+- `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
 - `skills/huddle/`, `skills/webrev/`, `skills/backlog/`, `skills/interview-me/`, `skills/dialectic/`,
   `skills/root-cause-investigator/`, `skills/release/`, `skills/last-tag/`, `skills/pr-review/`,
   `skills/gate/`, `skills/panel/`: the skills the task skill names and ships. `NOTICE` says where
