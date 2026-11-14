@@ -210,6 +210,15 @@ def changed(task: Task, old: str, new: str) -> list[str]:
     return git(task.worktree, "diff", "--name-only", "--no-renames", old, new).splitlines()
 
 
+def queue_review(task: Task, landed: str, risk: str) -> int:
+    """The review item of a landed range. A range is queued once, whatever became of its item since."""
+    queued = json.loads(script("review_queue.py", task.main, "list", "--all").stdout)
+    known = next((entry["id"] for entry in queued if entry["slug"] == task.slug and entry["range"] == landed), None)
+    if known is not None:
+        return known
+    return int(script("review_queue.py", task.main, "add", task.slug, "--range", landed, "--risk", risk).stdout.strip())
+
+
 def finish(task: Task, tip: str, landed: str, risk: str, arrived: list[str]) -> dict:
     """The bookkeeping after the base holds the tip: the base checkout follows, the review is queued, the state says landed."""
     left_behind = None
@@ -221,15 +230,8 @@ def finish(task: Task, tip: str, landed: str, risk: str, arrived: list[str]) -> 
         if followed.returncode != 0:
             why = [line for line in (followed.stderr or followed.stdout).strip().splitlines() if line.strip()]
             left_behind = f"{task.base_checkout} did not follow origin/{task.base}, and nothing in it was changed. git said: {why[-1] if why else 'nothing'}"
-    kept = task.kept()
-    item = kept.get("review")
-    if item is None:
-        # a run that was cut off after it queued the item must not queue a second one
-        waiting = json.loads(script("review_queue.py", task.main, "list").stdout)
-        item = next((entry["id"] for entry in waiting if entry["slug"] == task.slug and entry["range"] == landed), None)
-    if item is None:
-        item = int(script("review_queue.py", task.main, "add", task.slug, "--range", landed, "--risk", risk).stdout.strip())
-    task.keep(landed=landed, review=item)
+    item = queue_review(task, landed, risk)
+    task.keep(landed=landed, review=item, intent=None)
     task.state("landed", f"{task.base} {landed}", f"review item {item}, {risk}")
     return {"task": task.slug, "base": task.base, "range": landed, "tip": tip, "pushed": task.remote, "review": item,
             "arrived": arrived, "left_behind": left_behind}
@@ -254,7 +256,12 @@ def cmd_land(task: Task, risk: str, message: str | None) -> dict:
     intent = kept.get("intent")
     if intent and run(["git", "-C", str(task.worktree), "merge-base", "--is-ancestor", intent["tip"], task.onto], check=False).returncode == 0:
         # An earlier run put this commit on the base and was cut off before the bookkeeping.
-        return finish(task, intent["tip"], intent["range"], risk, intent["arrived"])
+        if git(task.worktree, "rev-parse", "HEAD") == intent["tip"]:
+            return finish(task, intent["tip"], intent["range"], risk, intent["arrived"])
+        # The branch got more work since. What landed then is queued for its review, and what the
+        # branch holds now lands like any tip: through its own base and gate.
+        queue_review(task, intent["range"], risk)
+        task.keep(intent=None)
     arrived: list[str] = []
     if base_now != kept["base"]:
         # The base moved after the gate ran. The result stands only when every file that arrived is

@@ -8,6 +8,7 @@ count of unread changes is a number someone sees instead of a backlog that only 
 
     review_queue.py add SLUG --range BASE..TIP --risk high|normal [--note TEXT]
     review_queue.py list                  open items as JSON, high first, then oldest first
+    review_queue.py list --all            every item, closed ones too, by id
     review_queue.py close ID --outcome TEXT
     review_queue.py expire                close open normal items older than EXPIRE_AFTER
 
@@ -76,7 +77,11 @@ def open_items(file: Path) -> list[dict]:
     return sorted(pending, key=lambda item: (RISKS.index(item["risk"]), item["added"]))
 
 
-def cmd_list(file: Path) -> None:
+def cmd_list(file: Path, everything: bool) -> None:
+    if everything:
+        # what a landing that was cut off asks: was this range queued before, whatever became of it
+        print(json.dumps([item for _id, item in sorted(items(file).items())], indent=2))
+        return
     today = now().date().isoformat()
     listed = []
     for item in open_items(file):
@@ -113,7 +118,7 @@ def main() -> None:
     add.add_argument("--range", required=True, dest="landed", help="the landed commits, BASE..TIP")
     add.add_argument("--risk", required=True, choices=RISKS)
     add.add_argument("--note")
-    commands.add_parser("list")
+    commands.add_parser("list").add_argument("--all", action="store_true", dest="everything", help="closed items too")
     close = commands.add_parser("close")
     close.add_argument("id", type=int)
     close.add_argument("--outcome", required=True)
@@ -123,7 +128,7 @@ def main() -> None:
     if args.command == "add":
         cmd_add(file, args.slug, args.landed, args.risk, args.note)
     elif args.command == "list":
-        cmd_list(file)
+        cmd_list(file, args.everything)
     elif args.command == "close":
         cmd_close(file, args.id, args.outcome)
     else:

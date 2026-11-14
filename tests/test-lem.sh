@@ -260,6 +260,11 @@ else
   fail "queue order: $out"
 fi
 queue close 2 --outcome "fixed in token-index-added"
+if [ "$(queue list --all | field '[(i["id"], i["outcome"]) for i in d]')" = "[(1, None), (2, 'fixed in token-index-added')]" ]; then
+  pass "list --all gives every item, closed ones too"
+else
+  fail "list --all: $(queue list --all)"
+fi
 if [ "$(grep -c '' "$OLD/.git/lem/review-queue.js")" = 3 ] \
   && [ "$(sed -n 3p "$OLD/.git/lem/review-queue.js")" = "lemReview($(sed -n 3p "$OLD/.git/lem/review-queue.jsonl"));" ]; then
   pass "each queue event is also a line the board can load"
@@ -662,11 +667,15 @@ else
   fail "the cut-off landing did not reach the state the next check needs"
 fi
 landed_tip=$(git -C "$ORIGIN" rev-parse main)
+# The item was queued and its review closed before the landing was run again: no second item.
+reviewed=$("$PY" -B "$QUEUE" --repo "$SHOP" add moved-file --range "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["intent"]["range"])' "$SHOP/.git/lem/tasks/moved-file/landing.json")" --risk normal)
+"$PY" -B "$QUEUE" --repo "$SHOP" close "$reviewed" --outcome clean
 out=$(land --repo "$SHOP" land moved-file --risk normal)
 if [ "$(status moved-file)" = landed ] && [ "$(git -C "$ORIGIN" rev-parse main)" = "$landed_tip" ] && [ "$(field 'd["tip"]' <<<"$out")" = "$landed_tip" ] \
-  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list | field '[i["slug"] for i in d].count("moved-file")')" = 1 ] \
+  && [ "$(field 'd["review"]' <<<"$out")" = "$reviewed" ] \
+  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list --all | field '[i["slug"] for i in d].count("moved-file")')" = 1 ] \
   && [ "$(field '"did not follow origin/main" in d["left_behind"] and "brings it up" not in d["left_behind"]' <<<"$out")" = True ]; then
-  pass "the next run finishes it: one review item, the state landed, nothing pushed twice, and a main checkout that cannot follow is reported with git's own reason"
+  pass "the next run finishes it: the review item that was already queued and closed is kept, the state is landed, nothing is pushed twice, and a main checkout that cannot follow is reported with git's own reason"
 else
   fail "finishing a cut-off landing: $out"
 fi
@@ -679,6 +688,32 @@ if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(True, 'fix/moved-fi
 else
   fail "land clean: $out"
 fi
+
+# A landing cut off after the push, and then more work on the branch: what was pushed gets its
+# review item, and the new tip lands only through its own base and gate.
+shop_settings agent keep
+open_task more-work m.txt five
+land --repo "$SHOP" start more-work >/dev/null && land --repo "$SHOP" base more-work >/dev/null && land --repo "$SHOP" gate more-work >/dev/null
+"$PY" -B "$BROKEN/land.py" --repo "$SHOP" land more-work --risk normal >/dev/null 2>&1 || true
+git -C "$SHOP" merge -q --ff-only origin/main
+tree=$SHOP/.lem/worktrees/more-work
+echo six > "$tree/n.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: more-work, the second half"
+err=$(land --repo "$SHOP" land more-work --risk normal 2>&1 || true)
+if grep -q "run .land.py base. and .land.py gate. again" <<<"$err" && [ "$(status more-work)" = landing ] && ! git -C "$ORIGIN" cat-file -e main:n.txt 2>/dev/null \
+  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list --all | field '[i["slug"] for i in d].count("more-work")')" = 1 ]; then
+  pass "after a cut-off landing and more work, the pushed range is queued for review and the new tip is refused until its own gate ran"
+else
+  fail "a stale landing record with more work: $err"
+fi
+land --repo "$SHOP" base more-work >/dev/null && land --repo "$SHOP" gate more-work >/dev/null
+out=$(land --repo "$SHOP" land more-work --risk normal)
+if [ "$(git -C "$ORIGIN" show main:n.txt)" = six ] && [ "$(status more-work)" = landed ] && [ "$(field 'd["tip"]' <<<"$out")" = "$(git -C "$ORIGIN" rev-parse main)" ] \
+  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list --all | field '[i["slug"] for i in d].count("more-work")')" = 2 ]; then
+  pass "then the second half lands as its own range, with its own review item"
+else
+  fail "landing the work added after a cut-off landing: $out"
+fi
+land --repo "$SHOP" clean more-work >/dev/null
 
 # No gate command, a protected branch, and a repository with no remote.
 open_task third-change note.txt three
