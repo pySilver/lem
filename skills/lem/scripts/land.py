@@ -231,8 +231,10 @@ def finish(task: Task, tip: str, landed: str, risk: str, arrived: list[str]) -> 
             why = [line for line in (followed.stderr or followed.stdout).strip().splitlines() if line.strip()]
             left_behind = f"{task.base_checkout} did not follow origin/{task.base}, and nothing in it was changed. git said: {why[-1] if why else 'nothing'}"
     item = queue_review(task, landed, risk)
-    task.keep(landed=landed, review=item, intent=None)
+    task.keep(landed=landed, review=item)
     task.state("landed", f"{task.base} {landed}", f"review item {item}, {risk}")
+    # Dropped last: until the state says `landed`, a run that is cut off must find the record again.
+    task.keep(intent=None)
     return {"task": task.slug, "base": task.base, "range": landed, "tip": tip, "pushed": task.remote, "review": item,
             "arrived": arrived, "left_behind": left_behind}
 

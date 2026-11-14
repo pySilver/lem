@@ -670,9 +670,21 @@ landed_tip=$(git -C "$ORIGIN" rev-parse main)
 # The item was queued and its review closed before the landing was run again: no second item.
 reviewed=$("$PY" -B "$QUEUE" --repo "$SHOP" add moved-file --range "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["intent"]["range"])' "$SHOP/.git/lem/tasks/moved-file/landing.json")" --risk normal)
 "$PY" -B "$QUEUE" --repo "$SHOP" close "$reviewed" --outcome clean
+# Cut off again, one step later: the item is found and written down, the state is not. A copy of
+# the scripts whose project.py refuses to write `landed` stands in for that kill.
+LATE=$WORK/late
+cp -R "$PWD/skills/lem/scripts" "$LATE"
+printf '%s\n' 'import runpy, sys' 'if "landed" in sys.argv: sys.exit("project.py: cut off")' \
+  "sys.argv[0] = '$PWD/skills/lem/scripts/project.py'" "runpy.run_path(sys.argv[0], run_name='__main__')" > "$LATE/project.py"
+"$PY" -B "$LATE/land.py" --repo "$SHOP" land moved-file --risk normal >/dev/null 2>&1 || true
+if [ "$(status moved-file)" = landing ] && [ "$(kept moved-file intent)" != None ] && [ "$(kept moved-file review)" = "$reviewed" ]; then
+  pass "a landing cut off before its last state write keeps the record the next run needs"
+else
+  fail "a landing cut off before the landed state: status $(status moved-file), intent $(kept moved-file intent)"
+fi
 out=$(land --repo "$SHOP" land moved-file --risk normal)
 if [ "$(status moved-file)" = landed ] && [ "$(git -C "$ORIGIN" rev-parse main)" = "$landed_tip" ] && [ "$(field 'd["tip"]' <<<"$out")" = "$landed_tip" ] \
-  && [ "$(field 'd["review"]' <<<"$out")" = "$reviewed" ] \
+  && [ "$(field 'd["review"]' <<<"$out")" = "$reviewed" ] && [ "$(kept moved-file intent)" = None ] \
   && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list --all | field '[i["slug"] for i in d].count("moved-file")')" = 1 ] \
   && [ "$(field '"did not follow origin/main" in d["left_behind"] and "brings it up" not in d["left_behind"]' <<<"$out")" = True ]; then
   pass "the next run finishes it: the review item that was already queued and closed is kept, the state is landed, nothing is pushed twice, and a main checkout that cannot follow is reported with git's own reason"
