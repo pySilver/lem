@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Say which of the tools the task skill uses this machine has.
+
+Onboarding runs it first, so a repository is never set up for a flow its machine cannot run. It
+prints one row per tool as JSON and exits 1 when a required one is absent. An optional tool that
+is absent is not an error: its row says what the skill does without it, and onboarding tells the
+owner that.
+
+    doctor.py
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+# Where each agent keeps a user's skills; the agterm skill is looked for in all of them.
+SKILL_HOMES = (".claude/skills", ".agents/skills", ".codex/skills", ".config/opencode/skills")
+
+
+def version(command: list[str]) -> str | None:
+    try:
+        ran = subprocess.run(command, capture_output=True, text=True, check=False, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    lines = (ran.stdout or ran.stderr).strip().splitlines()
+    return lines[0] if ran.returncode == 0 and lines else None
+
+
+def tool(name: str, need: str, used_for: str, without_it: str, binary: str, probe: list[str] | None = None) -> dict:
+    path = shutil.which(binary)
+    return {
+        "name": name, "need": need, "found": path is not None,
+        "detail": (version([path, *probe]) if path and probe else None) or path,
+        "used_for": used_for, "without_it": without_it,
+    }
+
+
+def agterm() -> list[dict]:
+    row = tool(
+        "agterm", "optional", "pages for the owner, and a session per task or per reviewer",
+        "questions and reports are plain text in the terminal", "agtermctl", ["--version"],
+    )
+    row["in_session"] = bool(os.environ.get("AGTERM_SESSION_ID"))
+    homes = [str(Path.home() / home / "agterm") for home in SKILL_HOMES
+             if (Path.home() / home / "agterm" / "SKILL.md").is_file()]
+    skill = {
+        "name": "agterm skill", "need": "optional", "found": bool(homes), "detail": ", ".join(homes) or None,
+        "used_for": "how an agent drives agterm: overlays, sessions, panes",
+        "without_it": "an agent has agterm and does not know its commands; install the skill agterm ships",
+    }
+    return [row, skill] if row["found"] else [row]
+
+
+def cronn() -> dict:
+    row = tool(
+        "cronn", "optional", "a scheduled retro, and a scheduled pass over the review queue",
+        "retro and review run only when someone types them", "cronn",
+    )
+    env_file = Path(os.environ.get("CRONN_CONFIG_DIR") or Path.home() / ".config" / "cronn") / "cronn.env"
+    port = None
+    if env_file.is_file():
+        for line in env_file.read_text().splitlines():
+            if line.startswith("CRONN_PORT="):
+                port = line.split("=", 1)[1].strip().strip("\"'")
+    row["running"] = False
+    if port:
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/status", timeout=2) as answer:
+                row["running"] = answer.status == 200
+        except (urllib.error.URLError, OSError, ValueError):
+            pass
+    return row
+
+
+def main() -> None:
+    tools = [
+        tool("git", "required", "worktrees, branches and the task state directory", "nothing runs", "git", ["--version"]),
+        tool("revmux", "required", "the review rounds over a landed range, with the project's lenses",
+             "no review of a landed change; the skill refuses to queue what it cannot review", "revmux", ["--version"]),
+        *agterm(),
+        tool("huddle", "optional", "a question to the owner as a page with the options side by side",
+             "the question is asked in the terminal", "huddle"),
+        tool("codex", "optional", "a second model family for the second opinion and for half of each persona panel",
+             "one model family only; agreement between families is not measured", "codex", ["--version"]),
+        tool("mailbox-chat", "optional", "messages to the agent in the adjacent agterm pane",
+             "no paired agent; a fresh agent of the same family gives the second opinion", "mailbox-chat.py"),
+        cronn(),
+    ]
+    ok = all(row["found"] for row in tools if row["need"] == "required")
+    print(json.dumps({"ok": ok, "tools": tools}, indent=2))
+    sys.exit(0 if ok else 1)
+
+
+if __name__ == "__main__":
+    main()
