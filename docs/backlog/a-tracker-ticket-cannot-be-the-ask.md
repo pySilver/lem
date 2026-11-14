@@ -55,3 +55,7 @@ own. Before the first write it calls `whoami` and stops on the wrong workspace. 
 
 The owner asked for this on 2026-11-14, in the session that started Lem: "put on queue:
 integration with Linear".
+
+The owner has a Linear workspace of his own (said on 2026-11-14), so the `linear` skill can be
+tried against a real workspace before it is called done. Ask him for the workspace, the team and a
+ticket made for the trial; do not write into a team's real tickets.
