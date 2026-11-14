@@ -30,14 +30,17 @@ task. When it fills with one task's code, it loses the others.
 
 **A task's lead** owns one task from its plan to its report, in a context of its own:
 
-- **a builder**, for a plain task: one fresh agent that writes the plan and builds it;
-- **a session**, for a task that is careful or too large for one builder: an agent in a session
-  of its own under Lem's, with the reviewer in its other pane. It coordinates builders, and each
-  task of a careful plan is reviewed before the next.
+- **a builder**, for a plain task: one fresh agent that writes the plan. A plan of one task it
+  builds itself. For a plan of more tasks it starts one fresh builder for each task, reads their
+  reports and writes no code;
+- **a session**, for a careful task: an agent in a session of its own under Lem's, with the
+  reviewer in its other pane. It starts the builders the same way, and each task of its plan is
+  reviewed before the next.
 
-Every task starts with a builder, unless the owner calls it careful or large in the ask. The plan
-says which of the two it is (`stages/plan.md`), because only the plan names the files. A lead
-answers to Lem and never asks the owner, so the owner has one place to answer.
+Each task of a plan gets a builder with a context of its own, whoever leads. Every task starts
+with a builder as its lead, unless the owner calls it careful in the ask. The plan says which of
+the two it is (`stages/plan.md`), because only the plan names the files. A lead answers to Lem
+and never asks the owner, so the owner has one place to answer.
 
 A lead's standing brief is `prompts/lead.md`. If your first message named that file, you are a
 lead: your stages are `stages/plan.md` and `stages/build.md`, and the subcommands below are

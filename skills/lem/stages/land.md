@@ -28,14 +28,20 @@ one finds what the run before it finished.
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` in the worktree with the two branches and those files; it rebases,
    resolves, runs the tests of the files it touched and commits. Then run the step again.
-3. **The documents.** The code has stopped changing, so this is the one moment to make the
-   durable documents agree with it: the guides, the README, the agent document, the style guide.
-   `spawn-builder` in the worktree with the task's plan and report, by path. It lists what the
-   change renamed, moved or removed (symbols, paths, commands, settings), searches the
-   repository's documents for each, corrects every sentence the change made false, and commits
-   that as `docs:`. Its reply is the files it corrected, or that no document names what changed.
-   This runs once for a task, here, and never after each task of a plan. A project's own document
-   checks are gate commands, so the next step proves this one.
+3. **The closing pass.** The task's own work is done, so this is the one moment for what was
+   left around it. `spawn-builder` in the worktree with the task's plan and report, by path. It
+   does two things, each in commits of its own:
+   - *the documents*: it lists what the change renamed, moved or removed (symbols, paths,
+     commands, settings), searches the repository's durable documents for each (the guides, the
+     README, the agent document, the style guide), and corrects every sentence the change made
+     false, as `docs:` commits;
+   - *the outside defects* the report lists: one that is cheap and small is fixed in place, in a
+     commit of its own; each of the others becomes an item in the project's backlog path, in the
+     `backlog` skill's item format, committed on the branch.
+   Its reply is the documents it corrected, the defects it fixed and the items it filed, or that
+   there was nothing of a kind. Name the filed items in the owner's report, so the owner can drop
+   one. This runs once for a task, here, and never after each task of a plan. The next step runs
+   the gate over all of it, and a project's own document checks are gate commands.
 4. **`gate`.** Every command of the settings' `gate.commands` runs at the root of the task's
    worktree, on the tip that will land, each with its output in a file of the task directory. The
    step keeps the exact last line of each, logs each result for the board, and records the commit

@@ -10,8 +10,8 @@ by line before the build.
      or a look at the product now that you have read the code;
    - what changes for a person, as one short run in numbered steps, when a person observes a
      change; "no person observes a change" otherwise;
-   - the tasks, three to seven, each an outcome a reviewer can check alone, with the files it
-     expects to touch;
+   - the tasks, one to seven, each an outcome a reviewer can check alone and one builder can
+     finish in a context of its own, with the files it expects to touch;
    - the decisions the plan takes, each with the answer it assumes and what the answer rests on;
    - what it will not verify, and why.
    Before writing, read the style guide files whose scope covers the files the plan touches
@@ -20,17 +20,15 @@ by line before the build.
    When the branch already holds a plan (a night draft, a builder that stopped at the plan), do
    not write another: read it against the code as it is now, and commit a fix for what the code
    has outgrown.
-2. **Is the task careful, or large?** Run `project.py careful` over the files the plan names. The
-   task is careful when a file matches, and also when the plan starts a pattern other code will
-   copy (a first service layer, a first use of a library, a new kind of test). It is large when
-   the outcome needs more than seven tasks. Seven is this file's own upper bound for a plan: a
-   guess, not a measurement.
-3. **A builder does not lead a careful or large task.** When you are a builder and step 2 says
-   careful or large: write `report.md` with which of the two, and the pattern or the count that
-   says so; write the state `planned` with the line `needs a session: careful` or `needs a
-   session: large`; and stop. Lem opens a session, and its lead starts from your plan. When your
-   brief says `stop after the plan: yes`, stop the same way with the line `the owner reads the
-   plan`.
+2. **Is the task careful?** Run `project.py careful` over the files the plan names. The task is
+   careful when a file matches, and also when the plan starts a pattern other code will copy (a
+   first service layer, a first use of a library, a new kind of test). An outcome that needs more
+   than seven tasks is two asks: say so in the report, and plan the first.
+3. **A builder does not lead a careful task.** When your brief says `lead: builder` and step 2
+   says careful: write `report.md` with the pattern or the reason that says so; write the state
+   `planned` with the line `needs a session: careful`; and stop. Lem opens a session, and its lead
+   starts from your plan. When your brief says `stop after the plan: yes`, stop the same way with
+   the line `the owner reads the plan`.
 4. **A careful plan gets a second opinion before any code.** This is the session's step, and it
    comes before step 5 lets any task be built.
    `second-opinion` reads the plan against the code, read-only, in a fresh context, and replies
@@ -48,6 +46,6 @@ by line before the build.
    - one line on why the case became possible and how far the same cause reaches;
    - the options, each as what a person would see and what it costs, and what you would choose.
    Then build the tasks that do not depend on a held decision. Write the state `held` and stop
-   only when every task that is left depends on one. A builder whose plan is careful or large has
-   stopped at step 3 before this, and the session that takes the plan over does step 4 first.
+   only when every task that is left depends on one. A builder whose plan is careful has stopped
+   at step 3 before this, and the session that takes the plan over does step 4 first.
 6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.

@@ -33,8 +33,10 @@ A builder in a worktree session meets Claude Code's Bash guard. Tell it to write
 paths and plain commands: no shell variables, no `$(...)`, no loops, and a file instead of a
 heredoc when the text names git.
 
-A builder is one context with no pane of its own, so no reviewer sits beside it and the owner
-cannot type to it. A careful or large task gets a session for that reason.
+A builder can start builders of its own with the same tool, so a builder leads a plan of more
+tasks. Checked on 2026-11-14 in Claude Code 2.1.325: a `worker` subagent called `Agent`, and the
+nested agent's reply came back to it. A builder has no pane of its own, so no reviewer sits beside
+it and the owner cannot type to it. A careful task gets a session for that reason.
 
 ## open-task-session
 

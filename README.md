@@ -20,10 +20,10 @@ nowhere else.
 
 ## How it works
 
-- **Build first, review after.** A builder writes a short plan and builds it; machine checks gate
-  the landing; the landed change joins a review queue. A task on paths the project calls careful
-  gets a session of its own with a reviewer in its other pane: a second opinion on the plan and a
-  review of each task.
+- **Build first, review after.** A builder writes a short plan, and each task of the plan gets a
+  fresh builder; machine checks gate the landing; the landed change joins a review queue. A task
+  on paths the project calls careful gets a session of its own with a reviewer in its other pane:
+  a second opinion on the plan and a review of each task.
 - **Only so many tasks build at one time.** The limit is a setting, `flow.max_tasks`; a task over
   it waits in a queue.
 - **A board shows all of it.** `/lem status` opens a live page under Lem's session: each task in

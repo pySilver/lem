@@ -36,7 +36,7 @@ a lead is started, and what to do each time a lead stops.
    `task.md`, in the owner's words. The brief is a file because a task may wait in the queue or
    get a second lead, and each start has to find the same answers: `/lem plan <what>` writes
    `stop after the plan: yes` here, and that line is what keeps a queued plan from being built.
-   When the owner called the task careful or large in the ask, write `lead: session`.
+   When the owner called the task careful in the ask, write `lead: session`.
 5. **Does it wait for another task?** Two asks that name the same thing (the same screen, the
    same file, the same command) run one after the other. Write the later one's state as `queued`
    with the line `after: SLUG` of the earlier one, and stop here: it starts when that task is
@@ -84,8 +84,8 @@ A builder's reply is the path of its report. A session's lead sends one message 
 - **`ready`**: the task joins the landing line. Run `stages/land.md` when no task is in
   `landing`; a `ready` task waits there in the order of its state's time.
 - **`planned`**: the report says why the lead stopped at the plan.
-  - *It needs a session* (a careful file, or a plan too large for one builder): change the brief
-    to `lead: session`, and start a lead.
+  - *It needs a session* (the plan is careful): change the brief to `lead: session`, and start
+    a lead.
   - *The owner asked for the plan only*: show the owner the plan through the settings'
     `tools.annotate`, and leave the task as it is until the owner says build or drop.
 - **`held`**: the report holds one or more decisions that are the owner's, each in the form

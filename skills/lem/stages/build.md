@@ -1,24 +1,29 @@
 # build
 
-The lead's second stage. A builder builds its own plan. A session coordinates builders and writes
-no code: a session that plans, briefs, reviews and reports while it also writes the code loses the
-plan when its context fills.
+The lead's second stage. Each task of the plan gets a fresh builder with a context of its own.
+That is the owner's practice ("I usually start fresh executor for every task", 2026-11-14), and
+one run shows why: with one agent for each of 14 coarse tasks, an agent's context peaked at 715k
+tokens at the median, 252k to 967k (mybaze, 2026-09-29/30, from that project's run notes). A lead
+that plans, briefs and reports while it also writes several tasks loses the plan when its context
+fills.
 
-## A builder: you build
+## A plan of one task: you build it
 
-1. **Task by task, in the plan's order.** For each task: write it, run the tests of the files you
-   wrote or edited and the formatter, linter and type checker the project's `AGENTS.md` names,
-   and commit on the task's branch with a semantic message. Never the whole suite unless the plan
-   says so: the gate runs it at the landing.
-2. **Write the state after each commit**: `building`, with the line `task N of M`.
-3. **When you are blocked.** A defect you cannot explain after two tries goes to the
-   `root-cause-investigator` skill before a third. An approach that failed twice is not tried a
-   third time with a patch: write in `report.md` the problem in plain terms and what the two
-   tries assumed, write the state `blocked`, and stop. Lem gives the task to a fresh builder
-   with a different approach.
-4. **Go on to "The report".**
+You wrote the plan, and you are its one builder.
 
-## A session: you coordinate
+1. **Build the task.** Write it, run the tests of the files you wrote or edited and the
+   formatter, linter and type checker the project's `AGENTS.md` names, and commit on the task's
+   branch with a semantic message. Never the whole suite unless the plan says so: the gate runs
+   it at the landing. Write the state `building` with the line `task 1 of 1`.
+2. **When you stop without the outcome**, "A builder that stops" below says where each kind of
+   stop goes. Write in `report.md` what you tried and what it assumed, write the state `blocked`,
+   and stop: Lem gives the task to a fresh builder.
+3. **Go on to "The report".**
+
+## A plan of more tasks: you coordinate
+
+You write no code. A builder leads this way as a session does; the harness file says whether a
+builder can start builders in your agent, and what to do when it cannot.
 
 1. **One builder per task of the plan**, through `spawn-builder`, in the task's worktree, one
    after the other unless two tasks touch no common file. Its brief names:
@@ -35,17 +40,22 @@ plan when its context fills.
      code outside its task and did not touch.
    Read the report file, never a summary of it. Write the state `building` with the line
    `task N of M` when a builder starts.
-2. **A careful task is reviewed before the next one starts.** Send the diff of that task to
-   `second-opinion` with the plan section and the style guide files: does the change deliver the
-   task, and is any existing caller or reverse path left inconsistent? Must-fix items go back to a
-   builder. A task of a plan that is large and not careful is not reviewed here; its review comes
-   from the queue after the landing.
-3. **A builder that is blocked** reports the blocker in its file. A defect nobody can explain
-   after two tries goes to the `root-cause-investigator` skill before a third. An approach that
-   failed twice is not tried a third time with a patch: state the problem again in plain terms,
-   name what the two tries assumed, and brief the next builder with a different approach and why
-   it avoids that assumption. Decide it if it is yours to decide; if it is a held decision, treat
-   it as `plan.md` does under "A held decision" and keep the other tasks moving.
+2. **A careful task is reviewed before the next one starts.** This is the session's step. Send
+   the diff of that task to `second-opinion` with the plan section and the style guide files: does
+   the change deliver the task, and is any existing caller or reverse path left inconsistent?
+   Must-fix items go back to a builder. A task of a plan that is not careful is not reviewed here;
+   its review comes from the queue after the landing.
+3. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
+   - *a failure nobody can explain after two tries*: the `root-cause-investigator` skill, before
+     a third try;
+   - *an approach that failed twice*: it is not tried a third time with a patch. State the problem
+     again in plain terms, name what the two tries assumed, and brief the next builder with a
+     different approach and why it avoids that assumption;
+   - *a question of what the right outcome is* (what a person should see, which of two readings
+     of the ask holds): the `panel` skill with the project's cast answers it. Write the answer in
+     `decisions.md` and brief the next builder with it. It is not a question for the reviewer;
+   - *a held decision*: treat it as `plan.md` does under "A held decision", and keep the other
+     tasks moving.
 4. **Go on to "The report"** when every task has its report.
 
 ## The report
@@ -62,10 +72,9 @@ Write `report.md` in the task directory, whole, each time:
   the same lines to `decisions.md`;
 - **held**: each decision that is the owner's, in the form `plan.md` gives under "A held
   decision". Leave the heading out when there is none;
-- **outside defects**: each defect seen in code outside the task and not touched. Write each as an
-  item in the project's backlog path, in the `backlog` skill's item format, commit the items on
-  the task's branch, and list their paths here. A project with no backlog gets the defects
-  themselves in this list;
+- **outside defects**: each defect seen in code outside the task, with its file and one line on
+  what is wrong. Do not fix it and do not file it: the closing pass of the landing fixes the
+  small ones in place and files the others (`stages/land.md`, step 3);
 - **review risk**: `high` when the task was careful, or touches authentication, money, a
   migration, a security boundary or the gate's own tooling; `normal` otherwise. One line says
   which of these it was;
