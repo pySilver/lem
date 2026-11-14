@@ -69,6 +69,8 @@ Write `report.md` in the task directory, whole, each time:
 - **review risk**: `high` when the task was careful, or touches authentication, money, a
   migration, a security boundary or the gate's own tooling; `normal` otherwise. One line says
   which of these it was;
+- **the commit subject**: one semantic line for the whole task (`type(scope): subject`). Lem
+  uses it when the project lands a task as one commit;
 - **the branch and its tip**: the branch's name and the commit `git rev-parse HEAD` prints.
 
 Then write the state (`ready`, or `held`, `blocked` or `planned` with the line that says why),

@@ -67,6 +67,8 @@ PATHS: dict[str, tuple[str, str | None]] = {
     "worktrees": (".lem/worktrees", ".claude/worktrees"),
 }
 LAND = ("owner", "agent")
+# How a task's branch reaches the base branch: its own commits, or one commit for the whole branch.
+HISTORY = ("keep", "squash")
 # the agents that can sit in the reviewer's pane
 REVIEWERS = ("claude", "codex")
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
@@ -94,8 +96,8 @@ STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[
 MAX_TASKS = 4
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
-    "branch": ("base", "land", "protected"),
-    "gate": ("commands",),
+    "branch": ("base", "land", "history", "protected"),
+    "gate": ("commands", "ignores"),
     "flow": ("careful", "max_tasks"),
     "seats": ("reviewer",),
     "tools": ("annotate",),
@@ -113,12 +115,17 @@ TEMPLATE = """\
 base = "{base}"
 # Who lands a finished task: "owner", or "agent" once the gate is green.
 land = "owner"
+# What lands: "keep" lands the branch's own commits, "squash" lands one commit for the whole task.
+history = "keep"
 # Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
 protected = []
 
 [gate]
-# The machine checks that gate a landing, each run at the root of the checkout.
+# The machine checks that gate a landing, each run at the root of the task's worktree.
 commands = []
+# Paths the gate does not read. When the base branch moves after a green gate by these files
+# only, the result stands; any other file means the gate runs again. A `*` crosses directories.
+ignores = []
 
 [flow]
 # Paths whose change takes the careful flow: the plan is read by the reviewer and each task
@@ -207,6 +214,9 @@ def load(root: Path) -> dict:
     if land not in LAND:
         raise SettingsError(f"{SETTINGS}: branch.land = {land!r} must be one of {', '.join(LAND)}")
 
+    history = branch.get("history", "keep")
+    if history not in HISTORY:
+        raise SettingsError(f"{SETTINGS}: branch.history = {history!r} must be one of {', '.join(HISTORY)}")
     protected = strings(branch.get("protected", []), "branch.protected")
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
@@ -226,8 +236,11 @@ def load(root: Path) -> dict:
         "root": str(root),
         "settings": str(file) if file.is_file() else None,
         "paths": paths,
-        "branch": {"base": base, "land": land, "protected": protected},
-        "gate": {"commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands")},
+        "branch": {"base": base, "land": land, "history": history, "protected": protected},
+        "gate": {
+            "commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands"),
+            "ignores": strings(raw.get("gate", {}).get("ignores", []), "gate.ignores"),
+        },
         "flow": {"careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"), "max_tasks": max_tasks},
         "seats": {"reviewer": reviewer},
         "tools": {"annotate": annotate},

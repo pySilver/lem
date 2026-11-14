@@ -86,6 +86,14 @@ settings '[paths]' 'styleguide = "../elsewhere"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a path that leaves the repository is refused"; else fail "path outside"; fi
 settings '[gate]' 'commands = "pytest"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "gate commands that are not a list are refused"; else fail "gate type"; fi
+settings '[branch]' 'base = "master"' 'history = "rewrite"'
+if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a history other than keep or squash is refused"; else fail "history value"; fi
+settings '[branch]' 'base = "master"' '[gate]' 'ignores = ["docs/*"]'
+if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], d["gate"]["ignores"])')" = "('keep', ['docs/*'])" ] && grep -q '^history = "keep"$' "$NEW/.lem/project.toml"; then
+  pass "a branch's own commits land unless the settings say one commit, and the gate may name paths it does not read"
+else
+  fail "history and gate.ignores"
+fi
 settings '[seats]' 'reviewer = "gemini"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a reviewer that is neither claude nor codex is refused"; else fail "reviewer value"; fi
 settings '[seats]' 'reviewer = "claude"'
@@ -462,6 +470,187 @@ if [ -n "$chrome" ]; then
 else
   printf 'SKIP the board pages: no Chrome or Chromium found\n'
 fi
+# The landing: land.py takes one task from `ready` to the base branch, one refusable step at a time.
+LAND=$PWD/skills/lem/scripts/land.py
+land() { "$PY" -B "$LAND" "$@"; }
+ORIGIN=$WORK/origin.git
+SHOP=$WORK/shop
+git init -q --bare -b main "$ORIGIN"
+git clone -q "$ORIGIN" "$SHOP" 2>/dev/null
+ident() { git -C "$1" config user.name t; git -C "$1" config user.email t@t; }
+ident "$SHOP"
+project --repo "$SHOP" init --base main --reviewer codex >/dev/null
+shop_settings() {
+  printf '%s\n' '[branch]' 'base = "main"' "land = \"$1\"" "history = \"$2\"" 'protected = ["release"]' \
+    '[gate]' 'commands = ["test -f ok.txt", "echo 7 passed"]' 'ignores = ["docs/*"]' > "$SHOP/.lem/project.toml"
+}
+shop_settings owner keep
+mkdir "$SHOP/docs" && echo guide > "$SHOP/docs/guide.md" && echo one > "$SHOP/app.txt"
+git -C "$SHOP" add -A && git -C "$SHOP" commit -q -m "chore: start" && git -C "$SHOP" push -q origin main
+# open_task SLUG FILE TEXT: a task with a worktree, one commit that writes FILE, and the state `ready`
+open_task() {
+  local tree
+  project --repo "$SHOP" task-dir "$1" >/dev/null
+  tree=$(project --repo "$SHOP" worktree-dir "$1")
+  git -C "$SHOP" worktree add -q "$tree" -b "fix/$1" main
+  printf '%s\n' "$3" > "$tree/$2" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: $1"
+  project --repo "$tree" state "$1" ready "the report is written" >/dev/null
+}
+status() { project --repo "$SHOP" tasks | field "next(t[\"status\"] for t in d if t[\"slug\"] == \"$1\")"; }
+kept() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2]))' "$SHOP/.git/lem/tasks/$1/landing.json" "$2"; }
+
+open_task first-change ok.txt yes
+open_task second-change app.txt two
+if [ "$(status_of land --repo "$SHOP" gate first-change)" = 1 ] && [ "$(status_of land --repo "$SHOP" base first-change)" = 1 ] && [ "$(status first-change)" = ready ]; then
+  pass "base and gate refuse a task that did not take the landing line"
+else
+  fail "land steps before start"
+fi
+out=$(land --repo "$SHOP" start first-change)
+err=$(land --repo "$SHOP" start second-change 2>&1 || true)
+if [ "$(field 'd["remote"]' <<<"$out")" = True ] && [ "$(status first-change)" = landing ] && [ "$(status_of land --repo "$SHOP" start second-change)" = 1 ] \
+  && grep -q "first-change is in .landing." <<<"$err" && [ "$(status second-change)" = ready ]; then
+  pass "start puts one task in landing, and a second task is refused while it is there"
+else
+  fail "land start: $out / $err"
+fi
+if [ "$(status_of land --repo "$SHOP" gate first-change)" = 1 ]; then pass "the gate refuses to run before the base was brought in"; else fail "gate before base"; fi
+out=$(land --repo "$SHOP" base first-change)
+if [ "$(field '(d["ahead"], d["moved"], d["onto"])' <<<"$out")" = "(1, False, 'origin/main')" ]; then
+  pass "base rebases onto the remote's base branch and says how many commits the branch adds"
+else
+  fail "land base: $out"
+fi
+out=$(land --repo "$SHOP" gate first-change)
+tip=$(git -C "$SHOP/.lem/worktrees/first-change" rev-parse HEAD)
+if [ "$(field '(d["green"], [c["exit"] for c in d["commands"]], d["commands"][1]["last"])' <<<"$out")" = "(True, [0, 0], '7 passed')" ] \
+  && [ "$(kept first-change gated)" = "$tip" ] && [ "$(cat "$SHOP/.git/lem/tasks/first-change/gate/02.log")" = "7 passed" ] \
+  && [ "$(grep -c '"event": "gate", "task": "first-change"' "$SHOP/.git/lem/events.jsonl")" = 2 ]; then
+  pass "gate runs every command with its output in a file, keeps the last line, logs each result and records the green tip"
+else
+  fail "land gate: $out"
+fi
+err=$(land --repo "$SHOP" land first-change --risk normal 2>&1 || true)
+if [ "$(status_of land --repo "$SHOP" land first-change --risk normal)" = 1 ] && grep -q "the owner lands" <<<"$err" \
+  && [ "$(git -C "$ORIGIN" rev-parse main)" = "$(git -C "$SHOP" rev-parse main)" ]; then
+  pass "land changes nothing when the settings say the owner lands"
+else
+  fail "land with branch.land = owner: $err"
+fi
+shop_settings agent keep
+if [ "$(status_of land --repo "$SHOP" land first-change --risk normal --message "fix: x")" = 1 ]; then
+  pass "a commit subject is refused when the branch's own commits land"
+else
+  fail "land --message with history = keep"
+fi
+# The base moves after the gate ran: by a file the gate reads, then only by one it does not.
+other=$WORK/other
+git clone -q "$ORIGIN" "$other" && ident "$other"
+echo late > "$other/late.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: late" && git -C "$other" push -q origin main
+err=$(land --repo "$SHOP" land first-change --risk normal 2>&1 || true)
+if [ "$(status_of land --repo "$SHOP" land first-change --risk normal)" = 1 ] && grep -q "moved after the gate ran, by files the gate reads (late.txt)" <<<"$err" \
+  && [ "$(status first-change)" = landing ]; then
+  pass "land refuses when the base moved by a file the gate reads, and says to run base and gate again"
+else
+  fail "land after the base moved: $err"
+fi
+land --repo "$SHOP" base first-change >/dev/null
+if [ "$(kept first-change gated)" = None ] && [ "$(status_of land --repo "$SHOP" land first-change --risk normal)" = 1 ]; then
+  pass "a new base forgets the gate's result, so land waits for a new one"
+else
+  fail "base after a green gate keeps the result"
+fi
+land --repo "$SHOP" gate first-change >/dev/null
+echo more >> "$other/docs/guide.md" && git -C "$other" add -A && git -C "$other" commit -q -m "docs: more" && git -C "$other" push -q origin main
+out=$(land --repo "$SHOP" land first-change --risk high)
+if [ "$(field '(d["pushed"], d["arrived"], d["review"], d["left_behind"])' <<<"$out")" = "(True, ['docs/guide.md'], 1, None)" ] && [ "$(status first-change)" = landed ] \
+  && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix: first-change" ] && [ "$(git -C "$SHOP" rev-parse main)" = "$(git -C "$ORIGIN" rev-parse main)" ] \
+  && [ -f "$SHOP/ok.txt" ] && [ -f "$SHOP/late.txt" ] \
+  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list | field '[(i["slug"], i["risk"], i["range"]) for i in d]')" = "[('first-change', 'high', '$(field 'd["range"]' <<<"$out")')]" ]; then
+  pass "a base that moved only by files the gate ignores still lands: pushed, the main checkout fast-forwarded, the review queued, the state landed"
+else
+  fail "land: $out"
+fi
+out=$(land --repo "$SHOP" clean first-change)
+if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(True, 'fix/first-change')" ] && [ ! -e "$SHOP/.lem/worktrees/first-change" ] \
+  && [ -z "$(git -C "$SHOP" branch --list fix/first-change)" ] && [ -d "$SHOP/.git/lem/tasks/first-change" ]; then
+  pass "clean removes the landed task's worktree and branch and keeps its state"
+else
+  fail "land clean: $out"
+fi
+if [ "$(status_of land --repo "$SHOP" clean second-change)" = 1 ] && [ -d "$SHOP/.lem/worktrees/second-change" ]; then
+  pass "clean refuses a task that has not landed"
+else
+  fail "clean before the landing"
+fi
+
+# A conflict with the base is reported and undone, never resolved here.
+git -C "$other" pull -q origin main
+echo other > "$other/app.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: other" && git -C "$other" push -q origin main
+land --repo "$SHOP" start second-change >/dev/null
+out=$(land --repo "$SHOP" base second-change 2>/dev/null || true)
+if [ "$(status_of land --repo "$SHOP" base second-change)" = 1 ] && [ "$(field '(d["conflict"], d["branch"])' <<<"$out")" = "(['app.txt'], 'fix/second-change')" ] \
+  && [ -z "$(git -C "$SHOP/.lem/worktrees/second-change" status --porcelain)" ] && [ ! -d "$SHOP/.git/worktrees/second-change/rebase-merge" ]; then
+  pass "a conflict with the base names its files and leaves the worktree as it was"
+else
+  fail "land base with a conflict: $out"
+fi
+# The builder resolves it; here the test does. Then a red gate, then one commit for the whole branch.
+tree=$SHOP/.lem/worktrees/second-change
+git -C "$tree" rebase -q origin/main >/dev/null 2>&1 || true
+echo both > "$tree/app.txt" && git -C "$tree" add -A && GIT_EDITOR=true git -C "$tree" rebase --continue >/dev/null 2>&1
+git -C "$tree" rm -q ok.txt && git -C "$tree" commit -q -m "fix: lose the file the gate wants"
+land --repo "$SHOP" base second-change >/dev/null
+out=$(land --repo "$SHOP" gate second-change 2>/dev/null || true)
+if [ "$(status_of land --repo "$SHOP" gate second-change)" = 1 ] && [ "$(field '(d["green"], [c["exit"] for c in d["commands"]])' <<<"$out")" = "(False, [1, 0])" ] \
+  && [ "$(kept second-change gated)" = None ] && [ "$(status_of land --repo "$SHOP" land second-change --risk normal)" = 1 ]; then
+  pass "a red gate exits 1 with each command's result, and nothing lands on it"
+else
+  fail "red gate: $out"
+fi
+git -C "$tree" revert --no-edit HEAD >/dev/null
+shop_settings agent squash
+land --repo "$SHOP" gate second-change >/dev/null
+if [ "$(status_of land --repo "$SHOP" land second-change --risk normal)" = 1 ]; then pass "one commit for the branch needs its subject"; else fail "squash without a message"; fi
+before=$(git -C "$ORIGIN" rev-parse main)
+out=$(land --repo "$SHOP" land second-change --risk normal --message "fix(app): both lines stay")
+if [ "$(git -C "$ORIGIN" rev-list --count "$before..main")" = 1 ] && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix(app): both lines stay" ] \
+  && [ "$(git -C "$ORIGIN" show main:app.txt)" = both ] && [ "$(git -C "$ORIGIN" rev-parse 'main^{tree}')" = "$(kept second-change tree)" ]; then
+  pass "with history = squash the branch lands as one commit, and its tree is the tree the gate passed on"
+else
+  fail "squash landing: $out"
+fi
+land --repo "$SHOP" clean second-change >/dev/null
+
+# No gate command, a protected branch, and a repository with no remote.
+open_task third-change note.txt three
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' > "$SHOP/.lem/project.toml"
+err=$(land --repo "$SHOP" start third-change 2>&1 || true)
+if [ "$(status_of land --repo "$SHOP" start third-change)" = 1 ] && grep -q "no gate command" <<<"$err" && [ "$(status third-change)" = blocked ]; then
+  pass "a project with no gate command lands nothing, and the task is blocked instead of holding the landing line"
+else
+  fail "start with no gate: $err"
+fi
+printf '%s\n' '[branch]' 'base = "release"' 'land = "agent"' 'protected = ["release"]' > "$SHOP/.lem/project.toml"
+if [ "$(status_of land --repo "$SHOP" start third-change)" = 1 ]; then pass "no step runs toward a branch the settings refuse"; else fail "land toward a protected base"; fi
+LOCAL=$WORK/local
+git init -q -b main "$LOCAL" && ident "$LOCAL"
+project --repo "$LOCAL" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' > "$LOCAL/.lem/project.toml"
+git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start"
+project --repo "$LOCAL" task-dir local-change >/dev/null
+tree=$(project --repo "$LOCAL" worktree-dir local-change)
+git -C "$LOCAL" worktree add -q "$tree" -b fix/local-change main
+echo x > "$tree/x.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: x"
+project --repo "$tree" state local-change ready "the report is written" >/dev/null
+land --repo "$LOCAL" start local-change >/dev/null && land --repo "$LOCAL" base local-change >/dev/null && land --repo "$LOCAL" gate local-change >/dev/null
+out=$(land --repo "$LOCAL" land local-change --risk normal)
+if [ "$(field 'd["pushed"]' <<<"$out")" = False ] && [ -f "$LOCAL/x.txt" ] && [ "$(git -C "$LOCAL" log -1 --format=%s main)" = "fix: x" ]; then
+  pass "with no remote the base branch is fast-forwarded in the checkout that holds it"
+else
+  fail "local landing: $out"
+fi
+
 if [ -d "$(dirname "$PROJECT")/__pycache__" ]; then fail "the scripts left no __pycache__"; else pass "the scripts left no __pycache__"; fi
 
 if [ "$fails" -gt 0 ]; then

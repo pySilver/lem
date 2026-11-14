@@ -76,6 +76,8 @@ For a repository that has code:
 - **What must never break**: confirm or correct the proposed careful paths. This is the one
   setting that is the owner's to choose.
 - **Who lands**: the owner, or the agent once the gate is green; and the branch tasks land on.
+- **What lands**: a task's own commits, or one commit for the whole task. Guess from the last
+  fifty merges in `examined.md`.
 - **Which branches are closed**: branches nothing may land on or be pushed to, such as a
   release branch during a rewrite that lands on a branch of its own. They go into
   `branch.protected`.
@@ -96,8 +98,10 @@ python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --exist
 ```
 
 Leave `--existing` out when step 2 found no older folder. Then edit `.lem/project.toml`: the
-gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, the
-protected branches, and `tools.annotate` when the owner marks up plans with a tool of their own.
+gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, `history`,
+the protected branches, and `tools.annotate` when the owner marks up plans with a tool of their
+own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
+only means the gate runs again whenever the base moves.
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
 and say so in the handover.
 
