@@ -15,7 +15,10 @@ python3 SKILL_DIR/scripts/doctor.py
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
 installed, and end. For each optional tool that is absent, tell the owner in one line what the
 skill does without it (the row's `without_it`), and go on. Two cases need a sentence of their own:
-cronn is installed and not running, and cronn is absent. For an absent cronn, offer to install
+cronn is installed and not running, cronn is absent, and jev is absent. Recommend jev and use it
+only when the owner agrees: with it, every project that uses Lem keeps a queue of the owner's
+corrections for the retro; without it, a correction is learned in the session it was given in
+and nowhere else. For an absent cronn, offer to install
 it through the `cronn` skill when that skill is there: its installer adds a Homebrew formula and
 an agent that starts at login, so it runs only on the owner's yes.
 
