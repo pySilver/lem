@@ -26,20 +26,28 @@ file.
 
 ## spawn-builder
 
-The `Agent` tool with `subagent_type: "worker"` when the session lists that agent type, otherwise
-`subagent_type: "general-purpose"` with `model: "opus"`. The brief gives the task's worktree as an
-absolute path and tells the builder to work only there; do not pass `isolation: "worktree"`, since
-the task already has its worktree. Agents run in the background and you are told when one ends:
-never predict a builder's report, and never poll for it.
+The `Agent` tool with `subagent_type: "lem-builder"`. Lem brings that agent: `agents/lem-builder.md`
+in Lem's repository, linked into `~/.claude/agents/` by the setup. Its body holds the builder's
+standing rules, so a brief stays short and no builder misses one; its frontmatter sets the model
+and the effort, because a subagent on another model than the session's does not take the
+session's effort. There is no fallback to another agent type: when the session does not list
+`lem-builder`, the setup is not done; say so, name `doctor.py`, and stop.
 
-A builder in a worktree session meets Claude Code's Bash guard. Tell it to write literal absolute
-paths and plain commands: no shell variables, no `$(...)`, no loops, and a file instead of a
-heredoc when the text names git.
+A project that wants another builder (another model, more rules) keeps a file of the same name in
+its own `.claude/agents/`. Claude Code takes the project's definition before the user's (its
+documentation gives the order: managed, the `--agents` flag, the project, the user, a plugin;
+https://code.claude.com/docs/en/sub-agents, read 2026-11-15). No setting of Lem's is involved.
+
+The brief gives the task's worktree as an absolute path; do not pass `isolation: "worktree"`,
+since the task already has its worktree. Agents run in the background and you are told when one
+ends: never predict a builder's report, and never poll for it.
 
 A builder can start builders of its own with the same tool, so a builder leads a plan of more
-tasks. Checked on 2026-11-14 in Claude Code 2.1.325: a `worker` subagent called `Agent`, and the
-nested agent's reply came back to it. A builder has no pane of its own, so no reviewer sits beside
-it and the owner cannot type to it. A careful task gets a session for that reason.
+tasks. Checked on 2026-11-14 in Claude Code 2.1.325: a subagent of the type `worker`, which like
+`lem-builder` names no tool list and so inherits every tool, called `Agent`, and the nested
+agent's reply came back to it. Not run yet: the same from a `lem-builder`. A builder has no pane
+of its own, so no reviewer sits beside it and the owner cannot type to it. A careful task gets a
+session for that reason.
 
 ## open-task-session
 

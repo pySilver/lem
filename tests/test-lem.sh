@@ -398,6 +398,26 @@ if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'agterm skill' detail
 else
   fail "doctor with the required set: $out"
 fi
+fake claude "2.1.325 (Claude Code)"
+out=$(doctor || true)
+if [ "$(status_of doctor)" = 1 ] && [ "$(row 'lem-builder agent' found <<<"$out")" = "False" ] && [ "$(row 'lem-builder agent' need <<<"$out")" = "required" ]; then
+  pass "a machine with Claude Code and no lem-builder agent fails the check"
+else
+  fail "doctor with claude, no builder: $out"
+fi
+mkdir -p "$FAKEHOME/.claude/agents"
+ln -s "$PWD/agents/lem-builder.md" "$FAKEHOME/.claude/agents/lem-builder.md"
+out=$(doctor)
+if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "$FAKEHOME/.claude/agents/lem-builder.md" ]; then
+  pass "the linked lem-builder agent satisfies it"
+else
+  fail "doctor with the builder linked: $out"
+fi
+if "$PY" -c 'import sys; t = open(sys.argv[1]).read().split("---"); f = dict(l.split(": ", 1) for l in t[1].strip().splitlines()); sys.exit(not (f["name"] == "lem-builder" and f["model"] and f["effort"] and "tools" not in f and len(t[2]) > 500))' "$PWD/agents/lem-builder.md"; then
+  pass "the builder's definition names its model and effort, and no tool list, so it can start builders"
+else
+  fail "agents/lem-builder.md frontmatter"
+fi
 printf 'CRONN_PORT=1\n' > "$FAKEHOME/.config/cronn/cronn.env"
 fake cronn "cronn"
 out=$(doctor)

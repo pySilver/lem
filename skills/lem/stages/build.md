@@ -28,18 +28,17 @@ You write no code. A builder leads this way as a session does; the harness file 
 builder can start builders in your agent, and what to do when it cannot.
 
 1. **One builder per task of the plan**, through `spawn-builder`, in the task's worktree, one
-   after the other unless two tasks touch no common file. Its brief names:
-   - the plan file and the task's section, by path;
-   - the style guide files that cover the files it will touch, and the project's lessons, by path;
-   - the checks it runs before it reports: the tests of the files it wrote or edited, and the
-     formatter, linter and type checker the project's `AGENTS.md` names; never the whole suite
-     unless the plan says so;
-   - that it commits its own work on the task's branch with a semantic message, and never pushes,
-     merges or changes another branch;
-   - the report file, `reports/NN-<task>.md` in the task directory, and its form: what it did in
-     three lines; proofs, each command it ran with the exact last line of its output; what it did
-     not verify; decisions it took that the plan did not, each with its reason; defects it saw in
-     code outside its task and did not touch.
+   after the other unless two tasks touch no common file. Its brief names, by path:
+   - the worktree;
+   - the plan file and the task's section;
+   - the style guide files that cover the files it will touch, and the project's lessons;
+   - the report file, `reports/NN-<task>.md` in the task directory;
+   - the whole suite, only when the plan says a task needs it.
+   The rest a builder has with it: what it checks before it reports, how it commits, what it
+   never does, and the report's form (what it did in three lines; proofs, each command with the
+   exact last line of its output; what it did not verify; the decisions it took that the plan
+   did not; the defects it saw outside its task). The harness file says how those standing rules
+   reach a builder in your agent.
    Read the report file, never a summary of it. Write the state `building` with the line
    `task N of M` when a builder starts.
 2. **A careful task is reviewed before the next one starts.** This is the session's step. Send

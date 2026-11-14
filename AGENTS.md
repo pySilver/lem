@@ -72,6 +72,10 @@ to him, and they are not his rulings until he says so:
 
 - **The reviewer's seat is a table**, after "should we or can we specify model and effort level
   of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `effort`, `plan_effort`.
+- **Lem brings its own builder agent**, after "it feels like we need to bring our own lem-worker
+  agent which product may override? ... someone elses setup may have none": `agents/lem-builder.md`
+  (his `lem-worker`; named for the role every Lem text uses), on Opus at high effort, overridden
+  by a project's own file of the same name.
 - **One machine may name its own reviewer for a while**, after "I may want to have a session
   based reviewer ... Codex is down or I run out of tokens there": `.lem/project.local.toml`,
   untracked, read from the main checkout, limited to `[seats]` and `[tools]`, written by
@@ -100,6 +104,8 @@ real task, so say in the commit which task showed the need.
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both.
 - `skills/lem/templates/`: the shapes onboarding fills.
 - `skills/lem/prompts/`: the standing briefs of a task's lead and of the reviewer.
+- `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the
+  builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
 - `skills/lem/references/`: the catalog of published style guides.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
   `assets/lem-night.svg` and `assets/lem-mark-night.svg` are the same drawings in the night

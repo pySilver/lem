@@ -136,7 +136,8 @@ it is.
 ## 6. Hand over
 
 `show-page` one page to the owner: what the machine has and lacks, what was linked and what was
-generated, each assumption taken from the code with its source, and the settings file. Every
+generated, each assumption taken from the code with its source, and the settings file. Say there
+that the project may bring a builder of its own, and how (the harness file, `spawn-builder`). Every
 generated file is a draft; say which three the owner should read first (the careful paths, the
 gate, the personas). Commit the settings and the generated files on a branch of their own,
 `chore/lem-onboarding`, and do not land it: the owner's read of the drafts is the review.

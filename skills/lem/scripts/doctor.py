@@ -20,6 +20,8 @@ from pathlib import Path
 
 # Where each agent keeps a user's skills; the agterm skill is looked for in all of them.
 SKILL_HOMES = (".claude/skills", ".agents/skills", ".codex/skills", ".config/opencode/skills")
+# Where Claude Code keeps a user's agent definitions. The setup links Lem's builder there.
+BUILDER = Path(".claude") / "agents" / "lem-builder.md"
 
 
 def version(command: list[str]) -> str | None:
@@ -54,6 +56,18 @@ def agterm() -> list[dict]:
         "without_it": "an agent has agterm and does not know its commands; install it from agterm's Help menu",
     }
     return [row, skill] if row["found"] else [row]
+
+
+def claude() -> list[dict]:
+    row = tool("claude", "optional", "a Claude Code reviewer, or the coordinator", "the reviewer must be Codex", "claude", ["--version"])
+    file = Path.home() / BUILDER
+    builder = {
+        "name": "lem-builder agent", "need": "required", "found": file.is_file(), "detail": str(file) if file.is_file() else None,
+        "used_for": "the builder Lem starts for each task of a plan in Claude Code",
+        "without_it": f"Claude Code has no agent of that name and Lem starts no builder; link agents/lem-builder.md of Lem's clone to ~/{BUILDER}",
+    }
+    # Only a machine with Claude Code needs Claude Code's form of the builder.
+    return [row, builder] if row["found"] else [row]
 
 
 def cronn() -> dict:
@@ -93,7 +107,7 @@ def main() -> None:
              "jev"),
         tool("codex", "optional", "a reviewer of another model family, and half of each persona panel",
              "the reviewer is a second Claude; agreement between model families is not measured", "codex", ["--version"]),
-        tool("claude", "optional", "a Claude Code reviewer, or the coordinator", "the reviewer must be Codex", "claude", ["--version"]),
+        *claude(),
         tool("mailbox-chat", "required", "messages between the coordinator and the reviewer in the other pane",
              "the two agents cannot talk; install agterm's two-agent mailbox chat recipe from its cookbook", "mailbox-chat.py"),
         cronn(),

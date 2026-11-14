@@ -106,14 +106,18 @@ its harness file. A project that prefers its own tool for a role points its sett
 
 ## Trying it in Claude Code
 
-Link the skill from a clone, so an edit here is what the next session reads:
+Link the skills, the builder agent and the `huddle` command from a clone, so an edit here is what
+the next session reads:
 
 ```bash
 for d in "$PWD"/skills/*/; do ln -s "${d%/}" ~/.claude/skills/"$(basename "$d")"; done
+mkdir -p ~/.claude/agents && ln -s "$PWD/agents/lem-builder.md" ~/.claude/agents/lem-builder.md
 ln -s "$PWD/skills/lem-huddle/bin/huddle" ~/.local/bin/huddle
+python3 skills/lem/scripts/doctor.py
 ```
 
-A skill of the same name that a plugin already provides has to be switched off first.
+The last line checks the machine. A project that wants another builder keeps a file of the same
+name in its own `.claude/agents/`.
 
 ## Tests
 
