@@ -571,12 +571,14 @@ if [ "$(field '(d["pushed"], d["arrived"], d["review"], d["left_behind"])' <<<"$
 else
   fail "land: $out"
 fi
+# A clean that was cut off after the worktree went: the next run still knows the branch.
+git -C "$SHOP" worktree remove "$SHOP/.lem/worktrees/first-change"
 out=$(land --repo "$SHOP" clean first-change)
-if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(True, 'fix/first-change')" ] && [ ! -e "$SHOP/.lem/worktrees/first-change" ] \
-  && [ -z "$(git -C "$SHOP" branch --list fix/first-change)" ] && [ -d "$SHOP/.git/lem/tasks/first-change" ]; then
-  pass "clean removes the landed task's worktree and branch and keeps its state"
+if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(False, 'fix/first-change')" ] && [ -z "$(git -C "$SHOP" branch --list fix/first-change)" ] \
+  && [ -d "$SHOP/.git/lem/tasks/first-change" ] && [ "$(field '(d["worktree"], d["branch"])' <<<"$(land --repo "$SHOP" clean first-change)")" = "(False, None)" ]; then
+  pass "clean removes the landed task's branch when its worktree is already gone, keeps the task's state, and a third run finds nothing left"
 else
-  fail "land clean: $out"
+  fail "land clean after the worktree went: $out"
 fi
 if [ "$(status_of land --repo "$SHOP" clean second-change)" = 1 ] && [ -d "$SHOP/.lem/worktrees/second-change" ]; then
   pass "clean refuses a task that has not landed"
@@ -613,6 +615,18 @@ shop_settings agent squash
 land --repo "$SHOP" gate second-change >/dev/null
 if [ "$(status_of land --repo "$SHOP" land second-change --risk normal)" = 1 ]; then pass "one commit for the branch needs its subject"; else fail "squash without a message"; fi
 before=$(git -C "$ORIGIN" rev-parse main)
+# A commit hook that changes a tracked file makes the one commit another tree than the gate saw.
+gated=$(git -C "$tree" rev-parse HEAD)
+printf '%s\n' '#!/bin/sh' 'echo stamped >> app.txt && git add app.txt' > "$SHOP/.git/hooks/pre-commit"
+chmod +x "$SHOP/.git/hooks/pre-commit"
+err=$(land --repo "$SHOP" land second-change --risk normal --message "fix(app): both lines stay" 2>&1 || true)
+rm "$SHOP/.git/hooks/pre-commit"
+if grep -q "a commit hook changed the files" <<<"$err" && [ "$(git -C "$ORIGIN" rev-parse main)" = "$before" ] && [ "$(git -C "$tree" rev-parse HEAD)" = "$gated" ] \
+  && [ -z "$(git -C "$tree" status --porcelain)" ] && [ "$(status second-change)" = landing ]; then
+  pass "a commit hook that changes the one commit's files stops the landing, and the branch is put back as the gate saw it"
+else
+  fail "squash with a hook that changes the tree: $err"
+fi
 out=$(land --repo "$SHOP" land second-change --risk normal --message "fix(app): both lines stay")
 if [ "$(git -C "$ORIGIN" rev-list --count "$before..main")" = 1 ] && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix(app): both lines stay" ] \
   && [ "$(git -C "$ORIGIN" show main:app.txt)" = both ] && [ "$(git -C "$ORIGIN" rev-parse 'main^{tree}')" = "$(kept second-change tree)" ]; then
@@ -621,6 +635,50 @@ else
   fail "squash landing: $out"
 fi
 land --repo "$SHOP" clean second-change >/dev/null
+
+# A file that moves into an ignored folder also leaves a folder the gate reads.
+shop_settings agent keep
+open_task moved-file extra.txt four
+land --repo "$SHOP" start moved-file >/dev/null && land --repo "$SHOP" base moved-file >/dev/null && land --repo "$SHOP" gate moved-file >/dev/null
+git -C "$other" pull -q origin main && git -C "$other" mv late.txt docs/late.txt && git -C "$other" commit -q -m "docs: move late" && git -C "$other" push -q origin main
+err=$(land --repo "$SHOP" land moved-file --risk normal 2>&1 || true)
+if [ "$(status_of land --repo "$SHOP" land moved-file --risk normal)" = 1 ] && grep -q "files the gate reads (.*late.txt" <<<"$err" && [ "$(status moved-file)" = landing ]; then
+  pass "a file moved into an ignored folder still counts as a change of the path it left"
+else
+  fail "a rename across gate.ignores: $err"
+fi
+land --repo "$SHOP" base moved-file >/dev/null && land --repo "$SHOP" gate moved-file >/dev/null
+# The landing is cut off after the push: a copy of the scripts whose review queue fails stands in for
+# the kill. The main checkout also has a commit of its own, so it cannot follow the remote.
+BROKEN=$WORK/broken
+cp -R "$PWD/skills/lem/scripts" "$BROKEN"
+printf '%s\n' 'import sys' 'sys.exit("review_queue.py: cut off")' > "$BROKEN/review_queue.py"
+git -C "$SHOP" commit -q --allow-empty -m "chore: only here"
+before=$(git -C "$ORIGIN" rev-parse main)
+if [ "$(status_of "$PY" -B "$BROKEN/land.py" --repo "$SHOP" land moved-file --risk normal)" = 1 ] && [ "$(git -C "$ORIGIN" rev-list --count "$before..main")" = 1 ] \
+  && [ "$(status moved-file)" = landing ]; then
+  pass "a landing cut off after the push leaves the commit on the base and the task in landing"
+else
+  fail "the cut-off landing did not reach the state the next check needs"
+fi
+landed_tip=$(git -C "$ORIGIN" rev-parse main)
+out=$(land --repo "$SHOP" land moved-file --risk normal)
+if [ "$(status moved-file)" = landed ] && [ "$(git -C "$ORIGIN" rev-parse main)" = "$landed_tip" ] && [ "$(field 'd["tip"]' <<<"$out")" = "$landed_tip" ] \
+  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list | field '[i["slug"] for i in d].count("moved-file")')" = 1 ] \
+  && [ "$(field '"did not follow origin/main" in d["left_behind"] and "brings it up" not in d["left_behind"]' <<<"$out")" = True ]; then
+  pass "the next run finishes it: one review item, the state landed, nothing pushed twice, and a main checkout that cannot follow is reported with git's own reason"
+else
+  fail "finishing a cut-off landing: $out"
+fi
+out=$(land --repo "$SHOP" land moved-file --risk normal 2>&1 || true)
+if grep -q "is 'landed', not .landing." <<<"$out"; then pass "a landed task does not land again"; else fail "land twice: $out"; fi
+git -C "$SHOP" reset -q --hard origin/main
+out=$(land --repo "$SHOP" clean moved-file)
+if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(True, 'fix/moved-file')" ] && [ ! -e "$SHOP/.lem/worktrees/moved-file" ] && [ -z "$(git -C "$SHOP" branch --list fix/moved-file)" ]; then
+  pass "clean removes a landed task's worktree and its branch in one run"
+else
+  fail "land clean: $out"
+fi
 
 # No gate command, a protected branch, and a repository with no remote.
 open_task third-change note.txt three

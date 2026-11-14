@@ -13,10 +13,15 @@ never reached, whoever asks.
                            put the gated tip on the base branch and queue its review
     land.py clean SLUG     remove the task's worktree and its branch after the landing
 
-What each step keeps for the next is in `landing.json` in the task's directory: the base it was
-rebased on, and the commit and tree the gate passed on. `land` lands only that tree: when the tip
-is another tree than the gate saw, or the base moved by more than the paths the settings'
-`gate.ignores` name, it refuses and says to run `base` and `gate` again.
+What each step keeps for the next is in `landing.json` in the task's directory: the task's
+branch, the base it was rebased on, and the commit and tree the gate passed on. `land` lands only
+that tree: when the tip is another tree than the gate saw, or the base moved by more than the
+paths the settings' `gate.ignores` name, it refuses and says to run `base` and `gate` again.
+
+A step that was cut off is run again. `land` writes down the commit it is about to put on the base
+before it does, so a second run that finds that commit on the base only finishes the bookkeeping:
+the review item and the state. `clean` knows the branch from `landing.json`, so it finds it after
+the worktree is gone.
 
 The landing is a fast-forward and nothing else. With a remote named `origin` the tip is pushed to
 the base branch there with a plain push, which the remote refuses when someone else pushed first;
@@ -131,6 +136,8 @@ def cmd_start(task: Task) -> dict:
     task.need_worktree()
     if task.record["status"] != "landing":
         task.kept_file.unlink(missing_ok=True)
+        # kept here because `clean` needs the branch after the worktree, which names it, is gone
+        task.keep(branch=git(task.worktree, "branch", "--show-current"))
         task.state("landing", "the landing starts")
     return {"task": task.slug, "base": task.base, "worktree": str(task.worktree), "remote": task.remote}
 
@@ -198,6 +205,36 @@ def ignored(task: Task, files: list[str]) -> bool:
     return all(any(fnmatch.fnmatchcase(file, pattern) for pattern in patterns) for file in files)
 
 
+def changed(task: Task, old: str, new: str) -> list[str]:
+    """Every path that differs between two trees. A rename counts as the path that went and the path that came."""
+    return git(task.worktree, "diff", "--name-only", "--no-renames", old, new).splitlines()
+
+
+def finish(task: Task, tip: str, landed: str, risk: str, arrived: list[str]) -> dict:
+    """The bookkeeping after the base holds the tip: the base checkout follows, the review is queued, the state says landed."""
+    left_behind = None
+    if task.remote and task.base_checkout is not None:
+        # The checkout that holds the base follows, so the next task's worktree starts from what just
+        # landed. git refuses the fast-forward, and changes nothing, when a file with changes of its
+        # own is in the way or the checkout has commits the remote lacks; then it stays as it is.
+        followed = run(["git", "-C", str(task.base_checkout), "merge", "--ff-only", f"origin/{task.base}"], check=False)
+        if followed.returncode != 0:
+            why = [line for line in (followed.stderr or followed.stdout).strip().splitlines() if line.strip()]
+            left_behind = f"{task.base_checkout} did not follow origin/{task.base}, and nothing in it was changed. git said: {why[-1] if why else 'nothing'}"
+    kept = task.kept()
+    item = kept.get("review")
+    if item is None:
+        # a run that was cut off after it queued the item must not queue a second one
+        waiting = json.loads(script("review_queue.py", task.main, "list").stdout)
+        item = next((entry["id"] for entry in waiting if entry["slug"] == task.slug and entry["range"] == landed), None)
+    if item is None:
+        item = int(script("review_queue.py", task.main, "add", task.slug, "--range", landed, "--risk", risk).stdout.strip())
+    task.keep(landed=landed, review=item)
+    task.state("landed", f"{task.base} {landed}", f"review item {item}, {risk}")
+    return {"task": task.slug, "base": task.base, "range": landed, "tip": tip, "pushed": task.remote, "review": item,
+            "arrived": arrived, "left_behind": left_behind}
+
+
 def cmd_land(task: Task, risk: str, message: str | None) -> dict:
     task.need_landing()
     task.need_worktree()
@@ -214,11 +251,15 @@ def cmd_land(task: Task, risk: str, message: str | None) -> dict:
 
     task.fetch()
     base_now = git(task.worktree, "rev-parse", task.onto)
+    intent = kept.get("intent")
+    if intent and run(["git", "-C", str(task.worktree), "merge-base", "--is-ancestor", intent["tip"], task.onto], check=False).returncode == 0:
+        # An earlier run put this commit on the base and was cut off before the bookkeeping.
+        return finish(task, intent["tip"], intent["range"], risk, intent["arrived"])
     arrived: list[str] = []
     if base_now != kept["base"]:
         # The base moved after the gate ran. The result stands only when every file that arrived is
         # one the project says the gate does not read.
-        arrived = git(task.worktree, "diff", "--name-only", kept["base"], base_now).splitlines()
+        arrived = changed(task, kept["base"], base_now)
         if not ignored(task, arrived):
             raise LandError(
                 f"{task.onto} moved after the gate ran, by files the gate reads ({', '.join(arrived[:5])}"
@@ -230,59 +271,67 @@ def cmd_land(task: Task, risk: str, message: str | None) -> dict:
     elif git(task.worktree, "rev-parse", "HEAD") != kept["gated"]:
         raise LandError("the branch's tip is not the commit the gate passed on; run `land.py gate` again")
     # What lands is the tree the gate saw, plus only the ignored files that arrived on the base.
-    differs = git(task.worktree, "diff", "--name-only", kept["tree"], "HEAD^{tree}").splitlines()
+    differs = changed(task, kept["tree"], "HEAD^{tree}")
     if not set(differs) <= set(arrived):
         raise LandError(f"the tree that would land differs from the tree the gate passed on in {', '.join(differs[:5])}; run `land.py gate` again")
 
     if squash:
+        # A commit runs the project's hooks, and a hook may change what is committed. The one commit
+        # must hold the tree that was just checked, so the branch is put back when it does not.
+        before = git(task.worktree, "rev-parse", "HEAD")
+        checked = git(task.worktree, "rev-parse", "HEAD^{tree}")
         git(task.worktree, "reset", "--soft", base_now)
-        git(task.worktree, "commit", "-m", message)
+        made = run(["git", "-C", str(task.worktree), "commit", "-m", message], check=False)
+        if made.returncode != 0:
+            git(task.worktree, "reset", "--soft", before)
+            raise LandError(f"the one commit was refused, and the branch is as it was: {(made.stderr or made.stdout).strip()}")
+        if git(task.worktree, "rev-parse", "HEAD^{tree}") != checked:
+            git(task.worktree, "reset", "--hard", before)
+            raise LandError(
+                "a commit hook changed the files of the one commit, so it is not the tree the gate passed on; the branch is as it was. "
+                "Commit what the hook changes on the branch, then run `land.py base` and `land.py gate` again",
+            )
     tip = git(task.worktree, "rev-parse", "HEAD")
-    left_behind = None
+    landed = f"{base_now[:9]}..{tip[:9]}"
+    # Written before the base moves: a run that is cut off after it finds this and only finishes.
+    task.keep(intent={"tip": tip, "range": landed, "arrived": arrived})
     if task.remote:
         # A plain push: the remote refuses it when someone else pushed first, which is the answer wanted.
         git(task.worktree, "push", "origin", f"HEAD:{task.base}")
-        if task.base_checkout is not None:
-            # The checkout that holds the base follows, so the next task's worktree starts from what
-            # just landed. git refuses the fast-forward, and changes nothing, when a file with
-            # changes of its own is in the way; then the checkout stays behind and the report says so.
-            followed = run(["git", "-C", str(task.base_checkout), "merge", "--ff-only", f"origin/{task.base}"], check=False)
-            if followed.returncode != 0:
-                left_behind = (
-                    f"{task.base_checkout} stays behind origin/{task.base}: {(followed.stderr or followed.stdout).strip().splitlines()[0]} "
-                    f"`git merge --ff-only origin/{task.base}` there brings it up"
-                )
     elif task.base_checkout is not None:
         # A fast-forward in the checkout that holds the base: git refuses it when a file there is in the way.
         git(task.base_checkout, "merge", "--ff-only", tip)
     else:
         # No checkout holds the base branch, so its ref may move; without `+` git allows a fast-forward only.
         git(task.worktree, "fetch", ".", f"HEAD:{task.base}")
-    landed = f"{base_now[:9]}..{tip[:9]}"
-    item = script("review_queue.py", task.main, "add", task.slug, "--range", landed, "--risk", risk).stdout.strip()
-    task.keep(landed=landed, review=int(item))
-    task.state("landed", f"{task.base} {landed}", f"review item {item}, {risk}")
-    return {"task": task.slug, "base": task.base, "range": landed, "tip": tip, "pushed": task.remote, "review": int(item),
-            "arrived": arrived, "left_behind": left_behind}
+    return finish(task, tip, landed, risk, arrived)
 
 
 def cmd_clean(task: Task) -> dict:
     if task.record["status"] not in ("landed", "dropped"):
         raise LandError(f"the task is {task.record['status']!r}; only a landed or dropped task loses its worktree")
-    removed = {"worktree": False, "branch": None}
-    branch = None
+    removed: dict = {"worktree": False, "branch": None, "branch_left": None}
+    # The worktree names its branch while it is there; after it, what `start` wrote down does.
+    branch = task.kept().get("branch")
     if (task.worktree / ".git").exists():
-        branch = git(task.worktree, "branch", "--show-current") or None
+        branch = git(task.worktree, "branch", "--show-current") or branch
+        if branch:
+            task.keep(branch=branch)
         # git refuses a worktree with changes or untracked files: they are someone's work until the owner says otherwise.
         git(task.main, "worktree", "remove", str(task.worktree))
         removed["worktree"] = True
-    if branch and task.record["status"] == "landed":
-        # `branch -d` judges by the checkout it runs in, which may be behind. The proof wanted is
-        # that the base holds the branch's tip, so that is what is checked before the branch goes.
-        if run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", branch, task.onto], check=False).returncode != 0:
-            raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays; the worktree is removed")
-        git(task.main, "branch", "-D", branch)
-        removed["branch"] = branch
+    if not branch or not git(task.main, "branch", "--list", branch):
+        return {"task": task.slug, **removed}
+    if task.record["status"] != "landed":
+        # A dropped task's commits are on no other branch: its branch is the owner's to delete.
+        removed["branch_left"] = f"{branch} holds the dropped task's commits; `git branch -D {branch}` deletes them"
+        return {"task": task.slug, **removed}
+    # `branch -d` judges by the checkout it runs in, which may be behind. The proof wanted is that
+    # the base holds the branch's tip, so that is what is checked before the branch goes.
+    if run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", branch, task.onto], check=False).returncode != 0:
+        raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays")
+    git(task.main, "branch", "-D", branch)
+    removed["branch"] = branch
     return {"task": task.slug, **removed}
 
 
