@@ -30,7 +30,7 @@ contract is written for Claude Code only. `task-skills` is a working name.
 
 ```
 .agents/
-  project.toml   paths, base branch, who lands, gate commands, careful paths
+  project.toml   paths, base branch, who lands, who reviews, gate commands, careful paths
   profile.md     what the project is
   styleguide/    how code is written here, by path
   personas/      the people a decision affects
@@ -54,10 +54,14 @@ An opinionated set, kept small. Shipped here, beside `task`:
 | `dialectic` | a claim argued both ways before a decision rests on it |
 | `root-cause-investigator` | a defect nobody can explain after two tries |
 
-Not shipped, and checked for by `python3 skills/task/scripts/doctor.py`: git, Python 3.11 or
-newer and [revmux](https://github.com/umputun/revmux) are required; agterm and its skill,
-plannotator (recommended), Codex, `mailbox-chat.py`, jev and cronn are optional, each with a plain
-fallback the check names. A project that prefers its own tool for a role points its settings at it.
+Not shipped, and checked for by `python3 skills/task/scripts/doctor.py`. Required: git, Python
+3.11 or newer, [revmux](https://github.com/umputun/revmux) for the review rounds, agterm with
+its skill, and `mailbox-chat.py` from agterm's cookbook, which carries the messages between the
+coordinator and the reviewer in the other pane. Optional, each with a fallback the check names:
+plannotator (recommended), Codex, jev and cronn.
+
+The agent that runs `/task` builds, and the reviewer's pane holds Codex or a second Claude, as
+the project's `seats.reviewer` says. A Codex that runs `/task` itself waits for its harness file. A project that prefers its own tool for a role points its settings at it.
 
 ## Trying it in Claude Code
 

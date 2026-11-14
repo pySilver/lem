@@ -15,8 +15,9 @@ python3 SKILL_DIR/scripts/doctor.py
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
 installed, and end. For each optional tool that is absent, tell the owner in one line what the
 skill does without it (the row's `without_it`), and go on. Two cases need a sentence of their own:
-agterm is there and its skill is not (an agent then has the terminal and not its commands), and
-cronn is installed and not running.
+cronn is installed and not running, and cronn is absent. For an absent cronn, offer to install
+it through the `cronn` skill when that skill is there: its installer adds a Homebrew formula and
+an agent that starts at login, so it runs only on the owner's yes.
 
 ## 2. Examine the project
 
@@ -72,6 +73,8 @@ For a repository that has code:
 - **What must never break**: confirm or correct the proposed careful paths. This is the one
   setting that is the owner's to choose.
 - **Who lands**: the owner, or the agent once the gate is green; and the branch tasks land on.
+- **Who reviews**: the agent in the reviewer's pane, Codex or a second Claude. Guess Codex when
+  step 1 found it, since two model families disagree more usefully than one family twice.
 - **The folders already here**, when `project.py existing` listed any: link them, so the older
   tools and this skill read one copy and nothing moves; or generate new profiles under
   `.agents/`, and leave the old folders for the owner to remove.
@@ -83,7 +86,7 @@ for a yes.
 ## 4. Write the settings
 
 ```bash
-python3 SKILL_DIR/scripts/project.py init --base BRANCH --existing link    # or: --existing new
+python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --existing link    # or: --existing new
 ```
 
 Leave `--existing` out when step 2 found no older folder. Then edit `.agents/project.toml`: the
@@ -98,8 +101,10 @@ it is.
   one page.
 - **The personas**, one file per person the owner named, from `templates/persona.md`, and a
   `README.md` that lists them with one line each.
-- **The style guide**: one file per area of the code, each rule with the paths it covers, its
-  reason, and the file it was read from. Write only conventions `examined.md` shows the code
+- **The style guide**: first offer the published guides `references/styleguides.md` lists for the
+  project's stack; one the owner picks enters as a linter configuration in the gate and a page of
+  differences, as that file says. Then one file per area of the code, each rule with the paths it
+  covers, its reason, and the file it was read from. Write only conventions `examined.md` shows the code
   already keeps, and say at the top of each file that it is a draft read from the code. A rule
   nobody has yet needed is not written: the style guide grows when a review finding or a
   correction repeats (`stages/learn.md`). A new project gets the copy the owner accepted in the

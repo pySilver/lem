@@ -13,7 +13,7 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py path NAME            one path, absolute
     project.py careful FILE...      which of the files take the careful flow
     project.py existing             the folders an older tool already reads here, as JSON
-    project.py init [--base NAME] [--existing link|new]
+    project.py init [--base NAME] [--existing link|new] [--reviewer claude|codex]
                                     write .agents/project.toml
     project.py task-dir SLUG        make and print one task's state directory
     project.py tasks                every task's ask and newest state block, as JSON
@@ -48,6 +48,8 @@ PATHS: dict[str, tuple[str, str | None]] = {
     "plans": ("docs/plans", None),
 }
 LAND = ("owner", "agent")
+# the agents that can sit in the reviewer's pane
+REVIEWERS = ("claude", "codex")
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 TABLES: dict[str, tuple[str, ...]] = {
@@ -55,6 +57,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "branch": ("base", "land"),
     "gate": ("commands",),
     "flow": ("careful",),
+    "seats": ("reviewer",),
 }
 
 TEMPLATE = """\
@@ -75,9 +78,14 @@ land = "owner"
 commands = []
 
 [flow]
-# Paths whose change takes the careful flow: the plan is read by a second opinion and each task
+# Paths whose change takes the careful flow: the plan is read by the reviewer and each task
 # is reviewed before the next starts. A `*` crosses directories.
 careful = []
+
+[seats]
+# The agent in the reviewer's pane: "claude" or "codex". The agent that runs /task builds; this one
+# reads its plans and diffs. The same family twice is allowed.
+{reviewer}
 """
 
 
@@ -147,6 +155,10 @@ def load(root: Path) -> dict:
     if land not in LAND:
         raise SettingsError(f"{SETTINGS}: branch.land = {land!r} must be one of {', '.join(LAND)}")
 
+    reviewer = raw.get("seats", {}).get("reviewer")
+    if reviewer is not None and reviewer not in REVIEWERS:
+        raise SettingsError(f"{SETTINGS}: seats.reviewer = {reviewer!r} must be one of {', '.join(REVIEWERS)}")
+
     return {
         "root": str(root),
         "settings": str(file) if file.is_file() else None,
@@ -154,6 +166,7 @@ def load(root: Path) -> dict:
         "branch": {"base": base, "land": land},
         "gate": {"commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands")},
         "flow": {"careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful")},
+        "seats": {"reviewer": reviewer},
     }
 
 
@@ -194,7 +207,7 @@ def older_folders(root: Path) -> dict[str, str]:
     }
 
 
-def cmd_init(root: Path, base: str | None, existing: str | None) -> None:
+def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str | None) -> None:
     file = root / SETTINGS
     if file.exists():
         raise SettingsError(f"{SETTINGS} already exists; edit it")
@@ -213,7 +226,8 @@ def cmd_init(root: Path, base: str | None, existing: str | None) -> None:
         chosen = older[name] if existing == "link" and name in older else default
         lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
-    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base))
+    seat = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex"'
+    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=seat))
     print(file)
 
 
@@ -258,6 +272,7 @@ def main() -> None:
     init = commands.add_parser("init")
     init.add_argument("--base")
     init.add_argument("--existing", choices=("link", "new"))
+    init.add_argument("--reviewer", choices=REVIEWERS)
     commands.add_parser("existing")
     commands.add_parser("task-dir").add_argument("slug")
     commands.add_parser("tasks")
@@ -265,7 +280,7 @@ def main() -> None:
     try:
         root = repo_root(Path(args.repo))
         if args.command == "init":
-            cmd_init(root, args.base, args.existing)
+            cmd_init(root, args.base, args.existing, args.reviewer)
             return
         if args.command == "existing":
             print(json.dumps(older_folders(root), indent=2))

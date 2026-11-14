@@ -11,7 +11,7 @@ new agent is one new file here and no edit to a stage.
 | `load-skill` | bring another skill's instructions into context once, and reuse them while they are there |
 | `ask-owner` | put a short choice to the owner and wait for the answer; one question at a time in an interview |
 | `spawn-builder` | give one task to a fresh agent on the workhorse model, able to edit, run commands and commit in a directory it is given |
-| `second-opinion` | give a plan or a diff to a fresh, read-only agent on the strongest model, of another model family when one is paired |
+| `second-opinion` | send a plan or a diff to the reviewer: a second agent in the other pane, of the family the settings' `seats.reviewer` names, read-only and started fresh for each review |
 | `fan-out` | run several fresh agents over independent inputs at once |
 | `show-page` | show the owner something to read (a report, a diff, a table) without asking a question |
 

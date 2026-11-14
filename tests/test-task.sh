@@ -30,10 +30,11 @@ else
   fail "defaults: $out"
 fi
 if [ "$(status_of project --repo "$NEW" init)" = 1 ]; then pass "init refuses a checkout whose base branch it cannot tell"; else fail "init without a base"; fi
-project --repo "$NEW" init --base main >/dev/null
+project --repo "$NEW" init --base main --reviewer codex >/dev/null
 out=$(project --repo "$NEW" show)
-if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["paths"]["personas"]["path"]' <<<"$out")" = "$NEW/.agents/personas" ]; then
-  pass "init in a new project writes the skill's own layout and the given base"
+if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["paths"]["personas"]["path"]' <<<"$out")" = "$NEW/.agents/personas" ] \
+  && [ "$(field 'd["seats"]["reviewer"]' <<<"$out")" = "codex" ]; then
+  pass "init in a new project writes the skill's own layout, the given base and the reviewer seat"
 else
   fail "init in a new project: $out"
 fi
@@ -85,6 +86,10 @@ settings '[paths]' 'styleguide = "../elsewhere"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a path that leaves the repository is refused"; else fail "path outside"; fi
 settings '[gate]' 'commands = "pytest"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "gate commands that are not a list are refused"; else fail "gate type"; fi
+settings '[seats]' 'reviewer = "gemini"'
+if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a reviewer that is neither claude nor codex is refused"; else fail "reviewer value"; fi
+settings '[seats]' 'reviewer = "claude"'
+if [ "$(project --repo "$OLD" show | field 'd["seats"]["reviewer"]')" = "claude" ]; then pass "the reviewer seat may be the same family as the builder"; else fail "reviewer claude"; fi
 settings 'not toml ['
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a settings file that does not parse is refused"; else fail "parse error"; fi
 
@@ -162,30 +167,37 @@ else
   fail "doctor without revmux: $out"
 fi
 fake revmux "revmux v9.9.9"
-out=$(doctor)
-if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row revmux detail <<<"$out")" = "revmux v9.9.9" ] && [ "$(row agterm found <<<"$out")" = "False" ] \
-  && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "agterm skill"]' <<<"$out")" = "[]" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
-  && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ]; then
-  pass "with the required tools, doctor passes and reports agterm and cronn as absent, with no row for the agterm skill"
+out=$(doctor || true)
+if [ "$(status_of doctor)" = 1 ] && [ "$(row revmux detail <<<"$out")" = "revmux v9.9.9" ] && [ "$(row agterm found <<<"$out")" = "False" ] \
+  && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "agterm skill"]' <<<"$out")" = "[]" ] && [ "$(row mailbox-chat need <<<"$out")" = "required" ]; then
+  pass "the review tool alone is not enough: agterm and the mailbox are required, and there is no row for the agterm skill without agterm"
 else
-  fail "doctor with revmux: $out"
+  fail "doctor with revmux only: $out"
 fi
 fake agtermctl "agtermctl 1.0"
-out=$(doctor)
-if [ "$(row agterm found <<<"$out")" = "True" ] && [ "$(row agterm in_session <<<"$out")" = "False" ] && [ "$(row 'agterm skill' found <<<"$out")" = "False" ]; then
-  pass "agterm without its skill is reported as such, and a run outside agterm says it is not in a session"
+fake mailbox-chat.py "mailbox-chat"
+out=$(doctor || true)
+if [ "$(status_of doctor)" = 1 ] && [ "$(row agterm found <<<"$out")" = "True" ] && [ "$(row agterm in_session <<<"$out")" = "False" ] && [ "$(row 'agterm skill' found <<<"$out")" = "False" ]; then
+  pass "agterm without its skill fails the check, and a run outside agterm says it is not in a session"
 else
   fail "doctor with agterm, no skill: $out"
 fi
 mkdir -p "$FAKEHOME/.agents/skills/agterm" "$FAKEHOME/.config/cronn"
 touch "$FAKEHOME/.agents/skills/agterm/SKILL.md"
+out=$(doctor)
+if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'agterm skill' detail <<<"$out")" = "$FAKEHOME/.agents/skills/agterm" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
+  && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ] && [ "$(row codex found <<<"$out")" = "False" ]; then
+  pass "with git, the review tool, agterm, its skill and the mailbox the check passes, and absent optional tools only change their rows"
+else
+  fail "doctor with the required set: $out"
+fi
 printf 'CRONN_PORT=1\n' > "$FAKEHOME/.config/cronn/cronn.env"
 fake cronn "cronn"
 out=$(doctor)
-if [ "$(row 'agterm skill' detail <<<"$out")" = "$FAKEHOME/.agents/skills/agterm" ] && [ "$(row cronn found <<<"$out")" = "True" ] && [ "$(row cronn running <<<"$out")" = "False" ]; then
-  pass "the agterm skill is found in any agent's skills folder, and an installed cronn that does not answer is not running"
+if [ "$(row cronn found <<<"$out")" = "True" ] && [ "$(row cronn running <<<"$out")" = "False" ]; then
+  pass "an installed cronn that does not answer is reported as not running"
 else
-  fail "doctor with the agterm skill and cronn: $out"
+  fail "doctor with cronn: $out"
 fi
 if [ -d "$(dirname "$PROJECT")/__pycache__" ]; then fail "the scripts left no __pycache__"; else pass "the scripts left no __pycache__"; fi
 

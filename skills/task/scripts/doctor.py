@@ -42,24 +42,24 @@ def tool(name: str, need: str, used_for: str, without_it: str, binary: str, prob
 
 def agterm() -> list[dict]:
     row = tool(
-        "agterm", "optional", "pages for the owner, and a session per task or per reviewer",
-        "questions and reports are plain text in the terminal", "agtermctl", ["--version"],
+        "agterm", "required", "the reviewer's pane, pages for the owner, and a session per task",
+        "no reviewer pane and no mailbox: the pair flow cannot run", "agtermctl", ["--version"],
     )
     row["in_session"] = bool(os.environ.get("AGTERM_SESSION_ID"))
     homes = [str(Path.home() / home / "agterm") for home in SKILL_HOMES
              if (Path.home() / home / "agterm" / "SKILL.md").is_file()]
     skill = {
-        "name": "agterm skill", "need": "optional", "found": bool(homes), "detail": ", ".join(homes) or None,
+        "name": "agterm skill", "need": "required", "found": bool(homes), "detail": ", ".join(homes) or None,
         "used_for": "how an agent drives agterm: overlays, sessions, panes",
-        "without_it": "an agent has agterm and does not know its commands; install the skill agterm ships",
+        "without_it": "an agent has agterm and does not know its commands; install it from agterm's Help menu",
     }
     return [row, skill] if row["found"] else [row]
 
 
 def cronn() -> dict:
     row = tool(
-        "cronn", "optional", "a scheduled retro, and a scheduled pass over the review queue",
-        "retro and review run only when someone types them", "cronn",
+        "cronn", "optional", "a scheduled retro, a scheduled pass over the review queue, and the agents' free hours",
+        "retro and review run only when someone types them; onboarding offers to install it", "cronn",
     )
     env_file = Path(os.environ.get("CRONN_CONFIG_DIR") or Path.home() / ".config" / "cronn") / "cronn.env"
     port = None
@@ -90,10 +90,11 @@ def main() -> None:
              "plannotator", ["--version"]),
         tool("jev", "optional", "sorting backlog items by who can act on them next",
              "the backlog is listed without verdicts", "jev"),
-        tool("codex", "optional", "a second model family for the second opinion and for half of each persona panel",
-             "one model family only; agreement between families is not measured", "codex", ["--version"]),
-        tool("mailbox-chat", "optional", "messages to the agent in the adjacent agterm pane",
-             "no paired agent; a fresh agent of the same family gives the second opinion", "mailbox-chat.py"),
+        tool("codex", "optional", "a reviewer of another model family, and half of each persona panel",
+             "the reviewer is a second Claude; agreement between model families is not measured", "codex", ["--version"]),
+        tool("claude", "optional", "a Claude Code reviewer, or the coordinator", "the reviewer must be Codex", "claude", ["--version"]),
+        tool("mailbox-chat", "required", "messages between the coordinator and the reviewer in the other pane",
+             "the two agents cannot talk; install agterm's two-agent mailbox chat recipe from its cookbook", "mailbox-chat.py"),
         cronn(),
     ]
     ok = all(row["found"] for row in tools if row["need"] == "required")

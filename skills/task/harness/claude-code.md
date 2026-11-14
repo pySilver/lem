@@ -36,10 +36,39 @@ heredoc when the text names git.
 
 ## second-opinion
 
-The `Agent` tool with `subagent_type: "second-opinion"` when the session lists it, otherwise
-`subagent_type: "general-purpose"` on the session's own model, told to change no file. When a
-Codex is paired in the adjacent agterm pane, it is the other model family: send it the request
-through the `mailbox-chat` skill instead, and say in the report which of the two read the plan.
+The reviewer is a second agent in the split pane of this session, of the family the settings'
+`seats.reviewer` names (`claude` or `codex`); the owner reads both panes. When the setting is null,
+ask the owner once and write the answer into `.agents/project.toml`.
+
+1. **Is a reviewer there?** `mailbox-chat.py status` names the other pane and what serves it:
+   `claude`, `codex` or `none`.
+2. **Open the seat** when there is no split or nothing serves it:
+   - `agtermctl session split on --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`;
+   - write the launch line to a file and type it into the right pane with
+     `agtermctl session type --stdin --pane right --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET" < FILE`.
+     The line starts the agent with the reviewer's brief, `prompts/reviewer.md` in this skill's
+     directory, by absolute path:
+     - Codex: `codex "$(cat PATH/prompts/reviewer.md)"`. A Codex pane receives mail only after
+       its first prompt, and the brief is that prompt.
+     - Claude Code: `claude --append-system-prompt "$(cat PATH/prompts/reviewer.md)" "You are the reviewer. Wait for the first message."`
+   - read `agtermctl tree --json` and confirm the session's `splitForeground` is that agent, then
+     `mailbox-chat.py status` again.
+   Under agterm's Live sessions mode, `agtermctl session restart --pane-id ID --command LINE` starts
+   the same line without typing; in the other restore modes it is refused.
+3. **Send the request** through the `mailbox-chat` skill: what to review (the plan's path, or the
+   range of commits), the directory to work in, the task it belongs to and the style guide files
+   that cover it. A message that names git goes from a file, never a heredoc.
+4. **The reply arrives in this pane by itself.** Never poll for it, and check every claim it makes
+   about the code with your own read before you act on it.
+5. **A reviewer is fresh for each review.** Before the next one, `agtermctl session split close`
+   on this session ends the pane and its agent, and step 2 opens a new one.
+
+Say in the report which family reviewed. Two agents of one family agree more easily than two of
+different ones; the report says "same family" when that was the case.
+
+Checked on 2026-11-14 with agterm in its rerun restore mode: a split opened on a background
+session, a program started by a typed line, and its name read back from `splitForeground`. Not
+run yet: a real reviewer started this way and a mail round trip with it.
 
 ## fan-out
 
