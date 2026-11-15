@@ -26,4 +26,5 @@ directory, which lead you are (`builder` or `session`) and whether you stop afte
    STATUS "one line"`. It is the only thing Lem and the owner's board see of you while you work.
 7. **Stop the way `build.md` ends**: `report.md`, then the state, then tell Lem. Do this before
    every stop, also one you did not plan. A lead that stops without a state block is started
-   again from the beginning of this file.
+   again from the beginning of this file. When the write of `report.md` is refused to you,
+   `build.md` says what to do: never go around the refusal.

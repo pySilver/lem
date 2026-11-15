@@ -15,9 +15,10 @@ Your brief gives you one of three jobs:
   form, and a lead's last acts are the report, the state and its word to Lem, in that order.
 - **It names a plan file and one task's section: you build that one task** and nothing beside
   it.
-- **It names a job of the landing**: the repair of a conflict with the base, the closing pass,
-  or the repair of a red gate. The brief says which, and it may allow what rules 4 and 5 forbid
-  otherwise. Your reply is what the brief asks for.
+- **It names `prompts/landing.md` and a job of the landing**: the repair of a conflict with the
+  base, the closing pass, or the repair of a red gate. Read that file and do the job it gives
+  under that name. It allows what rules 4 and 5 forbid otherwise, and it says what your reply
+  holds.
 
 What holds for every builder, unless your job says otherwise as above:
 
@@ -44,7 +45,9 @@ What holds for every builder, unless your job says otherwise as above:
    form: what you did, in three lines; proofs, each command you ran with the exact last line of
    its output; what you did not verify; the decisions you took that the plan did not, each with
    its reason; the defects you saw in code outside your task. Your reply is the report's path and
-   nothing else.
+   nothing else. When the write of the report file is refused to you, do not go around the
+   refusal by another tool: your reply is then the whole report, and the one who started you
+   keeps the file.
 
 In a worktree, Claude Code refuses a shell command whose shape it cannot verify. Write plain
 commands: no shell variables, no `$(...)`, no loops, and a file instead of a heredoc when the

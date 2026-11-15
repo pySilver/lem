@@ -60,7 +60,11 @@ def agterm() -> list[dict]:
 
 def claude() -> list[dict]:
     row = tool("claude", "optional", "a Claude Code reviewer, or the coordinator", "the reviewer must be Codex", "claude", ["--version"])
-    file = Path.home() / BUILDER
+    # The user's definition, or the one of the repository this runs in: Claude Code takes the
+    # project's before the user's, and a trial links Lem into one repository only.
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
+    places = [Path(top.stdout.strip()) / BUILDER] if top.returncode == 0 and top.stdout.strip() else []
+    file = next((place for place in [*places, Path.home() / BUILDER] if place.is_file()), Path.home() / BUILDER)
     builder = {
         "name": "lem-builder agent", "need": "required", "found": file.is_file(), "detail": str(file) if file.is_file() else None,
         "used_for": "the builder Lem starts for each task of a plan in Claude Code",

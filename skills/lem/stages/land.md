@@ -26,13 +26,11 @@ one finds what the run before it finished.
    `landing` holds a place, so it is written when a gate will run and never before a stop.
 2. **`base`.** The base branch is brought in by a rebase. A conflict is where two tasks on the
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
-   rebase. `spawn-builder` in the worktree with a brief that names the job, the repair of a
-   conflict with the base, and gives the two branches and those files; it rebases the task's
-   branch, resolves, runs the tests of the files it touched and commits. Then run the step again.
+   rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the
+   base", and as its paths the branch to rebase onto and those files. Then run the step again.
 3. **The closing pass.** The task's own work is done, so this is the one moment for what was
-   left around it. `spawn-builder` in the worktree with a brief that names the job, the closing
-   pass, and gives the task's plan and report by path. It does two things, each in commits of its
-   own:
+   left around it. `spawn-builder` with the brief below, the job "the closing pass", and as its
+   paths the task's plan and `report.md`. It does two things, each in commits of its own:
    - *the documents*: it lists what the change renamed, moved or removed (symbols, paths,
      commands, settings), searches the repository's durable documents for each (the guides, the
      README, the agent document, the style guide), and corrects every sentence the change made
@@ -51,9 +49,9 @@ one finds what the run before it finished.
    worktree, on the tip that will land, each with its output in a file of the task directory. The
    step keeps the exact last line of each, logs each result for the board, and records the commit
    and the tree that passed. Do not read the output files.
-   A red gate is work, and a builder's: `spawn-builder` in the worktree with a brief that names
-   the job, the repair of a red gate, and gives the commands that failed, their output files and
-   the task's plan, by path. The builder runs the same command on
+   A red gate is work, and a builder's: `spawn-builder` with the brief below, the job "the repair
+   of a red gate", and as its paths the commands that failed, their output files and the task's
+   plan. The builder runs the same command on
    the base. A failure the change caused, it fixes and commits, and the landing goes on from
    step 2. A failure the base already has is not this task's to carry and not this gate's to
    hide: write this task's state as `blocked` with the line `the base is red`, open a task for the
@@ -61,7 +59,7 @@ one finds what the run before it finished.
    again, and it takes its turn in the landing line. Skipping or changing a gate command is
    the owner's decision only. After two builders on the same failure, write the state `blocked`
    and tell the owner.
-5. **`land`**, with `--risk` from the report as the closing pass left it and, when the settings' `branch.history` is
+5. **`land`**, with `--risk high` or `--risk normal` as the report says after the closing pass, and, when the settings' `branch.history` is
    `squash`, `--message` with the report's commit subject. It lands only the tree the gate passed
    on, as a fast-forward: pushed to the base branch of `origin` with a plain push, or, in a
    repository with no remote, by a fast-forward of the base branch itself. It queues the review
@@ -81,15 +79,33 @@ one finds what the run before it finished.
    reason. The next task's worktree starts from that checkout's base branch, so say that too.
 6. **Report to the owner**, once, in plain words, from `report.md`: what they get, how to see it,
    the gate's last lines, the decisions taken without them, what was not verified, and the review
-   item's risk. Offer each proposed backlog item by its first line; the ones the owner takes go
-   to the `lem-backlog` skill, which files them, and the others are dropped with the task's
-   state. A `high` item is reviewed today: `stages/review.md`, rule 1.
+   item's risk. Give paths relative to the repository's root. Offer each proposed backlog item
+   by its first line, as the last lines of the report: it is a plain yes or no for each, so it
+   stays in the terminal. The ones the owner takes go to the `lem-backlog` skill, which files
+   them, and the others are dropped with the task's state. A `high` item is reviewed today:
+   `stages/review.md`, rule 1. A `normal` item waits in the queue for `/lem review`; say in the
+   report that it waits, and do not start its review by yourself.
 7. **`clean`** removes the task's worktree and its branch, after it has checked that the base
    holds the branch's tip. It refuses a worktree with changes or files of its own: those are
    someone's work until the owner says otherwise. Do what the project's `AGENTS.md` adds for a
    removed worktree (a test database, a container), and close the task's session when it had one.
 
 Every way out of this stage writes a state other than `landing`: `landed`, `held` or `blocked`.
+
+The brief for each of the three builders of this stage is these lines and nothing more. Its
+standing text is `prompts/landing.md`, so that you do not say a step again in your own words:
+
+```
+Read SKILL_DIR/prompts/landing.md and do the job named here.
+job: the repair of a conflict with the base | the closing pass | the repair of a red gate
+task: SLUG
+worktree: the worktree's absolute path
+task directory: the task directory's absolute path
+paths: what the step above gives this job
+```
+
+Such a builder writes no state block, because the task stays in `landing`, and its reply is what
+`prompts/landing.md` asks for. Read `report.md` again after the closing pass, before step 5.
 
 Then the next: a `ready` task lands, and the queue is looked at as `stages/new.md` ends: a
 landing holds a place, so its end may free one.

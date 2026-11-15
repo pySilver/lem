@@ -8,15 +8,20 @@ a lead is started, and what to do each time a lead stops.
 
 1. **The slug and the branch.** A slug of two to five plain words that say what the owner gets
    ("report-dates-stay-whole"), never a code. The branch is `<type>/<slug>` with a semantic type
-   (`feat`, `fix`, `chore`, `docs`), unless the project's `AGENTS.md` gives its own scheme.
-2. **The task directory.** `project.py task-dir SLUG`, then write `task.md`:
+   (`feat`, `fix`, `chore`, `docs`), unless the project's `AGENTS.md` gives its own scheme. Take
+   the type from the ask alone: `fix` when the ask says that something is wrong today, `feat`
+   when it asks for something that is not there, and `feat` when you cannot tell. The branch's
+   type binds nobody; each commit of the lead carries its own.
+2. **The task directory.** `project.py task-dir SLUG --ask "the owner's words"` keeps the ask as
+   the owner gave it, for the board and the status. Then write `task.md`:
    - the ask, verbatim;
    - the outcome in one or two sentences, as the person it is for would see it;
    - done when: the evidence that shows the outcome, each line something a command or a look at
      the product can show;
    - out of scope, when the ask has an obvious neighbor this task leaves alone.
    Write it from the ask, the project's profile and the rulings. Do not read the code for it: a
-   "done when" line that needs the code is the lead's to sharpen in its plan.
+   "done when" line that needs the code is the lead's to sharpen in its plan. A line you put out
+   of scope by yourself is a decision taken without the owner: write it in `decisions.md`.
 3. **Is the ask clear?** If you cannot write the outcome without choosing between two readings
    that give the owner different things, ask once through `ask-owner`, each reading as what the
    owner would get. Anything else is the lead's to read from the code and log.
@@ -43,8 +48,12 @@ a lead is started, and what to do each time a lead stops.
    `landed` or `dropped`, so it builds on what the earlier one changed. Do not read the code to
    find an overlap the asks do not show; the landing line settles that one (`stages/land.md`,
    step 1).
-6. **Start its lead**, as the next section says. Then go back to the owner. Do not wait for the
-   lead and do not watch it.
+6. **Start its lead**, as the next section says. Open the board when this session has not
+   opened it yet (`SKILL.md`, Status); it stays under your session.
+7. **Tell the owner**, in a few lines: the task's plain name, the outcome and the "done when"
+   lines as you wrote them, each decision you took for him (what you put out of scope), and that
+   the report comes after the landing. Then go back to the owner's next message. Do not wait for
+   the lead and do not watch it.
 
 `/lem build <task>` is for a task whose state is `drafted` or `planned`: change its brief to
 `stop after the plan: no` and start its lead.
@@ -61,7 +70,9 @@ that is started again after it stopped.
    brief: from the task's branch when that branch exists (a night draft, a task whose worktree
    was removed), otherwise from the settings' base branch. Use the project's own worktree script
    when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test database, an
-   environment); otherwise `git worktree add`. The worktree is in the checkout, not in the task's
+   environment); otherwise `git worktree add -b BRANCH PATH BASE`, or without `-b` and `BASE` when
+   the branch exists. `project.py worktree-dir` already made the folder for worktrees one that
+   git ignores. The worktree is in the checkout, not in the task's
    state directory: an agent's sandbox may not write inside the git directory, and the state has
    to outlive the worktree.
 3. **The lead.** Write the state `building` first, with the line `lead: builder` or
@@ -79,7 +90,14 @@ the decisions and the commits on the branch; that is the whole handover.
 
 A builder's reply is the path of its report. A session's lead sends one message that starts with
 `lem:` and names the task. Either is only a wake-up. The fact is the task's newest state block:
-`project.py tasks`, then read the task's `report.md`. Act on the status:
+`project.py tasks`, then read the task's `report.md`.
+
+A lead whose agent refused it the write of `report.md` says so in its state (`report in the
+reply`), and its reply is the whole report. Write that text into `report.md` word for word, with
+one line at the top that says who copied it and why. Change nothing in it. The harness file says
+when this happens.
+
+Act on the status:
 
 - **`ready`**: the task joins the landing line. Run `stages/land.md` when no task is in
   `landing`; a `ready` task waits there in the order of its state's time.

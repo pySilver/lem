@@ -4,6 +4,8 @@
     setup.py            make the links, then run the machine check
     setup.py --check    change nothing: say what is linked, what is absent and what is in the way
     setup.py --remove   remove the links this clone made, and nothing else
+    setup.py --project DIR [--check | --remove]
+                        the same for one repository only: the links go into DIR/.claude
 
 It links, for Claude Code:
 
@@ -22,6 +24,12 @@ Either every link is made or none: when one cannot be made, the ones this run ma
 away again, and the report says so. Every run prints the state of all the places as JSON, also a
 run that fails.
 
+`--project DIR` is for a trial. Links in the home directory show Lem to every repository on the
+machine at once, also to one where another flow still runs with skills of the same use. Links in
+one repository's `.claude` folder show Lem there and nowhere else. The `huddle` command is not
+linked then, because a command on `PATH` is for the whole machine, and the links are added to
+that repository's `.git/info/exclude`, so its tree stays clean.
+
 The last step runs `skills/lem/scripts/doctor.py` and prints its rows that are not found. A
 required tool that is absent makes this script exit 1 after the links are made: the links are
 right, the machine is not ready.
@@ -37,12 +45,27 @@ from pathlib import Path
 CLONE = Path(__file__).resolve().parent.parent
 
 
-def wanted(home: Path, bin_dir: Path) -> list[tuple[Path, Path]]:
-    """Each link as (where it goes, what it points at)."""
+def wanted(home: Path, bin_dir: Path | None) -> list[tuple[Path, Path]]:
+    """Each link as (where it goes, what it points at). `home` is a home directory or one repository."""
     links = [(home / ".claude" / "skills" / skill.name, skill) for skill in sorted((CLONE / "skills").iterdir()) if (skill / "SKILL.md").is_file()]
     links.append((home / ".claude" / "agents" / "lem-builder.md", CLONE / "agents" / "lem-builder.md"))
-    links.append((bin_dir / "huddle", CLONE / "skills" / "lem-huddle" / "bin" / "huddle"))
+    if bin_dir is not None:
+        links.append((bin_dir / "huddle", CLONE / "skills" / "lem-huddle" / "bin" / "huddle"))
     return links
+
+
+def keep_out_of_git(project: Path, places: list[Path]) -> None:
+    """Name the links in the repository's own exclude file, which git does not track."""
+    found = subprocess.run(["git", "-C", str(project), "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True, check=False)
+    if found.returncode != 0:
+        sys.exit(f"setup.py: {project} is not a git checkout; --project names a repository")
+    exclude = Path(found.stdout.strip()) / "info" / "exclude"
+    exclude.parent.mkdir(exist_ok=True)
+    known = exclude.read_text().splitlines() if exclude.is_file() else []
+    lines = ["/" + place.relative_to(project).as_posix() for place in places]
+    missing = [line for line in lines if line not in known]
+    if missing:
+        exclude.write_text("\n".join([*known, *missing]) + "\n")
 
 
 def state(place: Path, target: Path) -> str:
@@ -65,12 +88,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true", help="change nothing; report the state of each link")
     parser.add_argument("--remove", action="store_true", help="remove the links this clone made")
+    parser.add_argument("--project", type=Path, help="link into this repository's .claude folder only, for a trial")
     parser.add_argument("--home", type=Path, default=Path.home(), help="the home directory to link into (default: yours)")
     parser.add_argument("--bin", type=Path, help="the directory on PATH for the huddle command (default: HOME/.local/bin)")
     args = parser.parse_args()
     if args.check and args.remove:
         sys.exit("setup.py: --check and --remove do not go together")
-    links = wanted(args.home, args.bin or args.home / ".local" / "bin")
+    project = args.project.resolve() if args.project else None
+    if project is not None and not (project / ".git").exists():
+        sys.exit(f"setup.py: {project} is not the root of a git checkout; --project names a repository")
+    bin_dir = None if project else args.bin or args.home / ".local" / "bin"
+    links = wanted(project or args.home, bin_dir)
     rows = [{"place": str(place), "target": str(target), "state": state(place, target)} for place, target in links]
     in_the_way = [row for row in rows if row["state"] not in ("linked", "absent")]
 
@@ -100,6 +128,8 @@ def main() -> None:
         )
         sys.exit(f"setup.py: {len(in_the_way)} place(s) hold something else, and nothing was linked: {named}. Move each away, or leave Lem unlinked")
     if not args.check:
+        if project is not None:
+            keep_out_of_git(project, [place for place, _target in links])
         made: list[Path] = []
         try:
             for row in rows:
@@ -118,10 +148,12 @@ def main() -> None:
                     row["state"] = "absent"
             print(json.dumps({"links": rows}, indent=2))
             sys.exit(f"setup.py: a link could not be made ({error}); the {len(made)} link(s) this run made are removed again, and nothing is linked")
-    on_path = any(Path(entry) == (args.bin or args.home / ".local" / "bin") for entry in os.environ.get("PATH", "").split(os.pathsep) if entry)
+    on_path = bin_dir is not None and any(Path(entry) == bin_dir for entry in os.environ.get("PATH", "").split(os.pathsep) if entry)
+    # The check runs where the links are: in the repository for --project, so that it finds the
+    # builder agent of that repository.
     doctor = subprocess.run(
         [sys.executable, "-B", str(CLONE / "skills" / "lem" / "scripts" / "doctor.py")], capture_output=True, text=True, check=False,
-        env={**os.environ, "HOME": str(args.home)},
+        env={**os.environ, "HOME": str(args.home)}, cwd=project,
     )
     try:
         machine = json.loads(doctor.stdout)
@@ -130,7 +162,9 @@ def main() -> None:
         sys.exit(f"setup.py: the links are as listed, and the machine check did not run: doctor.py printed no JSON: {(doctor.stderr or doctor.stdout).strip()}")
     absent = [{"name": row["name"], "need": row["need"], "without_it": row["without_it"]} for row in machine["tools"] if not row["found"]]
     result = {
-        "links": rows, "huddle_dir_on_path": on_path, "machine_ok": machine["ok"], "absent": absent,
+        "links": rows, "scope": str(project) if project else "every repository of this home",
+        "huddle": "not linked: a command on PATH is for the whole machine" if project else ("on PATH" if on_path else f"linked in {bin_dir}, which is not on PATH"),
+        "machine_ok": machine["ok"], "absent": absent,
         "linked": all(row["state"] == "linked" for row in rows),
     }
     print(json.dumps(result, indent=2))

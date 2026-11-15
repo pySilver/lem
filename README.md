@@ -13,8 +13,9 @@ gives the work to builders, lands the change, and puts the change in a review qu
 The name is from Stanisław Lem. Lem is the one in the middle. It builds nothing. It holds the
 line that the other agents work on, and it answers to you for all of them.
 
-> **State: a first version.** No real task went through Lem yet. Lem runs in
-> [agterm](https://agterm.com) only. Claude Code is the only agent with a checked contract.
+> **State: a first version.** One small task went through Lem, in a scratch repository, on
+> 2026-11-15. No real project uses Lem yet. Lem runs in [agterm](https://agterm.com) only. Claude
+> Code is the only agent with a checked contract.
 
 ## The board
 
@@ -38,6 +39,16 @@ the page says so at its top.*
 </p>
 
 *The board of one task, also with demo data.*
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screens/real-task-dark.png">
+    <img src="assets/screens/real-task-light.png" alt="The board of the first real task after its landing: the phases, the time of each state, the state blocks and the gate result" width="900">
+  </picture>
+</p>
+
+*The board of the first real task, after its landing. This picture shows real data from the run
+in the examples below.*
 
 The board shows these things:
 
@@ -150,8 +161,38 @@ flowchart TD
 
 ## Examples
 
-These examples are illustrations of the flow. No real run exists yet. The names and the answers
-are examples, not results.
+The first example is a real run. The other two examples are illustrations of the flow: their
+names and answers are examples, not results.
+
+### Start from an idea: a real run
+
+This is the first task that went through Lem. It ran in a scratch repository on 2026-11-15. The
+times are in UTC, from the event log of the task.
+
+1. The ask: `/lem a range of dates that crosses a month must show both months, like 28 Mar-3 Apr 2026`.
+2. 00:24. Lem wrote the ask, the outcome and three "done when" lines. It put one adjacent
+   question out of scope: how a range shows two years.
+3. Lem made the branch `fix/range-shows-both-months` with its worktree, and started one builder.
+4. 00:24. The builder committed a plan with one task.
+5. 00:25. The builder changed `shop/dates.py` and `tests/test_dates.py`. It set the state to
+   `ready`.
+6. 00:26. Lem started the landing. The base branch did not move.
+7. A second builder did the closing pass. It stopped git from tracking three compiled files. It
+   also proposed one backlog item: a range across a year shows only one year.
+8. 00:28. The gate command ended with `OK`. Lem landed three commits on `main`.
+9. Lem added review item 1 with the risk `normal`, and removed the worktree and the branch.
+10. Lem reported to the owner: the result, how to see it, the decisions that it took, and what
+    nobody verified.
+
+One step did not go as the text said at that time. Claude Code refused the builder's write of its
+report file. The builder sent the report in its reply, and Lem wrote the file from the reply. The
+stage files now say this.
+
+Two paths did not occur in this run:
+
+- If the ask is not clear to you, type `/lem interview-me`. Lem asks one question at a time.
+- If the plan is careful, Lem opens a session for the task. A reviewer reads the plan before any
+  code. If a decision is yours, Lem shows it to you as a page before the work that depends on it.
 
 ### Set up a repository
 
@@ -186,21 +227,6 @@ are examples, not results.
 
 Lem does not read tickets from a tracker yet. [docs/linear.md](docs/linear.md) says how a project
 connects Linear, and what Lem does not do yet.
-
-### Start from an idea
-
-1. You type `/lem customers must see their VAT number on the invoice page`.
-2. Lem writes the ask in your words, the outcome, and the "done when" lines.
-3. If the ask has two meanings that give you different results, Lem asks you one time. Each
-   option says what you get.
-4. If the ask is not clear to you, type `/lem interview-me`. Lem asks one question at a time
-   until the ask is clear.
-5. Lem starts a builder, and the builder writes the plan.
-6. If the plan is careful, Lem opens a session for the task. A reviewer reads the plan before any
-   code.
-7. If a decision is yours, Lem shows it to you as a page before the work that depends on it. The
-   page starts with one concrete case and has the options side by side.
-8. Then the build, the landing and the report go on as in the example above.
 
 ## Commands
 
@@ -284,6 +310,7 @@ Run the setup script from a clone:
 python3 scripts/setup.py           # make the links, then do the check of the computer
 python3 scripts/setup.py --check   # change nothing; show the state of each link
 python3 scripts/setup.py --remove  # remove the links again
+python3 scripts/setup.py --project ~/code/shop   # link Lem into one repository only
 ```
 
 - The script links each skill into `~/.claude/skills/`, the builder agent into
@@ -291,6 +318,8 @@ python3 scripts/setup.py --remove  # remove the links again
 - They are links. Thus each change in the clone is active in the next session.
 - The script does not replace a file or a folder that is already there. It names the place and
   stops.
+- Links in your home directory show Lem to each repository on the computer. For a trial, use
+  `--project`. Then only that repository sees Lem, and git does not see the links.
 - A project that wants a different builder keeps a file with the same name in its own
   `.claude/agents/`.
 - The agent that runs `/lem` coordinates. The reviewer is Codex or a second Claude, as

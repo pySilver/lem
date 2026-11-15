@@ -115,18 +115,23 @@ real task, so say in the commit which task showed the need.
   `board.py` (opens the board), `land.py` (the landing, one refusable step at a time).
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both.
 - `skills/lem/templates/`: the shapes onboarding fills.
-- `skills/lem/prompts/`: the standing briefs of a task's lead and of the reviewer.
+- `skills/lem/prompts/`: the standing briefs of a task's lead, of the three builders of a
+  landing, and of the reviewer.
 - `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `huddle`
   command from this clone into a home directory, never over something else, and runs the machine
-  check.
+  check. With `--project DIR` it links into one repository only. Use that for a trial: links in
+  the home directory show Lem to every repository on the machine, also to one where an older
+  flow still runs.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the
   builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
 - `skills/lem/references/`: the catalog of published style guides.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
   `assets/lem-night.svg` and `assets/lem-mark-night.svg` are the same drawings in the night
   palette, written by `assets/night.py`; the README shows the night one in a dark theme.
-- `assets/screens/`: the README's pictures of the board, for a light and a dark theme. They are
-  renders of `skills/lem/assets/board.html` over demo data, at two device pixels for each pixel.
+- `assets/screens/`: the README's pictures of the board, for a light and a dark theme, at two
+  device pixels for each pixel. `board-*` and `task-*` are renders of
+  `skills/lem/assets/board.html` over demo data; `real-task-*` is the board of the first task
+  that ran through Lem, over its real event log.
 - `skills/lem-huddle/`, `skills/lem-webrev/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
   `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
   `skills/lem-gate/`, `skills/lem-panel/`: the skills Lem names and ships. `NOTICE` says where

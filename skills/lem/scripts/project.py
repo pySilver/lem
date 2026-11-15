@@ -22,7 +22,8 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py migrate plan         the linked folders and the rule files, as JSON; changes nothing
     project.py migrate run [--styleguide FILE ...]
                                     move the linked folders under .lem on the current branch
-    project.py task-dir SLUG        make and print one task's state directory
+    project.py task-dir SLUG [--ask TEXT]
+                                    make and print one task's state directory; keep the owner's words
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
     project.py state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
@@ -654,12 +655,28 @@ def state_root(root: Path) -> Path:
     return (root / common).resolve() / "lem"
 
 
-def cmd_task_dir(root: Path, slug: str) -> None:
+def cmd_task_dir(root: Path, slug: str, ask: str | None) -> None:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
+    if ask is not None and not ask.strip():
+        raise SettingsError("--ask is the owner's words for this task, and they are empty")
     directory = state_root(root) / "tasks" / slug
     (directory / "reports").mkdir(parents=True, exist_ok=True)
+    if ask is not None:
+        # The owner's words, as given. task.md is a document with headings; the board and the
+        # status show these words, so they have a file of their own that nothing rewrites.
+        (directory / "ask.txt").write_text(ask.strip() + "\n")
     print(directory)
+
+
+def ask_of(directory: Path) -> str | None:
+    """What the owner asked for: the words `task-dir --ask` kept, else the first words of task.md without their markup."""
+    for name in ("ask.txt", "task.md"):
+        file = directory / name
+        lines = [line.strip() for line in file.read_text().splitlines() if line.strip()] if file.is_file() else []
+        if lines:
+            return " ".join(lines) if name == "ask.txt" else lines[0].lstrip("#> ").strip() or None
+    return None
 
 
 def cmd_worktree_dir(settings: dict, slug: str) -> None:
@@ -729,10 +746,9 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
     fresh = directory / "state.md.new"
     fresh.write_text(block + ("\n\n" + older if older else "") + "\n")
     fresh.replace(file)
-    ask = directory / "task.md"
     append_event(root, "task.state", slug, {
         "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
-        "ask": ask.read_text().strip().splitlines()[0] if ask.is_file() and ask.read_text().strip() else None,
+        "ask": ask_of(directory),
         "limit": settings["flow"]["max_tasks"], **task_worktree(root, settings, slug),
     })
     print(json.dumps({"slug": slug, "status": status, "since": since}))
@@ -763,7 +779,6 @@ def read_tasks(root: Path) -> list[dict]:
     tasks = []
     parent = state_root(root) / "tasks"
     for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
-        ask = directory / "task.md"
         state = directory / "state.md"
         # state.md is newest block first; a block ends at the first blank line
         block = state.read_text().strip().split("\n\n")[0] if state.is_file() and state.read_text().strip() else None
@@ -771,7 +786,7 @@ def read_tasks(root: Path) -> list[dict]:
         known = first is not None and first["status"] in STATES
         tasks.append({
             "slug": directory.name,
-            "ask": ask.read_text().strip().splitlines()[0] if ask.is_file() and ask.read_text().strip() else None,
+            "ask": ask_of(directory),
             # null when no block was written through `project.py state`: nobody can tell who acts next
             "status": first["status"] if known else None,
             "since": first["since"] if known else None,
@@ -811,7 +826,9 @@ def main() -> None:
     migrate = commands.add_parser("migrate")
     migrate.add_argument("step", choices=("plan", "run"))
     migrate.add_argument("--styleguide", nargs="*", metavar="FILE", help="the rule files that say how code is written here, relative to the rules folder")
-    commands.add_parser("task-dir").add_argument("slug")
+    task_dir = commands.add_parser("task-dir")
+    task_dir.add_argument("slug")
+    task_dir.add_argument("--ask", help="the owner's words for this task, as given")
     state = commands.add_parser("state")
     state.add_argument("slug")
     state.add_argument("status")
@@ -842,7 +859,7 @@ def main() -> None:
             print(json.dumps(older_folders(root), indent=2))
             return
         if args.command == "task-dir":
-            cmd_task_dir(root, args.slug)
+            cmd_task_dir(root, args.slug, args.ask)
             return
         if args.command == "state":
             cmd_state(root, args.slug, args.status, args.lines)

@@ -175,6 +175,21 @@ if [ "$(status_of project --repo "$OLD" state report-dates-stay-whole build "tas
 else
   fail "state refusals: $err / $(cat "$dir/state.md")"
 fi
+# The owner's words have a file of their own; without it the first words of task.md stand in, without their markup.
+titled=$(project --repo "$OLD" task-dir asked-in-words --ask "the report dates must stay whole,
+also across a month")
+printf '%s\n' '# Report dates stay whole' '' '## The ask' > "$titled/task.md"
+plain=$(project --repo "$OLD" task-dir titled-only)
+printf '%s\n' '' '## A heading comes first' 'text' > "$plain/task.md"
+out=$(project --repo "$OLD" tasks)
+if [ "$(field '{t["slug"]: t["ask"] for t in d if t["slug"] in ("asked-in-words", "titled-only")}' <<<"$out")" = "{'asked-in-words': 'the report dates must stay whole, also across a month', 'titled-only': 'A heading comes first'}" ] \
+  && [ "$(status_of project --repo "$OLD" task-dir empty-ask --ask " ")" = 1 ]; then
+  pass "task-dir --ask keeps the owner's words for the status and the board, and a task without them shows the first words of task.md with no markup"
+else
+  fail "the ask of a task: $out"
+fi
+if [ -e "$OLD/.git/lem/tasks/empty-ask" ]; then fail "a refused task-dir made its directory"; fi
+rm -r "$titled" "$plain"
 other=$(project --repo "$OLD" task-dir written-by-hand)
 printf '%s\n' '2026-01-02 build: task 2 of 3 running' > "$other/state.md"
 out=$(project --repo "$OLD" tasks)
@@ -491,6 +506,26 @@ else
   fail "setup --remove with a link that stays: $out / $(cat "$WORK/remove.err")"
 fi
 setup >/dev/null
+# For a trial, Lem is linked into one repository only: no other repository sees it, and that tree stays clean.
+TRIAL=$WORK/trial
+git init -q -b main "$TRIAL" && commit "$TRIAL" start
+trial() { env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$TRIAL" "$@"; }
+mkdir -p "$WORK/trialhome/.agents/skills/agterm" && touch "$WORK/trialhome/.agents/skills/agterm/SKILL.md"
+out=$(trial)
+if [ "$(field '(d["linked"], d["machine_ok"], d["scope"], d["huddle"].startswith("not linked"))' <<<"$out")" = "(True, True, '$TRIAL', True)" ] \
+  && [ "$(readlink "$TRIAL/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$TRIAL/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
+  && [ ! -e "$WORK/trialhome/.claude" ] && [ ! -e "$WORK/trialhome/.local" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
+  pass "setup --project links Lem into one repository, nothing into the home, the machine check finds that repository's builder, and git sees no new file"
+else
+  fail "setup --project: $out / $(git -C "$TRIAL" status --porcelain)"
+fi
+out=$(trial --remove)
+if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ -z "$(find "$TRIAL/.claude" -type l)" ] \
+  && [ "$(status_of env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --project "$WORK")" = 1 ]; then
+  pass "setup --project --remove takes those links away, and a folder that is no repository is refused"
+else
+  fail "setup --project --remove: $out"
+fi
 touch "$SETHOME/.claude/skills/mine"
 out=$(setup --remove)
 if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/huddle" ]; then

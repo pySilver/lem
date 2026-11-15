@@ -39,8 +39,9 @@ builder can start builders in your agent, and what to do when it cannot.
    exact last line of its output; what it did not verify; the decisions it took that the plan
    did not; the defects it saw outside its task). The harness file says how those standing rules
    reach a builder in your agent.
-   Read the report file, never a summary of it. Write the state `building` with the line
-   `task N of M` when a builder starts.
+   Read the report file, never a summary of it. When a builder's reply is the report itself,
+   because its agent refused it the write, put that text into the report file word for word.
+   Write the state `building` with the line `task N of M` when a builder starts.
 2. **A careful task is reviewed before the next one starts.** This is the session's step. Send
    the diff of that task to `second-opinion` with the plan section and the style guide files: does
    the change deliver the task, and is any existing caller or reverse path left inconsistent?
@@ -69,7 +70,8 @@ builder can start builders in your agent, and what to do when it cannot.
 
 The lead's last act, whichever kind it is, and also what it does before any other stop. Lem reads
 this file and the state block and nothing else of the task, and writes the owner's report from it.
-Write `report.md` in the task directory, whole, each time:
+Write `report.md` in the task directory, whole, each time. A path in it is relative to the
+repository's root, never a path inside the worktree: the worktree is gone when the owner reads.
 
 - **what the owner gets**, in one or two sentences, and how to see it;
 - **done when**: each line of the plan's "done when" with the command or the look that shows it,
@@ -92,6 +94,10 @@ Write `report.md` in the task directory, whole, each time:
 Then write the state (`ready`, or `held`, `blocked` or `planned` with the line that says why),
 and tell Lem. A builder's reply is the report's path and nothing else. A session uses
 `tell-coordinator`.
+
+When your agent refuses you the write of `report.md`, do not go around the refusal. Add the line
+`report in the reply` to the state, and make your reply the whole report, in this form: Lem
+writes the file from it.
 
 Most real defects are found by the next builder on the same ground, not by a review
 (convertiser-server's log of defects outside its tasks held 105 items after about 28 hours). So

@@ -52,7 +52,17 @@ https://code.claude.com/docs/en/sub-agents, read 2026-11-15). No setting of Lem'
 
 The brief gives the task's worktree as an absolute path; do not pass `isolation: "worktree"`,
 since the task already has its worktree. Agents run in the background and you are told when one
-ends: never predict a builder's report, and never poll for it.
+ends: never predict a builder's report, and never poll for it. A builder's end reaches you twice,
+as its message and then as a notification that points at that message. Act on the first; the
+second needs no act.
+
+Claude Code may refuse a builder the write of its report file. In the first task that ran
+through Lem (a scratch repository, 2026-11-15, Claude Code 2.1.325) the lead's write of
+`report.md` was refused with "Subagents should return findings as text, not write report files",
+and the write of the same file by the next builder, when the file existed, was accepted. So a
+builder never counts on that write: when it is refused, its reply is the whole report, and the
+one who started it writes the file from the reply, as the stage files say. A builder that takes
+another tool to get the file written goes around a guard, and it must not.
 
 A builder can start builders of its own with the same tool, so a builder leads a plan of more
 tasks. Checked on 2026-11-14 in Claude Code 2.1.325: a subagent of the type `worker`, which like
@@ -116,7 +126,9 @@ Mail is kept in memory only, so a pane that was restarted has lost it. That cost
 time: the state block is on disk, and `/lem status` shows it.
 
 Checked on 2026-11-14: this command, run by Claude Code in a companion session, put its line in
-the mailbox of the pane that opened the session. Not run yet: the hook waking an idle Lem with it.
+the mailbox of the pane that opened the session. Checked on 2026-11-15: mail sent to the pane of
+an idle Claude Code session woke it, and it acted on the mail. Not run yet: both in one task,
+with a session as the lead.
 
 ## second-opinion
 

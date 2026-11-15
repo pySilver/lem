@@ -17,7 +17,8 @@ repository then landed 67 branches in about 28 hours with one coordinator and ab
 The price is known too. Per-task review found a must-fix on 184 of 414 tasks in another repository
 (mybaze, 2026-11-11), so those defects now land and wait for the review, and after those 28 hours
 43 of 48 review items were still open. Two rules below pay that price down: the project's
-careful paths keep the slow flow, and review takes a fixed share of the same day.
+careful paths keep the slow flow, and the review queue is honest: a high-risk landing is reviewed
+the day it lands, and a change nobody read is closed as "not reviewed" and counted.
 
 ## Two levels
 
@@ -147,12 +148,17 @@ python3 SKILL_DIR/scripts/project.py task-dir SLUG
 It makes and prints the task's directory inside the repository's git directory, shared by every
 worktree, never committed and not removed with a worktree. It holds:
 
-- `task.md`: the ask and the outcome. Lem writes it.
+- `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome. Lem writes
+  them.
+- `brief.md`: the lead's brief. Lem writes it.
 - `state.md`: newest block first. Lem and the lead write it, and only through the script.
 - `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that
   stops. `stages/build.md` gives its form.
 - `decisions.md`: one line per decision taken without the owner, and each answer the owner gave.
-- `reports/`: one file per builder of a session's task. Lem does not read these.
+  Lem and the lead both write it.
+- `reports/`: one file per builder of a plan of more tasks. Lem does not read these.
+- `landing.json`, `gate/` and `proposed/`: what the landing keeps: its own record, the output of
+  each gate command, and the backlog items the closing pass proposes.
 
 The plan itself is a file in the repository, in the settings' `plans` path.
 
