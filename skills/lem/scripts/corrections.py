@@ -130,15 +130,21 @@ def collects(cwd: str) -> bool:
     except (tomllib.TOMLDecodeError, OSError):
         return False
     # One person's no, in the file of this machine that git does not track. It is in the main
-    # checkout, which a worktree has no copy of. A file there that cannot be read is a no too.
-    common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    own = Path(common).parent / ".lem" / "project.local.toml" if common and Path(common).name == ".git" else Path(top) / ".lem" / "project.local.toml"
+    # checkout, the first one git lists, as project.py reads it: a worktree has no copy of it.
+    # Whatever leaves the answer open is a no: no list from git, a file that does not read.
+    listed = git(cwd, "worktree", "list", "--porcelain", "-z")
+    first = next((field.removeprefix("worktree ") for field in (listed or "").split("\0") if field.startswith("worktree ")), None)
+    if first is None:
+        return False
+    own = Path(first) / ".lem" / "project.local.toml"
     if not own.is_file():
         return True
     try:
-        return "collect" not in tomllib.loads(own.read_text()).get("corrections", {})
-    except (tomllib.TOMLDecodeError, OSError, AttributeError):
+        table = tomllib.loads(own.read_text()).get("corrections")
+    except (tomllib.TOMLDecodeError, OSError):
         return False
+    # a table that says nothing about the queue leaves the project's yes; any other shape is a no
+    return table is None or (isinstance(table, dict) and "collect" not in table)
 
 
 def append(path: Path, record: dict) -> None:

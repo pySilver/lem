@@ -788,9 +788,17 @@ printf '{"prompt": "from a worktree", "cwd": "%s", "session": "s11", "transcript
 hook worker "$WORK/payload.json"
 printf 'not toml [\n' > "$CQ/.lem/project.local.toml"
 worker "a local file that does not read" s12
+printf 'corrections = false\n' > "$CQ/.lem/project.local.toml"
+worker "a local file with another shape" s13
 rm "$CQ/.lem/project.local.toml"
-if [ "$shown" = "(False, ['corrections.collect'])" ] && [ "$(wc -l < "$CQ/.git/lem/corrections.jsonl")" = "$before" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/corr-wt/.lem/project.local.toml" ]; then
-  pass "one person's no in the machine's own file stops the hook before anything is sent, from a worktree too, and a file there that does not read is a no"
+# A repository whose main directory is a bare one: its worktree's no is read from that directory, as project.py reads it.
+git clone -q --bare "$CQ" "$WORK/corr-bare.git" && git -C "$WORK/corr-bare.git" worktree add -q "$WORK/corr-bare-wt" main
+mkdir -p "$WORK/corr-bare.git/.lem" && printf '%s\n' '[corrections]' 'collect = false' > "$WORK/corr-bare.git/.lem/project.local.toml"
+printf '{"prompt": "from the worktree of a bare repository", "cwd": "%s", "session": "s14", "transcript": ""}' "$WORK/corr-bare-wt" > "$WORK/payload.json"
+hook worker "$WORK/payload.json"
+bare_log=$( (cat "$WORK/corr-bare.git/lem/corrections.log" "$WORK/corr-bare.git/lem/corrections.jsonl" 2>/dev/null || true) | wc -l | tr -d ' ')
+if [ "$shown" = "(False, ['corrections.collect'])" ] && [ "$(wc -l < "$CQ/.git/lem/corrections.jsonl")" = "$before" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/corr-wt/.lem/project.local.toml" ] && [ "$bare_log" = 0 ]; then
+  pass "one person's no in the machine's own file stops the hook before anything is sent, from a worktree and from the worktree of a bare repository too; a file there that does not read, or has another shape, is a no"
 else
   fail "the hook with a local no: $shown / $(wc -l < "$CQ/.git/lem/corrections.jsonl") lines, before $before"
 fi

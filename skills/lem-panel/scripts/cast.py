@@ -57,6 +57,7 @@ from __future__ import annotations
 import datetime
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -142,12 +143,24 @@ def default_refs(root: Path) -> list[str]:
     return refs
 
 
+def path_at(root: Path, sha: str, name: str, fallback: Path) -> Path:
+    """Where a commit's own settings keep the personas or the profile: this checkout may be older than
+    the settings on the default branch, and would look for them in the wrong folder."""
+    body = subprocess.run(["git", "-C", str(root), "show", f"{sha}:.lem/project.toml"], capture_output=True, text=True)
+    if body.returncode != 0:
+        return fallback
+    # the one line under [paths], read without a TOML module: the python3 a system ships has none
+    paths = re.search(r"(?ms)^\[paths\]\s*$(.*?)(?=^\[|\Z)", body.stdout)
+    line = re.search(rf'(?m)^{name}\s*=\s*"([^"\n]+)"', paths.group(1)) if paths else None
+    return Path(line.group(1).rstrip("/")) if line else fallback
+
+
 def default_branch_cast(root: Path) -> tuple[str, Path] | None:
     """The default branch's cast, written out under the git directory, or None when it has none."""
     for ref in default_refs(root):
         sha = commit_of(root, ref)
         label = ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
-        listed = git(root, "ls-tree", "--name-only", sha, "--", f"{PROJECT_CAST.as_posix()}/")
+        listed = git(root, "ls-tree", "--name-only", sha, "--", f"{path_at(root, sha, 'personas', PROJECT_CAST).as_posix()}/")
         names = [n for n in listed.splitlines() if n.endswith(".md")]
         if not any(is_persona(n) for n in names):
             continue
@@ -221,18 +234,19 @@ def profile(root: Path) -> dict[str, str] | None:
     for ref in default_refs(root):
         sha = commit_of(root, ref)
         label = ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
-        if git(root, "cat-file", "-t", f"{sha}:{PROJECT_PROFILE.as_posix()}") != "blob":
+        there = path_at(root, sha, "profile", PROJECT_PROFILE).as_posix()
+        if git(root, "cat-file", "-t", f"{sha}:{there}") != "blob":
             continue
         if local.is_file() and not follows_default(root, ref, PROJECT_PROFILE.as_posix()):
             break
         body = subprocess.run(
-            ["git", "-C", str(root), "show", f"{sha}:{PROJECT_PROFILE.as_posix()}"], capture_output=True
+            ["git", "-C", str(root), "show", f"{sha}:{there}"], capture_output=True
         )
         if body.returncode:
-            fail(f"could not read {PROJECT_PROFILE} at {label} ({sha[:9]}): {body.stderr.decode().strip()}")
+            fail(f"could not read {there} at {label} ({sha[:9]}): {body.stderr.decode().strip()}")
         # Named by the file's own blob id, so every commit that leaves the profile unchanged reuses
         # one copy instead of adding another.
-        blob = git(root, "rev-parse", f"{sha}:{PROJECT_PROFILE.as_posix()}")
+        blob = git(root, "rev-parse", f"{sha}:{there}")
         path = git_dir_file(root, "personas-profile", f"{blob}.md", body.stdout)
         return {"source": f"{label} at {sha[:9]}", "path": str(path)}
     if local.is_file():

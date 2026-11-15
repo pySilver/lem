@@ -602,8 +602,9 @@ python3 scripts/setup.py --corrections off --project ~/code/shop   # remove that
   session. The run from the Linear ticket used the auto mode.
 - A project that wants a different builder keeps a file with the same name in its own
   `.claude/agents/`.
-- The correction queue is optional. Its hook sends each message that you type to the Jev
-  decision model, together with the agent message before it.
+- The correction queue is optional. Its hook sends the messages that you type to the Jev
+  decision model, each with the agent message before it. It does not send a command that starts
+  with `/`.
 - The hook is active only in a repository with `corrections.collect = true`.
 - You add the hook yourself, on the day of the setup or later. An agent does not add it for you.
 - Add the hook for one repository, with `--project`. The script then adds one command to
@@ -640,15 +641,17 @@ The correction hook comes with the plugin. Read this before you commit
 
 - That line is in `.lem/project.toml`, which is in git. It is a yes for each person who works
   in the repository with the plugin.
-- Then each message that such a person types there goes to the Jev decision model through
-  OpenRouter, with the agent message before it. The request uses the `OPENROUTER_API_KEY` of
-  that person. A person without a key sends nothing.
+- Then the messages that such a person types there go to the Jev decision model through
+  OpenRouter, each with the agent message before it. The hook does not send a command that
+  starts with `/`.
+- The request uses the `OPENROUTER_API_KEY` of that person. A person without a key sends
+  nothing.
 - A person who does not want this puts `collect = false` under `[corrections]` into
   `.lem/project.local.toml`.
 - With `corrections.collect = false`, which is the default, the hook sends nothing.
 
 The test did not use GitHub as the source of the plugin, and it did not use a session with a
-person. Thus the two install commands above are not tested in that exact form.
+person. Thus nobody ran the two install commands above in that exact form.
 
 ## Tests
 

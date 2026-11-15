@@ -86,6 +86,22 @@ if [ "$(layer_of "$REPO")" = "project 2" ]; then pass "the project's own people 
 printf '# Profile\n' >"$REPO/.lem/profile.md"
 if [ "$(profile_of "$REPO")" = "checkout" ]; then pass "the checkout's profile is read, beside a cast from any layer"; else fail "checkout profile: $(profile_of "$REPO")"; fi
 
+# A project that keeps its people in a folder of its own: a worktree branched before the settings
+# named it still finds them on the default branch, and init there does not start a second cast.
+CUSTOM=$PANEL/custom
+git init -q -b main "$CUSTOM" && commit "$CUSTOM" "start" && git -C "$CUSTOM" branch before-the-cast
+mkdir -p "$CUSTOM/.lem" "$CUSTOM/people" && printf '%s\n' '[paths]' 'personas = "people"' 'profile = "people/about.md"' '[branch]' 'base = "main"' > "$CUSTOM/.lem/project.toml"
+printf '# Shopper\n' > "$CUSTOM/people/shopper.md" && printf '# About\n' > "$CUSTOM/people/about.md"
+git -C "$CUSTOM" add -A && commit "$CUSTOM" "feat: the people of this project"
+git -C "$CUSTOM" worktree add -q "$PANEL/custom-old" before-the-cast
+refusal=$(cast init --repo "$PANEL/custom-old" 2>&1 || true)
+if [ "$(layer_of "$CUSTOM")" = "project 2" ] && [ "$(layer_of "$PANEL/custom-old")" = "project 2" ] && [ "$(profile_of "$PANEL/custom-old")" = "main" ] \
+  && [ "$(status_of cast init --repo "$PANEL/custom-old")" = 1 ] && grep -q 'rebase onto it' <<<"$refusal" && [ ! -e "$PANEL/custom-old/.lem" ]; then
+  pass "a worktree older than the settings finds the cast and the profile where the default branch's settings keep them, and init does not start a second cast there"
+else
+  fail "a custom personas path from an older worktree: $(layer_of "$CUSTOM") / $(layer_of "$PANEL/custom-old") / $(profile_of "$PANEL/custom-old") / $refusal"
+fi
+
 # The cast lands on local main only; origin/HEAD still names a main without it.
 git -C "$REPO" add .lem
 commit "$REPO" "cast"

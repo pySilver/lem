@@ -28,13 +28,19 @@ own: cronn that is installed and not running, cronn that is absent, and the corr
 Recommend the queue and turn it on only when the owner agrees: with it, the project keeps a
 queue of the owner's corrections for the retro; without it, a correction is learned in the
 session it was given in and nowhere else. Tell the owner what he agrees to, in these words or
-closer ones: each message he types in this repository, with the agent message it answers, goes
-to the Jev decision model through OpenRouter, under his own key, and the ones that may hold a
-lesson are kept in a file that is never committed. The check's "OpenRouter key" row says whether
+closer ones: each message he types in this repository, other than a command that starts with
+`/`, goes with the agent message it answers to the Jev decision model through OpenRouter, under
+the key of whoever typed it, and the ones that may hold a lesson are kept in a file that is
+never committed. The yes is a line in the tracked settings, so it holds for everybody who works
+in this repository with the hook, and one person can say no for themselves (the harness file
+says how). The check's "OpenRouter key" row says whether
 this session has a key; without one the queue stays empty and its log fills, so say that too. On
-his yes, set `corrections.collect = true` in step 4 and name the one command that registers the
-hook. He runs it himself, today or on any later day: the harness file has the command and says
-why the step is his. Give him no settings lines to paste. For an absent cronn, offer to install
+his yes, set `corrections.collect = true` in step 4. What else is needed depends on how Lem
+reached this session, and the harness file says which: with Lem as a plugin the hook is there
+already and nothing is registered; with Lem linked by the setup, name the one command that
+registers the hook, which he runs himself, today or on any later day. Give him no settings
+lines to paste, and never name that command to an owner who has Lem as a plugin: it would add
+the hook a second time. For an absent cronn, offer to install
 it through the `cronn` skill when that skill is there: its installer adds a Homebrew formula and
 an agent that starts at login, so it runs only on the owner's yes. The owner may have to run it
 himself: the harness file says which steps an agent is refused, and then you give him the
@@ -216,8 +222,9 @@ cannot be checked against any folder. Then what the machine has and lacks, what 
 what was generated, each assumption taken from the code with its source, and the settings file.
 The machine's part lists the tools the check lists and no part of Lem itself: the question page
 comes with Lem. Say there that the project may bring a builder of its own,
-and how (the harness file, `spawn-builder`). When the owner said yes to the correction queue, the page names the command he
-runs for its hook, in the form for this one repository, and nothing he has to edit.
+and how (the harness file, `spawn-builder`). When the owner said yes to the correction queue and Lem is linked by the setup, the page names the command he
+runs for its hook, in the form for this one repository, and nothing he has to edit; with Lem as
+a plugin the page says that the hook came with the install, and names no command.
 
 A list of file names is not a hand-over. Every generated file is a draft, and these are read
 first: the careful paths, the gate, and the personas when the project has them. Offer to open each in the annotate tool

@@ -6,7 +6,8 @@ description: >
   whether a recorded ruling already answers it, whether a probe, a test or a
   rule can, or whether it is cheap and reversible enough for an agent to
   decide; a held question whose options each cost something, about users or
-  technical, goes through the persona panel first; Jev
+  technical, goes through the persona panel first, in a project that wrote
+  personas; Jev
   checks the card's framing; after the user answers, Jev decides whether the
   answer is a durable ruling, which is then written down. The judge starts in
   shadow mode: it logs its verdict beside the user's answer and decides
@@ -26,7 +27,8 @@ a question for the user
   -> judge: has the user already ruled?      yes -> decided: quote the ruling
   -> checkable by a probe, a test or a rule?  yes -> sent back: probe it, test it, follow the rule
   -> reversible and cheap?                    yes -> an agent decides, and says so
-  -> held, and each option costs something?   yes -> persona panel (panel), which makes the card
+  -> held, and each option costs something?   yes -> persona panel (panel), which makes the card,
+                                                     in a project that wrote personas; else a card as it is
   -> Jev: is the card framed for the user?    no  -> back to the card's author
   -> the user answers
   -> Jev: is the answer a durable ruling?     yes -> a ruling file; no -> this task only
