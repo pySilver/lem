@@ -19,9 +19,8 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]
                                     who reviews on this machine, until `reviewer default`
     project.py reviewer default     the project's own reviewer again
-    project.py migrate plan         the linked folders and the rule files, as JSON; changes nothing
-    project.py migrate run [--styleguide FILE ...]
-                                    move the linked folders under .lem on the current branch
+    project.py rules [FILE ...] [--range BASE..TIP]
+                                    the style guide files that cover these files, as JSON
     project.py task-dir SLUG [--ask TEXT] [--ticket ID]
                                     make and print one task's state directory; keep the owner's words
                                     and the ticket the ask came from
@@ -57,15 +56,12 @@ because a task's worktree has no copy of a file git does not track. It may hold 
 the project's rules, and a file nobody reviews must not open them. `show` names each setting that
 came from it.
 
-Linking the folders of an older tool is the first step of an adoption, not its end. `migrate run`
-moves each linked folder to its place under `.lem/` with `git mv`, on a task's branch and from a
-clean tree, and rewrites the paths in the settings file. An agent that loads `.claude/rules/` by
-itself goes on doing so through a link per file, and that folder stays a real one, because only
-the files that say how code is written here move. Which files those are is the owner's call, so
-they are named with `--styleguide` and never guessed. The review tool's folder is not Lem's to
-move: it is that tool's own, at the one path the tool reads, in a new project and in an adopted
-one. The command ends with every tracked file that still names an old path, for a builder to
-correct.
+The style guide is a folder of markdown files, in an adopted project the one an agent already
+loads by itself (`.claude/rules`), which Lem reads and never moves. A file scopes itself to paths
+in its frontmatter, in Claude Code's form (`paths:` with a list of globs), and a file without
+that covers every path. `rules` is the one place that matches a change against those scopes: a
+builder's brief, the message to the reviewer and a review round all get its answer, so an agent
+that does not load the folder by itself reads the same rules as one that does.
 
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
@@ -541,186 +537,164 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     print(json.dumps({"reviewer": resolved["seats"]["reviewer"], "local": resolved["local"]}, indent=2))
 
 
-def linked(root: Path) -> dict[str, tuple[str, str]]:
-    """The settings that still point at an older tool's folder: name -> (where it is, where Lem keeps it)."""
-    raw = read_settings(root / SETTINGS, SETTINGS, tuple(TABLES)).get("paths", {})
-    return {
-        name: (older, default) for name, (default, older) in PATHS.items()
-        # worktrees are live checkouts, not settings: git moves one only by `git worktree move`.
-        # Path() makes `.personas/cast/` and `.personas/cast` the same folder, as the loader already reads them.
-        if older and name != "worktrees" and isinstance(raw.get(name), str) and Path(raw[name]) == Path(older)
-        and ((root / older).exists() or (root / older).is_symlink())
-    }
-
-
-def tracked_files(root: Path, path: str) -> list[str]:
-    # --literal-pathspecs: a file may be named `rule[ab].md`, and git would read that as a pattern
-    listed = subprocess.run(
-        ["git", "--literal-pathspecs", "-C", str(root), "ls-files", "-z", "--", path], capture_output=True, text=True, check=True,
-    )
-    return sorted(field for field in listed.stdout.split("\0") if field)
-
-
-def rule_files(root: Path, folder: str) -> list[dict]:
-    """Each tracked file of the rules folder, with whether it scopes itself to paths: a hint for the owner's split."""
-    files = []
-    for path in tracked_files(root, folder):
-        file = root / path
-        head = file.read_text(errors="replace").split("\n---", 1)[0] if file.is_file() and not file.is_symlink() else ""
-        files.append({
-            "file": Path(path).relative_to(folder).as_posix(), "link": file.is_symlink(),
-            "scoped_to_paths": head.startswith("---") and bool(re.search(r"(?m)^paths:", head)),
-        })
-    return files
-
-
-def cmd_migrate_plan(root: Path) -> None:
-    found = linked(root)
-    plan: dict = {"linked": {name: {"from": old, "to": new} for name, (old, new) in found.items()}}
-    if "styleguide" in found and not (root / found["styleguide"][0]).is_symlink():
-        plan["rules"] = rule_files(root, found["styleguide"][0])
-    print(json.dumps(plan, indent=2))
-
-
-def cmd_migrate_run(root: Path, styleguide: list[str] | None) -> None:
-    """Move the linked folders under .lem. What can be checked is checked before the first move, and a
-    step that still fails puts every file back where it was."""
-    def git(*args: str, check: bool = True) -> str:
-        # Every path here is one file or folder by its exact name. Without --literal-pathspecs git
-        # reads `[`, `*` and `?` in a name as a pattern, and `add -f` would then stage another file
-        # that matches it, an ignored one too.
-        ran = subprocess.run(["git", "--literal-pathspecs", "-C", str(root), *args], capture_output=True, text=True, check=False)
-        if check and ran.returncode != 0:
-            raise SettingsError(f"git {' '.join(args[:2])} failed: {ran.stderr.strip()}")
-        return ran.stdout
-
-    settings = load(root)
-    found = linked(root)
-    if not found:
-        raise SettingsError(f"no path in {SETTINGS} points at an older tool's folder: there is nothing to move")
-    if git("status", "--porcelain").strip():
-        raise SettingsError("the tree has changes of its own; commit or remove them first, so the move is the only change")
-    branch = git("branch", "--show-current").strip()
-    if not branch or branch == settings["branch"]["base"] or branch in settings["branch"]["protected"]:
-        raise SettingsError(
-            f"the move is a change like any other and lands through the gate: run it on a task's branch, not on {branch or 'a detached commit'}",
-        )
-    if not tracked_files(root, str(SETTINGS)):
-        raise SettingsError(f"{SETTINGS} is not tracked by git, so the new paths could not land with the move; commit it first")
-    text = original = (root / SETTINGS).read_text()
-    for name, (old, _new) in found.items():
-        if len(re.findall(rf'(?m)^{name} = "{re.escape(old)}/?"\s*$', text)) != 1:
-            raise SettingsError(f'{SETTINGS}: expected one line `{name} = "{old}"` under [paths]; write it that way first')
-        if (root / old).is_symlink():
-            # moving a link moves the name and breaks where it points
-            raise SettingsError(
-                f"{old} is a link to {os.readlink(root / old)}: point {name} in {SETTINGS} at the real folder, "
-                "or put the folder in the link's place, and run this again",
-            )
-
-    def free(target: Path, what: str) -> None:
-        """Refuse a place that is taken, or whose parent is a file."""
-        if target.exists() or target.is_symlink():
-            raise SettingsError(f"{target.relative_to(root)} already exists, so {what} cannot move there; merge the two by hand first")
-        for parent in target.relative_to(root).parents:
-            if (root / parent).exists() and not (root / parent).is_dir():
-                raise SettingsError(f"{parent} is a file, so nothing can be put under it; {what} cannot move to {target.relative_to(root)}")
-
-    rules: list[str] = []
-    if "styleguide" in found:
-        folder, home = found["styleguide"]
-        if styleguide is None:
-            raise SettingsError(
-                f"{folder} holds the project's rules, and only the ones about how code is written move: name them with --styleguide "
-                "(`migrate plan` lists them), or pass --styleguide with no file to leave them all where they are",
-            )
-        known = {entry["file"]: entry for entry in rule_files(root, folder)}
-        for file in styleguide:
-            if styleguide.count(file) > 1:
-                raise SettingsError(f"{file!r} is named twice")
-            if file not in known or known[file]["link"]:
-                raise SettingsError(f"{file!r} is not a tracked rule file of {folder}; `migrate plan` lists them")
-            free(root / home / file, f"{folder}/{file}")
-        rules = styleguide
-    for name, (old, new) in found.items():
-        if name != "styleguide":
-            free(root / new, old)
-
-    # What git tracks now is what it tracks after the move, at the new path, and nothing else is added.
-    before = {name: tracked_files(root, old) for name, (old, _new) in found.items()}
-    journal: list[tuple[str, Path, Path | None]] = []
-    moved, links, left = [], [], []
-
-    def make_parents(target: Path) -> None:
-        missing = [parent for parent in reversed(target.relative_to(root).parents) if str(parent) != "." and not (root / parent).exists()]
-        for parent in missing:
-            (root / parent).mkdir()
-            journal.append(("made", root / parent, None))
-
-    def move(source: Path, target: Path) -> None:
-        make_parents(target)
-        # a rename of the folder itself, so files git ignores travel with it and stay unstaged
-        os.rename(source, target)
-        journal.append(("moved", source, target))
-
-    def link(at: Path, to: Path) -> None:
-        at.symlink_to(os.path.relpath(to, at.parent))
-        journal.append(("linked", at, None))
-
-    try:
-        stage: list[str] = []
-        unstage: list[str] = []
-        for name, (old, new) in found.items():
-            if name == "styleguide":
-                for file in rules:
-                    move(root / old / file, root / new / file)
-                    # a link per file, so an agent that loads the old folder by itself still loads this rule
-                    link(root / old / file, root / new / file)
-                    links.append({"link": f"{old}/{file}", "to": f"{new}/{file}"})
-                    unstage.append(f"{old}/{file}")
-                    stage += [f"{new}/{file}", f"{old}/{file}"]
-                if rules:
-                    moved.append({"name": name, "from": old, "to": new, "files": rules})
-                else:
-                    left.append({"name": name, "at": old, "why": "no rule file was named"})
+def braces(pattern: str) -> list[str]:
+    """`*.{ts,tsx}` as `*.ts` and `*.tsx`, a group inside a group too. A brace with no comma stays as written."""
+    depth, start = 0, 0
+    for i, char in enumerate(pattern):
+        if char == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif char == "}" and depth:
+            depth -= 1
+            if depth:
                 continue
-            move(root / old, root / new)
-            moved.append({"name": name, "from": old, "to": new})
-            unstage += before[name]
-            stage += [new + file[len(old):] for file in before[name]]
-        for entry in moved:
-            text = re.sub(rf'(?m)^{entry["name"]} = "{re.escape(entry["from"])}/?"\s*$', f'{entry["name"]} = "{entry["to"]}"', text)
-        journal.append(("settings", root / SETTINGS, None))
-        (root / SETTINGS).write_text(text)
-        stage.append(str(SETTINGS))
-        for start in range(0, len(unstage), 200):
-            git("rm", "-q", "--cached", "--", *unstage[start:start + 200])
-        # -f: a file that was tracked stays tracked where an ignore rule covers its new place, and
-        # a link the review tool needs is committed where the old folder was ignored
-        for start in range(0, len(stage), 200):
-            git("add", "-f", "--", *stage[start:start + 200])
-        load(root)
-    except (SettingsError, OSError) as error:
-        for kind, path, other in reversed(journal):
-            if kind == "linked":
-                path.unlink(missing_ok=True)
-            elif kind == "moved" and other is not None:
-                os.rename(other, path)
-            elif kind == "made":
-                path.rmdir()
-            elif kind == "settings":
-                path.write_text(original)
-        subprocess.run(["git", "-C", str(root), "reset", "-q"], capture_output=True, check=False)
-        raise SettingsError(f"{error}\nevery file was put back where it was, and nothing is staged") from error
+            parts, level, last = [], 0, start + 1
+            for j in range(start + 1, i):
+                level += (pattern[j] == "{") - (pattern[j] == "}")
+                if pattern[j] == "," and level == 0:
+                    parts.append(pattern[last:j])
+                    last = j + 1
+            parts.append(pattern[last:i])
+            if len(parts) == 1:
+                return [pattern[: i + 1] + rest for rest in braces(pattern[i + 1:])]
+            return [done for part in parts for done in braces(pattern[:start] + part + pattern[i + 1:])]
+    return [pattern]
 
-    # Every tracked file that still names an old path, the moved ones and the settings too: a builder
-    # corrects them, the script does not guess. A link holds only its new target and never matches.
-    mentions = {}
-    for entry in moved:
-        named = [f for f in git("grep", "-l", "-z", "-F", "-e", entry["from"], check=False).split("\0") if f]
-        if named:
-            mentions[entry["from"]] = named
-    print(json.dumps({"branch": branch, "moved": moved, "links": links, "left": left, "mentions": mentions}, indent=2))
+
+def glob_regex(glob: str) -> re.Pattern[str]:
+    """One glob of a rule file's `paths:` as a pattern over a path relative to the root.
+
+    The forms Claude Code documents for `paths:` (its page on `.claude/rules`, read 2026-11-15):
+    `**/*.ts` is every such file in any directory, `src/**/*` every file under `src/`, `*.md` the
+    files of the root only, `src/components/*.tsx` the files of that one directory. So `*` and `?`
+    stay inside one path segment, and `**` as a whole segment is any number of directories, none
+    too. Not documented there, and matched here because a rule too many costs less than a rule
+    missed: a name that starts with a dot, and a character class in brackets.
+    """
+    out, i = [], 0
+    while i < len(glob):
+        char = glob[i]
+        whole = glob.startswith("**", i) and (i == 0 or glob[i - 1] == "/") and (i + 2 == len(glob) or glob[i + 2] == "/")
+        if whole and i + 2 < len(glob):
+            out.append("(?:.*/)?")
+            i += 3
+        elif whole:
+            out.append(".*")
+            i += 2
+        elif char == "*":
+            out.append("[^/]*")
+            i += 1
+        elif char == "?":
+            out.append("[^/]")
+            i += 1
+        elif char == "[" and "]" in glob[i + 2:]:
+            end = glob.index("]", i + 2)
+            inner = glob[i + 1:end]
+            inner = "^" + inner[1:] if inner[0] == "!" else inner
+            out.append("[" + inner.replace("\\", "\\\\") + "]")
+            i = end + 1
+        else:
+            out.append(re.escape(char))
+            i += 1
+    return re.compile("".join(out))
+
+
+def rule_scope(file: Path, name: str) -> list[str] | None:
+    """The globs a rule file scopes itself to, or None for one that covers every path.
+
+    The one format read is Claude Code's: `paths:` in the file's frontmatter, as a list of globs.
+    A `paths:` that names no glob is refused: whether the file then covers every path or none is
+    not for a script to guess.
+    """
+    lines = file.read_text(encoding="utf-8", errors="replace").splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
+    if end is None:
+        return None
+    block = lines[1:end]
+    at = next((i for i, line in enumerate(block) if re.match(r"paths\s*:", line)), None)
+    if at is None:
+        return None
+    rest = block[at].split(":", 1)[1].strip()
+    items: list[str] = []
+    if rest.startswith("[") and rest.endswith("]"):
+        level, last, quote = 0, 1, ""
+        for j in range(1, len(rest) - 1):
+            char = rest[j]
+            if quote:
+                quote = "" if char == quote else quote
+            elif char in "\"'":
+                quote = char
+            elif char in "{}":
+                level += 1 if char == "{" else -1
+            elif char == "," and level == 0:
+                items.append(rest[last:j])
+                last = j + 1
+        items.append(rest[last:-1])
+    elif rest:
+        items = [rest]
+    else:
+        for follow in block[at + 1:]:
+            if not follow.strip() or follow.lstrip().startswith("#"):
+                continue
+            item = re.match(r"\s*-\s+(.*)$", follow)
+            if item:
+                items.append(item.group(1))
+            elif follow[:1].isspace():
+                raise SettingsError(f"{name}: a line under `paths:` is not a list item ({follow.strip()!r}); write each glob as `  - \"GLOB\"`")
+            else:
+                break
+    globs = [item.strip() for item in items]
+    globs = [glob[1:-1] if len(glob) > 1 and glob[0] == glob[-1] and glob[0] in "\"'" else glob for glob in globs]
+    if not globs or not all(globs):
+        raise SettingsError(f"{name}: its `paths:` names no glob; write each glob under it as `  - \"GLOB\"`, or take the line out so the file covers every path")
+    return globs
+
+
+def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
+    """The style guide files that cover the given files: one match for every reader of the rules."""
+    root = Path(settings["root"]).resolve()
+    changed = []
+    for file in files:
+        relative = Path(file)
+        if relative.is_absolute():
+            if not relative.resolve().is_relative_to(root):
+                raise SettingsError(f"{file} is not inside {root}; name files of this repository")
+            relative = relative.resolve().relative_to(root)
+        changed.append(relative.as_posix().removeprefix("./"))
+    if commits:
+        listed = subprocess.run(["git", "-C", str(root), "diff", "--name-only", "-z", commits], capture_output=True, text=True, check=False)
+        if listed.returncode != 0:
+            raise SettingsError(f"git diff --name-only {commits} failed: {listed.stderr.strip()}")
+        changed += [name for name in listed.stdout.split("\0") if name]
+    changed = sorted(set(changed))
+    if not files and not commits:
+        raise SettingsError("rules needs the files a change touches: name them, or pass --range BASE..TIP")
+    folder = Path(settings["paths"]["styleguide"]["path"])
+    found, seen = [], set()
+    # every .md below the folder, through links too, as the agent that loads this folder by itself reads it
+    for where, folders, names in os.walk(folder, followlinks=True):
+        real = os.path.realpath(where)
+        if real in seen:
+            folders[:] = []
+            continue
+        seen.add(real)
+        folders.sort()
+        found += [Path(where) / name for name in sorted(names) if name.endswith(".md")]
+    rules = []
+    for file in found:
+        shown = file.relative_to(root).as_posix() if file.is_relative_to(root) else str(file)
+        globs = rule_scope(file, shown)
+        if globs is None:
+            rules.append({"file": str(file), "scope": "every path"})
+            continue
+        patterns = [(glob, glob_regex(one)) for glob in globs for one in braces(glob.removeprefix("./"))]
+        covers = sorted({name for name in changed for _, pattern in patterns if pattern.fullmatch(name)})
+        if covers:
+            rules.append({"file": str(file), "scope": sorted({glob for glob, pattern in patterns if any(pattern.fullmatch(name) for name in changed)}), "covers": covers})
+    print(json.dumps({"styleguide": str(folder), "exists": folder.is_dir(), "files": changed, "rules": rules}, indent=2))
 
 
 def state_root(root: Path) -> Path:
@@ -965,9 +939,9 @@ def main() -> None:
     init.add_argument("--reviewer", choices=REVIEWERS)
     commands.add_parser("existing")
     commands.add_parser("reviewer").add_argument("words", nargs="+", metavar="AGENT|default")
-    migrate = commands.add_parser("migrate")
-    migrate.add_argument("step", choices=("plan", "run"))
-    migrate.add_argument("--styleguide", nargs="*", metavar="FILE", help="the rule files that say how code is written here, relative to the rules folder")
+    rules = commands.add_parser("rules")
+    rules.add_argument("files", nargs="*", metavar="FILE")
+    rules.add_argument("--range", dest="commits", metavar="BASE..TIP", help="also the files this range of commits changes")
     task_dir = commands.add_parser("task-dir")
     task_dir.add_argument("slug")
     task_dir.add_argument("--ask", help="the owner's words for this task, as given")
@@ -995,12 +969,6 @@ def main() -> None:
         if args.command == "reviewer":
             cmd_reviewer(root, args.words)
             return
-        if args.command == "migrate":
-            if args.step == "plan":
-                cmd_migrate_plan(root)
-            else:
-                cmd_migrate_run(root, args.styleguide)
-            return
         if args.command == "existing":
             print(json.dumps(older_folders(root), indent=2))
             return
@@ -1024,6 +992,9 @@ def main() -> None:
             print(state_root(root))
             return
         settings = load(root)
+        if args.command == "rules":
+            cmd_rules(settings, args.files, args.commits)
+            return
         if args.command == "show":
             print(json.dumps(settings, indent=2))
         elif args.command == "path":

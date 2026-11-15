@@ -160,8 +160,10 @@ flowchart TD
 - The settings of a project are in its repository. `/lem init` writes them.
 - The state of a task is in the git directory. Git does not commit it, and it stays after Lem
   removes the worktree.
-- A repository that already has `.claude/rules` or `.personas` can link them first. Then
-  `/lem migrate` moves them into `.lem/` as a task.
+- A repository that already has `.claude/rules` or `.personas` can link them. They stay in their
+  folders, and Lem reads them there.
+- A rule file can name the files that it applies to, with `paths:` and a list of globs. Lem
+  gives each builder and each reviewer the rule files for the files of the change.
 - The folder of the review tool, `.revmux`, stays where that tool reads it. Lem does not move
   the settings of a different program.
 
@@ -283,7 +285,6 @@ Linear.
 | `/lem review` | does the review queue, the high-risk items first |
 | `/lem reviewer <agent> [model [effort [plan_effort]]]` | names the reviewer on this computer for now |
 | `/lem reviewer default` | gives the reviewer of the project back |
-| `/lem migrate` | moves linked settings into `.lem/` |
 | `/lem night` | writes a plan for one backlog item when nobody is there |
 | `/lem learn`, `/lem retro` | changes the file that owns a step after a correction |
 | `/lem init` | sets up a repository |

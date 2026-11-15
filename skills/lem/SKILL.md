@@ -1,6 +1,6 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `review`, `night`, `status`, `reviewer`, `migrate`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each task to a lead in a context of its own, lands one branch at a time and reports to the owner. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), builds first and reviews the landed change from a queue, and keeps the pair flow for the paths the project calls careful. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem review\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `review`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each task to a lead in a context of its own, lands one branch at a time and reports to the owner. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), builds first and reviews the landed change from a queue, and keeps the pair flow for the paths the project calls careful. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem review\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
@@ -79,7 +79,6 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `review` | works the review queue by risk; confirmed findings become tasks | `stages/review.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
-| `migrate` | moves the settings a repository still keeps in an older tool's folders to their place under `.lem`, as a task | `stages/migrate.md` |
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
 | `status`, bare `/lem` | the board of all tasks, and in words: every open task, the review queue and what waits for the owner | below |
 | `status <task>` | the board of one task | below |

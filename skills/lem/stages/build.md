@@ -31,7 +31,8 @@ builder can start builders in your agent, and what to do when it cannot.
    after the other unless two tasks touch no common file. Its brief names, by path:
    - the worktree;
    - the plan file and the task's section;
-   - the style guide files that cover the files it will touch, and the project's lessons;
+   - the style guide files that cover the files it will touch, as `project.py rules FILE ...`
+     prints them for the files the plan names for the task, and the project's lessons;
    - the report file, `reports/NN-<task>.md` in the task directory;
    - the whole suite, only when the plan says a task needs it.
    The rest a builder has with it: what it checks before it reports, how it commits, what it
@@ -43,7 +44,8 @@ builder can start builders in your agent, and what to do when it cannot.
    because its agent refused it the write, put that text into the report file word for word.
    Write the state `building` with the line `task N of M` when a builder starts.
 2. **A careful task is reviewed before the next one starts.** This is the session's step. Send
-   the diff of that task to `second-opinion` with the plan section and the style guide files: does
+   the diff of that task to `second-opinion` with the plan section and the style guide files
+   `project.py rules --range BASE..TIP` prints for it: does
    the change deliver the task, and is any existing caller or reverse path left inconsistent?
    Must-fix items go back to a builder. A task of a plan that is not careful is not reviewed here;
    its review comes from the queue after the landing.

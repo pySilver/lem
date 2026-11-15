@@ -976,138 +976,86 @@ for block in 'building|plan committed, 3 tasks' 'building|task 3 of 3' 'ready|th
   project --repo "$OLD" state owner-lands-it "${block%%|*}" "${block#*|}" >/dev/null
 done
 
-# The move of linked settings under .lem: on a task's branch, from a clean tree, with the links two tools need.
-MIG=$WORK/mig
-git init -q -b main "$MIG"
-git -C "$MIG" config user.name t && git -C "$MIG" config user.email t@t
-mkdir -p "$MIG/.claude/rules/nested" "$MIG/.revmux/lenses" "$MIG/.revmux/tasks" "$MIG/.personas/cast" "$MIG/docs"
-printf '%s\n' '---' 'paths: ["src/**/*.py"]' '---' 'Type every function.' > "$MIG/.claude/rules/10-python.md"
-printf '%s\n' 'Never dig up a deleted document.' > "$MIG/.claude/rules/20-conduct.md"
-printf '%s\n' '---' 'paths: ["api/**"]' '---' 'Version every route.' > "$MIG/.claude/rules/nested/30-api.md"
-echo lens > "$MIG/.revmux/lenses/a.md" && echo round > "$MIG/.revmux/tasks/round-1" && echo shopper > "$MIG/.personas/cast/shopper.md" && echo profile > "$MIG/.personas/profile.md"
-printf '%s\n' '.revmux/tasks/' > "$MIG/.gitignore"
-printf '%s\n' 'Read .claude/rules/10-python.md first. The lenses are in .revmux/lenses.' > "$MIG/docs/guide.md"
-project --repo "$MIG" init --base main --existing link >/dev/null
-git -C "$MIG" add -A && git -C "$MIG" commit -q -m "chore: start"
-out=$(project --repo "$MIG" migrate plan)
-if [ "$(field 'sorted(d["linked"])' <<<"$out")" = "['personas', 'profile', 'styleguide']" ] \
-  && [ "$(field '[(r["file"], r["scoped_to_paths"]) for r in d["rules"]]' <<<"$out")" = "[('10-python.md', True), ('20-conduct.md', False), ('nested/30-api.md', True)]" ] \
-  && [ -z "$(git -C "$MIG" status --porcelain)" ]; then
-  pass "migrate plan lists the linked folders and each rule file with whether it scopes itself to paths, and changes nothing"
+# The rule picker: one match of a change against the scopes of the style guide files, for every reader of the rules.
+RUL=$WORK/rules-repo
+git init -q -b main "$RUL"
+git -C "$RUL" config user.name t && git -C "$RUL" config user.email t@t
+mkdir -p "$RUL/.claude/rules/backend" "$WORK/shared-rules"
+printf '%s\n' '# Conduct' 'Never dig up a deleted document.' > "$RUL/.claude/rules/00-conduct.md"
+printf '%s\n' '---' 'description: no scope in this one' '---' 'Say what you did not verify.' > "$RUL/.claude/rules/01-reports.md"
+printf '%s\n' '---' 'paths:' '  - "**/*.ts"' '---' > "$RUL/.claude/rules/10-any-ts.md"
+printf '%s\n' '---' 'paths:' '  - "src/**/*"' '---' > "$RUL/.claude/rules/11-under-src.md"
+printf '%s\n' '---' 'paths:' '  - "*.md"' '---' > "$RUL/.claude/rules/12-root-md.md"
+printf '%s\n' '---' 'paths:' "  - 'src/components/*.tsx'" '---' > "$RUL/.claude/rules/13-one-folder.md"
+printf '%s\n' '---' 'paths:' '  # the three lines of the documentation' '  - "src/**/*.{ts,tsx}"' '  - "lib/**/*.ts"' '  - "tests/**/*.test.ts"' 'description: after the list' '---' > "$RUL/.claude/rules/14-braces.md"
+printf '%s\n' '---' 'paths: ["**/models.py", "**/models/**", ".revmux/**", "docs/{a,b}/*.md"]' '---' > "$RUL/.claude/rules/backend/20-models.md"
+printf '%s\n' '---' 'paths: scripts/verify.sh' '---' > "$RUL/.claude/rules/backend/21-one-file.md"
+printf '%s\n' '---' 'paths:' '  - "**/*.sql"' '---' > "$WORK/shared-rules/30-sql.md"
+ln -s "$WORK/shared-rules" "$RUL/.claude/rules/shared" && ln -s .. "$RUL/.claude/rules/backend/loop"
+echo 'not a rule' > "$RUL/.claude/rules/notes.txt"
+project --repo "$RUL" init --base main --existing link >/dev/null
+git -C "$RUL" add -A && git -C "$RUL" commit -q -m "chore: start"
+picked() { project --repo "$RUL" rules "$@" | field '" ".join(r["file"].rsplit("/", 1)[1][:2] for r in d["rules"])'; }
+got=""
+for file in src/api/v1/x.ts src/x.ts x.ts README.md docs/README.md src/components/a.tsx src/components/deep/a.tsx src/components/a.css lib/a.ts lib/a.tsx tests/unit/a.test.ts tests/a.ts \
+  models.py app/models.py app/models/user/x.py app/models.pyc .revmux/lenses/a.md scripts/verify.sh scripts/other.sh docs/a/x.md docs/c/x.md db/001.sql Makefile; do
+  got="$got$file=$(picked "$file");"
+done
+want="src/api/v1/x.ts=00 01 10 11 14;src/x.ts=00 01 10 11 14;x.ts=00 01 10;README.md=00 01 12;docs/README.md=00 01;src/components/a.tsx=00 01 11 13 14;src/components/deep/a.tsx=00 01 11 14;"
+want="${want}src/components/a.css=00 01 11;lib/a.ts=00 01 10 14;lib/a.tsx=00 01;tests/unit/a.test.ts=00 01 10 14;tests/a.ts=00 01 10;"
+want="${want}models.py=00 01 20;app/models.py=00 01 20;app/models/user/x.py=00 01 20;app/models.pyc=00 01;.revmux/lenses/a.md=00 01 20;scripts/verify.sh=00 01 21;scripts/other.sh=00 01;"
+want="${want}docs/a/x.md=00 01 20;docs/c/x.md=00 01;db/001.sql=00 01 30;Makefile=00 01;"
+if [ "$got" = "$want" ]; then
+  pass "the rule picker matches the glob forms the agent's documentation gives for paths: a star stays in one folder, two stars cross folders, braces list endings, and a file with no scope covers every path"
 else
-  fail "migrate plan: $out"
+  fail "the rule picker: $(tr ';' '\n' <<<"$got" | diff - <(tr ';' '\n' <<<"$want"))"
 fi
-err=$(project --repo "$MIG" migrate run --styleguide 10-python.md 2>&1 || true)
-git -C "$MIG" checkout -q -b chore/settings-move-under-lem
-echo stray > "$MIG/stray.txt"
-dirty=$(status_of project --repo "$MIG" migrate run --styleguide 10-python.md)
-rm "$MIG/stray.txt"
-if grep -q "run it on a task's branch, not on main" <<<"$err" && [ "$dirty" = 1 ] && [ "$(status_of project --repo "$MIG" migrate run)" = 1 ] \
-  && [ "$(status_of project --repo "$MIG" migrate run --styleguide 99-missing.md)" = 1 ] && [ -z "$(git -C "$MIG" status --porcelain)" ] && [ -d "$MIG/.revmux/lenses" ]; then
-  pass "migrate run refuses the base branch, a tree with changes, a rules folder with no file named and an unknown rule file, and moves nothing then"
+out=$(project --repo "$RUL" rules src/components/a.tsx "$RUL/app/models.py")
+if [ "$(field '[(r["file"].rsplit("/", 1)[1], r["scope"], r.get("covers")) for r in d["rules"] if r["scope"] != "every path"]' <<<"$out")" \
+  = "[('11-under-src.md', ['src/**/*'], ['src/components/a.tsx']), ('13-one-folder.md', ['src/components/*.tsx'], ['src/components/a.tsx']), ('14-braces.md', ['src/**/*.{ts,tsx}'], ['src/components/a.tsx']), ('20-models.md', ['**/models.py'], ['app/models.py'])]" ] \
+  && [ "$(field '(d["files"], d["exists"], d["styleguide"], d["rules"][0]["file"])' <<<"$out")" = "(['app/models.py', 'src/components/a.tsx'], True, '$RUL/.claude/rules', '$RUL/.claude/rules/00-conduct.md')" ]; then
+  pass "the picker says for each rule which glob matched and which files it covers, reads rule files in subfolders and through links, and does not turn in a loop of links"
 else
-  fail "migrate run refusals: $err"
+  fail "the picker's output: $out"
 fi
-out=$(project --repo "$MIG" migrate run --styleguide 10-python.md nested/30-api.md)
-shown=$(project --repo "$MIG" show)
-if [ "$(cat "$MIG/.claude/rules/10-python.md" | tail -1)" = "Type every function." ] && [ -L "$MIG/.claude/rules/10-python.md" ] && [ ! -L "$MIG/.lem/styleguide/10-python.md" ] \
-  && [ "$(tail -1 "$MIG/.claude/rules/nested/30-api.md")" = "Version every route." ] && [ -L "$MIG/.claude/rules/nested/30-api.md" ] \
-  && [ ! -L "$MIG/.claude/rules/20-conduct.md" ] && [ ! -e "$MIG/.lem/styleguide/20-conduct.md" ] \
-  && [ ! -L "$MIG/.revmux" ] && [ "$(cat "$MIG/.revmux/lenses/a.md")" = lens ] && [ "$(cat "$MIG/.revmux/tasks/round-1")" = round ] && [ ! -e "$MIG/.lem/review" ] \
-  && [ "$(cat "$MIG/.lem/personas/shopper.md")" = shopper ] && [ "$(cat "$MIG/.lem/profile.md")" = profile ] && [ ! -e "$MIG/.personas/cast" ] \
-  && [ "$(field '[d["paths"][n]["path"].split("/mig/")[1] for n in ("styleguide", "review", "personas", "profile")]' <<<"$shown")" = "['.lem/styleguide', '.revmux', '.lem/personas', '.lem/profile.md']" ]; then
-  pass "migrate run moves the named rules, the cast and the profile under .lem, leaves a link for each rule, rewrites the settings, and leaves the review tool's folder where that tool reads it"
+mkdir -p "$RUL/db" && echo 'select 1;' > "$RUL/db/001.sql" && echo x > "$RUL/notes.md" && git -C "$RUL" add -A && git -C "$RUL" commit -q -m "feat: a query"
+if [ "$(project --repo "$RUL" rules --range HEAD~1..HEAD | field '(d["files"], [r["file"].rsplit("/", 1)[1] for r in d["rules"] if r["scope"] != "every path"])')" = "(['db/001.sql', 'notes.md'], ['12-root-md.md', '30-sql.md'])" ] \
+  && [ "$(status_of project --repo "$RUL" rules --range no-such-ref..HEAD)" = 1 ]; then
+  pass "the picker takes the files of a range of commits, and a range git does not know is refused"
 else
-  fail "migrate run: $out / $(git -C "$MIG" status --porcelain)"
+  fail "the picker with a range: $(project --repo "$RUL" rules --range HEAD~1..HEAD)"
 fi
-if [ "$(field '(d["mentions"][".claude/rules"], ".revmux" in d["mentions"])' <<<"$out")" = "(['docs/guide.md'], False)" ] \
-  && [ "$(git -C "$MIG" status --porcelain | grep -c '^?? ')" = 0 ] \
-  && [ "$(git -C "$MIG" diff --cached --name-status | grep -c '^R')" = 2 ] && [ "$(git -C "$MIG" diff --cached --name-status | grep -c '^T')" = 2 ] && [ "$(status_of project --repo "$MIG" migrate run --styleguide)" = 1 ]; then
-  pass "it names every tracked file that still holds an old path, stages its own moves and nothing that git ignored, and a second run finds nothing to move"
+err=$(project --repo "$RUL" rules 2>&1 || true)
+outside=$(project --repo "$RUL" rules "$WORK/elsewhere.py" 2>&1 || true)
+printf '%s\n' '---' 'paths:' '---' 'A scope with nothing in it.' > "$RUL/.claude/rules/40-empty.md"
+empty=$(project --repo "$RUL" rules x.ts 2>&1 || true)
+printf '%s\n' '---' 'paths:' '  glob: "src/**"' '---' > "$RUL/.claude/rules/40-empty.md"
+shape=$(project --repo "$RUL" rules x.ts 2>&1 || true)
+code="$(status_of project --repo "$RUL" rules) $(status_of project --repo "$RUL" rules "$WORK/elsewhere.py") $(status_of project --repo "$RUL" rules x.ts)"
+rm "$RUL/.claude/rules/40-empty.md"
+if [ "$code" = "1 1 1" ] && grep -q "name them, or pass --range BASE..TIP" <<<"$err" && grep -q "is not inside $RUL" <<<"$outside" \
+  && grep -q ".claude/rules/40-empty.md: its .paths:. names no glob" <<<"$empty" && grep -q "or take the line out so the file covers every path" <<<"$empty" \
+  && grep -q "a line under .paths:. is not a list item" <<<"$shape"; then
+  pass "the picker refuses a call with no file, a file of another folder, and a rule whose paths name no glob or are no list, each with the fix"
 else
-  fail "migrate run output: $out / $(git -C "$MIG" status --porcelain)"
+  fail "the picker's refusals: $code / $err / $outside / $empty / $shape"
 fi
-
-# More shapes of an adoption. small_repo NAME makes a linked repository on a task's branch, ready for a run.
-small_repo() {
-  local r=$WORK/$1
-  git init -q -b main "$r"
-  git -C "$r" config user.name t && git -C "$r" config user.email t@t
-  mkdir -p "$r/.claude/rules" "$r/.revmux" "$r/.personas/cast"
-  echo 'Type every function.' > "$r/.claude/rules/a.md" && echo config > "$r/.revmux/config" && echo shopper > "$r/.personas/cast/shopper.md"
-  echo 'The other one is .personas/cast/b.md.' > "$r/.personas/cast/a.md"
-  project --repo "$r" init --base main --existing link >/dev/null
-  git -C "$r" add -A && git -C "$r" commit -q -m "chore: start" && git -C "$r" checkout -q -b chore/move
-  echo "$r"
-}
-r=$(small_repo twice)
-mkdir -p "$r/.lem/styleguide" && echo taken > "$r/.lem/styleguide/sub" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: a file in the way"
-mkdir "$r/.claude/rules/sub" && echo 'Nested.' > "$r/.claude/rules/sub/b.md" && git -C "$r" add -A && git -C "$r" commit -q -m "docs: a nested rule"
-if [ "$(status_of project --repo "$r" migrate run --styleguide a.md a.md)" = 1 ] && [ "$(status_of project --repo "$r" migrate run --styleguide sub/b.md)" = 1 ] \
-  && [ -z "$(git -C "$r" status --porcelain)" ] && [ -d "$r/.personas/cast" ] && [ ! -L "$r/.revmux" ]; then
-  pass "a rule named twice, and a rule whose new place has a file in the way, are refused before anything moves"
+# The skill's own layout is read the same way, and a project with no style guide yet gets an empty answer, not an error.
+FRESH=$WORK/rules-fresh
+git init -q -b main "$FRESH" && commit "$FRESH" start
+project --repo "$FRESH" init --base main >/dev/null
+none=$(project --repo "$FRESH" rules app/x.py | field '(d["exists"], d["rules"])')
+mkdir -p "$FRESH/.lem/styleguide" && printf '%s\n' '---' 'paths:' '  - "app/**/*.py"' '---' > "$FRESH/.lem/styleguide/python.md"
+if [ "$none" = "(False, [])" ] && [ "$(project --repo "$FRESH" rules app/x.py web/x.js | field '[(r["file"], r["covers"]) for r in d["rules"]]')" = "[('$FRESH/.lem/styleguide/python.md', ['app/x.py'])]" ]; then
+  pass "a project with no style guide gets no rule and no error, and the skill's own style guide folder is read in the same format"
 else
-  fail "migrate preflight: $(git -C "$r" status --porcelain)"
+  fail "the picker in the skill's own layout: $none / $(project --repo "$FRESH" rules app/x.py web/x.js)"
 fi
-r=$(small_repo ignored)
-printf '%s\n' '.personas' > "$r/.gitignore" && mkdir "$r/.personas/cast/notes" && echo session > "$r/.personas/cast/notes/session"
-git -C "$r" add -A && git -C "$r" commit -q -m "chore: ignore the cast folder, keep its tracked files"
-out=$(project --repo "$r" migrate run --styleguide)
-if [ "$(cat "$r/.lem/personas/notes/session")" = session ] && [ "$(cat "$r/.revmux/config")" = config ] && [ ! -L "$r/.revmux" ] \
-  && [ "$(git -C "$r" ls-files .lem/personas | tr '\n' ' ')" = ".lem/personas/a.md .lem/personas/shopper.md " ] \
-  && [ "$(field '[x["name"] for x in d["left"]]' <<<"$out")" = "['styleguide']" ] && [ "$(project --repo "$r" migrate plan | field 'sorted(d["linked"])')" = "['styleguide']" ] \
-  && [ "$(field 'd["mentions"][".personas/cast"]' <<<"$out")" = "['.lem/personas/a.md']" ]; then
-  pass "an ignored cast folder moves with its untracked files and its tracked files stay tracked, an empty rule list leaves the rules linked, and a moved file that names an old path is in the mentions"
+if [ "$(status_of project --repo "$RUL" migrate plan)" != 0 ] && [ -d "$RUL/.claude/rules" ] && [ ! -e "$RUL/.lem/styleguide" ] \
+  && [ "$(project --repo "$RUL" show | field 'd["paths"]["styleguide"]["path"]')" = "$RUL/.claude/rules" ]; then
+  pass "the rules of an adopted project stay where the agent loads them: the settings name that folder, and no command moves it"
 else
-  fail "migrate with an ignored cast folder: $out / $(git -C "$r" status --porcelain)"
-fi
-r=$(small_repo untracked)
-git -C "$r" rm -q --cached .lem/project.toml && git -C "$r" commit -q -m "chore: stop tracking the settings" && echo '.lem/project.toml' > "$r/.gitignore" && git -C "$r" add .gitignore && git -C "$r" commit -q -m "chore: ignore them"
-err=$(project --repo "$r" migrate run --styleguide 2>&1 || true)
-if grep -q "is not tracked by git" <<<"$err" && [ -d "$r/.revmux" ] && [ ! -L "$r/.revmux" ] && [ -z "$(git -C "$r" status --porcelain)" ]; then
-  pass "settings that git does not track stop the move before it starts"
-else
-  fail "migrate with untracked settings: $err"
-fi
-r=$(small_repo linked)
-git -C "$r" mv .personas/cast old-cast && mkdir -p "$r/.personas" && ln -s ../old-cast "$r/.personas/cast" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: the cast behind a link"
-err=$(project --repo "$r" migrate run --styleguide 2>&1 || true)
-if grep -q ".personas/cast is a link to ../old-cast" <<<"$err" && [ "$(cat "$r/.personas/cast/shopper.md")" = shopper ] && [ ! -e "$r/.lem/personas" ] && [ -z "$(git -C "$r" status --porcelain)" ]; then
-  pass "a linked folder that is itself a link is refused with the two ways to fix it, and nothing moves"
-else
-  fail "migrate with a link as the source: $err"
-fi
-r=$(small_repo slash)
-sed -i.bak 's|^personas = ".personas/cast"$|personas = ".personas/cast/"|' "$r/.lem/project.toml" && rm "$r/.lem/project.toml.bak" && git -C "$r" commit -q -am "chore: a trailing slash"
-if [ "$(project --repo "$r" migrate plan | field '"personas" in d["linked"]')" = True ] && project --repo "$r" migrate run --styleguide >/dev/null \
-  && [ "$(project --repo "$r" show | field 'd["paths"]["personas"]["path"].endswith("/.lem/personas")')" = True ] && [ ! -e "$r/.personas/cast" ]; then
-  pass "a path written with a trailing slash is the same folder, and it moves"
-else
-  fail "migrate with a trailing slash"
-fi
-# A rule file whose name reads as a pattern, beside an ignored file that the pattern would match.
-r=$(small_repo pattern)
-echo 'Brackets.' > "$r/.claude/rules/rule[ab].md" && mkdir -p "$r/.lem/styleguide" && echo local > "$r/.lem/styleguide/rulea.md"
-echo '.lem/styleguide/rulea.md' > "$r/.gitignore" && git -C "$r" add -A && git -C "$r" commit -q -m "docs: a rule with brackets in its name"
-project --repo "$r" migrate run --styleguide 'rule[ab].md' >/dev/null
-if [ "$(git -C "$r" ls-files .lem/styleguide)" = ".lem/styleguide/rule[ab].md" ] && [ -L "$r/.claude/rules/rule[ab].md" ] && [ "$(cat "$r/.claude/rules/rule[ab].md")" = "Brackets." ] \
-  && [ "$(cat "$r/.lem/styleguide/rulea.md")" = local ] && [ ! -L "$r/.claude/rules/a.md" ]; then
-  pass "a rule file with brackets in its name moves as that one file, and an ignored file the name would match as a pattern is not staged"
-else
-  fail "migrate with a pattern-like file name: $(git -C "$r" ls-files .lem/styleguide)"
-fi
-# A step that fails after the first move: the git directory cannot be written, so nothing can be staged.
-r=$(small_repo rollback)
-mkdir "$r/.personas/cast/notes" && echo session > "$r/.personas/cast/notes/session" && echo '.personas/cast/notes/' > "$r/.gitignore" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: ignore the notes"
-settings_before=$(cat "$r/.lem/project.toml")
-chmod u-w "$r/.git"
-err=$(project --repo "$r" migrate run --styleguide a.md 2>&1 || true)
-chmod u+w "$r/.git"
-if grep -q "every file was put back" <<<"$err" && [ -z "$(git -C "$r" status --porcelain)" ] && [ "$(cat "$r/.personas/cast/notes/session")" = session ] && [ ! -L "$r/.revmux" ] \
-  && [ ! -L "$r/.claude/rules/a.md" ] && [ ! -e "$r/.lem/styleguide" ] && [ ! -e "$r/.lem/personas" ] && [ "$(cat "$r/.lem/project.toml")" = "$settings_before" ]; then
-  pass "a move that fails in the middle puts every file back, the ignored ones too, and leaves the settings as they were"
-else
-  fail "migrate rollback: $err / $(git -C "$r" status --porcelain) / $(ls -a "$r/.lem")"
+  fail "an adopted project's rules"
 fi
 
 # The board: board.py writes the page and what it reads beside the events, and the page draws them.

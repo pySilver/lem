@@ -28,9 +28,13 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
   2026-11-15 in the first task that came from a ticket: Lem's session, in auto mode, read the
   ticket, changed its status two times and wrote one comment, with the owner's go for those
   writes named in its prompt.
-- the rules folder. Claude Code loads `.claude/rules/` by itself: a file with a `paths:` line
-  when a matching file is read, the others in every session. After `project.py migrate run`
-  that folder holds a link for each moved rule. Checked by the session that started Lem, in
+- the rules folder. Claude Code loads `.claude/rules/` by itself: a file with a `paths:` list
+  when a matching file is read, the others in every session. Codex and the review tool's agents
+  load nothing by themselves, so a brief, a review request and a review round name the files
+  `project.py rules` prints. That command reads the same `paths:` list with the glob forms
+  Claude Code's page on that folder gives (read 2026-11-15), and finds rule files in subfolders
+  and through links as that page says Claude Code does. For a review round, the files go into
+  the review context the `revmux:revmux` skill writes, as paths to read first. Checked by the session that started Lem, in
   Claude Code 2.1.325 on 2026-11-14, with all tools off so that only a loaded rule could give
   the answer: a linked file in a real rules folder is loaded; a rule with a `paths:` line
   reached through a link is loaded when a matching file is read and not before; an `@` import
@@ -211,7 +215,7 @@ every report says that the reviewer is this machine's choice, and "same family" 
    the same line without typing; in the other restore modes it is refused.
 3. **Send the request** through the `mailbox-chat` skill: what to review (the plan's path, or the
    range of commits), the directory to work in, the task it belongs to and the style guide files
-   that cover it. A message that names git goes from a file, never a heredoc.
+   that cover it (`project.py rules`, with the plan's files or `--range`). A message that names git goes from a file, never a heredoc.
 4. **The reply arrives in this pane by itself.** Never poll for it, and check every claim it makes
    about the code with your own read before you act on it.
    A reply that may not be whole ("so far", a numbered point with no end, no closing `Changed:`

@@ -120,9 +120,11 @@ For a repository that has code:
   the read of a careful plan. No answer means the agent's own default.
 - **The folders already here**, when `project.py existing` listed any: link them, so the older
   tools and this skill read one copy and nothing moves; or generate new profiles under
-  `.lem/`, and leave the old folders for the owner to remove. Linking is the way to try Lem in a
-  project that works today. Say that it is a first step: `/lem migrate` moves the linked
-  settings under `.lem` once the owner stays with Lem.
+  `.lem/`, and leave the old folders for the owner to remove. Linking is what a project that
+  works today does. Its rules stay in the folder its agent loads by itself, for good: Lem reads
+  them there and gives the ones that cover a change to every builder and reviewer
+  (`project.py rules`), so no file of that folder moves. A cast and a profile that are linked can
+  move under `.lem` later by hand, with a `git mv` and their two lines in the settings.
 
 Stop when you could predict the owner's answer to the next question. An answer of "whatever you
 think" is not an answer to the careful paths or to who lands: say what you will assume and ask
@@ -153,8 +155,9 @@ it is.
   `README.md` that lists them with one line each.
 - **The style guide**: first offer the published guides `references/styleguides.md` lists for the
   project's stack; one the owner picks enters as a linter configuration in the gate and a page of
-  differences, as that file says. Then one file per area of the code, each rule with the paths it
-  covers, its reason, and the file it was read from. Write only conventions `examined.md` shows the code
+  differences, as that file says. Then one file per area of the code. Its frontmatter names the
+  paths it covers in the one form `project.py rules` reads, `paths:` with a list of globs, and a
+  file without that covers every path; each rule has its reason and the file it was read from. Write only conventions `examined.md` shows the code
   already keeps, and say at the top of each file that it is a draft read from the code. A rule
   nobody has yet needed is not written: the style guide grows when a review finding or a
   correction repeats (`stages/learn.md`). A new project gets the copy the owner accepted in the
@@ -163,6 +166,11 @@ it is.
   setup's link and does not exist in the next checkout. Name what the owner can use instead:
   `/lem learn`, "the published guides Lem lists for this stack". The first onboarding wrote
   `.claude/skills/lem/stages/learn.md` into a style guide (2026-11-15).
+- **A paragraph for the project's agent document**, as a proposal: where the rules are, that a
+  file's `paths:` says which files it covers and a file without it covers all, and that an agent
+  reads the ones that cover what it changes. With it an agent that runs without Lem finds the
+  rules; with Lem, the picker hands them over. Show the paragraph on the hand-over page and put
+  it into the agent document, on the onboarding's branch, only on the owner's yes.
 - **The gate of a new project** does not exist yet. Leave `gate.commands` empty and name "set up
   the checks" (formatter, linter, type checker, a first test) as the task to run first: no task
   lands through this skill before it. The onboarding's own branch is not a task: it holds

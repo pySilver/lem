@@ -18,7 +18,9 @@ ones first.
    report say how many: an unread item is a fact the owner sees, never a silent backlog.
 3. **One review is one round of the project's review tool** over the item's landed range, with the
    project's own lenses and profile (`project.py path review`; the harness file says how the
-   review tool finds that folder). The project's `AGENTS.md` names the profile for a `high` item and for a
+   review tool finds that folder). The round's context names the style guide files that cover
+   the range, as `project.py rules --range RANGE` prints them, so the review tool's agents read
+   the rules the builder read. The project's `AGENTS.md` names the profile for a `high` item and for a
    `normal` one. A finding is confirmed against the code before it counts.
    A round in which one of the review tool's agents died (a usage limit, a session limit) is a
    partial round: say which of its sources finished, and run it again before the item is closed

@@ -14,9 +14,10 @@ by line before the build.
      finish in a context of its own, with the files it expects to touch;
    - the decisions the plan takes, each with the answer it assumes and what the answer rests on;
    - what it will not verify, and why.
-   Before writing, read the style guide files whose scope covers the files the plan touches
-   (`project.py path styleguide`; a file's frontmatter says its paths) and the project's lessons
-   (`project.py path lessons`).
+   Before writing, read the style guide files that cover the files the plan touches and the
+   project's lessons (`project.py path lessons`). `python3 SKILL_DIR/scripts/project.py rules
+   FILE ...` prints those style guide files, the ones with no scope of their own too: do not
+   match a file's `paths:` by eye.
    When the branch already holds a plan (a night draft, a builder that stopped at the plan), do
    not write another: read it against the code as it is now, and commit a fix for what the code
    has outgrown.
