@@ -125,6 +125,10 @@ flowchart TD
 
 These rules hold for each task:
 
+- **The plan starts with the stories.** A story is one rule of your ask in plain language, with
+  one example. You read the stories, and the agents read the plan. Each story gets a test.
+- **A check proves each test.** The test of a story must pass on the branch, and it must fail on
+  the base commit. The board of a task shows the stories and the result of that check.
 - **Build first, review after.** The check commands gate the landing. A review reads the landed
   change from a queue. Thus a defect that the checks do not find lands first, and the review
   finds it later.

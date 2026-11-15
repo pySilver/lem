@@ -217,6 +217,11 @@ and where each task's time went. A task's own board adds its state blocks and ea
 It reads the event log by itself every two seconds, so open it once, and again after agterm was
 started again.
 
+A task's own board also shows its stories, as the top of its plan has them: each with the tests
+that hold it and what the last check of those tests gave. `python3 SKILL_DIR/scripts/stories.py
+show SLUG` prints the same. The stories are what the owner reads of a task; the rest of the plan
+is the agents'. For a status of one task, say its stories in his words before anything else.
+
 The board of all tasks has a second tab, the backlog: the items of the backlog path in groups by
 who can act on each (when the `lem-backlog` skill's sorting has verdicts, by each item's own
 verdict otherwise), with an item whose place in the code is gone marked as such. An item's one

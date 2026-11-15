@@ -13,7 +13,8 @@ Your brief says `lead: builder` and the plan has one task: you wrote the plan, a
 one builder. A session never takes this section. Its plan is careful, so its one task gets a
 builder of its own and a review of its diff, as the next section says.
 
-1. **Build the task.** Write it, run the tests of the files you wrote or edited and the
+1. **Build the task.** Write it, with at least one test for each story of the plan: a test that
+   fails on the base commit and passes with your change. Run the tests of the files you wrote or edited and the
    formatter, linter and type checker the project's `AGENTS.md` names, and commit on the task's
    branch with a semantic message. Never the whole suite unless the plan says so: the gate runs
    it at the landing. Write the state `building` with the line `task 1 of 1`.
@@ -30,7 +31,8 @@ builder can start builders in your agent, and what to do when it cannot.
 1. **One builder per task of the plan**, through `spawn-builder`, in the task's worktree, one
    after the other unless two tasks touch no common file. Its brief names, by path:
    - the worktree;
-   - the plan file and the task's section;
+   - the plan file and the task's section, with the stories the task serves: the builder writes
+     at least one test for each, one that fails without its change;
    - the style guide files that cover the files it will touch, as `project.py rules FILE ...`
      prints them for the files the plan names for the task, and the project's lessons;
    - the report file, `reports/NN-<task>.md` in the task directory;
@@ -76,8 +78,14 @@ Write `report.md` in the task directory, whole, each time. A path in it is relat
 repository's root, never a path inside the worktree: the worktree is gone when the owner reads.
 
 - **what the owner gets**, in one or two sentences, and how to see it;
-- **done when**: each line of the plan's "done when" with the command or the look that shows it,
-  and the exact last line of the command's output;
+- **the stories**: each story of the plan with the tests that hold it. Before the report, write
+  under each story in the plan its tests (`- test: ...`, or `- no test: REASON` for a story no
+  test can hold, such as a sentence of a document), commit that, and run
+  `python3 SKILL_DIR/scripts/stories.py record SLUG` and then `python3 SKILL_DIR/scripts/stories.py
+  red SLUG`. The second one runs each story's tests on the branch and on the base commit, in the
+  worktree, which has to be clean: a test that fails on the branch, or that passes on the base
+  commit too, does not hold its story. Repair what it names before the task is `ready`, and give
+  its last line here;
 - **not verified**: what you could not or did not check;
 - **decisions**: each one taken without the owner, with why and what it would take to undo. Add
   the same lines to `decisions.md`;

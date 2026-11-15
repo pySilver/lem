@@ -358,6 +358,10 @@
 
   <div class="cols" data-tasks>
     <div class="stack">
+      <section id="stories-card" class="card">
+        <div class="card-head"><h2>Stories</h2><div id="stories-sum" class="dim small"></div></div>
+        <div id="stories" class="rows"></div>
+      </section>
       <section id="states-card" class="card">
         <div class="card-head"><h2>State blocks</h2><div id="states-sum" class="dim small"></div></div>
         <div id="states" class="rows"></div>
@@ -586,7 +590,11 @@ function derive(now) {
   for (const e of events) {
     if (!e.task) continue;
     let t = tasks.get(e.task);
-    if (!t) tasks.set(e.task, t = {slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], lead: null, session: null, progress: null, commit: null, branch: null});
+    if (!t) tasks.set(e.task, t = {slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], stories: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null});
+    // The stories of the task's plan, as the lead last recorded them, and the newest check that
+    // each one's tests pass on the branch and fail on the base commit.
+    if (e.event === 'task.stories') { t.stories = {kind: e.kind, why: e.why, list: e.stories ?? [], ts: at(e)}; continue; }
+    if (e.event === 'task.red') { t.red = {ok: e.ok, tests: e.tests ?? [], without: e.without_a_test ?? [], tip: e.tip, ts: at(e)}; continue; }
     if (e.event === 'gate') {
       // A repaired failure runs the gate again inside one landing: a result on another tip starts
       // a new run, and a command's newer result replaces its older one.
@@ -696,6 +704,8 @@ function tags(t) {
     icon(t.lead === 'session' ? 'split' : 'code'), h('span', {}, t.lead === 'session' ? 'session' : 'builder')));
   if (t.progress && t.status === 'building') out.push(h('span', {class: 'tag', title: 'The task of the plan the lead is on'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
   if (t.commit) out.push(h('span', {class: 'tag mono', title: `${t.commit.head} ${t.commit.subject}${t.branch ? ` · ${t.branch}` : ''}`}, icon('commit'), h('span', {}, `${t.commit.head} ${t.commit.subject}`)));
+  if (t.stories) out.push(h('span', {class: 'tag', title: t.stories.list.map(st => `${st.n}. ${st.text}`).join('\n')}, icon('file'),
+    h('span', {}, t.stories.kind === 'correction' ? 'a correction: 1 story' : plural(t.stories.list.length, 'story').replace('storys', 'stories'))));
   if (t.gates.length) out.push(h('span', {class: `tag ${t.gateBad ? 'c-bad' : 'c-ok'}`, title: t.gates.map(g => `${g.exit === 0 ? 'green' : `exit ${g.exit}`}  ${g.command}  ${g.last ?? ''}`).join('\n')},
     icon(t.gateBad ? 'alert' : 'check'), h('span', {}, t.gateBad ? `gate red: ${t.gateBad} of ${t.gates.length}` : `gate green: ${t.gates.length}`)));
   for (const r of t.review) {
@@ -986,6 +996,27 @@ function buildGate(t, now) {
     h('span', {class: 'rtime'}, stamp(g.ts, now)))));
 }
 
+// The stories are the owner's document: each as the lead wrote it, with the tests that hold it and
+// what the last check of those tests gave. A word stands beside each mark, never a color alone.
+function buildStories(t, now) {
+  if (!t.stories) return [keyed('empty', h('div', {class: 'empty'}, 'The lead writes the stories at the top of the plan'))];
+  const results = new Map((t.red?.tests ?? []).map(r => [`${r.story}|${r.command}`, r]));
+  return t.stories.list.map(st => {
+    const checked = (st.tests ?? []).map(test => results.get(`${st.n}|${test.command}`));
+    const bad = checked.some(r => r?.problem);
+    const held = (st.tests ?? []).length > 0 && checked.every(r => r && !r.problem);
+    const state = bad ? 'bad' : held ? 'done' : 'quiet';
+    return keyed(`story:${st.n}:${state}:${st.text.length}:${(st.tests ?? []).length}`, h('div', {class: `row a-${state}`},
+      h('span', {class: 'fi'}, icon(bad ? 'alert' : held ? 'check' : 'file')),
+      h('div', {class: 'rtext'}, h('b', {}, `${st.n}. `), st.text,
+        (st.tests ?? []).map((test, k) => h('span', {class: 'sub cmd'}, test.command, ' · ',
+          checked[k]?.problem ?? (checked[k] ? 'passes on the branch, fails on the base commit' : 'not checked yet'))),
+        st.no_test ? h('span', {class: 'sub'}, `no test: ${st.no_test}`) : '',
+        !(st.tests ?? []).length && !st.no_test ? h('span', {class: 'sub'}, 'no test yet') : ''),
+      h('span', {class: 'rtime'}, bad ? 'not held' : held ? 'held by its tests' : '')));
+  });
+}
+
 // ---- render ----
 
 const $ = id => document.getElementById(id);
@@ -1201,6 +1232,8 @@ function render() {
     $('now').className = `card now a-${t?.info.actor ?? 'quiet'}`;
     patch($('now'), t ? [buildTaskNow(t)] : []);
     patch($('progress'), t ? [buildTaskProgress(t)] : []);
+    patch($('stories'), t ? buildStories(t, now) : []);
+    $('stories-sum').textContent = t?.stories ? `${t.stories.kind}, because ${t.stories.why}` : '';
     patch($('states'), t ? buildStates(t, now) : []);
     $('states-sum').textContent = t ? plural(t.blocks.length, 'block') : '';
     patch($('gate'), t ? buildGate(t, now) : []);
@@ -1222,6 +1255,7 @@ function render() {
     patch($('lanes'), buildLanes(m));
   }
   $('lanes-section').hidden = Boolean(view) || tab === 'backlog';
+  $('stories-card').hidden = !view;
   $('states-card').hidden = !view;
   $('gate-card').hidden = !view;
 

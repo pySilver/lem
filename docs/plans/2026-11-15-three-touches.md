@@ -1,8 +1,8 @@
 # Three touches: stories, one read before the merge, a pull request
 
 Written 2026-11-15 by the Lem design session (mybaze checkout) for the session that builds Lem,
-which took it on 2026-11-16 and added "Read against the code" below. This replaces "build
-first, review after" as Lem's default flow. The owner said on 2026-11-16 that it is built
+which took it the same day and added "Read against the code" below. This replaces "build
+first, review after" as Lem's default flow. The owner said on 2026-11-15 that it is built
 directly, with a read by the other lab after each part, and not through Lem.
 
 ## Why
@@ -211,7 +211,7 @@ step should go.
 
 ## Read against the code
 
-By the build session, 2026-11-16, before the first task. Each point is where the code or a
+By the build session, 2026-11-15, before the first task. Each point is where the code or a
 standing rule of Lem does not carry the flow as written, with what the build does about it.
 
 1. **Only Lem talks to the owner** (`skills/lem/SKILL.md`, "Two levels"; a builder has no pane).
@@ -220,16 +220,22 @@ standing rule of Lem does not carry the flow as written, with what the build doe
 2. **A builder that leads a task has no reviewer pane and no mailbox**, and the persona panel's
    second model family answers through the paired agent of a session. So the personas' read of
    the stories has one model family when a builder leads and two when a session does, and the
-   record says which. The lead runs it, so that clear stories start the build with no round trip
-   through Lem. Open with the design session: whether Lem should run it instead.
+   record and the owner's page say which, in his terms ("read by N personas, one model
+   family"). The lead runs it, so that clear stories start the build with no round trip through
+   Lem; the personas read while the lead writes the plan, and only the first line of code waits
+   for both. Decided by the design session on 2026-11-15, as its design and open to the owner,
+   on one condition: a run shows that a builder that leads can start the persona agents. If it
+   cannot, the lead stops after the stories and the plan, and Lem starts the read and then the
+   builders.
 3. **A plan talk needs a session**, for the same reason. A large plan (more than three tasks)
    therefore gets a session as its lead, as a careful one does today (`stages/plan.md`, step 3).
 4. **Lem reads no diff** (`AGENTS.md`, "Lem's stages and a lead's stages stay apart"). The read
    before the pull request is a fresh agent that Lem starts and that changes nothing, as the
    review stage starts one today; a must-fix goes to a builder.
 5. **"Every new test fails on the base commit" needs each story's tests as commands a script can
-   run.** The plan file's stories are prose, so the lead also writes them, with their tests, into
-   a file of the task directory that the script and the board read.
+   run.** So the stories at the top of the plan have a fixed form, with each test as a command
+   and its files, and `stories.py` is their one reader: for the check, the board and the text of
+   the pull request.
 6. **"The change did not lower the bar" is about one language's marks** (a lint or type
    suppression, a skipped test). The skill knows no project, so the patterns are a setting with
    the common ones as its default.

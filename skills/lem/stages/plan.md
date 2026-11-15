@@ -5,13 +5,23 @@ builder has thought before typing and so a reviewer can tell what was meant; it 
 by line before the build.
 
 1. **Write the plan** as one file in the settings' `plans` path, named `YYYYMMDD-<slug>.md`, and
-   commit it as the branch's first commit:
-   - the outcome and the "done when" from `task.md`, each "done when" line sharpened to a command
-     or a look at the product now that you have read the code;
-   - what changes for a person, as one short run in numbered steps, when a person observes a
-     change; "no person observes a change" otherwise;
+   commit it as the branch's first commit. It opens with the stories, because they are the
+   owner's document: he reads them and not the rest of the plan, and they become the tests.
+   - `## Stories`, in the form `python3 SKILL_DIR/scripts/stories.py --help` shows. A story is
+     one business rule of the request in plain language with one concrete example, with real
+     names and values: what a person of the project would see, never how the code does it. Take
+     them from the outcome and the "done when" of `task.md`, now that you have read the code. A
+     rule you cannot write without guessing what the owner wants is not yours to guess: it is a
+     held decision (step 5), and Lem asks him;
+   - the first line of that section is your call, `Kind: feature` or `Kind: correction`, with
+     the reason after `because`. A correction is a request that yields one story and is not
+     careful (step 2): its story is the owner's own sentence made exact. Everything else is a
+     feature. The owner may overrule the call, as he may the careful one;
+   - run `python3 SKILL_DIR/scripts/stories.py record SLUG`: it refuses a section that does not
+     have the form, and it puts the stories where the board and Lem's status show them;
    - the tasks, one to seven, each an outcome a reviewer can check alone and one builder can
-     finish in a context of its own, with the files it expects to touch;
+     finish in a context of its own, with the stories it serves and the files it expects to
+     touch;
    - the decisions the plan takes, each with the answer it assumes and what the answer rests on;
    - what it will not verify, and why.
    Before writing, read the style guide files that cover the files the plan touches and the

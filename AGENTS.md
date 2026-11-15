@@ -239,7 +239,8 @@ real task, so say in the commit which task showed the need.
   `board.py` (opens the board), `land.py` (the landing, one refusable step at a time),
   `corrections.py` (the optional queue of the owner's corrections: its hook, and what a retro
   reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
-  the setup links as the `jev` command).
+  the setup links as the `jev` command), `stories.py` (a task's stories, read from the top of
+  its plan, and the check that each one's tests pass on the branch and fail on the base commit).
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both, and
   on the board of all tasks a second tab for the backlog.
   `lem.css` beside it is the look every page of Lem shares: its colors, its type, its header

@@ -1273,6 +1273,95 @@ else
   fail "an adopted project's rules"
 fi
 
+# The stories of a task: read from the top of its plan, and each one held by a test that fails on the base commit.
+STORIES=$PWD/skills/lem/scripts/stories.py
+stories() { "$PY" -B "$STORIES" --repo "$ST" "$@"; }
+ST=$WORK/stories-repo
+git init -q -b main "$ST" && git -C "$ST" config user.name t && git -C "$ST" config user.email t@t
+mkdir -p "$ST/tests" "$ST/docs/plans" && echo 'echo "1042,None"' > "$ST/export.sh" && git -C "$ST" add -A && git -C "$ST" commit -q -m start
+project --repo "$ST" init --base main >/dev/null && git -C "$ST" add -A && git -C "$ST" commit -q -m "chore: the settings"
+project --repo "$ST" task-dir export-has-the-gift-note >/dev/null
+stw=$(project --repo "$ST" worktree-dir export-has-the-gift-note)
+git -C "$ST" worktree add -q -b feat/export-has-the-gift-note "$stw" main
+project --repo "$ST" state export-has-the-gift-note building 'lead: builder' >/dev/null
+mkdir -p "$stw/docs/plans" "$stw/tests"
+plan=$stw/docs/plans/20261115-export-has-the-gift-note.md
+# shellcheck disable=SC2016  # the backticks are the plan's own marks around a command and a file
+printf '%s\n' '# The export has the gift note' '' '## Stories' '' 'Kind: feature, because the export gets a new column and an empty cell.' '' \
+  '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania"' '   has that text in its row.' \
+  '   - test: `sh tests/gift.sh` in `tests/gift.sh`' '2. An order with no gift note has an empty cell, not the word "None".' \
+  '   - test: `sh tests/none.sh` in `tests/none.sh`, `tests/helper.sh`' '' '## Tasks' '' '1. The column.' > "$plan"
+printf '%s\n' 'echo "1042,for Ania"' 'echo "1043,"' > "$stw/export.sh"
+echo 'sh export.sh | grep -q "1042,for Ania"' > "$stw/tests/gift.sh" && echo '. tests/helper.sh; ! sh export.sh | grep -q None' > "$stw/tests/none.sh" && echo ': a helper' > "$stw/tests/helper.sh"
+git -C "$stw" add -A && git -C "$stw" commit -q -m "feat: the gift note"
+shown=$(stories show export-has-the-gift-note)
+stories record export-has-the-gift-note >/dev/null
+if [ "$(field '(d["kind"], d["why"], [(s["n"], s["text"].split(" of an order")[0].split(",")[0], [t["command"] for t in s["tests"]], [t["files"] for t in s["tests"]]) for s in d["stories"]])' <<<"$shown")" \
+  = "('feature', 'the export gets a new column and an empty cell.', [(1, 'A CSV export holds the gift note', ['sh tests/gift.sh'], [['tests/gift.sh']]), (2, 'An order with no gift note has an empty cell', ['sh tests/none.sh'], [['tests/none.sh', 'tests/helper.sh']])])" ] \
+  && [ "$(field 'd["stories"][0]["text"].endswith("has that text in its row.")' <<<"$shown")" = True ] \
+  && [ "$(grep -c '"event": "task.stories"' "$ST/.git/lem/events.jsonl")" = 1 ] && grep -q '"kind": "feature"' "$ST/.git/lem/events.js"; then
+  pass "the stories are read from the top of the task's plan, each with its text over two lines and its tests, and record puts them into the event log for the board"
+else
+  fail "stories show and record: $shown"
+fi
+out=$(stories red export-has-the-gift-note)
+if [ "$(field '(d["ok"], [(t["story"], t["on_branch"], t["on_base"] != 0, t["problem"]) for t in d["tests"]], d["without_a_test"])' <<<"$out")" = "(True, [(1, 0, True, None), (2, 0, True, None)], [])" ] \
+  && [ "$(git -C "$stw" branch --show-current)" = "feat/export-has-the-gift-note" ] && [ -z "$(git -C "$stw" status --porcelain)" ] && [ ! -e "$ST/.git/lem/tasks/export-has-the-gift-note/red.json" ] \
+  && [ "$(cat "$stw/export.sh" | head -1)" = 'echo "1042,for Ania"' ] && grep -q '"event": "task.red"' "$ST/.git/lem/events.jsonl"; then
+  pass "red runs each story's tests on the branch and, with only the test files laid over the base commit, on the base: both fail there, and the worktree is back on its branch and clean"
+else
+  fail "stories red: $out / $(git -C "$stw" status --porcelain)"
+fi
+# A test that passes on the base commit too does not test the change; a story with no test is refused; one that says why it has none is listed.
+# shellcheck disable=SC2016
+printf '%s\n' '3. The export still has one row for each order.' '   - test: `sh export.sh` in `tests/gift.sh`' >> "$plan.more"
+python_insert() { "$PY" -c 'import sys; p, more = sys.argv[1], sys.argv[2]; s = open(p).read(); open(p, "w").write(s.replace("\n## Tasks", open(more).read() + "\n## Tasks"))' "$plan" "$1"; }
+python_insert "$plan.more" && rm "$plan.more" && git -C "$stw" commit -q -am "docs: a third story"
+weak=$(stories red export-has-the-gift-note 2>&1 || true)
+code=$(status_of stories red export-has-the-gift-note)
+# shellcheck disable=SC2016
+sed -i.bak 's|^   - test: `sh export.sh` in `tests/gift.sh`$||' "$plan" && rm "$plan.bak" && git -C "$stw" commit -q -am "docs: the third story has no test"
+bare=$(stories red export-has-the-gift-note 2>&1 || true)
+printf '%s\n' '   - no test: the count of rows is the export of today, which no change here touches.' > "$plan.more"
+"$PY" -c 'import sys; p, more = sys.argv[1], sys.argv[2]; s = open(p).read(); open(p, "w").write(s.replace("for each order.\n", "for each order.\n" + open(more).read()))' "$plan" "$plan.more" && rm "$plan.more" && git -C "$stw" commit -q -am "docs: why"
+said=$(stories red export-has-the-gift-note | field '(d["ok"], d["without_a_test"])')
+echo stray > "$stw/stray.txt"
+dirty=$(stories red export-has-the-gift-note 2>&1 || true)
+rm "$stw/stray.txt"
+# shellcheck disable=SC2016
+if [ "$code" = 1 ] && grep -q 'story 3: `sh export.sh` passes on the base commit too, so it does not test the change' <<<"$weak" \
+  && grep -q "story 3 names no test: every story is held by a test at the end of a build" <<<"$bare" \
+  && [ "$said" = "(True, [{'story': 3, 'why': 'the count of rows is the export of today, which no change here touches.'}])" ] \
+  && grep -q "the worktree has changes nobody committed" <<<"$dirty" && [ "$(git -C "$stw" branch --show-current)" = "feat/export-has-the-gift-note" ]; then
+  pass "a test that passes on the base commit is refused by its story, a story with no test is refused, one that says why it has none is listed, and a worktree with changes is not moved"
+else
+  fail "stories red refusals: $weak / $bare / $said / $dirty"
+fi
+# A run that was cut off left the worktree on the base commit: the next run puts it back first.
+tip=$(git -C "$stw" rev-parse HEAD)
+printf '{"branch": "feat/export-has-the-gift-note", "tip": "%s"}\n' "$tip" > "$ST/.git/lem/tasks/export-has-the-gift-note/red.json"
+git -C "$stw" checkout -q --detach main && git -C "$stw" checkout -q "$tip" -- tests/gift.sh
+if [ "$(stories red export-has-the-gift-note | field 'd["ok"]')" = True ] && [ "$(git -C "$stw" rev-parse HEAD)" = "$tip" ] && [ "$(git -C "$stw" branch --show-current)" = "feat/export-has-the-gift-note" ]; then
+  pass "a red check that was cut off is put back by the next run, on the branch and at the tip it started from"
+else
+  fail "red after a cut-off run: $(git -C "$stw" status -sb | head -3)"
+fi
+# A plan whose stories do not have the form is refused with the line that is wrong.
+form() { printf '%s\n' "$@" > "$plan"; stories show export-has-the-gift-note 2>&1 || true; }
+no_section=$(form '# A plan' '' '## Tasks')
+no_kind=$(form '## Stories' '' '1. A story.')
+two=$(form '## Stories' '' 'Kind: correction, because it is one sentence.' '' '1. One.' '2. Two.')
+order=$(form '## Stories' '' 'Kind: feature, because of two things.' '' '1. One.' '3. Three.')
+git -C "$stw" checkout -q -- docs
+# shellcheck disable=SC2016
+if grep -q 'has no `## Stories` section' <<<"$no_section" && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with" <<<"$no_kind" \
+  && grep -q "a correction has one story, and this plan has 2: it is a feature" <<<"$two" && grep -q ":6: the stories are numbered 1, 2, 3 in order" <<<"$order" \
+  && [ "$(status_of stories show no-such-task)" = 1 ]; then
+  pass "a plan with no stories section, no kind, a correction of two stories or a gap in the numbers is refused with the place and the fix"
+else
+  fail "the form of the stories: $no_section / $no_kind / $two / $order"
+fi
+
 # Every project of Lem has personas: the machine check, run in a repository that has settings, says when
 # there are none or one, through the panel's own check, and that row never fails the machine.
 PPL=$WORK/people-repo
@@ -1537,6 +1626,19 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     fail "a broken meta.js shows no problem: $(grep -o '<title>[^<]*' "$WORK/board.dom")"
   fi
   board --repo "$OLD" --no-open >/dev/null
+  # The board of one task shows its stories, each with its tests and what the last check gave.
+  "$PY" -B "$BOARD" --repo "$ST" --task export-has-the-gift-note --no-open >/dev/null
+  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+    --virtual-time-budget=5000 --dump-dom "file://$ST/.git/lem/task-export-has-the-gift-note.html" > "$WORK/stories.dom" 2>/dev/null || true
+  if [ ! -s "$WORK/stories.dom" ]; then
+    printf 'SKIP the stories on the board: %s printed no page\n' "$chrome"
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories.dom" "Stories" "feature, because the export gets a new column and an empty cell." \
+    'A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' "sh tests/gift.sh" \
+    "passes on the branch, fails on the base commit" "held by its tests" "An order with no gift note has an empty cell"); then
+    pass "the board of one task shows its stories as the plan has them, each with its tests and the result of the last check"
+  else
+    fail "the stories on the board: missing $why"
+  fi
   # The backlog tab: drawn from backlog.js, and its one action types the item into Lem's session.
   "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
     --virtual-time-budget=5000 --dump-dom "file://$BKB/.git/lem/board.html#backlog" > "$WORK/backlog.dom" 2>/dev/null || true
