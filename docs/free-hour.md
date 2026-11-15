@@ -11,14 +11,19 @@ there is the file the next session reads, in every repository that uses Lem, the
 saved: before any test ran and before anybody read it. A branch alone does not help either,
 because a checkout of that branch in the main checkout swaps the running Lem for all of them.
 
-So the work happens in a worktree of the clone:
+So the work happens in a worktree of the clone, on a branch named after the run:
 
 ```bash
-python3 skills/lem/scripts/project.py worktree-dir free-hour-2026-11-15   # prints the path, in a folder git ignores
-git worktree add -b free-hour/2026-11-15 PATH main
+stamp=$(date -u +%Y-%m-%d-%H%M)
+where=$(python3 skills/lem/scripts/project.py worktree-dir "free-hour-$stamp")
+git worktree add -b "free-hour/$stamp" "$where" main
 ```
 
-Everything after that is inside `PATH`.
+The second line prints where the worktree goes and makes the folder that holds it,
+`.lem/worktrees/`, with an ignore file in it. That folder and that file are the one thing the
+hour writes in the main checkout: no session reads them, and git does not show them. An agent
+whose shell refuses a variable writes the three values out. Everything after that is inside the
+worktree.
 
 ## The rules of the hour
 
@@ -31,9 +36,11 @@ Everything after that is inside `PATH`.
   `AGENTS.md`.
 - **Commit on the branch, and stop there.** Never push. Never merge. Never check out another
   branch in the main checkout, and never commit, stash or reset there.
-- **The owner's rulings are not the hour's to change.** Neither is `agents/lem-builder.md`'s
-  model, or a default in the settings template: those are choices of the owner's. A doubt about
-  one is a line in the hour's own notes for him.
+- **The owner's rulings are not the hour's to change** (`AGENTS.md`, "The owner's rulings").
+- **This page adds its own limit**: the hour also leaves alone the designs `AGENTS.md` lists as
+  open to the owner, the builder agent's model and effort, and the defaults of the settings
+  template. Those are not rulings. They are choices a person should see being made, and the hour
+  runs with nobody there. A doubt about one is a line in the hour's own notes for the owner.
 - **Leave the worktree.** The session that merges removes it.
 
 ## What waits, and who merges
