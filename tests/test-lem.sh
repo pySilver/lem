@@ -480,6 +480,17 @@ if [ "$(field 'next(l["state"] for l in d["links"] if l["place"].endswith("lem-b
 else
   fail "setup with a file in the place of a folder: $out"
 fi
+# A link that cannot be removed: the others go, the report names the one that stays, and the exit is 1.
+chmod a-w "$SETHOME/.claude/agents"
+out=$(setup --remove 2>"$WORK/remove.err" || true)
+chmod u+w "$SETHOME/.claude/agents"
+if grep -q "1 link(s) could not be removed and are still there: $SETHOME/.claude/agents/lem-builder.md" "$WORK/remove.err" \
+  && [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['linked', 'removed']" ] && [ -L "$SETHOME/.claude/agents/lem-builder.md" ] && [ ! -e "$SETHOME/.claude/skills/lem" ]; then
+  pass "a link that cannot be removed is reported with the ones that went, and the exit is 1"
+else
+  fail "setup --remove with a link that stays: $out / $(cat "$WORK/remove.err")"
+fi
+setup >/dev/null
 touch "$SETHOME/.claude/skills/mine"
 out=$(setup --remove)
 if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/huddle" ]; then

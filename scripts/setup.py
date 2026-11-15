@@ -75,11 +75,20 @@ def main() -> None:
     in_the_way = [row for row in rows if row["state"] not in ("linked", "absent")]
 
     if args.remove:
+        stuck = []
         for row in rows:
             if row["state"] == "linked":
-                Path(row["place"]).unlink()
-                row["state"] = "removed"
+                try:
+                    Path(row["place"]).unlink()
+                    row["state"] = "removed"
+                except OSError as error:
+                    # go on with the others, so the report is whole: each place says what became of it
+                    row["state"] = "linked"
+                    row["error"] = str(error)
+                    stuck.append(row["place"])
         print(json.dumps({"links": rows}, indent=2))
+        if stuck:
+            sys.exit(f"setup.py: {len(stuck)} link(s) could not be removed and are still there: {'; '.join(stuck)}")
         return
     if in_the_way:
         # Nothing is linked when one place is taken: half a setup answers some commands from this
