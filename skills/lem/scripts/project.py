@@ -729,6 +729,12 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> 
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     if ask is not None and not ask.strip():
         raise SettingsError("--ask is the owner's words for this task, and they are empty")
+    if ask is not None or ticket is not None:
+        # This call opens a task. A slug whose task has ended keeps that task's files, its state and
+        # what was done to its ticket: a new task under it would start with another task's record.
+        ended = next((task["status"] for task in read_tasks(root) if task["slug"] == slug and task["status"] in ("landed", "dropped")), None)
+        if ended:
+            raise SettingsError(f"the task {slug!r} is {ended}; a new task takes a slug of its own: add a word to this one")
     if ticket is not None:
         if not TICKET.fullmatch(ticket):
             raise SettingsError(f"--ticket {ticket!r} is not a ticket's id, such as MBZ-12")
@@ -876,6 +882,20 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     print(json.dumps(append_event(root, event, slug, fields)))
 
 
+def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> list[str]:
+    """The steps a ticket still waits for, now that its task has ended. A session may be cut off
+    between a task's last state and the tracker, and this is how the next one sees it."""
+    if tracker is None:
+        return []
+    if status == "landed":
+        wanted = ["commented", *(["landed"] if tracker["moves"] == "lem" else [])]
+    elif status == "dropped":
+        wanted = ["dropped"]
+    else:
+        wanted = []
+    return [step for step in wanted if step not in steps]
+
+
 def read_tasks(root: Path) -> list[dict]:
     tasks = []
     parent = state_root(root) / "tasks"
@@ -892,6 +912,7 @@ def read_tasks(root: Path) -> list[dict]:
             "ticket": (directory / "ticket.txt").read_text().strip() or None if (directory / "ticket.txt").is_file() else None,
             # what Lem did to that ticket so far (TICKET_STEPS)
             "ticket_steps": (directory / "ticket-steps.txt").read_text().split() if (directory / "ticket-steps.txt").is_file() else [],
+            "ticket_owed": [],
             # null when no block was written through `project.py state`: nobody can tell who acts next
             "status": first["status"] if known else None,
             "since": first["since"] if known else None,
@@ -900,6 +921,12 @@ def read_tasks(root: Path) -> list[dict]:
             # him also after the session that offered them is gone
             "proposed": sorted(f.name for f in (directory / "proposed").iterdir() if f.is_file()) if (directory / "proposed").is_dir() else [],
         })
+    if any(task["ticket"] for task in tasks):
+        # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly
+        tracker = load(root)["tracker"]
+        for task in tasks:
+            if task["ticket"]:
+                task["ticket_owed"] = ticket_owed(task["status"], task["ticket_steps"], tracker)
     return tasks
 
 

@@ -238,9 +238,29 @@ if [ "$(field '(d["ticket"], d["steps"])' <<<"$out")" = "('MBZ-12', ['started'])
 else
   fail "ticket-step: $out / $(project --repo "$OLD" tasks | field '[(t["slug"], t["ticket_steps"]) for t in d]')"
 fi
-# written by hand in the script's own form, so that the event log the next checks count stays as it is
+# A task that ended still owes its ticket the steps that are not written down. The states are written
+# by hand in the script's own form, so that the event log the next checks count stays as it is.
+settings '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "MBZ"' 'moves = "lem"' 'started = "In Progress"' 'landed = "Done"'
+owed() { project --repo "$OLD" tasks | field 'next(t["ticket_owed"] for t in d if t["slug"] == "from-a-ticket")'; }
+printf '%s\n' '2026-01-01T00:00Z building: task 1 of 1' > "$OLD/.git/lem/tasks/from-a-ticket/state.md"
+building=$(owed)
+printf '%s\n' '2026-01-01T00:00Z landed: master a..b' > "$OLD/.git/lem/tasks/from-a-ticket/state.md"
+landed=$(owed)
 printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it' > "$OLD/.git/lem/tasks/from-a-ticket/state.md"
-if project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 >/dev/null; then pass "a dropped task gives its ticket back"; else fail "the ticket of a dropped task"; fi
+dropped=$(owed)
+if [ "$building" = "[]" ] && [ "$landed" = "['landed']" ] && [ "$dropped" = "['dropped']" ]; then
+  pass "a landed task owes its ticket the steps that are not written down, a dropped task its drop comment, and a task that still runs owes nothing"
+else
+  fail "ticket_owed: $building / $landed / $dropped"
+fi
+err=$(project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-12 2>&1 || true)
+if grep -q "is dropped; a new task takes a slug of its own" <<<"$err" && project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 >/dev/null \
+  && [ "$(project --repo "$OLD" tasks | field 'next(t["ticket_steps"] for t in d if t["slug"] == "the-same-ticket")')" = "[]" ]; then
+  pass "a dropped task gives its ticket back to a task with a slug of its own, which starts with no step written down"
+else
+  fail "the ticket of a dropped task: $err"
+fi
+settings '[branch]' 'base = "master"'
 rm -r "$OLD/.git/lem/tasks/from-a-ticket" "$OLD/.git/lem/tasks/the-same-ticket"
 mkdir "$dir/proposed" && touch "$dir/proposed/a-range-across-a-year.md"
 if [ "$(project --repo "$OLD" tasks | field '[t["proposed"] for t in d]')" = "[['a-range-across-a-year.md']]" ]; then

@@ -150,7 +150,8 @@ worktree, never committed and not removed with a worktree. It holds:
 
 - `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome. Lem writes
   them. `ticket.txt` holds the id of the tracker's ticket, for a task that came from one, and
-  `ticket-steps.txt` what Lem did to that ticket.
+  `ticket-steps.txt` what Lem did to that ticket; `project.py tasks` gives both, and
+  `ticket_owed`: what an ended task's ticket still waits for.
 - `brief.md`: the lead's brief. Lem writes it.
 - `state.md`: newest block first. Lem and the lead write it, and only through the script.
 - `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that
@@ -218,7 +219,8 @@ waits on, what landed today, how many review items are open and how many are due
 waits for the owner. That includes each backlog item a landing proposed and he has not answered
 (`proposed` in the output, with the file in the task directory's `proposed/`): offer it again,
 by what it says. A task whose status is null has a state nobody wrote through the script: say
-so. Open with the newest night report when one is newer than the last status shown. The status
+so. A task with a `ticket_owed` ended, and its ticket in the tracker does not say so yet: say
+that too. Open with the newest night report when one is newer than the last status shown. The status
 itself changes nothing.
 
 The owner's answer to a proposed item ends the offer, in whichever session it comes. An item he

@@ -46,7 +46,7 @@ this skill never picks a status by its type.
 
 The Linear server gives these tools, and your agent shows them under its own prefix for the
 server (the harness file says which, and whether a tool loads on its first use): `whoami`,
-`get_issue`, `get_team`, `list_issue_statuses`, `save_issue`, `save_comment`. When your session
+`get_issue`, `get_team`, `list_issue_statuses`, `list_comments`, `save_issue`, `save_comment`. When your session
 cannot call them, the server was added after the session started, or it is not signed in: say
 that, name `docs/linear.md`, and stop. Never fall back to a guess of the ticket from its URL.
 
@@ -104,8 +104,16 @@ it is never done again. After a write that the server took, write the step down 
 python3 SKILL_DIR/scripts/project.py ticket-step SLUG started|commented|landed|dropped
 ```
 
-`SKILL_DIR` is the `lem` skill's directory. So a comment is posted once also when a session was
-cut off after it, and a later session sees what a ticket is still owed.
+`SKILL_DIR` is the `lem` skill's directory. `ticket_owed` in the same output is what an ended
+task's ticket still waits for: a later session sees there what a session before it did not
+finish.
+
+A session can also be cut off between the two: the server took a comment, and the step was not
+written down yet. So each comment of Lem's ends with a line of its own, `lem: SLUG landed` or
+`lem: SLUG dropped`, and before a comment is posted, `list_comments` on the ticket is read for
+that line. When it is there, the comment was posted: write the step down and post nothing. A
+status change needs no such line, because a ticket that already has the status is left as it
+is.
 
 ## start
 
@@ -125,24 +133,26 @@ After the task's state is `landed` (`stages/land.md`). With `branch.land = "owne
 owner says that it landed, and not before.
 
 1. The workspace test, and the connection's `access` allows a write.
-2. Unless `commented` is written down: `save_comment` on the ticket, in plain words: what the
-   owner gets, the landed range and the base branch, the last line of each gate command, and the
-   review item's risk. A decision Lem took alone is written as Lem's ("decided without the
-   owner: ..."), never as his. Then write the step `commented` down.
+2. Unless `commented` is written down, or a comment on the ticket ends with `lem: SLUG landed`:
+   `save_comment` on the ticket, in plain words: what the owner gets, the landed range and the
+   base branch, the last line of each gate command, and the review item's risk. A decision Lem
+   took alone is written as Lem's ("decided without the owner: ..."), never as his. Its last
+   line is `lem: SLUG landed`. Then write the step `commented` down.
 3. With `moves = "lem"`, unless `landed` is written down: `save_issue` with the status the
    settings name as `landed`. Then write the step `landed` down.
 4. With `moves = "tracker"`: the comment only.
 
-A landed task's ticket is finished when its steps hold `commented`, and with `moves = "lem"`
-also `landed`. Until then the landing still owes the ticket this procedure.
+A landed task's ticket is finished when `ticket_owed` is empty. Until then the landing still
+owes the ticket this procedure, and each step of it skips what is done.
 
 ## drop
 
 When a task that came from a ticket is dropped (`stages/new.md`, "When a task is dropped").
 
 1. The workspace test, and the connection's `access` allows a write.
-2. Unless `dropped` is written down: `save_comment` that says the task was dropped, and why in
-   one line. Then write the step `dropped` down.
+2. Unless `dropped` is written down, or a comment on the ticket ends with `lem: SLUG dropped`:
+   `save_comment` that says the task was dropped, and why in one line. Its last line is
+   `lem: SLUG dropped`. Then write the step `dropped` down.
 3. No status change. Tell the owner which status the ticket has now: where a ticket goes when
    its work is not done is his call, and he moves it.
 

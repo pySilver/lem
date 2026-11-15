@@ -5,10 +5,10 @@ time: the gate's result is about one tip on one base, and two landings at once w
 tested without the other.
 
 Take the task that is in `landing`, when a session before you was cut off in the middle of one;
-otherwise the `ready` task with the oldest state time. First, though, a `landed` task whose
-ticket is not finished gets what it is owed: `project.py tasks` shows its `ticket` and its
-`ticket_steps`, and the tracker's "land" says which steps finish a ticket and does the ones that
-are missing. A session can be cut off between the landing and the ticket.
+otherwise the `ready` task with the oldest state time. First, though, a task that ended and
+whose ticket still waits gets what it is owed: `project.py tasks` shows it as `ticket_owed`, and
+the tracker does the steps that are missing (its "land" for a `landed` task, its "drop" for a
+`dropped` one). A session can be cut off between a task's last state and its ticket.
 
 ```bash
 python3 SKILL_DIR/scripts/land.py STEP SLUG

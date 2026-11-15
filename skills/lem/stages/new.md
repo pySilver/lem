@@ -18,7 +18,9 @@ a lead is started, and what to do each time a lead stops.
    (`feat`, `fix`, `chore`, `docs`), unless the project's `AGENTS.md` gives its own scheme. Take
    the type from the ask alone: `fix` when the ask says that something is wrong today, `feat`
    when it asks for something that is not there, and `feat` when you cannot tell. The branch's
-   type binds nobody; each commit of the lead carries its own. For a ticket, the branch is the
+   type binds nobody; each commit of the lead carries its own. A slug that a `landed` or a
+   `dropped` task has is taken, since that task's files stay under it: add a word, as
+   `task-dir` says when it refuses. For a ticket, the branch is the
    name the tracker gives for it, when it gives one: the tracker and its automation find the
    work by that name.
 2. **The task directory.** `project.py task-dir SLUG --ask "the owner's words"` keeps the ask as
@@ -147,6 +149,7 @@ Act on the status:
   it reads the state and the report and goes on. After a second such stop, write `blocked` and
   tell the owner what the reply or the session's screen shows.
 
-After any of these, look at the queue. Take the `queued` tasks in the order of their state's
+After any of these, look at what is owed and at the queue. A task that ended with a
+`ticket_owed` in `project.py tasks` gets those steps from the tracker now. Take the `queued` tasks in the order of their state's
 time, leave out each one whose `after:` task is neither `landed` nor `dropped`, and start a lead
 for the first that is left. Step 1 of "Start a lead" decides whether there is a place.
