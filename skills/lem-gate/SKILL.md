@@ -10,12 +10,13 @@ description: >
   checks the card's framing; after the user answers, Jev decides whether the
   answer is a durable ruling, which is then written down. The judge starts in
   shadow mode: it logs its verdict beside the user's answer and decides
-  nothing until the user says it may. Use whenever peer-planning make or exec,
-  or any session, is about to ask the user to choose, rule or approve a
+  nothing until the user says it may. Use whenever a stage of Lem, or any
+  session, is about to ask the user to choose, rule or approve a
   decision (a design fork, a disagreement between agents, a size, a scope
   call), and when the user says "gate", "should this reach me" or "has this
-  been ruled". Not for a typed value (a name, a path) or a bare go-ahead on a
-  step just described.
+  been ruled". Not for a typed value (a name, a path), a bare go-ahead on a
+  step just described, or a question of an interview, which asks what the
+  user wants.
 ---
 
 # The question gate
@@ -44,9 +45,10 @@ verdict before they answer, or the answer stops being an independent check.
 ### 1. Write the question down
 
 One file, `QUESTION_FILE`: the question in one sentence, the options, the context an outsider
-needs, and where it came from (the plan, task and exchange). Inside a peer-planning run it goes in
-`RUN_DIR/gate/<NNN>-<slug>.md`; otherwise in `.peer-planning/gate/` at the checkout root. Pick an
-`ID`: the file's stem.
+needs, and where it came from (the plan, task and exchange). It goes in the folder
+`python3 ${CLAUDE_SKILL_DIR}/scripts/gate-log.py dir` makes and prints, as `<NNN>-<slug>.md`, and
+its card goes beside it. That folder is in the git directory, so a question leaves no file in the
+working tree. Pick an `ID`: the file's stem.
 
 ### 2. The judge
 
@@ -105,5 +107,10 @@ sorting aid, and a user's "that was only for this task" wins.
 ## What the gate does not do
 
 It never answers intent or taste for the user, never hides a question it judged **held**, and in
-shadow mode never skips one. It does not argue a ruling: a recorded ruling is reopened only by the
+shadow mode never skips one. It does not run on a question of an interview (an onboarding, a
+`lem-interview-me` round): such a question asks what the user wants, so no ruling, probe or cheap
+pick can answer it, and its answer goes where the interview's stage puts it, not into a ruling
+file. On the first onboarding through Lem (2026-11-15) five interview questions went through
+the gate, and 11m 54s passed between the owner's first answer and the second question (that
+session's status line, as another session read it). It does not argue a ruling: a recorded ruling is reopened only by the
 user.

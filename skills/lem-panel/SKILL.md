@@ -14,7 +14,7 @@ description: >
   moderator only. Use before any question
   whose options each cost something reaches the user, about users or
   technical (a design fork, a size, a default, a scope, a trade-off between
-  consistency and cost), whenever a peer-planning run, a plan interview or a
+  consistency and cost), whenever a stage of Lem or a
   question gate is about to ask one, and when the user says "panel", "run the
   personas", "ask the personas", "what would users say" or "what do other
   teams do".
@@ -97,11 +97,10 @@ they are, what they want, what they notice, what they never see.
 
 ## Steps
 
-The panel's files live in one directory, `PANEL_DIR`: inside a peer-planning run,
-`RUN_DIR/panels/<NNN>-<slug>/`, removed with the run's records; otherwise the folder
+The panel's files live in one directory, `PANEL_DIR`: the folder
 `python3 ${CLAUDE_SKILL_DIR}/scripts/cast.py run-dir <slug>` makes and prints,
 `runs/<YYYY-MM-DD>-<slug>/` beside the personas folder, which git ignores without any
-rule in the project. Both are inside Codex's workspace, so Codex can write the Sol answers there.
+rule in the project. It is inside Codex's workspace, so Codex can write the Sol answers there.
 
 ### 1. Evidence first
 
@@ -164,7 +163,7 @@ wake you.
   reply verbatim to `PANEL_DIR/answers/<persona>.sol.md`, and replies with the paths. Codex caps
   the agents open at once (four including itself on Codex 0.167, so three persona slots), so the
   message asks for batches no larger than its free slots. The
-  subagents' replies pass through Codex's own context; in a peer-planning run that is the
+  subagents' replies pass through Codex's own context; in a careful task that is the
   reviewer's, so a panel waits for the next clear boundary when it can, and otherwise the review
   that follows is read knowing Codex saw the answers.
 

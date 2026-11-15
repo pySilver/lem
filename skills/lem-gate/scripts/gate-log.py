@@ -4,6 +4,7 @@
 Usage: gate-log.py ask --id ID --question TEXT --verdict VERDICT --cite TEXT [--why TEXT] [--repo DIR]
        gate-log.py answer --id ID --answer TEXT [--ruling SLUG] [--repo DIR]
        gate-log.py report [--json] [--repo DIR]
+       gate-log.py dir [--repo DIR]
 
 `ask` records the judge's verdict when a question is about to reach the user; `answer` records what
 the user said, and the ruling file it produced when the durable check said so. `report` lists every
@@ -17,6 +18,9 @@ why), held (only the user can answer).
 The log is the repository's git directory, decide-gate.jsonl: never committed, shared by every
 worktree, and kept when a worktree and its run records are removed, so a week of comparisons
 outlives the plans that produced them.
+
+`dir` makes the folder for the question files and their cards and prints its path: `questions/`
+in Lem's folder of the git directory, so a question leaves no file in the working tree.
 """
 
 # The macOS system python3 (3.9) may run this; it needs this for `str | None`.
@@ -92,8 +96,8 @@ def report(entries: list[dict], as_json: bool) -> None:
 
 
 def main(argv: list[str]) -> None:
-    if not argv or argv[0] not in {"ask", "answer", "report"}:
-        fail("usage: gate-log.py ask|answer|report ...")
+    if not argv or argv[0] not in {"ask", "answer", "report", "dir"}:
+        fail("usage: gate-log.py ask|answer|report|dir ...")
     command, rest = argv[0], argv[1:]
     repo = Path.cwd()
     if "--repo" in rest:
@@ -101,6 +105,12 @@ def main(argv: list[str]) -> None:
         repo = Path(rest[i + 1])
         del rest[i : i + 2]
     path = log_path(repo)
+    if command == "dir":
+        options(rest, set())
+        questions = path.parent / "lem" / "questions"
+        questions.mkdir(parents=True, exist_ok=True)
+        print(questions)
+        return
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if command == "ask":
         opts = options(rest, {"--id", "--question", "--verdict", "--cite", "--why"})

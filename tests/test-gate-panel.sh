@@ -37,6 +37,16 @@ if grep -q 'owner: only the end time' <<<"$out" && grep -q 'owner: (not answered
 else
   fail "the report puts each verdict beside its answer: $out"
 fi
+dir=$(gate dir)
+if [ "$dir" = "$WORK/.git/lem/questions" ] && [ -d "$dir" ] && [ "$(gate dir)" = "$dir" ] && [ -z "$(git -C "$WORK" status --porcelain --untracked-files=all)" ]; then
+  pass "the folder for the question files is in the git directory, and the work tree stays clean"
+else
+  fail "the folder for the question files: $dir"
+fi
+git -C "$WORK" -c user.name=t -c user.email=t@t commit -q --allow-empty -m start
+git -C "$WORK" worktree add -q "$WORK-wt" -b side
+if [ "$("$PY" -B "$LOG" dir --repo "$WORK-wt")" = "$dir" ]; then pass "a worktree gets the same folder as its main checkout"; else fail "the question folder from a worktree"; fi
+git -C "$WORK" worktree remove --force "$WORK-wt"
 if [ -d "$(dirname "$LOG")/__pycache__" ]; then fail "the script left no __pycache__"; else pass "the script left no __pycache__"; fi
 
 CAST=$PWD/skills/lem-panel/scripts/cast.py
