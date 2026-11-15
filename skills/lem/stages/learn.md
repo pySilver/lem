@@ -19,15 +19,18 @@ owner may correct Lem or, in a task's session, its lead; whoever was corrected d
      (`project.py path styleguide`);
    - what a person of the project wants or notices: that persona's file
      (`project.py path personas`);
-   - what a review should catch or stop raising: the lens or the rejected-findings list
-     (`project.py path review`);
+   - what a review should catch or stop raising: the lens, the review profile or the
+     rejected-findings list (`project.py path review`). That folder is the review tool's own:
+     Lem never moves, links or reshapes it, and a lesson still writes a line into a file there;
    - a decision about the product that outlives the task: a ruling (`project.py path rulings`);
    - a command shape a pattern can match: a hook or a commit check that refuses it and names the
      replacement;
    - none of these: one line in the project's lessons file (`project.py path lessons`), which the
      plan and build stages read.
-3. **When the owner asked for the change, make it** and say what changed in one to three lines.
-   When you found the lesson yourself, show the edit and make it on the owner's "apply".
+3. **When the owner asked for the change, make it** and say, for each file you changed, its path,
+   what changed and why, in one to three lines a file. When you found the lesson yourself, show
+   the edit with the same three things and make it on the owner's "apply". No file a lesson
+   changes goes unnamed, whichever folder holds it.
 4. A lead commits a project file on the task's branch with the work. Lem has no task's branch:
    there the edit of a project file is a task of its own (`/lem new`), so it lands through the
    gate like any change. Skill files are committed in their clone and never pushed from here.
@@ -53,7 +56,8 @@ for what came back:
   it, with the turns that show the cost.
 
 The owner sees only moves and removals, on one page, each with the case in their own words.
-First-time lessons are recorded without a page.
+First-time lessons are recorded without a page. The retro's closing report still names every
+file it changed, a first-time record included, with what changed and why.
 
 ## The correction queue
 

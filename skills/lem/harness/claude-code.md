@@ -12,7 +12,8 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
 - the review tool: `revmux:revmux`. It reads the project's lenses, prompts and profile from
   `./.revmux` at the root of the checkout and from no other path, and `revmux init` writes its
   starter set there (config, lenses, prompts). That folder is revmux's own, so it stays there in
-  every project, and the settings' `review` path names it; Lem reads it and never moves it.
+  every project, and the settings' `review` path names it; Lem never moves or links it, and
+  the learn stage writes a lesson into a lens, the profile or the rejected findings there.
   Checked on revmux v0.2.7, 2026-11-15, with `revmux config`: it reports `./.revmux` as its
   `project_dir`. The flag `--config-dir PATH` does not name a project folder: it puts PATH in
   the place of the user's own config folder, and no project folder is reported then.
