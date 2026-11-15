@@ -84,12 +84,27 @@ both=$(project --repo "$HALF" init --base master 2>&1 || true)
 code="$(status_of project --repo "$HALF" init --base master) $(status_of project --repo "$HALF" existing)"
 rm "$HALF/.lem/styleguide/other.md"
 if grep -q "this repository already keeps worktrees in .claude/worktrees; pass --existing" <<<"$err" && [ "$code" = "1 1" ] && [ ! -e "$HALF/.lem/project.toml" ] \
-  && grep -q ".claude/rules and .lem/styleguide both hold rule files, and the style guide is one folder; move the files of one into the other" <<<"$both" \
+  && grep -q ".claude/rules and .lem/styleguide each hold rule files the other lacks, and the style guide is one folder; move the files of one into the other" <<<"$both" \
   && project --repo "$HALF" init --base master >/dev/null && [ "$(project --repo "$HALF" path styleguide)" = "$HALF/.claude/rules" ] \
   && [ "$(project --repo "$HALF" rules app/x.py | field '[r["file"] for r in d["rules"]]')" = "['$HALF/.claude/rules/python.md']" ]; then
-  pass "an empty style guide folder of the skill's own does not hide the rules an agent loads, rule files in both places are refused with the fix, and a worktrees folder of an older tool still asks for the choice"
+  pass "an empty style guide folder of the skill's own does not hide the rules an agent loads, two folders that each hold a rule the other lacks are refused with the fix, and a worktrees folder of an older tool still asks for the choice"
 else
   fail "init over a half setup: $err / $both / $code"
+fi
+# One set of rules by two paths is one style guide: a rules folder that is a link, and rule files linked between two folders.
+ONE=$WORK/one-guide
+git init -q -b master "$ONE"
+mkdir -p "$ONE/.lem/styleguide" "$ONE/.claude" && echo 'Type every function.' > "$ONE/.lem/styleguide/python.md" && ln -s ../.lem/styleguide "$ONE/.claude/rules"
+linked=$(project --repo "$ONE" existing | field 'd.get("styleguide")')
+rm "$ONE/.claude/rules" && mkdir "$ONE/.claude/rules" && ln -s ../../.lem/styleguide/python.md "$ONE/.claude/rules/python.md" && echo 'Never dig up a deleted document.' > "$ONE/.claude/rules/conduct.md"
+superset=$(project --repo "$ONE" existing | field 'd.get("styleguide")')
+rm "$ONE/.claude/rules/conduct.md" && echo 'Version every route.' > "$ONE/.lem/styleguide/api.md"
+subset=$(project --repo "$ONE" existing | field 'd.get("styleguide")')
+if [ "$linked / $superset / $subset" = ".claude/rules / .claude/rules / None" ] && project --repo "$ONE" init --base master >/dev/null \
+  && [ "$(project --repo "$ONE" path styleguide)" = "$ONE/.lem/styleguide" ]; then
+  pass "two paths to one set of rule files are one style guide: the agent's folder when it holds every file, the skill's own when only that one does"
+else
+  fail "one set of rules by two paths: $linked / $superset / $subset"
 fi
 project --repo "$OLD" init --base master --existing link >/dev/null
 out=$(project --repo "$OLD" show)
@@ -1062,7 +1077,8 @@ ln -s src "$RUL/alias" && mkdir -p "$RUL/src/sub" && ln -s src/sub "$RUL/deep"
 if [ "$(project --repo "$RUL" rules --range HEAD~1..HEAD | field '(d["files"], [r["file"].rsplit("/", 1)[1][:2] for r in d["rules"]])')" = "(['lib/x.ts', 'src/x.ts'], ['00', '01', '10', '11', '14'])" ] \
   && [ "$(picked alias/y.ts)" = "$(picked "$RUL/src/y.ts")" ] && [ "$(picked alias/y.ts)" = "00 01 10 11 14" ] && [ "$(project --repo "$RUL" rules alias/y.ts | field 'd["files"]')" = "['src/y.ts']" ] \
   && [ "$(project --repo "$RUL" rules deep/../y.ts "$RUL/deep/../y.ts" lib/../src/y.ts | field 'd["files"]')" = "['src/y.ts']" ] \
-  && [ "$(status_of project --repo "$RUL" rules ../elsewhere.py)" = 1 ] && [ "$(status_of project --repo "$RUL" rules src/..)" = 1 ]; then
+  && [ "$(status_of project --repo "$RUL" rules ../elsewhere.py)" = 1 ] && [ "$(status_of project --repo "$RUL" rules src/..)" = 1 ] \
+  && [ "$(status_of project --repo "$RUL" rules .)" = 1 ] && [ "$(status_of project --repo "$RUL" rules "$RUL")" = 1 ] && [ "$(status_of project --repo "$RUL" rules src/sub/../..)" = 1 ]; then
   pass "a renamed file brings the rules of its old place and of its new one, a path through a linked folder or with two dots is the same file, and one that leaves the repository is refused"
 else
   fail "the picker with a rename and other path forms: $(project --repo "$RUL" rules --range HEAD~1..HEAD) / $(picked alias/y.ts)"

@@ -489,14 +489,20 @@ def older_folders(root: Path) -> dict[str, str]:
         if older and (root / older).exists() and not (root / default).exists()
     }
     # The rules an agent loads by itself are the style guide wherever they exist. An empty folder
-    # of the skill's own layout beside them (a setup that stopped half way) does not hide them, and
-    # rule files in both places are two style guides, which no script picks between.
+    # of the skill's own layout beside them (a setup that stopped half way) does not hide them.
+    # Files are compared by where they really are: one folder linked from the other, or rule
+    # files linked between the two, is one set of rules. The folder that holds every file is the
+    # style guide, the agent's own when both do. Only two folders that each hold a file the other
+    # lacks are two style guides, which no script picks between.
     own, rules = PATHS["styleguide"]
+    found.pop("styleguide", None)
     if (root / rules).exists():
-        if rule_files(root / own) and rule_files(root / rules):
-            raise SettingsError(f"{rules} and {own} both hold rule files, and the style guide is one folder; move the files of one into the other, then run this again")
-        if not rule_files(root / own):
+        ours = {os.path.realpath(file) for file in rule_files(root / own)}
+        theirs = {os.path.realpath(file) for file in rule_files(root / rules)}
+        if ours <= theirs:
             found["styleguide"] = rules
+        elif not theirs <= ours:
+            raise SettingsError(f"{rules} and {own} each hold rule files the other lacks, and the style guide is one folder; move the files of one into the other, then run this again")
     return found
 
 
@@ -704,10 +710,10 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
         # system reads it, a link first and `..` after it: `alias/../x` is beside what `alias`
         # points at. The last name is kept as written, since the file may be a link or be gone.
         full = root / file
-        if full.name in ("", ".", ".."):
+        if full == root or full.name in ("", ".", ".."):
             raise SettingsError(f"{file} does not name a file; name the files a change touches")
         full = Path(os.path.realpath(full.parent)) / full.name
-        if not full.is_relative_to(root):
+        if not full.is_relative_to(root) or full == root:
             raise SettingsError(f"{file} is not inside {root}; name files of this repository")
         changed.append(full.relative_to(root).as_posix())
     if commits:
