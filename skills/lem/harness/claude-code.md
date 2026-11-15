@@ -93,10 +93,13 @@ prompt.
    flag that widens the session's permissions: it runs in the permission mode the owner's
    settings give a new session.
 3. **Confirm it runs**: the command prints the new session's id. In `agtermctl tree --json` the
-   node with that id has `parent` set to this session and a `foreground` that ends in the
-   `claude` line. A node that is gone at once means the command failed; open it again with
-   `--wait` and read its screen with `agtermctl session text --target ID`. Write the id in the
-   task's state.
+   node with that id has a `foreground` that ends in the `claude` line. Its `parent` is this
+   session, or, when this session is itself a companion, this session's own parent: agterm makes
+   a companion's companion its sibling, so the task's session then sits beside Lem's and not
+   under it. That is a good open, and the board goes to the same place. Only a node that is gone
+   at once means the command failed; then open it again with `--wait` and read its screen with
+   `agtermctl session text --target ID`. Never open a second session for a task whose first one
+   runs. Write the id in the task's state.
 4. **Send it a message** later (the owner's answers, a changed base):
    `agtermctl msg send --stdin --to ID:left --socket "$AGTERM_SOCKET" < FILE`. The mailbox hook of
    the mailbox chat hands it to the agent there at the end of its turn. When the session is gone,
@@ -109,8 +112,12 @@ task's state first, so it goes on or stops.
 
 Checked on 2026-11-14 with agterm 0.41.1 in its rerun restore mode: a companion session opened
 with this line through a fish login shell, Claude Code ran its prompt there, and `foreground` and
-`parent` read back from the tree. Not run yet: a lead that took a whole task this way, a message
-sent to a lead (step 4), and a relaunch of agterm with a lead's session open.
+`parent` read back from the tree. Checked on 2026-11-15 in a scratch repository: Lem, itself in a
+companion session, opened a task's session this way; the session came up as its sibling, its
+lead read the brief, opened the reviewer's pane, stopped at Codex's trust prompt, wrote the
+state and told Lem, and the mail woke Lem. Not run yet: a session lead that built and reported
+a whole task, a message sent to a lead (step 4), and a relaunch of agterm with a lead's session
+open.
 
 ## tell-coordinator
 
@@ -126,9 +133,9 @@ Mail is kept in memory only, so a pane that was restarted has lost it. That cost
 time: the state block is on disk, and `/lem status` shows it.
 
 Checked on 2026-11-14: this command, run by Claude Code in a companion session, put its line in
-the mailbox of the pane that opened the session. Checked on 2026-11-15: mail sent to the pane of
-an idle Claude Code session woke it, and it acted on the mail. Not run yet: both in one task,
-with a session as the lead.
+the mailbox of the pane that opened the session. Checked on 2026-11-15: a session lead sent this
+line when it stopped, the mail woke the idle Lem, and Lem read the task's state and told the
+owner.
 
 ## second-opinion
 

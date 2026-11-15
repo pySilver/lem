@@ -49,7 +49,7 @@ a lead is started, and what to do each time a lead stops.
    find an overlap the asks do not show; the landing line settles that one (`stages/land.md`,
    step 1).
 6. **Start its lead**, as the next section says. Open the board when this session has not
-   opened it yet (`SKILL.md`, Status); it stays under your session.
+   opened it yet (`SKILL.md`, Status); it stays in the sidebar beside your session.
 7. **Tell the owner**, in a few lines: the task's plain name, the outcome and the "done when"
    lines as you wrote them, each decision you took for him (what you put out of scope), and that
    the report comes after the landing. Then go back to the owner's next message. Do not wait for
@@ -114,6 +114,9 @@ Act on the status:
   held decisions of one task in one go. Write each answer in the task's `decisions.md`, then
   start a lead. The `lem-panel` skill asks for what users would see under each option; that is in
   the report, and what is missing there the lead adds, not you.
+  A task is also `held` when a step is the owner's to do and no decision at all: a trust prompt
+  of the reviewer's agent, a command an agent is refused. Tell the owner that step as it is, with
+  where he does it; it needs no gate and no panel. The lead goes on when the step is done.
 - **`blocked`**: the report says what the lead could not settle and what it tried. A missing
   tool, a base branch that does not build, a conflict with another task: settle it, then start a
   lead. An approach that failed twice goes to a fresh builder with a different approach, as

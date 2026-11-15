@@ -190,6 +190,13 @@ else
 fi
 if [ -e "$OLD/.git/lem/tasks/empty-ask" ]; then fail "a refused task-dir made its directory"; fi
 rm -r "$titled" "$plain"
+mkdir "$dir/proposed" && touch "$dir/proposed/a-range-across-a-year.md"
+if [ "$(project --repo "$OLD" tasks | field '[t["proposed"] for t in d]')" = "[['a-range-across-a-year.md']]" ]; then
+  pass "tasks names the backlog items a landing proposed and nobody answered yet"
+else
+  fail "proposed items in tasks: $(project --repo "$OLD" tasks)"
+fi
+rm -r "$dir/proposed"
 other=$(project --repo "$OLD" task-dir written-by-hand)
 printf '%s\n' '2026-01-02 build: task 2 of 3 running' > "$other/state.md"
 out=$(project --repo "$OLD" tasks)

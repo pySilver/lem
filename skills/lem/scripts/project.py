@@ -803,6 +803,9 @@ def read_tasks(root: Path) -> list[dict]:
             "status": first["status"] if known else None,
             "since": first["since"] if known else None,
             "state": block,
+            # backlog items a closing pass proposed and the owner has not answered: they wait for
+            # him also after the session that offered them is gone
+            "proposed": sorted(f.name for f in (directory / "proposed").iterdir() if f.is_file()) if (directory / "proposed").is_dir() else [],
         })
     return tasks
 

@@ -83,8 +83,11 @@ one finds what the run before it finished.
    the gate's last lines, the decisions taken without them, what was not verified, and the review
    item's risk. Give paths relative to the repository's root. Offer each proposed backlog item
    by its first line, as the last lines of the report: it is a plain yes or no for each, so it
-   stays in the terminal. The ones the owner takes go to the `lem-backlog` skill, which files
-   them, and the others are dropped with the task's state. A `high` item is reviewed today:
+   stays in the terminal. Name each item by what it says, so that "file it" can mean one thing
+   only; when the owner's answer could mean two things, ask which. An item the owner takes goes
+   to the `lem-backlog` skill, which files it, and its file leaves `proposed/`. An item he
+   declines is removed from `proposed/`. An item he has not answered stays there: it is his to
+   answer on another day, in another session, and the status names it. A `high` item is reviewed today:
    `stages/review.md`, rule 1. A `normal` item waits in the queue for `/lem review`; say in the
    report that it waits, and do not start its review by yourself.
 7. **`clean`** removes the task's worktree and its branch, after it has checked that the base

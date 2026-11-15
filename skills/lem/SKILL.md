@@ -34,8 +34,8 @@ task. When it fills with one task's code, it loses the others.
 - **a builder**, for a plain task: one fresh agent that writes the plan. A plan of one task it
   builds itself. For a plan of more tasks it starts one fresh builder for each task, reads their
   reports and writes no code;
-- **a session**, for a careful task: an agent in a session of its own under Lem's, with the
-  reviewer in its other pane. It starts the builders the same way, and each task of its plan is
+- **a session**, for a careful task: an agent in a session of its own, with the reviewer in its
+  other pane. It starts the builders the same way, and each task of its plan is
   reviewed before the next.
 
 Each task of a plan gets a builder with a context of its own, whoever leads. Every task starts
@@ -203,7 +203,8 @@ python3 SKILL_DIR/scripts/board.py             # the board of all tasks
 python3 SKILL_DIR/scripts/board.py --task SLUG # the board of one task
 ```
 
-The board opens as a page under Lem's session and stays there: each task in the lane of who acts
+The board opens as a page beside the sessions it shows, under Lem's session or under the top of
+its group, and stays there: each task in the lane of who acts
 on it, with its lead, its newest commit, its gate result and its review item; the review queue;
 and where each task's time went. A task's own board adds its state blocks and each gate command.
 It reads the event log by itself every two seconds, so open it once, and again after agterm was
@@ -213,6 +214,8 @@ Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists e
 directory with the first line of its `task.md`, its status and the newest block of its
 `state.md`. Say, in plain names and never in task codes: what builds and what each other task
 waits on, what landed today, how many review items are open and how many are due today, and what
-waits for the owner. A task whose status is null has a state nobody wrote through the script: say
+waits for the owner. That includes each backlog item a landing proposed and he has not answered
+(`proposed` in the output, with the file in the task directory's `proposed/`): offer it again,
+by what it says. A task whose status is null has a state nobody wrote through the script: say
 so. Open with the newest night report when one is newer than the last status shown. Change
 nothing.

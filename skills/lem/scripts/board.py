@@ -13,8 +13,9 @@ file:// page cannot read a file with fetch and it can load a script, so each of 
 The page is copied into the state folder at every open, so an older checkout gets the current one.
 A copy named `task-SLUG.html` opens on that task.
 
-It opens as a page companion of the session that asks, the top one of its group: it sits indented
-under Lem's session, closes with it, and covers no pane. A board that is already there is
+It opens as a page companion of the top session of the asking session's group: it sits indented
+under Lem's session, or beside it when Lem's session is itself a companion, closes with that top
+session, and covers no pane. A board that is already there is
 reloaded. agterm never saves a page companion, so after a relaunch of agterm the board is gone
 until this runs again.
 
