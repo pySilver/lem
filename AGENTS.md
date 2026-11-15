@@ -116,6 +116,9 @@ real task, so say in the commit which task showed the need.
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both.
 - `skills/lem/templates/`: the shapes onboarding fills.
 - `skills/lem/prompts/`: the standing briefs of a task's lead and of the reviewer.
+- `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `huddle`
+  command from this clone into a home directory, never over something else, and runs the machine
+  check.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the
   builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
 - `skills/lem/references/`: the catalog of published style guides.

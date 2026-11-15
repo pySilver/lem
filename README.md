@@ -278,16 +278,19 @@ Optional, each with a fallback that the check names: plannotator, Codex, jev and
 
 ## Setup in Claude Code
 
-Do these steps from a clone. The links make each change in the clone active in the next session.
+Run the setup script from a clone:
 
 ```bash
-for d in "$PWD"/skills/*/; do ln -s "${d%/}" ~/.claude/skills/"$(basename "$d")"; done
-mkdir -p ~/.claude/agents && ln -s "$PWD/agents/lem-builder.md" ~/.claude/agents/lem-builder.md
-ln -s "$PWD/skills/lem-huddle/bin/huddle" ~/.local/bin/huddle
-python3 skills/lem/scripts/doctor.py
+python3 scripts/setup.py           # make the links, then do the check of the computer
+python3 scripts/setup.py --check   # change nothing; show the state of each link
+python3 scripts/setup.py --remove  # remove the links again
 ```
 
-- The last line is the check of the computer.
+- The script links each skill into `~/.claude/skills/`, the builder agent into
+  `~/.claude/agents/`, and the `huddle` command into `~/.local/bin/`.
+- They are links. Thus each change in the clone is active in the next session.
+- The script does not replace a file or a folder that is already there. It names the place and
+  stops.
 - A project that wants a different builder keeps a file with the same name in its own
   `.claude/agents/`.
 - The agent that runs `/lem` coordinates. The reviewer is Codex or a second Claude, as

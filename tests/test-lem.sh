@@ -418,6 +418,42 @@ if "$PY" -c 'import sys; t = open(sys.argv[1]).read().split("---"); f = dict(l.s
 else
   fail "agents/lem-builder.md frontmatter"
 fi
+# The setup script: links from the clone into a home, never over something else, and the machine check after them.
+SETUP=$PWD/scripts/setup.py
+SETHOME=$WORK/sethome
+mkdir -p "$SETHOME/.agents/skills/agterm" && touch "$SETHOME/.agents/skills/agterm/SKILL.md"
+setup() { env -i PATH="$BIN" HOME="$SETHOME" "$PY" -B "$SETUP" --home "$SETHOME" "$@"; }
+out=$(setup --check 2>/dev/null || true)
+if [ "$(status_of setup --check)" = 1 ] && [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['absent']" ] && [ ! -e "$SETHOME/.claude" ]; then
+  pass "setup --check reports every link as absent, exits 1 and makes nothing"
+else
+  fail "setup --check on an empty home: $out"
+fi
+mkdir -p "$SETHOME/.claude/skills/lem-webrev"
+err=$(setup 2>&1 >/dev/null || true)
+if [ "$(status_of setup)" = 1 ] && grep -q "1 place(s) hold something else, and nothing was linked" <<<"$err" && [ ! -e "$SETHOME/.claude/skills/lem" ]; then
+  pass "one place that holds something else stops the setup before any link is made"
+else
+  fail "setup over a taken place: $err"
+fi
+rmdir "$SETHOME/.claude/skills/lem-webrev" && ln -s "$WORK" "$SETHOME/.claude/skills/lem-webrev"
+if [ "$(status_of setup)" = 1 ] && [ ! -e "$SETHOME/.claude/skills/lem" ]; then pass "a link that points somewhere else is in the way too"; else fail "setup over another link"; fi
+rm "$SETHOME/.claude/skills/lem-webrev"
+out=$(setup)
+if [ "$(field '(d["linked"], d["machine_ok"], len(d["links"]), [a["name"] for a in d["absent"] if a["need"] == "required"])' <<<"$out")" = "(True, True, $(( $(find "$PWD/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | grep -c '') + 2 )), [])" ] \
+  && [ "$(readlink "$SETHOME/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$SETHOME/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
+  && [ -x "$SETHOME/.local/bin/huddle" ] && [ "$(status_of setup)" = 0 ] && [ "$(status_of setup --check)" = 0 ]; then
+  pass "setup links every skill, the builder agent and the huddle command, the machine check then passes, and a second run changes nothing"
+else
+  fail "setup: $out"
+fi
+touch "$SETHOME/.claude/skills/mine"
+out=$(setup --remove)
+if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/huddle" ]; then
+  pass "setup --remove takes away the links it made and nothing else"
+else
+  fail "setup --remove: $out"
+fi
 printf 'CRONN_PORT=1\n' > "$FAKEHOME/.config/cronn/cronn.env"
 fake cronn "cronn"
 out=$(doctor)
