@@ -264,7 +264,9 @@ def cmd_red(task: Task) -> dict:
         except OSError as error:
             raise StoriesError("another check of this task's stories runs now; wait for it to end") from error
         places = {"branch": task.worktree.parent / f"{task.slug}.red-tip", "base": task.worktree.parent / f"{task.slug}.red-base"}
-        for place in places.values():
+        # every worktree of this check for this task, whatever its last word: a slug holds no dot,
+        # so the pattern is this task's alone
+        for place in sorted({*places.values(), *task.worktree.parent.glob(f"{task.slug}.red-*")}):
             stuck = remove(task, place)
             if stuck:
                 raise StoriesError(stuck)
@@ -293,16 +295,26 @@ def cmd_red(task: Task) -> dict:
             stop()
             return code
 
+        def grouped(where: Path, *args: str) -> None:
+            """A git command that may run a hook of the repository: in a group of its own, like every other command here."""
+            proc = subprocess.Popen(["git", "-C", str(where), *args], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, start_new_session=True)
+            child.append(proc)
+            _, said = proc.communicate()
+            stop()
+            if proc.returncode != 0:
+                raise StoriesError(f"git {' '.join(args[:2])} failed: {said.strip()}")
+
         def ended(*_: object) -> None:
             raise KeyboardInterrupt
 
         before = signal.signal(signal.SIGTERM, ended)
         codes: dict[str, list[int]] = {}
+        failure: str | None = None
         try:
             for name, place in places.items():
-                git(task.main, "worktree", "add", "-q", "--detach", str(place), tip if name == "branch" else base)
+                grouped(task.main, "worktree", "add", "-q", "--detach", str(place), tip if name == "branch" else base)
                 if name == "base":
-                    git(place, "checkout", tip, "--", *laid)
+                    grouped(place, "checkout", tip, "--", *laid)
                 for command in task.settings["gate"]["setup"]:
                     code = outcome(command, place)
                     setup.append({"on": name, "command": command, "exit": code})
@@ -311,14 +323,17 @@ def cmd_red(task: Task) -> dict:
                         raise StoriesError(f"`{command}` of gate.setup failed in {where} (exit {code}), so no test could run there; correct that command in .lem/project.toml")
                 codes[name] = [outcome(test["command"], place) for _, test in tests]
         except KeyboardInterrupt:
-            raise StoriesError("the check was stopped; its commands are ended and its worktrees removed") from None
+            failure = "the check was stopped, and its commands are ended"
+        except StoriesError as error:
+            failure = str(error)
         finally:
             stop()
             signal.signal(signal.SIGTERM, before)
             stuck = [problem for problem in (remove(task, place) for place in places.values()) if problem]
             lock.close()
-            if stuck and sys.exc_info()[0] is None:
-                raise StoriesError("; ".join(stuck))
+        # A worktree that stayed is said whatever else went wrong: the first failure does not hide it.
+        if failure or stuck:
+            raise StoriesError("; ".join([*([failure] if failure else []), *(stuck or ["its worktrees are removed"] if failure else stuck)]))
         for (number, test), green, red in zip(tests, codes["branch"], codes["base"]):
             problem = None
             if green != 0:

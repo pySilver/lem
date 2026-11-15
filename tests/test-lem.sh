@@ -1359,6 +1359,7 @@ broken=$(stories red export-has-the-gift-note 2>&1 || true)
 sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 # A worktree that a killed run of the check left behind is removed by the next run.
 git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-tip" main && git -C "$ST" worktree lock "$ST/.lem/worktrees/export-has-the-gift-note.red-tip"
+git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-999999" main
 stories red export-has-the-gift-note >/dev/null
 if grep -q "fails in a fresh worktree of the branch (exit 1). If it passes in the task's worktree, it needs something a fresh one lacks: put the commands that make it into gate.setup" <<<"$lacks" \
   && [ "$made" = "(True, [{'on': 'branch', 'command': 'touch .made-by-setup', 'exit': 0}, {'on': 'base', 'command': 'touch .made-by-setup', 'exit': 0}], None)" ] \
@@ -1383,6 +1384,13 @@ after_hook=$(git -C "$ST" worktree list | grep -c '')
 sed -i.bak 's|^setup = .*$|setup = ["git worktree lock ."]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 locked=$(stories red export-has-the-gift-note | field 'd["ok"]')
 after_lock="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
+# A worktree that cannot be removed is said beside the failure that came first, and the next run removes it.
+sed -i.bak 's|^setup = .*$|setup = ["chmod 500 ..; exit 3"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+stuck=$(stories red export-has-the-gift-note 2>&1 || true)
+chmod 700 "$ST/.lem/worktrees"
+sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+stories red export-has-the-gift-note >/dev/null
+after_stuck="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
 # One check of a task at a time: while another process holds the task's lock, a second check is refused.
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$ST/.git/lem/tasks/export-has-the-gift-note/red.lock" > "$WORK/lock.out" &
 holder=$!
@@ -1402,11 +1410,12 @@ sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/
 # shellcheck disable=SC2016
 if grep -q 'story 3: `sh tests/state.sh` passes on the base commit too' <<<"$state" && [ "$lacked" = "(True, False, True)" ] \
   && [ "$hooked" = 1 ] && [ "$after_hook" = 2 ] && [ "$locked" = True ] && [ "$after_lock" = "2 0" ] \
+  && grep -q "of gate.setup failed in a fresh worktree of the branch (exit 3)" <<<"$stuck" && grep -q "red-tip could not be removed; remove it yourself: git -C" <<<"$stuck" && [ "$after_stuck" = "2 0" ] \
   && grep -q "another check of this task's stories runs now" <<<"$second" \
-  && [ "$started" -ge 1 ] && [ "$left" = 0 ] && [ "$after_stop" = "2 0" ] && grep -q "the check was stopped; its commands are ended and its worktrees removed" "$WORK/stopped.out"; then
+  && [ "$started" -ge 1 ] && [ "$left" = 0 ] && [ "$after_stop" = "2 0" ] && grep -q "the check was stopped, and its commands are ended; its worktrees are removed" "$WORK/stopped.out"; then
   pass "each run of the check has a worktree and a setup of its own, and the result names what the base run lacked; a failed hook, a locked worktree and a stopped check leave no worktree and no process; and a second check of one task waits"
 else
-  fail "the check's worktrees: $state / $lacked / hook $hooked $after_hook / lock $locked $after_lock / $second / stop $started $left $after_stop $(cat "$WORK/stopped.out")"
+  fail "the check's worktrees: $state / $lacked / stuck $stuck $after_stuck / hook $hooked $after_hook / lock $locked $after_lock / $second / stop $started $left $after_stop $(cat "$WORK/stopped.out")"
 fi
 # A plan whose stories do not have the form is refused with the line that is wrong.
 form() { printf '%s\n' "$@" > "$plan"; stories show export-has-the-gift-note 2>&1 || true; }
