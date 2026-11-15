@@ -22,5 +22,5 @@ What has to be settled with the owner first: where Lem is linked for Codex durin
 Lem to every repository on the machine, as the home links did for Claude Code on 2026-11-15.
 
 The owner's rulings give the order: Claude Code first, the harness file for Codex after that
-works, and Codex as the builder is wanted later. Two tasks ran in Claude Code on 2026-11-15, so
+works, and Codex as the builder is wanted later. Three tasks ran in Claude Code on 2026-11-15, so
 this is next.

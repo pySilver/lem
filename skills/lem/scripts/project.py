@@ -68,6 +68,14 @@ A settings file with an unknown key, a wrong type or a path outside the reposito
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
 """
 
+from __future__ import annotations
+
+import sys
+
+if sys.version_info < (3, 11):
+    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    sys.exit(f"project.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+
 import argparse
 import difflib
 import fnmatch
@@ -75,7 +83,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 import tomllib
 from datetime import datetime, timezone
 from pathlib import Path

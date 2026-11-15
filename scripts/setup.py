@@ -64,6 +64,14 @@ timeout), and with `--project` a settings file that is a link out of the reposit
 file that then holds nothing. Every other run only reports whether the hook is registered.
 """
 
+from __future__ import annotations
+
+import sys
+
+if sys.version_info < (3, 11):
+    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    sys.exit(f"setup.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+
 import argparse
 import json
 import os
@@ -71,7 +79,6 @@ import re
 import shlex
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 CLONE = Path(__file__).resolve().parent.parent

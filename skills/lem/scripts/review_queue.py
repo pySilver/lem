@@ -18,10 +18,17 @@ as a `lemReview({...});` line: the board is a file:// page, which can load a scr
 read a file.
 """
 
+from __future__ import annotations
+
+import sys
+
+if sys.version_info < (3, 11):
+    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    sys.exit(f"review_queue.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+
 import argparse
 import json
 import subprocess
-import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 

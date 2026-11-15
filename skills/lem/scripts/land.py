@@ -30,11 +30,18 @@ with a note when it is not. With no remote, the base branch itself is fast-forwa
 never force-pushed and a ref is never moved behind a checkout's back.
 """
 
+from __future__ import annotations
+
+import sys
+
+if sys.version_info < (3, 11):
+    # an old python3 must still load this file, so that it can say what it needs and not a traceback
+    sys.exit(f"land.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+
 import argparse
 import fnmatch
 import json
 import subprocess
-import sys
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent

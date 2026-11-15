@@ -17,6 +17,10 @@ allowed-tools: Read, Edit, Write, Bash, Grep, Glob, AskUserQuestion
 
 # Backlog
 
+In a project that uses Lem, the folder is the one its settings name (`paths.backlog`;
+`project.py path backlog` of the `lem` skill prints it), and `docs/backlog/` on this page stands
+for that folder. The owner calls this skill as `/lem backlog`.
+
 `docs/backlog/` at a repo root holds work that is real but not being done now: a defect a change did not
 introduce, drift with no user-visible symptom, a fix whose blast radius exceeded its value, a decision the
 owner has not taken yet, an idea worth keeping. One file per item. It is the maintainer's own list — it
@@ -119,7 +123,7 @@ against is the same operation with a different reason.
 
 ## A slug as the argument
 
-`/backlog <slug>` names one item: `docs/backlog/<slug>.md`, the file name without its extension.
+`/lem backlog <slug>` names one item: `docs/backlog/<slug>.md`, the file name without its extension.
 Read that file alone, verify its `where` the same way step 2 below does when it has one, and go straight
 to the fix-or-drop question for it — skip the listing, which is not what was asked for. A slug matching no
 file is a mistake worth saying plainly: report it and list what is there instead of guessing at the

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Sort docs/backlog/ items into who can act on them, with Jev, and keep the verdicts out of git.
+"""Sort a repository's backlog items into who can act on them, with Jev, and keep the verdicts out of git.
+
+The items are the .md files of `docs/backlog/`, or of the folder a project's settings name for
+its backlog (`paths.backlog` in `.lem/project.toml`).
 
 Usage: triage.py refresh [--all] [--repo DIR]   judge what changed (--all: everything), then print the groups
        triage.py report [--repo DIR] [--json]
@@ -134,8 +137,19 @@ def judge(jev: str, item_text: str, commits: list[str]) -> dict:
     return {"verdict": answer["choice"], "confidence": answer["confidence"], "probabilities": answer["probabilities"]}
 
 
+def backlog_folder(repo: Path) -> Path:
+    """`docs/backlog`, or the folder the project's settings name for it."""
+    if not (repo / ".lem" / "project.toml").is_file():
+        return repo / "docs" / "backlog"
+    settings = Path(__file__).resolve().parents[2] / "lem" / "scripts" / "project.py"
+    done = subprocess.run([sys.executable, "-B", str(settings), "--repo", str(repo), "path", "backlog"], capture_output=True, text=True)
+    if done.returncode != 0:
+        fail(done.stderr.strip() or "could not read the project's settings")
+    return Path(done.stdout.strip())
+
+
 def items(repo: Path) -> dict[str, str]:
-    folder = repo / "docs" / "backlog"
+    folder = backlog_folder(repo)
     if not folder.is_dir():
         fail(f"{folder} does not exist")
     return {p.stem: p.read_text(encoding="utf-8") for p in sorted(folder.glob("*.md"))}
@@ -150,7 +164,7 @@ def refresh(repo: Path, store: Store, only: str | None = None, force: bool = Fal
     head = default_branch_head(repo)
     current = items(repo)
     if only is not None and only not in current:
-        fail(f"no item docs/backlog/{only}.md")
+        fail(f"no item {only}.md in {backlog_folder(repo)}")
     for gone in set(store.records) - set(current):
         del store.records[gone]
     work = []

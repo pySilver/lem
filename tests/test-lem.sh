@@ -514,16 +514,18 @@ fake() { printf '#!/bin/sh\necho "%s"\n' "$2" > "$BIN/$1"; chmod +x "$BIN/$1"; }
 doctor() { env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR"; }
 row() { field "next(t for t in d[\"tools\"] if t[\"name\"] == \"$1\")[\"$2\"]"; }
 out=$(doctor || true)
-if [ "$(status_of doctor)" = 1 ] && [ "$(field 'd["ok"]' <<<"$out")" = "False" ] && [ "$(row revmux found <<<"$out")" = "False" ] && [ "$(row git found <<<"$out")" = "True" ]; then
-  pass "doctor exits 1 and says so when the review tool is absent"
+if [ "$(status_of doctor)" = 1 ] && [ "$(field 'd["ok"]' <<<"$out")" = "False" ] && [ "$(row revmux found <<<"$out")" = "False" ] && [ "$(row git found <<<"$out")" = "True" ] \
+  && [ "$(row python3 found <<<"$out")" = "True" ] && [ "$(row python3 need <<<"$out")" = "required" ] && [ "$(row claude found <<<"$out")" = "False" ] && [ "$(row claude need <<<"$out")" = "required" ]; then
+  pass "doctor exits 1 and says so when the review tool is absent, and the agent that runs Lem is a required row"
 else
   fail "doctor without revmux: $out"
 fi
 fake revmux "revmux v9.9.9"
 out=$(doctor || true)
 if [ "$(status_of doctor)" = 1 ] && [ "$(row revmux detail <<<"$out")" = "revmux v9.9.9" ] && [ "$(row agterm found <<<"$out")" = "False" ] \
-  && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "agterm skill"]' <<<"$out")" = "[]" ] && [ "$(row mailbox-chat need <<<"$out")" = "required" ]; then
-  pass "the review tool alone is not enough: agterm and the mailbox are required, and there is no row for the agterm skill without agterm"
+  && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "agterm skill"]' <<<"$out")" = "[]" ] && [ "$(row mailbox-chat need <<<"$out")" = "required" ] \
+  && [ "$(row 'revmux skill' found <<<"$out")" = "False" ] && [ "$(row 'revmux skill' need <<<"$out")" = "required" ] && [ "$(row 'mailbox-chat skill' found <<<"$out")" = "False" ]; then
+  pass "the review tool alone is not enough: its skill, agterm and the mailbox with its skill are required, and there is no row for the agterm skill without agterm"
 else
   fail "doctor with revmux only: $out"
 fi
@@ -535,23 +537,25 @@ if [ "$(status_of doctor)" = 1 ] && [ "$(row agterm found <<<"$out")" = "True" ]
 else
   fail "doctor with agterm, no skill: $out"
 fi
-mkdir -p "$FAKEHOME/.agents/skills/agterm" "$FAKEHOME/.config/cronn"
-touch "$FAKEHOME/.agents/skills/agterm/SKILL.md"
-out=$(doctor)
-if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'agterm skill' detail <<<"$out")" = "$FAKEHOME/.agents/skills/agterm" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
-  && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ] && [ "$(row codex found <<<"$out")" = "False" ] \
-  && [ "$(row plannotator without_it <<<"$out" | grep -c 'lem-webrev')" = 1 ] \
-  && [ "$(row plannotator-tui need <<<"$out")" = "optional" ] && [ "$(row plannotator-tui without_it <<<"$out" | grep -c 'cookbook/annotate-in-plannotator-tui')" = 1 ]; then
-  pass "with git, the review tool, agterm, its skill and the mailbox the check passes, absent optional tools only change their rows, and the two rows about marking up say what is recommended"
+# The skills an agent needs beside the commands: in a skills folder, or as a plugin the agent installed.
+mkdir -p "$FAKEHOME/.agents/skills/agterm" "$FAKEHOME/.agents/skills/mailbox-chat" "$FAKEHOME/.claude/plugins" "$FAKEHOME/.config/cronn"
+touch "$FAKEHOME/.agents/skills/agterm/SKILL.md" "$FAKEHOME/.agents/skills/mailbox-chat/SKILL.md"
+printf '%s\n' '{"version": 2, "plugins": {"revmux@some-market": [{"scope": "user"}], "other@x": []}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+out=$(doctor || true)
+if [ "$(status_of doctor)" = 1 ] && [ "$(row 'revmux skill' detail <<<"$out")" = "the plugin revmux@some-market" ] && [ "$(row 'mailbox-chat skill' detail <<<"$out")" = "$FAKEHOME/.agents/skills/mailbox-chat" ] \
+  && [ "$(row 'agterm skill' detail <<<"$out")" = "$FAKEHOME/.agents/skills/agterm" ] && [ "$(field '[t["name"] for t in d["tools"] if t["need"] == "required" and not t["found"]]' <<<"$out")" = "['claude']" ]; then
+  pass "the skills are found in a skills folder or in the agent's list of plugins, and without Claude Code the check still fails: nothing else runs /lem"
 else
-  fail "doctor with the required set: $out"
+  fail "doctor with the skills and no agent: $out"
 fi
-keyed=$(env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
-if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
-  && ! grep -q "sk-not-a-real-key" <<<"$keyed"; then
-  pass "the check has no row for the question page, which is a part of Lem; it says whether the key of the decision model is in the environment, and never prints it"
+rm "$FAKEHOME/.claude/plugins/installed_plugins.json"
+gone=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "revmux skill")["found"]' || true)
+mkdir -p "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugin/skills/revmux" && touch "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugin/skills/revmux/SKILL.md"
+out=$(doctor || true)
+if [ "$gone" = "False" ] && [ "$(row 'revmux skill' detail <<<"$out")" = "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugin/skills/revmux" ]; then
+  pass "with no list of plugins to read, the plugin's own folder with the skill in it counts"
 else
-  fail "doctor and the key: $keyed"
+  fail "doctor with the plugin's folder only: $gone / $out"
 fi
 fake claude "2.1.325 (Claude Code)"
 out=$(doctor || true)
@@ -563,10 +567,31 @@ fi
 mkdir -p "$FAKEHOME/.claude/agents"
 ln -s "$PWD/agents/lem-builder.md" "$FAKEHOME/.claude/agents/lem-builder.md"
 out=$(doctor)
-if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "$FAKEHOME/.claude/agents/lem-builder.md" ]; then
-  pass "the linked lem-builder agent satisfies it"
+if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "$FAKEHOME/.claude/agents/lem-builder.md" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
+  && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ] && [ "$(row codex found <<<"$out")" = "False" ] \
+  && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
+  && [ "$(row plannotator without_it <<<"$out" | grep -c 'lem-webrev')" = 1 ] \
+  && [ "$(row plannotator-tui need <<<"$out")" = "optional" ] && [ "$(row plannotator-tui without_it <<<"$out" | grep -c 'cookbook/annotate-in-plannotator-tui')" = 1 ]; then
+  pass "with git, the review tool, agterm, the mailbox, their skills, Claude Code and the linked builder the check passes; absent optional tools only change their rows, and the two rows about marking up say what is recommended"
 else
-  fail "doctor with the builder linked: $out"
+  fail "doctor with the required set: $out"
+fi
+keyed=$(env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
+if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
+  && ! grep -q "sk-not-a-real-key" <<<"$keyed"; then
+  pass "the check has no row for the question page, which is a part of Lem; it says whether the key of the decision model is in the environment, and never prints it"
+else
+  fail "doctor and the key: $keyed"
+fi
+fake codex "codex-cli 9.9"
+without=$(doctor | field '(next(t for t in d["tools"] if t["name"] == "codex persona agent")["found"], d["ok"])')
+mkdir -p "$FAKEHOME/.codex/agents" && touch "$FAKEHOME/.codex/agents/persona.toml"
+with=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "codex persona agent")["detail"]')
+rm "$BIN/codex"
+if [ "$without" = "(False, True)" ] && [ "$with" = "$FAKEHOME/.codex/agents/persona.toml" ]; then
+  pass "a machine with Codex gets a row for the agent file a persona panel needs there, and its absence does not fail the check"
+else
+  fail "doctor and the persona agent of Codex: $without / $with"
 fi
 if "$PY" -c 'import sys; t = open(sys.argv[1]).read().split("---"); f = dict(l.split(": ", 1) for l in t[1].strip().splitlines()); sys.exit(not (f["name"] == "lem-builder" and f["model"] and f["effort"] and "tools" not in f and len(t[2]) > 500))' "$PWD/agents/lem-builder.md"; then
   pass "the builder's definition names its model and effort, and no tool list, so it can start builders"
@@ -661,6 +686,18 @@ if [ -n "$old" ]; then
     fail "the hook under $old: $out / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
   fi
   rm -f "$CQ/.git/lem/corrections.log"
+  # The other scripts under that python3: a row or one line that says what is needed, and no traceback.
+  rows=$("$old" -B "$DOCTOR" 2>&1 || true)
+  said=""
+  for script in "$PWD/scripts/setup.py" "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/review_queue.py" "$PWD/skills/lem/scripts/board.py"; do
+    said="$said$("$old" -B "$script" --help 2>&1 || true)"$'\n'
+  done
+  if [ "$(field '(d["ok"], d["tools"][0]["name"], d["tools"][0]["found"])' <<<"$rows")" = "(False, 'python3', False)" ] && [ "$(grep -c "Lem needs Python 3.11 or newer, and this python3 is" <<<"$said")" = 5 ] \
+    && ! grep -q Traceback <<<"$rows$said" && [ "$(status_of "$old" -B "$PWD/scripts/setup.py" --check)" = 1 ]; then
+    pass "under a python3 before 3.11 the machine check gives its rows with python3 as absent, and every other script says in one line what it needs"
+  else
+    fail "the scripts under $old: $rows / $said"
+  fi
 else
   printf 'SKIP the hook under an old python3: none found\n'
 fi
@@ -724,7 +761,8 @@ if [ "$(status_of project --repo "$CQ" show)" = 1 ]; then pass "a collect value 
 # The setup script: links from the clone into a home, never over something else, and the machine check after them.
 SETUP=$PWD/scripts/setup.py
 SETHOME=$WORK/sethome
-mkdir -p "$SETHOME/.agents/skills/agterm" && touch "$SETHOME/.agents/skills/agterm/SKILL.md"
+machine_home() { for name in agterm mailbox-chat revmux; do mkdir -p "$1/.agents/skills/$name" && touch "$1/.agents/skills/$name/SKILL.md"; done; }
+machine_home "$SETHOME"
 setup() { env -i PATH="$BIN" HOME="$SETHOME" "$PY" -B "$SETUP" --home "$SETHOME" "$@"; }
 out=$(setup --check 2>/dev/null || true)
 if [ "$(status_of setup --check)" = 1 ] && [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['absent']" ] && [ ! -e "$SETHOME/.claude" ]; then
@@ -818,7 +856,7 @@ setup >/dev/null
 TRIAL=$WORK/trial
 git init -q -b main "$TRIAL" && commit "$TRIAL" start
 trial() { env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$TRIAL" "$@"; }
-mkdir -p "$WORK/trialhome/.agents/skills/agterm" && touch "$WORK/trialhome/.agents/skills/agterm/SKILL.md"
+machine_home "$WORK/trialhome"
 out=$(trial)
 if [ "$(field '(d["linked"], d["machine_ok"], d["scope"], d["commands"].startswith("lem-ask and jev are not linked"))' <<<"$out")" = "(True, True, '$TRIAL', True)" ] \
   && [ "$(readlink "$TRIAL/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$TRIAL/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
@@ -1122,6 +1160,23 @@ if [ "$(status_of project --repo "$RUL" migrate plan)" != 0 ] && [ -d "$RUL/.cla
   pass "the rules of an adopted project stay where the agent loads them: the settings name that folder, and no command moves it"
 else
   fail "an adopted project's rules"
+fi
+
+# The backlog's sorting reads the folder the project's settings name, not a fixed one.
+BKL=$WORK/backlog-repo
+git init -q -b main "$BKL" && commit "$BKL" start
+project --repo "$BKL" init --base main >/dev/null
+sed -i.bak 's|^backlog = "docs/backlog"$|backlog = "notes/later"|' "$BKL/.lem/project.toml" && rm "$BKL/.lem/project.toml.bak"
+mkdir -p "$BKL/notes/later" "$BKL/docs/backlog" && printf '%s\n' '# A slow report' 'It takes nine seconds.' > "$BKL/notes/later/slow-report.md" && echo '# Not the backlog' > "$BKL/docs/backlog/other.md"
+printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'printf "{\"answers\": {\"triage\": {\"choice\": \"agent\", \"confidence\": 0.9, \"probabilities\": {\"agent\": 0.9}}}}"' > "$WORK/jevbin/triage-jev"
+chmod +x "$WORK/jevbin/triage-jev"
+TRIAGE=$PWD/skills/lem-backlog/scripts/triage.py
+out=$(env JEV_BIN="$WORK/jevbin/triage-jev" "$PY" -B "$TRIAGE" refresh --json --repo "$BKL" 2>/dev/null)
+err=$(env JEV_BIN="$WORK/jevbin/triage-jev" "$PY" -B "$TRIAGE" item other --repo "$BKL" 2>&1 || true)
+if grep -q '"slow-report"' <<<"$out" && ! grep -q '"other"' <<<"$out" && grep -q "no item other.md in $BKL/notes/later" <<<"$err"; then
+  pass "the backlog's sorting reads the items of the folder the project's settings name"
+else
+  fail "the backlog's folder: $out / $err"
 fi
 
 # The board: board.py writes the page and what it reads beside the events, and the page draws them.

@@ -7,7 +7,12 @@ is absent is not an error: its row says what the skill does without it, and onbo
 owner that.
 
     doctor.py
+
+It loads under an old `python3` too, so that a machine whose first `python3` is the one its system
+ships gets a row that says so, not a traceback.
 """
+
+from __future__ import annotations
 
 import json
 import os
@@ -22,6 +27,39 @@ from pathlib import Path
 SKILL_HOMES = (".claude/skills", ".agents/skills", ".codex/skills", ".config/opencode/skills")
 # Where Claude Code keeps a user's agent definitions. The setup links Lem's builder there.
 BUILDER = Path(".claude") / "agents" / "lem-builder.md"
+# Where Claude Code keeps what it installed as plugins: its own list, and the folders themselves.
+PLUGINS = Path(".claude") / "plugins"
+
+
+def python() -> dict:
+    return {
+        "name": "python3", "need": "required", "found": sys.version_info >= (3, 11), "detail": f"{sys.version.split()[0]} at {sys.executable}",
+        "used_for": "every script of Lem; the settings file is read with a module that came with Python 3.11",
+        "without_it": "no script of Lem runs; put a python3 of 3.11 or newer first on PATH",
+    }
+
+
+def skill(name: str, used_for: str, without_it: str) -> dict:
+    """A skill an agent loads by name: in a skills folder of the home or of this repository, or installed as a plugin of Claude Code."""
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
+        inside = [Path(top.stdout.strip())] if top.returncode == 0 and top.stdout.strip() else []
+    except OSError:
+        inside = []
+    places = [base / home / name for base in [*inside, Path.home()] for home in SKILL_HOMES]
+    found = next((str(place) for place in places if (place / "SKILL.md").is_file()), None)
+    if found is None:
+        # Claude Code's own list of installed plugins names each as PLUGIN@MARKETPLACE; where that
+        # file is absent or reads another way, the plugin's folder with the skill in it counts too.
+        try:
+            listed = json.loads((Path.home() / PLUGINS / "installed_plugins.json").read_text()).get("plugins", {})
+            found = next((f"the plugin {key}" for key in listed if key.split("@")[0] == name), None)
+        except (OSError, ValueError, AttributeError):
+            found = None
+    if found is None:
+        cache = Path.home() / PLUGINS / "cache"
+        found = next((str(file.parent) for file in sorted(cache.glob(f"*/{name}/*/**/skills/{name}/SKILL.md"))), None) if cache.is_dir() else None
+    return {"name": f"{name} skill", "need": "required", "found": found is not None, "detail": found, "used_for": used_for, "without_it": without_it}
 
 
 def version(command: list[str]) -> str | None:
@@ -59,7 +97,8 @@ def agterm() -> list[dict]:
 
 
 def claude() -> list[dict]:
-    row = tool("claude", "optional", "a Claude Code reviewer, or the coordinator", "the reviewer must be Codex", "claude", ["--version"])
+    row = tool("claude", "required", "the agent that runs `/lem`, and a reviewer of the same family",
+               "nothing runs `/lem`: Claude Code is the one agent Lem has a harness file for", "claude", ["--version"])
     # The user's definition, or the one of the repository this runs in: Claude Code takes the
     # project's before the user's, and a trial links Lem into one repository only.
     try:
@@ -77,6 +116,19 @@ def claude() -> list[dict]:
     }
     # Only a machine with Claude Code needs Claude Code's form of the builder.
     return [row, builder] if row["found"] else [row]
+
+
+def codex() -> list[dict]:
+    row = tool("codex", "optional", "a reviewer of another model family, and half of each persona panel",
+               "the reviewer is a second Claude; agreement between model families is not measured", "codex", ["--version"])
+    file = Path.home() / ".codex" / "agents" / "persona.toml"
+    persona = {
+        "name": "codex persona agent", "need": "optional", "found": file.is_file(), "detail": str(file) if file.is_file() else None,
+        "used_for": "the second half of a persona panel: each persona answered by the other model family",
+        "without_it": f"a panel has the answers of one model family, so a split between two is not seen; the lem-panel skill says what {file} holds",
+    }
+    # only a machine with Codex can run that half
+    return [row, persona] if row["found"] else [row]
 
 
 def cronn() -> dict:
@@ -102,9 +154,12 @@ def cronn() -> dict:
 
 def main() -> None:
     tools = [
+        python(),
         tool("git", "required", "worktrees, branches and the task state directory", "nothing runs", "git", ["--version"]),
         tool("revmux", "required", "the review rounds over a landed range, with the project's lenses",
              "no review of a landed change; the skill refuses to queue what it cannot review", "revmux", ["--version"]),
+        skill("revmux", "how an agent runs a review round: it writes the round's context and reads the findings back",
+              "an agent has the review tool and no instructions for it; install the skill that comes with revmux (its README says how)"),
         *agterm(),
         tool("plannotator", "optional", "another way to mark up a plan or a draft, for an owner who names it in tools.annotate",
              "nothing is lost: lem-webrev, which comes with Lem, is the recommended way and the default", "plannotator", ["--version"]),
@@ -120,11 +175,12 @@ def main() -> None:
             "without_it": "none of the three gets an answer, and the correction hook logs each message as a failure; "
                           "put OPENROUTER_API_KEY into the environment the agent starts with",
         },
-        tool("codex", "optional", "a reviewer of another model family, and half of each persona panel",
-             "the reviewer is a second Claude; agreement between model families is not measured", "codex", ["--version"]),
+        *codex(),
         *claude(),
         tool("mailbox-chat", "required", "messages between the coordinator and the reviewer in the other pane",
-             "the two agents cannot talk; install agterm's two-agent mailbox chat recipe from its cookbook", "mailbox-chat.py"),
+             "the two agents cannot talk; install agterm's two-agent mailbox chat recipe from its cookbook, which puts mailbox-chat.py on PATH", "mailbox-chat.py"),
+        skill("mailbox-chat", "how an agent sends to the other pane and reads what comes back",
+              "an agent has the command and no instructions for it; the same recipe of agterm's cookbook installs the skill"),
         cronn(),
     ]
     ok = all(row["found"] for row in tools if row["need"] == "required")
