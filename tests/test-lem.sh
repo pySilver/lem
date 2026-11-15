@@ -433,6 +433,15 @@ if [ "$(project --repo "$OLD" show | field 'd["flow"]["max_tasks"]')" = 4 ] && g
 else
   fail "max_tasks default"
 fi
+settings '[branch]' 'base = "master"' '[flow]' 'topics = ["a price a customer pays", "data that cannot be rebuilt"]'
+if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], d["flow"]["careful"])')" = "(['a price a customer pays', 'data that cannot be rebuilt'], [])" ]; then
+  pass "a project names its danger topics in the owner's words, beside its careful paths"
+else
+  fail "flow.topics: $(project --repo "$OLD" show 2>&1)"
+fi
+settings '[flow]' 'topics = "money"'
+err=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "flow.topics" <<<"$err" && ! grep -q Traceback <<<"$err"; then pass "danger topics that are not a list are refused"; else fail "flow.topics as a string: $err"; fi
 settings '[branch]' 'base = "master"' '[flow]' 'max_tasks = 2'
 out=$(project --repo "$OLD" may-start)
 if [ "$(field 'd["running"]' <<<"$out")" = "['report-dates-stay-whole']" ] && [ "$(field 'd["limit"]' <<<"$out")" = 2 ]; then
@@ -1213,9 +1222,10 @@ out=$(board --repo "$WORK/wt" --no-open)
 named=$(cat "$OLD/.git/lem/meta.js")
 board --repo "$OLD" --no-open >/dev/null
 if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.git/lem/board.html" ] && cmp -s "$OLD/.git/lem/board.html" "$PWD/skills/lem/assets/board.html" \
+  && cmp -s "$OLD/.git/lem/lem.css" "$PWD/skills/lem/assets/lem.css" \
   && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": ""});' ] \
   && [ "$(cat "$OLD/.git/lem/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": ""});' ]; then
-  pass "board --no-open writes the page into the shared state folder, from a worktree too, with the repository's name and its base"
+  pass "board --no-open writes the page and the stylesheet it links into the shared state folder, from a worktree too, with the repository's name and its base"
 else
   fail "board --no-open: $out / $named / $(cat "$OLD/.git/lem/meta.js" 2>&1)"
 fi
@@ -1280,6 +1290,16 @@ if sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$PWD/skills/lem/assets/bo
   pass "the mark in the board's header is the logo's own file, line for line"
 else
   fail "the mark inside board.html differs from assets/lem-mark.svg: copy the file between the two lem-mark comments again"
+fi
+# Every page of Lem has one look: the pattern of the onboarding's page links the board's stylesheet and brings no style of its own.
+PATTERN=$PWD/skills/lem/assets/handover.html
+if sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$PATTERN" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark.svg" \
+  && [ "$(grep -c '<link rel="stylesheet" href="lem.css">' "$PATTERN")" = 1 ] && [ "$(grep -c '<link rel="stylesheet" href="lem.css">' "$PWD/skills/lem/assets/board.html")" = 1 ] \
+  && ! grep -q '<style\| style="' "$PATTERN" && grep -q '^\.doc \.box {' "$PWD/skills/lem/assets/lem.css" && grep -q -- '--you: #' "$PWD/skills/lem/assets/lem.css" \
+  && ! grep -q -- '--you: #' "$PWD/skills/lem/assets/board.html"; then
+  pass "the onboarding's page pattern and the board link one stylesheet, which alone holds Lem's colors; the pattern brings no style of its own and carries the logo's own mark"
+else
+  fail "the pattern of the onboarding's page and the shared stylesheet"
 fi
 
 SHOWN=$(cat <<'PY'

@@ -68,7 +68,18 @@ a lead is started, and what to do each time a lead stops.
    the lead and do not watch it.
 
 `/lem build <task>` is for a task whose state is `drafted` or `planned`: change its brief to
-`stop after the plan: no` and start its lead.
+`stop after the plan: no` and start its lead. A path to a plan file names its task too: the
+file is `YYYYMMDD-<slug>.md`, and the slug is the task's. With no name, list the tasks in those
+two states (`project.py tasks`), each with its ask and its plan's path, and ask which one: a
+fixed choice, so it stays in the terminal. One such task needs no question.
+
+The owner may say that a task is careful, at any time before its landing, whatever its lead
+called it. Write that in `decisions.md` in his words. A task that still builds finishes its
+build; then, in place of the landing, change its brief to `lead: session` with the line
+`careful: the owner says so`, and start a lead: the session gets the second opinion on the plan
+and a review of what was built, and writes `ready` again. It is also a correction: the topic or
+the path that would have said so is missing from the settings, and `stages/learn.md` puts it
+there.
 
 ## When a task is dropped
 

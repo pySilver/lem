@@ -21,10 +21,23 @@ by line before the build.
    When the branch already holds a plan (a night draft, a builder that stopped at the plan), do
    not write another: read it against the code as it is now, and commit a fix for what the code
    has outgrown.
-2. **Is the task careful?** Run `project.py careful` over the files the plan names. The task is
-   careful when a file matches, and also when the plan starts a pattern other code will copy (a
-   first service layer, a first use of a library, a new kind of test). An outcome that needs more
-   than seven tasks is two asks: say so in the report, and plan the first.
+2. **Is the task careful?** Three tests, and one yes is enough:
+   - *a path*: `project.py careful` over the files the plan names. A match is a yes that no
+     judgment of yours overturns.
+   - *a topic*: the project's danger topics (`flow.topics` in `project.py show`), each a
+     sentence of the owner's about what must not go wrong here. Read the plan against each one:
+     does a task change how that thing behaves, or could a defect in a task reach it? No code
+     matches a topic, and no file name settles it: a price is computed in more places than
+     `billing/`. This is your judgment, and a person can overlook a danger that you see in the
+     code, so say what you see.
+   - *a pattern*: the plan starts something other code will copy (a first service layer, a
+     first use of a library, a new kind of test).
+   Write the call into the plan as one line, `careful: yes` or `careful: no`, with the one
+   sentence of why: the path, the topic in the owner's words, the pattern, or what you checked
+   to say that none is touched. The same line goes into your next state block, where the owner
+   reads it on the board while the task builds, and into the report.
+   An outcome that needs more than seven tasks is two asks: say so in the report, and plan the
+   first.
 3. **A builder does not lead a careful task.** When your brief says `lead: builder` and step 2
    says careful: write `report.md` with the pattern or the reason that says so; write the state
    `planned` with the line `needs a session: careful`; and stop. Lem opens a session, and its lead

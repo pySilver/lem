@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  The hand-over page of an onboarding, as a pattern. `stages/init.md`, step 6, says what goes on it.
+  Copy this file and lem.css into one folder, put the facts in the place of the words in capitals
+  and of the example rows, repeat a block as often as the content needs, and remove a section
+  that has nothing to say. Keep the classes and add no style: lem.css is the look of every page
+  of Lem, the board's too.
+-->
+<title>Lem onboarding · REPOSITORY</title>
+<link rel="stylesheet" href="lem.css">
+</head>
+<body>
+<main class="page doc">
+  <header class="top">
+    <div class="ident">
+      <div class="mark">
+<!-- lem-mark: a copy of assets/lem-mark.svg; tests/test-lem.sh fails when the two differ -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="8 2 244 244" role="img" aria-labelledby="c2m-title c2m-desc">
+<title id="c2m-title">Lem</title>
+<desc id="c2m-desc">A tall hooded coat with nothing in its hood stands in a cut field and holds one long line in both hands. Strands hang from the line to four smaller hooded figures.</desc>
+<defs>
+  <linearGradient id="c2m-sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b5c5c0"/><stop offset="1" stop-color="#eadfbe"/></linearGradient>
+  <linearGradient id="c2m-field" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#c7a95a"/><stop offset="1" stop-color="#ddbe6c"/></linearGradient>
+  <clipPath id="c2m-clip"><rect x="9.5" y="3.5" width="241" height="241" rx="21"/></clipPath>
+</defs>
+<rect x="8.75" y="2.75" width="242.5" height="242.5" rx="22" fill="#eadfbe" stroke="#77725a" stroke-width="1.5" stroke-opacity=".7"/>
+<g clip-path="url(#c2m-clip)">
+  <path d="M0 0H260V130H0Z" fill="url(#c2m-sky)"/>
+  <path d="M0 127Q130 123 260 127V260H0Z" fill="url(#c2m-field)"/>
+  <!-- cut stalks -->
+  <path d="M22 150l1-4M60 170l-1-4M95 148l1-4M176 152l1-4M240 166l-1-4M14 216l1-4M236 226l-1-4M206 244l1-4" fill="none" stroke="#85763c" stroke-width="1" opacity=".5"/>
+  <path d="M44 160l1-3M120 142l1-3M222 180l-1-3M24 240l1-3" fill="none" stroke="#f3e0a0" stroke-width="1.2" opacity=".8"/>
+
+  <!-- long shadows fall toward the viewer -->
+  <path d="M101 229L160 229L92 262L22 262Z" fill="#6a7559" opacity=".6"/>
+  <path d="M61 238L80 238L58 254L36 254Z" fill="#6a7559" opacity=".6"/>
+  <path d="M181 238L200 238L178 254L156 254Z" fill="#6a7559" opacity=".6"/>
+  <path d="M27 204L41 204L25 216L9 216Z" fill="#6a7559" opacity=".6"/>
+  <path d="M219 204L233 204L217 216L201 216Z" fill="#6a7559" opacity=".6"/>
+
+  <!-- the coat -->
+  <path d="M117 72L105 86L109 112L100 228L111 231L121 228L130 231L140 228L150 231L160 228L151 112L155 86L143 72L130 83Z" fill="#8b9385"/>
+  <path d="M130 83L143 72L155 86L151 112L160 228L150 231L140 228L130 231Z" fill="#6a7a71"/>
+  <path d="M151 112L160 228L150 231L146.500 154Z" fill="#4e615a"/>
+  <path d="M109 112L100 228L111 231L113.500 154Z" fill="#a4a895"/>
+  <path d="M121 77L130 97L139 77L130 84Z" fill="#2f4541"/>
+  <path d="M130 97L130.500 230" fill="none" stroke="#3d514b" stroke-width="1.200"/>
+  <path d="M137.500 172L147 170L148 183L138.500 185Z" fill="#5d6f66" stroke="#43574f" stroke-width=".7"/>
+  <g fill="#e9dfbc"><circle cx="133.500" cy="140" r="1.300"/><circle cx="133.700" cy="164" r="1.300"/><circle cx="134" cy="188" r="1.300"/></g>
+  <path d="M118.500 120L113 226M141.500 120L147.500 226M117.500 74L116 108M142.500 74L144 108" fill="none" stroke="#dedbc0" stroke-width=".9" opacity=".7"/>
+
+  <!-- the cowl, with nothing in it -->
+  <path d="M131 12C121 16 113 32 113 52C113 60 114 66 117 72L130 83L143 72C146 65 147 58 146.500 50C146 33 140 18 131 12Z" fill="#9da291"/>
+  <path d="M131 12C140 18 146 33 146.500 50C147 58 146 65 143 72L130 83L132 46Z" fill="#6e7d74"/>
+  <path d="M130.500 23C123.500 28 119.500 40 119.500 52C119.500 58 121 63 124 67L130 73L136.500 67C139.500 62 141 57 140.500 50C140 39 136.500 28 130.500 23Z" fill="#132427"/>
+  <path d="M130.500 23C136.500 28 140 39 140.500 50C141 57 139.500 62 136.500 67L130 73L134.500 62C137 53 135.500 36 130.500 23Z" fill="#263d40"/>
+  <path d="M114 55L117.500 70M146 55L143 70" fill="none" stroke="#dedbc0" stroke-width=".9" opacity=".7"/>
+
+  <!-- the line -->
+  <path d="M0 97C40 106 80 107 118 105.500L142 105.500C180 107 220 106 260 98" fill="none" stroke="#1d343b" stroke-width="2.800"/>
+
+  <!-- sleeves, and fingers laid over the line -->
+  <path d="M105 86L97 124L104 146L118 114L122 100L112 97Z" fill="#a1a593"/>
+  <path d="M155 86L163 124L156 146L142 114L138 100L148 97Z" fill="#5d6e66"/>
+  <path d="M118 114L122 100L125.500 101.500L123.500 112Z" fill="#1c2f33"/>
+  <path d="M142 114L138 100L134.500 101.500L136.500 112Z" fill="#1c2f33"/>
+  <path d="M120.500 100.500L126.500 100L127 104.500L121 105Z" fill="#efe6cb"/>
+  <path d="M139.500 100.500L133.500 100L133 104.500L139 105Z" fill="#ddd3b5"/>
+  <path d="M122 104L121.700 110.500M124.200 104L124.200 111.500M126.300 104L126.600 110" fill="none" stroke="#efe6cb" stroke-width="1.300" stroke-linecap="round"/>
+  <path d="M138 104L138.300 110.500M135.800 104L135.800 111.500M133.700 104L133.400 110" fill="none" stroke="#ddd3b5" stroke-width="1.300" stroke-linecap="round"/>
+  <path d="M101 122L112 100M159 122L148 100" fill="none" stroke="#dedbc0" stroke-width=".9" opacity=".7"/>
+
+  <!-- strands from the line, each on a peg -->
+  <path d="M44 103.500L44 174M83.500 106.700L83.500 196M176.500 106.500L176.500 196M216 106L216 174" fill="none" stroke="#2b4649" stroke-width="2"/>
+  <g fill="#b9773f" stroke="#5d3a22" stroke-width=".5">
+    <path d="M42 98l4 .2-.3 10-3.800-.2z"/><path d="M81.500 101.500l4-.1.1 10-3.900.1z"/><path d="M174.500 101.300l4 .2-.3 10-3.800-.2z"/><path d="M214 101l4-.1.1 10-3.900.1z"/>
+  </g>
+
+  <!-- the smaller ones, each with a hand on its strand -->
+  <g transform="translate(70 238)">
+    <path d="M-9 0L-5 -28C-4 -31 3 -32 5 -29L11 0L4 2L-2 -1Z" fill="#b06f3e"/>
+    <path d="M5 -29L11 0L4 2L2 -28Z" fill="#84522f"/>
+    <path d="M1 -27L12 -43L14.500 -41L6 -22Z" fill="#b06f3e"/>
+    <path d="M-6 -29C-10 -37 -8 -46 -1 -49C4 -51 9 -47 9 -41C9 -36 7 -32 4 -29Z" fill="#c07d48"/>
+    <path d="M4 -47C8 -46 9.500 -42 9 -38C8.500 -35 7 -33 5 -32C3 -35 2 -42 4 -47Z" fill="#2a1d18"/>
+  </g>
+  <g transform="translate(190 238)">
+    <path d="M9 0L5 -28C4 -31 -3 -32 -5 -29L-11 0L-4 2L2 -1Z" fill="#b06f3e"/>
+    <path d="M5 -28L9 0L2 -1L2 -29Z" fill="#84522f"/>
+    <path d="M-1 -27L-12 -43L-14.500 -41L-6 -22Z" fill="#b06f3e"/>
+    <path d="M6 -29C10 -37 8 -46 1 -49C-4 -51 -9 -47 -9 -41C-9 -36 -7 -32 -4 -29Z" fill="#c07d48"/>
+    <path d="M-4 -47C-8 -46 -9.500 -42 -9 -38C-8.500 -35 -7 -33 -5 -32C-3 -35 -2 -42 -4 -47Z" fill="#2a1d18"/>
+  </g>
+  <g transform="translate(34 204) scale(.72)">
+    <path d="M-9 0L-5 -28C-4 -31 3 -32 5 -29L11 0L4 2L-2 -1Z" fill="#b06f3e"/>
+    <path d="M5 -29L11 0L4 2L2 -28Z" fill="#84522f"/>
+    <path d="M1 -27L12 -43L14.500 -41L6 -22Z" fill="#b06f3e"/>
+    <path d="M-6 -29C-10 -37 -8 -46 -1 -49C4 -51 9 -47 9 -41C9 -36 7 -32 4 -29Z" fill="#c07d48"/>
+    <path d="M4 -47C8 -46 9.500 -42 9 -38C8.500 -35 7 -33 5 -32C3 -35 2 -42 4 -47Z" fill="#2a1d18"/>
+  </g>
+  <g transform="translate(226 204) scale(.72)">
+    <path d="M9 0L5 -28C4 -31 -3 -32 -5 -29L-11 0L-4 2L2 -1Z" fill="#b06f3e"/>
+    <path d="M5 -28L9 0L2 -1L2 -29Z" fill="#84522f"/>
+    <path d="M-1 -27L-12 -43L-14.500 -41L-6 -22Z" fill="#b06f3e"/>
+    <path d="M6 -29C10 -37 8 -46 1 -49C-4 -51 -9 -47 -9 -41C-9 -36 -7 -32 -4 -29Z" fill="#c07d48"/>
+    <path d="M-4 -47C-8 -46 -9.500 -42 -9 -38C-8.500 -35 -7 -33 -5 -32C-3 -35 -2 -42 -4 -47Z" fill="#2a1d18"/>
+  </g>
+</g>
+</svg>
+<!-- /lem-mark -->
+      </div>
+      <div class="eyebrow"><span class="beacon"></span>Lem onboarding</div>
+      <h1>REPOSITORY</h1>
+      <!-- the root as an absolute path: every other path on the page is relative to it -->
+      <p class="ask mono">/ABSOLUTE/PATH/OF/THE/REPOSITORY</p>
+      <div class="meta">
+        <span class="chip">branch <b class="mono">chore/lem-onboarding</b></span>
+        <span class="chip">commit <b class="mono">ABC1234</b></span>
+        <span class="chip you">not landed: your read is the review</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="box you">
+    <h2>What you answer</h2>
+    <div class="replies">
+      <div class="reply"><b>land</b><span>I put the branch on BASE myself. You type no git command.</span></div>
+      <div class="reply"><b>change …</b><span>Say what. I edit, commit and show the file again.</span></div>
+      <div class="reply"><b>drop</b><span>I remove the branch and the onboarding's notes, and say what stays on this machine.</span></div>
+    </div>
+  </section>
+
+  <section class="box">
+    <h2>Read these three first</h2>
+    <p>Each is a draft. I open them for you one after the other, and your notes are my corrections.</p>
+    <ol class="reads">
+      <li><b>What must not go wrong</b><span>the danger topics and the careful paths: <code>flow.topics</code> and <code>flow.careful</code> in <code>.lem/project.toml</code></span></li>
+      <li><b>The gate</b><span><code>gate.commands</code> in <code>.lem/project.toml</code></span></li>
+      <li><b>The people</b><span><code>.lem/personas/NAME.md</code></span></li>
+    </ol>
+  </section>
+
+  <section class="box">
+    <h2>The machine</h2>
+    <!-- one row for each row of the machine check: no class when it is there, `absent` for a
+         required one that is not, `optional` for an optional one that is not, with what Lem
+         does without it. No part of Lem itself is listed. -->
+    <ul class="rows">
+      <li class="row"><b>git</b><span>2.55.0</span></li>
+      <li class="row absent"><b>TOOL</b><span>required, and absent: WHAT IT IS FOR</span></li>
+      <li class="row optional"><b>TOOL</b><span>absent: WHAT LEM DOES WITHOUT IT</span></li>
+    </ul>
+  </section>
+
+  <section class="box">
+    <h2>The settings <span class="n mono">.lem/project.toml</span></h2>
+    <table>
+      <thead><tr><th>Setting</th><th>Value</th><th>From</th></tr></thead>
+      <tbody>
+        <tr><td>who lands</td><td><code>owner</code></td><td class="from">your answer</td></tr>
+        <tr><td>the gate</td><td><code>COMMAND</code></td><td class="from"><code>AGENTS.md</code>; it ran green: LAST LINE</td></tr>
+        <tr><td>SETTING</td><td>VALUE</td><td class="from">WHERE IT WAS READ, OR "your answer", OR "assumption: WHY"</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="box">
+    <h2>What was linked and what was written</h2>
+    <ul>
+      <li><code>PATH</code>: WHAT IT IS, AND WHETHER IT WAS THERE OR IS A DRAFT</li>
+    </ul>
+  </section>
+
+  <section class="box">
+    <h2>Assumptions taken from the code</h2>
+    <ul>
+      <li>THE ASSUMPTION <span class="dim">(<code>WHERE IT WAS READ</code>)</span></li>
+    </ul>
+  </section>
+
+  <!-- only when the owner said yes to the correction queue -->
+  <section class="box you">
+    <h2>One step that is yours: the hook of the correction queue</h2>
+    <p>Run this yourself, today or on a later day. An agent does not run it for you.</p>
+    <pre><code>python3 CLONE/scripts/setup.py --corrections on --project ROOT</code></pre>
+  </section>
+
+  <!-- only when the project's agent document does not say it yet -->
+  <section class="box">
+    <h2>A paragraph for <code>AGENTS.md</code>, if you say yes</h2>
+    <blockquote>THE PARAGRAPH ABOUT WHERE THE RULES ARE AND HOW A RULE FILE NAMES ITS PATHS</blockquote>
+  </section>
+
+  <!-- only when scheduled work was offered or added -->
+  <section class="box quiet">
+    <h2>Scheduled work</h2>
+    <p>WHICH JOB, WHEN IT RUNS, AND WHAT ITS FIRST RUN READS; OR WHY NONE IS WORTH IT YET.</p>
+  </section>
+</main>
+</body>
+</html>

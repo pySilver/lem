@@ -82,7 +82,7 @@ The board shows these things:
   review item.
 - The board of one task says who acts next.
 - A line that waits for you says where you answer.
-- The page reads its data again each two seconds.
+- A change shows on the board in two seconds or less.
 
 ## How one task goes
 
@@ -90,7 +90,7 @@ The board shows these things:
 flowchart TD
     ask([You: /lem and your ask]) --> open[Lem opens the task:<br/>a branch, a worktree, the ask in your words]
     open --> plan[A builder writes a short plan<br/>as the first commit]
-    plan --> careful{Is the task careful?<br/>It touches a careful path, or it starts<br/>a pattern that other code will copy}
+    plan --> careful{Is the task careful?<br/>It touches a danger topic or a careful path,<br/>or it starts a pattern that other code will copy}
     careful -- no --> count{How many tasks<br/>are in the plan?}
     count -- one --> same[The same builder builds it]
     count -- more --> build[One new builder<br/>for each task of the plan]
@@ -116,9 +116,16 @@ These rules hold for each task:
   finds it later.
 - **Lem has no pull request step.** A team that reviews each change before a merge has a
   different flow. Lem does not fit that flow now.
-- **A careful task keeps the slow flow.** The project names the paths where a defect costs most.
-  A plan that touches one is careful. A plan that starts a pattern for other code is careful too.
-  A careful plan gets a second opinion, and each of its tasks gets a review.
+- **A careful task keeps the slow flow.** The project names what must not go wrong: as danger
+  topics in your words, and as paths. Examples of topics are the price that a customer pays,
+  data that nobody can make again, and private data.
+- **The lead decides if a task is careful, and it says why.** It reads its plan against each
+  topic and each path. It writes its decision into the plan, with one sentence of the reason.
+  You see that sentence on the board and in the report.
+- **You can overrule that decision.** Tell Lem that a task is careful, at each moment before
+  the landing. A match of a path is always careful.
+- **A plan that starts a pattern for other code is careful too.** A careful plan gets a second
+  opinion, and each of its tasks gets a review.
 - **One builder for each task of a plan.** Each builder starts with an empty context. A plain
   plan with one task is the exception: the builder that wrote the plan builds it.
 - **One branch lands at a time.** The gate result is about one tip on one base.
@@ -168,8 +175,13 @@ There is one Lem for one repository. It is the session where you type `/lem`.
 
 - Lem takes the asks, starts each task, lands the branches, and reports to you.
 - Lem holds no details of a task. It reads the ask, the newest state block and the report.
-- A lead owns one task from its plan to its report. A lead never asks you a question. It writes
-  the question in its report, and Lem asks you.
+- A lead owns one task from its plan to its report. A lead never asks you a question.
+- Something that the plan did not see can occur in the build. The lead decides a small matter
+  itself. It writes the decision and the reason into the log of the task.
+- Some matters have options that each cost a person something. Then the personas answer first,
+  and Lem asks you. Work that does not depend on your answer continues.
+- The report of each task lists each decision that an agent took without you, with its reason.
+  You can overturn each of them.
 - When Lem asks you to choose or to approve, it opens a page in agterm with the options side by
   side. You do not type a command for that.
 - Three questions stay in the terminal: a value that you type, a go-ahead for a step, and a
@@ -210,7 +222,6 @@ flowchart TD
   to you directly.
 - A repository that already has `.claude/rules` keeps that folder. It is the style guide, and
   the settings name it. Lem makes no copy and no symbolic link.
-- A repository that already has `.personas` can keep that folder in the same way.
 - A rule file can name the files that it applies to. It does this at its top, between two `---`
   lines, with `paths:` and a list of globs:
 
@@ -225,14 +236,14 @@ flowchart TD
 - A rule file without `paths:` applies to all files. Lem gives each builder and each reviewer
   the rule files for the files of the change.
 - `.revmux` is the folder of the review tool, revmux. `/lem init` puts the starter set of that
-  tool there, and a lesson can change a file there. Lem does not move the folder.
+  tool there, and a lesson can change a file there.
 
 ## What Lem writes, and how you undo it
 
 | Where | What | How you undo it |
 | --- | --- | --- |
 | Your computer | links in `~/.claude/skills/`, `~/.claude/agents/` and `~/.local/bin/`, from the setup | `setup.py --remove` |
-| Your computer | one hook in `~/.claude/settings.json`, only if you run `--corrections on` | `setup.py --corrections off` |
+| The repository, or your computer | one hook in `.claude/settings.local.json` of the repository, or in `~/.claude/settings.json`; only if you run `--corrections on` | `setup.py --corrections off`, with the same `--project` |
 | Your computer | scheduled jobs in cronn, only after your yes in `/lem init` | remove the job in cronn |
 | The repository | `.lem/` and the starter set in `.revmux/`, on the branch `chore/lem-onboarding` | before you answer "land": answer "drop"; after that: the steps below |
 | The repository | one branch for each task, and its worktree in `.lem/worktrees/` | Lem removes the worktree after the landing, and the branch if the base branch has its commits |
@@ -343,8 +354,9 @@ Two paths did not occur in these runs:
    merges.
 5. Lem asks you one question at a time, each with its own guess. Example: "This is a shop back
    end for small merchants. Is that correct?"
-6. Lem asks which paths must never break. Its guess comes from the repository, for example
-   `app/payments/*` and the migrations.
+6. Lem proposes what must not go wrong in this project: the danger topics, and the paths where
+   the code has them now. Examples are "the price that a customer pays" and `app/payments/*`.
+   You correct the two lists.
 7. Lem writes `.lem/project.toml` and these drafts: the profile, the personas, a lessons file,
    and the starter set of the review tool in `.revmux/`.
 8. Lem writes a style guide only if the repository has no `.claude/rules` folder.
@@ -381,44 +393,66 @@ Linear.
 
 ## Commands
 
+`/lem` is one command. The first word after it says what Lem does.
+
+### Commands that you type
+
 | Command | What it does |
 | --- | --- |
-| `/lem <your ask>` or `/lem new <what>` | opens a task and starts it |
-| `/lem plan <what>` | opens a task and stops after the plan, for you to read |
-| `/lem build <task>` | builds a plan that waits: a night draft, or a plan that you read |
+| `/lem <your ask>`, or `/lem new <what>` | opens a task and runs it to the gate. It has no interview, and it does not stop for you to read the plan. It stops only for the reviewer of a careful plan, and for a decision that is yours |
+| `/lem plan <what>` | opens a task and stops after the plan. You read the plan. Then `/lem build` continues |
+| `/lem build` | lists the plans that wait and asks which one it builds |
+| `/lem build <task>`, or `/lem build <plan file>` | builds that plan: a plan that you read, or a draft from the night |
 | `/lem land` | runs the gate for the oldest task that is ready; lands it if `branch.land` is `agent` |
 | `/lem`, `/lem status`, `/lem status <task>` | opens the board of all tasks, or of one task |
-| `/lem review` | does the review queue, the high-risk items first; closes a normal item after seven days |
+| `/lem review` | shows the review queue, and reviews its first item |
+| `/lem review <id>` | reviews the item that you name |
+| `/lem ask <question>` | puts a question to you as a page with the options side by side |
+| `/lem annotate <file>` | opens a plan or a document for you to mark, with the tool in `tools.annotate` |
+| `/lem learn` | you corrected an agent a moment ago: Lem puts the correction into the file that owns that step, and tells you each change |
 | `/lem reviewer <agent> [model [effort [plan_effort]]]` | names the reviewer on this computer for now; the agent is `claude` or `codex` |
+| `/lem reviewer codex gpt-6.1-sol high` | an example: Codex is the reviewer, with the model `gpt-6.1-sol` and the effort `high` |
 | `/lem reviewer default` | gives the reviewer of the project back |
-| `/lem night` | writes a plan for one backlog item when nobody is there; a scheduled job in cronn starts it |
-| `/lem learn` | after your correction, changes the file that owns that step, and tells you each change |
-| `/lem retro` | reads the past tasks and finds a correction that you gave more than one time |
 | `/lem init` | sets up a repository |
 
-`/lem` is one command. Each skill that comes with Lem has the id `lem-<name>`, and you start it
-with `/lem <name>`.
+### Commands that Lem or a scheduled job starts
 
-The skills that you call:
+You can type each of these commands, but usually you do not.
 
-| Command | Use |
-| --- | --- |
-| `/lem interview-me` | an ask that is not clear: one question at a time, each with a guess |
-| `/lem backlog` | work for later, one file for each item |
-| `/lem dialectic` | a claim that two agents argue from the two sides |
-| `/lem root-cause` | a defect that nobody can explain after two tries |
-| `/lem webrev` | a document that you mark in an agterm overlay |
-| `/lem linear check` | a test of the connection to Linear and of the `[tracker]` settings |
-| `/lem release`, `/lem last-tag` | a release with notes, and the changes after the last release |
-| `/lem pr-review` | a review of a pull request or an issue, with a draft comment |
+| Command | Who starts it | What it does |
+| --- | --- | --- |
+| `/lem review` | Lem, when a high-risk task lands; a scheduled job for the normal items, if you accepted that job in `/lem init` | reads one landed change with the review tool; a confirmed defect becomes a new task; closes a normal item after seven days without a review |
+| `/lem retro` | a scheduled job, in the morning | reads the landed tasks and the correction queue; finds a correction that you gave more than one time; proposes where it must go |
+| `/lem night` | a scheduled job, at night | writes a plan for one backlog item that needs no decision; you read the plan in the morning |
 
-The skills that Lem uses without a command from you:
+- The scheduled jobs are jobs in cronn. `/lem init` offers them, and it adds a job only after
+  your yes.
+- [docs/free-hour.md](docs/free-hour.md) is about a different job: a session with no person at
+  the terminal that corrects Lem itself. It works on a branch of the clone, and it does not push.
+
+### Skills that you call
+
+Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem <name>`.
+
+| Command | Use it when | Example |
+| --- | --- | --- |
+| `/lem interview-me` | your ask is not clear to you yet; Lem asks one question at a time, each with a guess | `/lem interview-me a faster export` |
+| `/lem backlog` | you want to see, add or do work for later; each item is one file | `/lem backlog` |
+| `/lem dialectic` | a claim decides a plan, and you are not sure that the claim is true; two agents argue the two sides | `/lem dialectic this table stays below one million rows` |
+| `/lem root-cause` | a defect is there again after two fixes, and nobody can explain it | `/lem root-cause the import stops at row 5000` |
+| `/lem webrev` | you want to mark a document in an agterm overlay; `/lem annotate` uses it by default | `/lem webrev docs/plans/20261115-export.md` |
+| `/lem release` | you make a release: Lem finds the next version and writes the notes, and you approve them | `/lem release` |
+| `/lem last-tag` | you want to see the commits after the last release | `/lem last-tag` |
+| `/lem pr-review` | a pull request or an issue from a different person needs an answer; Lem writes a draft comment | `/lem pr-review 42` |
+
+### Skills that Lem uses without a command from you
 
 | Skill | Use |
 | --- | --- |
 | `lem-ask` | each question that asks you to choose or to approve, as a page |
 | `lem-gate` | the question gate: it decides if a question must go to you at all |
 | `lem-panel` | the personas: an agent answers as each person that the decision has an effect on |
+| `lem-linear` | the tickets of Linear; Lem tests the connection in `/lem init`, and again when it reads a ticket |
 
 ## Settings
 
@@ -441,6 +475,7 @@ The skills that Lem uses without a command from you:
 | `branch.history` | `keep` | what lands: the commits of the branch (`keep`) or one commit (`squash`) |
 | `gate.commands` | empty | the check commands; with none, no task lands |
 | `gate.ignores` | empty | the paths that the gate does not read |
+| `flow.topics` | empty | the danger topics: what must not go wrong, each as one sentence in your words |
 | `flow.careful` | empty | the paths that get the careful flow |
 | `flow.max_tasks` | `4` | how many tasks build or land at one time |
 | `seats.reviewer.agent` | none; `/lem init` asks | the reviewer: `claude` or `codex` |
@@ -521,8 +556,8 @@ python3 scripts/setup.py           # make the links, then do the check of the co
 python3 scripts/setup.py --check   # change nothing; show the state of each link
 python3 scripts/setup.py --remove  # remove the links again
 python3 scripts/setup.py --project ~/code/shop   # link Lem into one repository only
-python3 scripts/setup.py --corrections on        # optional: add the hook of the correction queue
-python3 scripts/setup.py --corrections off       # remove that hook again
+python3 scripts/setup.py --corrections on --project ~/code/shop    # optional: add the hook of the correction queue
+python3 scripts/setup.py --corrections off --project ~/code/shop   # remove that hook again
 ```
 
 - The script links each skill into `~/.claude/skills/`, the builder agent into
@@ -548,8 +583,10 @@ python3 scripts/setup.py --corrections off       # remove that hook again
   decision model, together with the agent message before it.
 - The hook is active only in a repository with `corrections.collect = true`.
 - You add the hook yourself, on the day of the setup or later. An agent does not add it for you.
-- `--corrections on` adds one command to `~/.claude/settings.json` and keeps all other content.
-  With `--project`, it writes `.claude/settings.local.json` of that repository.
+- Add the hook for one repository, with `--project`. The script then adds one command to
+  `.claude/settings.local.json` of that repository, and it keeps all other content.
+- Without `--project`, the command goes into `~/.claude/settings.json`. Then the hook starts on
+  each message in each repository. Use that form only if many of your repositories use Lem.
 - The agent that runs `/lem` coordinates. The reviewer is Codex or a second Claude, as
   `[seats.reviewer]` says.
 

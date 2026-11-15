@@ -58,7 +58,9 @@ from its start to its landing.
 
 ## check
 
-Run it at onboarding, when the settings change, and when the owner asks.
+Run it at onboarding, when the `[tracker]` settings change, and when the owner asks in words. It
+is no command the owner has to know: the first read of a ticket makes the workspace test and the
+team test below, and fails with the same words.
 
 1. The workspace test. `whoami` returns the workspace with its address, the user (`name`) and a
    `connection` with its `access`.

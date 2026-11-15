@@ -277,13 +277,15 @@ one command of Lem's setup, on the day of the onboarding or any later day, and t
 same way. `CLONE` is Lem's clone: two folders above the real path of `SKILL_DIR`.
 
 ```bash
+python3 CLONE/scripts/setup.py --corrections on --project ROOT   # for this repository
 python3 CLONE/scripts/setup.py --corrections on                  # for every repository of this home
-python3 CLONE/scripts/setup.py --corrections on --project ROOT   # for one repository, as a trial's links are
 python3 CLONE/scripts/setup.py --corrections off                 # with --project ROOT when it went in that way
 ```
 
-Name the form that matches how Lem is linked here: `--project ROOT` when `SKILL_DIR` is inside
-the repository, the plain form otherwise. Print no JSON for him to paste. The command adds one
+Name the first form. The yes is one project's (`corrections.collect`), and a hook in the home
+settings starts a process on every message in every repository only to find that out. The
+second form is for an owner with many repositories that use Lem: say that it exists, in one
+line. Print no JSON for him to paste. The command adds one
 `UserPromptSubmit` hook to Claude Code's settings (`~/.claude/settings.json`, or the checkout's
 `.claude/settings.local.json`), keeps the rest of the file, and refuses a file it cannot read,
 one that holds the hook in another form, and for one repository a settings file that is a link

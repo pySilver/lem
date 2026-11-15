@@ -49,7 +49,10 @@ onboarding directory, every line with the path it was read from:
 - how work lands: the default branch, the branches the last fifty merges went into, whether
   commits are squashed, the form of the commit subjects;
 - where a defect costs most: migrations, money, authentication, anything that writes data which
-  cannot be rebuilt, the checks themselves. These become the proposed careful paths;
+  cannot be rebuilt, private data, the checks themselves. Most products have most of these, so
+  look for each. They become two proposals: the danger topics, each one sentence in the terms of
+  this product ("the price a merchant's customer pays", not "money"), and the careful paths
+  where the code keeps them today;
 - the conventions the code already keeps: how modules are laid out, how errors are raised, how
   tests are named and what they touch. Note one only where several files agree;
 - `python3 SKILL_DIR/scripts/project.py existing`: the settings an older tool already keeps here
@@ -97,7 +100,11 @@ For a repository that has code:
   get. The code shows what exists; only the owner knows what it is judged against.
 - **The people**: who is affected when a decision here goes one way or the other (a customer, an
   operator, a partner, the engineer on call). Each becomes a persona.
-- **What must never break**: confirm or correct the proposed careful paths. This is the one
+- **What must never break**: show the danger topics and the careful paths you propose, and ask
+  what is wrong or missing. The topics come first: a person names a danger more surely than a
+  folder, and a topic still holds after the code moves. In a repository with no code, propose
+  the topics from the owner's description of the product; the paths come with the first tasks.
+  Confirm or correct both. This is the one
   setting that is the owner's to choose.
 - **Who lands**: the owner, or the agent once the gate is green; and the branch tasks land on.
 - **What lands**: a task's own commits, or one commit for the whole task. Guess from the last
@@ -139,7 +146,7 @@ python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --exist
 ```
 
 Leave `--existing` out when `project.py existing` listed nothing, or the style guide alone: a rules folder needs no choice, and every other folder it lists does. Then edit `.lem/project.toml`: the
-gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, `history`,
+gate commands from `examined.md`, the danger topics (`flow.topics`) and the careful patterns the owner confirmed, `land`, `history`,
 the protected branches, the `[tracker]` table when the project has one, the reviewer's `model`,
 `effort` and `plan_effort` when the owner named them, and `tools.annotate` or `tools.ask` when the owner marks up plans or takes questions with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
 only means the gate runs again whenever the base moves.
@@ -188,14 +195,20 @@ it is.
 Commit the settings and the generated files on a branch of their own, `chore/lem-onboarding`.
 It is not landed yet: the owner's read of the drafts is the review.
 
-`show-page` one page to the owner. Its title names the repository and its first line is the
+`show-page` one page to the owner, built from the pattern `SKILL_DIR/assets/handover.html`: copy
+that file and `SKILL_DIR/assets/lem.css` into the onboarding's directory, put the facts in the
+place of its words in capitals and of its example rows, repeat a block as the content needs and
+remove a section that has nothing to say. Keep its classes and add no style of your own. The
+stylesheet is the one the board uses, so the page looks like the same tool; the first
+onboarding's page was written by hand, and the owner found it "a bit old school" (2026-11-15).
+Its title names the repository and its first line is the
 root as an absolute path: every other path on the page is relative to it, and a page without it
 cannot be checked against any folder. Then what the machine has and lacks, what was linked and
 what was generated, each assumption taken from the code with its source, and the settings file.
 The machine's part lists the tools the check lists and no part of Lem itself: the question page
 and the mark-up page come with Lem. Say there that the project may bring a builder of its own,
 and how (the harness file, `spawn-builder`). When the owner said yes to the correction queue, the page names the command he
-runs for its hook and nothing he has to edit.
+runs for its hook, in the form for this one repository, and nothing he has to edit.
 
 A list of file names is not a hand-over. Every generated file is a draft, and three are read
 first: the careful paths, the gate, the personas. Offer to open each in the annotate tool

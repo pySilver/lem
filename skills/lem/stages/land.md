@@ -85,7 +85,11 @@ one finds what the run before it finished.
    reason. The next task's worktree starts from that checkout's base branch, so say that too.
 6. **Report to the owner**, once, in plain words, from `report.md`: what they get, how to see it,
    the gate's last lines, the decisions taken without them, what was not verified, and the review
-   item's risk. Give paths relative to the repository's root. Offer each proposed backlog item
+   item's risk. Every decision is in the report itself, one line each: what came up, what was
+   chosen, and why in a few words, with what the personas said where they were asked. That
+   holds for what came up during the build as much as for the plan's own decisions. The owner
+   never has to open `decisions.md` to learn what was decided for him. The lead's call on
+   whether the task is careful, with its sentence of why, is one of those lines. Give paths relative to the repository's root. Offer each proposed backlog item
    by its first line, as the last lines of the report: it is a plain yes or no for each, so it
    stays in the terminal. Name each item by what it says, so that "file it" can mean one thing
    only; when the owner's answer could mean two things, ask which. `SKILL.md`, Status, says what

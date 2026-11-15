@@ -143,7 +143,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
     "branch": ("base", "land", "history", "protected"),
     "gate": ("commands", "ignores"),
-    "flow": ("careful", "max_tasks"),
+    "flow": ("careful", "topics", "max_tasks"),
     "seats": ("reviewer",),
     "tools": tuple(TOOLS),
     "corrections": ("collect",),
@@ -191,6 +191,11 @@ ignores = []
 # Paths whose change takes the careful flow: the plan is read by the reviewer and each task
 # is reviewed before the next starts. A `*` crosses directories.
 careful = []
+# What must not go wrong in this project, each as one sentence in the owner's words: "a price a
+# customer pays", "data that cannot be rebuilt", "who may sign in". No code matches these: the
+# lead of a task reads its plan against each, and a plan that touches one takes the careful flow
+# whatever its paths.
+topics = []
 # How many tasks build or land at one time. Four to five ran well on one Mac; six gave a load
 # average of 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when
 # the tests share one database or drive a browser.
@@ -424,7 +429,11 @@ def load(root: Path) -> dict:
             "commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands"),
             "ignores": strings(raw.get("gate", {}).get("ignores", []), "gate.ignores"),
         },
-        "flow": {"careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"), "max_tasks": max_tasks},
+        "flow": {
+            "careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"),
+            "topics": strings(raw.get("flow", {}).get("topics", []), "flow.topics"),
+            "max_tasks": max_tasks,
+        },
         "seats": {"reviewer": reviewer},
         "tools": tools,
         "corrections": {"collect": collect},

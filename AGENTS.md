@@ -118,11 +118,50 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **webrev is the recommended way to mark up a plan or a document**, before plannotator
   ("`/webrev` is awesome and needs to be recommended to use over plannotator"). plannotator-tui
   with its agterm chords is recommended to the owner by its guide; Lem installs nothing for it.
+- **What must not go wrong is named by topic as well as by path, and the agent says whether a
+  task is careful**: "we analyze the project, then we suggest what are the dangerous zones or
+  topics and let user provide more ... Later at a plan time we can understand if it touches
+  anything whats dangerous and needs to be taken carefully. Works better than just code path",
+  and "it would be nice to get a suggestion from Agent whether its should be safe run or not,
+  human can overlook real danger" (2026-11-15). The form is a design from those words:
+  `flow.topics` beside `flow.careful`, proposed at onboarding; the lead's call with one sentence
+  of why in the plan, the state and the report; a path match that no judgment overturns; the
+  owner's "this one is careful" at any time before the landing. No code matches a topic.
+- **The owner learns at the end what was decided for him, each with a short why**: "human needs
+  to know about such events in the end and what choices were taken with short 'why'". The
+  report holds those lines itself.
+- **The README tells a command he types from one a job or Lem runs**: "commands like this should
+  be mentioned that it's not supposed to be run by human, but cron or agent?". Each shipped skill
+  has a "use it when" and an example there: "how I am supposed to understand which skill does
+  what and when I should use it?". It does not name `.personas` ("nobody uses `.personas` but
+  me").
+- **A check of the tracker is no command of the owner's**: "looks a bit pointless to have a
+  command for that. mcp is either working or not". The onboarding and the first read of a ticket
+  make the check.
+- **A page for the owner has the board's look**: of the first onboarding's page, "a bit old
+  school ... just a bit nicer fonts, colors, paddings, round boxes etc.". Every page links
+  `skills/lem/assets/lem.css`, and a stage builds its page from a pattern beside it.
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
 
-Designs the starting session took on 2026-11-14 after a question of the owner's. They are open
-to him, and they are not his rulings until he says so:
+Designs taken on 2026-11-14 and 2026-11-15 after a question of the owner's. They are open to
+him, and they are not his rulings until he says so:
+
+- **`/lem annotate FILE` is the owner's verb for marking up**, after "then shouldn't it be
+  `/lem annotate`?": it runs what `tools.annotate` names, as `/lem ask` is his verb for a
+  question.
+- **`/lem build` takes a plan file too, and lists the waiting plans when it gets no name**,
+  after "why not `/lem build <path to plan>` instead?". `/lem review ID` takes one item, after
+  "do I get to choose what to review from the list or what?".
+- **The correction hook is registered for one repository first**, after "should we place a hook
+  per project or globally?": the yes is one project's, and a hook in the home settings starts on
+  every message in every repository. The session that carried his notes decided it and told
+  him; the home form stays for an owner with many repositories that use Lem.
+
+Open with him, and not built: whether Lem ships `lem-webrev` or depends on the agterm recipe it
+came from; a direct API of the Jev model beside OpenRouter; and Lem as a Claude Code plugin that a
+project enables, in place of links ("can we make it more self contained? lem is aimed to be
+per-project companion").
 
 - **The reviewer's seat is a table**, after "should we or can we specify model and effort level
   of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `effort`, `plan_effort`.
@@ -159,6 +198,9 @@ real task, so say in the commit which task showed the need.
   reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
   the setup links as the `jev` command).
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both.
+  `lem.css` beside it is the look every page of Lem shares: its colors, its type, its header
+  and the blocks of a page to read. `handover.html` is the pattern of the onboarding's page.
+  A new page for the owner links `lem.css` and brings no style of its own.
 - `skills/lem/templates/`: the shapes onboarding fills.
 - `skills/lem/prompts/`: the standing briefs of a task's lead, of the three builders of a
   landing, and of the reviewer.

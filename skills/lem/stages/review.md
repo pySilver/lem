@@ -11,6 +11,12 @@ one repository, the queue held 48 items and 43 were still open (convertiser-serv
 Lem's stage. `python3 SKILL_DIR/scripts/review_queue.py list` prints the open items, the `high`
 ones first.
 
+Who starts it: Lem itself for a `high` item, at its landing (rule 1); a scheduled job for the
+`normal` ones, in a project whose owner said yes to that job at onboarding; the owner by hand
+otherwise. `/lem review` with no word shows the queue to him, each item with its task, its risk
+and its age, and takes the first by the rules below. `/lem review ID` takes that item, whatever
+its place in the queue.
+
 1. **Every `high` item is reviewed on the day it lands.** A session that lands a `high` item
    starts its review before it starts another task.
 2. **`normal` items are taken oldest first** with what the day leaves. An item nobody read in

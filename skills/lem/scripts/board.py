@@ -10,7 +10,8 @@ The page is `assets/board.html`. It draws the files beside it in the state folde
 and `review-queue.js`, which `project.py` and `review_queue.py` append to, and `meta.js`, which
 this script writes (the repository's name, the base branch, the session that opened the board). A
 file:// page cannot read a file with fetch and it can load a script, so each of the three is one.
-The page is copied into the state folder at every open, so an older checkout gets the current one.
+The page and the stylesheet it links (`assets/lem.css`, the look every page of Lem shares) are
+copied into the state folder at every open, so an older checkout gets the current ones.
 A copy named `task-SLUG.html` opens on that task.
 
 It opens as a page companion of the top session of the asking session's group: it sits indented
@@ -42,6 +43,8 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
 ASSET = SCRIPTS.parent / "assets" / "board.html"
+# the look every page of Lem shares; the board links it, so it goes beside the page
+STYLE = SCRIPTS.parent / "assets" / "lem.css"
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 TINT = "green"
 
@@ -89,6 +92,7 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> tu
     (state / "meta.js").write_text(f"lemMeta({json.dumps(meta, ensure_ascii=False)});\n", encoding="utf-8")
     page = state / (f"task-{slug}.html" if slug else "board.html")
     shutil.copyfile(ASSET, page)
+    shutil.copyfile(STYLE, state / STYLE.name)
     return page, meta["repo"]
 
 

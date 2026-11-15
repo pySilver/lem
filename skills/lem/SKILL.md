@@ -73,17 +73,18 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | --- | --- | --- |
 | `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and starts its lead. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read | `stages/new.md` |
-| `build <task>` | starts a lead on a task whose plan waits: a night draft, a plan the owner read | `stages/new.md` |
+| `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state | `stages/new.md` |
 | `land` | the oldest ready task: the gate runs; it lands or waits for the owner; a review item is queued | `stages/land.md` |
-| `review` | works the review queue by risk; confirmed findings become tasks | `stages/review.md` |
+| `review [ID]` | works the review queue by risk, or the one item named; confirmed findings become tasks | `stages/review.md` |
+| `annotate <file>` | opens a plan, a draft or any text file for the owner to mark up, with what the settings' `tools.annotate` names, and takes his notes as corrections | the harness file, `show-page` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
 | `status`, bare `/lem` | the board of all tasks, and in words: every open task, the review queue and what waits for the owner | below |
 | `status <task>` | the board of one task | below |
 | `reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]`, `reviewer default` | who sits in the reviewer's pane on this machine for now, and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic`, `root-cause`, `webrev` and `linear` this way; `ask`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic`, `root-cause` and `webrev` this way; `ask`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
@@ -112,10 +113,13 @@ Between two of the owner's messages Lem only waits: a lead that stops wakes it.
 - **A destructive or outward step is never yours.** Dropping data, rewriting shared history,
   touching production, bending a gate, pushing to a branch the settings do not name: stop and
   ask, with the evidence.
-- **Careful paths take the careful flow.** `project.py careful FILE...` says which files of a
-  change the project's patterns match. One match makes the task careful: a session leads it, its
-  plan is read by a second opinion before the build, and each of its tasks is reviewed before the
-  next.
+- **What must not go wrong takes the careful flow.** The project names it two ways: paths
+  (`project.py careful FILE...` says which files of a change match) and danger topics in the
+  owner's words (`flow.topics`), which the lead reads a plan against. One match of either makes
+  the task careful: a session leads it, its plan is read by a second opinion before the build,
+  and each of its tasks is reviewed before the next. The lead writes its call and the one
+  sentence of why into the plan, its state and its report, and the owner may overrule a "no"
+  at any time before the landing.
 - **Only so many tasks build or land at one time.** `project.py may-start` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
   the gate runs and a builder may repair what it showed. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
