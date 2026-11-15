@@ -16,7 +16,8 @@ each item of the settings' backlog folder in the main checkout, with its `worth`
 whether that still resolves, whether git has it committed, and who can act on it next when the
 `lem-backlog` skill's sorting has a verdict. Items change rarely, so the page reads that file when
 the tab opens and on a key, and it says when the file was written. A run with `--no-open` writes
-it again without touching agterm.
+it again without touching agterm, and keeps the session the board already names: the tab's one
+action types an ask into that session, so only a run that opens the board says which one it is.
 The page and the stylesheet it links (`assets/lem.css`, the look every page of Lem shares) are
 copied into the state folder at every open, so an older checkout gets the current ones.
 A copy named `task-SLUG.html` opens on that task.
@@ -111,7 +112,8 @@ def backlog(settings: dict) -> dict:
 
     # what git does not have committed yet: an item the closing pass filed a minute ago is `new`
     changed = {}
-    for entry in git("status", "--porcelain", "-z", "--", relative).split("\0"):
+    # --untracked-files=all: a folder git does not know yet is listed file by file, not as one line
+    for entry in git("status", "--porcelain", "--untracked-files=all", "-z", "--", relative).split("\0"):
         if len(entry) > 3:
             code = entry[:2]
             changed[entry[3:]] = "new" if code == "??" or "A" in code else "edited"
@@ -124,7 +126,17 @@ def backlog(settings: dict) -> dict:
         verdicts = {}
     verdicts = verdicts if isinstance(verdicts, dict) else {}
     for file in sorted(folder.glob("*.md")):
-        text = file.read_text(encoding="utf-8", errors="replace")
+        rel = f"{relative}/{file.name}"
+        try:
+            text = file.read_text(encoding="utf-8", errors="replace")
+        except OSError as error:
+            # A link to a file that moved, or a folder with an item's name: shown, not hidden, and
+            # the other items are still read.
+            feed["items"].append({
+                "slug": file.stem, "path": rel, "title": file.stem, "worth": "unset", "where": "", "where_problem": "", "added": "",
+                "state": "unreadable", "who": "", "confidence": None, "body": f"This item cannot be read: {error.strerror or error}.",
+            })
+            continue
         fields: dict[str, str] = {}
         body = text
         if text.startswith("---"):
@@ -140,7 +152,6 @@ def backlog(settings: dict) -> dict:
             body = body[: title.start()] + body[title.end():]
         verdict = verdicts.get(file.stem) if isinstance(verdicts.get(file.stem), dict) else {}
         where = fields.get("where", "")
-        rel = f"{relative}/{file.name}"
         feed["items"].append({
             "slug": file.stem, "path": rel, "title": (title.group(1) if title else file.stem).replace("`", "").strip(),
             "worth": fields.get("worth") if fields.get("worth") in ("yes", "later", "no") else "unset",
@@ -154,7 +165,7 @@ def backlog(settings: dict) -> dict:
     return feed
 
 
-def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> tuple[Path, str]:
+def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_session: bool = False) -> tuple[Path, str]:
     """Write the page and meta.js into the state folder, and return the page's path and the repository's name."""
     if not ASSET.is_file():
         raise BoardError(f"{ASSET} is missing")
@@ -168,6 +179,17 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> tu
             raise BoardError(f"no task {slug!r}; the tasks are: {known}")
     # The main checkout names the repository; a worktree's folder is named after its task.
     meta = {"repo": Path(settings["main"]).name, "base": settings["branch"]["base"], "session": session}
+    if keep_session:
+        # A run that opens nothing only writes the files again. The session the board names is the
+        # one that opened it: the page types an ask into it, so a run from another session, a
+        # lead's or none at all, must not change where that ask goes.
+        known = re.fullmatch(r"lemMeta\((.*)\);\n", (state / "meta.js").read_text(encoding="utf-8"), re.S) if (state / "meta.js").is_file() else None
+        try:
+            before = json.loads(known.group(1)) if known else {}
+        except ValueError:
+            before = {}
+        if isinstance(before, dict) and isinstance(before.get("session"), str) and before["session"]:
+            meta["session"] = before["session"]
     # A board of made-up tasks must say so itself: a line under "Waits for you" reads as a call to
     # act. The mark is a file beside the events, because it is a fact about the data and not about
     # one open: `/lem status` opens the same folder later with no flag, and the page must still say it.
@@ -248,7 +270,7 @@ def main() -> None:
     try:
         if not args.no_open and not (session and socket):
             raise BoardError("not inside an agterm session; --no-open writes the page without one")
-        page, repo = prepare(args.repo, args.task, session, args.demo)
+        page, repo = prepare(args.repo, args.task, session, args.demo, keep_session=args.no_open)
         # the repository's name is in the name of its board of all tasks, so two boards in one sidebar read apart
         result: dict = {"page": str(page), "name": f"{args.task} board" if args.task else f"Lem board · {repo}"}
         if not args.no_open:

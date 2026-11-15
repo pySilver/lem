@@ -74,11 +74,14 @@ def plugin_named(name: str) -> str | None:
     for key, installs in plugins.items():
         if not isinstance(key, str) or key.split("@")[0] != name:
             continue
-        # an install for one project is that project's: another repository does not get it
-        entries = [entry for entry in installs if isinstance(entry, dict)] if isinstance(installs, list) else []
-        scoped = [entry for entry in entries if isinstance(entry.get("projectPath"), str)]
-        if not scoped or len(scoped) < len(entries) or any(os.path.realpath(entry["projectPath"]) in here for entry in scoped):
-            return f"the plugin {key}"
+        # An install for the user counts everywhere, one for a project only in that project. An
+        # entry that says neither is a shape this check does not know, and is no answer.
+        for entry in installs if isinstance(installs, list) else []:
+            if not isinstance(entry, dict):
+                continue
+            where = entry.get("projectPath")
+            if entry.get("scope") in ("user", "managed") or (isinstance(where, str) and os.path.realpath(where) in here):
+                return f"the plugin {key}"
     return None
 
 

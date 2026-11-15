@@ -559,7 +559,7 @@ else
 fi
 # The agent's list of plugins in a shape this check does not know is no answer, and no traceback.
 shapes=""
-for shape in '{"plugins": null}' '{"plugins": 1}' '[]' '{"plugins": {"1": []}}' 'not json'; do
+for shape in '{"plugins": null}' '{"plugins": 1}' '[]' '{"plugins": {"1": []}}' 'not json' '{"plugins": {"revmux@x": []}}' '{"plugins": {"revmux@x": null}}' '{"plugins": {"revmux@x": [{"scope": "project"}]}}'; do
   printf '%s\n' "$shape" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
   shapes="$shapes$( (doctor 2>&1 || true) | field 'next(t for t in d["tools"] if t["name"] == "revmux skill")["found"]' 2>&1 | tail -1) "
 done
@@ -569,8 +569,8 @@ mkdir -p "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugi
 printf '%s\n' '{"plugins": null}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 out=$(doctor || true)
 rm "$FAKEHOME/.claude/plugins/installed_plugins.json"
-if [ "$gone" = "False" ] && [ "$shapes" = "False False False False False " ] && [ "$(row 'revmux skill' detail <<<"$out")" = "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugin/skills/revmux" ]; then
-  pass "a list of plugins in an unknown shape is no answer and no traceback, and with no list to read the plugin's own folder with the skill in it counts"
+if [ "$gone" = "False" ] && [ "$shapes" = "False False False False False False False False " ] && [ "$(row 'revmux skill' detail <<<"$out")" = "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugin/skills/revmux" ]; then
+  pass "a list of plugins in an unknown shape, or an entry that names no user and no project, is no answer and no traceback; with no list to read the plugin's own folder with the skill in it counts"
 else
   fail "doctor with the plugin's folder only: $gone / $out"
 fi
@@ -584,13 +584,15 @@ fi
 # Lem installed as a plugin brings the builder too, for the user or for the one repository it was installed in.
 printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$WORK/another-repository\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 elsewhere=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"]' || true)
+printf '%s\n' '{"version": 2, "plugins": {"lem@lem": []}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+elsewhere="$elsewhere$(doctor | field 'next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"]' || true)"
 printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$PWD\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 here=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "lem-builder agent")["detail"]' || true)
 printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 user=$(doctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"])' || true)
 rm "$FAKEHOME/.claude/plugins/installed_plugins.json"
-if [ "$elsewhere" = "False" ] && [ "$here" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$user" = "(True, True)" ]; then
-  pass "Lem installed as a plugin for the user or for this repository satisfies the builder row, with the name the agent has there; an install for another repository does not"
+if [ "$elsewhere" = "FalseFalse" ] && [ "$here" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$user" = "(True, True)" ]; then
+  pass "Lem installed as a plugin for the user or for this repository satisfies the builder row, with the name the agent has there; an install for another repository, and an entry with no install in it, do not"
 else
   fail "doctor with Lem as a plugin: $elsewhere / $here / $user"
 fi
@@ -1257,19 +1259,34 @@ printf '%s\n' '---' 'worth: no' '---' '# A dark theme' '' 'Decided against.' > "
 git -C "$BKB" add -A && git -C "$BKB" -c user.name=t -c user.email=t@t commit -q -m start
 bitem new-from-a-landing maybe app/export.py 2026-11-15 'A new item' 'Not committed yet.'
 : > "$BKB/docs/backlog/a b;c.md"
+ln -s moved-away.md "$BKB/docs/backlog/broken-link.md" && mkdir "$BKB/docs/backlog/folder-item.md"
 project --repo "$BKB" init --base main >/dev/null
 # one task with a state, so that the page has an event log to read
 project --repo "$BKB" task-dir a-first-task >/dev/null && project --repo "$BKB" state a-first-task building 'lead: builder' >/dev/null
 "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
 feed() { "$PY" -c 'import json, re, sys; d = json.loads(re.fullmatch(r"lemBacklog\((.*)\);\n", open(sys.argv[1], encoding="utf-8").read().replace("<\\/", "</"), re.S).group(1)); print(eval(sys.argv[2], {"d": d, "by": {i["slug"]: i for i in d["items"]}}))' "$BKB/.git/lem/backlog.js" "$1"; }
-if [ "$(feed '(d["folder"], d["judged"], sorted(by))')" = "('docs/backlog', False, ['a b;c', 'dark-theme', 'export-drops-columns', 'new-from-a-landing', 'slow-report', 'which-currency'])" ] \
+if [ "$(feed '(d["folder"], d["judged"], sorted(by))')" = "('docs/backlog', False, ['a b;c', 'broken-link', 'dark-theme', 'export-drops-columns', 'folder-item', 'new-from-a-landing', 'slow-report', 'which-currency'])" ] \
   && [ "$(feed '(by["export-drops-columns"]["title"], by["export-drops-columns"]["worth"], by["export-drops-columns"]["where_problem"], by["export-drops-columns"]["state"], by["export-drops-columns"]["path"])')" = "('The export drops custom columns', 'yes', '', '', 'docs/backlog/export-drops-columns.md')" ] \
   && [ "$(feed '(by["slow-report"]["where_problem"], by["which-currency"]["where_problem"], by["dark-theme"]["worth"], by["dark-theme"]["where"])')" = "('the file is not there', 'not in the file: no_such_name', 'no', '')" ] \
   && [ "$(feed '(by["new-from-a-landing"]["worth"], by["new-from-a-landing"]["state"], by["a b;c"]["title"])')" = "('unset', 'new', 'a b;c')" ] \
+  && [ "$(feed '(by["broken-link"]["state"], by["folder-item"]["state"], "cannot be read" in by["broken-link"]["body"])')" = "('unreadable', 'unreadable', True)" ] \
   && ! grep -q '</script>' "$BKB/.git/lem/backlog.js" && [ "$(feed '"</script><b>not markup</b>" in by["export-drops-columns"]["body"]')" = True ]; then
-  pass "the board's backlog file has each item with its verdict, whether its place in the code is still there and whether git has it, and no text of an item can end the script that carries it"
+  pass "the board's backlog file has each item with its verdict, whether its place in the code is still there and whether git has it; an item that cannot be read is listed as such; and no text of an item can end the script that carries it"
 else
   fail "backlog.js: $(head -c 600 "$BKB/.git/lem/backlog.js")"
+fi
+# A backlog folder that git does not know yet: its first item is new, though git names only the folder.
+FIRST=$WORK/backlog-first
+git init -q -b main "$FIRST" && commit "$FIRST" start && project --repo "$FIRST" init --base main >/dev/null && mkdir -p "$FIRST/docs/backlog"
+printf '%s\n' '# The first item' '' 'No frontmatter at all.' > "$FIRST/docs/backlog/first.md"
+# A run that opens nothing keeps the session the board names: the page types an ask into it.
+env AGTERM_SESSION_ID=LEM-SESSION AGTERM_SOCKET=/nowhere "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$FIRST" --no-open >/dev/null
+env AGTERM_SESSION_ID=A-LEAD-SESSION AGTERM_SOCKET=/nowhere "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$FIRST" --no-open >/dev/null
+env -u AGTERM_SESSION_ID -u AGT_SESSION_ID "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$FIRST" --no-open >/dev/null
+if grep -q '"state": "new"' "$FIRST/.git/lem/backlog.js" && grep -q '"title": "The first item"' "$FIRST/.git/lem/backlog.js" && grep -q '"session": "LEM-SESSION"' "$FIRST/.git/lem/meta.js"; then
+  pass "the first item of a backlog folder that git does not know yet is new, and a run that opens nothing keeps the session the board named before"
+else
+  fail "a first backlog item, and the session after --no-open: $(cat "$FIRST/.git/lem/backlog.js" "$FIRST/.git/lem/meta.js" | head -c 500)"
 fi
 printf '%s\n' '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}, "which-currency": {"verdict": "owner", "confidence": 0.58}, "slow-report": {"verdict": "nonsense"}, "gone-item": {"verdict": "agent"}}' > "$BKB/.git/backlog-triage.json"
 "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
@@ -1460,7 +1477,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     --virtual-time-budget=5000 --dump-dom "file://$BKB/.git/lem/board.html#backlog" > "$WORK/backlog.dom" 2>/dev/null || true
   if [ ! -s "$WORK/backlog.dom" ]; then
     printf 'SKIP the backlog tab: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/backlog.dom" "Backlog · backlog-board" "6 items in docs/backlog" "2 point at a place that is gone" "sorted by who can act" \
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/backlog.dom" "Backlog · backlog-board" "8 items in docs/backlog" "2 point at a place that is gone" "2 cannot be read" "sorted by who can act" \
     "Needs you" "An agent can take it" "Not judged yet" "Decided against" "The export drops custom columns" "an agent can take it · 0.86" \
     "app/report.py:monthly · the file is not there" "new, not committed" "worth: unset" "!Waits for something"); then
     pass "the backlog tab draws the items in groups by who can act, each with its word and its count, and shows a place that is gone"
@@ -1476,21 +1493,28 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   const d = document.getElementById('f').contentDocument, w = document.getElementById('f').contentWindow, log = {};
   const key = (code, key) => d.body.dispatchEvent(new w.KeyboardEvent('keydown', {code, key, bubbles: true}));
   const actions = () => d.querySelector('.bl-item.cur .bl-actions')?.textContent ?? '';
-  const pickItem = title => { for (let i = 0; i < 12 && d.querySelector('.bl-item.cur .bl-title')?.textContent !== title; i++) key('KeyJ', 'j'); };
+  const pickItem = title => { for (let i = 0; i < 16 && d.querySelector('.bl-item.cur .bl-title')?.textContent !== title; i++) key('KeyJ', 'j'); };
+  const on = (node, code, key) => node.dispatchEvent(new w.KeyboardEvent('keydown', {code, key, bubbles: true}));
   pickItem('Which currency rounds half up'); key('Enter', 'Enter');
   log.noAgterm = actions();
   w.eval("globalThis.typed = []; globalThis.fg = []; globalThis.agterm = {request: async (cmd, o) => { if (cmd === 'tree') return {tree: {workspaces: [{sessions: [{id: 'LEM1', foreground: globalThis.fg}]}]}}; globalThis.typed.push([cmd, o]); return {}; }};");
   await wait(3500);
   log.shellOnly = actions();
-  w.eval("globalThis.fg = ['claude']"); await wait(3500);
-  key('KeyS', 's'); log.confirm = actions();
-  key('Escape', 'Escape'); log.afterEsc = w.typed.length;
-  key('KeyS', 's'); key('Enter', 'Enter'); await wait(300);
+  w.eval("globalThis.fg = ['/usr/bin/less', 'claude.md']"); await wait(3500);
+  key('KeyS', 's'); log.otherProgram = actions();
+  w.eval("globalThis.fg = ['/opt/homebrew/bin/fish', '-l', '-c', 'claude (cat brief.md)']"); await wait(3500);
+  key('KeyS', 's'); log.confirm = actions(); log.focusOnStart = d.activeElement?.dataset?.blStart ?? null;
+  key('Enter', 'Enter'); await wait(200); log.enterElsewhere = w.typed.length;
+  const cancel = d.querySelector('[data-bl-cancel]'); cancel.focus(); on(cancel, 'Enter', 'Enter'); await wait(200); log.enterOnCancel = w.typed.length;
+  cancel.click(); log.afterCancel = actions();
+  key('KeyS', 's'); d.querySelector('[data-bl-start]').click(); await wait(300);
   log.typed = w.typed; log.sent = actions();
-  pickItem('a b;c'); key('KeyS', 's'); key('Enter', 'Enter'); await wait(300);
+  key('KeyS', 's'); key('Enter', 'Enter'); await wait(200); log.secondTry = [w.typed.length, d.querySelector('[data-bl-start]') === null];
+  pickItem('a b;c'); key('KeyS', 's'); await wait(100);
   log.unsafe = actions(); log.typedAfterUnsafe = w.typed.length;
   const q = d.getElementById('bl-q'); q.value = 'gift note'; q.dispatchEvent(new w.Event('input', {bubbles: true}));
   log.filtered = [...d.querySelectorAll('.bl-title')].map(n => n.textContent);
+  d.getElementById('bl-read').click(); await wait(600); log.afterRead = d.getElementById('bl-sum').textContent.startsWith('reading');
   key('KeyT', 't'); log.tasksTab = [d.getElementById('backlog').hidden, d.getElementById('lanes-section').hidden];
   document.getElementById('out').textContent = JSON.stringify(log);
 })().catch(e => { document.getElementById('out').textContent = JSON.stringify({error: String(e)}); });
@@ -1498,7 +1522,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 PROBE
   "$PY" -c 'import json, re, sys; s = open(sys.argv[1]).read(); d = json.loads(re.fullmatch(r"lemMeta\((.*)\);\n", s, re.S).group(1)); d["session"] = "LEM1"; open(sys.argv[1], "w").write("lemMeta(%s);\n" % json.dumps(d))' "$BKB/.git/lem/meta.js"
   "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" --allow-file-access-from-files \
-    --virtual-time-budget=20000 --dump-dom "file://$BKB/.git/lem/probe.html" > "$WORK/probe.dom" 2>/dev/null || true
+    --virtual-time-budget=30000 --dump-dom "file://$BKB/.git/lem/probe.html" > "$WORK/probe.dom" 2>/dev/null || true
   rm -f "$BKB/.git/lem/probe.html"
   acted=$("$PY" -c 'import html, json, re, sys
 found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S)
@@ -1508,18 +1532,23 @@ wrong = [name for name, ok in {
     "an error": "error" not in d,
     "no agterm: the command to type, and nothing typed": "not open in this window" in d.get("noAgterm", "") and cmd in d.get("noAgterm", ""),
     "a shell and no agent: nothing typed": "No agent runs" in d.get("shellOnly", ""),
-    "S asks first": "This types" in d.get("confirm", "") and d.get("afterEsc") == 0,
-    "Enter types the one line into Lem": d.get("typed") == [["session.type", {"target": "LEM1", "args": {"text": cmd + "\n"}}]],
+    "a pager in the foreground is no agent": "No agent runs" in d.get("otherProgram", ""),
+    "S asks first, and the Start button has the focus": "This types" in d.get("confirm", "") and d.get("focusOnStart") == "which-currency",
+    "Enter away from the button types nothing": d.get("enterElsewhere") == 0,
+    "Enter on Cancel types nothing": d.get("enterOnCancel") == 0 and "Start a task" in d.get("afterCancel", ""),
+    "Start types the one line into Lem": d.get("typed") == [["session.type", {"target": "LEM1", "args": {"text": cmd + "\n"}}]],
     "the item says that it was sent": "Typed into" in d.get("sent", ""),
+    "a sent item is not asked about or sent again": d.get("secondTry") == [1, True],
     "an unsafe file name is never typed": "is not typed into a session" in d.get("unsafe", "") and d.get("typedAfterUnsafe") == 1,
     "the filter reads the text of an item": d.get("filtered") == ["The export drops custom columns"],
+    "a second read of the same file ends its note": d.get("afterRead") is False,
     "T goes back to the tasks": d.get("tasksTab") == [True, False],
 }.items() if not ok]
 print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d)[:900])' "$WORK/probe.dom" 2>&1 || true)
   if [ ! -s "$WORK/probe.dom" ]; then
     printf 'SKIP the keys of the backlog tab: %s printed no page\n' "$chrome"
   elif [ "$acted" = "ok " ]; then
-    pass "on the backlog tab a key moves, opens and filters; S asks first and Enter types one line into Lem's session, only where an agent runs, and never a file name with a character a shell could read"
+    pass "on the backlog tab a key moves, opens and filters; S asks first and only the Start button types one line into Lem's session, one time, only where the agent runs, and never a file name with a character a shell could read"
   else
     fail "the keys of the backlog tab: $acted"
   fi
