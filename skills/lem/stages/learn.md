@@ -51,8 +51,10 @@ for what came back:
 - a decision the owner overturned: the rule that would have decided it right, as a ruling or a
   style guide line;
 - a task the owner made careful after its lead called it plain, or a defect a review found in a
-  plain task that a danger topic would have named: the topic or the path that is missing, as one
-  line for `flow.topics` or `flow.careful`;
+  plain task. First find which it was. The settings named the topic or the path, and the lead
+  read the plan wrong: the lesson is about that judgment, and it may be sharper words for the
+  topic. No setting named it: propose one line for `flow.topics` or `flow.careful` to the owner,
+  as a move; the settings change on his yes only;
 - a review finding that repeats across items: a style guide line or a check, so the builder meets
   it before the review does;
 - a gate, a check or a step of this skill that cost time and changed nothing: propose to remove

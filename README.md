@@ -82,7 +82,7 @@ The board shows these things:
   review item.
 - The board of one task says who acts next.
 - A line that waits for you says where you answer.
-- A change shows on the board in two seconds or less.
+- The board reads its files again each two seconds. Thus a change shows after a short time.
 
 ## How one task goes
 
@@ -399,7 +399,7 @@ Linear.
 
 | Command | What it does |
 | --- | --- |
-| `/lem <your ask>`, or `/lem new <what>` | opens a task and runs it to the gate. It has no interview, and it does not stop for you to read the plan. It stops only for the reviewer of a careful plan, and for a decision that is yours |
+| `/lem <your ask>`, or `/lem new <what>` | opens a task and runs it to the gate. It has no interview, and it does not stop for you to read the plan. The task waits if each place is in use. It stops for the reviewer of a careful plan, and for a decision that is yours |
 | `/lem plan <what>` | opens a task and stops after the plan. You read the plan. Then `/lem build` continues |
 | `/lem build` | lists the plans that wait and asks which one it builds |
 | `/lem build <task>`, or `/lem build <plan file>` | builds that plan: a plan that you read, or a draft from the night |

@@ -74,12 +74,16 @@ two states (`project.py tasks`), each with its ask and its plan's path, and ask 
 fixed choice, so it stays in the terminal. One such task needs no question.
 
 The owner may say that a task is careful, at any time before its landing, whatever its lead
-called it. Write that in `decisions.md` in his words. A task that still builds finishes its
-build; then, in place of the landing, change its brief to `lead: session` with the line
-`careful: the owner says so`, and start a lead: the session gets the second opinion on the plan
-and a review of what was built, and writes `ready` again. It is also a correction: the topic or
-the path that would have said so is missing from the settings, and `stages/learn.md` puts it
-there.
+called it. At once, add the line `careful: the owner says so` to the task's brief, and write his
+words in `decisions.md`. The brief is what holds it: whoever reads the task's next stop reads
+that line, also a Lem that started after this one. A task that still builds finishes its
+build. When a builder led it and it stops as `ready`, it does not go to the landing: change the
+brief to `lead: session` and start a lead. The session gets the second opinion on the plan and
+a review of what was built, and writes `ready` again.
+Then ask what the owner's word was about, when it is not plain. A topic or a path the settings
+already name, which the lead read wrong, is a lesson about that judgment (`stages/learn.md`).
+Something no setting names may be a rule for later tasks or a wish for this one task: only the
+owner knows, and only his yes puts a topic or a path into the settings.
 
 ## When a task is dropped
 
@@ -133,7 +137,9 @@ when this happens.
 
 Act on the status:
 
-- **`ready`**: the task joins the landing line. Run `stages/land.md` when no task is in
+- **`ready`**: when the brief holds `careful: the owner says so` and a builder led the task, it
+  goes to a session first, as "The owner may say that a task is careful" above says. Otherwise
+  the task joins the landing line. Run `stages/land.md` when no task is in
   `landing`; a `ready` task waits there in the order of its state's time.
 - **`planned`**: the report says why the lead stopped at the plan.
   - *It needs a session* (the plan is careful): change the brief to `lead: session`, and start
