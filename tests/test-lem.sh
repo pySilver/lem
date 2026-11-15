@@ -73,6 +73,24 @@ if project --repo "$RULESONLY" init --base master >/dev/null && [ "$(project --r
 else
   fail "init over a rules folder alone"
 fi
+# A setup that stopped half way left an empty folder of the skill's own layout: the rules still are the style guide.
+HALF=$WORK/halfway
+git init -q -b master "$HALF"
+mkdir -p "$HALF/.claude/rules" "$HALF/.lem/styleguide" "$HALF/.claude/worktrees" && echo 'Type every function.' > "$HALF/.claude/rules/python.md"
+err=$(project --repo "$HALF" init --base master 2>&1 || true)
+rmdir "$HALF/.claude/worktrees"
+echo 'A second guide.' > "$HALF/.lem/styleguide/other.md"
+both=$(project --repo "$HALF" init --base master 2>&1 || true)
+code="$(status_of project --repo "$HALF" init --base master) $(status_of project --repo "$HALF" existing)"
+rm "$HALF/.lem/styleguide/other.md"
+if grep -q "this repository already keeps worktrees in .claude/worktrees; pass --existing" <<<"$err" && [ "$code" = "1 1" ] && [ ! -e "$HALF/.lem/project.toml" ] \
+  && grep -q ".claude/rules and .lem/styleguide both hold rule files, and the style guide is one folder; move the files of one into the other" <<<"$both" \
+  && project --repo "$HALF" init --base master >/dev/null && [ "$(project --repo "$HALF" path styleguide)" = "$HALF/.claude/rules" ] \
+  && [ "$(project --repo "$HALF" rules app/x.py | field '[r["file"] for r in d["rules"]]')" = "['$HALF/.claude/rules/python.md']" ]; then
+  pass "an empty style guide folder of the skill's own does not hide the rules an agent loads, rule files in both places are refused with the fix, and a worktrees folder of an older tool still asks for the choice"
+else
+  fail "init over a half setup: $err / $both / $code"
+fi
 project --repo "$OLD" init --base master --existing link >/dev/null
 out=$(project --repo "$OLD" show)
 if [ "$(field 'd["paths"]["styleguide"]["path"]' <<<"$out")" = "$OLD/.claude/rules" ] && [ "$(field 'd["paths"]["review"]["path"]' <<<"$out")" = "$OLD/.revmux" ] \
@@ -1040,15 +1058,16 @@ fi
 # A file that moved counts on both sides, and one file has one answer however it is named.
 mkdir -p "$RUL/src" "$RUL/lib" && echo 'export const a = 1' > "$RUL/src/x.ts" && git -C "$RUL" add -A && git -C "$RUL" commit -q -m "feat: a module"
 git -C "$RUL" mv src/x.ts lib/x.ts && git -C "$RUL" commit -q -m "refactor: the module moves"
-ln -s src "$RUL/alias"
+ln -s src "$RUL/alias" && mkdir -p "$RUL/src/sub" && ln -s src/sub "$RUL/deep"
 if [ "$(project --repo "$RUL" rules --range HEAD~1..HEAD | field '(d["files"], [r["file"].rsplit("/", 1)[1][:2] for r in d["rules"]])')" = "(['lib/x.ts', 'src/x.ts'], ['00', '01', '10', '11', '14'])" ] \
   && [ "$(picked alias/y.ts)" = "$(picked "$RUL/src/y.ts")" ] && [ "$(picked alias/y.ts)" = "00 01 10 11 14" ] && [ "$(project --repo "$RUL" rules alias/y.ts | field 'd["files"]')" = "['src/y.ts']" ] \
-  && [ "$(status_of project --repo "$RUL" rules ../elsewhere.py)" = 1 ]; then
+  && [ "$(project --repo "$RUL" rules deep/../y.ts "$RUL/deep/../y.ts" lib/../src/y.ts | field 'd["files"]')" = "['src/y.ts']" ] \
+  && [ "$(status_of project --repo "$RUL" rules ../elsewhere.py)" = 1 ] && [ "$(status_of project --repo "$RUL" rules src/..)" = 1 ]; then
   pass "a renamed file brings the rules of its old place and of its new one, a path through a linked folder or with two dots is the same file, and one that leaves the repository is refused"
 else
   fail "the picker with a rename and other path forms: $(project --repo "$RUL" rules --range HEAD~1..HEAD) / $(picked alias/y.ts)"
 fi
-rm "$RUL/alias"
+rm "$RUL/alias" "$RUL/deep"
 err=$(project --repo "$RUL" rules 2>&1 || true)
 outside=$(project --repo "$RUL" rules "$WORK/elsewhere.py" 2>&1 || true)
 printf '%s\n' '---' 'paths:' '---' 'A scope with nothing in it.' > "$RUL/.claude/rules/40-empty.md"

@@ -138,7 +138,7 @@ for a yes.
 python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --existing link    # or: --existing new
 ```
 
-Leave `--existing` out when step 2 found no cast and no profile of an older tool: a rules folder alone needs no choice. Then edit `.lem/project.toml`: the
+Leave `--existing` out when `project.py existing` listed nothing, or the style guide alone: a rules folder needs no choice, and every other folder it lists does. Then edit `.lem/project.toml`: the
 gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, `history`,
 the protected branches, the `[tracker]` table when the project has one, the reviewer's `model`,
 `effort` and `plan_effort` when the owner named them, and `tools.annotate` or `tools.ask` when the owner marks up plans or takes questions with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list

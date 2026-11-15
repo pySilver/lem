@@ -5,7 +5,7 @@ Every project keeps its own settings in its repository: what the project is, its
 personas, its review configuration, its lessons, the checks that gate a landing, and the paths
 whose change takes the careful flow. `.lem/project.toml` at the root of the checkout names
 them. A project that keeps a cast or a profile where an older tool already reads them
-(`.personas`) may point at them there (`init --existing link`), so adopting the skill moves
+(`.personas`), or its worktrees, may point at them there (`init --existing link`), so adopting the skill moves
 nothing, or start the skill's own layout beside them (`init --existing new`). Which of the two is
 the owner's choice, so `init` refuses to guess it. The rules an agent already loads by itself
 (`.claude/rules`) are no choice: they are the style guide, where they are.
@@ -468,12 +468,36 @@ def default_branch(root: Path) -> str | None:
     return head.stdout.strip().removeprefix("origin/") if head.returncode == 0 else None
 
 
+def rule_files(folder: Path) -> list[Path]:
+    """Every .md below the folder, through links too, as the agent that loads such a folder by itself reads it."""
+    found, seen = [], set()
+    for where, folders, names in os.walk(folder, followlinks=True):
+        real = os.path.realpath(where)
+        if real in seen:
+            folders[:] = []
+            continue
+        seen.add(real)
+        folders.sort()
+        found += [Path(where) / name for name in sorted(names) if name.endswith(".md")]
+    return found
+
+
 def older_folders(root: Path) -> dict[str, str]:
     """The settings an older tool already keeps here, where the skill's own layout has nothing yet."""
-    return {
+    found = {
         name: older for name, (default, older) in PATHS.items()
         if older and (root / older).exists() and not (root / default).exists()
     }
+    # The rules an agent loads by itself are the style guide wherever they exist. An empty folder
+    # of the skill's own layout beside them (a setup that stopped half way) does not hide them, and
+    # rule files in both places are two style guides, which no script picks between.
+    own, rules = PATHS["styleguide"]
+    if (root / rules).exists():
+        if rule_files(root / own) and rule_files(root / rules):
+            raise SettingsError(f"{rules} and {own} both hold rule files, and the style guide is one folder; move the files of one into the other, then run this again")
+        if not rule_files(root / own):
+            found["styleguide"] = rules
+    return found
 
 
 def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str | None) -> None:
@@ -485,7 +509,7 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
         raise SettingsError("cannot tell the base branch (no origin/HEAD); pass --base NAME")
     older = older_folders(root)
     # The rules an agent already loads by itself are never a choice: they stay, and they are the
-    # style guide. Where the cast and the profile live is the owner's to say.
+    # style guide. Where the cast, the profile and the worktrees live is the owner's to say.
     choice = {name: path for name, path in older.items() if name != "styleguide"}
     if choice and existing is None:
         found = ", ".join(f"{name} in {path}" for name, path in choice.items())
@@ -676,11 +700,14 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
     root = Path(settings["root"]).resolve()
     changed = []
     for file in files:
-        # One file has one answer, however it is named: `..` is folded and a folder that is a link
-        # is followed. The last name is kept as written, since the file may be a link or be gone.
-        full = Path(os.path.normpath(root / file))
+        # One file has one answer, however it is named. Its folder is resolved the way the file
+        # system reads it, a link first and `..` after it: `alias/../x` is beside what `alias`
+        # points at. The last name is kept as written, since the file may be a link or be gone.
+        full = root / file
+        if full.name in ("", ".", ".."):
+            raise SettingsError(f"{file} does not name a file; name the files a change touches")
         full = Path(os.path.realpath(full.parent)) / full.name
-        if not full.is_relative_to(root) or full == root:
+        if not full.is_relative_to(root):
             raise SettingsError(f"{file} is not inside {root}; name files of this repository")
         changed.append(full.relative_to(root).as_posix())
     if commits:
@@ -693,18 +720,8 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
     if not files and not commits:
         raise SettingsError("rules needs the files a change touches: name them, or pass --range BASE..TIP")
     folder = Path(settings["paths"]["styleguide"]["path"])
-    found, seen = [], set()
-    # every .md below the folder, through links too, as the agent that loads this folder by itself reads it
-    for where, folders, names in os.walk(folder, followlinks=True):
-        real = os.path.realpath(where)
-        if real in seen:
-            folders[:] = []
-            continue
-        seen.add(real)
-        folders.sort()
-        found += [Path(where) / name for name in sorted(names) if name.endswith(".md")]
     rules = []
-    for file in found:
+    for file in rule_files(folder):
         shown = file.relative_to(root).as_posix() if file.is_relative_to(root) else str(file)
         globs = rule_scope(file, shown)
         if globs is None:
