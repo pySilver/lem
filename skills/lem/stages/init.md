@@ -45,7 +45,8 @@ onboarding directory, every line with the path it was read from:
 - the conventions the code already keeps: how modules are laid out, how errors are raised, how
   tests are named and what they touch. Note one only where several files agree;
 - `python3 SKILL_DIR/scripts/project.py existing`: the settings an older tool already keeps here
-  (`.claude/rules`, `.revmux`, `.personas`).
+  (`.claude/rules`, `.personas`). The review tool's folder is not one of them: it is that tool's
+  own, and the settings name it where it is.
 
 In a large repository, `fan-out` one reader per area and merge what they return. A reader reports
 what it read and where; it proposes nothing.
@@ -144,8 +145,8 @@ it is.
 - **The gate of a new project** does not exist yet. Leave `gate.commands` empty and name "set up
   the checks" (formatter, linter, type checker, a first test) as the task to run first: nothing
   lands through this skill before it.
-- **The review configuration**: the review tool's own starter set at the settings' `review`
-  path, with what the review tool needs to find it there (the harness file says how), and its
+- **The review configuration**: the review tool's own starter set, in the review tool's own
+  folder, which the settings' `review` path names (the harness file says how it is made), and its
   project profile: what the project is, what a reviewer
   here must read first, and an empty list of rejected findings.
 - **The lessons file**, with one line that says what it is for and nothing else.

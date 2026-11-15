@@ -10,15 +10,12 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
 - the persona panel: the `lem-panel` skill of this repository. It finds the cast and the profile
   through the project's settings.
 - the review tool: `revmux:revmux`. It reads the project's lenses, prompts and profile from
-  `./.revmux` at the root of the checkout and from no other path. So a project whose settings
-  keep the review folder elsewhere (`.lem/review`) has a link `.revmux` that points at it, and
-  git stores the link; `project.py migrate run` makes it. Its starter set: `revmux init` always
-  writes `./.revmux/` (config, lenses, prompts); move that folder to the settings' `review` path
-  and leave the link.
-  Checked on revmux v0.2.7, 2026-11-15, with `revmux config`: through the link it reports
-  `project_dir` as `./.revmux` and keeps the user's own folder as `config_dir`. The flag
-  `--config-dir PATH` is not the way: it puts PATH in the place of the user's own config folder,
-  and no project folder is reported.
+  `./.revmux` at the root of the checkout and from no other path, and `revmux init` writes its
+  starter set there (config, lenses, prompts). That folder is revmux's own, so it stays there in
+  every project, and the settings' `review` path names it; Lem reads it and never moves it.
+  Checked on revmux v0.2.7, 2026-11-15, with `revmux config`: it reports `./.revmux` as its
+  `project_dir`. The flag `--config-dir PATH` does not name a project folder: it puts PATH in
+  the place of the user's own config folder, and no project folder is reported then.
 - the tracker: the skill the settings' `tracker.kind` names, `lem-linear` for `linear`. The
   tracker's server is an MCP server, and Claude Code shows its tools as `mcp__SERVER__NAME`, with
   the settings' `tracker.server` as SERVER. A session that was running when the server was added
@@ -241,8 +238,9 @@ Several `Agent` calls in one message. The `Workflow` tool only when the owner as
 An HTML file opened as an overlay of this session
 (`agtermctl session overlay open --html FILE --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`).
 A document the owner should mark up (a plan, a draft profile) goes through the settings'
-`tools.annotate`: a skill of that name when the session lists one (`lem-webrev` by default), otherwise
-a command of that name given the file's path.
+`tools.annotate`: a skill of that name when the session lists one, otherwise a command of that
+name given the file's path. `lem-webrev` is the default and the way Lem recommends; an owner who
+prefers another tool, plannotator for one, names it there.
 
 ## The correction hook
 

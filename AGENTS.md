@@ -77,13 +77,20 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **Linking an older tool's folders is the first step of an adoption, never its end**: "its
   crucial that we first make some test with those linked settings but migrated to settings under
   .lem right after it, like most users will do". `/lem migrate` is that second step; its
-  mechanics (a link per moved rule, a link for the review folder) are the starting session's
+  mechanics (a link per moved rule) are the starting session's
   design from his remark that "not all rules are about code style".
 - **Linear only, and the local backlog stays local**: Lem supports Linear and no other tracker
   now, built so that another can be added. A backlog item is never mirrored to Linear, never
   needs a ticket, and Lem creates no ticket from one unless he asks. Status names are carried by
   name in the settings ("Linear allows me to configure that", about the branch name: Lem takes
   what the tracker gives and assumes no shape).
+- **Another program's settings stay where that program keeps them**: "I think we should not
+  touch other apps settings. `.personas` are different, as its our invention". The review tool's
+  folder is `.revmux` in every project, new or adopted; Lem reads it and never moves or links
+  it. The cast and the profile are Lem's and move to `.lem`.
+- **webrev is the recommended way to mark up a plan or a document**, before plannotator
+  ("`/webrev` is awesome and needs to be recommended to use over plannotator"). plannotator-tui
+  with its agterm chords is recommended to the owner by its guide; Lem installs nothing for it.
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
 

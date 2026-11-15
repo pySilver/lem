@@ -15,7 +15,8 @@ The move is a change like any other: it runs on a task's branch and lands throug
    agent's own conduct or about the workflow is not, and it stays where it is. Put the list to
    the owner through `ask-owner`, each file with your guess and the reason for it (a file that
    scopes itself to paths is about the code under them). Which file is which is the owner's
-   call. The cast, the profile and the review folder move whole, and the owner is told that.
+   call. The cast and the profile move whole, and the owner is told that. The review tool's folder
+   does not move.
 3. **Open the task** as `stages/new.md` does, with this ask in `task.md`: move the linked
    settings under `.lem`, with the one command the lead runs,
    `project.py migrate run --styleguide FILE ...` and the files the owner named (or `--styleguide`
@@ -25,10 +26,10 @@ The move is a change like any other: it runs on a task's branch and lands throug
 4. **What the command leaves in place**, so the owner is not surprised by it in the diff:
    - a link for each moved rule in the rules folder, which stays a real folder. An agent that
      loads that folder by itself goes on loading the rule through its link;
-   - a link from the review tool's fixed folder to `.lem/review`, because the review tool reads
-     that one path;
+   - the review tool's folder, as it is and where it is: it is that tool's own, and Lem does
+     not move another program's settings;
    - the folder for worktrees, which holds live checkouts and is not moved.
-   The harness file says what was checked about each link in your agent.
+   The harness file says what was checked about the links in your agent.
 5. **After the landing**, `project.py migrate plan` shows what is still linked. That is nothing,
    or the style guide alone when the owner left every rule where it was: then the rules folder is
    still the style guide's home, and that is a valid end. The folder for worktrees is never in

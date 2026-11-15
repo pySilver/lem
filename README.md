@@ -140,7 +140,8 @@ flowchart TD
     subgraph checkout [The checkout]
         toml[.lem/project.toml<br/>the settings, in git]
         local[.lem/project.local.toml<br/>the settings of this computer, not in git]
-        profiles[.lem/profile.md, styleguide/, personas/, review/, lessons.md<br/>in git]
+        profiles[.lem/profile.md, styleguide/, personas/, lessons.md<br/>in git]
+        revmux[.revmux/<br/>the folder of the review tool, in git]
         wt[.lem/worktrees/<br/>one worktree for each task; git ignores this folder]
     end
     subgraph gitdir [The git directory, shared by all worktrees]
@@ -157,8 +158,10 @@ flowchart TD
 - The settings of a project are in its repository. `/lem init` writes them.
 - The state of a task is in the git directory. Git does not commit it, and it stays after Lem
   removes the worktree.
-- A repository that already has `.claude/rules`, `.revmux` or `.personas` can link them first.
-  Then `/lem migrate` moves them into `.lem/` as a task.
+- A repository that already has `.claude/rules` or `.personas` can link them first. Then
+  `/lem migrate` moves them into `.lem/` as a task.
+- The folder of the review tool, `.revmux`, stays where that tool reads it. Lem does not move
+  the settings of a different program.
 
 ## Examples
 
@@ -341,7 +344,14 @@ Necessary:
 - [revmux](https://github.com/umputun/revmux) for the review rounds
 - on a computer with Claude Code: the `lem-builder` agent, which the setup links
 
-Optional, each with a fallback that the check names: plannotator, Codex, jev and cronn.
+Optional, each with a fallback that the check names: Codex, jev, cronn and plannotator.
+
+To mark a plan or a document, use `/lem webrev`. It comes with Lem, and it is the recommended
+tool. If you prefer plannotator for that, put its name in `tools.annotate`.
+
+Also recommended, for you and not for Lem: plannotator-tui with two agterm chords. With them you
+mark the output of a pane or the newest reply of an agent. Lem does not install it. The guide is
+[annotate-in-plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui).
 
 ## Setup in Claude Code
 

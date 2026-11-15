@@ -5,7 +5,7 @@ Every project keeps its own settings in its repository: what the project is, its
 personas, its review configuration, its lessons, the checks that gate a landing, and the paths
 whose change takes the careful flow. `.lem/project.toml` at the root of the checkout names
 them. A project that keeps some of these where an older tool already reads them (`.claude/rules`,
-`.revmux`, `.personas`) may point at them there (`init --existing link`), so adopting the skill
+`.personas`) may point at them there (`init --existing link`), so adopting the skill
 moves nothing, or start the skill's own layout beside them (`init --existing new`). Which of the
 two is the owner's choice, so `init` refuses to guess it.
 
@@ -58,13 +58,13 @@ came from it.
 
 Linking the folders of an older tool is the first step of an adoption, not its end. `migrate run`
 moves each linked folder to its place under `.lem/` with `git mv`, on a task's branch and from a
-clean tree, and rewrites the paths in the settings file. Two tools read a fixed path, so each
-keeps a link there: the review tool reads `./.revmux` and nothing else, so `.revmux` becomes a
-link to `.lem/review`; an agent that loads `.claude/rules/` by itself goes on doing so through a
-link per file, and that folder stays a real one, because only the files that say how code is
-written here move. Which files those are is the owner's call, so they are named with
-`--styleguide` and never guessed. The command ends with every tracked file that still names an
-old path, for a builder to correct.
+clean tree, and rewrites the paths in the settings file. An agent that loads `.claude/rules/` by
+itself goes on doing so through a link per file, and that folder stays a real one, because only
+the files that say how code is written here move. Which files those are is the owner's call, so
+they are named with `--styleguide` and never guessed. The review tool's folder is not Lem's to
+move: it is that tool's own, at the one path the tool reads, in a new project and in an adopted
+one. The command ends with every tracked file that still names an old path, for a builder to
+correct.
 
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
@@ -91,7 +91,8 @@ PATHS: dict[str, tuple[str, str | None]] = {
     "profile": (".lem/profile.md", ".personas/profile.md"),
     "styleguide": (".lem/styleguide", ".claude/rules"),
     "personas": (".lem/personas", ".personas/cast"),
-    "review": (".lem/review", ".revmux"),
+    # the review tool's own folder, where that tool reads it: another program's settings stay where they are
+    "review": (".revmux", None),
     "lessons": (".lem/lessons.md", None),
     "rulings": ("docs/rulings", None),
     "backlog": ("docs/backlog", None),
@@ -535,7 +536,7 @@ def linked(root: Path) -> dict[str, tuple[str, str]]:
     return {
         name: (older, default) for name, (default, older) in PATHS.items()
         # worktrees are live checkouts, not settings: git moves one only by `git worktree move`.
-        # Path() makes `.revmux/` and `.revmux` the same folder, as the loader already reads them.
+        # Path() makes `.personas/cast/` and `.personas/cast` the same folder, as the loader already reads them.
         if older and name != "worktrees" and isinstance(raw.get(name), str) and Path(raw[name]) == Path(older)
         and ((root / older).exists() or (root / older).is_symlink())
     }
@@ -676,11 +677,6 @@ def cmd_migrate_run(root: Path, styleguide: list[str] | None) -> None:
             moved.append({"name": name, "from": old, "to": new})
             unstage += before[name]
             stage += [new + file[len(old):] for file in before[name]]
-            if name == "review":
-                # the review tool reads ./.revmux and nothing else
-                link(root / old, root / new)
-                links.append({"link": old, "to": new})
-                stage.append(old)
         for entry in moved:
             text = re.sub(rf'(?m)^{entry["name"]} = "{re.escape(entry["from"])}/?"\s*$', f'{entry["name"]} = "{entry["to"]}"', text)
         journal.append(("settings", root / SETTINGS, None))

@@ -51,7 +51,7 @@ if [ "$(status_of project --repo "$OLD" init --base master)" = 1 ] && grep -q "s
 else
   fail "init without --existing: $err"
 fi
-if [ "$(project --repo "$OLD" existing | field 'sorted(d)')" = "['personas', 'profile', 'review', 'styleguide']" ]; then
+if [ "$(project --repo "$OLD" existing | field 'sorted(d)')" = "['personas', 'profile', 'styleguide']" ]; then
   pass "existing lists the settings an older tool already keeps here"
 else
   fail "existing: $(project --repo "$OLD" existing)"
@@ -487,8 +487,10 @@ mkdir -p "$FAKEHOME/.agents/skills/agterm" "$FAKEHOME/.config/cronn"
 touch "$FAKEHOME/.agents/skills/agterm/SKILL.md"
 out=$(doctor)
 if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'agterm skill' detail <<<"$out")" = "$FAKEHOME/.agents/skills/agterm" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
-  && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ] && [ "$(row codex found <<<"$out")" = "False" ]; then
-  pass "with git, the review tool, agterm, its skill and the mailbox the check passes, and absent optional tools only change their rows"
+  && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ] && [ "$(row codex found <<<"$out")" = "False" ] \
+  && [ "$(row plannotator without_it <<<"$out" | grep -c 'lem-webrev')" = 1 ] \
+  && [ "$(row plannotator-tui need <<<"$out")" = "optional" ] && [ "$(row plannotator-tui without_it <<<"$out" | grep -c 'cookbook/annotate-in-plannotator-tui')" = 1 ]; then
+  pass "with git, the review tool, agterm, its skill and the mailbox the check passes, absent optional tools only change their rows, and the two rows about marking up say what is recommended"
 else
   fail "doctor with the required set: $out"
 fi
@@ -825,7 +827,7 @@ printf '%s\n' 'Read .claude/rules/10-python.md first. The lenses are in .revmux/
 project --repo "$MIG" init --base main --existing link >/dev/null
 git -C "$MIG" add -A && git -C "$MIG" commit -q -m "chore: start"
 out=$(project --repo "$MIG" migrate plan)
-if [ "$(field 'sorted(d["linked"])' <<<"$out")" = "['personas', 'profile', 'review', 'styleguide']" ] \
+if [ "$(field 'sorted(d["linked"])' <<<"$out")" = "['personas', 'profile', 'styleguide']" ] \
   && [ "$(field '[(r["file"], r["scoped_to_paths"]) for r in d["rules"]]' <<<"$out")" = "[('10-python.md', True), ('20-conduct.md', False), ('nested/30-api.md', True)]" ] \
   && [ -z "$(git -C "$MIG" status --porcelain)" ]; then
   pass "migrate plan lists the linked folders and each rule file with whether it scopes itself to paths, and changes nothing"
@@ -848,16 +850,16 @@ shown=$(project --repo "$MIG" show)
 if [ "$(cat "$MIG/.claude/rules/10-python.md" | tail -1)" = "Type every function." ] && [ -L "$MIG/.claude/rules/10-python.md" ] && [ ! -L "$MIG/.lem/styleguide/10-python.md" ] \
   && [ "$(tail -1 "$MIG/.claude/rules/nested/30-api.md")" = "Version every route." ] && [ -L "$MIG/.claude/rules/nested/30-api.md" ] \
   && [ ! -L "$MIG/.claude/rules/20-conduct.md" ] && [ ! -e "$MIG/.lem/styleguide/20-conduct.md" ] \
-  && [ -L "$MIG/.revmux" ] && [ "$(cat "$MIG/.revmux/lenses/a.md")" = lens ] && [ "$(readlink "$MIG/.revmux")" = ".lem/review" ] \
-  && [ "$(cat "$MIG/.lem/review/tasks/round-1")" = round ] && [ "$(cat "$MIG/.lem/personas/shopper.md")" = shopper ] && [ "$(cat "$MIG/.lem/profile.md")" = profile ] && [ ! -e "$MIG/.personas/cast" ] \
-  && [ "$(field '[d["paths"][n]["path"].split("/mig/")[1] for n in ("styleguide", "review", "personas", "profile")]' <<<"$shown")" = "['.lem/styleguide', '.lem/review', '.lem/personas', '.lem/profile.md']" ]; then
-  pass "migrate run moves the named rules, the review folder, the cast and the profile under .lem, leaves a link for each rule and for the review folder, and rewrites the settings"
+  && [ ! -L "$MIG/.revmux" ] && [ "$(cat "$MIG/.revmux/lenses/a.md")" = lens ] && [ "$(cat "$MIG/.revmux/tasks/round-1")" = round ] && [ ! -e "$MIG/.lem/review" ] \
+  && [ "$(cat "$MIG/.lem/personas/shopper.md")" = shopper ] && [ "$(cat "$MIG/.lem/profile.md")" = profile ] && [ ! -e "$MIG/.personas/cast" ] \
+  && [ "$(field '[d["paths"][n]["path"].split("/mig/")[1] for n in ("styleguide", "review", "personas", "profile")]' <<<"$shown")" = "['.lem/styleguide', '.revmux', '.lem/personas', '.lem/profile.md']" ]; then
+  pass "migrate run moves the named rules, the cast and the profile under .lem, leaves a link for each rule, rewrites the settings, and leaves the review tool's folder where that tool reads it"
 else
   fail "migrate run: $out / $(git -C "$MIG" status --porcelain)"
 fi
-if [ "$(field '(d["mentions"][".claude/rules"], d["mentions"][".revmux"])' <<<"$out")" = "(['docs/guide.md'], ['.gitignore', 'docs/guide.md'])" ] \
-  && [ "$(git -C "$MIG" status --porcelain | grep -c '^?? ')" = 1 ] && git -C "$MIG" status --porcelain | grep -q '^?? .lem/review/tasks/' \
-  && [ "$(git -C "$MIG" diff --cached --name-status | grep -c '^R')" = 3 ] && [ "$(git -C "$MIG" diff --cached --name-status | grep -c '^T')" = 2 ] && [ "$(status_of project --repo "$MIG" migrate run --styleguide)" = 1 ]; then
+if [ "$(field '(d["mentions"][".claude/rules"], ".revmux" in d["mentions"])' <<<"$out")" = "(['docs/guide.md'], False)" ] \
+  && [ "$(git -C "$MIG" status --porcelain | grep -c '^?? ')" = 0 ] \
+  && [ "$(git -C "$MIG" diff --cached --name-status | grep -c '^R')" = 2 ] && [ "$(git -C "$MIG" diff --cached --name-status | grep -c '^T')" = 2 ] && [ "$(status_of project --repo "$MIG" migrate run --styleguide)" = 1 ]; then
   pass "it names every tracked file that still holds an old path, stages its own moves and nothing that git ignored, and a second run finds nothing to move"
 else
   fail "migrate run output: $out / $(git -C "$MIG" status --porcelain)"
@@ -885,16 +887,16 @@ else
   fail "migrate preflight: $(git -C "$r" status --porcelain)"
 fi
 r=$(small_repo ignored)
-printf '%s\n' '.revmux' > "$r/.gitignore" && mkdir "$r/.revmux/tasks" && echo session > "$r/.revmux/tasks/session"
-git -C "$r" add -A && git -C "$r" commit -q -m "chore: ignore the review folder, keep its config"
+printf '%s\n' '.personas' > "$r/.gitignore" && mkdir "$r/.personas/cast/notes" && echo session > "$r/.personas/cast/notes/session"
+git -C "$r" add -A && git -C "$r" commit -q -m "chore: ignore the cast folder, keep its tracked files"
 out=$(project --repo "$r" migrate run --styleguide)
-if [ "$(cat "$r/.lem/review/tasks/session")" = session ] && [ "$(cat "$r/.revmux/config")" = config ] && [ -L "$r/.revmux" ] \
-  && [ "$(git -C "$r" ls-files .lem/review .revmux | tr '\n' ' ')" = ".lem/review/config .revmux " ] \
+if [ "$(cat "$r/.lem/personas/notes/session")" = session ] && [ "$(cat "$r/.revmux/config")" = config ] && [ ! -L "$r/.revmux" ] \
+  && [ "$(git -C "$r" ls-files .lem/personas | tr '\n' ' ')" = ".lem/personas/a.md .lem/personas/shopper.md " ] \
   && [ "$(field '[x["name"] for x in d["left"]]' <<<"$out")" = "['styleguide']" ] && [ "$(project --repo "$r" migrate plan | field 'sorted(d["linked"])')" = "['styleguide']" ] \
   && [ "$(field 'd["mentions"][".personas/cast"]' <<<"$out")" = "['.lem/personas/a.md']" ]; then
-  pass "an ignored review folder moves with its untracked files, its tracked file and its link stay tracked, an empty rule list leaves the rules linked, and a moved file that names an old path is in the mentions"
+  pass "an ignored cast folder moves with its untracked files and its tracked files stay tracked, an empty rule list leaves the rules linked, and a moved file that names an old path is in the mentions"
 else
-  fail "migrate with an ignored review folder: $out / $(git -C "$r" status --porcelain)"
+  fail "migrate with an ignored cast folder: $out / $(git -C "$r" status --porcelain)"
 fi
 r=$(small_repo untracked)
 git -C "$r" rm -q --cached .lem/project.toml && git -C "$r" commit -q -m "chore: stop tracking the settings" && echo '.lem/project.toml' > "$r/.gitignore" && git -C "$r" add .gitignore && git -C "$r" commit -q -m "chore: ignore them"
@@ -905,17 +907,17 @@ else
   fail "migrate with untracked settings: $err"
 fi
 r=$(small_repo linked)
-git -C "$r" mv .revmux old-review && ln -s old-review "$r/.revmux" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: the review folder behind a link"
+git -C "$r" mv .personas/cast old-cast && mkdir -p "$r/.personas" && ln -s ../old-cast "$r/.personas/cast" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: the cast behind a link"
 err=$(project --repo "$r" migrate run --styleguide 2>&1 || true)
-if grep -q ".revmux is a link to old-review" <<<"$err" && [ "$(cat "$r/.revmux/config")" = config ] && [ -d "$r/.personas/cast" ] && [ -z "$(git -C "$r" status --porcelain)" ]; then
+if grep -q ".personas/cast is a link to ../old-cast" <<<"$err" && [ "$(cat "$r/.personas/cast/shopper.md")" = shopper ] && [ ! -e "$r/.lem/personas" ] && [ -z "$(git -C "$r" status --porcelain)" ]; then
   pass "a linked folder that is itself a link is refused with the two ways to fix it, and nothing moves"
 else
   fail "migrate with a link as the source: $err"
 fi
 r=$(small_repo slash)
-sed -i.bak 's|^review = ".revmux"$|review = ".revmux/"|' "$r/.lem/project.toml" && rm "$r/.lem/project.toml.bak" && git -C "$r" commit -q -am "chore: a trailing slash"
-if [ "$(project --repo "$r" migrate plan | field '"review" in d["linked"]')" = True ] && project --repo "$r" migrate run --styleguide >/dev/null \
-  && [ "$(project --repo "$r" show | field 'd["paths"]["review"]["path"].endswith("/.lem/review")')" = True ] && [ -L "$r/.revmux" ]; then
+sed -i.bak 's|^personas = ".personas/cast"$|personas = ".personas/cast/"|' "$r/.lem/project.toml" && rm "$r/.lem/project.toml.bak" && git -C "$r" commit -q -am "chore: a trailing slash"
+if [ "$(project --repo "$r" migrate plan | field '"personas" in d["linked"]')" = True ] && project --repo "$r" migrate run --styleguide >/dev/null \
+  && [ "$(project --repo "$r" show | field 'd["paths"]["personas"]["path"].endswith("/.lem/personas")')" = True ] && [ ! -e "$r/.personas/cast" ]; then
   pass "a path written with a trailing slash is the same folder, and it moves"
 else
   fail "migrate with a trailing slash"
@@ -933,13 +935,13 @@ else
 fi
 # A step that fails after the first move: the git directory cannot be written, so nothing can be staged.
 r=$(small_repo rollback)
-mkdir "$r/.revmux/tasks" && echo session > "$r/.revmux/tasks/session" && echo '.revmux/tasks/' > "$r/.gitignore" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: ignore the rounds"
+mkdir "$r/.personas/cast/notes" && echo session > "$r/.personas/cast/notes/session" && echo '.personas/cast/notes/' > "$r/.gitignore" && git -C "$r" add -A && git -C "$r" commit -q -m "chore: ignore the notes"
 settings_before=$(cat "$r/.lem/project.toml")
 chmod u-w "$r/.git"
 err=$(project --repo "$r" migrate run --styleguide a.md 2>&1 || true)
 chmod u+w "$r/.git"
-if grep -q "every file was put back" <<<"$err" && [ -z "$(git -C "$r" status --porcelain)" ] && [ "$(cat "$r/.revmux/tasks/session")" = session ] && [ ! -L "$r/.revmux" ] \
-  && [ ! -L "$r/.claude/rules/a.md" ] && [ ! -e "$r/.lem/styleguide" ] && [ ! -e "$r/.lem/review" ] && [ "$(cat "$r/.lem/project.toml")" = "$settings_before" ]; then
+if grep -q "every file was put back" <<<"$err" && [ -z "$(git -C "$r" status --porcelain)" ] && [ "$(cat "$r/.personas/cast/notes/session")" = session ] && [ ! -L "$r/.revmux" ] \
+  && [ ! -L "$r/.claude/rules/a.md" ] && [ ! -e "$r/.lem/styleguide" ] && [ ! -e "$r/.lem/personas" ] && [ "$(cat "$r/.lem/project.toml")" = "$settings_before" ]; then
   pass "a move that fails in the middle puts every file back, the ignored ones too, and leaves the settings as they were"
 else
   fail "migrate rollback: $err / $(git -C "$r" status --porcelain) / $(ls -a "$r/.lem")"
