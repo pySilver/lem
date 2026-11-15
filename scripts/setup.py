@@ -27,12 +27,14 @@ run that fails.
 `--project DIR` is for a trial. Links in the home directory show Lem to every repository on the
 machine at once, also to one where another flow still runs with skills of the same use. Links in
 one repository's `.claude` folder show Lem there and nowhere else. The `huddle` command is not
-linked then, because a command on `PATH` is for the whole machine, and the links are named in a
-marked block of that repository's `.git/info/exclude`, so its tree stays clean; `--remove` takes
-the block away again. DIR is the main checkout: a worktree shares its exclude file with every
-other checkout, so a trial is not linked there. A `.claude` folder that is a link out of the
-repository is refused, because the links would then land where the link points, for whoever else
-reads that folder.
+linked then, because a command on `PATH` is for the whole machine. So that the checkout's tree
+stays clean, a small `.gitignore` goes beside the links, in `.claude/skills` and `.claude/agents`:
+it names the links and itself, and its first line names this clone. It is a file of that one
+checkout, so no other worktree is touched; the repository's shared exclude file is not used for
+that reason. `--remove` takes away the ignore files this clone wrote, and no other. A folder that
+has a `.gitignore` of its own keeps it, and the result then says that git sees the links there. A
+`.claude` folder that is a link out of the repository is refused, because the links would then
+land where the link points, for whoever else reads that folder.
 
 The last step runs `skills/lem/scripts/doctor.py` and prints its rows that are not found. A
 required tool that is absent makes this script exit 1 after the links are made: the links are
@@ -58,26 +60,28 @@ def wanted(home: Path, bin_dir: Path | None) -> list[tuple[Path, Path]]:
     return links
 
 
-BLOCK = ("# >>> links of a Lem trial (scripts/setup.py --project); --remove takes this block away", "# <<< links of a Lem trial")
+MARK = f"# links of a Lem trial from {CLONE} (scripts/setup.py --project); --remove takes this file away"
 
 
-def without_block(lines: list[str]) -> list[str]:
-    if BLOCK[0] not in lines or BLOCK[1] not in lines:
-        return lines
-    return lines[:lines.index(BLOCK[0])] + lines[lines.index(BLOCK[1]) + 1:]
-
-
-def keep_out_of_git(project: Path, places: list[Path] | None) -> None:
-    """Name the links in a marked block of the main checkout's exclude file, which git does not
-    track; with no places, take the block away."""
-    exclude = project / ".git" / "info" / "exclude"
-    known = without_block(exclude.read_text().splitlines() if exclude.is_file() else [])
-    if places:
-        known += [BLOCK[0], *("/" + place.relative_to(project).as_posix() for place in places), BLOCK[1]]
-    elif not exclude.is_file():
-        return
-    exclude.parent.mkdir(exist_ok=True)
-    exclude.write_text("\n".join(known) + "\n" if known else "")
+def hide_from_git(rows: list[dict]) -> list[str]:
+    """Make each folder's ignore file say what is linked there now, and return the folders where
+    git still sees the links. Only a file whose first line names this clone is written or removed."""
+    visible = []
+    folders: dict[Path, list[dict]] = {}
+    for row in rows:
+        folders.setdefault(Path(row["place"]).parent, []).append(row)
+    for folder, members in folders.items():
+        ignore = folder / ".gitignore"
+        ours = ignore.is_file() and not ignore.is_symlink() and ignore.read_text().splitlines()[:1] == [MARK]
+        linked = [Path(row["place"]).name for row in members if row["state"] == "linked"]
+        if (ignore.exists() or ignore.is_symlink()) and not ours:
+            if linked:
+                visible.append(str(folder))
+        elif linked:
+            ignore.write_text("\n".join([MARK, "/.gitignore", *(f"/{name}" for name in linked)]) + "\n")
+        elif ours:
+            ignore.unlink()
+    return visible
 
 
 def state(place: Path, target: Path) -> str:
@@ -107,11 +111,8 @@ def main() -> None:
     if args.check and args.remove:
         sys.exit("setup.py: --check and --remove do not go together")
     project = args.project.resolve() if args.project else None
-    if project is not None and not (project / ".git").is_dir():
-        sys.exit(
-            f"setup.py: --project names the main checkout of a repository, and {project} has no .git folder. "
-            "A task's worktree shares its exclude file with every other checkout, so a trial is not linked there",
-        )
+    if project is not None and not (project / ".git").exists():
+        sys.exit(f"setup.py: {project} is not the root of a git checkout; --project names a repository")
     bin_dir = None if project else args.bin or args.home / ".local" / "bin"
     links = wanted(project or args.home, bin_dir)
     rows = [{"place": str(place), "target": str(target), "state": state(place, target)} for place, target in links]
@@ -137,8 +138,8 @@ def main() -> None:
                     row["state"] = "linked"
                     row["error"] = str(error)
                     stuck.append(row["place"])
-        if project is not None and not any(row["state"] == "linked" for row in rows):
-            keep_out_of_git(project, None)
+        if project is not None:
+            hide_from_git(rows)
         print(json.dumps({"links": rows}, indent=2))
         if stuck:
             sys.exit(f"setup.py: {len(stuck)} link(s) could not be removed and are still there: {'; '.join(stuck)}")
@@ -152,9 +153,8 @@ def main() -> None:
             for row in in_the_way
         )
         sys.exit(f"setup.py: {len(in_the_way)} place(s) hold something else, and nothing was linked: {named}. Move each away, or leave Lem unlinked")
+    visible: list[str] = []
     if not args.check:
-        if project is not None:
-            keep_out_of_git(project, [place for place, _target in links])
         made: list[Path] = []
         try:
             for row in rows:
@@ -168,13 +168,13 @@ def main() -> None:
             # every link or none: take this run's links away again, and say what stopped it
             for place in made:
                 place.unlink(missing_ok=True)
-            if project is not None and not any(row["state"] == "linked" and Path(row["place"]) not in made for row in rows):
-                keep_out_of_git(project, None)
             for row in rows:
                 if Path(row["place"]) in made:
                     row["state"] = "absent"
             print(json.dumps({"links": rows}, indent=2))
             sys.exit(f"setup.py: a link could not be made ({error}); the {len(made)} link(s) this run made are removed again, and nothing is linked")
+        if project is not None:
+            visible = hide_from_git(rows)
     on_path = bin_dir is not None and any(Path(entry) == bin_dir for entry in os.environ.get("PATH", "").split(os.pathsep) if entry)
     # The check runs where the links are: in the repository for --project, so that it finds the
     # builder agent of that repository.
@@ -191,7 +191,7 @@ def main() -> None:
     result = {
         "links": rows, "scope": str(project) if project else "every repository of this home",
         "huddle": "not linked: a command on PATH is for the whole machine" if project else ("on PATH" if on_path else f"linked in {bin_dir}, which is not on PATH"),
-        "machine_ok": machine["ok"], "absent": absent,
+        "git_sees_the_links_in": visible, "machine_ok": machine["ok"], "absent": absent,
         "linked": all(row["state"] == "linked" for row in rows),
     }
     print(json.dumps(result, indent=2))

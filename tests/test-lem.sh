@@ -519,27 +519,40 @@ if [ "$(field '(d["linked"], d["machine_ok"], d["scope"], d["huddle"].startswith
 else
   fail "setup --project: $out / $(git -C "$TRIAL" status --porcelain)"
 fi
-echo 'mine' > "$TRIAL/.git/info/exclude.before" && grep -c '' "$TRIAL/.git/info/exclude" > "$WORK/exclude.lines"
+# The ignore files are this checkout's own: a worktree's own file stays visible to git there, and
+# another clone's --remove takes away neither a link nor an ignore file.
+git -C "$TRIAL" worktree add -q "$WORK/trial-wt" -b feat/trial
+mkdir -p "$WORK/trial-wt/.claude/skills/lem" && echo own > "$WORK/trial-wt/.claude/skills/lem/OWN.md"
+out=$(env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$TWIN/scripts/setup.py" --home "$WORK/trialhome" --project "$TRIAL" --remove)
+# the worktree's own file must still show in its status, and the shared exclude file must not name Lem
+if git -C "$WORK/trial-wt" status --porcelain | grep -q '.claude/' && ! grep -qs lem "$TRIAL/.git/info/exclude"; then shared=clean; else shared=touched; fi
+if [ "$shared" = clean ] && [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['other link']" ] && [ -L "$TRIAL/.claude/skills/lem" ] \
+  && [ -f "$TRIAL/.claude/skills/.gitignore" ] && [ -f "$TRIAL/.claude/agents/.gitignore" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
+  pass "a trial writes nothing that another worktree shares, and another clone's --remove leaves its links and its ignore files"
+else
+  fail "the reach of a trial: $out / wt: $(git -C "$WORK/trial-wt" status --porcelain) / main: $(git -C "$TRIAL" status --porcelain)"
+fi
 out=$(trial --remove)
 if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ -z "$(find "$TRIAL/.claude" -type l)" ] \
-  && ! grep -q "lem" "$TRIAL/.git/info/exclude" && [ "$(status_of env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --project "$WORK")" = 1 ]; then
-  pass "setup --project --remove takes those links and its block of the exclude file away, and a folder that is no repository is refused"
+  && [ ! -e "$TRIAL/.claude/skills/.gitignore" ] && [ ! -e "$TRIAL/.claude/agents/.gitignore" ] \
+  && [ "$(status_of env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --project "$WORK")" = 1 ]; then
+  pass "setup --project --remove takes its links and its ignore files away, and a folder that is no repository is refused"
 else
-  fail "setup --project --remove: $out / $(cat "$TRIAL/.git/info/exclude")"
+  fail "setup --project --remove: $out / $(find "$TRIAL/.claude")"
 fi
-# A worktree shares its exclude file with the main checkout, and a .claude that is a link leads out of the repository.
-git -C "$TRIAL" worktree add -q "$WORK/trial-wt" -b feat/trial
-mkdir -p "$TRIAL/.claude/skills/lem" && echo own > "$TRIAL/.claude/skills/lem/OWN.md"
-err=$(env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$WORK/trial-wt" 2>&1 || true)
-if grep -q "names the main checkout" <<<"$err" && [ ! -e "$WORK/trial-wt/.claude" ] && git -C "$TRIAL" status --porcelain | grep -q '.claude/'; then
-  pass "a worktree is refused for a trial, so a file of the main checkout's own is not hidden from git"
+# A folder that has an ignore file of its own keeps it, and the result says that git sees the links there.
+echo '# kept by the project' > "$TRIAL/.claude/skills/.gitignore"
+out=$(trial)
+if [ "$(cat "$TRIAL/.claude/skills/.gitignore")" = "# kept by the project" ] && [ "$(field 'd["git_sees_the_links_in"]' <<<"$out")" = "['$TRIAL/.claude/skills']" ]; then
+  pass "an ignore file of the project's own is left as it is, and the result names the folder where git sees the links"
 else
-  fail "setup --project in a worktree: $err / $(git -C "$TRIAL" status --porcelain)"
+  fail "setup --project beside the project's own ignore file: $out"
 fi
+trial --remove >/dev/null
 rm -r "$TRIAL/.claude" && mkdir -p "$WORK/shared-claude" && ln -s "$WORK/shared-claude" "$TRIAL/.claude"
 out=$(trial 2>/dev/null || true)
 if [ "$(status_of trial)" = 1 ] && [ "$(field 'all(l["state"].startswith("blocked by a link that leaves the repository") for l in d["links"])' <<<"$out")" = True ] \
-  && [ -z "$(ls -A "$WORK/shared-claude")" ] && ! grep -q "lem" "$TRIAL/.git/info/exclude"; then
+  && [ -z "$(ls -A "$WORK/shared-claude")" ]; then
   pass "a .claude folder that is a link out of the repository is refused, and nothing is made where it points"
 else
   fail "setup --project through a linked .claude: $out / $(ls -A "$WORK/shared-claude")"
