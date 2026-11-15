@@ -266,8 +266,13 @@ An HTML file opened as an overlay of this session
 (`agtermctl session overlay open --html FILE --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`).
 A document the owner should mark up (a plan, a draft profile) goes through the settings'
 `tools.annotate`: a skill of that name when the session lists one, otherwise a command of that
-name given the file's path. `lem-webrev` is the default and the way Lem recommends; an owner who
-prefers another tool, plannotator for one, names it there.
+name given the file's path. `/lem annotate FILE` is the same for a file the owner names. The
+default is `webrev`, the tool Lem recommends and does not bring: a recipe of the agterm cookbook
+that the developer installs (the machine check's `webrev skill` row has its guide). An owner who
+prefers another tool, plannotator for one, names it in the settings.
+When the session has no skill and no command of the name the settings give, say so once, with
+that name and, for `webrev`, the guide to install it by; then give the owner the file's path to
+read as it is, and take the notes in the conversation. Do not install it unasked.
 
 ## The correction hook
 

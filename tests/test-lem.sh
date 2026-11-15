@@ -190,7 +190,7 @@ if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a base branch t
 settings '[tools]' 'annotate = "my-own-rev"'
 if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('my-own-rev', 'lem-ask')" ]; then pass "a project names its own tool for marking up a plan, and questions keep Lem's page"; else fail "tools.annotate"; fi
 settings '[tools]' 'ask = "terminal"'
-if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('lem-webrev', 'terminal')" ]; then pass "a project takes its questions in the terminal, or names its own tool for them"; else fail "tools.ask"; fi
+if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('webrev', 'terminal')" ]; then pass "a project takes its questions in the terminal, or names its own tool for them"; else fail "tools.ask"; fi
 settings '[tools]' 'ask = ""'
 err=$(project --repo "$OLD" show 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "tools.ask = '' must name a skill or a command in quotes, as in ask = \"lem-ask\"" <<<"$err"; then pass "an empty tool for questions is refused with the fix"; else fail "tools.ask empty: $err"; fi
@@ -353,7 +353,7 @@ else
   fail "a gate in the local file: $err"
 fi
 printf '%s\n' '[tools]' 'ask = "my-asker"' > "$OLD/.lem/project.local.toml"
-if [ "$(project --repo "$OLD" show | field '(d["tools"]["ask"], d["tools"]["annotate"], d["local"]["overrides"])')" = "('my-asker', 'lem-webrev', ['tools.ask'])" ]; then
+if [ "$(project --repo "$OLD" show | field '(d["tools"]["ask"], d["tools"]["annotate"], d["local"]["overrides"])')" = "('my-asker', 'webrev', ['tools.ask'])" ]; then
   pass "one machine names its own tool for questions, and show says that the value is the machine's"
 else
   fail "tools.ask in the local file: $(project --repo "$OLD" show 2>&1)"
@@ -587,9 +587,11 @@ out=$(doctor)
 if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "$FAKEHOME/.claude/agents/lem-builder.md" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
   && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ] && [ "$(row codex found <<<"$out")" = "False" ] \
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
-  && [ "$(row plannotator without_it <<<"$out" | grep -c 'lem-webrev')" = 1 ] \
-  && [ "$(row plannotator-tui need <<<"$out")" = "optional" ] && [ "$(row plannotator-tui without_it <<<"$out" | grep -c 'cookbook/annotate-in-plannotator-tui')" = 1 ]; then
-  pass "with git, the review tool, agterm, the mailbox, their skills, Claude Code and the linked builder the check passes; absent optional tools only change their rows, and the two rows about marking up say what is recommended"
+  && [ "$(row plannotator without_it <<<"$out" | grep -c 'webrev is the default')" = 1 ] \
+  && [ "$(field '[(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["need"] == "recommended"]' <<<"$out")" \
+    = "[('webrev skill', False, 'annotate-document'), ('agdoc skill', False, 'html-doc-overlay'), ('plannotator-tui', False, 'annotate-in-plannotator-tui')]" ] \
+  && [ ! -e "$PWD/skills/lem-webrev" ]; then
+  pass "with git, the review tool, agterm, the mailbox, their skills, Claude Code and the linked builder the check passes; absent optional tools only change their rows, and each recommended tool, none of them a part of Lem, has a row with its guide"
 else
   fail "doctor with the required set: $out"
 fi
@@ -620,9 +622,9 @@ CORR=$PWD/skills/lem/scripts/corrections.py
 CQ=$WORK/corr
 git init -q -b main "$CQ" && commit "$CQ" start
 project --repo "$CQ" init --base main >/dev/null
-if grep -q '^annotate = "lem-webrev"$' "$CQ/.lem/project.toml" && grep -q '^ask = "lem-ask"$' "$CQ/.lem/project.toml" \
-  && [ "$(project --repo "$CQ" show | field 'd["tools"]')" = "{'annotate': 'lem-webrev', 'ask': 'lem-ask'}" ]; then
-  pass "a new settings file names Lem's own tool for marking up and for questions"
+if grep -q '^annotate = "webrev"$' "$CQ/.lem/project.toml" && grep -q '^ask = "lem-ask"$' "$CQ/.lem/project.toml" \
+  && [ "$(project --repo "$CQ" show | field 'd["tools"]')" = "{'annotate': 'webrev', 'ask': 'lem-ask'}" ]; then
+  pass "a new settings file names the recommended tool for marking up and Lem's own page for questions"
 else
   fail "the tools of a new settings file: $(grep -n -A8 '^\[tools\]' "$CQ/.lem/project.toml")"
 fi
@@ -787,23 +789,24 @@ if [ "$(status_of setup --check)" = 1 ] && [ "$(field 'sorted(set(l["state"] for
 else
   fail "setup --check on an empty home: $out"
 fi
-mkdir -p "$SETHOME/.claude/skills/lem-webrev"
+mkdir -p "$SETHOME/.claude/skills/lem-backlog"
 err=$(setup 2>&1 >/dev/null || true)
 if [ "$(status_of setup)" = 1 ] && grep -q "1 place(s) hold something else, and nothing was linked" <<<"$err" && [ ! -e "$SETHOME/.claude/skills/lem" ]; then
   pass "one place that holds something else stops the setup before any link is made"
 else
   fail "setup over a taken place: $err"
 fi
-rmdir "$SETHOME/.claude/skills/lem-webrev" && ln -s "$WORK" "$SETHOME/.claude/skills/lem-webrev"
+rmdir "$SETHOME/.claude/skills/lem-backlog" && ln -s "$WORK" "$SETHOME/.claude/skills/lem-backlog"
 if [ "$(status_of setup)" = 1 ] && [ ! -e "$SETHOME/.claude/skills/lem" ]; then pass "a link that points somewhere else is in the way too"; else fail "setup over another link"; fi
-rm "$SETHOME/.claude/skills/lem-webrev"
+rm "$SETHOME/.claude/skills/lem-backlog"
 out=$(setup)
 if [ "$(field '(d["linked"], d["machine_ok"], len(d["links"]), [a["name"] for a in d["absent"] if a["need"] == "required"])' <<<"$out")" = "(True, True, $(( $(find "$PWD/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | grep -c '') + 3 )), [])" ] \
   && [ "$(readlink "$SETHOME/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$SETHOME/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
   && [ -x "$SETHOME/.local/bin/lem-ask" ] && [ "$(readlink "$SETHOME/.local/bin/jev")" = "$PWD/skills/lem/scripts/jev.py" ] && [ -x "$SETHOME/.local/bin/jev" ] \
   && [ "$(field 'd["corrections_hook"]["state"]' <<<"$out")" = "not registered" ] && [ ! -e "$SETHOME/.claude/settings.json" ] \
+  && [ "$(field 'next(a["guide"] for a in d["absent"] if a["name"] == "webrev skill")' <<<"$out")" = "https://github.com/umputun/agterm/tree/master/cookbook/annotate-document" ] \
   && [ "$(status_of setup)" = 0 ] && [ "$(status_of setup --check)" = 0 ]; then
-  pass "setup links every skill, the builder agent and the lem-ask and jev commands, registers no hook, the machine check then passes, and a second run changes nothing"
+  pass "setup links every skill, the builder agent and the lem-ask and jev commands, registers no hook, names each absent recommended tool with its guide and installs none, the machine check then passes, and a second run changes nothing"
 else
   fail "setup: $out"
 fi

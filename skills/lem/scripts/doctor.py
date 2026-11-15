@@ -4,7 +4,8 @@
 Onboarding runs it first, so a repository is never set up for a flow its machine cannot run. It
 prints one row per tool as JSON and exits 1 when a required one is absent. An optional tool that
 is absent is not an error: its row says what the skill does without it, and onboarding tells the
-owner that.
+owner that. A recommended tool is one Lem does not bring and a developer is better off with: its
+row has the guide to install it by, and Lem installs it only on the developer's yes.
 
     doctor.py
 
@@ -39,7 +40,11 @@ def python() -> dict:
     }
 
 
-def skill(name: str, used_for: str, without_it: str) -> dict:
+# The guides of the tools Lem recommends and never copies in: recipes of the agterm cookbook.
+COOKBOOK = "https://github.com/umputun/agterm/tree/master/cookbook/"
+
+
+def skill(name: str, used_for: str, without_it: str, need: str = "required", guide: str | None = None) -> dict:
     """A skill an agent loads by name: in a skills folder of the home or of this repository, or installed as a plugin of Claude Code."""
     try:
         top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
@@ -62,7 +67,8 @@ def skill(name: str, used_for: str, without_it: str) -> dict:
     if found is None:
         cache = Path.home() / PLUGINS / "cache"
         found = next((str(file.parent) for file in sorted(cache.glob(f"*/{name}/*/**/skills/{name}/SKILL.md"))), None) if cache.is_dir() else None
-    return {"name": f"{name} skill", "need": "required", "found": found is not None, "detail": found, "used_for": used_for, "without_it": without_it}
+    row = {"name": f"{name} skill", "need": need, "found": found is not None, "detail": found, "used_for": used_for, "without_it": without_it}
+    return {**row, "guide": guide} if guide else row
 
 
 def version(command: list[str]) -> str | None:
@@ -164,11 +170,17 @@ def main() -> None:
         skill("revmux", "how an agent runs a review round: it writes the round's context and reads the findings back",
               "an agent has the review tool and no instructions for it; install the skill that comes with revmux (its README says how)"),
         *agterm(),
+        # The recommended tools: none is copied into Lem, each has a guide the developer follows,
+        # and Lem installs one only on the developer's yes.
+        skill("webrev", "the owner marks up a plan, a draft or any document as a rendered page, and the notes come back to the agent; "
+              "the default of tools.annotate", "the owner reads the file as it is and gives the notes in the conversation",
+              need="recommended", guide=COOKBOOK + "annotate-document"),
+        skill("agdoc", "a page about the issue, the plan or the change in hand, for the owner's own reading",
+              "no stage needs it; the owner reads the same in the conversation", need="recommended", guide=COOKBOOK + "html-doc-overlay"),
+        {**tool("plannotator-tui", "recommended", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",
+                "no stage needs it", "plannotator-tui", ["--version"]), "guide": COOKBOOK + "annotate-in-plannotator-tui"},
         tool("plannotator", "optional", "another way to mark up a plan or a draft, for an owner who names it in tools.annotate",
-             "nothing is lost: lem-webrev, which comes with Lem, is the recommended way and the default", "plannotator", ["--version"]),
-        tool("plannotator-tui", "optional", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",
-             "no stage needs it; recommend it to the owner with its guide, which he follows himself: "
-             "https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui", "plannotator-tui", ["--version"]),
+             "nothing is lost: webrev is the default of tools.annotate", "plannotator", ["--version"]),
         tool("jev", "optional", "backlog items sorted by who can act next, and the framing check of a question's card",
              "the backlog is listed without verdicts and a card gets no framing check; Lem's setup links its own copy for a home. "
              "The correction queue does not need this row: its hook runs Lem's copy by its path", "jev"),

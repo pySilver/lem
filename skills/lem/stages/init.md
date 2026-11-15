@@ -19,7 +19,11 @@ python3 SKILL_DIR/scripts/doctor.py
 
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
 installed, and end. For each optional tool that is absent, tell the owner in one line what the
-skill does without it (the row's `without_it`), and go on. Three things need a sentence of their
+skill does without it (the row's `without_it`), and go on. A recommended tool that is absent
+(`need: recommended`) gets one line too: what it gives and its guide (the row's `guide`). Lem
+brings none of them. Offer to install one by its guide, and do it only on the owner's yes; a
+guide copies a skill into the owner's own skills folder, so where your agent refuses you the
+step, give him the guide's commands. Three things need a sentence of their
 own: cronn that is installed and not running, cronn that is absent, and the correction queue.
 Recommend the queue and turn it on only when the owner agrees: with it, the project keeps a
 queue of the owner's corrections for the retro; without it, a correction is learned in the
@@ -206,7 +210,7 @@ root as an absolute path: every other path on the page is relative to it, and a 
 cannot be checked against any folder. Then what the machine has and lacks, what was linked and
 what was generated, each assumption taken from the code with its source, and the settings file.
 The machine's part lists the tools the check lists and no part of Lem itself: the question page
-and the mark-up page come with Lem. Say there that the project may bring a builder of its own,
+comes with Lem. Say there that the project may bring a builder of its own,
 and how (the harness file, `spawn-builder`). When the owner said yes to the correction queue, the page names the command he
 runs for its hook, in the form for this one repository, and nothing he has to edit.
 

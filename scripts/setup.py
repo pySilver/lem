@@ -387,7 +387,10 @@ def main() -> None:
     except json.JSONDecodeError:
         print(json.dumps({"links": rows}, indent=2))
         sys.exit(f"setup.py: the links are as listed, and the machine check did not run: doctor.py printed no JSON: {(doctor.stderr or doctor.stdout).strip()}")
-    absent = [{"name": row["name"], "need": row["need"], "without_it": row["without_it"]} for row in machine["tools"] if not row["found"]]
+    absent = [
+        {"name": row["name"], "need": row["need"], "without_it": row["without_it"], **({"guide": row["guide"]} if row.get("guide") else {})}
+        for row in machine["tools"] if not row["found"]
+    ]
     result = {
         "links": rows, "leftovers": old, "scope": str(project) if project else "every repository of this home",
         "commands": "lem-ask and jev are not linked: a command on PATH is for the whole machine" if project else ("on PATH" if on_path else f"linked in {bin_dir}, which is not on PATH"),

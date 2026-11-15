@@ -191,11 +191,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## webrev
-
-`skills/lem-webrev/assets/` holds markdown-it 14.1.0 and highlight.js 11.11.1, each with its license
-file beside it.
-
 ## gate, panel, lem-ask, backlog, interview-me and jev
 
 `skills/lem/scripts/jev.py` is the `jev` command of that repository's `jev` plugin, as of

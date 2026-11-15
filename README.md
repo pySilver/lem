@@ -440,7 +440,6 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `/lem backlog` | you want to see, add or do work for later; each item is one file | `/lem backlog` |
 | `/lem dialectic` | a claim decides a plan, and you are not sure that the claim is true; two agents argue the two sides | `/lem dialectic this table stays below one million rows` |
 | `/lem root-cause` | a defect is there again after two fixes, and nobody can explain it | `/lem root-cause the import stops at row 5000` |
-| `/lem webrev` | you want to mark a document in an agterm overlay; `/lem annotate` uses it by default | `/lem webrev docs/plans/20261115-export.md` |
 | `/lem release` | you make a release: Lem finds the next version and writes the notes, and you approve them | `/lem release` |
 | `/lem last-tag` | you want to see the commits after the last release | `/lem last-tag` |
 | `/lem pr-review` | a pull request or an issue from a different person needs an answer; Lem writes a draft comment | `/lem pr-review 42` |
@@ -480,7 +479,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `flow.max_tasks` | `4` | how many tasks build or land at one time |
 | `seats.reviewer.agent` | none; `/lem init` asks | the reviewer: `claude` or `codex` |
 | `seats.reviewer.model`, `.effort`, `.plan_effort` | the default of the agent | the model of the reviewer, its effort for a diff, and its effort for a plan |
-| `tools.annotate` | `lem-webrev` | the tool with which you mark a plan |
+| `tools.annotate` | `webrev` | the tool with which you mark a plan; webrev is a recommended tool that you install |
 | `tools.ask` | `lem-ask` | how a question comes to you: the page of Lem, `terminal`, or a skill or a command of yours |
 | `corrections.collect` | `false` | `true` keeps a queue of your corrections for `/lem retro` |
 | `[tracker]` | absent | `kind` (`linear`), `server`, `workspace`, `team` and `moves` |
@@ -517,17 +516,22 @@ Optional, each with a fallback that the check names:
 - Codex, as a reviewer from a different model family. For the personas, Codex also needs the
   agent file `~/.codex/agents/persona.toml`.
 - cronn, for the scheduled jobs.
-- plannotator, as a different mark tool.
+- plannotator, as a different mark tool. Put its name in `tools.annotate`.
 - an `OPENROUTER_API_KEY`. Lem brings its own `jev` command, and `jev` asks the Jev decision
   model through OpenRouter. Lem uses it for the correction queue, to sort the backlog, and to
   check a question page. Without a key, these three steps give no result.
 
-To mark a plan or a document, use `/lem webrev`. It comes with Lem, and it is the recommended
-tool. If you prefer plannotator for that, put its name in `tools.annotate`.
+### Recommended tools
 
-Lem also recommends plannotator-tui with two agterm chords, for your own use. With them you mark
-the output of a pane or the newest reply of an agent. Lem does not install it. The guide is
-[annotate-in-plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui).
+Lem works without these tools, and it does not bring them. Each is a recipe from the agterm
+cookbook, with a guide that you follow. `/lem init` can install one for you, but only after your
+yes.
+
+| Tool | What it gives you | Without it |
+| --- | --- | --- |
+| [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document) | you mark a plan or a document as a page, and the agent gets your notes; `/lem annotate` uses it by default | you read the file as it is, and you give your notes in the conversation |
+| [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) | a page about the issue, the plan or the change that the session works on | you read the same in the conversation |
+| [plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui) | you mark the output of a pane, or the newest reply of an agent, with two agterm chords | no step of Lem changes |
 
 ## Setup in Claude Code
 

@@ -116,8 +116,16 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   name at that time). The machine
   check has no row for it and no page for the owner lists it; the setup reports its link.
 - **webrev is the recommended way to mark up a plan or a document**, before plannotator
-  ("`/webrev` is awesome and needs to be recommended to use over plannotator"). plannotator-tui
-  with its agterm chords is recommended to the owner by its guide; Lem installs nothing for it.
+  ("`/webrev` is awesome and needs to be recommended to use over plannotator"), and it is not a
+  part of Lem. On "a dependency with an offered installation, and no copy in Lem": "yep, just
+  like other things that we want to recommend to a developer that makes life easier: agdoc,
+  webrev, plannotator-tui, mailbox, revmux" (2026-11-15). So none of the five is copied into
+  Lem. webrev, agdoc and plannotator-tui are recommended tools: the machine check has a row and
+  a guide for each, `tools.annotate` defaults to `webrev`, and Lem installs one only on a
+  developer's yes. The mailbox and revmux stay required, as he ruled before; that reading of
+  his sentence is the session's, not his words.
+- **OpenRouter is the one way to the Jev model for now**: on a direct API beside it, "Ok. Lets
+  keep that way for now" (`docs/backlog/no-direct-jev-api.md`).
 - **What must not go wrong is named by topic as well as by path, and the agent says whether a
   task is careful**: "we analyze the project, then we suggest what are the dangerous zones or
   topics and let user provide more ... Later at a plan time we can understand if it touches
@@ -158,10 +166,10 @@ him, and they are not his rulings until he says so:
   every message in every repository. The session that carried his notes decided it and told
   him; the home form stays for an owner with many repositories that use Lem.
 
-Open with him, and not built: whether Lem ships `lem-webrev` or depends on the agterm recipe it
-came from; a direct API of the Jev model beside OpenRouter; and Lem as a Claude Code plugin that a
-project enables, in place of links ("can we make it more self contained? lem is aimed to be
-per-project companion").
+Open with him, and not built: Lem as a Claude Code plugin that a project enables, in place of
+links ("can we make it more self contained? lem is aimed to be per-project companion"), which he
+wants tested in a scratch repository first; and the order of landing and review ("I think its
+very dangerous in most cases", of commits that reach the base branch before a review).
 
 - **The reviewer's seat is a table**, after "should we or can we specify model and effort level
   of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `effort`, `plan_effort`.
@@ -222,7 +230,7 @@ real task, so say in the commit which task showed the need.
   device pixels for each pixel. `board-*` and `task-*` are renders of
   `skills/lem/assets/board.html` over demo data; `real-task-*` is the board of the first task
   that ran through Lem, over its real event log.
-- `skills/lem-ask/`, `skills/lem-webrev/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
+- `skills/lem-ask/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
   `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`: the skills Lem names and ships.
   `NOTICE` says where each came from.
@@ -230,10 +238,10 @@ real task, so say in the commit which task showed the need.
 ## The shipped skills are copies, not yet under the rules above
 
 Each was copied from where it worked and changed only as far as the new layout needed. Their text
-still names Claude Code's tools, `skills/lem-backlog` and `skills/lem-webrev` use `${CLAUDE_SKILL_DIR}`,
+still names Claude Code's tools, `skills/lem-backlog` uses `${CLAUDE_SKILL_DIR}`,
 and lem-ask's Stop hook (`skills/lem-ask/hooks/hooks.json`) is registered by nothing. Bring one under
 the capability rule when a second agent has to run it, not before.
 
-The set is deliberately small. A tool with its own life (revmux, agterm, cronn, plannotator, Codex)
-is checked for by `doctor.py` and never copied in, and a project that prefers its own tool for a
+The set is deliberately small. A tool with its own life (revmux, agterm, the mailbox chat, webrev,
+agdoc, cronn, plannotator, Codex) is checked for by `doctor.py` and never copied in, and a project that prefers its own tool for a
 role says so in its settings or its `AGENTS.md`.

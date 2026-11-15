@@ -87,9 +87,10 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
-# A role a developer may give to a tool of their own -> the tool Lem brings for it. The one place
-# that names each, so a new name for one of Lem's own is one line here.
-TOOLS = {"annotate": "lem-webrev", "ask": "lem-ask"}
+# A role a developer may give to a tool of their own -> the tool Lem uses for it unless the
+# settings say otherwise. The one place that names each. `lem-ask` comes with Lem; `webrev` is a
+# recommended tool the developer installs (the machine check has its row and its guide).
+TOOLS = {"annotate": "webrev", "ask": "lem-ask"}
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
 # the tables one machine may set for itself
@@ -231,8 +232,8 @@ collect = false
 # landed = "Done"
 
 [tools]
-# The skill or command the owner marks up a plan or a draft with. "{annotate}" comes with Lem;
-# name your own instead.
+# The skill or command the owner marks up a plan or a draft with. "{annotate}" is the one Lem
+# recommends, a recipe of the agterm cookbook that you install; name your own instead.
 annotate = "{annotate}"
 # How a question that asks the owner to choose or to approve reaches him. "{ask}" comes with
 # Lem and shows a page with the options side by side. "terminal" asks in the conversation, as a
