@@ -27,6 +27,9 @@ in that project's repository. `README.md` says what it does; this file says how 
   refuse a wrong input with exit 1 and a message that names the fix. No silent default for a
   choice that is the owner's (`project.py init --existing`).
 - **Documentation describes the current state.** No changelog paragraphs, no "previously".
+- **A session with nobody at the terminal reads `docs/free-hour.md` first.** A setup links Lem
+  from this clone's main checkout, so an edit there is live at once in every repository that
+  uses Lem. Such a session works in a worktree, on a branch, and never pushes.
 
 ## The owner's rulings
 
@@ -119,6 +122,8 @@ real task, so say in the commit which task showed the need.
 - `skills/lem/templates/`: the shapes onboarding fills.
 - `skills/lem/prompts/`: the standing briefs of a task's lead, of the three builders of a
   landing, and of the reviewer.
+- `docs/`: `free-hour.md` (how an unattended session may change Lem), `linear.md` (how a
+  project connects Linear), and `backlog/`, Lem's own deferred work.
 - `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `huddle`
   command from this clone into a home directory, never over something else, and runs the machine
   check. With `--project DIR` it links into one repository only. Use that for a trial: links in
