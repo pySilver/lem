@@ -68,7 +68,9 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   if thats cheap small fixes and offer a backlog filing otherwise").
 - **A builder's question about the outcome goes to the personas**, not to the reviewer.
 - **Lem asks through huddle**, and he never types it: "every question goes via huddle, unless its
-  something fixed choice, trivial, without additional context".
+  something fixed choice, trivial, without additional context". That is what Lem does unless a
+  project's settings name another way to ask (`tools.ask`, the way out he asked for on
+  2026-11-15, among the designs below).
 - **A shipped skill's name follows `/lem`** ("/lem interview-me sounds perfect like a callout
   command"). The form that was built from it, the id `lem-<name>` and the dispatcher in
   `SKILL.md`, is the starting session's design and open to him.

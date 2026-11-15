@@ -87,7 +87,9 @@ the undo cost), and gets the same framing check through `jev`, the spec in `lem-
 
 ### 4. Ask the user
 
-In agterm with the `lem-huddle` skill, otherwise as plain text. Then log the answer:
+A project that uses Lem says how in its settings (`tools.ask`, which `project.py show` of the
+`lem` skill prints), and that value decides. With `lem-huddle` there, or with no such setting: in
+agterm with the `lem-huddle` skill, otherwise as plain text. Then log the answer:
 `gate-log.py answer --id ID --answer "<the user's choice and their words>"`.
 
 ### 5. Is the answer a durable ruling?

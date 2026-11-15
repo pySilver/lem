@@ -55,8 +55,8 @@ for what came back:
 - a gate, a check or a step of this skill that cost time and changed nothing: propose to remove
   it, with the turns that show the cost.
 
-The owner sees only moves and removals, on one page, each with the case in their own words.
-First-time lessons are recorded without a page. The retro's closing report still names every
+The owner sees only moves and removals, in one question through `ask-owner`, each with the case
+in their own words. First-time lessons are recorded without a question. The retro's closing report still names every
 file it changed, a first-time record included, with what changed and why.
 
 ## The correction queue
