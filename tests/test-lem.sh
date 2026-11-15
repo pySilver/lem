@@ -466,6 +466,22 @@ if [ ! -e "$CQ/.git/lem/corrections.jsonl" ] && [ ! -e "$WORK/jev-called" ] && [
 else
   fail "a message was sent without the project's yes"
 fi
+# The hand-over to the detached half fails (no interpreter can be started): no file with the owner's words stays behind.
+sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
+mkdir -p "$WORK/hooktmp"
+out=$(event "the copy cannot start" s0 | env PATH="$WORK/jevbin:$PATH" TMPDIR="$WORK/hooktmp" "$PY" -B -c '
+import runpy, sys
+script = sys.argv[1]
+sys.argv = [script, "hook"]
+sys.executable = "/no/such/python"   # the hook starts its copy with this
+runpy.run_path(script, run_name="__main__")' "$CORR" 2>&1; echo "exit=$?")
+if [ "$out" = "exit=0" ] && [ -z "$(ls -A "$WORK/hooktmp")" ] && grep -q "/no/such/python" "$CQ/.git/lem/corrections.log"; then
+  pass "when the detached half cannot start, the hook removes the file with the owner's words and logs the failure"
+else
+  fail "the hook with a failed hand-over: $out / $(ls -A "$WORK/hooktmp") / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
+fi
+rm -f "$CQ/.git/lem/corrections.log"
+sed -i.bak 's/^collect = true$/collect = false/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 # An input that stays open, and an old python3: the hook returns, with exit 0 and not a word.
 started=$SECONDS
 out=$(hook hook < <(event "the input stays open" s0; sleep 6) 2>&1; echo "exit=$?")
@@ -479,8 +495,14 @@ for candidate in /usr/bin/python3 python3.9 python3.10; do
   if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info >= (3, 11))' 2>/dev/null; then old=$candidate; break; fi
 done
 if [ -n "$old" ]; then
-  out=$(event "under an old python" s0 | "$old" -B "$CORR" hook 2>&1; echo "exit=$?")
-  if [ "$out" = "exit=0" ]; then pass "under a python3 before 3.11 the hook exits 0 and prints nothing"; else fail "the hook under $old: $out"; fi
+  # run from another directory than the repository of the event: the failure belongs in that repository's log
+  out=$(cd "$WORK" && event "under an old python" s0 | "$old" -B "$CORR" hook 2>&1; echo "exit=$?")
+  if [ "$out" = "exit=0" ] && grep -q "tomllib" "$CQ/.git/lem/corrections.log" && [ ! -e "$PWD/.git/lem/corrections.log" ]; then
+    pass "under a python3 before 3.11 the hook exits 0, prints nothing, and logs the failure in the repository of the message"
+  else
+    fail "the hook under $old: $out / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
+  fi
+  rm -f "$CQ/.git/lem/corrections.log"
 else
   printf 'SKIP the hook under an old python3: none found\n'
 fi
