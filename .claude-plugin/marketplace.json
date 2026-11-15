@@ -1,0 +1,14 @@
+{
+  "name": "lem",
+  "description": "Lem, as one plugin for Claude Code.",
+  "owner": {
+    "name": "Antoni Martyniuk"
+  },
+  "plugins": [
+    {
+      "name": "lem",
+      "source": "./",
+      "description": "Lem coordinates the agents that write code in one repository."
+    }
+  ]
+}

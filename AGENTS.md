@@ -172,10 +172,16 @@ him, and they are not his rulings until he says so:
   every message in every repository. The session that carried his notes decided it and told
   him; the home form stays for an owner with many repositories that use Lem.
 
-Open with him, and not built: Lem as a Claude Code plugin that a project enables, in place of
-links ("can we make it more self contained? lem is aimed to be per-project companion"), which he
-wants tested in a scratch repository first; and the order of landing and review ("I think its
-very dangerous in most cases", of commits that reach the base branch before a review).
+- **Lem can load as a Claude Code plugin, beside the links**, after "can we make it more self
+  contained? lem is aimed to be per-project companion" and his "I agree" to a test first. The
+  test ran on 2026-11-15, and the session that carries his words decided the first step, which
+  only adds files: `.claude-plugin/plugin.json` with no version (so each commit is an update),
+  `.claude-plugin/marketplace.json`, and `bin/` with links to `lem-ask` and `jev`. The links of
+  the setup work as before, and removing the three undoes it. As a plugin the builder is
+  `lem:lem-builder`, so the harness file and the machine check know two names. Not in it, and
+  his to rule: a `hooks/hooks.json`, which would bring the correction hook with the install
+  against his ruling that he registers it himself; and the plugin as the documented way to
+  install, which waits for one real task in that form.
 
 - **The reviewer's seat is a table**, after "should we or can we specify model and effort level
   of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `effort`, `plan_effort`.
@@ -187,6 +193,9 @@ very dangerous in most cases", of commits that reach the base branch before a re
   based reviewer ... Codex is down or I run out of tokens there": `.lem/project.local.toml`,
   untracked, read from the main checkout, limited to `[seats]` and `[tools]`, written by
   `/lem reviewer`. Lem never changes the seat by itself.
+
+Open with him, and not built: the order of landing and review ("I think its
+very dangerous in most cases", of commits that reach the base branch before a review).
 
 ## Checks
 
@@ -227,6 +236,9 @@ real task, so say in the commit which task showed the need.
   agent's settings or takes it out, and is the owner's to run. With `--project DIR` it links into one repository only. Use that for a trial: links in
   the home directory show Lem to every repository on the machine, also to one where an older
   flow still runs.
+- `.claude-plugin/` and `bin/`: what Claude Code reads to load this repository as the plugin
+  `lem`: the manifest, a marketplace file that lists the one plugin, and links to the two
+  commands, which a plugin's `bin/` puts on the Bash tool's `PATH`.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the
   builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
 - `skills/lem/references/`: the catalog of published style guides.

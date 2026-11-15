@@ -66,17 +66,28 @@ file.
 
 ## spawn-builder
 
-The `Agent` tool with `subagent_type: "lem-builder"`. Lem brings that agent: `agents/lem-builder.md`
-in Lem's repository, linked into `~/.claude/agents/` by the setup. Its body holds the builder's
-standing rules, so a brief stays short and no builder misses one; its frontmatter sets the model
-and the effort, because a subagent on another model than the session's does not take the
-session's effort. There is no fallback to another agent type: when the session does not list
-`lem-builder`, the setup is not done; say so, name `doctor.py`, and stop.
+The `Agent` tool with `subagent_type: "lem-builder"` when the session lists an agent of that
+name, and with `subagent_type: "lem:lem-builder"` otherwise. Lem brings that agent:
+`agents/lem-builder.md` in Lem's repository. Its body holds the builder's standing rules, so a
+brief stays short and no builder misses one; its frontmatter sets the model and the effort,
+because a subagent on another model than the session's does not take the session's effort. There
+is no fallback to another agent type: when the session lists neither name, the setup is not
+done; say so, name `doctor.py`, and stop.
 
-A project that wants another builder (another model, more rules) keeps a file of the same name in
-its own `.claude/agents/`. Claude Code takes the project's definition before the user's (its
-documentation gives the order: managed, the `--agents` flag, the project, the user, a plugin;
-https://code.claude.com/docs/en/sub-agents, read 2026-11-15). No setting of Lem's is involved.
+The two names are the two ways Lem reaches a session. Linked by the setup, the file is in
+`~/.claude/agents/` or the repository's `.claude/agents/`, and its name is `lem-builder`. Loaded
+as the plugin `lem`, Claude Code puts the plugin's name before it, `lem:lem-builder`, and the
+plain name answers "Agent type 'lem-builder' not found" (checked on 2026-11-15 in Claude Code
+2.1.325, with the plugin loaded through `--plugin-dir` and through a project's settings; the
+plugin's agent ran on the model its file names).
+
+A project that wants another builder (another model, more rules) keeps a file named
+`lem-builder.md` in its own `.claude/agents/`. That agent is `lem-builder`, so the rule above
+picks it in both forms. Beside linked files, Claude Code takes the project's definition before
+the user's (its documentation gives the order: managed, the `--agents` flag, the project, the
+user, a plugin; https://code.claude.com/docs/en/sub-agents, read 2026-11-15); beside the plugin,
+the two agents have two names, and a call of `lem-builder` reached the project's file in the
+same check. No setting of Lem's is involved.
 
 The brief gives the task's worktree as an absolute path; do not pass `isolation: "worktree"`,
 since the task already has its worktree. Agents run in the background and you are told when one

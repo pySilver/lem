@@ -44,6 +44,44 @@ def python() -> dict:
 COOKBOOK = "https://github.com/umputun/agterm/tree/master/cookbook/"
 
 
+def checkouts() -> set[str]:
+    """This checkout's root and its main checkout's, by their real paths; empty outside a repository or with no git."""
+    found = set()
+    for args in (["--show-toplevel"], ["--path-format=absolute", "--git-common-dir"]):
+        try:
+            ran = subprocess.run(["git", "rev-parse", *args], capture_output=True, text=True, check=False)
+        except OSError:
+            return set()
+        if ran.returncode == 0 and ran.stdout.strip():
+            path = Path(ran.stdout.strip())
+            # the common directory is `.git` of the main checkout
+            found.add(os.path.realpath(path.parent if args[-1] == "--git-common-dir" and path.name == ".git" else path))
+    return found
+
+
+def plugin_named(name: str) -> str | None:
+    """`the plugin NAME@MARKETPLACE` when Claude Code's list of installed plugins has one of that
+    name that this repository gets: one installed for the user, or for this repository. Else None."""
+    # That file is the agent's own and may read any way: whatever is not the shape known here is no answer.
+    try:
+        listed = json.loads((Path.home() / PLUGINS / "installed_plugins.json").read_text())
+    except (OSError, ValueError):
+        return None
+    plugins = listed.get("plugins") if isinstance(listed, dict) else None
+    if not isinstance(plugins, dict):
+        return None
+    here = checkouts()
+    for key, installs in plugins.items():
+        if not isinstance(key, str) or key.split("@")[0] != name:
+            continue
+        # an install for one project is that project's: another repository does not get it
+        entries = [entry for entry in installs if isinstance(entry, dict)] if isinstance(installs, list) else []
+        scoped = [entry for entry in entries if isinstance(entry.get("projectPath"), str)]
+        if not scoped or len(scoped) < len(entries) or any(os.path.realpath(entry["projectPath"]) in here for entry in scoped):
+            return f"the plugin {key}"
+    return None
+
+
 def skill(name: str, used_for: str, without_it: str, need: str = "required", guide: str | None = None) -> dict:
     """A skill an agent loads by name: in a skills folder of the home or of this repository, or installed as a plugin of Claude Code."""
     try:
@@ -54,16 +92,9 @@ def skill(name: str, used_for: str, without_it: str, need: str = "required", gui
     places = [base / home / name for base in [*inside, Path.home()] for home in SKILL_HOMES]
     found = next((str(place) for place in places if (place / "SKILL.md").is_file()), None)
     if found is None:
-        # Claude Code's own list of installed plugins names each as PLUGIN@MARKETPLACE; where that
-        # file is absent or reads another way, the plugin's folder with the skill in it counts too.
-        # That file is the agent's own and may read any way: whatever is not the shape known here is no answer.
-        try:
-            listed = json.loads((Path.home() / PLUGINS / "installed_plugins.json").read_text())
-        except (OSError, ValueError):
-            listed = None
-        plugins = listed.get("plugins") if isinstance(listed, dict) else None
-        if isinstance(plugins, dict):
-            found = next((f"the plugin {key}" for key in plugins if isinstance(key, str) and key.split("@")[0] == name), None)
+        # Claude Code's own list of installed plugins; where that file is absent or reads another
+        # way, the plugin's folder with the skill in it counts too.
+        found = plugin_named(name)
     if found is None:
         cache = Path.home() / PLUGINS / "cache"
         found = next((str(file.parent) for file in sorted(cache.glob(f"*/{name}/*/**/skills/{name}/SKILL.md"))), None) if cache.is_dir() else None
@@ -117,11 +148,15 @@ def claude() -> list[dict]:
         # no git on this machine: its own row says so, and this one looks in the home only
         inside = ""
     places = [Path(inside) / BUILDER] if inside else []
-    file = next((place for place in [*places, Path.home() / BUILDER] if place.is_file()), Path.home() / BUILDER)
+    file = next((place for place in [*places, Path.home() / BUILDER] if place.is_file()), None)
+    # Lem installed as a plugin brings the agent under the plugin's name, with no file in an agents folder.
+    plugin = plugin_named("lem")
     builder = {
-        "name": "lem-builder agent", "need": "required", "found": file.is_file(), "detail": str(file) if file.is_file() else None,
+        "name": "lem-builder agent", "need": "required", "found": bool(file or plugin),
+        "detail": str(file) if file else f"lem:lem-builder, from {plugin}" if plugin else None,
         "used_for": "the builder Lem starts for each task of a plan in Claude Code",
-        "without_it": f"Claude Code has no agent of that name and Lem starts no builder; link agents/lem-builder.md of Lem's clone to ~/{BUILDER}",
+        "without_it": f"Claude Code has no agent of that name and Lem starts no builder; link agents/lem-builder.md of Lem's clone to ~/{BUILDER} "
+                      "with Lem's setup, or install Lem as a plugin. A plugin loaded for one session by a flag is not seen by this check",
     }
     # Only a machine with Claude Code needs Claude Code's form of the builder.
     return [row, builder] if row["found"] else [row]

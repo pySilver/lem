@@ -1,0 +1,9 @@
+{
+  "name": "lem",
+  "description": "Lem coordinates the agents that write code in one repository: /lem and an ask, builders, a gate, a landing and a review queue.",
+  "author": {
+    "name": "Antoni Martyniuk"
+  },
+  "repository": "https://github.com/pySilver/lem",
+  "license": "MIT"
+}

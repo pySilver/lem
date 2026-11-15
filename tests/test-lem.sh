@@ -581,6 +581,19 @@ if [ "$(status_of doctor)" = 1 ] && [ "$(row 'lem-builder agent' found <<<"$out"
 else
   fail "doctor with claude, no builder: $out"
 fi
+# Lem installed as a plugin brings the builder too, for the user or for the one repository it was installed in.
+printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$WORK/another-repository\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+elsewhere=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"]' || true)
+printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$PWD\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+here=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "lem-builder agent")["detail"]' || true)
+printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+user=$(doctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"])' || true)
+rm "$FAKEHOME/.claude/plugins/installed_plugins.json"
+if [ "$elsewhere" = "False" ] && [ "$here" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$user" = "(True, True)" ]; then
+  pass "Lem installed as a plugin for the user or for this repository satisfies the builder row, with the name the agent has there; an install for another repository does not"
+else
+  fail "doctor with Lem as a plugin: $elsewhere / $here / $user"
+fi
 mkdir -p "$FAKEHOME/.claude/agents"
 ln -s "$PWD/agents/lem-builder.md" "$FAKEHOME/.claude/agents/lem-builder.md"
 out=$(doctor)
@@ -777,6 +790,22 @@ settings_file=$CQ/.lem/project.toml
 sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settings_file.bak"
 if [ "$(status_of project --repo "$CQ" show)" = 1 ]; then pass "a collect value that is not true or false is refused"; else fail "collect type"; fi
 
+# The plugin form: the files Claude Code reads to load this repository as the plugin `lem`.
+if "$PY" -c 'import json, os, sys
+root = sys.argv[1]
+manifest = json.load(open(f"{root}/.claude-plugin/plugin.json"))
+market = json.load(open(f"{root}/.claude-plugin/marketplace.json"))
+links = {name: os.path.realpath(f"{root}/bin/{name}") for name in ("lem-ask", "jev")}
+ok = (manifest["name"] == "lem" and "version" not in manifest
+      and [(p["name"], p["source"]) for p in market["plugins"]] == [("lem", "./")]
+      and links == {"lem-ask": os.path.realpath(f"{root}/skills/lem-ask/bin/lem-ask"), "jev": os.path.realpath(f"{root}/skills/lem/scripts/jev.py")}
+      and all(os.access(path, os.X_OK) for path in links.values())
+      and not os.path.isabs(os.readlink(f"{root}/bin/lem-ask")) and not os.path.exists(f"{root}/hooks"))
+sys.exit(not ok)' "$PWD"; then
+  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds relative links to the two commands; and no hook comes with the plugin"
+else
+  fail "the plugin files in .claude-plugin and bin"
+fi
 # The setup script: links from the clone into a home, never over something else, and the machine check after them.
 SETUP=$PWD/scripts/setup.py
 SETHOME=$WORK/sethome
