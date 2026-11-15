@@ -51,11 +51,14 @@ def skill(name: str, used_for: str, without_it: str) -> dict:
     if found is None:
         # Claude Code's own list of installed plugins names each as PLUGIN@MARKETPLACE; where that
         # file is absent or reads another way, the plugin's folder with the skill in it counts too.
+        # That file is the agent's own and may read any way: whatever is not the shape known here is no answer.
         try:
-            listed = json.loads((Path.home() / PLUGINS / "installed_plugins.json").read_text()).get("plugins", {})
-            found = next((f"the plugin {key}" for key in listed if key.split("@")[0] == name), None)
-        except (OSError, ValueError, AttributeError):
-            found = None
+            listed = json.loads((Path.home() / PLUGINS / "installed_plugins.json").read_text())
+        except (OSError, ValueError):
+            listed = None
+        plugins = listed.get("plugins") if isinstance(listed, dict) else None
+        if isinstance(plugins, dict):
+            found = next((f"the plugin {key}" for key in plugins if isinstance(key, str) and key.split("@")[0] == name), None)
     if found is None:
         cache = Path.home() / PLUGINS / "cache"
         found = next((str(file.parent) for file in sorted(cache.glob(f"*/{name}/*/**/skills/{name}/SKILL.md"))), None) if cache.is_dir() else None

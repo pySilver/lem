@@ -548,12 +548,20 @@ if [ "$(status_of doctor)" = 1 ] && [ "$(row 'revmux skill' detail <<<"$out")" =
 else
   fail "doctor with the skills and no agent: $out"
 fi
+# The agent's list of plugins in a shape this check does not know is no answer, and no traceback.
+shapes=""
+for shape in '{"plugins": null}' '{"plugins": 1}' '[]' '{"plugins": {"1": []}}' 'not json'; do
+  printf '%s\n' "$shape" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+  shapes="$shapes$( (doctor 2>&1 || true) | field 'next(t for t in d["tools"] if t["name"] == "revmux skill")["found"]' 2>&1 | tail -1) "
+done
 rm "$FAKEHOME/.claude/plugins/installed_plugins.json"
 gone=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "revmux skill")["found"]' || true)
 mkdir -p "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugin/skills/revmux" && touch "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugin/skills/revmux/SKILL.md"
+printf '%s\n' '{"plugins": null}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 out=$(doctor || true)
-if [ "$gone" = "False" ] && [ "$(row 'revmux skill' detail <<<"$out")" = "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugin/skills/revmux" ]; then
-  pass "with no list of plugins to read, the plugin's own folder with the skill in it counts"
+rm "$FAKEHOME/.claude/plugins/installed_plugins.json"
+if [ "$gone" = "False" ] && [ "$shapes" = "False False False False False " ] && [ "$(row 'revmux skill' detail <<<"$out")" = "$FAKEHOME/.claude/plugins/cache/some-market/revmux/1.2.3/.claude-plugin/skills/revmux" ]; then
+  pass "a list of plugins in an unknown shape is no answer and no traceback, and with no list to read the plugin's own folder with the skill in it counts"
 else
   fail "doctor with the plugin's folder only: $gone / $out"
 fi

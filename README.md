@@ -123,12 +123,15 @@ These rules hold for each task:
   plan with one task is the exception: the builder that wrote the plan builds it.
 - **One branch lands at a time.** The gate result is about one tip on one base.
 - **You land, unless the settings say that Lem lands.** The default of `branch.land` is `owner`.
-  Then Lem runs the gate, changes nothing, and tells you that the branch is ready. You put the
-  branch on the base branch, and you tell Lem.
+  Then Lem rebases the task branch, does the closing pass, and runs the gate. It does not change
+  the base branch. It tells you that the branch is ready. You put the branch on the base branch,
+  and you tell Lem.
 - **With `branch.land = "agent"`, Lem lands a green branch.** It pushes the commits to the base
   branch on `origin`. It makes no pull request. In a repository with no remote, it moves the
   base branch forward.
-- **After a landing, Lem removes the worktree and the branch of the task.**
+- **After a landing, Lem removes the worktree of the task.** It removes the branch too, if the
+  base branch has the last commit of that branch. If you landed one squash commit yourself, the
+  branch stays, and you delete it.
 - **A project with no gate command lands nothing.**
 - **The review queue is honest.** A high-risk item is due on the day it lands. `/lem review`
   closes a normal item as "not reviewed" after seven days without a review, and the report says
@@ -202,7 +205,8 @@ flowchart TD
 - `profile.md` says what the project is. `styleguide/` holds the rules for the code. `lessons.md`
   holds the corrections that have no better place.
 - `personas/` has one file for each person that a decision has an effect on, for example a
-  customer. Before a decision goes to you, an agent answers as each person.
+  customer. Before a decision of a task goes to you, an agent answers as each person. The
+  questions of `/lem init` go to you directly.
 - A repository that already has `.claude/rules` keeps that folder. It is the style guide, and
   the settings name it. Lem makes no copy and no symbolic link.
 - A repository that already has `.personas` can keep that folder in the same way.
@@ -229,8 +233,8 @@ flowchart TD
 | Your computer | links in `~/.claude/skills/`, `~/.claude/agents/` and `~/.local/bin/`, from the setup | `setup.py --remove` |
 | Your computer | one hook in `~/.claude/settings.json`, only if you run `--corrections on` | `setup.py --corrections off` |
 | Your computer | scheduled jobs in cronn, only after your yes in `/lem init` | remove the job in cronn |
-| The repository | `.lem/` and the starter set in `.revmux/`, on the branch `chore/lem-onboarding` | answer "drop", or delete the branch |
-| The repository | one branch for each task, and its worktree in `.lem/worktrees/` | Lem removes them after the landing |
+| The repository | `.lem/` and the starter set in `.revmux/`, on the branch `chore/lem-onboarding` | before you answer "land": answer "drop"; after that: the steps below |
+| The repository | one branch for each task, and its worktree in `.lem/worktrees/` | Lem removes the worktree after the landing, and the branch if the base branch has its commits |
 | The repository | the state of the tasks in the git directory, in `.git/lem/`; git does not commit it | delete that folder |
 | The repository | the commits of a task on the base branch, when the task lands | `git revert` |
 | The remote | a push to the base branch on `origin`, only with `branch.land = "agent"` | `git revert`, then a push |
@@ -244,12 +248,16 @@ flowchart TD
 To remove Lem from a repository:
 
 1. Land or drop each open task.
-2. Run `python3 scripts/setup.py --project DIR --remove`, if you linked Lem into that repository.
-3. Run `python3 scripts/setup.py --corrections off --project DIR`, if you added the hook there.
-4. Delete the folder `.git/lem/`.
-5. Run `git rm -r .lem` and commit.
-6. Keep or delete `.revmux/`. It is the folder of the review tool.
-7. Delete the branch of each task that you dropped.
+2. Remove the scheduled jobs of this repository in cronn, if you accepted them.
+3. Run `python3 scripts/setup.py --project DIR --remove`, if you linked Lem into that repository.
+4. Run `python3 scripts/setup.py --corrections off --project DIR`, if you added the hook there.
+5. Delete the folder `.git/lem/`.
+6. Run `git rm -r .lem`.
+7. Commit that change.
+8. Delete the folder `.lem/`. Git does not track the settings of this computer and the
+   worktrees in it, thus `git rm` leaves them.
+9. Delete `.revmux/` too, if you do not use the review tool for other work.
+10. Delete the branch of each task that you dropped.
 
 ## Examples
 
@@ -489,14 +497,21 @@ the output of a pane or the newest reply of an agent. Lem does not install it. T
 
 A first run has these steps:
 
-1. Clone Lem: `git clone https://github.com/pySilver/lem`, then `cd lem`.
-2. Run `python3 skills/lem/scripts/doctor.py`. Install each necessary tool that is absent.
-3. Run `python3 scripts/setup.py --project ~/code/shop`. The result lists each link.
-4. In agterm, go to `~/code/shop`, start `claude`, and type `/lem init`.
-5. Answer the questions, read the drafts, and answer "land".
-6. Type `/lem` and a small ask. Lem makes a branch, and a builder commits a plan and the change.
-7. Lem runs the gate. With the default settings, Lem then stops and tells you that the branch
-   is ready.
+1. Clone Lem: `git clone https://github.com/pySilver/lem`.
+2. Go into the clone: `cd lem`.
+3. Run `python3 skills/lem/scripts/doctor.py`.
+4. Install each necessary tool that the check shows as absent.
+5. Run `python3 scripts/setup.py --project ~/code/shop`. The result lists each link.
+6. In agterm, go to `~/code/shop`.
+7. Start `claude`.
+8. Type `/lem init`.
+9. Answer the questions.
+10. Read the drafts.
+11. Answer "land".
+12. Type `/lem` and a small ask.
+
+Then Lem makes a branch, and a builder commits a plan and the change. Lem runs the gate. With
+the default settings, Lem then stops and tells you that the branch is ready.
 
 All options of the setup script:
 
@@ -517,7 +532,9 @@ python3 scripts/setup.py --corrections off       # remove that hook again
 - Links in your home directory show Lem to each repository on the computer. For a trial, use
   `--project`. Then only that repository sees Lem.
 - With `--project`, the links are in `.claude/skills/` and `.claude/agents/` of that repository.
-  The script writes one ignore file in each of the two folders. Thus git does not see the links.
+  The script writes one ignore file in each of the two folders. Then git does not see the links.
+- A folder that already has a `.gitignore` keeps that file. Then git sees the links in that
+  folder, and the result of the script says so.
 - With `--project`, the script does not link the `lem-ask` and `jev` commands. Lem then starts
   its question page by its path.
 - The links point at the clone. A `git pull` in the clone changes Lem in each linked repository
