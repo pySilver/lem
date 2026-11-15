@@ -68,12 +68,13 @@ personas folder (`.lem/personas/`, unless its settings name another path), the p
 people (in one shop project a shopper, a merchant, an ops admin, the engineer on call and the
 CEO).
 
-A panel runs only in a project that wrote personas. Resolve the cast before every panel with
-`python3 ${CLAUDE_SKILL_DIR}/scripts/cast.py`, which prints the layer, its source, the index and
-each persona's path as JSON. When `layer` is null the project has none: run no panel, write no
-card in a panel's name, and give the question back to the one who asked, to put to the owner as
-it is. Generic people never stand in for a project's own: an owner who wrote no personas gets
-his questions at once, and a panel of people nobody named answers for nobody.
+A panel asks the project's own people and nobody else's. Resolve the cast before every panel
+with `python3 ${CLAUDE_SKILL_DIR}/scripts/cast.py`, which prints the layer, its source, the
+index and each persona's path as JSON. Every project that uses Lem has personas, written at its
+onboarding. When the command exits 1 the project has none: its setup is not finished. Run no
+panel, write no card in a panel's name, and tell the one who asked what the command said, with
+the step that writes the personas. Generic people never stand in for a project's own: a panel of
+people nobody named answers for nobody.
 
 A worktree branched before the project's
 cast landed has none of its own; the script then reads the default branch's cast, from whichever

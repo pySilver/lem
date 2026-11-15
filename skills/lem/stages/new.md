@@ -148,10 +148,8 @@ Act on the status:
   - *The owner asked for the plan only*: show the owner the plan through the settings'
     `tools.annotate`, and leave the task as it is until the owner says build or drop.
 - **`held`**: the report holds one or more decisions that are the owner's, each in the form
-  `stages/plan.md` gives under "A held decision". Take each through the `lem-gate` skill, then, in a project
-  that has personas, through the `lem-panel` skill with the project's cast; the panel writes the
-  card the owner sees. In a project that wrote no personas no panel runs (the panel's own check
-  says so): the gate's card is the question, and it goes to the owner as it is. The card
+  `stages/plan.md` gives under "A held decision". Take each through the `lem-gate` skill, then the
+  `lem-panel` skill with the project's cast; the panel writes the card the owner sees. The card
   reaches him through `ask-owner`, which shows it as the settings' `tools.ask` says: that key
   outranks the way of asking either skill names. Put the report's run above the card, with whether it was reproduced or derived,
   and its one line on why the case became possible and how far the same cause reaches. Ask all

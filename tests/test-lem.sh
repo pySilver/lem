@@ -1273,6 +1273,23 @@ else
   fail "an adopted project's rules"
 fi
 
+# Every project of Lem has personas: the settings count them, and the machine check, run in a repository
+# that has settings, says when the setup is not finished.
+PPL=$WORK/people-repo
+git init -q -b main "$PPL" && commit "$PPL" start && project --repo "$PPL" init --base main >/dev/null
+indoctor() { (cd "$PPL" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true); }
+none="$(project --repo "$PPL" show | field 'd["paths"]["personas"]["personas"]') $(indoctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "project personas")["found"])')"
+mkdir -p "$PPL/.lem/personas" && echo '# The people' > "$PPL/.lem/personas/README.md" && echo '# A merchant' > "$PPL/.lem/personas/merchant.md"
+one="$(project --repo "$PPL" show | field 'd["paths"]["personas"]["personas"]') $(indoctor | field 'next(t for t in d["tools"] if t["name"] == "project personas")["detail"].split(": ", 1)[1]')"
+echo '# The engineer on call' > "$PPL/.lem/personas/on-call.md"
+two="$(project --repo "$PPL" show | field 'd["paths"]["personas"]["personas"]') $(indoctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "project personas")["found"])')"
+outside=$(doctor | field '[t["name"] for t in d["tools"] if t["name"] == "project personas"]')
+if [ "$none" = "0 (False, False)" ] && [ "$one" = "1 a panel needs a second person who would notice other things" ] && [ "$two" = "2 (True, True)" ] && [ "$outside" = "[]" ]; then
+  pass "the settings count the project's personas; in a repository that uses Lem the machine check fails with none, says that one is too few, and has no such row anywhere else"
+else
+  fail "the project's personas: $none / $one / $two / $outside"
+fi
+
 # The backlog's sorting reads the folder the project's settings name, not a fixed one.
 BKL=$WORK/backlog-repo
 git init -q -b main "$BKL" && commit "$BKL" start

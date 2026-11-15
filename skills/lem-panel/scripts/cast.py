@@ -13,13 +13,12 @@ profile (`profile`: its path and source, or null). A cast is a folder with any p
   project   the personas path of the project's settings (.lem/personas/ unless they say
             otherwise) in the checkout, or else on the repository's default branch
 
-A project that wrote no personas has no panel: `layer` is null, `personas` is empty and `why`
-says so, with exit 0, because that is an answer and not a fault. The one who asked then puts the
-question to the owner as it is. Generic people do not stand in: a panel of them answers for
-nobody the project named, and the owner of such a project chose to get his questions at once.
+Every project that uses Lem has personas: its onboarding writes them. A project with none has
+a setup that is not finished, so this command exits 1 and names the step that writes them.
+Generic people do not stand in: a panel of them answers for nobody the project named.
 
 Two more folders hold a cast, and neither ever answers a panel. They are where `init` copies a
-first cast from, for a project whose owner wants personas:
+first cast from, for a project that has none yet:
 
   user      ~/.config/personas/cast/
   built-in  the cast shipped beside this script
@@ -269,17 +268,15 @@ def profile(root: Path) -> dict[str, str] | None:
 def resolve(root: Path) -> dict[str, object]:
     # A checkout whose cast is only an older copy of the default branch's reads the default
     # branch's, so a new persona reaches every worktree without a merge.
-    candidates: list[tuple[str, str, Path]] = []
-    found = default_branch_cast(root)
-    local = bool(personas(root / PROJECT_CAST))
-    if found and (not local or follows_default(root, found[2], PROJECT_CAST.as_posix())):
-        candidates.append(("project", found[0], found[1]))
-    candidates.append(("project", "checkout", root / PROJECT_CAST))
-    return pick(root, candidates) or {
-        "layer": None, "source": None, "dir": None, "index": None, "personas": [], "profile": profile(root),
-        "why": "this project wrote no personas, so no panel runs here: put the question to the owner as it is. "
-               "`cast.py init` copies a starting cast into the project when the owner wants personas",
-    }
+    found_cast = project_cast(root)
+    if found_cast is None:
+        fail(
+            f"this project has no personas in {PROJECT_CAST}, so its setup is not finished and no panel can run: "
+            "`/lem init` writes them from the owner's answers, or `cast.py init` copies a starting cast there for him to rewrite. "
+            "No generic cast answers in their place",
+        )
+        raise AssertionError
+    return found_cast
 
 
 def starting(root: Path) -> dict[str, object]:
@@ -310,12 +307,24 @@ def pick(root: Path, candidates: list[tuple[str, str, Path]]) -> dict[str, objec
     return None
 
 
+def project_cast(root: Path) -> dict[str, object] | None:
+    """The project's own cast, from the checkout or the default branch, or None when it wrote none."""
+    candidates: list[tuple[str, str, Path]] = []
+    found = default_branch_cast(root)
+    local = bool(personas(root / PROJECT_CAST))
+    if found and (not local or follows_default(root, found[2], PROJECT_CAST.as_posix())):
+        candidates.append(("project", found[0], found[1]))
+    candidates.append(("project", "checkout", root / PROJECT_CAST))
+    return pick(root, candidates)
+
+
 def init(root: Path) -> None:
     target = root / PROJECT_CAST
     if target.is_dir() and any(target.iterdir()):
         fail(f"{target} already holds files; edit them there")
-    if resolve(root)["layer"] == "project":
-        fail(f"the default branch already has a cast ({resolve(root)['source']}); rebase onto it instead")
+    there = project_cast(root)
+    if there is not None:
+        fail(f"the default branch already has a cast ({there['source']}); rebase onto it instead")
     cast = starting(root)
     source = Path(str(cast["dir"]))
     target.mkdir(parents=True, exist_ok=True)

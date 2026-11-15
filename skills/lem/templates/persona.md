@@ -1,5 +1,10 @@
 # NAME, in two or three words (who this person is)
 
+<!-- Keep the next line only for a persona written from a guess, and take it out when the owner
+     has corrected the file. -->
+> A thin guess, written at the onboarding from little: correct it, or the panel hears nothing
+> from this person that it would not hear from any other.
+
 One person, not a segment. A panel asks this person what they would see and do, so write what
 lets a reader answer as them.
 

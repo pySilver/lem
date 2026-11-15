@@ -61,7 +61,11 @@ python3 SKILL_DIR/scripts/project.py show
 `SKILL_DIR` is this skill's own directory. The output is the project's settings, resolved: each
 path with whether it exists, the base branch, who lands, the gate commands and the careful
 patterns. When `settings` is null the repository was never onboarded: only `init` and `status`
-run, and every other subcommand says so and stops. Read the project's `AGENTS.md` once per
+run, and every other subcommand says so and stops. When `paths.personas.personas` is 0 the
+onboarding is not finished: the project has no personas, and the panel that a held decision goes
+through refuses to run without them. Say so in the status and before a task starts, and name
+the step: `/lem init` asks who a decision here affects and writes them. With 1, say that a panel
+needs a second person who would notice other things. Read the project's `AGENTS.md` once per
 session; it is where a project says what its own scripts are (a worktree script, a landing
 script, a board).
 
@@ -103,9 +107,8 @@ Between two of the owner's messages Lem only waits: a lead that stops wakes it.
 
 - **The owner is needed at three points.** The ask (`new`), a held decision, and the report.
   A held decision is one whose options each cost a person something and that no ruling, test or
-  probe answers; it goes through the question gate before the owner sees it, and through the
-  persona panel too in a project that has personas. A project that wrote none gets the question
-  at once: no generic people answer in their place. Every other decision is yours: decide from the code, the settings and the rulings, write it
+  probe answers; it goes through the question gate and the persona panel before the owner sees
+  it. The panel asks the project's own personas, which every project of Lem has. Every other decision is yours: decide from the code, the settings and the rulings, write it
   in the decisions log, and go on. A red test, a failed command or a moving base branch is the
   work, never a reason to stop.
 - **Decisions are logged, and the owner can overturn each.** One line in `decisions.md` per

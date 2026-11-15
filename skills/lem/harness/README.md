@@ -22,7 +22,7 @@ And three roles a stage names instead of a skill id, because the id differs per 
 | Role | What it is |
 | --- | --- |
 | the question gate | decides whether a question reaches the owner, from the rulings and from what a probe can answer |
-| the persona panel | has the people a decision affects answer it, from the project's cast, before the owner sees it; it runs only in a project that wrote personas |
+| the persona panel | has the people a decision affects answer it, from the project's cast, before the owner sees it; no generic cast stands in for the project's own |
 | the review tool | runs one review round over a range with the project's lenses and profile |
 | the tracker | reads a ticket into a task, moves it when its work starts and lands where the project's settings say Lem does, and comments the landing |
 

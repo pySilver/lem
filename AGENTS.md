@@ -73,17 +73,17 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **A small defect outside the task is fixed at the end**, in the landing's closing pass, and a
   larger one is offered to him as a backlog item ("Polishing step fixes it in place, right away
   if thats cheap small fixes and offer a backlog filing otherwise").
-- **A builder's question about the outcome goes to the personas**, not to the reviewer, in a
-  project that has personas.
-- **The persona panel runs where the project has personas.** His pick on 2026-11-15, with its
-  text: "In mybaze the shopper, the merchant and the operator answer first, as today. In a
-  repository with no personas you get the question immediately." and "/lem init offers personas
-  and writes none without a yes". With no cast of the project's own, a held decision goes to
-  him as a question, and a builder's question about the outcome is a held decision. No generic
-  cast stands in: `cast.py` gives a cast for a project that wrote one and none otherwise, and
-  the user's and the built-in cast are only what `cast.py init` copies a first cast from. The
-  built-in cast has no other use; a technical question in a project whose cast has no engineer
-  gets one as a paragraph in the panel's brief, as before.
+- **A builder's question about the outcome goes to the personas**, not to the reviewer.
+- **Every project of Lem has personas, and a panel asks the project's own**: "every project has
+  personas, I don't see why we can have none when Lem is installed for a project" (2026-11-15).
+  So `/lem init` always ends with a cast, of two people or more who would notice different
+  things, and a project with none has a setup that is not finished: the machine check and the
+  status say so, and `cast.py` refuses with the step that writes them. No generic cast stands
+  in: the user's and the built-in cast are only what `cast.py init` copies a first cast from,
+  and a technical question in a project whose cast has no engineer gets one as a paragraph in
+  the panel's brief. For some hours of that day the skill files read his pick "The panel runs
+  where the project has personas" as personas being optional; that reading was the session's
+  that carries his words, and it is withdrawn.
 - **Lem asks through its question page**, and he does not have to type it: "every question goes
   via huddle, unless its something fixed choice, trivial, without additional context". The page
   was named huddle then; it is `lem-ask` now, his call `/lem ask` and the command `lem-ask` ("I

@@ -178,6 +178,31 @@ def codex() -> list[dict]:
     return [row, persona] if row["found"] else [row]
 
 
+def project() -> list[dict]:
+    """In a repository that has Lem's settings: whether it has the people a panel asks. No row anywhere else."""
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
+    except OSError:
+        return []
+    root = Path(top.stdout.strip()) if top.returncode == 0 and top.stdout.strip() else None
+    if root is None or not (root / ".lem" / "project.toml").is_file():
+        return []
+    row = {
+        "name": "project personas", "need": "required", "found": False, "detail": None,
+        "used_for": "the people a panel asks before a hard question reaches the owner: every project of Lem has two or more",
+        "without_it": "the project's setup is not finished and no panel can run; `/lem init` asks who a decision here affects and writes them",
+    }
+    shown = subprocess.run([sys.executable, "-B", str(Path(__file__).with_name("project.py")), "--repo", str(root), "show"], capture_output=True, text=True, check=False)
+    try:
+        cast = json.loads(shown.stdout)["paths"]["personas"]
+        count = cast["personas"]
+    except (ValueError, KeyError, TypeError):
+        # the settings do not read: say that, in the place where the count would be
+        return [{**row, "detail": (shown.stderr or shown.stdout).strip()[:300] or "project.py show printed nothing"}]
+    detail = f"{count} in {cast['path']}" + (": a panel needs a second person who would notice other things" if count == 1 else "")
+    return [{**row, "found": count > 0, "detail": detail}]
+
+
 def cronn() -> dict:
     row = tool(
         "cronn", "optional", "a scheduled retro, a scheduled pass over the review queue, and the agents' free hours",
@@ -235,6 +260,7 @@ def main() -> None:
         skill("mailbox-chat", "how an agent sends to the other pane and reads what comes back",
               "an agent has the command and no instructions for it; the same recipe of agterm's cookbook installs the skill"),
         cronn(),
+        *project(),
     ]
     ok = all(row["found"] for row in tools if row["need"] == "required")
     print(json.dumps({"ok": ok, "tools": tools}, indent=2))

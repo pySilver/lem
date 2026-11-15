@@ -192,10 +192,9 @@ There is one Lem for one repository. It is the session where you type `/lem`.
 - A lead owns one task from its plan to its report. A lead never asks you a question.
 - Something that the plan did not see can occur in the build. The lead decides a small matter
   itself. It writes the decision and the reason into the log of the task.
-- Some matters have options that each cost a person something. Then Lem asks you. Work that
-  does not depend on your answer continues.
-- If the project has personas, they answer first, and you see their answers with the question.
-  If the project has none, you get the question at once.
+- Some matters have options that each cost a person something. Then the personas of the
+  project answer first, and Lem asks you with their answers. Work that does not depend on your
+  answer continues.
 - The report of each task lists each decision that an agent took without you, with its reason.
   You can overturn each of them.
 - When Lem asks you to choose or to approve, it opens a page in agterm with the options side by
@@ -232,11 +231,12 @@ flowchart TD
   removes the worktree.
 - `profile.md` says what the project is. `styleguide/` holds the rules for the code. `lessons.md`
   holds the corrections that have no better place.
-- `personas/` is optional. It has one file for each person that a decision has an effect on,
-  for example a customer. Some decisions of a task have options that each cost a person
-  something. Before such a decision goes to you, an agent answers as each person.
-- `/lem init` asks if you want personas. It writes none without your yes. The questions of
-  `/lem init` go to you directly.
+- `personas/` has one file for each person that a decision has an effect on, for example a
+  customer. Each project of Lem has two personas or more. `/lem init` writes them from your
+  answers.
+- Some decisions of a task have options that each cost a person something. Before such a
+  decision goes to you, an agent answers as each person. The questions of `/lem init` go to you
+  directly.
 - A repository that already has `.claude/rules` keeps that folder. It is the style guide, and
   the settings name it. Lem makes no copy and no symbolic link.
 - A rule file can name the files that it applies to. It does this at its top, between two `---`
@@ -374,14 +374,15 @@ Two paths did not occur in these runs:
 6. Lem proposes what must not go wrong in this project: the danger topics, and the paths where
    the code has them now. Examples are "the price that a customer pays" and `app/payments/*`.
    You correct the two lists.
-7. Lem writes `.lem/project.toml` and these drafts: the profile, a lessons file, and the starter
-   set of the review tool in `.revmux/`. It writes personas only if you want them.
+7. Lem writes `.lem/project.toml` and these drafts: the profile, two personas or more, a lessons
+   file, and the starter set of the review tool in `.revmux/`.
 8. Lem writes a style guide only if the repository has no `.claude/rules` folder.
 9. Lem commits all of this on the branch `chore/lem-onboarding`, in your checkout.
 10. Lem shows you one page. Its first line is the path of the repository. Then it lists what the
     computer has, what Lem wrote, and each assumption with its source.
-11. Lem opens the drafts that you read first, one after the other: the careful paths, the gate,
-    and the personas if the project has them. You mark them, and Lem corrects them.
+11. Lem opens the three drafts that you read first, one after the other: the careful paths, the
+    gate, the personas. You mark them, and Lem corrects them. Lem tells you which persona is a
+    weak guess.
 12. You answer with one of three words: "land", "change" or "drop".
 13. On "land", Lem puts the branch on the base branch. This is the one landing that does not
     read `branch.land`: your word is the approval.
@@ -467,7 +468,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | --- | --- |
 | `lem-ask` | each question that asks you to choose or to approve, as a page |
 | `lem-gate` | the question gate: it decides if a question must go to you at all |
-| `lem-panel` | the personas, in a project that has them: an agent answers as each person that the decision has an effect on |
+| `lem-panel` | the personas of the project: an agent answers as each person that the decision has an effect on |
 | `lem-linear` | the tickets of Linear; Lem tests the connection in `/lem init`, and again when it reads a ticket |
 
 ## Settings
@@ -478,7 +479,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | --- | --- | --- |
 | `paths.profile` | `.lem/profile.md` | what the project is |
 | `paths.styleguide` | `.lem/styleguide`, or `.claude/rules` if that folder is there | the rule files for the code |
-| `paths.personas` | `.lem/personas` | optional: one file for each person that a decision has an effect on |
+| `paths.personas` | `.lem/personas` | one file for each person that a decision has an effect on |
 | `paths.review` | `.revmux` | the folder of the review tool |
 | `paths.lessons` | `.lem/lessons.md` | the corrections that have no better place |
 | `paths.rulings` | `docs/rulings` | your decisions that hold for later tasks |

@@ -108,13 +108,16 @@ For a repository that has code:
 
 - **The product in the owner's words**: what it is for, who it is for, how big it is meant to
   get. The code shows what exists; only the owner knows what it is judged against.
-- **Personas, or none**: ask whether the project wants them, and say in one line what they give:
-  before a hard question reaches the owner, an agent answers it as each person the decision
-  affects, so he reads a second view beside the agent's own. With them, a question takes longer
-  to reach him; without them, he gets it at once. On a yes, ask who is affected when a decision
-  here goes one way or the other (a customer, an operator, a partner, the engineer on call):
-  each becomes a persona. On a no, write no persona file and no personas folder; the project
-  can say yes on a later day.
+- **The people**: who is affected when a decision here goes one way or the other (a customer, an
+  operator, a partner, the engineer on call). Each becomes a persona, and every project of Lem
+  has them: before a hard question reaches the owner, an agent answers it as each person the
+  decision affects. The onboarding ends with two or more, because a panel of one has nobody to
+  disagree: the people the product serves, and, where there is no second kind of user, the
+  people who run it or build the next change on it. Two people are worth it only when they would
+  notice different things about the same change. Propose them from what you examined and let the
+  owner correct the list. The first onboarding wrote one persona, "a shop employee who reads
+  report headings", and its own page said that this person could not tell the options of a
+  question apart (a scratch repository, 2026-11-15).
 - **What must never break**: show the danger topics and the careful paths you propose, and ask
   what is wrong or missing. The topics come first: a person names a danger more surely than a
   folder, and a topic still holds after the code moves. In a repository with no code, propose
@@ -175,8 +178,12 @@ it is.
 
 - **The profile**, from `templates/profile.md`: the interview's answers and the examined facts,
   one page.
-- **The personas**, only when the owner said yes to them: one file per person he named, from
-  `templates/persona.md`, and a `README.md` that lists them with one line each.
+- **The personas**, two or more: one file per person from the interview, from
+  `templates/persona.md`, and a `README.md` that lists them with one line each. A persona you
+  could fill only by guessing (the owner named the role and nothing more, or you proposed it and
+  he only nodded) says so in its first line, as the template shows, and its line in the
+  `README.md` says it too: a thin persona answers every question the same way, and only the
+  owner can make it a person.
 - **The style guide**: first offer the published guides `references/styleguides.md` lists for the
   project's stack; one the owner picks enters as a linter configuration in the gate and a page of
   differences, as that file says. Then one file per area of the code. Its frontmatter names the
@@ -226,8 +233,9 @@ and how (the harness file, `spawn-builder`). When the owner said yes to the corr
 runs for its hook, in the form for this one repository, and nothing he has to edit; with Lem as
 a plugin the page says that the hook came with the install, and names no command.
 
-A list of file names is not a hand-over. Every generated file is a draft, and these are read
-first: the careful paths, the gate, and the personas when the project has them. Offer to open each in the annotate tool
+A list of file names is not a hand-over. Every generated file is a draft, and three are read
+first: the careful paths, the gate, the personas. Name each persona that is a thin guess, as the
+one the owner should correct first. Offer to open each in the annotate tool
 (`show-page`; `tools.annotate` in the settings), one after the other, and take the owner's notes
 as corrections: edit, commit on the same branch, say for each file what changed. The page and
 your last message end with the three replies you take, in these words:
