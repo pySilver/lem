@@ -1379,6 +1379,10 @@ lacked=$(stories red export-has-the-gift-note | field '("export.sh" in d["run_wi
 # A hook that fails after git made the worktree, and a setup command that locks it: neither worktree stays.
 printf '%s\n' '#!/bin/sh' 'exit 9' > "$ST/.git/hooks/post-checkout" && chmod +x "$ST/.git/hooks/post-checkout"
 hooked=$(status_of stories red export-has-the-gift-note)
+# a hook that leaves a process behind: the check goes on, and that process is ended
+printf '%s\n' '#!/bin/sh' 'sleep 32.9 &' 'exit 0' > "$ST/.git/hooks/post-checkout"
+watched=$(stories red export-has-the-gift-note | field 'd["ok"]')
+watched="$watched $(pgrep -f 'sleep 32\.9' | grep -c '' || true)"
 rm "$ST/.git/hooks/post-checkout"
 after_hook=$(git -C "$ST" worktree list | grep -c '')
 sed -i.bak 's|^setup = .*$|setup = ["git worktree lock ."]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
@@ -1409,13 +1413,13 @@ after_stop="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktree
 sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 # shellcheck disable=SC2016
 if grep -q 'story 3: `sh tests/state.sh` passes on the base commit too' <<<"$state" && [ "$lacked" = "(True, False, True)" ] \
-  && [ "$hooked" = 1 ] && [ "$after_hook" = 2 ] && [ "$locked" = True ] && [ "$after_lock" = "2 0" ] \
+  && [ "$hooked" = 1 ] && [ "$watched" = "True 0" ] && [ "$after_hook" = 2 ] && [ "$locked" = True ] && [ "$after_lock" = "2 0" ] \
   && grep -q "of gate.setup failed in a fresh worktree of the branch (exit 3)" <<<"$stuck" && grep -q "red-tip could not be removed; remove it yourself: git -C" <<<"$stuck" && [ "$after_stuck" = "2 0" ] \
   && grep -q "another check of this task's stories runs now" <<<"$second" \
   && [ "$started" -ge 1 ] && [ "$left" = 0 ] && [ "$after_stop" = "2 0" ] && grep -q "the check was stopped, and its commands are ended; its worktrees are removed" "$WORK/stopped.out"; then
   pass "each run of the check has a worktree and a setup of its own, and the result names what the base run lacked; a failed hook, a locked worktree and a stopped check leave no worktree and no process; and a second check of one task waits"
 else
-  fail "the check's worktrees: $state / $lacked / stuck $stuck $after_stuck / hook $hooked $after_hook / lock $locked $after_lock / $second / stop $started $left $after_stop $(cat "$WORK/stopped.out")"
+  fail "the check's worktrees: $state / $lacked / stuck $stuck $after_stuck / hook $hooked $watched $after_hook / lock $locked $after_lock / $second / stop $started $left $after_stop $(cat "$WORK/stopped.out")"
 fi
 # A plan whose stories do not have the form is refused with the line that is wrong.
 form() { printf '%s\n' "$@" > "$plan"; stories show export-has-the-gift-note 2>&1 || true; }

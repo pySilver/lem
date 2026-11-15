@@ -69,6 +69,7 @@ import re
 import shutil
 import signal
 import subprocess
+import tempfile
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -297,12 +298,16 @@ def cmd_red(task: Task) -> dict:
 
         def grouped(where: Path, *args: str) -> None:
             """A git command that may run a hook of the repository: in a group of its own, like every other command here."""
-            proc = subprocess.Popen(["git", "-C", str(where), *args], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, start_new_session=True)
-            child.append(proc)
-            _, said = proc.communicate()
-            stop()
-            if proc.returncode != 0:
-                raise StoriesError(f"git {' '.join(args[:2])} failed: {said.strip()}")
+            # What git says goes to a file, not a pipe: a process that a hook left behind holds a
+            # pipe open, and a read of it would wait for that process and never reach stop().
+            with tempfile.TemporaryFile() as said:
+                proc = subprocess.Popen(["git", "-C", str(where), *args], stdout=subprocess.DEVNULL, stderr=said, stdin=subprocess.DEVNULL, start_new_session=True)
+                child.append(proc)
+                code = proc.wait()
+                stop()
+                said.seek(0)
+                if code != 0:
+                    raise StoriesError(f"git {' '.join(args[:2])} failed: {said.read().decode(errors='replace').strip()}")
 
         def ended(*_: object) -> None:
             raise KeyboardInterrupt
