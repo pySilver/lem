@@ -101,6 +101,19 @@ if [ "$(layer_of "$CUSTOM")" = "project 2" ] && [ "$(layer_of "$PANEL/custom-old
 else
   fail "a custom personas path from an older worktree: $(layer_of "$CUSTOM") / $(layer_of "$PANEL/custom-old") / $(profile_of "$PANEL/custom-old") / $refusal"
 fi
+# The same with settings written another way that TOML allows, and then with the paths taken out
+# again: the default branch's own settings decide, not what the older worktree was told.
+printf '%s\n' "[paths] # where things are" "  personas = 'people'" "  profile = 'people/about.md'" '[branch]' 'base = "main"' > "$CUSTOM/.lem/project.toml"
+git -C "$CUSTOM" add -A && commit "$CUSTOM" "chore: the same settings, written another way"
+quoted="$(layer_of "$PANEL/custom-old") $(profile_of "$PANEL/custom-old")"
+mkdir -p "$PANEL/custom-old/.lem" && printf '%s\n' '[paths]' 'personas = "people"' 'profile = "people/about.md"' > "$PANEL/custom-old/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' > "$CUSTOM/.lem/project.toml" && mkdir -p "$CUSTOM/.lem/personas"
+git -C "$CUSTOM" mv people/shopper.md .lem/personas/shopper.md && git -C "$CUSTOM" mv people/about.md .lem/profile.md && git -C "$CUSTOM" add -A && commit "$CUSTOM" "chore: Lem's own layout"
+if [ "$quoted" = "project 2 main" ] && [ "$(layer_of "$PANEL/custom-old")" = "project 1" ] && [ "$(profile_of "$PANEL/custom-old")" = "main" ]; then
+  pass "the default branch's settings are read as TOML, whatever their quotes and spaces, and a path they no longer name is Lem's own, also for a worktree that still names the old one"
+else
+  fail "the default branch's settings from an older worktree: $quoted / $(layer_of "$PANEL/custom-old") / $(profile_of "$PANEL/custom-old")"
+fi
 
 # The cast lands on local main only; origin/HEAD still names a main without it.
 git -C "$REPO" add .lem

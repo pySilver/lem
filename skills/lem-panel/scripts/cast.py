@@ -57,7 +57,6 @@ from __future__ import annotations
 import datetime
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -68,6 +67,8 @@ from pathlib import Path
 # settings say, so a project that keeps its cast where an older tool reads it is served too.
 PROJECT_CAST = Path(".lem") / "personas"
 PROJECT_PROFILE = Path(".lem") / "profile.md"
+# Lem's own layout, which a settings file that names no path keeps.
+LAYOUT = {"personas": PROJECT_CAST, "profile": PROJECT_PROFILE}
 RUNS = Path(".lem") / "runs"
 BUILT_IN = Path(__file__).resolve().parent.parent / "cast"
 PROJECT_SETTINGS = Path(__file__).resolve().parents[2] / "lem" / "scripts" / "project.py"
@@ -145,14 +146,25 @@ def default_refs(root: Path) -> list[str]:
 
 def path_at(root: Path, sha: str, name: str, fallback: Path) -> Path:
     """Where a commit's own settings keep the personas or the profile: this checkout may be older than
-    the settings on the default branch, and would look for them in the wrong folder."""
+    the settings on the default branch, and would look for them in the wrong folder.
+
+    With no settings file at that commit, the checkout's own configured path stands. With one, the
+    answer is that file's: the path it names, or Lem's own layout when it names none.
+    """
     body = subprocess.run(["git", "-C", str(root), "show", f"{sha}:.lem/project.toml"], capture_output=True, text=True)
     if body.returncode != 0:
         return fallback
-    # the one line under [paths], read without a TOML module: the python3 a system ships has none
-    paths = re.search(r"(?ms)^\[paths\]\s*$(.*?)(?=^\[|\Z)", body.stdout)
-    line = re.search(rf'(?m)^{name}\s*=\s*"([^"\n]+)"', paths.group(1)) if paths else None
-    return Path(line.group(1).rstrip("/")) if line else fallback
+    try:
+        import tomllib
+    except ImportError:
+        fail(f"the default branch keeps settings, and this python3 ({sys.version.split()[0]}) cannot read them; run this with Python 3.11 or newer")
+        raise AssertionError
+    try:
+        named = tomllib.loads(body.stdout).get("paths", {}).get(name)
+    except (tomllib.TOMLDecodeError, AttributeError) as error:
+        fail(f".lem/project.toml at {sha[:9]} does not read ({error}); correct it on the default branch")
+        raise AssertionError
+    return Path(named.rstrip("/")) if isinstance(named, str) and named.strip() else LAYOUT[name]
 
 
 def default_branch_cast(root: Path) -> tuple[str, Path] | None:
