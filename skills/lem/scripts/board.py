@@ -15,9 +15,10 @@ A copy named `task-SLUG.html` opens on that task.
 
 It opens as a page companion of the top session of the asking session's group: it sits indented
 under Lem's session, or beside it when Lem's session is itself a companion, closes with that top
-session, and covers no pane. A board that is already there is
-reloaded. agterm never saves a page companion, so after a relaunch of agterm the board is gone
-until this runs again.
+session, and covers no pane. A board that is already there is reloaded. It is known by the file
+it shows, which agterm reports for a page, so the boards of two repositories under one top
+session stay two. agterm never saves a page companion, so after a relaunch of agterm the board
+is gone until this runs again.
 
 It runs from an agent's session, which has the AGTERM_* variables, and from an agterm keymap
 command, which has AGT_* instead.
@@ -56,8 +57,8 @@ def project(repo: str, *args: str) -> str:
     return ran.stdout.strip()
 
 
-def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> Path:
-    """Write the page and meta.js into the state folder, and return the page's path."""
+def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> tuple[Path, str]:
+    """Write the page and meta.js into the state folder, and return the page's path and the repository's name."""
     if not ASSET.is_file():
         raise BoardError(f"{ASSET} is missing")
     state = Path(project(repo, "state-dir"))
@@ -81,7 +82,7 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> Pa
     (state / "meta.js").write_text(f"lemMeta({json.dumps(meta, ensure_ascii=False)});\n", encoding="utf-8")
     page = state / (f"task-{slug}.html" if slug else "board.html")
     shutil.copyfile(ASSET, page)
-    return page
+    return page, meta["repo"]
 
 
 def ctl(socket: str, *args: str) -> str:
@@ -103,9 +104,14 @@ def show(page: Path, name: str, session: str, socket: str, window: str, follow: 
         raise BoardError(f"this session ({session}) is not in the window agterm answered for")
     # A companion's companion becomes its sibling, so the parent is the top of the group.
     parent = (owner.get("parent") or owner["id"]).upper()
-    # Only pages under this session's own group: another repository's Lem in the same window has a
-    # board of the same name, and it is not this one's to reload or close.
-    named = [s for s in live if s.get("name") == name and s.get("content") == "page" and (s.get("parent") or "").upper() == parent]
+    # A board is known by the file it shows, under this session's own group. Its name is not enough:
+    # two Lems of two repositories may be companions of one top session, and each has a board. The
+    # file is in its repository's own state folder, so it tells them apart.
+    def shows(node: dict) -> bool:
+        files = [overlay.get("file") or overlay.get("page") or "" for overlay in node.get("htmlOverlays") or []]
+        return any(file and os.path.realpath(file) == os.path.realpath(page) for file in files)
+
+    named = [s for s in live if s.get("content") == "page" and (s.get("parent") or "").upper() == parent and shows(s)]
     kept = named[0] if named else None
     stale = named[1:]
     if stale:
@@ -113,6 +119,8 @@ def show(page: Path, name: str, session: str, socket: str, window: str, follow: 
     if kept:
         target = kept["id"]
         ctl(socket, "session", "overlay", "reload", "--target", target)
+        if kept.get("name") != name:
+            ctl(socket, "session", "rename", name, "--target", target)
     else:
         opened = ctl(
             socket, "session", "overlay", "open", "--html", str(page), "--cwd", str(page.parent),
@@ -139,8 +147,9 @@ def main() -> None:
     try:
         if not args.no_open and not (session and socket):
             raise BoardError("not inside an agterm session; --no-open writes the page without one")
-        page = prepare(args.repo, args.task, session, args.demo)
-        result: dict = {"page": str(page), "name": f"{args.task} board" if args.task else "Lem board"}
+        page, repo = prepare(args.repo, args.task, session, args.demo)
+        # the repository's name is in the name of its board of all tasks, so two boards in one sidebar read apart
+        result: dict = {"page": str(page), "name": f"{args.task} board" if args.task else f"Lem board · {repo}"}
         if not args.no_open:
             result |= show(page, result["name"], session, socket, env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), args.follow)
     except BoardError as error:

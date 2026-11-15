@@ -979,8 +979,10 @@ fi
 rm "$OLD/.git/lem/demo"
 board --repo "$OLD" --no-open >/dev/null
 
-# Two repositories' Lem sessions in one window each have a page named "Lem board": a board reloads
-# its own and never closes the other's. agtermctl is a stand-in that prints a tree and records its calls.
+# A board is known by the file it shows. Two repositories' Lems may be companions of one top session
+# (AAA here has this repository's board, PA, and another repository's, PX, both with the old name),
+# and a third Lem has its own top session (BBB). A board reloads its own and touches no other.
+# agtermctl is a stand-in that prints a tree and records its calls.
 FAKE=$WORK/fake
 mkdir -p "$FAKE"
 # shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs
@@ -988,12 +990,14 @@ printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$AGT_CALLS"' 'case "$1" in tree) cat "$
 chmod +x "$FAKE/agtermctl"
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [' \
   '{"id": "AAA", "name": "lem a"}, {"id": "BBB", "name": "lem b"}, {"id": "CCC", "name": "lem c"},' \
-  '{"id": "PA", "name": "Lem board", "content": "page", "parent": "AAA"},' \
-  '{"id": "PB", "name": "Lem board", "content": "page", "parent": "BBB"}]}]}}}' > "$WORK/tree.json"
+  '{"id": "PX", "name": "Lem board", "content": "page", "parent": "AAA", "htmlOverlays": [{"file": "/elsewhere/.git/lem/board.html"}]},' \
+  "{\"id\": \"PA\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"AAA\", \"htmlOverlays\": [{\"file\": \"$OLD/.git/lem/board.html\"}]}," \
+  "{\"id\": \"PB\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"BBB\", \"htmlOverlays\": [{\"file\": \"$OLD/.git/lem/board.html\"}]}]}]}}}" > "$WORK/tree.json"
 opened() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID="$1" AGTERM_SOCKET=/none "$PY" -B "$BOARD" --repo "$OLD"; }
 out=$(opened AAA)
-if [ "$(field '(d["companion"], d["reloaded"])' <<<"$out")" = "('PA', True)" ] && grep -q "session overlay reload --target PA" "$WORK/calls" && ! grep -q "session close" "$WORK/calls"; then
-  pass "a board that is already under this session is reloaded, and another session's board of the same name is left alone"
+if [ "$(field '(d["companion"], d["reloaded"], d["name"])' <<<"$out")" = "('PA', True, 'Lem board · old')" ] && grep -q "session overlay reload --target PA" "$WORK/calls" \
+  && grep -q "session rename Lem board · old --target PA" "$WORK/calls" && ! grep -q "session close" "$WORK/calls" && ! grep -q "PX\|PB" "$WORK/calls"; then
+  pass "a board is known by the file it shows: this repository's is reloaded and gets the repository's name, and another repository's board under the same top session is left alone"
 else
   fail "board reload: $out / $(cat "$WORK/calls")"
 fi
