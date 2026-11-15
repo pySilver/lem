@@ -1,5 +1,10 @@
 # review
 
+The round over a landed range finds what a review of each task passed: of six branches that had
+a review of every task, the round over the branch still found a major defect in three (mybaze,
+2026-09-30 to 2026-10-26, counted by one reader from that project's notes). So the round is not a
+formality after a careful task either.
+
 Review after the landing is a promise that is easy to break: after about 28 hours of this flow in
 one repository, the queue held 48 items and 43 were still open (convertiser-server, 2026-11-14). So the queue has rules that keep it honest.
 
@@ -15,6 +20,10 @@ ones first.
    project's own lenses and profile (`project.py path review`; the harness file says how the
    review tool finds that folder). The project's `AGENTS.md` names the profile for a `high` item and for a
    `normal` one. A finding is confirmed against the code before it counts.
+   A round in which one of the review tool's agents died (a usage limit, a session limit) is a
+   partial round: say which of its sources finished, and run it again before the item is closed
+   as `clean`. One round lost a source to a weekly limit and two more to a session limit (mybaze,
+   2026-10-23 and 2026-10-17, from that project's notes).
    The round and the confirming run in a context of their own, since both read the diff: give the
    item to a fresh agent through `spawn-builder`, told to change nothing. It writes
    `reviews/ID.md` in the folder `project.py state-dir` prints: each finding with its file, its

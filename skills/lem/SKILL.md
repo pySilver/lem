@@ -156,6 +156,11 @@ worktree, never committed and not removed with a worktree. It holds:
 
 The plan itself is a file in the repository, in the settings' `plans` path.
 
+A file that a later step needs (the inputs of a measurement, a probe's output, a benchmark's
+kit) goes in the task directory too, never in `/tmp` or a session's scratch folder. One run's
+measurement kit was gone from the disk when a later task needed it, and the task built it again
+(mybaze, 2026-11-03, from that project's notes).
+
 ```bash
 python3 SKILL_DIR/scripts/project.py state SLUG STATUS "one line" ["a further line" ...]
 ```

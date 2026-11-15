@@ -34,7 +34,10 @@ by line before the build.
    `second-opinion` reads the plan against the code, read-only, in a fresh context, and replies
    with the design failures it can show with a cite. Fix the plan for each one that holds. One
    such read took nine minutes and found three design failures before any code
-   (convertiser-server, 2026-11-14). A plan that is not careful skips this.
+   (convertiser-server, 2026-11-14). In another repository a plan round before any code found at
+   least one major finding in 7 of 9 plans whose records tell majors from minors, and the largest
+   found 19 (mybaze, 2026-09-25 to 2026-11-03, counted by one reader from that project's notes).
+   A plan that is not careful skips this read, and that is what the skip can cost.
 5. **A held decision goes to the owner, the others do not.** For each decision of the plan: a
    ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and write it
    in `decisions.md`. It turns on a claim that can be argued both ways ("this will not scale",

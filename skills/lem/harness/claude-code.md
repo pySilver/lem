@@ -210,3 +210,21 @@ An HTML file opened as an overlay of this session
 A document the owner should mark up (a plan, a draft profile) goes through the settings'
 `tools.annotate`: a skill of that name when the session lists one (`lem-webrev` by default), otherwise
 a command of that name given the file's path.
+
+## What the owner does himself
+
+Some steps are not an agent's, with or without the owner's yes in the conversation.
+
+- **A folder's trust.** Claude Code asks whether the owner trusts a folder the first time a
+  session starts in it, and Codex asks the same. That holds for a repository an agent made
+  minutes before. The answer is kept in the owner's configuration, so it is his: say which
+  session waits and where, and go on with other work. Do not answer the prompt, and do not go
+  around it: on 2026-11-15 the classifier refused a move of a new repository below a folder the
+  owner already trusts. A task's worktree is inside the project's checkout, which the owner
+  trusted when Lem's session started there.
+- **What the classifier refuses in auto mode.** In one repository it refused these to the agent
+  after the owner's yes, and the owner ran them himself (mybaze, 2026-11-07, from that project's
+  notes): a push to another repository than the session's own, the registration of a hook that
+  sends prompts to an outside service, and the install of a scheduler, whose login agent counts
+  as persistence. When the classifier refuses a step, give the owner the exact command on one
+  line and go on. Never send the step again in another form.

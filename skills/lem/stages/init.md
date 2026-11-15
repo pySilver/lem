@@ -20,7 +20,9 @@ only when the owner agrees: with it, every project that uses Lem keeps a queue o
 corrections for the retro; without it, a correction is learned in the session it was given in
 and nowhere else. For an absent cronn, offer to install
 it through the `cronn` skill when that skill is there: its installer adds a Homebrew formula and
-an agent that starts at login, so it runs only on the owner's yes.
+an agent that starts at login, so it runs only on the owner's yes. The owner may have to run it
+himself: the harness file says which steps an agent is refused, and then you give him the
+command.
 
 ## 2. Examine the project
 
@@ -158,5 +160,5 @@ session started in it with nobody at the terminal:
   that needs no decision.
 
 Add a job only on the owner's yes, through the `cronn` skill when it is installed, and name the
-job after the repository. A scheduled job starts an agent that nobody watches: that choice is
+job after the repository. When the step is refused to you, give the owner the command. A scheduled job starts an agent that nobody watches: that choice is
 never the agent's.
