@@ -593,8 +593,8 @@ function derive(now) {
     if (!t) tasks.set(e.task, t = {slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], stories: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null});
     // The stories of the task's plan, as the lead last recorded them, and the newest check that
     // each one's tests pass on the branch and fail on the base commit.
-    if (e.event === 'task.stories') { t.stories = {kind: e.kind, why: e.why, list: e.stories ?? [], ts: at(e)}; continue; }
-    if (e.event === 'task.red') { t.red = {ok: e.ok, tests: e.tests ?? [], without: e.without_a_test ?? [], tip: e.tip, ts: at(e)}; continue; }
+    if (e.event === 'task.stories') { t.stories = {kind: e.kind, why: e.why, digest: e.digest, list: e.stories ?? [], ts: at(e)}; continue; }
+    if (e.event === 'task.red') { t.red = {ok: e.ok, digest: e.digest, tests: e.tests ?? [], without: e.without_a_test ?? [], tip: e.tip, ts: at(e)}; continue; }
     if (e.event === 'gate') {
       // A repaired failure runs the gate again inside one landing: a result on another tip starts
       // a new run, and a command's newer result replaces its older one.
@@ -1000,7 +1000,11 @@ function buildGate(t, now) {
 // what the last check of those tests gave. A word stands beside each mark, never a color alone.
 function buildStories(t, now) {
   if (!t.stories) return [keyed('empty', h('div', {class: 'empty'}, 'The lead writes the stories at the top of the plan'))];
-  const results = new Map((t.red?.tests ?? []).map(r => [`${r.story}|${r.command}`, r]));
+  // A result counts only for the stories and tests it ran on: a story or a test that changed
+  // since has no check yet. The row names the commit the check ran on, because the page cannot
+  // know of a commit that came after it.
+  const current = t.red && t.red.digest === t.stories.digest;
+  const results = new Map((current ? t.red.tests : []).map(r => [`${r.story}|${r.command}`, r]));
   return t.stories.list.map(st => {
     const checked = (st.tests ?? []).map(test => results.get(`${st.n}|${test.command}`));
     const bad = checked.some(r => r?.problem);
@@ -1010,7 +1014,7 @@ function buildStories(t, now) {
       h('span', {class: 'fi'}, icon(bad ? 'alert' : held ? 'check' : 'file')),
       h('div', {class: 'rtext'}, h('b', {}, `${st.n}. `), st.text,
         (st.tests ?? []).map((test, k) => h('span', {class: 'sub cmd'}, test.command, ' · ',
-          checked[k]?.problem ?? (checked[k] ? 'passes on the branch, fails on the base commit' : 'not checked yet'))),
+          checked[k]?.problem ?? (checked[k] ? `passes on the branch, fails on the base commit${t.red.tip ? ` (checked on ${t.red.tip})` : ''}` : 'not checked yet'))),
         st.no_test ? h('span', {class: 'sub'}, `no test: ${st.no_test}`) : '',
         !(st.tests ?? []).length && !st.no_test ? h('span', {class: 'sub'}, 'no test yet') : ''),
       h('span', {class: 'rtime'}, bad ? 'not held' : held ? 'held by its tests' : '')));

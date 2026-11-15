@@ -29,11 +29,21 @@ are:
     stories.py red SLUG       each story's tests pass on the branch and fail on the base commit
 
 `red` is a machine check with no model in it. A test that also passes on the base commit does
-not test the change, and a story with no test at the end of a build is refused. It runs the
-commands in the task's own worktree, where the project's environment is: first on the branch,
-then with the worktree set to the base commit and only the test files of the branch laid over
-it. The worktree has to be clean, and it is put back on its branch whatever a command does; a
-run that was cut off is put back by the next one.
+not test the change, and a story with no test at the end of a build is refused.
+
+It never moves the task's worktree. It makes a worktree of its own beside it, at the branch's
+tip, runs the commands of the settings' `gate.setup` there (what a fresh worktree of this
+project needs before its tests can start), and runs each story's tests twice in it:
+
+- on the branch's tip, where each must pass. A test that passes in the task's worktree and not
+  here needs something a fresh worktree lacks, and the check says so: a failure on the base
+  commit would then prove nothing;
+- on the base commit with only the named test files of the branch laid over it, where each must
+  fail. A command that does not start there (exit 126 or 127) is no proof: a file the test
+  needs is not among the files the story names.
+
+The worktree is removed afterwards, also when a command fails, and one that a killed run left
+behind is removed by the next run.
 """
 
 from __future__ import annotations
@@ -45,7 +55,9 @@ if sys.version_info < (3, 11):
     sys.exit(f"stories.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -85,10 +97,19 @@ def script(name: str, repo: Path, *args: str) -> str:
 def parse(text: str, name: str) -> dict:
     """The stories section of a plan as a dict; a section that does not have the form is refused with the line."""
     lines = text.splitlines()
-    start = next((i for i, line in enumerate(lines) if HEADING.match(line)), None)
+    # A plan may show the form in a code fence: what is inside one is an example, never the section.
+    fenced, inside = set(), False
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith(("```", "~~~")):
+            inside = not inside
+            fenced.add(i)
+        elif inside:
+            fenced.add(i)
+    start = next((i for i, line in enumerate(lines) if i not in fenced and HEADING.match(line)), None)
     if start is None:
         raise StoriesError(f"{name} has no `## Stories` section; the plan opens with it, as `stories.py --help` shows")
-    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+    end = next((i for i in range(start + 1, len(lines)) if i not in fenced and lines[i].startswith("## ")), len(lines))
+    lines = [("" if i in fenced else line) for i, line in enumerate(lines)]
     kind = why = None
     stories: list[dict] = []
     for number, line in enumerate(lines[start + 1:end], start + 2):
@@ -130,7 +151,9 @@ def parse(text: str, name: str) -> dict:
     both = [s["n"] for s in stories if s["tests"] and s["no_test"]]
     if both:
         raise StoriesError(f"{name}: story {both[0]} names a test and says that it has none; keep one of the two")
-    return {"kind": kind, "why": why, "stories": stories}
+    # one mark for this exact set of stories and tests: a result of the check belongs to the set it ran on
+    digest = hashlib.sha256(json.dumps([kind, stories], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
+    return {"kind": kind, "why": why, "digest": digest, "stories": stories}
 
 
 class Task:
@@ -152,11 +175,11 @@ class Task:
         self.plans = self.worktree / Path(self.settings["paths"]["plans"]["path"]).relative_to(root)
 
     def stories(self) -> dict:
-        # the plan is on the task's branch: a worktree that a cut-off `red` left on the base commit has none
-        restore(self)
-        found = sorted(self.plans.glob(f"*-{self.slug}.md")) if self.plans.is_dir() else []
+        # the plan of this task and of no other: a date, a hyphen and the task's whole name
+        named = re.compile(rf"\d{{8}}-{re.escape(self.slug)}\.md")
+        found = sorted(file for file in self.plans.iterdir() if named.fullmatch(file.name)) if self.plans.is_dir() else []
         if not found:
-            raise StoriesError(f"no plan of this task in {self.plans}: its name ends with -{self.slug}.md")
+            raise StoriesError(f"no plan of this task in {self.plans}: its name is YYYYMMDD-{self.slug}.md")
         plan = found[-1]
         return {"task": self.slug, "plan": str(plan), **parse(plan.read_text(encoding="utf-8"), plan.name)}
 
@@ -164,17 +187,16 @@ class Task:
         script("project.py", self.repo, "log", self.slug, event, *(f"{key}:={json.dumps(value, ensure_ascii=False)}" for key, value in fields.items()))
 
 
-def restore(task: Task) -> None:
-    """Put a worktree that a cut-off `red` left on the base commit back on its branch."""
-    kept = task.directory / "red.json"
-    if not kept.is_file():
-        return
-    was = json.loads(kept.read_text())
-    git(task.worktree, "reset", "-q", "--hard")
-    git(task.worktree, "checkout", "-q", was["branch"])
-    if git(task.worktree, "rev-parse", "HEAD") != was["tip"]:
-        raise StoriesError(f"the worktree is back on {was['branch']}, and its tip is not the {was['tip'][:9]} that `red` started from: look at it before anything else runs")
-    kept.unlink()
+def leftovers(task: Task) -> None:
+    """Remove a worktree of this check that a killed run left behind. One whose run still lives stays."""
+    for old in sorted(task.worktree.parent.glob(f"{task.slug}.red-*")):
+        pid = old.name.rsplit("-", 1)[-1]
+        try:
+            os.kill(int(pid), 0)
+        except (ValueError, ProcessLookupError):
+            run(["git", "-C", str(task.main), "worktree", "remove", "--force", str(old)], check=False)
+        except PermissionError:
+            continue
 
 
 def cmd_red(task: Task) -> dict:
@@ -187,10 +209,7 @@ def cmd_red(task: Task) -> dict:
         )
     dirty = git(task.worktree, "status", "--porcelain")
     if dirty:
-        raise StoriesError(f"the worktree has changes nobody committed:\n{dirty}\ncommit them or remove them: this check moves the worktree to the base commit and back")
-    branch = git(task.worktree, "branch", "--show-current")
-    if not branch:
-        raise StoriesError("the worktree is on no branch; put it on the task's branch first")
+        raise StoriesError(f"the worktree has changes nobody committed:\n{dirty}\ncommit them or remove them: this check runs what the branch holds, and they are not in it")
     base_branch = task.settings["branch"]["base"]
     onto = f"origin/{base_branch}" if git(task.main, "remote", "get-url", "origin", check=False) else str(base_branch)
     tip = git(task.worktree, "rev-parse", "HEAD")
@@ -200,37 +219,57 @@ def cmd_red(task: Task) -> dict:
     tests = [(story["n"], test) for story in found["stories"] for test in story["tests"]]
     for number, test in tests:
         for file in test["files"]:
-            if run(["git", "-C", str(task.worktree), "cat-file", "-e", f"{tip}:{file}"], check=False).returncode != 0:
-                raise StoriesError(f"story {number}: the test file {file} is not on the branch; name the files that hold the test, relative to the root")
-
-    def outcome(command: str) -> int:
-        # through a shell, as the gate's commands run: a test command is a line the project would type
-        return subprocess.run(command, shell=True, cwd=task.worktree, capture_output=True, text=True, check=False).returncode  # noqa: S602
-
-    on_branch = [outcome(test["command"]) for _, test in tests]
-    on_base: list[int] = []
+            # --: a name that starts with a hyphen is still a name
+            kind = run(["git", "-C", str(task.worktree), "cat-file", "-t", "--", f"{tip}:{file}"], check=False).stdout.strip()
+            if kind != "blob":
+                raise StoriesError(
+                    f"story {number}: {file!r} is {'a folder' if kind == 'tree' else 'not a file'} on the branch. Name each file that holds the test, "
+                    "one by one and relative to the root: a folder would lay the change itself over the base commit",
+                )
+    without = [{"story": story["n"], "why": story["no_test"]} for story in found["stories"] if story["no_test"]]
+    results: list[dict] = []
+    setup: list[dict] = []
     if tests:
-        # written before the worktree moves, so that a run that is cut off can be put back
-        (task.directory / "red.json").write_text(json.dumps({"branch": branch, "tip": tip}) + "\n")
+        leftovers(task)
+        scratch = task.worktree.parent / f"{task.slug}.red-{os.getpid()}"
+
+        def outcome(command: str) -> int:
+            # through a shell, as the gate's commands run: a test command is a line the project would type
+            return subprocess.run(command, shell=True, cwd=scratch, capture_output=True, text=True, check=False).returncode  # noqa: S602
+
+        git(task.main, "worktree", "add", "-q", "--detach", str(scratch), tip)
         try:
-            git(task.worktree, "checkout", "-q", "--detach", base)
+            for command in task.settings["gate"]["setup"]:
+                code = outcome(command)
+                setup.append({"command": command, "exit": code})
+                if code != 0:
+                    raise StoriesError(f"`{command}` of gate.setup failed in a fresh worktree (exit {code}), so no test could run there; correct that command in .lem/project.toml")
+            on_branch = [outcome(test["command"]) for _, test in tests]
+            # What a test changed in a tracked file on the branch must not reach its run on the
+            # base commit. Files git does not track stay: what gate.setup made is among them, and
+            # without it every test would fail on the base commit for no reason of the story's.
+            git(scratch, "reset", "-q", "--hard")
+            git(scratch, "checkout", "-q", "--detach", base)
             files = sorted({file for _, test in tests for file in test["files"]})
-            git(task.worktree, "checkout", tip, "--", *files)
+            git(scratch, "checkout", tip, "--", *files)
             on_base = [outcome(test["command"]) for _, test in tests]
         finally:
-            restore(task)
-    results = []
-    for (number, test), green, red in zip(tests, on_branch, on_base):
-        problem = None
-        if green != 0:
-            problem = f"fails on the branch (exit {green})"
-        elif red == 0:
-            problem = "passes on the base commit too, so it does not test the change"
-        results.append({"story": number, "command": test["command"], "files": test["files"], "on_branch": green, "on_base": red, "problem": problem})
-    without = [{"story": story["n"], "why": story["no_test"]} for story in found["stories"] if story["no_test"]]
+            run(["git", "-C", str(task.main), "worktree", "remove", "--force", str(scratch)], check=False)
+        for (number, test), green, red in zip(tests, on_branch, on_base):
+            problem = None
+            if green != 0:
+                problem = (
+                    f"fails in a fresh worktree of the branch (exit {green}). If it passes in the task's worktree, it needs something a fresh one "
+                    "lacks: put the commands that make it into gate.setup of .lem/project.toml"
+                )
+            elif red == 0:
+                problem = "passes on the base commit too, so it does not test the change"
+            elif red in (126, 127):
+                problem = f"does not start on the base commit (exit {red}): a file it needs is not among the files the story names, so its failure there proves nothing"
+            results.append({"story": number, "command": test["command"], "files": test["files"], "on_branch": green, "on_base": red, "problem": problem})
     ok = not any(result["problem"] for result in results)
-    task.log("task.red", ok=ok, base=base[:9], tip=tip[:9], tests=results, without_a_test=without)
-    return {"task": task.slug, "ok": ok, "base": base[:9], "tip": tip[:9], "tests": results, "without_a_test": without}
+    task.log("task.red", ok=ok, digest=found["digest"], base=base[:9], tip=tip[:9], tests=results, without_a_test=without)
+    return {"task": task.slug, "ok": ok, "digest": found["digest"], "base": base[:9], "tip": tip[:9], "setup": setup, "tests": results, "without_a_test": without}
 
 
 def main() -> None:
@@ -246,7 +285,7 @@ def main() -> None:
         else:
             result = task.stories()
             if args.step == "record":
-                task.log("task.stories", kind=result["kind"], why=result["why"], stories=result["stories"])
+                task.log("task.stories", kind=result["kind"], why=result["why"], digest=result["digest"], stories=result["stories"])
     except StoriesError as error:
         sys.exit(f"stories.py: {error}")
     print(json.dumps(result, indent=2, ensure_ascii=False))

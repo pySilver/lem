@@ -128,7 +128,8 @@ These rules hold for each task:
 - **The plan starts with the stories.** A story is one rule of your ask in plain language, with
   one example. You read the stories, and the agents read the plan. Each story gets a test.
 - **A check proves each test.** The test of a story must pass on the branch, and it must fail on
-  the base commit. The board of a task shows the stories and the result of that check.
+  the base commit. The check uses a worktree of its own. The board of a task shows the stories
+  and the result of that check.
 - **Build first, review after.** The check commands gate the landing. A review reads the landed
   change from a queue. Thus a defect that the checks do not find lands first, and the review
   finds it later.
@@ -496,6 +497,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `branch.history` | `keep` | what lands: the commits of the branch (`keep`) or one commit (`squash`) |
 | `gate.commands` | empty | the check commands; with none, no task lands |
 | `gate.ignores` | empty | the paths that the gate does not read |
+| `gate.setup` | empty | the commands that a new worktree needs before its tests can start, for example an install of the packages |
 | `flow.topics` | empty | the danger topics: what must not go wrong, each as one sentence in your words |
 | `flow.careful` | empty | the paths that get the careful flow |
 | `flow.max_tasks` | `4` | how many tasks build or land at one time |

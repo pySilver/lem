@@ -1304,47 +1304,69 @@ if [ "$(field '(d["kind"], d["why"], [(s["n"], s["text"].split(" of an order")[0
 else
   fail "stories show and record: $shown"
 fi
+before=$(git -C "$stw" rev-parse HEAD)
+echo 'kept: mine' > "$stw/local.conf" && echo 'local.conf' >> "$ST/.git/info/exclude"
 out=$(stories red export-has-the-gift-note)
 if [ "$(field '(d["ok"], [(t["story"], t["on_branch"], t["on_base"] != 0, t["problem"]) for t in d["tests"]], d["without_a_test"])' <<<"$out")" = "(True, [(1, 0, True, None), (2, 0, True, None)], [])" ] \
-  && [ "$(git -C "$stw" branch --show-current)" = "feat/export-has-the-gift-note" ] && [ -z "$(git -C "$stw" status --porcelain)" ] && [ ! -e "$ST/.git/lem/tasks/export-has-the-gift-note/red.json" ] \
-  && [ "$(cat "$stw/export.sh" | head -1)" = 'echo "1042,for Ania"' ] && grep -q '"event": "task.red"' "$ST/.git/lem/events.jsonl"; then
-  pass "red runs each story's tests on the branch and, with only the test files laid over the base commit, on the base: both fail there, and the worktree is back on its branch and clean"
+  && [ "$(git -C "$stw" branch --show-current)" = "feat/export-has-the-gift-note" ] && [ "$(git -C "$stw" rev-parse HEAD)" = "$before" ] && [ -z "$(git -C "$stw" status --porcelain)" ] \
+  && [ "$(cat "$stw/local.conf")" = 'kept: mine' ] && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ] \
+  && [ "$(git -C "$ST" worktree list | grep -c '')" = 2 ] && grep -q '"event": "task.red"' "$ST/.git/lem/events.jsonl"; then
+  pass "red runs each story's tests in a worktree of its own, on the branch and with only the test files laid over the base commit: both fail there; the task's worktree is not touched, a file git ignores in it too, and the check's worktree is gone"
 else
-  fail "stories red: $out / $(git -C "$stw" status --porcelain)"
+  fail "stories red: $out / $(git -C "$stw" status --porcelain) / $(git -C "$ST" worktree list)"
 fi
-# A test that passes on the base commit too does not test the change; a story with no test is refused; one that says why it has none is listed.
+# What does not hold a story: a test that passes on the base commit too, one that changes a file both
+# commits have, one whose helper is not named, a folder in the place of a file. And a story with no test.
+story3() { git -C "$stw" checkout -q -- docs && "$PY" -c 'import sys; p, lines = sys.argv[1], sys.argv[2:]; s = open(p).read(); open(p, "w").write(s.replace("\n## Tasks", "\n".join(lines) + "\n\n## Tasks"))' "$plan" "$@" && git -C "$stw" commit -q -am "docs: a third story" && stories red export-has-the-gift-note 2>&1 || true; git -C "$stw" reset -q --hard "$before"; }
 # shellcheck disable=SC2016
-printf '%s\n' '3. The export still has one row for each order.' '   - test: `sh export.sh` in `tests/gift.sh`' >> "$plan.more"
-python_insert() { "$PY" -c 'import sys; p, more = sys.argv[1], sys.argv[2]; s = open(p).read(); open(p, "w").write(s.replace("\n## Tasks", open(more).read() + "\n## Tasks"))' "$plan" "$1"; }
-python_insert "$plan.more" && rm "$plan.more" && git -C "$stw" commit -q -am "docs: a third story"
-weak=$(stories red export-has-the-gift-note 2>&1 || true)
-code=$(status_of stories red export-has-the-gift-note)
+weak=$(story3 '3. The export still has one row for each order.' '   - test: `sh export.sh` in `tests/gift.sh`')
+# the settings file is the same on the base commit and on the branch: a test that reads it and then changes it
+echo 'grep -q max_tasks .lem/project.toml || exit 1; echo changed >> .lem/project.toml' > "$stw/tests/config.sh" && echo 'sh tests/runner.sh' > "$stw/tests/calls.sh" && echo 'exit 0' > "$stw/tests/runner.sh"
+git -C "$stw" add -A && git -C "$stw" commit -q -m "test: more tests" && before=$(git -C "$stw" rev-parse HEAD)
 # shellcheck disable=SC2016
-sed -i.bak 's|^   - test: `sh export.sh` in `tests/gift.sh`$||' "$plan" && rm "$plan.bak" && git -C "$stw" commit -q -am "docs: the third story has no test"
-bare=$(stories red export-has-the-gift-note 2>&1 || true)
-printf '%s\n' '   - no test: the count of rows is the export of today, which no change here touches.' > "$plan.more"
-"$PY" -c 'import sys; p, more = sys.argv[1], sys.argv[2]; s = open(p).read(); open(p, "w").write(s.replace("for each order.\n", "for each order.\n" + open(more).read()))' "$plan" "$plan.more" && rm "$plan.more" && git -C "$stw" commit -q -am "docs: why"
-said=$(stories red export-has-the-gift-note | field '(d["ok"], d["without_a_test"])')
+writes=$(story3 '3. The config is read.' '   - test: `sh tests/config.sh` in `tests/config.sh`')
+# shellcheck disable=SC2016
+helper=$(story3 '3. The runner runs.' '   - test: `sh tests/calls.sh` in `tests/calls.sh`')
+# shellcheck disable=SC2016
+folder=$(story3 '3. The tests are there.' '   - test: `sh tests/gift.sh` in `tests`')
+bare=$(story3 '3. The export still has one row for each order.')
+said=$(story3 '3. The export still has one row for each order.' '   - no test: the count of rows is the export of today, which no change here touches.' | field '(d["ok"], d["without_a_test"])')
 echo stray > "$stw/stray.txt"
 dirty=$(stories red export-has-the-gift-note 2>&1 || true)
 rm "$stw/stray.txt"
 # shellcheck disable=SC2016
-if [ "$code" = 1 ] && grep -q 'story 3: `sh export.sh` passes on the base commit too, so it does not test the change' <<<"$weak" \
+if grep -q 'story 3: `sh export.sh` passes on the base commit too, so it does not test the change' <<<"$weak" \
+  && grep -q 'story 3: `sh tests/config.sh` passes on the base commit too' <<<"$writes" \
+  && grep -q 'story 3: `sh tests/calls.sh` does not start on the base commit (exit 127): a file it needs is not among the files the story names' <<<"$helper" \
+  && grep -q "story 3: 'tests' is a folder on the branch. Name each file that holds the test, one by one" <<<"$folder" \
   && grep -q "story 3 names no test: every story is held by a test at the end of a build" <<<"$bare" \
   && [ "$said" = "(True, [{'story': 3, 'why': 'the count of rows is the export of today, which no change here touches.'}])" ] \
-  && grep -q "the worktree has changes nobody committed" <<<"$dirty" && [ "$(git -C "$stw" branch --show-current)" = "feat/export-has-the-gift-note" ]; then
-  pass "a test that passes on the base commit is refused by its story, a story with no test is refused, one that says why it has none is listed, and a worktree with changes is not moved"
+  && grep -q "the worktree has changes nobody committed" <<<"$dirty" && [ "$(git -C "$stw" rev-parse HEAD)" = "$before" ] \
+  && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ]; then
+  pass "a story is not held by a test that passes on the base commit too, that only changes a file both commits have, or whose helper file is not named; a folder as a test file and a story with no test are refused, and one that says why it has none is listed"
 else
-  fail "stories red refusals: $weak / $bare / $said / $dirty"
+  fail "stories red refusals: $weak / $writes / $helper / $folder / $bare / $said / $dirty"
 fi
-# A run that was cut off left the worktree on the base commit: the next run puts it back first.
-tip=$(git -C "$stw" rev-parse HEAD)
-printf '{"branch": "feat/export-has-the-gift-note", "tip": "%s"}\n' "$tip" > "$ST/.git/lem/tasks/export-has-the-gift-note/red.json"
-git -C "$stw" checkout -q --detach main && git -C "$stw" checkout -q "$tip" -- tests/gift.sh
-if [ "$(stories red export-has-the-gift-note | field 'd["ok"]')" = True ] && [ "$(git -C "$stw" rev-parse HEAD)" = "$tip" ] && [ "$(git -C "$stw" branch --show-current)" = "feat/export-has-the-gift-note" ]; then
-  pass "a red check that was cut off is put back by the next run, on the branch and at the tip it started from"
+# A test that needs what a fresh worktree lacks is named as such, and the settings' gate.setup makes it.
+echo 'test -f .made-by-setup && sh export.sh | grep -q "1042,for Ania"' > "$stw/tests/env.sh" && git -C "$stw" add -A && git -C "$stw" commit -q -m "test: one that needs a setup" && before=$(git -C "$stw" rev-parse HEAD)
+# shellcheck disable=SC2016
+lacks=$(story3 '3. The export has the note, in a set-up worktree.' '   - test: `sh tests/env.sh` in `tests/env.sh`')
+sed -i.bak 's|^setup = \[\]$|setup = ["touch .made-by-setup"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+# shellcheck disable=SC2016
+made=$(story3 '3. The export has the note, in a set-up worktree.' '   - test: `sh tests/env.sh` in `tests/env.sh`' | field '(d["ok"], d["setup"], d["tests"][2]["problem"])')
+sed -i.bak 's|^setup = .*$|setup = ["exit 3"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+broken=$(stories red export-has-the-gift-note 2>&1 || true)
+sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+# A worktree that a killed run of the check left behind is removed by the next run.
+git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-999999" main
+stories red export-has-the-gift-note >/dev/null
+if grep -q "fails in a fresh worktree of the branch (exit 1). If it passes in the task's worktree, it needs something a fresh one lacks: put the commands that make it into gate.setup" <<<"$lacks" \
+  && [ "$made" = "(True, [{'command': 'touch .made-by-setup', 'exit': 0}], None)" ] \
+  && grep -q "of gate.setup failed in a fresh worktree (exit 3)" <<<"$broken" \
+  && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ] && [ "$(git -C "$ST" worktree list | grep -c '')" = 2 ]; then
+  pass "a test that needs what a fresh worktree lacks is named as such and not taken for proof; the settings' gate.setup makes it there; a setup command that fails stops the check; and a worktree that a killed run left is removed"
 else
-  fail "red after a cut-off run: $(git -C "$stw" status -sb | head -3)"
+  fail "stories red and gate.setup: $lacks / $made / $broken / $(git -C "$ST" worktree list)"
 fi
 # A plan whose stories do not have the form is refused with the line that is wrong.
 form() { printf '%s\n' "$@" > "$plan"; stories show export-has-the-gift-note 2>&1 || true; }
@@ -1352,12 +1374,20 @@ no_section=$(form '# A plan' '' '## Tasks')
 no_kind=$(form '## Stories' '' '1. A story.')
 two=$(form '## Stories' '' 'Kind: correction, because it is one sentence.' '' '1. One.' '2. Two.')
 order=$(form '## Stories' '' 'Kind: feature, because of two things.' '' '1. One.' '3. Three.')
-git -C "$stw" checkout -q -- docs
+# An example of the form in a code fence is not the section, and a plan of another task whose name ends the same way is not this task's.
 # shellcheck disable=SC2016
-if grep -q 'has no `## Stories` section' <<<"$no_section" && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with" <<<"$no_kind" \
+fenced=$(form '# A plan' '' '```markdown' '## Stories' '' 'Kind: correction, because it is an example.' '' '1. An example.' '```' '' '## Stories' '' 'Kind: feature, because it is the real one.' '' '1. The real story.' | field '(d["kind"], d["stories"][0]["text"])')
+git -C "$stw" checkout -q -- docs
+printf '%s\n' '## Stories' '' 'Kind: correction, because it is another task.' '' '1. Not this task.' > "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
+other=$(stories show export-has-the-gift-note | field '(d["kind"], d["plan"].rsplit("/", 1)[1])')
+rm "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
+stories record export-has-the-gift-note >/dev/null && stories red export-has-the-gift-note >/dev/null
+# shellcheck disable=SC2016
+if [ "$fenced" = "('feature', 'The real story.')" ] && [ "$other" = "('feature', '20261115-export-has-the-gift-note.md')" ] \
+  && grep -q 'has no `## Stories` section' <<<"$no_section" && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with" <<<"$no_kind" \
   && grep -q "a correction has one story, and this plan has 2: it is a feature" <<<"$two" && grep -q ":6: the stories are numbered 1, 2, 3 in order" <<<"$order" \
   && [ "$(status_of stories show no-such-task)" = 1 ]; then
-  pass "a plan with no stories section, no kind, a correction of two stories or a gap in the numbers is refused with the place and the fix"
+  pass "a plan with no stories section, no kind, a correction of two stories or a gap in the numbers is refused with the place and the fix; a fenced example is not the section, and a plan of another task is not read"
 else
   fail "the form of the stories: $no_section / $no_kind / $two / $order"
 fi
@@ -1634,10 +1664,20 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     printf 'SKIP the stories on the board: %s printed no page\n' "$chrome"
   elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories.dom" "Stories" "feature, because the export gets a new column and an empty cell." \
     'A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' "sh tests/gift.sh" \
-    "passes on the branch, fails on the base commit" "held by its tests" "An order with no gift note has an empty cell"); then
+    "passes on the branch, fails on the base commit (checked on " "held by its tests" "An order with no gift note has an empty cell"); then
     pass "the board of one task shows its stories as the plan has them, each with its tests and the result of the last check"
   else
     fail "the stories on the board: missing $why"
+  fi
+  # A story that changed after the check has no check: the old result is not shown for it.
+  "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("has that text in its row.", "has that text in the third cell of its row."))' "$stw/docs/plans/20261115-export-has-the-gift-note.md"
+  stories record export-has-the-gift-note >/dev/null && git -C "$stw" checkout -q -- docs
+  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+    --virtual-time-budget=5000 --dump-dom "file://$ST/.git/lem/task-export-has-the-gift-note.html" > "$WORK/stories-changed.dom" 2>/dev/null || true
+  if [ -s "$WORK/stories-changed.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories-changed.dom" "in the third cell of its row" "not checked yet" "!held by its tests"); then
+    pass "after a story changed, the board shows no result of the older check for any story"
+  elif [ -s "$WORK/stories-changed.dom" ]; then
+    fail "the stories on the board after a change: missing $why"
   fi
   # The backlog tab: drawn from backlog.js, and its one action types the item into Lem's session.
   "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \

@@ -145,7 +145,7 @@ MAX_TASKS = 4
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
     "branch": ("base", "land", "history", "protected"),
-    "gate": ("commands", "ignores"),
+    "gate": ("commands", "ignores", "setup"),
     "flow": ("careful", "topics", "max_tasks"),
     "seats": ("reviewer",),
     "tools": tuple(TOOLS),
@@ -189,6 +189,10 @@ commands = []
 # Paths the gate does not read. When the base branch moves after a green gate by these files
 # only, the result stands; any other file means the gate runs again. A `*` crosses directories.
 ignores = []
+# What a fresh worktree of this project needs before its tests can start: install the packages,
+# copy an environment file. The check that each story's tests fail on the base commit runs in a
+# worktree of its own and runs these there first. Leave it empty when the tests start as they are.
+setup = []
 
 [flow]
 # Paths whose change takes the careful flow: the plan is read by the reviewer and each task
@@ -449,6 +453,7 @@ def load(root: Path) -> dict:
         "gate": {
             "commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands"),
             "ignores": strings(raw.get("gate", {}).get("ignores", []), "gate.ignores"),
+            "setup": strings(raw.get("gate", {}).get("setup", []), "gate.setup"),
         },
         "flow": {
             "careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"),

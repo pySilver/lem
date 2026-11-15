@@ -14,7 +14,8 @@ one builder. A session never takes this section. Its plan is careful, so its one
 builder of its own and a review of its diff, as the next section says.
 
 1. **Build the task.** Write it, with at least one test for each story of the plan: a test that
-   fails on the base commit and passes with your change. Run the tests of the files you wrote or edited and the
+   fails on the base commit and passes with your change. A story no test can hold, such as a
+   sentence of a document, gets none, and "The report" says how the plan records that. Run the tests of the files you wrote or edited and the
    formatter, linter and type checker the project's `AGENTS.md` names, and commit on the task's
    branch with a semantic message. Never the whole suite unless the plan says so: the gate runs
    it at the landing. Write the state `building` with the line `task 1 of 1`.
@@ -82,10 +83,14 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   under each story in the plan its tests (`- test: ...`, or `- no test: REASON` for a story no
   test can hold, such as a sentence of a document), commit that, and run
   `python3 SKILL_DIR/scripts/stories.py record SLUG` and then `python3 SKILL_DIR/scripts/stories.py
-  red SLUG`. The second one runs each story's tests on the branch and on the base commit, in the
-  worktree, which has to be clean: a test that fails on the branch, or that passes on the base
-  commit too, does not hold its story. Repair what it names before the task is `ready`, and give
-  its last line here;
+  red SLUG`. The second one runs each story's tests in a worktree of its own, on the branch and
+  on the base commit with only the named test files laid over it; the task's worktree has to be
+  clean and is not touched. A test that fails there on the branch, that passes on the base
+  commit too, or that does not start on the base commit does not hold its story: name every
+  file the test needs, one by one. Repair what it names before the task is `ready`, and give its
+  last line here. A project whose tests need more than a fresh worktree has says what in the
+  settings' `gate.setup`; when that is missing, it is an outside defect for your report, not
+  yours to set;
 - **not verified**: what you could not or did not check;
 - **decisions**: each one taken without the owner, with why and what it would take to undo. Add
   the same lines to `decisions.md`;
