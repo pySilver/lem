@@ -203,6 +203,14 @@ def corrections(file: Path, turn: str) -> dict:
 MARK = f"# links of a Lem trial from {CLONE} (scripts/setup.py --project); --remove takes this file away"
 
 
+def ignored(folder: Path, name: str) -> bool:
+    """Whether git ignores this name in this folder. With no git to ask, the answer is the unsafe one: no."""
+    try:
+        return subprocess.run(["git", "-C", str(folder), "check-ignore", "-q", "--", name], capture_output=True, check=False).returncode == 0
+    except OSError:
+        return False
+
+
 def hide_from_git(rows: list[dict]) -> list[str]:
     """Make each folder's ignore file say what is linked there now, and return the folders where
     git still sees the links. Only a file whose first line names this clone is written or removed."""
@@ -219,7 +227,7 @@ def hide_from_git(rows: list[dict]) -> list[str]:
         linked = [Path(row["place"]).name for row in members if row["state"] == "linked"]
         if (ignore.exists() or ignore.is_symlink()) and not ours:
             # The project's own file stays as it is. It may hide the links already, so git is asked.
-            if any(subprocess.run(["git", "-C", str(folder), "check-ignore", "-q", "--", name], capture_output=True, check=False).returncode != 0 for name in linked):
+            if any(not ignored(folder, name) for name in linked):
                 visible.append(str(folder))
         elif linked:
             ignore.write_text("\n".join([MARK, "/.gitignore", *(f"/{name}" for name in linked)]) + "\n")
@@ -290,8 +298,7 @@ def main() -> None:
         except Refused as error:
             sys.exit(f"setup.py: {error}")
         if project is not None and row["state"] == "registered":
-            ignored = subprocess.run(["git", "-C", str(project), "check-ignore", "-q", str(settings)], capture_output=True, check=False)
-            row["git_sees_the_file"] = ignored.returncode != 0
+            row["git_sees_the_file"] = not ignored(settings.parent, settings.name)
         print(json.dumps({"corrections_hook": row, "scope": str(project) if project else "every repository of this home"}, indent=2))
         return
     bin_dir = None if project else args.bin or args.home / ".local" / "bin"

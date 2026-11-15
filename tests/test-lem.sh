@@ -918,6 +918,16 @@ if [ "$(cat "$TRIAL/.claude/skills/.gitignore")" = "*" ] && [ "$(field 'd["git_s
 else
   fail "setup --project beside an ignore file that hides the links: $out / $(git -C "$TRIAL" status --porcelain)"
 fi
+# No git on PATH: the script cannot ask, so it reports the folder, gives its whole account and leaves the rest to the machine check.
+out=$(env -i PATH="$WORK/nogit-setup" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$TRIAL" 2>"$WORK/nogit.err" || true)
+hook=$(env -i PATH="$WORK/nogit-setup" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$TRIAL" --corrections on | field 'd["corrections_hook"]["git_sees_the_file"]')
+trial --corrections off >/dev/null
+if [ "$(field '(d["linked"], d["machine_ok"], d["git_sees_the_links_in"], [a["name"] for a in d["absent"] if a["name"] == "git"])' <<<"$out")" = "(True, False, ['$TRIAL/.claude/skills'], ['git'])" ] \
+  && ! grep -q Traceback "$WORK/nogit.err" && [ "$hook" = "True" ]; then
+  pass "with no git on PATH the setup still gives its whole account: the folder it could not ask about is reported, and the machine check names git"
+else
+  fail "setup --project with no git: $out / $(cat "$WORK/nogit.err")"
+fi
 trial --remove >/dev/null
 rm -r "$TRIAL/.claude" && mkdir -p "$WORK/shared-claude" && ln -s "$WORK/shared-claude" "$TRIAL/.claude"
 out=$(trial 2>/dev/null || true)
