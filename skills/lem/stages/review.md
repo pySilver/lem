@@ -33,8 +33,9 @@ ones first.
    agents of its own.
 4. **A confirmed finding becomes a task**: `/lem new` with the finding as the ask, for a major
    one at once, for minor ones as one task per item reviewed. A finding the project decides
-   against is recorded where its review tool keeps rejected findings, so no later round raises it
-   again.
+   against is a lesson, so no later round raises it again: record it by steps 3 and 4 of
+   `stages/learn.md`, where the review tool keeps rejected findings. The owner reads the file,
+   the line and the reason, as for any lesson.
 5. **Close the item**: `review_queue.py close ID` with the outcome: `clean`, `fixed in <slug>` or
    `rejected`.
 
