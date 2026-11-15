@@ -149,7 +149,8 @@ It makes and prints the task's directory inside the repository's git directory, 
 worktree, never committed and not removed with a worktree. It holds:
 
 - `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome. Lem writes
-  them. `ticket.txt` holds the id of the tracker's ticket, for a task that came from one.
+  them. `ticket.txt` holds the id of the tracker's ticket, for a task that came from one, and
+  `ticket-steps.txt` what Lem did to that ticket.
 - `brief.md`: the lead's brief. Lem writes it.
 - `state.md`: newest block first. Lem and the lead write it, and only through the script.
 - `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that

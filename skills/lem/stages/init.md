@@ -91,8 +91,10 @@ For a repository that has code:
   (Linear), the name of its server in the agent, the key of the one team, and who moves a
   ticket's status: Lem, or the tracker's own automation, as with a pull-request integration that
   moves a ticket when a pull request opens and merges. When Lem moves it, the two status names
-  as the team spells them, for "work started" and for "landed". Then run the tracker's "check"
-  before you write the table, so a wrong workspace or a status that does not exist shows now.
+  as the team spells them, for "work started" and for "landed"; and the workspace, as its address
+  has it. Then run the tracker's "check" with these values before you write the table: it takes
+  them from you at this one moment, so a wrong workspace or a status that does not exist shows
+  now.
 - **Who reviews**: the agent in the reviewer's pane, Codex or a second Claude. Guess Codex when
   step 1 found it, since two model families disagree more usefully than one family twice, and a
   reviewer on another provider's quota does not spend the builders'. Then, only when the owner

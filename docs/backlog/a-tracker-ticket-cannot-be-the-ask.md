@@ -28,9 +28,10 @@ backlog item. It is not a second form of the backlog.
 ## What is built, and what is left (2026-11-15)
 
 Built: the role "the tracker" in the harness contract, the `[tracker]` table in
-`.lem/project.toml` (`kind`, `server`, `team`, `moves`, and with `moves = "lem"` the two status
-names `started` and `landed`), the `lem-linear` skill with its four procedures (check, read,
-start, land), one ticket for one task (`project.py task-dir --ticket`), and the steps of
+`.lem/project.toml` (`kind`, `server`, `workspace`, `team`, `moves`, and with `moves = "lem"`
+the two status names `started` and `landed`), the `lem-linear` skill with its five procedures
+(check, read, start, land, drop), one ticket for one task (`project.py task-dir --ticket`), a
+record of what was done to a ticket (`project.py ticket-step`), and the steps of
 `stages/new.md`, `stages/land.md`, `stages/night.md` and `stages/init.md` that use them.
 
 Left, and the reason this item stays:

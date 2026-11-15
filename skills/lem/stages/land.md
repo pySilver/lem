@@ -5,7 +5,10 @@ time: the gate's result is about one tip on one base, and two landings at once w
 tested without the other.
 
 Take the task that is in `landing`, when a session before you was cut off in the middle of one;
-otherwise the `ready` task with the oldest state time.
+otherwise the `ready` task with the oldest state time. First, though, a `landed` task whose
+ticket is not finished gets what it is owed: `project.py tasks` shows its `ticket` and its
+`ticket_steps`, and the tracker's "land" says which steps finish a ticket and does the ones that
+are missing. A session can be cut off between the landing and the ticket.
 
 ```bash
 python3 SKILL_DIR/scripts/land.py STEP SLUG
@@ -69,7 +72,8 @@ one finds what the run before it finished.
    - *the owner lands* (`branch.land = "owner"`): change nothing. Write the state `held` with the
      line `the gate is green on TIP: the owner lands`, report as step 6 says, and take the next
      `ready` task. When the owner says it landed, add the review item with `review_queue.py add`
-     and the range the owner names, write the state `landed`, and do step 7.
+     and the range the owner names, write the state `landed`, do the ticket's part of step 6
+     when the task came from a ticket, and do step 7.
    - *the base moved after the gate ran*, by a file the gate reads: run `base` and `gate` again.
      A base that moved only by paths the settings' `gate.ignores` name does not refuse: the
      result stands, and the step's `arrived` says which files they were.

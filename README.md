@@ -302,7 +302,7 @@ The skills that Lem uses without a command from you:
 | `[seats.reviewer]` | the reviewer: `agent`, and optionally `model`, `effort` (for a diff) and `plan_effort` (for a plan) |
 | `tools.annotate` | the tool with which you mark a plan |
 | `corrections.collect` | `true` keeps a queue of your corrections for `/lem retro`; the default is `false` |
-| `[tracker]` | optional: `kind` (`linear`), `server`, `team`, and `moves` (`lem` or `tracker`); with `moves = "lem"` also `started` and `landed` |
+| `[tracker]` | optional: `kind` (`linear`), `server`, `workspace`, `team`, and `moves` (`lem` or `tracker`); with `moves = "lem"` also `started` and `landed` |
 
 `.lem/project.local.toml` is for one computer. Git does not track it. It can change the reviewer
 and the mark tool only.

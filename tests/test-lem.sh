@@ -90,25 +90,26 @@ if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "gate commands t
 # The tracker: no table means no tracker; a table names its kind, its server, its team and who moves a ticket.
 settings '[branch]' 'base = "master"'
 none=$(project --repo "$OLD" show | field 'd["tracker"]')
-settings '[tracker]' 'kind = "linear"' 'server = "linear"' 'team = "MBZ"' 'moves = "lem"' 'started = "In Progress"' 'landed = "Done"'
-full=$(project --repo "$OLD" show | field '(d["tracker"]["team"], d["tracker"]["moves"], d["tracker"]["started"], d["tracker"]["landed"])')
-settings '[tracker]' 'kind = "linear"' 'server = "linear"' 'team = "MBZ"' 'moves = "tracker"'
+settings '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "MBZ"' 'moves = "lem"' 'started = "In Progress"' 'landed = "Done"'
+full=$(project --repo "$OLD" show | field '(d["tracker"]["workspace"], d["tracker"]["team"], d["tracker"]["moves"], d["tracker"]["started"], d["tracker"]["landed"])')
+settings '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "MBZ"' 'moves = "tracker"'
 auto=$(project --repo "$OLD" show | field '(d["tracker"]["moves"], d["tracker"]["started"])')
-if [ "$none" = None ] && [ "$full" = "('MBZ', 'lem', 'In Progress', 'Done')" ] && [ "$auto" = "('tracker', None)" ]; then
+if [ "$none" = None ] && [ "$full" = "('acme', 'MBZ', 'lem', 'In Progress', 'Done')" ] && [ "$auto" = "('tracker', None)" ]; then
   pass "a project has no tracker unless its settings name one, with who moves a ticket and, when Lem does, the two status names"
 else
   fail "tracker settings: $none / $full / $auto"
 fi
 refused=""
-for bad in 'kind = "jira"|server = "x"|team = "A"|moves = "lem"|started = "a"|landed = "b"' 'kind = "linear"|server = "x"|team = "A"|moves = "lem"|started = "a"' \
-           'kind = "linear"|server = "x"|team = "A"|moves = "tracker"|landed = "Done"' 'kind = "linear"|team = "A"|moves = "tracker"' \
-           'kind = "linear"|server = "x"|team = "A"|moves = "both"' 'kind = "linear"|server = "x"|team = ""|moves = "tracker"'; do
+for bad in 'kind = "jira"|server = "x"|workspace = "w"|team = "A"|moves = "lem"|started = "a"|landed = "b"' 'kind = "linear"|server = "x"|workspace = "w"|team = "A"|moves = "lem"|started = "a"' \
+           'kind = "linear"|server = "x"|workspace = "w"|team = "A"|moves = "tracker"|landed = "Done"' 'kind = "linear"|workspace = "w"|team = "A"|moves = "tracker"' \
+           'kind = "linear"|server = "x"|workspace = "w"|team = "A"|moves = "both"' 'kind = "linear"|server = "x"|workspace = "w"|team = ""|moves = "tracker"' \
+           'kind = "linear"|server = "x"|team = "A"|moves = "tracker"' 'kind = "linear"|server = "x"|workspace = "w"|team = "A"|moves = "lem"|started = "Done"|landed = "done"'; do
   IFS='|' read -r -a lines <<<"$bad"
   settings '[tracker]' "${lines[@]}"
   if [ "$(status_of project --repo "$OLD" show)" != 1 ]; then refused="$refused [$bad]"; fi
 done
 if [ -z "$refused" ]; then
-  pass "a tracker table is refused for an unknown kind, a missing key, an empty word, one status name alone, or status names when the tracker moves the ticket"
+  pass "a tracker table is refused for an unknown kind, a missing key (the workspace too), an empty word, one status name alone, one status for both, or status names when the tracker moves the ticket"
 else
   fail "tracker tables accepted:$refused"
 fi
@@ -220,10 +221,22 @@ project --repo "$OLD" task-dir from-a-ticket --ticket mbz-12 --ask "Report dates
 err=$(project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 2>&1 || true)
 if [ "$(project --repo "$OLD" tasks | field '{t["slug"]: t["ticket"] for t in d}')" = "{'from-a-ticket': 'MBZ-12', 'report-dates-stay-whole': None}" ] \
   && grep -q "the task 'from-a-ticket' already holds the ticket MBZ-12" <<<"$err" && [ ! -e "$OLD/.git/lem/tasks/the-same-ticket" ] \
-  && [ "$(status_of project --repo "$OLD" task-dir bad-ticket --ticket "not a ticket")" = 1 ] && [ ! -e "$OLD/.git/lem/tasks/bad-ticket" ]; then
-  pass "a task keeps the ticket its ask came from, a second task for that ticket is refused, and so is a word that is no ticket"
+  && [ "$(status_of project --repo "$OLD" task-dir bad-ticket --ticket "not a ticket")" = 1 ] && [ ! -e "$OLD/.git/lem/tasks/bad-ticket" ] \
+  && [ "$(status_of project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-13)" = 1 ] && [ "$(cat "$OLD/.git/lem/tasks/from-a-ticket/ticket.txt")" = MBZ-12 ] \
+  && project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-12 >/dev/null; then
+  pass "a task keeps the ticket its ask came from: a second task for that ticket, another ticket for that task and a word that is no ticket are refused"
 else
   fail "a task's ticket: $(project --repo "$OLD" tasks | field '[(t["slug"], t["ticket"]) for t in d]') / $err"
+fi
+# What Lem did to the ticket is written down once for each step.
+out=$(project --repo "$OLD" ticket-step from-a-ticket started)
+project --repo "$OLD" ticket-step from-a-ticket commented >/dev/null
+if [ "$(field '(d["ticket"], d["steps"])' <<<"$out")" = "('MBZ-12', ['started'])" ] && [ "$(status_of project --repo "$OLD" ticket-step from-a-ticket started)" = 1 ] \
+  && [ "$(status_of project --repo "$OLD" ticket-step from-a-ticket closed)" = 1 ] && [ "$(status_of project --repo "$OLD" ticket-step report-dates-stay-whole started)" = 1 ] \
+  && [ "$(project --repo "$OLD" tasks | field 'next(t["ticket_steps"] for t in d if t["slug"] == "from-a-ticket")')" = "['started', 'commented']" ]; then
+  pass "ticket-step writes each thing Lem did to a ticket down once, and refuses a second time, an unknown step and a task with no ticket"
+else
+  fail "ticket-step: $out / $(project --repo "$OLD" tasks | field '[(t["slug"], t["ticket_steps"]) for t in d]')"
 fi
 # written by hand in the script's own form, so that the event log the next checks count stays as it is
 printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it' > "$OLD/.git/lem/tasks/from-a-ticket/state.md"

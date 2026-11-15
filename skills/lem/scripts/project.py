@@ -25,6 +25,8 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py task-dir SLUG [--ask TEXT] [--ticket ID]
                                     make and print one task's state directory; keep the owner's words
                                     and the ticket the ask came from
+    project.py ticket-step SLUG started|commented|landed|dropped
+                                    write down what Lem did to the task's ticket, once
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
     project.py state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
@@ -136,7 +138,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "seats": ("reviewer",),
     "tools": ("annotate",),
     "corrections": ("collect",),
-    "tracker": ("kind", "server", "team", "moves", "started", "landed"),
+    "tracker": ("kind", "server", "workspace", "team", "moves", "started", "landed"),
 }
 # The trackers Lem has a skill for, and who may move a ticket's status: Lem, or the tracker's own
 # automation (a pull-request integration that moves a ticket by itself).
@@ -144,6 +146,13 @@ TRACKERS = ("linear",)
 MOVES = ("lem", "tracker")
 # a ticket's id as a tracker writes it, e.g. MBZ-12
 TICKET = re.compile(r"[A-Za-z][A-Za-z0-9]*-[0-9]+")
+# What Lem did to a task's ticket, each written down after the tracker took it, so that a step is
+# never done twice and a session that was cut off can see what is still owed:
+#   started    the ticket got the status for work that started
+#   commented  the landing was commented on the ticket
+#   landed     the ticket got the status for work that landed
+#   dropped    the ticket got the comment that its task was dropped
+TICKET_STEPS = ("started", "commented", "landed", "dropped")
 
 TEMPLATE = """\
 # What Lem reads in this repository. `project.py show` prints it resolved.
@@ -201,6 +210,7 @@ collect = false
 # [tracker]
 # kind = "linear"
 # server = "linear"      # the name of the tracker's MCP server in the agent
+# workspace = "acme"     # the workspace, as in its address linear.app/acme: nothing is read or written in another
 # team = "ABC"           # the key of the one team whose tickets this project takes
 # moves = "lem"
 # started = "In Progress"
@@ -363,7 +373,7 @@ def load(root: Path) -> dict:
         for key, value in given.items():
             if not isinstance(value, str) or not value.strip():
                 raise SettingsError(f"{SETTINGS}: tracker.{key} must be a word in quotes, not {value!r}")
-        for key in ("kind", "server", "team", "moves"):
+        for key in ("kind", "server", "workspace", "team", "moves"):
             if key not in given:
                 raise SettingsError(f"{SETTINGS}: [tracker] needs {key}; leave the whole table out when the project has no tracker")
         if given["kind"] not in TRACKERS:
@@ -374,6 +384,11 @@ def load(root: Path) -> dict:
         if given["moves"] == "lem" and len(named) != 2:
             raise SettingsError(
                 f'{SETTINGS}: with tracker.moves = "lem" the table names both statuses, started and landed, as the team spells them',
+            )
+        if given["moves"] == "lem" and given["started"].strip().lower() == given["landed"].strip().lower():
+            raise SettingsError(
+                f"{SETTINGS}: tracker.started and tracker.landed are both {given['started']!r}: "
+                "a ticket would be marked as landed the moment its work starts",
             )
         if given["moves"] == "tracker" and named:
             raise SettingsError(f'{SETTINGS}: with tracker.moves = "tracker" Lem moves no ticket, so {" and ".join(named)} say nothing: remove them')
@@ -719,10 +734,14 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> 
             raise SettingsError(f"--ticket {ticket!r} is not a ticket's id, such as MBZ-12")
         ticket = ticket.upper()
         # one ticket is one task: a second task for it would be a second branch for the same work
-        taken = next((task["slug"] for task in read_tasks(root)
-                      if task["ticket"] == ticket and task["slug"] != slug and task["status"] != "dropped"), None)
+        tasks = read_tasks(root)
+        taken = next((task["slug"] for task in tasks if task["ticket"] == ticket and task["slug"] != slug and task["status"] != "dropped"), None)
         if taken:
             raise SettingsError(f"the task {taken!r} already holds the ticket {ticket}; go on with that task, or drop it first")
+        mine = next((task["ticket"] for task in tasks if task["slug"] == slug), None)
+        if mine and mine != ticket:
+            # two tickets with one title would give one slug: the first task keeps its ticket
+            raise SettingsError(f"the task {slug!r} already holds the ticket {mine}; give the task for {ticket} another slug")
     directory = state_root(root) / "tasks" / slug
     (directory / "reports").mkdir(parents=True, exist_ok=True)
     if ask is not None:
@@ -732,6 +751,23 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> 
     if ticket is not None:
         (directory / "ticket.txt").write_text(ticket + "\n")
     print(directory)
+
+
+def cmd_ticket_step(root: Path, slug: str, step: str) -> None:
+    """Write down one thing Lem did to the task's ticket, after the tracker took it."""
+    directory = task_directory(root, slug)
+    ticket = directory / "ticket.txt"
+    if not ticket.is_file():
+        raise SettingsError(f"the task {slug!r} came from no ticket")
+    if step not in TICKET_STEPS:
+        raise SettingsError(f"{step!r} is not a step{nearest(step, TICKET_STEPS)}")
+    file = directory / "ticket-steps.txt"
+    steps = file.read_text().split() if file.is_file() else []
+    if step in steps:
+        # the caller should have looked first: a step that is written down was done, and is not done again
+        raise SettingsError(f"the step {step!r} is already written down for {ticket.read_text().strip()}: it was done, do not do it again")
+    file.write_text("\n".join([*steps, step]) + "\n")
+    print(json.dumps({"slug": slug, "ticket": ticket.read_text().strip(), "steps": [*steps, step]}))
 
 
 def ask_of(directory: Path) -> str | None:
@@ -854,6 +890,8 @@ def read_tasks(root: Path) -> list[dict]:
             "ask": ask_of(directory),
             # the tracker's ticket the ask came from; a dropped task gives its ticket back
             "ticket": (directory / "ticket.txt").read_text().strip() or None if (directory / "ticket.txt").is_file() else None,
+            # what Lem did to that ticket so far (TICKET_STEPS)
+            "ticket_steps": (directory / "ticket-steps.txt").read_text().split() if (directory / "ticket-steps.txt").is_file() else [],
             # null when no block was written through `project.py state`: nobody can tell who acts next
             "status": first["status"] if known else None,
             "since": first["since"] if known else None,
@@ -905,6 +943,9 @@ def main() -> None:
     state.add_argument("status")
     state.add_argument("lines", nargs="+", metavar="LINE")
     commands.add_parser("tasks")
+    step = commands.add_parser("ticket-step")
+    step.add_argument("slug")
+    step.add_argument("step")
     log = commands.add_parser("log")
     log.add_argument("slug")
     log.add_argument("event")
@@ -940,6 +981,9 @@ def main() -> None:
             return
         if args.command == "log":
             cmd_log(root, args.slug, args.event, args.fields)
+            return
+        if args.command == "ticket-step":
+            cmd_ticket_step(root, args.slug, args.step)
             return
         if args.command == "state-dir":
             state_root(root).mkdir(exist_ok=True)

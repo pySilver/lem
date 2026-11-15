@@ -11,7 +11,8 @@ a lead is started, and what to do each time a lead stops.
    description, the link, the parent, the labels and the branch name the tracker gives. The
    ticket's words are then the ask. When the settings have no tracker, say that this project has
    none, and ask the owner for the ask in his words. When `project.py tasks` already lists a task
-   with this ticket, do not open a second one: say which task it is and where it stands.
+   with this ticket that is not `dropped`, do not open a second one: say which task it is and
+   where it stands.
 1. **The slug and the branch.** A slug of two to five plain words that say what the owner gets
    ("report-dates-stay-whole"), never a code. The branch is `<type>/<slug>` with a semantic type
    (`feat`, `fix`, `chore`, `docs`), unless the project's `AGENTS.md` gives its own scheme. Take
@@ -66,6 +67,15 @@ a lead is started, and what to do each time a lead stops.
 
 `/lem build <task>` is for a task whose state is `drafted` or `planned`: change its brief to
 `stop after the plan: no` and start its lead.
+
+## When a task is dropped
+
+The owner says that a task is not wanted, at any point before its landing. Write the state
+`dropped` with his reason in one line. Close the task's session when it has one, and remove its
+worktree the way the project does; the branch stays, because its commits are on no other branch
+(`land.py clean` does both and says so). For a task that came from a ticket, the tracker then
+says so on the ticket (its "drop") and changes no status: tell the owner which status the ticket
+has, since where it goes now is his call. Then look at the queue, as the last section says.
 
 ## Start a lead
 

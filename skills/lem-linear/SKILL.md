@@ -17,14 +17,26 @@ asks for that ticket in his own words.
 ## The settings
 
 `project.py show` prints `tracker`. When it is null, the project has no tracker: say so and stop.
+The one exception is "check" at onboarding, before the table is written: it takes the values the
+owner gave in the interview, and the table is written only after it passed.
 
 | Key | Meaning |
 | --- | --- |
 | `kind` | `linear` |
 | `server` | the name the Linear MCP server has in the agent (`docs/linear.md` of Lem's repository says how it is connected) |
+| `workspace` | the workspace, as its address has it: `acme` for `linear.app/acme` |
 | `team` | the key of the one team whose tickets this project takes, as in `MBZ-12` |
 | `moves` | who moves a ticket's status: `lem`, or `tracker` when Linear's own automation does it (its pull-request integration moves a ticket when a pull request opens, is reviewed and merges) |
 | `started`, `landed` | with `moves = "lem"`: the names of the two statuses a ticket gets, as that team spells them |
+
+Two workspaces may each have a team with the same key and a ticket with the same id, and a
+connection is signed in to one workspace. So every procedure below starts with the same test,
+and it is not repeated in their steps:
+
+> **The workspace test.** `whoami`. The workspace it returns has the address
+> `linear.app/WORKSPACE`, with the settings' `workspace`. When it has another, stop: this
+> connection belongs to another workspace, and nothing is read or written there. Say which
+> workspace it is.
 
 Status names are each team's own, and a status type does not name one status: one team had two
 statuses of the type `started` (seen on 2026-11-14). So the settings carry the two names, and
@@ -47,8 +59,8 @@ ticket of one team.
 
 Run it at onboarding, when the settings change, and when the owner asks.
 
-1. `whoami`. It returns the workspace, the user (`name`) and a `connection` with its `access`.
-   One connection is one workspace.
+1. The workspace test. `whoami` returns the workspace with its address, the user (`name`) and a
+   `connection` with its `access`.
 2. `get_team` with the settings' `team`: it takes a key. An answer means that this connection
    sees the team; it returns the team's `id`, `key` and `name`. No answer means that the
    connection is signed in to another workspace than the project's, or that the key is wrong:
@@ -64,9 +76,9 @@ Run it at onboarding, when the settings change, and when the owner asks.
 For an ask that is a ticket: an id (`MBZ-12`) or a `linear.app` URL, where the id is the part
 after `/issue/`.
 
-1. The id's letters before the hyphen are the settings' `team`. Check that before any call:
-   `get_issue` does not return the team's key. A ticket of another team is refused: this project
-   does not take it.
+1. The workspace test. Then the id's letters before the hyphen are the settings' `team`: check
+   that before `get_issue`, which does not return the team's key. A ticket of another team is
+   refused: this project does not take it. A URL of another workspace is refused the same way.
 2. `get_issue` with the id. Give back, for `stages/new.md`: the `id` (`MBZ-12`, never the
    `uuid`), the URL, the title, the description as written, the status (`status` is its name,
    `statusType` its type), the labels, and `gitBranchName` when the ticket gives one.
@@ -82,15 +94,28 @@ after `/issue/`.
 
 Reading writes nothing to Linear.
 
+## What was done to a ticket is written down
+
+`project.py tasks` gives, for a task that came from a ticket, `ticket` and `ticket_steps`: what
+Lem did to that ticket so far. Before a write, look there: a step that is listed was done, and
+it is never done again. After a write that the server took, write the step down at once:
+
+```bash
+python3 SKILL_DIR/scripts/project.py ticket-step SLUG started|commented|landed|dropped
+```
+
+`SKILL_DIR` is the `lem` skill's directory. So a comment is posted once also when a session was
+cut off after it, and a later session sees what a ticket is still owed.
+
 ## start
 
 When the task's lead starts (`stages/new.md`, "Start a lead"), and only with `moves = "lem"`.
 
-1. Before the first write of a session: `whoami`. The workspace is the one `check` found, and
-   the connection's `access` allows a write; a read-only connection stops here, and you say so.
+1. The workspace test, and the connection's `access` allows a write; a read-only connection
+   stops here, and you say so.
 2. `save_issue` on the ticket with the status the settings name as `started`. Nothing else: not
-   the assignee, not the labels, not the description.
-3. A ticket that is already in that status is left as it is.
+   the assignee, not the labels, not the description. A ticket that is already in that status
+   is left as it is. Then write the step `started` down.
 
 With `moves = "tracker"`, write nothing: Linear moves the ticket itself.
 
@@ -99,14 +124,27 @@ With `moves = "tracker"`, write nothing: Linear moves the ticket itself.
 After the task's state is `landed` (`stages/land.md`). With `branch.land = "owner"`, after the
 owner says that it landed, and not before.
 
-1. `save_comment` on the ticket, in plain words: what the owner gets, the landed range and the
-   base branch, the last line of each gate command, and the review item's risk. A decision Lem
-   took alone is written as Lem's ("decided without the owner: ..."), never as his.
-2. With `moves = "lem"`: `save_issue` with the status the settings name as `landed`.
-3. With `moves = "tracker"`: the comment only.
+1. The workspace test, and the connection's `access` allows a write.
+2. Unless `commented` is written down: `save_comment` on the ticket, in plain words: what the
+   owner gets, the landed range and the base branch, the last line of each gate command, and the
+   review item's risk. A decision Lem took alone is written as Lem's ("decided without the
+   owner: ..."), never as his. Then write the step `commented` down.
+3. With `moves = "lem"`, unless `landed` is written down: `save_issue` with the status the
+   settings name as `landed`. Then write the step `landed` down.
+4. With `moves = "tracker"`: the comment only.
 
-A task that is dropped gets one comment that says so, and no status change: where a ticket goes
-when its work is not done is the owner's call.
+A landed task's ticket is finished when its steps hold `commented`, and with `moves = "lem"`
+also `landed`. Until then the landing still owes the ticket this procedure.
+
+## drop
+
+When a task that came from a ticket is dropped (`stages/new.md`, "When a task is dropped").
+
+1. The workspace test, and the connection's `access` allows a write.
+2. Unless `dropped` is written down: `save_comment` that says the task was dropped, and why in
+   one line. Then write the step `dropped` down.
+3. No status change. Tell the owner which status the ticket has now: where a ticket goes when
+   its work is not done is his call, and he moves it.
 
 ## What this skill never does
 
