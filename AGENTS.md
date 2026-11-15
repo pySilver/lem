@@ -96,15 +96,24 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   profiles, lenses etc and be honest with Human what changes and why". So the learn stage writes
   a lens line, a profile line or a rejected finding there, and names each changed file, what
   changed and why. The cast and the profile are Lem's and move to `.lem`.
+- **The question page is a part of Lem, not a tool the machine has or lacks**: "it does not need
+  to mention that 'huddle' dependency is satisfied as it's an internal lem feature". The machine
+  check has no row for it and no page for the owner lists it; the setup reports its link.
 - **webrev is the recommended way to mark up a plan or a document**, before plannotator
   ("`/webrev` is awesome and needs to be recommended to use over plannotator"). plannotator-tui
   with its agterm chords is recommended to the owner by its guide; Lem installs nothing for it.
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
 
-Designs the starting session took on 2026-11-14 after a question of the owner's. They are open
-to him, and they are not his rulings until he says so:
+Designs the starting session took on 2026-11-14 and 2026-11-15 after a question of the owner's.
+They are open to him, and they are not his rulings until he says so:
 
+- **A developer may ask with a tool of their own**, after "We also need a way out, to let dev
+  avoid huddle if they prefer their own asker UI?": `tools.ask`, beside `tools.annotate` and
+  allowed in the machine's own file. Its values are Lem's page (the default), `terminal`, or the
+  name of a skill or a command. `TOOLS` in `project.py` is the one place that names Lem's own
+  tool for each role, so a new name for the page is one line there; he said that "`huddle` for me
+  means kinda nothing", and no new name is chosen.
 - **The reviewer's seat is a table**, after "should we or can we specify model and effort level
   of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `effort`, `plan_effort`.
 - **Lem brings its own builder agent**, after "it feels like we need to bring our own lem-worker

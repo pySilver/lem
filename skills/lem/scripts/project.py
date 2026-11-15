@@ -49,7 +49,8 @@ second command. `log` writes any other event: `key=value` stores a string and `k
 JSON, so a commit made only of digits stays a string and an exit code stays a number.
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
-reviewer's pane (the usual reviewer is down, or out of tokens) and which tool marks up a plan. It
+reviewer's pane (the usual reviewer is down, or out of tokens), which tool marks up a plan and
+which one puts a question to the owner. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]` and
 `[tools]` and nothing else: the gate, the careful paths, the protected branches and who lands are
@@ -82,6 +83,9 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
+# A role a developer may give to a tool of their own -> the tool Lem brings for it. The one place
+# that names each, so a new name for one of Lem's own is one line here.
+TOOLS = {"annotate": "lem-webrev", "ask": "lem-huddle"}
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
 # the tables one machine may set for itself
@@ -137,7 +141,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "gate": ("commands", "ignores"),
     "flow": ("careful", "max_tasks"),
     "seats": ("reviewer",),
-    "tools": ("annotate",),
+    "tools": tuple(TOOLS),
     "corrections": ("collect",),
     "tracker": ("kind", "server", "workspace", "team", "moves", "started", "landed"),
 }
@@ -218,9 +222,13 @@ collect = false
 # landed = "Done"
 
 [tools]
-# The skill or command the owner marks up a plan or a draft with. "lem-webrev" comes with Lem;
+# The skill or command the owner marks up a plan or a draft with. "{annotate}" comes with Lem;
 # name your own instead.
-annotate = "lem-webrev"
+annotate = "{annotate}"
+# How a question that asks the owner to choose or to approve reaches him. "{ask}" comes with
+# Lem and shows a page with the options side by side. "terminal" asks in the conversation, as a
+# numbered list. Or name a skill or a command of your own.
+ask = "{ask}"
 """
 
 
@@ -314,13 +322,13 @@ def seat(raw: dict, name: Path) -> dict | None:
     return {key: given.get(key) for key in SEAT}
 
 
-def annotate_of(raw: dict, name: Path) -> str | None:
-    """The tool one file names for marking up a plan, checked; None when the file names none."""
-    if "annotate" not in raw.get("tools", {}):
+def tool_of(raw: dict, name: Path, role: str) -> str | None:
+    """The tool one file names for a role, checked; None when the file names none."""
+    if role not in raw.get("tools", {}):
         return None
-    tool = raw["tools"]["annotate"]
+    tool = raw["tools"][role]
     if not isinstance(tool, str) or not tool.strip():
-        raise SettingsError(f'{name}: tools.annotate = {tool!r} must name a skill or a command in quotes, as in annotate = "lem-webrev"')
+        raise SettingsError(f'{name}: tools.{role} = {tool!r} must name a skill or a command in quotes, as in {role} = "{TOOLS[role]}"')
     return tool
 
 
@@ -353,11 +361,13 @@ def load(root: Path) -> dict:
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
     overridden = []
-    annotate = annotate_of(raw, SETTINGS) or "lem-webrev"
-    local_annotate = annotate_of(local, LOCAL)
-    if local_annotate is not None:
-        annotate = local_annotate
-        overridden.append("tools.annotate")
+    tools = {}
+    for role, own in TOOLS.items():
+        tools[role] = tool_of(raw, SETTINGS, role) or own
+        here = tool_of(local, LOCAL, role)
+        if here is not None:
+            tools[role] = here
+            overridden.append(f"tools.{role}")
 
     # A local seat replaces the project's whole: its model and effort belong to the project's agent.
     reviewer = seat(raw, SETTINGS) or {key: None for key in SEAT}
@@ -412,7 +422,7 @@ def load(root: Path) -> dict:
         },
         "flow": {"careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"), "max_tasks": max_tasks},
         "seats": {"reviewer": reviewer},
-        "tools": {"annotate": annotate},
+        "tools": tools,
         "corrections": {"collect": collect},
         "tracker": tracker,
         # what this machine set for itself, so a report can say that the reviewer is not the project's
@@ -489,7 +499,7 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
         lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
     agent = f'agent = "{reviewer}"' if reviewer else '# agent = "codex"'
-    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS))
+    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS, **TOOLS))
     # one machine's own settings are never committed
     ignore = file.parent / ".gitignore"
     known = ignore.read_text().splitlines() if ignore.is_file() else []
@@ -504,7 +514,8 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     local = read_settings(file, LOCAL, LOCAL_TABLES)
     # What the file already holds is checked before any of it is written again: a wrong value is
     # refused with its fix, and the file stays as the owner left it.
-    annotate_of(local, LOCAL)
+    for role in TOOLS:
+        tool_of(local, LOCAL, role)
     if words == ["default"]:
         local.get("seats", {}).pop("reviewer", None)
     else:

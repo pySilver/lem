@@ -147,7 +147,12 @@ fi
 settings '[branch]' 'base = "master"' 'protected = ["master"]'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a base branch that is also protected is refused as a contradiction"; else fail "protected base"; fi
 settings '[tools]' 'annotate = "my-own-rev"'
-if [ "$(project --repo "$OLD" show | field 'd["tools"]["annotate"]')" = "my-own-rev" ]; then pass "a project names its own tool for marking up a plan"; else fail "tools.annotate"; fi
+if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('my-own-rev', 'lem-huddle')" ]; then pass "a project names its own tool for marking up a plan, and questions keep Lem's page"; else fail "tools.annotate"; fi
+settings '[tools]' 'ask = "terminal"'
+if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('lem-webrev', 'terminal')" ]; then pass "a project takes its questions in the terminal, or names its own tool for them"; else fail "tools.ask"; fi
+settings '[tools]' 'ask = ""'
+err=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "tools.ask = '' must name a skill or a command in quotes, as in ask = \"lem-huddle\"" <<<"$err"; then pass "an empty tool for questions is refused with the fix"; else fail "tools.ask empty: $err"; fi
 settings 'not toml ['
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a settings file that does not parse is refused"; else fail "parse error"; fi
 
@@ -305,6 +310,12 @@ if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "\[gate\] is the
   pass "the machine's own file may not hold the gate or any other rule of the project"
 else
   fail "a gate in the local file: $err"
+fi
+printf '%s\n' '[tools]' 'ask = "my-asker"' > "$OLD/.lem/project.local.toml"
+if [ "$(project --repo "$OLD" show | field '(d["tools"]["ask"], d["tools"]["annotate"], d["local"]["overrides"])')" = "('my-asker', 'lem-webrev', ['tools.ask'])" ]; then
+  pass "one machine names its own tool for questions, and show says that the value is the machine's"
+else
+  fail "tools.ask in the local file: $(project --repo "$OLD" show 2>&1)"
 fi
 printf '%s\n' '[tools]' 'annotate = 42' > "$OLD/.lem/project.local.toml"
 err=$(project --repo "$OLD" reviewer claude 2>&1 || true)
@@ -495,9 +506,9 @@ else
   fail "doctor with the required set: $out"
 fi
 keyed=$(env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
-if [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
+if [ "$(field '[t["name"] for t in d["tools"] if "huddle" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
   && ! grep -q "sk-not-a-real-key" <<<"$keyed"; then
-  pass "the check says whether the key of the decision model is in the environment, and never prints it"
+  pass "the check has no row for the question page, which is a part of Lem; it says whether the key of the decision model is in the environment, and never prints it"
 else
   fail "doctor and the key: $keyed"
 fi
@@ -526,6 +537,12 @@ CORR=$PWD/skills/lem/scripts/corrections.py
 CQ=$WORK/corr
 git init -q -b main "$CQ" && commit "$CQ" start
 project --repo "$CQ" init --base main >/dev/null
+if grep -q '^annotate = "lem-webrev"$' "$CQ/.lem/project.toml" && grep -q '^ask = "lem-huddle"$' "$CQ/.lem/project.toml" \
+  && [ "$(project --repo "$CQ" show | field 'd["tools"]')" = "{'annotate': 'lem-webrev', 'ask': 'lem-huddle'}" ]; then
+  pass "a new settings file names Lem's own tool for marking up and for questions"
+else
+  fail "the tools of a new settings file: $(grep -n -A8 '^\[tools\]' "$CQ/.lem/project.toml")"
+fi
 mkdir -p "$WORK/jevbin"
 # a stand-in for jev: it answers with the probability in JEV_P, or fails as JEV_EXIT says
 # shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs

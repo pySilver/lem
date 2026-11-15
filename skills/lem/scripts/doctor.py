@@ -106,8 +106,6 @@ def main() -> None:
         tool("revmux", "required", "the review rounds over a landed range, with the project's lenses",
              "no review of a landed change; the skill refuses to queue what it cannot review", "revmux", ["--version"]),
         *agterm(),
-        tool("huddle", "optional", "a question to the owner as a page with the options side by side",
-             "the question is asked in the terminal; link skills/lem-huddle/bin/huddle into a directory on PATH", "huddle"),
         tool("plannotator", "optional", "another way to mark up a plan or a draft, for an owner who names it in tools.annotate",
              "nothing is lost: lem-webrev, which comes with Lem, is the recommended way and the default", "plannotator", ["--version"]),
         tool("plannotator-tui", "optional", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",

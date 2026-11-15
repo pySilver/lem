@@ -137,7 +137,7 @@ python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --exist
 Leave `--existing` out when step 2 found no older folder. Then edit `.lem/project.toml`: the
 gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, `history`,
 the protected branches, the `[tracker]` table when the project has one, the reviewer's `model`,
-`effort` and `plan_effort` when the owner named them, and `tools.annotate` when the owner marks up plans with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
+`effort` and `plan_effort` when the owner named them, and `tools.annotate` or `tools.ask` when the owner marks up plans or takes questions with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
 only means the gate runs again whenever the base moves.
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
 and say so in the handover.
@@ -182,8 +182,9 @@ It is not landed yet: the owner's read of the drafts is the review.
 root as an absolute path: every other path on the page is relative to it, and a page without it
 cannot be checked against any folder. Then what the machine has and lacks, what was linked and
 what was generated, each assumption taken from the code with its source, and the settings file.
-Say there that the project may bring a builder of its own, and how (the harness file,
-`spawn-builder`). When the owner said yes to the correction queue, the page names the command he
+The machine's part lists the tools the check lists and no part of Lem itself: the question page
+and the mark-up page come with Lem. Say there that the project may bring a builder of its own,
+and how (the harness file, `spawn-builder`). When the owner said yes to the correction queue, the page names the command he
 runs for its hook and nothing he has to edit.
 
 A list of file names is not a hand-over. Every generated file is a draft, and three are read
@@ -198,7 +199,9 @@ your last message end with the three replies you take, in these words:
   go through `stages/land.md`, which reads settings the base branch does not have yet. When the
   settings name gate commands, run them on the branch first and do not land on a red result; a
   new project names none, and its onboarding lands without them. Never hand him git commands to
-  type.
+  type. Open your answer with what you did ("Landed: `main` is at ..."). On the first onboarding
+  the answer to "land it" opened with "It is not a Lem task, so /lem land does not apply", and
+  the owner took it for a refusal of a landing that then happened (2026-11-15).
 - **change** and what: you edit, commit, and show the file again.
 - **drop**: you remove the branch and the onboarding's directory, and say what stays on the
   machine: the links of the setup, a scheduled job, the hook.

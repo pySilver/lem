@@ -132,6 +132,8 @@ There is one Lem for one repository. It is the session where you type `/lem`.
   do not type a command for that.
 - Three questions stay in the terminal: a value that you type, a go-ahead for a step, and a
   small fixed choice.
+- The page is a part of Lem. If you prefer a different tool for questions, name it in
+  `tools.ask`. The value `terminal` puts each question into the conversation as a numbered list.
 
 ## Where things are
 
@@ -324,6 +326,7 @@ The skills that Lem uses without a command from you:
 | `flow.max_tasks` | how many tasks build or land at one time |
 | `[seats.reviewer]` | the reviewer: `agent`, and optionally `model`, `effort` (for a diff) and `plan_effort` (for a plan) |
 | `tools.annotate` | the tool with which you mark a plan |
+| `tools.ask` | how a question comes to you: `lem-huddle` (the page of Lem, the default), `terminal`, or a skill or a command of yours |
 | `corrections.collect` | `true` keeps a queue of your corrections for `/lem retro`; the default is `false` |
 | `[tracker]` | optional: `kind` (`linear`), `server`, `workspace`, `team`, and `moves` (`lem` or `tracker`); with `moves = "lem"` also `started` and `landed` |
 

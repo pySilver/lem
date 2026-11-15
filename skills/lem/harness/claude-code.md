@@ -38,9 +38,24 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
 
 ## ask-owner
 
-The `lem-huddle` skill, for every question that asks the owner to choose or to approve: one page,
-each option with what the owner would see and what it costs. The owner never types `/lem huddle`;
-Lem opens the page. Three kinds of question stay in the terminal: a value the owner types (a name,
+What the settings' `tools.ask` names (`project.py show`), for every question that asks the owner
+to choose or to approve:
+
+- `lem-huddle`, unless the settings say otherwise: Lem's own page, each option with what the
+  owner would see and what it costs. The owner never types `/lem huddle`; Lem opens the page. It
+  is a part of Lem, not a tool of the machine: the machine check has no row for it, and no page
+  for the owner lists it as one. The setup links its `huddle` command for a home; where it is not
+  on `PATH` (Lem linked into one repository), run it by its path, `bin/huddle` in that skill's
+  folder.
+- `terminal`: the question in the conversation, as a numbered list with the recommended option
+  first.
+- any other name, the developer's own asker: a skill of that name when the session lists one,
+  otherwise a command of that name, given the path of a markdown file that holds the question.
+  What it prints is the answer.
+
+The question itself has one form whatever shows it: one concrete case, the options with what the
+owner would see for each, the recommended one with its reason, and the shortest way to answer.
+Three kinds of question stay in the terminal under every value: a value the owner types (a name,
 a path, a number), a bare go-ahead on a step just described, and a fixed, trivial choice that
 needs no context. The owner's global instructions say how a question is told; they outrank this
 file.
