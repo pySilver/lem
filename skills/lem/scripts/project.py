@@ -4,10 +4,11 @@
 Every project keeps its own settings in its repository: what the project is, its style guide, its
 personas, its review configuration, its lessons, the checks that gate a landing, and the paths
 whose change takes the careful flow. `.lem/project.toml` at the root of the checkout names
-them. A project that keeps some of these where an older tool already reads them (`.claude/rules`,
-`.personas`) may point at them there (`init --existing link`), so adopting the skill
-moves nothing, or start the skill's own layout beside them (`init --existing new`). Which of the
-two is the owner's choice, so `init` refuses to guess it.
+them. A project that keeps a cast or a profile where an older tool already reads them
+(`.personas`) may point at them there (`init --existing link`), so adopting the skill moves
+nothing, or start the skill's own layout beside them (`init --existing new`). Which of the two is
+the owner's choice, so `init` refuses to guess it. The rules an agent already loads by itself
+(`.claude/rules`) are no choice: they are the style guide, where they are.
 
     project.py show                 everything, resolved, as JSON
     project.py path NAME            one path, absolute
@@ -483,15 +484,18 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
     if not base:
         raise SettingsError("cannot tell the base branch (no origin/HEAD); pass --base NAME")
     older = older_folders(root)
-    if older and existing is None:
-        found = ", ".join(f"{name} in {path}" for name, path in older.items())
+    # The rules an agent already loads by itself are never a choice: they stay, and they are the
+    # style guide. Where the cast and the profile live is the owner's to say.
+    choice = {name: path for name, path in older.items() if name != "styleguide"}
+    if choice and existing is None:
+        found = ", ".join(f"{name} in {path}" for name, path in choice.items())
         raise SettingsError(
             f"this repository already keeps {found}; pass --existing link to point at them, "
             "or --existing new to start the skill's own layout",
         )
     lines = []
     for name, (default, _older) in PATHS.items():
-        chosen = older[name] if existing == "link" and name in older else default
+        chosen = older[name] if name in older and (name == "styleguide" or existing == "link") else default
         lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
     agent = f'agent = "{reviewer}"' if reviewer else '# agent = "codex"'
@@ -607,9 +611,23 @@ def rule_scope(file: Path, name: str) -> list[str] | None:
     A `paths:` that names no glob is refused: whether the file then covers every path or none is
     not for a script to guess.
     """
-    lines = file.read_text(encoding="utf-8", errors="replace").splitlines()
+    # utf-8-sig: a byte order mark before the first `---` must not turn a scoped rule into one for every path
+    lines = file.read_text(encoding="utf-8-sig", errors="replace").splitlines()
     if not lines or lines[0].strip() != "---":
         return None
+
+    def bare(text: str) -> str:
+        """The text without a YAML comment: a `#` at the start or after a space, outside quotes."""
+        quote = ""
+        for i, char in enumerate(text):
+            if quote:
+                quote = "" if char == quote else quote
+            elif char in "\"'":
+                quote = char
+            elif char == "#" and (i == 0 or text[i - 1].isspace()):
+                return text[:i].strip()
+        return text.strip()
+
     end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
     if end is None:
         return None
@@ -617,7 +635,7 @@ def rule_scope(file: Path, name: str) -> list[str] | None:
     at = next((i for i, line in enumerate(block) if re.match(r"paths\s*:", line)), None)
     if at is None:
         return None
-    rest = block[at].split(":", 1)[1].strip()
+    rest = bare(block[at].split(":", 1)[1])
     items: list[str] = []
     if rest.startswith("[") and rest.endswith("]"):
         level, last, quote = 0, 1, ""
@@ -641,7 +659,7 @@ def rule_scope(file: Path, name: str) -> list[str] | None:
                 continue
             item = re.match(r"\s*-\s+(.*)$", follow)
             if item:
-                items.append(item.group(1))
+                items.append(bare(item.group(1)))
             elif follow[:1].isspace():
                 raise SettingsError(f"{name}: a line under `paths:` is not a list item ({follow.strip()!r}); write each glob as `  - \"GLOB\"`")
             else:
@@ -658,14 +676,16 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
     root = Path(settings["root"]).resolve()
     changed = []
     for file in files:
-        relative = Path(file)
-        if relative.is_absolute():
-            if not relative.resolve().is_relative_to(root):
-                raise SettingsError(f"{file} is not inside {root}; name files of this repository")
-            relative = relative.resolve().relative_to(root)
-        changed.append(relative.as_posix().removeprefix("./"))
+        # One file has one answer, however it is named: `..` is folded and a folder that is a link
+        # is followed. The last name is kept as written, since the file may be a link or be gone.
+        full = Path(os.path.normpath(root / file))
+        full = Path(os.path.realpath(full.parent)) / full.name
+        if not full.is_relative_to(root) or full == root:
+            raise SettingsError(f"{file} is not inside {root}; name files of this repository")
+        changed.append(full.relative_to(root).as_posix())
     if commits:
-        listed = subprocess.run(["git", "-C", str(root), "diff", "--name-only", "-z", commits], capture_output=True, text=True, check=False)
+        # --no-renames: a file that moved counts under its old path and its new one, each with its rules
+        listed = subprocess.run(["git", "-C", str(root), "diff", "--name-only", "--no-renames", "-z", commits], capture_output=True, text=True, check=False)
         if listed.returncode != 0:
             raise SettingsError(f"git diff --name-only {commits} failed: {listed.stderr.strip()}")
         changed += [name for name in listed.stdout.split("\0") if name]
@@ -690,7 +710,10 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
         if globs is None:
             rules.append({"file": str(file), "scope": "every path"})
             continue
-        patterns = [(glob, glob_regex(one)) for glob in globs for one in braces(glob.removeprefix("./"))]
+        try:
+            patterns = [(glob, glob_regex(one)) for glob in globs for one in braces(glob.removeprefix("./"))]
+        except re.error as error:
+            raise SettingsError(f"{shown}: a glob of its `paths:` does not read as a pattern ({error}); correct it, most likely a `[` with no `]` or a range that runs backwards") from error
         covers = sorted({name for name in changed for _, pattern in patterns if pattern.fullmatch(name)})
         if covers:
             rules.append({"file": str(file), "scope": sorted({glob for glob, pattern in patterns if any(pattern.fullmatch(name) for name in changed)}), "covers": covers})

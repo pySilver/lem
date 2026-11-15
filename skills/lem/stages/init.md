@@ -121,10 +121,12 @@ For a repository that has code:
 - **The folders already here**, when `project.py existing` listed any: link them, so the older
   tools and this skill read one copy and nothing moves; or generate new profiles under
   `.lem/`, and leave the old folders for the owner to remove. Linking is what a project that
-  works today does. Its rules stay in the folder its agent loads by itself, for good: Lem reads
-  them there and gives the ones that cover a change to every builder and reviewer
-  (`project.py rules`), so no file of that folder moves. A cast and a profile that are linked can
-  move under `.lem` later by hand, with a `git mv` and their two lines in the settings.
+  works today does. That choice is about the cast and the profile only. The rules an agent
+  already loads by itself are not asked about: they stay in their folder, the settings name it
+  as the style guide whatever `--existing` says, and Lem gives the ones that cover a change to
+  every builder and reviewer (`project.py rules`). A move of those rules is the owner's
+  decision on another day, and no step here proposes it. A cast and a profile that are linked
+  can move under `.lem` later by hand, with a `git mv` and their two lines in the settings.
 
 Stop when you could predict the owner's answer to the next question. An answer of "whatever you
 think" is not an answer to the careful paths or to who lands: say what you will assume and ask
@@ -136,7 +138,7 @@ for a yes.
 python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --existing link    # or: --existing new
 ```
 
-Leave `--existing` out when step 2 found no older folder. Then edit `.lem/project.toml`: the
+Leave `--existing` out when step 2 found no cast and no profile of an older tool: a rules folder alone needs no choice. Then edit `.lem/project.toml`: the
 gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, `history`,
 the protected branches, the `[tracker]` table when the project has one, the reviewer's `model`,
 `effort` and `plan_effort` when the owner named them, and `tools.annotate` or `tools.ask` when the owner marks up plans or takes questions with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list

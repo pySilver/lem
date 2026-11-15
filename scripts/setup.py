@@ -25,8 +25,9 @@ path; one that merely ends at the same file by another route is the owner's, and
 leaves it.
 
 A skill of the clone that got a new name leaves a link behind with nothing at its end. A link in
-one of these folders that points into this clone and that the clone no longer asks for is such
-a leftover: a run that links, and `--remove`, take it away, and `--check` names it.
+one of these folders that points into this clone at a path that is not there any more is such a
+leftover: a run that links, and `--remove`, take it away, and `--check` names it. A link of the
+owner's own into the clone that still ends somewhere is his, and stays.
 
 Either every link is made or none: when one cannot be made, the ones this run made are taken
 away again, and the report says so. Every run prints the state of all the places as JSON, also a
@@ -219,7 +220,7 @@ def hide_from_git(rows: list[dict]) -> list[str]:
 
 
 def leftovers(rows: list[dict]) -> list[Path]:
-    """Links beside this clone's own that point into the clone and that it no longer asks for."""
+    """Links beside this clone's own that point into the clone at a path that is gone."""
     places = {Path(row["place"]) for row in rows}
     found = []
     for folder in sorted({Path(row["place"]).parent for row in rows if not row["state"].startswith("blocked")}):
@@ -231,7 +232,8 @@ def leftovers(rows: list[dict]) -> list[Path]:
             # as in `state`: the link's own first step has to name the clone's path
             hop = Path(os.readlink(entry))
             hop = hop if hop.is_absolute() else entry.parent / hop
-            if (Path(os.path.realpath(hop.parent)) / hop.name).is_relative_to(CLONE):
+            # only a dead one: a link of the owner's own into the clone that still works is his
+            if (Path(os.path.realpath(hop.parent)) / hop.name).is_relative_to(CLONE) and not entry.exists():
                 found.append(entry)
     return found
 

@@ -46,8 +46,8 @@ git init -q -b master "$OLD"
 mkdir -p "$OLD/.claude/rules" "$OLD/.revmux" "$OLD/.personas/cast" "$OLD/docs/plans"
 touch "$OLD/.personas/profile.md"
 err=$(project --repo "$OLD" init --base master 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" init --base master)" = 1 ] && grep -q "styleguide in .claude/rules" <<<"$err" && [ ! -e "$OLD/.lem" ]; then
-  pass "init refuses to choose between the folders already there and a new layout, and names them"
+if [ "$(status_of project --repo "$OLD" init --base master)" = 1 ] && grep -q "this repository already keeps profile in .personas/profile.md, personas in .personas/cast; pass" <<<"$err" && [ ! -e "$OLD/.lem" ]; then
+  pass "init refuses to choose between a cast and a profile already there and a new layout, and names them, not the rules, which are no choice"
 else
   fail "init without --existing: $err"
 fi
@@ -58,12 +58,20 @@ else
 fi
 NEWLAYOUT=$WORK/newlayout
 git init -q -b master "$NEWLAYOUT"
-mkdir -p "$NEWLAYOUT/.claude/rules"
+mkdir -p "$NEWLAYOUT/.claude/rules" "$NEWLAYOUT/.personas/cast"
 project --repo "$NEWLAYOUT" init --base master --existing new >/dev/null
-if [ "$(project --repo "$NEWLAYOUT" path styleguide)" = "$NEWLAYOUT/.lem/styleguide" ]; then
-  pass "init --existing new starts the skill's own layout beside the older folders"
+if [ "$(project --repo "$NEWLAYOUT" path styleguide)" = "$NEWLAYOUT/.claude/rules" ] && [ "$(project --repo "$NEWLAYOUT" path personas)" = "$NEWLAYOUT/.lem/personas" ]; then
+  pass "init --existing new starts the skill's own layout for the cast, and the rules an agent already loads stay the style guide"
 else
   fail "init --existing new"
+fi
+RULESONLY=$WORK/rulesonly
+git init -q -b master "$RULESONLY"
+mkdir -p "$RULESONLY/.claude/rules"
+if project --repo "$RULESONLY" init --base master >/dev/null && [ "$(project --repo "$RULESONLY" path styleguide)" = "$RULESONLY/.claude/rules" ]; then
+  pass "a repository with a rules folder and nothing else of an older tool needs no choice: its rules are the style guide"
+else
+  fail "init over a rules folder alone"
 fi
 project --repo "$OLD" init --base master --existing link >/dev/null
 out=$(project --repo "$OLD" show)
@@ -714,18 +722,21 @@ fi
 # A skill of the clone that got a new name: its old link has nothing at its end, and the next run takes it away.
 ln -s "$PWD/skills/lem-old-name" "$SETHOME/.claude/skills/lem-old-name" && ln -s "$PWD/skills/lem-ask/bin/old-name" "$SETHOME/.local/bin/old-name"
 ln -s "$WORK/elsewhere" "$SETHOME/.claude/skills/not-lems"
+# the owner's own links into the clone, which still end somewhere: an alias for a skill, a command for a script
+ln -s "$PWD/skills/lem-ask" "$SETHOME/.claude/skills/my-ask" && ln -s "$PWD/skills/lem/scripts/project.py" "$SETHOME/.local/bin/lem-project"
 check=$(setup --check 2>/dev/null || true)
 code=$(status_of setup --check)
 if [ -L "$SETHOME/.claude/skills/lem-old-name" ]; then code="$code still-there"; fi
 out=$(setup)
 if [ "$code" = "1 still-there" ] && [ "$(field '(d["linked"], sorted(l["state"] for l in d["leftovers"]))' <<<"$check")" = "(False, ['leftover', 'leftover'])" ] \
   && [ "$(field '(d["linked"], sorted(l["state"] for l in d["leftovers"]))' <<<"$out")" = "(True, ['removed', 'removed'])" ] \
-  && [ ! -L "$SETHOME/.claude/skills/lem-old-name" ] && [ ! -L "$SETHOME/.local/bin/old-name" ] && [ -L "$SETHOME/.claude/skills/not-lems" ] && [ "$(status_of setup --check)" = 0 ]; then
-  pass "a link into the clone that the clone no longer asks for is named by --check and removed by the next run, and a link to another place stays"
+  && [ ! -L "$SETHOME/.claude/skills/lem-old-name" ] && [ ! -L "$SETHOME/.local/bin/old-name" ] && [ -L "$SETHOME/.claude/skills/not-lems" ] \
+  && [ -L "$SETHOME/.claude/skills/my-ask" ] && [ -L "$SETHOME/.local/bin/lem-project" ] && [ "$(status_of setup --check)" = 0 ]; then
+  pass "a link into the clone with nothing at its end is named by --check and removed by the next run; a link to another place and the owner's own live links into the clone stay"
 else
   fail "setup with leftover links: $check / $out"
 fi
-rm "$SETHOME/.claude/skills/not-lems"
+rm "$SETHOME/.claude/skills/not-lems" "$SETHOME/.claude/skills/my-ask" "$SETHOME/.local/bin/lem-project"
 # A link that only ends at the same file by another route is the owner's: a small stand-in clone whose
 # agent file is itself a link shows it, and --remove leaves the owner's link alone.
 TWIN=$WORK/twin
@@ -990,7 +1001,8 @@ printf '%s\n' '---' 'paths:' "  - 'src/components/*.tsx'" '---' > "$RUL/.claude/
 printf '%s\n' '---' 'paths:' '  # the three lines of the documentation' '  - "src/**/*.{ts,tsx}"' '  - "lib/**/*.ts"' '  - "tests/**/*.test.ts"' 'description: after the list' '---' > "$RUL/.claude/rules/14-braces.md"
 printf '%s\n' '---' 'paths: ["**/models.py", "**/models/**", ".revmux/**", "docs/{a,b}/*.md"]' '---' > "$RUL/.claude/rules/backend/20-models.md"
 printf '%s\n' '---' 'paths: scripts/verify.sh' '---' > "$RUL/.claude/rules/backend/21-one-file.md"
-printf '%s\n' '---' 'paths:' '  - "**/*.sql"' '---' > "$WORK/shared-rules/30-sql.md"
+printf '%s\n' '---' 'paths: # what follows is the scope' '  - "**/*.sql" # every query' "  - '**/*#*.psql'" '---' > "$WORK/shared-rules/30-sql.md"
+{ printf '\357\273\277'; printf '%s\n' '---' 'paths: ["**/*.proto"]  # with a byte order mark before the first line' '---'; } > "$RUL/.claude/rules/15-bom.md"
 ln -s "$WORK/shared-rules" "$RUL/.claude/rules/shared" && ln -s .. "$RUL/.claude/rules/backend/loop"
 echo 'not a rule' > "$RUL/.claude/rules/notes.txt"
 project --repo "$RUL" init --base main --existing link >/dev/null
@@ -998,15 +1010,15 @@ git -C "$RUL" add -A && git -C "$RUL" commit -q -m "chore: start"
 picked() { project --repo "$RUL" rules "$@" | field '" ".join(r["file"].rsplit("/", 1)[1][:2] for r in d["rules"])'; }
 got=""
 for file in src/api/v1/x.ts src/x.ts x.ts README.md docs/README.md src/components/a.tsx src/components/deep/a.tsx src/components/a.css lib/a.ts lib/a.tsx tests/unit/a.test.ts tests/a.ts \
-  models.py app/models.py app/models/user/x.py app/models.pyc .revmux/lenses/a.md scripts/verify.sh scripts/other.sh docs/a/x.md docs/c/x.md db/001.sql Makefile; do
+  models.py app/models.py app/models/user/x.py app/models.pyc .revmux/lenses/a.md scripts/verify.sh scripts/other.sh docs/a/x.md docs/c/x.md db/001.sql 'db/a#b.psql' api/v1.proto lib/../src/x.ts Makefile; do
   got="$got$file=$(picked "$file");"
 done
 want="src/api/v1/x.ts=00 01 10 11 14;src/x.ts=00 01 10 11 14;x.ts=00 01 10;README.md=00 01 12;docs/README.md=00 01;src/components/a.tsx=00 01 11 13 14;src/components/deep/a.tsx=00 01 11 14;"
 want="${want}src/components/a.css=00 01 11;lib/a.ts=00 01 10 14;lib/a.tsx=00 01;tests/unit/a.test.ts=00 01 10 14;tests/a.ts=00 01 10;"
 want="${want}models.py=00 01 20;app/models.py=00 01 20;app/models/user/x.py=00 01 20;app/models.pyc=00 01;.revmux/lenses/a.md=00 01 20;scripts/verify.sh=00 01 21;scripts/other.sh=00 01;"
-want="${want}docs/a/x.md=00 01 20;docs/c/x.md=00 01;db/001.sql=00 01 30;Makefile=00 01;"
+want="${want}docs/a/x.md=00 01 20;docs/c/x.md=00 01;db/001.sql=00 01 30;db/a#b.psql=00 01 30;api/v1.proto=00 01 15;lib/../src/x.ts=00 01 10 11 14;Makefile=00 01;"
 if [ "$got" = "$want" ]; then
-  pass "the rule picker matches the glob forms the agent's documentation gives for paths: a star stays in one folder, two stars cross folders, braces list endings, and a file with no scope covers every path"
+  pass "the rule picker matches the glob forms the agent's documentation gives for paths: a star stays in one folder, two stars cross folders, braces list endings, a file with no scope covers every path, and a comment or a byte order mark in the frontmatter changes nothing"
 else
   fail "the rule picker: $(tr ';' '\n' <<<"$got" | diff - <(tr ';' '\n' <<<"$want"))"
 fi
@@ -1025,20 +1037,39 @@ if [ "$(project --repo "$RUL" rules --range HEAD~1..HEAD | field '(d["files"], [
 else
   fail "the picker with a range: $(project --repo "$RUL" rules --range HEAD~1..HEAD)"
 fi
+# A file that moved counts on both sides, and one file has one answer however it is named.
+mkdir -p "$RUL/src" "$RUL/lib" && echo 'export const a = 1' > "$RUL/src/x.ts" && git -C "$RUL" add -A && git -C "$RUL" commit -q -m "feat: a module"
+git -C "$RUL" mv src/x.ts lib/x.ts && git -C "$RUL" commit -q -m "refactor: the module moves"
+ln -s src "$RUL/alias"
+if [ "$(project --repo "$RUL" rules --range HEAD~1..HEAD | field '(d["files"], [r["file"].rsplit("/", 1)[1][:2] for r in d["rules"]])')" = "(['lib/x.ts', 'src/x.ts'], ['00', '01', '10', '11', '14'])" ] \
+  && [ "$(picked alias/y.ts)" = "$(picked "$RUL/src/y.ts")" ] && [ "$(picked alias/y.ts)" = "00 01 10 11 14" ] && [ "$(project --repo "$RUL" rules alias/y.ts | field 'd["files"]')" = "['src/y.ts']" ] \
+  && [ "$(status_of project --repo "$RUL" rules ../elsewhere.py)" = 1 ]; then
+  pass "a renamed file brings the rules of its old place and of its new one, a path through a linked folder or with two dots is the same file, and one that leaves the repository is refused"
+else
+  fail "the picker with a rename and other path forms: $(project --repo "$RUL" rules --range HEAD~1..HEAD) / $(picked alias/y.ts)"
+fi
+rm "$RUL/alias"
 err=$(project --repo "$RUL" rules 2>&1 || true)
 outside=$(project --repo "$RUL" rules "$WORK/elsewhere.py" 2>&1 || true)
 printf '%s\n' '---' 'paths:' '---' 'A scope with nothing in it.' > "$RUL/.claude/rules/40-empty.md"
 empty=$(project --repo "$RUL" rules x.ts 2>&1 || true)
 printf '%s\n' '---' 'paths:' '  glob: "src/**"' '---' > "$RUL/.claude/rules/40-empty.md"
 shape=$(project --repo "$RUL" rules x.ts 2>&1 || true)
+printf '%s\n' '---' 'paths: ["src/[z-a].ts"]' '---' > "$RUL/.claude/rules/40-empty.md"
+glob=$(project --repo "$RUL" rules x.ts 2>&1 || true)
 code="$(status_of project --repo "$RUL" rules) $(status_of project --repo "$RUL" rules "$WORK/elsewhere.py") $(status_of project --repo "$RUL" rules x.ts)"
+printf '%s\n' '---' 'paths: ["src/[!].ts"]' '---' > "$RUL/.claude/rules/40-empty.md"
+code="$code $(status_of project --repo "$RUL" rules x.ts)"
+printf '%s\n' '---' 'paths: ["a{b", "c}", "[", "src/**/", "d**e/*.x"]' '---' > "$RUL/.claude/rules/40-empty.md"
+odd=$(project --repo "$RUL" rules 'dxe/f.x' 'a{b' 'src/x.ts' | field '[r.get("covers") for r in d["rules"] if r["file"].endswith("40-empty.md")]')
 rm "$RUL/.claude/rules/40-empty.md"
-if [ "$code" = "1 1 1" ] && grep -q "name them, or pass --range BASE..TIP" <<<"$err" && grep -q "is not inside $RUL" <<<"$outside" \
+if [ "$code" = "1 1 1 1" ] && grep -q "name them, or pass --range BASE..TIP" <<<"$err" && grep -q "is not inside $RUL" <<<"$outside" \
   && grep -q ".claude/rules/40-empty.md: its .paths:. names no glob" <<<"$empty" && grep -q "or take the line out so the file covers every path" <<<"$empty" \
-  && grep -q "a line under .paths:. is not a list item" <<<"$shape"; then
-  pass "the picker refuses a call with no file, a file of another folder, and a rule whose paths name no glob or are no list, each with the fix"
+  && grep -q "a line under .paths:. is not a list item" <<<"$shape" \
+  && grep -q ".claude/rules/40-empty.md: a glob of its .paths:. does not read as a pattern" <<<"$glob" && ! grep -q Traceback <<<"$glob" && [ "$odd" = "[['a{b', 'dxe/f.x']]" ]; then
+  pass "the picker refuses a call with no file, a file of another folder, and a rule whose paths name no glob, are no list or hold a pattern that does not read, each with the fix; an odd glob that reads matches as written"
 else
-  fail "the picker's refusals: $code / $err / $outside / $empty / $shape"
+  fail "the picker's refusals: $code / $err / $outside / $empty / $shape / $glob / $odd"
 fi
 # The skill's own layout is read the same way, and a project with no style guide yet gets an empty answer, not an error.
 FRESH=$WORK/rules-fresh
