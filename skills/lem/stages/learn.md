@@ -39,8 +39,9 @@ read whole.
 ## retro
 
 `/lem retro` reads what the sessions did since the last retro: each task's `decisions.md`, the
-"not verified" and "outside defects" lines of each `report.md`, the review queue's outcomes, and the owner's
-corrections where the project records them. It looks for what came back:
+"not verified" and "outside defects" lines of each `report.md`, the review queue's outcomes, and
+the owner's corrections, from the project's correction queue when it keeps one (below). It looks
+for what came back:
 
 - a correction the owner gave more than once: the record it had did not reach the step; move it
   with step 2 above, and put the move to the owner;
@@ -53,3 +54,50 @@ corrections where the project records them. It looks for what came back:
 
 The owner sees only moves and removals, on one page, each with the case in their own words.
 First-time lessons are recorded without a page.
+
+## The correction queue
+
+An optional part. A session that is corrected does not always record it, and a correction that
+is given again is what a retro is for. So a project may keep a queue: a hook asks a small
+decision model about each message the owner types, and queues the ones an agent should learn a
+lesson from. The project's settings turn it on (`corrections.collect`), and `stages/init.md` says
+how the owner agrees to it. `project.py show` says whether it is on. When it is off, skip this
+section.
+
+```bash
+python3 SKILL_DIR/scripts/corrections.py list      # unreviewed groups, most sessions first
+python3 SKILL_DIR/scripts/corrections.py show ID   # one group in full
+python3 SKILL_DIR/scripts/corrections.py lessons   # what earlier retros recorded
+```
+
+1. **Failures first.** `list` gives `failures`: messages the hook could not judge (no key, no
+   `jev`, a failed request). Say the count and the newest error before anything else.
+2. **A group** is every unreviewed entry with the same words of the owner, so one sentence sent
+   to eight sessions is one item with its count. The small model is a loose filter on purpose:
+   about three of four of its flags were not lessons in the sample its threshold comes from
+   (`corrections.py` gives the numbers). You decide each group, from the owner's words and the
+   agent message they answer:
+   - **not a lesson**: the reply moved the work on and teaches nothing for later. Record it.
+   - **a lesson, the first time**: say it in one sentence an agent could follow next time. When a
+     file already says it, there is no edit. Otherwise put it in the file that owns the step, as
+     step 2 of "learn" says, with the lessons file as the last choice. Nobody is asked.
+   - **a lesson that came back**: the same lesson in two or more sessions or on two or more days,
+     in this run's groups or in `lessons`, or one that a file already held when the owner had to
+     say it again. Name the record that did not hold and why it did not reach the step: never
+     read, read and buried, or contradicted by the text the step itself loads. Draft the move, and
+     put it to the owner as the retro does.
+3. **Record every group**, also the ones nobody was asked about:
+
+   ```bash
+   python3 SKILL_DIR/scripts/corrections.py record ID --decision lesson --verdict accepted \
+       --target PATH --lesson "the sentence"
+   ```
+
+   `--verdict` is the owner's answer to a move (`accepted`, `changed`, `rejected`), `missed` when
+   the owner says that a "not a lesson" entry was one, or `unasked` for a group nothing was asked
+   about. `--target` is the file the lesson went to, or the one that already held it.
+4. **End with the counts**: groups read, lessons and how many of them came back, edits made and
+   where, and the filter's precision in this run: lessons over flagged entries.
+
+The hook sees only what the owner types as a message. An answer the owner gives on a page never
+reaches the queue.

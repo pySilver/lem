@@ -223,6 +223,28 @@ A document the owner should mark up (a plan, a draft profile) goes through the s
 `tools.annotate`: a skill of that name when the session lists one (`lem-webrev` by default), otherwise
 a command of that name given the file's path.
 
+## The correction hook
+
+For a project that keeps a correction queue (`stages/learn.md`). One hook for the machine: it
+exits at once in every repository whose settings do not say `corrections.collect = true`. The
+owner adds it to his own `~/.claude/settings.json`, with `SKILL_DIR` as an absolute path:
+
+```json
+{"hooks": {"UserPromptSubmit": [{"hooks": [
+  {"type": "command", "command": "python3 SKILL_DIR/scripts/corrections.py hook", "timeout": 10}
+]}]}}
+```
+
+- It needs Python 3.11 or newer as `python3`, and the `jev` command on the hook's `PATH`; where
+  it is not, the command starts with `LEM_JEV=/path/to/jev`.
+- It prints nothing and never delays a message. What fails goes to `corrections.log` in Lem's
+  folder of the git directory, and `corrections.py list` counts it.
+- You do not register it. A hook that sends the owner's messages to an outside service is his to
+  add, and Claude Code's classifier refuses the step to an agent (the next section).
+
+Not run yet: the hook as a registered hook of a real session. Its two halves are tested with a
+stand-in for `jev`.
+
 ## What the owner does himself
 
 Some steps are not an agent's, with or without the owner's yes in the conversation.

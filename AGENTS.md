@@ -112,7 +112,9 @@ real task, so say in the commit which task showed the need.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `project.py` (a repository's settings, task state and the event log),
   `doctor.py` (the machine), `review_queue.py` (landed changes that wait for a review),
-  `board.py` (opens the board), `land.py` (the landing, one refusable step at a time).
+  `board.py` (opens the board), `land.py` (the landing, one refusable step at a time),
+  `corrections.py` (the optional queue of the owner's corrections: its hook, and what a retro
+  reads).
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both.
 - `skills/lem/templates/`: the shapes onboarding fills.
 - `skills/lem/prompts/`: the standing briefs of a task's lead, of the three builders of a

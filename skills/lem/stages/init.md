@@ -18,7 +18,11 @@ skill does without it (the row's `without_it`), and go on. Two cases need a sent
 cronn is installed and not running, cronn is absent, and jev is absent. Recommend jev and use it
 only when the owner agrees: with it, every project that uses Lem keeps a queue of the owner's
 corrections for the retro; without it, a correction is learned in the session it was given in
-and nowhere else. For an absent cronn, offer to install
+and nowhere else. Tell the owner what he agrees to, in these words or closer ones: each message
+he types in this repository, with the agent message it answers, goes to the Jev decision model
+through the `jev` command, and the ones that may hold a lesson are kept in a file that is never
+committed. On his yes, set `corrections.collect = true` in step 4, and give him the hook to
+register himself: the harness file has the lines, and says why the step is his. For an absent cronn, offer to install
 it through the `cronn` skill when that skill is there: its installer adds a Homebrew formula and
 an agent that starts at login, so it runs only on the owner's yes. The owner may have to run it
 himself: the harness file says which steps an agent is refused, and then you give him the

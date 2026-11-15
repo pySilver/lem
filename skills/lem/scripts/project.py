@@ -134,6 +134,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "flow": ("careful", "max_tasks"),
     "seats": ("reviewer",),
     "tools": ("annotate",),
+    "corrections": ("collect",),
 }
 
 TEMPLATE = """\
@@ -177,6 +178,13 @@ max_tasks = {max_tasks}
 # model = ""
 # effort = ""        # for the review of a diff
 # plan_effort = ""   # for the read of a careful plan
+
+[corrections]
+# Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
+# message the owner types, with the agent message it answers, to the Jev decision model through
+# the `jev` command. That is the owner's choice, so it is false until he says yes, and he
+# registers the hook himself (`/lem init` gives him the lines).
+collect = false
 
 [tools]
 # The skill or command the owner marks up a plan or a draft with. "lem-webrev" comes with Lem;
@@ -326,6 +334,9 @@ def load(root: Path) -> dict:
     if local_seat is not None:
         reviewer = local_seat
         overridden.append("seats.reviewer")
+    collect = raw.get("corrections", {}).get("collect", False)
+    if not isinstance(collect, bool):
+        raise SettingsError(f"{SETTINGS}: corrections.collect = {collect!r} must be true or false")
     max_tasks = raw.get("flow", {}).get("max_tasks", MAX_TASKS)
     # a bool is an int in Python, and `max_tasks = true` is a mistake, not the number 1
     if isinstance(max_tasks, bool) or not isinstance(max_tasks, int) or max_tasks < 1:
@@ -345,6 +356,7 @@ def load(root: Path) -> dict:
         "flow": {"careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"), "max_tasks": max_tasks},
         "seats": {"reviewer": reviewer},
         "tools": {"annotate": annotate},
+        "corrections": {"collect": collect},
         # what this machine set for itself, so a report can say that the reviewer is not the project's
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
     }

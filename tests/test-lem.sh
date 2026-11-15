@@ -433,6 +433,75 @@ if "$PY" -c 'import sys; t = open(sys.argv[1]).read().split("---"); f = dict(l.s
 else
   fail "agents/lem-builder.md frontmatter"
 fi
+# The correction queue: off unless the project's settings say yes, filled by the hook, read by the retro.
+CORR=$PWD/skills/lem/scripts/corrections.py
+CQ=$WORK/corr
+git init -q -b main "$CQ" && commit "$CQ" start
+project --repo "$CQ" init --base main >/dev/null
+mkdir -p "$WORK/jevbin"
+# a stand-in for jev: it answers with the probability in JEV_P, or fails as JEV_EXIT says
+# shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs
+printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'if [ -n "$JEV_EXIT" ]; then echo "no key" >&2; exit "$JEV_EXIT"; fi' \
+  'printf "{\"answers\": {\"lesson\": {\"probabilities\": {\"lesson\": %s}}}}" "$JEV_P"' > "$WORK/jevbin/jev"
+chmod +x "$WORK/jevbin/jev"
+printf '%s\n' '{"type": "user", "message": {"content": "hi"}}' '{"type": "assistant", "message": {"content": [{"type": "text", "text": "I pushed it."}]}}' > "$WORK/transcript.jsonl"
+event() { printf '{"prompt": "%s", "cwd": "%s", "session_id": "%s", "transcript_path": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl"; }
+hook() { env PATH="$WORK/jevbin:$PATH" JEV_P="${JEV_P:-0.9}" JEV_EXIT="${JEV_EXIT:-}" "$PY" -B "$CORR" "$1"; }
+worker() { printf '{"prompt": "%s", "cwd": "%s", "session": "%s", "transcript": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl" | hook worker; }
+corr() { "$PY" -B "$CORR" --repo "$CQ" "$@"; }
+if [ "$(project --repo "$CQ" show | field 'd["corrections"]["collect"]')" = False ] && grep -q '^collect = false$' "$CQ/.lem/project.toml"; then
+  pass "a new project does not collect corrections, and its settings file says where to turn that on"
+else
+  fail "corrections.collect default"
+fi
+event "never push without asking" s1 | hook hook
+sleep 1
+if [ ! -e "$CQ/.git/lem/corrections.jsonl" ] && [ "$(corr list | field '(d["collect"], d["entries"])')" = "(False, 0)" ]; then
+  pass "the hook does nothing in a repository whose settings do not say yes"
+else
+  fail "the hook ran without the project's yes"
+fi
+sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
+out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$CQ/.git/lem/corrections.jsonl" ] && break; sleep 0.3; done
+if [ "$out" = "exit=0" ] && [ "$("$PY" -c 'import json, sys; e = json.loads(open(sys.argv[1]).readline()); print(e["owner"], "|", e["previous"], "|", e["p_lesson"], "|", e["session"])' "$CQ/.git/lem/corrections.jsonl")" = "never push without asking | I pushed it. | 0.9 | s1" ]; then
+  pass "with the project's yes the hook prints nothing, and its detached half queues the owner's words with the agent message they answer"
+else
+  fail "the hook: $out / $(cat "$CQ/.git/lem/corrections.jsonl" 2>&1)"
+fi
+worker "never  push without asking" s2
+JEV_P=0.1 worker "ok go on" s3
+event "/lem status" s4 | hook hook
+event "[peer chat] a message from the other pane" s5 | hook hook
+JEV_EXIT=3 worker "a very long message" s6
+JEV_EXIT=1 worker "no key here" s7
+env PATH="$BIN" "$PY" -B "$CORR" worker <<<"$(printf '{"prompt": "no jev at all", "cwd": "%s", "session": "s8", "transcript": ""}' "$CQ")"
+sleep 1
+out=$(corr list)
+if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) for g in d["groups"]], d["failures"]["count"])' <<<"$out")" = "(3, [(2, 2, 0.9), (1, 1, None)], 2)" ] \
+  && grep -q "no key" "$CQ/.git/lem/corrections.log" && grep -q "no .jev. on PATH" "$CQ/.git/lem/corrections.log"; then
+  pass "one sentence from two sessions is one group; a low score, a command and injected text queue nothing; a message too long for Jev is queued unjudged; each failure is in the log and counted"
+else
+  fail "the queue: $out / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
+fi
+gid=$(field 'd["groups"][0]["id"]' <<<"$out")
+if [ "$(status_of corr record "$gid" --decision lesson --verdict unasked)" = 1 ] && [ "$(status_of corr record nope --decision not_lesson --verdict unasked)" = 1 ] \
+  && [ "$(corr show "$gid" | field 'len(d)')" = 2 ]; then
+  pass "a lesson without its sentence and an unknown group are refused, and show gives every entry of a group"
+else
+  fail "record refusals"
+fi
+corr record "$gid" --decision lesson --verdict accepted --target skills/lem/stages/land.md --lesson "Never push to a branch the settings do not name." >/dev/null
+if [ "$(corr list | field '(d["entries"], len(d["groups"]))')" = "(1, 1)" ] \
+  && [ "$(corr lessons | field '[(r["lesson"], r["target"], r["verdict"], r["entries"]) for r in d]')" = "[('Never push to a branch the settings do not name.', 'skills/lem/stages/land.md', 'accepted', 2)]" ]; then
+  pass "a recorded group leaves the list, and lessons gives its sentence, its target and how many entries it stood for"
+else
+  fail "record and lessons: $(corr lessons)"
+fi
+settings_file=$CQ/.lem/project.toml
+sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settings_file.bak"
+if [ "$(status_of project --repo "$CQ" show)" = 1 ]; then pass "a collect value that is not true or false is refused"; else fail "collect type"; fi
+
 # The setup script: links from the clone into a home, never over something else, and the machine check after them.
 SETUP=$PWD/scripts/setup.py
 SETHOME=$WORK/sethome
