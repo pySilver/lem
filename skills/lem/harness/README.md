@@ -27,7 +27,7 @@ And three roles a stage names instead of a skill id, because the id differs per 
 | the tracker | reads a ticket into a task, moves it when its work starts and lands where the project's settings say Lem does, and comments the landing |
 
 A stage may name a skill this repository ships by its id, which is the same in every agent:
-`lem-interview-me`, `lem-huddle`, `lem-webrev`, `lem-backlog`, `lem-dialectic`, `lem-root-cause`,
+`lem-interview-me`, `lem-ask`, `lem-webrev`, `lem-backlog`, `lem-dialectic`, `lem-root-cause`,
 `lem-release`, `lem-last-tag`, `lem-pr-review`, `lem-gate`, `lem-panel`, `lem-linear`. Each id starts with
 `lem-`, so it cannot collide with another skill in an agent that keeps all skills in one flat list.
 

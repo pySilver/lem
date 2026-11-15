@@ -90,9 +90,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## huddle
+## lem-ask
 
-`skills/lem-huddle/` is adapted from the `huddle` plugin in
+`skills/lem-ask/` is adapted from the `huddle` plugin in
 [skkap/claude-skills](https://github.com/skkap/claude-skills), as of commit
 `29d6db7` (huddle 1.0.0).
 
@@ -104,13 +104,15 @@ loop with `huddle wait` resume, the sidebar status glyph, the browser
 fallback, `~/.config/huddle/defaults.json`, and the ten templates and five
 demos.
 
-Changes made: the launcher moved from `skills/lem-huddle/scripts/huddle.py` to the
-plugin's `bin/huddle`, so it is a bare command on the Bash tool's `PATH` and
-`allowed-tools: Bash(huddle *)` pre-authorizes it; it refuses to open a page
+Changes made: the skill, its command and its runtime files have new names (`lem-ask`,
+`bin/lem-ask`, `ask.js`, `ask.css`), and its personal defaults moved to
+`~/.config/lem-ask/defaults.json` (`LEM_ASK_CONFIG`); the launcher moved from the skill's
+`scripts/huddle.py` to `bin/lem-ask`, so it is a bare command on the Bash tool's `PATH` and
+`allowed-tools: Bash(lem-ask *)` pre-authorizes it; it refuses to open a page
 in an unattended run (`CLAUDE_CODE_SESSION_ATTENDED=0`); outside agterm the
 browser fallback is opt-in (`--browser` or `"browser": true` in the user's
 defaults) instead of automatic, and `HUDDLE_NO_BROWSER` is gone; an occupied overlay
-slot is its own exit (5, `busy`), naming the page when it is a huddle page; `huddle wait` fails at once on an agterm
+slot is its own exit (5, `busy`), naming the page when it is a question page; `lem-ask wait` fails at once on an agterm
 error instead of reporting `pending` after the full timeout; a malformed spec
 gets the JSON error contract instead of a traceback; the downloaded mermaid
 bundle is checked against a pinned sha256; `code`, `diff`, `md` and `mermaid`
@@ -118,7 +120,7 @@ blocks can read their text from a file, with line numbers for code and a
 300-line cap on a whole file; a `q`
 option takes a third `|why` field; `api.select` on a single-choice question
 replaces the selection instead of adding to it; a Stop hook re-posts the asking
-glyph when a turn ends with a huddle page still open, and a timed-out question
+glyph when a turn ends with a question page still open, and a timed-out question
 posts its glyph with `--auto-reset`; a question's `context` renders like its `body`, keys the page does not read
 are rejected, and options labeled only by position are refused; the skill's description and
 "when to ask" rules were rewritten to defer to the user's own instructions and
@@ -194,7 +196,7 @@ SOFTWARE.
 `skills/lem-webrev/assets/` holds markdown-it 14.1.0 and highlight.js 11.11.1, each with its license
 file beside it.
 
-## gate, panel, huddle, backlog, interview-me and jev
+## gate, panel, lem-ask, backlog, interview-me and jev
 
 `skills/lem/scripts/jev.py` is the `jev` command of that repository's `jev` plugin, as of
 2026-11-15, with two lines added to its description.

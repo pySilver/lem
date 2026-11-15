@@ -16,4 +16,4 @@ jobs:
         run: |
           bash tests/test-lem.sh
           bash tests/test-gate-panel.sh
-          bash tests/test-huddle.sh
+          bash tests/test-ask.sh

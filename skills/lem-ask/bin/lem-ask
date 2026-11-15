@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""huddle — ask the user a rich question in an agterm HTML overlay and print the answer as JSON.
+"""lem-ask — ask the user a rich question in an agterm HTML overlay and print the answer as JSON.
 
-  huddle SPEC.json | huddle - < spec.json      ask from a JSON spec (see SKILL.md for the schema)
-  huddle q "Prompt" "Label|subtitle" "*Recommended|subtitle|why" ... [--multi] [--context MD]
-  huddle wait PAGE_ID                          resume waiting after a timeout (exit 4)
-  huddle demo [NAME ...]                       open bundled demos (no name: list them)
-  huddle templates                             list templates with their one-line purpose
-  huddle render SPEC -o FILE                   build the page only, open nothing
-  huddle hook-stop                             the plugin's Stop hook (not for agents to run)
+  lem-ask SPEC.json | lem-ask - < spec.json      ask from a JSON spec (see SKILL.md for the schema)
+  lem-ask q "Prompt" "Label|subtitle" "*Recommended|subtitle|why" ... [--multi] [--context MD]
+  lem-ask wait PAGE_ID                          resume waiting after a timeout (exit 4)
+  lem-ask demo [NAME ...]                       open bundled demos (no name: list them)
+  lem-ask templates                             list templates with their one-line purpose
+  lem-ask render SPEC -o FILE                   build the page only, open nothing
+  lem-ask hook-stop                             the plugin's Stop hook (not for agents to run)
 
 Common flags: --follow (pull the user to this session), --size N (floating panel, % of the
 session), --timeout SEC (default 570, under the Bash tool's 600 s cap), --browser (force the
@@ -15,11 +15,11 @@ local-browser fallback), --no-status (leave the sidebar glyph alone).
 
 Exit codes: 0 answered or "chat" (user wants to discuss in the terminal), 2 dismissed (closed
 unanswered), 3 no way to show it (outside agterm without --browser, or an unattended run),
-4 still pending after --timeout (run `huddle wait ID`), 5 the session already shows an overlay,
+4 still pending after --timeout (run `lem-ask wait ID`), 5 the session already shows an overlay,
 1 error.
 
-Environment: AGTERMCTL (path to agtermctl), HUDDLE_CONFIG (personal defaults, default
-~/.config/huddle/defaults.json; "browser": true there opens the page in the browser outside agterm).
+Environment: AGTERMCTL (path to agtermctl), LEM_ASK_CONFIG (personal defaults, default
+~/.config/lem-ask/defaults.json; "browser": true there opens the page in the browser outside agterm).
 """
 import argparse
 import base64
@@ -42,21 +42,21 @@ import time
 import urllib.request
 import webbrowser
 
-HERE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))  # the skill's directory: this file is bin/huddle
+HERE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))  # the skill's directory: this file is bin/lem-ask
 RUNTIME = os.path.join(HERE, "runtime")
 TEMPLATES = os.path.join(HERE, "templates")
 DEMOS = os.path.join(HERE, "demos")
-CACHE = os.path.expanduser("~/.cache/huddle")
+CACHE = os.path.expanduser("~/.cache/lem-ask")
 DEFAULTS = os.path.join(HERE, "defaults.json")
-USER_DEFAULTS = os.path.expanduser(os.environ.get("HUDDLE_CONFIG", "~/.config/huddle/defaults.json"))
-OUTDIR = os.path.join(os.environ.get("TMPDIR", "/tmp"), "huddle")
+USER_DEFAULTS = os.path.expanduser(os.environ.get("LEM_ASK_CONFIG", "~/.config/lem-ask/defaults.json"))
+OUTDIR = os.path.join(os.environ.get("TMPDIR", "/tmp"), "lem-ask")
 MERMAID_URL = "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js"
 MERMAID_FILE = os.path.join(CACHE, "mermaid-11.12.0.min.js")
 # jsDelivr's published sha256 for that file (data.jsdelivr.com/v1/package/npm/mermaid@11.12.0/flat).
 # The page runs with agterm's bridge, which can type into terminals, so unverified code never goes in.
 MERMAID_SHA256 = "07e37dfa97b337ccc85365d57eddf99b9706f09db3b59b260d0333b23b343c4b"
 MAX_IMAGE = 8 * 1024 * 1024
-# When the plugin's Stop hook finds a huddle page still open, it re-posts the asking status at these
+# When the plugin's Stop hook finds a question page still open, it re-posts the asking status at these
 # offsets (seconds): status hooks run in parallel with it, so a slower one may post after it does, and
 # one slower than the last offset wins.
 STOP_RECHECKS = (0.5, 1.5, 3, 6)
@@ -278,19 +278,19 @@ def mermaid_js():
             data = f.read()
         if verified(data):
             return data.decode("utf-8")
-        print(f"huddle: {MERMAID_FILE} fails its sha256 check; fetching it again", file=sys.stderr)
+        print(f"lem-ask: {MERMAID_FILE} fails its sha256 check; fetching it again", file=sys.stderr)
     except FileNotFoundError:
         pass
     except OSError as e:
-        print(f"huddle: cannot read {MERMAID_FILE} ({e}); fetching it again", file=sys.stderr)
+        print(f"lem-ask: cannot read {MERMAID_FILE} ({e}); fetching it again", file=sys.stderr)
     try:
         with urllib.request.urlopen(MERMAID_URL, timeout=20) as r:
             data = r.read()
     except (OSError, http.client.HTTPException) as e:
-        print(f"huddle: mermaid unavailable ({e}); diagrams show as source", file=sys.stderr)
+        print(f"lem-ask: mermaid unavailable ({e}); diagrams show as source", file=sys.stderr)
         return ""
     if not verified(data):
-        print(f"huddle: {MERMAID_URL} does not match its pinned sha256; not using it, diagrams show as source",
+        print(f"lem-ask: {MERMAID_URL} does not match its pinned sha256; not using it, diagrams show as source",
               file=sys.stderr)
         return ""
     try:
@@ -300,7 +300,7 @@ def mermaid_js():
             f.write(data)
         os.replace(tmp, MERMAID_FILE)
     except OSError as e:  # the page still gets the verified bundle; only the cache is lost
-        print(f"huddle: cannot cache mermaid ({e})", file=sys.stderr)
+        print(f"lem-ask: cannot cache mermaid ({e})", file=sys.stderr)
     return data.decode("utf-8")
 
 
@@ -310,7 +310,7 @@ def build_html(spec, base):
     def read(name):
         with open(os.path.join(RUNTIME, name), encoding="utf-8") as f:
             return f.read()
-    css, js = read("huddle.css"), read("huddle.js")
+    css, js = read("ask.css"), read("ask.js")
     mm = mermaid_js() if uses_mermaid(spec) else ""
     data = json.dumps(spec, ensure_ascii=False).replace("</", "<\\/").replace("<!--", "<\\u0021--")
     title = spec.get("title") or (spec.get("questions") or [spec])[0].get("prompt") or "Question"
@@ -341,7 +341,7 @@ def write_page(html):
 
 
 def defaults():
-    """The skill's neutral defaults.json, overlaid by the user's own file (HUDDLE_CONFIG)."""
+    """The skill's neutral defaults.json, overlaid by the user's own file (LEM_ASK_CONFIG)."""
     merged = {}
     for path in (DEFAULTS, USER_DEFAULTS):
         try:
@@ -350,7 +350,7 @@ def defaults():
         except FileNotFoundError:
             pass
         except (OSError, json.JSONDecodeError) as e:
-            print(f"huddle: ignoring {path}: {e}", file=sys.stderr)
+            print(f"lem-ask: ignoring {path}: {e}", file=sys.stderr)
     return merged
 
 
@@ -413,7 +413,7 @@ def set_status(args):
     try:
         ctl("session", "status", *args, "--target", sid, *extra, check=False)
     except OSError as e:  # the glyph is a courtesy; never fail the question over it
-        print(f"huddle: could not set the status glyph: {e}", file=sys.stderr)
+        print(f"lem-ask: could not set the status glyph: {e}", file=sys.stderr)
 
 
 def this_session():
@@ -426,8 +426,8 @@ def this_session():
         return None
 
 
-def pending_huddle_page():
-    """The id of a huddle page open on this session, or None.
+def pending_page():
+    """The id of a question page open on this session, or None.
 
     When the overlay slot is taken, the page in it is often this agent's own question, left
     pending by a timeout or a killed call whose output (and page id) is gone after compaction."""
@@ -440,7 +440,7 @@ def pending_huddle_page():
 
 
 def hook_stop():
-    """The plugin's Stop hook: when the turn ends with a huddle page still open, show the question.
+    """The plugin's Stop hook: when the turn ends with a question page still open, show the question.
 
     Status hooks (agterm's own, or the user's) post a "working" or "done" glyph at Stop, and a
     question waiting in the background, or one left pending by a timeout, would read as finished
@@ -450,7 +450,7 @@ def hook_stop():
     in no fixed order, so this one cannot post last; it runs async (hooks.json) and re-posts the
     asking status at each STOP_RECHECKS offset whenever another hook has posted over it, then stops
     once the page is answered or closed. A Stop hook slower than the last offset still wins.
-    It posts with --auto-reset: with no `huddle wait` left to reset it, the user's visit clears it.
+    It posts with --auto-reset: with no `lem-ask wait` left to reset it, the user's visit clears it.
 
     Not covered: Stop does not run when the user interrupts the turn (Escape), so then the glyph
     keeps whatever the last hook posted until the next turn ends; the user who pressed Escape is at
@@ -464,7 +464,7 @@ def hook_stop():
             return
         if not sys.stdin.isatty():
             sys.stdin.read()  # the hook's JSON input; nothing in it is needed
-        page = pending_huddle_page()
+        page = pending_page()
         if not page:
             return
         asking = defaults().get("status", {}).get("asking", ["blocked"])
@@ -502,11 +502,11 @@ def open_overlay(path, a, spec):
     if not reply.get("ok", True) or r.returncode != 0:
         err = reply.get("error") or (r.stderr or r.stdout).strip()
         if err == "overlay already open":
-            page = pending_huddle_page()
+            page = pending_page()
             if page:
                 emit({"status": "busy", "error": err, "pageID": page,
-                      "hint": f"a huddle page is still open on this session, most likely your own unanswered "
-                              f"question: run `huddle wait {page}` for its answer before asking anything new"}, 5)
+                      "hint": f"a question page is still open on this session, most likely your own unanswered "
+                              f"question: run `lem-ask wait {page}` for its answer before asking anything new"}, 5)
             emit({"status": "busy", "error": err,
                   "hint": "another tool's overlay is open on this session (a diff review, a plan annotation); "
                           "ask in the terminal instead, and do not close an overlay you did not open"}, 5)
@@ -555,7 +555,7 @@ def wait_page(page_id, timeout, status=True):
                 if status:  # but let a visit clear it: with no waiter left, nothing else would after a ⌘W
                     set_status(asking + ["--auto-reset"])
                 print(json.dumps({"status": "pending", "pageID": page_id,
-                                  "hint": f"still open; run `huddle wait {page_id}` to keep waiting"}))
+                                  "hint": f"still open; run `lem-ask wait {page_id}` to keep waiting"}))
                 return 4
             time.sleep(0.4)
     finally:
@@ -605,7 +605,7 @@ def ask_in_browser(html, timeout):
     if not webbrowser.open(url):
         srv.shutdown()
         die("not inside agterm and no browser could be opened", 3)
-    print(f"huddle: opened {url}", file=sys.stderr)
+    print(f"lem-ask: opened {url}", file=sys.stderr)
     deadline = time.time() + timeout
     while not done.wait(0.25):
         gone = state["dismissed_at"]
@@ -630,12 +630,12 @@ def ask(spec, a, base):
         emit({"status": "unattended",
               "error": "this is an unattended run (CLAUDE_CODE_SESSION_ATTENDED=0); nobody is there to answer",
               "hint": "do not ask: proceed on the documented default, or stop and report what you need decided"}, 3)
-    # Outside agterm the browser is opt-in: the skill tells the agent to just run huddle rather than check
+    # Outside agterm the browser is opt-in: the skill tells the agent to just run lem-ask rather than check
     # for agterm first, so an unasked-for browser tab must not be what happens in a plain terminal.
     browser = a.browser or (not in_agterm() and defaults().get("browser") is True)
     if not in_agterm() and not browser:
         emit({"status": "no-agterm", "error": "not inside agterm, so there is no overlay to show the page in",
-              "hint": "ask in the terminal; --browser, or \"browser\": true in ~/.config/huddle/defaults.json, "
+              "hint": "ask in the terminal; --browser, or \"browser\": true in ~/.config/lem-ask/defaults.json, "
                       "opens the page in the browser instead"}, 3)
     apply_defaults(spec)
     if a.style:
@@ -700,7 +700,7 @@ def main():
     common.add_argument("--review", choices=["auto", "always", "never"], help="show the answer review before sending")
     common.add_argument("--chromeless", action="store_true", help="hide the overlay's title strip")
     common.add_argument("--timeout", type=float, default=570, help="seconds to wait (default 570)")
-    common.add_argument("--no-wait", action="store_true", help="open and print the page id; read it later with `huddle wait`")
+    common.add_argument("--no-wait", action="store_true", help="open and print the page id; read it later with `lem-ask wait`")
     common.add_argument("--no-status", action="store_true", help="leave the sidebar status glyph alone")
     common.add_argument("--browser", action="store_true", help="open the page in the local browser: outside agterm, or instead of the overlay")
 
@@ -710,7 +710,7 @@ def main():
         argv = ["ask", *argv]
         sub = "ask"
 
-    p = argparse.ArgumentParser(prog="huddle", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(prog="lem-ask", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = p.add_subparsers(dest="cmd")
     s_ask = sp.add_parser("ask", parents=[common]); s_ask.add_argument("spec", nargs="?")
     s_q = sp.add_parser("q", parents=[common]); s_q.add_argument("prompt"); s_q.add_argument("options", nargs="*")

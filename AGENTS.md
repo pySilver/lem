@@ -67,10 +67,12 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   larger one is offered to him as a backlog item ("Polishing step fixes it in place, right away
   if thats cheap small fixes and offer a backlog filing otherwise").
 - **A builder's question about the outcome goes to the personas**, not to the reviewer.
-- **Lem asks through huddle**, and he never types it: "every question goes via huddle, unless its
-  something fixed choice, trivial, without additional context". That is what Lem does unless a
-  project's settings name another way to ask (`tools.ask`, the way out he asked for on
-  2026-11-15, among the designs below).
+- **Lem asks through its question page**, and he does not have to type it: "every question goes
+  via huddle, unless its something fixed choice, trivial, without additional context". The page
+  was named huddle then; it is `lem-ask` now, his call `/lem ask` and the command `lem-ask` ("I
+  like your solution for huddle, then name and the way out. `/lem ask` is awesome", 2026-11-15).
+  A project's settings may name another way to ask (`tools.ask`), which the same sentence of his
+  approves.
 - **A shipped skill's name follows `/lem`** ("/lem interview-me sounds perfect like a callout
   command"). The form that was built from it, the id `lem-<name>` and the dispatcher in
   `SKILL.md`, is the starting session's design and open to him.
@@ -98,8 +100,14 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   profiles, lenses etc and be honest with Human what changes and why". So the learn stage writes
   a lens line, a profile line or a rejected finding there, and names each changed file, what
   changed and why. The cast and the profile are Lem's and move to `.lem`.
+- **A developer may ask with a tool of their own**: "We also need a way out, to let dev avoid
+  huddle if they prefer their own asker UI?", and of the key built from it, "I like your solution
+  for huddle, then name and the way out". `tools.ask`, beside `tools.annotate` and allowed in the
+  machine's own file: Lem's page (the default), `terminal`, or the name of a skill or a command.
+  `TOOLS` in `project.py` is the one place that names Lem's own tool for each role.
 - **The question page is a part of Lem, not a tool the machine has or lacks**: "it does not need
-  to mention that 'huddle' dependency is satisfied as it's an internal lem feature". The machine
+  to mention that 'huddle' dependency is satisfied as it's an internal lem feature" (the page's
+  name at that time). The machine
   check has no row for it and no page for the owner lists it; the setup reports its link.
 - **webrev is the recommended way to mark up a plan or a document**, before plannotator
   ("`/webrev` is awesome and needs to be recommended to use over plannotator"). plannotator-tui
@@ -107,15 +115,9 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
 
-Designs the starting session took on 2026-11-14 and 2026-11-15 after a question of the owner's.
-They are open to him, and they are not his rulings until he says so:
+Designs the starting session took on 2026-11-14 after a question of the owner's. They are open
+to him, and they are not his rulings until he says so:
 
-- **A developer may ask with a tool of their own**, after "We also need a way out, to let dev
-  avoid huddle if they prefer their own asker UI?": `tools.ask`, beside `tools.annotate` and
-  allowed in the machine's own file. Its values are Lem's page (the default), `terminal`, or the
-  name of a skill or a command. `TOOLS` in `project.py` is the one place that names Lem's own
-  tool for each role, so a new name for the page is one line there; he said that "`huddle` for me
-  means kinda nothing", and no new name is chosen.
 - **The reviewer's seat is a table**, after "should we or can we specify model and effort level
   of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `effort`, `plan_effort`.
 - **Lem brings its own builder agent**, after "it feels like we need to bring our own lem-worker
@@ -132,7 +134,7 @@ They are open to him, and they are not his rulings until he says so:
 ```bash
 bash tests/test-lem.sh        # Lem's scripts, in throwaway repositories; loads the board in headless Chrome when one is installed
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
-bash tests/test-huddle.sh      # huddle's spec checks and every template; loads pages in headless Chrome when one is installed
+bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 shellcheck tests/*.sh
 ```
 
@@ -156,7 +158,7 @@ real task, so say in the commit which task showed the need.
   landing, and of the reviewer.
 - `docs/`: `free-hour.md` (how an unattended session may change Lem), `linear.md` (how a
   project connects Linear), and `backlog/`, Lem's own deferred work.
-- `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `huddle`
+- `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `lem-ask`
   and `jev` commands from this clone into a home directory, never over something else, and runs
   the machine check. `--corrections on|off` registers the hook of the correction queue in the
   agent's settings or takes it out, and is the owner's to run. With `--project DIR` it links into one repository only. Use that for a trial: links in
@@ -172,7 +174,7 @@ real task, so say in the commit which task showed the need.
   device pixels for each pixel. `board-*` and `task-*` are renders of
   `skills/lem/assets/board.html` over demo data; `real-task-*` is the board of the first task
   that ran through Lem, over its real event log.
-- `skills/lem-huddle/`, `skills/lem-webrev/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
+- `skills/lem-ask/`, `skills/lem-webrev/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
   `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`: the skills Lem names and ships.
   `NOTICE` says where each came from.
@@ -181,7 +183,7 @@ real task, so say in the commit which task showed the need.
 
 Each was copied from where it worked and changed only as far as the new layout needed. Their text
 still names Claude Code's tools, `skills/lem-backlog` and `skills/lem-webrev` use `${CLAUDE_SKILL_DIR}`,
-and huddle's Stop hook (`skills/lem-huddle/hooks/hooks.json`) is registered by nothing. Bring one under
+and lem-ask's Stop hook (`skills/lem-ask/hooks/hooks.json`) is registered by nothing. Bring one under
 the capability rule when a second agent has to run it, not before.
 
 The set is deliberately small. A tool with its own life (revmux, agterm, cronn, plannotator, Codex)

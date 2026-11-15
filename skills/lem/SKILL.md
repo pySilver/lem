@@ -84,13 +84,15 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `status`, bare `/lem` | the board of all tasks, and in words: every open task, the review queue and what waits for the owner | below |
 | `status <task>` | the board of one task | below |
 | `reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]`, `reviewer default` | who sits in the reviewer's pane on this machine for now, and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic`, `root-cause`, `webrev` and `linear` this way; `huddle`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic`, `root-cause`, `webrev` and `linear` this way; `ask`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
 when the name stands alone or is followed by what that skill takes: a slug, a path, a number, a
 statement to argue. `/lem release notes are wrong on the site` and `/lem backlog is slow to open`
-are sentences about the project, so each is an ask and opens a task. When you cannot tell which
+are sentences about the project, so each is an ask and opens a task. `/lem ask` takes a question
+the owner wants put to himself as a page ("`/lem ask` which of the two layouts"); "`/lem` ask
+the payment provider for a sandbox key" is a task. When you cannot tell which
 of the two a line is, ask the owner once in the terminal, in one line, before anything runs: a
 skill such as `lem-release` changes files.
 

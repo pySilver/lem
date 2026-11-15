@@ -147,12 +147,12 @@ fi
 settings '[branch]' 'base = "master"' 'protected = ["master"]'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a base branch that is also protected is refused as a contradiction"; else fail "protected base"; fi
 settings '[tools]' 'annotate = "my-own-rev"'
-if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('my-own-rev', 'lem-huddle')" ]; then pass "a project names its own tool for marking up a plan, and questions keep Lem's page"; else fail "tools.annotate"; fi
+if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('my-own-rev', 'lem-ask')" ]; then pass "a project names its own tool for marking up a plan, and questions keep Lem's page"; else fail "tools.annotate"; fi
 settings '[tools]' 'ask = "terminal"'
 if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('lem-webrev', 'terminal')" ]; then pass "a project takes its questions in the terminal, or names its own tool for them"; else fail "tools.ask"; fi
 settings '[tools]' 'ask = ""'
 err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "tools.ask = '' must name a skill or a command in quotes, as in ask = \"lem-huddle\"" <<<"$err"; then pass "an empty tool for questions is refused with the fix"; else fail "tools.ask empty: $err"; fi
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "tools.ask = '' must name a skill or a command in quotes, as in ask = \"lem-ask\"" <<<"$err"; then pass "an empty tool for questions is refused with the fix"; else fail "tools.ask empty: $err"; fi
 settings 'not toml ['
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a settings file that does not parse is refused"; else fail "parse error"; fi
 
@@ -506,7 +506,7 @@ else
   fail "doctor with the required set: $out"
 fi
 keyed=$(env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
-if [ "$(field '[t["name"] for t in d["tools"] if "huddle" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
+if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
   && ! grep -q "sk-not-a-real-key" <<<"$keyed"; then
   pass "the check has no row for the question page, which is a part of Lem; it says whether the key of the decision model is in the environment, and never prints it"
 else
@@ -537,8 +537,8 @@ CORR=$PWD/skills/lem/scripts/corrections.py
 CQ=$WORK/corr
 git init -q -b main "$CQ" && commit "$CQ" start
 project --repo "$CQ" init --base main >/dev/null
-if grep -q '^annotate = "lem-webrev"$' "$CQ/.lem/project.toml" && grep -q '^ask = "lem-huddle"$' "$CQ/.lem/project.toml" \
-  && [ "$(project --repo "$CQ" show | field 'd["tools"]')" = "{'annotate': 'lem-webrev', 'ask': 'lem-huddle'}" ]; then
+if grep -q '^annotate = "lem-webrev"$' "$CQ/.lem/project.toml" && grep -q '^ask = "lem-ask"$' "$CQ/.lem/project.toml" \
+  && [ "$(project --repo "$CQ" show | field 'd["tools"]')" = "{'annotate': 'lem-webrev', 'ask': 'lem-ask'}" ]; then
   pass "a new settings file names Lem's own tool for marking up and for questions"
 else
   fail "the tools of a new settings file: $(grep -n -A8 '^\[tools\]' "$CQ/.lem/project.toml")"
@@ -704,19 +704,34 @@ rm "$SETHOME/.claude/skills/lem-webrev"
 out=$(setup)
 if [ "$(field '(d["linked"], d["machine_ok"], len(d["links"]), [a["name"] for a in d["absent"] if a["need"] == "required"])' <<<"$out")" = "(True, True, $(( $(find "$PWD/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | grep -c '') + 3 )), [])" ] \
   && [ "$(readlink "$SETHOME/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$SETHOME/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
-  && [ -x "$SETHOME/.local/bin/huddle" ] && [ "$(readlink "$SETHOME/.local/bin/jev")" = "$PWD/skills/lem/scripts/jev.py" ] && [ -x "$SETHOME/.local/bin/jev" ] \
+  && [ -x "$SETHOME/.local/bin/lem-ask" ] && [ "$(readlink "$SETHOME/.local/bin/jev")" = "$PWD/skills/lem/scripts/jev.py" ] && [ -x "$SETHOME/.local/bin/jev" ] \
   && [ "$(field 'd["corrections_hook"]["state"]' <<<"$out")" = "not registered" ] && [ ! -e "$SETHOME/.claude/settings.json" ] \
   && [ "$(status_of setup)" = 0 ] && [ "$(status_of setup --check)" = 0 ]; then
-  pass "setup links every skill, the builder agent and the huddle and jev commands, registers no hook, the machine check then passes, and a second run changes nothing"
+  pass "setup links every skill, the builder agent and the lem-ask and jev commands, registers no hook, the machine check then passes, and a second run changes nothing"
 else
   fail "setup: $out"
 fi
+# A skill of the clone that got a new name: its old link has nothing at its end, and the next run takes it away.
+ln -s "$PWD/skills/lem-old-name" "$SETHOME/.claude/skills/lem-old-name" && ln -s "$PWD/skills/lem-ask/bin/old-name" "$SETHOME/.local/bin/old-name"
+ln -s "$WORK/elsewhere" "$SETHOME/.claude/skills/not-lems"
+check=$(setup --check 2>/dev/null || true)
+code=$(status_of setup --check)
+if [ -L "$SETHOME/.claude/skills/lem-old-name" ]; then code="$code still-there"; fi
+out=$(setup)
+if [ "$code" = "1 still-there" ] && [ "$(field '(d["linked"], sorted(l["state"] for l in d["leftovers"]))' <<<"$check")" = "(False, ['leftover', 'leftover'])" ] \
+  && [ "$(field '(d["linked"], sorted(l["state"] for l in d["leftovers"]))' <<<"$out")" = "(True, ['removed', 'removed'])" ] \
+  && [ ! -L "$SETHOME/.claude/skills/lem-old-name" ] && [ ! -L "$SETHOME/.local/bin/old-name" ] && [ -L "$SETHOME/.claude/skills/not-lems" ] && [ "$(status_of setup --check)" = 0 ]; then
+  pass "a link into the clone that the clone no longer asks for is named by --check and removed by the next run, and a link to another place stays"
+else
+  fail "setup with leftover links: $check / $out"
+fi
+rm "$SETHOME/.claude/skills/not-lems"
 # A link that only ends at the same file by another route is the owner's: a small stand-in clone whose
 # agent file is itself a link shows it, and --remove leaves the owner's link alone.
 TWIN=$WORK/twin
-mkdir -p "$TWIN/scripts" "$TWIN/skills/lem/scripts" "$TWIN/skills/lem-huddle/bin" "$TWIN/agents" "$WORK/twinhome/.claude/agents"
+mkdir -p "$TWIN/scripts" "$TWIN/skills/lem/scripts" "$TWIN/skills/lem-ask/bin" "$TWIN/agents" "$WORK/twinhome/.claude/agents"
 cp "$SETUP" "$TWIN/scripts/setup.py" && cp "$DOCTOR" "$TWIN/skills/lem/scripts/doctor.py"
-touch "$TWIN/skills/lem/SKILL.md" "$TWIN/skills/lem-huddle/SKILL.md" "$TWIN/skills/lem-huddle/bin/huddle" "$WORK/shared-agent.md"
+touch "$TWIN/skills/lem/SKILL.md" "$TWIN/skills/lem-ask/SKILL.md" "$TWIN/skills/lem-ask/bin/lem-ask" "$WORK/shared-agent.md"
 ln -s "$WORK/shared-agent.md" "$TWIN/agents/lem-builder.md"
 ln -s "$WORK/shared-agent.md" "$WORK/twinhome/.claude/agents/lem-builder.md"
 twin() { env -i PATH="$BIN" HOME="$WORK/twinhome" "$PY" -B "$TWIN/scripts/setup.py" --home "$WORK/twinhome" "$@"; }
@@ -761,7 +776,7 @@ git init -q -b main "$TRIAL" && commit "$TRIAL" start
 trial() { env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$TRIAL" "$@"; }
 mkdir -p "$WORK/trialhome/.agents/skills/agterm" && touch "$WORK/trialhome/.agents/skills/agterm/SKILL.md"
 out=$(trial)
-if [ "$(field '(d["linked"], d["machine_ok"], d["scope"], d["commands"].startswith("huddle and jev are not linked"))' <<<"$out")" = "(True, True, '$TRIAL', True)" ] \
+if [ "$(field '(d["linked"], d["machine_ok"], d["scope"], d["commands"].startswith("lem-ask and jev are not linked"))' <<<"$out")" = "(True, True, '$TRIAL', True)" ] \
   && [ "$(readlink "$TRIAL/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$TRIAL/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
   && [ ! -e "$WORK/trialhome/.claude" ] && [ ! -e "$WORK/trialhome/.local" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
   pass "setup --project links Lem into one repository, nothing into the home, the machine check finds that repository's builder, and git sees no new file"
@@ -818,7 +833,7 @@ fi
 rm "$TRIAL/.claude"
 touch "$SETHOME/.claude/skills/mine"
 out=$(setup --remove)
-if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/huddle" ] && [ ! -e "$SETHOME/.local/bin/jev" ]; then
+if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/lem-ask" ] && [ ! -e "$SETHOME/.local/bin/jev" ]; then
   pass "setup --remove takes away the links it made and nothing else"
 else
   fail "setup --remove: $out"

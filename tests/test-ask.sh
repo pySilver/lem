@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# huddle: the spec checks, the guards, file-sourced blocks, and every shipped template and demo
+# lem-ask: the spec checks, the guards, file-sourced blocks, and every shipped template and demo
 # rendering without a runtime error. Opens no overlay and no browser window.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-B=skills/lem-huddle/bin/huddle
-SKILL=skills/lem-huddle
+B=skills/lem-ask/bin/lem-ask
+SKILL=skills/lem-ask
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 # The real interpreter, resolved before HOME moves: a version-manager shim reads its config from HOME.
-# Every call below passes -B: importing bin/huddle must not leave a __pycache__ in the plugin (and -I
+# Every call below passes -B: importing bin/lem-ask must not leave a __pycache__ in the plugin (and -I
 # ignores PYTHONDONTWRITEBYTECODE).
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 # A private HOME keeps the mermaid cache and any personal defaults out of the run; agterm is unset
@@ -37,8 +37,8 @@ expect() {
   pass "$name"
 }
 
-if "$PY" -I -B -c 'import ast,sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$B"; then pass "bin/huddle parses"; else fail "bin/huddle parses"; fi
-if [ -x "$B" ]; then pass "bin/huddle is executable"; else fail "bin/huddle is executable"; fi
+if "$PY" -I -B -c 'import ast,sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$B"; then pass "bin/lem-ask parses"; else fail "bin/lem-ask parses"; fi
+if [ -x "$B" ]; then pass "bin/lem-ask is executable"; else fail "bin/lem-ask is executable"; fi
 
 # Every template and demo renders.
 for f in "$SKILL"/templates/*.json "$SKILL"/demos/*.json; do
@@ -72,7 +72,7 @@ printf '{"questions": [{"id": "a", "prompt": "First?", "context": "QCTX-MARKER-O
 
 # An unattended run never opens anything.
 expect "refuses an unattended run" 3 unattended -- env CLAUDE_CODE_SESSION_ATTENDED=0 "$PY" -I -B "$B" q "Which?" A B
-# Outside agterm it opens nothing unless the browser is asked for: the agent runs huddle without checking first.
+# Outside agterm it opens nothing unless the browser is asked for: the agent runs lem-ask without checking first.
 expect "exit 3 outside agterm" 3 no-agterm -- "$PY" -I -B "$B" q "Which?" A B
 
 # {"file": …} blocks carry the file's own lines, numbered, under the path.
@@ -91,8 +91,8 @@ then pass "code from a file"; else fail "code from a file"; fi
 # `q` reads "*Label|subtitle|why".
 if "$PY" -I -B - "$B" <<'PY'
 import argparse, importlib.machinery, importlib.util, sys
-loader = importlib.machinery.SourceFileLoader("huddle", sys.argv[1])
-mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("huddle", loader))
+loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
 loader.exec_module(mod)
 a = argparse.Namespace(prompt="Which?", options=["*Redis|runs already|no new service", "PG|one table", "*JWT"],
                        multi=False, context=None, title=None)
@@ -103,7 +103,7 @@ PY
 then pass "q option syntax"; else fail "q option syntax"; fi
 
 # The agterm paths, with agtermctl stubbed: an agterm error ends a wait at once instead of after
-# the full timeout, and an occupied overlay slot is exit 5, naming the page when it is a huddle page.
+# the full timeout, and an occupied overlay slot is exit 5, naming the page when it is a question page.
 stub() {
   local name=$1 code=$2 status=$3
   shift 3
@@ -111,8 +111,8 @@ stub() {
 }
 STUB=$(cat <<'PY'
 import importlib.machinery, importlib.util, json, os, sys, types
-loader = importlib.machinery.SourceFileLoader("huddle", sys.argv[1])
-mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("huddle", loader))
+loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
 loader.exec_module(mod)
 scenario = sys.argv[2]
 os.environ.update(AGTERM_SESSION_ID="S1", AGTERM_ENABLED="1")
@@ -153,25 +153,25 @@ stub "wait stops on an agterm error" 1 error invalid
 stub "wait stops when agterm goes silent" 1 error silent
 stub "wait returns the answer" 0 answered answered
 stub "wait reports a dismissal" 2 dismissed dismissed
-stub "busy names a pending huddle page" 5 busy busy-own
+stub "busy names a pending question page" 5 busy busy-own
 stub "busy with another tool's overlay" 5 busy busy-other
 own=$("$PY" -I -B -c "$STUB" "$B" busy-own 2>/dev/null || true)  # exit 5 is the point; read what it printed
 other=$("$PY" -I -B -c "$STUB" "$B" busy-other 2>/dev/null || true)
 if printf '%s' "$own" | "$PY" -I -B -c 'import json,sys; sys.exit(json.load(sys.stdin).get("pageID") != "P0")' \
   && printf '%s' "$other" | "$PY" -I -B -c 'import json,sys; sys.exit("pageID" in json.load(sys.stdin))'; then
-  pass "busy carries the page id only for a huddle page"
+  pass "busy carries the page id only for a question page"
 else
-  fail "busy carries the page id only for a huddle page"
+  fail "busy carries the page id only for a question page"
 fi
 
-# The asking glyph against status hooks. The plugin's async Stop hook acts only when a huddle page is open,
+# The asking glyph against status hooks. The plugin's async Stop hook acts only when a question page is open,
 # re-posts the asking status (with --auto-reset) whenever another hook posted over it, and stops once the
 # page is gone. Its hooks.json guard keeps Python out of sessions outside agterm and machines without it.
 # A timed-out wait leaves a glyph that a visit clears.
 GLYPH=$(cat <<'PY'
 import importlib.machinery, importlib.util, json, os, sys, types
-loader = importlib.machinery.SourceFileLoader("huddle", sys.argv[1])
-mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("huddle", loader))
+loader = importlib.machinery.SourceFileLoader("lem-ask", sys.argv[1])
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("lem-ask", loader))
 loader.exec_module(mod)
 scenario = sys.argv[2]
 os.environ.update(AGTERM_SESSION_ID="S1", AGTERM_ENABLED="1")
@@ -221,15 +221,15 @@ check "Stop hook re-posts the question after a slower hook paints over it" race 
   '[p[:2] for p in r["posts"]] == [["blocked", "--auto-reset"], ["blocked", "--auto-reset"]]'
 check "Stop hook stops once the page is answered" answered 'r["posts"] == [] and r["looks"] == 2'
 check "Stop hook leaves an asking glyph alone" already 'r["posts"] == [] and r["looks"] == 5'
-check "Stop hook does nothing without a huddle page" nopage 'r["posts"] == [] and r["looks"] == 1'
+check "Stop hook does nothing without a question page" nopage 'r["posts"] == [] and r["looks"] == 1'
 check "a timed-out question leaves a glyph that a visit clears" timeout \
   'r["code"] == 4 and r["posts"][-1][:2] == ["blocked", "--auto-reset"]'
 nohook=$(env -u AGTERM_ENABLED "$PY" -I -B "$B" hook-stop < /dev/null; echo "rc=$?")
 if [ "$nohook" = "rc=0" ]; then pass "Stop hook is silent and exits 0 outside agterm"; else fail "Stop hook outside agterm: $nohook"; fi
 # The hooks.json command itself, run the way Claude Code runs a command with no args: through a shell.
-HOOKCMD=$("$PY" -I -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["hooks"]["Stop"][0]["hooks"][0]["command"])' skills/lem-huddle/hooks/hooks.json)
-guard1=$(env -u AGTERM_SESSION_ID CLAUDE_PLUGIN_ROOT="$PWD/skills/lem-huddle" sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
-guard2=$(env AGTERM_SESSION_ID=S1 PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$PWD/skills/lem-huddle" /bin/sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
+HOOKCMD=$("$PY" -I -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["hooks"]["Stop"][0]["hooks"][0]["command"])' skills/lem-ask/hooks/hooks.json)
+guard1=$(env -u AGTERM_SESSION_ID CLAUDE_PLUGIN_ROOT="$PWD/skills/lem-ask" sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
+guard2=$(env AGTERM_SESSION_ID=S1 PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$PWD/skills/lem-ask" /bin/sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
 if [ "$guard1" = "rc=0" ] && [ "$guard2" = "rc=0" ]; then
   pass "hooks.json guard: silent exit 0 with no agterm session, and with no python3"
 else
@@ -242,9 +242,9 @@ bad "a whole long file as code" "{\"prompt\": \"p\", \"context\": {\"code\": {\"
 
 # The runtime parses, and every rendered page loads with no error node and every diagram drawn.
 if command -v node >/dev/null; then
-  if node --check "$SKILL/runtime/huddle.js"; then pass "huddle.js parses"; else fail "huddle.js parses"; fi
+  if node --check "$SKILL/runtime/ask.js"; then pass "ask.js parses"; else fail "ask.js parses"; fi
 else
-  printf 'SKIP huddle.js syntax: node is not installed\n'
+  printf 'SKIP ask.js syntax: node is not installed\n'
 fi
 DOMCHECK=$(cat <<'PY'
 import sys
@@ -319,7 +319,7 @@ else
 fi
 
 if [ "$fails" -gt 0 ]; then
-  printf '%d huddle check(s) failed\n' "$fails"
+  printf '%d lem-ask check(s) failed\n' "$fails"
   exit 1
 fi
-printf 'all huddle checks passed\n'
+printf 'all lem-ask checks passed\n'

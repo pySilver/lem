@@ -1,4 +1,4 @@
-/* huddle runtime styles. Colors come from the agterm theme variables; never declare --agterm-* here.
+/* lem-ask runtime styles. Colors come from the agterm theme variables; never declare --agterm-* here.
    The base rules are the "refined" style; the other styles override them under .hd[data-style=…]. */
 :root { color-scheme: light dark; }
 .hd {

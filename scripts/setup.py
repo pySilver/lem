@@ -14,7 +14,7 @@ It links, for Claude Code:
 
     skills/NAME/               ->  ~/.claude/skills/NAME        (lem and every lem-NAME)
     agents/lem-builder.md      ->  ~/.claude/agents/lem-builder.md
-    skills/lem-huddle/bin/huddle -> ~/.local/bin/huddle
+    skills/lem-ask/bin/lem-ask -> ~/.local/bin/lem-ask
     skills/lem/scripts/jev.py  ->  ~/.local/bin/jev
 
 They are links, so an edit in the clone is what the next session reads. A place that already
@@ -24,13 +24,17 @@ would then answer to one name. A link counts as this clone's only when it names 
 path; one that merely ends at the same file by another route is the owner's, and `--remove`
 leaves it.
 
+A skill of the clone that got a new name leaves a link behind with nothing at its end. A link in
+one of these folders that points into this clone and that the clone no longer asks for is such
+a leftover: a run that links, and `--remove`, take it away, and `--check` names it.
+
 Either every link is made or none: when one cannot be made, the ones this run made are taken
 away again, and the report says so. Every run prints the state of all the places as JSON, also a
 run that fails.
 
 `--project DIR` is for a trial. Links in the home directory show Lem to every repository on the
 machine at once, also to one where another flow still runs with skills of the same use. Links in
-one repository's `.claude` folder show Lem there and nowhere else. The `huddle` and `jev` commands
+one repository's `.claude` folder show Lem there and nowhere else. The `lem-ask` and `jev` commands
 are not linked then, because a command on `PATH` is for the whole machine. So that the checkout's tree
 stays clean, a small `.gitignore` goes beside the links, in `.claude/skills` and `.claude/agents`:
 it names the links and itself, and its first line names this clone. It is a file of that one
@@ -86,7 +90,7 @@ def wanted(home: Path, bin_dir: Path | None) -> list[tuple[Path, Path]]:
     links = [(home / ".claude" / "skills" / skill.name, skill) for skill in sorted((CLONE / "skills").iterdir()) if (skill / "SKILL.md").is_file()]
     links.append((home / ".claude" / "agents" / "lem-builder.md", CLONE / "agents" / "lem-builder.md"))
     if bin_dir is not None:
-        links.append((bin_dir / "huddle", CLONE / "skills" / "lem-huddle" / "bin" / "huddle"))
+        links.append((bin_dir / "lem-ask", CLONE / "skills" / "lem-ask" / "bin" / "lem-ask"))
         links.append((bin_dir / "jev", CLONE / "skills" / "lem" / "scripts" / "jev.py"))
     return links
 
@@ -214,6 +218,24 @@ def hide_from_git(rows: list[dict]) -> list[str]:
     return visible
 
 
+def leftovers(rows: list[dict]) -> list[Path]:
+    """Links beside this clone's own that point into the clone and that it no longer asks for."""
+    places = {Path(row["place"]) for row in rows}
+    found = []
+    for folder in sorted({Path(row["place"]).parent for row in rows if not row["state"].startswith("blocked")}):
+        if not folder.is_dir():
+            continue
+        for entry in sorted(folder.iterdir()):
+            if entry in places or not entry.is_symlink():
+                continue
+            # as in `state`: the link's own first step has to name the clone's path
+            hop = Path(os.readlink(entry))
+            hop = hop if hop.is_absolute() else entry.parent / hop
+            if (Path(os.path.realpath(hop.parent)) / hop.name).is_relative_to(CLONE):
+                found.append(entry)
+    return found
+
+
 def state(place: Path, target: Path) -> str:
     if place.is_symlink():
         # The link's own first step must be the clone's path. Only the folders on the way are
@@ -237,7 +259,7 @@ def main() -> None:
     parser.add_argument("--project", type=Path, help="link into this repository's .claude folder only, for a trial")
     parser.add_argument("--corrections", choices=("on", "off"), help="register the hook of the correction queue, or take it out; the owner's step")
     parser.add_argument("--home", type=Path, default=Path.home(), help="the home directory to link into (default: yours)")
-    parser.add_argument("--bin", type=Path, help="the directory on PATH for the huddle command (default: HOME/.local/bin)")
+    parser.add_argument("--bin", type=Path, help="the directory on PATH for the lem-ask command (default: HOME/.local/bin)")
     args = parser.parse_args()
     if args.check and args.remove:
         sys.exit("setup.py: --check and --remove do not go together")
@@ -273,9 +295,19 @@ def main() -> None:
             if not parent.is_relative_to(project):
                 row["state"] = f"blocked by a link that leaves the repository (to {parent})"
     in_the_way = [row for row in rows if row["state"] not in ("linked", "absent")]
+    old = [{"place": str(place), "target": os.readlink(place), "state": "leftover"} for place in leftovers(rows)]
+
+    def clear_leftovers() -> None:
+        for row in old:
+            Path(row["place"]).unlink()
+            row["state"] = "removed"
 
     if args.remove:
         stuck = []
+        try:
+            clear_leftovers()
+        except OSError as error:
+            stuck.append(f"a leftover ({error})")
         for row in rows:
             if row["state"] == "linked":
                 try:
@@ -289,7 +321,7 @@ def main() -> None:
         if project is not None:
             hide_from_git(rows)
         # the hook is not a link: it stays until `--corrections off`, and the report says so
-        print(json.dumps({"links": rows, "corrections_hook": hook_state(settings)}, indent=2))
+        print(json.dumps({"links": rows, "leftovers": old, "corrections_hook": hook_state(settings)}, indent=2))
         if stuck:
             sys.exit(f"setup.py: {len(stuck)} link(s) could not be removed and are still there: {'; '.join(stuck)}")
         return
@@ -306,6 +338,7 @@ def main() -> None:
     if not args.check:
         made: list[Path] = []
         try:
+            clear_leftovers()
             for row in rows:
                 if row["state"] == "absent":
                     place = Path(row["place"])
@@ -338,11 +371,11 @@ def main() -> None:
         sys.exit(f"setup.py: the links are as listed, and the machine check did not run: doctor.py printed no JSON: {(doctor.stderr or doctor.stdout).strip()}")
     absent = [{"name": row["name"], "need": row["need"], "without_it": row["without_it"]} for row in machine["tools"] if not row["found"]]
     result = {
-        "links": rows, "scope": str(project) if project else "every repository of this home",
-        "commands": "huddle and jev are not linked: a command on PATH is for the whole machine" if project else ("on PATH" if on_path else f"linked in {bin_dir}, which is not on PATH"),
+        "links": rows, "leftovers": old, "scope": str(project) if project else "every repository of this home",
+        "commands": "lem-ask and jev are not linked: a command on PATH is for the whole machine" if project else ("on PATH" if on_path else f"linked in {bin_dir}, which is not on PATH"),
         "corrections_hook": hook_state(settings),
         "git_sees_the_links_in": visible, "machine_ok": machine["ok"], "absent": absent,
-        "linked": all(row["state"] == "linked" for row in rows),
+        "linked": all(row["state"] == "linked" for row in rows) and all(row["state"] == "removed" for row in old),
     }
     print(json.dumps(result, indent=2))
     if not result["linked"]:

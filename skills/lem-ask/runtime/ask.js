@@ -1,4 +1,4 @@
-/* huddle runtime: renders the spec in <script id="hd-spec"> and hands the answer back.
+/* lem-ask runtime: renders the spec in <script id="hd-spec"> and hands the answer back.
    Answer path, first that applies: agterm page bridge (session.overlay.submit), the local
    HTTP fallback server (POST /answer), else a preview banner showing the JSON. */
 (function () {
@@ -258,7 +258,7 @@
     options: (q.options || []).map((o, i) => (typeof o === "string" ? { id: o, label: o } : Object.assign({ id: o.id || "o" + (i + 1) }, o))),
     sel: new Set(), hl: 0, el: null, ta: null, optEls: [],
   }));
-  if (!qs.length) { document.getElementById("app").innerHTML = '<pre class="hd-err">huddle: the spec has no questions</pre>'; return; }
+  if (!qs.length) { document.getElementById("app").innerHTML = '<pre class="hd-err">lem-ask: the spec has no questions</pre>'; return; }
   qs.forEach((q) => q.options.forEach((o, i) => { if (o.default || o.selected) q.sel.add(i); }));
   let cur = 0, finished = false, reviewing = false, showHelp = false;
 
@@ -509,7 +509,7 @@
         document.body.appendChild($("div", "hd-done", "Answer sent — you can close this tab.")); return;
       }
       document.body.appendChild($("div", "hd-done", `<div>Preview mode (no agterm bridge). Answer:<pre>${esc(JSON.stringify(v, null, 2))}</pre></div>`));
-      console.log("[huddle] answer", value);
+      console.log("[lem-ask] answer", value);
     } catch (e) { finished = false; flash("Could not send: " + (e.message || e)); }
   }
 
@@ -674,7 +674,7 @@
     send: (v) => deliver(v),
     css,
   };
-  window.huddle = api;
+  window.lemAsk = api;
 
   refresh();
   if (qs[0].mode === "text" && qs[0].ta) qs[0].ta.focus();

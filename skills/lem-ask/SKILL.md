@@ -1,14 +1,14 @@
 ---
-name: lem-huddle
-description: Ask the user a question as a page in an agterm HTML overlay and read the answer back as JSON. Use for every question that asks the user to choose or approve — a design fork, a sequencing call, a plan or its parts, a choice between two options — because each option then carries what it changes and what it costs; for options that are pictures (diagrams, wireframes, design samples, charts); for code or a diff the user has to read; for a value tuned by eye (sliders with a live preview); and for several related decisions at once. Also whenever the user says huddle, "ask me visually" or "show me the options". Only an answer the user types (a name, a path, a number) or a bare "go ahead?" on a step just described stays in the terminal. Needs agterm and checks for it itself, so run it without checking first. Up to 9 options with subtitles, a reasoned recommendation and pros/cons; a free-text box on every question; keyboard throughout. The agent writes a JSON spec or one `huddle q` line.
-allowed-tools: Bash(huddle *)
+name: lem-ask
+description: Ask the user a question as a page in an agterm HTML overlay and read the answer back as JSON. Use for every question that asks the user to choose or approve — a design fork, a sequencing call, a plan or its parts, a choice between two options — because each option then carries what it changes and what it costs; for options that are pictures (diagrams, wireframes, design samples, charts); for code or a diff the user has to read; for a value tuned by eye (sliders with a live preview); and for several related decisions at once. Also whenever the user says `/lem ask`, "ask me visually" or "show me the options". Only an answer the user types (a name, a path, a number) or a bare "go ahead?" on a step just described stays in the terminal. Needs agterm and checks for it itself, so run it without checking first. Up to 9 options with subtitles, a reasoned recommendation and pros/cons; a free-text box on every question; keyboard throughout. The agent writes a JSON spec or one `lem-ask q` line.
+allowed-tools: Bash(lem-ask *)
 ---
 
-# huddle — ask the user with a page, not a prompt
+# lem-ask — ask the user with a page, not a prompt
 
 One command opens the question over **your own** agterm session, waits for the answer, and prints it as
 JSON. The runtime (layout, styles, charts, diagrams, sliders, keyboard) is prebuilt; you describe the
-question. `huddle` is `bin/huddle` in this skill's directory; the install links it into a directory on `PATH`.
+question. `lem-ask` is `bin/lem-ask` in this skill's directory; the install links it into a directory on `PATH`.
 
 Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then exits 4 with the page still open
 (see [Waiting](#waiting)).
@@ -23,16 +23,16 @@ Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then exits 
   "go ahead?" on a step you just described.
 - **The user's own instructions win.** When their `CLAUDE.md` or `AGENTS.md` says how to ask questions,
   follow it; this section is the default, not an override.
-- **Don't check for agterm first.** Run `huddle`: outside agterm it opens nothing and exits 3 with
+- **Don't check for agterm first.** Run `lem-ask`: outside agterm it opens nothing and exits 3 with
   `status: "no-agterm"`, and you ask in the terminal instead.
 - **Only the agent talking with the user asks.** A subagent, a plan executor or a background worker returns
   its question to whoever started it. In an unattended run (`claude -p`, where Claude Code sets
-  `CLAUDE_CODE_SESSION_ATTENDED=0`) `huddle` refuses with exit 3 and opens nothing.
+  `CLAUDE_CODE_SESSION_ATTENDED=0`) `lem-ask` refuses with exit 3 and opens nothing.
 
 ## Fastest: one line
 
 ```bash
-huddle q "Which store for sessions?" "*Redis|already runs the job queue|no new service" "Postgres table|one table, expiry index" "Stateless JWT|cannot revoke"
+lem-ask q "Which store for sessions?" "*Redis|already runs the job queue|no new service" "Postgres table|one table, expiry index" "Stateless JWT|cannot revoke"
 ```
 
 Each option is `Label|subtitle`; a leading `*` marks it recommended, and a third field says why
@@ -58,15 +58,15 @@ Write the spec with your file-writing tool, to an absolute path in a scratch dir
 ```
 
 ```bash
-huddle /tmp/session-storage.json
+lem-ask /tmp/session-storage.json
 ```
 
 Relative paths inside the spec (images, `file` blocks) resolve beside the spec file.
 
-`huddle -` reads the same spec from stdin and resolves those paths from the working directory. Keep it
+`lem-ask -` reads the same spec from stdin and resolves those paths from the working directory. Keep it
 for a terminal. From an agent it needs a heredoc, and in a Claude Code worktree session the Bash guard
 reads a heredoc body as shell and refuses a `{` followed by a quote, which every spec holds: 16 of 17
-`huddle - <<'JSON'` calls were refused in the author's worktree sessions (Claude Code 2.1.319 to 2.1.322).
+`lem-ask - <<'JSON'` calls were refused in the author's worktree sessions (Claude Code 2.1.319 to 2.1.322).
 
 ## Write the question first
 
@@ -89,7 +89,7 @@ alone: the plan, the code and your last terminal message are not in front of the
   option each, labeled by what it says rather than by its number ("4 · an unplaceable brand stays pending",
   never "Story 4"), the gist in `subtitle`, the full text in `detail` (or
   `{"md": {"file": "docs/plans/x.md", "lines": "40-52"}}`), and `expanded: true` so the text is open without
-  a click. huddle refuses an option whose label only counts and that carries nothing else.
+  a click. lem-ask refuses an option whose label only counts and that carries nothing else.
 - **What several options share goes above them**: the example from the eval, the numbers, today's flow as a
   diagram, in `context` or the question's `body`.
 - **Before you send**, read the page as the user will: could they answer without opening anything else? If
@@ -113,14 +113,14 @@ When there *are* standard values (4/8/16 px, a design-system scale), offer them 
 When the value is continuous or purely taste, give sliders: the user sees the result while dragging.
 Combine them: options to pick a direction, then a `controls` question to fine-tune it (see `demos/ui-kit`).
 
-`huddle templates` lists the templates and prints their directory; read one and fill it. `huddle demo NAME`
+`lem-ask templates` lists the templates and prints their directory; read one and fill it. `lem-ask demo NAME`
 opens one, as do the larger showcases in `demos/` (`motion`, `ui-kit`, `auth-flow`, `rollout`, `pricing`) —
 read those for combinations.
 
 ## Show the real code
 
 Never paste source into a spec by hand: escaping it into JSON is where a spec breaks or a snippet drifts
-from the file. Point at the file instead and `huddle` reads it when it builds the page:
+from the file. Point at the file instead and `lem-ask` reads it when it builds the page:
 
 ```json
 {"code": {"file": "src/session/store.py", "lines": "40-62"}}
@@ -158,9 +158,9 @@ from the file. Point at the file instead and `huddle` reads it when it builds th
 - Exit 3: no way to show it — `status: "no-agterm"` (this session is not in agterm) or `"unattended"` (see
   [When to ask](#when-to-ask-with-a-page)). Ask in the terminal; in an unattended run don't ask at all.
 - Exit 4 `status: "pending"`: still open after `--timeout` (see [Waiting](#waiting)).
-- Exit 5 `status: "busy"`: the session already shows an overlay. With a `pageID`, it is a huddle page still
+- Exit 5 `status: "busy"`: the session already shows an overlay. With a `pageID`, it is a question page still
   open on this session — almost always your own earlier question, left pending by a timeout or a call that
-  was cut off: `huddle wait <pageID>` for its answer before asking anything new. Without one, it belongs to
+  was cut off: `lem-ask wait <pageID>` for its answer before asking anything new. Without one, it belongs to
   another tool (a diff review, a plan annotation): ask in the terminal, and never close an overlay you did
   not open.
 - Exit 1 `status: "error"`: the spec or agterm failed; the `error` says which, including a key the page would
@@ -273,7 +273,7 @@ shows the rest. ⌘W dismisses. Nothing here needs explaining to the user.
 ## Look, size and review
 
 Defaults come from `defaults.json` beside this file, overlaid by the user's own
-`~/.config/huddle/defaults.json` (or `$HUDDLE_CONFIG`) — the user's file is where their preferences live,
+`~/.config/lem-ask/defaults.json` (or `$LEM_ASK_CONFIG`) — the user's file is where their preferences live,
 so don't override them unless a question needs it. Per call, a flag or the same key in the spec wins:
 
 - `style`: `refined` (soft cards) · `minimal` (hairline rows) · `bold` (big type, filled choice) ·
@@ -294,8 +294,8 @@ so don't override them unless a question needs it. Per call, a flag or the same 
   switch them to it unless you pass `--follow`. While it waits, the sidebar shows the amber blinking
   "asking" triangle (the same glyph a built-in question gets); it goes back to "working" when answered.
   Status hooks that post a "working" or "done" glyph at the end of a turn would cover a question still
-  waiting in the background; huddle's Stop hook (`hooks/hooks.json`, where an agent has hooks and the
-  install registered it) re-posts the asking glyph when a turn ends with a huddle page still open, set to
+  waiting in the background; lem-ask's Stop hook (`hooks/hooks.json`, where an agent has hooks and the
+  install registered it) re-posts the asking glyph when a turn ends with a question page still open, set to
   clear when the user visits. `--no-status` leaves the glyph alone.
 - `--chromeless` hides the overlay's title strip.
 - Outside agterm it opens nothing (exit 3, `no-agterm`). With `--browser`, or `"browser": true` in the
@@ -303,19 +303,19 @@ so don't override them unless a question needs it. Per call, a flag or the same 
   too; the answer comes back the same way, and closing the tab counts as dismissed. That path lives only as
   long as the command: no `--no-wait`, and a timed-out browser question cannot be resumed.
 - `AGTERMCTL` points at `agtermctl` when it is not on `PATH`.
-- Mermaid is downloaded once to `~/.cache/huddle/` on first use and checked against a pinned sha256 on
+- Mermaid is downloaded once to `~/.cache/lem-ask/` on first use and checked against a pinned sha256 on
   every use; offline, or on a mismatch, diagrams show as source and stderr says why.
-- Generated pages land in `$TMPDIR/huddle/` and are pruned after a day. `huddle render spec.json -o out.html`
+- Generated pages land in `$TMPDIR/lem-ask/` and are pruned after a day. `lem-ask render spec.json -o out.html`
   builds one without opening it (for checking a spec).
 
 ## Waiting
 
 Default wait is 570 s so it fits one Bash call. When it exits 4 with `"status": "pending"`, the page is
-still up: run `huddle wait <pageID>` to keep waiting. `huddle wait` is for that case (and a `busy` reply
+still up: run `lem-ask wait <pageID>` to keep waiting. `lem-ask wait` is for that case (and a `busy` reply
 naming your page); an answered question needs nothing more. If the Bash call runs past its own `timeout`
 anyway, the question is not lost: in Claude Code 2.1.296 (measured in auto mode) the harness moves the
 call to the background instead of killing it, and the answer arrives as its completion notice. For a question the user may take long over, run
-`huddle … --no-wait` (prints the `pageID` at once) and later `huddle wait <pageID>`, or run the whole command
+`lem-ask … --no-wait` (prints the `pageID` at once) and later `lem-ask wait <pageID>`, or run the whole command
 with the Bash tool's `run_in_background: true` — you are notified when the user answers. In the background,
 add `--timeout 86400`: the 570 s default exists only for foreground calls. A question whose answer the next
 step does not depend on can wait in the background while you do that step; one that decides what you do

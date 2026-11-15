@@ -26,7 +26,7 @@ The directory path is fixed, so every invocation in a repo reads and writes one 
 is no index file: the directory listing is the index, and a `git rm` is the only bookkeeping.
 
 **Asking the user.** Every question here is asked the way the user's own rules say. Inside agterm those
-rules may send a choice to a huddle page: follow them. Where no rule says, use AskUserQuestion. The
+rules may send a choice to a question page: follow them. Where no rule says, use AskUserQuestion. The
 options and the recommendation hold in either form.
 
 **Git only.** The lifecycle is expressed in Git — `git rm` to close an item, branch detection before

@@ -307,7 +307,7 @@ The skills that Lem uses without a command from you:
 
 | Skill | Use |
 | --- | --- |
-| `lem-huddle` | each question that asks you to choose or to approve, as a page |
+| `lem-ask` | each question that asks you to choose or to approve, as a page |
 | `lem-gate` | the decision if a question must go to you at all |
 | `lem-panel` | the answers of the persons that a decision has an effect on |
 
@@ -326,7 +326,7 @@ The skills that Lem uses without a command from you:
 | `flow.max_tasks` | how many tasks build or land at one time |
 | `[seats.reviewer]` | the reviewer: `agent`, and optionally `model`, `effort` (for a diff) and `plan_effort` (for a plan) |
 | `tools.annotate` | the tool with which you mark a plan |
-| `tools.ask` | how a question comes to you: `lem-huddle` (the page of Lem, the default), `terminal`, or a skill or a command of yours |
+| `tools.ask` | how a question comes to you: `lem-ask` (the page of Lem, the default), `terminal`, or a skill or a command of yours |
 | `corrections.collect` | `true` keeps a queue of your corrections for `/lem retro`; the default is `false` |
 | `[tracker]` | optional: `kind` (`linear`), `server`, `workspace`, `team`, and `moves` (`lem` or `tracker`); with `moves = "lem"` also `started` and `landed` |
 
@@ -372,7 +372,7 @@ python3 scripts/setup.py --corrections off       # remove that hook again
 ```
 
 - The script links each skill into `~/.claude/skills/`, the builder agent into
-  `~/.claude/agents/`, and the `huddle` and `jev` commands into `~/.local/bin/`.
+  `~/.claude/agents/`, and the `lem-ask` and `jev` commands into `~/.local/bin/`.
 - They are links. Thus each change in the clone is active in the next session.
 - The script does not replace a file or a folder that is already there. It names the place and
   stops.
@@ -394,6 +394,6 @@ python3 scripts/setup.py --corrections off       # remove that hook again
 ```bash
 bash tests/test-lem.sh
 bash tests/test-gate-panel.sh
-bash tests/test-huddle.sh
+bash tests/test-ask.sh
 shellcheck tests/*.sh
 ```

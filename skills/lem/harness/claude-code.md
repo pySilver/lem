@@ -41,11 +41,11 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
 What the settings' `tools.ask` names (`project.py show`), for every question that asks the owner
 to choose or to approve:
 
-- `lem-huddle`, unless the settings say otherwise: Lem's own page, each option with what the
-  owner would see and what it costs. The owner never types `/lem huddle`; Lem opens the page. It
+- `lem-ask`, unless the settings say otherwise: Lem's own page, each option with what the
+  owner would see and what it costs. The owner does not have to type `/lem ask` for it; Lem opens the page. It
   is a part of Lem, not a tool of the machine: the machine check has no row for it, and no page
-  for the owner lists it as one. The setup links its `huddle` command for a home; where it is not
-  on `PATH` (Lem linked into one repository), run it by its path, `bin/huddle` in that skill's
+  for the owner lists it as one. The setup links its `lem-ask` command for a home; where it is not
+  on `PATH` (Lem linked into one repository), run it by its path, `bin/lem-ask` in that skill's
   folder.
 - `terminal`: the question in the conversation, as a numbered list with the recommended option
   first.

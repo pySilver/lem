@@ -85,7 +85,7 @@ from pathlib import Path
 
 # A role a developer may give to a tool of their own -> the tool Lem brings for it. The one place
 # that names each, so a new name for one of Lem's own is one line here.
-TOOLS = {"annotate": "lem-webrev", "ask": "lem-huddle"}
+TOOLS = {"annotate": "lem-webrev", "ask": "lem-ask"}
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
 # the tables one machine may set for itself
