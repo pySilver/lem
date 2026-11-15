@@ -41,7 +41,8 @@ stays clean, a small `.gitignore` goes beside the links, in `.claude/skills` and
 it names the links and itself, and its first line names this clone. It is a file of that one
 checkout, so no other worktree is touched; the repository's shared exclude file is not used for
 that reason. `--remove` takes away the ignore files this clone wrote, and no other. A folder that
-has a `.gitignore` of its own keeps it, and the result then says that git sees the links there. A
+has a `.gitignore` of its own keeps it; when that file does not hide the links, the result says
+that git sees them there. A
 `.claude` folder that is a link out of the repository is refused, because the links would then
 land where the link points, for whoever else reads that folder.
 
@@ -217,7 +218,8 @@ def hide_from_git(rows: list[dict]) -> list[str]:
         ours = ignore.is_file() and not ignore.is_symlink() and ignore.read_text().splitlines()[:1] == [MARK]
         linked = [Path(row["place"]).name for row in members if row["state"] == "linked"]
         if (ignore.exists() or ignore.is_symlink()) and not ours:
-            if linked:
+            # The project's own file stays as it is. It may hide the links already, so git is asked.
+            if any(subprocess.run(["git", "-C", str(folder), "check-ignore", "-q", "--", name], capture_output=True, check=False).returncode != 0 for name in linked):
                 visible.append(str(folder))
         elif linked:
             ignore.write_text("\n".join([MARK, "/.gitignore", *(f"/{name}" for name in linked)]) + "\n")

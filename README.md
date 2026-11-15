@@ -205,8 +205,9 @@ flowchart TD
 - `profile.md` says what the project is. `styleguide/` holds the rules for the code. `lessons.md`
   holds the corrections that have no better place.
 - `personas/` has one file for each person that a decision has an effect on, for example a
-  customer. Before a decision of a task goes to you, an agent answers as each person. The
-  questions of `/lem init` go to you directly.
+  customer. Some decisions of a task have options that each cost a person something. Before
+  such a decision goes to you, an agent answers as each person. The questions of `/lem init` go
+  to you directly.
 - A repository that already has `.claude/rules` keeps that folder. It is the style guide, and
   the settings name it. Lem makes no copy and no symbolic link.
 - A repository that already has `.personas` can keep that folder in the same way.
@@ -533,8 +534,8 @@ python3 scripts/setup.py --corrections off       # remove that hook again
   `--project`. Then only that repository sees Lem.
 - With `--project`, the links are in `.claude/skills/` and `.claude/agents/` of that repository.
   The script writes one ignore file in each of the two folders. Then git does not see the links.
-- A folder that already has a `.gitignore` keeps that file. Then git sees the links in that
-  folder, and the result of the script says so.
+- A folder that already has a `.gitignore` keeps that file. If that file does not hide the
+  links, git sees them, and the result of the script names the folder.
 - With `--project`, the script does not link the `lem-ask` and `jev` commands. Lem then starts
   its question page by its path.
 - The links point at the clone. A `git pull` in the clone changes Lem in each linked repository

@@ -911,6 +911,13 @@ if [ "$(cat "$TRIAL/.claude/skills/.gitignore")" = "# kept by the project" ] && 
 else
   fail "setup --project beside the project's own ignore file: $out"
 fi
+echo '*' > "$TRIAL/.claude/skills/.gitignore"
+out=$(trial)
+if [ "$(cat "$TRIAL/.claude/skills/.gitignore")" = "*" ] && [ "$(field 'd["git_sees_the_links_in"]' <<<"$out")" = "[]" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
+  pass "an ignore file of the project's own that already hides the links is left as it is, and no folder is reported"
+else
+  fail "setup --project beside an ignore file that hides the links: $out / $(git -C "$TRIAL" status --porcelain)"
+fi
 trial --remove >/dev/null
 rm -r "$TRIAL/.claude" && mkdir -p "$WORK/shared-claude" && ln -s "$WORK/shared-claude" "$TRIAL/.claude"
 out=$(trial 2>/dev/null || true)
