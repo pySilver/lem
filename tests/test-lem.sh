@@ -1337,7 +1337,7 @@ rm "$stw/stray.txt"
 # shellcheck disable=SC2016
 if grep -q 'story 3: `sh export.sh` passes on the base commit too, so it does not test the change' <<<"$weak" \
   && grep -q 'story 3: `sh tests/config.sh` passes on the base commit too' <<<"$writes" \
-  && grep -q 'story 3: `sh tests/calls.sh` does not start on the base commit (exit 127): a file it needs is not among the files the story names' <<<"$helper" \
+  && grep -q 'story 3: `sh tests/calls.sh` does not start on the base commit (exit 127), so its failure there proves nothing. If a file it needs is a helper of the test, name it among' <<<"$helper" \
   && grep -q "story 3: 'tests' is a folder on the branch. Name each file that holds the test, one by one" <<<"$folder" \
   && grep -q "story 3 names no test: every story is held by a test at the end of a build" <<<"$bare" \
   && [ "$said" = "(True, [{'story': 3, 'why': 'the count of rows is the export of today, which no change here touches.'}])" ] \
@@ -1358,15 +1358,55 @@ sed -i.bak 's|^setup = .*$|setup = ["exit 3"]|' "$ST/.lem/project.toml" && rm "$
 broken=$(stories red export-has-the-gift-note 2>&1 || true)
 sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 # A worktree that a killed run of the check left behind is removed by the next run.
-git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-999999" main
+git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-tip" main && git -C "$ST" worktree lock "$ST/.lem/worktrees/export-has-the-gift-note.red-tip"
 stories red export-has-the-gift-note >/dev/null
 if grep -q "fails in a fresh worktree of the branch (exit 1). If it passes in the task's worktree, it needs something a fresh one lacks: put the commands that make it into gate.setup" <<<"$lacks" \
-  && [ "$made" = "(True, [{'command': 'touch .made-by-setup', 'exit': 0}], None)" ] \
-  && grep -q "of gate.setup failed in a fresh worktree (exit 3)" <<<"$broken" \
+  && [ "$made" = "(True, [{'on': 'branch', 'command': 'touch .made-by-setup', 'exit': 0}, {'on': 'base', 'command': 'touch .made-by-setup', 'exit': 0}], None)" ] \
+  && grep -q "of gate.setup failed in a fresh worktree of the branch (exit 3)" <<<"$broken" \
   && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ] && [ "$(git -C "$ST" worktree list | grep -c '')" = 2 ]; then
-  pass "a test that needs what a fresh worktree lacks is named as such and not taken for proof; the settings' gate.setup makes it there; a setup command that fails stops the check; and a worktree that a killed run left is removed"
+  pass "a test that needs what a fresh worktree lacks is named as such and not taken for proof; the settings' gate.setup makes it in each of the two worktrees; a setup command that fails stops the check; and a worktree that a killed run left is removed"
 else
   fail "stories red and gate.setup: $lacks / $made / $broken / $(git -C "$ST" worktree list)"
+fi
+# Each run has a worktree and a setup of its own, so what a test writes on the branch does not reach the base run;
+# the result names the files of the branch that the base run lacked.
+echo 'grep -q correct .test-state || exit 1; echo corrupt > .test-state' > "$stw/tests/state.sh" && git -C "$stw" add -A && git -C "$stw" commit -q -m "test: one that changes a file of the setup" && before=$(git -C "$stw" rev-parse HEAD)
+sed -i.bak 's|^setup = .*$|setup = ["echo correct > .test-state"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+# shellcheck disable=SC2016
+state=$(story3 '3. The state is read.' '   - test: `sh tests/state.sh` in `tests/state.sh`')
+lacked=$(stories red export-has-the-gift-note | field '("export.sh" in d["run_without"], "tests/gift.sh" in d["run_without"], "tests/runner.sh" in d["run_without"])')
+# A hook that fails after git made the worktree, and a setup command that locks it: neither worktree stays.
+printf '%s\n' '#!/bin/sh' 'exit 9' > "$ST/.git/hooks/post-checkout" && chmod +x "$ST/.git/hooks/post-checkout"
+hooked=$(status_of stories red export-has-the-gift-note)
+rm "$ST/.git/hooks/post-checkout"
+after_hook=$(git -C "$ST" worktree list | grep -c '')
+sed -i.bak 's|^setup = .*$|setup = ["git worktree lock ."]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+locked=$(stories red export-has-the-gift-note | field 'd["ok"]')
+after_lock="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
+# One check of a task at a time: while another process holds the task's lock, a second check is refused.
+"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$ST/.git/lem/tasks/export-has-the-gift-note/red.lock" > "$WORK/lock.out" &
+holder=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$WORK/lock.out" ] && break; sleep 0.2; done
+second=$(stories red export-has-the-gift-note 2>&1 || true)
+kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
+# A check that is stopped ends the command it runs, and leaves no worktree.
+sed -i.bak 's|^setup = .*$|setup = ["sleep 31.7"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+"$PY" -B "$STORIES" --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
+check=$!
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pgrep -f 'sleep 31\.7' >/dev/null 2>&1 && break; sleep 0.25; done
+started=$(pgrep -f 'sleep 31\.7' | grep -c '' || true)
+kill -TERM "$check" 2>/dev/null || true; wait "$check" 2>/dev/null || true
+left=$(pgrep -f 'sleep 31\.7' | grep -c '' || true)
+after_stop="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
+sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+# shellcheck disable=SC2016
+if grep -q 'story 3: `sh tests/state.sh` passes on the base commit too' <<<"$state" && [ "$lacked" = "(True, False, True)" ] \
+  && [ "$hooked" = 1 ] && [ "$after_hook" = 2 ] && [ "$locked" = True ] && [ "$after_lock" = "2 0" ] \
+  && grep -q "another check of this task's stories runs now" <<<"$second" \
+  && [ "$started" -ge 1 ] && [ "$left" = 0 ] && [ "$after_stop" = "2 0" ] && grep -q "the check was stopped; its commands are ended and its worktrees removed" "$WORK/stopped.out"; then
+  pass "each run of the check has a worktree and a setup of its own, and the result names what the base run lacked; a failed hook, a locked worktree and a stopped check leave no worktree and no process; and a second check of one task waits"
+else
+  fail "the check's worktrees: $state / $lacked / hook $hooked $after_hook / lock $locked $after_lock / $second / stop $started $left $after_stop $(cat "$WORK/stopped.out")"
 fi
 # A plan whose stories do not have the form is refused with the line that is wrong.
 form() { printf '%s\n' "$@" > "$plan"; stories show export-has-the-gift-note 2>&1 || true; }
@@ -1376,7 +1416,7 @@ two=$(form '## Stories' '' 'Kind: correction, because it is one sentence.' '' '1
 order=$(form '## Stories' '' 'Kind: feature, because of two things.' '' '1. One.' '3. Three.')
 # An example of the form in a code fence is not the section, and a plan of another task whose name ends the same way is not this task's.
 # shellcheck disable=SC2016
-fenced=$(form '# A plan' '' '```markdown' '## Stories' '' 'Kind: correction, because it is an example.' '' '1. An example.' '```' '' '## Stories' '' 'Kind: feature, because it is the real one.' '' '1. The real story.' | field '(d["kind"], d["stories"][0]["text"])')
+fenced=$(form '# A plan' '' '````markdown' 'An example in an example:' '```' '## Stories' '' 'Kind: correction, because it is an example.' '' '1. An example.' '```' '````' '' '## Stories' '' 'Kind: feature, because it is the real one.' '' '1. The real story.' | field '(d["kind"], d["stories"][0]["text"])')
 git -C "$stw" checkout -q -- docs
 printf '%s\n' '## Stories' '' 'Kind: correction, because it is another task.' '' '1. Not this task.' > "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
 other=$(stories show export-has-the-gift-note | field '(d["kind"], d["plan"].rsplit("/", 1)[1])')

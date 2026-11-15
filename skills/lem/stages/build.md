@@ -87,8 +87,10 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   on the base commit with only the named test files laid over it; the task's worktree has to be
   clean and is not touched. A test that fails there on the branch, that passes on the base
   commit too, or that does not start on the base commit does not hold its story: name every
-  file the test needs, one by one. Repair what it names before the task is `ready`, and give its
-  last line here. A project whose tests need more than a fresh worktree has says what in the
+  file the test needs, one by one. Its `run_without` lists the files of the branch that the base
+  run lacked, which the check takes for the change: a helper of a test in that list means the
+  test's failure proved nothing, and the helper belongs among the story's files. Repair what the
+  check names before the task is `ready`, and give its last line here. A project whose tests need more than a fresh worktree has says what in the
   settings' `gate.setup`; when that is missing, it is an outside defect for your report, not
   yours to set;
 - **not verified**: what you could not or did not check;

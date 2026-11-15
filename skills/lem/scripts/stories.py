@@ -31,19 +31,25 @@ are:
 `red` is a machine check with no model in it. A test that also passes on the base commit does
 not test the change, and a story with no test at the end of a build is refused.
 
-It never moves the task's worktree. It makes a worktree of its own beside it, at the branch's
-tip, runs the commands of the settings' `gate.setup` there (what a fresh worktree of this
-project needs before its tests can start), and runs each story's tests twice in it:
+It never moves the task's worktree. It makes two worktrees of its own beside it, each with the
+commands of the settings' `gate.setup` run in it first (what a fresh worktree of this project
+needs before its tests can start), so that nothing one run writes reaches the other:
 
-- on the branch's tip, where each must pass. A test that passes in the task's worktree and not
-  here needs something a fresh worktree lacks, and the check says so: a failure on the base
-  commit would then prove nothing;
-- on the base commit with only the named test files of the branch laid over it, where each must
-  fail. A command that does not start there (exit 126 or 127) is no proof: a file the test
-  needs is not among the files the story names.
+- one at the branch's tip, where each test must pass. A test that passes in the task's worktree
+  and not here needs something a fresh worktree lacks, and the check says so: a failure on the
+  base commit would then prove nothing;
+- one at the base commit with only the named test files of the branch laid over it, where each
+  test must fail. A command that does not start there (exit 126 or 127) is no proof.
 
-The worktree is removed afterwards, also when a command fails, and one that a killed run left
-behind is removed by the next run.
+What the check cannot tell: whether a file of the branch that the base run lacked is the change
+or a helper of the test. A test of a new module fails on the base commit because the module is
+absent, and that is the proof wanted; a test whose new helper was not named fails the same way
+and proves nothing. Only the story's own list of files tells the two apart, so the result names
+every file the base run lacked (`run_without`), for the one who reads the change.
+
+One check of a task runs at a time. The two worktrees are removed afterwards, also when a
+command fails or the check is stopped, with every process a command left behind; what a killed
+run left is removed by the next run. A worktree that cannot be removed is an error with its path.
 """
 
 from __future__ import annotations
@@ -55,10 +61,13 @@ if sys.version_info < (3, 11):
     sys.exit(f"stories.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
 import re
+import shutil
+import signal
 import subprocess
 from pathlib import Path
 
@@ -98,13 +107,20 @@ def parse(text: str, name: str) -> dict:
     """The stories section of a plan as a dict; a section that does not have the form is refused with the line."""
     lines = text.splitlines()
     # A plan may show the form in a code fence: what is inside one is an example, never the section.
-    fenced, inside = set(), False
+    # A fence closes only on a line of its own character, at least as long as the one that opened
+    # it, with nothing after it: a shorter fence inside is a part of the example.
+    fenced: set[int] = set()
+    opened: tuple[str, int] | None = None
     for i, line in enumerate(lines):
-        if line.lstrip().startswith(("```", "~~~")):
-            inside = not inside
-            fenced.add(i)
-        elif inside:
-            fenced.add(i)
+        mark = re.match(r" {0,3}(`{3,}|~{3,})(.*)$", line)
+        if opened is None:
+            if mark and not (mark.group(1)[0] == "`" and "`" in mark.group(2)):
+                opened = (mark.group(1)[0], len(mark.group(1)))
+                fenced.add(i)
+            continue
+        fenced.add(i)
+        if mark and mark.group(1)[0] == opened[0] and len(mark.group(1)) >= opened[1] and not mark.group(2).strip():
+            opened = None
     start = next((i for i, line in enumerate(lines) if i not in fenced and HEADING.match(line)), None)
     if start is None:
         raise StoriesError(f"{name} has no `## Stories` section; the plan opens with it, as `stories.py --help` shows")
@@ -187,16 +203,22 @@ class Task:
         script("project.py", self.repo, "log", self.slug, event, *(f"{key}:={json.dumps(value, ensure_ascii=False)}" for key, value in fields.items()))
 
 
-def leftovers(task: Task) -> None:
-    """Remove a worktree of this check that a killed run left behind. One whose run still lives stays."""
-    for old in sorted(task.worktree.parent.glob(f"{task.slug}.red-*")):
-        pid = old.name.rsplit("-", 1)[-1]
-        try:
-            os.kill(int(pid), 0)
-        except (ValueError, ProcessLookupError):
-            run(["git", "-C", str(task.main), "worktree", "remove", "--force", str(old)], check=False)
-        except PermissionError:
-            continue
+def remove(task: Task, place: Path) -> str | None:
+    """Remove one worktree of this check, a locked one too. Returns what is in the way when it stays."""
+    def listed() -> bool:
+        return f"worktree {place}\0" in run(["git", "-C", str(task.main), "worktree", "list", "--porcelain", "-z"], check=False).stdout
+
+    if not place.exists() and not listed():
+        return None
+    run(["git", "-C", str(task.main), "worktree", "unlock", str(place)], check=False)
+    # twice --force: a worktree with changes, and one that a command locked
+    run(["git", "-C", str(task.main), "worktree", "remove", "--force", "--force", str(place)], check=False)
+    if place.exists():
+        shutil.rmtree(place, ignore_errors=True)
+    run(["git", "-C", str(task.main), "worktree", "prune"], check=False)
+    if place.exists() or listed():
+        return f"{place} could not be removed; remove it yourself: git -C {task.main} worktree remove --force --force {place}"
+    return None
 
 
 def cmd_red(task: Task) -> dict:
@@ -227,35 +249,77 @@ def cmd_red(task: Task) -> dict:
                     "one by one and relative to the root: a folder would lay the change itself over the base commit",
                 )
     without = [{"story": story["n"], "why": story["no_test"]} for story in found["stories"] if story["no_test"]]
+    laid = sorted({file for _, test in tests for file in test["files"]})
+    # what the base run lacks: every file the branch changed that is not a named test file
+    changed = [name for name in git(task.worktree, "diff", "--name-only", "--no-renames", "-z", base, tip).split("\0") if name]
+    run_without = sorted(set(changed) - set(laid))
     results: list[dict] = []
     setup: list[dict] = []
     if tests:
-        leftovers(task)
-        scratch = task.worktree.parent / f"{task.slug}.red-{os.getpid()}"
-
-        def outcome(command: str) -> int:
-            # through a shell, as the gate's commands run: a test command is a line the project would type
-            return subprocess.run(command, shell=True, cwd=scratch, capture_output=True, text=True, check=False).returncode  # noqa: S602
-
-        git(task.main, "worktree", "add", "-q", "--detach", str(scratch), tip)
+        # One check of a task at a time. The lock is the kernel's, and it goes when its process
+        # goes, however that is; so whoever holds it knows that a worktree it finds is a dead run's.
+        lock = (task.directory / "red.lock").open("w")
         try:
-            for command in task.settings["gate"]["setup"]:
-                code = outcome(command)
-                setup.append({"command": command, "exit": code})
-                if code != 0:
-                    raise StoriesError(f"`{command}` of gate.setup failed in a fresh worktree (exit {code}), so no test could run there; correct that command in .lem/project.toml")
-            on_branch = [outcome(test["command"]) for _, test in tests]
-            # What a test changed in a tracked file on the branch must not reach its run on the
-            # base commit. Files git does not track stay: what gate.setup made is among them, and
-            # without it every test would fail on the base commit for no reason of the story's.
-            git(scratch, "reset", "-q", "--hard")
-            git(scratch, "checkout", "-q", "--detach", base)
-            files = sorted({file for _, test in tests for file in test["files"]})
-            git(scratch, "checkout", tip, "--", *files)
-            on_base = [outcome(test["command"]) for _, test in tests]
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            raise StoriesError("another check of this task's stories runs now; wait for it to end") from error
+        places = {"branch": task.worktree.parent / f"{task.slug}.red-tip", "base": task.worktree.parent / f"{task.slug}.red-base"}
+        for place in places.values():
+            stuck = remove(task, place)
+            if stuck:
+                raise StoriesError(stuck)
+        child: list[subprocess.Popen] = []
+
+        def stop() -> None:
+            """End the command that runs and everything it started: each command is a process group of its own."""
+            for proc in child:
+                for sign in (signal.SIGTERM, signal.SIGKILL):
+                    try:
+                        os.killpg(proc.pid, sign)
+                    except (ProcessLookupError, PermissionError):
+                        break
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        continue
+            child.clear()
+
+        def outcome(command: str, where: Path) -> int:
+            # through a shell, as the gate's commands run: a test command is a line the project would type
+            proc = subprocess.Popen(command, shell=True, cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
+            child.append(proc)
+            code = proc.wait()
+            # a command that ended may have left a process behind (a server a test started)
+            stop()
+            return code
+
+        def ended(*_: object) -> None:
+            raise KeyboardInterrupt
+
+        before = signal.signal(signal.SIGTERM, ended)
+        codes: dict[str, list[int]] = {}
+        try:
+            for name, place in places.items():
+                git(task.main, "worktree", "add", "-q", "--detach", str(place), tip if name == "branch" else base)
+                if name == "base":
+                    git(place, "checkout", tip, "--", *laid)
+                for command in task.settings["gate"]["setup"]:
+                    code = outcome(command, place)
+                    setup.append({"on": name, "command": command, "exit": code})
+                    if code != 0:
+                        where = "a fresh worktree of the branch" if name == "branch" else "a fresh worktree of the base commit, with the test files laid over it"
+                        raise StoriesError(f"`{command}` of gate.setup failed in {where} (exit {code}), so no test could run there; correct that command in .lem/project.toml")
+                codes[name] = [outcome(test["command"], place) for _, test in tests]
+        except KeyboardInterrupt:
+            raise StoriesError("the check was stopped; its commands are ended and its worktrees removed") from None
         finally:
-            run(["git", "-C", str(task.main), "worktree", "remove", "--force", str(scratch)], check=False)
-        for (number, test), green, red in zip(tests, on_branch, on_base):
+            stop()
+            signal.signal(signal.SIGTERM, before)
+            stuck = [problem for problem in (remove(task, place) for place in places.values()) if problem]
+            lock.close()
+            if stuck and sys.exc_info()[0] is None:
+                raise StoriesError("; ".join(stuck))
+        for (number, test), green, red in zip(tests, codes["branch"], codes["base"]):
             problem = None
             if green != 0:
                 problem = (
@@ -265,11 +329,17 @@ def cmd_red(task: Task) -> dict:
             elif red == 0:
                 problem = "passes on the base commit too, so it does not test the change"
             elif red in (126, 127):
-                problem = f"does not start on the base commit (exit {red}): a file it needs is not among the files the story names, so its failure there proves nothing"
+                problem = (
+                    f"does not start on the base commit (exit {red}), so its failure there proves nothing. If a file it needs is a helper of the test, "
+                    "name it among the story's files; if what is absent is the change itself, make the test fail on it and not stop before it"
+                )
             results.append({"story": number, "command": test["command"], "files": test["files"], "on_branch": green, "on_base": red, "problem": problem})
     ok = not any(result["problem"] for result in results)
-    task.log("task.red", ok=ok, digest=found["digest"], base=base[:9], tip=tip[:9], tests=results, without_a_test=without)
-    return {"task": task.slug, "ok": ok, "digest": found["digest"], "base": base[:9], "tip": tip[:9], "setup": setup, "tests": results, "without_a_test": without}
+    task.log("task.red", ok=ok, digest=found["digest"], base=base[:9], tip=tip[:9], tests=results, without_a_test=without, run_without=run_without)
+    return {
+        "task": task.slug, "ok": ok, "digest": found["digest"], "base": base[:9], "tip": tip[:9], "setup": setup, "tests": results,
+        "without_a_test": without, "run_without": run_without,
+    }
 
 
 def main() -> None:
