@@ -475,12 +475,23 @@ script = sys.argv[1]
 sys.argv = [script, "hook"]
 sys.executable = "/no/such/python"   # the hook starts its copy with this
 runpy.run_path(script, run_name="__main__")' "$CORR" 2>&1; echo "exit=$?")
-if [ "$out" = "exit=0" ] && [ -z "$(ls -A "$WORK/hooktmp")" ] && grep -q "/no/such/python" "$CQ/.git/lem/corrections.log"; then
+# only the hook's own files count: git may keep a cache of its own in the temp folder
+if [ "$out" = "exit=0" ] && [ -z "$(find "$WORK/hooktmp" -name 'lem-correction-*')" ] && grep -q "/no/such/python" "$CQ/.git/lem/corrections.log"; then
   pass "when the detached half cannot start, the hook removes the file with the owner's words and logs the failure"
 else
-  fail "the hook with a failed hand-over: $out / $(ls -A "$WORK/hooktmp") / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
+  fail "the hook with a failed hand-over: $out / $(find "$WORK/hooktmp" -name 'lem-correction-*') / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
 fi
 rm -f "$CQ/.git/lem/corrections.log"
+# The hook's own directory is gone, as a removed worktree's is: the event still names its repository.
+mkdir "$WORK/gone"
+out=$(cd "$WORK/gone" && rmdir "$WORK/gone" && event "typed in a directory that is gone" s9 | hook hook 2>&1; echo "exit=$?")
+for _ in 1 2 3 4 5 6 7 8 9 10; do grep -qs "that is gone" "$CQ/.git/lem/corrections.jsonl" && break; sleep 0.3; done
+if [ "$out" = "exit=0" ] && grep -q "that is gone" "$CQ/.git/lem/corrections.jsonl"; then
+  pass "a hook whose own directory was removed still exits 0 with no output, and queues the message for the event's repository"
+else
+  fail "the hook in a removed directory: $out"
+fi
+rm -f "$CQ/.git/lem/corrections.jsonl" "$WORK/jev-called"
 sed -i.bak 's/^collect = true$/collect = false/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 # An input that stays open, and an old python3: the hook returns, with exit 0 and not a word.
 started=$SECONDS

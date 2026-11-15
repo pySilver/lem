@@ -188,12 +188,13 @@ def read_event() -> dict:
 
 def cmd_hook() -> None:
     """Return at once. Whatever goes wrong here must not reach the owner's prompt."""
-    cwd = os.getcwd()
+    cwd = None
     path = None
     try:
         event = read_event()
         prompt = (event.get("prompt") or "").strip()
-        cwd = event.get("cwd") or cwd
+        # the event's directory first: the hook's own may be a worktree that is already removed
+        cwd = event.get("cwd") or os.getcwd()
         if not prompt or prompt.startswith(INJECTED) or prompt.startswith("/") or not collects(cwd):
             return
         payload = {"prompt": prompt, "cwd": cwd, "session": event.get("session_id"), "transcript": event.get("transcript_path", "")}
@@ -212,7 +213,7 @@ def cmd_hook() -> None:
                 # no copy will read it: the owner's words do not stay in a file nobody removes
                 Path(path).unlink(missing_ok=True)
             # the log of the repository the message was typed in, which is the one that lost it
-            where = folder(cwd)
+            where = folder(cwd or os.getcwd())
             if where is not None:
                 append(where / "corrections.log", {"ts": now(), "error": f"the hook failed before it could judge a message: {error}"})
         except Exception:  # noqa: BLE001
