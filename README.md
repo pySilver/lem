@@ -63,6 +63,15 @@ the page says so at its top.*
 
 <p align="center">
   <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screens/backlog-dark.png">
+    <img src="assets/screens/backlog-light.png" alt="The backlog tab of the board: five items in groups by who can act, one with a mark because its place in the code is gone" width="900">
+  </picture>
+</p>
+
+*The backlog tab of the board, with demo data.*
+
+<p align="center">
+  <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/screens/real-task-dark.png">
     <img src="assets/screens/real-task-light.png" alt="The board of the first real task after its landing: the phases, the time of each state, the state blocks and the gate result" width="900">
   </picture>
@@ -82,6 +91,11 @@ The board shows these things:
   review item.
 - The board of one task says who acts next.
 - A line that waits for you says where you answer.
+- A second tab shows the backlog: the work for later, in groups. A group is "Needs you", "An
+  agent can take it", "Waits for something" or "Decided against".
+- An item whose place in the code is gone has a mark. You filter the items with words.
+- Each item has one action, "Start a task". It types `/lem new` and the item into the session of
+  Lem, after you confirm it.
 - The board reads its files again each two seconds. Thus a change shows after a short time.
 
 ## How one task goes

@@ -217,6 +217,15 @@ and where each task's time went. A task's own board adds its state blocks and ea
 It reads the event log by itself every two seconds, so open it once, and again after agterm was
 started again.
 
+The board of all tasks has a second tab, the backlog: the items of the backlog path in groups by
+who can act on each (when the `lem-backlog` skill's sorting has verdicts, by each item's own
+verdict otherwise), with an item whose place in the code is gone marked as such. An item's one
+action there, "start a task", types `/lem new PATH` into Lem's session, which is the ask
+`stages/new.md` takes for a backlog item; the owner confirms it on the page first. `board.py`
+writes the tab's file at every run, and the page reads it when the tab opens and on a key. So
+after an item was filed, taken or removed, run `board.py --no-open`, which writes the file again
+and opens nothing.
+
 Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists every task
 directory with the first line of its `task.md`, its status and the newest block of its
 `state.md`. Say, in plain names and never in task codes: what builds and what each other task
@@ -229,6 +238,7 @@ that too. Open with the newest night report when one is newer than the last stat
 itself changes nothing.
 
 The owner's answer to a proposed item ends the offer, in whichever session it comes. An item he
-takes goes to the `lem-backlog` skill, which files it, and then its file leaves `proposed/`. An
+takes goes to the `lem-backlog` skill, which files it, and then its file leaves `proposed/`; the
+board's backlog tab shows it after the next `board.py` run. An
 item he declines is removed from `proposed/`. An item with no answer stays, and the next status
 offers it again.

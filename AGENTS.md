@@ -149,6 +149,12 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **A page for the owner has the board's look**: of the first onboarding's page, "a bit old
   school ... just a bit nicer fonts, colors, paddings, round boxes etc.". Every page links
   `skills/lem/assets/lem.css`, and a stage builds its page from a pattern beside it.
+- **The backlog is a part of Lem, and its view is a tab of the board**: "Backlog tab - I like
+  this idea" (2026-11-15), on the answer that three stages already live on the backlog (the
+  night plan picks from it, the closing pass files into it, an ask starts from it). So
+  `lem-backlog` stays a shipped skill, not a recommended outside tool, and the board's second
+  tab shows the items by who can act, with one action that gives an item to Lem as an ask. The
+  content follows a page of his own; no code of it is used.
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
 
@@ -205,7 +211,8 @@ real task, so say in the commit which task showed the need.
   `corrections.py` (the optional queue of the owner's corrections: its hook, and what a retro
   reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
   the setup links as the `jev` command).
-- `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both.
+- `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both, and
+  on the board of all tasks a second tab for the backlog.
   `lem.css` beside it is the look every page of Lem shares: its colors, its type, its header
   and the blocks of a page to read. `handover.html` is the pattern of the onboarding's page.
   A new page for the owner links `lem.css` and brings no style of its own.
@@ -228,7 +235,7 @@ real task, so say in the commit which task showed the need.
   palette, written by `assets/night.py`; the README shows the night one in a dark theme.
 - `assets/screens/`: the README's pictures of the board, for a light and a dark theme, at two
   device pixels for each pixel. `board-*` and `task-*` are renders of
-  `skills/lem/assets/board.html` over demo data; `real-task-*` is the board of the first task
+  `skills/lem/assets/board.html` over demo data, and so is `backlog-*`; `real-task-*` is the board of the first task
   that ran through Lem, over its real event log.
 - `skills/lem-ask/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
   `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,

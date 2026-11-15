@@ -1216,6 +1216,42 @@ else
   fail "the backlog's folder: $out / $err"
 fi
 
+# The backlog tab of the board: board.py writes the items for the page, with what each needs beside its text.
+BKB=$WORK/backlog-board
+git init -q -b main "$BKB" && mkdir -p "$BKB/docs/backlog" "$BKB/app" && printf 'def export_rows():\n    return []\n' > "$BKB/app/export.py"
+bitem() { printf '%s\n' '---' "worth: $2" "where: $3" "added: $4" '---' "# $5" '' "$6" > "$BKB/docs/backlog/$1.md"; }
+# shellcheck disable=SC2016  # the backticks are markdown in an item's title
+bitem export-drops-columns yes app/export.py:export_rows 2026-11-02 'The export drops `custom` columns' 'A merchant does not find the gift note. </script><b>not markup</b>'
+bitem slow-report later app/report.py:monthly 2026-10-20 'The monthly report takes nine seconds' 'It reads each order one by one.'
+bitem which-currency yes app/export.py:no_such_name 2026-11-14 'Which currency rounds half up' 'Nobody decided for PLN.'
+printf '%s\n' '---' 'worth: no' '---' '# A dark theme' '' 'Decided against.' > "$BKB/docs/backlog/dark-theme.md"
+git -C "$BKB" add -A && git -C "$BKB" -c user.name=t -c user.email=t@t commit -q -m start
+bitem new-from-a-landing maybe app/export.py 2026-11-15 'A new item' 'Not committed yet.'
+: > "$BKB/docs/backlog/a b;c.md"
+project --repo "$BKB" init --base main >/dev/null
+# one task with a state, so that the page has an event log to read
+project --repo "$BKB" task-dir a-first-task >/dev/null && project --repo "$BKB" state a-first-task building 'lead: builder' >/dev/null
+"$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
+feed() { "$PY" -c 'import json, re, sys; d = json.loads(re.fullmatch(r"lemBacklog\((.*)\);\n", open(sys.argv[1], encoding="utf-8").read().replace("<\\/", "</"), re.S).group(1)); print(eval(sys.argv[2], {"d": d, "by": {i["slug"]: i for i in d["items"]}}))' "$BKB/.git/lem/backlog.js" "$1"; }
+if [ "$(feed '(d["folder"], d["judged"], sorted(by))')" = "('docs/backlog', False, ['a b;c', 'dark-theme', 'export-drops-columns', 'new-from-a-landing', 'slow-report', 'which-currency'])" ] \
+  && [ "$(feed '(by["export-drops-columns"]["title"], by["export-drops-columns"]["worth"], by["export-drops-columns"]["where_problem"], by["export-drops-columns"]["state"], by["export-drops-columns"]["path"])')" = "('The export drops custom columns', 'yes', '', '', 'docs/backlog/export-drops-columns.md')" ] \
+  && [ "$(feed '(by["slow-report"]["where_problem"], by["which-currency"]["where_problem"], by["dark-theme"]["worth"], by["dark-theme"]["where"])')" = "('the file is not there', 'not in the file: no_such_name', 'no', '')" ] \
+  && [ "$(feed '(by["new-from-a-landing"]["worth"], by["new-from-a-landing"]["state"], by["a b;c"]["title"])')" = "('unset', 'new', 'a b;c')" ] \
+  && ! grep -q '</script>' "$BKB/.git/lem/backlog.js" && [ "$(feed '"</script><b>not markup</b>" in by["export-drops-columns"]["body"]')" = True ]; then
+  pass "the board's backlog file has each item with its verdict, whether its place in the code is still there and whether git has it, and no text of an item can end the script that carries it"
+else
+  fail "backlog.js: $(head -c 600 "$BKB/.git/lem/backlog.js")"
+fi
+printf '%s\n' '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}, "which-currency": {"verdict": "owner", "confidence": 0.58}, "slow-report": {"verdict": "nonsense"}, "gone-item": {"verdict": "agent"}}' > "$BKB/.git/backlog-triage.json"
+"$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
+kept=$(cat "$BKB/.git/backlog-triage.json")
+if [ "$(feed '(d["judged"], by["export-drops-columns"]["who"], by["export-drops-columns"]["confidence"], by["which-currency"]["who"], by["slow-report"]["who"])')" = "(True, 'agent', 0.86, 'owner', '')" ] \
+  && [ "$kept" = "$(cat "$BKB/.git/backlog-triage.json")" ] && [ -z "$(git -C "$BKB" status --porcelain -- app)" ]; then
+  pass "with verdicts of the backlog's sorting the file says who can act on each item, an unknown verdict is none, and the board reads that record without a change to it"
+else
+  fail "backlog.js with verdicts: $(head -c 400 "$BKB/.git/lem/backlog.js")"
+fi
+
 # The board: board.py writes the page and what it reads beside the events, and the page draws them.
 BOARD=$PWD/skills/lem/scripts/board.py
 board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" "$@"; }
@@ -1390,6 +1426,74 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     fail "a broken meta.js shows no problem: $(grep -o '<title>[^<]*' "$WORK/board.dom")"
   fi
   board --repo "$OLD" --no-open >/dev/null
+  # The backlog tab: drawn from backlog.js, and its one action types the item into Lem's session.
+  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+    --virtual-time-budget=5000 --dump-dom "file://$BKB/.git/lem/board.html#backlog" > "$WORK/backlog.dom" 2>/dev/null || true
+  if [ ! -s "$WORK/backlog.dom" ]; then
+    printf 'SKIP the backlog tab: %s printed no page\n' "$chrome"
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/backlog.dom" "Backlog · backlog-board" "6 items in docs/backlog" "2 point at a place that is gone" "sorted by who can act" \
+    "Needs you" "An agent can take it" "Not judged yet" "Decided against" "The export drops custom columns" "an agent can take it · 0.86" \
+    "app/report.py:monthly · the file is not there" "new, not committed" "worth: unset" "!Waits for something"); then
+    pass "the backlog tab draws the items in groups by who can act, each with its word and its count, and shows a place that is gone"
+  else
+    fail "the backlog tab: missing $why"
+  fi
+  cat > "$BKB/.git/lem/probe.html" <<'PROBE'
+<!doctype html><meta charset="utf-8"><iframe id="f" src="board.html#backlog" style="width:1280px;height:900px;border:0"></iframe><pre id="out"></pre>
+<script>
+const wait = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  await wait(1500);
+  const d = document.getElementById('f').contentDocument, w = document.getElementById('f').contentWindow, log = {};
+  const key = (code, key) => d.body.dispatchEvent(new w.KeyboardEvent('keydown', {code, key, bubbles: true}));
+  const actions = () => d.querySelector('.bl-item.cur .bl-actions')?.textContent ?? '';
+  const pickItem = title => { for (let i = 0; i < 12 && d.querySelector('.bl-item.cur .bl-title')?.textContent !== title; i++) key('KeyJ', 'j'); };
+  pickItem('Which currency rounds half up'); key('Enter', 'Enter');
+  log.noAgterm = actions();
+  w.eval("globalThis.typed = []; globalThis.fg = []; globalThis.agterm = {request: async (cmd, o) => { if (cmd === 'tree') return {tree: {workspaces: [{sessions: [{id: 'LEM1', foreground: globalThis.fg}]}]}}; globalThis.typed.push([cmd, o]); return {}; }};");
+  await wait(3500);
+  log.shellOnly = actions();
+  w.eval("globalThis.fg = ['claude']"); await wait(3500);
+  key('KeyS', 's'); log.confirm = actions();
+  key('Escape', 'Escape'); log.afterEsc = w.typed.length;
+  key('KeyS', 's'); key('Enter', 'Enter'); await wait(300);
+  log.typed = w.typed; log.sent = actions();
+  pickItem('a b;c'); key('KeyS', 's'); key('Enter', 'Enter'); await wait(300);
+  log.unsafe = actions(); log.typedAfterUnsafe = w.typed.length;
+  const q = d.getElementById('bl-q'); q.value = 'gift note'; q.dispatchEvent(new w.Event('input', {bubbles: true}));
+  log.filtered = [...d.querySelectorAll('.bl-title')].map(n => n.textContent);
+  key('KeyT', 't'); log.tasksTab = [d.getElementById('backlog').hidden, d.getElementById('lanes-section').hidden];
+  document.getElementById('out').textContent = JSON.stringify(log);
+})().catch(e => { document.getElementById('out').textContent = JSON.stringify({error: String(e)}); });
+</script>
+PROBE
+  "$PY" -c 'import json, re, sys; s = open(sys.argv[1]).read(); d = json.loads(re.fullmatch(r"lemMeta\((.*)\);\n", s, re.S).group(1)); d["session"] = "LEM1"; open(sys.argv[1], "w").write("lemMeta(%s);\n" % json.dumps(d))' "$BKB/.git/lem/meta.js"
+  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" --allow-file-access-from-files \
+    --virtual-time-budget=20000 --dump-dom "file://$BKB/.git/lem/probe.html" > "$WORK/probe.dom" 2>/dev/null || true
+  rm -f "$BKB/.git/lem/probe.html"
+  acted=$("$PY" -c 'import html, json, re, sys
+found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}
+cmd = "/lem new docs/backlog/which-currency.md"
+wrong = [name for name, ok in {
+    "an error": "error" not in d,
+    "no agterm: the command to type, and nothing typed": "not open in this window" in d.get("noAgterm", "") and cmd in d.get("noAgterm", ""),
+    "a shell and no agent: nothing typed": "No agent runs" in d.get("shellOnly", ""),
+    "S asks first": "This types" in d.get("confirm", "") and d.get("afterEsc") == 0,
+    "Enter types the one line into Lem": d.get("typed") == [["session.type", {"target": "LEM1", "args": {"text": cmd + "\n"}}]],
+    "the item says that it was sent": "Typed into" in d.get("sent", ""),
+    "an unsafe file name is never typed": "is not typed into a session" in d.get("unsafe", "") and d.get("typedAfterUnsafe") == 1,
+    "the filter reads the text of an item": d.get("filtered") == ["The export drops custom columns"],
+    "T goes back to the tasks": d.get("tasksTab") == [True, False],
+}.items() if not ok]
+print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d)[:900])' "$WORK/probe.dom" 2>&1 || true)
+  if [ ! -s "$WORK/probe.dom" ]; then
+    printf 'SKIP the keys of the backlog tab: %s printed no page\n' "$chrome"
+  elif [ "$acted" = "ok " ]; then
+    pass "on the backlog tab a key moves, opens and filters; S asks first and Enter types one line into Lem's session, only where an agent runs, and never a file name with a character a shell could read"
+  else
+    fail "the keys of the backlog tab: $acted"
+  fi
 else
   printf 'SKIP the board pages: no Chrome or Chromium found\n'
 fi

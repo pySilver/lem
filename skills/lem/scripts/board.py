@@ -10,6 +10,13 @@ The page is `assets/board.html`. It draws the files beside it in the state folde
 and `review-queue.js`, which `project.py` and `review_queue.py` append to, and `meta.js`, which
 this script writes (the repository's name, the base branch, the session that opened the board). A
 file:// page cannot read a file with fetch and it can load a script, so each of the three is one.
+
+The board's second tab is the backlog, from `backlog.js`, which this script writes at every run:
+each item of the settings' backlog folder in the main checkout, with its `worth`, its `where` and
+whether that still resolves, whether git has it committed, and who can act on it next when the
+`lem-backlog` skill's sorting has a verdict. Items change rarely, so the page reads that file when
+the tab opens and on a key, and it says when the file was written. A run with `--no-open` writes
+it again without touching agterm.
 The page and the stylesheet it links (`assets/lem.css`, the look every page of Lem shares) are
 copied into the state folder at every open, so an older checkout gets the current ones.
 A copy named `task-SLUG.html` opens on that task.
@@ -39,6 +46,7 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -67,6 +75,85 @@ def project(repo: str, *args: str) -> str:
     return ran.stdout.strip()
 
 
+def where_problem(root: Path, where: str) -> str:
+    """What of an item's `where` no longer resolves, or "": the check the backlog skill makes before it reports an item."""
+    path, _, symbol = where.partition(":")
+    path, symbol = path.strip(), symbol.strip()
+    if not path:
+        return ""
+    target = root / path
+    if not target.resolve().is_relative_to(root.resolve()):
+        return "the path leaves the repository"
+    if not target.exists():
+        return "the file is not there"
+    if not symbol or target.is_dir():
+        return ""
+    text = target.read_text(encoding="utf-8", errors="replace")
+    if target.suffix == ".md":
+        return "" if symbol in text else "the heading is not in the file"
+    missing = [part for part in symbol.split(".") if part and not re.search(rf"\b{re.escape(part)}\b", text)]
+    return f"not in the file: {'.'.join(missing)}" if missing else ""
+
+
+def backlog(settings: dict) -> dict:
+    """The items of the backlog folder, as the board's second tab shows them. It reads and changes nothing."""
+    main = Path(settings["main"])
+    # the main checkout's copy: a task's worktree has the backlog as its branch left it
+    folder = main / Path(settings["paths"]["backlog"]["path"]).relative_to(settings["root"])
+    relative = folder.relative_to(main).as_posix()
+    feed: dict = {"folder": relative, "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "judged": False, "items": []}
+    if not folder.is_dir():
+        return feed
+
+    def git(*args: str) -> str:
+        ran = subprocess.run(["git", "-C", str(main), *args], capture_output=True, text=True, check=False)
+        return ran.stdout if ran.returncode == 0 else ""
+
+    # what git does not have committed yet: an item the closing pass filed a minute ago is `new`
+    changed = {}
+    for entry in git("status", "--porcelain", "-z", "--", relative).split("\0"):
+        if len(entry) > 3:
+            code = entry[:2]
+            changed[entry[3:]] = "new" if code == "??" or "A" in code else "edited"
+    # who can act next, as the backlog skill's sorting last judged it; that file is read, never written here
+    common = Path(git("rev-parse", "--git-common-dir").strip() or ".git")
+    verdicts_file = (common if common.is_absolute() else main / common) / "backlog-triage.json"
+    try:
+        verdicts = json.loads(verdicts_file.read_text(encoding="utf-8")) if verdicts_file.is_file() else {}
+    except ValueError:
+        verdicts = {}
+    verdicts = verdicts if isinstance(verdicts, dict) else {}
+    for file in sorted(folder.glob("*.md")):
+        text = file.read_text(encoding="utf-8", errors="replace")
+        fields: dict[str, str] = {}
+        body = text
+        if text.startswith("---"):
+            head, mark, rest = text[3:].partition("\n---")
+            if mark:
+                body = rest.split("\n", 1)[1] if "\n" in rest else ""
+                for line in head.splitlines():
+                    key, colon, value = line.partition(":")
+                    if colon and key.strip() in ("worth", "where", "added"):
+                        fields[key.strip()] = value.strip().strip("\"'")
+        title = re.search(r"(?m)^#\s+(.+)$", body)
+        if title:
+            body = body[: title.start()] + body[title.end():]
+        verdict = verdicts.get(file.stem) if isinstance(verdicts.get(file.stem), dict) else {}
+        where = fields.get("where", "")
+        rel = f"{relative}/{file.name}"
+        feed["items"].append({
+            "slug": file.stem, "path": rel, "title": (title.group(1) if title else file.stem).replace("`", "").strip(),
+            "worth": fields.get("worth") if fields.get("worth") in ("yes", "later", "no") else "unset",
+            "where": where, "where_problem": where_problem(main, where) if where else "",
+            "added": fields.get("added", ""), "state": changed.get(rel, ""),
+            "who": verdict.get("verdict") if verdict.get("verdict") in ("owner", "agent", "waiting") else "",
+            "confidence": verdict.get("confidence") if isinstance(verdict.get("confidence"), (int, float)) else None,
+            "body": body.strip(),
+        })
+    feed["judged"] = any(item["who"] for item in feed["items"])
+    return feed
+
+
 def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> tuple[Path, str]:
     """Write the page and meta.js into the state folder, and return the page's path and the repository's name."""
     if not ASSET.is_file():
@@ -90,6 +177,9 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False) -> tu
     if marker.is_file():
         meta["demo"] = True
     (state / "meta.js").write_text(f"lemMeta({json.dumps(meta, ensure_ascii=False)});\n", encoding="utf-8")
+    # `</` is split so that no item's text can end the script tag the page loads this file with
+    items = json.dumps(backlog(settings), ensure_ascii=False).replace("</", "<\\/")
+    (state / "backlog.js").write_text(f"lemBacklog({items});\n", encoding="utf-8")
     page = state / (f"task-{slug}.html" if slug else "board.html")
     shutil.copyfile(ASSET, page)
     shutil.copyfile(STYLE, state / STYLE.name)
