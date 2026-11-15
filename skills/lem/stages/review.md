@@ -22,7 +22,8 @@ ones first.
    `normal` one. A finding is confirmed against the code before it counts.
    A round in which one of the review tool's agents died (a usage limit, a session limit) is a
    partial round: say which of its sources finished, and run it again before the item is closed
-   as `clean`. One round lost a source to a weekly limit and two more to a session limit (mybaze,
+   with any outcome. A defect one source found does not stand in for the read of the source that
+   died. One round lost a source to a weekly limit and two more to a session limit (mybaze,
    2026-10-23 and 2026-10-17, from that project's notes).
    The round and the confirming run in a context of their own, since both read the diff: give the
    item to a fresh agent through `spawn-builder`, told to change nothing. It writes
