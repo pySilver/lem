@@ -84,10 +84,9 @@ one finds what the run before it finished.
    item's risk. Give paths relative to the repository's root. Offer each proposed backlog item
    by its first line, as the last lines of the report: it is a plain yes or no for each, so it
    stays in the terminal. Name each item by what it says, so that "file it" can mean one thing
-   only; when the owner's answer could mean two things, ask which. An item the owner takes goes
-   to the `lem-backlog` skill, which files it, and its file leaves `proposed/`. An item he
-   declines is removed from `proposed/`. An item he has not answered stays there: it is his to
-   answer on another day, in another session, and the status names it. A `high` item is reviewed today:
+   only; when the owner's answer could mean two things, ask which. `SKILL.md`, Status, says what
+   his answer does to an item's file in `proposed/`: taken, it is filed and leaves; declined, it
+   is removed; with no answer it stays, and a later status offers it again. A `high` item is reviewed today:
    `stages/review.md`, rule 1. A `normal` item waits in the queue for `/lem review`; say in the
    report that it waits, and do not start its review by yourself.
 7. **`clean`** removes the task's worktree and its branch, after it has checked that the base

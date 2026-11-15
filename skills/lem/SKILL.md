@@ -217,5 +217,10 @@ waits on, what landed today, how many review items are open and how many are due
 waits for the owner. That includes each backlog item a landing proposed and he has not answered
 (`proposed` in the output, with the file in the task directory's `proposed/`): offer it again,
 by what it says. A task whose status is null has a state nobody wrote through the script: say
-so. Open with the newest night report when one is newer than the last status shown. Change
-nothing.
+so. Open with the newest night report when one is newer than the last status shown. The status
+itself changes nothing.
+
+The owner's answer to a proposed item ends the offer, in whichever session it comes. An item he
+takes goes to the `lem-backlog` skill, which files it, and then its file leaves `proposed/`. An
+item he declines is removed from `proposed/`. An item with no answer stays, and the next status
+offers it again.

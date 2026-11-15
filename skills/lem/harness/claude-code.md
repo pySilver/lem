@@ -112,12 +112,13 @@ task's state first, so it goes on or stops.
 
 Checked on 2026-11-14 with agterm 0.41.1 in its rerun restore mode: a companion session opened
 with this line through a fish login shell, Claude Code ran its prompt there, and `foreground` and
-`parent` read back from the tree. Checked on 2026-11-15 in a scratch repository: Lem, itself in a
-companion session, opened a task's session this way; the session came up as its sibling, its
-lead read the brief, opened the reviewer's pane, stopped at Codex's trust prompt, wrote the
-state and told Lem, and the mail woke Lem. Not run yet: a session lead that built and reported
-a whole task, a message sent to a lead (step 4), and a relaunch of agterm with a lead's session
-open.
+`parent` read back from the tree. Checked on 2026-11-15 in a scratch repository, in the first
+careful task that ran through Lem: Lem, itself in a companion session, opened the task's session
+this way and it came up as Lem's sibling; its lead stopped at Codex's trust prompt with the
+state `held`; Lem sent it the owner's answer as in step 4; the lead then had the plan read,
+started a builder, had the diff reviewed and wrote `ready`, and the task landed. The task's
+event log holds each state with its time. Not run yet: a relaunch of agterm with a lead's
+session open.
 
 ## tell-coordinator
 
@@ -133,9 +134,11 @@ Mail is kept in memory only, so a pane that was restarted has lost it. That cost
 time: the state block is on disk, and `/lem status` shows it.
 
 Checked on 2026-11-14: this command, run by Claude Code in a companion session, put its line in
-the mailbox of the pane that opened the session. Checked on 2026-11-15: a session lead sent this
-line when it stopped, the mail woke the idle Lem, and Lem read the task's state and told the
-owner.
+the mailbox of the pane that opened the session. Checked on 2026-11-15, in the same careful
+task: the lead sent this line at each of its two stops, and each one reached the idle Lem as a
+turn of its own, 20 seconds after the lead's `held` state and 2 seconds after its `ready` state
+(the times of the two states are in the task's event log, the times of the two turns in the
+transcript of Lem's session).
 
 ## second-opinion
 
