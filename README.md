@@ -13,8 +13,9 @@ gives the work to builders, lands the change, and puts the change in a review qu
 The name is from Stanisław Lem. Lem is the one in the middle. It builds nothing. It holds the
 line that the other agents work on, and it answers to you for all of them.
 
-> **State: a first version.** Two small tasks went through Lem, in a scratch repository, on
-> 2026-11-15. One of them was a careful task. No real project uses Lem yet. Lem runs in [agterm](https://agterm.com) only. Claude
+> **State: a first version.** Three small tasks went through Lem, in a scratch repository, on
+> 2026-11-15. Two of them were careful tasks, and one came from a Linear ticket. No real project
+> uses Lem yet. Lem runs in [agterm](https://agterm.com) only. Claude
 > Code is the only agent with a checked contract.
 
 ## The board
@@ -161,7 +162,7 @@ flowchart TD
 
 ## Examples
 
-The first two examples are real runs. The other two examples are illustrations of the flow:
+The first three examples are real runs. The other two examples are illustrations of the flow:
 their names and answers are examples, not results.
 
 ### Start from an idea: a real run
@@ -206,6 +207,25 @@ This is the second task. It ran in the same scratch repository on the same day. 
 9. Lem added review item 2 with the risk `high`, and started a review round at once.
 10. 02:27. The review round had no finding. Lem closed the item as `clean`.
 
+### A ticket from Linear: a real run
+
+This is the third task, in the same scratch repository. Its ask was a ticket in a real Linear
+workspace.
+
+1. The ask: `/lem new MBZ-1`. The ticket said: a range of one day must show one date.
+2. 12:05. Lem did a check of the workspace, read the ticket, and opened the task. The branch got
+   the name that Linear gives for the ticket.
+3. Lem changed the ticket to "In Progress".
+4. The task was careful. A session led it, and Codex read the plan and the diff, as in the
+   example above.
+5. 12:13. The gate command ended with `OK`. At 12:14 Lem landed two commits on `main`.
+6. Lem wrote one comment on the ticket: the result, the landed range, the gate result and the
+   decisions that it took.
+7. Lem changed the ticket to "Done".
+
+Lem wrote the comment through the connection of the owner. Thus Linear shows the owner as its
+author, and the last line of the comment says that it is from Lem.
+
 Two paths did not occur in these runs:
 
 - If the ask is not clear to you, type `/lem interview-me`. Lem asks one question at a time.
@@ -244,7 +264,7 @@ Two paths did not occur in these runs:
 
 A ticket in Linear can be the ask too: `/lem new MBZ-12`. Lem reads the ticket, and it comments
 on the ticket when the task lands. [docs/linear.md](docs/linear.md) says how a project connects
-Linear. No task from a real ticket went through Lem yet.
+Linear.
 
 ## Commands
 

@@ -26,7 +26,10 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
   session they may be listed by name only and load on their first use, through the tool search
   (seen on 2026-11-15). A builder
   gets the tools of a server the owner added for all his projects; one added for a single folder
-  may be absent in a task's worktree, which is another folder (not tested).
+  may be absent in a task's worktree, which is another folder (not tested). Checked on
+  2026-11-15 in the first task that came from a ticket: Lem's session, in auto mode, read the
+  ticket, changed its status two times and wrote one comment, with the owner's go for those
+  writes named in its prompt.
 - the rules folder. Claude Code loads `.claude/rules/` by itself: a file with a `paths:` line
   when a matching file is read, the others in every session. After `project.py migrate run`
   that folder holds a link for each moved rule. Checked by the session that started Lem, in

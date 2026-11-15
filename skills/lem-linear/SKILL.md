@@ -53,7 +53,8 @@ that, name `docs/linear.md`, and stop. Never fall back to a guess of the ticket 
 `whoami` takes an optional `source`: pass `lem-linear`, so the calls are known as Lem's.
 
 What follows about each tool's answer was read from the real server on 2026-11-15, with one
-ticket of one team.
+ticket of one team. All five procedures but "drop" ran on that ticket the same day, in one task
+from its start to its landing.
 
 ## check
 
@@ -155,6 +156,9 @@ When a task that came from a ticket is dropped (`stages/new.md`, "When a task is
    `lem: SLUG dropped`. Then write the step `dropped` down.
 3. No status change. Tell the owner which status the ticket has now: where a ticket goes when
    its work is not done is his call, and he moves it.
+
+The connection is a person's, so Linear shows that person as the author of the comment and of
+the status changes. The comment's last line is what says that Lem wrote it; never leave it out.
 
 ## What this skill never does
 

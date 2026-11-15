@@ -2,7 +2,8 @@
 
 Lem reads a Linear ticket into a task and keeps the ticket true while it works, through the
 `lem-linear` skill and the `[tracker]` table of a project's settings. This page is the connection
-that skill uses. No task from a real ticket ran yet. Linear is reached
+that skill uses. One task from a real ticket ran, on 2026-11-15: Lem read the ticket, moved it
+when the work started, and commented and moved it when the task landed. Linear is reached
 through Linear's own MCP server. The facts below are from Linear's page, https://linear.app/docs/mcp,
 read on 2026-11-14.
 
@@ -29,8 +30,9 @@ connected.
 The name `linear` is the one a project's settings will give to Lem. `--scope user` makes the
 server available in all of a person's projects (Claude Code's documentation, read 2026-11-14). The
 default scope, `local`, is stored under the entry of one project folder. A task's worktree is
-another folder, so a builder there may not have a `local` server; that was not tested, and it is
-the reason for `--scope user` here. A team that shares one workspace may use `--scope project` instead, which writes the
+another folder, so an agent there may not have a `local` server; that was not tested, and it is
+the reason for `--scope user` here. In the one task that ran, only Lem's own session, in the
+main checkout, called the tracker. A team that shares one workspace may use `--scope project` instead, which writes the
 address into `.mcp.json` in the repository; each person still signs in.
 
 ## Codex
@@ -43,6 +45,12 @@ codex mcp add linear --url https://mcp.linear.app/mcp
 
 Linear's page says to enable the `rmcp` client in `~/.codex/config.toml` on first use
 (`[features]` `experimental_use_rmcp_client = true`), and `codex mcp login linear` signs in.
+
+## Whose name is on a comment
+
+Lem writes through the connection of the person who signed in. Linear shows that person as the
+author of a comment Lem writes and of a status change Lem makes. The last line of each comment
+of Lem's says that it is Lem's (`lem: <task> landed`).
 
 ## One server is one workspace
 
