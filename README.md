@@ -13,8 +13,8 @@ gives the work to builders, lands the change, and puts the change in a review qu
 The name is from Stanisław Lem. Lem is the one in the middle. It builds nothing. It holds the
 line that the other agents work on, and it answers to you for all of them.
 
-> **State: a first version.** One small task went through Lem, in a scratch repository, on
-> 2026-11-15. No real project uses Lem yet. Lem runs in [agterm](https://agterm.com) only. Claude
+> **State: a first version.** Two small tasks went through Lem, in a scratch repository, on
+> 2026-11-15. One of them was a careful task. No real project uses Lem yet. Lem runs in [agterm](https://agterm.com) only. Claude
 > Code is the only agent with a checked contract.
 
 ## The board
@@ -161,8 +161,8 @@ flowchart TD
 
 ## Examples
 
-The first example is a real run. The other two examples are illustrations of the flow: their
-names and answers are examples, not results.
+The first two examples are real runs. The other two examples are illustrations of the flow:
+their names and answers are examples, not results.
 
 ### Start from an idea: a real run
 
@@ -188,11 +188,28 @@ One step did not go as the text said at that time. Claude Code refused the build
 report file. The builder sent the report in its reply, and Lem wrote the file from the reply. The
 stage files now say this.
 
-Two paths did not occur in this run:
+### A careful task: a real run
+
+This is the second task. It ran in the same scratch repository on the same day. The package
+`shop/` was a careful path there.
+
+1. The ask: `/lem a range of dates that crosses a year must show both years, like 28 Dec 2026-3 Jan 2027`.
+2. 02:08. Lem started one builder.
+3. 02:09. The builder committed the plan and stopped, because the plan touched `shop/dates.py`.
+4. 02:11. Lem opened a session for the task. Its lead opened the pane of the reviewer.
+5. 02:13. The reviewer, Codex, asked for the trust of the folder. Only the owner can give that
+   answer. The lead set the state to `held`, and Lem told the owner.
+6. 02:17. The owner answered. Codex read the plan, and at 02:18 it agreed.
+7. 02:21. A builder built the task. A new Codex read the diff and answered `LGTM`. The lead set
+   the state to `ready`.
+8. 02:23. The gate command ended with `OK`. Lem landed two commits on `main`.
+9. Lem added review item 2 with the risk `high`, and started a review round at once.
+10. 02:27. The review round had no finding. Lem closed the item as `clean`.
+
+Two paths did not occur in these runs:
 
 - If the ask is not clear to you, type `/lem interview-me`. Lem asks one question at a time.
-- If the plan is careful, Lem opens a session for the task. A reviewer reads the plan before any
-  code. If a decision is yours, Lem shows it to you as a page before the work that depends on it.
+- If a decision is yours, Lem shows it to you as a page before the work that depends on it.
 
 ### Set up a repository
 
