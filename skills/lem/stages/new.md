@@ -76,7 +76,8 @@ fixed choice, so it stays in the terminal. One such task needs no question.
 The owner may say that a task is careful, at any time before its landing, whatever its lead
 called it. At once, add the line `careful: the owner says so` to the task's brief, and write his
 words in `decisions.md`. The brief is what holds it: whoever reads the task's next stop reads
-that line, also a Lem that started after this one. A task that still builds finishes its
+that line, also a Lem that started after this one, and `land.py start` refuses the task while
+the brief holds it with `lead: builder`. A task that still builds finishes its
 build. When a builder led it and it stops as `ready`, it does not go to the landing: change the
 brief to `lead: session` and start a lead. The session gets the second opinion on the plan and
 a review of what was built, and writes `ready` again.

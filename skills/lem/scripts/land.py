@@ -130,11 +130,24 @@ class Task:
             git(self.main, "fetch", "origin", str(self.base))
 
 
+# The line Lem writes into a task's brief when the owner says that the task is careful.
+OVERRULED = "careful: the owner says so"
+
+
 def cmd_start(task: Task) -> dict:
     if task.others_landing:
         raise LandError(f"{task.others_landing[0]} is in `landing`: one branch lands at a time, so finish that one first")
     if task.record["status"] not in ("ready", "landing"):
         raise LandError(f"the task is {task.record['status']!r}; only a `ready` task takes the landing line")
+    # The owner's word that a task is careful holds whoever starts the landing, and however: a
+    # task a builder led does not take the line before a session read it.
+    brief = task.directory / "brief.md"
+    said = [line.strip() for line in brief.read_text(encoding="utf-8", errors="replace").splitlines()] if brief.is_file() else []
+    if OVERRULED in said and "lead: session" not in said:
+        raise LandError(
+            f"the owner called this task careful (`{OVERRULED}` in its brief) and no session has led it: "
+            "change the brief's `lead: builder` to `lead: session` and start a lead, as stages/new.md says; it writes `ready` again after the reviewer's read",
+        )
     if not task.settings["gate"]["commands"]:
         task.state("blocked", "the project has no gate command")
         raise LandError(

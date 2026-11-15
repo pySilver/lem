@@ -1509,6 +1509,17 @@ fi
 # A conflict with the base is reported and undone, never resolved here.
 git -C "$other" pull -q origin main
 echo other > "$other/app.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: other" && git -C "$other" push -q origin main
+# The owner said that this task is careful while a builder led it: the landing line does not take it before a session read it.
+task_dir=$(project --repo "$SHOP" task-dir second-change)
+printf '%s\n' 'slug: second-change' 'lead: builder' 'careful: the owner says so' > "$task_dir/brief.md"
+err=$(land --repo "$SHOP" start second-change 2>&1 || true)
+status=$(project --repo "$SHOP" tasks | field 'next(t for t in d if t["slug"] == "second-change")["status"]')
+printf '%s\n' 'slug: second-change' 'lead: session' 'careful: the owner says so' > "$task_dir/brief.md"
+if grep -q "the owner called this task careful" <<<"$err" && grep -q "change the brief's .lead: builder. to .lead: session. and start a lead" <<<"$err" && [ "$status" = "ready" ]; then
+  pass "a ready task that the owner called careful does not take the landing line while a builder is its lead"
+else
+  fail "land start over the owner's word: $err / $status"
+fi
 land --repo "$SHOP" start second-change >/dev/null
 out=$(land --repo "$SHOP" base second-change 2>/dev/null || true)
 if [ "$(status_of land --repo "$SHOP" base second-change)" = 1 ] && [ "$(field '(d["conflict"], d["branch"])' <<<"$out")" = "(['app.txt'], 'fix/second-change')" ] \
