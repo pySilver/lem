@@ -236,9 +236,14 @@ owner adds it to his own `~/.claude/settings.json`, with `SKILL_DIR` as an absol
 ```
 
 - It needs Python 3.11 or newer as `python3`, and the `jev` command on the hook's `PATH`; where
-  it is not, the command starts with `LEM_JEV=/path/to/jev`.
-- It prints nothing and never delays a message. What fails goes to `corrections.log` in Lem's
-  folder of the git directory, and `corrections.py list` counts it.
+  it is not, the command starts with `LEM_JEV=/path/to/jev`. Under an older `python3` it judges
+  nothing, and says so in its log.
+- It prints nothing and does not wait for the model: a detached copy asks it. The hook's own two
+  waits, for its input and for one git call, end after two seconds each, a bound chosen by guess
+  on 2026-11-15. The `timeout` of 10 seconds above is the value its source ran with in one
+  repository since 2026-11-07; it is not a measurement.
+- What fails goes to `corrections.log` in Lem's folder of the git directory, and
+  `corrections.py list` counts it.
 - You do not register it. A hook that sends the owner's messages to an outside service is his to
   add, and Claude Code's classifier refuses the step to an agent (the next section).
 

@@ -18,9 +18,10 @@ and the agent message it answers to the Jev decision model, through the `jev` co
 only in a repository whose settings say `corrections.collect = true`, and only on a machine where
 the owner registered it himself. In every other repository it exits at once.
 
-The hook never delays the owner: it hands the message to a detached copy of itself and exits 0
-with no output. The copy asks Jev, and appends the message to the queue when Jev's probability of
-"lesson" is at least FLAG_AT. Jev is a pre-filter, and a loose one on purpose. With this question
+The hook does not wait for Jev: it hands the message to a detached copy of itself and exits 0
+with no output. Its own two waits are bounded: it gives up the read of the event and its one git
+call after WAIT_SECONDS each. The copy checks the project's yes again, asks Jev, and appends the
+message to the queue when Jev's probability of "lesson" is at least FLAG_AT. Jev is a pre-filter, and a loose one on purpose. With this question
 at 0.3, on 150 replies their owner had labeled, it caught 22 of 27 lessons and flagged 63 replies
 that were none (mybaze, 2026-11-07, tuned on that same sample, so the true rate is lower).
 
@@ -32,19 +33,30 @@ the hook failed on was never judged.
 
 The hook half speaks Claude Code's hook contract: the event on stdin with `prompt`, `cwd`,
 `session_id` and `transcript_path`. `jev` is looked for on PATH, or at the path in LEM_JEV.
+
+The hook half must start under any `python3` an agent finds, an old one too, and stay silent
+there: a Python before 3.11 has no tomllib, so the hook logs that and judges nothing.
 """
+
+# An old python3 must still load this file, so that the hook can fail without a word.
+from __future__ import annotations
 
 import argparse
 import hashlib
 import json
 import os
+import select
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 FLAG_AT = 0.3
+# How long the hook waits for the event on its input, and for git, before it gives up without a
+# word. A guess (2026-11-15), not a measurement: long for a local git call, short for a person.
+WAIT_SECONDS = 2
 DECISIONS = ("lesson", "not_lesson")
 # accepted, changed, rejected: the owner's answer to a move the retro put to him. missed: the owner
 # said that a "not a lesson" entry was a lesson after all. unasked: nothing was put to the owner.
@@ -87,8 +99,8 @@ class QueueError(Exception):
 
 def git(cwd: str, *args: str) -> str | None:
     try:
-        ran = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, check=False)
-    except OSError:
+        ran = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, check=False, timeout=WAIT_SECONDS)
+    except (OSError, subprocess.TimeoutExpired):
         return None
     return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
 
@@ -148,21 +160,50 @@ def last_agent_text(transcript: str) -> str:
     return ""
 
 
+def read_event() -> dict:
+    """The hook's event from its input. It does not wait for the input to close: it stops at the
+    first whole JSON object, or after WAIT_SECONDS."""
+    deadline = time.monotonic() + WAIT_SECONDS
+    data = b""
+    fd = sys.stdin.fileno()
+    while time.monotonic() < deadline:
+        ready, _, _ = select.select([fd], [], [], max(0.0, deadline - time.monotonic()))
+        if not ready:
+            break
+        chunk = os.read(fd, 1 << 16)
+        if not chunk:
+            break
+        data += chunk
+        try:
+            value = json.loads(data)
+        except ValueError:
+            continue
+        return value if isinstance(value, dict) else {}
+    try:
+        value = json.loads(data or b"{}")
+    except ValueError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 def cmd_hook() -> None:
     """Return at once. Whatever goes wrong here must not reach the owner's prompt."""
     try:
-        event = json.loads(sys.stdin.read() or "{}")
+        event = read_event()
         prompt = (event.get("prompt") or "").strip()
         cwd = event.get("cwd") or os.getcwd()
         if not prompt or prompt.startswith(INJECTED) or prompt.startswith("/") or not collects(cwd):
             return
         payload = {"prompt": prompt, "cwd": cwd, "session": event.get("session_id"), "transcript": event.get("transcript_path", "")}
-        child = subprocess.Popen(
-            [sys.executable, "-B", __file__, "worker"], stdin=subprocess.PIPE,
+        # Through a file only the owner can read, not a pipe: a long message would fill a pipe
+        # and hold this hook until the copy reads it.
+        handle, path = tempfile.mkstemp(prefix="lem-correction-", suffix=".json")
+        with os.fdopen(handle, "w", encoding="utf-8") as file:
+            json.dump(payload, file)
+        subprocess.Popen(
+            [sys.executable, "-B", __file__, "worker", path], stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
         )
-        child.stdin.write(json.dumps(payload).encode())
-        child.stdin.close()
     except Exception as error:  # noqa: BLE001 - a hook failure is logged where the retro reads it, never shown
         try:
             where = folder(os.getcwd())
@@ -176,10 +217,14 @@ def now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
-def cmd_worker() -> None:
-    payload = json.loads(sys.stdin.read())
+def cmd_worker(path: str) -> None:
+    file = Path(path)
+    payload = json.loads(file.read_text(encoding="utf-8"))
+    file.unlink(missing_ok=True)
     where = folder(payload["cwd"])
-    if where is None:
+    # The project's yes is checked here again, at the last moment before anything is sent: the
+    # owner may have turned the queue off since the hook looked, and this half can be run alone.
+    if where is None or not collects(payload["cwd"]):
         return
     log = where / "corrections.log"
     stamp = now()
@@ -219,12 +264,14 @@ def group_id(owner: str) -> str:
 
 def unreviewed(where: Path) -> dict[str, list[dict]]:
     """Every entry no retro decided about, grouped by the owner's text: one sentence sent to eight
-    sessions is one group of eight, not eight things to judge."""
-    reviewed = {(review["ts"], review["session"]) for review in read_jsonl(where / "corrections-reviews.jsonl")}
+    sessions is one group of eight, not eight things to judge. An entry is known by its time, its
+    session and its words together: two messages of one second in one session are two entries."""
+    reviewed = {(review["ts"], review["session"], review.get("group")) for review in read_jsonl(where / "corrections-reviews.jsonl")}
     groups: dict[str, list[dict]] = {}
     for entry in read_jsonl(where / "corrections.jsonl"):
-        if (entry["ts"], entry["session"]) not in reviewed:
-            groups.setdefault(group_id(entry["owner"]), []).append(entry)
+        gid = group_id(entry["owner"])
+        if (entry["ts"], entry["session"], gid) not in reviewed:
+            groups.setdefault(gid, []).append(entry)
     return groups
 
 
@@ -278,7 +325,7 @@ def cmd_record(where: Path, gid: str, decision: str, verdict: str, target: str |
         raise QueueError(f"no unreviewed group {gid}; `corrections.py list` gives the ids")
     for entry in entries:
         append(where / "corrections-reviews.jsonl", {
-            "ts": entry["ts"], "session": entry["session"], "p_lesson": entry["p_lesson"], "reviewed": now(),
+            "ts": entry["ts"], "session": entry["session"], "group": gid, "p_lesson": entry["p_lesson"], "reviewed": now(),
             "decision": decision, "verdict": verdict, "target": target, "lesson": lesson,
         })
     print(json.dumps({"group": gid, "entries": len(entries), "decision": decision, "verdict": verdict}))
@@ -288,8 +335,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("hook", "worker", "list", "lessons"):
+    for name in ("hook", "list", "lessons"):
         commands.add_parser(name)
+    commands.add_parser("worker").add_argument("payload", help="the file the hook wrote; internal")
     commands.add_parser("show").add_argument("id")
     record = commands.add_parser("record")
     record.add_argument("id")
@@ -302,7 +350,7 @@ def main() -> None:
         cmd_hook()
         return
     if args.command == "worker":
-        cmd_worker()
+        cmd_worker(args.payload)
         return
     where = folder(args.repo)
     if where is None:

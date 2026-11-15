@@ -441,13 +441,16 @@ project --repo "$CQ" init --base main >/dev/null
 mkdir -p "$WORK/jevbin"
 # a stand-in for jev: it answers with the probability in JEV_P, or fails as JEV_EXIT says
 # shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs
-printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'if [ -n "$JEV_EXIT" ]; then echo "no key" >&2; exit "$JEV_EXIT"; fi' \
+printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'if [ -n "$JEV_CALLED" ]; then touch "$JEV_CALLED"; fi' 'if [ -n "$JEV_EXIT" ]; then echo "no key" >&2; exit "$JEV_EXIT"; fi' \
   'printf "{\"answers\": {\"lesson\": {\"probabilities\": {\"lesson\": %s}}}}" "$JEV_P"' > "$WORK/jevbin/jev"
 chmod +x "$WORK/jevbin/jev"
 printf '%s\n' '{"type": "user", "message": {"content": "hi"}}' '{"type": "assistant", "message": {"content": [{"type": "text", "text": "I pushed it."}]}}' > "$WORK/transcript.jsonl"
 event() { printf '{"prompt": "%s", "cwd": "%s", "session_id": "%s", "transcript_path": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl"; }
-hook() { env PATH="$WORK/jevbin:$PATH" JEV_P="${JEV_P:-0.9}" JEV_EXIT="${JEV_EXIT:-}" "$PY" -B "$CORR" "$1"; }
-worker() { printf '{"prompt": "%s", "cwd": "%s", "session": "%s", "transcript": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl" | hook worker; }
+hook() { env PATH="$WORK/jevbin:$PATH" JEV_P="${JEV_P:-0.9}" JEV_EXIT="${JEV_EXIT:-}" JEV_CALLED="$WORK/jev-called" "$PY" -B "$CORR" "$@"; }
+worker() {
+  printf '{"prompt": "%s", "cwd": "%s", "session": "%s", "transcript": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl" > "$WORK/payload.json"
+  hook worker "$WORK/payload.json"
+}
 corr() { "$PY" -B "$CORR" --repo "$CQ" "$@"; }
 if [ "$(project --repo "$CQ" show | field 'd["corrections"]["collect"]')" = False ] && grep -q '^collect = false$' "$CQ/.lem/project.toml"; then
   pass "a new project does not collect corrections, and its settings file says where to turn that on"
@@ -455,11 +458,31 @@ else
   fail "corrections.collect default"
 fi
 event "never push without asking" s1 | hook hook
+worker "never push without asking" s1
 sleep 1
-if [ ! -e "$CQ/.git/lem/corrections.jsonl" ] && [ "$(corr list | field '(d["collect"], d["entries"])')" = "(False, 0)" ]; then
-  pass "the hook does nothing in a repository whose settings do not say yes"
+if [ ! -e "$CQ/.git/lem/corrections.jsonl" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/payload.json" ] \
+  && [ "$(corr list | field '(d["collect"], d["entries"])')" = "(False, 0)" ]; then
+  pass "without the project's yes neither the hook nor its detached half, run alone, sends a message anywhere"
 else
-  fail "the hook ran without the project's yes"
+  fail "a message was sent without the project's yes"
+fi
+# An input that stays open, and an old python3: the hook returns, with exit 0 and not a word.
+started=$SECONDS
+out=$(hook hook < <(event "the input stays open" s0; sleep 6) 2>&1; echo "exit=$?")
+if [ "$out" = "exit=0" ] && [ $((SECONDS - started)) -lt 4 ]; then
+  pass "the hook does not wait for its input to close"
+else
+  fail "the hook with an open input: $out after $((SECONDS - started))s"
+fi
+old=""
+for candidate in /usr/bin/python3 python3.9 python3.10; do
+  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info >= (3, 11))' 2>/dev/null; then old=$candidate; break; fi
+done
+if [ -n "$old" ]; then
+  out=$(event "under an old python" s0 | "$old" -B "$CORR" hook 2>&1; echo "exit=$?")
+  if [ "$out" = "exit=0" ]; then pass "under a python3 before 3.11 the hook exits 0 and prints nothing"; else fail "the hook under $old: $out"; fi
+else
+  printf 'SKIP the hook under an old python3: none found\n'
 fi
 sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")
@@ -475,7 +498,8 @@ event "/lem status" s4 | hook hook
 event "[peer chat] a message from the other pane" s5 | hook hook
 JEV_EXIT=3 worker "a very long message" s6
 JEV_EXIT=1 worker "no key here" s7
-env PATH="$BIN" "$PY" -B "$CORR" worker <<<"$(printf '{"prompt": "no jev at all", "cwd": "%s", "session": "s8", "transcript": ""}' "$CQ")"
+printf '{"prompt": "no jev at all", "cwd": "%s", "session": "s8", "transcript": ""}' "$CQ" > "$WORK/payload.json"
+env PATH="$BIN" "$PY" -B "$CORR" worker "$WORK/payload.json"
 sleep 1
 out=$(corr list)
 if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) for g in d["groups"]], d["failures"]["count"])' <<<"$out")" = "(3, [(2, 2, 0.9), (1, 1, None)], 2)" ] \
@@ -497,6 +521,16 @@ if [ "$(corr list | field '(d["entries"], len(d["groups"]))')" = "(1, 1)" ] \
   pass "a recorded group leaves the list, and lessons gives its sentence, its target and how many entries it stood for"
 else
   fail "record and lessons: $(corr lessons)"
+fi
+# Two different messages of one second in one session are two entries: a record of one leaves the other.
+printf '%s\n' '{"ts": "2026-01-01T00:00:00Z", "session": "same", "cwd": "x", "owner": "first words", "previous": "", "p_lesson": 0.5}' \
+  '{"ts": "2026-01-01T00:00:00Z", "session": "same", "cwd": "x", "owner": "other words", "previous": "", "p_lesson": 0.6}' >> "$CQ/.git/lem/corrections.jsonl"
+gid=$(corr list | field 'next(g["id"] for g in d["groups"] if g["owner"] == "first words")')
+corr record "$gid" --decision not_lesson --verdict unasked >/dev/null
+if [ "$(corr list | field 'sorted(g["owner"] for g in d["groups"])')" = "['a very long message', 'other words']" ]; then
+  pass "two messages of one second in one session are two entries, and a record of one leaves the other in the list"
+else
+  fail "same second, same session: $(corr list)"
 fi
 settings_file=$CQ/.lem/project.toml
 sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settings_file.bak"
