@@ -7,17 +7,22 @@ Usage: cast.py [--repo DIR]
 
 With no command it prints the cast as JSON: the layer it came from, where in that layer (`source`),
 its directory, its index (README.md, or null), each persona's stem and path, and the project's
-profile (`profile`: its path and source, or null). The cast comes from
-the first of three layers that holds any persona file, a `*.md` other than README.md:
+profile (`profile`: its path and source, or null). A cast is a folder with any persona file, a
+`*.md` other than README.md, and a panel has one source of it:
 
   project   the personas path of the project's settings (.lem/personas/ unless they say
             otherwise) in the checkout, or else on the repository's default branch
+
+A project that wrote no personas has no panel: `layer` is null, `personas` is empty and `why`
+says so, with exit 0, because that is an answer and not a fault. The one who asked then puts the
+question to the owner as it is. Generic people do not stand in: a panel of them answers for
+nobody the project named, and the owner of such a project chose to get his questions at once.
+
+Two more folders hold a cast, and neither ever answers a panel. They are where `init` copies a
+first cast from, for a project whose owner wants personas:
+
   user      ~/.config/personas/cast/
   built-in  the cast shipped beside this script
-
-The whole cast comes from one layer, never merged file by file: persona names differ between
-projects, so a merge would set a generic "person who uses the product" beside a project's own
-shopper and the panel would pick from both.
 
 A checkout with no cast of its own may still belong to a project that has one: a worktree branched
 before the cast landed, or moved. A checkout whose cast is an unchanged older copy (the branch never
@@ -36,8 +41,8 @@ stands in for it. A checkout without one reads the default branch's, as for the 
 the git directory (personas-profile/<blob id>.md, one file per version of the profile); with
 neither, `profile` is null.
 
-`init` copies the cast that resolves into the project's personas folder so the project has a
-local copy to edit. It refuses a checkout whose personas folder already holds any file, and one whose default branch
+`init` copies a starting cast, the user's or else the built-in one, into the project's personas
+folder so the project has its own people to rewrite. It refuses a checkout whose personas folder already holds any file, and one whose default branch
 already has a cast, which a rebase brings in instead.
 
 `run-dir` makes runs/<YYYY-MM-DD>-<SLUG>/ beside the personas folder and prints its path. The runs folder holds a
@@ -244,10 +249,26 @@ def resolve(root: Path) -> dict[str, object]:
     if found and (not local or follows_default(root, found[2], PROJECT_CAST.as_posix())):
         candidates.append(("project", found[0], found[1]))
     candidates.append(("project", "checkout", root / PROJECT_CAST))
-    candidates += [
+    return pick(root, candidates) or {
+        "layer": None, "source": None, "dir": None, "index": None, "personas": [], "profile": profile(root),
+        "why": "this project wrote no personas, so no panel runs here: put the question to the owner as it is. "
+               "`cast.py init` copies a starting cast into the project when the owner wants personas",
+    }
+
+
+def starting(root: Path) -> dict[str, object]:
+    """Where `init` copies a first cast from: the user's own, or the one shipped beside this script."""
+    found = pick(root, [
         ("user", "~/.config/personas/cast", Path.home() / ".config" / "personas" / "cast"),
         ("built-in", "panel", BUILT_IN),
-    ]
+    ])
+    if found is None:
+        fail(f"no persona files to start from; the built-in cast at {BUILT_IN} is missing")
+        raise AssertionError
+    return found
+
+
+def pick(root: Path, candidates: list[tuple[str, str, Path]]) -> dict[str, object] | None:
     for layer, source, directory in candidates:
         found_personas = personas(directory)
         if found_personas:
@@ -260,17 +281,16 @@ def resolve(root: Path) -> dict[str, object]:
                 "personas": [{"stem": p.stem, "path": str(p)} for p in found_personas],
                 "profile": profile(root),
             }
-    fail(f"no persona files in any layer; the built-in cast at {BUILT_IN} is missing")
-    raise AssertionError
+    return None
 
 
 def init(root: Path) -> None:
     target = root / PROJECT_CAST
     if target.is_dir() and any(target.iterdir()):
         fail(f"{target} already holds files; edit them there")
-    cast = resolve(root)
-    if cast["layer"] == "project":
-        fail(f"the default branch already has a cast ({cast['source']}); rebase onto it instead")
+    if resolve(root)["layer"] == "project":
+        fail(f"the default branch already has a cast ({resolve(root)['source']}); rebase onto it instead")
+    cast = starting(root)
     source = Path(str(cast["dir"]))
     target.mkdir(parents=True, exist_ok=True)
     for path in sorted(source.glob("*.md")):

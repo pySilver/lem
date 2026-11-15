@@ -102,8 +102,13 @@ For a repository that has code:
 
 - **The product in the owner's words**: what it is for, who it is for, how big it is meant to
   get. The code shows what exists; only the owner knows what it is judged against.
-- **The people**: who is affected when a decision here goes one way or the other (a customer, an
-  operator, a partner, the engineer on call). Each becomes a persona.
+- **Personas, or none**: ask whether the project wants them, and say in one line what they give:
+  before a hard question reaches the owner, an agent answers it as each person the decision
+  affects, so he reads a second view beside the agent's own. With them, a question takes longer
+  to reach him; without them, he gets it at once. On a yes, ask who is affected when a decision
+  here goes one way or the other (a customer, an operator, a partner, the engineer on call):
+  each becomes a persona. On a no, write no persona file and no personas folder; the project
+  can say yes on a later day.
 - **What must never break**: show the danger topics and the careful paths you propose, and ask
   what is wrong or missing. The topics come first: a person names a danger more surely than a
   folder, and a topic still holds after the code moves. In a repository with no code, propose
@@ -164,8 +169,8 @@ it is.
 
 - **The profile**, from `templates/profile.md`: the interview's answers and the examined facts,
   one page.
-- **The personas**, one file per person the owner named, from `templates/persona.md`, and a
-  `README.md` that lists them with one line each.
+- **The personas**, only when the owner said yes to them: one file per person he named, from
+  `templates/persona.md`, and a `README.md` that lists them with one line each.
 - **The style guide**: first offer the published guides `references/styleguides.md` lists for the
   project's stack; one the owner picks enters as a linter configuration in the gate and a page of
   differences, as that file says. Then one file per area of the code. Its frontmatter names the
@@ -214,8 +219,8 @@ comes with Lem. Say there that the project may bring a builder of its own,
 and how (the harness file, `spawn-builder`). When the owner said yes to the correction queue, the page names the command he
 runs for its hook, in the form for this one repository, and nothing he has to edit.
 
-A list of file names is not a hand-over. Every generated file is a draft, and three are read
-first: the careful paths, the gate, the personas. Offer to open each in the annotate tool
+A list of file names is not a hand-over. Every generated file is a draft, and these are read
+first: the careful paths, the gate, and the personas when the project has them. Offer to open each in the annotate tool
 (`show-page`; `tools.annotate` in the settings), one after the other, and take the owner's notes
 as corrections: edit, commit on the same branch, say for each file what changed. The page and
 your last message end with the three replies you take, in these words:

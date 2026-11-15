@@ -15,13 +15,16 @@ should learn a lesson from. The retro, a big model, decides about each.
 
 It is an optional part, and it is the owner's choice twice. The hook sends the owner's message
 and the agent message it answers to the Jev decision model, through `jev.py` beside this file, so
-it runs only in a repository whose settings say `corrections.collect = true`, and only where the
-owner registered it himself (`scripts/setup.py --corrections on`). In every other repository it
-exits at once.
+it runs only in a repository whose settings say `corrections.collect = true`: the tracked file, so the
+yes is the repository's and everybody sees it. The hook is there where Lem is installed as a
+plugin (`hooks/hooks.json` of the clone) or where the owner registered it for the link form
+(`scripts/setup.py --corrections on`). One person keeps their own messages out with
+`collect = false` under `[corrections]` in `.lem/project.local.toml`. In every other
+repository the hook exits at once.
 
 The hook does not wait for Jev: it hands the message to a detached copy of itself and exits 0
-with no output. Its own two waits are bounded: it gives up the read of the event and its one git
-call after WAIT_SECONDS each. The copy checks the project's yes again, asks Jev, and appends the
+with no output. Its own waits are bounded: it gives up the read of the event and each of its git
+calls (two in a repository that says yes) after WAIT_SECONDS each. The copy checks the project's yes again, asks Jev, and appends the
 message to the queue when Jev's probability of "lesson" is at least FLAG_AT. Jev is a pre-filter, and a loose one on purpose. With this question
 at 0.3, on 150 replies their owner had labeled, it caught 22 of 27 lessons and flagged 63 replies
 that were none (mybaze, 2026-11-07, tuned on that same sample, so the true rate is lower).
@@ -122,8 +125,19 @@ def collects(cwd: str) -> bool:
     if file is None or not file.is_file():
         return False
     try:
-        return tomllib.loads(file.read_text()).get("corrections", {}).get("collect") is True
+        if tomllib.loads(file.read_text()).get("corrections", {}).get("collect") is not True:
+            return False
     except (tomllib.TOMLDecodeError, OSError):
+        return False
+    # One person's no, in the file of this machine that git does not track. It is in the main
+    # checkout, which a worktree has no copy of. A file there that cannot be read is a no too.
+    common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    own = Path(common).parent / ".lem" / "project.local.toml" if common and Path(common).name == ".git" else Path(top) / ".lem" / "project.local.toml"
+    if not own.is_file():
+        return True
+    try:
+        return "collect" not in tomllib.loads(own.read_text()).get("corrections", {})
+    except (tomllib.TOMLDecodeError, OSError, AttributeError):
         return False
 
 

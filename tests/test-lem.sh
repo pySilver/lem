@@ -358,6 +358,19 @@ if [ "$(project --repo "$OLD" show | field '(d["tools"]["ask"], d["tools"]["anno
 else
   fail "tools.ask in the local file: $(project --repo "$OLD" show 2>&1)"
 fi
+# One person may say no to the correction queue in the machine's own file, and never yes.
+printf '%s\n' '[corrections]' 'collect = false' '[tools]' 'ask = "my-asker"' > "$OLD/.lem/project.local.toml"
+off=$(project --repo "$OLD" show | field '(d["corrections"]["collect"], d["local"]["overrides"])')
+project --repo "$OLD" reviewer claude >/dev/null && project --repo "$OLD" reviewer default >/dev/null
+kept=$(grep -c '^collect = false$' "$OLD/.lem/project.local.toml")
+printf '%s\n' '[corrections]' 'collect = true' > "$OLD/.lem/project.local.toml"
+err=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$off" = "(False, ['tools.ask'])" ] && [ "$kept" = 1 ] && [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] \
+  && grep -q "It may say .collect = false." <<<"$err" && grep -q "only .lem/project.toml, which everybody reads in git, switches the queue on" <<<"$err"; then
+  pass "the machine's own file may say no to the correction queue and keeps that line through a rewrite; a yes there is refused with the reason"
+else
+  fail "corrections in the local file: $off / $kept / $err"
+fi
 printf '%s\n' '[tools]' 'annotate = 42' > "$OLD/.lem/project.local.toml"
 err=$(project --repo "$OLD" reviewer claude 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer default)" = 1 ] \
@@ -764,6 +777,24 @@ if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) 
 else
   fail "the queue: $out / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
 fi
+# One person's no, in the main checkout's untracked file: the hook queues nothing, from a worktree too.
+before=$(wc -l < "$CQ/.git/lem/corrections.jsonl")
+printf '%s\n' '[corrections]' 'collect = false' > "$CQ/.lem/project.local.toml"
+shown=$(project --repo "$CQ" show | field '(d["corrections"]["collect"], d["local"]["overrides"])')
+rm -f "$WORK/jev-called"
+worker "this one says no for themselves" s10
+git -C "$CQ" add .lem && git -C "$CQ" -c user.name=t -c user.email=t@t commit -q -m "chore: the settings" && git -C "$CQ" worktree add -q "$WORK/corr-wt" -b side
+printf '{"prompt": "from a worktree", "cwd": "%s", "session": "s11", "transcript": ""}' "$WORK/corr-wt" > "$WORK/payload.json"
+hook worker "$WORK/payload.json"
+printf 'not toml [\n' > "$CQ/.lem/project.local.toml"
+worker "a local file that does not read" s12
+rm "$CQ/.lem/project.local.toml"
+if [ "$shown" = "(False, ['corrections.collect'])" ] && [ "$(wc -l < "$CQ/.git/lem/corrections.jsonl")" = "$before" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/corr-wt/.lem/project.local.toml" ]; then
+  pass "one person's no in the machine's own file stops the hook before anything is sent, from a worktree too, and a file there that does not read is a no"
+else
+  fail "the hook with a local no: $shown / $(wc -l < "$CQ/.git/lem/corrections.jsonl") lines, before $before"
+fi
+git -C "$CQ" worktree remove --force "$WORK/corr-wt"
 gid=$(field 'd["groups"][0]["id"]' <<<"$out")
 if [ "$(status_of corr record "$gid" --decision lesson --verdict unasked)" = 1 ] && [ "$(status_of corr record nope --decision not_lesson --verdict unasked)" = 1 ] \
   && [ "$(corr show "$gid" | field 'len(d)')" = 2 ]; then
@@ -793,6 +824,7 @@ sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settin
 if [ "$(status_of project --repo "$CQ" show)" = 1 ]; then pass "a collect value that is not true or false is refused"; else fail "collect type"; fi
 
 # The plugin form: the files Claude Code reads to load this repository as the plugin `lem`.
+# shellcheck disable=SC2016  # ${CLAUDE_PLUGIN_ROOT} is the text of the hook's command, for Claude Code to fill
 if "$PY" -c 'import json, os, sys
 root = sys.argv[1]
 manifest = json.load(open(f"{root}/.claude-plugin/plugin.json"))
@@ -802,9 +834,12 @@ ok = (manifest["name"] == "lem" and "version" not in manifest
       and [(p["name"], p["source"]) for p in market["plugins"]] == [("lem", "./")]
       and links == {"lem-ask": os.path.realpath(f"{root}/skills/lem-ask/bin/lem-ask"), "jev": os.path.realpath(f"{root}/skills/lem/scripts/jev.py")}
       and all(os.access(path, os.X_OK) for path in links.values())
-      and not os.path.isabs(os.readlink(f"{root}/bin/lem-ask")) and not os.path.exists(f"{root}/hooks"))
+      and not os.path.isabs(os.readlink(f"{root}/bin/lem-ask")))
+hooks = json.load(open(f"{root}/hooks/hooks.json"))["hooks"]
+commands = [h["command"] for group in hooks["UserPromptSubmit"] for h in group["hooks"]]
+ok = ok and list(hooks) == ["UserPromptSubmit"] and commands == ["python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook"]
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds relative links to the two commands; and no hook comes with the plugin"
+  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds relative links to the two commands; and the one hook that comes with the plugin is the correction hook, by the plugin's own path"
 else
   fail "the plugin files in .claude-plugin and bin"
 fi
@@ -1497,17 +1532,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   const on = (node, code, key) => node.dispatchEvent(new w.KeyboardEvent('keydown', {code, key, bubbles: true}));
   pickItem('Which currency rounds half up'); key('Enter', 'Enter');
   log.noAgterm = actions();
-  w.eval("globalThis.typed = []; globalThis.fg = []; globalThis.agterm = {request: async (cmd, o) => { if (cmd === 'tree') return {tree: {workspaces: [{sessions: [{id: 'LEM1', foreground: globalThis.fg}]}]}}; globalThis.typed.push([cmd, o]); return {}; }};");
+  w.eval("globalThis.typed = []; globalThis.fg = []; globalThis.hold = null; globalThis.agterm = {request: async (cmd, o) => { if (cmd === 'tree') return {tree: {workspaces: [{sessions: [{id: 'LEM1', foreground: globalThis.fg}]}]}}; globalThis.typed.push([cmd, o]); if (globalThis.hold) await globalThis.hold; return {}; }};");
   await wait(3500);
   log.shellOnly = actions();
-  w.eval("globalThis.fg = ['/usr/bin/less', 'claude.md']"); await wait(3500);
+  w.eval("globalThis.fg = ['/usr/bin/less', '/tmp/claude']"); await wait(3500);
   key('KeyS', 's'); log.otherProgram = actions();
+  w.eval("globalThis.fg = ['/usr/bin/vim', 'claude']"); await wait(3500);
+  key('KeyS', 's'); log.otherProgram += ' // ' + actions();
   w.eval("globalThis.fg = ['/opt/homebrew/bin/fish', '-l', '-c', 'claude (cat brief.md)']"); await wait(3500);
   key('KeyS', 's'); log.confirm = actions(); log.focusOnStart = d.activeElement?.dataset?.blStart ?? null;
   key('Enter', 'Enter'); await wait(200); log.enterElsewhere = w.typed.length;
   const cancel = d.querySelector('[data-bl-cancel]'); cancel.focus(); on(cancel, 'Enter', 'Enter'); await wait(200); log.enterOnCancel = w.typed.length;
   cancel.click(); log.afterCancel = actions();
-  key('KeyS', 's'); d.querySelector('[data-bl-start]').click(); await wait(300);
+  // agterm is slow to answer: a second S and Start in that time must not type a second line
+  w.eval("globalThis.hold = new Promise(done => { globalThis.release = done; })");
+  key('KeyS', 's'); d.querySelector('[data-bl-start]').click(); await wait(200);
+  key('KeyS', 's'); log.whilePending = [w.typed.length, d.querySelector('[data-bl-start]') === null, actions().startsWith('Typing into')];
+  w.eval("globalThis.release(); globalThis.hold = null"); await wait(300);
   log.typed = w.typed; log.sent = actions();
   key('KeyS', 's'); key('Enter', 'Enter'); await wait(200); log.secondTry = [w.typed.length, d.querySelector('[data-bl-start]') === null];
   pickItem('a b;c'); key('KeyS', 's'); await wait(100);
@@ -1522,7 +1563,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 PROBE
   "$PY" -c 'import json, re, sys; s = open(sys.argv[1]).read(); d = json.loads(re.fullmatch(r"lemMeta\((.*)\);\n", s, re.S).group(1)); d["session"] = "LEM1"; open(sys.argv[1], "w").write("lemMeta(%s);\n" % json.dumps(d))' "$BKB/.git/lem/meta.js"
   "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" --allow-file-access-from-files \
-    --virtual-time-budget=30000 --dump-dom "file://$BKB/.git/lem/probe.html" > "$WORK/probe.dom" 2>/dev/null || true
+    --virtual-time-budget=40000 --dump-dom "file://$BKB/.git/lem/probe.html" > "$WORK/probe.dom" 2>/dev/null || true
   rm -f "$BKB/.git/lem/probe.html"
   acted=$("$PY" -c 'import html, json, re, sys
 found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S)
@@ -1532,11 +1573,12 @@ wrong = [name for name, ok in {
     "an error": "error" not in d,
     "no agterm: the command to type, and nothing typed": "not open in this window" in d.get("noAgterm", "") and cmd in d.get("noAgterm", ""),
     "a shell and no agent: nothing typed": "No agent runs" in d.get("shellOnly", ""),
-    "a pager in the foreground is no agent": "No agent runs" in d.get("otherProgram", ""),
+    "a pager or an editor that shows a file named claude is no agent": d.get("otherProgram", "").count("No agent runs") == 2,
     "S asks first, and the Start button has the focus": "This types" in d.get("confirm", "") and d.get("focusOnStart") == "which-currency",
     "Enter away from the button types nothing": d.get("enterElsewhere") == 0,
     "Enter on Cancel types nothing": d.get("enterOnCancel") == 0 and "Start a task" in d.get("afterCancel", ""),
     "Start types the one line into Lem": d.get("typed") == [["session.type", {"target": "LEM1", "args": {"text": cmd + "\n"}}]],
+    "while agterm has not answered, the item is taken": d.get("whilePending") == [1, True, True],
     "the item says that it was sent": "Typed into" in d.get("sent", ""),
     "a sent item is not asked about or sent again": d.get("secondTry") == [1, True],
     "an unsafe file name is never typed": "is not typed into a session" in d.get("unsafe", "") and d.get("typedAfterUnsafe") == 1,

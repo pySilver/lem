@@ -59,6 +59,13 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   during installation of the skill if needed or any time later" (2026-11-15). The form built from
   it is the session's design: `skills/lem/scripts/jev.py`, linked as the `jev` command, and
   `setup.py --corrections on|off`, which the owner runs and no agent does.
+- **As a plugin, the correction hook comes with the install, and the repository says yes for
+  all**: he picked "With the plugin; the repository says yes for all" and wrote "I'm divided
+  between (1) and (2); I believe Lem will not be a personal preference but rather a way to work
+  with specific project. Just like revmux" (2026-11-15; (1) was each person's own yes in the
+  untracked file). So `hooks/hooks.json` is a part of the plugin, and the tracked
+  `corrections.collect = true` is the consent of everybody who works in the repository.
+  `setup.py --corrections` stays for the link form while that form exists.
 - **The logo is the owner's pick** ("The Line in the Field"). Change it only on his word. The
   night palette of its dark-theme version is his pick too.
 - **Each task of a plan gets a fresh builder** ("I usually start fresh executor for every task..
@@ -66,7 +73,17 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **A small defect outside the task is fixed at the end**, in the landing's closing pass, and a
   larger one is offered to him as a backlog item ("Polishing step fixes it in place, right away
   if thats cheap small fixes and offer a backlog filing otherwise").
-- **A builder's question about the outcome goes to the personas**, not to the reviewer.
+- **A builder's question about the outcome goes to the personas**, not to the reviewer, in a
+  project that has personas.
+- **The persona panel runs where the project has personas.** His pick on 2026-11-15, with its
+  text: "In mybaze the shopper, the merchant and the operator answer first, as today. In a
+  repository with no personas you get the question immediately." and "/lem init offers personas
+  and writes none without a yes". With no cast of the project's own, a held decision goes to
+  him as a question, and a builder's question about the outcome is a held decision. No generic
+  cast stands in: `cast.py` gives a cast for a project that wrote one and none otherwise, and
+  the user's and the built-in cast are only what `cast.py init` copies a first cast from. The
+  built-in cast has no other use; a technical question in a project whose cast has no engineer
+  gets one as a paragraph in the panel's brief, as before.
 - **Lem asks through its question page**, and he does not have to type it: "every question goes
   via huddle, unless its something fixed choice, trivial, without additional context". The page
   was named huddle then; it is `lem-ask` now, his call `/lem ask` and the command `lem-ask` ("I
@@ -176,12 +193,15 @@ him, and they are not his rulings until he says so:
   contained? lem is aimed to be per-project companion" and his "I agree" to a test first. The
   test ran on 2026-11-15, and the session that carries his words decided the first step, which
   only adds files: `.claude-plugin/plugin.json` with no version (so each commit is an update),
-  `.claude-plugin/marketplace.json`, and `bin/` with links to `lem-ask` and `jev`. The links of
-  the setup work as before, and removing the three undoes it. As a plugin the builder is
-  `lem:lem-builder`, so the harness file and the machine check know two names. Not in it, and
-  his to rule: a `hooks/hooks.json`, which would bring the correction hook with the install
-  against his ruling that he registers it himself; and the plugin as the documented way to
-  install, which waits for one real task in that form.
+  `.claude-plugin/marketplace.json`, `bin/` with links to `lem-ask` and `jev`, and
+  `hooks/hooks.json` after his ruling on the hook. The links of the setup work as before, and
+  removing the four undoes it. As a plugin the builder is `lem:lem-builder`, so the harness file
+  and the machine check know two names. Not in it, and his to rule: the plugin as the one
+  documented way to install, which waits for one real task in that form.
+- **One person can say no to the correction queue, and nobody is switched on by a file git does
+  not show**: `[corrections] collect = false` in `.lem/project.local.toml`, and never `true`
+  there. A design of the session that carries his words, for the half of him that leaned to
+  each person's own yes.
 
 - **The reviewer's seat is a table**, after "should we or can we specify model and effort level
   of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `effort`, `plan_effort`.
@@ -236,9 +256,9 @@ real task, so say in the commit which task showed the need.
   agent's settings or takes it out, and is the owner's to run. With `--project DIR` it links into one repository only. Use that for a trial: links in
   the home directory show Lem to every repository on the machine, also to one where an older
   flow still runs.
-- `.claude-plugin/` and `bin/`: what Claude Code reads to load this repository as the plugin
-  `lem`: the manifest, a marketplace file that lists the one plugin, and links to the two
-  commands, which a plugin's `bin/` puts on the Bash tool's `PATH`.
+- `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
+  plugin `lem`: the manifest, a marketplace file that lists the one plugin, links to the two
+  commands, which a plugin's `bin/` puts on the Bash tool's `PATH`, and the correction hook.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the
   builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
 - `skills/lem/references/`: the catalog of published style guides.

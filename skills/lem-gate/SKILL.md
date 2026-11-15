@@ -75,7 +75,9 @@ and tell the user in one line with the reason. Only **held** goes on to step 3.
 ### 3. The card
 
 A question the judge called **held** whose options each cost something goes through the persona
-panel (`lem-panel`), which writes the card and runs the framing check. That holds for a
+panel (`lem-panel`), which writes the card and runs the framing check, in a project that has
+personas. The panel's `cast.py` says whether it has: a project that wrote none gets no panel,
+and its question goes out as a card like "any other question" below. That holds for a
 technical fork as much as for one users would see: the panel brings the people who run and build
 the system to a technical question, and its practice scout checks the facts an option turns on,
 so the card's recommendation is not the asking agent's view alone. In shadow mode the verdict only

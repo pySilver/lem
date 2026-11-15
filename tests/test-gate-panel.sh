@@ -2,7 +2,7 @@
 # gate's shadow log, offline: gate-log.py records the judge's verdict and the user's answer
 # in the git directory (never the work tree), refuses an unknown verdict and an answer to a
 # question it never logged, and reports both side by side. Then panel's cast.py: the cast
-# resolves from one layer (project, then user, then built-in), a checkout older than its default
+# comes from the project alone (none there means no panel; the user's and the built-in cast only start one), a checkout older than its default
 # branch's cast reads that cast, the project's profile comes from the checkout or the default branch
 # and never from a generic layer, init copies a cast down, and run-dir makes a folder git ignores.
 set -euo pipefail
@@ -65,21 +65,24 @@ git init -q --bare "$PANEL/origin.git"
 git -C "$REPO" remote add origin "$PANEL/origin.git"
 git -C "$REPO" push -q origin main
 git -C "$REPO" remote set-head origin main
-if [ "$(layer_of "$REPO")" = "built-in 4" ]; then pass "with no project or user cast, the built-in cast of four answers"; else fail "built-in fallback: $(layer_of "$REPO")"; fi
+none=$(cast --repo "$REPO" | "$PY" -c 'import json, sys; c = json.load(sys.stdin); print(c["layer"], c["personas"], "no panel runs here" in c["why"], "put the question to the owner" in c["why"])')
+if [ "$none" = "None [] True True" ] && [ "$(status_of cast --repo "$REPO")" = 0 ]; then pass "a project that wrote no personas has no cast: the answer says that no panel runs and where the question goes, with exit 0"; else fail "no personas: $none"; fi
 profile_of() { cast --repo "$1" | "$PY" -c 'import json, sys; p = json.load(sys.stdin)["profile"]; print("none" if p is None else p["source"].split(" at ")[0])'; }
 if [ "$(profile_of "$REPO")" = "none" ]; then pass "a project with no profile gets none, never a generic one"; else fail "profile without one: $(profile_of "$REPO")"; fi
 
 mkdir -p "$HOME/.config/personas/cast"
 printf '# Index\n' >"$HOME/.config/personas/cast/README.md"
-if [ "$(layer_of "$REPO")" = "built-in 4" ]; then pass "an index with no persona file is not a cast"; else fail "an index alone counted as a cast"; fi
 printf '# Reader\n' >"$HOME/.config/personas/cast/reader.md"
-if [ "$(layer_of "$REPO")" = "user 1" ]; then pass "the user's cast replaces the built-in one whole"; else fail "user layer: $(layer_of "$REPO")"; fi
+if [ "$(layer_of "$REPO")" = "None 0" ]; then pass "the user's own cast answers no panel in a project that wrote no personas"; else fail "the user's cast ran a panel: $(layer_of "$REPO")"; fi
+mkdir -p "$REPO/.lem/personas" && printf '# Index\n' >"$REPO/.lem/personas/README.md"
+if [ "$(layer_of "$REPO")" = "None 0" ]; then pass "an index with no persona file is not a cast"; else fail "an index alone counted as a cast"; fi
+rm -r "$REPO/.lem"
 
 git -C "$REPO" branch old
 mkdir -p "$REPO/.lem/personas"
 printf '# Shopper\n' >"$REPO/.lem/personas/shopper.md"
 printf '# Merchant\n' >"$REPO/.lem/personas/merchant.md"
-if [ "$(layer_of "$REPO")" = "project 2" ]; then pass "the project's cast replaces the user's whole"; else fail "project layer: $(layer_of "$REPO")"; fi
+if [ "$(layer_of "$REPO")" = "project 2" ]; then pass "the project's own people are the cast, and nobody of the user's cast is beside them"; else fail "project layer: $(layer_of "$REPO")"; fi
 printf '# Profile\n' >"$REPO/.lem/profile.md"
 if [ "$(profile_of "$REPO")" = "checkout" ]; then pass "the checkout's profile is read, beside a cast from any layer"; else fail "checkout profile: $(profile_of "$REPO")"; fi
 
@@ -162,7 +165,7 @@ FRESH=$PANEL/fresh
 git init -q -b main "$FRESH"
 cast init --repo "$FRESH" >/dev/null
 if [ -f "$FRESH/.lem/personas/reader.md" ] && [ -f "$FRESH/.lem/personas/README.md" ] && [ "$(layer_of "$FRESH")" = "project 1" ]; then
-  pass "init copies the cast that resolves into the project"
+  pass "init copies a starting cast, the user's before the built-in one, into the project"
 else
   fail "init did not copy the resolved cast"
 fi

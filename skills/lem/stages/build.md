@@ -56,7 +56,9 @@ builder can start builders in your agent, and what to do when it cannot.
      again in plain terms, name what the two tries assumed, and brief the next builder with a
      different approach and why it avoids that assumption;
    - *a question of what a person should see* (which of two results serves the people of the
-     project better, where the ask and the rulings leave it open): the `lem-panel` skill in its
+     project better, where the ask and the rulings leave it open), in a project that wrote no
+     personas: nobody but the owner can answer it, so it is a held decision, and Lem asks him;
+   - *the same question in a project that has personas*: the `lem-panel` skill in its
      reviewing mode, with the project's cast, gives the people's reading of the two results. It
      asks the owner nothing and decides nothing. Take the decision yourself with that reading,
      write it in `decisions.md` with what the personas said, and brief the next builder. It is

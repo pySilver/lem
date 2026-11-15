@@ -288,9 +288,20 @@ read as it is, and take the notes in the conversation. Do not install it unasked
 ## The correction hook
 
 For a project that keeps a correction queue (`stages/learn.md`). The hook exits at once in every
-repository whose settings do not say `corrections.collect = true`. The owner registers it with
-one command of Lem's setup, on the day of the onboarding or any later day, and takes it out the
-same way. `CLONE` is Lem's clone: two folders above the real path of `SKILL_DIR`.
+repository whose settings do not say `corrections.collect = true`. That line is in the tracked
+settings file, so it is the repository's yes: it holds for everybody who works there with the
+hook and an OpenRouter key, and everybody can read it in git. Say that to the owner before he
+says yes, in those words. One person says no for themselves with `collect = false` under
+`[corrections]` in `.lem/project.local.toml`; that file can never say yes.
+
+How the hook gets there depends on how Lem reached the session.
+
+- **Lem as a plugin** (the skill list shows `lem:lem`): the hook comes with the install,
+  from the plugin's `hooks/hooks.json`. Nobody registers anything, and the `setup.py` command
+  below is not for this form: it would add the same hook a second time.
+- **Lem linked by the setup**: the owner registers the hook with one command of Lem's setup, on
+  the day of the onboarding or any later day, and takes it out the same way. `CLONE` is Lem's
+  clone: two folders above the real path of `SKILL_DIR`.
 
 ```bash
 python3 CLONE/scripts/setup.py --corrections on --project ROOT   # for this repository
@@ -313,7 +324,7 @@ out of it. `setup.py --check` says whether it is registered.
   model's client is Lem's own `jev.py`, run by its path. It needs `OPENROUTER_API_KEY` in the
   environment Claude Code starts with.
 - It prints nothing and does not wait for the model: a detached copy asks it. The hook's own two
-  waits, for its input and for one git call, end after two seconds each, a bound chosen by guess
+  waits, for its input and for each of its git calls, end after two seconds each, a bound chosen by guess
   on 2026-11-15. The `timeout` of 10 seconds above is the value its source ran with in one
   repository since 2026-11-07; it is not a measurement.
 - What fails goes to `corrections.log` in Lem's folder of the git directory, and
@@ -321,9 +332,12 @@ out of it. `setup.py --check` says whether it is registered.
 - You do not run that command. A hook that sends the owner's messages to an outside service is
   his to add, and Claude Code's classifier refuses the step to an agent (the next section).
 
-Not run yet: the hook as a registered hook of a real session, and the setup's command on a real
-settings file. The hook's two halves are tested with a stand-in for the model, and the command
-with settings files in a throwaway home.
+Run: the setup's command on a real settings file (the owner, in a scratch repository,
+2026-11-15: registered in that checkout's local settings, as another session read it); and the
+plugin's hook starting on each message, with the plugin's folder in `CLAUDE_PLUGIN_ROOT`
+(2026-11-15, Claude Code 2.1.325, three headless sessions with a probe line). Not run yet: a
+message that went through the hook to the model in a real session. The hook's two halves are
+tested with a stand-in for the model, and the command with settings files in a throwaway home.
 
 ## What the owner does himself
 

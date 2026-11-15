@@ -192,8 +192,10 @@ There is one Lem for one repository. It is the session where you type `/lem`.
 - A lead owns one task from its plan to its report. A lead never asks you a question.
 - Something that the plan did not see can occur in the build. The lead decides a small matter
   itself. It writes the decision and the reason into the log of the task.
-- Some matters have options that each cost a person something. Then the personas answer first,
-  and Lem asks you. Work that does not depend on your answer continues.
+- Some matters have options that each cost a person something. Then Lem asks you. Work that
+  does not depend on your answer continues.
+- If the project has personas, they answer first, and you see their answers with the question.
+  If the project has none, you get the question at once.
 - The report of each task lists each decision that an agent took without you, with its reason.
   You can overturn each of them.
 - When Lem asks you to choose or to approve, it opens a page in agterm with the options side by
@@ -230,10 +232,11 @@ flowchart TD
   removes the worktree.
 - `profile.md` says what the project is. `styleguide/` holds the rules for the code. `lessons.md`
   holds the corrections that have no better place.
-- `personas/` has one file for each person that a decision has an effect on, for example a
-  customer. Some decisions of a task have options that each cost a person something. Before
-  such a decision goes to you, an agent answers as each person. The questions of `/lem init` go
-  to you directly.
+- `personas/` is optional. It has one file for each person that a decision has an effect on,
+  for example a customer. Some decisions of a task have options that each cost a person
+  something. Before such a decision goes to you, an agent answers as each person.
+- `/lem init` asks if you want personas. It writes none without your yes. The questions of
+  `/lem init` go to you directly.
 - A repository that already has `.claude/rules` keeps that folder. It is the style guide, and
   the settings name it. Lem makes no copy and no symbolic link.
 - A rule file can name the files that it applies to. It does this at its top, between two `---`
@@ -371,14 +374,14 @@ Two paths did not occur in these runs:
 6. Lem proposes what must not go wrong in this project: the danger topics, and the paths where
    the code has them now. Examples are "the price that a customer pays" and `app/payments/*`.
    You correct the two lists.
-7. Lem writes `.lem/project.toml` and these drafts: the profile, the personas, a lessons file,
-   and the starter set of the review tool in `.revmux/`.
+7. Lem writes `.lem/project.toml` and these drafts: the profile, a lessons file, and the starter
+   set of the review tool in `.revmux/`. It writes personas only if you want them.
 8. Lem writes a style guide only if the repository has no `.claude/rules` folder.
 9. Lem commits all of this on the branch `chore/lem-onboarding`, in your checkout.
 10. Lem shows you one page. Its first line is the path of the repository. Then it lists what the
     computer has, what Lem wrote, and each assumption with its source.
-11. Lem opens the three drafts that you read first, one after the other: the careful paths, the
-    gate, the personas. You mark them, and Lem corrects them.
+11. Lem opens the drafts that you read first, one after the other: the careful paths, the gate,
+    and the personas if the project has them. You mark them, and Lem corrects them.
 12. You answer with one of three words: "land", "change" or "drop".
 13. On "land", Lem puts the branch on the base branch. This is the one landing that does not
     read `branch.land`: your word is the approval.
@@ -464,7 +467,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | --- | --- |
 | `lem-ask` | each question that asks you to choose or to approve, as a page |
 | `lem-gate` | the question gate: it decides if a question must go to you at all |
-| `lem-panel` | the personas: an agent answers as each person that the decision has an effect on |
+| `lem-panel` | the personas, in a project that has them: an agent answers as each person that the decision has an effect on |
 | `lem-linear` | the tickets of Linear; Lem tests the connection in `/lem init`, and again when it reads a ticket |
 
 ## Settings
@@ -475,7 +478,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | --- | --- | --- |
 | `paths.profile` | `.lem/profile.md` | what the project is |
 | `paths.styleguide` | `.lem/styleguide`, or `.claude/rules` if that folder is there | the rule files for the code |
-| `paths.personas` | `.lem/personas` | one file for each person that a decision has an effect on |
+| `paths.personas` | `.lem/personas` | optional: one file for each person that a decision has an effect on |
 | `paths.review` | `.revmux` | the folder of the review tool |
 | `paths.lessons` | `.lem/lessons.md` | the corrections that have no better place |
 | `paths.rulings` | `docs/rulings` | your decisions that hold for later tasks |
@@ -495,13 +498,15 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `seats.reviewer.model`, `.effort`, `.plan_effort` | the default of the agent | the model of the reviewer, its effort for a diff, and its effort for a plan |
 | `tools.annotate` | `webrev` | the tool with which you mark a plan; webrev is a recommended tool that you install |
 | `tools.ask` | `lem-ask` | how a question comes to you: the page of Lem, `terminal`, or a skill or a command of yours |
-| `corrections.collect` | `false` | `true` keeps a queue of your corrections for `/lem retro` |
+| `corrections.collect` | `false` | `true` keeps a queue of corrections for `/lem retro`, for each person who works in the repository with the hook |
 | `[tracker]` | absent | `kind` (`linear`), `server`, `workspace`, `team` and `moves` |
 
 - `tracker.moves` says who changes the status of a ticket: `lem`, or `tracker` for the automation
   of the tracker. With `lem`, the table also names the two statuses, `started` and `landed`.
 - `.lem/project.local.toml` is for one computer. Git does not track it. It can change the
-  reviewer, the mark tool and the question tool only.
+  reviewer, the mark tool and the question tool.
+- That file can also have `[corrections]` with `collect = false`. Then the hook sends no message
+  from this computer. The file cannot set `collect = true`.
 
 ## What is necessary
 
@@ -607,6 +612,43 @@ python3 scripts/setup.py --corrections off --project ~/code/shop   # remove that
   each message in each repository. Use that form only if many of your repositories use Lem.
 - The agent that runs `/lem` coordinates. The reviewer is Codex or a second Claude, as
   `[seats.reviewer]` says.
+
+### Lem as a Claude Code plugin
+
+This is a second way to get Lem into one repository. It has no links and no clone. A test on
+2026-11-15 loaded Lem in this form. No task ran through it yet, thus the links are the
+recommended way for now.
+
+```bash
+claude plugin marketplace add pySilver/lem --scope project
+claude plugin install lem@lem --scope project
+```
+
+- Run the two commands in the repository. They write two keys into `.claude/settings.json`.
+- With `--scope local`, they write `.claude/settings.local.json`, which git does not track.
+- Start Claude Code in the root of the repository. A session that starts in a subfolder does
+  not get the plugin.
+- `/lem` is the same command. The skill list shows the skills as `lem:lem`, `lem:lem-ask` and
+  so on, and the builder as `lem:lem-builder`.
+- The `lem-ask` and `jev` commands are on the `PATH` of the agent, in that repository only.
+- An update comes only after `claude plugin marketplace update lem` and
+  `claude plugin update lem@lem`, and a new session.
+- Use one way in a repository: the links or the plugin.
+
+The correction hook comes with the plugin. Read this before you commit
+`corrections.collect = true`:
+
+- That line is in `.lem/project.toml`, which is in git. It is a yes for each person who works
+  in the repository with the plugin.
+- Then each message that such a person types there goes to the Jev decision model through
+  OpenRouter, with the agent message before it. The request uses the `OPENROUTER_API_KEY` of
+  that person. A person without a key sends nothing.
+- A person who does not want this puts `collect = false` under `[corrections]` into
+  `.lem/project.local.toml`.
+- With `corrections.collect = false`, which is the default, the hook sends nothing.
+
+The test did not use GitHub as the source of the plugin, and it did not use a session with a
+person. Thus the two install commands above are not tested in that exact form.
 
 ## Tests
 

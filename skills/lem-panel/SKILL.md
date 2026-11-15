@@ -63,26 +63,30 @@ project's own documents, for the user to finish and commit.
 
 ## The people
 
-The cast is a folder of persona files, one person each, with a `README.md` index. It comes from
-the first of three layers that has any persona file, the same order revmux reads its prompts in:
+The cast is a folder of persona files, one person each, with a `README.md` index: the project's
+personas folder (`.lem/personas/`, unless its settings name another path), the project's own
+people (in one shop project a shopper, a merchant, an ops admin, the engineer on call and the
+CEO).
 
-1. the project's personas folder (`.lem/personas/`, unless its settings name another path), the project's own people (in mybaze a shopper, a
-   merchant, an ops admin, the engineer on call and the CEO);
-2. `~/.config/personas/cast/`, the user's;
-3. the built-in cast in this skill's `cast/`: a person who uses the product, the engineer who runs
-   it, the engineer who builds the next change on it and the owner who pays for it, generic enough
-   for any repository.
+A panel runs only in a project that wrote personas. Resolve the cast before every panel with
+`python3 ${CLAUDE_SKILL_DIR}/scripts/cast.py`, which prints the layer, its source, the index and
+each persona's path as JSON. When `layer` is null the project has none: run no panel, write no
+card in a panel's name, and give the question back to the one who asked, to put to the owner as
+it is. Generic people never stand in for a project's own: an owner who wrote no personas gets
+his questions at once, and a panel of people nobody named answers for nobody.
 
-The whole cast comes from one layer; files are never merged across layers, because a generic
-person beside a project's own shopper would be picked as if they were one of its users. Resolve it
-before every panel with `python3 ${CLAUDE_SKILL_DIR}/scripts/cast.py`, which prints the layer,
-its source, the index and each persona's path as JSON. A worktree branched before the project's
+A worktree branched before the project's
 cast landed has none of its own; the script then reads the default branch's cast, from whichever
 of the local and remote branch is newer, so the panel keeps the project's people without a rebase,
 and `source` names the branch and commit. The same holds for a worktree whose cast is an older copy
 it never edited: a persona added on the default branch reaches it without a merge, while a branch
-that edits its cast keeps its own. `cast.py init` copies the cast that resolves into
-the project's personas folder when the user asks to set up personas for a project.
+that edits its cast keeps its own.
+
+Two more casts exist, and they answer no panel: the user's in `~/.config/personas/cast/` and the
+built-in one in this skill's `cast/` (a person who uses the product, the engineer who runs it,
+the engineer who builds the next change on it and the owner who pays for it). `cast.py init`
+copies the first of them that has a persona file into the project's personas folder, as files to
+rewrite, when the owner asks to set up personas for a project.
 
 A panel brings only the people the question affects, never the whole cast by default. Pick them
 before writing the brief: a persona is in when some option changes what that person sees, does or

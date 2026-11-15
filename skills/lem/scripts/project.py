@@ -50,11 +50,13 @@ JSON, so a commit made only of digits stays a string and an exit code stays a nu
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens), which tool marks up a plan and
-which one puts a question to the owner. It
+which one puts a question to the owner, and a no to the correction queue for that one person. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]` and
-`[tools]` and nothing else: the gate, the careful paths, the protected branches and who lands are
-the project's rules, and a file nobody reviews must not open them. `show` names each setting that
+`[tools]`, and `[corrections]` with `collect = false`, and nothing else: the gate, the careful
+paths, the protected branches and who lands are the project's rules, and a file nobody reviews
+must not open them. For the same reason it can switch the correction queue off for its person
+and never on: nobody's messages are sent because of a file that git does not show. `show` names each setting that
 came from it.
 
 The style guide is a folder of markdown files, in an adopted project the one an agent already
@@ -94,7 +96,7 @@ TOOLS = {"annotate": "webrev", "ask": "lem-ask"}
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
 # the tables one machine may set for itself
-LOCAL_TABLES = ("seats", "tools")
+LOCAL_TABLES = ("seats", "tools", "corrections")
 # name -> (where the skill's own layout keeps it, where an older tool keeps it)
 PATHS: dict[str, tuple[str, str | None]] = {
     "profile": (".lem/profile.md", ".personas/profile.md"),
@@ -214,8 +216,10 @@ max_tasks = {max_tasks}
 [corrections]
 # Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
 # message the owner types, with the agent message it answers, to the Jev decision model. That
-# is the owner's choice, so it is false until he says yes, and he registers the hook himself
-# with one command of Lem's setup (`/lem init` names it).
+# is the owner's choice, so it is false until he says yes. `true` here, in git, is a yes for
+# everybody who works in this repository with the hook: with Lem as a plugin the hook comes with
+# the install, with links the owner registers it by one command of Lem's setup. One person says
+# no for themselves with `collect = false` under [corrections] in .lem/project.local.toml.
 collect = false
 
 # The tracker a task's ask may come from. Leave it out when the project has none. Lem reads a
@@ -332,6 +336,18 @@ def seat(raw: dict, name: Path) -> dict | None:
     return {key: given.get(key) for key in SEAT}
 
 
+def local_off(local: dict) -> bool:
+    """Whether this machine's own file says no to the correction queue. It can say nothing else about it."""
+    if "collect" not in local.get("corrections", {}):
+        return False
+    if local["corrections"]["collect"] is not False:
+        raise SettingsError(
+            f"{LOCAL}: corrections.collect = {local['corrections']['collect']!r} is not for this file. It may say `collect = false`, "
+            f"which keeps one person's messages out of the queue; only {SETTINGS}, which everybody reads in git, switches the queue on",
+        )
+    return True
+
+
 def tool_of(raw: dict, name: Path, role: str) -> str | None:
     """The tool one file names for a role, checked; None when the file names none."""
     if role not in raw.get("tools", {}):
@@ -388,6 +404,10 @@ def load(root: Path) -> dict:
     collect = raw.get("corrections", {}).get("collect", False)
     if not isinstance(collect, bool):
         raise SettingsError(f"{SETTINGS}: corrections.collect = {collect!r} must be true or false")
+    if local_off(local):
+        if collect:
+            overridden.append("corrections.collect")
+        collect = False
     tracker = None
     if "tracker" in raw:
         given = raw["tracker"]
@@ -563,6 +583,7 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     # refused with its fix, and the file stays as the owner left it.
     for role in TOOLS:
         tool_of(local, LOCAL, role)
+    local_off(local)
     if words == ["default"]:
         local.get("seats", {}).pop("reviewer", None)
     else:
@@ -575,7 +596,8 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
         body = local.get(table) or {}
         plain = {key: value for key, value in body.items() if not isinstance(value, dict)}
         if plain:
-            lines += ["", f"[{table}]", *(f"{key} = {toml_string(value)}" for key, value in plain.items())]
+            # a value here is a word in quotes, or the one `false` the corrections table may hold
+            lines += ["", f"[{table}]", *(f"{key} = {'false' if value is False else toml_string(value)}" for key, value in plain.items())]
         for key, value in body.items():
             if isinstance(value, dict) and value:
                 lines += ["", f"[{table}.{key}]", *(f"{k} = {toml_string(v)}" for k, v in value.items())]

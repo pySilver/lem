@@ -1014,10 +1014,17 @@ const WHO = {owner: 'needs you', agent: 'an agent can take it', waiting: 'waits'
 // no file name can be read as more than a name there.
 const SAFE_PATH = /^[A-Za-z0-9._\/-]+$/;
 const commandFor = it => `/lem new ${it.path}`;
-// Whether the agent runs in a session, from the argv agterm reports for its foreground: a part that
-// is the `claude` command, by its path or as the start of a shell's command line. A pager or an
-// editor in the foreground is not it, and a typed line would land in that program.
-const agentRuns = pane => (pane?.foreground ?? []).some(part => /(^|\/)claude$/.test(part) || /^claude(\s|$)/.test(part));
+// Whether the agent runs in a session, from the argv agterm reports for its foreground. Only the
+// program counts: the first word is the `claude` command, or a shell whose `-c` line starts with
+// it. A file named claude that a pager or an editor shows is an argument, not the program, and a
+// typed line would land in that program.
+function agentRuns(pane) {
+  const argv = pane?.foreground ?? [];
+  const program = String(argv[0] ?? '').split('/').at(-1);
+  if (program === 'claude') return true;
+  const line = argv.indexOf('-c');
+  return /^(fish|zsh|bash|sh)$/.test(program) && line > 0 && /^claude(\s|$)/.test(String(argv[line + 1] ?? ''));
+}
 const daysOld = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? Math.max(0, Math.round((Date.now() - new Date(`${iso}T12:00:00`).getTime()) / 86400000)) : null;
 
 function shownItems() {
@@ -1034,6 +1041,7 @@ function itemActions(it) {
   const sent = bl.sent.get(it.slug);
   const lem = paneOf(meta.session);
   if (sent?.ok) return [h('span', {class: 'bl-note'}, `Typed into Lem’s session at ${hhmm(sent.at)}: `), h('code', {}, cmd), lem ? jump(lem.id, 'Go to Lem') : null];
+  if (sent?.pending) return [h('span', {class: 'bl-note'}, 'Typing into Lem’s session… '), h('code', {}, cmd)];
   if (!SAFE_PATH.test(it.path)) return [h('span', {class: 'bl-note bad'}, 'The name of this file has a character that is not typed into a session. Start the task yourself in Lem’s session.')];
   const failed = sent ? h('span', {class: 'bl-note bad'}, `It was not typed (${sent.why}). Type it yourself in Lem’s session: `) : null;
   if (failed) return [failed, h('code', {}, cmd)];
@@ -1109,7 +1117,7 @@ function setTab(next) {
 }
 
 function askToStart(slug) {
-  if (bl.sent.get(slug)?.ok) return;
+  if (bl.sent.get(slug)?.ok || bl.sent.get(slug)?.pending) return;
   bl.open.add(slug);
   bl.cursor = slug;
   bl.confirm = slug;
@@ -1133,8 +1141,12 @@ async function startTask(slug) {
   const it = backlog?.items.find(x => x.slug === slug);
   const lem = paneOf(meta.session);
   // only the item whose question is open, and one time: a second key press must not open a second task
-  if (!it || !SAFE_PATH.test(it.path) || bl.confirm !== slug || bl.sent.get(slug)?.ok) return;
+  const before = bl.sent.get(slug);
+  if (!it || !SAFE_PATH.test(it.path) || bl.confirm !== slug || before?.ok || before?.pending) return;
   bl.confirm = null;
+  // marked before the request goes out: until agterm answers, a second key press finds the item taken
+  bl.sent.set(slug, {pending: true});
+  renderBacklog();
   try {
     if (typeof agterm === 'undefined' || !agentRuns(lem)) throw new Error('no agent runs in Lem’s session');
     await agterm.request('session.type', {target: lem.id, args: {text: `${commandFor(it)}\n`}});

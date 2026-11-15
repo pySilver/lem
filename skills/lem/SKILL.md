@@ -103,8 +103,9 @@ Between two of the owner's messages Lem only waits: a lead that stops wakes it.
 
 - **The owner is needed at three points.** The ask (`new`), a held decision, and the report.
   A held decision is one whose options each cost a person something and that no ruling, test or
-  probe answers; it goes through the question gate and the persona panel before the owner sees
-  it. Every other decision is yours: decide from the code, the settings and the rulings, write it
+  probe answers; it goes through the question gate before the owner sees it, and through the
+  persona panel too in a project that has personas. A project that wrote none gets the question
+  at once: no generic people answer in their place. Every other decision is yours: decide from the code, the settings and the rulings, write it
   in the decisions log, and go on. A red test, a failed command or a moving base branch is the
   work, never a reason to stop.
 - **Decisions are logged, and the owner can overturn each.** One line in `decisions.md` per
