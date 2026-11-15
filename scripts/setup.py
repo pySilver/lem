@@ -14,7 +14,13 @@ It links, for Claude Code:
 They are links, so an edit in the clone is what the next session reads. A place that already
 holds something else is never replaced: the script names it and exits 1, and the owner decides
 what goes. A link that points into another clone of Lem is in the way too, because two clones
-would then answer to one name.
+would then answer to one name. A link counts as this clone's only when it names the clone's own
+path; one that merely ends at the same file by another route is the owner's, and `--remove`
+leaves it.
+
+Either every link is made or none: when one cannot be made, the ones this run made are taken
+away again, and the report says so. Every run prints the state of all the places as JSON, also a
+run that fails.
 
 The last step runs `skills/lem/scripts/doctor.py` and prints its rows that are not found. A
 required tool that is absent makes this script exit 1 after the links are made: the links are
@@ -41,8 +47,18 @@ def wanted(home: Path, bin_dir: Path) -> list[tuple[Path, Path]]:
 
 def state(place: Path, target: Path) -> str:
     if place.is_symlink():
-        return "linked" if Path(os.path.realpath(place)) == Path(os.path.realpath(target)) else "other link"
-    return "taken" if place.exists() else "absent"
+        # The link's own first step must be the clone's path. Only the folders on the way are
+        # resolved, so a home behind a link still counts; the last name is compared as written,
+        # so a link that ends at the same file by another route does not.
+        hop = Path(os.readlink(place))
+        hop = hop if hop.is_absolute() else place.parent / hop
+        ours = Path(os.path.realpath(hop.parent)) / hop.name == Path(os.path.realpath(target.parent)) / target.name
+        return "linked" if ours else "other link"
+    if place.exists():
+        return "taken"
+    # a file where a folder has to be: nothing can be linked under it
+    blocked = next((parent for parent in place.parents if parent.exists() and not parent.is_dir()), None)
+    return f"blocked by {blocked}" if blocked else "absent"
 
 
 def main() -> None:
@@ -56,7 +72,7 @@ def main() -> None:
         sys.exit("setup.py: --check and --remove do not go together")
     links = wanted(args.home, args.bin or args.home / ".local" / "bin")
     rows = [{"place": str(place), "target": str(target), "state": state(place, target)} for place, target in links]
-    in_the_way = [row for row in rows if row["state"] in ("taken", "other link")]
+    in_the_way = [row for row in rows if row["state"] not in ("linked", "absent")]
 
     if args.remove:
         for row in rows:
@@ -69,15 +85,30 @@ def main() -> None:
         # Nothing is linked when one place is taken: half a setup answers some commands from this
         # clone and others from whatever was there.
         print(json.dumps({"links": rows}, indent=2))
-        named = "; ".join(f"{row['place']} ({'a link to ' + os.path.realpath(row['place']) if row['state'] == 'other link' else 'not a link'})" for row in in_the_way)
+        named = "; ".join(
+            f"{row['place']} ({'a link to ' + os.readlink(row['place']) if row['state'] == 'other link' else row['state'] if row['state'].startswith('blocked') else 'not a link'})"
+            for row in in_the_way
+        )
         sys.exit(f"setup.py: {len(in_the_way)} place(s) hold something else, and nothing was linked: {named}. Move each away, or leave Lem unlinked")
     if not args.check:
-        for row in rows:
-            if row["state"] == "absent":
-                place = Path(row["place"])
-                place.parent.mkdir(parents=True, exist_ok=True)
-                place.symlink_to(row["target"])
-                row["state"] = "linked"
+        made: list[Path] = []
+        try:
+            for row in rows:
+                if row["state"] == "absent":
+                    place = Path(row["place"])
+                    place.parent.mkdir(parents=True, exist_ok=True)
+                    place.symlink_to(row["target"])
+                    made.append(place)
+                    row["state"] = "linked"
+        except OSError as error:
+            # every link or none: take this run's links away again, and say what stopped it
+            for place in made:
+                place.unlink(missing_ok=True)
+            for row in rows:
+                if Path(row["place"]) in made:
+                    row["state"] = "absent"
+            print(json.dumps({"links": rows}, indent=2))
+            sys.exit(f"setup.py: a link could not be made ({error}); the {len(made)} link(s) this run made are removed again, and nothing is linked")
     on_path = any(Path(entry) == (args.bin or args.home / ".local" / "bin") for entry in os.environ.get("PATH", "").split(os.pathsep) if entry)
     doctor = subprocess.run(
         [sys.executable, "-B", str(CLONE / "skills" / "lem" / "scripts" / "doctor.py")], capture_output=True, text=True, check=False,
@@ -86,7 +117,8 @@ def main() -> None:
     try:
         machine = json.loads(doctor.stdout)
     except json.JSONDecodeError:
-        sys.exit(f"setup.py: doctor.py printed no JSON: {(doctor.stderr or doctor.stdout).strip()}")
+        print(json.dumps({"links": rows}, indent=2))
+        sys.exit(f"setup.py: the links are as listed, and the machine check did not run: doctor.py printed no JSON: {(doctor.stderr or doctor.stdout).strip()}")
     absent = [{"name": row["name"], "need": row["need"], "without_it": row["without_it"]} for row in machine["tools"] if not row["found"]]
     result = {
         "links": rows, "huddle_dir_on_path": on_path, "machine_ok": machine["ok"], "absent": absent,

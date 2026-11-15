@@ -447,6 +447,39 @@ if [ "$(field '(d["linked"], d["machine_ok"], len(d["links"]), [a["name"] for a 
 else
   fail "setup: $out"
 fi
+# A link that only ends at the same file by another route is the owner's: a small stand-in clone whose
+# agent file is itself a link shows it, and --remove leaves the owner's link alone.
+TWIN=$WORK/twin
+mkdir -p "$TWIN/scripts" "$TWIN/skills/lem/scripts" "$TWIN/skills/lem-huddle/bin" "$TWIN/agents" "$WORK/twinhome/.claude/agents"
+cp "$SETUP" "$TWIN/scripts/setup.py" && cp "$DOCTOR" "$TWIN/skills/lem/scripts/doctor.py"
+touch "$TWIN/skills/lem/SKILL.md" "$TWIN/skills/lem-huddle/SKILL.md" "$TWIN/skills/lem-huddle/bin/huddle" "$WORK/shared-agent.md"
+ln -s "$WORK/shared-agent.md" "$TWIN/agents/lem-builder.md"
+ln -s "$WORK/shared-agent.md" "$WORK/twinhome/.claude/agents/lem-builder.md"
+twin() { env -i PATH="$BIN" HOME="$WORK/twinhome" "$PY" -B "$TWIN/scripts/setup.py" --home "$WORK/twinhome" "$@"; }
+out=$(twin --remove)
+if [ "$(field 'next(l["state"] for l in d["links"] if l["place"].endswith("lem-builder.md"))' <<<"$out")" = "other link" ] && [ -L "$WORK/twinhome/.claude/agents/lem-builder.md" ] \
+  && [ "$(status_of twin)" = 1 ] && [ ! -e "$WORK/twinhome/.claude/skills" ]; then
+  pass "a link of the owner's that ends at the same file by another route is not this clone's: setup stops on it and --remove leaves it"
+else
+  fail "setup with a shared target: $out"
+fi
+# A link that cannot be made after others were: the folder for agents is read-only.
+rm "$WORK/twinhome/.claude/agents/lem-builder.md" && chmod a-w "$WORK/twinhome/.claude/agents"
+out=$(twin 2>"$WORK/twin.err" || true)
+chmod u+w "$WORK/twinhome/.claude/agents"
+if grep -q "the 2 link(s) this run made are removed again" "$WORK/twin.err" && [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['absent']" ] \
+  && [ -z "$(find "$WORK/twinhome" -type l)" ]; then
+  pass "when one link cannot be made, the links of that run are taken away again and the report shows every place as absent"
+else
+  fail "setup with a link that fails: $out / $(cat "$WORK/twin.err")"
+fi
+mkdir -p "$WORK/filehome/.claude" && touch "$WORK/filehome/.claude/agents"
+out=$(env -i PATH="$BIN" HOME="$WORK/filehome" "$PY" -B "$SETUP" --home "$WORK/filehome" 2>/dev/null || true)
+if [ "$(field 'next(l["state"] for l in d["links"] if l["place"].endswith("lem-builder.md")).startswith("blocked by")' <<<"$out")" = True ] && [ ! -e "$WORK/filehome/.claude/skills" ]; then
+  pass "a file where a folder has to be is found before any link is made"
+else
+  fail "setup with a file in the place of a folder: $out"
+fi
 touch "$SETHOME/.claude/skills/mine"
 out=$(setup --remove)
 if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/huddle" ]; then
