@@ -61,11 +61,7 @@ python3 SKILL_DIR/scripts/project.py show
 `SKILL_DIR` is this skill's own directory. The output is the project's settings, resolved: each
 path with whether it exists, the base branch, who lands, the gate commands and the careful
 patterns. When `settings` is null the repository was never onboarded: only `init` and `status`
-run, and every other subcommand says so and stops. When `paths.personas.personas` is 0 the
-onboarding is not finished: the project has no personas, and the panel that a held decision goes
-through refuses to run without them. Say so in the status and before a task starts, and name
-the step: `/lem init` asks who a decision here affects and writes them. With 1, say that a panel
-needs a second person who would notice other things. Read the project's `AGENTS.md` once per
+run, and every other subcommand says so and stops. Read the project's `AGENTS.md` once per
 session; it is where a project says what its own scripts are (a worktree script, a landing
 script, a board).
 
@@ -229,6 +225,13 @@ action there, "start a task", types `/lem new PATH` into Lem's session, which is
 writes the tab's file at every run, and the page reads it when the tab opens and on a key. So
 after an item was filed, taken or removed, run `board.py --no-open`, which writes the file again
 and opens nothing.
+
+Every project of Lem has personas, and a project without them has an onboarding that is not
+finished. The machine check (`python3 SKILL_DIR/scripts/doctor.py`), run in the repository, has
+a `project personas` row that says how many the panel finds, from the checkout or the default
+branch. Look at it with the status: with none, say so and name the step, `/lem init`, which
+asks who a decision here affects and writes them without touching the settings that exist; with
+one, say that a panel needs a second person who would notice other things.
 
 Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists every task
 directory with the first line of its `task.md`, its status and the newest block of its

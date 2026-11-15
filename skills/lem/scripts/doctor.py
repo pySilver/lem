@@ -179,7 +179,12 @@ def codex() -> list[dict]:
 
 
 def project() -> list[dict]:
-    """In a repository that has Lem's settings: whether it has the people a panel asks. No row anywhere else."""
+    """In a repository that has Lem's settings: whether it has the people a panel asks. No row anywhere else.
+
+    The row's need is `project`, not `required`: it is about this repository and not about the
+    machine, so it never fails the machine check, and the onboarding that would write the
+    personas is not stopped by their absence.
+    """
     try:
         top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
     except OSError:
@@ -188,18 +193,24 @@ def project() -> list[dict]:
     if root is None or not (root / ".lem" / "project.toml").is_file():
         return []
     row = {
-        "name": "project personas", "need": "required", "found": False, "detail": None,
+        "name": "project personas", "need": "project", "found": False, "detail": None,
         "used_for": "the people a panel asks before a hard question reaches the owner: every project of Lem has two or more",
-        "without_it": "the project's setup is not finished and no panel can run; `/lem init` asks who a decision here affects and writes them",
+        "without_it": "the project's setup is not finished and no panel can run; `/lem init` in this repository asks who a decision "
+                      "here affects and writes them, and leaves the settings that are there as they are",
     }
-    shown = subprocess.run([sys.executable, "-B", str(Path(__file__).with_name("project.py")), "--repo", str(root), "show"], capture_output=True, text=True, check=False)
+    # The panel's own script answers: it reads the checkout and, for a worktree older than the
+    # cast, the default branch, so this row and a panel never disagree about one repository.
+    cast = Path(__file__).resolve().parents[2] / "lem-panel" / "scripts" / "cast.py"
+    asked = subprocess.run([sys.executable, "-B", str(cast), "--repo", str(root)], capture_output=True, text=True, check=False)
+    if asked.returncode != 0:
+        return [{**row, "detail": (asked.stderr or asked.stdout).strip().removeprefix("cast: ")[:300] or "the panel's cast check printed nothing"}]
     try:
-        cast = json.loads(shown.stdout)["paths"]["personas"]
-        count = cast["personas"]
+        found = json.loads(asked.stdout)
+        count = len(found["personas"])
+        where = f"{found['layer']}, {found['source']}"
     except (ValueError, KeyError, TypeError):
-        # the settings do not read: say that, in the place where the count would be
-        return [{**row, "detail": (shown.stderr or shown.stdout).strip()[:300] or "project.py show printed nothing"}]
-    detail = f"{count} in {cast['path']}" + (": a panel needs a second person who would notice other things" if count == 1 else "")
+        return [{**row, "detail": "the panel's cast check printed no JSON"}]
+    detail = f"{count} ({where})" + (": a panel needs a second person who would notice other things" if count == 1 else "")
     return [{**row, "found": count > 0, "detail": detail}]
 
 

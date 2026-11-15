@@ -371,10 +371,6 @@ def load(root: Path) -> dict:
             raise SettingsError(f"{SETTINGS}: paths.{name} must be a string")
         resolved = inside(root, relative, f"paths.{name}")
         paths[name] = {"path": str(resolved), "exists": resolved.exists()}
-    # Every project of Lem has personas: a count of 0 is a setup that is not finished, and 1 is a
-    # panel with nobody to disagree. A persona is a .md file of the folder other than its index.
-    cast = Path(paths["personas"]["path"])
-    paths["personas"]["personas"] = len([f for f in cast.glob("*.md") if f.name != "README.md"]) if cast.is_dir() else 0
 
     branch = raw.get("branch", {})
     base = branch.get("base")

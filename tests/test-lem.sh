@@ -1273,22 +1273,27 @@ else
   fail "an adopted project's rules"
 fi
 
-# Every project of Lem has personas: the settings count them, and the machine check, run in a repository
-# that has settings, says when the setup is not finished.
+# Every project of Lem has personas: the machine check, run in a repository that has settings, says when
+# there are none or one, through the panel's own check, and that row never fails the machine.
 PPL=$WORK/people-repo
 git init -q -b main "$PPL" && commit "$PPL" start && project --repo "$PPL" init --base main >/dev/null
-indoctor() { (cd "$PPL" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true); }
-none="$(project --repo "$PPL" show | field 'd["paths"]["personas"]["personas"]') $(indoctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "project personas")["found"])')"
+git -C "$PPL" add -A && commit "$PPL" "chore: the settings" && git -C "$PPL" worktree add -q "$WORK/people-wt" -b before-the-people
+people() { (cd "$1" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field '(d["ok"], [(t["need"], t["found"], t["detail"].split(": ")[-1] if t["found"] else t["detail"][:38]) for t in d["tools"] if t["name"] == "project personas"])'; }
+none=$(people "$PPL")
 mkdir -p "$PPL/.lem/personas" && echo '# The people' > "$PPL/.lem/personas/README.md" && echo '# A merchant' > "$PPL/.lem/personas/merchant.md"
-one="$(project --repo "$PPL" show | field 'd["paths"]["personas"]["personas"]') $(indoctor | field 'next(t for t in d["tools"] if t["name"] == "project personas")["detail"].split(": ", 1)[1]')"
-echo '# The engineer on call' > "$PPL/.lem/personas/on-call.md"
-two="$(project --repo "$PPL" show | field 'd["paths"]["personas"]["personas"]') $(indoctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "project personas")["found"])')"
+one=$(people "$PPL")
+echo '# The engineer on call' > "$PPL/.lem/personas/on-call.md" && git -C "$PPL" add -A && commit "$PPL" "feat: the people"
+two=$(people "$PPL")
+older=$(people "$WORK/people-wt")
 outside=$(doctor | field '[t["name"] for t in d["tools"] if t["name"] == "project personas"]')
-if [ "$none" = "0 (False, False)" ] && [ "$one" = "1 a panel needs a second person who would notice other things" ] && [ "$two" = "2 (True, True)" ] && [ "$outside" = "[]" ]; then
-  pass "the settings count the project's personas; in a repository that uses Lem the machine check fails with none, says that one is too few, and has no such row anywhere else"
+if [ "$none" = "(True, [('project', False, 'this project has no personas in .lem/p')])" ] && [ "$one" = "(True, [('project', True, 'a panel needs a second person who would notice other things')])" ] \
+  && [ "$two" = "(True, [('project', True, '2 (project, checkout)')])" ] && grep -q "'project', True, '2 (project, main at " <<<"$older" && [ "$outside" = "[]" ] \
+  && [ "$(project --repo "$PPL" show | field 'sorted(d["paths"]["personas"])')" = "['exists', 'path']" ]; then
+  pass "in a repository that uses Lem the machine check says when the project has no personas or one, finds the cast of a worktree that is older than it, never fails for it, and has no such row anywhere else"
 else
-  fail "the project's personas: $none / $one / $two / $outside"
+  fail "the project's personas: $none / $one / $two / $older / $outside"
 fi
+git -C "$PPL" worktree remove --force "$WORK/people-wt"
 
 # The backlog's sorting reads the folder the project's settings name, not a fixed one.
 BKL=$WORK/backlog-repo

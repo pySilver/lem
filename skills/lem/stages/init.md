@@ -6,6 +6,13 @@ and profiles as drafts the owner adjusts. It runs once per repository and stops 
 
 Keep the onboarding's notes in its own task directory: `project.py task-dir onboarding`.
 
+On a repository that already has `.lem/project.toml`, `/lem init` finishes an onboarding: it
+changes no setting that is there. Run step 1, skip the command of step 4 (it refuses a settings
+file that exists, and that is right), and do steps 2, 3 and 5 only for what is missing or
+unfinished: a path `project.py show` marks as not existing, and a cast of fewer than two
+personas, which the `project personas` row of step 1 shows. That row never stops the
+onboarding: writing the personas is what this stage is for.
+
 The owner may ask for it from a session that started in another folder. Work in the repository
 he names, and give every command its root. Before step 1, tell him that root as an absolute
 path and put the repository's name on the session (the harness file says how): he may have
@@ -174,7 +181,8 @@ and say so in the handover.
 ## 5. Generate what is absent
 
 For each path `project.py show` marks as not existing, write a draft. A linked folder is left as
-it is.
+it is, with one exception: a cast of fewer than two personas is completed wherever its folder
+is, and no persona file that is there is overwritten.
 
 - **The profile**, from `templates/profile.md`: the interview's answers and the examined facts,
   one page.
