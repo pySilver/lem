@@ -130,8 +130,10 @@ class Task:
             git(self.main, "fetch", "origin", str(self.base))
 
 
-# The line Lem writes into a task's brief when the owner says that the task is careful.
+# The line Lem writes into a task's brief when the owner says that the task is careful, and the
+# line a session's lead puts into its `ready` state block after the reviewer's read.
 OVERRULED = "careful: the owner says so"
+READ = "careful: read by a session"
 
 
 def cmd_start(task: Task) -> dict:
@@ -139,14 +141,17 @@ def cmd_start(task: Task) -> dict:
         raise LandError(f"{task.others_landing[0]} is in `landing`: one branch lands at a time, so finish that one first")
     if task.record["status"] not in ("ready", "landing"):
         raise LandError(f"the task is {task.record['status']!r}; only a `ready` task takes the landing line")
-    # The owner's word that a task is careful holds whoever starts the landing, and however: a
-    # task a builder led does not take the line before a session read it.
-    brief = task.directory / "brief.md"
-    said = [line.strip() for line in brief.read_text(encoding="utf-8", errors="replace").splitlines()] if brief.is_file() else []
-    if OVERRULED in said and "lead: session" not in said:
+    # The owner's word that a task is careful holds whoever starts the landing, and however. The
+    # proof that a session read the task is in its states, which only a lead that finished writes:
+    # a brief that already says `lead: session` proves only that someone meant to start one.
+    def lines(name: str) -> list[str]:
+        file = task.directory / name
+        return [line.strip() for line in file.read_text(encoding="utf-8", errors="replace").splitlines()] if file.is_file() else []
+
+    if OVERRULED in lines("brief.md") and READ not in lines("state.md"):
         raise LandError(
-            f"the owner called this task careful (`{OVERRULED}` in its brief) and no session has led it: "
-            "change the brief's `lead: builder` to `lead: session` and start a lead, as stages/new.md says; it writes `ready` again after the reviewer's read",
+            f"the owner called this task careful (`{OVERRULED}` in its brief) and no state of it says `{READ}`: "
+            "put `lead: session` into the brief and start a lead, as stages/new.md says; a session's lead writes that line with `ready` after the reviewer's read",
         )
     if not task.settings["gate"]["commands"]:
         task.state("blocked", "the project has no gate command")

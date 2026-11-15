@@ -93,6 +93,10 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   uses it when the project lands a task as one commit;
 - **the branch and its tip**: the branch's name and the commit `git rev-parse HEAD` prints.
 
+A session's lead adds the line `careful: read by a session` to its `ready` block, after the
+second opinion on the plan and the review of each task: the landing asks for that line when
+the owner called the task careful.
+
 Then write the state (`ready`, or `held`, `blocked` or `planned` with the line that says why),
 and tell Lem. A builder's reply is the report's path and nothing else. A session uses
 `tell-coordinator`.

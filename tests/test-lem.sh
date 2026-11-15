@@ -1514,11 +1514,15 @@ task_dir=$(project --repo "$SHOP" task-dir second-change)
 printf '%s\n' 'slug: second-change' 'lead: builder' 'careful: the owner says so' > "$task_dir/brief.md"
 err=$(land --repo "$SHOP" start second-change 2>&1 || true)
 status=$(project --repo "$SHOP" tasks | field 'next(t for t in d if t["slug"] == "second-change")["status"]')
+# A brief that already says `lead: session` proves only that a session was meant: the landing still refuses.
 printf '%s\n' 'slug: second-change' 'lead: session' 'careful: the owner says so' > "$task_dir/brief.md"
-if grep -q "the owner called this task careful" <<<"$err" && grep -q "change the brief's .lead: builder. to .lead: session. and start a lead" <<<"$err" && [ "$status" = "ready" ]; then
-  pass "a ready task that the owner called careful does not take the landing line while a builder is its lead"
+meant=$(status_of land --repo "$SHOP" start second-change)
+project --repo "$SHOP" state second-change building 'lead: session' >/dev/null
+project --repo "$SHOP" state second-change ready 'the report is written' 'careful: read by a session' >/dev/null
+if grep -q "the owner called this task careful" <<<"$err" && grep -q "no state of it says .careful: read by a session." <<<"$err" && [ "$status" = "ready" ] && [ "$meant" = 1 ]; then
+  pass "a ready task that the owner called careful does not take the landing line before a session's lead wrote that it was read"
 else
-  fail "land start over the owner's word: $err / $status"
+  fail "land start over the owner's word: $err / $status / $meant"
 fi
 land --repo "$SHOP" start second-change >/dev/null
 out=$(land --repo "$SHOP" base second-change 2>/dev/null || true)
