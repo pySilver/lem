@@ -349,8 +349,8 @@ Optional, each with a fallback that the check names: Codex, jev, cronn and plann
 To mark a plan or a document, use `/lem webrev`. It comes with Lem, and it is the recommended
 tool. If you prefer plannotator for that, put its name in `tools.annotate`.
 
-Also recommended, for you and not for Lem: plannotator-tui with two agterm chords. With them you
-mark the output of a pane or the newest reply of an agent. Lem does not install it. The guide is
+Lem also recommends plannotator-tui with two agterm chords, for your own use. With them you mark
+the output of a pane or the newest reply of an agent. Lem does not install it. The guide is
 [annotate-in-plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui).
 
 ## Setup in Claude Code
