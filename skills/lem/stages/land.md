@@ -42,8 +42,10 @@ one finds what the run before it finished.
    Its last act is to bring `report.md` up to what it did: the documents it corrected, the defects
    it fixed, the items it proposes, and the review risk again, judged over the whole range as it
    is now. A small fix in a file the report's risk rule names makes the risk `high`. Its reply is
-   that the report is current, or that there was nothing of either kind. This runs once for a
-   task, here, and never after each task of a plan. The next step runs the gate over all of it,
+   what `prompts/landing.md` asks for: its commits, the tip, the worktree's status, and that the
+   report is current. When its agent refused it the write, the reply holds the report's text
+   instead, and you write `report.md` from it word for word. This runs once for a task, here, and
+   never after each task of a plan. The next step runs the gate over all of it,
    and a project's own document checks are gate commands.
 4. **`gate`.** Every command of the settings' `gate.commands` runs at the root of the task's
    worktree, on the tip that will land, each with its output in a file of the task directory. The

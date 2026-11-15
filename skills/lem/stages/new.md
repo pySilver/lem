@@ -70,8 +70,8 @@ that is started again after it stopped.
    brief: from the task's branch when that branch exists (a night draft, a task whose worktree
    was removed), otherwise from the settings' base branch. Use the project's own worktree script
    when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test database, an
-   environment); otherwise `git worktree add -b BRANCH PATH BASE`, or without `-b` and `BASE` when
-   the branch exists. `project.py worktree-dir` already made the folder for worktrees one that
+   environment); otherwise `git worktree add -b BRANCH PATH BASE` for a new branch, and
+   `git worktree add PATH BRANCH` for a branch that exists. `project.py worktree-dir` already made the folder for worktrees one that
    git ignores. The worktree is in the checkout, not in the task's
    state directory: an agent's sandbox may not write inside the git directory, and the state has
    to outlive the worktree.

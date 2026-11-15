@@ -519,19 +519,46 @@ if [ "$(field '(d["linked"], d["machine_ok"], d["scope"], d["huddle"].startswith
 else
   fail "setup --project: $out / $(git -C "$TRIAL" status --porcelain)"
 fi
+echo 'mine' > "$TRIAL/.git/info/exclude.before" && grep -c '' "$TRIAL/.git/info/exclude" > "$WORK/exclude.lines"
 out=$(trial --remove)
 if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ -z "$(find "$TRIAL/.claude" -type l)" ] \
-  && [ "$(status_of env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --project "$WORK")" = 1 ]; then
-  pass "setup --project --remove takes those links away, and a folder that is no repository is refused"
+  && ! grep -q "lem" "$TRIAL/.git/info/exclude" && [ "$(status_of env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --project "$WORK")" = 1 ]; then
+  pass "setup --project --remove takes those links and its block of the exclude file away, and a folder that is no repository is refused"
 else
-  fail "setup --project --remove: $out"
+  fail "setup --project --remove: $out / $(cat "$TRIAL/.git/info/exclude")"
 fi
+# A worktree shares its exclude file with the main checkout, and a .claude that is a link leads out of the repository.
+git -C "$TRIAL" worktree add -q "$WORK/trial-wt" -b feat/trial
+mkdir -p "$TRIAL/.claude/skills/lem" && echo own > "$TRIAL/.claude/skills/lem/OWN.md"
+err=$(env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$WORK/trial-wt" 2>&1 || true)
+if grep -q "names the main checkout" <<<"$err" && [ ! -e "$WORK/trial-wt/.claude" ] && git -C "$TRIAL" status --porcelain | grep -q '.claude/'; then
+  pass "a worktree is refused for a trial, so a file of the main checkout's own is not hidden from git"
+else
+  fail "setup --project in a worktree: $err / $(git -C "$TRIAL" status --porcelain)"
+fi
+rm -r "$TRIAL/.claude" && mkdir -p "$WORK/shared-claude" && ln -s "$WORK/shared-claude" "$TRIAL/.claude"
+out=$(trial 2>/dev/null || true)
+if [ "$(status_of trial)" = 1 ] && [ "$(field 'all(l["state"].startswith("blocked by a link that leaves the repository") for l in d["links"])' <<<"$out")" = True ] \
+  && [ -z "$(ls -A "$WORK/shared-claude")" ] && ! grep -q "lem" "$TRIAL/.git/info/exclude"; then
+  pass "a .claude folder that is a link out of the repository is refused, and nothing is made where it points"
+else
+  fail "setup --project through a linked .claude: $out / $(ls -A "$WORK/shared-claude")"
+fi
+rm "$TRIAL/.claude"
 touch "$SETHOME/.claude/skills/mine"
 out=$(setup --remove)
 if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/huddle" ]; then
   pass "setup --remove takes away the links it made and nothing else"
 else
   fail "setup --remove: $out"
+fi
+# A machine with Claude Code and no git still gets its rows, not a traceback.
+mkdir -p "$WORK/nogit" && cp "$BIN/claude" "$WORK/nogit/claude"
+out=$(cd "$WORK" && env -i PATH="$WORK/nogit" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" 2>&1 || true)
+if [ "$(row git found <<<"$out")" = "False" ] && [ "$(row 'lem-builder agent' found <<<"$out")" = "True" ] && [ "$(field 'd["ok"]' <<<"$out")" = "False" ]; then
+  pass "doctor without git reports git as absent and still gives every other row"
+else
+  fail "doctor without git: $out"
 fi
 printf 'CRONN_PORT=1\n' > "$FAKEHOME/.config/cronn/cronn.env"
 fake cronn "cronn"
@@ -812,6 +839,24 @@ if [ -n "$chrome" ]; then
     pass "a task that waits for the owner after a green gate keeps the phase and the plan tasks it reached"
   elif [ -s "$WORK/task-owner-lands-it.dom" ]; then
     fail "a task that waits after the gate: missing $why"
+  fi
+  # A closed task looked at much later: its time axis ends at its last block and has no line for now.
+  mkdir -p "$WORK/aged" && cp "$OLD/.git/lem/task-with-a-worktree.html" "$OLD/.git/lem/meta.js" "$OLD/.git/lem/review-queue.js" "$WORK/aged/"
+  "$PY" -c 'import json, sys
+rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
+mine = [r for r in rows if r["task"] == "with-a-worktree"]
+for i, r in enumerate(mine): r["ts"] = "2026-01-10T12:00:%02dZ" % i
+open(sys.argv[2], "w").write("".join("lemEvent(%s);\n" % json.dumps(r) for r in mine))' "$OLD/.git/lem/events.jsonl" "$WORK/aged/events.js"
+  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+    --virtual-time-budget=5000 --dump-dom "file://$WORK/aged/task-with-a-worktree.html" > "$WORK/aged.dom" 2>/dev/null || true
+  if [ -s "$WORK/aged.dom" ] && "$PY" -c 'import re, sys
+dom = open(sys.argv[1], encoding="utf-8").read()
+labels = re.findall(r"<text class=\"axis\"[^>]*>([^<]*)</text>", dom)
+days = {label.rsplit(" ", 1)[0] for label in labels}
+sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label in labels) and "class=\"nowline\"" not in dom))' "$WORK/aged.dom"; then
+    pass "the board of a task that closed long ago draws its own interval, on its own day, with no line for now"
+  elif [ -s "$WORK/aged.dom" ]; then
+    fail "a closed task's time axis: $(grep -o '<text class="axis"[^>]*>[^<]*' "$WORK/aged.dom" | sed 's/.*>//' | tr '\n' '|') nowline: $(grep -c 'class="nowline"' "$WORK/aged.dom")"
   fi
   # A file that does not parse is a problem on the page, never a quiet default.
   printf 'lemMeta({"repo": \n' > "$OLD/.git/lem/meta.js"

@@ -62,8 +62,13 @@ def claude() -> list[dict]:
     row = tool("claude", "optional", "a Claude Code reviewer, or the coordinator", "the reviewer must be Codex", "claude", ["--version"])
     # The user's definition, or the one of the repository this runs in: Claude Code takes the
     # project's before the user's, and a trial links Lem into one repository only.
-    top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
-    places = [Path(top.stdout.strip()) / BUILDER] if top.returncode == 0 and top.stdout.strip() else []
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
+        inside = top.stdout.strip() if top.returncode == 0 else ""
+    except OSError:
+        # no git on this machine: its own row says so, and this one looks in the home only
+        inside = ""
+    places = [Path(inside) / BUILDER] if inside else []
     file = next((place for place in [*places, Path.home() / BUILDER] if place.is_file()), Path.home() / BUILDER)
     builder = {
         "name": "lem-builder agent", "need": "required", "found": file.is_file(), "detail": str(file) if file.is_file() else None,
