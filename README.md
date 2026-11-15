@@ -242,8 +242,9 @@ Two paths did not occur in these runs:
 9. The report also gives the last line of each gate command and the decisions that Lem took
    without you.
 
-Lem does not read tickets from a tracker yet. [docs/linear.md](docs/linear.md) says how a project
-connects Linear, and what Lem does not do yet.
+A ticket in Linear can be the ask too: `/lem new MBZ-12`. Lem reads the ticket, and it comments
+on the ticket when the task lands. [docs/linear.md](docs/linear.md) says how a project connects
+Linear. No task from a real ticket went through Lem yet.
 
 ## Commands
 
@@ -273,6 +274,7 @@ The skills that you call:
 | `/lem dialectic` | a claim that two agents argue from the two sides |
 | `/lem root-cause` | a defect that nobody can explain after two tries |
 | `/lem webrev` | a document that you mark in an agterm overlay |
+| `/lem linear check` | a test of the connection to Linear and of the `[tracker]` settings |
 | `/lem release`, `/lem last-tag` | a release with notes, and the changes after the last release |
 | `/lem pr-review` | a review of a pull request or an issue, with a draft comment |
 
@@ -300,6 +302,7 @@ The skills that Lem uses without a command from you:
 | `[seats.reviewer]` | the reviewer: `agent`, and optionally `model`, `effort` (for a diff) and `plan_effort` (for a plan) |
 | `tools.annotate` | the tool with which you mark a plan |
 | `corrections.collect` | `true` keeps a queue of your corrections for `/lem retro`; the default is `false` |
+| `[tracker]` | optional: `kind` (`linear`), `server`, `team`, and `moves` (`lem` or `tracker`); with `moves = "lem"` also `started` and `landed` |
 
 `.lem/project.local.toml` is for one computer. Git does not track it. It can change the reviewer
 and the mark tool only.

@@ -1,7 +1,8 @@
 # Connecting Linear
 
-Lem does not read or close tickets yet: that work is `docs/backlog/a-tracker-ticket-cannot-be-the-ask.md`.
-This page is the connection it will use, so a project can set it up and try it. Linear is reached
+Lem reads a Linear ticket into a task and keeps the ticket true while it works, through the
+`lem-linear` skill and the `[tracker]` table of a project's settings. This page is the connection
+that skill uses. No task from a real ticket ran yet. Linear is reached
 through Linear's own MCP server. The facts below are from Linear's page, https://linear.app/docs/mcp,
 read on 2026-11-14.
 

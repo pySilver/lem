@@ -148,6 +148,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## lem-linear
+
+`skills/lem-linear/` was written for Lem. Two of its ideas come from reading
+[sadensmol/skills](https://github.com/sadensmol/skills) on 2026-11-14: status and team names are
+read from the project and the server at run time and never written into the skill, and the
+server is asked who it is before the first write. That repository has no license, so none of its
+text is used.
+
 ## lem-dialectic, lem-root-cause, lem-release, lem-last-tag and lem-pr-review
 
 `skills/lem-dialectic/` and `skills/lem-root-cause/` (there `root-cause-investigator`) are copied

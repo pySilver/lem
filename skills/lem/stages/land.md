@@ -89,6 +89,10 @@ one finds what the run before it finished.
    is removed; with no answer it stays, and a later status offers it again. A `high` item is reviewed today:
    `stages/review.md`, rule 1. A `normal` item waits in the queue for `/lem review`; say in the
    report that it waits, and do not start its review by yourself.
+   For a task that came from a ticket (`ticket` in `project.py tasks`), the tracker then
+   comments the landing on the ticket and moves it as the settings say (`load-skill` the tracker,
+   its "land"). With `branch.land = "owner"` this waits, like the review item, for the owner's
+   word that it landed.
 7. **`clean`** removes the task's worktree and its branch, after it has checked that the base
    holds the branch's tip. It refuses a worktree with changes or files of its own: those are
    someone's work until the owner says otherwise. Do what the project's `AGENTS.md` adds for a

@@ -71,7 +71,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 
 | Subcommand | Does | Read |
 | --- | --- | --- |
-| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and starts its lead | `stages/new.md` |
+| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and starts its lead. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read | `stages/new.md` |
 | `build <task>` | starts a lead on a task whose plan waits: a night draft, a plan the owner read | `stages/new.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state | `stages/new.md` |
@@ -84,7 +84,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `status`, bare `/lem` | the board of all tasks, and in words: every open task, the review queue and what waits for the owner | below |
 | `status <task>` | the board of one task | below |
 | `reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]`, `reviewer default` | who sits in the reviewer's pane on this machine for now, and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic`, `root-cause` and `webrev` this way; `huddle`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic`, `root-cause`, `webrev` and `linear` this way; `huddle`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
@@ -149,7 +149,7 @@ It makes and prints the task's directory inside the repository's git directory, 
 worktree, never committed and not removed with a worktree. It holds:
 
 - `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome. Lem writes
-  them.
+  them. `ticket.txt` holds the id of the tracker's ticket, for a task that came from one.
 - `brief.md`: the lead's brief. Lem writes it.
 - `state.md`: newest block first. Lem and the lead write it, and only through the script.
 - `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that

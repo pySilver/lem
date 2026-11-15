@@ -22,8 +22,9 @@ two is the owner's choice, so `init` refuses to guess it.
     project.py migrate plan         the linked folders and the rule files, as JSON; changes nothing
     project.py migrate run [--styleguide FILE ...]
                                     move the linked folders under .lem on the current branch
-    project.py task-dir SLUG [--ask TEXT]
+    project.py task-dir SLUG [--ask TEXT] [--ticket ID]
                                     make and print one task's state directory; keep the owner's words
+                                    and the ticket the ask came from
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
     project.py state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
@@ -135,7 +136,14 @@ TABLES: dict[str, tuple[str, ...]] = {
     "seats": ("reviewer",),
     "tools": ("annotate",),
     "corrections": ("collect",),
+    "tracker": ("kind", "server", "team", "moves", "started", "landed"),
 }
+# The trackers Lem has a skill for, and who may move a ticket's status: Lem, or the tracker's own
+# automation (a pull-request integration that moves a ticket by itself).
+TRACKERS = ("linear",)
+MOVES = ("lem", "tracker")
+# a ticket's id as a tracker writes it, e.g. MBZ-12
+TICKET = re.compile(r"[A-Za-z][A-Za-z0-9]*-[0-9]+")
 
 TEMPLATE = """\
 # What Lem reads in this repository. `project.py show` prints it resolved.
@@ -185,6 +193,18 @@ max_tasks = {max_tasks}
 # the `jev` command. That is the owner's choice, so it is false until he says yes, and he
 # registers the hook himself (`/lem init` gives him the lines).
 collect = false
+
+# The tracker a task's ask may come from. Leave it out when the project has none. Lem reads a
+# ticket into a task, and comments it when the task lands. `moves` says who moves the ticket's
+# status: "lem", with the two status names as the team spells them, or "tracker" when the
+# tracker's own automation moves it (a pull-request integration).
+# [tracker]
+# kind = "linear"
+# server = "linear"      # the name of the tracker's MCP server in the agent
+# team = "ABC"           # the key of the one team whose tickets this project takes
+# moves = "lem"
+# started = "In Progress"
+# landed = "Done"
 
 [tools]
 # The skill or command the owner marks up a plan or a draft with. "lem-webrev" comes with Lem;
@@ -337,6 +357,27 @@ def load(root: Path) -> dict:
     collect = raw.get("corrections", {}).get("collect", False)
     if not isinstance(collect, bool):
         raise SettingsError(f"{SETTINGS}: corrections.collect = {collect!r} must be true or false")
+    tracker = None
+    if "tracker" in raw:
+        given = raw["tracker"]
+        for key, value in given.items():
+            if not isinstance(value, str) or not value.strip():
+                raise SettingsError(f"{SETTINGS}: tracker.{key} must be a word in quotes, not {value!r}")
+        for key in ("kind", "server", "team", "moves"):
+            if key not in given:
+                raise SettingsError(f"{SETTINGS}: [tracker] needs {key}; leave the whole table out when the project has no tracker")
+        if given["kind"] not in TRACKERS:
+            raise SettingsError(f"{SETTINGS}: tracker.kind = {given['kind']!r} must be one of {', '.join(TRACKERS)}")
+        if given["moves"] not in MOVES:
+            raise SettingsError(f"{SETTINGS}: tracker.moves = {given['moves']!r} must be one of {', '.join(MOVES)}")
+        named = [key for key in ("started", "landed") if key in given]
+        if given["moves"] == "lem" and len(named) != 2:
+            raise SettingsError(
+                f'{SETTINGS}: with tracker.moves = "lem" the table names both statuses, started and landed, as the team spells them',
+            )
+        if given["moves"] == "tracker" and named:
+            raise SettingsError(f'{SETTINGS}: with tracker.moves = "tracker" Lem moves no ticket, so {" and ".join(named)} say nothing: remove them')
+        tracker = {key: given.get(key) for key in TABLES["tracker"]}
     max_tasks = raw.get("flow", {}).get("max_tasks", MAX_TASKS)
     # a bool is an int in Python, and `max_tasks = true` is a mistake, not the number 1
     if isinstance(max_tasks, bool) or not isinstance(max_tasks, int) or max_tasks < 1:
@@ -357,6 +398,7 @@ def load(root: Path) -> dict:
         "seats": {"reviewer": reviewer},
         "tools": {"annotate": annotate},
         "corrections": {"collect": collect},
+        "tracker": tracker,
         # what this machine set for itself, so a report can say that the reviewer is not the project's
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
     }
@@ -667,17 +709,28 @@ def state_root(root: Path) -> Path:
     return (root / common).resolve() / "lem"
 
 
-def cmd_task_dir(root: Path, slug: str, ask: str | None) -> None:
+def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> None:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     if ask is not None and not ask.strip():
         raise SettingsError("--ask is the owner's words for this task, and they are empty")
+    if ticket is not None:
+        if not TICKET.fullmatch(ticket):
+            raise SettingsError(f"--ticket {ticket!r} is not a ticket's id, such as MBZ-12")
+        ticket = ticket.upper()
+        # one ticket is one task: a second task for it would be a second branch for the same work
+        taken = next((task["slug"] for task in read_tasks(root)
+                      if task["ticket"] == ticket and task["slug"] != slug and task["status"] != "dropped"), None)
+        if taken:
+            raise SettingsError(f"the task {taken!r} already holds the ticket {ticket}; go on with that task, or drop it first")
     directory = state_root(root) / "tasks" / slug
     (directory / "reports").mkdir(parents=True, exist_ok=True)
     if ask is not None:
         # The owner's words, as given. task.md is a document with headings; the board and the
         # status show these words, so they have a file of their own that nothing rewrites.
         (directory / "ask.txt").write_text(ask.strip() + "\n")
+    if ticket is not None:
+        (directory / "ticket.txt").write_text(ticket + "\n")
     print(directory)
 
 
@@ -799,6 +852,8 @@ def read_tasks(root: Path) -> list[dict]:
         tasks.append({
             "slug": directory.name,
             "ask": ask_of(directory),
+            # the tracker's ticket the ask came from; a dropped task gives its ticket back
+            "ticket": (directory / "ticket.txt").read_text().strip() or None if (directory / "ticket.txt").is_file() else None,
             # null when no block was written through `project.py state`: nobody can tell who acts next
             "status": first["status"] if known else None,
             "since": first["since"] if known else None,
@@ -844,6 +899,7 @@ def main() -> None:
     task_dir = commands.add_parser("task-dir")
     task_dir.add_argument("slug")
     task_dir.add_argument("--ask", help="the owner's words for this task, as given")
+    task_dir.add_argument("--ticket", help="the id of the tracker's ticket the ask came from, e.g. MBZ-12")
     state = commands.add_parser("state")
     state.add_argument("slug")
     state.add_argument("status")
@@ -874,7 +930,7 @@ def main() -> None:
             print(json.dumps(older_folders(root), indent=2))
             return
         if args.command == "task-dir":
-            cmd_task_dir(root, args.slug, args.ask)
+            cmd_task_dir(root, args.slug, args.ask, args.ticket)
             return
         if args.command == "state":
             cmd_state(root, args.slug, args.status, args.lines)

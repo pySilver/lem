@@ -87,6 +87,31 @@ settings '[paths]' 'styleguide = "../elsewhere"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a path that leaves the repository is refused"; else fail "path outside"; fi
 settings '[gate]' 'commands = "pytest"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "gate commands that are not a list are refused"; else fail "gate type"; fi
+# The tracker: no table means no tracker; a table names its kind, its server, its team and who moves a ticket.
+settings '[branch]' 'base = "master"'
+none=$(project --repo "$OLD" show | field 'd["tracker"]')
+settings '[tracker]' 'kind = "linear"' 'server = "linear"' 'team = "MBZ"' 'moves = "lem"' 'started = "In Progress"' 'landed = "Done"'
+full=$(project --repo "$OLD" show | field '(d["tracker"]["team"], d["tracker"]["moves"], d["tracker"]["started"], d["tracker"]["landed"])')
+settings '[tracker]' 'kind = "linear"' 'server = "linear"' 'team = "MBZ"' 'moves = "tracker"'
+auto=$(project --repo "$OLD" show | field '(d["tracker"]["moves"], d["tracker"]["started"])')
+if [ "$none" = None ] && [ "$full" = "('MBZ', 'lem', 'In Progress', 'Done')" ] && [ "$auto" = "('tracker', None)" ]; then
+  pass "a project has no tracker unless its settings name one, with who moves a ticket and, when Lem does, the two status names"
+else
+  fail "tracker settings: $none / $full / $auto"
+fi
+refused=""
+for bad in 'kind = "jira"|server = "x"|team = "A"|moves = "lem"|started = "a"|landed = "b"' 'kind = "linear"|server = "x"|team = "A"|moves = "lem"|started = "a"' \
+           'kind = "linear"|server = "x"|team = "A"|moves = "tracker"|landed = "Done"' 'kind = "linear"|team = "A"|moves = "tracker"' \
+           'kind = "linear"|server = "x"|team = "A"|moves = "both"' 'kind = "linear"|server = "x"|team = ""|moves = "tracker"'; do
+  IFS='|' read -r -a lines <<<"$bad"
+  settings '[tracker]' "${lines[@]}"
+  if [ "$(status_of project --repo "$OLD" show)" != 1 ]; then refused="$refused [$bad]"; fi
+done
+if [ -z "$refused" ]; then
+  pass "a tracker table is refused for an unknown kind, a missing key, an empty word, one status name alone, or status names when the tracker moves the ticket"
+else
+  fail "tracker tables accepted:$refused"
+fi
 settings '[branch]' 'base = "master"' 'history = "rewrite"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a history other than keep or squash is refused"; else fail "history value"; fi
 settings '[branch]' 'base = "master"' '[gate]' 'ignores = ["docs/*"]'
@@ -190,6 +215,20 @@ else
 fi
 if [ -e "$OLD/.git/lem/tasks/empty-ask" ]; then fail "a refused task-dir made its directory"; fi
 rm -r "$titled" "$plain"
+# One ticket is one task, until that task is dropped.
+project --repo "$OLD" task-dir from-a-ticket --ticket mbz-12 --ask "Report dates are cut" >/dev/null
+err=$(project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 2>&1 || true)
+if [ "$(project --repo "$OLD" tasks | field '{t["slug"]: t["ticket"] for t in d}')" = "{'from-a-ticket': 'MBZ-12', 'report-dates-stay-whole': None}" ] \
+  && grep -q "the task 'from-a-ticket' already holds the ticket MBZ-12" <<<"$err" && [ ! -e "$OLD/.git/lem/tasks/the-same-ticket" ] \
+  && [ "$(status_of project --repo "$OLD" task-dir bad-ticket --ticket "not a ticket")" = 1 ] && [ ! -e "$OLD/.git/lem/tasks/bad-ticket" ]; then
+  pass "a task keeps the ticket its ask came from, a second task for that ticket is refused, and so is a word that is no ticket"
+else
+  fail "a task's ticket: $(project --repo "$OLD" tasks | field '[(t["slug"], t["ticket"]) for t in d]') / $err"
+fi
+# written by hand in the script's own form, so that the event log the next checks count stays as it is
+printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it' > "$OLD/.git/lem/tasks/from-a-ticket/state.md"
+if project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 >/dev/null; then pass "a dropped task gives its ticket back"; else fail "the ticket of a dropped task"; fi
+rm -r "$OLD/.git/lem/tasks/from-a-ticket" "$OLD/.git/lem/tasks/the-same-ticket"
 mkdir "$dir/proposed" && touch "$dir/proposed/a-range-across-a-year.md"
 if [ "$(project --repo "$OLD" tasks | field '[t["proposed"] for t in d]')" = "[['a-range-across-a-year.md']]" ]; then
   pass "tasks names the backlog items a landing proposed and nobody answered yet"

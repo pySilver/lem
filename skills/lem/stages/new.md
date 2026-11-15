@@ -6,15 +6,24 @@ a lead is started, and what to do each time a lead stops.
 
 ## Open the task
 
+0. **An ask that is a ticket.** When the ask is a ticket's id or its URL and `project.py show`
+   gives a `tracker`, the tracker reads it (`load-skill` the tracker, its "read"): the title, the
+   description, the link, the parent, the labels and the branch name the tracker gives. The
+   ticket's words are then the ask. When the settings have no tracker, say that this project has
+   none, and ask the owner for the ask in his words. When `project.py tasks` already lists a task
+   with this ticket, do not open a second one: say which task it is and where it stands.
 1. **The slug and the branch.** A slug of two to five plain words that say what the owner gets
    ("report-dates-stay-whole"), never a code. The branch is `<type>/<slug>` with a semantic type
    (`feat`, `fix`, `chore`, `docs`), unless the project's `AGENTS.md` gives its own scheme. Take
    the type from the ask alone: `fix` when the ask says that something is wrong today, `feat`
    when it asks for something that is not there, and `feat` when you cannot tell. The branch's
-   type binds nobody; each commit of the lead carries its own.
+   type binds nobody; each commit of the lead carries its own. For a ticket, the branch is the
+   name the tracker gives for it, when it gives one: the tracker and its automation find the
+   work by that name.
 2. **The task directory.** `project.py task-dir SLUG --ask "the owner's words"` keeps the ask as
-   the owner gave it, for the board and the status. Then write `task.md`:
-   - the ask, verbatim;
+   the owner gave it, for the board and the status. For a ticket, add `--ticket ID`, and the ask
+   is the ticket's title; the command refuses a ticket another task holds. Then write `task.md`:
+   - the ask, verbatim; for a ticket, its id, its link, its title and its description as written;
    - the outcome in one or two sentences, as the person it is for would see it;
    - done when: the evidence that shows the outcome, each line something a command or a look at
      the product can show;
@@ -76,7 +85,9 @@ that is started again after it stopped.
    state directory: an agent's sandbox may not write inside the git directory, and the state has
    to outlive the worktree.
 3. **The lead.** Write the state `building` first, with the line `lead: builder` or
-   `lead: session` as the brief says, so the next `may-start` counts this task. Then, for a
+   `lead: session` as the brief says, so the next `may-start` counts this task. For a task that
+   came from a ticket, the tracker then marks the ticket as started (its "start"); it writes
+   nothing when the project's settings say that the tracker moves its own tickets. Then, for a
    builder, `spawn-builder` with one line: `Read TASK_DIRECTORY/brief.md and follow it.` For a
    session, `open-task-session` with the same file; write the state again with the line
    `session: ID` and the id the session got, so the board can show the session and it can be

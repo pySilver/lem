@@ -19,6 +19,14 @@ The `Skill` tool. Do not load a skill whose instructions are already in context.
   `project_dir` as `./.revmux` and keeps the user's own folder as `config_dir`. The flag
   `--config-dir PATH` is not the way: it puts PATH in the place of the user's own config folder,
   and no project folder is reported.
+- the tracker: the skill the settings' `tracker.kind` names, `lem-linear` for `linear`. The
+  tracker's server is an MCP server, and Claude Code shows its tools as `mcp__SERVER__NAME`, with
+  the settings' `tracker.server` as SERVER. A session that was running when the server was added
+  does not have them, and a new one does (seen on 2026-11-14 with the Linear server). In a new
+  session they may be listed by name only and load on their first use, through the tool search
+  (seen on 2026-11-15). A builder
+  gets the tools of a server the owner added for all his projects; one added for a single folder
+  may be absent in a task's worktree, which is another folder (not tested).
 - the rules folder. Claude Code loads `.claude/rules/` by itself: a file with a `paths:` line
   when a matching file is read, the others in every session. After `project.py migrate run`
   that folder holds a link for each moved rule. Checked by the session that started Lem, in

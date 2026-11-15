@@ -9,7 +9,8 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    report. A plan is written against the code as
    it stood that night, so a draft nobody starts ages, and a third one only adds to the pile.
 2. **The candidates.** Read the items in the backlog path (`project.py path backlog`), in the
-   `lem-backlog` skill's format. Leave out an item that is decided against, one a branch, a worktree,
+   `lem-backlog` skill's format. The backlog only: a tracker's ticket is never a night's
+   candidate, because which ticket is next is a person's call. Leave out an item that is decided against, one a branch, a worktree,
    an open plan or a task directory already holds, and one whose files match a careful pattern
    (`project.py careful`): a careful plan needs the reviewer, and that is a day's work. When the
    `lem-backlog` skill's triage has verdicts, take the items it gives to an agent, the surest first.

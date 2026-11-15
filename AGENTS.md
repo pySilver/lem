@@ -79,6 +79,11 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   .lem right after it, like most users will do". `/lem migrate` is that second step; its
   mechanics (a link per moved rule, a link for the review folder) are the starting session's
   design from his remark that "not all rules are about code style".
+- **Linear only, and the local backlog stays local**: Lem supports Linear and no other tracker
+  now, built so that another can be added. A backlog item is never mirrored to Linear, never
+  needs a ticket, and Lem creates no ticket from one unless he asks. Status names are carried by
+  name in the settings ("Linear allows me to configure that", about the branch name: Lem takes
+  what the tracker gives and assumes no shape).
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
 
@@ -141,8 +146,8 @@ real task, so say in the commit which task showed the need.
   that ran through Lem, over its real event log.
 - `skills/lem-huddle/`, `skills/lem-webrev/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
   `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
-  `skills/lem-gate/`, `skills/lem-panel/`: the skills Lem names and ships. `NOTICE` says where
-  each came from.
+  `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`: the skills Lem names and ships.
+  `NOTICE` says where each came from.
 
 ## The shipped skills are copies, not yet under the rules above
 

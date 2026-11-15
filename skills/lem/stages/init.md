@@ -87,6 +87,12 @@ For a repository that has code:
 - **Which branches are closed**: branches nothing may land on or be pushed to, such as a
   release branch during a rewrite that lands on a branch of its own. They go into
   `branch.protected`.
+- **Where the work is kept**: when the project keeps its work in a tracker Lem has a skill for
+  (Linear), the name of its server in the agent, the key of the one team, and who moves a
+  ticket's status: Lem, or the tracker's own automation, as with a pull-request integration that
+  moves a ticket when a pull request opens and merges. When Lem moves it, the two status names
+  as the team spells them, for "work started" and for "landed". Then run the tracker's "check"
+  before you write the table, so a wrong workspace or a status that does not exist shows now.
 - **Who reviews**: the agent in the reviewer's pane, Codex or a second Claude. Guess Codex when
   step 1 found it, since two model families disagree more usefully than one family twice, and a
   reviewer on another provider's quota does not spend the builders'. Then, only when the owner
@@ -110,8 +116,8 @@ python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --exist
 
 Leave `--existing` out when step 2 found no older folder. Then edit `.lem/project.toml`: the
 gate commands from `examined.md`, the careful patterns the owner confirmed, `land`, `history`,
-the protected branches, the reviewer's `model`, `effort` and `plan_effort` when the owner named
-them, and `tools.annotate` when the owner marks up plans with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
+the protected branches, the `[tracker]` table when the project has one, the reviewer's `model`,
+`effort` and `plan_effort` when the owner named them, and `tools.annotate` when the owner marks up plans with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
 only means the gate runs again whenever the base moves.
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
 and say so in the handover.

@@ -25,23 +25,26 @@ forgets, and the tracker says work is open that landed days ago.
 A ticket is therefore one more place an ask can come from, beside the owner's own words and a
 backlog item. It is not a second form of the backlog.
 
-## What to build
+## What is built, and what is left (2026-11-15)
 
-A role in the harness contract, "the tracker", a `[tracker]` table in `.lem/project.toml` (the
-kind, which is `linear`; the name of its MCP server; the team), and a `linear` skill of our own.
-A second tracker would be one more skill and one more value of the kind. The machine check gains
-one optional row, the tracker's server.
+Built: the role "the tracker" in the harness contract, the `[tracker]` table in
+`.lem/project.toml` (`kind`, `server`, `team`, `moves`, and with `moves = "lem"` the two status
+names `started` and `landed`), the `lem-linear` skill with its four procedures (check, read,
+start, land), one ticket for one task (`project.py task-dir --ticket`), and the steps of
+`stages/new.md`, `stages/land.md`, `stages/night.md` and `stages/init.md` that use them.
 
-What Lem does with a ticket, in the order a task meets it:
+Left, and the reason this item stays:
 
-- `new`: read the ticket (title, description, parent, labels) into `task.md` with its link; take
-  the tracker's own branch name when it gives one, so a second worktree is never made for the same
-  ticket; move the ticket to the team's "started" state.
-- `land`: comment the landed range and what the owner gets, and move the ticket to its "done"
-  state. With `branch.land = "owner"`, do both when the owner lands, not before. A backlog item is
-  removed in the landing commit only when the task came from that item.
-- A decision Lem takes alone is never written to the ticket as if the owner took it.
-- `night` reads the backlog only.
+- **The trial.** No task from a real ticket ran. The owner named `MBZ-1` for it. The skill's
+  "check" and "read" ran against his workspace on 2026-11-15, in a session that had read tools
+  only, and the skill's text was corrected from what the server really returns. The write half
+  (a status change and a comment on that ticket) runs on his word. Do not write into any other
+  ticket of that team.
+- **The machine check has no row for the tracker's server.** Whether a server is connected is a
+  fact of one agent and one project, so the check is the skill's own "check" and not
+  `doctor.py`. Decide after the trial whether that is enough.
+- **A builder in a task's worktree** and a server that was added for one folder only: not
+  tested (`docs/linear.md`).
 
 ## How another setup does it
 
