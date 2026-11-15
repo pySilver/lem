@@ -199,9 +199,9 @@ max_tasks = {max_tasks}
 
 [corrections]
 # Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
-# message the owner types, with the agent message it answers, to the Jev decision model through
-# the `jev` command. That is the owner's choice, so it is false until he says yes, and he
-# registers the hook himself (`/lem init` gives him the lines).
+# message the owner types, with the agent message it answers, to the Jev decision model. That
+# is the owner's choice, so it is false until he says yes, and he registers the hook himself
+# with one command of Lem's setup (`/lem init` names it).
 collect = false
 
 # The tracker a task's ask may come from. Leave it out when the project has none. Lem reads a

@@ -113,9 +113,15 @@ def main() -> None:
         tool("plannotator-tui", "optional", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",
              "no stage needs it; recommend it to the owner with its guide, which he follows himself: "
              "https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui", "plannotator-tui", ["--version"]),
-        tool("jev", "optional", "the queue of the owner's corrections that the retro reads, and backlog items sorted by who can act next",
-             "corrections are learned in the session only and the backlog is listed without verdicts; recommended, so offer it",
-             "jev"),
+        tool("jev", "optional", "backlog items sorted by who can act next, and the framing check of a question's card",
+             "the backlog is listed without verdicts and a card gets no framing check; Lem's setup links its own copy for a home. "
+             "The correction queue does not need this row: its hook runs Lem's copy by its path", "jev"),
+        {
+            "name": "OpenRouter key", "need": "optional", "found": bool(os.environ.get("OPENROUTER_API_KEY")), "detail": None,
+            "used_for": "the Jev decision model, which the correction queue, the backlog's sorting and a card's framing check ask",
+            "without_it": "none of the three gets an answer, and the correction hook logs each message as a failure; "
+                          "put OPENROUTER_API_KEY into the environment the agent starts with",
+        },
         tool("codex", "optional", "a reviewer of another model family, and half of each persona panel",
              "the reviewer is a second Claude; agreement between model families is not measured", "codex", ["--version"]),
         *claude(),

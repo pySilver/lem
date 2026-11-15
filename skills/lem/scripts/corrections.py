@@ -14,9 +14,10 @@ should learn a lesson from. The retro, a big model, decides about each.
                                         write down what was decided about a group
 
 It is an optional part, and it is the owner's choice twice. The hook sends the owner's message
-and the agent message it answers to the Jev decision model, through the `jev` command, so it runs
-only in a repository whose settings say `corrections.collect = true`, and only on a machine where
-the owner registered it himself. In every other repository it exits at once.
+and the agent message it answers to the Jev decision model, through `jev.py` beside this file, so
+it runs only in a repository whose settings say `corrections.collect = true`, and only where the
+owner registered it himself (`scripts/setup.py --corrections on`). In every other repository it
+exits at once.
 
 The hook does not wait for Jev: it hands the message to a detached copy of itself and exits 0
 with no output. Its own two waits are bounded: it gives up the read of the event and its one git
@@ -27,12 +28,13 @@ that were none (mybaze, 2026-11-07, tuned on that same sample, so the true rate 
 
 The queue is one file for one project: `corrections.jsonl` in Lem's folder of the git directory,
 shared by every worktree and never committed. What a retro decided is in
-`corrections-reviews.jsonl` beside it. A failure (no `jev`, no key, a failed request) goes to
+`corrections-reviews.jsonl` beside it. A failure (no key, a failed request) goes to
 `corrections.log` there and never to the conversation, and `list` reports it first: a message
 the hook failed on was never judged.
 
 The hook half speaks Claude Code's hook contract: the event on stdin with `prompt`, `cwd`,
-`session_id` and `transcript_path`. `jev` is looked for on PATH, or at the path in LEM_JEV.
+`session_id` and `transcript_path`. It asks Jev through Lem's own `jev.py`, by its path: a hook
+has no `PATH` to count on. LEM_JEV, when set, names another command with the same contract.
 
 The hook half must start under any `python3` an agent finds, an old one too, and stay silent
 there: a Python before 3.11 has no tomllib, so the hook logs that and judges nothing.
@@ -46,7 +48,6 @@ import hashlib
 import json
 import os
 import select
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -57,6 +58,7 @@ FLAG_AT = 0.3
 # How long the hook waits for the event on its input, and for git, before it gives up without a
 # word. A guess (2026-11-15), not a measurement: long for a local git call, short for a person.
 WAIT_SECONDS = 2
+JEV = Path(__file__).resolve().with_name("jev.py")
 DECISIONS = ("lesson", "not_lesson")
 # accepted, changed, rejected: the owner's answer to a move the retro put to him. missed: the owner
 # said that a "not a lesson" entry was a lesson after all. unasked: nothing was put to the owner.
@@ -235,14 +237,12 @@ def cmd_worker(path: str) -> None:
         return
     log = where / "corrections.log"
     stamp = now()
-    jev = os.environ.get("LEM_JEV") or shutil.which("jev")
-    if not jev:
-        append(log, {"ts": stamp, "session": payload.get("session"), "error": "no `jev` on PATH; put its path in LEM_JEV in the hook's command"})
-        return
+    other = os.environ.get("LEM_JEV")
+    jev = [other] if other else [sys.executable, "-B", str(JEV)]
     previous = last_agent_text(payload.get("transcript", "")) or "(no agent message before this one)"
     state = f"--- the agent's last message ---\n{previous}\n\n--- the owner's reply ---\n{payload['prompt']}"
     try:
-        ran = subprocess.run([jev, "-"], input=json.dumps({"state": state, "questions": {"lesson": QUESTION}}),
+        ran = subprocess.run([*jev, "-"], input=json.dumps({"state": state, "questions": {"lesson": QUESTION}}),
                              capture_output=True, text=True, timeout=180, check=False)
     except (OSError, subprocess.TimeoutExpired) as error:
         append(log, {"ts": stamp, "session": payload.get("session"), "error": f"jev did not run: {error}"})

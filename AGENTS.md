@@ -52,8 +52,13 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **The free hour may edit Lem's skills on a branch of the clone.** It never pushes; the owner or
   a session merges.
 - **The first run is in a scratch repository**, then in a real project.
-- **The correction hook is an optional part.** Lem recommends jev when it is absent and uses it
-  only when the owner agrees.
+- **The correction hook is an optional part.** Lem recommends the correction queue and uses it
+  only when the owner agrees. The hook and the client of its model are Lem's code, with no path
+  into another tool's folder, and the owner registers the hook with Lem's setup: "I guess this
+  should not be a cc-tools behaviour but Lem code instead … and it should be possible to setup
+  during installation of the skill if needed or any time later" (2026-11-15). The form built from
+  it is the session's design: `skills/lem/scripts/jev.py`, linked as the `jev` command, and
+  `setup.py --corrections on|off`, which the owner runs and no agent does.
 - **The logo is the owner's pick** ("The Line in the Field"). Change it only on his word. The
   night palette of its dark-theme version is his pick too.
 - **Each task of a plan gets a fresh builder** ("I usually start fresh executor for every task..
@@ -132,7 +137,8 @@ real task, so say in the commit which task showed the need.
   `doctor.py` (the machine), `review_queue.py` (landed changes that wait for a review),
   `board.py` (opens the board), `land.py` (the landing, one refusable step at a time),
   `corrections.py` (the optional queue of the owner's corrections: its hook, and what a retro
-  reads).
+  reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
+  the setup links as the `jev` command).
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both.
 - `skills/lem/templates/`: the shapes onboarding fills.
 - `skills/lem/prompts/`: the standing briefs of a task's lead, of the three builders of a
@@ -140,8 +146,9 @@ real task, so say in the commit which task showed the need.
 - `docs/`: `free-hour.md` (how an unattended session may change Lem), `linear.md` (how a
   project connects Linear), and `backlog/`, Lem's own deferred work.
 - `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `huddle`
-  command from this clone into a home directory, never over something else, and runs the machine
-  check. With `--project DIR` it links into one repository only. Use that for a trial: links in
+  and `jev` commands from this clone into a home directory, never over something else, and runs
+  the machine check. `--corrections on|off` registers the hook of the correction queue in the
+  agent's settings or takes it out, and is the owner's to run. With `--project DIR` it links into one repository only. Use that for a trial: links in
   the home directory show Lem to every repository on the machine, also to one where an older
   flow still runs.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the

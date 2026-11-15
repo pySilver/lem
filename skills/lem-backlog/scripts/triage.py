@@ -18,7 +18,7 @@ the subjects of the commits that landed in between: that is when most triggers f
 judged on a timer. The verdicts live in the repository's git directory, backlog-triage.json, so
 they are never committed and every worktree shares them; a record whose item is gone is dropped.
 
-Jev is called through the `jev` command (the jev plugin's bin/, or JEV_BIN). An input Jev refuses
+Jev is called through the `jev` command (Lem's setup links one, or JEV_BIN names it). An input Jev refuses
 as too long is reported under "unjudged" with the reason; it is never cut down to fit.
 """
 
@@ -116,7 +116,7 @@ class Store:
 def jev_bin() -> str:
     found = os.environ.get("JEV_BIN") or shutil.which("jev")
     if not found:
-        fail("the jev command is not on PATH; enable the jev plugin or set JEV_BIN")
+        fail("the jev command is not on PATH; run Lem's setup, which links it, or set JEV_BIN to skills/lem/scripts/jev.py of Lem's clone")
     return found
 
 

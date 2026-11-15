@@ -344,7 +344,9 @@ Necessary:
 - [revmux](https://github.com/umputun/revmux) for the review rounds
 - on a computer with Claude Code: the `lem-builder` agent, which the setup links
 
-Optional, each with a fallback that the check names: Codex, jev, cronn and plannotator.
+Optional, each with a fallback that the check names: Codex, cronn, plannotator and the `jev`
+command. Lem brings its own `jev`, and the setup links it. `jev` asks the Jev decision model
+through OpenRouter, and it uses your `OPENROUTER_API_KEY`.
 
 To mark a plan or a document, use `/lem webrev`. It comes with Lem, and it is the recommended
 tool. If you prefer plannotator for that, put its name in `tools.annotate`.
@@ -362,10 +364,12 @@ python3 scripts/setup.py           # make the links, then do the check of the co
 python3 scripts/setup.py --check   # change nothing; show the state of each link
 python3 scripts/setup.py --remove  # remove the links again
 python3 scripts/setup.py --project ~/code/shop   # link Lem into one repository only
+python3 scripts/setup.py --corrections on        # optional: add the hook of the correction queue
+python3 scripts/setup.py --corrections off       # remove that hook again
 ```
 
 - The script links each skill into `~/.claude/skills/`, the builder agent into
-  `~/.claude/agents/`, and the `huddle` command into `~/.local/bin/`.
+  `~/.claude/agents/`, and the `huddle` and `jev` commands into `~/.local/bin/`.
 - They are links. Thus each change in the clone is active in the next session.
 - The script does not replace a file or a folder that is already there. It names the place and
   stops.
@@ -373,6 +377,12 @@ python3 scripts/setup.py --project ~/code/shop   # link Lem into one repository 
   `--project`. Then only that repository sees Lem, and git does not see the links.
 - A project that wants a different builder keeps a file with the same name in its own
   `.claude/agents/`.
+- The correction queue is optional. Its hook sends each message that you type to the Jev
+  decision model, together with the agent message before it.
+- The hook is active only in a repository with `corrections.collect = true`.
+- You add the hook yourself, on the day of the setup or later. An agent does not add it for you.
+- `--corrections on` adds one command to `~/.claude/settings.json` and keeps all other content.
+  With `--project`, it writes `.claude/settings.local.json` of that repository.
 - The agent that runs `/lem` coordinates. The reviewer is Codex or a second Claude, as
   `[seats.reviewer]` says.
 

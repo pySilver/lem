@@ -494,6 +494,13 @@ if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'agterm skill' detail
 else
   fail "doctor with the required set: $out"
 fi
+keyed=$(env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
+if [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
+  && ! grep -q "sk-not-a-real-key" <<<"$keyed"; then
+  pass "the check says whether the key of the decision model is in the environment, and never prints it"
+else
+  fail "doctor and the key: $keyed"
+fi
 fake claude "2.1.325 (Claude Code)"
 out=$(doctor || true)
 if [ "$(status_of doctor)" = 1 ] && [ "$(row 'lem-builder agent' found <<<"$out")" = "False" ] && [ "$(row 'lem-builder agent' need <<<"$out")" = "required" ]; then
@@ -527,7 +534,8 @@ printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'if [ -n "$JEV_CALLED" ]; then touch
 chmod +x "$WORK/jevbin/jev"
 printf '%s\n' '{"type": "user", "message": {"content": "hi"}}' '{"type": "assistant", "message": {"content": [{"type": "text", "text": "I pushed it."}]}}' > "$WORK/transcript.jsonl"
 event() { printf '{"prompt": "%s", "cwd": "%s", "session_id": "%s", "transcript_path": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl"; }
-hook() { env PATH="$WORK/jevbin:$PATH" JEV_P="${JEV_P:-0.9}" JEV_EXIT="${JEV_EXIT:-}" JEV_CALLED="$WORK/jev-called" "$PY" -B "$CORR" "$@"; }
+# LEM_JEV in every call: without it the worker runs Lem's own jev.py, which asks a real service.
+hook() { env LEM_JEV="$WORK/jevbin/jev" JEV_P="${JEV_P:-0.9}" JEV_EXIT="${JEV_EXIT:-}" JEV_CALLED="$WORK/jev-called" "$PY" -B "$CORR" "$@"; }
 worker() {
   printf '{"prompt": "%s", "cwd": "%s", "session": "%s", "transcript": "%s"}' "$1" "$CQ" "$2" "$WORK/transcript.jsonl" > "$WORK/payload.json"
   hook worker "$WORK/payload.json"
@@ -550,7 +558,7 @@ fi
 # The hand-over to the detached half fails (no interpreter can be started): no file with the owner's words stays behind.
 sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 mkdir -p "$WORK/hooktmp"
-out=$(event "the copy cannot start" s0 | env PATH="$WORK/jevbin:$PATH" TMPDIR="$WORK/hooktmp" "$PY" -B -c '
+out=$(event "the copy cannot start" s0 | env LEM_JEV="$WORK/jevbin/jev" TMPDIR="$WORK/hooktmp" "$PY" -B -c '
 import runpy, sys
 script = sys.argv[1]
 sys.argv = [script, "hook"]
@@ -612,13 +620,18 @@ event "/lem status" s4 | hook hook
 event "[peer chat] a message from the other pane" s5 | hook hook
 JEV_EXIT=3 worker "a very long message" s6
 JEV_EXIT=1 worker "no key here" s7
-printf '{"prompt": "no jev at all", "cwd": "%s", "session": "s8", "transcript": ""}' "$CQ" > "$WORK/payload.json"
-env PATH="$BIN" "$PY" -B "$CORR" worker "$WORK/payload.json"
+printf '{"prompt": "a jev that is not there", "cwd": "%s", "session": "s8", "transcript": ""}' "$CQ" > "$WORK/payload.json"
+env LEM_JEV="$WORK/no-such-jev" "$PY" -B "$CORR" worker "$WORK/payload.json"
+# No LEM_JEV: the worker runs Lem's own jev.py by its path, with a PATH that has no jev. No key is
+# set, so the copy stops before it sends anything, and its own words are in the log.
+printf '{"prompt": "the copy beside the hook", "cwd": "%s", "session": "s9", "transcript": ""}' "$CQ" > "$WORK/payload.json"
+env -u LEM_JEV -u OPENROUTER_API_KEY PATH="$BIN" "$PY" -B "$CORR" worker "$WORK/payload.json"
 sleep 1
 out=$(corr list)
-if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) for g in d["groups"]], d["failures"]["count"])' <<<"$out")" = "(3, [(2, 2, 0.9), (1, 1, None)], 2)" ] \
-  && grep -q "no key" "$CQ/.git/lem/corrections.log" && grep -q "no .jev. on PATH" "$CQ/.git/lem/corrections.log"; then
-  pass "one sentence from two sessions is one group; a low score, a command and injected text queue nothing; a message too long for Jev is queued unjudged; each failure is in the log and counted"
+if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) for g in d["groups"]], d["failures"]["count"])' <<<"$out")" = "(3, [(2, 2, 0.9), (1, 1, None)], 3)" ] \
+  && grep -q "no key" "$CQ/.git/lem/corrections.log" && grep -q "jev did not run" "$CQ/.git/lem/corrections.log" \
+  && grep -q "jev gave no answer: jev: OPENROUTER_API_KEY is not set" "$CQ/.git/lem/corrections.log"; then
+  pass "one sentence from two sessions is one group; a low score, a command and injected text queue nothing; a message too long for Jev is queued unjudged; each failure is in the log and counted; with no other jev named, the worker runs the copy beside it"
 else
   fail "the queue: $out / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
 fi
@@ -672,10 +685,12 @@ rmdir "$SETHOME/.claude/skills/lem-webrev" && ln -s "$WORK" "$SETHOME/.claude/sk
 if [ "$(status_of setup)" = 1 ] && [ ! -e "$SETHOME/.claude/skills/lem" ]; then pass "a link that points somewhere else is in the way too"; else fail "setup over another link"; fi
 rm "$SETHOME/.claude/skills/lem-webrev"
 out=$(setup)
-if [ "$(field '(d["linked"], d["machine_ok"], len(d["links"]), [a["name"] for a in d["absent"] if a["need"] == "required"])' <<<"$out")" = "(True, True, $(( $(find "$PWD/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | grep -c '') + 2 )), [])" ] \
+if [ "$(field '(d["linked"], d["machine_ok"], len(d["links"]), [a["name"] for a in d["absent"] if a["need"] == "required"])' <<<"$out")" = "(True, True, $(( $(find "$PWD/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | grep -c '') + 3 )), [])" ] \
   && [ "$(readlink "$SETHOME/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$SETHOME/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
-  && [ -x "$SETHOME/.local/bin/huddle" ] && [ "$(status_of setup)" = 0 ] && [ "$(status_of setup --check)" = 0 ]; then
-  pass "setup links every skill, the builder agent and the huddle command, the machine check then passes, and a second run changes nothing"
+  && [ -x "$SETHOME/.local/bin/huddle" ] && [ "$(readlink "$SETHOME/.local/bin/jev")" = "$PWD/skills/lem/scripts/jev.py" ] && [ -x "$SETHOME/.local/bin/jev" ] \
+  && [ "$(field 'd["corrections_hook"]["state"]' <<<"$out")" = "not registered" ] && [ ! -e "$SETHOME/.claude/settings.json" ] \
+  && [ "$(status_of setup)" = 0 ] && [ "$(status_of setup --check)" = 0 ]; then
+  pass "setup links every skill, the builder agent and the huddle and jev commands, registers no hook, the machine check then passes, and a second run changes nothing"
 else
   fail "setup: $out"
 fi
@@ -729,7 +744,7 @@ git init -q -b main "$TRIAL" && commit "$TRIAL" start
 trial() { env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$TRIAL" "$@"; }
 mkdir -p "$WORK/trialhome/.agents/skills/agterm" && touch "$WORK/trialhome/.agents/skills/agterm/SKILL.md"
 out=$(trial)
-if [ "$(field '(d["linked"], d["machine_ok"], d["scope"], d["huddle"].startswith("not linked"))' <<<"$out")" = "(True, True, '$TRIAL', True)" ] \
+if [ "$(field '(d["linked"], d["machine_ok"], d["scope"], d["commands"].startswith("huddle and jev are not linked"))' <<<"$out")" = "(True, True, '$TRIAL', True)" ] \
   && [ "$(readlink "$TRIAL/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$TRIAL/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
   && [ ! -e "$WORK/trialhome/.claude" ] && [ ! -e "$WORK/trialhome/.local" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
   pass "setup --project links Lem into one repository, nothing into the home, the machine check finds that repository's builder, and git sees no new file"
@@ -786,11 +801,86 @@ fi
 rm "$TRIAL/.claude"
 touch "$SETHOME/.claude/skills/mine"
 out=$(setup --remove)
-if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/huddle" ]; then
+if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/huddle" ] && [ ! -e "$SETHOME/.local/bin/jev" ]; then
   pass "setup --remove takes away the links it made and nothing else"
 else
   fail "setup --remove: $out"
 fi
+# The hook of the correction queue: one command in the agent's settings, the owner's step, and nothing else in the file changes.
+HOOKHOME=$WORK/hookhome
+mkdir -p "$HOOKHOME"
+hooksetup() { env -i PATH="$BIN" HOME="$HOOKHOME" "$PY" -B "$SETUP" --home "$HOOKHOME" "$@"; }
+want=$("$PY" -c 'import shlex, sys; print("python3 " + shlex.quote(sys.argv[1]) + " hook")' "$PWD/skills/lem/scripts/corrections.py")
+out=$(hooksetup --corrections on)
+first=$(cat "$HOOKHOME/.claude/settings.json")
+again=$(hooksetup --corrections on)
+if [ "$(field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"], d["corrections_hook"]["command"])' <<<"$out")" = "('registered', True, '$want')" ] \
+  && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])))' "$HOOKHOME/.claude/settings.json")" = "{'hooks': {'UserPromptSubmit': [{'hooks': [{'type': 'command', 'command': '$want', 'timeout': 10}]}]}}" ] \
+  && [ "$(field 'd["corrections_hook"]["changed"]' <<<"$again")" = "False" ] && [ "$(cat "$HOOKHOME/.claude/settings.json")" = "$first" ] && [ ! -e "$HOOKHOME/.claude/skills" ] \
+  && [ "$(hooksetup --check 2>/dev/null | field 'd["corrections_hook"]["state"]')" = "registered" ]; then
+  pass "setup --corrections on writes one hook command with the clone's real path, makes no link, a second run changes nothing, and --check reports it"
+else
+  fail "setup --corrections on: $out / $(cat "$HOOKHOME/.claude/settings.json" 2>&1)"
+fi
+out=$(hooksetup --corrections off)
+if [ "$(field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"], d["corrections_hook"]["file_removed"])' <<<"$out")" = "('not registered', True, True)" ] && [ ! -e "$HOOKHOME/.claude/settings.json" ] \
+  && [ "$(hooksetup --corrections off | field 'd["corrections_hook"]["changed"]')" = "False" ]; then
+  pass "setup --corrections off takes the hook out, removes a settings file that then holds nothing, and a second run changes nothing"
+else
+  fail "setup --corrections off: $out"
+fi
+# The owner's own settings stay: another key, another hook of the same event, a group that was empty before.
+mkdir -p "$WORK/dotfiles"
+printf '%s\n' '{"model": "opus", "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "true"}]}], "UserPromptSubmit": [{"hooks": []}, {"matcher": "", "hooks": [{"type": "command", "command": "echo mine"}]}]}}' > "$WORK/dotfiles/settings.json"
+ln -s "$WORK/dotfiles/settings.json" "$HOOKHOME/.claude/settings.json"
+before=$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])))' "$HOOKHOME/.claude/settings.json")
+hooksetup --corrections on >/dev/null
+with=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(d["model"], len(d["hooks"]["Stop"]), [len(g["hooks"]) for g in d["hooks"]["UserPromptSubmit"]], d["hooks"]["UserPromptSubmit"][2]["hooks"][0]["command"])' "$HOOKHOME/.claude/settings.json")
+hooksetup --corrections off >/dev/null
+if [ "$with" = "opus 1 [0, 1, 1] $want" ] && [ -L "$HOOKHOME/.claude/settings.json" ] \
+  && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])))' "$HOOKHOME/.claude/settings.json")" = "$before" ]; then
+  pass "the hook goes in beside the owner's settings and comes out again with nothing else changed, and a settings file that is a link stays one"
+else
+  fail "setup --corrections beside other settings: $with / $(cat "$HOOKHOME/.claude/settings.json")"
+fi
+# A form of the hook that is there already (added by hand, or another clone's) is not doubled, and a file that is not JSON is left alone.
+rm "$HOOKHOME/.claude/settings.json"
+printf '%s\n' '{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook", "timeout": 10}]}]}}' > "$HOOKHOME/.claude/settings.json"
+kept=$(cat "$HOOKHOME/.claude/settings.json")
+err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
+state=$( (hooksetup --check 2>/dev/null || true) | field 'd["corrections_hook"]["state"]')
+off=$(hooksetup --corrections off | field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"])')
+if [ "$(status_of hooksetup --corrections on)" = 1 ] && grep -q "already holds the correction hook in another form: LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook. Take that command out" <<<"$err" \
+  && [ "$state" = "another form" ] && [ "$off" = "('another form', False)" ] && [ "$(cat "$HOOKHOME/.claude/settings.json")" = "$kept" ]; then
+  pass "another form of the hook stops --corrections on, is named, and is not taken out by --corrections off"
+else
+  fail "setup --corrections over another form: $err / $state / $off"
+fi
+printf '%s\n' '{"hooks": // mine' > "$HOOKHOME/.claude/settings.json"
+err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
+if [ "$(status_of hooksetup --corrections on)" = 1 ] && [ "$(status_of hooksetup --corrections off)" = 1 ] && grep -q "does not read as JSON" <<<"$err" && grep -q "correct the file, then run this again" <<<"$err" \
+  && [ "$(cat "$HOOKHOME/.claude/settings.json")" = '{"hooks": // mine' ] && [ "$(hooksetup --check 2>/dev/null | field 'd["corrections_hook"]["state"]')" = "unreadable" ] \
+  && [ "$(status_of hooksetup --corrections on --check)" = 1 ]; then
+  pass "a settings file that is not JSON is refused with the fix and left as it is, and --corrections goes with no other action"
+else
+  fail "setup --corrections over a file that is not JSON: $err"
+fi
+# For one repository the hook goes into that checkout's own settings, and the home is not touched.
+out=$(trial --corrections on)
+if [ "$(field '(d["corrections_hook"]["state"], d["corrections_hook"]["file"], d["corrections_hook"]["git_sees_the_file"], d["scope"])' <<<"$out")" = "('registered', '$TRIAL/.claude/settings.local.json', True, '$TRIAL')" ] \
+  && [ ! -e "$WORK/trialhome/.claude" ] && trial --corrections off >/dev/null && [ ! -e "$TRIAL/.claude/settings.local.json" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
+  pass "setup --project --corrections on writes the hook into that checkout's local settings, says that git sees the file, and off removes it"
+else
+  fail "setup --project --corrections: $out / $(git -C "$TRIAL" status --porcelain)"
+fi
+rmdir "$TRIAL/.claude" && ln -s "$WORK/shared-claude" "$TRIAL/.claude"
+err=$(trial --corrections on 2>&1 >/dev/null || true)
+if [ "$(status_of trial --corrections on)" = 1 ] && grep -q "is a link that leaves the repository" <<<"$err" && [ ! -e "$WORK/shared-claude/settings.local.json" ]; then
+  pass "the hook of one repository is not written through a .claude folder that is a link out of it"
+else
+  fail "setup --project --corrections through a linked .claude: $err"
+fi
+rm "$TRIAL/.claude"
 # A machine with Claude Code and no git still gets its rows, not a traceback.
 mkdir -p "$WORK/nogit" && cp "$BIN/claude" "$WORK/nogit/claude"
 out=$(cd "$WORK" && env -i PATH="$WORK/nogit" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" 2>&1 || true)

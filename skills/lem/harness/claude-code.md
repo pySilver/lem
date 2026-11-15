@@ -234,6 +234,13 @@ day: `codex -m`, `codex -c`, `claude --model`, `claude --effort`).
 
 Several `Agent` calls in one message. The `Workflow` tool only when the owner asked for one.
 
+## A session's name
+
+`agtermctl session rename "Lem init · REPO" --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`
+names this session, and `agtermctl session context 'TEXT' --target ...` puts one line about the
+work into the title bar. A stage that runs for a repository the session did not start in (the
+onboarding) does both, with the repository's name in each.
+
 ## show-page
 
 An HTML file opened as an overlay of this session
@@ -245,30 +252,38 @@ prefers another tool, plannotator for one, names it there.
 
 ## The correction hook
 
-For a project that keeps a correction queue (`stages/learn.md`). One hook for the machine: it
-exits at once in every repository whose settings do not say `corrections.collect = true`. The
-owner adds it to his own `~/.claude/settings.json`, with `SKILL_DIR` as an absolute path:
+For a project that keeps a correction queue (`stages/learn.md`). The hook exits at once in every
+repository whose settings do not say `corrections.collect = true`. The owner registers it with
+one command of Lem's setup, on the day of the onboarding or any later day, and takes it out the
+same way. `CLONE` is Lem's clone: two folders above the real path of `SKILL_DIR`.
 
-```json
-{"hooks": {"UserPromptSubmit": [{"hooks": [
-  {"type": "command", "command": "python3 SKILL_DIR/scripts/corrections.py hook", "timeout": 10}
-]}]}}
+```bash
+python3 CLONE/scripts/setup.py --corrections on                  # for every repository of this home
+python3 CLONE/scripts/setup.py --corrections on --project ROOT   # for one repository, as a trial's links are
+python3 CLONE/scripts/setup.py --corrections off                 # with --project ROOT when it went in that way
 ```
 
-- It needs Python 3.11 or newer as `python3`, and the `jev` command on the hook's `PATH`; where
-  it is not, the command starts with `LEM_JEV=/path/to/jev`. Under an older `python3` it judges
-  nothing, and says so in its log.
+Name the form that matches how Lem is linked here: `--project ROOT` when `SKILL_DIR` is inside
+the repository, the plain form otherwise. Print no JSON for him to paste. The command adds one
+`UserPromptSubmit` hook to Claude Code's settings (`~/.claude/settings.json`, or the checkout's
+`.claude/settings.local.json`), keeps the rest of the file, and refuses a file it cannot read or
+one that holds the hook in another form. `setup.py --check` says whether it is registered.
+
+- It needs Python 3.11 or newer as `python3`. Under an older one it judges nothing, and says so
+  in its log. It asks the model through Lem's own `jev.py`, by its path, so nothing has to be on
+  the hook's `PATH`. It needs `OPENROUTER_API_KEY` in the environment Claude Code starts with.
 - It prints nothing and does not wait for the model: a detached copy asks it. The hook's own two
   waits, for its input and for one git call, end after two seconds each, a bound chosen by guess
   on 2026-11-15. The `timeout` of 10 seconds above is the value its source ran with in one
   repository since 2026-11-07; it is not a measurement.
 - What fails goes to `corrections.log` in Lem's folder of the git directory, and
   `corrections.py list` counts it.
-- You do not register it. A hook that sends the owner's messages to an outside service is his to
-  add, and Claude Code's classifier refuses the step to an agent (the next section).
+- You do not run that command. A hook that sends the owner's messages to an outside service is
+  his to add, and Claude Code's classifier refuses the step to an agent (the next section).
 
-Not run yet: the hook as a registered hook of a real session. Its two halves are tested with a
-stand-in for `jev`.
+Not run yet: the hook as a registered hook of a real session, and the setup's command on a real
+settings file. The hook's two halves are tested with a stand-in for the model, and the command
+with settings files in a throwaway home.
 
 ## What the owner does himself
 

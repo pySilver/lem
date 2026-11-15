@@ -74,8 +74,8 @@ python3 SKILL_DIR/scripts/corrections.py show ID   # one group in full
 python3 SKILL_DIR/scripts/corrections.py lessons   # what earlier retros recorded
 ```
 
-1. **Failures first.** `list` gives `failures`: messages the hook could not judge (no key, no
-   `jev`, a failed request). Say the count and the newest error before anything else.
+1. **Failures first.** `list` gives `failures`: messages the hook could not judge (no key, a
+   failed request). Say the count and the newest error before anything else.
 2. **A group** is every unreviewed entry with the same words of the owner, so one sentence sent
    to eight sessions is one item with its count. The small model is a loose filter on purpose:
    about three of four of its flags were not lessons in the sample its threshold comes from

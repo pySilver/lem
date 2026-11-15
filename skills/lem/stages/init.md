@@ -6,6 +6,11 @@ and profiles as drafts the owner adjusts. It runs once per repository and stops 
 
 Keep the onboarding's notes in its own task directory: `project.py task-dir onboarding`.
 
+The owner may ask for it from a session that started in another folder. Work in the repository
+he names, and give every command its root. Before step 1, tell him that root as an absolute
+path and put the repository's name on the session (the harness file says how): he may have
+several sessions open, and one named "init" belongs to none of his repositories.
+
 ## 1. Check the machine
 
 ```bash
@@ -14,15 +19,18 @@ python3 SKILL_DIR/scripts/doctor.py
 
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
 installed, and end. For each optional tool that is absent, tell the owner in one line what the
-skill does without it (the row's `without_it`), and go on. Two cases need a sentence of their own:
-cronn is installed and not running, cronn is absent, and jev is absent. Recommend jev and use it
-only when the owner agrees: with it, every project that uses Lem keeps a queue of the owner's
-corrections for the retro; without it, a correction is learned in the session it was given in
-and nowhere else. Tell the owner what he agrees to, in these words or closer ones: each message
-he types in this repository, with the agent message it answers, goes to the Jev decision model
-through the `jev` command, and the ones that may hold a lesson are kept in a file that is never
-committed. On his yes, set `corrections.collect = true` in step 4, and give him the hook to
-register himself: the harness file has the lines, and says why the step is his. For an absent cronn, offer to install
+skill does without it (the row's `without_it`), and go on. Three things need a sentence of their
+own: cronn that is installed and not running, cronn that is absent, and the correction queue.
+Recommend the queue and turn it on only when the owner agrees: with it, the project keeps a
+queue of the owner's corrections for the retro; without it, a correction is learned in the
+session it was given in and nowhere else. Tell the owner what he agrees to, in these words or
+closer ones: each message he types in this repository, with the agent message it answers, goes
+to the Jev decision model through OpenRouter, under his own key, and the ones that may hold a
+lesson are kept in a file that is never committed. The check's "OpenRouter key" row says whether
+this session has a key; without one the queue stays empty and its log fills, so say that too. On
+his yes, set `corrections.collect = true` in step 4 and name the one command that registers the
+hook. He runs it himself, today or on any later day: the harness file has the command and says
+why the step is his. Give him no settings lines to paste. For an absent cronn, offer to install
 it through the `cronn` skill when that skill is there: its installer adds a Homebrew formula and
 an agent that starts at login, so it runs only on the owner's yes. The owner may have to run it
 himself: the harness file says which steps an agent is refused, and then you give him the
@@ -62,6 +70,15 @@ one-sentence hypothesis and how sure you are, ask one question at a time through
 with your own guess so the owner corrects a draft instead of composing one, restate what you
 heard at the end, and take only an explicit yes. Ask only what the examination could not answer;
 what it answered is stated as an assumption in step 6, never asked.
+
+An interview question goes straight to the owner. It does not pass the question gate or the
+persona panel, its card gets no framing check, and its answer is not tested for a ruling: it
+asks what the owner wants, which no ruling, probe or persona knows. Each answer has a place
+already, the settings file or the profile, so no ruling file is written for it. The first
+onboarding through Lem put its five questions through the gate: 11m 54s passed between the
+owner's first answer and the second question, and three ruling files repeated three lines of the
+settings (a scratch repository, 2026-11-15; the time is that session's status line as another
+session read it).
 
 **A new project** has a different interview, because there is no code to guess from:
 
@@ -142,6 +159,10 @@ it is.
   nobody has yet needed is not written: the style guide grows when a review finding or a
   correction repeats (`stages/learn.md`). A new project gets the copy the owner accepted in the
   interview, or no style guide yet.
+  A draft never cites a file of this skill by the path you read it from. That path is one
+  setup's link and does not exist in the next checkout. Name what the owner can use instead:
+  `/lem learn`, "the published guides Lem lists for this stack". The first onboarding wrote
+  `.claude/skills/lem/stages/learn.md` into a style guide (2026-11-15).
 - **The gate of a new project** does not exist yet. Leave `gate.commands` empty and name "set up
   the checks" (formatter, linter, type checker, a first test) as the task to run first: nothing
   lands through this skill before it.
@@ -153,12 +174,35 @@ it is.
 
 ## 6. Hand over
 
-`show-page` one page to the owner: what the machine has and lacks, what was linked and what was
-generated, each assumption taken from the code with its source, and the settings file. Say there
-that the project may bring a builder of its own, and how (the harness file, `spawn-builder`). Every
-generated file is a draft; say which three the owner should read first (the careful paths, the
-gate, the personas). Commit the settings and the generated files on a branch of their own,
-`chore/lem-onboarding`, and do not land it: the owner's read of the drafts is the review.
+Commit the settings and the generated files on a branch of their own, `chore/lem-onboarding`.
+It is not landed yet: the owner's read of the drafts is the review.
+
+`show-page` one page to the owner. Its title names the repository and its first line is the
+root as an absolute path: every other path on the page is relative to it, and a page without it
+cannot be checked against any folder. Then what the machine has and lacks, what was linked and
+what was generated, each assumption taken from the code with its source, and the settings file.
+Say there that the project may bring a builder of its own, and how (the harness file,
+`spawn-builder`). When the owner said yes to the correction queue, the page names the command he
+runs for its hook and nothing he has to edit.
+
+A list of file names is not a hand-over. Every generated file is a draft, and three are read
+first: the careful paths, the gate, the personas. Offer to open each in the annotate tool
+(`show-page`; `tools.annotate` in the settings), one after the other, and take the owner's notes
+as corrections: edit, commit on the same branch, say for each file what changed. The page and
+your last message end with the three replies you take, in these words:
+
+- **land**: you bring the branch onto the base branch yourself, by a fast-forward, after a rebase
+  when the base moved, and leave the checkout on the base branch. That holds whatever
+  `branch.land` says: the owner's read was the review and this word is his go-ahead. Never hand
+  him git commands to type.
+- **change** and what: you edit, commit, and show the file again.
+- **drop**: you remove the branch and the onboarding's directory, and say what stays on the
+  machine: the links of the setup, a scheduled job, the hook.
+
+The first onboarding ended on "Read these three first" over a list of paths and on a
+`git switch` and `git merge` line for the owner, in a project whose settings said the agent
+lands. He wrote: "I have no idea what to do about it and whether its correct, I don't even see
+what repo it belongs to" (2026-11-15).
 
 ## 7. Scheduled work for this repository
 
@@ -171,6 +215,10 @@ session started in it with nobody at the terminal:
   next;
 - a night plan (`/lem night`), which leaves the owner a plan each morning for one backlog item
   that needs no decision.
+
+Offer a job only when its first run has something to read, and say what that is. A retro reads
+landed tasks and the correction queue: in a repository with neither, say that it is worth adding
+after the first landing or once the hook is registered, and add nothing now.
 
 Add a job only on the owner's yes, through the `cronn` skill when it is installed, and name the
 job after the repository. When the step is refused to you, give the owner the command. A scheduled job starts an agent that nobody watches: that choice is

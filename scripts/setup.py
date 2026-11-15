@@ -6,12 +6,16 @@
     setup.py --remove   remove the links this clone made, and nothing else
     setup.py --project DIR [--check | --remove]
                         the same for one repository only: the links go into DIR/.claude
+    setup.py --corrections on|off [--project DIR]
+                        register the hook that fills a project's queue of corrections, or take it
+                        out again; no link is touched
 
 It links, for Claude Code:
 
     skills/NAME/               ->  ~/.claude/skills/NAME        (lem and every lem-NAME)
     agents/lem-builder.md      ->  ~/.claude/agents/lem-builder.md
     skills/lem-huddle/bin/huddle -> ~/.local/bin/huddle
+    skills/lem/scripts/jev.py  ->  ~/.local/bin/jev
 
 They are links, so an edit in the clone is what the next session reads. A place that already
 holds something else is never replaced: the script names it and exits 1, and the owner decides
@@ -26,8 +30,8 @@ run that fails.
 
 `--project DIR` is for a trial. Links in the home directory show Lem to every repository on the
 machine at once, also to one where another flow still runs with skills of the same use. Links in
-one repository's `.claude` folder show Lem there and nowhere else. The `huddle` command is not
-linked then, because a command on `PATH` is for the whole machine. So that the checkout's tree
+one repository's `.claude` folder show Lem there and nowhere else. The `huddle` and `jev` commands
+are not linked then, because a command on `PATH` is for the whole machine. So that the checkout's tree
 stays clean, a small `.gitignore` goes beside the links, in `.claude/skills` and `.claude/agents`:
 it names the links and itself, and its first line names this clone. It is a file of that one
 checkout, so no other worktree is touched; the repository's shared exclude file is not used for
@@ -39,16 +43,40 @@ land where the link points, for whoever else reads that folder.
 The last step runs `skills/lem/scripts/doctor.py` and prints its rows that are not found. A
 required tool that is absent makes this script exit 1 after the links are made: the links are
 right, the machine is not ready.
+
+`--corrections on` is the owner's step, on the day of the setup or any later day: the hook sends
+each message he types, with the agent message it answers, to the Jev decision model, in every
+repository whose settings say `corrections.collect = true`. An agent does not run it for him. It
+adds one command to the `UserPromptSubmit` hooks of Claude Code's settings: `~/.claude/settings.json`,
+or with `--project DIR` that checkout's own `DIR/.claude/settings.local.json`. The command names
+`corrections.py` by the clone's real path, so it needs no link and no `PATH`. The rest of the
+settings file is kept; the file is written again as JSON with two spaces. A file that is not
+JSON, or that already holds this hook in another form (one added by hand, or another clone's),
+is refused with exit 1 and left as it is. `--corrections off` takes this clone's command out and
+no other, and removes a settings file that then holds nothing. Every other run only reports
+whether the hook is registered.
 """
 
 import argparse
 import json
 import os
+import re
+import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 CLONE = Path(__file__).resolve().parent.parent
+# `python3` and not this run's interpreter: a versioned path of today's Python is gone after its
+# next upgrade. Under a Python before 3.11 the hook judges nothing and says so in its log.
+HOOK_COMMAND = f"python3 {shlex.quote(str(CLONE / 'skills' / 'lem' / 'scripts' / 'corrections.py'))} hook"
+HOOK = {"type": "command", "command": HOOK_COMMAND, "timeout": 10}
+ANY_FORM = re.compile(r"corrections\.py['\"]?\s+hook\b")
+
+
+class Refused(Exception):
+    """The settings file is not in a state this script changes; the message names the fix."""
 
 
 def wanted(home: Path, bin_dir: Path | None) -> list[tuple[Path, Path]]:
@@ -57,7 +85,86 @@ def wanted(home: Path, bin_dir: Path | None) -> list[tuple[Path, Path]]:
     links.append((home / ".claude" / "agents" / "lem-builder.md", CLONE / "agents" / "lem-builder.md"))
     if bin_dir is not None:
         links.append((bin_dir / "huddle", CLONE / "skills" / "lem-huddle" / "bin" / "huddle"))
+        links.append((bin_dir / "jev", CLONE / "skills" / "lem" / "scripts" / "jev.py"))
     return links
+
+
+def prompt_hooks(file: Path) -> tuple[dict, list[tuple[dict, dict]]]:
+    """The settings in `file`, and each command of its UserPromptSubmit hooks as (its group, the hook)."""
+    if not file.exists():
+        return {}, []
+    try:
+        data = json.loads(file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise Refused(f"{file} does not read as JSON ({error}); correct the file, then run this again") from error
+    shape = f"{file} does not have the shape of Claude Code's settings"
+    if not isinstance(data, dict) or not isinstance(data.get("hooks", {}), dict):
+        raise Refused(f"{shape}: the file is an object, and so is its `hooks`; correct the file, then run this again")
+    groups = data.get("hooks", {}).get("UserPromptSubmit", [])
+    if not isinstance(groups, list) or any(not isinstance(group, dict) or not isinstance(group.get("hooks", []), list) for group in groups):
+        raise Refused(f"{shape}: `hooks.UserPromptSubmit` is a list of objects, each with a list `hooks`; correct the file, then run this again")
+    return data, [(group, hook) for group in groups for hook in group.get("hooks", []) if isinstance(hook, dict) and isinstance(hook.get("command"), str)]
+
+
+def hook_state(file: Path) -> dict:
+    """Whether the correction hook is in `file`: registered, not registered, in another form, or unreadable."""
+    try:
+        _, hooks = prompt_hooks(file)
+    except Refused as error:
+        return {"file": str(file), "state": "unreadable", "why": str(error)}
+    others = [hook["command"] for _, hook in hooks if ANY_FORM.search(hook["command"]) and hook["command"] != HOOK_COMMAND]
+    ours = any(hook["command"] == HOOK_COMMAND for _, hook in hooks)
+    row = {"file": str(file), "state": "registered" if ours else "another form" if others else "not registered"}
+    if others:
+        row["other_forms"] = others
+    return row
+
+
+def write_settings(file: Path, data: dict) -> None:
+    # A settings file kept as a link (a folder of dotfiles) stays a link: its target is written.
+    real = Path(os.path.realpath(file))
+    real.parent.mkdir(parents=True, exist_ok=True)
+    draft = real.with_name(f"{real.name}.lem-{os.getpid()}")
+    draft.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    if real.exists():
+        shutil.copymode(real, draft)
+    os.replace(draft, real)
+
+
+def corrections(file: Path, turn: str) -> dict:
+    """Register this clone's correction hook in `file`, or take it out. Raises Refused and changes nothing."""
+    data, hooks = prompt_hooks(file)
+    others = [hook["command"] for _, hook in hooks if ANY_FORM.search(hook["command"]) and hook["command"] != HOOK_COMMAND]
+    ours = [(group, hook) for group, hook in hooks if hook["command"] == HOOK_COMMAND]
+    if turn == "on":
+        if others:
+            # two forms of one hook would send and queue each message twice
+            raise Refused(f"{file} already holds the correction hook in another form: {'; '.join(others)}. Take that command out of the file, then run this again")
+        if not ours:
+            data.setdefault("hooks", {}).setdefault("UserPromptSubmit", []).append({"hooks": [dict(HOOK)]})
+            write_settings(file, data)
+        return {"file": str(file), "state": "registered", "changed": not ours, "command": HOOK_COMMAND}
+    for group, hook in ours:
+        group["hooks"] = [other for other in group["hooks"] if other is not hook]
+    if ours:
+        # a group goes only when this emptied it: one that was empty before is the owner's
+        emptied = [group for group, _ in ours if not group["hooks"]]
+        groups = [group for group in data["hooks"]["UserPromptSubmit"] if not any(group is gone for gone in emptied)]
+        if groups:
+            data["hooks"]["UserPromptSubmit"] = groups
+        else:
+            del data["hooks"]["UserPromptSubmit"]
+        if not data["hooks"]:
+            del data["hooks"]
+        if data:
+            write_settings(file, data)
+        else:
+            # an empty settings file says what no file says
+            Path(os.path.realpath(file)).unlink()
+    row = {"file": str(file), "state": "another form" if others else "not registered", "changed": bool(ours), "file_removed": bool(ours) and not data}
+    if others:
+        row["other_forms"] = others
+    return row
 
 
 MARK = f"# links of a Lem trial from {CLONE} (scripts/setup.py --project); --remove takes this file away"
@@ -108,14 +215,30 @@ def main() -> None:
     parser.add_argument("--check", action="store_true", help="change nothing; report the state of each link")
     parser.add_argument("--remove", action="store_true", help="remove the links this clone made")
     parser.add_argument("--project", type=Path, help="link into this repository's .claude folder only, for a trial")
+    parser.add_argument("--corrections", choices=("on", "off"), help="register the hook of the correction queue, or take it out; the owner's step")
     parser.add_argument("--home", type=Path, default=Path.home(), help="the home directory to link into (default: yours)")
     parser.add_argument("--bin", type=Path, help="the directory on PATH for the huddle command (default: HOME/.local/bin)")
     args = parser.parse_args()
     if args.check and args.remove:
         sys.exit("setup.py: --check and --remove do not go together")
+    if args.corrections and (args.check or args.remove):
+        sys.exit("setup.py: --corrections on|off changes the hook and nothing else; run --check or --remove by itself")
     project = args.project.resolve() if args.project else None
     if project is not None and not (project / ".git").exists():
         sys.exit(f"setup.py: {project} is not the root of a git checkout; --project names a repository")
+    settings = project / ".claude" / "settings.local.json" if project else args.home / ".claude" / "settings.json"
+    if args.corrections:
+        if project is not None and not Path(os.path.realpath(settings.parent)).is_relative_to(project):
+            sys.exit(f"setup.py: {settings.parent} is a link that leaves the repository (to {os.path.realpath(settings.parent)}); the hook of one repository is not written there")
+        try:
+            row = corrections(settings, args.corrections)
+        except Refused as error:
+            sys.exit(f"setup.py: {error}")
+        if project is not None and row["state"] == "registered":
+            ignored = subprocess.run(["git", "-C", str(project), "check-ignore", "-q", str(settings)], capture_output=True, check=False)
+            row["git_sees_the_file"] = ignored.returncode != 0
+        print(json.dumps({"corrections_hook": row, "scope": str(project) if project else "every repository of this home"}, indent=2))
+        return
     bin_dir = None if project else args.bin or args.home / ".local" / "bin"
     links = wanted(project or args.home, bin_dir)
     rows = [{"place": str(place), "target": str(target), "state": state(place, target)} for place, target in links]
@@ -143,7 +266,8 @@ def main() -> None:
                     stuck.append(row["place"])
         if project is not None:
             hide_from_git(rows)
-        print(json.dumps({"links": rows}, indent=2))
+        # the hook is not a link: it stays until `--corrections off`, and the report says so
+        print(json.dumps({"links": rows, "corrections_hook": hook_state(settings)}, indent=2))
         if stuck:
             sys.exit(f"setup.py: {len(stuck)} link(s) could not be removed and are still there: {'; '.join(stuck)}")
         return
@@ -193,7 +317,8 @@ def main() -> None:
     absent = [{"name": row["name"], "need": row["need"], "without_it": row["without_it"]} for row in machine["tools"] if not row["found"]]
     result = {
         "links": rows, "scope": str(project) if project else "every repository of this home",
-        "huddle": "not linked: a command on PATH is for the whole machine" if project else ("on PATH" if on_path else f"linked in {bin_dir}, which is not on PATH"),
+        "commands": "huddle and jev are not linked: a command on PATH is for the whole machine" if project else ("on PATH" if on_path else f"linked in {bin_dir}, which is not on PATH"),
+        "corrections_hook": hook_state(settings),
         "git_sees_the_links_in": visible, "machine_ok": machine["ok"], "absent": absent,
         "linked": all(row["state"] == "linked" for row in rows),
     }

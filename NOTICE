@@ -194,7 +194,10 @@ SOFTWARE.
 `skills/lem-webrev/assets/` holds markdown-it 14.1.0 and highlight.js 11.11.1, each with its license
 file beside it.
 
-## gate, panel, huddle, backlog and interview-me
+## gate, panel, huddle, backlog, interview-me and jev
+
+`skills/lem/scripts/jev.py` is the `jev` command of that repository's `jev` plugin, as of
+2026-11-15, with two lines added to its description.
 
 These came here from [pySilver/cc-tools](https://github.com/pySilver/cc-tools), by the same author
 and under the same license; the sections above name what each was adapted from before that.
