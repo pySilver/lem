@@ -266,12 +266,15 @@ python3 CLONE/scripts/setup.py --corrections off                 # with --projec
 Name the form that matches how Lem is linked here: `--project ROOT` when `SKILL_DIR` is inside
 the repository, the plain form otherwise. Print no JSON for him to paste. The command adds one
 `UserPromptSubmit` hook to Claude Code's settings (`~/.claude/settings.json`, or the checkout's
-`.claude/settings.local.json`), keeps the rest of the file, and refuses a file it cannot read or
-one that holds the hook in another form. `setup.py --check` says whether it is registered.
+`.claude/settings.local.json`), keeps the rest of the file, and refuses a file it cannot read,
+one that holds the hook in another form, and for one repository a settings file that is a link
+out of it. `setup.py --check` says whether it is registered.
 
 - It needs Python 3.11 or newer as `python3`. Under an older one it judges nothing, and says so
-  in its log. It asks the model through Lem's own `jev.py`, by its path, so nothing has to be on
-  the hook's `PATH`. It needs `OPENROUTER_API_KEY` in the environment Claude Code starts with.
+  in its log. It finds `python3` and `git` on the hook's `PATH`, as any hook does; with no `git`
+  there it queues nothing and has nowhere to say so, since its log is in the git directory. The
+  model's client is Lem's own `jev.py`, run by its path. It needs `OPENROUTER_API_KEY` in the
+  environment Claude Code starts with.
 - It prints nothing and does not wait for the model: a detached copy asks it. The hook's own two
   waits, for its input and for one git call, end after two seconds each, a bound chosen by guess
   on 2026-11-15. The `timeout` of 10 seconds above is the value its source ran with in one

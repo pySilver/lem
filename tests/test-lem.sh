@@ -850,11 +850,44 @@ kept=$(cat "$HOOKHOME/.claude/settings.json")
 err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
 state=$( (hooksetup --check 2>/dev/null || true) | field 'd["corrections_hook"]["state"]')
 off=$(hooksetup --corrections off | field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"])')
-if [ "$(status_of hooksetup --corrections on)" = 1 ] && grep -q "already holds the correction hook in another form: LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook. Take that command out" <<<"$err" \
+if [ "$(status_of hooksetup --corrections on)" = 1 ] && grep -q 'already holds the correction hook in another form: {"type": "command", "command": "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook", "timeout": 10}. Take that entry out' <<<"$err" \
   && [ "$state" = "another form" ] && [ "$off" = "('another form', False)" ] && [ "$(cat "$HOOKHOME/.claude/settings.json")" = "$kept" ]; then
   pass "another form of the hook stops --corrections on, is named, and is not taken out by --corrections off"
 else
   fail "setup --corrections over another form: $err / $state / $off"
+fi
+# This clone's own command with another timeout is another form too: it is not what the script wrote.
+"$PY" -c 'import json, sys; print(json.dumps({"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": sys.argv[1], "timeout": 1}]}]}}))' "$want" > "$HOOKHOME/.claude/settings.json"
+kept=$(cat "$HOOKHOME/.claude/settings.json")
+off=$(hooksetup --corrections off | field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"])')
+if [ "$(status_of hooksetup --corrections on)" = 1 ] && [ "$off" = "('another form', False)" ] && [ "$(cat "$HOOKHOME/.claude/settings.json")" = "$kept" ]; then
+  pass "the clone's own command with another timeout is not taken for the script's entry: on refuses it and off leaves it"
+else
+  fail "setup --corrections over the same command with another timeout: $off / $(cat "$HOOKHOME/.claude/settings.json")"
+fi
+# A hooks list that Claude Code would not read is the owner's to correct: nothing is written beside it.
+shapes=ok
+for shape in '{"hooks": {"UserPromptSubmit": [{"matcher": ""}]}}' '{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command"}]}]}}' '{"hooks": {"UserPromptSubmit": [{"hooks": ["echo"]}]}}' '{"hooks": []}' '[]'; do
+  printf '%s\n' "$shape" > "$HOOKHOME/.claude/settings.json"
+  if [ "$(status_of hooksetup --corrections on)" != 1 ] || [ "$(status_of hooksetup --corrections off)" != 1 ] || [ "$(cat "$HOOKHOME/.claude/settings.json")" != "$shape" ]; then shapes="$shape"; fi
+done
+err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
+if [ "$shapes" = ok ] && grep -q "does not have the shape of Claude Code's settings" <<<"$err" && grep -q "correct the file, then run this again" <<<"$err"; then
+  pass "a settings file whose hooks do not have the shape the agent reads is refused with the fix and left as it is"
+else
+  fail "setup --corrections over a wrong shape: $shapes / $err"
+fi
+# A write that fails leaves the file as it was and no draft with the owner's settings beside it.
+printf '%s\n' '{"model": "opus"}' > "$HOOKHOME/.claude/settings.json"
+chmod a-w "$HOOKHOME/.claude"
+err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
+code=$(status_of hooksetup --corrections on)
+chmod u+w "$HOOKHOME/.claude"
+if [ "$code" = 1 ] && grep -q "could not be written" <<<"$err" && grep -q "is as it was; make it writable, then run this again" <<<"$err" && ! grep -q Traceback <<<"$err" \
+  && [ "$(cat "$HOOKHOME/.claude/settings.json")" = '{"model": "opus"}' ] && [ "$(find "$HOOKHOME/.claude" -name 'settings.json.lem-*' | grep -c '')" = 0 ]; then
+  pass "a settings file that cannot be written is left as it was, with no draft beside it and the fix in the message"
+else
+  fail "setup --corrections with a write that fails: $err / $(ls -A "$HOOKHOME/.claude")"
 fi
 printf '%s\n' '{"hooks": // mine' > "$HOOKHOME/.claude/settings.json"
 err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
@@ -875,12 +908,20 @@ else
 fi
 rmdir "$TRIAL/.claude" && ln -s "$WORK/shared-claude" "$TRIAL/.claude"
 err=$(trial --corrections on 2>&1 >/dev/null || true)
-if [ "$(status_of trial --corrections on)" = 1 ] && grep -q "is a link that leaves the repository" <<<"$err" && [ ! -e "$WORK/shared-claude/settings.local.json" ]; then
-  pass "the hook of one repository is not written through a .claude folder that is a link out of it"
+code=$(status_of trial --corrections on)
+rm "$TRIAL/.claude" && mkdir "$TRIAL/.claude"
+# the folder is the repository's own, and the file in it is a link to a shared one: once to a file that is there, once to none
+printf '%s\n' '{"model": "opus"}' > "$WORK/shared-claude/shared.json" && ln -s "$WORK/shared-claude/shared.json" "$TRIAL/.claude/settings.local.json"
+code="$code $(status_of trial --corrections on)"
+ln -sf "$WORK/shared-claude/none.json" "$TRIAL/.claude/settings.local.json"
+code="$code $(status_of trial --corrections on) $(status_of trial --corrections off)"
+if [ "$code" = "1 1 1 1" ] && grep -q "is behind a link that leaves the repository" <<<"$err" && [ ! -e "$WORK/shared-claude/settings.local.json" ] \
+  && [ "$(cat "$WORK/shared-claude/shared.json")" = '{"model": "opus"}' ] && [ ! -e "$WORK/shared-claude/none.json" ]; then
+  pass "the hook of one repository is not written through a .claude folder or a settings file that is a link out of it"
 else
-  fail "setup --project --corrections through a linked .claude: $err"
+  fail "setup --project --corrections through a link out of the repository: $code / $err"
 fi
-rm "$TRIAL/.claude"
+rm -r "$TRIAL/.claude"
 # A machine with Claude Code and no git still gets its rows, not a traceback.
 mkdir -p "$WORK/nogit" && cp "$BIN/claude" "$WORK/nogit/claude"
 out=$(cd "$WORK" && env -i PATH="$WORK/nogit" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" 2>&1 || true)

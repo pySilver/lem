@@ -164,8 +164,9 @@ it is.
   `/lem learn`, "the published guides Lem lists for this stack". The first onboarding wrote
   `.claude/skills/lem/stages/learn.md` into a style guide (2026-11-15).
 - **The gate of a new project** does not exist yet. Leave `gate.commands` empty and name "set up
-  the checks" (formatter, linter, type checker, a first test) as the task to run first: nothing
-  lands through this skill before it.
+  the checks" (formatter, linter, type checker, a first test) as the task to run first: no task
+  lands through this skill before it. The onboarding's own branch is not a task: it holds
+  settings and drafts, and step 6 lands it.
 - **The review configuration**: the review tool's own starter set, in the review tool's own
   folder, which the settings' `review` path names (the harness file says how it is made), and its
   project profile: what the project is, what a reviewer
@@ -193,8 +194,11 @@ your last message end with the three replies you take, in these words:
 
 - **land**: you bring the branch onto the base branch yourself, by a fast-forward, after a rebase
   when the base moved, and leave the checkout on the base branch. That holds whatever
-  `branch.land` says: the owner's read was the review and this word is his go-ahead. Never hand
-  him git commands to type.
+  `branch.land` says: the owner's read was the review and this word is his go-ahead. It does not
+  go through `stages/land.md`, which reads settings the base branch does not have yet. When the
+  settings name gate commands, run them on the branch first and do not land on a red result; a
+  new project names none, and its onboarding lands without them. Never hand him git commands to
+  type.
 - **change** and what: you edit, commit, and show the file again.
 - **drop**: you remove the branch and the onboarding's directory, and say what stays on the
   machine: the links of the setup, a scheduled job, the hook.

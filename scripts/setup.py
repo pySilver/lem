@@ -49,12 +49,14 @@ each message he types, with the agent message it answers, to the Jev decision mo
 repository whose settings say `corrections.collect = true`. An agent does not run it for him. It
 adds one command to the `UserPromptSubmit` hooks of Claude Code's settings: `~/.claude/settings.json`,
 or with `--project DIR` that checkout's own `DIR/.claude/settings.local.json`. The command names
-`corrections.py` by the clone's real path, so it needs no link and no `PATH`. The rest of the
-settings file is kept; the file is written again as JSON with two spaces. A file that is not
-JSON, or that already holds this hook in another form (one added by hand, or another clone's),
-is refused with exit 1 and left as it is. `--corrections off` takes this clone's command out and
-no other, and removes a settings file that then holds nothing. Every other run only reports
-whether the hook is registered.
+`corrections.py` by the clone's real path, so it needs no link; `python3` and `git` are found on
+the hook's `PATH`, as for any hook. The rest of the settings file is kept; the file is written
+again as JSON with two spaces. Refused with exit 1, and left as it is: a file that is not JSON,
+one whose `UserPromptSubmit` hooks do not have the shape Claude Code reads, one that already
+holds this hook in another form (added by hand, another clone's, or this command with another
+timeout), and with `--project` a settings file that is a link out of the repository.
+`--corrections off` takes out the entry this script writes and no other, and removes a settings
+file that then holds nothing. Every other run only reports whether the hook is registered.
 """
 
 import argparse
@@ -101,9 +103,21 @@ def prompt_hooks(file: Path) -> tuple[dict, list[tuple[dict, dict]]]:
     if not isinstance(data, dict) or not isinstance(data.get("hooks", {}), dict):
         raise Refused(f"{shape}: the file is an object, and so is its `hooks`; correct the file, then run this again")
     groups = data.get("hooks", {}).get("UserPromptSubmit", [])
-    if not isinstance(groups, list) or any(not isinstance(group, dict) or not isinstance(group.get("hooks", []), list) for group in groups):
+    if not isinstance(groups, list) or any(not isinstance(group, dict) or not isinstance(group.get("hooks"), list) for group in groups):
         raise Refused(f"{shape}: `hooks.UserPromptSubmit` is a list of objects, each with a list `hooks`; correct the file, then run this again")
-    return data, [(group, hook) for group in groups for hook in group.get("hooks", []) if isinstance(hook, dict) and isinstance(hook.get("command"), str)]
+    hooks = [(group, hook) for group in groups for hook in group["hooks"]]
+    if any(not isinstance(hook, dict) or (hook.get("type") == "command" and not isinstance(hook.get("command"), str)) for _, hook in hooks):
+        raise Refused(f"{shape}: each hook of `hooks.UserPromptSubmit` is an object, and one of the type `command` has a `command`; correct the file, then run this again")
+    return data, [(group, hook) for group, hook in hooks if isinstance(hook.get("command"), str)]
+
+
+def forms(hooks: list[tuple[dict, dict]]) -> tuple[list[tuple[dict, dict]], list[str]]:
+    """This script's own entry where it is, and every other form of the hook as its JSON."""
+    # The whole entry is compared: the same command with another timeout is not what this script
+    # wrote, and a shorter one can end the hook before its two waits do.
+    ours = [(group, hook) for group, hook in hooks if hook == HOOK]
+    others = [json.dumps(hook, ensure_ascii=False) for _, hook in hooks if hook != HOOK and ANY_FORM.search(hook["command"])]
+    return ours, others
 
 
 def hook_state(file: Path) -> dict:
@@ -112,9 +126,8 @@ def hook_state(file: Path) -> dict:
         _, hooks = prompt_hooks(file)
     except Refused as error:
         return {"file": str(file), "state": "unreadable", "why": str(error)}
-    others = [hook["command"] for _, hook in hooks if ANY_FORM.search(hook["command"]) and hook["command"] != HOOK_COMMAND]
-    ours = any(hook["command"] == HOOK_COMMAND for _, hook in hooks)
-    row = {"file": str(file), "state": "registered" if ours else "another form" if others else "not registered"}
+    ours, others = forms(hooks)
+    row = {"file": str(file), "state": "another form" if others else "registered" if ours else "not registered"}
     if others:
         row["other_forms"] = others
     return row
@@ -123,23 +136,27 @@ def hook_state(file: Path) -> dict:
 def write_settings(file: Path, data: dict) -> None:
     # A settings file kept as a link (a folder of dotfiles) stays a link: its target is written.
     real = Path(os.path.realpath(file))
-    real.parent.mkdir(parents=True, exist_ok=True)
     draft = real.with_name(f"{real.name}.lem-{os.getpid()}")
-    draft.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    if real.exists():
-        shutil.copymode(real, draft)
-    os.replace(draft, real)
+    try:
+        real.parent.mkdir(parents=True, exist_ok=True)
+        draft.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        if real.exists():
+            shutil.copymode(real, draft)
+        os.replace(draft, real)
+    except OSError as error:
+        # the file is as it was; the draft holds the owner's settings, so it does not stay behind
+        draft.unlink(missing_ok=True)
+        raise Refused(f"{file} could not be written ({error}) and is as it was; make it writable, then run this again") from error
 
 
 def corrections(file: Path, turn: str) -> dict:
     """Register this clone's correction hook in `file`, or take it out. Raises Refused and changes nothing."""
     data, hooks = prompt_hooks(file)
-    others = [hook["command"] for _, hook in hooks if ANY_FORM.search(hook["command"]) and hook["command"] != HOOK_COMMAND]
-    ours = [(group, hook) for group, hook in hooks if hook["command"] == HOOK_COMMAND]
+    ours, others = forms(hooks)
     if turn == "on":
         if others:
             # two forms of one hook would send and queue each message twice
-            raise Refused(f"{file} already holds the correction hook in another form: {'; '.join(others)}. Take that command out of the file, then run this again")
+            raise Refused(f"{file} already holds the correction hook in another form: {'; '.join(others)}. Take that entry out of the file, then run this again")
         if not ours:
             data.setdefault("hooks", {}).setdefault("UserPromptSubmit", []).append({"hooks": [dict(HOOK)]})
             write_settings(file, data)
@@ -160,7 +177,10 @@ def corrections(file: Path, turn: str) -> dict:
             write_settings(file, data)
         else:
             # an empty settings file says what no file says
-            Path(os.path.realpath(file)).unlink()
+            try:
+                Path(os.path.realpath(file)).unlink()
+            except OSError as error:
+                raise Refused(f"{file} holds nothing but the hook and could not be removed ({error}); remove the file yourself") from error
     row = {"file": str(file), "state": "another form" if others else "not registered", "changed": bool(ours), "file_removed": bool(ours) and not data}
     if others:
         row["other_forms"] = others
@@ -228,8 +248,10 @@ def main() -> None:
         sys.exit(f"setup.py: {project} is not the root of a git checkout; --project names a repository")
     settings = project / ".claude" / "settings.local.json" if project else args.home / ".claude" / "settings.json"
     if args.corrections:
-        if project is not None and not Path(os.path.realpath(settings.parent)).is_relative_to(project):
-            sys.exit(f"setup.py: {settings.parent} is a link that leaves the repository (to {os.path.realpath(settings.parent)}); the hook of one repository is not written there")
+        # The file itself is resolved, not only its folder: a settings file that is a link to a
+        # shared one would register the hook for every checkout that reads the shared file.
+        if project is not None and not Path(os.path.realpath(settings)).is_relative_to(project):
+            sys.exit(f"setup.py: {settings} is behind a link that leaves the repository (to {os.path.realpath(settings)}); the hook of one repository is not written there")
         try:
             row = corrections(settings, args.corrections)
         except Refused as error:
