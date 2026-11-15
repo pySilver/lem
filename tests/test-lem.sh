@@ -532,6 +532,15 @@ if [ "$shared" = clean ] && [ "$(field 'sorted(set(l["state"] for l in d["links"
 else
   fail "the reach of a trial: $out / wt: $(git -C "$WORK/trial-wt" status --porcelain) / main: $(git -C "$TRIAL" status --porcelain)"
 fi
+# A second repository whose .claude is a link to this one's: its --remove changes nothing here.
+git init -q -b main "$WORK/trial-b" && ln -s "$TRIAL/.claude" "$WORK/trial-b/.claude"
+out=$(env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$WORK/trial-b" --remove)
+if [ "$(field 'all(l["state"].startswith("blocked") for l in d["links"])' <<<"$out")" = True ] && [ -L "$TRIAL/.claude/skills/lem" ] \
+  && [ -f "$TRIAL/.claude/skills/.gitignore" ] && [ -f "$TRIAL/.claude/agents/.gitignore" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
+  pass "--remove through a .claude that is a link into another repository takes away nothing there, not a link and not an ignore file"
+else
+  fail "setup --project --remove through a linked .claude: $out / $(git -C "$TRIAL" status --porcelain)"
+fi
 out=$(trial --remove)
 if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ -z "$(find "$TRIAL/.claude" -type l)" ] \
   && [ ! -e "$TRIAL/.claude/skills/.gitignore" ] && [ ! -e "$TRIAL/.claude/agents/.gitignore" ] \

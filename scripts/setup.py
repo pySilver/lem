@@ -71,6 +71,9 @@ def hide_from_git(rows: list[dict]) -> list[str]:
     for row in rows:
         folders.setdefault(Path(row["place"]).parent, []).append(row)
     for folder, members in folders.items():
+        if any(row["state"].startswith("blocked") for row in members):
+            # not a folder of this repository: whatever is in it belongs to someone else
+            continue
         ignore = folder / ".gitignore"
         ours = ignore.is_file() and not ignore.is_symlink() and ignore.read_text().splitlines()[:1] == [MARK]
         linked = [Path(row["place"]).name for row in members if row["state"] == "linked"]
