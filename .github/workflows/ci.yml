@@ -56,6 +56,9 @@ jobs:
       - name: Lem's scripts, the landing on GitHub
         if: ${{ !cancelled() }}
         run: bash tests/lem-land-github.sh
+      - name: Lem's scripts, the landing's guards and refusals
+        if: ${{ !cancelled() }}
+        run: bash tests/lem-land-guards.sh
       - name: The board
         if: ${{ !cancelled() }}
         run: bash tests/test-board.sh

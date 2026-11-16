@@ -130,7 +130,7 @@ git clone -q "$ORIGIN" "$other" && ident "$other"
 echo late > "$other/late.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: late" && git -C "$other" push -q origin main
 err=$(land --repo "$SHOP" land first-change --by agent 2>&1 || true)
 if [ "$(status_of land --repo "$SHOP" land first-change --by agent)" = 1 ] && grep -q "moved after the gate ran, by files the gate reads (late.txt)" <<<"$err" \
-  && grep -q "run .land.py start., .land.py base. and .land.py gate. again" <<<"$err" && [ "$(status first-change)" = open ]; then
+  && grep -q "run .land.py start., .land.py base., .land.py gate. and .land.py propose. again" <<<"$err" && [ "$(status first-change)" = open ]; then
   pass "land refuses when the base moved by a file the gate reads, and says which steps run again"
 else
   fail "land after the base moved: $err"

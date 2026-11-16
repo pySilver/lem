@@ -44,6 +44,15 @@ TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `gate.bar` p
 file that is not a document. A changed file of another language gets no such check, and the
 result says which (`not_covered`). The size of the change is counted, for the reviewer.
 
+A gate with no command to run is refused, since a gate that ran nothing shows nothing; so is one
+whose command left a file in the worktree or made a commit on the branch, since its result is then
+about another tree. What the gate keeps is the tip it ran on and that tip's tree.
+
+`start` refuses a worktree on no branch: `propose` pushes the task's branch and `clean` deletes
+it. With no gate command it writes the task's state `blocked`, and a later `start` takes that task
+back once the commands are there. A task in `landing` holds the line for every other; each
+refusal on the way names the step out, also when its worktree is gone.
+
 The gate is the main checkout's. One task may bring its own: when the main checkout's settings
 name no gate command and the task's branch adds them to its `.lem/project.toml` (they are not on
 the base commit), `start` and `gate` take those commands, as for the first task of a new
@@ -193,8 +202,10 @@ says which steps run again.
 A step that was cut off is run again. `land` writes down the commit it is about to put on the base
 before it does, so a second run that finds that commit on the base only finishes the bookkeeping.
 `clean` knows the branch from `landing.json`, so it finds it after the worktree is gone. It
-takes a landed, a dropped or an answered task; the branch of the last two stays, with what it
-holds and how to delete it.
+takes a landed, a dropped or an answered task. The branch of the last two goes when the base
+holds it whole, and stays when it has commits of its own, with what it holds and how to delete
+it. `landing.json`, `pr.md` and each item of the backlog are written whole, through a new file
+that takes the old one's place, so that a run cut off in the middle leaves no half of one.
 
 The landing of a ready branch is a fast-forward and nothing else. With a remote named `origin`
 the tip is pushed to the base branch there with a plain push, which the remote refuses when
@@ -233,6 +244,12 @@ KINDS = ("read", "round", "full")
 KIND_SAYS = {"read": "one read", "round": "a review round with the profiles that fit", "full": "the project's full set"}
 # The line Lem writes into a task's brief when the owner says that the task is careful.
 OVERRULED = "careful: the owner says so"
+# The state line `start` writes when the project has no gate command; a task blocked with it is
+# the one `start` takes back once the commands are there.
+NO_GATE = "the project has no gate command"
+# The steps that take a tip from the start to a proposal, which a refusal of `land` names when the
+# tip, the base or the tree is not the one on record.
+AGAIN = "run `land.py start`, `land.py base`, `land.py gate` and `land.py propose` again"
 # How many changed lines one reader takes as one piece; a larger change is read task by task, in
 # the plan's own cuts. A guess (2026-11-15), not a measurement.
 READ_AT = 800
@@ -314,6 +331,13 @@ def git(where: Path, *args: str, check: bool = True) -> str:
     return run(["git", "-C", str(where), *args], check=check).stdout.strip()
 
 
+def write_whole(file: Path, text: str) -> None:
+    """Write a file whole or not at all: a run cut off in the middle leaves the old file, never half of one."""
+    fresh = file.with_name(file.name + ".new")
+    fresh.write_text(text, encoding="utf-8")
+    fresh.replace(file)
+
+
 def script(name: str, repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
     """One command of a sibling script, so this one reads a repository the way every stage does."""
     ran = subprocess.run(
@@ -368,20 +392,41 @@ class Task:
 
     def need_worktree(self) -> None:
         if not (self.worktree / ".git").exists():
-            raise LandError(f"the task has no worktree at {self.worktree}")
+            branch = self.kept().get("branch") or "BRANCH"
+            raise LandError(
+                f"the task has no worktree at {self.worktree}: `git -C {self.main} worktree prune` forgets a worktree whose folder was removed by hand, "
+                f"and `git -C {self.main} worktree add {self.worktree} {branch}` puts the task's branch back in it, then this step runs again; "
+                f"when the work is gone with it, `project.py state {self.slug} dropped \"WHY\"` ends the task",
+            )
         dirty = git(self.worktree, "status", "--porcelain")
         if dirty:
             raise LandError(f"the worktree has changes nobody committed:\n{dirty}\ncommit them or remove them before this step")
 
+    def blocked_by_start(self) -> bool:
+        """Whether the task is `blocked` by `start` itself, for want of a gate command."""
+        block = self.record.get("state") or ""
+        return self.record["status"] == "blocked" and block.splitlines()[0].endswith(f" blocked: {NO_GATE}")
+
     def need_landing(self) -> None:
         if self.record["status"] != "landing":
-            raise LandError(f"the task is {self.record['status']!r}, not `landing`; `land.py start {self.slug}` comes first")
+            if self.record["status"] in ("ready", "open") or self.blocked_by_start():
+                raise LandError(f"the task is {self.record['status']!r}, not `landing`; `land.py start {self.slug}` comes first")
+            raise LandError(f"the task is {self.record['status']!r}, not `landing`: `land.py start` takes a `ready` or an `open` task into it, and this one is neither")
 
     def kept(self) -> dict:
-        return json.loads(self.kept_file.read_text()) if self.kept_file.is_file() else {}
+        if not self.kept_file.is_file():
+            return {}
+        try:
+            return json.loads(self.kept_file.read_text(encoding="utf-8"))
+        except ValueError as error:
+            raise LandError(
+                f"{self.kept_file} does not read as JSON ({error}); land.py writes it whole, so something else wrote it. "
+                f"Move it aside, then `project.py state {self.slug} ready \"WHY\"` and `land.py start {self.slug}` start the landing over: "
+                "its checks and its review run again, and `propose` finds a pull request the task has on the forge",
+            ) from error
 
     def keep(self, **values: object) -> None:
-        self.kept_file.write_text(json.dumps({**self.kept(), **values}, indent=2) + "\n")
+        write_whole(self.kept_file, json.dumps({**self.kept(), **values}, indent=2) + "\n")
 
     def state(self, status: str, *lines: str) -> None:
         script("project.py", self.worktree if self.worktree.exists() else self.main, "state", self.slug, status, *lines)
@@ -419,17 +464,33 @@ class Task:
 
 def cmd_start(task: Task) -> dict:
     if task.others_landing:
-        raise LandError(f"{task.others_landing[0]} is in `landing`: one branch lands at a time, so finish that one first")
-    if task.record["status"] not in ("ready", "landing", "open"):
+        other = task.others_landing[0]
+        raise LandError(
+            f"{other} is in `landing`: one branch lands at a time, so finish that one first. When it cannot go on (its worktree or its work is gone), "
+            f"`project.py state {other} ready \"WHY\"` gives the line back and its landing starts over, or `project.py state {other} dropped \"WHY\"` ends it",
+        )
+    # a task `start` blocked for want of a gate command is taken back as a `ready` one
+    again = task.blocked_by_start()
+    if task.record["status"] not in ("ready", "landing", "open") and not again:
         raise LandError(f"the task is {task.record['status']!r}; only a `ready` task, or an `open` one whose base moved, takes the landing line")
     if not task.gate()[0]:
-        task.state("blocked", "the project has no gate command")
+        if not again:
+            task.state("blocked", NO_GATE)
         raise LandError(
-            "the project has no gate command, so nothing would show that the change works; the task is now `blocked`. "
-            "Add the commands to gate.commands in .lem/project.toml, or, for the task that sets up the checks, in its own branch's",
+            f"{NO_GATE}, so nothing would show that the change works; the task is `blocked`. "
+            "Add the commands to gate.commands in .lem/project.toml, or, for the task that sets up the checks, in its own branch's, "
+            f"then run `land.py start {task.slug}` again",
         )
     task.need_worktree()
-    if task.record["status"] == "ready":
+    # The landing needs the task's branch: `propose` pushes it, and `clean` deletes it after the merge.
+    if not git(task.worktree, "branch", "--show-current"):
+        pointing = [name for name in git(task.worktree, "for-each-ref", "--points-at", "HEAD", "--format=%(refname:short)", "refs/heads/").splitlines() if name != task.base]
+        branch = task.kept().get("branch") or (pointing[0] if len(pointing) == 1 else "BRANCH")
+        raise LandError(
+            f"the task's worktree is on no branch (a detached HEAD), and the landing needs the task's branch: "
+            f"`git -C {task.worktree} switch {branch}` puts it back on it, then this step runs again",
+        )
+    if task.record["status"] == "ready" or again:
         # A task that was built further starts over, with new checks and new reads. Its pull request stays its own.
         pr = task.kept().get("pr")
         task.kept_file.unlink(missing_ok=True)
@@ -438,7 +499,7 @@ def cmd_start(task: Task) -> dict:
     if task.record["status"] != "landing":
         # kept here because `clean` needs the branch after the worktree, which names it, is gone
         task.keep(branch=git(task.worktree, "branch", "--show-current"))
-        task.state("landing", "the checks start" if task.record["status"] == "ready" else "the base moved: the checks run again")
+        task.state("landing", "the checks start" if task.record["status"] == "ready" or again else "the base moved: the checks run again")
     return {"task": task.slug, "base": task.base, "worktree": str(task.worktree), "remote": task.remote, "forge": task.forge}
 
 
@@ -460,7 +521,10 @@ def cmd_base(task: Task) -> dict:
     tip = git(task.worktree, "rev-parse", "HEAD")
     ahead = int(git(task.worktree, "rev-list", "--count", f"{onto}..HEAD"))
     if ahead == 0:
-        raise LandError(f"the branch has no commit that {task.onto} lacks: there is nothing to land")
+        raise LandError(
+            f"the branch has no commit that {task.onto} lacks: there is nothing to land. When the work reached the base another way, "
+            f"or there is none, `project.py state {task.slug} dropped \"WHY\"` ends the task",
+        )
     if tip != before and task.kept().get("polish"):
         # The rebase rewrote the commits the polish pass names; each takes its new name, so that
         # the gate still finds the pass on the tip it checks.
@@ -1184,10 +1248,10 @@ def cmd_file(task: Task, again: bool) -> dict:
                     break
                 if not (file.exists() or file.is_symlink()):
                     file.parent.mkdir(parents=True, exist_ok=True)
-                    file.write_text(
+                    write_whole(
+                        file,
                         f"---\nworth: later\nwhere: {defect['where']}\nadded: {today}\n---\n# {defect['title']}\n\n{defect['what']}\n\n"
                         f"Seen outside the change by review round {read['round']} of task {task.slug} ({read.get('date', today)}); the base commit has it.\n",
-                        encoding="utf-8",
                     )
                     filed.append({"round": read["round"], "title": defect["title"], "item": path})
                     written.setdefault(read["round"], []).append(path)
@@ -1722,14 +1786,14 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
             # The branch got more work since. What landed then is written down, and what the branch
             # holds now lands like any tip: through its own base, checks and read.
             task.keep(intent=None, landed_before=[*kept.get("landed_before", []), intent["range"]])
-            raise LandError(f"{intent['range']} is on {task.onto} from a landing that was cut off, and the branch has more work since: run `land.py start`, `land.py base` and `land.py gate` again for it")
+            raise LandError(f"{intent['range']} is on {task.onto} from a landing that was cut off, and the branch has more work since: {AGAIN} for it")
     view = viewed(task) if kept.get("pr") else None
     if view and view["state"] == "MERGED":
         # the forge already holds the merge, whoever made it: only the bookkeeping is left
         return forge_done(task, view)
     may_merge(task, by)
     if not kept.get("gated"):
-        raise LandError("no green check is on record for this tip; `land.py start`, `base` and `gate` come first")
+        raise LandError(f"no green check is on record for this tip; {AGAIN}")
     squash = task.settings["branch"]["history"] == "squash"
     if squash and not message:
         raise LandError("branch.history is \"squash\": pass --message with the one commit's subject, from the task's report")
@@ -1741,14 +1805,13 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
             raise LandError("the pull request was closed without a merge: whether the task is dropped or goes on is the owner's call")
         tip = git(task.worktree, "rev-parse", "HEAD")
         if view["headRefOid"] != tip or kept.get("proposed") != tip:
-            raise LandError("the pull request's head is not the tip that was proposed; run `land.py start`, `land.py base`, `land.py gate` and `land.py propose` again")
+            raise LandError(f"the pull request's head is not the tip that was proposed; {AGAIN}")
         task.fetch()
         base_now = git(task.worktree, "rev-parse", task.onto)
         moved = changed(task, kept["base"], base_now) if base_now != kept["base"] else []
         if not ignored(task, moved):
             raise LandError(
-                f"{task.onto} moved after the checks ran, by files the gate reads ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); "
-                "run `land.py start`, `land.py base`, `land.py gate` and `land.py propose` again",
+                f"{task.onto} moved after the checks ran, by files the gate reads ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}",
             )
         how = ["--squash", "--subject", message] if squash else ["--rebase"]
         gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how)
@@ -1757,7 +1820,7 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
             raise LandError("the forge took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `land.py merged` when it is")
         return forge_done(task, view)
     if kept.get("proposed") != git(task.worktree, "rev-parse", "HEAD"):
-        raise LandError("the branch's tip is not the tip that was proposed; run `land.py start`, `land.py base`, `land.py gate` and `land.py propose` again")
+        raise LandError(f"the branch's tip is not the tip that was proposed; {AGAIN}")
 
     task.fetch()
     base_now = git(task.worktree, "rev-parse", task.onto)
@@ -1769,17 +1832,17 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
         if not ignored(task, arrived):
             raise LandError(
                 f"{task.onto} moved after the gate ran, by files the gate reads ({', '.join(arrived[:5])}"
-                f"{', ...' if len(arrived) > 5 else ''}); run `land.py start`, `land.py base` and `land.py gate` again",
+                f"{', ...' if len(arrived) > 5 else ''}); {AGAIN}",
             )
         if run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False).returncode != 0:
             git(task.worktree, "rebase", "--abort", check=False)
-            raise LandError(f"{task.onto} moved after the gate ran and the rebase onto it stopped; run `land.py start` and `land.py base` again")
+            raise LandError(f"{task.onto} moved after the gate ran and the rebase onto it stopped, and the branch is as it was; {AGAIN}, where `base` names the files that meet")
     elif git(task.worktree, "rev-parse", "HEAD") != kept["gated"]:
-        raise LandError("the branch's tip is not the commit the gate passed on; run `land.py start`, `land.py base` and `land.py gate` again")
+        raise LandError(f"the branch's tip is not the commit the gate passed on; {AGAIN}")
     # What lands is the tree the gate saw, plus only the ignored files that arrived on the base.
     differs = changed(task, kept["tree"], "HEAD^{tree}")
     if not set(differs) <= set(arrived):
-        raise LandError(f"the tree that would land differs from the tree the gate passed on in {', '.join(differs[:5])}; run `land.py start`, `land.py base` and `land.py gate` again")
+        raise LandError(f"the tree that would land differs from the tree the gate passed on in {', '.join(differs[:5])}; {AGAIN}")
 
     if squash:
         # A commit runs the project's hooks, and a hook may change what is committed. The one commit
@@ -1790,12 +1853,16 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
         made = run(["git", "-C", str(task.worktree), "commit", "-m", message], check=False)
         if made.returncode != 0:
             git(task.worktree, "reset", "--soft", before)
-            raise LandError(f"the one commit was refused, and the branch is as it was: {(made.stderr or made.stdout).strip()}")
+            raise LandError(
+                f"the one commit was refused, and the branch is as it was: {(made.stderr or made.stdout).strip()}. "
+                f"A hook that refused the subject takes another --message to `land.py land {task.slug}`; one that refused the files, "
+                f"a commit on the branch that meets it, then {AGAIN}",
+            )
         if git(task.worktree, "rev-parse", "HEAD^{tree}") != checked:
             git(task.worktree, "reset", "--hard", before)
             raise LandError(
                 "a commit hook changed the files of the one commit, so it is not the tree the gate passed on; the branch is as it was. "
-                "Commit what the hook changes on the branch, then run `land.py start`, `land.py base` and `land.py gate` again",
+                f"Commit what the hook changes on the branch, then {AGAIN}",
             )
     tip = git(task.worktree, "rev-parse", "HEAD")
     landed = f"{base_now[:9]}..{tip[:9]}"

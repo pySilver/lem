@@ -36,6 +36,7 @@ one finds what the run before it finished.
    while another task is in `landing`, and for a worktree with changes nobody committed. A project
    with no gate command cannot land through this skill, because "nothing failed" would then mean
    "nothing ran": the step writes the task's state as `blocked` instead, and you tell the owner.
+   Once the commands are in the settings, `start` again takes the task it blocked.
    The one exception is the task that sets up the checks (`stages/init.md`): when the main
    checkout's settings have no gate command and the task's own branch adds them to its
    `.lem/project.toml`, its gate is those commands, and its pull request is not green for that,
