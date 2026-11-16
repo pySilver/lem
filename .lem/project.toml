@@ -1,0 +1,130 @@
+# What Lem reads in this repository. `project.py show` prints it resolved.
+
+[paths]
+# Where each kind of setting lives, relative to the root of the checkout.
+profile = ".lem/profile.md"
+styleguide = ".lem/styleguide"
+personas = ".lem/personas"
+review = ".revmux"
+lessons = ".lem/lessons.md"
+rulings = "docs/rulings"
+backlog = "docs/backlog"
+plans = "docs/plans"
+worktrees = ".lem/worktrees"
+
+[branch]
+# The branch a task starts from and lands on.
+base = "main"
+# Who lands a finished task: "owner", or "agent" once the gate is green.
+land = "owner"
+# What lands: "keep" lands the branch's own commits, "squash" lands one commit for the whole task.
+history = "squash"
+# How a task ends where the remote is GitHub: "pull-request" opens one there, "merge" lands the
+# branch on the remote's base branch with none. With any other remote, or none, it is the merge.
+propose = "pull-request"
+# Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
+protected = []
+
+[gate]
+# The machine checks that gate a landing, each run at the root of the task's worktree.
+commands = [
+  "shellcheck tests/*.sh",
+  "bash tests/test-lem.sh",
+  "bash tests/test-gate-panel.sh",
+  "bash tests/test-ask.sh",
+  "bash tests/test-ask-expert.sh",
+]
+# Paths the gate does not read. When the base branch moves after a green gate by these files
+# only, the result stands; any other file means the gate runs again. A `*` crosses directories.
+ignores = []
+# What a fresh worktree of this project needs before its tests can start: install the packages,
+# copy an environment file. The check that each story's tests fail on the base commit runs in a
+# worktree of its own and runs these there first. Leave it empty when the tests start as they are.
+setup = []
+
+[flow]
+# Paths whose change takes the careful flow: its plan is talked through with the reviewer before
+# any code, in a companion session of its own, and the landing gives it the project's full
+# review set. A `*` crosses directories.
+careful = [
+  "skills/lem/scripts/land.py",
+  "skills/lem/scripts/stories.py",
+  "skills/lem/scripts/decisions.py",
+  "skills/lem/scripts/project.py",
+  "scripts/setup.py",
+  "hooks/*",
+  "skills/lem/scripts/corrections.py",
+  "skills/lem/scripts/jev.py",
+  ".claude-plugin/*",
+  "agents/lem-builder.md",
+]
+# What must not go wrong in this project, each as one sentence in the owner's words: "a price a
+# customer pays", "data that cannot be rebuilt", "who may sign in". No code matches these: the
+# lead of a task reads its plan against each, and a plan that touches one takes the careful flow
+# whatever its paths.
+topics = [
+  "A pull request says green when it should not: a check failed, a review found a must-fix, a story changed, or the bar went lower.",
+  "Lem changes a developer's repository without his word: a push, a merge, a removed worktree or branch, a protected branch touched.",
+  "A developer's typed messages leave the machine without his yes: the correction hook sends them to the Jev model through OpenRouter.",
+  "The setup changes a developer's home over something that was there: the links in ~/.claude, the hook in settings.json.",
+  "A task's record is lost or wrong: its state, its decisions and its approved stories, which nothing rebuilds and the pull request reads.",
+  "A change bends a ruling of the owner: a ruling in AGENTS.md is reopened only by asking him.",
+]
+# How many tasks build or land at one time. Four to five ran well on one Mac; six gave a load
+# average of 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when
+# the tests share one database or drive a browser.
+# Lem's own repository (2026-11-16 onboarding): its tests drive headless Chrome, and most tasks here
+# change the same stage files.
+max_tasks = 2
+# How many minutes a choice of the build waits for the owner before the lead takes the recommended
+# option, and the pull request is not green for it. The owner's own number (2026-11-16).
+decision_wait = 15
+
+[seats.reviewer]
+# The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one talks
+# the plan of a careful or large task through with its defender, in the plan talk's companion.
+# The same family twice is allowed.
+agent = "codex"
+# What its pane starts with. Leave one out and the agent's own default holds.
+# model = ""
+# effort = ""        # for the review of a diff
+# plan_effort = ""   # for the talk over a plan
+
+[seats.planner]
+# The agent that defends a careful or large plan in its talk with the reviewer, in a companion
+# session Lem opens for the talk and closes after it. Only "claude" for now. Leave a line out and
+# the agent's own default holds.
+# agent = "claude"
+# model = ""
+# effort = ""
+
+[corrections]
+# Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
+# message the owner types, with the agent message it answers, to the Jev decision model. That
+# is the owner's choice, so it is false until he says yes. `true` here, in git, is a yes for
+# everybody who works in this repository with the hook: with Lem as a plugin the hook comes with
+# the install, with links the owner registers it by one command of Lem's setup. One person says
+# no for themselves with `collect = false` under [corrections] in .lem/project.local.toml.
+collect = true
+
+# The tracker a task's ask may come from. Leave it out when the project has none. Lem reads a
+# ticket into a task, and comments it when the task lands. `moves` says who moves the ticket's
+# status: "lem", with the two status names as the team spells them, or "tracker" when the
+# tracker's own automation moves it (a pull-request integration).
+# [tracker]
+# kind = "linear"
+# server = "linear"      # the name of the tracker's MCP server in the agent
+# workspace = "acme"     # the workspace, as in its address linear.app/acme: nothing is read or written in another
+# team = "ABC"           # the key of the one team whose tickets this project takes
+# moves = "lem"
+# started = "In Progress"
+# landed = "Done"
+
+[tools]
+# The skill or command the owner marks up a plan or a draft with. "webrev" is the one Lem
+# recommends, a recipe of the agterm cookbook that you install; name your own instead.
+annotate = "webrev"
+# How a question that asks the owner to choose or to approve reaches him. "lem-ask" comes with
+# Lem and shows a page with the options side by side. "terminal" asks in the conversation, as a
+# numbered list. Or name a skill or a command of your own.
+ask = "lem-ask"
