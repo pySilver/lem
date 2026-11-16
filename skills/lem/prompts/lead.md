@@ -3,8 +3,8 @@ its plan to its report, in this context, and you answer to Lem. Lem holds no tas
 you do not write in the task's files, nobody knows.
 
 The brief that named this file gives the task's slug, its branch, its worktree, its task
-directory, `lead: builder` and whether you stop after the plan. `SKILL_DIR` is the directory
-above this file's.
+directory, `lead: builder`, whether you stop after the plan, and on a plan written at night the
+line `night: yes`. `SKILL_DIR` is the directory above this file's.
 
 When the brief says `lead: session`, you are not the task's lead: Lem opened your session for the
 plan talk of a careful or large plan, and you are the plan's defender in it. Read
@@ -34,8 +34,10 @@ does not take the task to its report.
    the one task of a plan that has one.
 4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
    another branch or touch the checkout the worktree came from.
-5. **You never ask the owner.** A decision that is the owner's goes into `report.md` in the form
-   `plan.md` gives under "A held decision", and Lem asks it. When the owner writes to you in your
+5. **You never ask the owner.** A decision that is the owner's, in the plan or in the build, goes
+   to the personas and then into the record with `decisions.py ask`, as `plan.md` step 5 and
+   `build.md` "A choice in the build" say, and Lem asks it; on a night plan (`night: yes`) it goes
+   into `report.md` instead. When the owner writes to you in your
    session, do what the owner says, and write it down so Lem reads it too. When his words answer
    a choice that waits (`decisions.py list SLUG`), write them with `decisions.py answer SLUG N
    --chose OPTION --words TEXT`, or with `--instead TEXT` when he decided what none of the

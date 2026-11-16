@@ -38,7 +38,8 @@ and agterm on the owner's machine (`doctor.py`, 2026-11-16).
 - **This repository is the running Lem.** A setup links Lem from this clone's main checkout, and
   the plugin form takes every commit as an update. When a change reaches `main` and the main
   checkout moves forward, every session that uses Lem reads the new text at once, the landing
-  that is running included (`docs/backlog/lem-does-not-build-lem-yet.md`). A task works in its
+  that is running included: what it reads after its merge keeps reading the form before the
+  change (`AGENTS.md`, "Rules for a change here"). A task works in its
   own worktree, and nothing edits the main checkout by hand.
 - **The skill files are instructions to agents.** A sentence in a stage file is followed word for
   word by a builder. A vague or wrong sentence is a defect, as a wrong line of code is.

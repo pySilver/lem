@@ -1,6 +1,6 @@
 ---
 name: lem-ask-expert
-description: "Give a choice of a build that waits for the owner to two experts of two model families at once, in the background and read-only, and write each one's advice into the choice's record. Their two answers go on the owner's card while he decides; when he does not answer in time, their shared pick is taken, and at once when he is away. Lem's stages call it right after `decisions.py ask`; the owner calls it as `/lem ask-expert SLUG N`. Use when a choice of a Lem task waits for the owner, or when the user says \"ask expert\", \"ask the experts\", \"/lem ask-expert\"."
+description: "Give a choice of a task that waits for the owner, from its plan or its build, to two experts of two model families at once, in the background and read-only, and write each one's advice into the choice's record. Their two answers go on the owner's card while he decides; when he does not answer in time, their shared pick is taken, and at once when he is away. Lem's stages call it right after `decisions.py ask`; the owner calls it as `/lem ask-expert SLUG N`. Use when a choice of a Lem task waits for the owner, or when the user says \"ask expert\", \"ask the experts\", \"/lem ask-expert\"."
 argument-hint: 'SLUG N [--file PATH ...]'
 ---
 

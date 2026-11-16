@@ -26,15 +26,41 @@ in that project's repository. `README.md` says what it does; this file says how 
 - **Scripts are standard-library Python, 3.11 or newer**, print JSON for an agent to read, and
   refuse a wrong input with exit 1 and a message that names the fix. No silent default for a
   choice that is the owner's (`project.py init --existing`).
+- **A change is measured by what it costs a developer on a small task** (the touches it asks of
+  him, the waits, the agents it starts) as well as by what it guards.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously".
 - **A session with nobody at the terminal reads `docs/free-hour.md` first.** A setup links Lem
   from this clone's main checkout, so an edit there is live at once in every repository that
   uses Lem. Such a session works in a worktree, on a branch, and never pushes.
+- **A change to what a landing reads after its merge keeps reading the form before it, for one
+  landing.** A setup links Lem from this clone's main checkout, so a landing of a change to Lem
+  changes the files of the landing that runs. `land.py land` and `merged` put the change on the
+  base branch and fast-forward the checkout that holds it (`follow`, or the merge itself where
+  there is no remote), and from that moment every step runs the new files: the same run writes
+  the state `landed` through the new `project.py state`; then `land.py clean`, a second run of a
+  cut-off `land` or `merged`, the tracker's "land", `project.py tasks` and `may-start` for the
+  queue, and the stage text Lem reads again (`stages/land.md` step 8, the end of
+  `stages/new.md`). Each of them reads what the code before the change wrote. So a change to the
+  keys of `landing.json` that those steps read (`branch`, `merged`, `merged_head` for `clean`;
+  `intent`, `pr`, `proposed`, `gated`, `base`, `tree` and `landed_before` for a second run of
+  `land`), to the state names, to the form of a state block that `project.py tasks` reads, or to
+  the arguments of `project.py state`, `tasks` and `may-land`, reads the old form too. A later
+  change may drop it, once no landing that wrote the old form is open. Nothing runs a landing
+  from a copy of the scripts, and no step is added for it.
 
 ## The owner's rulings
 
 Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
 
+- **Lem is for experienced developers, and every change is measured against that** (2026-11-16):
+  "it is crucial not to forget that this tool is for experienced developers, so it has to be: 1.
+  Polished experience 2. Actually helpful, not confusing 3. Opionated but extemely smart and
+  pleasant to use 4. Lem would be positioned as an every day Developer's companion 5. Lem should
+  not make simple things complicated, otherwise developers will get frustrated so often they will
+  stop using Lem", and after it: "Think of Lem as a commercial product (even if its not), not
+  half-done half-broken open source project. It has to be easy to adopt, easy to use, easy to
+  understand, easy to predict while being complex inside. And boy, it has to be beautiful and
+  clear."
 - **agterm is a hard dependency**, and so is the mailbox chat from its cookbook. Lem does not run
   outside agterm.
 - **One Lem for one repository.** It coordinates many tasks there. No ability across repositories.
@@ -351,6 +377,43 @@ full, with what was designed from it.
 A lowered bar (a new suppression, a skipped or deleted test, fewer assertions) makes a pull
 request not green also when the plan gives its reason: the design session's decision of
 2026-11-16, told to him as its own, and open to him.
+
+## Decisions the maintaining session took
+
+On 2026-11-16 the owner gave the design to the session that builds Lem: "You are the owner and
+long-term maintainer of this codebase, and its design is up to you. Pick recommended action if
+you still see it as best oucome." Two reviews of Lem, by Codex and by Fable, had left the points
+below open, and that session decided each under his sentence. None of them is his ruling: each
+is the session's, and open to him.
+
+- **Every decision that is the owner's takes one path**, at plan time as in the build: the
+  persona panel (`lem-panel`, the lead's step), then `decisions.py ask` with one concrete run
+  (`--case`, `--case-was`, `--cause`, which the card shows above it), the wait of
+  `flow.decision_wait` while the rest goes on, and then the experts' shared pick or the
+  recommended option, not green. The question gate (`lem-gate`) sits at Lem's card. A decision
+  of the plan no longer holds the task: it was the one place where his wait had no end. `held`
+  keeps what has no options: the stories that wait for his yes (a kind only he may change among
+  them), one more fact for an investigation, a step that is his to do, and an irreversible
+  choice that every task left needs. A night plan asks no such decision, since nobody is there
+  and every wait would end without him: its brief says `night: yes`, `decisions.py ask` refuses
+  it, and the draft ends on the decision as before.
+- **A plan talk's record is taken as it ran.** The bound of 4 × questions + 2 turns stays the
+  rule of `stages/plan.md` step 4, which the defender keeps. The script no longer refuses a
+  record over it, nor one in which a second question on a decision did not close as a design
+  choice: such a record is a fact, and its refusal left the companion open and the request
+  unproposed for ever. `project.py log` adds the bound to the event as `bound`, and the pull
+  request's line of the talk and the board say "N turns, over the bound of M for its Q
+  questions". The checks that only a miscount breaks stay, and so does the floor of two turns.
+- **Lem lands Lem by a rule, not by machinery**: the rule on what a landing reads after its
+  merge, in "Rules for a change here". No copy of the scripts runs a landing, and no step is
+  added for it. The backlog item that asked for one of the two is closed by the rule.
+- **Where the stages keep what the amendment of 2026-11-16 says otherwise.** Its note 3 has the
+  lead change a story a persona doubted before the owner sees it; the stages keep the story as
+  written, with what the lead would change beside it as a proposal, because no agent rewrites
+  his contract before he reads it. "Not green" stays for every choice the experts or the timeout
+  took, where the amendment names only the timeout. The polish pass does not run for a
+  correction, unless its report names a defect outside the task: the weight of a step follows
+  the size of the change.
 
 ## Checks
 

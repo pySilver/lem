@@ -54,8 +54,9 @@ you the start of one, write the state `blocked` with that refusal, and stop.
 A surprise in the build stops the task for the owner's wait at most, never longer, except for a
 step that a later "no" cannot reverse. The owner's rule, 2026-11-16: the personas first, a clear
 choice taken and logged, an unclear one to him, and with no answer in 15 minutes the recommended
-action, logged so that the pull request shows it. Every decision goes into the task's record
-through one script, which also puts it on the board:
+action, logged so that the pull request shows it. A decision of the plan that is the owner's
+takes these steps too (`stages/plan.md`, step 5): there is one path for every decision of his.
+Every decision goes into the task's record through one script, which also puts it on the board:
 
 ```bash
 python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT]
@@ -78,14 +79,18 @@ A story whose rule changes, comes or goes is never the lead's alone: it takes st
 personas first. The stories script
 refuses the plan until its stories are the expected ones, word for word, and the pull request is
 not green for each change. The kind (`Kind:`) is the owner's only: a feature that has to become
-a correction, or the other way, is a held decision. A plan that departs from a direction
+a correction, or the other way, waits for his yes to the stories, as `stages/plan.md` step 1
+says for a correction that is a feature, and is no choice of this section. A plan that departs from a direction
 (`directions.md`) is a decision of this section too, with the direction in `--what`.
 
 1. **The stories and the directions stay true**: decide it yourself, from the code, the settings
    and the rulings, and log it with `--by lead` and `--undo`, what it would take to undo it.
-2. **Otherwise the persona panel first**, with the personas the choice concerns, in its reviewing
-   mode: each option as what a person would see and what it costs, and a short check of outside
-   facts when one fact decides it. It asks the owner nothing and decides nothing.
+2. **Otherwise the persona panel first**: the `lem-panel` skill (`load-skill`), with the personas
+   the choice concerns, in its reviewing mode: each option as what a person would see and what it
+   costs, and a short check of outside facts when one fact decides it. It asks the owner nothing
+   and decides nothing. This is the personas' step of every decision of his; the question gate
+   (`lem-gate`) comes later, at Lem, when the card goes to him (`stages/new.md`, "When a choice
+   waits for the owner").
    - *A clear answer* (the personas agree, nobody in doubt): take it, log it with
      `--by personas --said "who picked what"`, and go on. A story that the choice changes gets
      its record, `decisions.py story ... --by personas --said "who picked what"`; change the
@@ -94,10 +99,14 @@ a correction, or the other way, is a held decision. A plan that departs from a d
      meant or of taste, which the personas do not answer for him: ask him.
 
      ```bash
-     python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE ask SLUG --what TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
+     python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
      ```
 
-     `--said` holds what the personas answered, or why they were not asked. A choice carries no
+     `--case` is one concrete case in numbered steps that ends badly, with real names and values
+     and where each step was read, one step to a line; `--case-was` says whether you reproduced
+     it or derived it; `--cause` is one line on why the case became possible and how far the same
+     cause reaches. They go above the owner's card, so that he decides from one run and not from
+     the code. `--said` holds what the personas answered, or why they were not asked. A choice carries no
      story. Whichever way it ends, by his answer, by a decision of his that is none of the
      options, by the timeout or by the experts, read what was taken against each story: when one no longer
      holds, or a story has to come or go, record it with `decisions.py story ... --choice N`,
@@ -167,9 +176,12 @@ repository's root, never a path inside the worktree: the worktree is gone when t
 - **decisions**: each one taken without the owner, with why and what it would take to undo, by
   its number in `decisions.py list SLUG`. Each is in that record before the report: the pull
   request takes them from there;
-- **held**: each decision that is the owner's, in the form `plan.md` gives under "A held
-  decision", and each choice of an irreversible step that still waits, by its number. Leave the
-  heading out when there is none;
+- **held**: what the task waits on when its state is `held`: the stories with the answers that
+  flagged them, or the irreversible choice that every task left depends on, by its number. A
+  choice that waits while the work goes on is in the record, not here. Leave the heading out when
+  there is none;
+- **for the owner**, on a night plan only: each decision of his that the plan met, with its case,
+  its cause and its options (`plan.md`, step 5). Leave the heading out otherwise;
 - **outside defects**: each defect seen in code outside the task, with its file and one line on
   what is wrong. Do not fix it and do not file it: the polish pass of the landing fixes the
   small ones in place and files the others in the backlog (`stages/land.md`, step 3), with those

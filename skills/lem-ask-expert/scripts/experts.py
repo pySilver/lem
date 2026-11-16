@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The experts' brief of a choice that waits for the owner, and the record of their answers.
 
-Two experts of two model families answer one choice of a build from the same brief, at the same
+Two experts of two model families answer one choice of a task, of its plan or of its build, from the same brief, at the same
 moment, read-only: `fable` and `astra`. This script writes that brief and reads each answer back
 into the choice's record; starting the two agents is the harness's (`ask-experts`).
 
@@ -82,10 +82,14 @@ def brief_text(slug: str, number: int, found: dict, stories: dict, place: Path, 
         "it never decides this choice, which waits for his word.\n"
     ) if found.get("irreversible") else ""
     listed = "\n".join(f"- {file}" for file in files) or "- none named: read what the choice and the plan point at"
+    # a choice asked before the run was a part of the record has none to show
+    run = (
+        f"\nThe run that ends badly, as the lead {found['case_was']} it:\n\n{found['case']}\n\nWhy it can happen: {found['cause']}\n"
+    ) if found.get("case") else ""
     return f"""# Choice {number} of {slug}: the experts' brief
 
-A build met a choice its plan did not see, and the personas left it unclear, so it waits for the
-owner. You are one of two experts who answer it from this brief, each on their own. Your answer
+A task met a choice that is the owner's, in its plan or in its build, and the personas left it
+unclear, so it waits for the owner. You are one of two experts who answer it from this brief, each on their own. Your answer
 goes on his card while he decides. When he does not answer in time, the option both experts
 picked is taken; when you split, the recommended option is.
 
@@ -95,7 +99,7 @@ Read only. Change no file, run nothing that writes, and commit nothing. The task
 ## The choice
 
 {found['what']}
-
+{run}
 The options, word for word:
 
 {options}

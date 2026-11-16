@@ -147,7 +147,7 @@ that calls itself careful (`careful: yes`) or has more than three tasks was talk
 its defender and the reviewer in the plan talk's companion before any code, and the defender
 wrote it down as one `plan.talk` event in the log `project.py` keeps: `propose` refuses such a
 request with none, and the text's checks hold one line from the newest, with who argued the plan
-with its defender, the turns, the
+with its defender, the turns (with the bound of its rules, when the talk went over it), the
 positions settled and left open, and every other count the event holds, in words where Lem
 knows the count (`TALK_SAYS`) and by its name where it does not. An event of the older form,
 with no counts but those three, reads as before. A talk is a step before the build, so a request that is careful only by the owner's later word or
@@ -264,8 +264,9 @@ TALK_SAYS = {
     "layer": ("layer over a cited decision", "layers over a cited decision"),
     "shared": ("decision two questions named", "decisions two questions named"),
 }
-# What every event has and the talk's line says first, so it is no count after the positions.
-TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open")
+# What every event has and the talk's line says first, so it is no count after the positions; and the
+# bound of turns its rules give, which `project.py log` adds and the line names only when the talk went over it.
+TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open", "bound")
 # Who took a decision of the record, as the text of a pull request names them.
 TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout", "experts": "the experts"}
 # What a review names of each defect it saw outside the change.
@@ -651,7 +652,7 @@ def defects_of(value: object) -> list[dict]:
     return [{key: item[key].strip() for key in DEFECT} for item in value]
 
 
-def outside_of(task: Task, read: dict) -> list[dict]:
+def outside_of(read: dict) -> list[dict]:
     """The defects outside the change of one kept review, each with the path of its item once it has one."""
     return read.get("outside", [])
 
@@ -660,7 +661,7 @@ def to_file(task: Task, reads: list[dict]) -> list[dict]:
     """Each defect outside the change of a review that answered, with no item yet."""
     return [
         {"round": read["round"], **{key: defect[key] for key in DEFECT}}
-        for read in reads if read["answered"] for defect in outside_of(task, read) if not defect.get("item")
+        for read in reads if read["answered"] for defect in outside_of(read) if not defect.get("item")
     ]
 
 
@@ -976,8 +977,9 @@ def untalked(task: Task, state: dict) -> str | None:
 
 
 def talked(talk: dict) -> str:
-    """The plan talk as one line of the pull request's checks: the turns and the positions, then each
-    other count the event holds, in the event's order. An event of the older form has none."""
+    """The plan talk as one line of the pull request's checks: the turns, with the bound of its rules
+    when the talk went over it, and the positions, then each other count the event holds, in the
+    event's order. An event of the older form has none."""
     def many(count: int, one: str, more: str) -> str:
         return f"{count} {one if count == 1 else more}"
     counts = [
@@ -985,8 +987,10 @@ def talked(talk: dict) -> str:
         for key, value in talk.items()
         if key not in TALK_FIRST and isinstance(value, int) and not isinstance(value, bool)
     ]
+    bound = talk.get("bound")
+    over = f", over the bound of {bound} for its {many(talk['questions'], 'question', 'questions')}" if isinstance(bound, int) and talk["turns"] > bound else ""
     return (
-        f"- the plan talk: {talk['reviewer']} argued the plan with its defender, {many(talk['turns'], 'turn', 'turns')}; "
+        f"- the plan talk: {talk['reviewer']} argued the plan with its defender, {many(talk['turns'], 'turn', 'turns')}{over}; "
         f"{many(talk['settled'], 'position', 'positions')} settled by the two, {talk['open']} left open"
         + (f"; {', '.join(counts)}" if counts else "")
     )
@@ -1146,7 +1150,7 @@ def cmd_file(task: Task, again: bool) -> dict:
     for read in reads:
         if not read["answered"]:
             continue
-        for defect in outside_of(task, read):
+        for defect in outside_of(read):
             if defect.get("item"):
                 if in_tree(task, tip, defect["item"]):
                     continue
@@ -1449,7 +1453,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         who = f"answered: {', '.join(read['answered'])}" if read["answered"] else "no source answered"
         quiet = "".join(f"; no answer from {source['name']} ({source['why']})" for source in read["silent"])
         found = f"{read['verdict']}, {read['must_fix']} must-fix, {read['should']} should, {read['nit']} nit" if read["answered"] else "not reviewed"
-        defects = outside_of(task, read)
+        defects = outside_of(read)
         if defects:
             # propose refuses while one has no item in the tip, so each one here is filed
             found += f"; it saw {len(defects)} defect{'' if len(defects) == 1 else 's'} outside the change, filed as " + ", ".join(f"`{defect['item']}`" for defect in defects)
@@ -1544,7 +1548,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             + "; ".join(f"\"{defect['title']}\" (round {defect['round']})" for defect in unfiled)
             + f". `land.py file {task.slug}` files them, then `land.py gate {task.slug}`",
         )
-    gone = [(read, defect) for read in reads if read["answered"] for defect in outside_of(task, read) if not in_tree(task, tip, defect["item"])]
+    gone = [(read, defect) for read in reads if read["answered"] for defect in outside_of(read) if not in_tree(task, tip, defect["item"])]
     if gone:
         read, defect = gone[0]
         raise LandError(

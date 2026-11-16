@@ -24,6 +24,9 @@ R=$WORK/shop
 STATE=$R/.git/lem
 project() { "$PY" -B "$SCRIPTS/project.py" --repo "$R" "$@"; }
 decide() { "$PY" -B "$SCRIPTS/decisions.py" --repo "$R" "$@"; }
+# CASE: the run that ends badly, which every choice for the owner carries above his card
+CASE=(--case $'1. Order 1042 has the gift note "for Ania".\n2. The export writes the note where the choice puts it.\n3. A reader that takes the columns by place reads the note as the total.'
+  --case-was derived --cause "Readers of the export take its columns by place.")
 stories() { "$PY" -B "$SCRIPTS/stories.py" --repo "$R" "$@"; }
 board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$SCRIPTS/board.py" --repo "$R" "$@"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
@@ -103,17 +106,17 @@ project state "$G" building "task 1 of 3" >/dev/null
 decide log "$G" --what "The name of the new column" --chose gift_note --why "the other columns of the export are in snake case" --by lead --undo "rename the column" >/dev/null
 decide log "$G" --what "Two notes on one order" --chose "both notes, with a semicolon between them" --why "a merchant reads both" --by personas \
   --said "The merchant and the accountant both picked the semicolon." >/dev/null
-decide ask "$G" --what "Where the note goes in the row" --option "the last column" --option "after the price" --recommended "the last column" \
+decide ask "$G" "${CASE[@]}" --what "Where the note goes in the row" --option "the last column" --option "after the price" --recommended "the last column" \
   --why "an import that reads the columns by place keeps working" --said "The merchant picked the last column, the accountant after the price." >/dev/null
 decide answer "$G" 3 --chose "the last column" --words "last, like the other new columns" >/dev/null
 project state "$G" building "task 2 of 3" >/dev/null
-decide ask "$G" --what "Email the merchants about the new column" --option "send it" --option "do not send it" --recommended "do not send it" \
+decide ask "$G" "${CASE[@]}" --what "Email the merchants about the new column" --option "send it" --option "do not send it" --recommended "do not send it" \
   --why "the column is visible in the export" --said "The merchant wants the email, the accountant does not." --irreversible person >/dev/null
-decide ask "$G" --what "The header of the column" --option "Gift note" --option "Note" --recommended "Gift note" --why "it says what the cell holds" --said "The two personas split." >/dev/null
-decide ask "$G" --what "A note longer than the cell" --option "all of it" --option "200 characters" --recommended "all of it" --why "nothing is lost" --said "The two personas split." >/dev/null
+decide ask "$G" "${CASE[@]}" --what "The header of the column" --option "Gift note" --option "Note" --recommended "Gift note" --why "it says what the cell holds" --said "The two personas split." >/dev/null
+decide ask "$G" "${CASE[@]}" --what "A note longer than the cell" --option "all of it" --option "200 characters" --recommended "all of it" --why "nothing is lost" --said "The two personas split." >/dev/null
 past "$G" 5 6
 decide timeout "$G" 5 >/dev/null
-decide ask "$G" --what "The note of a cancelled order" --option "keep it" --option "leave it out" --recommended "keep it" --why "the export shows cancelled orders as they were" \
+decide ask "$G" "${CASE[@]}" --what "The note of a cancelled order" --option "keep it" --option "leave it out" --recommended "keep it" --why "the export shows cancelled orders as they were" \
   --said "The merchant would keep it, the accountant is in doubt." >/dev/null
 retime "$G" now -60 -52 -51 -45 -44 -40 -35 -34 -31 -30 -27 -26 -25 -10 -5
 
@@ -126,11 +129,11 @@ project log "$L" stories.read by=lem asked:=2 answered:=2 'families:=["opus", "s
 stories approve "$L" --file "$WORK/landed.md" >/dev/null
 project state "$L" building "lead: session" >/dev/null
 # the talk's start is not in this log, as in a log written before the lead logged it
-project log "$L" plan.talk reviewer=codex turns:=6 questions:=4 settled:=3 open:=1 repaired:=2 design:=1 unargued:=1 root:=2 layer:=0 shared:=0 >/dev/null
+project log "$L" plan.talk reviewer=codex turns:=19 questions:=4 settled:=3 open:=1 repaired:=2 design:=1 unargued:=1 root:=2 layer:=0 shared:=0 >/dev/null
 project state "$L" building "plan committed, 2 tasks" >/dev/null
 project state "$L" building "task 1 of 2" >/dev/null
 project state "$L" building "task 2 of 2" >/dev/null
-decide ask "$L" --what "The symbol or the code of the currency" --option "the symbol" --option "the code" --recommended "the code" --why "two currencies share the dollar sign" --said "The two personas split." >/dev/null
+decide ask "$L" "${CASE[@]}" --what "The symbol or the code of the currency" --option "the symbol" --option "the code" --recommended "the code" --why "two currencies share the dollar sign" --said "The two personas split." >/dev/null
 decide answer "$L" 1 --chose "the code" >/dev/null
 project log "$L" task.red ok:=true "digest=$digest" base=0a1b2c3d4 tip=abc123456 'tests:=[]' 'without_a_test:=[]' 'run_without:=[]' >/dev/null
 project state "$L" ready "the report is written" >/dev/null
@@ -150,10 +153,10 @@ task stories-wait "Round the totals of the monthly report"
 project state stories-wait held "the stories wait for the owner" >/dev/null
 task held-question "Which currency rounds half up"
 project state held-question building "lead: builder" >/dev/null
-project state held-question held "how the totals round is the owner's to decide" >/dev/null
+project state held-question held "the investigation waits for one more fact" >/dev/null
 task held-choice "Refund the duplicate orders"
 project state held-choice building "lead: builder" >/dev/null
-decide ask held-choice --what "Refund the 12 duplicate orders now" --option "refund them" --option "leave them" --recommended "leave them" --why "a refund cannot be taken back" \
+decide ask held-choice "${CASE[@]}" --what "Refund the 12 duplicate orders now" --option "refund them" --option "leave them" --recommended "leave them" --why "a refund cannot be taken back" \
   --said "The two personas split." --irreversible money >/dev/null
 project state held-choice held "choice 1 waits for the owner" >/dev/null
 task open-pr "Sort the export by date"
@@ -186,7 +189,7 @@ project state correction-one building "lead: builder" >/dev/null
 T=timed-out
 task "$T" "Round the shipping costs"
 project state "$T" building "lead: builder" >/dev/null
-decide ask "$T" --what "Round up or to the nearest cent" --option "up" --option "to the nearest cent" --recommended "to the nearest cent" --why "the carrier rounds so" --said "The two personas split." >/dev/null
+decide ask "$T" "${CASE[@]}" --what "Round up or to the nearest cent" --option "up" --option "to the nearest cent" --recommended "to the nearest cent" --why "the carrier rounds so" --said "The two personas split." >/dev/null
 past "$T" 1
 decide timeout "$T" 1 >/dev/null
 project state "$T" ready "the report is written" >/dev/null
@@ -279,24 +282,24 @@ stories approve restored-read --file "$WORK/restored-read.md" >/dev/null
 X=expert-advice
 task "$X" "Print the invoice for the post"
 project state "$X" building "lead: builder" >/dev/null
-decide ask "$X" --what "The paper size" --option "A4" --option "Letter" --recommended "Letter" --why "the printer has Letter in its tray" --said "The two personas split." >/dev/null
+decide ask "$X" "${CASE[@]}" --what "The paper size" --option "A4" --option "Letter" --recommended "Letter" --why "the printer has Letter in its tray" --said "The two personas split." >/dev/null
 decide advise "$X" 1 --expert fable --pick A4 --why "every customer of the shop is in Europe, where the post reads A4" >/dev/null
 decide advise "$X" 1 --expert astra --pick A4 --why "the envelopes of the shop are cut for A4" >/dev/null
 decide settle "$X" 1 --away >/dev/null
 decide answer "$X" 1 --chose Letter --words "Letter, it is in the tray" >/dev/null
-decide ask "$X" --what "The color of the logo" --option "black" --option "the green of the shop" --recommended "black" --why "a black logo prints on every printer" --said "The two personas split." >/dev/null
+decide ask "$X" "${CASE[@]}" --what "The color of the logo" --option "black" --option "the green of the shop" --recommended "black" --why "a black logo prints on every printer" --said "The two personas split." >/dev/null
 decide advise "$X" 2 --expert fable --pick "the green of the shop" --why "the invoice is a page of the shop" >/dev/null
 decide advise "$X" 2 --expert astra --pick "the green of the shop" --why "the printer prints in color" >/dev/null
-decide ask "$X" --what "The order number on the page" --option "at the top" --option "at the foot" --recommended "at the top" --why "the post office reads the top first" --said "The two personas split." >/dev/null
+decide ask "$X" "${CASE[@]}" --what "The order number on the page" --option "at the top" --option "at the foot" --recommended "at the top" --why "the post office reads the top first" --said "The two personas split." >/dev/null
 decide advise "$X" 3 --expert fable --pick "at the top" --why "a reader looks for it first" >/dev/null
 decide advise "$X" 3 --expert astra --pick "at the foot" --why "the top holds the address window" >/dev/null
 past "$X" 2 3
 decide timeout "$X" 2 >/dev/null
 decide timeout "$X" 3 >/dev/null
-decide ask "$X" --what "The font of the invoice" --option "serif" --option "sans" --recommended "sans" --why "it reads well on a screen" --said "The two personas split." >/dev/null
+decide ask "$X" "${CASE[@]}" --what "The font of the invoice" --option "serif" --option "sans" --recommended "sans" --why "it reads well on a screen" --said "The two personas split." >/dev/null
 decide advise "$X" 4 --expert fable --pick serif --why "a printed invoice reads better in serif" >/dev/null
 decide advise "$X" 4 --expert astra --pick serif --why "the letters of the shop are in serif" >/dev/null
-decide ask "$X" --what "The size of the total" --option "12 pt" --option "14 pt" --recommended "14 pt" --why "a reader finds the total first" --said "The two personas split." >/dev/null
+decide ask "$X" "${CASE[@]}" --what "The size of the total" --option "12 pt" --option "14 pt" --recommended "14 pt" --why "a reader finds the total first" --said "The two personas split." >/dev/null
 decide advise "$X" 5 --expert fable --none --why "the total should be bold, not bigger" >/dev/null
 decide advise "$X" 5 --expert astra --pick "12 pt" --why "the other lines are 12 pt" >/dev/null
 retime "$X" now -50 -49 -48 -47 -46 -45.5 -45 -44 -43 -42 -41 -40 -29 -26 -6 -5 -4 -3 -2 -1
@@ -593,7 +596,7 @@ elif [ -n "$chrome" ]; then
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" \
     "Waits for you=Gift note export|Lem puts choice 7 to you as a page in its session. Answer it there before its wait ends; then the build goes on with the recommended action." \
     "Waits for you=Held choice|Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, with no end." \
-    "Waits for you=Held question|It waits on what its state says: “how the totals round is the owner's to decide”. Lem tells you in its session what to do and where." \
+    "Waits for you=Held question|It waits on what its state says: “the investigation waits for one more fact”. Lem tells you in its session what to do and where." \
     "Waits for you=Trust prompt|It waits on what its state says: “the reviewer's trust prompt waits for the owner's yes”. Lem tells you in its session what to do and where." \
     "Building=Approved again" "Building=Restored read" "Building=Unread change" \
     "Waits for you=Clear read held|Lem shows you the stories, with the personas’ read on top, as a page in its session. Approve or change them there." \
@@ -605,7 +608,7 @@ elif [ -n "$chrome" ]; then
     "Waits for you=Ready to land|Tell Lem in its session to land it." \
     "Building=Building one" "Building=Queued one" "Building=Blocked one" "Building=Correction one" "Building=Changed then approved" "Building=Rare path" \
     "Checks and review=Ready one" "Checks and review=In checks" "Checks and review=Red gate" "Done=Landed one" "Done=Timed out" "Building=Queued after"); then
-    pass "each task is in the lane of who acts, and each one that waits for the owner says where he answers: a choice, a held decision, the stories, a plan, a draft, a pull request, a branch to land"
+    pass "each task is in the lane of who acts, and each one that waits for the owner says where he answers: a choice, one more fact, a step of his, the stories, a plan, a draft, a pull request, a branch to land"
   else
     fail "the lanes: $why"
   fi
@@ -852,7 +855,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     && why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$K.dom" "You|The agent|The review" "The agent=25m · 100%" "The review=18m · 72%") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$K.dom" feed "The plan talk started|with codex" "The plan talk ended|with codex: 3 questions in 7 turns|1 of them a design choice|2 raised, not argued") \
     && ! grep -q 'data-sub="[^"]*its start is not logged' "$WORK/task-$K.dom" \
-    && grep -q 'data-head="The review · The plan talk ended" data-sub="with codex: 4 questions in 6 turns · 3 settled, 1 open, 1 of them a design choice · 2 repaired: 2 at the cause · 1 raised, not argued · its start is not logged"' "$WORK/task-$L.dom" \
+    && grep -q 'data-head="The review · The plan talk ended" data-sub="with codex: 4 questions in 19 turns, over the bound of 18 for its 4 questions · 3 settled, 1 open, 1 of them a design choice · 2 repaired: 2 at the cause · 1 raised, not argued · its start is not logged"' "$WORK/task-$L.dom" \
     && grep -q 'data-head="The review · The plan talk runs" data-sub="with claude; its record comes when the talk ends"' "$WORK/task-talk-runs.dom"; then
     pass "the plan talk is the review's span from its start to its record, with its questions, turns, settled, open, design choices, repairs at the cause and layers over a cited decision, decisions two questions named and questions raised and not argued; one with no start logged is a dot where it ended, and one with no record yet runs"
   else

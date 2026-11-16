@@ -124,19 +124,22 @@ lead whose choice waits for the owner.
 ## What holds in every stage
 
 - **The owner is needed at three points.** The interview and his yes to the stories (`new`), a
-  held decision, and the pull request. A held decision is one whose options each cost a person something and that no ruling, test or
-  probe answers; it goes through the question gate and the persona panel before the owner sees
-  it. The panel asks the project's own personas, which every project of Lem has. Every other decision is yours: decide from the code, the settings and the rulings, write it
-  in the decisions log, and go on. A red test, a failed command or a moving base branch is the
-  work, never a reason to stop. A choice in the build that the personas leave unclear waits for
-  the owner the settings' `flow.decision_wait` at most, 15 minutes unless the project says
+  decision that is his, and the pull request. A decision is his when its options each cost a
+  person something and no ruling, test or probe answers it. Every such decision takes one path,
+  at plan time as in the build (`stages/build.md`, "A choice in the build"): the persona panel
+  first, which asks the project's own personas, and every project of Lem has them; a clear
+  answer of theirs is taken and logged; an unclear one is asked with `decisions.py ask`, with
+  one concrete run that ends badly, and the work that does not depend on it goes on. It waits
+  for the owner the settings' `flow.decision_wait` at most, 15 minutes unless the project says
   otherwise. Two experts of two model families answer it in the background from the start of
   the wait (the `lem-ask-expert` skill), and their answers are on his card. When the wait ends,
   the lead takes the option both experts picked, or the recommended one when they split; when
   he is away, Lem takes their shared pick at once. The pull request is not green for either. A
   step that a later "no" cannot reverse is the one exception: the experts only advise, and it
-  waits for his word while the rest of the plan goes on (`stages/build.md`, "A choice in the
-  build").
+  waits for his word while the rest of the plan goes on. A night plan asks no decision of his:
+  nobody is there, so the draft ends on it (`stages/night.md`). Every other decision is yours:
+  decide from the code, the settings and the rulings, write it in the decisions log, and go on.
+  A red test, a failed command or a moving base branch is the work, never a reason to stop.
 - **Decisions are logged, and the owner can overturn each.** Each decision made without the
   owner, each choice that went to him and his answer, through `scripts/decisions.py`: what, what
   was chosen, by whom, why, and what it would take to undo. It writes `decisions.jsonl` in the
@@ -164,7 +167,7 @@ lead whose choice waits for the owner.
   concrete case in numbered steps, with real names and values, and where each step was read. For
   a confusion, find out what the code does first; about half the time the owner's instinct is
   right and it is a defect, so say which of the two it is before changing anything. For a
-  decision, `stages/plan.md` says what follows the run.
+  decision, the run goes into its ask, with what follows it (`stages/plan.md`, step 5).
 - **Numbers carry their source.** A count is a command's output, a time is `date -u`, a test
   result is the exact last line of the run. One coordinator made four factual errors in owner
   reports in its first 28 hours: clock values it estimated, a count and a claim about the gate.
@@ -244,7 +247,7 @@ and before you stop. The status says who acts next:
 | `queued` | the ask is written and no lead runs: the limit was reached | Lem, when a lead stops |
 | `building` | a lead plans or builds, or a builder investigates a bug or a question | the lead, or the investigator |
 | `planned` | the plan is committed and nothing builds it | Lem opens the plan talk's companion, or starts a builder after the talk, or the owner reads the plan |
-| `held` | it waits for the owner: a held decision | the owner, through Lem |
+| `held` | it waits for the owner on what is no decision with options: the stories that wait for his yes, one more fact an investigation needs, a step that is his to do, or an irreversible choice that every task left depends on | the owner, through Lem |
 | `blocked` | the lead stopped on something it could not settle | Lem |
 | `ready` | the report is written and the branch waits for its checks | Lem |
 | `landing` | the checks and the review run on it, or a builder repairs what they showed | Lem |

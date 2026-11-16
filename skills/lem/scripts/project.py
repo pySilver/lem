@@ -55,8 +55,10 @@ root:=N layer:=N shared:=N`: the turns, the questions of the reviewer's first li
 them were settled and left open (the two add up to questions), how many the defender repaired,
 how many of the open ones are a design choice, how many were raised after the list and not
 argued, how many repairs changed a decision of the plan and how many put a layer over a decision
-with a cite (the two add up to at most the repairs), and how many decisions two questions named
-(at most the design choices); a talk has at most 4 × questions + 2 turns. `tasks` gives each task
+with a cite (the two add up to at most the repairs), and how many decisions two questions named.
+The rules of a talk keep it within 4 × questions + 2 turns; a record over that bound is taken as
+it ran, and `log` adds the bound to it as `bound`, for the landing and the board to say that the
+talk went over. `tasks` gives each task
 its newest `plan.talk` as `talk`, the record Lem and a builder read before the build of a
 careful or large plan.
 And `stories.read`, which Lem or the lead writes after the personas read the stories, as
@@ -168,7 +170,8 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   queued    the ask is written and no lead runs yet: the limit was reached
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
-#   held      it waits for the owner: a held decision
+#   held      it waits for the owner on what is no decision with options: the stories, one more fact, a
+#             step of his, or an irreversible choice every task left needs; a decision of his is a choice
 #   blocked   the lead stopped on something the coordinator has to settle
 #   ready     the report is written and the branch waits for its checks
 #   landing   the checks and the read run on it, or a builder repairs what they or the base showed
@@ -1139,6 +1142,8 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
         talk_start_form(fields)
     if event == "plan.talk":
         talk_form(fields)
+        # the bound its rules give, beside the record, so that a reader says when the talk went over it
+        fields["bound"] = TURNS_PER_QUESTION * fields["questions"] + TURNS_AROUND
     if event == "stories.read":
         read_form(fields)
     if event == "investigation":
@@ -1202,10 +1207,12 @@ def talk_start_form(fields: dict) -> None:
         raise SettingsError(f"plan.talk.start takes reviewer=AGENT, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
 
 
-# The most turns a talk of N questions has: the reviewer's list, two answers of the defender and two of
-# the reviewer on each question (a question that holds a second time stops), and the close. Derived
-# from the rules of `stages/plan.md` step 4, in a Fable second opinion (2026-11-16); no talk under
-# these rules has been measured yet.
+# The most turns a talk of N questions has by its rules: the reviewer's list, two answers of the defender
+# and two of the reviewer on each question (a question that holds a second time stops), and the close.
+# Derived from the rules of `stages/plan.md` step 4, in a Fable second opinion (2026-11-16); no talk
+# under these rules has been measured yet. It is the defender's to keep, not a check of the record: a
+# talk that ran longer is written as it ran, and `log` adds the bound to it, so the pull request and
+# the board can say that it went over.
 TURNS_PER_QUESTION = 4
 TURNS_AROUND = 2
 
@@ -1229,32 +1236,25 @@ def talk_form(fields: dict) -> None:
         raise SettingsError(f"{form}: each N is a whole number, written with := so that it stays one")
     turns, questions = fields["turns"], fields["questions"]
     # A floor against an empty record, not a measure of a good talk. A reviewer that found nothing
-    # says so in its first turn, and the defender closes: a talk of no question has those two turns,
-    # and the bound below keeps it at two.
+    # says so in its first turn, and the defender closes: a talk of no question has those two turns.
     if turns < 2:
         raise SettingsError(f"{form}: a talk has two turns at the least: the reviewer's list, which may be empty, and the close")
-    if questions == 0 and fields["unargued"]:
-        raise SettingsError(f"{form}: a talk of no question has no turn after the list, so unargued is 0")
+    if questions == 0 and fields["unargued"] and turns <= TURNS_AROUND:
+        raise SettingsError(f"{form}: a talk of no question and two turns has no turn after the list, so unargued is 0")
     if fields["settled"] + fields["open"] != questions:
         raise SettingsError(f"{form}: each question of the reviewer's first list ends settled or left open, so settled and open add up to questions")
     if fields["design"] > fields["open"]:
         raise SettingsError(f"{form}: a design choice is a question left open because it held a second time, so design is at most open")
     if fields["repaired"] > questions:
-        raise SettingsError(f"{form}: a question gets one repair at the most, so repaired is at most questions")
+        raise SettingsError(f"{form}: repaired counts the questions whose answer changed the plan, so repaired is at most questions")
     if fields["root"] + fields["layer"] > fields["repaired"]:
         raise SettingsError(
             f"{form}: a repair either changed a decision of the plan (root) or put a mechanism over a decision with a cite (layer), "
             "or neither, so root and layer add up to at most repaired",
         )
-    # derived from the rule of `stages/plan.md` step 4 that the second question on one decision
-    # closes at once as a design choice; not measured
-    if fields["shared"] > fields["design"]:
-        raise SettingsError(f"{form}: the second question that names a decision closes at once as a design choice, so shared is at most design")
-    if turns > TURNS_PER_QUESTION * questions + TURNS_AROUND:
-        raise SettingsError(
-            f"{form}: a talk of N questions has at most {TURNS_PER_QUESTION} × N + {TURNS_AROUND} turns: the reviewer's list, two answers of the defender "
-            f"and two of the reviewer on each question, and the close; this one has {turns} turns for {questions} questions",
-        )
+    # No check of the rules themselves: a talk over its bound of turns, or one whose second question on
+    # a decision did not close as a design choice, is a fact, and a record refused for it would leave
+    # the companion open and the request unproposed for ever.
 
 
 def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> list[str]:

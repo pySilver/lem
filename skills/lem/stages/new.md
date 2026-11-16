@@ -115,7 +115,8 @@ a lead is started, and what to do each time a lead stops.
    the lead and do not watch it.
 
 `/lem build <task>` is for a task whose state is `drafted` or `planned`: change its brief to
-`stop after the plan: no` and start its lead. A path to a plan file names its task too: the
+`stop after the plan: no`, take out a `night: yes` line, since the owner is there now, and start
+its lead. A path to a plan file names its task too: the
 file is `YYYYMMDD-<slug>.md`, and the slug is the task's. With no name, list the tasks in those
 two states (`project.py tasks`), each with its ask and its plan's path, and ask which one: a
 fixed choice, so it stays in the terminal. One such task needs no question.
@@ -392,9 +393,11 @@ the decisions and the commits on the branch; that is the whole handover.
 
 ## When a choice waits for the owner
 
-A lead that meets a choice the personas leave unclear asks it with `decisions.py ask`, and the
-task goes on without it (`stages/build.md`, "A choice in the build"). The defender of a plan
-talk asks the choices the talk left open the same way. Either lead tells you at once with the
+Every decision that is the owner's comes here, at plan time and in the build: a lead that meets
+one, in its plan or in a task of it, has the personas read it and asks it with `decisions.py
+ask` when they leave it unclear, and the task goes on without it (`stages/plan.md`, step 5, and
+`stages/build.md`, "A choice in the build"). The defender of a plan talk asks the choices the
+talk left open the same way. Either lead tells you at once with the
 line `lem: SLUG choice N waits`, through `tell-coordinator`: the defender from its companion,
 and a builder that leads from this session, where it runs. That line is the wake-up, and the
 wait counts from the ask. A line can be lost (a pane that restarted, a brief with no
@@ -403,10 +406,16 @@ wake an idle Lem, so also run `python3 SKILL_DIR/scripts/decisions.py pending` a
 turns: its `waiting` list is what needs his answer. A task that was dropped or landed while a choice waited is under `ended`, and
 its choices need no answer.
 
-1. **Ask him at once**, through `ask-owner`: on top the two experts' answers (`advice`: each
-   one's pick, or that none fits, with its reasons) beside the personas' (`said`), then what the
-   choice is, the options, the recommended one with its reason, and the time the wait ends, in
-   his clock (`deadline` is in UTC). After that time the lead takes the option both experts
+1. **Ask him at once**, through `ask-owner`, which shows it as the settings' `tools.ask` says.
+   Above the card, the run: the choice's `case` in its numbered steps, whether it was
+   reproduced or derived (`case_was`), and its `cause` line. On the card's top the two experts'
+   answers (`advice`: each one's pick, or that none fits, with its reasons) beside the personas'
+   (`said`), then what the choice is, the options, the recommended one with its reason, and the
+   time the wait ends, in his clock (`deadline` is in UTC). The lead ran the persona panel
+   (`lem-panel`) before the ask, so it is not run again here. The question gate (`lem-gate`) sits
+   at this card: its judge, in shadow mode, logs its verdict beside his answer, its framing check
+   reads the card before it goes out, and after his answer its last step asks whether the answer
+   is a durable ruling. Its card step is this card. After that time the lead takes the option both experts
    picked (`experts_pick`), or the recommended one when they split, and the pull request is not
    green for it either way: say which of the two it will be. A choice with `irreversible` set has
    no such time: say which of the four kinds it is, that the experts' answers are advice only,
@@ -474,30 +483,27 @@ Act on the status:
     send it one message that says so, and close nothing.
   - *The owner asked for the plan only*: show the owner the plan through the settings'
     `tools.annotate`, and leave the task as it is until the owner says build or drop.
-- **`held`**: the report holds one or more decisions that are the owner's, each in the form
-  `stages/plan.md` gives under "A held decision". Take each through the `lem-gate` skill, then the
-  `lem-panel` skill with the project's cast; the panel writes the card the owner sees. The card
-  reaches him through `ask-owner`, which shows it as the settings' `tools.ask` says: that key
-  outranks the way of asking either skill names. Put the report's run above the card, with whether it was reproduced or derived,
-  and its one line on why the case became possible and how far the same cause reaches. Ask all
-  held decisions of one task in one go. An answer to a choice the record holds as asked is
-  written with `decisions.py answer SLUG N --chose OPTION --words TEXT`, or `--instead TEXT` for
-  a decision of his that is none of the options, as the section above says; only an answer to a
-  held decision of the report, which the record does not hold, is logged with
-  `decisions.py log SLUG --by owner`. Then start a lead. The `lem-panel` skill asks for what users would see under each option; that is in
-  the report, and what is missing there the lead adds, not you.
-  A lead of the rare path that holds the task because a persona doubted its stories puts the
-  stories and the answers on top of its report, with the line `the stories wait for the owner`.
-  Put them to him as step 6 of "The interview and the stories" says, with the lead's read as the
-  result on top, freeze his answer with step 7, and start a lead: it copies the approved stories.
-  A task is also `held` when a step is the owner's to do and no decision at all: a trust prompt
-  of the reviewer's agent, a command an agent is refused. Tell the owner that step as it is, with
-  where he does it; it needs no gate and no panel. The lead goes on when the step is done.
+- **`held`**: the task waits for the owner on what is no decision with options; a decision of
+  his never holds a task, since it is asked and waits its time while the work goes on (the
+  section above). The state's line says which of four it is:
+  - *the stories wait for the owner*: a lead of the rare path whose stories a persona doubted, or
+    that met a rule it could not write without a guess, puts the stories and the answers on top
+    of its report. Put them to him as step 6 of "The interview and the stories" says, with the
+    lead's read as the result on top, freeze his answer with step 7, and start a lead: it copies
+    the approved stories. A correction that the lead found to be a feature goes to him as "A
+    correction" says for his "this is a feature";
+  - *one more fact*: the investigation's, as "A bug and an investigation" says;
+  - *a step that is his to do*, and no decision at all: a trust prompt of the reviewer's agent, a
+    command an agent is refused. Tell the owner that step as it is, with where he does it; it
+    needs no gate and no panel. The lead goes on when the step is done;
+  - *choice N waits for the owner*: an irreversible step that every task left depends on. It is
+    in `decisions.py pending` and asked as the section above says; start a lead after his answer.
 - **`blocked`**: the report says what the lead could not settle and what it tried. A missing
   tool, a base branch that does not build, a conflict with another task: settle it, then start a
   lead. An approach that failed twice goes to a fresh builder with a different approach, as
   `stages/build.md` says: add one line to the brief, `do not repeat:` and what the report says
-  the two tries assumed. When only the owner can settle it, write the state `held` and ask.
+  the two tries assumed. When only the owner can settle it, it is a step that is his to do:
+  write the state `held` with that step, and tell him where he does it.
 - **anything else**, or no new state block: the lead ended without its last step. Start a lead;
   it reads the state and the report and goes on. After a second such stop, write `blocked` and
   tell the owner what the reply or the session's screen shows.

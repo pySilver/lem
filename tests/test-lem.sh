@@ -19,6 +19,9 @@ fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
 project() { "$PY" -B "$PROJECT" "$@"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
+# CASE: the run that ends badly, which every choice for the owner carries above his card (decisions.py ask)
+CASE=(--case $'1. Order 1042 has two gift notes, "for Ania" and "for Ola".\n2. The export writes one cell for the note of an order.\n3. The merchant prints the slip with one note, and Ola gets none.'
+  --case-was derived --cause "An order has one cell for its note, and every export of notes shares that cell.")
 
 NEW=$WORK/new
 git init -q -b main "$NEW"
@@ -527,19 +530,20 @@ talk() { project --repo "$OLD" log with-a-worktree plan.talk reviewer=codex turn
 before=$(grep -c '' "$OLD/.git/lem/events.jsonl")
 untold=$(talk repaired:=2)
 layered=$(talk repaired:=2 root:=1 layer:=2 shared:=0)
-unshared=$(talk repaired:=2 root:=1 layer:=1 shared:=2)
 typed=$(talk repaired:=2 root:=1 layer=1 shared:=0)
 none_yet=$(project --repo "$OLD" tasks | field '[t["talk"] for t in d if t["slug"] == "with-a-worktree"]' 2>&1 || true)
 after_refusals=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+# more decisions two questions named than design choices breaks a rule of the talk, not a count: the record is taken
+unshared=$(talk repaired:=2 root:=1 layer:=1 shared:=2)
 talk repaired:=1 root:=0 layer:=1 shared:=0 >/dev/null
 written=$(talk repaired:=2 root:=1 layer:=1 shared:=1)
 told=$(project --repo "$OLD" tasks | field '[(t["slug"], t["talk"] and (t["talk"]["root"], t["talk"]["layer"], t["talk"]["shared"], bool(t["talk"]["ts"]))) for t in d if t["slug"] in ("with-a-worktree", "report-dates-stay-whole")]' 2>&1 || true)
 if grep -qF "and nothing else; this one has design, open, questions, repaired, reviewer, settled, turns, unargued" <<<"$untold" \
-  && grep -qF "root and layer add up to at most repaired" <<<"$layered" && grep -qF "shared is at most design" <<<"$unshared" \
+  && grep -qF "root and layer add up to at most repaired" <<<"$layered" && [ "$(field '(d["shared"], d["design"], d["bound"])' <<<"$unshared")" = "(2, 1, 14)" ] \
   && grep -qF "each N is a whole number" <<<"$typed" && [ "$none_yet" = "[None]" ] && [ "$after_refusals" = "$before" ] \
   && [ "$(field '(d["root"], d["layer"], d["shared"])' <<<"$written")" = "(1, 1, 1)" ] \
   && [ "$told" = "[('report-dates-stay-whole', None), ('with-a-worktree', (1, 1, 1, True))]" ]; then
-  pass "a plan talk's record names its repairs at the cause, its layers over a cited decision and its decisions two questions named: root and layer add up to at most repaired, shared is at most design, and a refused record writes nothing; tasks gives each task its newest talk, or none"
+  pass "a plan talk's record names its repairs at the cause, its layers over a cited decision and its decisions two questions named: root and layer add up to at most repaired, a record with more decisions two questions named than design choices is taken with its bound, and a refused record writes nothing; tasks gives each task its newest talk, or none"
 else
   fail "the talk's new counts: $untold / $layered / $unshared / $typed / $none_yet / $written / $told"
 fi
@@ -654,7 +658,7 @@ else
   fail "the state answered: $no_report / $goes_on / $answered / $places / $unreported / $free / $taken"
 fi
 # A choice of an answered task waits for nobody.
-"$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
+"$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund "${CASE[@]}" --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
   --why "it pins the behavior" --said "The two personas split." >/dev/null
 ended=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" pending | field '(d["waiting"], [(e["task"], e["status"]) for e in d["ended"]])' 2>&1 || true)
 if [ "$ended" = "([], [('zero-after-refund', 'answered')])" ]; then
@@ -1800,11 +1804,11 @@ if [ "$lead" = "(1, 'taken', 'lead', 'rename the column')" ] \
 else
   fail "decisions.py log: $lead / $personas / $nosaid / $nostory / $(cat "$dfile")"
 fi
-one=$(decide ask gift-note --what "Which note wins" --option "the first" --recommended "the first" --why w --said s 2>&1 || true)
-notone=$(decide ask gift-note --what "Which note wins" --option "the first" --option "the last" --recommended "the newest" --why w --said s 2>&1 || true)
-asked=$(decide ask gift-note --what "Where the note goes in the row" --option "the last column" --option "after the price" --recommended "the last column" \
+one=$(decide ask gift-note "${CASE[@]}" --what "Which note wins" --option "the first" --recommended "the first" --why w --said s 2>&1 || true)
+notone=$(decide ask gift-note "${CASE[@]}" --what "Which note wins" --option "the first" --option "the last" --recommended "the newest" --why w --said s 2>&1 || true)
+asked=$(decide ask gift-note "${CASE[@]}" --what "Where the note goes in the row" --option "the last column" --option "after the price" --recommended "the last column" \
   --why "an import that reads the columns by place keeps working" --said "The merchant picked the last column, the accountant after the price.")
-forever=$(decide ask gift-note --what "Send the merchants an email about the new column" --option "send it" --option "do not send it" --recommended "do not send it" \
+forever=$(decide ask gift-note "${CASE[@]}" --what "Send the merchants an email about the new column" --option "send it" --option "do not send it" --recommended "do not send it" \
   --why "the column is visible in the export" --said "The merchant wants the email, the accountant does not." --irreversible person)
 waits=$(decide pending gift-note)
 everywhere=$(decide pending | field '([(c["task"], c["id"]) for c in d["waiting"]], d["ended"])')
@@ -1816,6 +1820,27 @@ if grep -q "a choice has two options or more" <<<"$one" && grep -qF -- "--recomm
   pass "a choice for the owner has two options or more and recommends one of them; it waits the settings' 15 minutes, and pending lists each choice that waits with the seconds it has left, and none for a step no timeout takes"
 else
   fail "decisions.py ask and pending: $one / $notone / $asked / $forever / $waits / $everywhere"
+fi
+# A choice for the owner tells him one run above his card: the case in numbered steps, how it is known,
+# and its cause. A night plan asks no choice of his: nobody is there, and no wait or expert takes one at night.
+two_options=(--option "the first" --option "the last" --recommended "the first" --why w --said s)
+nocase=$(decide ask gift-note --what "Which note wins" "${two_options[@]}" 2>&1 || true)
+onestep=$(decide ask gift-note --what "Which note wins" --case "1. Two notes come in for order 1042." --case-was derived --cause c "${two_options[@]}" 2>&1 || true)
+unknown=$(decide ask gift-note --what "Which note wins" --case $'1. a\n2. b' --case-was guessed --cause c "${two_options[@]}" 2>&1 || true)
+nocause=$(decide ask gift-note --what "Which note wins" --case $'1. a\n2. b' --case-was derived "${two_options[@]}" 2>&1 || true)
+choice3() { decide pending gift-note | "$PY" -c 'import json, sys; print(next(c for c in json.load(sys.stdin)["waiting"] if c["id"] == 3)[sys.argv[1]])' "$1"; }
+project --repo "$DC" task-dir night-task >/dev/null
+printf '%s\n' 'Read SKILL_DIR/prompts/lead.md and follow it.' 'task: night-task' 'stop after the plan: yes' 'night: yes' > "$DC/.git/lem/tasks/night-task/brief.md"
+at_night=$(decide ask night-task "${CASE[@]}" --what "Which note wins" "${two_options[@]}" 2>&1 || true)
+if grep -qF -- "--case is one concrete case that ends badly, in numbered steps, one to a line" <<<"$nocase" && grep -qF "this one has 0 numbered steps" <<<"$nocase" \
+  && grep -qF "this one has 1 numbered step" <<<"$onestep" && grep -qF -- "--case-was says how the case is known: reproduced or derived" <<<"$unknown" \
+  && grep -qF -- "--cause needs its text" <<<"$nocause" \
+  && [ "$(choice3 case)" = "${CASE[1]}" ] && [ "$(choice3 case_was)" = derived ] && [ "$(choice3 cause)" = "${CASE[5]}" ] \
+  && grep -qF "the brief of night-task says \`night: yes\`: nobody is there to answer at night" <<<"$at_night" && grep -qF "report.md under \"for the owner\"" <<<"$at_night" \
+  && [ ! -e "$DC/.git/lem/tasks/night-task/decisions.jsonl" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.git/lem/events.jsonl")" = 2 ]; then
+  pass "a choice for the owner carries one run above his card: its case in two numbered steps or more, kept line by line, whether it was reproduced or derived, and its cause; a choice without them is refused, and a night plan asks none, since nobody is there and no wait or expert takes a decision of his at night"
+else
+  fail "the run of a choice and the night: $nocase / $onestep / $unknown / $nocause / $(choice3 case) / $at_night"
 fi
 early=$(decide timeout gift-note 3 2>&1 || true)
 # past FILE ID...: the wait of each choice ends, as its deadline is written into the past, the way fifteen minutes later would find it
@@ -1842,11 +1867,11 @@ if grep -q "the wait of choice 3 has [0-9]* seconds left (until 20.*); the owner
 else
   fail "decisions.py timeout: $early / $never / $over / $still / $took / $taken / $again / $same"
 fi
-decide ask gift-note --what "The header of the column" --option "Gift note" --option "Note" --recommended "Gift note" --why "it says what the cell holds" --said "The two personas split." >/dev/null
+decide ask gift-note "${CASE[@]}" --what "The header of the column" --option "Gift note" --option "Note" --recommended "Gift note" --why "it says what the cell holds" --said "The two personas split." >/dev/null
 past "$dfile" 5
 decide timeout gift-note 5 >/dev/null
 differs=$(decide answer gift-note 5 --chose "Note" | field '(d["kind"], d["taken"], "it is a correction" in d["next"])')
-decide ask gift-note --what "The note's length" --option "all of it" --option "200 characters" --recommended "all of it" --why "nothing is lost" --said "The two personas split." >/dev/null
+decide ask gift-note "${CASE[@]}" --what "The note's length" --option "all of it" --option "200 characters" --recommended "all of it" --why "nothing is lost" --said "The two personas split." >/dev/null
 answered=$(decide answer gift-note 6 --chose "200 characters" | field '(d["kind"], d["chose"])')
 started=$(date +%s)
 ended=$(decide wait gift-note 6 --seconds 20 | field '(d["ended"], d["chose"], d["by"])')
@@ -1862,7 +1887,7 @@ else
   fail "decisions.py answer, wait and list: $differs / $answered / $ended / $took / $twice / $unknown / $stands"
 fi
 # An answer after the wait, before anybody wrote the timeout, is late: the recommended option stands, and both lines are written at once.
-decide ask gift-note --what "The note's font" --option "plain" --option "bold" --recommended "plain" --why "The export has no fonts." --said "The two personas split." >/dev/null
+decide ask gift-note "${CASE[@]}" --what "The note's font" --option "plain" --option "bold" --recommended "plain" --why "The export has no fonts." --said "The two personas split." >/dev/null
 past "$dfile" 7
 after=$(decide answer gift-note 7 --chose "bold" --why "Merchants miss it otherwise." | field '(d["kind"], d["state"], d["taken"], d["timeout_written"], "it is a correction" in d["next"])')
 gone=$(decide timeout gift-note 7 2>&1 || true)
@@ -1875,9 +1900,9 @@ else
   fail "an answer after the wait: $after / $gone / $kinds / $seven"
 fi
 # A choice carries no story: the options are only its own, and a story it changes gets a record of its own after it.
-carried=$(status_of decide ask gift-note --what w --option a --option b --recommended a --why w --said s --story 1 --was "the old text" --changes b)
-decide ask gift-note --what "The note in the header" --option "no header" --option "a header" --recommended "no header" --why "The rows stay as they are." --said "The two personas split." >/dev/null
-decide ask gift-note --what "The note in the footer" --option "no footer" --option "a footer" --recommended "no footer" --why "The rows stay as they are." --said "The two personas split." >/dev/null
+carried=$(status_of decide ask gift-note "${CASE[@]}" --what w --option a --option b --recommended a --why w --said s --story 1 --was "the old text" --changes b)
+decide ask gift-note "${CASE[@]}" --what "The note in the header" --option "no header" --option "a header" --recommended "no header" --why "The rows stay as they are." --said "The two personas split." >/dev/null
+decide ask gift-note "${CASE[@]}" --what "The note in the footer" --option "no footer" --option "a footer" --recommended "no footer" --why "The rows stay as they are." --said "The two personas split." >/dev/null
 decide answer gift-note 8 --chose "a header" >/dev/null && decide answer gift-note 9 --chose "no footer" >/dev/null
 told=$(dlist '[(c["id"], c["state"], "story" in c) for c in d if c["id"] in (8, 9)]')
 emptyundo=$(status_of decide log gift-note --what x --chose y --why z --by lead --undo " ")
@@ -1887,7 +1912,7 @@ else
   fail "a choice and a story, and empty values: $carried / $told / $emptyundo"
 fi
 # An answer takes one of the options, word for word, and keeps the owner's own words beside it.
-decide ask gift-note --what "The note in the summary" --option "no summary" --option "a summary line" --recommended "no summary" --why "The rows stay as they are." --said "The two personas split." >/dev/null
+decide ask gift-note "${CASE[@]}" --what "The note in the summary" --option "no summary" --option "a summary line" --recommended "no summary" --why "The rows stay as they are." --said "The two personas split." >/dev/null
 free=$(decide answer gift-note 10 --chose "Put a line at the bottom, please." 2>&1 || true)
 freecode=$(status_of decide answer gift-note 10 --chose "Put a line at the bottom, please.")
 still=$(dlist 'next(c["state"] for c in d if c["id"] == 10)')
@@ -1901,14 +1926,14 @@ else
   fail "an answer and the owner's words: $free / $freecode / $still / $mapped / $ten"
 fi
 # A decision of the owner's that is none of the options settles the choice with --instead; a story the choice carries is said changed or kept, never left out.
-decide ask gift-note --what "Email the merchants" --option "email all customers" --option "email nobody" --recommended "email nobody" --why "Nobody asked for it." --said "The two personas split." --irreversible person >/dev/null
+decide ask gift-note "${CASE[@]}" --what "Email the merchants" --option "email all customers" --option "email nobody" --recommended "email nobody" --why "Nobody asked for it." --said "The two personas split." --irreversible person >/dev/null
 both=$(decide answer gift-note 11 --chose "email nobody" --instead "Email only the beta testers." 2>&1 || true)
 neither=$(decide answer gift-note 11 2>&1 || true)
 bothcode=$(status_of decide answer gift-note 11 --chose "email nobody" --instead "Email only the beta testers.")
 settled=$(decide answer gift-note 11 --instead "Email only the beta testers." --why "They asked to hear first." | field '(d["kind"], d["chose"], d["instead"])')
 eleven=$(dlist 'next((c["state"], c["chose"], c.get("instead"), c.get("owner_why")) for c in d if c["id"] == 11)')
 open_ones=$(decide pending gift-note | field '[c["id"] for c in d["waiting"]]')
-decide ask gift-note --what "The note in the title" --option "no title" --option "a title" --recommended "no title" --why "The rows stay as they are." --said "The two personas split." >/dev/null
+decide ask gift-note "${CASE[@]}" --what "The note in the title" --option "no title" --option "a title" --recommended "no title" --why "The rows stay as they are." --said "The two personas split." >/dev/null
 flagged_answer=$(status_of decide answer gift-note 12 --instead "A title on the first page only." --story-changed --was "old")
 decide answer gift-note 12 --instead "A title on the first page only." >/dev/null
 twelve=$(dlist 'next((c["state"], c.get("instead"), "story" in c) for c in d if c["id"] == 12)')
@@ -1921,8 +1946,8 @@ else
   fail "an answer that is none of the options: $both / $neither / $settled / $eleven / $open_ones / $flagged_answer / $twelve"
 fi
 # A task that is dropped or landed has nothing that waits: pending leaves its choices out and says why, wait returns at once, and list still shows them.
-decide ask dropped-task --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
-decide ask landed-task --what "The header" --option "a header" --option "no header" --recommended "no header" --why "The rows stay." --said "The two personas split." >/dev/null
+decide ask dropped-task "${CASE[@]}" --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
+decide ask landed-task "${CASE[@]}" --what "The header" --option "a header" --option "no header" --recommended "no header" --why "The rows stay." --said "The two personas split." >/dev/null
 project --repo "$DC" state dropped-task dropped "the owner dropped it" >/dev/null && project --repo "$DC" state landed-task landed "main a..b" >/dev/null
 all_open=$(decide pending | field '(sorted({c["task"] for c in d["waiting"]}), [(e["task"], e["status"], e["choices"]) for e in d["ended"]])')
 one_ended=$(decide pending dropped-task | field '(d["waiting"], d["ended"][0]["status"], d["ended"][0]["says"])')
@@ -1938,7 +1963,7 @@ else
   fail "the choices of an ended task: $all_open / $one_ended / $waited / $took / $kept"
 fi
 # A task dropped while a wait runs ends that wait: the loop reads the task's status each time it reads the choice.
-decide ask cancel-task --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
+decide ask cancel-task "${CASE[@]}" --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
 started=$(date +%s)
 "$PY" -B "$DECISIONS" --repo "$DC" wait cancel-task 1 --seconds 8 > "$WORK/cancel-wait.out" 2>&1 &
 waiter=$!
@@ -1964,7 +1989,7 @@ else
 fi
 # An answer and a timeout at one time: each reads the state inside the lock, so the record holds one outcome.
 rfile=$DC/.git/lem/tasks/race-task/decisions.jsonl
-decide ask race-task --what "The order of the rows" --option "by number" --option "by date" --recommended "by number" --why "It is the order of today." --said "The two personas split." >/dev/null
+decide ask race-task "${CASE[@]}" --what "The order of the rows" --option "by number" --option "by date" --recommended "by number" --why "It is the order of today." --said "The two personas split." >/dev/null
 past "$rfile" 1
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.git/lem/tasks/race-task/decisions.lock" > "$WORK/rlock.out" &
 holder=$!
@@ -2003,14 +2028,14 @@ fi
 # The wait is the settings' flow.decision_wait: init writes it, a choice takes it, and a value that is no whole number of 1 or more is refused.
 written=$(grep -c '^decision_wait = 15$' "$DC/.lem/project.toml")
 sed -i.bak 's|^decision_wait = 15$|decision_wait = 1|' "$DC/.lem/project.toml" && rm "$DC/.lem/project.toml.bak"
-short=$(decide ask other-task --what "x" --option a --option b --recommended a --why w --said s | field '(d["wait_minutes"], (__import__("datetime").datetime.strptime(d["deadline"], "%Y-%m-%dT%H:%M:%SZ") - __import__("datetime").datetime.strptime(d["at"], "%Y-%m-%dT%H:%M:%SZ")).seconds)')
+short=$(decide ask other-task "${CASE[@]}" --what "x" --option a --option b --recommended a --why w --said s | field '(d["wait_minutes"], (__import__("datetime").datetime.strptime(d["deadline"], "%Y-%m-%dT%H:%M:%SZ") - __import__("datetime").datetime.strptime(d["at"], "%Y-%m-%dT%H:%M:%SZ")).seconds)')
 wrong=""
 for value in 0 -5 true '"15"' 2.5; do
   sed -i.bak "s|^decision_wait = .*\$|decision_wait = $value|" "$DC/.lem/project.toml" && rm "$DC/.lem/project.toml.bak"
   said=$(project --repo "$DC" show 2>&1 || true)
   if [ "$(status_of project --repo "$DC" show)" = 1 ] && grep -q "flow.decision_wait = .* must be a whole number of minutes, 1 or more" <<<"$said"; then :; else wrong="$wrong $value"; fi
 done
-refused=$(decide ask other-task --what "x" --option a --option b --recommended a --why w --said s 2>&1 || true)
+refused=$(decide ask other-task "${CASE[@]}" --what "x" --option a --option b --recommended a --why w --said s 2>&1 || true)
 sed -i.bak 's|^decision_wait = .*$|decision_wait = 15|' "$DC/.lem/project.toml" && rm "$DC/.lem/project.toml.bak"
 if [ "$written" = 1 ] && [ "$short" = "(1, 60)" ] && [ -z "$wrong" ] && grep -q "flow.decision_wait" <<<"$refused" && [ "$(project --repo "$DC" show | field 'd["flow"]["decision_wait"]')" = 15 ]; then
   pass "init writes flow.decision_wait, a choice waits as many minutes as it says, and a value that is not a whole number of 1 or more is refused, by the settings and by a choice"
@@ -2733,24 +2758,27 @@ project --repo "$SHOP" log second-change plan.talk reviewer=codex turns:=4 quest
 talkless=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES" 2>&1 || true)
 typed=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns=5 questions:=3 settled:=2 open:=1 repaired:=1 design:=1 unargued:=0 root:=1 layer:=0 shared:=0 2>&1 || true)
 missing=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=3 settled:=2 repaired:=1 design:=1 unargued:=0 root:=1 layer:=0 shared:=0 2>&1 || true)
-empty=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 2>&1 || true)
+self_bound=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex bound:=5 turns:=5 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 2>&1 || true)
 if grep -q "the plan has 4 tasks, more than three, so its defender and the reviewer talk its plan through in the plan talk's companion before any code" <<<"$talkless" \
   && grep -q "the event log has no .plan.talk. of four-tasks" <<<"$talkless" && [ "$(status four-tasks)" = landing ] \
   && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has design, layer, questions, repaired, reviewer, root, settled, shared, turns, unargued" <<<"$missing" \
-  && grep -qF "this one has 5 turns for 0 questions" <<<"$empty" \
+  && grep -qF "and nothing else; this one has bound, design," <<<"$self_bound" \
   && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl" \
   && [ "$(grep -c '"event": "plan.talk", "task": "second-change", "reviewer": "codex", "turns": 4' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
-  pass "a plan of four tasks with no plan talk is not proposed, though another task's talk is in the log; a talk's event without its form is refused, and nothing is written for it"
+  pass "a plan of four tasks with no plan talk is not proposed, though another task's talk is in the log; a talk's event without its form is refused, the bound among its fields too, which the log adds itself, and nothing is written for it"
 else
-  fail "a large request with no plan talk: $talkless / $typed / $missing / $empty"
+  fail "a large request with no plan talk: $talkless / $typed / $missing / $self_bound"
 fi
-# The talk's counts agree with each other, and its turns stay inside the bound its rules give: the
-# reviewer's list, two answers of the defender and two of the reviewer on each question, and the close.
+# The talk's counts agree with each other. A talk that ran over the bound its rules give (the reviewer's
+# list, two answers of the defender and two of the reviewer on each question, and the close) is a fact,
+# and its record is taken with that bound beside it; so is one whose second question on a decision did not close as a design choice.
 talk_log() { project --repo "$SHOP" log four-tasks plan.talk reviewer=codex "$@" 2>&1 || true; }
 lost=$(talk_log turns:=6 questions:=3 settled:=1 open:=1 repaired:=1 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
 undesigned=$(talk_log turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 design:=2 unargued:=0 root:=0 layer:=0 shared:=0)
 overrepaired=$(talk_log turns:=6 questions:=3 settled:=3 open:=0 repaired:=4 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
 endless=$(talk_log turns:=11 questions:=2 settled:=1 open:=1 repaired:=1 design:=1 unargued:=3 root:=0 layer:=0 shared:=0)
+unshared=$(talk_log turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 design:=0 unargued:=0 root:=0 layer:=0 shared:=1)
+raised_late=$(talk_log turns:=3 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=1 root:=0 layer:=0 shared:=0)
 bounded=$(talk_log turns:=10 questions:=2 settled:=1 open:=1 repaired:=2 design:=1 unargued:=3 root:=1 layer:=1 shared:=1)
 # a reviewer who found nothing: its first turn says it has no question, and the defender closes
 lone=$(talk_log turns:=1 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
@@ -2761,28 +2789,29 @@ overstarted=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=cod
 started=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=codex 2>&1 || true)
 if grep -qF "settled and open add up to questions" <<<"$lost" && grep -qF "design is at most open" <<<"$undesigned" \
   && grep -qF "repaired is at most questions" <<<"$overrepaired" \
-  && grep -qF "at most 4 × N + 2 turns" <<<"$endless" && grep -qF "this one has 11 turns for 2 questions" <<<"$endless" \
-  && [ "$(field 'd["turns"], d["questions"], d["design"], d["unargued"]' <<<"$bounded")" = "(10, 2, 1, 3)" ] \
-  && grep -qF "a talk has two turns at the least" <<<"$lone" && grep -qF "a talk of no question has no turn after the list, so unargued is 0" <<<"$quiet_raised" \
-  && [ "$(field 'd["turns"], d["questions"], d["settled"], d["open"]' <<<"$quiet")" = "(2, 0, 0, 0)" ] \
+  && [ "$(field 'd["turns"], d["questions"], d["bound"]' <<<"$endless")" = "(11, 2, 10)" ] && [ "$(field 'd["shared"], d["design"]' <<<"$unshared")" = "(1, 0)" ] \
+  && [ "$(field 'd["turns"], d["questions"], d["design"], d["unargued"], d["bound"]' <<<"$bounded")" = "(10, 2, 1, 3, 10)" ] \
+  && grep -qF "a talk has two turns at the least" <<<"$lone" && grep -qF "a talk of no question and two turns has no turn after the list, so unargued is 0" <<<"$quiet_raised" \
+  && [ "$(field 'd["turns"], d["unargued"], d["bound"]' <<<"$raised_late")" = "(3, 1, 2)" ] \
+  && [ "$(field 'd["turns"], d["questions"], d["settled"], d["open"], d["bound"]' <<<"$quiet")" = "(2, 0, 0, 0, 2)" ] \
   && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$startless" && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$overstarted" \
   && [ "$(field 'd["event"], d["reviewer"]' <<<"$started")" = "('plan.talk.start', 'codex')" ] \
-  && [ "$(grep -c '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 2 ] \
+  && [ "$(grep -c '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 5 ] \
   && [ "$(grep -c '"event": "plan.talk.start", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
-  pass "a talk's counts agree: each question of the list ends settled or open, a design choice is an open one, a question gets one repair at most, and a talk has at most 4 × questions + 2 turns; a talk of no question has its two turns and nothing raised after them; the start of a talk names its reviewer and nothing else, and a refused record writes nothing"
+  pass "a talk's counts agree: each question of the list ends settled or open, a design choice is an open one, and a question gets one repair at most; a talk over its bound of 4 × questions + 2 turns, or with more decisions two questions named than design choices, is written as it ran, with the bound the log adds; a talk of no question and two turns has nothing raised after its list; the start of a talk names its reviewer and nothing else, and a refused record writes nothing"
 else
-  fail "the counts of a plan talk: $lost / $undesigned / $overrepaired / $endless / $bounded / $lone / $quiet_raised / $quiet / $startless / $overstarted / $started"
+  fail "the counts of a plan talk: $lost / $undesigned / $overrepaired / $endless / $unshared / $bounded / $lone / $quiet_raised / $raised_late / $quiet / $startless / $overstarted / $started"
 fi
 project --repo "$SHOP" log four-tasks plan.talk reviewer=claude turns:=3 questions:=1 settled:=1 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 >/dev/null
-project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=9 questions:=5 settled:=4 open:=1 repaired:=3 design:=1 unargued:=2 root:=2 layer:=1 shared:=0 >/dev/null
+project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=23 questions:=5 settled:=4 open:=1 repaired:=3 design:=1 unargued:=2 root:=2 layer:=1 shared:=0 >/dev/null
 # the same event with one count more, which Lem has no words for: a count added to the event later needs no change of the landing
 "$PY" -c 'import json, sys; p = sys.argv[1]; talk = json.loads(open(p).read().splitlines()[-1]); talk["rounds"] = 2; open(p, "a").write(json.dumps(talk) + "\n")' "$SHOP/.git/lem/events.jsonl"
 out=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES")
 text=$SHOP/.git/lem/tasks/four-tasks/pr.md
 if [ "$(field 'd["green"]' <<<"$out")" = True ] && [ "$(status four-tasks)" = open ] \
-  && grep -qxF -- "- the plan talk: codex argued the plan with its defender, 9 turns; 4 positions settled by the two, 1 left open; 5 questions in the reviewer's first list, 3 repaired by the defender, 1 of the open ones a design choice, 2 raised after the list and not argued, 2 repaired at the cause, 1 layer over a cited decision, 0 decisions two questions named, rounds: 2" "$text" \
+  && grep -qxF -- "- the plan talk: codex argued the plan with its defender, 23 turns, over the bound of 22 for its 5 questions; 4 positions settled by the two, 1 left open; 5 questions in the reviewer's first list, 3 repaired by the defender, 1 of the open ones a design choice, 2 raised after the list and not argued, 2 repaired at the cause, 1 layer over a cited decision, 0 decisions two questions named, rounds: 2" "$text" \
   && [ "$(grep -c 'plan talk' "$text")" = 1 ] && grep -q '^- careful: no$' "$text"; then
-  pass "after its plan talk a plan of four tasks is proposed, and its text holds one line of the talk, from the newest event, with each of its counts in words, and a count Lem has no words for by its name"
+  pass "after its plan talk a plan of four tasks is proposed, and its text holds one line of the talk, from the newest event, with its turns over the bound when they are, each of its counts in words, and a count Lem has no words for by its name"
 else
   fail "a large request after its plan talk: $out / $(cat "$text" 2>/dev/null)"
 fi
@@ -3063,24 +3092,24 @@ local_land start waited-change >/dev/null && local_land base waited-change >/dev
 wdec() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
 wfile=$LOCAL/.git/lem/tasks/waited-change/decisions.jsonl
 wdec log waited-change --what "The name of the file" --chose w.txt --why "The other files have one letter." --by lead >/dev/null
-wdec ask waited-change --what "Where the word goes" --option "the first line" --option "the last line" --recommended "the first line" --why "A reader sees it at once." --said "The two personas split." >/dev/null
+wdec ask waited-change "${CASE[@]}" --what "Where the word goes" --option "the first line" --option "the last line" --recommended "the first line" --why "A reader sees it at once." --said "The two personas split." >/dev/null
 waiting=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
 past "$wfile" 2 && wdec timeout waited-change 2 >/dev/null
-wdec ask waited-change --what "Tell the merchants" --option "send the email" --option "send nothing" --recommended "send nothing" --why "Nothing they see changes." --said "The two personas split." --irreversible person >/dev/null
+wdec ask waited-change "${CASE[@]}" --what "Tell the merchants" --option "send the email" --option "send nothing" --recommended "send nothing" --why "Nothing they see changes." --said "The two personas split." --irreversible person >/dev/null
 forever=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
 wdec answer waited-change 3 --chose "send the email" --words "Yes, send it." --why "The merchants asked for it." >/dev/null
-wdec ask waited-change --what "The case of the word" --option "lower case" --option "upper case" --recommended "lower case" --why "The test reads it so." --said "The two personas split." >/dev/null
+wdec ask waited-change "${CASE[@]}" --what "The case of the word" --option "lower case" --option "upper case" --recommended "lower case" --why "The test reads it so." --said "The two personas split." >/dev/null
 past "$wfile" 4 && wdec timeout waited-change 4 >/dev/null && wdec answer waited-change 4 --chose "upper case" --words "Make it upper case." --why "The header is in upper case." >/dev/null
 wdec answer waited-change 2 --chose "the first line" --why "The importer reads the first line." >/dev/null
 # a choice the personas left unclear: the owner takes the recommended option in time
-wdec ask waited-change --what "Which line holds the word" --option "the only line" --option "the second line" --recommended "the second line" --why "A header goes first." \
+wdec ask waited-change "${CASE[@]}" --what "Which line holds the word" --option "the only line" --option "the second line" --recommended "the second line" --why "A header goes first." \
   --said "The two personas split." >/dev/null
 wdec answer waited-change 5 --chose "the second line" >/dev/null
 # the owner decides what none of the options says: an irreversible step that would otherwise wait for ever, and one more
-wdec ask waited-change --what "Email the customers" --option "email all customers" --option "email nobody" --recommended "email nobody" --why "Nobody asked for it." \
+wdec ask waited-change "${CASE[@]}" --what "Email the customers" --option "email all customers" --option "email nobody" --recommended "email nobody" --why "Nobody asked for it." \
   --said "The two personas split." --irreversible person >/dev/null
 wdec answer waited-change 6 --instead "Email only the beta testers." --why "They asked to hear first." >/dev/null
-wdec ask waited-change --what "The word's line ending" --option "a line break" --option "no line break" --recommended "a line break" --why "Every file ends so." \
+wdec ask waited-change "${CASE[@]}" --what "The word's line ending" --option "a line break" --option "no line break" --recommended "a line break" --why "Every file ends so." \
   --said "The two personas split." >/dev/null
 wdec answer waited-change 7 --instead "A line break, and a second line with the date." >/dev/null
 instead_pending=$(wdec pending waited-change | field '[c["id"] for c in d["waiting"]]')
@@ -3116,7 +3145,7 @@ task_in "$LOCAL" expert-change e.txt e
 local_land start expert-change >/dev/null && local_land base expert-change >/dev/null && local_land gate expert-change >/dev/null && local_land read expert-change --record "$(clean 1)" >/dev/null
 efile=$LOCAL/.git/lem/tasks/expert-change/decisions.jsonl
 # eask WHAT FIRST SECOND RECOMMENDED WHY: a choice for the owner that the personas left unclear
-eask() { wdec ask expert-change --what "$1" --option "$2" --option "$3" --recommended "$4" --why "$5" --said "The two personas split." >/dev/null; }
+eask() { wdec ask expert-change "${CASE[@]}" --what "$1" --option "$2" --option "$3" --recommended "$4" --why "$5" --said "The two personas split." >/dev/null; }
 # eadvise ID FABLE_PICK FABLE_WHY ASTRA_PICK ASTRA_WHY: both experts' advice on choice ID
 eadvise() {
   wdec advise expert-change "$1" --expert fable --pick "$2" --why "$3" >/dev/null
@@ -3183,7 +3212,7 @@ printf '%s\n' '# story-departs' '' '## Stories' '' 'Kind: feature, because the f
 git -C "$tree" commit -q -am "docs: the stories as they are built"
 unrecorded=$(local_land start story-departs >/dev/null && local_land base story-departs >/dev/null && local_land gate story-departs 2>&1 || true)
 # a story that a choice of the build removes, once the choice is answered; and one the lead adds
-ldecide ask story-departs --what "The one-line rule" --option "keep the rule" --option "no such rule" --recommended "keep the rule" --why "A reader counts on it." \
+ldecide ask story-departs "${CASE[@]}" --what "The one-line rule" --option "keep the rule" --option "no such rule" --recommended "keep the rule" --why "A reader counts on it." \
   --said "The two personas split." >/dev/null 2>&1 || true
 early=$(ldecide story story-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --choice 1 2>&1 || true)
 ldecide answer story-departs 1 --chose "no such rule" >/dev/null 2>&1 || true
