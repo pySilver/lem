@@ -2223,7 +2223,13 @@ project --repo "$LOCAL" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' 'bar = ["rubocop:disable"]' '[flow]' 'careful = ["billing/*"]' > "$LOCAL/.lem/project.toml"
 mkdir -p "$LOCAL/tests" "$LOCAL/docs" && printf '%s\n' 'def test_base():' '    assert 1 + 1 == 2' '    assert 2 + 2 == 4' > "$LOCAL/tests/test_base.py" && echo guide > "$LOCAL/docs/guide.md"
 printf '%s\n' 'import plugin # noqa: F401' 'import other  # noqa: E402' > "$LOCAL/plug.py"
-printf '%s\n' 'def first():' '    return "old"' '' '' 'def second():' '    return "old"' > "$LOCAL/app.py"
+# app_py FIRST SECOND: two functions alike in every line but their names, each longer than the
+# three lines of context a diff shows, so the same edit in either gives the same lines of a diff
+app_py() {
+  printf '%s\n' 'def first():' '    a = 1' '    b = 2' '    c = 3' "    return \"$1\"" '    # the end' '' '' \
+    'def second():' '    a = 1' '    b = 2' '    c = 3' "    return \"$2\"" '    # the end' '' '' 'def third():' '    return 3'
+}
+app_py old old > "$LOCAL/app.py"
 printf '%s\n' 'pub fn one() -> i32 { 1 }' '#[cfg(test)]' 'mod tests {' '    #[test]' '    fn it_is_one() { assert_eq!(super::one(), 1); }' '}' > "$LOCAL/lib.rs"
 git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start"
 local_land() { land --repo "$LOCAL" "$@"; }
@@ -2279,13 +2285,14 @@ local_land land guide-change --by owner >/dev/null && local_land clean guide-cha
 # after a review, because the owner says careful, asks for the larger review.
 task_in "$LOCAL" spaces s.txt word
 tree=$(project --repo "$LOCAL" worktree-dir spaces)
-echo 'value = "a b"' > "$tree/v.py" && printf '%s\n' 'def first():' '    return "new"' '' '' 'def second():' '    return "old"' > "$tree/app.py"
+echo 'value = "a b"' > "$tree/v.py" && app_py new old > "$tree/app.py"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a value"
 local_land start spaces >/dev/null && local_land base spaces >/dev/null && local_land gate spaces >/dev/null
 local_land read spaces --record "$(clean 1)" >/dev/null
 same=$(local_land read spaces | field 'd["due"]')
-# the same edit in the next function of the file: every line of the diff is the same, and its place is not
-printf '%s\n' 'def first():' '    return "old"' '' '' 'def second():' '    return "new"' > "$tree/app.py"
+# the same edit in the next function of the file: every line of the diff is the same, with its
+# context, and only its place is not
+app_py old new > "$tree/app.py"
 git -C "$tree" commit -q -am "fix: the other function" && local_land gate spaces >/dev/null
 moved=$(local_land read spaces | field '(d["due"], d["round"])')
 git -C "$tree" revert --no-edit HEAD >/dev/null && local_land gate spaces >/dev/null
