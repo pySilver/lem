@@ -31,7 +31,11 @@ task() { project task-dir "$1" --ask "$2" >/dev/null; }
 
 git init -q -b main "$R" && git -C "$R" config user.name t && git -C "$R" config user.email t@t
 echo one > "$R/app.txt" && git -C "$R" add -A && git -C "$R" commit -q -m "chore: start"
-project init --base main >/dev/null && git -C "$R" add -A && git -C "$R" commit -q -m "chore: the settings"
+project init --base main >/dev/null
+# two gate commands: one run of the gate is both, on one tip
+"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^commands = \[\]$", "commands = [\"make test\", \"make lint\"]", s, count=1))' "$R/.lem/project.toml"
+grep -q '^commands = \["make test", "make lint"\]$' "$R/.lem/project.toml" || { printf 'FAIL the fixture: the settings got no gate commands\n'; exit 1; }
+git -C "$R" add -A && git -C "$R" commit -q -m "chore: the settings"
 
 # retime SLUG BASE MINUTES...: the events of one task, in the order the scripts wrote them, get the
 # times BASE + MINUTES (BASE is an ISO time, or `now`). A decision's own time moves with its event,
@@ -184,12 +188,13 @@ project state "$T" open "ready to land on main at abc1234" "green" >/dev/null
 project state "$T" landed "main abc1234" >/dev/null
 retime "$T" 2026-11-11T09:00:00Z 0 5 65 70 72 74 76 80 80 90
 
-# A gate command that failed five minutes into a landing that is still open.
+# One run of the gate in a landing that is still open: its first command failed, and its second ran after it.
 task red-gate "Keep the cart for a week"
 project state red-gate ready "the report is written" >/dev/null
 project state red-gate landing "the checks start" >/dev/null
 project log red-gate gate "command=make test" exit:=1 "last=1 failed, 8 passed" tip=fed4321 >/dev/null
-retime red-gate now -40 -30 -25
+project log red-gate gate "command=make lint" exit:=0 "last=All checks passed" tip=fed4321 >/dev/null
+retime red-gate now -40 -30 -25 -20
 
 # Stories that nobody was confused by, which still wait for the owner's yes: he left before he gave it.
 task clear-read-held "Show the stock on the product page"
@@ -220,14 +225,50 @@ digest=$(stories digest rare-path | field 'd["digest"]')
 project log rare-path stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
 stories approve rare-path --read >/dev/null
 
-if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 16 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
+# A task the owner holds at the reviewer's trust prompt: a step of his, and no decision.
+task trust-prompt "Move the review to Codex"
+project state trust-prompt building "lead: session" >/dev/null
+project state trust-prompt held "the reviewer's trust prompt waits for the owner's yes" >/dev/null
+
+# The usual path writes the personas' read before the task's first state block.
+task read-first "Show the order's weight on the label"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the label gets a new line.' '' '1. A parcel of 2.5 kg says "2.5 kg" on its label.' > "$WORK/weight.md"
+digest=$(stories digest read-first --file "$WORK/weight.md" | field 'd["digest"]')
+project log read-first stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+
+# The plan's stories and their tests' result, and then a new approval of other stories.
+task approved-again "Print the packing slip in German"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the slip gets a language.' '' '1. A slip for Berlin is in German.' > "$WORK/slip-1.md"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the slip gets a language.' '' '1. A slip for Berlin or Vienna is in German.' > "$WORK/slip-2.md"
+stories approve approved-again --file "$WORK/slip-1.md" >/dev/null
+project state approved-again building "task 1 of 1" >/dev/null
+project log approved-again task.stories kind=feature "why=the slip gets a language." digest=0123456789ab \
+  'stories:=[{"n": 1, "text": "A slip for Berlin is in German.", "tests": [{"command": "sh tests/slip.sh", "files": ["tests/slip.sh"]}], "no_test": null}]' >/dev/null
+project log approved-again task.red ok:=true digest=0123456789ab base=0a1b2c3d4 tip=abc123456 \
+  'tests:=[{"story": 1, "command": "sh tests/slip.sh", "files": ["tests/slip.sh"], "on_branch": 0, "on_base": 1, "problem": null}]' 'without_a_test:=[]' 'run_without:=[]' >/dev/null
+stories approve approved-again --file "$WORK/slip-2.md" >/dev/null
+
+# Stories read and approved, changed by the build, then approved again as they were read: nothing is unread.
+# Beside it the same without the second approval: the change was not read.
+for slug in restored-read unread-change; do
+  task "$slug" "Name the carrier on the slip"
+  printf '%s\n' '## Stories' '' 'Kind: feature, because the slip gets a line.' '' '1. A DHL parcel says "DHL" on its slip.' > "$WORK/$slug.md"
+  digest=$(stories digest "$slug" --file "$WORK/$slug.md" | field 'd["digest"]')
+  project log "$slug" stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+  stories approve "$slug" --file "$WORK/$slug.md" >/dev/null
+  project state "$slug" building "lead: builder" >/dev/null
+  decide story "$slug" --changed 1 --was 'A DHL parcel says "DHL" on its slip.' --now 'A DHL parcel says "DHL Express" on its slip.' --why "the carrier's own name" --by lead >/dev/null
+done
+stories approve restored-read --file "$WORK/restored-read.md" >/dev/null
+
+if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 18 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
   pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log holds the moved times"
 else
   fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events"
 fi
 
 board --no-open >/dev/null
-for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path; do board --no-open --task "$slug" >/dev/null; done
+for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change; do board --no-open --task "$slug" >/dev/null; done
 
 SHOWN=$(cat <<'PY'
 import re, sys
@@ -251,6 +292,22 @@ missing += [f"no {want[1:]!r}" for want in sys.argv[2:] if want.startswith("!") 
 if "PROBLEM" in p.title or "does not parse" in shown: missing.append(f"no problem on the page (title {p.title!r})")
 print("; ".join(missing))
 sys.exit(bool(missing))
+PY
+)
+# TIMECARD DOM 'ROW|ROW|...' 'ROW=TOTAL · SHARE' ...: the rows of the time card, in order, and its legend, item for item
+TIMECARD=$(cat <<'PY'
+import html, re, sys
+dom = open(sys.argv[1], encoding="utf-8").read()
+rows = [html.unescape(row) for row in re.findall(r'<text class="lane-label"[^>]*>([^<]*)</text>', dom)]
+area = dom[dom.index('id="legend"'):]
+area = area[:area.index("</div>")]
+legend = {html.unescape(label): html.unescape(value) for label, value in re.findall(r"<span[^>]*><i[^>]*></i>(.*?)<em>(.*?)</em></span>", area)}
+want = dict(item.split("=", 1) for item in sys.argv[3:])
+# a value that starts with "~" is a regular expression, for a total that grows with the clock
+same = set(legend) == set(want) and all(re.fullmatch(value[1:], legend[label]) if value.startswith("~") else value == legend[label] for label, value in want.items())
+wrong = ([f"the rows are {rows}"] if rows != sys.argv[2].split("|") else []) + ([f"the legend is {legend}"] if not same else [])
+print("; ".join(wrong))
+sys.exit(bool(wrong))
 PY
 )
 # BANNERS DOM PATTERN ...: each regular expression matches the text of one banner, and "!PATTERN" none
@@ -309,10 +366,13 @@ if [ -n "$chrome" ] && [ ! -s "$WORK/board.dom" ]; then
   # A Chrome that cannot start (a sandbox that forbids it) says nothing about the page.
   printf 'SKIP the board pages: %s printed no page\n' "$chrome"
 elif [ -n "$chrome" ]; then
+  # shellcheck disable=SC1111  # the curly quotes around a state's own line are the page's
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" \
     "Waits for you=Gift note export|Lem puts choice 7 to you as a page in its session. Answer it there before its wait ends; then the lead takes the recommended action." \
     "Waits for you=Held choice|Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, with no end." \
-    "Waits for you=Held question|Lem puts this question to you as a page in its session. Answer it there." \
+    "Waits for you=Held question|It waits on what its state says: “how the totals round is the owner's to decide”. Lem tells you in its session what to do and where." \
+    "Waits for you=Trust prompt|It waits on what its state says: “the reviewer's trust prompt waits for the owner's yes”. Lem tells you in its session what to do and where." \
+    "Building=Approved again" "Building=Restored read" "Building=Unread change" \
     "Waits for you=Clear read held|Lem shows you the stories, with the personas’ read on top, as a page in its session. Approve or change them there." \
     "Waits for you=Stories wait|Lem shows you the stories, with the personas’ read on top, as a page in its session. Approve or change them there." \
     "Waits for you=Plan for you|Read the plan, then tell Lem in its session: build it or drop it." \
@@ -331,7 +391,7 @@ elif [ -n "$chrome" ]; then
     "^Choice 4 waits for you: Gift note export · Email the merchants about the new column · no end: no timeout takes it Lem puts choice 4" \
     "^Choice 1 waits for you: Held choice · Refund the 12 duplicate orders now · no end: no timeout takes it" \
     "^Waits for you: Stories wait · the stories wait for the owner" "!^Choice 6" "!Choice 5" "!^Waits for you: Held choice") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "9 wait for you, 5 build, 3 in checks and review, 1 queued" "You · choice 7 of the task" "!Demo data"); then
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "10 wait for you, 8 build, 3 in checks and review, 1 queued" "You · choice 7 of the task" "!Demo data"); then
     pass "the board of all tasks puts each choice that waits for the owner in a banner and in the card it opens on, with its count-down, or no end for an irreversible step, and none whose wait is over"
   else
     fail "the banners: $why"
@@ -371,10 +431,11 @@ sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 stori
   fi
 
   draw "task-$L"
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$L.dom" "Where the time went" \
-    "You 1h 05m · 46%" "Lem 6m 00s · 4%" "The lead 17m · 12%" "The builders 42m · 30%" "The checks 5m 00s · 4%" "The review 11m · 8%" \
-    "The personas" "Stories" "Plan" "T1" "T2" "Checks" "PR" "!The scout" "!nowline") \
-    && ! grep -q 'class="nowline"' "$WORK/task-$L.dom" && ! grep -q '<text class="lane-label"[^>]*>The scout<' "$WORK/task-$L.dom"; then
+  # The rows and the legend are read from the card itself, so that a name elsewhere on the page cannot stand in for a row.
+  if why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$L.dom" "You|Lem|The lead|The builders|The personas|The checks|The review" \
+    "You=1h 05m · 46%" "Lem=6m 00s · 4%" "The lead=17m · 12%" "The builders=42m · 30%" "The checks=5m 00s · 4%" "The review=11m · 8%") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$L.dom" "Where the time went" "Stories" "Plan" "T1" "T2" "Checks" "PR") \
+    && ! grep -q 'class="nowline"' "$WORK/task-$L.dom"; then
     pass "the time card of a task has a row for each actor that held its work and a band for each stage and plan task, and its legend gives each actor's total and share of the task's time"
   else
     fail "the time card: $why"
@@ -438,12 +499,34 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     fail "an event in the second of the next block: $why"
   fi
   draw task-red-gate
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-red-gate.dom" "The checks 5m 00s") \
+  if why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-red-gate.dom" "You|Lem|The checks" "The checks=10m · 25%" "Lem=~(29|30|31)m · 7[0-9]%") \
     && grep -q 'data-head="Lem · After a failed check: a repair or a stop, and no event says which yet"' "$WORK/task-red-gate.dom" \
-    && ! grep -q 'data-head="The checks · The checks run"' "$WORK/task-red-gate.dom"; then
-    pass "after a failed check in an open landing the time is not drawn as checks that go on: no event shows a check, and the span says that none says what comes"
+    && ! grep -q 'data-head="The checks · The checks run' "$WORK/task-red-gate.dom"; then
+    pass "a gate run whose first command failed is checks until its last command, with no repair between its commands, and after the whole run failed the time is not drawn as checks that go on"
   else
     fail "after a failed check: ${why:-the span after the red gate}"
+  fi
+  draw task-read-first
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-read-first.dom" "No state block was written yet for the task \"read-first\": its 1 event is in the activity below" \
+    "The personas read the stories" "nobody confused · 2 of 2 answered"); then
+    pass "the board of a task whose stories were read before its first state block draws its events and says that its state comes later"
+  else
+    fail "a task with events and no state: $why"
+  fi
+  draw task-approved-again
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-approved-again.dom" "1. A slip for Berlin or Vienna is in German." \
+    "approved after the plan’s stories were recorded: the lead records them again, with their tests" "approval 2; it replaces approval 1" \
+    "!held by its tests" "!A slip for Berlin is in German." "feature, because the slip gets a language."); then
+    pass "after a new approval the Stories card shows the approved stories, not the plan's older ones and their tests' result"
+  else
+    fail "stories approved after the plan's: $why"
+  fi
+  draw task-restored-read && draw task-unread-change
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-restored-read.dom" "Story 1 changed during the build" "!the change was not read") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-unread-change.dom" "The stories changed after this read by a change of the build, and the change was not read."); then
+    pass "the Stories card says that a change was not read only while the stories as they stand are not the ones read: his approval of the read stories again clears it"
+  else
+    fail "the unread change: $why"
   fi
   draw task-clear-read-held
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-clear-read-held.dom" "Nobody confused" "The stories wait for your yes" "!The build started with no wait for you"); then
@@ -478,7 +561,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
       "Waits for you=Stories wait|Lem shows you the stories, with the personas’ read on top, in its session, as text in the conversation. Approve or change them there.") \
     && why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" \
       "Waits for you=Held choice|Lem asks you choice 1 with my-asker, the asker this project names. Answer it there: it waits for your word, with no end." \
-      "Waits for you=Held question|Lem asks you this question with my-asker, the asker this project names. Answer it there."); then
+      "Waits for you=Stories wait|Lem shows you the stories, with the personas’ read on top, with my-asker, the asker this project names. Approve or change them there."); then
     pass "where the owner answers follows the project's tools.ask: Lem's page, the conversation, or the developer's own asker by its name"
   else
     fail "the project's asker: $why"

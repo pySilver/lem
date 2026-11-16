@@ -669,11 +669,11 @@ function derive(now) {
     // The stories the owner approved, or Lem in his name for a correction, and each read of them by the personas.
     // An approval has a number of its own (stories.py); a log written before numbers counts them in order.
     if (e.event === 'stories.approved') {
-      t.approvals.push({ts: at(e), number: e.number ?? t.approvals.length + 1, by: e.by, kind: e.kind, why: e.why, digest: e.digest, stories: e.stories ?? [], replaces: e.replaces ?? null});
+      t.approvals.push({ts: at(e), order: t.events.length, number: e.number ?? t.approvals.length + 1, by: e.by, kind: e.kind, why: e.why, digest: e.digest, stories: e.stories ?? [], replaces: e.replaces ?? null});
       continue;
     }
     if (e.event === 'stories.read') {
-      t.reads.push({ts: at(e), by: e.by, asked: e.asked, answered: e.answered, families: e.families ?? [], silent: e.silent ?? [], stories: e.stories, flagged: e.flagged, split: e.split === true, digest: e.digest});
+      t.reads.push({ts: at(e), order: t.events.length, by: e.by, asked: e.asked, answered: e.answered, families: e.families ?? [], silent: e.silent ?? [], stories: e.stories, flagged: e.flagged, split: e.split === true, digest: e.digest});
       continue;
     }
     if (e.event === 'plan.talk') { t.talk = {ts: at(e), reviewer: e.reviewer, turns: e.turns, settled: e.settled, open: e.open}; continue; }
@@ -681,7 +681,7 @@ function derive(now) {
     if (e.event === 'careful.missed') { t.missed = {ts: at(e), path: e.path, pattern: e.pattern}; continue; }
     // The stories of the task's plan, as the lead last recorded them, and the newest check that
     // each one's tests pass on the branch and fail on the base commit.
-    if (e.event === 'task.stories') { t.stories = {kind: e.kind, why: e.why, digest: e.digest, list: e.stories ?? [], ts: at(e)}; continue; }
+    if (e.event === 'task.stories') { t.stories = {order: t.events.length, kind: e.kind, why: e.why, digest: e.digest, list: e.stories ?? [], ts: at(e)}; continue; }
     if (e.event === 'task.red') { t.red = {ok: e.ok, digest: e.digest, tests: e.tests ?? [], without: e.without_a_test ?? [], tip: e.tip, ts: at(e)}; continue; }
     if (e.event === 'gate') {
       // A repaired failure runs the gate again inside one landing: a result on another tip starts
@@ -782,7 +782,10 @@ function derive(now) {
     // What project.py may-start counts: a task that builds, and the one the gate runs on.
     places: list.filter(t => t.status === 'building' || t.status === 'landing').length,
     unknown: list.filter(t => !STATUS[t.status]),
-    task: view ? tasks.get(view) ?? null : null,
+    // Only a task with a state block has a status to draw: one whose stories were read before its
+    // first block (the usual path) has its events in the feed and no board yet.
+    task: view ? list.find(x => x.slug === view) ?? null : null,
+    early: view && !list.some(x => x.slug === view) ? tasks.get(view)?.events.length ?? 0 : 0,
   };
   return m;
 }
@@ -794,7 +797,7 @@ function decisionEvent(t, e) {
   if (kind === 'story') {
     // A change names the approval it applies to by its number (`approval`); an older one named its digest (`approved`).
     const approval = e.approval ?? t.approvals.findLast(a => e.approved && a.digest === e.approved && a.ts <= ts)?.number ?? 0;
-    t.changes.push({ts, change: e.change, how: e.how, story: e.story, was: e.was ?? null, now: e.now ?? null, why: e.why, choice: e.choice ?? null, by: e.by ?? null, said: e.said ?? null, approval});
+    t.changes.push({ts, order: t.events.length, change: e.change, how: e.how, story: e.story, was: e.was ?? null, now: e.now ?? null, why: e.why, choice: e.choice ?? null, by: e.by ?? null, said: e.said ?? null, approval});
     return;
   }
   if (kind === 'taken' || kind === 'asked') {
@@ -870,7 +873,10 @@ function answerOf(t, c = t.asks[0]) {
   }
   if (t.status === 'open') return /^pull request\b/.test(t.text) ? 'Merge the pull request, or tell Lem in its session to land it.' : 'Tell Lem in its session to land it.';
   if (t.storiesWait) return `${askedHow('the stories, with the personas’ read on top,', true)}. Approve or change them there.`;
-  if (t.status === 'held') return `${askedHow('this question')}. Answer it there.`;
+  // A held task waits on what its own state line says: a decision, or a step that is the owner's
+  // to do, such as a trust prompt of the reviewer's agent (stages/new.md). The board quotes the
+  // line and does not guess which; Lem tells him the step, or asks the decision its own way.
+  if (t.status === 'held') return `It waits on what its state says: “${t.text}”. Lem tells you in its session what to do and where.`;
   if (t.status === 'planned') return 'Read the plan, then tell Lem in its session: build it or drop it.';
   return `Tell Lem in its session: /lem build ${t.slug}, or drop it.`;
 }
@@ -903,7 +909,10 @@ function buildBanners(m) {
     out.push(keyed(`unknown:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
       h('span', {}, `${t.title} has the status "${t.status}", which no stage writes; nobody acts on it`))));
   }
-  if (view && !m.task) out.push(keyed('notask', h('div', {class: 'banner problem'}, icon('alert'), h('span', {}, `No state block was written yet for the task "${view}"`))));
+  if (view && !m.task && m.early) {
+    out.push(keyed(`early:${m.early}`, h('div', {class: 'banner attention'}, icon('clock'),
+      h('span', {}, `No state block was written yet for the task "${view}": its ${plural(m.early, 'event')} ${m.early === 1 ? 'is' : 'are'} in the activity below, and the rest comes with its first state.`))));
+  } else if (view && !m.task) out.push(keyed('notask', h('div', {class: 'banner problem'}, icon('alert'), h('span', {}, `No state block was written yet for the task "${view}"`))));
   return out;
 }
 
@@ -970,17 +979,34 @@ function timeOf(t, end) {
   const blockOf = new Map();
   let current = -1;
   for (const e of t.events) { if (e.event === 'task.state') current++; else blockOf.set(e, current); }
-  const failed = e => (e?.event === 'gate' && e.exit !== 0) || (e?.event === 'task.red' && !e.ok);
 
   // the landing, cut by the events of its checks and its review: each piece belongs to the event that ends it
   function landing(k, from, to, open) {
     const inside = t.events.filter(e => CHECKS.includes(e.event) && blockOf.get(e) === k);
-    let prev = from, before = null;
-    // after a must-fix or a failed check a builder repairs, and the checks run again: no event tells the two apart
-    const repair = e => (failed(before) || (before?.event === 'review' && before.verdict === 'must-fix')) && (e.event === 'gate' || e.event === 'task.red');
+    // One run of the gate is its commands on one tip, in order: land.py runs every command before it
+    // judges the run, so a failed command is followed by the next one, not by a repair. The run is
+    // complete when it has as many results as the settings have commands (meta.js `gates`). A repair
+    // shows only as a run on another tip after a failed run, a failed stories' check or a must-fix.
+    const gates = Number.isInteger(meta.gates) && meta.gates > 0 ? meta.gates : null;
+    const sameTip = (a, b) => Boolean(a && b) && (String(a).startsWith(b) || String(b).startsWith(a));
+    let run = null, owed = false, prev = from, before = null;
     for (const e of inside) {
       const x = at(e);
-      if (repair(e)) add('builders', prev, x, failed(before) ? 'A repair after a failed check, and the checks again' : 'A repair after the review’s must-fix, and the checks again', 'no event tells the repair from the checks');
+      let repairing = false;
+      if (e.event === 'gate') {
+        if (!run || run.done || !sameTip(run.tip, e.tip)) {
+          repairing = Boolean(run) && !sameTip(run.tip, e.tip) && (run.failed || owed);
+          if (!run || !sameTip(run.tip, e.tip)) owed = false;
+          run = {tip: e.tip, count: 0, failed: false, done: false};
+        }
+        run.count++;
+        run.failed ||= e.exit !== 0;
+        run.done = gates != null && run.count >= gates;
+      } else if (e.event === 'task.red') {
+        repairing = (owed || run?.failed) && Boolean(run) && !sameTip(run.tip, e.tip);
+        if (!e.ok) owed = true;
+      } else if (e.event === 'review' && e.verdict === 'must-fix') owed = true;
+      if (repairing) add('builders', prev, x, 'A repair, and the checks again', 'no event tells the repair from the checks');
       else if (e.event === 'gate') add('checks', prev, x, `The checks: ${e.command ?? 'a gate command'}`, e.exit === 0 ? `green · ${e.last ?? ''}` : `exit ${e.exit} · ${e.last ?? ''}`);
       else if (e.event === 'task.red') add('checks', prev, x, 'The stories’ tests, on the branch and on the base commit', e.ok ? 'each test holds its story' : 'a test does not hold its story');
       else if (e.event === 'review') add('review', prev, x, `Review round ${e.round ?? '?'}: ${KIND[e.kind] ?? e.kind}`, `${e.verdict}${(e.answered ?? []).length ? ` · answered: ${e.answered.join(', ')}` : ''}`);
@@ -990,10 +1016,14 @@ function timeOf(t, end) {
     }
     const last = before?.event;
     if (open) {
-      // After a failed check nothing says yet whether a builder repairs or the task stops: the time is Lem's, as the landing's owner.
-      const [row, head] = failed(before) ? ['lem', 'After a failed check: a repair or a stop, and no event says which yet']
-        : !last || last === 'gate' ? ['checks', 'The checks run'] : last === 'task.red' ? ['review', 'The review runs; its event comes when it is written down']
-        : last === 'review' && before.verdict === 'must-fix' ? ['builders', 'A repair after the review’s must-fix'] : ['lem', 'Lem files and proposes'];
+      // After a failed run nothing says yet whether a builder repairs or the task stops: the time is Lem's, as the landing's owner.
+      const afterFailure = ['lem', 'After a failed check: a repair or a stop, and no event says which yet'];
+      const [row, head] = !last ? ['checks', 'The checks run']
+        : last === 'gate' ? (run.failed && run.done ? afterFailure
+          : run.failed && gates == null ? ['lem', 'A command of this run failed: the next command, a repair or a stop, and no event says which yet']
+            : run.done ? ['checks', 'The stories’ tests run'] : ['checks', gates ? `The checks run: ${run.count} of ${gates} commands done${run.failed ? ', one failed' : ''}` : 'The checks run'])
+        : last === 'task.red' ? (before.ok ? ['review', 'The review runs; its event comes when it is written down'] : afterFailure)
+          : last === 'review' && before.verdict === 'must-fix' ? ['builders', 'A repair after the review’s must-fix'] : ['lem', 'Lem files and proposes'];
       add(row, prev, end, head, '', true);
     } else add('lem', prev, to, last ? 'Lem, after the checks and the review' : 'The landing, with no check on record');
   }
@@ -1039,9 +1069,9 @@ function timeOf(t, end) {
   // before the read was in, and a correction Lem approved in his name, cost him no wait.
   let since = -Infinity;
   for (const a of t.approvals) {
-    const read = t.reads.filter(r => r.ts > since && r.ts <= a.ts).at(-1);
+    const read = t.reads.filter(r => r.order > since && r.order < a.order).at(-1);
     if (a.by === 'owner' && read) add('you', read.ts, a.ts, 'The stories waited for your yes', `from the personas’ read to your approval${read.flagged || read.split ? ' · the read found a doubt' : ''}`);
-    since = a.ts;
+    since = a.order;
   }
   // A choice is his from its question to its outcome, and never after its wait ends: then the
   // recommended action stands, whenever the timeout is written. One with no outcome and a wait
@@ -1416,14 +1446,36 @@ function buildGate(t, now) {
 
 // The stories are the owner's document: each as the lead wrote it, with the tests that hold it and
 // what the last check of those tests gave. A word stands beside each mark, never a color alone.
+// The stories as they stand: the newest approval's, with each change recorded after it applied in
+// order (decisions.py `changes`). Texts compare with each run of spaces as one, as stories.py does.
+const flat = text => String(text).split(/\s+/).filter(Boolean).join(' ');
+function standing(t) {
+  const a = t.approvals.at(-1);
+  if (!a) return null;
+  const texts = a.stories.map(st => st.text);
+  const changes = t.changes.filter(c => c.approval === a.number);
+  for (const c of changes) {
+    if (c.how === 'added') texts.splice(c.story - 1, 0, c.now);
+    else if (c.how === 'changed') texts[c.story - 1] = c.now;
+    else texts.splice(c.story - 1, 1);
+  }
+  // The digest stories.py gives these texts, when an approval holds the same ones: a set of texts no
+  // approval holds has none the page can name, since the page does not hash.
+  const same = x => x.kind === a.kind && x.stories.length === texts.length && x.stories.every((st, i) => flat(st.text) === flat(texts[i]));
+  const digest = changes.length ? t.approvals.findLast(same)?.digest ?? null : a.digest;
+  return {approval: a, texts, changes, digest};
+}
+
 function buildStories(t, now) {
   const head = storiesHead(t, now);
-  const approved = t.approvals.at(-1);
-  if (!t.stories && approved) {
-    // approved before the lead wrote the plan: the stories as he approved them, with no tests yet
-    return [...head, ...approved.stories.map(st => keyed(`story:${st.n}:approved:${st.text.length}`, h('div', {class: 'row a-quiet'},
+  const current = standing(t);
+  // Stories approved after the lead recorded the plan's (or before it wrote any) are the contract
+  // now: the plan's older stories and their tests' results no longer stand for them.
+  if (current && (!t.stories || current.approval.order > t.stories.order)) {
+    const note = t.stories ? 'approved after the plan’s stories were recorded: the lead records them again, with their tests' : 'no test yet: the lead adds its tests in the plan';
+    return [...head, ...current.texts.map((text, i) => keyed(`story:${i + 1}:approved:${current.approval.number}:${text.length}`, h('div', {class: 'row a-quiet'},
       h('span', {class: 'fi'}, icon('file')),
-      h('div', {class: 'rtext'}, h('b', {}, `${st.n}. `), st.text, h('span', {class: 'sub'}, 'no test yet: the lead adds its tests in the plan')),
+      h('div', {class: 'rtext'}, h('b', {}, `${i + 1}. `), text, h('span', {class: 'sub'}, note)),
       h('span', {class: 'rtime'}, ''))))];
   }
   if (!t.stories) return head.length ? head : [keyed('empty', h('div', {class: 'empty'}, 'The lead writes the stories at the top of the plan'))];
@@ -1442,10 +1494,14 @@ function storiesHead(t, now) {
   const takenOver = c => t.approvals.find(x => x.number > c.approval && x.by === 'owner')?.number ?? null;
   if (r) {
     const doubt = r.split || r.flagged > 0;
-    // as land.py says it: the stories changed after the read by an approval of his with other stories, or by a change of the build
-    const his = t.approvals.filter(x => x.by === 'owner' && x.ts >= r.ts && x.digest !== r.digest).at(-1);
-    const changed = t.changes.some(c => c.ts >= r.ts);
-    const stale = his || changed ? `The stories changed after this read${[his && ` by your approval ${his.number}`, changed && ' by a change of the build'].filter(Boolean).join(' and')}, and the change was not read.` : '';
+    // As land.py `unread` says it: only when the stories as they stand are not the ones read, and
+    // then what changed them, an approval of his with other stories or a change of the build.
+    const st = standing(t);
+    const read = t.approvals.find(x => x.digest === r.digest);
+    const differ = st && (st.digest ? st.digest !== r.digest : !read || read.stories.length !== st.texts.length || read.stories.some((x, i) => flat(x.text) !== flat(st.texts[i])));
+    const his = t.approvals.filter(x => x.by === 'owner' && x.order > r.order && x.digest !== r.digest).at(-1);
+    const changed = t.changes.some(c => c.order > r.order);
+    const stale = differ ? `The stories changed after this read${[his && ` by your approval ${his.number}`, changed && ' by a change of the build'].filter(Boolean).join(' and')}, and the change was not read.` : '';
     rows.push(keyed(`read:${r.ts}:${stale}`, h('div', {class: `row a-${doubt ? 'you' : 'done'}`},
       h('span', {class: 'fi'}, icon('users')),
       h('div', {class: 'rtext'},
@@ -1469,7 +1525,7 @@ function storiesHead(t, now) {
     rows.push(keyed(`approved:${a.ts}:${a.by}:${a.number}`, h('div', {class: `row a-${a.by === 'owner' ? 'done' : 'quiet'}`},
       h('span', {class: 'fi'}, icon(a.by === 'owner' ? 'check' : a.by === 'read' ? 'users' : 'user')),
       h('div', {class: 'rtext'}, h('b', {}, head),
-        r && a.by === 'owner' ? (r.ts <= a.ts ? ' after the personas’ read' : ' before the personas’ read was in') : '',
+        r && a.by === 'owner' ? (r.order < a.order ? ' after the personas’ read' : ' before the personas’ read was in') : '',
         a.by === 'correction' ? h('span', {class: 'sub'}, 'You may still say “this is a feature”: then the personas read it, and your approval replaces this one.') : '',
         a.by === 'read' ? h('span', {class: 'sub'}, 'The whole request was written, and nobody was confused: the build started, and you can still stop it or change a story.') : '',
         a.number > 1 || a.replaces != null ? h('span', {class: 'sub'}, `approval ${a.number}${typeof a.replaces === 'number' ? `; it replaces approval ${a.replaces}` : a.replaces ? '; it replaces an earlier approval' : ''}`) : ''),
@@ -1775,7 +1831,7 @@ function render() {
     patch($('progress'), t ? [buildTaskProgress(t)] : []);
     patch($('stories'), t ? buildStories(t, now) : []);
     const approved = t?.approvals.at(-1);
-    $('stories-sum').textContent = t?.stories ? `${t.stories.kind}, because ${t.stories.why}` : approved ? `${approved.kind}, because ${approved.why}` : '';
+    $('stories-sum').textContent = t?.stories && !(approved && approved.order > t.stories.order) ? `${t.stories.kind}, because ${t.stories.why}` : approved ? `${approved.kind}, because ${approved.why}` : '';
     patch($('decisions'), t ? buildDecisions(t, now) : []);
     const overs = t ? t.waiting.length - t.asks.length : 0;
     $('decisions-sum').textContent = t?.choices.length ? [t.asks.length && `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''} for you`,
