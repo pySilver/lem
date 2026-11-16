@@ -1416,7 +1416,7 @@ fi
 DECISIONS=$PWD/skills/lem/scripts/decisions.py
 DC=$WORK/decisions-repo
 git init -q -b main "$DC" && commit "$DC" start && project --repo "$DC" init --base main >/dev/null
-project --repo "$DC" task-dir gift-note >/dev/null && project --repo "$DC" task-dir other-task >/dev/null
+project --repo "$DC" task-dir gift-note >/dev/null && project --repo "$DC" task-dir other-task >/dev/null && project --repo "$DC" task-dir race-task >/dev/null
 decide() { "$PY" -B "$DECISIONS" --repo "$DC" "$@"; }
 dlist() { decide list gift-note | field "$1"; }
 dfile=$DC/.git/lem/tasks/gift-note/decisions.jsonl
@@ -1494,6 +1494,57 @@ if [ "$differs" = "('late', 'Gift note', True)" ] && [ "$answered" = "('answered
   pass "an answer in time decides and wait returns at once with it; a late answer that differs is a correction; a second answer and an answer to a decision nobody asked are refused; and list shows each decision as it stands"
 else
   fail "decisions.py answer, wait and list: $differs / $answered / $ended / $took / $twice / $unknown / $stands"
+fi
+# An answer after the wait, before anybody wrote the timeout, is late: the recommended option stands, and both lines are written at once.
+decide ask gift-note --what "The note's font" --option "plain" --option "bold" --recommended "plain" --why "The export has no fonts." --said "The two personas split." >/dev/null
+past "$dfile" 7
+after=$(decide answer gift-note 7 --chose "bold" --why "Merchants miss it otherwise." | field '(d["kind"], d["state"], d["taken"], d["timeout_written"], "it is a correction" in d["next"])')
+gone=$(decide timeout gift-note 7 2>&1 || true)
+kinds=$(grep '"id": 7' "$dfile" | "$PY" -c 'import json, sys; print([json.loads(line)["kind"] for line in sys.stdin])')
+seven=$(dlist 'next((c["state"], c["chose"], c.get("late", {}).get("chose"), c.get("late", {}).get("why")) for c in d if c["id"] == 7)')
+if [ "$after" = "('late', 'timeout', 'plain', True, True)" ] && grep -q "choice 7 does not wait: it is timeout, with 'plain'" <<<"$gone" \
+  && [ "$kinds" = "['asked', 'timeout', 'late']" ] && [ "$seven" = "('timeout', 'plain', 'bold', 'Merchants miss it otherwise.')" ]; then
+  pass "an answer that comes after the wait, with no timeout written yet, is late: the timeout and the answer go into the record in one write, the recommended option stands, and the owner's reason is kept"
+else
+  fail "an answer after the wait: $after / $gone / $kinds / $seven"
+fi
+# A story that an unclear choice may change is named with the choice, with the options that change it.
+nochange=$(decide ask gift-note --what w --option a --option b --recommended a --why w --said s --story 1 --was "the old text" 2>&1 || true)
+notoption=$(decide ask gift-note --what w --option a --option b --recommended a --why w --said s --story 1 --was "the old text" --changes c 2>&1 || true)
+decide ask gift-note --what "The note in the header" --option "no header" --option "a header" --recommended "no header" --why "The rows stay as they are." --said "The two personas split." \
+  --story 1 --was "A CSV export holds the gift note of an order." --changes "a header" >/dev/null
+decide ask gift-note --what "The note in the footer" --option "no footer" --option "a footer" --recommended "no footer" --why "The rows stay as they are." --said "The two personas split." \
+  --story 2 --was "An order with no gift note has an empty cell." --changes "a footer" >/dev/null
+decide answer gift-note 8 --chose "a header" >/dev/null && decide answer gift-note 9 --chose "no footer" >/dev/null
+told=$(dlist '[(c["id"], c.get("story"), c.get("was")) for c in d if c["id"] in (8, 9)]')
+emptywas=$(decide log gift-note --what x --chose y --why z --by lead --story 1 --was "" 2>&1 || true)
+emptyundo=$(status_of decide log gift-note --what x --chose y --why z --by lead --undo " ")
+if grep -qF -- "a choice that may change a story names --story N, --was" <<<"$nochange" && grep -qF -- "--changes names an option, word for word: a; b" <<<"$notoption" \
+  && [ "$told" = "[(8, 1, 'A CSV export holds the gift note of an order.'), (9, None, None)]" ] \
+  && grep -qF -- "--was needs its text: one sentence in plain words" <<<"$emptywas" && [ "$emptyundo" = 1 ] && [ "$(dlist 'len(d)')" = 9 ]; then
+  pass "a choice that may change a story names it with the options that change it, and the answer that takes one of them is a changed story; an option it does not have is refused; and an empty --was or --undo is refused before anything is written"
+else
+  fail "a story through a choice, and empty values: $nochange / $notoption / $told / $emptywas / $emptyundo"
+fi
+# An answer and a timeout at one time: each reads the state inside the lock, so the record holds one outcome.
+rfile=$DC/.git/lem/tasks/race-task/decisions.jsonl
+decide ask race-task --what "The order of the rows" --option "by number" --option "by date" --recommended "by number" --why "It is the order of today." --said "The two personas split." >/dev/null
+past "$rfile" 1
+"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.git/lem/tasks/race-task/decisions.lock" > "$WORK/rlock.out" &
+holder=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$WORK/rlock.out" ] && break; sleep 0.2; done
+"$PY" -B "$DECISIONS" --repo "$DC" answer race-task 1 --chose "by date" > "$WORK/race-answer.out" 2>&1 &
+ra=$!
+"$PY" -B "$DECISIONS" --repo "$DC" timeout race-task 1 > "$WORK/race-timeout.out" 2>&1 &
+rt=$!
+sleep 2
+kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
+wait "$ra" || true; wait "$rt" || true
+raced=$(grep -c '"kind": "timeout"' "$rfile" || true)/$(grep -c '"kind": "answered"' "$rfile" || true)/$(decide list race-task | field '(d[0]["state"], d[0].get("chose"), d[0].get("late", {}).get("chose"))' || true)
+if [ "$raced" = "1/0/('timeout', 'by number', 'by date')" ]; then
+  pass "an answer after the wait and a timeout that start at one time leave one timeout and one late answer, whichever takes the lock first"
+else
+  fail "an answer and a timeout at one time: $raced / $(cat "$rfile" "$WORK/race-answer.out" "$WORK/race-timeout.out")"
 fi
 # Two writers never take one number: while another process holds the lock, two writes wait, and then each gets its own.
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.git/lem/tasks/other-task/decisions.lock" > "$WORK/dlock.out" &
@@ -2384,10 +2435,14 @@ waiting=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&
 past "$wfile" 2 && wdec timeout waited-change 2 >/dev/null
 wdec ask waited-change --what "Tell the merchants" --option "send the email" --option "send nothing" --recommended "send nothing" --why "Nothing they see changes." --said "The two personas split." --irreversible person >/dev/null
 forever=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
-wdec answer waited-change 3 --chose "send the email" >/dev/null
+wdec answer waited-change 3 --chose "send the email" --why "The merchants asked for it." >/dev/null
 wdec ask waited-change --what "The case of the word" --option "lower case" --option "upper case" --recommended "lower case" --why "The test reads it so." --said "The two personas split." >/dev/null
-past "$wfile" 4 && wdec timeout waited-change 4 >/dev/null && wdec answer waited-change 4 --chose "upper case" >/dev/null
+past "$wfile" 4 && wdec timeout waited-change 4 >/dev/null && wdec answer waited-change 4 --chose "upper case" --why "The header is in upper case." >/dev/null
 wdec answer waited-change 2 --chose "the first line" >/dev/null
+# a choice the personas left unclear, whose recommended option changes story 1: the owner takes it in time
+wdec ask waited-change --what "Which line holds the word" --option "the only line" --option "the second line" --recommended "the second line" --why "A header goes first." \
+  --said "The two personas split." --story 1 --was "The file holds the word the owner asked for." --changes "the second line" >/dev/null
+wdec answer waited-change 5 --chose "the second line" >/dev/null
 local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
 text=$LOCAL/.git/lem/tasks/waited-change/pr.md
 agent=$(local_land land waited-change --by agent 2>&1 || true)
@@ -2397,14 +2452,17 @@ if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes)
   && ! grep -qF "timeout waited-change 3" <<<"$forever" && [ "$(status_in "$LOCAL" waited-change)" = open ] \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = "- choice 2 was taken by timeout (Where the word goes): \"the first line\", the recommended option, after the owner's wait of 15 minutes ended with no answer; he answered later with the same" ] \
-  && [ "$(sed -n 4p "$text")" = "- choice 4 was taken by timeout (The case of the word): \"lower case\", the recommended option, after the owner's wait of 15 minutes ended with no answer; he answered later with \"upper case\", which differs" ] \
+  && [ "$(sed -n 4p "$text")" = "- choice 4 was taken by timeout (The case of the word): \"lower case\", the recommended option, after the owner's wait of 15 minutes ended with no answer; he answered later with \"upper case\", which differs (his reason: The header is in upper case)" ] \
+  && [ "$(sed -n 5p "$text")" = "- story 1 changed during the build: choice 5 (Which line holds the word) took \"the second line\", by the owner" ] \
+  && grep -qxF -- '- story 1: was "The file holds the word the owner asked for.". choice 5 (Which line holds the word) took "the second line", by the owner. The two personas split.' "$text" \
   && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Stories|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
   && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- The name of the file: \"w.txt\", by the lead. The other files have one letter.
 - Where the word goes: \"the first line\", by the timeout, after the owner's wait of 15 minutes. A reader sees it at once. He answered later with the same.
-- Tell the merchants: \"send the email\", by the owner, over the recommended \"send nothing\".
-- The case of the word: \"lower case\", by the timeout, after the owner's wait of 15 minutes. The test reads it so. He answered later with \"upper case\", which differs." ] \
+- Tell the merchants: \"send the email\", by the owner, over the recommended \"send nothing\" (recommended because: Nothing they see changes). His reason: The merchants asked for it.
+- The case of the word: \"lower case\", by the timeout, after the owner's wait of 15 minutes. The test reads it so. He answered later with \"upper case\", which differs (his reason: The header is in upper case).
+- Which line holds the word: \"the second line\", by the owner, as recommended. A header goes first. Story 1 changed." ] \
   && grep -qF "the request is not green (choice 2 was taken by timeout" <<<"$agent"; then
-  pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken by timeout is a line of its own that is not green, with a late answer that differs; and the text lists each decision of the record, with who took it and why"
+  pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken by timeout is a line of its own that is not green, with a late answer that differs and his reason; a story that an answered choice changed is not green; and the text lists each decision of the record with who took it and its reason, the recommendation's reason never as the owner's"
 else
   fail "decisions in the landing: $waiting / $forever / $agent / $(cat "$text" 2>/dev/null)"
 fi

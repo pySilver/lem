@@ -137,12 +137,15 @@ with the line `lem: SLUG choice N waits`. A builder that leads cannot wake you, 
    his clock (`deadline` is in UTC). After that time the lead takes the recommended option and
    the pull request is not green for it. A choice with `irreversible` set has no such time: say
    which of the four kinds it is, and that only that part of the plan waits for his word.
-2. **Write his answer**, in his words: `decisions.py answer SLUG N --chose TEXT`. A lead in a
-   session gets it as one message too; a builder that leads finds it at its next
-   `decisions.py wait`.
-3. **An answer after the wait** is written down the same way, and the script says it is late.
-   When it differs from what was taken, it is his correction: tell the lead while the task
-   builds, and after that it is a new ask. The pull request names it either way.
+2. **Write his answer**, in his words: `decisions.py answer SLUG N --chose TEXT`, with
+   `--why TEXT` when he gave a reason, in his words. Never put the recommendation's reason
+   there: the record keeps that one beside it. A lead in a session gets the answer as one
+   message too; a builder that leads finds it at its next `decisions.py wait`.
+3. **An answer after the wait** is written down the same way, and the script says it is late,
+   also when nobody wrote the timeout yet: it writes the timeout then, and the recommended
+   option stands. When the answer differs from what was taken, it is his correction: tell the
+   lead while the task builds, and after that it is a new ask. The pull request names it either
+   way.
 
 ## When a lead stops
 

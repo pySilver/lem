@@ -89,10 +89,15 @@ python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --ch
      meant or of taste, which the personas do not answer for him: ask him.
 
      ```bash
-     python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE ask SLUG --what TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
+     python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE ask SLUG --what TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money] [--story N --was TEXT --changes OPTION ...]
      ```
 
-     `--said` holds what the personas answered, or why they were not asked. The choice waits the
+     `--said` holds what the personas answered, or why they were not asked. When an option
+     would change a story, name the story with the choice: `--story N`, `--was` with its text
+     now, and `--changes` for each option that changes it. Whichever way the choice ends, by
+     his answer or by the timeout, the record then knows whether the story changed, and the
+     pull request is not green for it. When it did, change the story in the plan in the commit
+     that builds the option. The choice waits the
      settings' `flow.decision_wait` (15 minutes unless the project says otherwise). Tell Lem that
      it waits: in a session, `tell-coordinator` with the line `lem: SLUG choice N waits`. A
      builder that leads has no `tell-coordinator` (the harness file defines it from a task's

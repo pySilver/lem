@@ -17,15 +17,20 @@ however long that takes.
                             `lem` one that Lem took before the task had a lead (out of scope)
     decisions.py ask SLUG --what TEXT --option TEXT --option TEXT [...] --recommended TEXT
                  --why TEXT --said TEXT [--irreversible data|system|person|money]
-                            a choice for the owner: it gets a number and the time its wait ends
+                 [--story N --was TEXT --changes OPTION [--changes OPTION ...]]
+                            a choice for the owner: it gets a number and the time its wait ends.
+                            --story, --was and --changes name the story that some options change,
+                            its text now, and each option that changes it: the option taken then
+                            is a changed story
     decisions.py pending [SLUG]
                             the choices that wait, of one task or of every task, each with the
                             seconds its wait has left
     decisions.py wait SLUG ID [--seconds N]
                             return when the choice is answered, when its wait ends, or after N
                             seconds, and say which
-    decisions.py answer SLUG ID --chose TEXT
-                            the owner's answer, in his words; Lem writes it down
+    decisions.py answer SLUG ID --chose TEXT [--why TEXT]
+                            the owner's answer, in his words, with his reason when he gave one;
+                            Lem writes it down
     decisions.py timeout SLUG ID
                             the wait ended with no answer: the recommended action is taken.
                             Refused while the wait runs, and always for an irreversible step
@@ -44,9 +49,13 @@ outside the repository, beyond what the settings already allow, such as the trac
 `person` (it sends something to a person), `money` (it spends money). The lead says which; no
 code can tell.
 
-An answer that comes after the timeout is written down as late. The recommended action stands;
+An answer that comes after the wait is written down as late, also when nobody wrote the timeout
+yet: then the timeout and the late answer are written together. The recommended action stands;
 when the answer differs from it, that is a correction, for the lead while the task builds and a
 new ask after that.
+
+Every write reads the record and checks the state under one lock, so an answer and a timeout that
+come at one time leave one outcome, and two writers never take one number.
 """
 
 from __future__ import annotations
@@ -128,30 +137,39 @@ class Task:
             if line["kind"] in ("taken", "asked"):
                 found[line["id"]] = {**line, "state": "taken" if line["kind"] == "taken" else "waits"}
             elif line["kind"] == "answered":
-                found[line["id"]].update(state="answered", chose=line["chose"], by="owner", answered=line["at"])
+                found[line["id"]].update(state="answered", chose=line["chose"], by="owner", answered=line["at"], **({"owner_why": line["why"]} if "why" in line else {}))
             elif line["kind"] == "timeout":
                 found[line["id"]].update(state="timeout", chose=line["chose"], by="timeout", taken=line["at"])
             elif line["kind"] == "late":
-                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"]})
+                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **({"why": line["why"]} if "why" in line else {})})
+        for decision in found.values():
+            # a choice that may change a story changed it when the option taken is one that changes it
+            change = decision.get("story_change")
+            if change and decision["state"] in ("answered", "timeout") and decision["chose"] in change["options"]:
+                decision.update(story=change["story"], was=change["was"])
         return [found[key] for key in sorted(found)]
 
-    def one(self, number: int) -> dict:
-        decision = next((d for d in self.decisions() if d["id"] == number), None)
+    def one(self, number: int, known: list[dict] | None = None) -> dict:
+        known = self.decisions() if known is None else known
+        decision = next((d for d in known if d["id"] == number), None)
         if decision is None or decision["kind"] != "asked":
-            asked = [str(d["id"]) for d in self.decisions() if d["kind"] == "asked"]
+            asked = [str(d["id"]) for d in known if d["kind"] == "asked"]
             raise DecisionError(f"no choice {number} went to the owner in {self.slug}; those that did: {', '.join(asked) or 'none'}")
         return decision
 
-    def add(self, make) -> dict:
-        """Write one line under a lock, so two writers never take one number; then the same as an event."""
+    def add(self, make) -> list[dict]:
+        """Write the lines `make` gives for the record as it is under the lock, so a state is
+        checked and changed in one step and two writers never take one number; then each line
+        as an event. `make` refuses by raising, and then nothing is written."""
         self.directory.mkdir(parents=True, exist_ok=True)
         with (self.directory / "decisions.lock").open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            line = make(self.decisions())
+            lines = make(self.decisions())
             with self.file.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(line) + "\n")
-        script("project.py", self.repo, "log", self.slug, f"decision.{line['kind']}", *(f"{key}:={json.dumps(value)}" for key, value in line.items() if key != "kind"))
-        return line
+                handle.write("".join(json.dumps(line) + "\n" for line in lines))
+        for line in lines:
+            script("project.py", self.repo, "log", self.slug, f"decision.{line['kind']}", *(f"{key}:={json.dumps(value)}" for key, value in line.items() if key != "kind"))
+        return lines
 
 
 def left(decision: dict) -> int:
@@ -171,11 +189,12 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
         raise DecisionError("a story that changed is named by both --story N and --was, its text before the change")
     line = {"at": stamp(now()), "kind": "taken", "what": text(args.what, "--what"), "chose": text(args.chose, "--chose"), "why": text(args.why, "--why"), "by": args.by}
     for key in ("said", "undo", "was"):
-        if getattr(args, key):
+        # an empty value is refused, never dropped: a story with no old text breaks the pull request
+        if getattr(args, key) is not None:
             line[key] = text(getattr(args, key), f"--{key}")
     if args.story is not None:
         line["story"] = args.story
-    return task.add(lambda known: {"id": len(known) + 1, **line})
+    return task.add(lambda known: [{"id": len(known) + 1, **line}])[0]
 
 
 def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
@@ -185,6 +204,12 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
     recommended = text(args.recommended, "--recommended")
     if recommended not in options:
         raise DecisionError(f"--recommended is one of the options, word for word: {'; '.join(options)}")
+    if not ((args.story is None) == (args.was is None) == (not args.changes)):
+        raise DecisionError("a choice that may change a story names --story N, --was (the story's text now) and --changes for each option that changes it, all three or none")
+    changes = [text(option, "--changes") for option in args.changes or []]
+    unknown = [option for option in changes if option not in options]
+    if unknown:
+        raise DecisionError(f"--changes names an option, word for word: {'; '.join(options)}; not {'; '.join(unknown)}")
     wait = json.loads(script("project.py", task.repo, "show"))["flow"]["decision_wait"]
     asked = now()
     line = {
@@ -192,7 +217,9 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
         "why": text(args.why, "--why"), "said": text(args.said, "--said"), "irreversible": args.irreversible,
         "wait_minutes": wait, "deadline": stamp(asked + timedelta(minutes=wait)),
     }
-    made = task.add(lambda known: {"id": len(known) + 1, **line})
+    if changes:
+        line["story_change"] = {"story": args.story, "was": text(args.was, "--was"), "options": changes}
+    made = task.add(lambda known: [{"id": len(known) + 1, **line}])[0]
     return {**made, "next": (
         "this step waits for the owner's word, however long: the rest of the plan goes on, and no timeout takes it" if args.irreversible
         else f"tell Lem that choice {made['id']} of {task.slug} waits; go on with what does not depend on it; `decisions.py wait {task.slug} {made['id']}` says when it is answered or its wait ends"
@@ -224,33 +251,48 @@ def cmd_wait(task: Task, number: int, seconds: int) -> dict:
         time.sleep(min(5, max(1, until - time.monotonic())))
 
 
-def cmd_answer(task: Task, number: int, chose: str) -> dict:
-    decision = task.one(number)
+def cmd_answer(task: Task, number: int, chose: str, why: str | None) -> dict:
     chose = text(chose, "--chose")
-    if decision["state"] == "answered":
-        raise DecisionError(f"choice {number} has the owner's answer already: {decision['chose']!r}")
-    if decision["state"] == "timeout":
-        made = task.add(lambda known: {"id": number, "at": stamp(now()), "kind": "late", "chose": chose})
-        same = chose == decision["chose"]
-        return {**made, "state": "timeout", "taken": decision["chose"], "next": (
-            "the answer is the action that was taken: nothing more to do" if same
-            else "the recommended action was taken when the wait ended, and the answer differs: it is a correction. Tell the lead while the task builds; after that it is a new ask"
-        )}
-    return task.add(lambda known: {"id": number, "at": stamp(now()), "kind": "answered", "chose": chose})
+    reason = {"why": text(why, "--why")} if why is not None else {}
+    taken: dict = {}
+
+    def make(known: list[dict]) -> list[dict]:
+        decision = task.one(number, known)
+        at = stamp(now())
+        if decision["state"] == "answered":
+            raise DecisionError(f"choice {number} has the owner's answer already: {decision['chose']!r}")
+        if decision["state"] == "waits" and (decision["irreversible"] or left(decision) > 0):
+            return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
+        # After the wait the recommended option stands. When nobody wrote the timeout yet, it is
+        # written here with the answer, in the same write, so nothing reads one without the other.
+        lines = [] if decision["state"] == "timeout" else [{"id": number, "at": at, "kind": "timeout", "chose": decision["recommended"]}]
+        taken.update(chose=decision["chose"] if decision["state"] == "timeout" else decision["recommended"], timeout_written=bool(lines))
+        return [*lines, {"id": number, "at": at, "kind": "late", "chose": chose, **reason}]
+
+    made = task.add(make)[-1]
+    if made["kind"] == "answered":
+        return made
+    return {**made, "state": "timeout", "taken": taken["chose"], "timeout_written": taken["timeout_written"], "next": (
+        "the answer is the action that was taken: nothing more to do" if chose == taken["chose"]
+        else "the recommended action was taken when the wait ended, and the answer differs: it is a correction. Tell the lead while the task builds; after that it is a new ask"
+    )}
 
 
 def cmd_timeout(task: Task, number: int) -> dict:
-    decision = task.one(number)
-    if decision["state"] != "waits":
-        raise DecisionError(f"choice {number} does not wait: it is {decision['state']}, with {decision['chose']!r}")
-    if decision["irreversible"]:
-        raise DecisionError(
-            f"choice {number} is a step that a later \"no\" cannot reverse ({IRREVERSIBLE[decision['irreversible']]}): "
-            "no timeout takes it. It waits for the owner's word, and the rest of the plan goes on",
-        )
-    if left(decision) > 0:
-        raise DecisionError(f"the wait of choice {number} has {left(decision)} seconds left (until {decision['deadline']}); the owner may still answer")
-    return task.add(lambda known: {"id": number, "at": stamp(now()), "kind": "timeout", "chose": decision["recommended"]})
+    def make(known: list[dict]) -> list[dict]:
+        decision = task.one(number, known)
+        if decision["state"] != "waits":
+            raise DecisionError(f"choice {number} does not wait: it is {decision['state']}, with {decision['chose']!r}")
+        if decision["irreversible"]:
+            raise DecisionError(
+                f"choice {number} is a step that a later \"no\" cannot reverse ({IRREVERSIBLE[decision['irreversible']]}): "
+                "no timeout takes it. It waits for the owner's word, and the rest of the plan goes on",
+            )
+        if left(decision) > 0:
+            raise DecisionError(f"the wait of choice {number} has {left(decision)} seconds left (until {decision['deadline']}); the owner may still answer")
+        return [{"id": number, "at": stamp(now()), "kind": "timeout", "chose": decision["recommended"]}]
+
+    return task.add(make)[0]
 
 
 def main() -> None:
@@ -274,6 +316,9 @@ def main() -> None:
     ask.add_argument("--why", required=True, help="why that option is recommended")
     ask.add_argument("--said", required=True, help="what the personas answered: who, which option, and why they do not agree")
     ask.add_argument("--irreversible", choices=tuple(IRREVERSIBLE), help="why a later \"no\" cannot undo the step")
+    ask.add_argument("--story", type=int, metavar="N", help="the story that some of the options change")
+    ask.add_argument("--was", help="that story's text now, before any change")
+    ask.add_argument("--changes", action="append", metavar="OPTION", help="an option that changes the story, word for word")
     pending = commands.add_parser("pending")
     pending.add_argument("slug", nargs="?")
     wait = commands.add_parser("wait")
@@ -284,6 +329,7 @@ def main() -> None:
     answer.add_argument("slug")
     answer.add_argument("id", type=int)
     answer.add_argument("--chose", required=True)
+    answer.add_argument("--why", help="the owner's own reason, in his words, when he gave one; never the recommendation's")
     timeout = commands.add_parser("timeout")
     timeout.add_argument("slug")
     timeout.add_argument("id", type=int)
@@ -302,7 +348,7 @@ def main() -> None:
             elif args.command == "wait":
                 result = cmd_wait(task, args.id, args.seconds)
             elif args.command == "answer":
-                result = cmd_answer(task, args.id, args.chose)
+                result = cmd_answer(task, args.id, args.chose, args.why)
             elif args.command == "timeout":
                 result = cmd_timeout(task, args.id)
             else:

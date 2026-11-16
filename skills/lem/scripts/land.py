@@ -687,7 +687,7 @@ def not_green(task: Task, state: dict) -> list[str]:
         reasons.append(f"the bar is lower in `{entry['file']}` ({entry['what']}). The builder: {entry['reason']} {review}")
     for decision in task.decisions():
         if "story" in decision:
-            reasons.append(f"story {decision['story']} changed during the build: {decision['why']}")
+            reasons.append(f"story {decision['story']} changed during the build: {story_why(decision)}")
         if decision["state"] == "timeout":
             reasons.append(
                 f"choice {decision['id']} was taken by timeout ({decision['what']}): \"{decision['chose']}\", the recommended option, "
@@ -696,13 +696,26 @@ def not_green(task: Task, state: dict) -> list[str]:
     return reasons
 
 
+def story_why(decision: dict) -> str:
+    """Why a story changed: the reason of a decision that was taken, or the choice that took the option that changes it."""
+    if decision["state"] == "taken":
+        return decision["why"]
+    return f"choice {decision['id']} ({decision['what']}) took \"{decision['chose']}\", by {TAKEN_BY[decision['by']]}"
+
+
+def reason(text: str) -> str:
+    """A reason as written, without its own full stop, for a sentence around it."""
+    return text.rstrip(".")
+
+
 def later(decision: dict, lead: str) -> str:
-    """What the owner answered after the timeout, when he did: the same, or what differs."""
+    """What the owner answered after the timeout, when he did: the same, or what differs and his reason."""
     if "late" not in decision:
         return ""
     if decision["late"]["chose"] == decision["chose"]:
         return f"{lead} the same"
-    return f"{lead} \"{decision['late']['chose']}\", which differs"
+    why = f" (his reason: {reason(decision['late']['why'])})" if "why" in decision["late"] else ""
+    return f"{lead} \"{decision['late']['chose']}\", which differs{why}"
 
 
 def decided(decision: dict) -> str:
@@ -711,11 +724,19 @@ def decided(decision: dict) -> str:
     if decision["state"] == "waits":
         return head + "waits for the owner."
     line = head + f"\"{decision['chose']}\", by {TAKEN_BY[decision['by']]}"
-    if decision["state"] == "answered":
-        return line + ("." if decision["chose"] == decision["recommended"] else f", over the recommended \"{decision['recommended']}\".")
-    if decision["state"] == "timeout":
-        return line + f", after the owner's wait of {decision['wait_minutes']} minutes. {decision['why']}" + (f" {later(decision, 'He answered later with')}." if "late" in decision else "")
-    line += f" ({decision['said']}). {decision['why']}" if decision["by"] == "personas" else f". {decision['why']}"
+    if decision["state"] == "answered" and decision["chose"] == decision["recommended"]:
+        # the recommendation's reason is the reason of the option he took; his own, when he gave one, follows
+        line += f", as recommended. {decision['why']}"
+    elif decision["state"] == "answered":
+        # the recommendation's reason is about the option he did not take: it is named as such, never as his
+        line += f", over the recommended \"{decision['recommended']}\" (recommended because: {reason(decision['why'])})."
+        line += "" if "owner_why" in decision else " He gave no reason."
+    elif decision["state"] == "timeout":
+        line += f", after the owner's wait of {decision['wait_minutes']} minutes. {decision['why']}" + (f" {later(decision, 'He answered later with')}." if "late" in decision else "")
+    else:
+        line += f" ({decision['said']}). {decision['why']}" if decision["by"] == "personas" else f". {decision['why']}"
+    if "owner_why" in decision:
+        line += f" His reason: {decision['owner_why']}"
     return line + (f" Story {decision['story']} changed." if "story" in decision else "")
 
 
@@ -744,7 +765,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     changed_stories = [decision for decision in task.decisions() if "story" in decision]
     if changed_stories:
         out += ["", "Stories that changed during the build:", ""]
-        out += [f"- story {was['story']}: was \"{was['was']}\". {was['why']} {was.get('said', '')}".rstrip() for was in changed_stories]
+        out += [f"- story {was['story']}: was \"{was['was']}\". {story_why(was)}{'' if was['state'] == 'taken' else '.'} {was.get('said', '')}".rstrip() for was in changed_stories]
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]
