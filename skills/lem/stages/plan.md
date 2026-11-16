@@ -30,8 +30,10 @@ a list of questions that closes with the reviewer's first turn (step 4).
      request that yields one story and is not careful (step 2): its story is the owner's own
      sentence made exact. Everything else is a feature. The owner may overrule the call, as he
      may the careful one;
-   - then the personas read the stories you wrote, unless they are a correction's one story:
-     the persona panel's "Reading stories" mode (`load-skill`), run by you while you write the
+   - then the personas read the stories you wrote, unless they are a correction's one story. Here
+     the read always runs, as the only approval of this path: the owner's word to skip it belongs
+     to an interview (`stages/new.md`, "The interview and the stories", step 5), and the landing
+     refuses one that comes after a lead started. The read is the persona panel's "Reading stories" mode (`load-skill`), run by you while you write the
      rest of the plan. You have no paired agent of the other family, so one family answers: the
      panel's own persona agents, which a lead can start (the harness file, `spawn-builder`). Write
      the event the landing reads, in the form `stages/new.md` gives ("The interview and the

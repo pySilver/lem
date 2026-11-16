@@ -3392,6 +3392,78 @@ else
   fail "a correction's line: $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state one-word dropped "the test is over" >/dev/null
+# The owner's word to skip the personas' read, when every story names only the developer: the record of his word and
+# his approval after it let a feature land with no read, green, with one line that says so. Lem's word is not his;
+# a feature with no read and no such record is refused as before; and on the rare path the read always runs.
+# feature_in SLUG FILE TEXT: a task of the local repository whose plan's kind is a feature
+feature_in() {
+  local tree
+  task_in "$LOCAL" "$1" "$2" "$3"
+  tree=$(project --repo "$LOCAL" worktree-dir "$1")
+  sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-$1.md"
+  rm "$tree/docs/plans/20261115-$1.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
+}
+# skip_read SLUG BY: the word to skip the personas' read, in the form the landing reads
+skip_read() { ldecide log "$1" --by "$2" --what "the personas' read of the stories" --chose "no read: the stories name only the developer" --why "y" 2>&1 || true; }
+# checked_local SLUG: the machine steps, a polish pass and a clean read, up to the proposal
+checked_local() {
+  local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land gate "$1" >/dev/null \
+    && local_land read "$1" --record "$(clean 1)" >/dev/null
+}
+printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/mine.md"
+feature_in only-me m.txt m
+skip_read only-me owner >/dev/null
+checked_local only-me
+unapproved=$(local_land propose only-me --title "feat: m" --notes "$NOTES" 2>&1 || true)
+lstories approve only-me --file "$WORK/mine.md" >/dev/null 2>&1 || true
+local_land propose only-me --title "feat: m" --notes "$NOTES" >/dev/null 2>&1 || true
+text=$LOCAL/.git/lem/tasks/only-me/pr.md
+skipped_day=$("$PY" -c 'import json, sys; print(json.loads(open(sys.argv[1]).readline())["at"][:10])' "$LOCAL/.git/lem/tasks/only-me/decisions.jsonl" 2>/dev/null || true)
+if grep -qF "the owner's word to skip the personas' read of only-me's stories is on record, and no approval of his came after it" <<<"$unapproved" \
+  && grep -qF "stories.py approve only-me --file FILE" <<<"$unapproved" \
+  && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] && [ -n "$skipped_day" ] \
+  && grep -qxF -- "- the stories: not read by the personas, on his word ($skipped_day); he approved them" "$text" \
+  && ! grep -q 'the stories were read by\|no read by the personas is on record' "$text" \
+  && grep -q '"event": "proposed", "task": "only-me".*"green": true' "$LOCAL/.git/lem/events.jsonl"; then
+  pass "a feature whose stories name only the developer lands with no read on his recorded word and his approval after it: green, with the line that the personas did not read them on his word and that he approved them; his word with no approval after it is refused"
+else
+  fail "the owner's skip of the read: $unapproved / $skipped_day / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state only-me dropped "the test is over" >/dev/null
+feature_in no-word w.txt w
+checked_local no-word
+lstories approve no-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
+no_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 || true)
+skip_read no-word lem >/dev/null
+lem_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 || true)
+if grep -qF "no-word is a feature, and the event log has no \`stories.read\`" <<<"$no_word" \
+  && grep -qF "decisions.py log no-word --by owner --what \"the personas' read of the stories\" --chose \"no read: the stories name only the developer\"" <<<"$no_word" \
+  && grep -qF "no-word is a feature, and the event log has no \`stories.read\`" <<<"$lem_word" \
+  && [ ! -e "$LOCAL/.git/lem/tasks/no-word/pr.md" ]; then
+  pass "a feature with his approval and no read is refused when no word of his to skip the read is on record, and a word of Lem's in the same form is no such word"
+else
+  fail "a feature with no read and no word of his: $no_word / $lem_word"
+fi
+project --repo "$LOCAL" state no-word dropped "the test is over" >/dev/null
+feature_in rare-word r2.txt r
+skip_read rare-word owner >/dev/null
+project --repo "$LOCAL" state rare-word building "the lead writes the plan" "lead: builder" >/dev/null
+lstories approve rare-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
+project --repo "$LOCAL" state rare-word ready "the report is written" >/dev/null
+checked_local rare-word
+approved_late=$(local_land propose rare-word --title "feat: r" --notes "$NOTES" 2>&1 || true)
+skip_read rare-word owner >/dev/null
+lstories approve rare-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
+said_late=$(local_land propose rare-word --title "feat: r" --notes "$NOTES" 2>&1 || true)
+if grep -qF "a lead of rare-word started before his approval after his word to skip the personas' read" <<<"$approved_late" \
+  && grep -qF "on the rare path the read always runs" <<<"$approved_late" && grep -qF "stages/plan.md" <<<"$approved_late" \
+  && grep -qF "a lead of rare-word started before his word to skip the personas' read" <<<"$said_late" \
+  && [ ! -e "$LOCAL/.git/lem/tasks/rare-word/pr.md" ]; then
+  pass "on the rare path his word to skip the read is refused: a lead that started before his word, or before his approval after it, wrote the stories, and the personas read them"
+else
+  fail "a skip of the read on the rare path: $approved_late / $said_late"
+fi
+project --repo "$LOCAL" state rare-word dropped "the test is over" >/dev/null
 # The polish pass: after the task's own work and before the machine checks, a fresh builder takes out
 # what the change left behind, and the script checks what it committed. Here the test is the builder.
 task_in "$LOCAL" polish-me p.txt p

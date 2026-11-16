@@ -202,6 +202,26 @@ approved, which the lead may not change without the record saying so.
    two families answered a story differently, which counts as a doubt too. `DIGEST` is what
    `python3 SKILL_DIR/scripts/stories.py digest SLUG --file FILE` prints for the stories file
    the personas read, so that the record knows when he changes them after the read.
+
+   **The read is his to skip, never yours.** When a story names a person other than the
+   developer (a customer, a clerk, a reader of a file), the read starts and you ask nothing. When
+   every story names only the developer, ask one fixed question in the terminal before the read
+   starts, a fixed choice with no context: "The stories name only you. Skip the persona read?
+   (y/n)". Never skip the read by your own judgment: you wrote the stories, and the author of a
+   wrong reading sees it as clear (a Fable second opinion, 2026-11-16, which he agreed to). On his
+   no, the read starts as above. On his yes, write his words, then take his approval of step 6 and
+   freeze the stories with step 7, both before the brief:
+
+   ```bash
+   python3 SKILL_DIR/scripts/decisions.py log SLUG --by owner --what "the personas' read of the stories" --chose "no read: the stories name only the developer" --why "HIS ANSWER, AS HE TYPED IT"
+   ```
+
+   The landing knows his word by `--by owner` and those two texts, word for word, and takes it
+   only with an approval of his after it and before any lead of the task started; the pull request
+   then says "the stories: not read by the personas, on his word (DATE); he approved them", and
+   stays green, since the decision was his. On the rare path this question is never asked: there
+   the read is the only approval (`stages/plan.md`, step 1), and the landing refuses a word to
+   skip it that comes after the lead started.
 6. **His yes.**
    - *He typed it in the conversation before the read was in*: take it, and freeze the stories
      (step 7). When the read is in and nobody is confused and the families agree, say so in one
@@ -222,8 +242,9 @@ approved, which the lead may not change without the record saying so.
    each change of his. The stories are then kept word for word with a digest, and the plan's
    stories have to be those, with only the test lines added: a story the build changes, adds or
    drops has its own record (`decisions.py story`), and the pull request is not green for it.
-   Go on with step 5 of "Open the task". The landing refuses a feature whose stories nobody read,
-   and one whose read found a doubt with no yes of his after it.
+   Go on with step 5 of "Open the task". The landing refuses a feature whose stories nobody read
+   and whose read he did not skip (step 5), and one whose read found a doubt with no yes of his
+   after it.
 
 When he leaves before he answers, write the state `held` with the line `the stories wait for the
 owner`, and put the page to him again the way `ask-owner` says for an owner who is away. His

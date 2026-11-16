@@ -163,7 +163,13 @@ ones), one more line says that they changed after the read, by his later approva
 of the build, and that the change was not read; that line is no cause of not green. A scout's report in the task's directory is named there as a file.
 A request that came from a bug has one more line with the cause its investigation found, the
 cause's place and the report, from the newest `investigation` event; a question's has none.
-`propose` refuses a feature with no `stories.read`, and one whose newest read flagged a story or
+`propose` refuses a feature with no `stories.read`, unless the owner skipped the read: his word,
+which Lem asks for only when every story names only the developer, is a decision of his with the
+two texts of `READ_SKIP`, and it counts only with an approval of his after it, both before the
+first state that names a lead. A word or an approval after a lead started is the rare path's,
+where the read always runs, and is refused. Then the checks say "the stories: not read by the
+personas, on his word (DATE); he approved them", which is no cause of not green, since the
+decision was his. It also refuses one whose newest read flagged a story or
 showed a split between the families with no approval of his at or after it; the rare path's
 freeze of a read (`stories.py approve --read`) is no approval of his. A read in which nobody
 answered is written down too: `propose` refuses while the newest one is the first such read in a
@@ -239,6 +245,10 @@ PLAN_CAREFUL = re.compile(r"(?mi)^careful:\s*yes\b")
 STORY_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}
 # The form of the one event that records the personas' read of a task's stories.
 READ_FORM = "`by=lem|lead asked:=N answered:=N families:='[...]' silent:='[...]' stories:=N flagged:=N split:=true|false digest=DIGEST`"
+# The owner's word that the personas do not read the stories, which Lem asks for only when every
+# story names only the developer (`stages/new.md`, "The interview and the stories", step 5): one
+# decision of his that `decisions.py log --by owner` writes, known by these two texts word for word.
+READ_SKIP = {"what": "the personas' read of the stories", "chose": "no read: the stories name only the developer"}
 # How many model families read the stories, in the words of the pull request.
 FAMILIES = {1: "one model family", 2: "two model families"}
 # The form of the one event that records a plan talk, as `talk_form` in `project.py` checks it.
@@ -1024,14 +1034,56 @@ def read_form(read: dict) -> bool:
     )
 
 
+def read_skip_form(slug: str) -> str:
+    """The command that writes the owner's word to skip the personas' read, as the landing knows it."""
+    return f"`decisions.py log {slug} --by owner --what \"{READ_SKIP['what']}\" --chose \"{READ_SKIP['chose']}\" --why \"HIS ANSWER\"`"
+
+
+def read_skipped(task: Task) -> tuple[dict | None, str | None]:
+    """The owner's newest word to skip the personas' read, when an approval of his follows it and both
+    came before any lead of the task started; or why the word on record does not count. A lead writes
+    the stories on the rare path, where the read is the only approval and always runs, so a word or an
+    approval after the first state that names a lead is the rare path's. Neither, with no word of his."""
+    events = events_of(task)
+    words = [
+        index for index, record in enumerate(events)
+        if record.get("event") == "decision.taken" and record.get("by") == "owner"
+        and record.get("what") == READ_SKIP["what"] and record.get("chose") == READ_SKIP["chose"]
+    ]
+    if not words:
+        return None, None
+    word = words[-1]
+    lead = next(
+        (index for index, record in enumerate(events)
+         if record.get("event") == "task.state" and any(line.startswith("lead:") for line in [record.get("text", ""), *record.get("lines", [])])),
+        None,
+    )
+    approval = next((index for index in range(word + 1, len(events)) if events[index].get("event") == "stories.approved" and events[index].get("by") == "owner"), None)
+    rare = (
+        "the lead wrote the stories, and on the rare path the read always runs, as the only approval there "
+        f"(`stages/plan.md`, step 1): the lead runs it and writes `project.py log {task.slug} stories.read` with the form {READ_FORM}"
+    )
+    if lead is not None and lead < word:
+        return None, f"a lead of {task.slug} started before his word to skip the personas' read: {rare}"
+    if lead is not None and (approval is None or lead < approval):
+        return None, f"a lead of {task.slug} started before his approval after his word to skip the personas' read: {rare}"
+    if approval is None:
+        return None, (
+            f"the owner's word to skip the personas' read of {task.slug}'s stories is on record, and no approval of his came after it: "
+            f"his yes to the stories is kept with `stories.py approve {task.slug} --file FILE` (`stages/new.md`, \"The interview and the stories\", step 7)"
+        )
+    return {"word": events[word], "approval": events[approval]}, None
+
+
 def approved_after(found: dict, read: dict) -> bool:
     """Whether the owner himself approved the stories at the read's time or after it. A freeze of
     the rare path's read (`by: read`) and Lem's approval of a correction are not his yes."""
     return any(approval["by"] == "owner" and approval["at"] >= read["ts"] for approval in found.get("approvals", []))
 
 
-def read_line(read: dict | None, found: dict, quiet_reads: int = 0) -> str:
-    """The personas' read of the stories and his approval, as one line of the pull request's checks."""
+def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dict | None = None) -> str:
+    """The personas' read of the stories and his approval, as one line of the pull request's checks;
+    `skipped` is his word to skip the read with his approval after it, as `read_skipped` gives them."""
     approval = found.get("approved")
     approved = ""
     if approval and approval["by"] == "owner":
@@ -1057,6 +1109,8 @@ def read_line(read: dict | None, found: dict, quiet_reads: int = 0) -> str:
         return line + "; the build started with no wait for him"
     if found["kind"] == "correction" or (approval and approval["by"] == "correction"):
         return "- a correction: not read by the personas" + (f"; {approved}" if approved else "")
+    if skipped:
+        return f"- the stories: not read by the personas, on his word ({skipped['word']['at'][:10]}); he approved them"
     return "- the stories: no read by the personas is on record" + (f"; {approved}" if approved else "")
 
 
@@ -1372,7 +1426,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out.append(f"- the stories' tests: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} stor{'y has' if len(without) == 1 else 'ies have'} no test" if without else ""))
     out.append(polished(kept.get("polish"), found))
     read = story_read_of(task)
-    out.append(read_line(read, found, unanswered(task)))
+    out.append(read_line(read, found, unanswered(task), read_skipped(task)[0] if read is None else None))
     if unread(read, found):
         out.append(unread(read, found))
     scout = task.directory / "scout.md"
@@ -1457,11 +1511,18 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     # a request is not proposed over stories nobody read, or over a doubt he never saw.
     found = stories_of(task)
     if read is None and found["kind"] == "feature":
-        raise LandError(
-            f"{task.slug} is a feature, and the event log has no `stories.read`: the personas read its stories before the build "
-            "(`stages/new.md`, \"The interview and the stories\", step 5; on the rare path `stages/plan.md`, step 1), "
-            f"and whoever ran the read writes `project.py log {task.slug} stories.read` with the form {READ_FORM}",
-        )
+        # his word to skip the read, with his approval after it and both before any lead started, is the one way past it
+        skipped, why_not = read_skipped(task)
+        if why_not:
+            raise LandError(why_not)
+        if skipped is None:
+            raise LandError(
+                f"{task.slug} is a feature, and the event log has no `stories.read`: the personas read its stories before the build "
+                "(`stages/new.md`, \"The interview and the stories\", step 5; on the rare path `stages/plan.md`, step 1), "
+                f"and whoever ran the read writes `project.py log {task.slug} stories.read` with the form {READ_FORM}. "
+                f"Only the owner skips a read, at the interview and when every story names only the developer: Lem writes his word with {read_skip_form(task.slug)}, "
+                "and he approves the stories after it, both before a lead starts",
+            )
     if read is not None and not read["answered"] and unanswered(task) < 2:
         raise LandError(
             f"nobody answered the newest read of {task.slug}'s stories: it is started once more, and its record written again with `project.py log {task.slug} stories.read` "

@@ -182,6 +182,12 @@ These rules hold for each task:
   (2026-11-16, two personas, two stories).
 - **Lem shows the stories in the conversation first.** Each story shows the facts of the scout
   that it comes from. Lem tells you that the personas read them now.
+- **You can stop the read when the stories name only you.** If a story names a person other than
+  you, the read starts, and Lem asks nothing. If each story names only you, Lem asks one question
+  in the terminal: "The stories name only you. Skip the persona read? (y/n)". Lem never stops
+  the read by its own decision. If you type yes, Lem records your words, and you approve the
+  stories. The pull request stays green and says that the stories were not read, on your word.
+  This is possible only on the path with the interview.
 - **You approve the stories on one page, after the read.** The result of the personas is on
   top, for each persona and each model family. A split between the families comes first. A
   story that a persona flagged stays as Lem wrote it, with the answers of the personas next to
@@ -266,9 +272,10 @@ These rules hold for each task:
 - **The checks tell you who read the stories.** One line gives how many personas answered of
   the personas asked, the model families, who did not answer, the stories that they flagged,
   and the date of your approval. For a correction, the line says that the personas did not read
-  it. If you changed the stories after the read, a second line says so. The checks also name the
+  it. If you stopped the read, the line gives the date of your word. If you changed the stories after the read, a second line says so. The checks also name the
   report of the scout.
-- **Lem proposes no feature without a read.** Lem also proposes no request whose read found a
+- **Lem proposes no feature without a read.** If you stopped the read before the build and
+  approved the stories after your word, no read is necessary. Lem also proposes no request whose read found a
   doubt that you did not see. You approve the stories after the read, and then Lem continues.
 - **A careful task gets more care.** The project names what must not go wrong: as danger
   topics in your words, and as paths. Examples of topics are the price that a customer pays,

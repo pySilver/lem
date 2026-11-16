@@ -13,7 +13,9 @@ however long that takes.
                  [--said TEXT] [--undo TEXT]
                             a decision that was taken; --said is what the personas answered.
                             `owner` is a word of his that nobody asked for (the task is careful),
-                            `lem` one that Lem took before the task had a lead (out of scope)
+                            or his yes to skip the personas' read of stories that name only the
+                            developer, in the form `land.py` reads (`READ_SKIP`); `lem` one that
+                            Lem took before the task had a lead (out of scope)
     decisions.py story SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT
                  | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
                             a change of a story the owner approved, with its text before and

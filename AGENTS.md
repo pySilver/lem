@@ -91,6 +91,23 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   helps."). The item is filed without a question to him, on the task's branch, and the pull
   request lists it: that form is the design session's, on the page he answered with "all good".
 - **A builder's question about the outcome goes to the personas**, not to the reviewer.
+- **The personas' read of the stories is his to skip, and only when every story names only the
+  developer**: he asked whether the read should be optional ("In some cases the owner has all the
+  knowledge that is needed for task, so personas read would be a pure waste of time and money"),
+  and answered "I agree" (2026-11-16) to the proposal a Fable second opinion shaped. A story that
+  names a person other than the developer gets the read, and Lem asks nothing. When every story
+  names only the developer, Lem asks one fixed question in the terminal, "The stories name only
+  you. Skip the persona read? (y/n)". Lem never skips the read by its own judgment: it wrote the
+  stories, and the author of a wrong reading sees it as clear. On his yes Lem logs his words and
+  he approves the stories, and the pull request stays green, because the decision was his. The
+  usual path only: the rare path's read is the only approval there and always runs. The form is
+  the session's design: his word is the decision `decisions.py log SLUG --by owner --what "the
+  personas' read of the stories" --chose "no read: the stories name only the developer"`, with his
+  answer in `--why`; `land.py` (`READ_SKIP`) takes a feature with no `stories.read` only when an
+  approval of his follows that decision and both come before the first state that names a lead
+  (`lead: builder` or `lead: session`), which is how the script tells the usual path from the
+  rare one, and its checks then say "the stories: not read by the personas, on his word (DATE); he
+  approved them".
 - **Every project of Lem has personas, and a panel asks the project's own**: "every project has
   personas, I don't see why we can have none when Lem is installed for a project" (2026-11-15).
   So `/lem init` always ends with a cast, of two people or more who would notice different
