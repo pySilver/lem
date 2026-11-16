@@ -642,7 +642,7 @@ def defects_of(value: object) -> list[dict]:
     return [{key: item[key].strip() for key in DEFECT} for item in value]
 
 
-def outside_of(task: Task, read: dict) -> list[dict]:
+def outside_of(read: dict) -> list[dict]:
     """The defects outside the change of one kept review, each with the path of its item once it has one."""
     return read.get("outside", [])
 
@@ -651,7 +651,7 @@ def to_file(task: Task, reads: list[dict]) -> list[dict]:
     """Each defect outside the change of a review that answered, with no item yet."""
     return [
         {"round": read["round"], **{key: defect[key] for key in DEFECT}}
-        for read in reads if read["answered"] for defect in outside_of(task, read) if not defect.get("item")
+        for read in reads if read["answered"] for defect in outside_of(read) if not defect.get("item")
     ]
 
 
@@ -1096,7 +1096,7 @@ def cmd_file(task: Task, again: bool) -> dict:
     for read in reads:
         if not read["answered"]:
             continue
-        for defect in outside_of(task, read):
+        for defect in outside_of(read):
             if defect.get("item"):
                 if in_tree(task, tip, defect["item"]):
                     continue
@@ -1399,7 +1399,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         who = f"answered: {', '.join(read['answered'])}" if read["answered"] else "no source answered"
         quiet = "".join(f"; no answer from {source['name']} ({source['why']})" for source in read["silent"])
         found = f"{read['verdict']}, {read['must_fix']} must-fix, {read['should']} should, {read['nit']} nit" if read["answered"] else "not reviewed"
-        defects = outside_of(task, read)
+        defects = outside_of(read)
         if defects:
             # propose refuses while one has no item in the tip, so each one here is filed
             found += f"; it saw {len(defects)} defect{'' if len(defects) == 1 else 's'} outside the change, filed as " + ", ".join(f"`{defect['item']}`" for defect in defects)
@@ -1487,7 +1487,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             + "; ".join(f"\"{defect['title']}\" (round {defect['round']})" for defect in unfiled)
             + f". `land.py file {task.slug}` files them, then `land.py gate {task.slug}`",
         )
-    gone = [(read, defect) for read in reads if read["answered"] for defect in outside_of(task, read) if not in_tree(task, tip, defect["item"])]
+    gone = [(read, defect) for read in reads if read["answered"] for defect in outside_of(read) if not in_tree(task, tip, defect["item"])]
     if gone:
         read, defect = gone[0]
         raise LandError(

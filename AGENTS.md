@@ -390,6 +390,13 @@ is the session's, and open to him.
 - **Lem lands Lem by a rule, not by machinery**: the rule on what a landing reads after its
   merge, in "Rules for a change here". No copy of the scripts runs a landing, and no step is
   added for it. The backlog item that asked for one of the two is closed by the rule.
+- **Where the stages keep what the amendment of 2026-11-16 says otherwise.** Its note 3 has the
+  lead change a story a persona doubted before the owner sees it; the stages keep the story as
+  written, with what the lead would change beside it as a proposal, because no agent rewrites
+  his contract before he reads it. "Not green" stays for every choice the experts or the timeout
+  took, where the amendment names only the timeout. The polish pass does not run for a
+  correction, unless its report names a defect outside the task: the weight of a step follows
+  the size of the change.
 
 ## Checks
 
