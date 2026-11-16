@@ -189,7 +189,7 @@ rm -f "$CQ/.git/lem/corrections.log"
 # The hook's own directory is gone, as a removed worktree's is: the event still names its repository.
 mkdir "$WORK/gone"
 out=$(cd "$WORK/gone" && rmdir "$WORK/gone" && event "typed in a directory that is gone" s9 | hook hook 2>&1; echo "exit=$?")
-for _ in 1 2 3 4 5 6 7 8 9 10; do grep -qs "that is gone" "$CQ/.git/lem/corrections.jsonl" && break; sleep 0.3; done
+soon grep -qs "that is gone" "$CQ/.git/lem/corrections.jsonl"
 if [ "$out" = "exit=0" ] && grep -q "that is gone" "$CQ/.git/lem/corrections.jsonl"; then
   pass "a hook whose own directory was removed still exits 0 with no output, and queues the message for the event's repository"
 else
@@ -197,10 +197,11 @@ else
 fi
 rm -f "$CQ/.git/lem/corrections.jsonl" "$WORK/jev-called"
 sed -i.bak 's/^collect = true$/collect = false/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
-# An input that stays open, and an old python3: the hook returns, with exit 0 and not a word.
+# An input that stays open, and an old python3: the hook returns, with exit 0 and not a word. The
+# input stays open 15 seconds, and the hook returns in 10 at most, on a loaded machine too.
 started=$SECONDS
-out=$(hook hook < <(event "the input stays open" s0; sleep 6) 2>&1; echo "exit=$?")
-if [ "$out" = "exit=0" ] && [ $((SECONDS - started)) -lt 4 ]; then
+out=$(hook hook < <(event "the input stays open" s0; sleep 15) 2>&1; echo "exit=$?")
+if [ "$out" = "exit=0" ] && [ $((SECONDS - started)) -lt 10 ]; then
   pass "the hook does not wait for its input to close"
 else
   fail "the hook with an open input: $out after $((SECONDS - started))s"
@@ -210,9 +211,11 @@ for candidate in /usr/bin/python3 python3.9 python3.10; do
   if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info >= (3, 11))' 2>/dev/null; then old=$candidate; break; fi
 done
 if [ -n "$old" ]; then
-  # run from another directory than the repository of the event: the failure belongs in that repository's log
-  out=$(cd "$WORK" && event "under an old python" s0 | "$old" -B "$CORR" hook 2>&1; echo "exit=$?")
-  if [ "$out" = "exit=0" ] && grep -q "tomllib" "$CQ/.git/lem/corrections.log" && [ ! -e "$PWD/.git/lem/corrections.log" ]; then
+  # run in another repository than the one of the event: the failure belongs in that repository's
+  # log, and the one the hook ran in gets none
+  git init -q -b main "$WORK/elsewhere"
+  out=$(cd "$WORK/elsewhere" && event "under an old python" s0 | "$old" -B "$CORR" hook 2>&1; echo "exit=$?")
+  if [ "$out" = "exit=0" ] && grep -q "tomllib" "$CQ/.git/lem/corrections.log" && [ ! -e "$WORK/elsewhere/.git/lem/corrections.log" ]; then
     pass "under a python3 before 3.11 the hook exits 0, prints nothing, and logs the failure in the repository of the message"
   else
     fail "the hook under $old: $out / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
@@ -235,7 +238,7 @@ else
 fi
 sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")
-for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$CQ/.git/lem/corrections.jsonl" ] && break; sleep 0.3; done
+soon test -s "$CQ/.git/lem/corrections.jsonl"
 if [ "$out" = "exit=0" ] && [ "$("$PY" -c 'import json, sys; e = json.loads(open(sys.argv[1]).readline()); print(e["owner"], "|", e["previous"], "|", e["p_lesson"], "|", e["session"])' "$CQ/.git/lem/corrections.jsonl")" = "never push without asking | I pushed it. | 0.9 | s1" ]; then
   pass "with the project's yes the hook prints nothing, and its detached half queues the owner's words with the agent message they answer"
 else

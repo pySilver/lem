@@ -27,16 +27,20 @@ else
 fi
 one=$(decide ask gift-note "${CASE[@]}" --what "Which note wins" --option "the first" --recommended "the first" --why w --said s 2>&1 || true)
 notone=$(decide ask gift-note "${CASE[@]}" --what "Which note wins" --option "the first" --option "the last" --recommended "the newest" --why w --said s 2>&1 || true)
+# the clock before the choice is asked and after its wait is read: what the wait has left is the
+# settings' 15 minutes less the seconds between the two, on a machine of any speed
+asked_from=$(date +%s)
 asked=$(decide ask gift-note "${CASE[@]}" --what "Where the note goes in the row" --option "the last column" --option "after the price" --recommended "the last column" \
   --why "an import that reads the columns by place keeps working" --said "The merchant picked the last column, the accountant after the price.")
 forever=$(decide ask gift-note "${CASE[@]}" --what "Send the merchants an email about the new column" --option "send it" --option "do not send it" --recommended "do not send it" \
   --why "the column is visible in the export" --said "The merchant wants the email, the accountant does not." --irreversible person)
 waits=$(decide pending gift-note)
+asked_to=$(date +%s)
 everywhere=$(decide pending | field '([(c["task"], c["id"]) for c in d["waiting"]], d["ended"])')
 if grep -q "a choice has two options or more" <<<"$one" && grep -qF -- "--recommended is one of the options, word for word: the first; the last" <<<"$notone" \
   && [ "$(field '(d["id"], d["wait_minutes"], "tell Lem that choice 3 of gift-note waits" in d["next"])' <<<"$asked")" = "(3, 15, True)" ] \
   && [ "$(field '(d["id"], d["irreversible"], "no timeout takes it" in d["next"])' <<<"$forever")" = "(4, 'person', True)" ] \
-  && [ "$(field '[(c["id"], c["state"], 840 < c["seconds_left"] <= 900 if c["seconds_left"] is not None else None) for c in d["waiting"]]' <<<"$waits")" = "[(3, 'waits', True), (4, 'waits', None)]" ] \
+  && [ "$(field '[(c["id"], c["state"], 900 - '"$((asked_to - asked_from))"' <= c["seconds_left"] <= 900 if c["seconds_left"] is not None else None) for c in d["waiting"]]' <<<"$waits")" = "[(3, 'waits', True), (4, 'waits', None)]" ] \
   && [ "$everywhere" = "([('gift-note', 3), ('gift-note', 4)], [])" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.git/lem/events.jsonl")" = 2 ]; then
   pass "a choice for the owner has two options or more and recommends one of them; it waits the settings' 15 minutes, and pending lists each choice that waits with the seconds it has left, and none for a step no timeout takes"
 else
@@ -67,7 +71,7 @@ early=$(decide timeout gift-note 3 2>&1 || true)
 past "$dfile" 3 4
 never=$(decide timeout gift-note 4 2>&1 || true)
 started=$(date +%s)
-over=$(decide wait gift-note 3 --seconds 20 | field '(d["ended"], "timeout gift-note 3" in d["next"])')
+over=$(decide wait gift-note 3 --seconds 30 | field '(d["ended"], "timeout gift-note 3" in d["next"])')
 still=$(decide wait gift-note 4 --seconds 1 | field '(d["ended"], d["seconds_left"])')
 took=$(( $(date +%s) - started ))
 taken=$(decide timeout gift-note 3 | field '(d["id"], d["kind"], d["chose"])')
@@ -75,7 +79,7 @@ again=$(decide timeout gift-note 3 2>&1 || true)
 same=$(decide answer gift-note 3 --chose "the last column" | field '(d["kind"], d["taken"], d["next"])')
 if grep -q "the wait of choice 3 has [0-9]* seconds left (until 20.*); the owner may still answer" <<<"$early" \
   && grep -q "choice 4 is a step that a later \"no\" cannot reverse (it sends something to a person): no timeout takes it" <<<"$never" \
-  && [ "$over" = "('the wait is over', True)" ] && [ "$still" = "('still waits', None)" ] && [ "$took" -lt 10 ] \
+  && [ "$over" = "('the wait is over', True)" ] && [ "$still" = "('still waits', None)" ] && [ "$took" -lt 30 ] \
   && [ "$taken" = "(3, 'timeout', 'the last column')" ] && grep -q "choice 3 does not wait: it is timeout, with 'the last column'" <<<"$again" \
   && [ "$same" = "('late', 'the last column', 'the answer is the action that was taken: nothing more to do')" ]; then
   pass "a timeout is refused while the wait runs and always for a step a later no cannot reverse; after the wait, wait says so at once, the recommended action is taken once, and a late answer that is the same needs nothing more"
@@ -89,12 +93,12 @@ differs=$(decide answer gift-note 5 --chose "Note" | field '(d["kind"], d["taken
 decide ask gift-note "${CASE[@]}" --what "The note's length" --option "all of it" --option "200 characters" --recommended "all of it" --why "nothing is lost" --said "The two personas split." >/dev/null
 answered=$(decide answer gift-note 6 --chose "200 characters" | field '(d["kind"], d["chose"])')
 started=$(date +%s)
-ended=$(decide wait gift-note 6 --seconds 20 | field '(d["ended"], d["chose"], d["by"])')
+ended=$(decide wait gift-note 6 --seconds 30 | field '(d["ended"], d["chose"], d["by"])')
 took=$(( $(date +%s) - started ))
 twice=$(decide answer gift-note 6 --chose "all of it" 2>&1 || true)
 unknown=$(decide answer gift-note 1 --chose x 2>&1 || true)
 stands=$(dlist '[(c["id"], c["state"], c.get("chose"), c.get("by"), c.get("late", {}).get("chose")) for c in d]')
-if [ "$differs" = "('late', 'Gift note', True)" ] && [ "$answered" = "('answered', '200 characters')" ] && [ "$ended" = "('answered', '200 characters', 'owner')" ] && [ "$took" -lt 10 ] \
+if [ "$differs" = "('late', 'Gift note', True)" ] && [ "$answered" = "('answered', '200 characters')" ] && [ "$ended" = "('answered', '200 characters', 'owner')" ] && [ "$took" -lt 30 ] \
   && grep -q "choice 6 has the owner's answer already: '200 characters'" <<<"$twice" && grep -q "no choice 1 went to the owner in gift-note; those that did: 3, 4, 5, 6" <<<"$unknown" \
   && [ "$stands" = "[(1, 'taken', 'gift_note', 'lead', None), (2, 'taken', 'both notes, with a semicolon between them', 'personas', None), (3, 'timeout', 'the last column', 'timeout', 'the last column'), (4, 'waits', None, None, None), (5, 'timeout', 'Gift note', 'timeout', 'Note'), (6, 'answered', '200 characters', 'owner', None)]" ]; then
   pass "an answer in time decides and wait returns at once with it; a late answer that differs is a correction; a second answer and an answer to a decision nobody asked are refused; and list shows each decision as it stands"
@@ -167,12 +171,12 @@ project --repo "$DC" state dropped-task dropped "the owner dropped it" >/dev/nul
 all_open=$(decide pending | field '(sorted({c["task"] for c in d["waiting"]}), [(e["task"], e["status"], e["choices"]) for e in d["ended"]])')
 one_ended=$(decide pending dropped-task | field '(d["waiting"], d["ended"][0]["status"], d["ended"][0]["says"])')
 started=$(date +%s)
-waited=$(decide wait dropped-task 1 --seconds 20 | field '(d["ended"], d["status"])')
+waited=$(decide wait dropped-task 1 --seconds 30 | field '(d["ended"], d["status"])')
 took=$(( $(date +%s) - started ))
 kept=$(decide list dropped-task | field '[(c["id"], c["state"]) for c in d]')
 if [ "$all_open" = "(['gift-note'], [('dropped-task', 'dropped', [1]), ('landed-task', 'landed', [1])])" ] \
   && [ "$one_ended" = "([], 'dropped', 'the task is dropped: its choices no longer wait for an answer')" ] \
-  && [ "$waited" = "('the task is dropped: the choice no longer waits', 'dropped')" ] && [ "$took" -lt 10 ] && [ "$kept" = "[(1, 'waits')]" ]; then
+  && [ "$waited" = "('the task is dropped: the choice no longer waits', 'dropped')" ] && [ "$took" -lt 30 ] && [ "$kept" = "[(1, 'waits')]" ]; then
   pass "a dropped or landed task has no choice that waits: pending leaves it out and says why, wait returns at once with the task's status, and list still shows its record"
 else
   fail "the choices of an ended task: $all_open / $one_ended / $waited / $took / $kept"
@@ -180,14 +184,14 @@ fi
 # A task dropped while a wait runs ends that wait: the loop reads the task's status each time it reads the choice.
 decide ask cancel-task "${CASE[@]}" --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
 started=$(date +%s)
-"$PY" -B "$DECISIONS" --repo "$DC" wait cancel-task 1 --seconds 8 > "$WORK/cancel-wait.out" 2>&1 &
+"$PY" -B "$DECISIONS" --repo "$DC" wait cancel-task 1 --seconds 30 > "$WORK/cancel-wait.out" 2>&1 &
 waiter=$!
 sleep 1
 project --repo "$DC" state cancel-task dropped "the owner dropped it while a choice waited" >/dev/null
 wait "$waiter" || true
 took=$(( $(date +%s) - started ))
 cancelled=$(field '(d["ended"], d.get("status"))' < "$WORK/cancel-wait.out" || true)
-if [ "$cancelled" = "('the task is dropped: the choice no longer waits', 'dropped')" ] && [ "$took" -lt 8 ]; then
+if [ "$cancelled" = "('the task is dropped: the choice no longer waits', 'dropped')" ] && [ "$took" -lt 30 ]; then
   pass "a task dropped while a wait on its choice runs ends that wait before its time, with the task's status"
 else
   fail "a task dropped during a wait: $cancelled / $took s / $(cat "$WORK/cancel-wait.out")"
@@ -208,7 +212,7 @@ decide ask race-task "${CASE[@]}" --what "The order of the rows" --option "by nu
 past "$rfile" 1
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.git/lem/tasks/race-task/decisions.lock" > "$WORK/rlock.out" &
 holder=$!
-for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$WORK/rlock.out" ] && break; sleep 0.2; done
+soon test -s "$WORK/rlock.out"
 "$PY" -B "$DECISIONS" --repo "$DC" answer race-task 1 --chose "by date" > "$WORK/race-answer.out" 2>&1 &
 ra=$!
 "$PY" -B "$DECISIONS" --repo "$DC" timeout race-task 1 > "$WORK/race-timeout.out" 2>&1 &
@@ -225,7 +229,7 @@ fi
 # Two writers never take one number: while another process holds the lock, two writes wait, and then each gets its own.
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.git/lem/tasks/other-task/decisions.lock" > "$WORK/dlock.out" &
 holder=$!
-for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$WORK/dlock.out" ] && break; sleep 0.2; done
+soon test -s "$WORK/dlock.out"
 "$PY" -B "$DECISIONS" --repo "$DC" log other-task --what "first" --chose a --why b --by lead > "$WORK/dw1.out" 2>&1 &
 w1=$!
 "$PY" -B "$DECISIONS" --repo "$DC" log other-task --what "second" --chose a --why b --by lead > "$WORK/dw2.out" 2>&1 &

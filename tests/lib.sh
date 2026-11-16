@@ -6,7 +6,9 @@
 # order in which the blocks run.
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+# -P: the folder as it is on disk, the way readlink and git name it: a checkout under /tmp is
+# under /private/tmp on macOS.
+cd -P "$(dirname "${BASH_SOURCE[0]}")/.."
 PROJECT=$PWD/skills/lem/scripts/project.py
 STORIES=$PWD/skills/lem/scripts/stories.py
 DECISIONS=$PWD/skills/lem/scripts/decisions.py
@@ -26,6 +28,17 @@ commit() { git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty 
 # CASE: the run that ends badly, which every choice for the owner carries above his card (decisions.py ask)
 CASE=(--case $'1. Order 1042 has two gift notes, "for Ania" and "for Ola".\n2. The export writes one cell for the note of an order.\n3. The merchant prints the slip with one note, and Ola gets none.'
   --case-was derived --cause "An order has one cell for its note, and every export of notes shares that cell.")
+# soon COMMAND...: run COMMAND until it succeeds, five times a second and for 30 seconds at most,
+# for what another process does when a loaded machine starts it late. It never fails by itself:
+# the check after it says whether what it waited for came.
+soon() {
+  local tries=150
+  until "$@"; do
+    tries=$((tries - 1))
+    [ "$tries" -gt 0 ] || return 0
+    sleep 0.2
+  done
+}
 # past FILE ID...: the wait of each choice ends, as its deadline is written into the past, the way fifteen minutes later would find it
 past() { "$PY" -c 'import json, sys
 lines = [json.loads(line) for line in open(sys.argv[1])]

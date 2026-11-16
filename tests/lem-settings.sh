@@ -812,12 +812,21 @@ story3() { git -C "$stw" checkout -q -- docs && "$PY" -c 'import sys; p, lines =
 # shellcheck disable=SC2016
 weak=$(story3 '3. The export still has one row for each order.' '   - test: `sh export.sh` in `tests/gift.sh`')
 # the settings file is the same on the base commit and on the branch: a test that reads it and then changes it
-echo 'grep -q max_tasks .lem/project.toml || exit 1; echo changed >> .lem/project.toml' > "$stw/tests/config.sh" && echo 'sh tests/runner.sh' > "$stw/tests/calls.sh" && echo 'exit 0' > "$stw/tests/runner.sh"
+echo 'grep -q max_tasks .lem/project.toml || exit 1; echo changed >> .lem/project.toml' > "$stw/tests/config.sh"
+# The helper starts by its path, so that a helper that is not there exits 127 in every shell: `sh
+# FILE` with no FILE is 127 in bash and 2 in dash.
+echo './tests/runner.sh' > "$stw/tests/calls.sh" && echo 'exit 0' > "$stw/tests/runner.sh" && chmod +x "$stw/tests/runner.sh"
 git -C "$stw" add -A && git -C "$stw" commit -q -m "test: more tests" && before=$(git -C "$stw" rev-parse HEAD)
 # shellcheck disable=SC2016
 writes=$(story3 '3. The config is read.' '   - test: `sh tests/config.sh` in `tests/config.sh`')
 # shellcheck disable=SC2016
 helper=$(story3 '3. The runner runs.' '   - test: `sh tests/calls.sh` in `tests/calls.sh`')
+# A test command that starts a shell on a script the base commit lacks does not start there, whatever
+# the shell's exit: a stand-in `sh` that exits 2 for a script that is not there, as dash does.
+# shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs
+mkdir -p "$WORK/dashlike" && printf '%s\n' '#!/bin/sh' '[ -f "$1" ] || exit 2' 'exec /bin/sh "$@"' > "$WORK/dashlike/sh" && chmod +x "$WORK/dashlike/sh"
+# shellcheck disable=SC2016
+unstarted=$(PATH="$WORK/dashlike:$PATH" story3 '3. The runner runs.' '   - test: `sh tests/runner.sh` in `tests/calls.sh`')
 # shellcheck disable=SC2016
 folder=$(story3 '3. The tests are there.' '   - test: `sh tests/gift.sh` in `tests`')
 bare=$(story3 '3. The export still has one row for each order.')
@@ -829,14 +838,15 @@ rm "$stw/stray.txt"
 if grep -q 'story 3: `sh export.sh` passes on the base commit too, so it does not test the change' <<<"$weak" \
   && grep -q 'story 3: `sh tests/config.sh` passes on the base commit too' <<<"$writes" \
   && grep -q 'story 3: `sh tests/calls.sh` does not start on the base commit (exit 127), so its failure there proves nothing. If a file it needs is a helper of the test, name it among' <<<"$helper" \
+  && grep -q 'story 3: `sh tests/runner.sh` does not start on the base commit (exit 2), so its failure there proves nothing' <<<"$unstarted" \
   && grep -q "story 3: 'tests' is a folder on the branch. Name each file that holds the test, one by one" <<<"$folder" \
   && grep -q "story 3 names no test: every story is held by a test at the end of a build" <<<"$bare" \
   && [ "$said" = "(True, [{'story': 3, 'why': 'the count of rows is the export of today, which no change here touches.'}])" ] \
   && grep -q "the worktree has changes nobody committed" <<<"$dirty" && [ "$(git -C "$stw" rev-parse HEAD)" = "$before" ] \
   && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ]; then
-  pass "a story is not held by a test that passes on the base commit too, that only changes a file both commits have, or whose helper file is not named; a folder as a test file and a story with no test are refused, and one that says why it has none is listed"
+  pass "a story is not held by a test that passes on the base commit too, that only changes a file both commits have, whose helper file is not named, or that starts a shell on a script the base commit lacks, whatever that shell's exit; a folder as a test file and a story with no test are refused, and one that says why it has none is listed"
 else
-  fail "stories red refusals: $weak / $writes / $helper / $folder / $bare / $said / $dirty"
+  fail "stories red refusals: $weak / $writes / $helper / $unstarted / $folder / $bare / $said / $dirty"
 fi
 # A test that needs what a fresh worktree lacks is named as such, and the settings' gate.setup makes it.
 echo 'test -f .made-by-setup && sh export.sh | grep -q "1042,for Ania"' > "$stw/tests/env.sh" && git -C "$stw" add -A && git -C "$stw" commit -q -m "test: one that needs a setup" && before=$(git -C "$stw" rev-parse HEAD)
@@ -870,10 +880,14 @@ lacked=$(stories red export-has-the-gift-note | field '("export.sh" in d["run_wi
 # A hook that fails after git made the worktree, and a setup command that locks it: neither worktree stays.
 printf '%s\n' '#!/bin/sh' 'exit 9' > "$ST/.git/hooks/post-checkout" && chmod +x "$ST/.git/hooks/post-checkout"
 hooked=$(status_of stories red export-has-the-gift-note)
-# a hook that leaves a process behind: the check goes on, and that process is ended
-printf '%s\n' '#!/bin/sh' 'sleep 32.9 &' 'exit 0' > "$ST/.git/hooks/post-checkout"
+# a hook that leaves a process behind: the check goes on, and that process is ended. The process
+# is `sleep` by a name of this run's own, so that a second run of the suite beside this one counts
+# none of its own processes here.
+NAP=$WORK/nap
+ln -s "$(command -v sleep)" "$NAP"
+printf '%s\n' '#!/bin/sh' "'$NAP' 32.9 &" 'exit 0' > "$ST/.git/hooks/post-checkout"
 watched=$(stories red export-has-the-gift-note | field 'd["ok"]')
-watched="$watched $(pgrep -f 'sleep 32\.9' | grep -c '' || true)"
+watched="$watched $(pgrep -f "$NAP 32\.9" | grep -c '' || true)"
 rm "$ST/.git/hooks/post-checkout"
 after_hook=$(git -C "$ST" worktree list | grep -c '')
 sed -i.bak 's|^setup = .*$|setup = ["git worktree lock ."]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
@@ -889,17 +903,18 @@ after_stuck="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktre
 # One check of a task at a time: while another process holds the task's lock, a second check is refused.
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$ST/.git/lem/tasks/export-has-the-gift-note/red.lock" > "$WORK/lock.out" &
 holder=$!
-for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$WORK/lock.out" ] && break; sleep 0.2; done
+soon test -s "$WORK/lock.out"
 second=$(stories red export-has-the-gift-note 2>&1 || true)
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 # A check that is stopped ends the command it runs, and leaves no worktree.
-sed -i.bak 's|^setup = .*$|setup = ["sleep 31.7"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak "s|^setup = .*\$|setup = [\"$NAP 31.7\"]|" "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 "$PY" -B "$STORIES" --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
 check=$!
-for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pgrep -f 'sleep 31\.7' >/dev/null 2>&1 && break; sleep 0.25; done
-started=$(pgrep -f 'sleep 31\.7' | grep -c '' || true)
+napping() { pgrep -f "$NAP 31\.7" >/dev/null 2>&1; }
+soon napping
+started=$(pgrep -f "$NAP 31\.7" | grep -c '' || true)
 kill -TERM "$check" 2>/dev/null || true; wait "$check" 2>/dev/null || true
-left=$(pgrep -f 'sleep 31\.7' | grep -c '' || true)
+left=$(pgrep -f "$NAP 31\.7" | grep -c '' || true)
 after_stop="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
 sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 # shellcheck disable=SC2016
@@ -1106,7 +1121,7 @@ project --repo "$ST" task-dir locked-note >/dev/null
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(20)' \
   "$ST/.git/lem/tasks/locked-note/stories.lock" > "$WORK/stories-lock.out" &
 holder=$!
-for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$WORK/stories-lock.out" ] && break; sleep 0.2; done
+soon test -s "$WORK/stories-lock.out"
 "$PY" -B "$STORIES" --repo "$ST" approve locked-note --file "$WORK/reapproved.md" > "$WORK/his-approval.out" 2>&1 &
 his=$!
 sleep 0.5

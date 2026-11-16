@@ -73,7 +73,12 @@ needs before its tests can start), so that nothing one run writes reaches the ot
   and not here needs something a fresh worktree lacks, and the check says so: a failure on the
   base commit would then prove nothing;
 - one at the base commit with only the named test files of the branch laid over it, where each
-  test must fail. A command that does not start there (exit 126 or 127) is no proof.
+  test must fail. A command that does not start there is no proof: one that exits 126 or 127,
+  the codes a shell gives for a program it cannot find or run, and one that starts a shell
+  (`sh`, `bash`, `dash`, `ksh`, `zsh`) on a script file the base commit lacks, which bash ends
+  with 127 and dash with 2. A helper that a test's own script starts is caught only by the code
+  its shell gives, so a test starts its helpers by their path (`./tests/helper.sh`): every shell
+  ends that with 127 when the file is not there.
 
 What the check cannot tell: whether a file of the branch that the base run lacked is the change
 or a helper of the test. A test of a new module fails on the base commit because the module is
@@ -100,6 +105,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -115,6 +121,8 @@ STORY = re.compile(r"^(\d+)\.\s+(.+)$")
 TEST = re.compile(r"^\s+-\s+test:\s+`([^`]+)`\s+in\s+(.+)$")
 NO_TEST = re.compile(r"^\s+-\s+no test:\s+(.+)$")
 FILES = re.compile(r"`([^`]+)`")
+# The shells a test command may start a script with, by the name of the program.
+SHELLS = ("sh", "bash", "dash", "ksh", "zsh")
 
 
 class StoriesError(Exception):
@@ -296,6 +304,34 @@ class Task:
         script("project.py", self.repo, "log", self.slug, event, *(f"{key}:={json.dumps(value, ensure_ascii=False)}" for key, value in fields.items()))
 
 
+def unstarted(command: str, where: Path) -> bool:
+    """Whether the command starts a shell on a script file that is not in `where`. Its exit does
+    not say so in every shell: bash ends `sh FILE` with no FILE with 127, dash with 2."""
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return False
+    if not words or Path(words[0]).name not in SHELLS:
+        return False
+    rest = iter(words[1:])
+    for word in rest:
+        if word in ("-o", "+o"):
+            next(rest, None)
+        elif word == "--":
+            file = next(rest, None)
+            break
+        elif word in ("-", "+") or word.startswith("--") or (word.startswith("-") and "c" in word):
+            # standard input, a long option of one shell, or `-c TEXT`, whose operand is a command:
+            # no script file to look for
+            return False
+        elif not word.startswith(("-", "+")):
+            file = word
+            break
+    else:
+        return False
+    return file is not None and not (where / file).is_file()
+
+
 def remove(task: Task, place: Path) -> str | None:
     """Remove one worktree of this check, a locked one too. Returns what is in the way when it stays."""
     def listed() -> bool:
@@ -406,6 +442,7 @@ def cmd_red(task: Task) -> dict:
 
         before = signal.signal(signal.SIGTERM, ended)
         codes: dict[str, list[int]] = {}
+        absent: list[bool] = []
         failure: str | None = None
         try:
             for name, place in places.items():
@@ -418,6 +455,9 @@ def cmd_red(task: Task) -> dict:
                     if code != 0:
                         where = "a fresh worktree of the branch" if name == "branch" else "a fresh worktree of the base commit, with the test files laid over it"
                         raise StoriesError(f"`{command}` of gate.setup failed in {where} (exit {code}), so no test could run there; correct that command in .lem/project.toml")
+                if name == "base":
+                    # looked for before any test runs there, which might write the file
+                    absent = [unstarted(test["command"], place) for _, test in tests]
                 codes[name] = [outcome(test["command"], place) for _, test in tests]
         except KeyboardInterrupt:
             failure = "the check was stopped, and its commands are ended"
@@ -431,7 +471,7 @@ def cmd_red(task: Task) -> dict:
         # A worktree that stayed is said whatever else went wrong: the first failure does not hide it.
         if failure or stuck:
             raise StoriesError("; ".join([*([failure] if failure else []), *(stuck or ["its worktrees are removed"] if failure else stuck)]))
-        for (number, test), green, red in zip(tests, codes["branch"], codes["base"]):
+        for (number, test), green, red, lacked in zip(tests, codes["branch"], codes["base"], absent):
             problem = None
             if green != 0:
                 problem = (
@@ -440,7 +480,7 @@ def cmd_red(task: Task) -> dict:
                 )
             elif red == 0:
                 problem = "passes on the base commit too, so it does not test the change"
-            elif red in (126, 127):
+            elif red in (126, 127) or lacked:
                 problem = (
                     f"does not start on the base commit (exit {red}), so its failure there proves nothing. If a file it needs is a helper of the test, "
                     "name it among the story's files; if what is absent is the change itself, make the test fail on it and not stop before it"

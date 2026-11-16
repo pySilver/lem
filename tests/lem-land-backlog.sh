@@ -76,8 +76,11 @@ outside() { local IFS=,; printf '"outside": [%s]}' "$*"; }
 task_in "$BLG" two-defects app.txt two
 tree=$(project --repo "$BLG" worktree-dir two-defects)
 land --repo "$BLG" start two-defects >/dev/null && land --repo "$BLG" base two-defects >/dev/null && land --repo "$BLG" gate two-defects >/dev/null
+# the day before the review and after its filing: an item filed at midnight carries one of the two
+day_from=$(date +%F)
 first=$(land --repo "$BLG" read two-defects --record "$(record 1 "$read_must_fix, $(outside "$A")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
 filed_a=$(land --repo "$BLG" file two-defects | field '([(f["round"], f["item"]) for f in d["filed"]], d["same"])')
+day_to=$(date +%F)
 echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix" && land --repo "$BLG" gate two-defects >/dev/null
 second=$(land --repo "$BLG" read two-defects --record "$(record 2 "$a_round, $(outside "$B")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
 unfiled=$(land --repo "$BLG" propose two-defects --title "fix: two-defects" --notes "$NOTES" 2>&1 >/dev/null || true)
@@ -97,9 +100,10 @@ if [ "$first" = "('review', [(1, 'Empty input crashes the parser')])" ] && [ "$f
   && [ "$filed_b" = "[(2, 'docs/backlog/a-quoted-comma-splits-the-field.md')]" ] \
   && [ "$commit_b" = "docs(backlog): what review round 2 saw outside two-defects||docs/backlog/a-quoted-comma-splits-the-field.md|" ] \
   && [ "$rerun" = "([], [])" ] && [ "$after" = "('none', [])" ] && [ "$green" = True ] \
-  && [ "$(sed -n 1,5p "$item" | tr '\n' '|')" = "---|worth: later|where: src/json.py:parse|added: $(date +%F)|---|" ] && [ "$(sed -n 6p "$item")" = "# Empty input crashes the parser" ] \
+  && sed -n 1,5p "$item" | tr '\n' '|' | grep -qxF -e "---|worth: later|where: src/json.py:parse|added: $day_from|---|" -e "---|worth: later|where: src/json.py:parse|added: $day_to|---|" \
+  && [ "$(sed -n 6p "$item")" = "# Empty input crashes the parser" ] \
   && grep -qx "parse with an empty string raises IndexError, on the base commit too." "$item" \
-  && grep -qx "Seen outside the change by review round 1 of task two-defects ($(date +%F)); the base commit has it." "$item" \
+  && grep -qxF -e "Seen outside the change by review round 1 of task two-defects ($day_from); the base commit has it." -e "Seen outside the change by review round 1 of task two-defects ($day_to); the base commit has it." "$item" \
   && grep -q '^- the review, round 1 (one read; answered: codex): must-fix, 1 must-fix, 0 should, 0 nit; it saw 1 defect outside the change, filed as .docs/backlog/empty-input-crashes-the-parser.md.$' "$text" \
   && grep -q '^- the review, round 2 .*: clean, 0 must-fix, 0 should, 0 nit; it saw 1 defect outside the change, filed as .docs/backlog/a-quoted-comma-splits-the-field.md.$' "$text" \
   && [ "$logged" = "[['docs/backlog/empty-input-crashes-the-parser.md'], ['docs/backlog/a-quoted-comma-splits-the-field.md']]" ]; then

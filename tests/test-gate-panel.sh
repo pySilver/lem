@@ -214,8 +214,11 @@ else
   fail "init overwrote an index"
 fi
 
+# the day before the folder is made and after it: a folder made at midnight is named for one of the two
+day_from=$(date +%Y-%m-%d)
 dir=$(cast run-dir pack-size --repo "$REPO")
-if [ -d "$dir" ] && [ "$(basename "$dir")" = "$(date +%Y-%m-%d)-pack-size" ] && [ -z "$(git -C "$REPO" status --porcelain --untracked-files=all)" ]; then
+day_to=$(date +%Y-%m-%d)
+if [ -d "$dir" ] && { [ "$(basename "$dir")" = "$day_from-pack-size" ] || [ "$(basename "$dir")" = "$day_to-pack-size" ]; } && [ -z "$(git -C "$REPO" status --porcelain --untracked-files=all)" ]; then
   pass "run-dir makes a dated folder that git status never shows"
 else
   fail "run-dir: $dir; status: $(git -C "$REPO" status --porcelain --untracked-files=all)"
