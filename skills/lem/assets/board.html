@@ -427,8 +427,9 @@
 // "Where the time went" on the board of one task draws only what an event shows: a state block
 // starts a span and the next one ends it, a check's or a review's event ends its span inside a
 // landing, a choice runs from its question to its outcome, and the stories wait for the owner from
-// the personas' read to his approval. What writes no event (the interview, the scout) is not
-// drawn, and what logs only its end (the personas' read, the plan talk) is a mark where it ended.
+// the personas' read to his approval, and a plan talk from its start to its record. What writes no
+// event (the interview, the scout) is not drawn, and what logs only its end (the personas' read, a
+// plan talk with no start in the log) is a mark where it ended.
 //
 // The board of all tasks has a second tab, the backlog, from backlog.js (board.py: the items of the
 // backlog folder). Items change rarely, so that file is read when the tab opens and on a key, not
@@ -618,6 +619,15 @@ const dayLabel = ms => new Date(ms).toLocaleDateString([], {day: 'numeric', mont
 // A time on another day than today carries its date, or 00:10 and 23:50 read as one evening.
 const stamp = (ms, now) => (dayKey(ms) === dayKey(now) ? '' : `${dayLabel(ms)} `) + hhmm(ms);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// A plan talk's record in words: its questions and turns, how its questions ended, its repairs, and
+// the questions raised after the list. A record with no `questions` in an older log holds only its
+// turns and what it settled and left open.
+function talkCounts(x) {
+  if (x.questions == null) return `${plural(x.turns, 'turn')}, ${x.settled} settled, ${x.open} open`;
+  const design = x.design ? `, ${x.design} of them ${x.design === 1 ? 'a design choice' : 'design choices'}` : '';
+  return [`${plural(x.questions, 'question')} in ${plural(x.turns, 'turn')}`, `${x.settled} settled, ${x.open} open${design}`, `${x.repaired} repaired`,
+    ...(x.unargued ? [`${x.unargued} raised, not argued`] : [])].join(' · ');
+}
 // "report-dates-stay-whole" -> "Report dates stay whole": the owner reads names, never codes.
 const titleOf = slug => { const words = String(slug).replace(/-+/g, ' ').trim(); return words ? words[0].toUpperCase() + words.slice(1) : 'A task'; };
 
@@ -688,7 +698,7 @@ function derive(now) {
     let t = tasks.get(e.task);
     if (!t) tasks.set(e.task, t = {
       slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], reviews: [], proposal: null, stories: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null,
-      events: [], decisions: new Map(), orphans: [], changes: [], approvals: [], reads: [], talk: null, filed: [], missed: null, polish: null,
+      events: [], decisions: new Map(), orphans: [], changes: [], approvals: [], reads: [], talks: [], talkStart: null, filed: [], missed: null, polish: null,
     });
     // every event of the task, in the order of the log: "Where the time went" reads them all
     t.events.push(e);
@@ -703,7 +713,15 @@ function derive(now) {
       t.reads.push({ts: at(e), order: t.events.length, by: e.by, asked: e.asked, answered: e.answered, families: e.families ?? [], silent: e.silent ?? [], stories: e.stories, flagged: e.flagged, split: e.split === true, digest: e.digest});
       continue;
     }
-    if (e.event === 'plan.talk') { t.talk = {ts: at(e), reviewer: e.reviewer, turns: e.turns, settled: e.settled, open: e.open}; continue; }
+    // A plan talk runs from the lead's `plan.talk.start`, when the reviewer's seat opens, to its
+    // record; a start with no record after it is a talk that still runs.
+    if (e.event === 'plan.talk.start') { t.talkStart = {ts: at(e), reviewer: e.reviewer}; continue; }
+    if (e.event === 'plan.talk') {
+      t.talks.push({ts: at(e), start: t.talkStart?.ts ?? null, reviewer: e.reviewer, turns: e.turns, questions: e.questions, settled: e.settled, open: e.open,
+        repaired: e.repaired, design: e.design, unargued: e.unargued});
+      t.talkStart = null;
+      continue;
+    }
     if (e.event === 'review.filed') { t.filed.push({ts: at(e), items: e.items ?? [], tip: e.tip}); continue; }
     if (e.event === 'careful.missed') { t.missed = {ts: at(e), path: e.path, pattern: e.pattern}; continue; }
     // the polish pass of the landing, as land.py polish --done logged it; it has no start event
@@ -1139,7 +1157,15 @@ function timeOf(t, end) {
   for (const r of t.reads) {
     marks.push({row: 'personas', at: r.ts, head: 'The personas’ read of the stories ended', sub: `${r.answered} of ${r.asked} answered, ${FAMILIES[r.families.length] ?? `${r.families.length} model families`} · ${r.flagged ? `${r.flagged} flagged` : 'nobody confused'}${r.split ? ' · the families split' : ''} · its start is not logged`});
   }
-  if (t.talk) marks.push({row: 'review', at: t.talk.ts, head: 'The plan talk ended', sub: `with ${t.talk.reviewer}: ${plural(t.talk.turns, 'turn')}, ${t.talk.settled} settled, ${t.talk.open} open · its start is not logged`});
+  // A plan talk is the review's from its start to its record. A record with no start before it is
+  // a dot where it ended, and a start with no record yet is a talk that runs while the task is open.
+  for (const talk of t.talks) {
+    const sub = `with ${talk.reviewer}: ${talkCounts(talk)}`;
+    if (talk.start != null) add('review', talk.start, talk.ts, 'The plan talk', sub);
+    else marks.push({row: 'review', at: talk.ts, head: 'The plan talk ended', sub: `${sub} · its start is not logged`});
+  }
+  if (t.talkStart && !t.closed) add('review', t.talkStart.ts, end, 'The plan talk runs', `with ${t.talkStart.reviewer}; its record comes when the talk ends`, true);
+  else if (t.talkStart) marks.push({row: 'review', at: t.talkStart.ts, head: 'The plan talk started', sub: `with ${t.talkStart.reviewer}; no record of its end is logged`});
   for (const e of t.events.filter(x => x.event === 'task.red')) {
     // the check the lead runs before the task is ready; the landing's own is a span above
     const inBuild = t.blocks[blockOf.get(e)]?.status !== 'landing';
@@ -1234,7 +1260,8 @@ const SAYS = {
   'review': e => ({info: {actor: e.verdict === 'clean' ? 'done' : 'bad', icon: 'eye'}, head: 'Review', text: reviewLine(e)}),
   'review.filed': e => ({info: {actor: 'lem', icon: 'file'}, head: 'Filed in the backlog', text: plural((e.items ?? []).length, 'item')}),
   'proposed': e => ({info: {actor: e.green ? 'done' : 'you', icon: e.green ? 'check' : 'alert'}, head: e.green ? 'Proposed: green' : 'Proposed: not green', text: (e.not_green ?? []).join(' · ')}),
-  'plan.talk': e => ({info: {actor: 'gate', icon: 'split'}, head: 'Plan talk', text: `with ${e.reviewer}: ${plural(e.turns, 'turn')}, ${e.settled} settled, ${e.open} open`}),
+  'plan.talk.start': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk started', text: `with ${e.reviewer}`}),
+  'plan.talk': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk ended', text: `with ${e.reviewer}: ${talkCounts(e)}`}),
   'careful.missed': e => ({info: {actor: 'bad', icon: 'alert'}, head: 'A careful path the plan missed', text: `${e.path} (${e.pattern})`}),
   'polish': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass',
     text: `${plural(e.commits ?? 0, 'commit')}, ${(e.filed ?? []).length ? plural(e.filed.length, 'item') : 'no item'} filed in the backlog`,
@@ -1944,7 +1971,7 @@ function render() {
     patch($('timeline'), [card]);
     $('tl-note').textContent = 'Each row is who held the work; a band is a stage, and inside the build a task of the plan. '
       + 'Rows overlap where the build goes on while a choice waits for you, so the shares need not add up to 100. '
-      + 'The interview and the scout write no event, so they are not drawn; the personas’ read and the plan talk log only their end, which is a dot.';
+      + 'The interview and the scout write no event, so they are not drawn; the personas’ read logs only its end, which is a dot, and the plan talk is drawn from its start to its record.';
   } else {
     const shown = view ? [] : m.list.filter(x => !x.closed || dayKey(x.since) === dayKey(now)).sort((a, b) => a.first - b.first);
     patch($('legend'), buildLegend(m, shown));

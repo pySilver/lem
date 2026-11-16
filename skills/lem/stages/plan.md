@@ -2,8 +2,8 @@
 
 The lead's first stage. A plan here is short and written by whoever builds. It exists so the
 builder has thought before typing and so a reviewer can tell what was meant; it is not argued line
-by line before the build. Only a careful or large plan is talked through with the reviewer, one
-question at a time (step 4).
+by line before the build. Only a careful or large plan is talked through with the reviewer, over
+a list of questions that closes with the reviewer's first turn (step 4).
 
 1. **Write the plan** as one file in the settings' `plans` path, named `YYYYMMDD-<slug>.md`, and
    commit it as the branch's first commit. It opens with the stories, because they are the
@@ -105,53 +105,89 @@ question at a time (step 4).
    stop the same way with the line `the owner reads the plan`.
 4. **A careful or large plan gets a plan talk before any code.** This is the session's step, and
    it comes before step 5 lets any task be built. The lead and the reviewer argue the plan
-   through the mailbox, one question at a time, to find the obstacle the planner did not see and
-   a better design. A one-shot read does not do that: "there is no interaction between plan
-   writer and reviwer, so they cannot look for a better design together, this proces just makes
-   the writer satisfy the reviewer without actually changing the approach" (the owner,
-   2026-11-15). The rules are the owner's own for two agents that argue a plan:
-   - **Open the seat** with `second-opinion`, at the seat's `plan_effort`. The first message
-     names the plan's path, the worktree, the task, the style guide files `project.py rules`
-     prints for the plan's files, and the code the plan rests on, by path and symbol.
-   - **One question at a time.** You state a position: what the plan does, the smallest option
-     you priced it against, and the code that supports it. The reviewer refutes it with a cite or
-     a concrete input that breaks it, or agrees with a cite. Check each of its claims in the code
-     before you answer.
+   through the mailbox to find the obstacle the planner did not see and a better design. A
+   one-shot read does not do that: "there is no interaction between plan writer and reviwer, so
+   they cannot look for a better design together, this proces just makes the writer satisfy the
+   reviewer without actually changing the approach" (the owner, 2026-11-15). Nor may the talk run
+   without an end: "I don't want them to argue till the end of days" (the owner, 2026-11-16). A
+   plan is prose, and each repair is new prose that the next turn reads: a stored price, then
+   its invalidation, then the bulk import that skips it, then the nightly repair, then the race
+   with checkout. So the questions are a closed list, each gets one repair, and a question that
+   comes back stops, as revmux stops a loop whose finding of the last round arrives again. The
+   rules:
+   - **Open the seat** with `second-opinion`, at the seat's `plan_effort`, and log its start, so
+     that the board draws the talk from it:
+
+     ```bash
+     python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG plan.talk.start reviewer=AGENT
+     ```
+
+     The first message names the plan's path, the worktree, the task, the style guide files
+     `project.py rules` prints for the plan's files, and the code the plan rests on, by path and
+     symbol, and asks for the full list.
+   - **The list closes with the reviewer's first turn.** That turn is a full read of the plan: a
+     numbered list of questions, the most expensive first, each with the position of the plan it
+     challenges, its mechanism, and its place (a section of the plan, or a file and symbol). Keep
+     the list as it came, before you change anything: the next two rules are checked against it.
+   - **One repair per question.** For each question, repair the plan and commit, or refute the
+     question with a cite. Check each of its claims in the code before you answer. The reviewer
+     answers each question by its number only:
+     `closed`, when the repair or the refutation holds, or `holds`, with why. A question that
+     holds gets one more answer from you: a refutation of that why with a cite, or the repair
+     when your first answer was a refutation; never a second repair. A refutation of the repair's
+     own new text is the same question, not a new one.
+   - **A question that holds a second time stops.** It closes as a design choice: the plan's
+     design against the smallest option it was priced against. Do not edit the plan to settle it:
+     it goes to step 5 as a numbered choice, with both positions in `--said`.
+   - **A question after the first turn is not argued.** It goes into the record as "raised, not
+     argued", with its mechanism and place, and the review before the pull request checks it as a
+     claim (`prompts/review.md`).
+   - **A scope the plan puts out of the change is not a question.** A question that only restates
+     a scope the plan writes as out of the change is answered with that line and closed. Only a
+     line the plan held when the reviewer read it counts; one written to answer the question is a
+     repair.
    - **An addition names four things or is refused**: a guard, a lock, a table, a worker, a
      column, a flag, a retry, from either side. The four: the failure it prevents, the input that
      produces that failure, whether that input is realistic here, and what breaks without it. A
      refused addition goes into the record as unpriced. "Argue why this fails" is answered with
      refutations of the plan as it stands, never with additions.
-   - **No turn limit.** The talk goes on while each turn brings something new: a refutation, a
-     cite, a checked fact, a changed position. A turn that only restates the one before ends that
-     question. When the reviewer answers `nothing new`, or no question is left, close with
-     `nothing further`; the reviewer adds no turn after that.
-   - **What a person of the project would see** is not the two agents' to settle. A disagreement
+   - **What a person of the project would see** is not the two agents' to settle. A question
      about it goes to the persona panel, in its reviewing mode, with both positions; its clear
-     answer settles the question, and the record says the personas settled it. It never goes to
-     the owner from here.
-   Fix the plan for each refutation that holds, and commit it before any code. Then write the
-   record into the plan, as a section `## Plan talk` after `## Tasks`, and commit it:
+     answer settles the question, and the record says the personas settled it. One with no clear
+     answer stays open, and step 5 takes it. It never goes to the owner from here.
+   - **The close.** When each question of the list has ended, settled, a design choice or open,
+     write `nothing further`; the reviewer adds no turn after that.
+   Commit every repair before any code. Then write the record into the plan, as a section
+   `## Plan talk` after `## Tasks`, and commit it:
    - who argued the plan with you: the agent, and its model and effort as its pane's status line
      shows them;
-   - each settled position with its cite, and after it the words "settled by the two, not
-     checked by the review";
-   - each disagreement left open: the two positions, each with its cite, and where it went
-     (step 5 takes it);
+   - the list, numbered as the reviewer gave it, each question with how it ended: settled, with
+     its cite and after it the words "settled by the two, not checked by the review"; a design
+     choice, with the two positions, each with its cite, and the choice step 5 asks; or open, with
+     the two positions and where it went (step 5 takes it);
+   - each question raised after the first turn, marked "raised, not argued", with its mechanism
+     and place;
    - each addition that was refused as unpriced;
-   - what changed in the plan, by task.
+   - what changed in the plan, by question and by task.
    Agreement carries no authority: the review before the pull request reads a settled position
    as a claim, not as a fact. Then close the reviewer's pane (the harness file, `second-opinion`)
-   and write the one event the landing reads, with a turn for each message of either side:
+   and write the one event the landing reads:
 
    ```bash
-   python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG plan.talk reviewer=AGENT turns:=N settled:=N open:=N
+   python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N
    ```
 
-   The script refuses a record of fewer than two turns, or one with no position settled and
-   none left open. Those bounds are a floor against an empty record, not a measure of a good
-   talk. The landing refuses a request whose plan says `careful: yes` or has more than three
-   tasks with no such event, and the pull request's checks show the newest one. A task that
+   `turns` counts each message of either side; `questions`, the questions of the reviewer's first
+   list; `settled` and `open`, how many of them ended each way, a design choice counted as open;
+   `design`, the open ones that held a second time; `repaired`, the questions whose answer
+   changed the plan; and `unargued`, the questions raised after the list. The script refuses a
+   record of fewer than two turns, or one with no question settled and none left open: a floor
+   against an empty record, not a measure of a good talk. It refuses counts that do not agree:
+   settled and open that do not add up to questions, more design choices than open questions,
+   more repairs than questions. And it refuses more than 4 × questions + 2 turns: the list, two
+   answers of each side on each question, and the close. That bound is derived from these rules
+   in a Fable second opinion (2026-11-16), not measured. The landing refuses a request whose
+   plan says `careful: yes` or has more than three tasks with no such event, and the pull request's checks show the newest one. A task that
    becomes careful after its plan, by the owner's word or by a path its diff matches, gets no
    talk afterwards: the landing's full review reads the code that exists. A one-shot read of a careful plan, before this talk replaced it,
    took nine minutes and found three design failures before any code (convertiser-server,
@@ -173,9 +209,11 @@ question at a time (step 4).
    Then build the tasks that do not depend on a held decision. Write the state `held` and stop
    only when every task that is left depends on one. A builder whose plan is careful or large has
    stopped at step 3 before this, and the session that takes the plan over does step 4 first.
-   A disagreement the plan talk left open is a decision of this step like any other, with the
-   two positions as what it rests on. One that is held is not written under "held": ask it as a
+   A question the plan talk left open is a decision of this step like any other, with the two
+   positions as what it rests on. One that is held is not written under "held": ask it as a
    numbered choice, with `decisions.py ask` (`stages/build.md`, "A choice in the build", step 2),
    whose `--said` holds both positions and what the personas answered, or why they were not
    asked, and go on with the tasks that do not depend on it, as that section's steps 3 and 4 say.
+   A design choice of the talk is always asked so, never taken by you: the lead is one of the two
+   positions that did not settle.
 6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.

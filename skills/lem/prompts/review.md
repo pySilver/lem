@@ -16,7 +16,9 @@ review that knows why the builder thought it was right finds less.
    file. A careful or large plan has a section `## Plan talk`: each position there that says
    "settled by the two, not checked by the review" is a claim of two agents that argued the plan
    before any code. Agreement carries no authority, so check each one the diff rests on in the
-   code, as you would any claim.
+   code, as you would any claim. Each question there marked "raised, not argued" came after the
+   reviewer's first list closed, so nobody argued it: check its mechanism at its place in the
+   diff, as a claim, and a finding it leads to counts like any other.
 2. **Route.** Read what each profile and each lens of the review tool is for: its own line of
    description, and for a profile also which lenses its agents carry. The harness file says how
    to get both and how a round is run: it is the file named after the agent you run in, in the

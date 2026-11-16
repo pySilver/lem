@@ -46,10 +46,15 @@ cannot read a file with fetch, and it can load a script (measured in agterm 0.34
 this one follows). `state` writes `task.state` with the status, the lines, the ask, the limit and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
 second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
-JSON, so a commit made only of digits stays a string and an exit code stays a number. Two events
-have a fixed form, because the landing reads them: `plan.talk`, which the lead of a careful or
-large task writes after its plan talk, as `reviewer=AGENT turns:=N settled:=N open:=N`; and
-`stories.read`, which Lem or the lead writes after the personas read the stories, as
+JSON, so a commit made only of digits stays a string and an exit code stays a number. Three events
+have a fixed form. `plan.talk.start`, which the lead of a careful or large task writes when the
+reviewer's seat opens, as `reviewer=AGENT`, so that the board draws the talk from its start.
+`plan.talk`, which the landing reads and the lead writes after the talk, as `reviewer=AGENT
+turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N`: the turns, the
+questions of the reviewer's first list, how many of them were settled and left open (the two add
+up to questions), how many the lead repaired, how many of the open ones are a design choice, and
+how many were raised after the list and not argued; a talk has at most 4 × questions + 2 turns.
+And `stories.read`, which Lem or the lead writes after the personas read the stories, as
 `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ..., "why":
 ...}]' stories:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many personas
 were asked and how many answered, the model families that answered, each source that did not
@@ -981,6 +986,8 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
             fields[key] = json.loads(raw) if typed else raw
         except json.JSONDecodeError as error:
             raise SettingsError(f"{key!r} is not JSON ({error}): {raw!r}") from error
+    if event == "plan.talk.start":
+        talk_start_form(fields)
     if event == "plan.talk":
         talk_form(fields)
     if event == "stories.read":
@@ -1029,19 +1036,50 @@ def read_form(fields: dict) -> None:
         raise SettingsError(f"{form}: a split is between two model families, and families names one")
 
 
+def talk_start_form(fields: dict) -> None:
+    """The start of a plan talk, written when the reviewer's seat opens, so that the board can draw
+    the talk's minutes from two events: it names the reviewer, and nothing else."""
+    if set(fields) != {"reviewer"} or not isinstance(fields["reviewer"], str) or not fields["reviewer"].strip():
+        raise SettingsError(f"plan.talk.start takes reviewer=AGENT, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
+
+
+# The most turns a talk of N questions has: the reviewer's list, two answers of the lead and two of
+# the reviewer on each question (a question that holds a second time stops), and the close. Derived
+# from the rules of `stages/plan.md` step 4, in a Fable second opinion (2026-11-16); no talk under
+# these rules has been measured yet.
+TURNS_PER_QUESTION = 4
+TURNS_AROUND = 2
+
+
 def talk_form(fields: dict) -> None:
     """A plan talk's record is read by the landing, so it has one form: who argued the plan with the
-    lead, how many turns the talk had, and how many positions it settled and left open."""
-    form = "plan.talk takes reviewer=AGENT turns:=N settled:=N open:=N"
-    counts = ("turns", "settled", "open")
+    lead, how many turns the talk had, how many questions the reviewer's first list held, how many
+    of them it settled and left open, how many the lead repaired, how many of the open ones are a
+    design choice (a question that held a second time), and how many questions were raised after
+    the list and not argued."""
+    form = "plan.talk takes reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N"
+    counts = ("turns", "questions", "settled", "open", "repaired", "design", "unargued")
     if set(fields) != {"reviewer", *counts}:
         raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
     if not isinstance(fields["reviewer"], str) or not fields["reviewer"].strip():
         raise SettingsError(f"{form}: reviewer names the agent that argued the plan with the lead")
     if not all(isinstance(fields[key], int) and not isinstance(fields[key], bool) and fields[key] >= 0 for key in counts):
         raise SettingsError(f"{form}: each N is a whole number, written with := so that it stays one")
-    if fields["turns"] < 2 or fields["settled"] + fields["open"] < 1:
+    turns, questions = fields["turns"], fields["questions"]
+    # a floor against an empty record, not a measure of a good talk
+    if turns < 2 or fields["settled"] + fields["open"] < 1:
         raise SettingsError(f"{form}: a talk has two turns at the least, and ends in a settled position or a disagreement left open")
+    if fields["settled"] + fields["open"] != questions:
+        raise SettingsError(f"{form}: each question of the reviewer's first list ends settled or left open, so settled and open add up to questions")
+    if fields["design"] > fields["open"]:
+        raise SettingsError(f"{form}: a design choice is a question left open because it held a second time, so design is at most open")
+    if fields["repaired"] > questions:
+        raise SettingsError(f"{form}: a question gets one repair at the most, so repaired is at most questions")
+    if turns > TURNS_PER_QUESTION * questions + TURNS_AROUND:
+        raise SettingsError(
+            f"{form}: a talk of N questions has at most {TURNS_PER_QUESTION} × N + {TURNS_AROUND} turns: the reviewer's list, two answers of the lead "
+            f"and two of the reviewer on each question, and the close; this one has {turns} turns for {questions} questions",
+        )
 
 
 def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> list[str]:

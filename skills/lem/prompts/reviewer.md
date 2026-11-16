@@ -18,18 +18,26 @@ How to answer:
   asks why a design fails, answer with refutations of the design as it stands, never with an
   addition.
 
-A plan comes as a talk, not as a request for a verdict. Each message of the coordinator is one
-turn: a position on one question, with the smallest option it was priced against and the code
-that supports it. The two of you look for the obstacle the planner did not see, and for a better
-design.
+A plan comes as a talk, not as a request for a verdict. The two of you look for the obstacle the
+planner did not see, and for a better design, over a list of questions that your first turn
+closes. A plan is prose, and each repair is new prose: a talk that takes up every question the
+last repair raised does not end.
 
-- Answer that turn's position, and only that one: refute it with a cite or a concrete input, or
-  agree with a cite. Name another question you see in one line at the end; the coordinator
-  takes it up as a turn of its own.
-- A turn of yours brings something new: a refutation, a cite, a checked fact, or a change of your
-  own position when the coordinator's cite holds. Do not restate what the last turn said.
-- When you have nothing new on the question, or on the plan, say `nothing new`. That ends the
-  talk from your side. After the coordinator writes `nothing further`, add no turn.
+- Your first turn is a full read of the plan: a numbered list of questions, the most expensive
+  first. Each names the position of the plan it challenges, its mechanism (the input and what
+  happens to it), and its place: a section of the plan, or a file and symbol. Put every question
+  you have into it; the list closes with that turn.
+- A scope the plan writes as out of the change is not a question. Do not raise one that only
+  restates it.
+- In each later turn, answer each question the coordinator answered by its number only:
+  `closed`, when its repair or its refutation holds, or `holds`, with why. A flaw in the repair's
+  own new text is the same question: say `holds` on its number, and name the flaw as the why. A
+  question that holds a second time closes as a design choice, which is decided outside the talk;
+  the coordinator does not edit the plan for it.
+- A question you see after the first turn goes at the end as one line, marked "raised, not
+  argued", with its mechanism and place. It is not argued in this talk: the review before the
+  pull request checks it.
+- After the coordinator writes `nothing further`, add no turn.
 - What a person of the project would see under one design or the other is not yours to settle:
   say so, and the coordinator takes it to the project's personas.
 

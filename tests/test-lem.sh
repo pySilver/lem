@@ -2345,7 +2345,7 @@ text=$SHOP/.git/lem/tasks/first-change/pr.md
 if grep -q "the notes lack ## Left open, ## Worth a look, ## Filed in the backlog, ## Not done" <<<"$err" && [ "$(field '(d["pull_request"], d["green"], d["not_green"], d["branch"])' <<<"$out")" = "(None, True, [], 'fix/first-change')" ] \
   && [ "$(status first-change)" = open ] && [ "$(kept first-change proposed)" = "$tip" ] && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -q '^green$' "$SHOP/.git/lem/tasks/first-change/state.md" \
   && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Stories|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
-  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | sed -n 3p)" = none ] && head -1 "$text" | grep -qF 'no story changed, and no decision was taken by timeout.' \
+  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | sed -n 3p)" = none ] && head -1 "$text" | grep -qF 'no story changed, and no decision was taken by timeout or by the experts.' \
   && grep -q '^> Put yes into ok.txt\.$' "$text" && grep -q '^1\. The file holds the word the owner asked for\.$' "$text" \
   && grep -q 'sh tests/first-change.sh.: passes on the branch, fails on the base commit' "$text" && grep -q '^- gate, .echo 7 passed.: 7 passed$' "$text" \
   && grep -q "^- the stories' tests: 1 pass on the branch and fail on the base commit$" "$text" && grep -q '^- the bar: not lowered$' "$text" \
@@ -2526,14 +2526,14 @@ git -C "$tree" commit -q -am "docs: four tasks"
 checked four-tasks
 land --repo "$SHOP" read four-tasks --record "$(record 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "four tasks change the app"}], "answered": ["codex"]}')" >/dev/null
 # the talk of another task, landed before: a valid event that is not this task's
-project --repo "$SHOP" log second-change plan.talk reviewer=codex turns:=4 settled:=1 open:=0 >/dev/null
+project --repo "$SHOP" log second-change plan.talk reviewer=codex turns:=4 questions:=1 settled:=1 open:=0 repaired:=1 design:=0 unargued:=0 >/dev/null
 talkless=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES" 2>&1 || true)
-typed=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns=5 settled:=2 open:=1 2>&1 || true)
-missing=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 settled:=2 2>&1 || true)
-empty=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 settled:=0 open:=0 2>&1 || true)
+typed=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns=5 questions:=3 settled:=2 open:=1 repaired:=1 design:=1 unargued:=0 2>&1 || true)
+missing=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=3 settled:=2 repaired:=1 design:=1 unargued:=0 2>&1 || true)
+empty=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 2>&1 || true)
 if grep -q "the plan has 4 tasks, more than three, so its plan is talked through by a session lead and the reviewer before any code" <<<"$talkless" \
   && grep -q "the event log has no .plan.talk. of four-tasks" <<<"$talkless" && [ "$(status four-tasks)" = landing ] \
-  && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has reviewer, settled, turns" <<<"$missing" \
+  && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has design, questions, repaired, reviewer, settled, turns, unargued" <<<"$missing" \
   && grep -q "ends in a settled position or a disagreement left open" <<<"$empty" \
   && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl" \
   && [ "$(grep -c '"event": "plan.talk", "task": "second-change", "reviewer": "codex", "turns": 4' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
@@ -2541,14 +2541,39 @@ if grep -q "the plan has 4 tasks, more than three, so its plan is talked through
 else
   fail "a large request with no plan talk: $talkless / $typed / $missing / $empty"
 fi
-project --repo "$SHOP" log four-tasks plan.talk reviewer=claude turns:=3 settled:=1 open:=0 >/dev/null
-project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=9 settled:=4 open:=1 >/dev/null
+# The talk's counts agree with each other, and its turns stay inside the bound its rules give: the
+# reviewer's list, two answers of the lead and two of the reviewer on each question, and the close.
+talk_log() { project --repo "$SHOP" log four-tasks plan.talk reviewer=codex "$@" 2>&1 || true; }
+lost=$(talk_log turns:=6 questions:=3 settled:=1 open:=1 repaired:=1 design:=0 unargued:=0)
+undesigned=$(talk_log turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 design:=2 unargued:=0)
+overrepaired=$(talk_log turns:=6 questions:=3 settled:=3 open:=0 repaired:=4 design:=0 unargued:=0)
+endless=$(talk_log turns:=11 questions:=2 settled:=1 open:=1 repaired:=1 design:=1 unargued:=3)
+bounded=$(talk_log turns:=10 questions:=2 settled:=1 open:=1 repaired:=2 design:=1 unargued:=3)
+startless=$(project --repo "$SHOP" log four-tasks plan.talk.start 2>&1 || true)
+overstarted=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=codex turns:=2 2>&1 || true)
+started=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=codex 2>&1 || true)
+if grep -qF "settled and open add up to questions" <<<"$lost" && grep -qF "design is at most open" <<<"$undesigned" \
+  && grep -qF "repaired is at most questions" <<<"$overrepaired" \
+  && grep -qF "at most 4 × N + 2 turns" <<<"$endless" && grep -qF "this one has 11 turns for 2 questions" <<<"$endless" \
+  && [ "$(field 'd["turns"], d["questions"], d["design"], d["unargued"]' <<<"$bounded")" = "(10, 2, 1, 3)" ] \
+  && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$startless" && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$overstarted" \
+  && [ "$(field 'd["event"], d["reviewer"]' <<<"$started")" = "('plan.talk.start', 'codex')" ] \
+  && [ "$(grep -c '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 1 ] \
+  && [ "$(grep -c '"event": "plan.talk.start", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
+  pass "a talk's counts agree: each question of the list ends settled or open, a design choice is an open one, a question gets one repair at most, and a talk has at most 4 × questions + 2 turns; the start of a talk names its reviewer and nothing else, and a refused record writes nothing"
+else
+  fail "the counts of a plan talk: $lost / $undesigned / $overrepaired / $endless / $bounded / $startless / $overstarted / $started"
+fi
+project --repo "$SHOP" log four-tasks plan.talk reviewer=claude turns:=3 questions:=1 settled:=1 open:=0 repaired:=0 design:=0 unargued:=0 >/dev/null
+project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=9 questions:=5 settled:=4 open:=1 repaired:=3 design:=1 unargued:=2 >/dev/null
+# the same event with one count more, which Lem has no words for: a count added to the event later needs no change of the landing
+"$PY" -c 'import json, sys; p = sys.argv[1]; talk = json.loads(open(p).read().splitlines()[-1]); talk["rounds"] = 2; open(p, "a").write(json.dumps(talk) + "\n")' "$SHOP/.git/lem/events.jsonl"
 out=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES")
 text=$SHOP/.git/lem/tasks/four-tasks/pr.md
 if [ "$(field 'd["green"]' <<<"$out")" = True ] && [ "$(status four-tasks)" = open ] \
-  && grep -q '^- the plan talk: codex argued the plan with the lead, 9 turns; 4 positions settled by the two, 1 left open$' "$text" \
+  && grep -qxF -- "- the plan talk: codex argued the plan with the lead, 9 turns; 4 positions settled by the two, 1 left open; 5 questions in the reviewer's first list, 3 repaired by the lead, 1 of the open ones a design choice, 2 raised after the list and not argued, rounds: 2" "$text" \
   && [ "$(grep -c 'plan talk' "$text")" = 1 ] && grep -q '^- careful: no$' "$text"; then
-  pass "after its plan talk a plan of four tasks is proposed, and its text holds one line of the talk, from the newest event"
+  pass "after its plan talk a plan of four tasks is proposed, and its text holds one line of the talk, from the newest event, with each of its counts in words, and a count Lem has no words for by its name"
 else
   fail "a large request after its plan talk: $out / $(cat "$text" 2>/dev/null)"
 fi
@@ -2565,19 +2590,20 @@ checked careful-plan
 land --repo "$SHOP" read careful-plan --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the plan says careful"}], "answered": ["codex"]}')" >/dev/null
 talkless=$(land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" 2>&1 || true)
 if grep -q "the plan says that the request is careful, so its plan is talked through by a session lead and the reviewer before any code (.stages/plan.md., step 4)" <<<"$talkless" \
-  && grep -q "the event log has no .plan.talk. of careful-plan" <<<"$talkless" && grep -q "project.py log careful-plan plan.talk reviewer=AGENT turns:=N settled:=N open:=N" <<<"$talkless" \
+  && grep -q "the event log has no .plan.talk. of careful-plan" <<<"$talkless" && grep -qF "project.py log careful-plan plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N\`" <<<"$talkless" \
   && [ ! -f "$SHOP/.git/lem/tasks/careful-plan/pr.md" ] && [ "$(status careful-plan)" = landing ]; then
   pass "a request whose plan says careful is not proposed while its event log has no plan talk, and the refusal names the plan stage's step and the event the lead writes"
 else
   fail "a careful plan with no plan talk: $talkless"
 fi
-project --repo "$SHOP" log careful-plan plan.talk reviewer=codex turns:=6 settled:=2 open:=1 >/dev/null
+# an event of the older form, with no counts but the turns and the positions, as a log written before the counts holds it
+printf '%s\n' '{"ts": "2026-11-15T10:00:00Z", "event": "plan.talk", "task": "careful-plan", "reviewer": "codex", "turns": 6, "settled": 2, "open": 1}' >> "$SHOP/.git/lem/events.jsonl"
 land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" >/dev/null
 text=$SHOP/.git/lem/tasks/careful-plan/pr.md
-if grep -q '^- the plan talk: codex argued the plan with the lead, 6 turns; 2 positions settled by the two, 1 left open$' "$text" \
+if [ "$(grep 'plan talk' "$text" || true)" = "- the plan talk: codex argued the plan with the lead, 6 turns; 2 positions settled by the two, 1 left open" ] \
   && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c 'plan talk')" = 1 ] && grep -q '^- careful: yes, the plan says so$' "$text" \
   && [ "$(status careful-plan)" = open ]; then
-  pass "after its plan talk a request whose plan says careful is proposed, and the checks of its text say who argued the plan with the lead, the turns, and the positions settled and left open"
+  pass "after its plan talk a request whose plan says careful is proposed, and the checks of its text say who argued the plan with the lead, the turns, and the positions settled and left open; an event of the older form, with no other count, reads as before"
 else
   fail "the plan talk in the text of a careful plan: $(cat "$text" 2>/dev/null)"
 fi
@@ -2808,6 +2834,53 @@ else
   fail "decisions in the landing: $waiting / $forever / $agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/null
+
+# A choice the experts took is not green, while the owner was away or at the end of his wait: its line names
+# their pick and both reasons. A timeout whose experts split takes the recommended option, as before.
+task_in "$LOCAL" expert-change e.txt e
+local_land start expert-change >/dev/null && local_land base expert-change >/dev/null && local_land gate expert-change >/dev/null && local_land read expert-change --record "$(clean 1)" >/dev/null
+efile=$LOCAL/.git/lem/tasks/expert-change/decisions.jsonl
+# eask WHAT FIRST SECOND RECOMMENDED WHY: a choice for the owner that the personas left unclear
+eask() { wdec ask expert-change --what "$1" --option "$2" --option "$3" --recommended "$4" --why "$5" --said "The two personas split." >/dev/null; }
+# eadvise ID FABLE_PICK FABLE_WHY ASTRA_PICK ASTRA_WHY: both experts' advice on choice ID
+eadvise() {
+  wdec advise expert-change "$1" --expert fable --pick "$2" --why "$3" >/dev/null
+  wdec advise expert-change "$1" --expert astra --pick "$4" --why "$5" >/dev/null
+}
+eask "Where the word goes" "the first line" "the last line" "the first line" "A reader sees it at once."
+eadvise 1 "the last line" "A reader of the file looks at its end first." "the last line" "The importer reads the last line."
+held=$(local_land propose expert-change --title "fix: e" --notes "$NOTES" 2>&1 || true)
+wdec settle expert-change 1 --away >/dev/null
+eask "The case of the word" "lower case" "upper case" "lower case" "The test reads it so."
+eadvise 2 "upper case" "The header is in upper case." "upper case" "The other words of the header are in upper case."
+past "$efile" 2 && wdec timeout expert-change 2 >/dev/null && wdec answer expert-change 2 --chose "lower case" --why "The test reads it so." >/dev/null
+eask "The word's line ending" "a line break" "no line break" "a line break" "Every file ends so."
+eadvise 3 "a line break" "Every file ends so." "no line break" "The importer reads the last byte."
+past "$efile" 3 && wdec timeout expert-change 3 >/dev/null
+eask "The name of the file" "e.txt" "word.txt" "word.txt" "A name says what the file holds."
+eadvise 4 "word.txt" "A name says what the file holds." "word.txt" "Nobody guesses what e.txt holds."
+wdec settle expert-change 4 --away >/dev/null
+local_land propose expert-change --title "fix: e" --notes "$NOTES" >/dev/null
+text=$LOCAL/.git/lem/tasks/expert-change/pr.md
+agent=$(local_land land expert-change --by agent 2>&1 || true)
+if grep -qF "choice 1 of expert-change waits for the owner (Where the word goes)" <<<"$held" \
+  && grep -qF "\`decisions.py timeout expert-change 1\` takes the experts' shared pick, or the recommended option when they split" <<<"$held" \
+  && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
+  && [ "$(sed -n 3p "$text")" = "- choice 1 was taken by the experts (Where the word goes): \"the last line\", the option both picked, while the owner was away, before his wait ended. Fable: A reader of the file looks at its end first. Astra: The importer reads the last line" ] \
+  && [ "$(sed -n 4p "$text")" = "- choice 2 was taken by the experts (The case of the word): \"upper case\", the option both picked, after the owner's wait of 15 minutes ended with no answer. Fable: The header is in upper case. Astra: The other words of the header are in upper case; he answered later with \"lower case\", which differs (his reason: The test reads it so)" ] \
+  && [ "$(sed -n 5p "$text")" = "- choice 3 was taken by timeout (The word's line ending): \"a line break\", the recommended option, after the owner's wait of 15 minutes ended with no answer" ] \
+  && [ "$(sed -n 6p "$text")" = "- choice 4 was taken by the experts (The name of the file): \"word.txt\", the option both picked, while the owner was away, before his wait ended. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds" ] \
+  && [ -z "$(sed -n 7p "$text")" ] \
+  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- Where the word goes: \"the last line\", by the experts, the option both picked, while the owner was away; the recommended was \"the first line\". Fable: A reader of the file looks at its end first. Astra: The importer reads the last line.
+- The case of the word: \"upper case\", by the experts, the option both picked, after the owner's wait of 15 minutes; the recommended was \"lower case\". Fable: The header is in upper case. Astra: The other words of the header are in upper case. He answered later with \"lower case\", which differs (his reason: The test reads it so).
+- The word's line ending: \"a line break\", by the timeout, after the owner's wait of 15 minutes. Every file ends so.
+- The name of the file: \"word.txt\", by the experts, the option both picked, while the owner was away; it is also the recommended. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds." ] \
+  && grep -qF "the request is not green (choice 1 was taken by the experts" <<<"$agent" && [ "$(status_in "$LOCAL" expert-change)" = open ]; then
+  pass "a choice the experts took, while the owner was away or at the end of his wait, is a line of its own that is not green, with their pick, both reasons and a late answer of his; the text lists it as taken by the experts; a timeout whose experts split takes the recommended option as before; and a request held by a choice that waits says what the end of the wait takes"
+else
+  fail "the experts' choices in the landing: $held / $agent / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state expert-change dropped "the test is over" >/dev/null
 
 # Approved stories in the landing: a story the build added or removed is not green, like a changed one; and the
 # checks hold one line on the personas' read of the stories, from its event, with his approval.

@@ -54,8 +54,8 @@ line that the other agents work on, and it answers to you for all of them.
 - **Careful task**: a task that touches what must not go wrong. A session leads it, and the
   landing gives it the full review set of the project.
 - **Large task**: a task whose plan has more than three tasks. A session leads it too.
-- **Plan talk**: the lead and the reviewer argue a careful or large plan before the build, one
-  question at a time.
+- **Plan talk**: the lead and the reviewer argue a careful or large plan before the build. The
+  reviewer gives all of its questions in its first turn.
 - **Question gate**: a different thing. It decides if a question must go to you. In this
   README, "the gate" is always the check commands.
 
@@ -139,7 +139,7 @@ flowchart TD
     count -- one --> same[The same builder builds it]
     count -- two or three --> build[One new builder<br/>for each task of the plan.<br/>If a document must change,<br/>the last task is for documents]
     careful -- yes --> session[A session of its own<br/>with a reviewer in the other pane]
-    session --> talk[The plan talk: the lead and the reviewer<br/>argue the plan, one question at a time,<br/>before any code]
+    session --> talk[The plan talk: the lead and the reviewer<br/>argue a list of questions<br/>that the first turn closes,<br/>before any code]
     talk --> buildc[One new builder<br/>for each task of the plan.<br/>If a document must change,<br/>the last task is for documents]
     same --> report[The lead writes the report<br/>and the state: ready]
     build --> report
@@ -264,9 +264,18 @@ These rules hold for each task:
 - **A careful or large plan gets a plan talk.** A session leads the task. The lead and the
   reviewer argue the plan in their two panes before any code. They look for an obstacle that
   the plan did not see, and for a better design.
-- **The talk has rules.** The lead states a position with the code that supports it. The
-  reviewer refutes it with a cite or an input that breaks it, or agrees with a cite. The talk
-  continues while each turn adds something new.
+- **The reviewer gives all of its questions first.** It reads the full plan. Its first turn is
+  a numbered list of questions, with the most expensive first. The list closes with that turn.
+- **Each question gets one repair.** The lead repairs the plan, or it refutes the question with
+  a cite. The reviewer answers each question by its number: closed, or it holds.
+- **A question that holds two times stops.** It becomes a design choice. The lead does not
+  change the plan for it, and Lem asks it as a choice.
+- **A late question is not argued.** The plan records it as "raised, not argued". The review
+  before the pull request examines it.
+- **A scope that the plan puts out of the change is not a question.** The lead answers such a
+  question with the line of the plan, and closes it.
+- **The talk has a limit.** It has four turns for each question at the most, plus two. This
+  limit comes from the rules. Nobody measured it.
 - **A disagreement about what a person sees goes to the personas.** A disagreement that stays at
   the end is a decision. If it must go to you, Lem asks you, and the other work continues.
 - **A settled position is a claim.** The plan keeps a record of the talk. The review before the

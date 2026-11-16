@@ -166,7 +166,7 @@ one finds what the run before it finished.
    returned, each decision of the record (`decisions.py list SLUG`) with who took it and why,
    and your notes. Green means that the checks passed with the bar where it was, a review with
    at least one source left no must-fix, no story changed during the build, and no choice was
-   taken by timeout. A green request needs no read from the owner. The step refuses while a
+   taken by timeout or by the experts. A green request needs no read from the owner. The step refuses while a
    choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
    the owner"), and run it again after his answer or after the timeout. It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose

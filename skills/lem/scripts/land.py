@@ -129,21 +129,24 @@ says nothing from which an item could be written.
 steps kept, from the record of the task's decisions (`decisions.py list`) and from the notes
 file, whose headings it checks. The text opens with green or not green. Green says that the
 machine checks passed with the bar where it was, a review with at least one source left no
-must-fix, no story changed during the build, and no decision was taken by timeout. A story
-changed, added or removed after the newest approval is one line each, from its record
-(`decisions.py story`), with what it was, what it is and why. The text lists every story change
-of the task, under every approval; one that a later approval of his took over says so and is no
-cause of not green, since his approval made it his. A lowered bar
-is not green with a reason either: its line holds the builder's reason and what the review said
-of it. A choice taken by timeout is a line of its own, and so is an answer of the owner's that
-came after it and differs. Each reason a request is not green stands before everything else, one
-line each; each decision of the record is one line before the notes. `propose` is refused while a
-choice of the task waits for the owner. A plan that calls itself careful (`careful: yes`) or
-has more than three tasks was talked through by its session lead and the reviewer before any
-code, and the lead wrote it down as one `plan.talk` event in the log `project.py` keeps:
-`propose` refuses such a request with none, and the text's checks hold one line from the newest,
-with who argued the plan with the lead, the turns, and the positions settled and left open. A
-talk is a step before the build, so a request that is careful only by the owner's later word or
+must-fix, no story changed during the build, and no decision was taken by timeout or by the
+experts. A story changed, added or removed after the newest approval is one line each, from its
+record (`decisions.py story`), with what it was, what it is and why. The text lists every story
+change of the task, under every approval; one that a later approval of his took over says so and
+is no cause of not green, since his approval made it his. A lowered bar is not green with a
+reason either: its line holds the builder's reason and what the review said of it. A choice
+taken by timeout is a line of its own, and so is a choice the experts took (their shared pick,
+while the owner was away or at the end of his wait), with their pick and both their reasons; so
+is an answer of the owner's that came after either and differs. Each reason a request is not
+green stands before everything else, one line each; each decision of the record is one line
+before the notes. `propose` is refused while a choice of the task waits for the owner. A plan
+that calls itself careful (`careful: yes`) or has more than three tasks was talked through by
+its session lead and the reviewer before any code, and the lead wrote it down as one `plan.talk`
+event in the log `project.py` keeps: `propose` refuses such a request with none, and the text's
+checks hold one line from the newest, with who argued the plan with the lead, the turns, the
+positions settled and left open, and every other count the event holds, in words where Lem
+knows the count (`TALK_SAYS`) and by its name where it does not. An event of the older form,
+with no counts but those three, reads as before. A talk is a step before the build, so a request that is careful only by the owner's later word or
 by a path its diff matches gets the full set and no talk; it is not asked for one, and its checks
 say in words that it had none and why, which is no cause of not green. A usual request gets
 neither line. The checks also hold one line on the personas' read of the stories, from the
@@ -223,8 +226,20 @@ STORY_HOW = {"changed": "changed", "added": "was added", "removed": "was removed
 READ_FORM = "`by=lem|lead asked:=N answered:=N families:='[...]' silent:='[...]' stories:=N flagged:=N split:=true|false digest=DIGEST`"
 # How many model families read the stories, in the words of the pull request.
 FAMILIES = {1: "one model family", 2: "two model families"}
+# The form of the one event that records a plan talk, as `talk_form` in `project.py` checks it.
+TALK_FORM = "reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N"
+# The counts of a plan talk after its turns and positions, in the words of the pull request, one
+# form for one and one for more. A count the event holds and this table does not is shown by its name.
+TALK_SAYS = {
+    "questions": ("question in the reviewer's first list", "questions in the reviewer's first list"),
+    "repaired": ("repaired by the lead", "repaired by the lead"),
+    "design": ("of the open ones a design choice", "of the open ones a design choice"),
+    "unargued": ("raised after the list and not argued", "raised after the list and not argued"),
+}
+# What every event has and the talk's line says first, so it is no count after the positions.
+TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open")
 # Who took a decision of the record, as the text of a pull request names them.
-TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout"}
+TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout", "experts": "the experts"}
 # What a review names of each defect it saw outside the change.
 DEFECT = ("where", "title", "what")
 # The longest file name an item of the backlog gets from its title, before `.md`. A guess
@@ -921,12 +936,19 @@ def untalked(task: Task, state: dict) -> str | None:
 
 
 def talked(talk: dict) -> str:
-    """The plan talk as one line of the pull request's checks."""
+    """The plan talk as one line of the pull request's checks: the turns and the positions, then each
+    other count the event holds, in the event's order. An event of the older form has none."""
     def many(count: int, one: str, more: str) -> str:
         return f"{count} {one if count == 1 else more}"
+    counts = [
+        many(value, *TALK_SAYS[key]) if key in TALK_SAYS else f"{key}: {value}"
+        for key, value in talk.items()
+        if key not in TALK_FIRST and isinstance(value, int) and not isinstance(value, bool)
+    ]
     return (
         f"- the plan talk: {talk['reviewer']} argued the plan with the lead, {many(talk['turns'], 'turn', 'turns')}; "
         f"{many(talk['settled'], 'position', 'positions')} settled by the two, {talk['open']} left open"
+        + (f"; {', '.join(counts)}" if counts else "")
     )
 
 
@@ -1160,7 +1182,14 @@ def not_green(task: Task, state: dict) -> list[str]:
     for change in (change for change in stories_of(task)["history"] if change["taken_over_by"] is None):
         reasons.append(f"story {change['story']} {STORY_HOW[change['how']]} during the build: {story_why(task, change)}")
     for decision in task.decisions():
-        if decision["state"] == "timeout":
+        # the experts' shared pick, taken while he was away (`settled`) or at the end of his wait
+        if decision.get("by") == "experts":
+            when = "while the owner was away, before his wait ended" if decision["state"] == "settled" else f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer"
+            reasons.append(
+                f"choice {decision['id']} was taken by the experts ({decision['what']}): \"{decision['chose']}\", the option both picked, {when}. "
+                f"{experts_said(decision)}{later(decision, '; he answered later with')}",
+            )
+        elif decision["state"] == "timeout":
             reasons.append(
                 f"choice {decision['id']} was taken by timeout ({decision['what']}): \"{decision['chose']}\", the recommended option, "
                 f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer{later(decision, '; he answered later with')}",
@@ -1194,8 +1223,13 @@ def reason(text: str) -> str:
     return text.rstrip(".")
 
 
+def experts_said(decision: dict) -> str:
+    """Both experts' reasons for the pick they shared, as the record keeps them."""
+    return f"Fable: {reason(decision['experts']['fable'])}. Astra: {reason(decision['experts']['astra'])}"
+
+
 def later(decision: dict, lead: str) -> str:
-    """What the owner answered after the timeout, when he did: the same or what differs, with his
+    """What the owner answered after the timeout or the experts' pick, when he did: the same or what differs, with his
     own words when they are not the option's text, and his reason, whichever it is."""
     if "late" not in decision:
         return ""
@@ -1230,6 +1264,11 @@ def decided(decision: dict) -> str:
         # the recommendation's reason is about the option he did not take: it is named as such, never as his
         line += f", over the recommended \"{decision['recommended']}\" (recommended because: {reason(decision['why'])})."
         line += "" if "owner_why" in decision else " He gave no reason."
+    elif decision["by"] == "experts":
+        # their reasons are the reasons of the option taken; the recommendation's is about another one, or the same
+        when = "while the owner was away" if decision["state"] == "settled" else f"after the owner's wait of {decision['wait_minutes']} minutes"
+        also = "it is also the recommended" if decision["chose"] == decision["recommended"] else f"the recommended was \"{decision['recommended']}\""
+        line += f", the option both picked, {when}; {also}. {experts_said(decision)}." + (f" {later(decision, 'He answered later with')}." if "late" in decision else "")
     elif decision["state"] == "timeout":
         line += f", after the owner's wait of {decision['wait_minutes']} minutes. {decision['why']}" + (f" {later(decision, 'He answered later with')}." if "late" in decision else "")
     else:
@@ -1253,7 +1292,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     if reasons:
         out += ["**Not green.**", "", *(f"- {reason}" for reason in reasons), ""]
     else:
-        out += ["**Green.** The machine checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout.", ""]
+        out += ["**Green.** The machine checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts.", ""]
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
     out += ["## Stories", "", f"{found['kind'].capitalize()}, because {found['why']}", ""]
     for story in found["stories"]:
@@ -1341,13 +1380,13 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(
             f"{needs_talk}, so its plan is talked through by a session lead and the reviewer before any code (`stages/plan.md`, step 4), "
             f"and the event log has no `plan.talk` of {task.slug}. The lead writes it after the talk: "
-            f"`project.py log {task.slug} plan.talk reviewer=AGENT turns:=N settled:=N open:=N`; a plan that had no talk gets one from a session lead first",
+            f"`project.py log {task.slug} plan.talk {TALK_FORM}`; a plan that had no talk gets one from a session lead first",
         )
     if talk is not None and not (
         isinstance(talk.get("reviewer"), str) and talk["reviewer"].strip()
         and all(isinstance(talk.get(key), int) and not isinstance(talk.get(key), bool) for key in ("turns", "settled", "open"))
     ):
-        raise LandError(f"the newest `plan.talk` of {task.slug} does not have the form `reviewer=AGENT turns:=N settled:=N open:=N`; the lead writes it again with `project.py log`")
+        raise LandError(f"the newest `plan.talk` of {task.slug} does not have the form `{TALK_FORM}`; the lead writes it again with `project.py log`")
     read = story_read_of(task)
     if read is not None and not read_form(read):
         raise LandError(f"the newest `stories.read` of {task.slug} does not have the form {READ_FORM}; whoever ran the read writes it again with `project.py log`")
@@ -1389,7 +1428,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if waiting:
         ends = (
             "it is a step that a later \"no\" cannot reverse, so only his answer ends it"
-            if waiting["irreversible"] else f"or, after its wait ends at {waiting['deadline']}, `decisions.py timeout {task.slug} {waiting['id']}` takes the recommended option"
+            if waiting["irreversible"] else f"or, after its wait ends at {waiting['deadline']}, `decisions.py timeout {task.slug} {waiting['id']}` takes the experts' shared pick, or the recommended option when they split"
         )
         raise LandError(
             f"choice {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): a request is never proposed over an open question of his. "

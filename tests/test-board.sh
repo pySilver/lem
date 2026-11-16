@@ -116,7 +116,8 @@ digest=$(stories digest "$L" --file "$WORK/landed.md" | field 'd["digest"]')
 project log "$L" stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=2 flagged:=1 split:=false "digest=$digest" >/dev/null
 stories approve "$L" --file "$WORK/landed.md" >/dev/null
 project state "$L" building "lead: session" >/dev/null
-project log "$L" plan.talk reviewer=codex turns:=6 settled:=3 open:=1 >/dev/null
+# the talk's start is not in this log, as in a log written before the lead logged it
+project log "$L" plan.talk reviewer=codex turns:=6 questions:=4 settled:=3 open:=1 repaired:=2 design:=1 unargued:=1 >/dev/null
 project state "$L" building "plan committed, 2 tasks" >/dev/null
 project state "$L" building "task 1 of 2" >/dev/null
 project state "$L" building "task 2 of 2" >/dev/null
@@ -303,6 +304,20 @@ project state landing-starts ready "the report is written" >/dev/null
 project state landing-starts landing "the checks start" >/dev/null
 retime landing-starts now -20 -10
 
+# A plan talk from its start to its record, on 12 November, and one that has started and has no record yet.
+K=talked-plan
+task "$K" "Move the price rounding into one place"
+project state "$K" building "lead: session" >/dev/null
+project log "$K" plan.talk.start reviewer=codex >/dev/null
+project log "$K" plan.talk reviewer=codex turns:=7 questions:=3 settled:=2 open:=1 repaired:=2 design:=1 unargued:=2 >/dev/null
+project state "$K" building "plan committed, 4 tasks" >/dev/null
+project state "$K" dropped "the test is over" >/dev/null
+retime "$K" 2026-11-12T09:00:00Z 0 2 20 21 25
+task talk-runs "Split the invoice service"
+project state talk-runs building "lead: session" >/dev/null
+project log talk-runs plan.talk.start reviewer=claude >/dev/null
+retime talk-runs now -70 -10
+
 if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 37 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
   pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log holds the moved times"
 else
@@ -310,7 +325,7 @@ else
 fi
 
 board --no-open >/dev/null
-for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts; do board --no-open --task "$slug" >/dev/null; done
+for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts "$K" talk-runs; do board --no-open --task "$slug" >/dev/null; done
 
 SHOWN=$(cat <<'PY'
 import re, sys
@@ -472,7 +487,7 @@ elif [ -n "$chrome" ]; then
     "^Choice 1 waits for you: Held choice · Refund the 12 duplicate orders now · no end: no timeout takes it" \
     "^Waits for you: Stories wait · the stories wait for the owner" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
     "!^Choice [123] waits for you: Expert advice") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "11 wait for you, 9 build, 5 in checks and review, 1 queued" "You · choice 7 of the task" "!Demo data"); then
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "11 wait for you, 10 build, 5 in checks and review, 1 queued" "You · choice 7 of the task" "!Demo data"); then
     pass "the board of all tasks puts each choice that waits for the owner in a banner and in the card it opens on, with its count-down, or no end for an irreversible step, and none whose wait is over"
   else
     fail "the banners: $why"
@@ -686,6 +701,19 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     pass "the polish pass is in the activity with its commits and the items it filed, and on the time card as the builders' span from the event before it; a landing with no polish and no check yet says that it starts, not that its checks run"
   else
     fail "the polish pass: ${why:-a span of the time card}"
+  fi
+  # The plan talk from its start to its record is a span of the review's row, with its counts; with
+  # no start in the log it is a dot where it ended, and with a start and no record yet it runs.
+  draw "task-$K" && draw task-talk-runs && draw "task-$L"
+  if grep -q 'data-head="The review · The plan talk" data-sub="with codex: 3 questions in 7 turns · 2 settled, 1 open, 1 of them a design choice · 2 repaired · 2 raised, not argued"' "$WORK/task-$K.dom" \
+    && why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$K.dom" "You|The lead|The review" "The lead=25m · 100%" "The review=18m · 72%") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$K.dom" feed "The plan talk started|with codex" "The plan talk ended|with codex: 3 questions in 7 turns|1 of them a design choice|2 raised, not argued") \
+    && ! grep -q 'data-sub="[^"]*its start is not logged' "$WORK/task-$K.dom" \
+    && grep -q 'data-head="The review · The plan talk ended" data-sub="with codex: 4 questions in 6 turns · 3 settled, 1 open, 1 of them a design choice · 2 repaired · 1 raised, not argued · its start is not logged"' "$WORK/task-$L.dom" \
+    && grep -q 'data-head="The review · The plan talk runs" data-sub="with claude; its record comes when the talk ends"' "$WORK/task-talk-runs.dom"; then
+    pass "the plan talk is the review's span from its start to its record, with its questions, turns, settled, open, design choices, repairs and questions raised and not argued; one with no start logged is a dot where it ended, and one with no record yet runs"
+  else
+    fail "the plan talk on the time card: ${why:-a span or a dot of the talk}"
   fi
   # The project's own asker: the page says where the owner answers, by the settings' tools.ask.
   printf '%s\n' '[tools]' 'ask = "terminal"' > "$R/.lem/project.local.toml"
