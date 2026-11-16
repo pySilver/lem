@@ -155,8 +155,10 @@ A companion session of this one, which runs Claude Code with the brief's file na
 prompt. Lem opens one for a plan talk only: its agent is the plan's defender
 (`prompts/defender.md`), and the companion is closed when the talk is done.
 
-1. **The brief** is the task's `brief.md`. Add one line to it: `coordinator: SESSION:PANE`, with
-   this session's `AGTERM_SESSION_ID` and this pane's `AGTERM_PANE_ID`.
+1. **The brief** is the task's `brief.md`, with its two lines for `tell-coordinator`:
+   `coordinator: SESSION:PANE`, with this session's `AGTERM_SESSION_ID` and this pane's
+   `AGTERM_PANE_ID`, and `socket: PATH`, with this session's `AGTERM_SOCKET`. Lem writes them at
+   each start of a lead, for a builder too.
 2. **Open the session**:
 
    ```bash
@@ -211,16 +213,39 @@ open, a companion for a plan talk alone and closed at its end, and the launch li
 
 ## tell-coordinator
 
-In a plan talk's companion, with the address from the brief's `coordinator:` line:
+From a plan talk's companion, and from a builder that leads a task, with the address from the
+brief's `coordinator:` line and the socket from its `socket:` line:
 
 ```bash
-agtermctl msg send "lem: SLUG is STATUS" --to SESSION:PANE --socket "$AGTERM_SOCKET"
+agtermctl msg send "lem: SLUG is STATUS" --to SESSION:PANE --socket SOCKET
 ```
 
-One line, after the report and the state are written. It reaches Lem as mail that starts with
-`[agterm mailbox, not a peer chat message]`; Lem reads the task's state, never the line's claim.
-Mail is kept in memory only, so a pane that was restarted has lost it. That costs nothing but
-time: the state block is on disk, and `/lem status` shows it.
+Write both values literally, as the brief gives them: a builder writes no shell variable
+(`agents/lem-builder.md`), and `agtermctl` does not read `AGTERM_SOCKET` by itself (the agterm
+skill: "`agtermctl` never reads it automatically"). Lem writes the two lines into the brief at
+each start of a lead (`stages/new.md`, "Start a lead"), from its own `AGTERM_SESSION_ID`,
+`AGTERM_PANE_ID` and `AGTERM_SOCKET`, so a Lem that started after the brief was first written
+gets the line.
+
+One line, after the report and the state are written, and at once after `decisions.py ask` with
+`lem: SLUG choice N waits`. It reaches Lem as mail that starts with
+`[agterm mailbox, not a peer chat message]`; Lem reads the task's state or `decisions.py
+pending`, never the line's claim. Mail is kept in memory only, so a pane that was restarted has
+lost it. A lost end of a task costs nothing but time: the state block is on disk, and `/lem
+status` shows it. A lost choice costs the owner part of his wait, so Lem also runs
+`decisions.py pending` at each of its turns (`stages/new.md`, "When a choice waits for the
+owner").
+
+A builder runs as a subagent inside Lem's own session, so its line goes from Lem's pane to Lem's
+pane: the sender `agtermctl` takes by default (`--as`, from the `AGTERM_SESSION_ID` and
+`AGTERM_PANE_ID` the subagent inherits) is the recipient itself. Checked on 2026-11-16 with agterm
+0.41.1, in a throwaway session that ran no agent: a message sent with `--as` and `--to` the same
+pane was accepted (`delivered` named that pane), and `msg read` as that pane returned it with
+`from` and `to` equal. The mailbox chat's waiter for Claude Code, which wakes an idle agent, takes
+any mail of its pane between two turns and reads no sender (`mailbox-chat.py`, its `Waiter`).
+Not checked: that such a line, sent by a builder while Lem was idle, reached Lem as a turn of its
+own; nobody has run it in a real Lem session. Until a run shows it, `decisions.py pending` at
+each of Lem's turns is what makes sure that no choice is missed.
 
 Checked on 2026-11-14: this command, run by Claude Code in a companion session, put its line in
 the mailbox of the pane that opened the session. Checked on 2026-11-15, in the same careful

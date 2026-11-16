@@ -64,7 +64,9 @@ And `stories.read`, which Lem or the lead writes after the personas read the sto
 ...}]' stories:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many personas
 were asked and how many answered, the model families that answered, each source that did not
 and why (a partial read counts), how many stories were read and how many an answer flagged,
-whether the families split, and the digest `stories.py digest` gives for the stories read.
+whether the families split, and the digest `stories.py digest` gives for the stories read. A
+read in which nobody answered is written too, with `answered:=0`, no family and each source that
+was asked in `silent`; the landing counts two of those in a row as stories that went on unread.
 `investigation`, which Lem writes after it reads the investigator's report of a bug or a
 question, as `kind=bug|investigation call=CALL line=TEXT [where=PATH:SYMBOL]
 [reproduced:=true|false]`: a bug's call is correction, usual, not-a-bug or not-reproduced, and it
@@ -88,7 +90,8 @@ and never on: nobody's messages are sent because of a file that git does not sho
 came from it.
 
 The style guide is a folder of markdown files, in an adopted project the one an agent already
-loads by itself (`.claude/rules`), which Lem reads and never moves. A file scopes itself to paths
+loads by itself (`.claude/rules`), which Lem reads and never moves; when `.lem/styleguide` holds
+rules beside it, `rules` reads both folders, and `folders` in its answer names them. A file scopes itself to paths
 in its frontmatter, in Claude Code's form (`paths:` with a list of globs), and a file without
 that covers every path. `rules` is the one place that matches a change against those scopes: a
 builder's brief, the message to the reviewer and a review round all get its answer, so an agent
@@ -632,19 +635,31 @@ def older_folders(root: Path) -> dict[str, str]:
     # The rules an agent loads by itself are the style guide wherever they exist. An empty folder
     # of the skill's own layout beside them (a setup that stopped half way) does not hide them.
     # Files are compared by where they really are: one folder linked from the other, or rule
-    # files linked between the two, is one set of rules. The folder that holds every file is the
-    # style guide, the agent's own when both do. Only two folders that each hold a file the other
-    # lacks are two style guides, which no script picks between.
+    # files linked between the two, is one set of rules. The settings name the agent's folder
+    # unless the skill's own holds every file of it and more. Either way `rules` reads both
+    # (`style_folders`), so two folders that each hold a file the other lacks are no refusal and
+    # no move: "The rules of an existing project stay where they are" (the owner, 2026-11-15).
     own, rules = PATHS["styleguide"]
     found.pop("styleguide", None)
     if (root / rules).exists():
         ours = {os.path.realpath(file) for file in rule_files(root / own)}
         theirs = {os.path.realpath(file) for file in rule_files(root / rules)}
-        if ours <= theirs:
+        if not theirs < ours:
             found["styleguide"] = rules
-        elif not theirs <= ours:
-            raise SettingsError(f"{rules} and {own} each hold rule files the other lacks, and the style guide is one folder; move the files of one into the other, then run this again")
     return found
+
+
+def style_folders(settings: dict) -> list[Path]:
+    """The folders the style guide is read from: the one the settings name, and when that is the
+    agent's rules folder or the skill's own, the other of the two where it exists too. A project
+    may keep rules in both, and Lem moves no file between them."""
+    # compared as the settings resolve a path, through links: a rules folder linked to the other is one folder
+    root = Path(settings["root"])
+    named = Path(settings["paths"]["styleguide"]["path"])
+    pair = [(root / folder).resolve() for folder in PATHS["styleguide"]]
+    if named not in pair:
+        return [named]
+    return [named, *(folder for folder in pair if folder != named and folder.is_dir())]
 
 
 def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str | None) -> None:
@@ -869,9 +884,17 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
     changed = sorted(set(changed))
     if not files and not commits:
         raise SettingsError("rules needs the files a change touches: name them, or pass --range BASE..TIP")
-    folder = Path(settings["paths"]["styleguide"]["path"])
-    rules = []
-    for file in rule_files(folder):
+    folders = style_folders(settings)
+    folder = folders[0]
+    # Each file once by where it really is, so a file linked into both folders is one rule. Two
+    # files of one name, one in each folder, are two files: both are read, the named folder's first.
+    rules, seen, files_read = [], set(), []
+    for one in folders:
+        for file in rule_files(one):
+            if os.path.realpath(file) not in seen:
+                seen.add(os.path.realpath(file))
+                files_read.append(file)
+    for file in files_read:
         shown = file.relative_to(root).as_posix() if file.is_relative_to(root) else str(file)
         globs = rule_scope(file, shown)
         if globs is None:
@@ -884,7 +907,7 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
         covers = sorted({name for name in changed for _, pattern in patterns if pattern.fullmatch(name)})
         if covers:
             rules.append({"file": str(file), "scope": sorted({glob for glob, pattern in patterns if any(pattern.fullmatch(name) for name in changed)}), "covers": covers})
-    print(json.dumps({"styleguide": str(folder), "exists": folder.is_dir(), "files": changed, "rules": rules}, indent=2))
+    print(json.dumps({"styleguide": str(folder), "exists": folder.is_dir(), "folders": [str(one) for one in folders], "files": changed, "rules": rules}, indent=2))
 
 
 def state_root(root: Path) -> Path:
@@ -1140,7 +1163,8 @@ def read_form(fields: dict) -> None:
     if not all(isinstance(fields[key], int) and not isinstance(fields[key], bool) and fields[key] >= 0 for key in counts):
         raise SettingsError(f"{form}: each N is a whole number, written with := so that it stays one")
     families = fields["families"]
-    if not isinstance(families, list) or not families or not all(isinstance(name, str) and name.strip() for name in families) or len(set(families)) != len(families):
+    if not isinstance(families, list) or not all(isinstance(name, str) and name.strip() for name in families) or len(set(families)) != len(families) \
+            or (fields["answered"] and not families):
         raise SettingsError(f"{form}: families is the list of the model families that answered, each named once, as in families:='[\"opus\", \"sol\"]'")
     silent = fields["silent"]
     if not isinstance(silent, list) or not all(
@@ -1151,11 +1175,18 @@ def read_form(fields: dict) -> None:
         raise SettingsError(f"{form}: split is true when the two families answered a story differently, false otherwise, written with :=")
     if not isinstance(fields["digest"], str) or not re.fullmatch(r"[0-9a-f]{12}", fields["digest"]):
         raise SettingsError(f"{form}: digest is the twelve characters `stories.py digest` prints for the stories that were read")
-    # every project's cast has two people or more, and a read in which nobody answered is no read
+    # every project's cast has two people or more
     if fields["asked"] < 2:
         raise SettingsError(f"{form}: a read asks two personas at the least")
-    if not 1 <= fields["answered"] <= fields["asked"]:
-        raise SettingsError(f"{form}: answered is 1 to asked; a read in which nobody answered is no read: start it once more")
+    if fields["answered"] > fields["asked"]:
+        raise SettingsError(f"{form}: answered is at most asked; 0 is a read in which nobody answered")
+    # A read in which nobody answered is written down too, and started once more: the landing
+    # counts two in a row as the stories going on unread, and the request as not green.
+    if fields["answered"] == 0 and (families or fields["flagged"] or fields["split"] or len(silent) < fields["asked"]):
+        raise SettingsError(
+            f"{form}: a read in which nobody answered has families:='[]', flagged:=0 and split:=false, "
+            "and silent names each source that was asked, one for each persona at the least, with why",
+        )
     if fields["answered"] < fields["asked"] and not silent:
         raise SettingsError(f"{form}: when fewer answered than were asked, silent names each source that did not, with why")
     if fields["stories"] < 1 or fields["flagged"] > fields["stories"]:
@@ -1197,9 +1228,13 @@ def talk_form(fields: dict) -> None:
     if not all(isinstance(fields[key], int) and not isinstance(fields[key], bool) and fields[key] >= 0 for key in counts):
         raise SettingsError(f"{form}: each N is a whole number, written with := so that it stays one")
     turns, questions = fields["turns"], fields["questions"]
-    # a floor against an empty record, not a measure of a good talk
-    if turns < 2 or fields["settled"] + fields["open"] < 1:
-        raise SettingsError(f"{form}: a talk has two turns at the least, and ends in a settled position or a disagreement left open")
+    # A floor against an empty record, not a measure of a good talk. A reviewer that found nothing
+    # says so in its first turn, and the defender closes: a talk of no question has those two turns,
+    # and the bound below keeps it at two.
+    if turns < 2:
+        raise SettingsError(f"{form}: a talk has two turns at the least: the reviewer's list, which may be empty, and the close")
+    if questions == 0 and fields["unargued"]:
+        raise SettingsError(f"{form}: a talk of no question has no turn after the list, so unargued is 0")
     if fields["settled"] + fields["open"] != questions:
         raise SettingsError(f"{form}: each question of the reviewer's first list ends settled or left open, so settled and open add up to questions")
     if fields["design"] > fields["open"]:

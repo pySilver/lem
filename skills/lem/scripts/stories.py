@@ -31,7 +31,9 @@ are:
                               approves a correction's one story in his name, as the task's first
                               contract only, and he may still say "this is a feature". --read: the lead of the rare path freezes
                               the plan's stories, which a read found nobody confused by, as the
-                              task's first contract; refused when the task has any approval. It
+                              task's first contract; refused when the task has any approval, and
+                              after one read in which nobody answered, until a second such read
+                              in a row lets the build go on. It
                               counts for the plan's check and for `decisions.py story`, and never
                               as his yes
     stories.py approved SLUG  the approved stories of the task, or null when it has none
@@ -452,15 +454,15 @@ def cmd_red(task: Task) -> dict:
     }
 
 
-def newest_read(task: Task) -> dict | None:
-    """The newest `stories.read` event of the task, from the log `project.py` writes."""
+def reads_of(task: Task) -> list[dict]:
+    """The task's `stories.read` events, oldest first, from the log `project.py` writes."""
     log = task.directory.parent.parent / "events.jsonl"
-    found = None
+    found = []
     for line in (log.read_text(encoding="utf-8").splitlines() if log.is_file() else []):
         if '"stories.read"' in line:
             record = json.loads(line)
             if record.get("event") == "stories.read" and record.get("task") == task.slug:
-                found = record
+                found.append(record)
     return found
 
 
@@ -509,12 +511,19 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
             first_contract(task, by)
         if by == "read":
             # the rare path: the lead freezes the stories the personas read, and only when nobody was confused
-            last = newest_read(task)
+            reads = reads_of(task)
+            last = reads[-1] if reads else None
             if last is None or last.get("digest") != digest:
                 raise StoriesError(
                     f"--read freezes the stories the newest `stories.read` of {task.slug} read, and "
                     + ("there is none" if last is None else f"that read was of the stories with digest {last.get('digest')}, and {source.name} has {digest}")
                     + ": run the read over these stories first (`stages/plan.md`, step 1)",
+                )
+            # a read nobody answered is started once more; after the second in a row the build goes on
+            if last["answered"] == 0 and (len(reads) < 2 or reads[-2].get("answered") != 0):
+                raise StoriesError(
+                    f"nobody answered the newest read of {task.slug}'s stories: it is started once more (`stages/plan.md`, step 1); "
+                    "after a second read in a row that nobody answered, the build goes on with the stories as they are",
                 )
             if last["flagged"] or last["split"]:
                 raise StoriesError(

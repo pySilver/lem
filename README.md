@@ -25,8 +25,11 @@ line that the other agents work on, and it answers to you for all of them.
 > a branch first, and a review came after. Now a review comes before a pull request. No task
 > ran through the new flow yet.
 >
-> **Not run yet.** A task in the new flow. A pull request on GitHub: only a stand-in for the
-> `gh` command ran in the tests. A plan with more than one task. A plan talk, and its companion session. A reviewer that is a second
+> **Run once.** On 2026-11-16, the steps of the landing ran against GitHub in a scratch
+> repository. They opened pull request 1 with the `gh` command, changed its text with a second
+> proposal, merged it, and removed its branch in the clone and on GitHub.
+>
+> **Not run yet.** A task in the new flow. A plan with more than one task. A plan talk, and its companion session. A reviewer that is a second
 > Claude. A restart of agterm while a task is open. The correction hook in a real session.
 >
 > **Not built.** A pull request on GitLab. Lem marks the branch as ready there.
@@ -37,6 +40,8 @@ line that the other agents work on, and it answers to you for all of them.
 - **Builder**: a new agent that gets one job. It writes code and it commits.
 - **Lead**: the agent that owns one task from its plan to its report.
 - **Story**: one rule of your ask in plain language, with one example. Each story gets a test.
+  If no test can hold a story, for example a sentence of a document, the story has the line
+  `no test: REASON`. The pull request shows that line.
 - **Interview**: Lem asks you about your ask, one question at a time, before it writes the
   stories.
 - **Scout**: an agent that reads the code around your ask during the interview. It gives facts
@@ -144,15 +149,12 @@ flowchart TD
     path -- yes --> rare[A builder writes the stories and the plan.<br/>The personas read the stories.<br/>A doubt stops it for you]
     rare --> careful
     plan --> careful{Is the task careful or large?<br/>Careful: it touches a danger topic or a careful path,<br/>or it starts a pattern that other code will copy.<br/>Large: the plan has more than three tasks}
-    careful -- no --> count{How many tasks<br/>are in the plan?}
-    count -- one --> same[The same builder builds it]
-    count -- two or three --> build[One new builder<br/>for each task of the plan.<br/>If a document must change,<br/>the last task is for documents]
+    careful -- no --> build[One new builder<br/>for each task of the plan,<br/>also for a plan with one task.<br/>If a document must change,<br/>the last task is for documents]
     careful -- yes --> session[Lem opens a companion session:<br/>the defender, with a reviewer<br/>in the other pane]
     session --> talk[The plan talk: the defender and the reviewer<br/>argue a list of questions<br/>that the first turn closes,<br/>before any code]
     talk --> close[Lem closes the companion.<br/>A new builder leads the build]
     close --> buildc[One new builder<br/>for each task of the plan.<br/>If a document must change,<br/>the last task is for documents]
-    same --> report[The lead writes the report<br/>and the state: ready]
-    build --> report
+    build --> report[The lead writes the report<br/>and the state: ready]
     buildc --> report
     report --> base[Lem rebases the branch<br/>on the base branch]
     base --> polish[The polish pass: a new builder removes<br/>false comments and leftovers, corrects documents,<br/>and repairs or files the defects outside the task.<br/>A correction does not get it]
@@ -189,7 +191,9 @@ These rules hold for each task:
   is confused, Lem tells you so in one line and opens no page. If a persona has a doubt, Lem
   opens the page for that doubt.
 - **A partial read counts.** If a persona agent does not answer, the read continues. The pull
-  request says who did not answer, and why. If nobody answers, Lem starts the read again.
+  request says who did not answer, and why. If nobody answers, Lem starts the read again. If
+  nobody answers the second read too, the work continues. The pull request is then not green,
+  and its first line says that nobody read the stories.
 - **Approved stories do not change silently.** The plan must hold your stories word for word.
   The lead adds only the tests. If the build must change, add or remove a story, the lead
   records the change with the text before and after. Then the pull request is not green, and it
@@ -319,8 +323,8 @@ These rules hold for each task:
   merge it. The pull request says why it had no talk.
 - **No review after each task.** The tasks of a careful or large plan get builders like all
   others. The review before the pull request reads the whole change.
-- **One builder for each task of a plan.** Each builder starts with an empty context. A plain
-  plan with one task is the exception: the builder that wrote the plan builds it.
+- **One builder for each task of a plan.** Each builder starts with an empty context. This
+  rule also applies to a plan with one task. The builder that wrote the plan writes no code.
 - **One branch is in the checks at a time.** The gate result is about one tip on one base.
 - **You merge, unless the settings say that an agent can.** The default of `branch.land` is
   `owner`. With `agent`, Lem merges a pull request only if it is green and the request is not
@@ -328,7 +332,10 @@ These rules hold for each task:
 - **Tell Lem "land it" for a branch that is ready.** Lem puts it on the base branch as a
   fast-forward. With a pull request, merge it on GitHub, or tell Lem to merge it.
 - **After the merge, Lem removes the worktree and the branch of the task.**
-- **A project with no gate command gets no pull request from Lem.**
+- **A project with no gate command gets no pull request from Lem.** The one exception is the
+  task that sets up the checks. Its branch adds the gate commands to `.lem/project.toml`, and
+  these commands check that task. Its pull request is not green, so that you read the checks
+  one time.
 - **The board is local.** It reads files in the git directory of one clone. A second person
   with a second clone does not see it.
 - **You are necessary at three points**: the interview with your approval of the stories, a
@@ -401,9 +408,8 @@ flowchart LR
     lem -- starts, reads the state and the report --> leadA[Lead of a task<br/>a builder]
     lem -- opens for a careful or large plan, closes after the talk --> leadB[Defender of the plan<br/>a companion session]
     leadB <-- the plan talk, before any code --> rev[Reviewer<br/>in the other pane]
-    leadA -- a plan of one task --> self[It builds the task itself]
-    leadA -- a plan of more tasks --> b1[Builder: task 1]
-    leadA -- a plan of more tasks --> b2[Builder: task 2]
+    leadA -- each task of the plan --> b1[Builder: task 1]
+    leadA -- each task of the plan --> b2[Builder: task 2]
     lem -- checks and proposes one branch at a time --> pr[(A pull request)]
 ```
 
@@ -413,6 +419,8 @@ There is one Lem for one repository. It is the session where you type `/lem`.
   review to a pull request.
 - Lem holds no details of a task. It reads the ask, the newest state block and the report.
 - A lead owns one task from its plan to its report. A lead never asks you a question.
+- A lead writes no code. It gives each task of its plan to a new builder, also when the plan
+  has one task.
 - A builder leads each task. A builder has no pane, thus it cannot hold the plan talk of a
   careful or large plan. It stops after the plan.
 - Lem then opens a companion session for the talk. The defender is in its left pane and the
@@ -423,6 +431,9 @@ There is one Lem for one repository. It is the session where you type `/lem`.
 - Some matters have options that each cost a person something. Then the personas of the
   project answer first, and Lem asks you with their answers. Work that does not depend on your
   answer continues.
+- The lead tells Lem at once when a choice waits for you. Lem then asks you at once. If that
+  message does not arrive, Lem finds the choice at its next turn. Then less of the 15 minutes
+  can stay for you.
 - Two experts answer each such choice when Lem asks you. They are agents of two different model
   families. Their two answers are on the page with the question.
 - A choice waits 15 minutes for your answer (`flow.decision_wait`). Then the lead takes the
@@ -474,6 +485,8 @@ flowchart TD
   directly.
 - A repository that already has `.claude/rules` keeps that folder. It is the style guide, and
   the settings name it. Lem makes no copy and no symbolic link.
+- If `.lem/styleguide` also holds rule files, Lem reads the two folders. It moves no file, and
+  it does not stop. A file with the same name in each folder is two files, and Lem reads the two.
 - A rule file can name the files that it applies to. It does this at its top, between two `---`
   lines, with `paths:` and a list of globs:
 
@@ -495,6 +508,9 @@ flowchart TD
 | Where | What | How you undo it |
 | --- | --- | --- |
 | Your computer | links in `~/.claude/skills/`, `~/.claude/agents/` and `~/.local/bin/`, from the setup | `setup.py --remove` |
+| The repository | with `setup.py --project`: links in `.claude/skills/` and `.claude/agents/`, and one `.gitignore` in each of the two folders, which hides the links from git | `setup.py --project DIR --remove`; it removes only the ignore files that it wrote |
+| The repository | with the plugin: two keys in `.claude/settings.json`, `extraKnownMarketplaces` and `enabledPlugins`; with `--scope local`, in `.claude/settings.local.json` | `claude plugin uninstall lem@lem` and `claude plugin marketplace remove lem`, each with the same `--scope` |
+| Your computer | before a reviewer starts in Codex: Lem removes `~/.codex/agterm/SESSION-ID`, the file in which the agterm recipe for Codex keeps the conversation of the session. Thus the reviewer starts with no earlier review | no undo is necessary; the next `codex` in that session writes a new file |
 | The repository, or your computer | one hook in `.claude/settings.local.json` of the repository, or in `~/.claude/settings.json`; only if you run `--corrections on` | `setup.py --corrections off`, with the same `--project` |
 | Your computer | scheduled jobs in cronn, only after your yes in `/lem init` | remove the job in cronn |
 | The repository | `.lem/` and the starter set in `.revmux/`, on the branch `chore/lem-onboarding` | before you answer "land": answer "drop"; after that: the steps below |
@@ -506,7 +522,8 @@ flowchart TD
 | Linear | status changes and one comment on the ticket of a task, only with a `[tracker]` table | change the ticket in Linear |
 
 - The scripts of Lem do not edit your `.gitignore`. They write their own ignore file in `.lem/`
-  and in `.lem/worktrees/`.
+  and in `.lem/worktrees/`. With `--project`, the setup also writes one in `.claude/skills/` and
+  in `.claude/agents/`, if that folder has no `.gitignore` yet.
 - A task that you drop keeps its branch, because no other branch has its commits. You delete
   that branch.
 
@@ -515,6 +532,9 @@ To remove Lem from a repository:
 1. Land or drop each open task.
 2. Remove the scheduled jobs of this repository in cronn, if you accepted them.
 3. Run `python3 scripts/setup.py --project DIR --remove`, if you linked Lem into that repository.
+   If you installed Lem as a plugin, run `claude plugin uninstall lem@lem --scope project` and
+   `claude plugin marketplace remove lem --scope project` in the repository. Use the scope of
+   your install. For the scope `project`, commit the change of `.claude/settings.json`.
 4. Run `python3 scripts/setup.py --corrections off --project DIR`, if you added the hook there.
 5. Delete the folder `.git/lem/`.
 6. Run `git rm -r .lem`.
@@ -632,9 +652,9 @@ Three paths did not occur in these runs:
 
 1. You type `/lem new docs/backlog/export-drops-custom-columns.md`.
 2. Lem opens the task `export-keeps-its-columns` and starts a builder.
-3. The builder writes a plan with one task and builds it. It runs the tests of the files that it
-   changed.
-4. The builder writes the report. The report says what you get and gives the proof for each
+3. The builder writes a plan with one task. It gives that task to a new builder. The new builder
+   changes the code and runs the tests of the files that it changed.
+4. The first builder writes the report. The report says what you get and gives the proof for each
    "done when" line. It also says what the builder did not verify.
 5. Lem brings the base branch in. A new builder does the polish pass. It removes one debug
    line.
@@ -658,11 +678,11 @@ Linear.
 
 | Command | What it does |
 | --- | --- |
-| `/lem <your ask>`, or `/lem new <what>` | opens a task, interviews you, and shows you the stories with the result of the personas. After your approval it runs the task to the gate. A ticket with all of its context gets no interview, and a correction does not wait. It does not stop for you to read the plan. The task waits if each place is in use. A careful or large plan gets a companion session for the plan talk, which closes after the talk. It stops for a decision that is yours |
+| `/lem <your ask>`, or `/lem new <what>` | opens a task, interviews you, and shows you the stories with the result of the personas. After your approval it runs the task to a pull request. A ticket with all of its context gets no interview, and a correction does not wait. It does not stop for you to read the plan. The task waits if each place is in use. A careful or large plan gets a companion session for the plan talk, which closes after the talk. It stops for a decision that is yours |
 | `/lem plan <what>` | opens a task and stops after the plan. You read the plan. Then `/lem build` continues |
 | `/lem build` | lists the plans that wait and asks which one it builds |
 | `/lem build <task>`, or `/lem build <plan file>` | builds that plan: a plan that you read, or a draft from the night |
-| `/lem land` | takes the oldest task that is ready through the machine checks and the review, and opens its pull request |
+| `/lem land` | takes the oldest task that is ready through the polish pass, the machine checks and the review. Then it opens its pull request. With no remote on GitHub, or with `branch.propose = "merge"`, it marks the branch as ready. Lem starts this step itself when a task is ready |
 | `/lem land <task>` | your word to merge a pull request that is open, or to land a branch that is ready |
 | `/lem`, `/lem status`, `/lem status <task>` | opens the board of all tasks, or of one task |
 | `/lem ask <question>` | puts a question to you as a page with the options side by side |
@@ -688,6 +708,11 @@ You can type each of these commands, but usually you do not.
   the terminal that corrects Lem itself. It works on a branch of the clone, and it does not push.
 
 ### Skills that you call
+
+A task runs from your ask to the pull request, and it needs none of these skills from you. They
+are for the times when you step in. At each point of a task, they help you get the context
+back fast. Examples are `/lem ask`, `/lem annotate`, `/lem backlog`, `/lem interview-me`,
+`/lem dialectic`, `/lem root-cause` and the board.
 
 Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem <name>`.
 
@@ -719,7 +744,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `paths.profile` | `.lem/profile.md` | what the project is |
-| `paths.styleguide` | `.lem/styleguide`, or `.claude/rules` if that folder is there | the rule files for the code |
+| `paths.styleguide` | `.lem/styleguide`, or `.claude/rules` if that folder is there | the rule files for the code; if the two folders are there, Lem reads the two |
 | `paths.personas` | `.lem/personas` | one file for each person that a decision has an effect on |
 | `paths.review` | `.revmux` | the folder of the review tool |
 | `paths.lessons` | `.lem/lessons.md` | the corrections that have no better place |
@@ -732,7 +757,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `branch.land` | `owner` | who merges: `owner`, or `agent` for a pull request that is green and not careful |
 | `branch.history` | `keep` | what lands: the commits of the branch (`keep`) or one commit (`squash`) |
 | `branch.propose` | `pull-request` | how a task ends with a remote on GitHub: a pull request (`pull-request`), or a merge into the base branch with no pull request (`merge`) |
-| `gate.commands` | empty | the check commands; with none, Lem proposes no change |
+| `gate.commands` | empty | the check commands; with none, Lem proposes no change, except the task whose branch adds them |
 | `gate.ignores` | empty | the paths that the gate does not read |
 | `gate.setup` | empty | the commands that a new worktree needs before its tests can start, for example an install of the packages |
 | `gate.bar` | empty | more regular expressions for a mark that lowers the bar, for a language that Lem has no marks for |
@@ -818,8 +843,10 @@ A first run has these steps:
 11. Answer "land".
 12. Type `/lem` and a small ask.
 
-Then Lem makes a branch, and a builder commits a plan and the change. Lem runs the gate. With
-the default settings, Lem then stops and tells you that the branch is ready.
+Then Lem opens a task for your ask. Usually it interviews you, and you approve the stories. A
+builder commits a plan and the change. Lem runs the polish pass, the machine checks and the
+review. With a remote on GitHub, Lem then opens a pull request, and you merge it. With no such
+remote, Lem tells you that the branch is ready.
 
 All options of the setup script:
 
@@ -909,5 +936,6 @@ bash tests/test-lem.sh
 bash tests/test-gate-panel.sh
 bash tests/test-ask.sh
 bash tests/test-ask-expert.sh
+bash tests/test-board.sh
 shellcheck tests/*.sh
 ```

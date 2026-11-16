@@ -71,10 +71,10 @@ checkout.
    one expert's advice the end of the wait takes the recommended option. Advice after the wait
    ended is refused too, and changes nothing.
 
-4. **Tell who reads it.** The defender of a plan talk, in its companion session, sends
-   `lem: SLUG choice N advised` through `tell-coordinator` when both answers are in the record;
-   a builder that leads has no such line, and Lem finds the advice in `decisions.py pending`. Lem
-   then does what `stages/new.md` says. When the owner called this skill, tell him both answers:
+4. **Tell who reads it.** The lead, the defender of a plan talk in its companion session or a
+   builder that leads in Lem's own session, sends `lem: SLUG choice N advised` through
+   `tell-coordinator` when both answers are in the record. Lem also finds the advice in
+   `decisions.py pending`, when the line is lost. Lem then does what `stages/new.md` says. When the owner called this skill, tell him both answers:
    each pick and its reasons, and whether they share one.
 
 `decisions.py list SLUG` and `decisions.py pending SLUG` show the advice under each choice

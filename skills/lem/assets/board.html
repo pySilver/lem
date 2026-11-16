@@ -1201,7 +1201,9 @@ function timeOf(t, end) {
     add('you', c.ts, stop, `Choice ${c.id}: ${c.what}`, how, running);
   }
   for (const r of t.reads) {
-    marks.push({row: 'personas', at: r.ts, head: 'The personas’ read of the stories ended', sub: `${r.answered} of ${r.asked} answered, ${FAMILIES[r.families.length] ?? `${r.families.length} model families`} · ${r.flagged ? `${r.flagged} flagged` : 'nobody confused'}${r.split ? ' · the families split' : ''} · its start is not logged`});
+    // a read in which nobody answered is written down too, and started once more
+    marks.push({row: 'personas', at: r.ts, head: 'The personas’ read of the stories ended', sub: !r.answered ? `nobody of ${r.asked} answered · its start is not logged`
+      : `${r.answered} of ${r.asked} answered, ${FAMILIES[r.families.length] ?? `${r.families.length} model families`} · ${r.flagged ? `${r.flagged} flagged` : 'nobody confused'}${r.split ? ' · the families split' : ''} · its start is not logged`});
   }
   // A plan talk is the review's from its start to its record. A record with no start before it is
   // a dot where it ended, and a start with no record yet is a talk that runs while the task is open.
@@ -1304,8 +1306,9 @@ const SAYS = {
   'stories.approved': e => ({info: {actor: e.by === 'owner' ? 'you' : 'lem', icon: 'check'},
     head: {owner: 'You approved the stories', correction: 'Taken as a correction in your name', read: 'The personas’ read froze the stories'}[e.by] ?? `Stories approved by ${e.by}`,
     text: `${e.number ? `approval ${e.number} · ` : ''}${e.kind}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
-  'stories.read': e => ({info: {actor: e.split || e.flagged ? 'you' : 'done', icon: 'users'}, head: 'The personas read the stories',
-    text: `${e.split ? 'the families split · ' : ''}${e.flagged ? `${e.flagged} flagged` : 'nobody confused'} · ${e.answered} of ${e.asked} answered`}),
+  'stories.read': e => !e.answered ? {info: {actor: 'bad', icon: 'users'}, head: 'Nobody answered the personas’ read of the stories', text: `0 of ${e.asked} answered`}
+    : {info: {actor: e.split || e.flagged ? 'you' : 'done', icon: 'users'}, head: 'The personas read the stories',
+      text: `${e.split ? 'the families split · ' : ''}${e.flagged ? `${e.flagged} flagged` : 'nobody confused'} · ${e.answered} of ${e.asked} answered`},
   'review': e => ({info: {actor: e.verdict === 'clean' ? 'done' : 'bad', icon: 'eye'}, head: 'Review', text: reviewLine(e)}),
   'review.filed': e => ({info: {actor: 'lem', icon: 'file'}, head: 'Filed in the backlog', text: plural((e.items ?? []).length, 'item')}),
   'proposed': e => ({info: {actor: e.green ? 'done' : 'you', icon: e.green ? 'check' : 'alert'}, head: e.green ? 'Proposed: green' : 'Proposed: not green', text: (e.not_green ?? []).join(' · ')}),

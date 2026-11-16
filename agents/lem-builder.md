@@ -11,8 +11,10 @@ every builder has to know is here.
 Your brief gives you one of six jobs:
 
 - **It names `prompts/lead.md`: you lead one task.** Read that file and follow it. Where it or the
-  stage files it names say something else than this page, they hold: a lead's report has its own
-  form, and a lead's last acts are the report, the state and its word to Lem, in that order.
+  stage files it names say something else than this page, they hold: a lead writes the plan and
+  no code, and gives each task of it to a fresh builder, also the one task of a plan that has
+  one; a lead's report has its own form, and a lead's last acts are the report, the state and
+  its word to Lem, in that order.
 - **It names a plan file and one task's section: you build that one task** and nothing beside
   it.
 - **It names `prompts/review.md`: you review one task's change** and change nothing. Read that

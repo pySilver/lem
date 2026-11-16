@@ -36,6 +36,11 @@ one finds what the run before it finished.
    while another task is in `landing`, and for a worktree with changes nobody committed. A project
    with no gate command cannot land through this skill, because "nothing failed" would then mean
    "nothing ran": the step writes the task's state as `blocked` instead, and you tell the owner.
+   The one exception is the task that sets up the checks (`stages/init.md`): when the main
+   checkout's settings have no gate command and the task's own branch adds them to its
+   `.lem/project.toml`, its gate is those commands, and its pull request is not green for that,
+   so that the owner reads the checks once. A branch that changes a gate the main checkout has
+   is gated by the main checkout's, as every task is.
    `landing` holds a place, so it is written when the checks will run and never before a stop.
    An `open` task takes the line again when a later step says so (the base moved, the owner
    asked for a change): its reviews and its pull request stay its own.
@@ -165,8 +170,9 @@ one finds what the run before it finished.
    the request in the owner's words, the stories with their tests, each check with what it
    returned, each decision of the record (`decisions.py list SLUG`) with who took it and why,
    and your notes. Green means that the checks passed with the bar where it was, a review with
-   at least one source left no must-fix, no story changed during the build, and no choice was
-   taken by timeout or by the experts. A green request needs no read from the owner. The step refuses while a
+   at least one source left no must-fix, no story changed during the build, no choice was
+   taken by timeout or by the experts, the gate was the main checkout's own, and no read of the
+   stories went unanswered twice. A green request needs no read from the owner. The step refuses while a
    choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
    the owner"), and run it again after his answer or after the timeout. It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
@@ -175,6 +181,10 @@ one finds what the run before it finished.
    (`stages/new.md`). A request that
    became careful after its plan, by the owner's word or by its diff, had no talk due; it gets
    the full set and a person's merge, and its text says that it had no talk and why.
+   It refuses a request whose newest read of its stories had no answer and was the first such
+   read in a row: the read is started once more (`stages/new.md`, "The interview and the
+   stories", step 5). After a second read with no answer the request is proposed, not green,
+   with "the stories were not read" first.
    With a GitHub remote the step pushes the task's branch and opens the pull request, or
    updates the one that is there. With any other remote, or none, it marks the branch ready, and
    so it does with a GitHub remote when the settings' `branch.propose` is `merge`: the project

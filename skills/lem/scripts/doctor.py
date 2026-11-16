@@ -125,7 +125,7 @@ def tool(name: str, need: str, used_for: str, without_it: str, binary: str, prob
 
 def agterm() -> list[dict]:
     row = tool(
-        "agterm", "required", "the reviewer's pane, pages for the owner, and a session per task",
+        "agterm", "required", "the reviewer's pane, pages for the owner, and the companion of a plan talk",
         "no reviewer pane and no mailbox: the pair flow cannot run", "agtermctl", ["--version"],
     )
     row["in_session"] = bool(os.environ.get("AGTERM_SESSION_ID"))
@@ -239,8 +239,9 @@ def main() -> None:
     tools = [
         python(),
         tool("git", "required", "worktrees, branches and the task state directory", "nothing runs", "git", ["--version"]),
-        tool("revmux", "required", "the review rounds over a landed range, with the project's lenses",
-             "no review of a landed change; the skill refuses to queue what it cannot review", "revmux", ["--version"]),
+        tool("revmux", "required", "the review rounds before the pull request, with the project's profiles and lenses",
+             "only one read can review a change: a careful or large request, or one after a must-fix, needs a round at the least, "
+             "and it is not proposed", "revmux", ["--version"]),
         skill("revmux", "how an agent runs a review round: it writes the round's context and reads the findings back",
               "an agent has the review tool and no instructions for it; install the skill that comes with revmux (its README says how)"),
         *agterm(),

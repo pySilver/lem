@@ -30,7 +30,8 @@ does not take the task to its report.
    branch's log, and go on from there. Do not start over, and do not ask again what that record
    already answers.
 3. **Follow `SKILL_DIR/stages/plan.md`, then `SKILL_DIR/stages/build.md`.** Read each when you
-   reach it.
+   reach it. You write the plan and no code: each task of the plan goes to a fresh builder, also
+   the one task of a plan that has one.
 4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
    another branch or touch the checkout the worktree came from.
 5. **You never ask the owner.** A decision that is the owner's goes into `report.md` in the form

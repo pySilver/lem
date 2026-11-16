@@ -26,7 +26,8 @@ last repair raised does not end.
 - Your first turn is a full read of the plan: a numbered list of questions, the most expensive
   first. Each names the position of the plan it challenges, its mechanism (the input and what
   happens to it), and its place: a section of the plan, or a file and symbol. Put every question
-  you have into it; the list closes with that turn.
+  you have into it; the list closes with that turn. When you find no question, say so in that
+  turn: the list is empty, the coordinator closes, and you add no turn.
 - A scope the plan writes as out of the change is not a question. Do not raise one that only
   restates it.
 - In each later turn, answer each question the coordinator answered by its number only:

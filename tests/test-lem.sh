@@ -78,18 +78,30 @@ HALF=$WORK/halfway
 git init -q -b master "$HALF"
 mkdir -p "$HALF/.claude/rules" "$HALF/.lem/styleguide" "$HALF/.claude/worktrees" && echo 'Type every function.' > "$HALF/.claude/rules/python.md"
 err=$(project --repo "$HALF" init --base master 2>&1 || true)
+code=$(status_of project --repo "$HALF" init --base master)
 rmdir "$HALF/.claude/worktrees"
-echo 'A second guide.' > "$HALF/.lem/styleguide/other.md"
-both=$(project --repo "$HALF" init --base master 2>&1 || true)
-code="$(status_of project --repo "$HALF" init --base master) $(status_of project --repo "$HALF" existing)"
-rm "$HALF/.lem/styleguide/other.md"
-if grep -q "this repository already keeps worktrees in .claude/worktrees; pass --existing" <<<"$err" && [ "$code" = "1 1" ] && [ ! -e "$HALF/.lem/project.toml" ] \
-  && grep -q ".claude/rules and .lem/styleguide each hold rule files the other lacks, and the style guide is one folder; move the files of one into the other" <<<"$both" \
-  && project --repo "$HALF" init --base master >/dev/null && [ "$(project --repo "$HALF" path styleguide)" = "$HALF/.claude/rules" ] \
-  && [ "$(project --repo "$HALF" rules app/x.py | field '[r["file"] for r in d["rules"]]')" = "['$HALF/.claude/rules/python.md']" ]; then
-  pass "an empty style guide folder of the skill's own does not hide the rules an agent loads, two folders that each hold a rule the other lacks are refused with the fix, and a worktrees folder of an older tool still asks for the choice"
+empty=$(project --repo "$HALF" existing | field 'd.get("styleguide")')
+if grep -q "this repository already keeps worktrees in .claude/worktrees; pass --existing" <<<"$err" && [ "$code" = 1 ] && [ ! -e "$HALF/.lem/project.toml" ] \
+  && [ "$empty" = .claude/rules ]; then
+  pass "an empty style guide folder of the skill's own does not hide the rules an agent loads, and a worktrees folder of an older tool still asks for the choice"
 else
-  fail "init over a half setup: $err / $both / $code"
+  fail "init over a half setup: $err / $code / $empty"
+fi
+# Two folders that each hold a rule the other lacks are both read, and nothing moves: the rules of a
+# project stay where they are. A file of the same name in each is two files, and each is read.
+echo 'A second guide.' > "$HALF/.lem/styleguide/other.md"
+echo 'Name each function for what it returns.' > "$HALF/.lem/styleguide/python.md"
+both=$(project --repo "$HALF" existing 2>&1 || true)
+project --repo "$HALF" init --base master >/dev/null 2>"$WORK/both.err" || true
+read=$(project --repo "$HALF" rules app/x.py 2>&1 || true)
+if [ "$(field 'd.get("styleguide")' <<<"$both" 2>&1)" = .claude/rules ] && [ ! -s "$WORK/both.err" ] && [ "$(project --repo "$HALF" path styleguide)" = "$HALF/.claude/rules" ] \
+  && [ "$(field '[r["file"] for r in d["rules"]]' <<<"$read")" = "['$HALF/.claude/rules/python.md', '$HALF/.lem/styleguide/other.md', '$HALF/.lem/styleguide/python.md']" ] \
+  && [ "$(field 'd["folders"]' <<<"$read")" = "['$HALF/.claude/rules', '$HALF/.lem/styleguide']" ] \
+  && [ "$(cat "$HALF/.claude/rules/python.md")" = 'Type every function.' ] && [ "$(cat "$HALF/.lem/styleguide/python.md")" = 'Name each function for what it returns.' ] \
+  && [ "$(find "$HALF/.claude/rules" "$HALF/.lem/styleguide" -name '*.md' | wc -l | tr -d ' ')" = 3 ]; then
+  pass "two style guide folders that each hold a rule the other lacks are both read, the agent's own first, a file of one name in each is read twice, and init refuses nothing and moves nothing"
+else
+  fail "two style guide folders: $both / $(cat "$WORK/both.err") / $read"
 fi
 # One set of rules by two paths is one style guide: a rules folder that is a link, and rule files linked between two folders.
 ONE=$WORK/one-guide
@@ -101,8 +113,9 @@ superset=$(project --repo "$ONE" existing | field 'd.get("styleguide")')
 rm "$ONE/.claude/rules/conduct.md" && echo 'Version every route.' > "$ONE/.lem/styleguide/api.md"
 subset=$(project --repo "$ONE" existing | field 'd.get("styleguide")')
 if [ "$linked / $superset / $subset" = ".claude/rules / .claude/rules / None" ] && project --repo "$ONE" init --base master >/dev/null \
-  && [ "$(project --repo "$ONE" path styleguide)" = "$ONE/.lem/styleguide" ]; then
-  pass "two paths to one set of rule files are one style guide: the agent's folder when it holds every file, the skill's own when only that one does"
+  && [ "$(project --repo "$ONE" path styleguide)" = "$ONE/.lem/styleguide" ] \
+  && [ "$(project --repo "$ONE" rules app/x.py | field '[r["file"] for r in d["rules"]]')" = "['$ONE/.lem/styleguide/api.md', '$ONE/.lem/styleguide/python.md']" ]; then
+  pass "two paths to one set of rule files are one style guide: the agent's folder when it holds every file, the skill's own when only that one does, and a file linked into both is read once"
 else
   fail "one set of rules by two paths: $linked / $superset / $subset"
 fi
@@ -665,8 +678,10 @@ doctor() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCT
 row() { field "next(t for t in d[\"tools\"] if t[\"name\"] == \"$1\")[\"$2\"]"; }
 out=$(doctor || true)
 if [ "$(status_of doctor)" = 1 ] && [ "$(field 'd["ok"]' <<<"$out")" = "False" ] && [ "$(row revmux found <<<"$out")" = "False" ] && [ "$(row git found <<<"$out")" = "True" ] \
-  && [ "$(row python3 found <<<"$out")" = "True" ] && [ "$(row python3 need <<<"$out")" = "required" ] && [ "$(row claude found <<<"$out")" = "False" ] && [ "$(row claude need <<<"$out")" = "required" ]; then
-  pass "doctor exits 1 and says so when the review tool is absent, and the agent that runs Lem is a required row"
+  && [ "$(row python3 found <<<"$out")" = "True" ] && [ "$(row python3 need <<<"$out")" = "required" ] && [ "$(row claude found <<<"$out")" = "False" ] && [ "$(row claude need <<<"$out")" = "required" ] \
+  && grep -qF "before the pull request" <<<"$(row revmux used_for <<<"$out")" && grep -qF "is not proposed" <<<"$(row revmux without_it <<<"$out")" \
+  && ! grep -qiE "landed (range|change)|queue" <<<"$(row revmux used_for <<<"$out") $(row revmux without_it <<<"$out")"; then
+  pass "doctor exits 1 and says so when the review tool is absent, its row says the review comes before the pull request and what is not proposed without it, and the agent that runs Lem is a required row"
 else
   fail "doctor without revmux: $out"
 fi
@@ -2722,7 +2737,7 @@ empty=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 
 if grep -q "the plan has 4 tasks, more than three, so its defender and the reviewer talk its plan through in the plan talk's companion before any code" <<<"$talkless" \
   && grep -q "the event log has no .plan.talk. of four-tasks" <<<"$talkless" && [ "$(status four-tasks)" = landing ] \
   && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has design, layer, questions, repaired, reviewer, root, settled, shared, turns, unargued" <<<"$missing" \
-  && grep -q "ends in a settled position or a disagreement left open" <<<"$empty" \
+  && grep -qF "this one has 5 turns for 0 questions" <<<"$empty" \
   && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl" \
   && [ "$(grep -c '"event": "plan.talk", "task": "second-change", "reviewer": "codex", "turns": 4' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
   pass "a plan of four tasks with no plan talk is not proposed, though another task's talk is in the log; a talk's event without its form is refused, and nothing is written for it"
@@ -2737,6 +2752,10 @@ undesigned=$(talk_log turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 desig
 overrepaired=$(talk_log turns:=6 questions:=3 settled:=3 open:=0 repaired:=4 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
 endless=$(talk_log turns:=11 questions:=2 settled:=1 open:=1 repaired:=1 design:=1 unargued:=3 root:=0 layer:=0 shared:=0)
 bounded=$(talk_log turns:=10 questions:=2 settled:=1 open:=1 repaired:=2 design:=1 unargued:=3 root:=1 layer:=1 shared:=1)
+# a reviewer who found nothing: its first turn says it has no question, and the defender closes
+lone=$(talk_log turns:=1 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
+quiet_raised=$(talk_log turns:=2 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=1 root:=0 layer:=0 shared:=0)
+quiet=$(talk_log turns:=2 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
 startless=$(project --repo "$SHOP" log four-tasks plan.talk.start 2>&1 || true)
 overstarted=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=codex turns:=2 2>&1 || true)
 started=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=codex 2>&1 || true)
@@ -2744,13 +2763,15 @@ if grep -qF "settled and open add up to questions" <<<"$lost" && grep -qF "desig
   && grep -qF "repaired is at most questions" <<<"$overrepaired" \
   && grep -qF "at most 4 × N + 2 turns" <<<"$endless" && grep -qF "this one has 11 turns for 2 questions" <<<"$endless" \
   && [ "$(field 'd["turns"], d["questions"], d["design"], d["unargued"]' <<<"$bounded")" = "(10, 2, 1, 3)" ] \
+  && grep -qF "a talk has two turns at the least" <<<"$lone" && grep -qF "a talk of no question has no turn after the list, so unargued is 0" <<<"$quiet_raised" \
+  && [ "$(field 'd["turns"], d["questions"], d["settled"], d["open"]' <<<"$quiet")" = "(2, 0, 0, 0)" ] \
   && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$startless" && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$overstarted" \
   && [ "$(field 'd["event"], d["reviewer"]' <<<"$started")" = "('plan.talk.start', 'codex')" ] \
-  && [ "$(grep -c '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 1 ] \
+  && [ "$(grep -c '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 2 ] \
   && [ "$(grep -c '"event": "plan.talk.start", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
-  pass "a talk's counts agree: each question of the list ends settled or open, a design choice is an open one, a question gets one repair at most, and a talk has at most 4 × questions + 2 turns; the start of a talk names its reviewer and nothing else, and a refused record writes nothing"
+  pass "a talk's counts agree: each question of the list ends settled or open, a design choice is an open one, a question gets one repair at most, and a talk has at most 4 × questions + 2 turns; a talk of no question has its two turns and nothing raised after them; the start of a talk names its reviewer and nothing else, and a refused record writes nothing"
 else
-  fail "the counts of a plan talk: $lost / $undesigned / $overrepaired / $endless / $bounded / $startless / $overstarted / $started"
+  fail "the counts of a plan talk: $lost / $undesigned / $overrepaired / $endless / $bounded / $lone / $quiet_raised / $quiet / $startless / $overstarted / $started"
 fi
 project --repo "$SHOP" log four-tasks plan.talk reviewer=claude turns:=3 questions:=1 settled:=1 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 >/dev/null
 project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=9 questions:=5 settled:=4 open:=1 repaired:=3 design:=1 unargued:=2 root:=2 layer:=1 shared:=0 >/dev/null
@@ -2956,6 +2977,50 @@ else
 fi
 printf '%s\n' '[branch]' 'base = "release"' 'land = "agent"' 'protected = ["release"]' > "$SHOP/.lem/project.toml"
 if [ "$(status_of land --repo "$SHOP" start third-change)" = 1 ]; then pass "no step runs toward a branch the settings refuse"; else fail "land toward a protected base"; fi
+# The first task of a new repository sets up the checks: the main checkout's settings have no gate
+# command, and the task's branch adds them to its own .lem/project.toml. That gate gates the task,
+# and its pull request is not green for it, so that a person reads the checks once. A branch that
+# changes a gate the main checkout already has is gated by the main checkout's, as before.
+FG=$WORK/first-gate
+git init -q -b main "$FG" && ident "$FG"
+project --repo "$FG" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' > "$FG/.lem/project.toml"
+git -C "$FG" add -A && git -C "$FG" commit -q -m "chore: start"
+task_in "$FG" set-up-checks c.txt checked
+tree=$(project --repo "$FG" worktree-dir set-up-checks)
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["echo 3 passed"]' > "$tree/.lem/project.toml"
+git -C "$tree" commit -q -am "chore: the checks"
+brought_start=$(land --repo "$FG" start set-up-checks 2>&1 || true)
+brought_gate=$(land --repo "$FG" base set-up-checks >/dev/null 2>&1 && land --repo "$FG" gate set-up-checks 2>&1 || true)
+land --repo "$FG" read set-up-checks --record "$(clean 1)" >/dev/null 2>&1 || true
+land --repo "$FG" propose set-up-checks --title "chore: the checks" --notes "$NOTES" >/dev/null 2>&1 || true
+brought_agent=$(land --repo "$FG" land set-up-checks --by agent 2>&1 || true)
+text=$FG/.git/lem/tasks/set-up-checks/pr.md
+FG2=$WORK/kept-gate
+git init -q -b main "$FG2" && ident "$FG2"
+project --repo "$FG2" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["echo main passed"]' > "$FG2/.lem/project.toml"
+git -C "$FG2" add -A && git -C "$FG2" commit -q -m "chore: start"
+task_in "$FG2" other-checks k.txt kept
+tree=$(project --repo "$FG2" worktree-dir other-checks)
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["false"]' > "$tree/.lem/project.toml"
+git -C "$tree" commit -q -am "chore: other checks"
+kept_gate=$(land --repo "$FG2" start other-checks >/dev/null 2>&1 && land --repo "$FG2" base other-checks >/dev/null 2>&1 && land --repo "$FG2" gate other-checks 2>&1 || true)
+land --repo "$FG2" read other-checks --record "$(clean 1)" >/dev/null 2>&1 || true
+land --repo "$FG2" propose other-checks --title "chore: other checks" --notes "$NOTES" >/dev/null 2>&1 || true
+if [ "$(status_in "$FG" set-up-checks)" = open ] && ! grep -q "no gate command" <<<"$brought_start" \
+  && [ "$(field '[(c["command"], c["last"]) for c in d["commands"]]' <<<"$brought_gate" 2>/dev/null)" = "[('echo 3 passed', '3 passed')]" ] \
+  && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
+  && [ "$(sed -n 3p "$text")" = "- the gate came with this change: the main checkout's settings name no gate command, and the branch's .lem/project.toml brings \`echo 3 passed\`. Read the checks once: every later task is gated on them" ] \
+  && grep -qF "the request is not green (the gate came with this change" <<<"$brought_agent" \
+  && [ "$(field '[(c["command"], c["last"]) for c in d["commands"]]' <<<"$kept_gate" 2>/dev/null)" = "[('echo main passed', 'main passed')]" ] \
+  && [ "$(sed -n 1p "$FG2/.git/lem/tasks/other-checks/pr.md" 2>/dev/null | cut -c1-10)" = '**Green.**' ]; then
+  pass "a first task that brings the gate on its own branch, while the main checkout's settings have none, is gated by it and is not green for it, so a person merges it; a branch that changes a gate the main checkout has is gated by the main checkout's"
+else
+  fail "a gate that comes with the change: $brought_start / $brought_gate / $brought_agent / $kept_gate / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$FG" state set-up-checks dropped "the test is over" >/dev/null
+project --repo "$FG2" state other-checks dropped "the test is over" >/dev/null
 LOCAL=$WORK/local
 git init -q -b main "$LOCAL" && ident "$LOCAL"
 project --repo "$LOCAL" init --base main >/dev/null
@@ -3240,7 +3305,7 @@ if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && ! grep -q "after the personas' read" "$text" \
   && grep -qxF -- "- the scout's report, the facts of the code the stories were written from: \`$LOCAL/.git/lem/tasks/ticket-word/scout.md\`" "$text" \
   && grep -q "by is lem, when Lem ran the read" <<<"$bad_by" && grep -q "a read asks two personas at the least" <<<"$bad_one" \
-  && grep -q "a read in which nobody answered is no read: start it once more" <<<"$bad_none" && grep -q "answered is 1 to asked" <<<"$bad_more" \
+  && grep -q "a read in which nobody answered has families:='\[\]'" <<<"$bad_none" && grep -q "answered is at most asked" <<<"$bad_more" \
   && grep -q "silent names each source that did not, with why" <<<"$bad_quiet" \
   && grep -q "families is the list of the model families that answered" <<<"$bad_families" && grep -q "no more stories flagged than it read" <<<"$bad_flagged" \
   && grep -q "a split is between two model families, and families names one" <<<"$bad_split" && grep -q "digest is the twelve characters" <<<"$bad_digest" \
@@ -3275,6 +3340,44 @@ else
   fail "a second freeze by a read: $refile / $refreeze / $over_his / $over_his_file / $kept_contracts"
 fi
 project --repo "$LOCAL" state ticket-word dropped "the test is over" >/dev/null
+# A read in which nobody answered is written down too, and started once more: after the first one the
+# request is not proposed and the rare path's freeze is refused; after the second the build goes on,
+# the freeze takes the stories, and the request is not green for it, with the reason first.
+task_in "$LOCAL" nobody-read n.txt n
+tree=$(project --repo "$LOCAL" worktree-dir nobody-read)
+sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-nobody-read.md"
+rm "$tree/docs/plans/20261115-nobody-read.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
+digest=$(lstories digest nobody-read 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+quiet='silent:=[{"name": "the buyer, opus", "why": "the model was at capacity"}, {"name": "the clerk, opus", "why": "the model was at capacity"}]'
+empty_with() { project --repo "$LOCAL" log nobody-read stories.read by=lead asked:=2 answered:=0 "$@" stories:=1 split:=false "digest=$digest" 2>&1 || true; }
+empty_family=$(empty_with 'families:=["opus"]' "$quiet" flagged:=0)
+empty_unnamed=$(empty_with 'families:=[]' 'silent:=[{"name": "the buyer, opus", "why": "the model was at capacity"}]' flagged:=0)
+empty_flagged=$(empty_with 'families:=[]' "$quiet" flagged:=1)
+first_empty=$(empty_with 'families:=[]' "$quiet" flagged:=0)
+local_land start nobody-read >/dev/null && local_land base nobody-read >/dev/null && polish_local nobody-read && local_land gate nobody-read >/dev/null \
+  && local_land read nobody-read --record "$(clean 1)" >/dev/null
+once=$(local_land propose nobody-read --title "fix: n" --notes "$NOTES" 2>&1 || true)
+freeze_once=$(lstories approve nobody-read --read 2>&1 || true)
+second_empty=$(empty_with 'families:=[]' "$quiet" flagged:=0)
+freeze_twice=$(lstories approve nobody-read --read 2>&1 || true)
+local_land propose nobody-read --title "fix: n" --notes "$NOTES" >/dev/null 2>&1 || true
+text=$LOCAL/.git/lem/tasks/nobody-read/pr.md
+twice_agent=$(local_land land nobody-read --by agent 2>&1 || true)
+if grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_family" && grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_unnamed" \
+  && grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_flagged" \
+  && grep -q '"event": "stories.read"' <<<"$first_empty" && grep -q '"event": "stories.read"' <<<"$second_empty" \
+  && grep -qF "nobody answered the newest read of nobody-read's stories: it is started once more" <<<"$once" \
+  && grep -qF "nobody answered the newest read of nobody-read's stories: it is started once more" <<<"$freeze_once" \
+  && grep -q '"by": "read"' <<<"$freeze_twice" \
+  && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
+  && [ "$(sed -n 3p "$text")" = "- the stories were not read: the personas' read was started twice and nobody answered; no answer from the buyer, opus (the model was at capacity); no answer from the clerk, opus (the model was at capacity)" ] \
+  && grep -qxF -- "- the stories were not read by the personas: 2 reads in a row, and none of the 2 personas asked answered; the build started with no wait for him" "$text" \
+  && grep -qF "the request is not green (the stories were not read" <<<"$twice_agent"; then
+  pass "a read in which nobody answered is written down with no family and each source named, and started once more: after one the request is not proposed and the stories are not frozen; after the second the build goes on, the stories are frozen as read, and the request is not green with that reason first"
+else
+  fail "a read nobody answered, twice: $empty_family / $empty_unnamed / $empty_flagged / $first_empty / $once / $freeze_once / $second_empty / $freeze_twice / $twice_agent / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state nobody-read dropped "the test is over" >/dev/null
 # A correction: Lem approves its one story in his name, and the personas do not read it.
 task_in "$LOCAL" one-word o.txt o
 printf '%s\n' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/correction.md"
@@ -3483,22 +3586,17 @@ else
 fi
 
 # A review names each defect it saw outside the change, and `land.py file` files each one as an item
-# of the backlog: a count of them is no record. A record of the form that only counted them is refused,
-# in a new record and in a kept one; 0 is no defect.
+# of the backlog: a count of them is no record, and is refused; 0 is no defect.
 task_in "$BLG" outside-form app.txt two
 land --repo "$BLG" start outside-form >/dev/null && land --repo "$BLG" base outside-form >/dev/null && land --repo "$BLG" gate outside-form >/dev/null
 counted=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 2}')" 2>&1 >/dev/null || true)
 unnamed=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": [{"where": "app.txt"}]}')" 2>&1 >/dev/null || true)
 none=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 0}')" | field '(d["recorded"]["outside"], d["to_file"])')
-"$PY" -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["reads"][0]["outside"] = 2; json.dump(d, open(p, "w"))' "$BLG/.git/lem/tasks/outside-form/landing.json"
-kept_read=$(land --repo "$BLG" read outside-form 2>&1 >/dev/null || true)
-kept_propose=$(land --repo "$BLG" propose outside-form --title "fix: outside-form" --notes "$NOTES" 2>&1 >/dev/null || true)
 if grep -q '.outside. is the list of the defects' <<<"$counted" && grep -q '"where"' <<<"$counted" && grep -q '.outside. is the list of the defects' <<<"$unnamed" \
-  && [ "$none" = "([], [])" ] && grep -q "a form of the record that was never released" <<<"$kept_read" && grep -q "landing.json" <<<"$kept_read" \
-  && grep -q "a form of the record that was never released" <<<"$kept_propose"; then
-  pass "a record names each defect outside the change, with where, title and what: a count is refused, 0 is no defect, and a kept record that only counted them stops read and propose and names its file"
+  && [ "$none" = "([], [])" ]; then
+  pass "a record names each defect outside the change, with where, title and what: a count is refused, and 0 is no defect"
 else
-  fail "the form of the outside defects: $counted / $unnamed / $none / $kept_read / $kept_propose"
+  fail "the form of the outside defects: $counted / $unnamed / $none"
 fi
 project --repo "$BLG" state outside-form dropped "the test is over" >/dev/null
 

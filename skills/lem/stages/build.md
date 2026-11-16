@@ -7,28 +7,16 @@ tokens at the median, 252k to 967k (mybaze, 2026-09-29/30, from that project's r
 that plans, briefs and reports while it also writes several tasks loses the plan when its context
 fills.
 
-## A builder with a plan of one task: you build it
+## You coordinate
 
-Your brief says `lead: builder` and the plan has one task: you wrote the plan, or a builder
-before you wrote it and its talk is done, and you are its one builder.
-
-1. **Build the task.** Write it, with at least one test for each story of the plan: a test that
-   fails on the base commit and passes with your change. A story no test can hold, such as a
-   sentence of a document, gets none, and "The report" says how the plan records that. Run the tests of the files you wrote or edited and the
-   formatter, linter and type checker the project's `AGENTS.md` names, and commit on the task's
-   branch with a semantic message. Never the whole suite unless the plan says so: the gate runs
-   it at the landing. Write the state `building` with the line `task 1 of 1`.
-2. **When you stop without the outcome**, "A builder that stops" below says where each kind of
-   stop goes. Write in `report.md` what you tried and what it assumed, write the state `blocked`,
-   and stop: Lem gives the task to a fresh builder.
-3. **Go on to "The report".**
-
-## A plan of more tasks: you coordinate
-
-You write no code. A careful or large plan comes here once its plan talk is done
-(`stages/plan.md`, step 3), and its tasks are built like any others: the review comes at the
-landing, which reads the whole change. The harness file says whether a builder can start
-builders in your agent, and what to do when it cannot.
+You write no code, also for a plan of one task: that task gets a fresh builder too. The owner's
+ruling has no threshold ("I usually start fresh executor for every task.. since forever",
+2026-11-14), and a lead
+that builds carries the plan, the persona read and its own code in one context. A careful or
+large plan comes here once its plan talk is done (`stages/plan.md`, step 3), and its tasks are
+built like any others: the review comes at the landing, which reads the whole change. The
+harness file says whether a builder can start builders in your agent; when your agent refuses
+you the start of one, write the state `blocked` with that refusal, and stop.
 
 1. **One builder per task of the plan**, through `spawn-builder`, in the task's worktree, one
    after the other unless two tasks touch no common file. Its brief names, by path:
@@ -115,18 +103,21 @@ a correction, or the other way, is a held decision. A plan that departs from a d
      holds, or a story has to come or go, record it with `decisions.py story ... --choice N`,
      and change the story in the plan in the commit that builds the option. A forgotten record
      does not pass: the gate refuses a plan whose stories are not the expected ones. The choice waits the
-     settings' `flow.decision_wait` (15 minutes unless the project says otherwise). Tell Lem that
-     it waits: the defender of a plan talk, in its companion, with `tell-coordinator` and the line
-     `lem: SLUG choice N waits`. A builder that leads has no `tell-coordinator` (the harness file
-     defines it from a task's session only), so its choice reaches Lem at Lem's next turn, through
-     `decisions.py pending`, and may end its wait before the owner sees it.
+     settings' `flow.decision_wait` (15 minutes unless the project says otherwise), and it counts
+     from the ask, so tell Lem at once, before anything else: `tell-coordinator` with the line
+     `lem: SLUG choice N waits`, to the address of the brief's `coordinator:` line. Lem asks the
+     owner when that line wakes it. The defender of a plan talk sends it from its companion, and a
+     builder that leads sends it from Lem's own session; the harness file says what of that was
+     checked. A brief with no `coordinator:` line has no address:
+     the choice then reaches Lem at its next turn, through `decisions.py pending`, and may end its
+     wait before the owner sees it.
 
-     Right after the ask, before anything else, give the choice to the experts: the
-     `lem-ask-expert` skill (`load-skill`), with the slug, the choice's number and the files the
-     choice is about. Two experts of two model families answer it in the background, and their
-     advice goes on the owner's card. It also decides what the end of the wait takes, so it is
-     not skipped for an irreversible step either: there it is advice and nothing more. In a
-     companion, send `lem: SLUG choice N advised` when both answers are in the record.
+     Right after that line, give the choice to the experts: the `lem-ask-expert` skill
+     (`load-skill`), with the slug, the choice's number and the files the choice is about. Two
+     experts of two model families answer it in the background, and their advice goes on the
+     owner's card. It also decides what the end of the wait takes, so it is not skipped for an
+     irreversible step either: there it is advice and nothing more. Send
+     `lem: SLUG choice N advised` the same way when both answers are in the record.
 3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
    before you start one that depends on it, run `decisions.py --repo WORKTREE wait SLUG N`. It
    returns when the owner answered, when the wait is over, or after nine minutes: run it again
@@ -152,7 +143,7 @@ there by these steps.
 
 ## The report
 
-The lead's last act, whichever kind it is, and also what it does before any other stop. Lem reads
+The lead's last act, and also what it does before any other stop. Lem reads
 this file and the state block and nothing else of the task, and writes the owner's report from it.
 Write `report.md` in the task directory, whole, each time. A path in it is relative to the
 repository's root, never a path inside the worktree: the worktree is gone when the owner reads.

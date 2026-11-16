@@ -11,8 +11,9 @@ a lead is started, and what to do each time a lead stops.
    description, the link, the parent, the labels and the branch name the tracker gives. The
    ticket's words are then the ask. When the settings have no tracker, say that this project has
    none, and ask the owner for the ask in his words. When `project.py tasks` already lists a task
-   with this ticket that is not `dropped`, do not open a second one: say which task it is and
-   where it stands.
+   with this ticket that is not `dropped` or `answered`, do not open a second one: say which task
+   it is and where it stands. A dropped or an answered task gives its ticket back, and
+   `task-dir --ticket` refuses the ticket only while another task holds it.
 1. **The kind of the request**, from the ask's words alone, before anything reads the code. Tell
    the owner in one line which kind and why ("a bug: the ask says the total is wrong today"). The
    words after each kind are hints for your judgment, not a list to match; no code matches them,
@@ -85,9 +86,14 @@ a lead is started, and what to do each time a lead stops.
    task directory: the task directory's absolute path
    lead: builder
    stop after the plan: no
+   coordinator: SESSION:PANE
+   socket: PATH
    ```
 
-   The brief says nothing about the code, so it cannot say anything wrong about it. The ask is in
+   The last two lines are your own address, for the lead's `tell-coordinator` (the harness
+   file): this session's `AGTERM_SESSION_ID` and this pane's `AGTERM_PANE_ID`, and the
+   `AGTERM_SOCKET` of this session, written out. The brief says nothing about the code, so it
+   cannot say anything wrong about it. The ask is in
    `task.md`, in the owner's words. The brief is a file because a task may wait in the queue or
    get a second lead, and each start has to find the same answers: `/lem plan <what>` writes
    `stop after the plan: yes` here, and that line is what keeps a queued plan from being built.
@@ -178,8 +184,13 @@ approved, which the lead may not change without the record saying so.
    with the paired agent of the other family, so that both families answer; without one the
    panel says that one family answered. A persona agent that does not answer leaves a partial
    read, which counts: the record says who did not answer and why. A read in which nobody
-   answered is no read: start it once more. When the answers are in, write the one event the
-   landing reads:
+   answered is written down too, with `answered:=0`, `families:='[]'` and each source in
+   `silent`, and started once more. After a second such read in a row the stories go on
+   unread: the owner's yes of step 6 still freezes them, and the pull request is not green, with
+   "the stories were not read" first. A partial read counts by his word of 2026-11-16 ("Thats
+   fine - just log and proceed"); the second try is the amendment's design. The landing refuses a
+   request whose newest read had no answer and was the first. When the answers are in, write the
+   one event the landing reads:
 
    ```bash
    python3 SKILL_DIR/scripts/project.py log SLUG stories.read by=lem asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": "PERSONA, FAMILY", "why": "WHAT STOPPED IT"}]' stories:=N flagged:=N split:=true|false digest=DIGEST
@@ -339,8 +350,11 @@ that is started again after it stopped.
    git ignores. The worktree is in the checkout, not in the task's
    state directory: an agent's sandbox may not write inside the git directory, and the state has
    to outlive the worktree.
-3. **The lead.** Write the state `building` first, with the line `lead: builder` or
-   `lead: session` as the brief says, so the next `may-start` counts this task. For a task that
+3. **The lead.** Write the brief's `coordinator:` and `socket:` lines again with your own
+   values when they are not yours (a brief written by a Lem before you, or one with no such
+   lines): a lead tells the session those lines name. Write the state `building` first, with
+   the line `lead: builder` or `lead: session` as the brief says, so the next `may-start`
+   counts this task. For a task that
    came from a ticket, the tracker then marks the ticket as started (its "start"); it writes
    nothing when the project's settings say that the tracker moves its own tickets. Then, for a
    builder, `spawn-builder` with one line: `Read TASK_DIRECTORY/brief.md and follow it.` For
@@ -359,10 +373,13 @@ the decisions and the commits on the branch; that is the whole handover.
 
 A lead that meets a choice the personas leave unclear asks it with `decisions.py ask`, and the
 task goes on without it (`stages/build.md`, "A choice in the build"). The defender of a plan
-talk asks the choices the talk left open the same way, and tells you with the line
-`lem: SLUG choice N waits`. A builder that leads cannot wake you, so run
-`python3 SKILL_DIR/scripts/decisions.py pending` at each of your turns: its `waiting` list is what
-needs his answer. A task that was dropped or landed while a choice waited is under `ended`, and
+talk asks the choices the talk left open the same way. Either lead tells you at once with the
+line `lem: SLUG choice N waits`, through `tell-coordinator`: the defender from its companion,
+and a builder that leads from this session, where it runs. That line is the wake-up, and the
+wait counts from the ask. A line can be lost (a pane that restarted, a brief with no
+`coordinator:` line), and the harness file says that the builder's line was not yet seen to
+wake an idle Lem, so also run `python3 SKILL_DIR/scripts/decisions.py pending` at each of your
+turns: its `waiting` list is what needs his answer. A task that was dropped or landed while a choice waited is under `ended`, and
 its choices need no answer.
 
 1. **Ask him at once**, through `ask-owner`: on top the two experts' answers (`advice`: each
@@ -375,8 +392,8 @@ its choices need no answer.
    and that only that part of the plan waits for his word.
    The lead gives each choice to the experts (the `lem-ask-expert` skill) right after its ask, and
    their answers take some seconds to minutes. When `advice` is not complete yet, say on the card
-   that the experts were asked; the defender of a plan talk sends `lem: SLUG choice N advised`
-   when both answers are in, and then you tell him both in one short message. When the task's
+   that the experts were asked; the lead sends `lem: SLUG choice N advised` when both answers
+   are in, and then you tell him both in one short message. When the task's
    directory has no `experts/choice-N.brief.md`, nobody gave the choice to them: run the
    `lem-ask-expert` skill yourself, at once.
 2. **Write his answer**: `decisions.py answer SLUG N --chose OPTION --words TEXT`. `--chose` is

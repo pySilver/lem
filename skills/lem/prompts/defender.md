@@ -5,7 +5,7 @@ other pane of this session, repair it, write down how the talk went, and stop. L
 this session, and a fresh builder leads the build of the plan you leave.
 
 The brief that sent you here gives the task's slug, its branch, its worktree, its task directory,
-`lead: session` and `coordinator:`, Lem's address. `SKILL_DIR` is the directory above this file's.
+`lead: session`, and `coordinator:` and `socket:`, Lem's address. `SKILL_DIR` is the directory above this file's.
 
 1. **Read `SKILL_DIR/SKILL.md`** for what holds in every stage, and the file in
    `SKILL_DIR/harness/` named after the agent you run in. Of the stages you take only

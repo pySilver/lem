@@ -17,3 +17,5 @@ jobs:
           bash tests/test-lem.sh
           bash tests/test-gate-panel.sh
           bash tests/test-ask.sh
+          bash tests/test-ask-expert.sh
+          bash tests/test-board.sh

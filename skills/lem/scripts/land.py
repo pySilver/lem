@@ -44,6 +44,14 @@ TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `gate.bar` p
 file that is not a document. A changed file of another language gets no such check, and the
 result says which (`not_covered`). The size of the change is counted, for the reviewer.
 
+The gate is the main checkout's. One task may bring its own: when the main checkout's settings
+name no gate command and the task's branch adds them to its `.lem/project.toml` (they are not on
+the base commit), `start` and `gate` take those commands, as for the first task of a new
+repository, "set up the checks"; the request is then not green, so that a person reads the
+checks once. The rest of the branch's settings, its `gate.ignores`, `gate.bar` and `gate.setup`
+too, are not read. A branch that changes a gate the main checkout has is gated by the main
+checkout's.
+
 The polish pass comes after the task's own work and before the machine checks, so that the
 review reads the code as it will merge. A fresh builder looks for a short fixed list (a comment
 the change made false, a leftover, code that reads badly, a document the change made false, and
@@ -120,11 +128,6 @@ describe in other words gets two items: an extra item costs a merge in the backl
 a lost one costs the defect. The review is asked to repeat an earlier round's words for a defect
 it sees again.
 
-A record that counts the defects outside the change and names none was written by b96ce79 or
-8f7c106, which were never pushed, so it can only be in a throwaway repository: `read` and
-`propose` refuse it and name the task's `landing.json`, and no step converts it, because a count
-says nothing from which an item could be written.
-
 `propose` writes the text of the pull request to `pr.md` in the task's directory, from what the
 steps kept, from the record of the task's decisions (`decisions.py list`) and from the notes
 file, whose headings it checks. The text opens with green or not green. Green says that the
@@ -162,7 +165,10 @@ A request that came from a bug has one more line with the cause its investigatio
 cause's place and the report, from the newest `investigation` event; a question's has none.
 `propose` refuses a feature with no `stories.read`, and one whose newest read flagged a story or
 showed a split between the families with no approval of his at or after it; the rare path's
-freeze of a read (`stories.py approve --read`) is no approval of his. A careful path that the diff matches and the plan's own call missed is a lesson
+freeze of a read (`stories.py approve --read`) is no approval of his. A read in which nobody
+answered is written down too: `propose` refuses while the newest one is the first such read in a
+row, so that the read is started once more, and after the second in a row the request is not
+green, with "the stories were not read" first, and its checks say so in place of the read's line. A careful path that the diff matches and the plan's own call missed is a lesson
 about that call: `propose` writes one `careful.missed` event with the path and its pattern, the
 first time it finds the case, for the retro. With a GitHub remote `propose` pushes the task's branch
 and opens the pull request with the `gh` command; a second run updates it. With any other
@@ -209,6 +215,7 @@ import json
 import re
 import shutil
 import subprocess
+import tomllib
 from datetime import date
 from pathlib import Path
 
@@ -371,6 +378,23 @@ class Task:
             self.recorded = json.loads(script("decisions.py", self.main, "list", self.slug).stdout)
         return self.recorded
 
+    def gate(self) -> tuple[list[str], bool]:
+        """The gate commands of this task, and whether its own branch brought them: the main
+        checkout's, unless those are none and the branch adds some to its `.lem/project.toml`."""
+        own = self.settings["gate"]["commands"]
+        if own or not (self.worktree / ".git").exists():
+            return own, False
+        tip = json.loads(script("project.py", self.worktree, "show").stdout)["gate"]["commands"]
+        if not tip:
+            return [], False
+        base = git(self.worktree, "merge-base", "HEAD", self.onto, check=False)
+        before = git(self.worktree, "show", f"{base}:.lem/project.toml", check=False) if base else ""
+        try:
+            on_base = tomllib.loads(before).get("gate", {}).get("commands", []) if before else []
+        except tomllib.TOMLDecodeError:
+            on_base = []
+        return (tip, True) if not on_base else ([], False)
+
     def fetch(self) -> None:
         if self.remote:
             git(self.main, "fetch", "origin", str(self.base))
@@ -381,11 +405,11 @@ def cmd_start(task: Task) -> dict:
         raise LandError(f"{task.others_landing[0]} is in `landing`: one branch lands at a time, so finish that one first")
     if task.record["status"] not in ("ready", "landing", "open"):
         raise LandError(f"the task is {task.record['status']!r}; only a `ready` task, or an `open` one whose base moved, takes the landing line")
-    if not task.settings["gate"]["commands"]:
+    if not task.gate()[0]:
         task.state("blocked", "the project has no gate command")
         raise LandError(
             "the project has no gate command, so nothing would show that the change works; the task is now `blocked`. "
-            "Add the commands to gate.commands in .lem/project.toml",
+            "Add the commands to gate.commands in .lem/project.toml, or, for the task that sets up the checks, in its own branch's",
         )
     task.need_worktree()
     if task.record["status"] == "ready":
@@ -619,16 +643,7 @@ def defects_of(value: object) -> list[dict]:
 
 def outside_of(task: Task, read: dict) -> list[dict]:
     """The defects outside the change of one kept review, each with the path of its item once it has one."""
-    value = read.get("outside", [])
-    if isinstance(value, int) and not isinstance(value, bool):
-        if value == 0:
-            return []
-        raise LandError(
-            f"review round {read['round']} in {task.kept_file} counts {value} defect(s) outside the change and names none: "
-            "a form of the record that was never released (b96ce79, 8f7c106), from which no item can be written, so no step converts it. "
-            "Only a throwaway repository holds one: drop the task, or remove that file and start its landing again",
-        )
-    return value
+    return read.get("outside", [])
 
 
 def to_file(task: Task, reads: list[dict]) -> list[dict]:
@@ -801,7 +816,7 @@ def cmd_gate(task: Task) -> dict:
     logs = task.directory / "gate"
     logs.mkdir(exist_ok=True)
     results = []
-    for number, command in enumerate(task.settings["gate"]["commands"], start=1):
+    for number, command in enumerate(task.gate()[0], start=1):
         output = logs / f"{number:02d}.log"
         with output.open("w", encoding="utf-8") as handle:
             code = subprocess.run(command, shell=True, cwd=task.worktree, stdout=handle, stderr=subprocess.STDOUT, check=False).returncode
@@ -983,16 +998,29 @@ def story_read_of(task: Task) -> dict | None:
     return next((record for record in reversed(events_of(task)) if record.get("event") == "stories.read"), None)
 
 
+def unanswered(task: Task) -> int:
+    """How many reads of the stories in a row, the newest last, nobody answered."""
+    count = 0
+    for record in reversed(events_of(task)):
+        if record.get("event") != "stories.read":
+            continue
+        if record.get("answered") != 0:
+            break
+        count += 1
+    return count
+
+
 def read_form(read: dict) -> bool:
-    """Whether a `stories.read` event has the form `project.py log` gives it."""
+    """Whether a `stories.read` event has the form `project.py log` gives it; one that nobody
+    answered names no family."""
     counts = ("asked", "answered", "stories", "flagged")
     families, silent = read.get("families"), read.get("silent")
     return (
         read.get("by") in ("lem", "lead")
         and all(isinstance(read.get(key), int) and not isinstance(read.get(key), bool) and read[key] >= 0 for key in counts)
-        and isinstance(families, list) and bool(families) and all(isinstance(name, str) and name.strip() for name in families)
+        and isinstance(families, list) and bool(families) == bool(read["answered"]) and all(isinstance(name, str) and name.strip() for name in families)
         and isinstance(silent, list) and all(isinstance(item, dict) and set(item) == {"name", "why"} for item in silent)
-        and isinstance(read.get("split"), bool) and isinstance(read.get("digest"), str) and 1 <= read["answered"] <= read["asked"]
+        and isinstance(read.get("split"), bool) and isinstance(read.get("digest"), str) and read["answered"] <= read["asked"]
     )
 
 
@@ -1002,7 +1030,7 @@ def approved_after(found: dict, read: dict) -> bool:
     return any(approval["by"] == "owner" and approval["at"] >= read["ts"] for approval in found.get("approvals", []))
 
 
-def read_line(read: dict | None, found: dict) -> str:
+def read_line(read: dict | None, found: dict, quiet_reads: int = 0) -> str:
     """The personas' read of the stories and his approval, as one line of the pull request's checks."""
     approval = found.get("approved")
     approved = ""
@@ -1010,6 +1038,12 @@ def read_line(read: dict | None, found: dict) -> str:
         approved = f"he approved them on {approval['at'][:10]}"
     elif approval and approval["by"] == "correction":
         approved = f"Lem approved it in his name on {approval['at'][:10]}, as a correction"
+    if read and not read["answered"]:
+        # propose refuses the first such read, so this is the second in a row at the least
+        return (
+            f"- the stories were not read by the personas: {quiet_reads} reads in a row, and none of the {read['asked']} personas asked answered"
+            + (f"; {approved}" if approved else "; the build started with no wait for him")
+        )
     if read:
         count = len(read["families"])
         line = (
@@ -1029,7 +1063,7 @@ def read_line(read: dict | None, found: dict) -> str:
 def unread(read: dict | None, found: dict) -> str | None:
     """The line that says the stories are not the ones the personas read, and what changed them.
     The plan's stories are the expected ones (the gate refuses any other), so they are compared."""
-    if read is None or found["stories_digest"] == read["digest"]:
+    if read is None or not read["answered"] or found["stories_digest"] == read["digest"]:
         return None
     # an approval of his after the read changed the stories only when it holds other stories than the read did
     his = [approval for approval in found.get("approvals", []) if approval["by"] == "owner" and approval["at"] >= read["ts"] and approval["digest"] != read["digest"]]
@@ -1124,8 +1158,6 @@ def cmd_read(task: Task, record: str | None) -> dict:
                 "review": task.settings["paths"]["review"]["path"],
             },
         }
-    # a kept review of a form that was never released stops this step too, before anything is written
-    to_file(task, reads)
     if state["due"] != "review":
         raise LandError(f"no review is due: {state['why']}")
     try:
@@ -1184,6 +1216,17 @@ def cmd_read(task: Task, record: str | None) -> dict:
 def not_green(task: Task, state: dict) -> list[str]:
     """Each reason for which this request is not green, one line each; none when it is green."""
     reasons = []
+    # the personas' read of the stories, started twice with no answer: the stories went on unread
+    read = story_read_of(task)
+    if read is not None and unanswered(task) >= 2:
+        quiet = "".join(f"; no answer from {source['name']} ({source['why']})" for source in read.get("silent", []))
+        reasons.append(f"the stories were not read: the personas' read was started twice and nobody answered{quiet}")
+    commands, brought = task.gate()
+    if brought:
+        reasons.append(
+            "the gate came with this change: the main checkout's settings name no gate command, and the branch's .lem/project.toml brings "
+            + ", ".join(f"`{command}`" for command in commands) + ". Read the checks once: every later task is gated on them",
+        )
     if state["due"] != "none":
         reasons.append(state["why"])
     # A lowered bar is never green, with a reason too: it is the one change that makes the other
@@ -1329,7 +1372,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out.append(f"- the stories' tests: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} stor{'y has' if len(without) == 1 else 'ies have'} no test" if without else ""))
     out.append(polished(kept.get("polish"), found))
     read = story_read_of(task)
-    out.append(read_line(read, found))
+    out.append(read_line(read, found, unanswered(task)))
     if unread(read, found):
         out.append(unread(read, found))
     scout = task.directory / "scout.md"
@@ -1387,7 +1430,6 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if kept.get("gated") != tip:
         raise LandError(f"no green check is on record for this tip; `land.py gate {task.slug}` comes first")
     reads = kept.get("reads", [])
-    # a kept review of a form that was never released stops this step before anything else
     unfiled = to_file(task, reads)
     state = due(task)
     if state["due"] == "review":
@@ -1419,6 +1461,12 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             f"{task.slug} is a feature, and the event log has no `stories.read`: the personas read its stories before the build "
             "(`stages/new.md`, \"The interview and the stories\", step 5; on the rare path `stages/plan.md`, step 1), "
             f"and whoever ran the read writes `project.py log {task.slug} stories.read` with the form {READ_FORM}",
+        )
+    if read is not None and not read["answered"] and unanswered(task) < 2:
+        raise LandError(
+            f"nobody answered the newest read of {task.slug}'s stories: it is started once more, and its record written again with `project.py log {task.slug} stories.read` "
+            "(`stages/new.md`, \"The interview and the stories\", step 5; on the rare path `stages/plan.md`, step 1). "
+            "After a second read in a row that nobody answered, the request is proposed as not green",
         )
     if read is not None and (read["flagged"] or read["split"]) and not approved_after(found, read):
         doubt = f"{read['flagged']} flagged stor{'y' if read['flagged'] == 1 else 'ies'}" if read["flagged"] else "a split between the two families"

@@ -47,8 +47,8 @@ or what a builder printed, and it writes no code. Lem is the only context that k
 task. When it fills with one task's code, it loses the others.
 
 **A task's lead** is a builder: one fresh agent, in a context of its own, that owns one task from
-its plan to its report. It writes the plan. A plan of one task it builds itself; for a plan of
-more tasks it starts one fresh builder for each task, reads their reports and writes no code.
+its plan to its report. It writes the plan, starts one fresh builder for each task of it, also
+for a plan of one task, reads their reports and writes no code.
 
 **A plan talk's defender** is the agent of a companion session that Lem opens for a careful or
 large plan (a plan of more than three tasks), with the reviewer in its other pane. A builder
@@ -118,7 +118,8 @@ of the two a line is, ask the owner once in the terminal, in one line, before an
 skill such as `lem-release` changes files.
 
 A task runs on from `new` to its pull request without the owner, unless a stage file names a stop.
-Between two of the owner's messages Lem only waits: a lead that stops wakes it.
+Between two of the owner's messages Lem only waits: a lead that stops wakes it, and so does a
+lead whose choice waits for the owner.
 
 ## What holds in every stage
 
@@ -218,7 +219,7 @@ worktree, never committed and not removed with a worktree. It holds:
 - `experts/`: for each choice given to the experts, the brief they read (`choice-N.brief.md`)
   and each one's answer (`choice-N.fable.md`, `choice-N.astra.md`), which the `lem-ask-expert`
   skill writes into the record.
-- `reports/`: one file per builder of a plan of more tasks. Lem does not read these.
+- `reports/`: one file per builder of a plan's task. Lem does not read these.
 - `landing.json`, `polish.json`, `gate/`, `read.json`, `reviews/`, `notes.md` and `pr.md`: what
   the landing keeps: its own record, what the polish pass was given, the output of each gate
   command, what each review was given and what it found, Lem's notes for the pull request, and

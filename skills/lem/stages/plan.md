@@ -1,7 +1,7 @@
 # plan
 
-The lead's first stage. A plan here is short and written by whoever builds. It exists so the
-builder has thought before typing and so a reviewer can tell what was meant; it is not argued line
+The lead's first stage. A plan here is short and written by the task's lead, which then gives
+each of its tasks to a fresh builder. It exists so the builder has thought before typing and so a reviewer can tell what was meant; it is not argued line
 by line before the build. Only a careful or large plan is talked through with the reviewer, over
 a list of questions that closes with the reviewer's first turn (step 4).
 
@@ -37,8 +37,11 @@ a list of questions that closes with the reviewer's first turn (step 4).
      the event the landing reads, in the form `stages/new.md` gives ("The interview and the
      stories", step 5), with `by=lead`, your one family, and the digest of the plan's stories
      (`python3 SKILL_DIR/scripts/stories.py --repo WORKTREE digest SLUG`). A persona agent that
-     did not answer is named in `silent` with why; a read in which nobody answered is started
-     once more. Nobody confused: freeze the stories they read,
+     did not answer is named in `silent` with why. A read in which nobody answered is written
+     down too, in the form `stages/new.md` gives for it, and started once more; after a second
+     one in a row, freeze the stories as below, write the state line `the stories were not read:
+     nobody answered twice`, and build: the pull request is not green for it. Nobody confused:
+     freeze the stories they read,
      `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE approve SLUG --read`, which takes the
      plan's stories and refuses any other text than the one the read names. It freezes the task's
      first contract only, and is refused once the task has any approval: from then on a story the
@@ -109,10 +112,10 @@ a list of questions that closes with the reviewer's first turn (step 4).
      plan (`prompts/defender.md`).
    - *a record*: the talk is done, and you lead the build of the plan it left: skip step 4, take
      the questions it left open at step 5, and go on. Read the `## Plan talk` section first: a
-     repair changed the plan after you or another builder wrote it. A plan of more than one task
-     has you start a builder for each, which the harness file checked from a `worker` subagent
-     and not yet from a `lem-builder`: when your agent refuses you the start of a builder, write
-     the state `blocked` with that refusal, and stop.
+     repair changed the plan after you or another builder wrote it. Every plan has you start a
+     builder for each of its tasks, which the harness file checked from a `worker` subagent and
+     not yet from a `lem-builder`: when your agent refuses you the start of a builder, write the
+     state `blocked` with that refusal, and stop.
    When your brief says `stop after the plan: yes`, stop the same way with the line `the owner
    reads the plan`.
 4. **A careful or large plan gets a plan talk before any code.** This is the defender's step: the
@@ -146,6 +149,8 @@ a list of questions that closes with the reviewer's first turn (step 4).
      numbered list of questions, the most expensive first, each with the position of the plan it
      challenges, its mechanism, and its place (a section of the plan, or a file and symbol). Keep
      the list as it came, before you change anything: the next two rules are checked against it.
+     The list may be empty: a reviewer that found no question says so in that turn, and you
+     close at once. That talk has two turns and no question, and its record says so.
    - **One repair per question.** For each question, repair the plan and commit, or refute the
      question with a cite. Check each of its claims in the code before you answer. The reviewer
      answers each question by its number only:
@@ -234,8 +239,10 @@ a list of questions that closes with the reviewer's first turn (step 4).
    changed the plan; `unargued`, the questions raised after the list; `root`, the repairs that
    changed a decision of the plan; `layer`, the layers over a cited decision that stayed; and
    `shared`, the decisions that two questions named. The script refuses a record of fewer than two
-   turns, or one with no question settled and none left open: a floor against an empty record, not a
-   measure of a good talk. It refuses counts that do not agree: settled and open that do not add up
+   turns: a floor against an empty record, not a measure of a good talk. A talk of no question is
+   the reviewer's empty list and your close, `turns:=2 questions:=0` with every other count 0; the
+   bound below keeps it at two turns, and the script refuses a question raised after an empty
+   list, since no turn is left to raise it in. It refuses counts that do not agree: settled and open that do not add up
    to questions, more design choices than open questions, more repairs than questions, more repairs
    at the cause and layers together than repairs, and more shared decisions than design choices (the
    second question on a decision closes as one; derived from the rule above, not measured). And it

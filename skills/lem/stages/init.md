@@ -159,7 +159,10 @@ For a repository that has code:
   works today does. That choice is about the cast and the profile only. The rules an agent
   already loads by itself are not asked about: they stay in their folder, the settings name it
   as the style guide whatever `--existing` says, and Lem gives the ones that cover a change to
-  every builder and reviewer (`project.py rules`). A move of those rules is the owner's
+  every builder and reviewer (`project.py rules`). When `.lem/styleguide` holds rules too,
+  `project.py rules` reads both folders, the one the settings name first, and nothing is
+  refused or moved; a file linked into both is read once, and two files of one name, one in
+  each folder, are two files, and both are read. A move of those rules is the owner's
   decision on another day, and no step here proposes it. A cast and a profile that are linked
   can move under `.lem` later by hand, with a `git mv` and their two lines in the settings.
 
@@ -216,7 +219,9 @@ is, and no persona file that is there is overwritten.
   it into the agent document, on the onboarding's branch, only on the owner's yes.
 - **The gate of a new project** does not exist yet. Leave `gate.commands` empty and name "set up
   the checks" (formatter, linter, type checker, a first test) as the task to run first: no task
-  lands through this skill before it. The onboarding's own branch is not a task: it holds
+  lands through this skill before it. That task's branch writes the commands into
+  `gate.commands` of its own `.lem/project.toml`, and the landing gates it with them
+  (`stages/land.md`, step 1); its pull request is not green, so that the owner reads the checks. The onboarding's own branch is not a task: it holds
   settings and drafts, and step 6 lands it.
 - **The review configuration**: the review tool's own starter set, in the review tool's own
   folder, which the settings' `review` path names (the harness file says how it is made), and its
