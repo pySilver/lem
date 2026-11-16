@@ -10,22 +10,23 @@ One kind of step never goes that way: a step that a later "no" cannot reverse wa
 however long that takes.
 
     decisions.py log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas|owner|lem
-                 [--said TEXT] [--undo TEXT] [--story N --was TEXT | --story N --added
-                 | --story N --removed --was TEXT]
-                            a decision that was taken; --said is what the personas answered,
-                            and --story with --was is the story it changed, with its old text.
-                            --added is a story the build adds (N its number in the plan),
-                            --removed one it takes out (N its approved number, --was its text);
-                            each counts as a changed story.
+                 [--said TEXT] [--undo TEXT]
+                            a decision that was taken; --said is what the personas answered.
                             `owner` is a word of his that nobody asked for (the task is careful),
                             `lem` one that Lem took before the task had a lead (out of scope)
+    decisions.py story SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT
+                 | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
+                            a change of a story the owner approved, with its text before and
+                            after: N is its number in the stories as they stand after every
+                            earlier change. --choice names the choice of the build that led to
+                            it, answered or taken by timeout; without one, the lead's own change
+                            or the personas' clear pick
+    decisions.py changes SLUG
+                            the approved stories, each recorded change of them in order, and the
+                            stories they give, which the plan's stories must be
     decisions.py ask SLUG --what TEXT --option TEXT --option TEXT [...] --recommended TEXT
                  --why TEXT --said TEXT [--irreversible data|system|person|money]
-                 [--story N --was TEXT --changes OPTION [--changes OPTION ...]]
-                            a choice for the owner: it gets a number and the time its wait ends.
-                            --story, --was and --changes name the story that some options change,
-                            its text now, and each option that changes it: the option taken then
-                            is a changed story
+                            a choice for the owner: it gets a number and the time its wait ends
     decisions.py pending [SLUG]
                             the choices that wait, of one task or of every task, each with the
                             seconds its wait has left (`waiting`). A task that is dropped or
@@ -38,13 +39,9 @@ however long that takes.
                             the owner's answer: the option it takes, word for word, his own
                             words when they are not that text, and his reason when he gave one.
                             Lem writes it down. Text that is no option is refused here
-    decisions.py answer SLUG ID --instead TEXT [--story-changed [--story N] --was TEXT | --story-kept]
-                 [--words TEXT] [--why TEXT]
+    decisions.py answer SLUG ID --instead TEXT [--words TEXT] [--why TEXT]
                             the owner decided what none of the options says: TEXT settles the
-                            choice, an irreversible one too. On a choice that carries a story,
-                            say whether his decision changed a story (with its text before) or
-                            kept it. His decision may change a story no option touched:
-                            --story-changed then names it with --story N
+                            choice, an irreversible one too
     decisions.py timeout SLUG ID
                             the wait ended with no answer: the recommended action is taken.
                             Refused while the wait runs, and always for an irreversible step
@@ -52,6 +49,16 @@ however long that takes.
 
 The record is `decisions.jsonl` in the task's directory, one line for each thing that happened;
 a decision is the lines with its number. Each line is also an event in the log the board draws.
+
+A story change is a line of the same record, with a number of its own (`change`). It applies to
+the stories the owner approved (`stories.json`, which `stories.py approve` writes) and names
+their digest, so a later approval of his starts from his stories again. `story` computes the
+stories as they stand after every earlier change, and refuses a change whose story N is not the
+text `--was` names: a wrong record never enters. Texts are compared with each run of spaces as
+one, as a story written over two lines reads; they are kept as typed. A choice carries no story:
+when the option taken changes one, the lead records that with `story --choice ID`, and the
+stories' check refuses the plan until it does. A task with no approved stories has no story
+changes: its plan's stories are their one source.
 
 The wait is the settings' `flow.decision_wait`, in minutes. Its default, 15, is the owner's own
 number ("if there is decision taken in 15 min", 2026-11-16). `--said` is not optional for `ask`:
@@ -164,20 +171,36 @@ class Task:
                     **{f"owner_{key}": line[key] for key in ("words", "why") if key in line},
                     **({"instead": True} if line.get("instead") else {}),
                 )
-                if "story_was" in line:
-                    # his own decision changed a story: the one it names, or the one the choice carries
-                    number = line.get("story_number", (found[line["id"]].get("story_change") or {}).get("story"))
-                    found[line["id"]].update(story=number, was=line["story_was"])
             elif line["kind"] == "timeout":
                 found[line["id"]].update(state="timeout", chose=line["chose"], by="timeout", taken=line["at"])
             elif line["kind"] == "late":
-                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why", "instead", "story_number", "story_was", "story_kept") if key in line}})
-        for decision in found.values():
-            # a choice that may change a story changed it when the option taken is one that changes it
-            change = decision.get("story_change")
-            if change and decision["state"] in ("answered", "timeout") and decision["chose"] in change["options"]:
-                decision.update(story=change["story"], was=change["was"])
+                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why", "instead") if key in line}})
         return [found[key] for key in sorted(found)]
+
+    def approved(self) -> dict | None:
+        """The stories the owner approved, as `stories.py approve` kept them; none for a task without."""
+        kept = self.directory / "stories.json"
+        if not kept.is_file():
+            return None
+        try:
+            return json.loads(kept.read_text(encoding="utf-8"))
+        except ValueError as error:
+            raise DecisionError(f"{kept} does not read as JSON ({error}); it is written by `stories.py approve` only") from error
+
+    def changes(self, lines: list[dict] | None = None) -> dict:
+        """The approved stories, the recorded changes of them in order, and the stories they give.
+        A change made under an earlier approval is his no longer: his later approval replaced it."""
+        approved = self.approved()
+        if approved is None:
+            return {"task": self.slug, "approved": None, "changes": [], "expected": None}
+        changes = [line for line in (self.lines() if lines is None else lines) if line["kind"] == "story" and line["approved"] == approved["digest"]]
+        expected = [story["text"] for story in approved["stories"]]
+        for change in changes:
+            expected = applied(expected, change)
+        return {
+            "task": self.slug, "approved": {key: approved[key] for key in ("at", "by", "kind", "digest")},
+            "changes": changes, "expected": expected,
+        }
 
     def one(self, number: int, known: list[dict] | None = None) -> dict:
         known = self.decisions() if known is None else known
@@ -212,30 +235,95 @@ def text(value: str | None, flag: str) -> str:
     return " ".join(value.split())
 
 
+def typed(value: str | None, flag: str) -> str:
+    """A story's text as typed: two spaces in a literal value stay two."""
+    if value is None or not value.strip():
+        raise DecisionError(f"{flag} needs the story's text, word for word")
+    return value.strip()
+
+
+def same(one: str, other: str) -> bool:
+    """Two texts of a story are the same when they differ only in runs of spaces, as a story
+    written over two lines reads as one line with one space."""
+    return one.split() == other.split()
+
+
+def applied(stories: list[str], change: dict) -> list[str]:
+    """The stories after one change; a change whose story N is not the text it names is refused."""
+    number, out = change["story"], list(stories)
+    if change["how"] == "added":
+        if not 1 <= number <= len(out) + 1:
+            raise DecisionError(f"an added story goes at a number from 1 to {len(out) + 1}, and this one is {number}")
+        out.insert(number - 1, change["now"])
+        return out
+    if not 1 <= number <= len(out):
+        raise DecisionError(f"there is no story {number}: the stories are 1 to {len(out)} after every earlier change")
+    if not same(out[number - 1], change["was"]):
+        raise DecisionError(f"story {number} is {out[number - 1]!r} after every earlier change, and --was says {change['was']!r}; `decisions.py changes SLUG` gives the stories as they stand")
+    if change["how"] == "changed":
+        out[number - 1] = change["now"]
+    else:
+        out.pop(number - 1)
+    return out
+
+
 def cmd_log(task: Task, args: argparse.Namespace) -> dict:
     if args.by == "personas" and not args.said:
         raise DecisionError("--by personas needs --said: who answered and what each picked, in one or two sentences")
-    if args.added and args.removed:
-        raise DecisionError("a story is added or removed, not both: --added or --removed")
-    if (args.added or args.removed) and args.story is None:
-        raise DecisionError(f"--{'added' if args.added else 'removed'} names its story with --story N")
-    if args.added and args.was is not None:
-        raise DecisionError("an added story had no text before: leave out --was")
-    if not args.added and (args.story is None) != (args.was is None):
-        raise DecisionError(
-            "a story that was removed is named by --story N, its approved number, and --was, its approved text"
-            if args.removed else "a story that changed is named by both --story N and --was, its text before the change",
-        )
     line = {"at": stamp(now()), "kind": "taken", "what": text(args.what, "--what"), "chose": text(args.chose, "--chose"), "why": text(args.why, "--why"), "by": args.by}
-    if args.added or args.removed:
-        line["story_how"] = "added" if args.added else "removed"
-    for key in ("said", "undo", "was"):
-        # an empty value is refused, never dropped: a story with no old text breaks the pull request
+    for key in ("said", "undo"):
+        # an empty value is refused, never dropped
         if getattr(args, key) is not None:
             line[key] = text(getattr(args, key), f"--{key}")
-    if args.story is not None:
-        line["story"] = args.story
     return task.add(lambda known: [{"id": len(known) + 1, **line}])[0]
+
+
+def cmd_story(task: Task, args: argparse.Namespace) -> dict:
+    """Record one change of an approved story, checked against the stories as they stand."""
+    how = [name for name in ("changed", "added", "removed") if getattr(args, name) is not None]
+    if len(how) != 1:
+        raise DecisionError("a story change is one of --changed N, --added N or --removed N")
+    how = how[0]
+    wants = {"changed": ("was", "now"), "added": ("now",), "removed": ("was",)}[how]
+    for key in ("was", "now"):
+        if key in wants and getattr(args, key) is None:
+            raise DecisionError(f"--{how} needs --{key}: the story's text {'before' if key == 'was' else 'after'} the change, word for word")
+        if key not in wants and getattr(args, key) is not None:
+            raise DecisionError(f"--{how} takes no --{key}: " + ("an added story had no text before" if how == "added" else "a removed story has no text after"))
+    if (args.choice is None) == (args.by is None):
+        raise DecisionError("a story change names --choice ID, the choice of the build that led to it, or --by lead|personas when no choice did: one of the two")
+    if args.by == "personas" and not args.said:
+        raise DecisionError("--by personas needs --said: who answered and what each picked, in one or two sentences")
+    if args.said is not None and args.by != "personas":
+        raise DecisionError("--said is what the personas answered: it goes with --by personas")
+    approved = task.approved()
+    if approved is None:
+        raise DecisionError(
+            f"{task.slug} has no approved stories, so no change of them is recorded: its plan's stories are their one source. "
+            "Approved stories are kept by `stories.py approve`",
+        )
+    line = {"at": stamp(now()), "kind": "story", "how": how, "story": getattr(args, how), "why": text(args.why, "--why"), "approved": approved["digest"]}
+    for key in wants:
+        line[key] = typed(getattr(args, key), f"--{key}")
+    if args.choice is not None:
+        line["choice"] = args.choice
+    else:
+        line["by"] = args.by
+        if args.said is not None:
+            line["said"] = text(args.said, "--said")
+
+    def make(known: list[dict]) -> list[dict]:
+        if args.choice is not None:
+            choice = task.one(args.choice, known)
+            if choice["state"] not in ("answered", "timeout"):
+                raise DecisionError(f"choice {args.choice} is {choice['state']}: a story changes after a choice that was answered or taken by timeout")
+        lines = task.lines()
+        # the same computation the stories' check makes, with this change last: a wrong record never enters
+        task.changes([*lines, line])
+        return [{"change": sum(1 for old in lines if old["kind"] == "story") + 1, **line}]
+
+    made = task.add(make)[0]
+    return {**made, "stories": task.changes()["expected"]}
 
 
 def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
@@ -245,12 +333,6 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
     recommended = text(args.recommended, "--recommended")
     if recommended not in options:
         raise DecisionError(f"--recommended is one of the options, word for word: {'; '.join(options)}")
-    if not ((args.story is None) == (args.was is None) == (not args.changes)):
-        raise DecisionError("a choice that may change a story names --story N, --was (the story's text now) and --changes for each option that changes it, all three or none")
-    changes = [text(option, "--changes") for option in args.changes or []]
-    unknown = [option for option in changes if option not in options]
-    if unknown:
-        raise DecisionError(f"--changes names an option, word for word: {'; '.join(options)}; not {'; '.join(unknown)}")
     wait = json.loads(script("project.py", task.repo, "show"))["flow"]["decision_wait"]
     asked = now()
     line = {
@@ -258,8 +340,6 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
         "why": text(args.why, "--why"), "said": text(args.said, "--said"), "irreversible": args.irreversible,
         "wait_minutes": wait, "deadline": stamp(asked + timedelta(minutes=wait)),
     }
-    if changes:
-        line["story_change"] = {"story": args.story, "was": text(args.was, "--was"), "options": changes}
     made = task.add(lambda known: [{"id": len(known) + 1, **line}])[0]
     return {**made, "next": (
         "this step waits for the owner's word, however long: the rest of the plan goes on, and no timeout takes it" if args.irreversible
@@ -317,24 +397,8 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
     instead = args.instead is not None
     chose = text(args.instead, "--instead") if instead else text(args.chose, "--chose")
     reason = {key: text(value, f"--{key}") for key, value in (("words", args.words), ("why", args.why)) if value is not None}
-    if not instead and (args.story_changed or args.story_kept or args.was is not None):
-        raise DecisionError("--story-changed, --story-kept and --was go with --instead: an option says by itself whether it changes the story")
-    if args.story_changed and args.story_kept:
-        raise DecisionError("his decision changed the story or kept it: --story-changed or --story-kept, not both")
-    if args.story_changed and args.was is None:
-        raise DecisionError("--story-changed needs --was, the story's text before his decision")
-    if args.story is not None and not args.story_changed:
-        raise DecisionError("--story goes with --story-changed: the number of the story his decision changed")
-    if args.was is not None and not args.story_changed:
-        raise DecisionError("--was goes with --story-changed: the story's text before his decision")
     if instead:
         reason["instead"] = True
-        if args.story_changed:
-            reason["story_was"] = text(args.was, "--was")
-            if args.story is not None:
-                reason["story_number"] = args.story
-        elif args.story_kept:
-            reason["story_kept"] = True
     taken: dict = {}
 
     def make(known: list[dict]) -> list[dict]:
@@ -342,24 +406,13 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
         at = stamp(now())
         if decision["state"] == "answered":
             raise DecisionError(f"choice {number} has the owner's answer already: {decision['chose']!r}")
-        # The option is what the record, the story it may change and the pull request read; his
-        # own words stay beside it. A decision of his that is none of the options is --instead.
+        # The option is what the record and the pull request read; his own words stay beside it. A decision of his that is none of the options is --instead.
         if not instead and chose not in decision["options"]:
             raise DecisionError(
                 f"the answer to choice {number} is one of its options, word for word: {'; '.join(decision['options'])}. "
                 "Put the owner's own words in --words. When what he decided fits none of them, settle the choice with "
                 "--instead TEXT, never with a new `decisions.py log`, so it does not wait for ever",
             )
-        story = decision.get("story_change")
-        if instead and story and not (args.story_changed or args.story_kept):
-            raise DecisionError(
-                f"choice {number} carries story {story['story']}: an answer with --instead says --story-changed with --was, the story's text before, "
-                "or --story-kept, so that a changed story is never lost by silence",
-            )
-        if instead and not story and args.story_kept:
-            raise DecisionError(f"choice {number} carries no story: leave out --story-kept")
-        if instead and not story and args.story_changed and args.story is None:
-            raise DecisionError(f"choice {number} carries no story: --story-changed names the story his decision changed with --story N")
         if decision["state"] == "waits" and (decision["irreversible"] or left(decision) > 0):
             return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
         # After the wait the recommended option stands. When nobody wrote the timeout yet, it is
@@ -405,10 +458,18 @@ def main() -> None:
     log.add_argument("--by", required=True, choices=BY)
     log.add_argument("--said", help="what the personas answered: who, which option, in one or two sentences")
     log.add_argument("--undo", help="what it would take to undo the decision")
-    log.add_argument("--story", type=int, metavar="N", help="the number of the story this decision changed")
-    log.add_argument("--was", help="that story's text before the change, or the approved text of a removed one")
-    log.add_argument("--added", action="store_true", help="with --story N: the build adds story N, which he did not approve")
-    log.add_argument("--removed", action="store_true", help="with --story N and --was: the build takes out approved story N")
+    story = commands.add_parser("story")
+    story.add_argument("slug")
+    story.add_argument("--changed", type=int, metavar="N", help="story N changed: --was is its text before, --now its text after")
+    story.add_argument("--added", type=int, metavar="N", help="a story the build adds at number N, with --now its text")
+    story.add_argument("--removed", type=int, metavar="N", help="story N leaves the stories, with --was its text")
+    story.add_argument("--was", help="the story's text before the change, word for word")
+    story.add_argument("--now", help="the story's text after the change, word for word")
+    story.add_argument("--why", required=True, help="why the story changed, in one sentence")
+    story.add_argument("--choice", type=int, metavar="ID", help="the choice of the build that led to the change")
+    story.add_argument("--by", choices=("lead", "personas"), help="who changed it, when no choice did")
+    story.add_argument("--said", help="with --by personas: who answered and what each picked")
+    commands.add_parser("changes").add_argument("slug")
     ask = commands.add_parser("ask")
     ask.add_argument("slug")
     ask.add_argument("--what", required=True)
@@ -417,9 +478,6 @@ def main() -> None:
     ask.add_argument("--why", required=True, help="why that option is recommended")
     ask.add_argument("--said", required=True, help="what the personas answered: who, which option, and why they do not agree")
     ask.add_argument("--irreversible", choices=tuple(IRREVERSIBLE), help="why a later \"no\" cannot undo the step")
-    ask.add_argument("--story", type=int, metavar="N", help="the story that some of the options change")
-    ask.add_argument("--was", help="that story's text now, before any change")
-    ask.add_argument("--changes", action="append", metavar="OPTION", help="an option that changes the story, word for word")
     pending = commands.add_parser("pending")
     pending.add_argument("slug", nargs="?")
     wait = commands.add_parser("wait")
@@ -431,10 +489,6 @@ def main() -> None:
     answer.add_argument("id", type=int)
     answer.add_argument("--chose", metavar="OPTION", help="the option the owner's answer takes, word for word")
     answer.add_argument("--instead", metavar="TEXT", help="the owner's decision, when it is none of the options; it settles the choice")
-    answer.add_argument("--story-changed", action="store_true", help="with --instead: his decision changed the story the choice carries")
-    answer.add_argument("--story", type=int, metavar="N", help="with --story-changed: the story his decision changed, when the choice carries none or another")
-    answer.add_argument("--was", help="with --story-changed: that story's text before his decision")
-    answer.add_argument("--story-kept", action="store_true", help="with --instead: the story the choice carries stays true")
     answer.add_argument("--words", help="the owner's answer as he gave it, when it is not the option's text")
     answer.add_argument("--why", help="the owner's own reason, in his words, when he gave one; never the recommendation's")
     timeout = commands.add_parser("timeout")
@@ -450,6 +504,10 @@ def main() -> None:
             task = Task(repo, args.slug)
             if args.command == "log":
                 result = cmd_log(task, args)
+            elif args.command == "story":
+                result = cmd_story(task, args)
+            elif args.command == "changes":
+                result = task.changes()
             elif args.command == "ask":
                 result = cmd_ask(task, args)
             elif args.command == "wait":
@@ -462,7 +520,7 @@ def main() -> None:
                 result = [shown(task, decision) for decision in task.decisions()]
     except DecisionError as error:
         sys.exit(f"decisions.py: {error}")
-    print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

@@ -1457,7 +1457,7 @@ s1='1. The note file holds the gift note of order 1042: "for Ania".'
 aplan_with "$s1" "$one" '2. An order with no gift note has the line "1043," and' '   no word after the comma.' "$two"
 copied=$(stories show approved-note 2>&1 || true)
 held=$(stories red approved-note 2>&1 || true)
-if [ "$(field '(d["approved"]["by"], d["departures"], [len(s["tests"]) for s in d["stories"]])' <<<"$copied" 2>/dev/null)" = "('owner', [], [1, 1])" ] \
+if [ "$(field '(d["approved"]["by"], d["changes"], [len(s["tests"]) for s in d["stories"]])' <<<"$copied" 2>/dev/null)" = "('owner', [], [1, 1])" ] \
   && [ "$(field 'd["approved"]["digest"]' <<<"$copied" 2>/dev/null)" = "$(field 'd["digest"]' <<<"$approved" 2>/dev/null)" ] \
   && [ "$(field '(d["ok"], [t["story"] for t in d["tests"]])' <<<"$held" 2>/dev/null)" = "(True, [1, 2])" ]; then
   pass "a plan whose stories are the approved ones, in other line breaks and with test lines added, passes show and red"
@@ -1465,42 +1465,88 @@ else
   fail "a plan of approved stories: $copied / $held"
 fi
 adecide() { "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ST" "$@"; }
-# A reworded story is refused by show and red until the record holds its change.
-aplan_with '1. The note file holds the gift note of order 1042, "for Ania".' "$one" '2. An order with no gift note has the line "1043," and no word after the comma.' "$two"
+t1='The note file holds the gift note of order 1042: "for Ania".'
+t2='An order with no gift note has the line "1043," and no word after the comma.'
+c1='The note file holds the gift note of order 1042, "for Ania".'
+c2='The note file holds the note "for Ania" of order 1042.'
+a3='The note file ends with a line break.'
+# A reworded story is refused by show and red until its change is recorded, with its text before and after.
+aplan_with "1. $c1" "$one" "2. $t2" "$two"
 reworded=$(stories show approved-note 2>&1 || true)
 red_reworded=$(stories red approved-note 2>&1 || true)
-adecide log approved-note --what "The colon of story 1" --chose "a comma" --why "The importer splits on a colon." --by lead --story 1 --was "$s1" >/dev/null 2>&1 || true
-changed_now=$(stories show approved-note 2>/dev/null | field '[(p["story"], p["how"], p["decision"]) for p in d["departures"]]' 2>&1 || true)
-# A dropped story is refused until a decision removes it, with its approved text word for word.
-aplan_with "$s1" "$one"
+adecide story approved-note --changed 1 --was "$t1" --now "$c1" --why "The importer splits on a colon." --by lead >/dev/null 2>&1 || true
+changed_now=$(stories show approved-note 2>/dev/null | field '[(c["change"], c["story"], c["how"]) for c in d["changes"]]' 2>&1 || true)
+# An earlier change lets no later one pass: the plan changes story 1 again, and a record of it names what it is now.
+aplan_with "1. $c2" "$one" "2. $t2" "$two"
+again=$(stories show approved-note 2>&1 || true)
+stale=$(adecide story approved-note --changed 1 --was "$t1" --now "$c2" --why "The note comes first." --by lead 2>&1 || true)
+adecide story approved-note --changed 1 --was "$c1" --now "$c2" --why "The note comes first in the sentence." --by lead >/dev/null 2>&1 || true
+chained=$(stories show approved-note 2>/dev/null | field '[c["story"] for c in d["changes"]]' 2>&1 || true)
+# A story the build added can leave again, by a record of its own.
+adecide story approved-note --added 3 --now "$a3" --why "The reader of the file needs it." --by lead >/dev/null 2>&1 || true
+aplan_with "1. $c2" "$one" "2. $t2" "$two" "3. $a3" '   - no test: printf ends every line so.'
+added_now=$(stories show approved-note 2>/dev/null | field 'len(d["changes"])' 2>&1 || true)
+adecide story approved-note --removed 3 --was "$a3" --why "Printf ends every line so, and nobody needs the rule." --by lead >/dev/null 2>&1 || true
+aplan_with "1. $c2" "$one" "2. $t2" "$two"
+gone_again=$(stories show approved-note 2>/dev/null | field '[(c["how"], c["story"]) for c in d["changes"]]' 2>&1 || true)
+# A dropped story is refused until its removal is recorded with its text.
+aplan_with "1. $c2" "$one"
 dropped=$(stories show approved-note 2>&1 || true)
-adecide log approved-note --what "The empty case" --chose "no story for it" --why "Every order has a note now." --by lead --story 2 --removed --was "An order with no gift note has the line 1043." >/dev/null 2>&1 || true
-wrong_was=$(stories show approved-note 2>&1 || true)
-adecide log approved-note --what "The empty case" --chose "no story for it" --why "Every order has a note now." --by lead --story 2 --removed \
-  --was 'An order with no gift note has the line "1043," and no word after the comma.' >/dev/null 2>&1 || true
-removed_now=$(stories show approved-note 2>/dev/null | field '[(p["story"], p["how"]) for p in d["departures"]]' 2>&1 || true)
-# An added story is refused until a decision adds it.
-aplan_with "$s1" "$one" '2. The note file ends with a line break.' '   - no test: printf ends every line so.'
-added=$(stories show approved-note 2>&1 || true)
-adecide log approved-note --what "The line break" --chose "a story for it" --why "The reader of the file needs it." --by lead --story 2 --added >/dev/null 2>&1 || true
-added_now=$(stories show approved-note 2>/dev/null | field '[(p["story"], p["how"]) for p in d["departures"]]' 2>&1 || true)
-added_was=$(adecide log approved-note --what x --chose y --why z --by lead --story 3 --added --was "old" 2>&1 || true)
-no_number=$(adecide log approved-note --what x --chose y --why z --by lead --removed --was "old" 2>&1 || true)
-plain=$(stories show export-has-the-gift-note | field '(d["approved"], d["departures"])' 2>&1 || true)
-# shellcheck disable=SC2016
-if grep -q "story 1 of 20261116-approved-note.md is not story 1 as he approved it: it says 'The note file holds the gift note of order 1042, \"for Ania\".'" <<<"$reworded" \
-  && grep -q 'decisions.py log approved-note ... --story N --was TEXT. for a changed one, .--story N --added. for an added one' <<<"$reworded" \
-  && grep -q "story 1 of 20261116-approved-note.md is not story 1 as he approved it" <<<"$red_reworded" \
-  && [ "$changed_now" = "[(1, 'changed', 1)]" ] \
-  && grep -q "20261116-approved-note.md lacks story 2 as he approved it, .An order with no gift note has the line \"1043,\" and no word after the comma.., and no decision removes it" <<<"$dropped" \
-  && grep -q "decision 2 removes story 2, and its --was is not the approved text" <<<"$wrong_was" && [ "$removed_now" = "[(2, 'removed')]" ] \
-  && grep -q "story 2 of 20261116-approved-note.md, .The note file ends with a line break.., is not among the stories he approved, and no decision adds it" <<<"$added" \
-  && [ "$added_now" = "[(2, 'removed'), (2, 'added')]" ] \
-  && grep -q "an added story had no text before: leave out --was" <<<"$added_was" && grep -q -- "--removed names its story with --story N" <<<"$no_number" \
-  && [ "$plain" = "(None, [])" ]; then
-  pass "a plan that rewords, drops or adds an approved story is refused by show and red, and passes once the record holds the decision of a changed, removed or added story; a removal must name the approved text; a task with no approved stories keeps the plan as the source"
+wrong_was=$(adecide story approved-note --removed 2 --was "An order with no gift note has the line 1043." --why "Every order has a note now." --by lead 2>&1 || true)
+adecide story approved-note --removed 2 --was "$t2" --why "Every order has a note now." --by personas --said "The merchant and the accountant both dropped it." >/dev/null 2>&1 || true
+removed_now=$(stories show approved-note 2>/dev/null | field '(d["changes"][-1]["how"], d["changes"][-1]["by"], d["changes"][-1]["said"])' 2>&1 || true)
+expected=$(adecide changes approved-note 2>/dev/null | field 'd["expected"]' 2>&1 || true)
+# The command takes one change, its reason, and who made it: a choice of the build, or the lead or the personas.
+neither=$(adecide story approved-note --added 2 --now "x" --why "w" 2>&1 || true)
+both=$(adecide story approved-note --added 2 --now "x" --why "w" --choice 1 --by lead 2>&1 || true)
+nosaid=$(adecide story approved-note --added 2 --now "x" --why "w" --by personas 2>&1 || true)
+twoways=$(adecide story approved-note --changed 1 --added 2 --now "x" --why "w" --by lead 2>&1 || true)
+added_was=$(adecide story approved-note --added 2 --now "x" --was "y" --why "w" --by lead 2>&1 || true)
+nochoice=$(adecide story approved-note --added 2 --now "x" --why "w" --choice 9 2>&1 || true)
+not_approved=$(adecide story export-has-the-gift-note --changed 1 --was "x" --now "y" --why "w" --by lead 2>&1 || true)
+log_story=$(status_of adecide log approved-note --what x --chose y --why z --by lead --story 1 --was "$t1")
+records=$(grep -c '"kind": "story"' "$ST/.git/lem/tasks/approved-note/decisions.jsonl" || true)
+plain=$(stories show export-has-the-gift-note 2>/dev/null | field '(d["approved"], d["changes"])' 2>&1 || true)
+if grep -qF "story 1 of 20261116-approved-note.md says '$c1', and the expected story 1 is '$t1'" <<<"$reworded" \
+  && grep -qF 'decisions.py story approved-note --changed N --was TEXT --now TEXT' <<<"$reworded" \
+  && grep -qF "story 1 of 20261116-approved-note.md says '$c1'" <<<"$red_reworded" && [ "$changed_now" = "[(1, 1, 'changed')]" ] \
+  && grep -qF "story 1 of 20261116-approved-note.md says '$c2', and the expected story 1 is '$c1'" <<<"$again" \
+  && grep -qF "story 1 is '$c1' after every earlier change, and --was says '$t1'" <<<"$stale" && [ "$chained" = "[1, 1]" ] \
+  && [ "$added_now" = 3 ] && [ "$gone_again" = "[('changed', 1), ('changed', 1), ('added', 3), ('removed', 3)]" ] \
+  && grep -qF "20261116-approved-note.md lacks story 2, '$t2', which the expected stories hold" <<<"$dropped" \
+  && grep -qF "story 2 is '$t2' after every earlier change, and --was says 'An order with no gift note has the line 1043.'" <<<"$wrong_was" \
+  && [ "$removed_now" = "('removed', 'personas', 'The merchant and the accountant both dropped it.')" ] && [ "$expected" = "['$c2']" ] \
+  && grep -qF "names --choice ID, the choice of the build that led to it, or --by lead|personas when no choice did: one of the two" <<<"$neither" \
+  && grep -qF "one of the two" <<<"$both" && grep -qF -- "--by personas needs --said" <<<"$nosaid" \
+  && grep -qF "a story change is one of --changed N, --added N or --removed N" <<<"$twoways" && grep -qF -- "--added takes no --was: an added story had no text before" <<<"$added_was" \
+  && grep -qF "no choice 9 went to the owner in approved-note" <<<"$nochoice" \
+  && grep -qF "export-has-the-gift-note has no approved stories, so no change of them is recorded" <<<"$not_approved" && [ "$log_story" = 2 ] \
+  && [ "$records" = 5 ] && [ "$plain" = "(None, [])" ]; then
+  pass "a plan whose stories are not the approved ones with each recorded change applied is refused by show and red: an earlier change lets no later one pass, a story the build added can leave again, and a change whose text before is not the story as it stands is refused when it is recorded; the command takes one change with its reason and who made it; a task with no approved stories records none and keeps the plan as the source"
 else
-  fail "departures from the approved stories: $reworded / $red_reworded / $changed_now / $dropped / $wrong_was / $removed_now / $added / $added_now / $added_was / $no_number / $plain"
+  fail "story changes against the approved stories: $reworded / $red_reworded / $changed_now / $again / $stale / $chained / $added_now / $gone_again / $dropped / $wrong_was / $removed_now / $expected / $neither / $both / $nosaid / $twoways / $added_was / $nochoice / $not_approved / $log_story / $records / $plain"
+fi
+# His next approval starts the changes again. A change keeps its texts as typed, and two spaces of a literal value match;
+# a plan of another kind than the approved one is refused, since the kind is his.
+# shellcheck disable=SC2016
+code1='The note file holds the code `A  B` for order 1042.'
+# shellcheck disable=SC2016
+code2='The note file holds the code `A  B` for orders 1042 and 1044.'
+printf '%s\n' '## Stories' '' 'Kind: feature, because the note gets a code.' '' "1. $code1" '2. Order 1043 has no note line.' > "$WORK/reapproved.md"
+stories approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
+reset=$(adecide changes approved-note 2>/dev/null | field '(len(d["changes"]), d["expected"])' 2>&1 || true)
+spaced=$(adecide story approved-note --changed 1 --was "$code1" --now "$code2" --why "Order 1044 has the note too." --by lead 2>/dev/null | field '(d["was"], d["now"])' 2>&1 || true)
+printf '%s\n' '# The note' '' '## Stories' '' 'Kind: correction, because it is one sentence.' '' "1. $code2" '' '## Tasks' '' '1. The note.' > "$aplan"
+kind=$(stories show approved-note 2>&1 || true)
+# shellcheck disable=SC2016
+aplan_with '1. The note file holds the code `A  B` for' '   orders 1042 and 1044.' '2. Order 1043 has no note line.'
+kept_spaces=$(stories show approved-note 2>/dev/null | field '(len(d["changes"]), d["stories"][0]["text"])' 2>&1 || true)
+if [ "$reset" = "(0, ['$code1', 'Order 1043 has no note line.'])" ] && [ "$spaced" = "('$code1', '$code2')" ] \
+  && grep -qF "20261116-approved-note.md says \`Kind: correction\`, and he approved its stories as a feature: a change of the kind is his only" <<<"$kind" \
+  && [ "$kept_spaces" = "(1, '$code2')" ]; then
+  pass "his next approval starts the story changes again; a change keeps its texts as typed, two spaces of a literal value match, and a story broken over two lines is the same story; a plan of another kind than the approved one is refused"
+else
+  fail "a new approval, spaces and the kind: $reset / $spaced / $kind / $kept_spaces"
 fi
 
 # The decisions of a task: each one the lead or the personas took, and each choice that waits for the
@@ -1515,17 +1561,16 @@ dlist() { decide list gift-note | field "$1"; }
 dfile=$DC/.git/lem/tasks/gift-note/decisions.jsonl
 lead=$(decide log gift-note --what "The name of the new column" --chose gift_note --why "the other columns of the export are in snake case" --by lead --undo "rename the column" | field '(d["id"], d["kind"], d["by"], d["undo"])')
 nosaid=$(decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by personas 2>&1 || true)
-nowas=$(decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by lead --story 2 2>&1 || true)
-nostory=$(status_of decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by lead --was "the old text")
+nostory=$(status_of decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by lead --story 2 --was "the old text")
 personas=$(decide log gift-note --what "Two notes on one order" --chose "both notes, with a semicolon between them" --why "a merchant reads both" --by personas \
-  --said "The merchant and the accountant both picked the semicolon." --story 2 --was "An order with no gift note has an empty cell." | field '(d["id"], d["by"], d["story"], d["was"], d["said"])')
+  --said "The merchant and the accountant both picked the semicolon." | field '(d["id"], d["by"], "story" in d, d["said"])')
 if [ "$lead" = "(1, 'taken', 'lead', 'rename the column')" ] \
-  && [ "$personas" = "(2, 'personas', 2, 'An order with no gift note has an empty cell.', 'The merchant and the accountant both picked the semicolon.')" ] \
-  && grep -qF -- "--by personas needs --said: who answered and what each picked" <<<"$nosaid" && grep -qF -- "a story that changed is named by both --story N and --was" <<<"$nowas" && [ "$nostory" = 1 ] \
+  && [ "$personas" = "(2, 'personas', False, 'The merchant and the accountant both picked the semicolon.')" ] \
+  && grep -qF -- "--by personas needs --said: who answered and what each picked" <<<"$nosaid" && [ "$nostory" = 2 ] \
   && [ "$(grep -c '' "$dfile")" = 2 ] && [ "$(grep -c '"event": "decision.taken", "task": "gift-note"' "$DC/.git/lem/events.jsonl")" = 2 ]; then
-  pass "a decision of the lead or of the personas is written down with its number, and each is an event too; the personas' one needs what they said, and a changed story needs both its number and its old text"
+  pass "a decision of the lead or of the personas is written down with its number, and each is an event too; the personas' one needs what they said, and a decision carries no story: a story's change has a record of its own"
 else
-  fail "decisions.py log: $lead / $personas / $nosaid / $nowas / $nostory / $(cat "$dfile")"
+  fail "decisions.py log: $lead / $personas / $nosaid / $nostory / $(cat "$dfile")"
 fi
 one=$(decide ask gift-note --what "Which note wins" --option "the first" --recommended "the first" --why w --said s 2>&1 || true)
 notone=$(decide ask gift-note --what "Which note wins" --option "the first" --option "the last" --recommended "the newest" --why w --said s 2>&1 || true)
@@ -1601,36 +1646,29 @@ if [ "$after" = "('late', 'timeout', 'plain', True, True)" ] && grep -q "choice 
 else
   fail "an answer after the wait: $after / $gone / $kinds / $seven"
 fi
-# A story that an unclear choice may change is named with the choice, with the options that change it.
-nochange=$(decide ask gift-note --what w --option a --option b --recommended a --why w --said s --story 1 --was "the old text" 2>&1 || true)
-notoption=$(decide ask gift-note --what w --option a --option b --recommended a --why w --said s --story 1 --was "the old text" --changes c 2>&1 || true)
-decide ask gift-note --what "The note in the header" --option "no header" --option "a header" --recommended "no header" --why "The rows stay as they are." --said "The two personas split." \
-  --story 1 --was "A CSV export holds the gift note of an order." --changes "a header" >/dev/null
-decide ask gift-note --what "The note in the footer" --option "no footer" --option "a footer" --recommended "no footer" --why "The rows stay as they are." --said "The two personas split." \
-  --story 2 --was "An order with no gift note has an empty cell." --changes "a footer" >/dev/null
+# A choice carries no story: the options are only its own, and a story it changes gets a record of its own after it.
+carried=$(status_of decide ask gift-note --what w --option a --option b --recommended a --why w --said s --story 1 --was "the old text" --changes b)
+decide ask gift-note --what "The note in the header" --option "no header" --option "a header" --recommended "no header" --why "The rows stay as they are." --said "The two personas split." >/dev/null
+decide ask gift-note --what "The note in the footer" --option "no footer" --option "a footer" --recommended "no footer" --why "The rows stay as they are." --said "The two personas split." >/dev/null
 decide answer gift-note 8 --chose "a header" >/dev/null && decide answer gift-note 9 --chose "no footer" >/dev/null
-told=$(dlist '[(c["id"], c.get("story"), c.get("was")) for c in d if c["id"] in (8, 9)]')
-emptywas=$(decide log gift-note --what x --chose y --why z --by lead --story 1 --was "" 2>&1 || true)
+told=$(dlist '[(c["id"], c["state"], "story" in c) for c in d if c["id"] in (8, 9)]')
 emptyundo=$(status_of decide log gift-note --what x --chose y --why z --by lead --undo " ")
-if grep -qF -- "a choice that may change a story names --story N, --was" <<<"$nochange" && grep -qF -- "--changes names an option, word for word: a; b" <<<"$notoption" \
-  && [ "$told" = "[(8, 1, 'A CSV export holds the gift note of an order.'), (9, None, None)]" ] \
-  && grep -qF -- "--was needs its text: one sentence in plain words" <<<"$emptywas" && [ "$emptyundo" = 1 ] && [ "$(dlist 'len(d)')" = 9 ]; then
-  pass "a choice that may change a story names it with the options that change it, and the answer that takes one of them is a changed story; an option it does not have is refused; and an empty --was or --undo is refused before anything is written"
+if [ "$carried" = 2 ] && [ "$told" = "[(8, 'answered', False), (9, 'answered', False)]" ] && [ "$emptyundo" = 1 ] && [ "$(dlist 'len(d)')" = 9 ]; then
+  pass "a choice carries no story, and its answer changes none by itself; an empty --undo is refused before anything is written"
 else
-  fail "a story through a choice, and empty values: $nochange / $notoption / $told / $emptywas / $emptyundo"
+  fail "a choice and a story, and empty values: $carried / $told / $emptyundo"
 fi
-# An answer takes one of the options, word for word, and keeps the owner's own words beside it: a story that option changes is changed.
-decide ask gift-note --what "The note in the summary" --option "no summary" --option "a summary line" --recommended "no summary" --why "The rows stay as they are." --said "The two personas split." \
-  --story 2 --was "An order with no gift note has an empty cell." --changes "a summary line" >/dev/null
+# An answer takes one of the options, word for word, and keeps the owner's own words beside it.
+decide ask gift-note --what "The note in the summary" --option "no summary" --option "a summary line" --recommended "no summary" --why "The rows stay as they are." --said "The two personas split." >/dev/null
 free=$(decide answer gift-note 10 --chose "Put a line at the bottom, please." 2>&1 || true)
 freecode=$(status_of decide answer gift-note 10 --chose "Put a line at the bottom, please.")
 still=$(dlist 'next(c["state"] for c in d if c["id"] == 10)')
 mapped=$(decide answer gift-note 10 --chose "a summary line" --words "Put a line at the bottom, please." | field '(d["kind"], d["chose"], d["words"])')
-ten=$(dlist 'next((c["state"], c["chose"], c.get("owner_words"), c.get("story")) for c in d if c["id"] == 10)')
+ten=$(dlist 'next((c["state"], c["chose"], c.get("owner_words")) for c in d if c["id"] == 10)')
 if grep -qF "the answer to choice 10 is one of its options, word for word: no summary; a summary line" <<<"$free" && grep -qF -- "--words" <<<"$free" \
   && grep -qF -- "fits none of them, settle the choice with --instead TEXT, never with a new \`decisions.py log\`" <<<"$free" && [ "$freecode" = 1 ] && [ "$still" = waits ] \
-  && [ "$mapped" = "('answered', 'a summary line', 'Put a line at the bottom, please.')" ] && [ "$ten" = "('answered', 'a summary line', 'Put a line at the bottom, please.', 2)" ]; then
-  pass "an answer names one of the choice's options word for word, and his own words go beside it; an answer that fits no option is refused and writes nothing; and a story the option changes is changed"
+  && [ "$mapped" = "('answered', 'a summary line', 'Put a line at the bottom, please.')" ] && [ "$ten" = "('answered', 'a summary line', 'Put a line at the bottom, please.')" ]; then
+  pass "an answer names one of the choice's options word for word, and his own words go beside it; an answer that fits no option is refused and writes nothing"
 else
   fail "an answer and the owner's words: $free / $freecode / $still / $mapped / $ten"
 fi
@@ -1642,42 +1680,17 @@ bothcode=$(status_of decide answer gift-note 11 --chose "email nobody" --instead
 settled=$(decide answer gift-note 11 --instead "Email only the beta testers." --why "They asked to hear first." | field '(d["kind"], d["chose"], d["instead"])')
 eleven=$(dlist 'next((c["state"], c["chose"], c.get("instead"), c.get("owner_why")) for c in d if c["id"] == 11)')
 open_ones=$(decide pending gift-note | field '[c["id"] for c in d["waiting"]]')
-decide ask gift-note --what "The note in the title" --option "no title" --option "a title" --recommended "no title" --why "The rows stay as they are." --said "The two personas split." \
-  --story 1 --was "A CSV export holds the gift note of an order." --changes "a title" >/dev/null
-silent=$(decide answer gift-note 12 --instead "A title on the first page only." 2>&1 || true)
-twoways=$(status_of decide answer gift-note 12 --instead "A title on the first page only." --story-changed --was "old" --story-kept)
-nowas=$(decide answer gift-note 12 --instead "A title on the first page only." --story-changed 2>&1 || true)
-nostory=$(decide answer gift-note 4 --instead "Send it next week." --story-kept 2>&1 || true)
-decide answer gift-note 12 --instead "A title on the first page only." --story-changed --was "A CSV export holds the gift note of an order." >/dev/null
-decide ask gift-note --what "The note in the footer, again" --option "no footer" --option "a footer" --recommended "no footer" --why "The rows stay as they are." --said "The two personas split." \
-  --story 2 --was "An order with no gift note has an empty cell." --changes "a footer" >/dev/null
-decide answer gift-note 13 --instead "A footer on the last page only, which the cells do not see." --story-kept >/dev/null
-stories_now=$(dlist '[(c["id"], c["state"], c.get("instead"), c.get("story"), c.get("was")) for c in d if c["id"] in (12, 13)]')
+decide ask gift-note --what "The note in the title" --option "no title" --option "a title" --recommended "no title" --why "The rows stay as they are." --said "The two personas split." >/dev/null
+flagged_answer=$(status_of decide answer gift-note 12 --instead "A title on the first page only." --story-changed --was "old")
+decide answer gift-note 12 --instead "A title on the first page only." >/dev/null
+twelve=$(dlist 'next((c["state"], c.get("instead"), "story" in c) for c in d if c["id"] == 12)')
 if grep -qF -- "--chose names one of the options and --instead a decision of the owner's that is none of them: give one of the two" <<<"$both" && [ "$bothcode" = 1 ] \
   && grep -qF -- "give one of the two" <<<"$neither" && [ "$settled" = "('answered', 'Email only the beta testers.', True)" ] \
   && [ "$eleven" = "('answered', 'Email only the beta testers.', True, 'They asked to hear first.')" ] && [ "$open_ones" = "[4]" ] \
-  && grep -qF -- "choice 12 carries story 1: an answer with --instead says --story-changed with --was, the story's text before, or --story-kept" <<<"$silent" && [ "$twoways" = 1 ] \
-  && grep -qF -- "--story-changed needs --was" <<<"$nowas" && grep -qF -- "choice 4 carries no story" <<<"$nostory" \
-  && [ "$stories_now" = "[(12, 'answered', True, 1, 'A CSV export holds the gift note of an order.'), (13, 'answered', True, None, None)]" ]; then
-  pass "a decision of the owner's that is none of the options settles the choice with --instead, an irreversible one too, so it no longer waits; it is refused together with --chose or with neither; and on a choice with a story it says the story changed, with its old text, or kept"
+  && [ "$flagged_answer" = 2 ] && [ "$twelve" = "('answered', True, False)" ]; then
+  pass "a decision of the owner's that is none of the options settles the choice with --instead, an irreversible one too, so it no longer waits; it is refused together with --chose or with neither; and it carries no story"
 else
-  fail "an answer that is none of the options: $both / $neither / $settled / $eleven / $open_ones / $silent / $twoways / $nowas / $nostory / $stories_now"
-fi
-# His own decision may change a story that no option touched: --story-changed names it with --story, and on a choice with a story --story may name another.
-decide ask gift-note --what "The order of the rows" --option "by date" --option "by number" --recommended "by date" --why "A merchant reads the newest first." --said "The two personas split." >/dev/null
-nonumber=$(decide answer gift-note 14 --instead "Export only orders with a note." --story-changed --was "Every order is in the export." 2>&1 || true)
-loose=$(decide answer gift-note 14 --instead "Export only orders with a note." --story 1 2>&1 || true)
-decide answer gift-note 14 --instead "Export only orders with a note." --story-changed --story 1 --was "Every order is in the export." >/dev/null
-decide ask gift-note --what "The note's place" --option "in the row" --option "in a column of its own" --recommended "in the row" --why "No column moves." --said "The two personas split." \
-  --story 2 --was "An order with no gift note has an empty cell." --changes "in a column of its own" >/dev/null
-decide answer gift-note 15 --instead "In the row, and only for orders with a note." --story-changed --story 1 --was "Every order is in the export." >/dev/null
-ownstory=$(dlist '[(c["id"], c.get("story"), c.get("was")) for c in d if c["id"] in (14, 15)]')
-if grep -qF -- "choice 14 carries no story: --story-changed names the story his decision changed with --story N" <<<"$nonumber" \
-  && grep -qF -- "--story goes with --story-changed" <<<"$loose" \
-  && [ "$ownstory" = "[(14, 1, 'Every order is in the export.'), (15, 1, 'Every order is in the export.')]" ]; then
-  pass "a decision of the owner's that is none of the options records the story it changes, also on a choice whose options touched no story, and on a choice with a story it may name another"
-else
-  fail "a story his own decision changes: $nonumber / $loose / $ownstory"
+  fail "an answer that is none of the options: $both / $neither / $settled / $eleven / $open_ones / $flagged_answer / $twelve"
 fi
 # A task that is dropped or landed has nothing that waits: pending leaves its choices out and says why, wait returns at once, and list still shows them.
 decide ask dropped-task --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
@@ -2676,20 +2689,21 @@ printf '%s\n' 'pub fn one() -> i32 { 1 }' '#[cfg(test)]' 'mod tests {' '    #[te
 git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start"
 local_land() { land --repo "$LOCAL" "$@"; }
 task_in "$LOCAL" local-change x.txt x
+# A story that changed during the build is written down by the build, as a record of its own with its text before and after; the text shows it, and a person merges.
+printf '%s\n' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' '1. The file holds the word y.' > "$WORK/local-approved.md"
+"$PY" -B "$STORIES" --repo "$LOCAL" approve local-change --file "$WORK/local-approved.md" >/dev/null 2>&1 || true
+"$PY" -B "$DECISIONS" --repo "$LOCAL" story local-change --changed 1 --was "The file holds the word y." --now "The file holds the word the owner asked for." \
+  --why "y is taken by another file." --by personas --said "Both personas picked x." >/dev/null 2>&1 || true
 local_land start local-change >/dev/null && local_land base local-change >/dev/null && local_land gate local-change >/dev/null && local_land read local-change --record "$(clean 1)" >/dev/null
-# A story that changed during the build is written down by the build, through the record of its decisions; the text shows it, and a person merges.
-"$PY" -B "$DECISIONS" --repo "$LOCAL" log local-change --what "Which word the file holds" --chose x --why "y is taken by another file." --by personas \
-  --said "Both personas picked x." --story 1 --was "The file holds the word y." >/dev/null
 local_land propose local-change --title "fix: x" --notes "$NOTES" >/dev/null
 err=$(local_land land local-change --by agent 2>&1 || true)
 out=$(local_land land local-change --by owner)
 if grep -q "the request is not green (story 1 changed during the build: y is taken by another file.), so a person merges it" <<<"$err" \
   && [ "$(sed -n 1p "$LOCAL/.git/lem/tasks/local-change/pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "$LOCAL/.git/lem/tasks/local-change/pr.md")" = '- story 1 changed during the build: y is taken by another file.' ] \
-  && grep -q '^- story 1: was "The file holds the word y\.". y is taken by another file\. Both personas picked x\.$' "$LOCAL/.git/lem/tasks/local-change/pr.md" \
-  && grep -qx -- '- Which word the file holds: "x", by the personas (Both personas picked x.). y is taken by another file. Story 1 changed.' "$LOCAL/.git/lem/tasks/local-change/pr.md" \
+  && grep -qxF -- '- story 1: was "The file holds the word y.", now "The file holds the word the owner asked for.". y is taken by another file. By the personas: Both personas picked x.' "$LOCAL/.git/lem/tasks/local-change/pr.md" \
   && [ ! -e "$LOCAL/.git/lem/tasks/local-change/story-changes.jsonl" ] \
   && [ "$(field 'd["pushed"]' <<<"$out")" = False ] && [ -f "$LOCAL/x.txt" ] && [ "$(git -C "$LOCAL" log -1 --format=%s main)" = "fix: local-change" ] && [ "$(status_in "$LOCAL" local-change)" = landed ]; then
-  pass "a request with a changed story is not green: its text says so first and shows the change, and a person merges it whatever the settings say; with no remote the base branch is fast-forwarded in the checkout that holds it"
+  pass "a request with a changed story is not green: its text says so first and shows the change, with what the story was and is, and a person merges it whatever the settings say; with no remote the base branch is fast-forwarded in the checkout that holds it"
 else
   fail "local landing: $err / $out"
 fi
@@ -2709,17 +2723,17 @@ wdec answer waited-change 3 --chose "send the email" --words "Yes, send it." --w
 wdec ask waited-change --what "The case of the word" --option "lower case" --option "upper case" --recommended "lower case" --why "The test reads it so." --said "The two personas split." >/dev/null
 past "$wfile" 4 && wdec timeout waited-change 4 >/dev/null && wdec answer waited-change 4 --chose "upper case" --words "Make it upper case." --why "The header is in upper case." >/dev/null
 wdec answer waited-change 2 --chose "the first line" --why "The importer reads the first line." >/dev/null
-# a choice the personas left unclear, whose recommended option changes story 1: the owner takes it in time
+# a choice the personas left unclear: the owner takes the recommended option in time
 wdec ask waited-change --what "Which line holds the word" --option "the only line" --option "the second line" --recommended "the second line" --why "A header goes first." \
-  --said "The two personas split." --story 1 --was "The file holds the word the owner asked for." --changes "the second line" >/dev/null
+  --said "The two personas split." >/dev/null
 wdec answer waited-change 5 --chose "the second line" >/dev/null
-# the owner decides what none of the options says: an irreversible step that would otherwise wait for ever, and a choice whose story his decision changes
+# the owner decides what none of the options says: an irreversible step that would otherwise wait for ever, and one more
 wdec ask waited-change --what "Email the customers" --option "email all customers" --option "email nobody" --recommended "email nobody" --why "Nobody asked for it." \
   --said "The two personas split." --irreversible person >/dev/null
 wdec answer waited-change 6 --instead "Email only the beta testers." --why "They asked to hear first." >/dev/null
 wdec ask waited-change --what "The word's line ending" --option "a line break" --option "no line break" --recommended "a line break" --why "Every file ends so." \
-  --said "The two personas split." --story 1 --was "The file holds the word the owner asked for." --changes "no line break" >/dev/null
-wdec answer waited-change 7 --instead "A line break, and a second line with the date." --story-changed --was "The file holds the word the owner asked for." >/dev/null
+  --said "The two personas split." >/dev/null
+wdec answer waited-change 7 --instead "A line break, and a second line with the date." >/dev/null
 instead_pending=$(wdec pending waited-change | field '[c["id"] for c in d["waiting"]]')
 local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
 text=$LOCAL/.git/lem/tasks/waited-change/pr.md
@@ -2731,20 +2745,17 @@ if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes)
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = "- choice 2 was taken by timeout (Where the word goes): \"the first line\", the recommended option, after the owner's wait of 15 minutes ended with no answer; he answered later with the same (his reason: The importer reads the first line)" ] \
   && [ "$(sed -n 4p "$text")" = "- choice 4 was taken by timeout (The case of the word): \"lower case\", the recommended option, after the owner's wait of 15 minutes ended with no answer; he answered later with \"upper case\", which differs (his words: \"Make it upper case.\"; his reason: The header is in upper case)" ] \
-  && [ "$(sed -n 5p "$text")" = "- story 1 changed during the build: choice 5 (Which line holds the word) took \"the second line\", by the owner" ] \
-  && [ "$(sed -n 6p "$text")" = "- story 1 changed during the build: choice 7 (The word's line ending) was settled by the owner with \"A line break, and a second line with the date.\", none of the options" ] \
-  && [ "$instead_pending" = "[]" ] \
-  && grep -qxF -- '- story 1: was "The file holds the word the owner asked for.". choice 5 (Which line holds the word) took "the second line", by the owner. The two personas split.' "$text" \
+  && [ -z "$(sed -n 5p "$text")" ] && [ "$instead_pending" = "[]" ] \
   && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Stories|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
   && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- The name of the file: \"w.txt\", by the lead. The other files have one letter.
 - Where the word goes: \"the first line\", by the timeout, after the owner's wait of 15 minutes. A reader sees it at once. He answered later with the same (his reason: The importer reads the first line).
 - Tell the merchants: \"send the email\", by the owner, over the recommended \"send nothing\" (recommended because: Nothing they see changes). His words: \"Yes, send it.\" His reason: The merchants asked for it.
 - The case of the word: \"lower case\", by the timeout, after the owner's wait of 15 minutes. The test reads it so. He answered later with \"upper case\", which differs (his words: \"Make it upper case.\"; his reason: The header is in upper case).
-- Which line holds the word: \"the second line\", by the owner, as recommended. A header goes first. Story 1 changed.
+- Which line holds the word: \"the second line\", by the owner, as recommended. A header goes first.
 - Email the customers: \"Email only the beta testers.\", by the owner, none of the options; the recommended was \"email nobody\" (recommended because: Nobody asked for it). His reason: They asked to hear first.
-- The word's line ending: \"A line break, and a second line with the date.\", by the owner, none of the options; the recommended was \"a line break\" (recommended because: Every file ends so). He gave no reason. Story 1 changed." ] \
+- The word's line ending: \"A line break, and a second line with the date.\", by the owner, none of the options; the recommended was \"a line break\" (recommended because: Every file ends so). He gave no reason." ] \
   && grep -qF "the request is not green (choice 2 was taken by timeout" <<<"$agent"; then
-  pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken by timeout is a line of its own that is not green, with a late answer, the same or not, and his own words and reason; a story that an answered choice changed is not green; a decision of the owner's that is none of the options settles its choice, also an irreversible one, so the request is proposed; and the text lists each decision of the record with who took it and its reason, the recommendation's reason never as the owner's"
+  pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken by timeout is a line of its own that is not green, with a late answer, the same or not, and his own words and reason; an answered choice is no cause of not green by itself; a decision of the owner's that is none of the options settles its choice, also an irreversible one, so the request is proposed; and the text lists each decision of the record with who took it and its reason, the recommendation's reason never as the owner's"
 else
   fail "decisions in the landing: $waiting / $forever / $agent / $(cat "$text" 2>/dev/null)"
 fi
@@ -2763,6 +2774,9 @@ approved_day() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))[
 task_in "$LOCAL" story-departs d.txt d
 tree=$(project --repo "$LOCAL" worktree-dir story-departs)
 printf '%s\n' '## Stories' '' 'Kind: feature, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' '2. The file has one line.' > "$WORK/approved.md"
+# the read comes first, of the stories file that he then approves
+read_digest=$(lstories digest story-departs --file "$WORK/approved.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log story-departs stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=2 flagged:=0 split:=false "digest=$read_digest" >/dev/null 2>&1 || true
 lstories approve story-departs --file "$WORK/approved.md" >/dev/null 2>&1 || true
 # shellcheck disable=SC2016
 printf '%s\n' '# story-departs' '' '## Stories' '' 'Kind: feature, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' \
@@ -2770,55 +2784,98 @@ printf '%s\n' '# story-departs' '' '## Stories' '' 'Kind: feature, because the f
   > "$tree/docs/plans/20261115-story-departs.md"
 git -C "$tree" commit -q -am "docs: the stories as they are built"
 unrecorded=$(local_land start story-departs >/dev/null && local_land base story-departs >/dev/null && local_land gate story-departs 2>&1 || true)
-ldecide log story-departs --what "The one-line rule" --chose "no such rule" --why "A second line holds the date now." --by personas --said "Both personas picked it." \
-  --story 2 --removed --was "The file has one line." >/dev/null 2>&1 || true
-ldecide log story-departs --what "The line break" --chose "a rule for it" --why "The importer reads whole lines only." --by lead --story 2 --added >/dev/null 2>&1 || true
-project --repo "$LOCAL" log story-departs stories.read by=lem personas:=2 'families:=["opus", "sol"]' stories:=2 flagged:=0 >/dev/null 2>&1 || true
+# a story that a choice of the build removes, once the choice is answered; and one the lead adds
+ldecide ask story-departs --what "The one-line rule" --option "keep the rule" --option "no such rule" --recommended "keep the rule" --why "A reader counts on it." \
+  --said "The two personas split." >/dev/null 2>&1 || true
+early=$(ldecide story story-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --choice 1 2>&1 || true)
+ldecide answer story-departs 1 --chose "no such rule" >/dev/null 2>&1 || true
+ldecide story story-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --choice 1 >/dev/null 2>&1 || true
+ldecide story story-departs --added 2 --now "The file ends with a line break." --why "The importer reads whole lines only." --by lead >/dev/null 2>&1 || true
 local_land gate story-departs >/dev/null 2>&1 && local_land read story-departs --record "$(clean 1)" >/dev/null 2>&1 \
   && local_land propose story-departs --title "fix: story-departs" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.git/lem/tasks/story-departs/pr.md
 agent=$(local_land land story-departs --by agent 2>&1 || true)
-# shellcheck disable=SC2016
-if grep -q "story 2 of 20261115-story-departs.md is not story 2 as he approved it" <<<"$unrecorded" \
+if grep -qF "story 2 of 20261115-story-departs.md says 'The file ends with a line break.', and the expected story 2 is 'The file has one line.'" <<<"$unrecorded" \
+  && grep -qF "choice 1 is waits: a story changes after a choice that was answered or taken by timeout" <<<"$early" \
   && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
-  && [ "$(sed -n 3p "$text")" = '- story 2 was removed during the build: A second line holds the date now.' ] \
+  && [ "$(sed -n 3p "$text")" = '- story 2 was removed during the build: A second line holds the date now, after choice 1 (The one-line rule), where the owner took "no such rule"' ] \
   && [ "$(sed -n 4p "$text")" = '- story 2 was added during the build: The importer reads whole lines only.' ] \
-  && grep -qxF -- '- story 2: removed; he had approved "The file has one line.". A second line holds the date now. Both personas picked it.' "$text" \
-  && grep -qxF -- '- story 2: added, not among the stories he approved. The importer reads whole lines only.' "$text" \
-  && grep -qxF -- '- The one-line rule: "no such rule", by the personas (Both personas picked it.). A second line holds the date now. Story 2 removed.' "$text" \
-  && grep -qxF -- '- The line break: "a rule for it", by the lead. The importer reads whole lines only. Story 2 added.' "$text" \
+  && grep -qxF -- '- story 2: removed, was "The file has one line.". A second line holds the date now, after choice 1 (The one-line rule), where the owner took "no such rule".' "$text" \
+  && grep -qxF -- '- story 2: added, "The file ends with a line break.". The importer reads whole lines only. By the lead.' "$text" \
   && [ -n "$(approved_day story-departs)" ] \
-  && grep -qxF -- "- the stories were read by 2 personas, two model families (opus, sol); nobody confused; he approved them on $(approved_day story-departs)" "$text" \
+  && grep -qxF -- "- the stories were read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; he approved them on $(approved_day story-departs)" "$text" \
+  && ! grep -q "after the personas' read" "$text" \
   && grep -qF "the request is not green (story 2 was removed during the build" <<<"$agent"; then
-  pass "a story the build removed or added is not green, each with its line first and its reason, the gate refuses the plan until the record holds both, and the checks say that two model families read the stories and when he approved them"
+  pass "a story a choice of the build removed and one the lead added are not green, each with its line first, what it was or is, its reason and the choice that led to it; a story changes only after its choice is answered; the gate refuses the plan until both are recorded; and the checks say that two model families read the stories and when he approved them"
 else
-  fail "an added and a removed story in the landing: $unrecorded / $agent / $(cat "$text" 2>/dev/null)"
+  fail "an added and a removed story in the landing: $unrecorded / $early / $agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state story-departs dropped "the test is over" >/dev/null
+# A feature is not proposed without a read of its stories, nor over a doubt of the personas that no approval of his followed.
+task_in "$LOCAL" read-doubt r.txt r
+tree=$(project --repo "$LOCAL" worktree-dir read-doubt)
+sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-read-doubt.md"
+rm "$tree/docs/plans/20261115-read-doubt.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/doubt.md"
+plan_digest=$(lstories digest read-doubt 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null && local_land gate read-doubt >/dev/null && local_land read read-doubt --record "$(clean 1)" >/dev/null
+unread_feature=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
+project --repo "$LOCAL" log read-doubt stories.read by=lead asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=true "digest=$plan_digest" >/dev/null 2>&1 || true
+split_unseen=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
+project --repo "$LOCAL" log read-doubt stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=1 split:=false "digest=$plan_digest" >/dev/null 2>&1 || true
+flag_unseen=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
+# the newest read: partial, one story flagged, the families split, and of other stories than he then approved
+project --repo "$LOCAL" log read-doubt stories.read by=lem asked:=3 answered:=2 'families:=["opus", "sol"]' \
+  'silent:=[{"name": "the accountant, sol", "why": "the model was at capacity"}]' stories:=1 flagged:=1 split:=true "digest=$read_digest" >/dev/null 2>&1 || true
+lstories approve read-doubt --file "$WORK/doubt.md" >/dev/null 2>&1 || true
+local_land propose read-doubt --title "fix: r" --notes "$NOTES" >/dev/null 2>&1 || true
+text=$LOCAL/.git/lem/tasks/read-doubt/pr.md
+if grep -qF "read-doubt is a feature, and the event log has no \`stories.read\`" <<<"$unread_feature" && grep -qF 'stages/new.md' <<<"$unread_feature" \
+  && grep -qF "the newest read of read-doubt's stories found a split between the two families, and no approval of his came after it" <<<"$split_unseen" \
+  && grep -qF "found 1 flagged story, and no approval of his came after it" <<<"$flag_unseen" && grep -qF "stories.py approve read-doubt --file FILE" <<<"$flag_unseen" \
+  && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
+  && grep -qxF -- "- the stories were read by 2 of 3 personas asked, two model families (opus, sol); 1 of 1 story flagged; the two families split; no answer from the accountant, sol (the model was at capacity); he approved them on $(approved_day read-doubt)" "$text" \
+  && grep -qxF -- "- he changed the stories after the personas' read, and the change was not read" "$text"; then
+  pass "a feature with no read of its stories is not proposed, nor one whose newest read flagged a story or split the families with no approval of his after it; a partial read counts and says who did not answer and why; and stories he changed after the read are one line that is no cause of not green"
+else
+  fail "the read before a proposal: $unread_feature / $split_unseen / $flag_unseen / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state read-doubt dropped "the test is over" >/dev/null
 # The rare path: the lead ran the read with one model family, nobody was confused, and there is no approval; a scout's report is named.
 task_in "$LOCAL" ticket-word t.txt t
 tree=$(project --repo "$LOCAL" worktree-dir ticket-word)
 sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-ticket-word.md"
 rm "$tree/docs/plans/20261115-ticket-word.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
-bad_by=$(project --repo "$LOCAL" log ticket-word stories.read by=owner personas:=2 'families:=["opus"]' stories:=1 flagged:=0 2>&1 || true)
-bad_one=$(project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=1 'families:=["opus"]' stories:=1 flagged:=0 2>&1 || true)
-bad_families=$(project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=2 families=opus stories:=1 flagged:=0 2>&1 || true)
-bad_more=$(project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=2 'families:=["opus"]' stories:=1 flagged:=2 2>&1 || true)
-bad_missing=$(project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=2 'families:=["opus"]' stories:=1 2>&1 || true)
-project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=2 'families:=["opus"]' stories:=1 flagged:=0 >/dev/null
+digest=$(lstories digest ticket-word 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+read_with() { project --repo "$LOCAL" log ticket-word stories.read "$@" 2>&1 || true; }
+bad_by=$(read_with by=owner asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest")
+bad_one=$(read_with by=lead asked:=1 answered:=1 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest")
+bad_none=$(read_with by=lead asked:=2 answered:=0 'families:=["opus"]' 'silent:=[{"name": "a", "why": "b"}]' stories:=1 flagged:=0 split:=false "digest=$digest")
+bad_more=$(read_with by=lead asked:=2 answered:=3 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest")
+bad_quiet=$(read_with by=lead asked:=3 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest")
+bad_families=$(read_with by=lead asked:=2 answered:=2 families=opus 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest")
+bad_flagged=$(read_with by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=2 split:=false "digest=$digest")
+bad_split=$(read_with by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=true "digest=$digest")
+bad_digest=$(read_with by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false digest=abc)
+bad_missing=$(read_with by=lead asked:=2 answered:=2 'families:=["opus"]' stories:=1 flagged:=0 split:=false "digest=$digest")
+project --repo "$LOCAL" log ticket-word stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
 echo '1. t.txt does not exist on the base branch (git ls-files).' > "$LOCAL/.git/lem/tasks/ticket-word/scout.md"
 to_open ticket-word || true
 text=$LOCAL/.git/lem/tasks/ticket-word/pr.md
 if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
-  && grep -qxF -- "- the stories were read by 2 personas, one model family (opus); nobody confused; the build started with no wait for him" "$text" \
+  && grep -qxF -- "- the stories were read by 2 of 2 personas asked, one model family (opus); nobody confused; the build started with no wait for him" "$text" \
+  && ! grep -q "after the personas' read" "$text" \
   && grep -qxF -- "- the scout's report, the facts of the code the stories were written from: \`$LOCAL/.git/lem/tasks/ticket-word/scout.md\`" "$text" \
-  && grep -q "by is lem, when Lem ran the read" <<<"$bad_by" && grep -q "a read has two personas at the least" <<<"$bad_one" \
-  && grep -q "families is the list of the model families that answered" <<<"$bad_families" && grep -q "no more stories flagged than it read" <<<"$bad_more" \
-  && grep -q "stories.read takes by=lem|lead personas:=N" <<<"$bad_missing" \
+  && grep -q "by is lem, when Lem ran the read" <<<"$bad_by" && grep -q "a read asks two personas at the least" <<<"$bad_one" \
+  && grep -q "a read in which nobody answered is no read: start it once more" <<<"$bad_none" && grep -q "answered is 1 to asked" <<<"$bad_more" \
+  && grep -q "silent names each source that did not, with why" <<<"$bad_quiet" \
+  && grep -q "families is the list of the model families that answered" <<<"$bad_families" && grep -q "no more stories flagged than it read" <<<"$bad_flagged" \
+  && grep -q "a split is between two model families, and families names one" <<<"$bad_split" && grep -q "digest is the twelve characters" <<<"$bad_digest" \
+  && grep -q "stories.read takes by=lem|lead asked:=N answered:=N" <<<"$bad_missing" \
   && [ "$(grep -c '"event": "stories.read", "task": "ticket-word"' "$LOCAL/.git/lem/events.jsonl")" = 1 ]; then
-  pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's report is named; a read's event without its form is refused, and nothing is written for it"
+  pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's report is named; a read's event without its form, with fewer than two personas asked, with nobody or more than were asked answering, or with a missing source unnamed is refused, and nothing is written for it"
 else
-  fail "the read of the rare path: $bad_by / $bad_one / $bad_families / $bad_more / $bad_missing / $(cat "$text" 2>/dev/null)"
+  fail "the read of the rare path: $bad_by / $bad_one / $bad_none / $bad_more / $bad_quiet / $bad_families / $bad_flagged / $bad_split / $bad_digest / $bad_missing / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state ticket-word dropped "the test is over" >/dev/null
 # A correction: Lem approves its one story in his name, and the personas do not read it.

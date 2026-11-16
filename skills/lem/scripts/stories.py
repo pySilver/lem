@@ -30,29 +30,28 @@ are:
                               approves a correction's one story in his name, and he may still
                               say "this is a feature"
     stories.py approved SLUG  the approved stories of the task, or null when it has none
+    stories.py digest SLUG [--file FILE]
+                              the digest of the stories' kind and texts, without tests: of FILE,
+                              or of the task's plan
     stories.py show SLUG      the stories of the task's plan, as JSON
     stories.py record SLUG    the same, and one event for the board
     stories.py red SLUG       each story's tests pass on the branch and fail on the base commit
 
 Approved stories are frozen as written. `approve` keeps them in `stories.json` in the task's
 directory, with their text and a digest, and logs one `stories.approved` event. From then on the
-stories of the plan are those stories, word for word and numbered the same, each with the test
-lines the lead adds under it; how a story's text is broken into lines does not count. `show`,
-`record` and `red` refuse a plan whose stories differ, unless each difference is a decision of
-the build in `decisions.py`'s record:
+plan's stories are the expected ones: the approved stories with each change of them that
+`decisions.py story` recorded applied in the order of the record (`decisions.py changes SLUG`
+gives them). They are compared text for text and in order, with each run of spaces as one, so
+how a story is broken into lines does not count; the plan's `Kind:` is the approved kind, which
+only his next approval changes. `show`, `record` and `red` refuse a plan that differs, and name
+the first story that does. So the lead can neither reword, drop nor add a story without the
+record saying so, and the pull request is not green for each such change. A task with no
+approved stories (a plan written before this rule, a night plan, a request whose whole context
+was written) has the plan's stories as their one source.
 
-- a changed story: `decisions.py log SLUG ... --story N --was TEXT`, N its number in the plan;
-- an added story: `--story N --added`, N its number in the plan;
-- a removed story: `--story N --removed --was TEXT`, N its approved number and TEXT its approved
-  text, word for word.
-
-The approved stories that are left keep their order in the plan, so a story added or removed
-before one gives it another number; the check pairs them by their order, not by their numbers.
-
-So the lead can neither reword nor drop a story without the record saying so, and the pull
-request is not green for each such decision. A task with no approved stories (a plan written
-before this rule, a night plan, a request whose whole context was written) has the plan's
-stories as their one source.
+`digest` gives the digest of a set of stories without their tests: a file's, or the plan's. It
+is what an approval keeps and what the record of the personas' read names, so that a read of
+other stories than the approved ones shows.
 
 `red` is a machine check with no model in it. A test that also passes on the base commit does
 not test the change, and a story with no test at the end of a build is refused.
@@ -200,53 +199,34 @@ def parse(text: str, name: str) -> dict:
     return {"kind": kind, "why": why, "digest": digest, "stories": stories}
 
 
-def against(plan: list[dict], approved: list[dict], decisions: list[dict], name: str, slug: str) -> list[dict]:
-    """Each way the plan's stories depart from the approved ones, each with the decision that
-    records it. A departure that no decision records is refused, with the first one named."""
-    how: dict[str, dict[int, list[dict]]] = {"changed": {}, "added": {}, "removed": {}}
-    for decision in decisions:
-        if decision.get("story") is not None:
-            how[decision.get("story_how", "changed")].setdefault(decision["story"], []).append(decision)
-    was = {story["n"]: story["text"] for story in approved}
-    now = {story["n"]: story["text"] for story in plan}
+def text_digest(kind: str, texts: list[str]) -> str:
+    """One mark for a set of stories without their tests: their kind and their texts, with each run
+    of spaces as one. An approval keeps it, and the record of the personas' read names it."""
+    return hashlib.sha256(json.dumps([kind, [" ".join(text.split()) for text in texts]], ensure_ascii=False).encode()).hexdigest()[:12]
+
+
+def against(read: dict, changes: dict, name: str, slug: str) -> None:
+    """Refuse a plan whose stories are not the expected ones: the approved stories with every
+    recorded change applied, text for text and in order, and of the approved kind."""
     fix = (
-        f"The plan's stories are the approved ones, word for word (`stories.py approved {slug}`), with only the test lines added. "
-        f"A story the build has to change, add or remove is a decision of the build: `decisions.py log {slug} ... --story N --was TEXT` for a changed one, "
-        "`--story N --added` for an added one, `--story N --removed --was TEXT` for a removed one"
+        f"The plan's stories are the approved ones with each recorded change (`decisions.py changes {slug}` gives them), word for word, "
+        f"with only the test lines added. A story the build changes, adds or removes is recorded first: `decisions.py story {slug} "
+        "--changed N --was TEXT --now TEXT`, `--added N --now TEXT` or `--removed N --was TEXT`, with --why and --choice ID or --by lead|personas"
     )
-    for number, said in how["added"].items():
-        if number not in now:
-            raise StoriesError(f"decision {said[0]['id']} adds story {number}, and {name} has no story {number}. {fix}")
-    removed: dict[int, dict] = {}
-    for number, said in how["removed"].items():
-        if number not in was:
-            raise StoriesError(f"decision {said[0]['id']} removes story {number}, and he approved no story {number}. {fix}")
-        # the approved text names the story the decision removes, so a wrong number cannot pass;
-        # a decision written with a wrong text is set right by a second one, and both stay in the record
-        right = next((decision for decision in said if decision.get("was") == was[number]), None)
-        if right is None:
-            raise StoriesError(f"decision {said[0]['id']} removes story {number}, and its --was is not the approved text {was[number]!r}. {fix}")
-        removed[number] = right
-    departures = [{"story": number, "how": "removed", "approved": was[number], "decision": decision["id"]} for number, decision in sorted(removed.items())]
-    departures += [{"story": number, "how": "added", "now": now[number], "decision": said[0]["id"]} for number, said in sorted(how["added"].items())]
-    # what is left of each side, in its order: the approved story that was not removed and the
-    # plan's story that was not added are one story, whatever their numbers
-    left_was = [number for number in sorted(was) if number not in how["removed"]]
-    left_now = [number for number in sorted(now) if number not in how["added"]]
-    # a story dropped or added with no decision: name the first text that has no place on the other side
-    if len(left_was) > len(left_now):
-        missing = next((number for number in left_was if was[number] not in now.values()), left_was[-1])
-        raise StoriesError(f"{name} lacks story {missing} as he approved it, {was[missing]!r}, and no decision removes it. {fix}")
-    if len(left_now) > len(left_was):
-        extra = next((number for number in left_now if now[number] not in was.values()), left_now[-1])
-        raise StoriesError(f"story {extra} of {name}, {now[extra]!r}, is not among the stories he approved, and no decision adds it. {fix}")
-    for old, new in zip(left_was, left_now):
-        if was[old] == now[new]:
-            continue
-        if new not in how["changed"]:
-            raise StoriesError(f"story {new} of {name} is not story {old} as he approved it: it says {now[new]!r}, and he approved {was[old]!r}. {fix}")
-        departures.append({"story": new, "how": "changed", "approved": was[old], "now": now[new], "decision": how["changed"][new][-1]["id"]})
-    return sorted(departures, key=lambda departure: (departure["how"] != "removed", departure["story"]))
+    if read["kind"] != changes["approved"]["kind"]:
+        raise StoriesError(
+            f"{name} says `Kind: {read['kind']}`, and he approved its stories as a {changes['approved']['kind']}: a change of the kind is his only, "
+            f"by his approval of the stories again (`stories.py approve {slug} --file FILE`)",
+        )
+    expected = changes["expected"]
+    now = [story["text"] for story in read["stories"]]
+    for number, (want, have) in enumerate(zip(expected, now), start=1):
+        if want.split() != have.split():
+            raise StoriesError(f"story {number} of {name} says {have!r}, and the expected story {number} is {want!r}. {fix}")
+    if len(now) > len(expected):
+        raise StoriesError(f"story {len(expected) + 1} of {name}, {now[len(expected)]!r}, is not among the expected stories, which end at {len(expected)}. {fix}")
+    if len(now) < len(expected):
+        raise StoriesError(f"{name} lacks story {len(now) + 1}, {expected[len(now)]!r}, which the expected stories hold. {fix}")
 
 
 class Task:
@@ -289,18 +269,16 @@ class Task:
             raise StoriesError(f"no plan of this task in {self.plans}: its name is YYYYMMDD-{self.slug}.md")
         plan = found[-1]
         read = parse(plan.read_text(encoding="utf-8"), plan.name)
-        approved = self.approved()
-        if approved is None:
-            return {"task": self.slug, "plan": str(plan), **read, "approved": None, "departures": []}
-        departures = against(read["stories"], approved["stories"], self.decisions(), plan.name, self.slug)
-        return {
-            "task": self.slug, "plan": str(plan), **read,
-            "approved": {key: approved[key] for key in ("at", "by", "kind", "digest")}, "departures": departures,
-        }
+        changes = self.changes()
+        digest = text_digest(read["kind"], [story["text"] for story in read["stories"]])
+        if changes["approved"] is None:
+            return {"task": self.slug, "plan": str(plan), **read, "stories_digest": digest, "approved": None, "changes": []}
+        against(read, changes, plan.name, self.slug)
+        return {"task": self.slug, "plan": str(plan), **read, "stories_digest": digest, "approved": changes["approved"], "changes": changes["changes"]}
 
-    def decisions(self) -> list[dict]:
-        """Each decision of the task as it stands, through the one script that writes them."""
-        return json.loads(script("decisions.py", self.repo, "list", self.slug))
+    def changes(self) -> dict:
+        """The approved stories and their recorded changes, through the one script that writes them."""
+        return json.loads(script("decisions.py", self.repo, "changes", self.slug))
 
     def log(self, event: str, **fields: object) -> None:
         script("project.py", self.repo, "log", self.slug, event, *(f"{key}:={json.dumps(value, ensure_ascii=False)}" for key, value in fields.items()))
@@ -478,7 +456,7 @@ def cmd_approve(task: Task, file: str, correction: bool) -> dict:
         raise StoriesError(f"--correction approves a correction's one story in his name, and {source.name} says `Kind: {read['kind']}`: a feature waits for his own yes")
     stories = [{"n": story["n"], "text": story["text"]} for story in read["stories"]]
     # one mark for this exact set of approved texts, so that a later approval is known as another
-    digest = hashlib.sha256(json.dumps([read["kind"], stories], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
+    digest = text_digest(read["kind"], [story["text"] for story in stories])
     before = task.approved()
     record = {
         "task": task.slug, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -495,14 +473,16 @@ def cmd_approve(task: Task, file: str, correction: bool) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the repository (default: the current one)")
-    parser.add_argument("step", choices=("approve", "approved", "show", "record", "red"))
+    parser.add_argument("step", choices=("approve", "approved", "digest", "show", "record", "red"))
     parser.add_argument("slug")
-    parser.add_argument("--file", help="with approve: the stories he approved, in the form above and with no test lines")
+    parser.add_argument("--file", help="with approve: the stories he approved, in the form above and with no test lines; with digest: the stories to mark")
     parser.add_argument("--correction", action="store_true", help="with approve: Lem approves a correction's one story in his name")
     args = parser.parse_args()
     try:
-        if (args.file is not None or args.correction) and args.step != "approve":
-            raise StoriesError("--file and --correction go with `approve`")
+        if args.file is not None and args.step not in ("approve", "digest"):
+            raise StoriesError("--file goes with `approve` and `digest`")
+        if args.correction and args.step != "approve":
+            raise StoriesError("--correction goes with `approve`")
         task = Task(Path(args.repo).resolve(), args.slug)
         if args.step == "approve":
             if args.file is None:
@@ -513,6 +493,15 @@ def main() -> None:
             result = {"task": task.slug, "approved": kept} if kept else {
                 "task": task.slug, "approved": None, "says": "no approved stories: the plan's own stories are their one source",
             }
+        elif args.step == "digest":
+            if args.file is None:
+                found = task.stories()
+                result = {"task": task.slug, "of": found["plan"], "digest": found["stories_digest"]}
+            else:
+                if not Path(args.file).is_file():
+                    raise StoriesError(f"{args.file} is not a file; --file names the stories to mark, in the form `stories.py --help` shows")
+                read = parse(Path(args.file).read_text(encoding="utf-8"), Path(args.file).name)
+                result = {"task": task.slug, "of": args.file, "digest": text_digest(read["kind"], [story["text"] for story in read["stories"]])}
         elif args.step == "red":
             result = cmd_red(task)
         else:

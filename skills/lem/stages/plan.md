@@ -15,10 +15,11 @@ question at a time (step 4).
      text into other lines; you may not change a word of it. The plan follows the task's
      `directions.md` too, when the task directory has one. A story or a direction the code shows
      you cannot keep, or a story that is missing, is a decision of the build (`stages/build.md`,
-     "A choice in the build"), never a silent edit: `show`, `record` and `red` refuse a plan whose
-     stories differ from the approved ones without a decision for each difference. An approved
-     correction that step 2 finds careful, or that needs a second story, is a feature: the
-     record gets that decision, and the personas read its stories as the next bullet says;
+     "A choice in the build") with its own record (`decisions.py story`), never a silent edit:
+     `show`, `record` and `red` refuse a plan whose stories are not the approved ones with each
+     recorded change, word for word, or whose `Kind:` is not the approved kind. An approved
+     correction that step 2 finds careful, or that needs a second story, is a feature, and the
+     kind is his only: it is a held decision (step 5), and Lem asks him;
    - with no approved stories (the rare path, a night plan), write them. A story is one
      business rule of the request in plain language with one concrete example, with real names
      and values: what a person of the project would see, never how the code does it. Take them
@@ -33,10 +34,13 @@ question at a time (step 4).
      the persona panel's "Reading stories" mode (`load-skill`), run by you while you write the
      rest of the plan. You have no paired agent of the other family, so one family answers: the
      panel's own persona agents, which a lead can start (the harness file, `spawn-builder`). Write
-     the event the landing reads, `python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG
-     stories.read by=lead personas:=N families:='["FAMILY"]' stories:=N flagged:=N`. Nobody
-     confused: the build starts with no wait, and your next state block says `nobody confused,
-     read by N personas, one model family`, where he sees it and can stop the task. A doubt: the
+     the event the landing reads, in the form `stages/new.md` gives ("The interview and the
+     stories", step 5), with `by=lead`, your one family, and the digest of the plan's stories
+     (`python3 SKILL_DIR/scripts/stories.py --repo WORKTREE digest SLUG`). A persona agent that
+     did not answer is named in `silent` with why; a read in which nobody answered is started
+     once more. Nobody confused: the build starts with no wait, and your next state block says
+     `nobody confused, read by N personas, one model family`, where he sees it and can stop the
+     task. The landing refuses a feature with no such event. A doubt: the
      first line of code waits. Write `report.md` with the stories and the answers that flagged
      them on top, quoted, and the line `the stories wait for the owner`; write the state `held`
      with that line, and stop. Leave a flagged story as you wrote it: what you would change goes

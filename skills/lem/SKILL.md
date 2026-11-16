@@ -187,8 +187,10 @@ worktree, never committed and not removed with a worktree. It holds:
 - `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that
   stops. `stages/build.md` gives its form.
 - `decisions.jsonl`: each decision taken without the owner, each choice that went to him and his
-  answer, one line for each thing that happened. Lem and the lead both write it, and only
-  through `scripts/decisions.py`; `decisions.py list SLUG` shows each decision as it stands.
+  answer, one line for each thing that happened, and each change of an approved story with its
+  text before and after. Lem and the lead both write it, and only through
+  `scripts/decisions.py`; `decisions.py list SLUG` shows each decision as it stands, and
+  `decisions.py changes SLUG` the story changes with the stories they give.
 - `reports/`: one file per builder of a plan of more tasks. Lem does not read these.
 - `landing.json`, `gate/`, `read.json`, `reviews/`, `notes.md` and `pr.md`: what the landing
   keeps: its own record, the output of each gate command, what each review was given and what

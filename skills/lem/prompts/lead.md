@@ -14,7 +14,8 @@ directory, which lead you are (`builder` or `session`) and whether you stop afte
    it has them: what the owner named in his interview, which the plan follows, and the facts a
    scout read in the code then. `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE approved
    SLUG` gives the stories he approved: they are the plan's stories word for word, and only a
-   decision of the build changes one (`stages/plan.md`, step 1). When the status is `ready`, `landing`,
+   change with its own record changes one (`decisions.py story`, `stages/build.md`, "A choice
+   in the build"). When the status is `ready`, `landing`,
    `landed` or `dropped`, say so and stop: there is nothing to lead. When the task directory holds
    a `report.md`, a `decisions.jsonl` or a longer `state.md`, a lead before you stopped: read the
    report, the state, `python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE list SLUG` and the
@@ -29,8 +30,9 @@ directory, which lead you are (`builder` or `session`) and whether you stop afte
    session, do what the owner says, and write it down so Lem reads it too. When his words answer
    a choice that waits (`decisions.py list SLUG`), write them with `decisions.py answer SLUG N
    --chose OPTION --words TEXT`, or with `--instead TEXT` when he decided what none of the
-   options says (`stages/new.md`, "When a choice waits for the owner", says how, also for a
-   story his decision changes). A new decision would leave the choice waiting. Only a word of
+   options says (`stages/new.md`, "When a choice waits for the owner", says how). A story his
+   answer changes gets its record from you, `decisions.py story ... --choice N`. A new decision
+   would leave the choice waiting. Only a word of
    his that answers no choice is logged with `decisions.py log SLUG --by owner`. A choice in the
    build waits for him a fixed time at most: `stages/build.md`, "A choice in the build", says
    how it is asked and logged.

@@ -166,13 +166,24 @@ These rules hold for each task:
 - **The personas read the stories before you approve them.** When both model families answer,
   a split between them counts as a doubt. One measured read took 2 minutes and 9 seconds
   (2026-11-16, two personas, two stories).
-- **You approve the stories on one page.** The result of the personas is on top. Each story shows
-  the facts of the scout that it comes from. A story that a persona flagged stays as Lem wrote
-  it, with the answers of the personas next to it. You approve the stories, or you change a
-  story, a direction or the set. The build starts only after your approval.
+- **Lem shows the stories in the conversation first.** Each story shows the facts of the scout
+  that it comes from. Lem tells you that the personas read them now.
+- **You approve the stories on one page, after the read.** The result of the personas is on
+  top, for each persona and each model family. A split between the families comes first. A
+  story that a persona flagged stays as Lem wrote it, with the answers of the personas next to
+  it. You approve the stories, or you change a story, a direction or the set. The build starts
+  only after your approval.
+- **You can approve in the conversation.** Type your approval before the read ends. If nobody
+  is confused, Lem tells you so in one line and opens no page. If a persona has a doubt, Lem
+  opens the page for that doubt.
+- **A partial read counts.** If a persona agent does not answer, the read continues. The pull
+  request says who did not answer, and why. If nobody answers, Lem starts the read again.
 - **Approved stories do not change silently.** The plan must hold your stories word for word.
   The lead adds only the tests. If the build must change, add or remove a story, the lead
-  records that decision. Then the pull request is not green, and it shows the reason.
+  records the change with the text before and after. Then the pull request is not green, and it
+  shows the change and its reason. The gate stops a plan whose stories are not your stories
+  with the recorded changes. Only you can change the kind of the stories, a feature or a
+  correction.
 - **A ticket with all of its context gets no interview.** This is the rare path: a ticket, a
   backlog item whose options are settled, or a night plan that you start, each with a defined
   result. Lem tells you in one line that it takes this path, and why. You can say "interview
@@ -210,10 +221,13 @@ These rules hold for each task:
 - **The first line says green or not green.** Each reason for "not green" is one line, before
   all other text. Then come your words, the stories with their tests, each check with its
   result, and the notes of Lem.
-- **The checks tell you who read the stories.** One line gives the number of personas, the
-  model families, the stories that they flagged, and the date of your approval. For a
-  correction, the line says that the personas did not read it. The line also names the report
-  of the scout.
+- **The checks tell you who read the stories.** One line gives how many personas answered of
+  the personas asked, the model families, who did not answer, the stories that they flagged,
+  and the date of your approval. For a correction, the line says that the personas did not read
+  it. If you changed the stories after the read, a second line says so. The checks also name the
+  report of the scout.
+- **Lem proposes no feature without a read.** Lem also proposes no request whose read found a
+  doubt that you did not see. You approve the stories after the read, and then Lem continues.
 - **A careful task gets more care.** The project names what must not go wrong: as danger
   topics in your words, and as paths. Examples of topics are the price that a customer pays,
   data that nobody can make again, and private data.

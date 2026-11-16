@@ -69,16 +69,26 @@ action, logged so that the pull request shows it. Every decision goes into the t
 through one script, which also puts it on the board:
 
 ```bash
-python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT] [--story N --was TEXT | --story N --added | --story N --removed --was TEXT]
+python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT]
 ```
 
-A story the owner approved (`stories.py approved SLUG`) is changed in the plan only with such a
-decision, in the commit that changes it: `--story N --was TEXT` for a story you cannot keep as
-written, `--story N --added` for one the code shows is missing (N its number in the plan), and
-`--story N --removed --was TEXT` for one the change no longer holds (N its approved number, TEXT
-its approved text word for word). A story that changes, comes or goes is never yours alone: it
-takes step 2 below, the personas first. The stories script refuses the plan until the record
-holds each, and the pull request is not green for any of them. A plan that departs from a direction
+A story the owner approved (`stories.py approved SLUG`) changes in the plan only with its own
+record, written before the commit that changes it, with its text before and after:
+
+```bash
+python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE story SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
+```
+
+N is the story's number as the stories stand after every earlier change;
+`decisions.py changes SLUG` gives them, and the command refuses a `--was` that is not the text
+of story N then. `--choice ID` names the choice of step 2 that led to it, once it is answered or
+taken by timeout; without a choice it is the personas' clear pick (`--by personas --said`), or
+the lead's own (`--by lead`) for a change that is nobody's choice, such as a typo in an example.
+A story whose rule changes, comes or goes is never the lead's alone: it takes step 2 below, the
+personas first. The stories script
+refuses the plan until its stories are the expected ones, word for word, and the pull request is
+not green for each change. The kind (`Kind:`) is the owner's only: a feature that has to become
+a correction, or the other way, is a held decision. A plan that departs from a direction
 (`directions.md`) is a decision of this section too, with the direction in `--what`.
 
 1. **The stories and the directions stay true**: decide it yourself, from the code, the settings
@@ -88,21 +98,21 @@ holds each, and the pull request is not green for any of them. A plan that depar
    facts when one fact decides it. It asks the owner nothing and decides nothing.
    - *A clear answer* (the personas agree, nobody in doubt): take it, log it with
      `--by personas --said "who picked what"`, and go on. A story that the choice changes gets
-     `--story N --was "its text before"`; change the story in the plan in the same commit as the
-     code. The pull request is not green for a changed story.
+     its record, `decisions.py story ... --by personas --said "who picked what"`; change the
+     story in the plan in the same commit as the code. The pull request is not green for it.
    - *An unclear answer* (the personas split, or one is in doubt), or a question of what the owner
      meant or of taste, which the personas do not answer for him: ask him.
 
      ```bash
-     python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE ask SLUG --what TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money] [--story N --was TEXT --changes OPTION ...]
+     python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE ask SLUG --what TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
      ```
 
-     `--said` holds what the personas answered, or why they were not asked. When an option
-     would change a story, name the story with the choice: `--story N`, `--was` with its text
-     now, and `--changes` for each option that changes it. Whichever way the choice ends, by
-     his answer or by the timeout, the record then knows whether the story changed, and the
-     pull request is not green for it. When it did, change the story in the plan in the commit
-     that builds the option. The choice waits the
+     `--said` holds what the personas answered, or why they were not asked. A choice carries no
+     story. Whichever way it ends, by his answer, by a decision of his that is none of the
+     options, or by the timeout, read what was taken against each story: when one no longer
+     holds, or a story has to come or go, record it with `decisions.py story ... --choice N`,
+     and change the story in the plan in the commit that builds the option. A forgotten record
+     does not pass: the gate refuses a plan whose stories are not the expected ones. The choice waits the
      settings' `flow.decision_wait` (15 minutes unless the project says otherwise). Tell Lem that
      it waits: in a session, `tell-coordinator` with the line `lem: SLUG choice N waits`. A
      builder that leads has no `tell-coordinator` (the harness file defines it from a task's

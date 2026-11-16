@@ -50,9 +50,11 @@ JSON, so a commit made only of digits stays a string and an exit code stays a nu
 have a fixed form, because the landing reads them: `plan.talk`, which the lead of a careful or
 large task writes after its plan talk, as `reviewer=AGENT turns:=N settled:=N open:=N`; and
 `stories.read`, which Lem or the lead writes after the personas read the stories, as
-`by=lem|lead personas:=N families:='["FAMILY", ...]' stories:=N flagged:=N`: who ran the read,
-how many personas answered, the model families that answered, how many stories they read and
-how many of those a persona or a split between the families flagged.
+`by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ..., "why":
+...}]' stories:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many personas
+were asked and how many answered, the model families that answered, each source that did not
+and why (a partial read counts), how many stories were read and how many an answer flagged,
+whether the families split, and the digest `stories.py digest` gives for the stories read.
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens), which tool marks up a plan and
@@ -988,10 +990,15 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
 
 def read_form(fields: dict) -> None:
     """The personas' read of the stories is read by the landing, so it has one form: who ran it,
-    how many personas answered, which model families, how many stories, and how many flagged."""
-    form = "stories.read takes by=lem|lead personas:=N families:='[\"FAMILY\", ...]' stories:=N flagged:=N"
-    counts = ("personas", "stories", "flagged")
-    if set(fields) != {"by", "families", *counts}:
+    how many personas were asked and how many answered, the model families that answered, each
+    source that did not answer and why, how many stories were read and flagged, whether the
+    families split, and the digest of the stories it read (`stories.py digest`)."""
+    form = (
+        "stories.read takes by=lem|lead asked:=N answered:=N families:='[\"FAMILY\", ...]' "
+        "silent:='[{\"name\": SOURCE, \"why\": WHY}, ...]' stories:=N flagged:=N split:=true|false digest=DIGEST"
+    )
+    counts = ("asked", "answered", "stories", "flagged")
+    if set(fields) != {"by", "families", "silent", "split", "digest", *counts}:
         raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
     if fields["by"] not in ("lem", "lead"):
         raise SettingsError(f"{form}: by is lem, when Lem ran the read in its session, or lead, when the task's lead ran it")
@@ -1000,9 +1007,26 @@ def read_form(fields: dict) -> None:
     families = fields["families"]
     if not isinstance(families, list) or not families or not all(isinstance(name, str) and name.strip() for name in families) or len(set(families)) != len(families):
         raise SettingsError(f"{form}: families is the list of the model families that answered, each named once, as in families:='[\"opus\", \"sol\"]'")
-    # the panel's own floor: "Two personas per story is the floor" (the lem-panel skill, Reading stories)
-    if fields["personas"] < 2 or fields["stories"] < 1 or fields["flagged"] > fields["stories"]:
-        raise SettingsError(f"{form}: a read has two personas at the least, one story at the least, and no more stories flagged than it read")
+    silent = fields["silent"]
+    if not isinstance(silent, list) or not all(
+        isinstance(item, dict) and set(item) == {"name", "why"} and all(isinstance(value, str) and value.strip() for value in item.values()) for item in silent
+    ):
+        raise SettingsError(f"{form}: silent is a list of {{\"name\": ..., \"why\": ...}}, one for each source that did not answer; [] when every one did")
+    if not isinstance(fields["split"], bool):
+        raise SettingsError(f"{form}: split is true when the two families answered a story differently, false otherwise, written with :=")
+    if not isinstance(fields["digest"], str) or not re.fullmatch(r"[0-9a-f]{12}", fields["digest"]):
+        raise SettingsError(f"{form}: digest is the twelve characters `stories.py digest` prints for the stories that were read")
+    # every project's cast has two people or more, and a read in which nobody answered is no read
+    if fields["asked"] < 2:
+        raise SettingsError(f"{form}: a read asks two personas at the least")
+    if not 1 <= fields["answered"] <= fields["asked"]:
+        raise SettingsError(f"{form}: answered is 1 to asked; a read in which nobody answered is no read: start it once more")
+    if fields["answered"] < fields["asked"] and not silent:
+        raise SettingsError(f"{form}: when fewer answered than were asked, silent names each source that did not, with why")
+    if fields["stories"] < 1 or fields["flagged"] > fields["stories"]:
+        raise SettingsError(f"{form}: a read has one story at the least, and no more stories flagged than it read")
+    if fields["split"] and len(families) < 2:
+        raise SettingsError(f"{form}: a split is between two model families, and families names one")
 
 
 def talk_form(fields: dict) -> None:

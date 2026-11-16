@@ -131,35 +131,50 @@ approved, which the lead may not change without the record saying so.
    language with one concrete example, with real names and values. No test lines: the lead adds
    those. Keep the file in the task directory, and for each story the facts of the report that
    shaped it, for his page.
-5. **Show them, and start the personas' read in the same moment.** Show him the stories and the
-   directions at once (`show-page`, or in the conversation), so that he reads while the personas
-   do. The read is the persona panel's "Reading stories" mode (`load-skill`), here in your
-   session with the paired agent of the other family, so that both families answer; without one
-   the panel says that one family answered. On 2026-11-16 a read with two families of two
-   personas over two stories took 2 min 9 s from the stories shown to both families' answers
-   written (one request, one repository). When the answers are in, write the one event the
+5. **Show them in the conversation, and start the personas' read in the same moment.** Write the
+   stories as plain text, each with the scout's facts that shaped it beside it, and the
+   directions, and say that the personas read them now and that the one measured read took
+   2 min 9 s (2026-11-16: two families, two personas, two stories, from the stories shown to both
+   families' answers written; one request, one repository). No page opens before the read is in.
+   The read is the persona panel's "Reading stories" mode (`load-skill`), here in your session
+   with the paired agent of the other family, so that both families answer; without one the
+   panel says that one family answered. A persona agent that does not answer leaves a partial
+   read, which counts: the record says who did not answer and why. A read in which nobody
+   answered is no read: start it once more. When the answers are in, write the one event the
    landing reads:
 
    ```bash
-   python3 SKILL_DIR/scripts/project.py log SLUG stories.read by=lem personas:=N families:='["FAMILY", ...]' stories:=N flagged:=N
+   python3 SKILL_DIR/scripts/project.py log SLUG stories.read by=lem asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": "PERSONA, FAMILY", "why": "WHAT STOPPED IT"}]' stories:=N flagged:=N split:=true|false digest=DIGEST
    ```
 
-   `flagged` counts the stories that an answer called unexpected, confusing or wrong, and each
-   story on which the two families split: a split counts as a doubt.
-6. **Ask for his yes** through `ask-owner`, on one page:
-   - the personas' result on top, for each persona and each model family; a split between the
-     families in one line at the top ("the Opus answers doubt story 1, the Sol answers do not");
-   - each story, with the scout's facts that shaped it beside it;
-   - a story a persona flagged as you wrote it, with the answers that flagged it quoted beside
-     it. Never reword it before he sees it: what changes it is his;
-   - the directions.
+   `asked` is the personas the panel asked and `answered` those of whom at least one family
+   answered; `silent` names each source that gave no answer, `[]` when every one did. `flagged`
+   counts the stories an answer called unexpected, confusing or wrong; `split` says whether the
+   two families answered a story differently, which counts as a doubt too. `DIGEST` is what
+   `python3 SKILL_DIR/scripts/stories.py digest SLUG --file FILE` prints for the stories file
+   the personas read, so that the record knows when he changes them after the read.
+6. **His yes.**
+   - *He typed it in the conversation before the read was in*: take it, and freeze the stories
+     (step 7). When the read is in and nobody is confused and the families agree, say so in one
+     line and open no page. When a story is flagged or the families split, open the page below
+     for that.
+   - *Otherwise*, when the read is in, open one page through `ask-owner`:
+     - the personas' result on top, for each persona and each model family, with a split
+       between the families said first, in one line ("the Opus answers doubt story 1, the Sol
+       answers do not");
+     - each story, with the scout's facts that shaped it beside it;
+     - a story a persona flagged as you wrote it, with the answers that flagged it quoted beside
+       it. Never reword it before he sees it: what changes it is his;
+     - the directions.
    He approves, or changes a story, a direction or the set. Write each change in his words into
-   the stories file or `directions.md`. When he approved before the read was in and a story is
-   flagged, put that story and its answers to him before you go on.
-7. **Freeze them**: `python3 SKILL_DIR/scripts/stories.py approve SLUG --file FILE`. The stories
-   are then kept word for word with a digest, and the plan's stories have to be those, with
-   only the test lines added: a story the build changes, adds or drops is a decision of the
-   build, and the pull request is not green for it. Go on with step 4 of "Open the task".
+   the stories file or `directions.md`. The personas do not read his own change again; the pull
+   request then says that the stories changed after the read.
+7. **Freeze them**: `python3 SKILL_DIR/scripts/stories.py approve SLUG --file FILE`, again after
+   each change of his. The stories are then kept word for word with a digest, and the plan's
+   stories have to be those, with only the test lines added: a story the build changes, adds or
+   drops has its own record (`decisions.py story`), and the pull request is not green for it.
+   Go on with step 4 of "Open the task". The landing refuses a feature whose stories nobody read,
+   and one whose read found a doubt with no yes of his after it.
 
 When he leaves before he answers, write the state `held` with the line `the stories wait for the
 owner`, and put the page to him again the way `ask-owner` says for an owner who is away. His
@@ -178,8 +193,8 @@ python3 SKILL_DIR/scripts/stories.py approve SLUG --file FILE --correction
 
 Tell him in the same line that you took it as a correction and that he may say "this is a
 feature". The personas do not read a correction's one story; the pull request says so. When he
-says "this is a feature", it takes steps 5 to 7 of the usual path; a story he changes after its
-lead started is a decision of the build (`decisions.py log SLUG --by owner --story N --was TEXT`).
+says "this is a feature", it takes steps 5 to 7 of the usual path: the personas read it, and his
+approval of the stories as a feature replaces the correction's. A change of the kind is his only.
 
 ## When a task is dropped
 
@@ -241,14 +256,11 @@ its choices need no answer.
    the record keeps that one beside it. When he decided something that none of the options
    says, settle the choice with it: `decisions.py answer SLUG N --instead TEXT`, with `--words`
    and `--why` as above. Never log it as a new decision: the choice would wait for ever, and an
-   irreversible one would hold the pull request. When the choice carries a story, say also
-   whether his decision changed it (`--story-changed --was "the story's text before"`) or kept
-   it true (`--story-kept`); the script refuses neither and both. His decision may also change a
-   story that no option touched: before you write it, read his words against each story of the
-   plan (`stories.py show SLUG`), and when one is no longer true, add
-   `--story-changed --story N --was "its text before"`. Left out, a changed story would give a
-   green pull request. When you cannot tell what he decided, ask him again. A lead in a session gets the answer as one message too; a builder
-   that leads finds it at its next `decisions.py wait`.
+   irreversible one would hold the pull request. A choice carries no story: a story his answer
+   changes is the lead's to record with `decisions.py story ... --choice N`, and the gate refuses
+   the plan until it does. When you cannot tell what he decided, ask him again. A lead in a
+   session gets the answer as one message too; a builder that leads finds it at its next
+   `decisions.py wait`.
 3. **An answer after the wait** is written down the same way, and the script says it is late,
    also when nobody wrote the timeout yet: it writes the timeout then, and the recommended
    option stands. When the answer differs from what was taken, it is his correction: tell the
