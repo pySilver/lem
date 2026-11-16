@@ -32,6 +32,21 @@ in that project's repository. `README.md` says what it does; this file says how 
 - **A session with nobody at the terminal reads `docs/free-hour.md` first.** A setup links Lem
   from this clone's main checkout, so an edit there is live at once in every repository that
   uses Lem. Such a session works in a worktree, on a branch, and never pushes.
+- **A change to what a landing reads after its merge keeps reading the form before it, for one
+  landing.** A setup links Lem from this clone's main checkout, so a landing of a change to Lem
+  changes the files of the landing that runs. `land.py land` and `merged` put the change on the
+  base branch and fast-forward the checkout that holds it (`follow`, or the merge itself where
+  there is no remote), and from that moment every step runs the new files: the same run writes
+  the state `landed` through the new `project.py state`; then `land.py clean`, a second run of a
+  cut-off `land` or `merged`, the tracker's "land", `project.py tasks` and `may-start` for the
+  queue, and the stage text Lem reads again (`stages/land.md` step 8, the end of
+  `stages/new.md`). Each of them reads what the code before the change wrote. So a change to the
+  keys of `landing.json` that those steps read (`branch`, `merged`, `merged_head` for `clean`;
+  `intent`, `pr`, `proposed`, `gated`, `base`, `tree` and `landed_before` for a second run of
+  `land`), to the state names, to the form of a state block that `project.py tasks` reads, or to
+  the arguments of `project.py state`, `tasks` and `may-land`, reads the old form too. A later
+  change may drop it, once no landing that wrote the old form is open. Nothing runs a landing
+  from a copy of the scripts, and no step is added for it.
 
 ## The owner's rulings
 
@@ -372,6 +387,9 @@ is the session's, and open to him.
   unproposed for ever. `project.py log` adds the bound to the event as `bound`, and the pull
   request's line of the talk and the board say "N turns, over the bound of M for its Q
   questions". The checks that only a miscount breaks stay, and so does the floor of two turns.
+- **Lem lands Lem by a rule, not by machinery**: the rule on what a landing reads after its
+  merge, in "Rules for a change here". No copy of the scripts runs a landing, and no step is
+  added for it. The backlog item that asked for one of the two is closed by the rule.
 
 ## Checks
 
