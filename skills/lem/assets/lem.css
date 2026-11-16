@@ -122,14 +122,16 @@ button:focus-visible { outline: 2px solid var(--gate); outline-offset: 2px; }
 .doc .reply b { font-family: var(--mono); font-size: 14px; color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
 .doc .reply span { color: var(--dim); font-size: 13px; }
 
-/* one line each for what the machine has and lacks */
-.doc .rows { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 6px 18px; }
-.doc .row { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
-.doc .row::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); transform: translateY(-1px); }
+/* one line each for what the machine has and lacks. Columns, not a grid: a long row makes only its
+   own column longer, where a grid row would take the height of its longest cell. A row's text sits
+   beside its name when all of it fits on that line, and goes under the name when it does not. */
+.doc .rows { list-style: none; padding: 0; display: block; columns: 260px; column-gap: 18px; }
+.doc .row { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 9px; min-width: 0; padding-left: 17px; margin-bottom: 6px; break-inside: avoid; }
+.doc .row::before { content: ""; position: absolute; left: 0; top: calc(.775em - 4px); width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
 .doc .row.absent::before { background: var(--bad); }
 .doc .row.optional::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
-.doc .row b { flex: none; }
-.doc .row span { color: var(--dim); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.doc .row b { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.doc .row span { flex: 1 1 auto; color: var(--dim); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
 
 /* the files to read first, each with what the owner does with it */
 .doc .reads { list-style: none; padding: 0; counter-reset: read; gap: 8px; }
