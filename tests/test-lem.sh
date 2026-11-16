@@ -2372,6 +2372,8 @@ tree=$(project --repo "$SHOP" worktree-dir four-tasks)
 git -C "$tree" commit -q -am "docs: four tasks"
 checked four-tasks
 land --repo "$SHOP" read four-tasks --record "$(record 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "four tasks change the app"}], "answered": ["codex"]}')" >/dev/null
+# the talk of another task, landed before: a valid event that is not this task's
+project --repo "$SHOP" log second-change plan.talk reviewer=codex turns:=4 settled:=1 open:=0 >/dev/null
 talkless=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES" 2>&1 || true)
 typed=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns=5 settled:=2 open:=1 2>&1 || true)
 missing=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 settled:=2 2>&1 || true)
@@ -2380,7 +2382,8 @@ if grep -q "the plan has 4 tasks, more than three, so its plan is talked through
   && grep -q "the event log has no .plan.talk. of four-tasks" <<<"$talkless" && [ "$(status four-tasks)" = landing ] \
   && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has reviewer, settled, turns" <<<"$missing" \
   && grep -q "ends in a settled position or a disagreement left open" <<<"$empty" \
-  && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl"; then
+  && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl" \
+  && [ "$(grep -c '"event": "plan.talk", "task": "second-change", "reviewer": "codex", "turns": 4' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
   pass "a plan of four tasks with no plan talk is not proposed, though another task's talk is in the log; a talk's event without its form is refused, and nothing is written for it"
 else
   fail "a large request with no plan talk: $talkless / $typed / $missing / $empty"
