@@ -225,6 +225,10 @@ There is one Lem for one repository. It is the session where you type `/lem`.
 - Some matters have options that each cost a person something. Then the personas of the
   project answer first, and Lem asks you with their answers. Work that does not depend on your
   answer continues.
+- A choice waits 15 minutes for your answer (`flow.decision_wait`). Then the lead takes the
+  recommended option, and the pull request is not green for that choice.
+- A step that nobody can reverse later never goes ahead without your answer. Examples are an
+  email to a person and a payment. Only that part of the plan waits.
 - The report of each task lists each decision that an agent took without you, with its reason.
   You can overturn each of them.
 - When Lem asks you to choose or to approve, it opens a page in agterm with the options side by
@@ -246,7 +250,7 @@ flowchart TD
         wt[.lem/worktrees/<br/>one worktree for each task; git ignores this folder]
     end
     subgraph gitdir [The git directory, shared by all worktrees]
-        tasks[lem/tasks/NAME/<br/>task.md, brief.md, state.md, report.md, decisions.md]
+        tasks[lem/tasks/NAME/<br/>task.md, brief.md, state.md, report.md, decisions.jsonl]
         events[lem/events.jsonl<br/>each state block, gate result, review and proposal]
     end
     wt -. writes the state .-> tasks
@@ -526,6 +530,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `flow.topics` | empty | the danger topics: what must not go wrong, each as one sentence in your words |
 | `flow.careful` | empty | the paths that get the careful flow |
 | `flow.max_tasks` | `4` | how many tasks build or land at one time |
+| `flow.decision_wait` | `15` | how many minutes a choice in the build waits for your answer. Then the lead takes the recommended option, and the pull request is not green for it |
 | `seats.reviewer.agent` | none; `/lem init` asks | the reviewer: `claude` or `codex` |
 | `seats.reviewer.model`, `.effort`, `.plan_effort` | the default of the agent | the model of the reviewer, its effort for a diff, and its effort for a plan |
 | `tools.annotate` | `webrev` | the tool with which you mark a plan; webrev is a recommended tool that you install |

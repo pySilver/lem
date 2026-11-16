@@ -58,18 +58,66 @@ builder can start builders in your agent, and what to do when it cannot.
    - *an approach that failed twice*: it is not tried a third time with a patch. State the problem
      again in plain terms, name what the two tries assumed, and brief the next builder with a
      different approach and why it avoids that assumption;
-   - *a question of what a person should see* (which of two results serves the people of the
-     project better, where the ask and the rulings leave it open): the `lem-panel` skill in its
-     reviewing mode, with the project's cast, gives the people's reading of the two results. It
-     asks the owner nothing and decides nothing. Take the decision yourself with that reading,
-     write it in `decisions.md` with what the personas said, and brief the next builder. It is
-     not a question for the reviewer;
-   - *a question of what the owner meant* (two readings of the ask that give the owner different
-     things) or of taste: the personas do not answer for the owner, and neither do you. It is a
-     held decision;
-   - *a held decision*: treat it as `plan.md` does under "A held decision", and keep the other
-     tasks moving.
+   - *a choice the plan did not see*: "A choice in the build" below. It is not a question for
+     the reviewer.
+   A builder's report also lists the decisions it took that the plan did not. Write each one into
+   the record, as the next section says, before the next builder starts.
 4. **Go on to "The report"** when every task has its report.
+
+## A choice in the build
+
+A surprise in the build stops the task for the owner's wait at most, never longer, except for a
+step that a later "no" cannot reverse. The owner's rule, 2026-11-16: the personas first, a clear
+choice taken and logged, an unclear one to him, and with no answer in 15 minutes the recommended
+action, logged so that the pull request shows it. Every decision goes into the task's record
+through one script, which also puts it on the board:
+
+```bash
+python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT] [--story N --was TEXT]
+```
+
+1. **The stories and the directions stay true**: decide it yourself, from the code, the settings
+   and the rulings, and log it with `--by lead` and `--undo`, what it would take to undo it.
+2. **Otherwise the persona panel first**, with the personas the choice concerns, in its reviewing
+   mode: each option as what a person would see and what it costs, and a short check of outside
+   facts when one fact decides it. It asks the owner nothing and decides nothing.
+   - *A clear answer* (the personas agree, nobody in doubt): take it, log it with
+     `--by personas --said "who picked what"`, and go on. A story that the choice changes gets
+     `--story N --was "its text before"`; change the story in the plan in the same commit as the
+     code. The pull request is not green for a changed story.
+   - *An unclear answer* (the personas split, or one is in doubt), or a question of what the owner
+     meant or of taste, which the personas do not answer for him: ask him.
+
+     ```bash
+     python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE ask SLUG --what TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
+     ```
+
+     `--said` holds what the personas answered, or why they were not asked. The choice waits the
+     settings' `flow.decision_wait` (15 minutes unless the project says otherwise). Tell Lem that
+     it waits: in a session, `tell-coordinator` with the line `lem: SLUG choice N waits`. A
+     builder that leads has no `tell-coordinator` (the harness file defines it from a task's
+     session only), so its choice reaches Lem at Lem's next turn, through `decisions.py pending`,
+     and may end its wait before the owner sees it.
+3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
+   before you start one that depends on it, run `decisions.py --repo WORKTREE wait SLUG N`. It
+   returns when the owner answered, when the wait is over, or after nine minutes: run it again
+   while it says `still waits`, when nothing else is left to do. When the wait is over, run
+   `decisions.py --repo WORKTREE timeout SLUG N`: the recommended option is taken, and the pull
+   request is not green for it. `decisions.py list SLUG` shows each decision as it stands; an
+   answer that came after the timeout and differs from what was taken is the owner's correction:
+   build his answer, and log it with `--by lead` and why.
+4. **A step that a later "no" cannot reverse is never taken by timeout.** The four kinds, and no
+   other: it destroys or rewrites data outside the worktree (`data`); it writes to a system
+   outside the repository beyond what the settings already allow, such as the tracker's ticket
+   (`system`); it sends something to a person (`person`); it spends money (`money`). Ask it with
+   `--irreversible` and the kind. Only the part of the plan that needs that step waits, however
+   long; the rest goes on. When every task that is left needs it, write the report with the
+   choice under "held", write the state `held` with the line `choice N waits for the owner`, and
+   stop: Lem starts a lead again after his answer.
+
+A builder that is not the lead and meets such a choice asks nobody: it stops its task with the
+question in its report, with the options and what it would choose, and the lead takes it from
+there by these steps.
 
 ## The report
 
@@ -94,10 +142,12 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   settings' `gate.setup`; when that is missing, it is an outside defect for your report, not
   yours to set;
 - **not verified**: what you could not or did not check;
-- **decisions**: each one taken without the owner, with why and what it would take to undo. Add
-  the same lines to `decisions.md`;
+- **decisions**: each one taken without the owner, with why and what it would take to undo, by
+  its number in `decisions.py list SLUG`. Each is in that record before the report: the pull
+  request takes them from there;
 - **held**: each decision that is the owner's, in the form `plan.md` gives under "A held
-  decision". Leave the heading out when there is none;
+  decision", and each choice of an irreversible step that still waits, by its number. Leave the
+  heading out when there is none;
 - **outside defects**: each defect seen in code outside the task, with its file and one line on
   what is wrong. Do not fix it and do not file it: the closing pass of the landing fixes the
   small ones in place and files the others in the backlog (`stages/land.md`, step 3);

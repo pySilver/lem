@@ -12,16 +12,19 @@ directory, which lead you are (`builder` or `session`) and whether you stop afte
 2. **Read where the task stands**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE tasks`
    for its status, then `task.md` in the task directory. When the status is `ready`, `landing`,
    `landed` or `dropped`, say so and stop: there is nothing to lead. When the task directory holds
-   a `report.md`, a `decisions.md` or a longer `state.md`, a lead before you stopped: read them
-   and the branch's log, and go on from there. Do not start over, and do not ask again what
-   `decisions.md` already answers.
+   a `report.md`, a `decisions.jsonl` or a longer `state.md`, a lead before you stopped: read the
+   report, the state, `python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE list SLUG` and the
+   branch's log, and go on from there. Do not start over, and do not ask again what that record
+   already answers.
 3. **Follow `SKILL_DIR/stages/plan.md`, then `SKILL_DIR/stages/build.md`.** Read each when you
    reach it.
 4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
    another branch or touch the checkout the worktree came from.
 5. **You never ask the owner.** A decision that is the owner's goes into `report.md` in the form
    `plan.md` gives under "A held decision", and Lem asks it. When the owner writes to you in your
-   session, do what the owner says, and write it in `decisions.md` so Lem reads it too.
+   session, do what the owner says, and log it with `decisions.py log SLUG --by owner` so Lem
+   reads it too. A choice in the build waits for him a fixed time at most: `stages/build.md`, "A
+   choice in the build", says how it is asked and logged.
 6. **Write the state as you go**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG
    STATUS "one line"`. It is the only thing Lem and the owner's board see of you while you work.
 7. **Stop the way `build.md` ends**: `report.md`, then the state, then tell Lem. Do this before

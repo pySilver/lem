@@ -70,8 +70,8 @@ by line before the build.
    found 19 (mybaze, 2026-09-25 to 2026-11-03, counted by one reader from that project's notes).
    A plan that is not careful skips this read, and that is what the skip can cost.
 5. **A held decision goes to the owner, the others do not.** For each decision of the plan: a
-   ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and write it
-   in `decisions.md`. It turns on a claim that can be argued both ways ("this will not scale",
+   ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and log it
+   with `decisions.py log SLUG --by lead` (`stages/build.md`, "A choice in the build"). It turns on a claim that can be argued both ways ("this will not scale",
    "nobody uses that") → the `lem-dialectic` skill settles the claim first. Its options each cost a
    person something and nothing answers it → it is held, and it is not yours to ask. Write it in
    `report.md` under "held", so that Lem can ask it without reading the code:

@@ -45,8 +45,10 @@ What holds for every builder, unless your job says otherwise as above:
    when your brief is that closing pass, you are the one who fixes the small ones and files
    the others.
 7. **You ask nobody.** A decision the plan did not take, you take and write in your report with
-   its reason. A question only the owner can answer goes into your report as it is, and you go on
-   with what does not depend on it.
+   its reason, while the stories stay true. A choice that would change a story, whose options
+   each cost a person something, or that only the owner can answer, is not yours: commit what
+   you have, stop your task, and put the question in your report with the options and what you
+   would choose. Your lead takes it to the personas and, when they do not agree, to the owner.
 8. **Stop after two tries.** A failure you cannot explain after two tries, or an approach that
    failed twice, is not tried a third time: write what you tried and what each try assumed, and
    stop.

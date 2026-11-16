@@ -72,11 +72,15 @@ left nothing open and not green otherwise. `attempt` in a record is the number `
 for it, so a record that is sent twice is written down once.
 
 `propose` writes the text of the pull request to `pr.md` in the task's directory, from what the
-steps kept and from the notes file, whose headings it checks. The text opens with green or not
-green. Green says that the machine checks passed with the bar where it was, a review with at
-least one source left no must-fix, and no story changed during the build. A lowered bar is not
-green with a reason either: its line holds the builder's reason and what the review said of it.
-Each reason a request is not green stands before everything else, one line each. With a GitHub remote `propose` pushes the task's branch
+steps kept, from the record of the task's decisions (`decisions.py list`) and from the notes
+file, whose headings it checks. The text opens with green or not green. Green says that the
+machine checks passed with the bar where it was, a review with at least one source left no
+must-fix, no story changed during the build, and no decision was taken by timeout. A lowered bar
+is not green with a reason either: its line holds the builder's reason and what the review said
+of it. A choice taken by timeout is a line of its own, and so is an answer of the owner's that
+came after it and differs. Each reason a request is not green stands before everything else, one
+line each; each decision of the record is one line before the notes. `propose` is refused while a
+choice of the task waits for the owner. With a GitHub remote `propose` pushes the task's branch
 and opens the pull request with the `gh` command; a second run updates it. With any other
 remote, or none, the branch is marked ready. GitLab is not built: nobody checked its command.
 
@@ -129,6 +133,8 @@ OVERRULED = "careful: the owner says so"
 # How many changed lines one reader takes as one piece; a larger change is read task by task, in
 # the plan's own cuts. A guess (2026-11-15), not a measurement.
 READ_AT = 800
+# Who took a decision of the record, as the text of a pull request names them.
+TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout"}
 # The headings the notes of a pull request hold, in this order: what only the one who read the
 # task's report can say.
 NOTES = ("## Decisions", "## Left open", "## Worth a look", "## Filed in the backlog", "## Not done")
@@ -209,6 +215,7 @@ class Task:
         self.remote = git(self.main, "remote", "get-url", "origin", check=False) != ""
         self.onto = f"origin/{self.base}" if self.remote else str(self.base)
         self.kept_file = self.directory / "landing.json"
+        self.recorded: list[dict] | None = None
         # The address as the repository has it, before any rewrite of it: the forge is known by its host.
         url = git(self.main, "config", "--get", "remote.origin.url", check=False)
         self.forge = "github" if re.match(r"(https://|ssh://git@|git@)github\.com[:/]", url) else None
@@ -232,6 +239,12 @@ class Task:
 
     def state(self, status: str, *lines: str) -> None:
         script("project.py", self.worktree if self.worktree.exists() else self.main, "state", self.slug, status, *lines)
+
+    def decisions(self) -> list[dict]:
+        """Each decision of the task as it stands, through the one script that writes them."""
+        if self.recorded is None:
+            self.recorded = json.loads(script("decisions.py", self.main, "list", self.slug).stdout)
+        return self.recorded
 
     def fetch(self) -> None:
         if self.remote:
@@ -595,13 +608,38 @@ def not_green(task: Task, state: dict) -> list[str]:
     for entry in (kept.get("checks") or {}).get("bar", {}).get("lowered", []):
         review = f"The review: {said[entry['file']]}" if entry["file"] in said else "No review said anything of it."
         reasons.append(f"the bar is lower in `{entry['file']}` ({entry['what']}). The builder: {entry['reason']} {review}")
-    changes = task.directory / "story-changes.jsonl"
-    if changes.is_file():
-        for line in changes.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                was = json.loads(line)
-                reasons.append(f"story {was.get('story')} changed during the build: {was.get('why', 'no reason was written down')}")
+    for decision in task.decisions():
+        if "story" in decision:
+            reasons.append(f"story {decision['story']} changed during the build: {decision['why']}")
+        if decision["state"] == "timeout":
+            reasons.append(
+                f"choice {decision['id']} was taken by timeout ({decision['what']}): \"{decision['chose']}\", the recommended option, "
+                f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer{later(decision, '; he answered later with')}",
+            )
     return reasons
+
+
+def later(decision: dict, lead: str) -> str:
+    """What the owner answered after the timeout, when he did: the same, or what differs."""
+    if "late" not in decision:
+        return ""
+    if decision["late"]["chose"] == decision["chose"]:
+        return f"{lead} the same"
+    return f"{lead} \"{decision['late']['chose']}\", which differs"
+
+
+def decided(decision: dict) -> str:
+    """One decision of the record as one line of the pull request: what, what was chosen, by whom, why."""
+    head = f"- {decision['what']}: "
+    if decision["state"] == "waits":
+        return head + "waits for the owner."
+    line = head + f"\"{decision['chose']}\", by {TAKEN_BY[decision['by']]}"
+    if decision["state"] == "answered":
+        return line + ("." if decision["chose"] == decision["recommended"] else f", over the recommended \"{decision['recommended']}\".")
+    if decision["state"] == "timeout":
+        return line + f", after the owner's wait of {decision['wait_minutes']} minutes. {decision['why']}" + (f" {later(decision, 'He answered later with')}." if "late" in decision else "")
+    line += f" ({decision['said']}). {decision['why']}" if decision["by"] == "personas" else f". {decision['why']}"
+    return line + (f" Story {decision['story']} changed." if "story" in decision else "")
 
 
 def pr_text(task: Task, notes: str, state: dict) -> str:
@@ -616,7 +654,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     if reasons:
         out += ["**Not green.**", "", *(f"- {reason}" for reason in reasons), ""]
     else:
-        out += ["**Green.** The machine checks passed with the bar where it was, the review left no must-fix, and no story changed.", ""]
+        out += ["**Green.** The machine checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout.", ""]
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
     out += ["## Stories", "", f"{found['kind'].capitalize()}, because {found['why']}", ""]
     for story in found["stories"]:
@@ -626,13 +664,10 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
             out.append(f"   - `{test['command']}`: {'passes on the branch, fails on the base commit' if proof and not proof['problem'] else 'not checked'}")
         if story["no_test"]:
             out.append(f"   - no test: {story['no_test']}")
-    changes = task.directory / "story-changes.jsonl"
-    if changes.is_file() and changes.read_text().strip():
+    changed_stories = [decision for decision in task.decisions() if "story" in decision]
+    if changed_stories:
         out += ["", "Stories that changed during the build:", ""]
-        for line in changes.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                was = json.loads(line)
-                out.append(f"- story {was.get('story')}: was \"{was.get('was')}\". {was.get('why', '')} {was.get('said', '')}".rstrip())
+        out += [f"- story {was['story']}: was \"{was['was']}\". {was['why']} {was.get('said', '')}".rstrip() for was in changed_stories]
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]
@@ -656,6 +691,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         out += [f"  - ran {profile['name']}: {profile['why']}" for profile in read["ran"]]
         out += [f"  - left out {profile['name']}: {profile['why']}" for profile in read["left_out"]]
     out.append(f"- careful: {'yes, ' + '; '.join(state['careful']) if state['careful'] else 'no'}")
+    out += ["", "## Decisions of the build", "", *([decided(decision) for decision in task.decisions()] or ["none"])]
     return "\n".join(out) + "\n\n" + notes.strip() + "\n"
 
 
@@ -678,6 +714,17 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     state = due(task)
     if state["due"] == "review":
         raise LandError(f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} at the least ({state['why']}); `land.py read {task.slug}` says what a reviewer gets")
+    # A request is never proposed over an open question of the owner's.
+    waiting = next((decision for decision in task.decisions() if decision["state"] == "waits"), None)
+    if waiting:
+        ends = (
+            "it is a step that a later \"no\" cannot reverse, so only his answer ends it"
+            if waiting["irreversible"] else f"or, after its wait ends at {waiting['deadline']}, `decisions.py timeout {task.slug} {waiting['id']}` takes the recommended option"
+        )
+        raise LandError(
+            f"choice {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): a request is never proposed over an open question of his. "
+            f"Lem writes his answer with `decisions.py answer {task.slug} {waiting['id']} --chose TEXT`; {ends}",
+        )
     notes = Path(notes_file).read_text(encoding="utf-8") if Path(notes_file).is_file() else None
     if notes is None:
         raise LandError(f"{notes_file} is not a file; --notes names the notes of the pull request")

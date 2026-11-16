@@ -130,9 +130,10 @@ one finds what the run before it finished.
    notes are a file you write in the task directory, `notes.md`, from `report.md` and the last
    review's file, with these headings, each holding what is true of this task or the one word
    `none`:
-   - `## Decisions`: every decision taken without the owner, one line each: what came up, what
-     was chosen, and why in a few words, with what the personas said where they were asked. The
-     lead's call on whether the task is careful, with its sentence of why, is one of them.
+   - `## Decisions`: what the record of the task's decisions does not hold, one line each: what
+     came up, what was chosen, and why in a few words. The lead's call on whether the task is
+     careful, with its sentence of why, is one of them. Do not copy the record: the step puts
+     each of its decisions into the text by itself.
    - `## Left open`: each should finding the review left, with its file.
    - `## Worth a look`: up to three places a person's eye is worth, and why each.
    - `## Filed in the backlog`: each item the closing pass or a review's filing filed, by its
@@ -145,9 +146,12 @@ one finds what the run before it finished.
    The step writes the text of the pull request (`pr.md` in the task directory): the first line
    says green or not green, and each reason it is not green stands before everything else; then
    the request in the owner's words, the stories with their tests, each check with what it
-   returned, and your notes. Green means that the checks passed with the bar where it was, a
-   review with at least one source left no must-fix, and no story changed during the build. A
-   green request needs no read from the owner.
+   returned, each decision of the record (`decisions.py list SLUG`) with who took it and why,
+   and your notes. Green means that the checks passed with the bar where it was, a review with
+   at least one source left no must-fix, no story changed during the build, and no choice was
+   taken by timeout. A green request needs no read from the owner. The step refuses while a
+   choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
+   the owner"), and run it again after his answer or after the timeout.
    With a GitHub remote the step pushes the task's branch and opens the pull request, or
    updates the one that is there. With any other remote, or none, it marks the branch ready.
    Either way the state becomes `open`, and the landing line is free.

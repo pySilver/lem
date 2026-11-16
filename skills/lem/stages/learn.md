@@ -41,7 +41,8 @@ read whole.
 
 ## retro
 
-`/lem retro` reads what the sessions did since the last retro: each task's `decisions.md`, the
+`/lem retro` reads what the sessions did since the last retro: each task's decisions
+(`decisions.py list SLUG`: who took each, a choice taken by timeout, a late answer that differs), the
 "not verified" and "outside defects" lines of each `report.md`, the reviews and the proposals
 in the event log (`review` and `proposed` events: the rounds, the counts, who answered, and each
 reason a request was not green), and the owner's corrections, from the project's correction queue when it keeps one (below). It looks

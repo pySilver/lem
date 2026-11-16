@@ -7,7 +7,7 @@ and your two files carry.
 
 You get the owner's words, the stories at the top of the plan, the range of commits, the rule
 files that cover the changed files, and the folder of the project's review tool. You do not get
-the builder's reasoning: do not read `report.md`, `decisions.md` or the builder's messages. A
+the builder's reasoning: do not read `report.md`, `decisions.jsonl` or the builder's messages. A
 review that knows why the builder thought it was right finds less.
 
 1. **Read the change.** The owner's words (`words`, and `request` when it is there), the stories

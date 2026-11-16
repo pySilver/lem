@@ -33,7 +33,8 @@ a lead is started, and what to do each time a lead stops.
    - out of scope, when the ask has an obvious neighbor this task leaves alone.
    Write it from the ask, the project's profile and the rulings. Do not read the code for it: a
    "done when" line that needs the code is the lead's to sharpen in its plan. A line you put out
-   of scope by yourself is a decision taken without the owner: write it in `decisions.md`.
+   of scope by yourself is a decision taken without the owner: log it, once the task directory
+   is there, with `decisions.py log SLUG --by lem`.
 3. **Is the ask clear?** If you cannot write the outcome without choosing between two readings
    that give the owner different things, ask once through `ask-owner`, each reading as what the
    owner would get. Anything else is the lead's to read from the code and log.
@@ -74,8 +75,8 @@ two states (`project.py tasks`), each with its ask and its plan's path, and ask 
 fixed choice, so it stays in the terminal. One such task needs no question.
 
 The owner may say that a task is careful, at any time before its landing, whatever its lead
-called it. At once, add the line `careful: the owner says so` to the task's brief, and write his
-words in `decisions.md`. The brief is what holds it: whoever reads the task's next stop reads
+called it. At once, add the line `careful: the owner says so` to the task's brief, and log his
+words with `decisions.py log SLUG --by owner`. The brief is what holds it: whoever reads the task's next stop reads
 that line, also a Lem that started after this one, and the landing reads it too: the change
 gets the project's full review set, its notes say whether it holds a migration, and a person
 merges it whatever the settings say (`stages/land.md`). A task that still builds finishes its
@@ -124,6 +125,25 @@ that is started again after it stopped.
 A lead that is started again is a fresh agent with the same brief. It finds the plan, the report,
 the decisions and the commits on the branch; that is the whole handover.
 
+## When a choice waits for the owner
+
+A lead that meets a choice the personas leave unclear asks it with `decisions.py ask`, and the
+task goes on without it (`stages/build.md`, "A choice in the build"). A session's lead tells you
+with the line `lem: SLUG choice N waits`. A builder that leads cannot wake you, so run
+`python3 SKILL_DIR/scripts/decisions.py pending` at each of your turns.
+
+1. **Ask him at once**, through `ask-owner`: the personas' answers on top (`said`), then what the
+   choice is, the options, the recommended one with its reason, and the time the wait ends, in
+   his clock (`deadline` is in UTC). After that time the lead takes the recommended option and
+   the pull request is not green for it. A choice with `irreversible` set has no such time: say
+   which of the four kinds it is, and that only that part of the plan waits for his word.
+2. **Write his answer**, in his words: `decisions.py answer SLUG N --chose TEXT`. A lead in a
+   session gets it as one message too; a builder that leads finds it at its next
+   `decisions.py wait`.
+3. **An answer after the wait** is written down the same way, and the script says it is late.
+   When it differs from what was taken, it is his correction: tell the lead while the task
+   builds, and after that it is a new ask. The pull request names it either way.
+
 ## When a lead stops
 
 A builder's reply is the path of its report. A session's lead sends one message that starts with
@@ -150,8 +170,9 @@ Act on the status:
   reaches him through `ask-owner`, which shows it as the settings' `tools.ask` says: that key
   outranks the way of asking either skill names. Put the report's run above the card, with whether it was reproduced or derived,
   and its one line on why the case became possible and how far the same cause reaches. Ask all
-  held decisions of one task in one go. Write each answer in the task's `decisions.md`, then
-  start a lead. The `lem-panel` skill asks for what users would see under each option; that is in
+  held decisions of one task in one go. Log each answer with `decisions.py log SLUG --by owner`,
+  or, for a choice the record already holds as asked, `decisions.py answer SLUG N --chose TEXT`;
+  then start a lead. The `lem-panel` skill asks for what users would see under each option; that is in
   the report, and what is missing there the lead adds, not you.
   A task is also `held` when a step is the owner's to do and no decision at all: a trust prompt
   of the reviewer's agent, a command an agent is refused. Tell the owner that step as it is, with

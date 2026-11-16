@@ -109,10 +109,16 @@ Between two of the owner's messages Lem only waits: a lead that stops wakes it.
   probe answers; it goes through the question gate and the persona panel before the owner sees
   it. The panel asks the project's own personas, which every project of Lem has. Every other decision is yours: decide from the code, the settings and the rulings, write it
   in the decisions log, and go on. A red test, a failed command or a moving base branch is the
-  work, never a reason to stop.
-- **Decisions are logged, and the owner can overturn each.** One line in `decisions.md` per
-  decision made without the owner: what, why, what it would take to undo. The report lists them
-  as decisions, never as questions.
+  work, never a reason to stop. A choice in the build that the personas leave unclear waits for
+  the owner the settings' `flow.decision_wait` at most, 15 minutes unless the project says
+  otherwise; then the lead takes the recommended option and the pull request is not green for
+  it. A step that a later "no" cannot reverse is the one exception: it waits for his word, and
+  the rest of the plan goes on (`stages/build.md`, "A choice in the build").
+- **Decisions are logged, and the owner can overturn each.** Each decision made without the
+  owner, each choice that went to him and his answer, through `scripts/decisions.py`: what, what
+  was chosen, by whom, why, and what it would take to undo. It writes `decisions.jsonl` in the
+  task's directory and an event for the board; nobody writes that file by hand. The report lists
+  them as decisions, never as questions, and the pull request lists each one from the record.
 - **A destructive or outward step is never yours.** Dropping data, rewriting shared history,
   touching production, bending a gate, pushing to a branch the settings do not name: stop and
   ask, with the evidence.
@@ -164,8 +170,9 @@ worktree, never committed and not removed with a worktree. It holds:
 - `state.md`: newest block first. Lem and the lead write it, and only through the script.
 - `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that
   stops. `stages/build.md` gives its form.
-- `decisions.md`: one line per decision taken without the owner, and each answer the owner gave.
-  Lem and the lead both write it.
+- `decisions.jsonl`: each decision taken without the owner, each choice that went to him and his
+  answer, one line for each thing that happened. Lem and the lead both write it, and only
+  through `scripts/decisions.py`; `decisions.py list SLUG` shows each decision as it stands.
 - `reports/`: one file per builder of a plan of more tasks. Lem does not read these.
 - `landing.json`, `gate/`, `read.json`, `reviews/`, `notes.md` and `pr.md`: what the landing
   keeps: its own record, the output of each gate command, what each review was given and what
@@ -250,7 +257,9 @@ directory with the first line of its `task.md`, its status and the newest block 
 waits on, what landed today, and what
 waits for the owner. That includes each `open` task: its pull request's address, or that its
 branch is ready to land, and green or the reasons it is not, as the newest state block has
-them. A task whose status is null has a state nobody wrote through the script: say
+them. It includes each choice of a build that waits for him, as `python3
+SKILL_DIR/scripts/decisions.py pending` lists them: the task, the choice, and the minutes its
+wait has left, or that it waits for his word. A task whose status is null has a state nobody wrote through the script: say
 so. A task with a `ticket_owed` ended, and its ticket in the tracker does not say so yet: say
 that too. Open with the newest night report when one is newer than the last status shown. The status
 itself changes nothing.

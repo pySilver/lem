@@ -143,11 +143,14 @@ STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[
 # six gave a load average of 12 to 16 and unstable browser tests (convertiser-server, as its owner
 # reported it on 2026-11-14). The right number depends on the machine and on the project's tests.
 MAX_TASKS = 4
+# How many minutes a choice of the build waits for the owner before the recommended action is
+# taken. The owner's own number: "if there is decision taken in 15 min" (2026-11-16).
+DECISION_WAIT = 15
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
     "branch": ("base", "land", "history", "protected"),
     "gate": ("commands", "ignores", "setup", "bar"),
-    "flow": ("careful", "topics", "max_tasks"),
+    "flow": ("careful", "topics", "max_tasks", "decision_wait"),
     "seats": ("reviewer",),
     "tools": tuple(TOOLS),
     "corrections": ("collect",),
@@ -208,6 +211,9 @@ topics = []
 # average of 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when
 # the tests share one database or drive a browser.
 max_tasks = {max_tasks}
+# How many minutes a choice of the build waits for the owner before the lead takes the recommended
+# option, and the pull request is not green for it. The owner's own number (2026-11-16).
+decision_wait = {decision_wait}
 
 [seats.reviewer]
 # The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one reads the
@@ -453,6 +459,9 @@ def load(root: Path) -> dict:
     # a bool is an int in Python, and `max_tasks = true` is a mistake, not the number 1
     if isinstance(max_tasks, bool) or not isinstance(max_tasks, int) or max_tasks < 1:
         raise SettingsError(f"{SETTINGS}: flow.max_tasks = {max_tasks!r} must be a whole number, 1 or more")
+    decision_wait = raw.get("flow", {}).get("decision_wait", DECISION_WAIT)
+    if isinstance(decision_wait, bool) or not isinstance(decision_wait, int) or decision_wait < 1:
+        raise SettingsError(f"{SETTINGS}: flow.decision_wait = {decision_wait!r} must be a whole number of minutes, 1 or more")
 
     return {
         "root": str(root),
@@ -471,6 +480,7 @@ def load(root: Path) -> dict:
             "careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"),
             "topics": strings(raw.get("flow", {}).get("topics", []), "flow.topics"),
             "max_tasks": max_tasks,
+            "decision_wait": decision_wait,
         },
         "seats": {"reviewer": reviewer},
         "tools": tools,
@@ -583,7 +593,7 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
         lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
     agent = f'agent = "{reviewer}"' if reviewer else '# agent = "codex"'
-    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS, **TOOLS))
+    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, **TOOLS))
     # one machine's own settings are never committed
     ignore = file.parent / ".gitignore"
     known = ignore.read_text().splitlines() if ignore.is_file() else []
