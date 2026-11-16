@@ -186,7 +186,8 @@ row, so that the read is started once more, and after the second in a row the re
 green, with "the stories were not read" first, and its checks say so in place of the read's line. A careful path that the diff matches and the plan's own call missed is a lesson
 about that call: `propose` writes one `careful.missed` event with the path and its pattern, the
 first time it finds the case, for the retro. With a GitHub remote `propose` pushes the task's branch
-and opens the pull request with the `gh` command; a second run updates it. With any other
+and opens the pull request with the `gh` command; a second run updates it. The `proposed` event
+is written after that step: a proposal that the push or the forge refused is none. With any other
 remote, or none, the branch is marked ready. So it is with a GitHub remote when the settings'
 `branch.propose` is `merge`, for a developer who wants no pull requests: the remote is then one
 like any other, no task branch is pushed, and `merged` is refused. GitLab is not built: nobody
@@ -1680,16 +1681,9 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if not title.strip() or "\n" in title:
         raise LandError("--title is one line: the subject of the change")
     body = task.directory / "pr.md"
-    body.write_text(pr_text(task, notes, state), encoding="utf-8")
+    write_whole(body, pr_text(task, notes, state))
     reasons = not_green(task, state)
     says = "green" if not reasons else f"not green: {'; '.join(reasons)}"
-    # A careful path that the plan's own call missed is a lesson about that call: one event for the
-    # retro, written the first time a proposal finds it.
-    path = missed(task, state)
-    if path and not any(record.get("event") == "careful.missed" for record in events_of(task)):
-        script("project.py", task.worktree, "log", task.slug, "careful.missed", f"path={path['file']}", f"pattern={path['pattern']}")
-    # for the retro: how often a request is not green, and for which reason
-    script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
     branch = git(task.worktree, "branch", "--show-current")
     pr = kept.get("pr")
     if task.forge == "github":
@@ -1711,6 +1705,15 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             if not number.isdigit():
                 raise LandError(f"gh pr create printed no pull request address: {url!r}")
             pr = {"number": int(number), "url": url}
+    # The events come after the forge's step: a proposal that the forge or the push refused is none.
+    # A careful path that the plan's own call missed is a lesson about that call: one event for the
+    # retro, written the first time a proposal finds it.
+    path = missed(task, state)
+    if path and not any(record.get("event") == "careful.missed" for record in events_of(task)):
+        script("project.py", task.worktree, "log", task.slug, "careful.missed", f"path={path['file']}", f"pattern={path['pattern']}")
+    # for the retro: how often a request is not green, and for which reason
+    script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
+    if task.forge == "github":
         task.keep(pr=pr, proposed=tip, title=title, not_green=reasons)
         task.state("open", f"pull request {pr['url']}", says)
     else:

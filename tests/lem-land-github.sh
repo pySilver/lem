@@ -146,6 +146,43 @@ if grep -q "the forge merged ${head:0:9}, and the branch has commits after it" <
 else
   fail "clean after a merge on the forge: $after / $kept_branch / $refused / $still / $left / $cleaned"
 fi
+# A proposal the forge's step refused is none: no `proposed` event, and the task keeps the landing line.
+# With no `gh` on PATH the refusal names the command; a forge that fails is said with what it said.
+task_in "$GHS" pr-guards r.txt twelve
+gh_checked pr-guards && gh_land read pr-guards --record "$(clean 1)" >/dev/null
+mkdir -p "$WORK/no-gh" "$WORK/bad-bin"
+ln -s "$(command -v git)" "$WORK/no-gh/git"
+printf '%s\n' '#!/bin/sh' 'echo "HTTP 502: the forge is down" >&2' 'exit 1' > "$WORK/bad-bin/gh" && chmod +x "$WORK/bad-bin/gh"
+no_gh=$(PATH="$WORK/no-gh" "$PY" -B "$LAND" --repo "$GHS" propose pr-guards --title "fix: twelve" --notes "$NOTES" 2>&1 || true)
+down=$(PATH="$WORK/bad-bin:$PATH" "$PY" -B "$LAND" --repo "$GHS" propose pr-guards --title "fix: twelve" --notes "$NOTES" 2>&1 || true)
+unproposed=$(grep -c '"event": "proposed", "task": "pr-guards"' "$GHS/.git/lem/events.jsonl" || true)
+unopened=$(status_in "$GHS" pr-guards)
+number=$(gh_land propose pr-guards --title "fix: twelve" --notes "$NOTES" | field 'd["pull_request"]["number"]')
+if grep -qF "the remote is GitHub and the \`gh\` command is not on PATH: install it and sign in, then run this again" <<<"$no_gh" && ! grep -q Traceback <<<"$no_gh" \
+  && grep -qF "HTTP 502: the forge is down" <<<"$down" && [ "$unproposed" = 0 ] && [ "$unopened" = landing ] \
+  && [ "$(grep -c '"event": "proposed", "task": "pr-guards"' "$GHS/.git/lem/events.jsonl")" = 1 ] && [ "$(status_in "$GHS" pr-guards)" = open ]; then
+  pass "a proposal that the forge's step refused writes no proposed event and keeps the task in landing, with no gh on PATH named as such and a forge's error said; the next proposal is the one event"
+else
+  fail "a proposal the forge refused: $no_gh / $down / $unproposed / $unopened"
+fi
+# The forge's head moved after the proposal, then the pull request was closed: land merges neither, and merged says closed.
+tip=$(git -C "$GHS/.lem/worktrees/pr-guards" rev-parse HEAD)
+pushed=$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p "$tip" -m "fix: pushed by someone else" "$tip^{tree}")
+git -C "$GHO" update-ref refs/heads/fix/pr-guards "$pushed"
+moved_head=$(gh_land land pr-guards --by agent 2>&1 || true)
+git -C "$GHO" update-ref refs/heads/fix/pr-guards "$tip"
+"$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"][sys.argv[2]]["state"] = "CLOSED"; json.dump(d, open(sys.argv[1], "w"))' "$WORK/gh.json" "$number"
+closed_land=$(gh_land land pr-guards --by agent 2>&1 || true)
+closed_merged=$(gh_land merged pr-guards 2>&1 || true)
+if grep -qF "the pull request's head is not the tip that was proposed; run \`land.py start\`, \`land.py base\`, \`land.py gate\` and \`land.py propose\` again" <<<"$moved_head" \
+  && grep -qF "the pull request was closed without a merge" <<<"$closed_land" && grep -qF "the pull request was closed without a merge" <<<"$closed_merged" \
+  && [ "$(gh_state "sum(c[:3] == ['pr', 'merge', '$number'] for c in d['calls'])")" = 0 ] && [ "$(status_in "$GHS" pr-guards)" = open ]; then
+  pass "land merges no pull request whose head on the forge is not the proposed tip, nor a closed one, and merged says that it was closed without a merge"
+else
+  fail "a moved head and a closed pull request: $moved_head / $closed_land / $closed_merged"
+fi
+project --repo "$GHS" state pr-guards dropped "the test is over" >/dev/null
+
 # A GitHub remote, and a developer who wants no pull requests (`branch.propose = "merge"`): the task
 # lands on the remote's base branch as a ready branch does, so the next task starts from it, and the
 # forge is never asked. The stand-in `gh` here only writes down that it was called.
