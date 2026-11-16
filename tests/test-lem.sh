@@ -2577,50 +2577,119 @@ else
   fail "the backlog folder as a path: $inside / $beside / $rooted"
 fi
 
-# The defects outside the change are not lost when a session stops after the review's record: `read`
-# names them until a new item is filed and `--filed` says so, and nothing is proposed before that.
-task_in "$BLG" outside app.txt two
-tree=$(project --repo "$BLG" worktree-dir outside)
-land --repo "$BLG" start outside >/dev/null && land --repo "$BLG" base outside >/dev/null && land --repo "$BLG" gate outside >/dev/null
-recorded=$(land --repo "$BLG" read outside --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 1}')" | field '(d["next"], d["to_file"])')
-stopped=$(land --repo "$BLG" read outside | field '(d["due"], d["to_file"])')
-unfiled=$(land --repo "$BLG" propose outside --title "fix: outside" --notes "$NOTES" 2>&1 >/dev/null || true)
-early=$(land --repo "$BLG" read outside --filed 2>&1 >/dev/null || true)
-echo '# a defect from before' > "$tree/docs/backlog/old-defect.md"
-git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): a defect from before" && land --repo "$BLG" gate outside >/dev/null
-marked=$(land --repo "$BLG" read outside --filed | field '(d["filed"], d["items"], d["to_file"])')
-again=$(land --repo "$BLG" read outside | field '(d["due"], d["to_file"])')
-green=$(land --repo "$BLG" propose outside --title "fix: outside" --notes "$NOTES" | field 'd["green"]')
-text=$BLG/.git/lem/tasks/outside/pr.md
-logged=$("$PY" -c 'import json, sys; print([(e["attempts"], e["items"]) for e in map(json.loads, open(sys.argv[1])) if e["event"] == "review.filed"])' "$BLG/.git/lem/events.jsonl")
-if [ "$recorded" = "('none', 1)" ] && [ "$stopped" = "('none', 1)" ] \
-  && grep -q "the filing of what a review saw outside the change" <<<"$unfiled" && grep -q -- "--filed" <<<"$unfiled" \
-  && grep -q "no item was added to docs/backlog since review round 1" <<<"$early" \
-  && [ "$marked" = "(1, ['docs/backlog/old-defect.md'], 0)" ] && [ "$again" = "('none', 0)" ] && [ "$green" = True ] \
-  && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit; it saw 1 defect outside the change, filed in the backlog$' "$text" \
-  && [ "$logged" = "[([1], ['docs/backlog/old-defect.md'])]" ]; then
-  pass "after a review that saw a defect outside the change, read names it to file until --filed, which needs a new item in the backlog; propose waits for that, and the pull request says the defect was filed"
+# A review names each defect it saw outside the change, and `land.py file` files each one as an item
+# of the backlog: a count of them is no record. A record of the form that only counted them is refused,
+# in a new record and in a kept one; 0 is no defect.
+task_in "$BLG" outside-form app.txt two
+land --repo "$BLG" start outside-form >/dev/null && land --repo "$BLG" base outside-form >/dev/null && land --repo "$BLG" gate outside-form >/dev/null
+counted=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 2}')" 2>&1 >/dev/null || true)
+unnamed=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": [{"where": "app.txt"}]}')" 2>&1 >/dev/null || true)
+none=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 0}')" | field '(d["recorded"]["outside"], d["to_file"])')
+"$PY" -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["reads"][0]["outside"] = 2; json.dump(d, open(p, "w"))' "$BLG/.git/lem/tasks/outside-form/landing.json"
+kept_read=$(land --repo "$BLG" read outside-form 2>&1 >/dev/null || true)
+kept_propose=$(land --repo "$BLG" propose outside-form --title "fix: outside-form" --notes "$NOTES" 2>&1 >/dev/null || true)
+if grep -q '.outside. is the list of the defects' <<<"$counted" && grep -q '"where"' <<<"$counted" && grep -q '.outside. is the list of the defects' <<<"$unnamed" \
+  && [ "$none" = "([], [])" ] && grep -q "a form of the record that was never released" <<<"$kept_read" && grep -q "landing.json" <<<"$kept_read" \
+  && grep -q "a form of the record that was never released" <<<"$kept_propose"; then
+  pass "a record names each defect outside the change, with where, title and what: a count is refused, 0 is no defect, and a kept record that only counted them stops read and propose and names its file"
 else
-  fail "the filing of what a review saw outside the change: $recorded / $stopped / $unfiled / $early / $marked / $again / $green / $logged / $(grep 'the review, round' "$text" 2>/dev/null)"
+  fail "the form of the outside defects: $counted / $unnamed / $none / $kept_read / $kept_propose"
 fi
-project --repo "$BLG" state outside dropped "the test is over" >/dev/null
+project --repo "$BLG" state outside-form dropped "the test is over" >/dev/null
 
-# A fix builder of a must-fix round files them in the same pass: the next round's record may come
-# before --filed, and its reviewer may count the same defects again.
-task_in "$BLG" fix-and-file app.txt two
-tree=$(project --repo "$BLG" worktree-dir fix-and-file)
-land --repo "$BLG" start fix-and-file >/dev/null && land --repo "$BLG" base fix-and-file >/dev/null && land --repo "$BLG" gate fix-and-file >/dev/null
-land --repo "$BLG" read fix-and-file --record "$(record 1 '{"kind": "read", "answered": ["codex"], "must_fix": 1, "outside": 2}')" >/dev/null
-echo '# a second defect from before' > "$tree/docs/backlog/second-defect.md" && echo 'two ' > "$tree/notes.txt"
-git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix, and the defects filed" && land --repo "$BLG" gate fix-and-file >/dev/null
-second=$(land --repo "$BLG" read fix-and-file --record "$(record 2 '{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "answered": ["codex"], "outside": 2}')" | field '(d["next"], d["to_file"])')
-marked=$(land --repo "$BLG" read fix-and-file --filed | field '(d["filed"], d["to_file"])')
-if [ "$second" = "('none', 4)" ] && [ "$marked" = "(4, 0)" ]; then
-  pass "the defects a fix builder filed with its fix are marked filed after the next round's record too, also when that round counted them again"
+# Two rounds that saw two different defects give two items, each filed by the script in a commit of
+# its own; a second run files nothing; propose waits for each one, and the pull request names them.
+A='{"where": "src/json.py:parse", "title": "Empty input crashes the parser", "what": "parse with an empty string raises IndexError, on the base commit too."}'
+B='{"where": "src/csv.py:read", "title": "A quoted comma splits the field", "what": "read of a line with a comma inside quotes gives three fields, on the base commit too."}'
+# the start of a record, and outside DEFECT...: its end, with the defects (bash 3.2 splits a quote escaped inside "$(...)")
+a_read='{"kind": "read", "answered": ["codex"]'
+read_must_fix='{"kind": "read", "answered": ["codex"], "must_fix": 1'
+a_round='{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "answered": ["codex"]'
+outside() { local IFS=,; printf '"outside": [%s]}' "$*"; }
+task_in "$BLG" two-defects app.txt two
+tree=$(project --repo "$BLG" worktree-dir two-defects)
+land --repo "$BLG" start two-defects >/dev/null && land --repo "$BLG" base two-defects >/dev/null && land --repo "$BLG" gate two-defects >/dev/null
+first=$(land --repo "$BLG" read two-defects --record "$(record 1 "$read_must_fix, $(outside "$A")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
+filed_a=$(land --repo "$BLG" file two-defects | field '([(f["round"], f["item"]) for f in d["filed"]], d["same"])')
+echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix" && land --repo "$BLG" gate two-defects >/dev/null
+second=$(land --repo "$BLG" read two-defects --record "$(record 2 "$a_round, $(outside "$B")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
+unfiled=$(land --repo "$BLG" propose two-defects --title "fix: two-defects" --notes "$NOTES" 2>&1 >/dev/null || true)
+filed_b=$(land --repo "$BLG" file two-defects | field '[(f["round"], f["item"]) for f in d["filed"]]')
+commit_b=$(git -C "$tree" show --name-only --format=%s HEAD | tr '\n' '|')
+tip_b=$(git -C "$tree" rev-parse HEAD)
+rerun=$(land --repo "$BLG" file two-defects | field '(d["filed"], d["same"])')
+[ "$(git -C "$tree" rev-parse HEAD)" = "$tip_b" ] || rerun="$rerun, and a commit"
+land --repo "$BLG" gate two-defects >/dev/null
+after=$(land --repo "$BLG" read two-defects | field '(d["due"], d["to_file"])')
+green=$(land --repo "$BLG" propose two-defects --title "fix: two-defects" --notes "$NOTES" | field 'd["green"]')
+text=$BLG/.git/lem/tasks/two-defects/pr.md
+item="$tree/docs/backlog/empty-input-crashes-the-parser.md"
+logged=$("$PY" -c 'import json, sys; print([[i["item"] for i in e["items"]] for e in map(json.loads, open(sys.argv[1])) if e["event"] == "review.filed" and e["task"] == "two-defects"])' "$BLG/.git/lem/events.jsonl")
+if [ "$first" = "('review', [(1, 'Empty input crashes the parser')])" ] && [ "$filed_a" = "([(1, 'docs/backlog/empty-input-crashes-the-parser.md')], [])" ] \
+  && [ "$second" = "('none', [(2, 'A quoted comma splits the field')])" ] && grep -q "A quoted comma splits the field" <<<"$unfiled" && grep -q "land.py file two-defects" <<<"$unfiled" \
+  && [ "$filed_b" = "[(2, 'docs/backlog/a-quoted-comma-splits-the-field.md')]" ] \
+  && [ "$commit_b" = "docs(backlog): what review round 2 saw outside two-defects||docs/backlog/a-quoted-comma-splits-the-field.md|" ] \
+  && [ "$rerun" = "([], [])" ] && [ "$after" = "('none', [])" ] && [ "$green" = True ] \
+  && [ "$(sed -n 1,5p "$item" | tr '\n' '|')" = "---|worth: later|where: src/json.py:parse|added: $(date +%F)|---|" ] && [ "$(sed -n 6p "$item")" = "# Empty input crashes the parser" ] \
+  && grep -qx "parse with an empty string raises IndexError, on the base commit too." "$item" \
+  && grep -qx "Seen outside the change by review round 1 of task two-defects ($(date +%F)); the base commit has it." "$item" \
+  && grep -q '^- the review, round 1 (one read; answered: codex): must-fix, 1 must-fix, 0 should, 0 nit; it saw 1 defect outside the change, filed as .docs/backlog/empty-input-crashes-the-parser.md.$' "$text" \
+  && grep -q '^- the review, round 2 .*: clean, 0 must-fix, 0 should, 0 nit; it saw 1 defect outside the change, filed as .docs/backlog/a-quoted-comma-splits-the-field.md.$' "$text" \
+  && [ "$logged" = "[['docs/backlog/empty-input-crashes-the-parser.md'], ['docs/backlog/a-quoted-comma-splits-the-field.md']]" ]; then
+  pass "two rounds that saw two different defects outside the change give two items in the backlog's format, each committed alone by land.py file; a second run files nothing; propose waits for each, and the pull request names each item"
 else
-  fail "the filing in a must-fix round: $second / $marked"
+  fail "the filing of two defects: $first / $filed_a / $second / $unfiled / $filed_b / $commit_b / $rerun / $after / $green / $logged / $(cat "$item" 2>/dev/null) / $(grep 'the review, round' "$text" 2>/dev/null)"
 fi
-project --repo "$BLG" state fix-and-file dropped "the test is over" >/dev/null
+project --repo "$BLG" state two-defects dropped "the test is over" >/dev/null
+
+# An item that was on the branch before the review is no proof that a defect was filed; an item that
+# was filed and then removed stops propose until it is back, and `file --again` puts it back.
+task_in "$BLG" item-goes app.txt two
+tree=$(project --repo "$BLG" worktree-dir item-goes)
+echo '# a slow report' > "$tree/docs/backlog/first.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): a slow report"
+land --repo "$BLG" start item-goes >/dev/null && land --repo "$BLG" base item-goes >/dev/null && land --repo "$BLG" gate item-goes >/dev/null
+land --repo "$BLG" read item-goes --record "$(record 1 "$a_read, $(outside "$A")")" >/dev/null
+before=$(land --repo "$BLG" propose item-goes --title "fix: item-goes" --notes "$NOTES" 2>&1 >/dev/null || true)
+land --repo "$BLG" file item-goes >/dev/null
+rm "$tree/docs/backlog/empty-input-crashes-the-parser.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: an item less" && land --repo "$BLG" gate item-goes >/dev/null
+gone=$(land --repo "$BLG" propose item-goes --title "fix: item-goes" --notes "$NOTES" 2>&1 >/dev/null || true)
+back=$(land --repo "$BLG" file item-goes --again | field '[f["item"] for f in d["filed"]]')
+land --repo "$BLG" gate item-goes >/dev/null
+green=$(land --repo "$BLG" propose item-goes --title "fix: item-goes" --notes "$NOTES" | field 'd["green"]')
+if grep -q "Empty input crashes the parser" <<<"$before" && grep -q "land.py file item-goes" <<<"$before" \
+  && grep -q "docs/backlog/empty-input-crashes-the-parser.md" <<<"$gone" && grep -q "was removed after it was filed" <<<"$gone" && grep -q -- "--again" <<<"$gone" && grep -q "worth: no" <<<"$gone" \
+  && [ "$back" = "['docs/backlog/empty-input-crashes-the-parser.md']" ] && [ "$green" = True ]; then
+  pass "an item that was on the branch before the review proves nothing; an item that was filed and then removed stops propose with its path and the two ways on, and file --again puts it back"
+else
+  fail "an item that goes: $before / $gone / $back / $green"
+fi
+project --repo "$BLG" state item-goes dropped "the test is over" >/dev/null
+
+# One defect seen word for word by two rounds is one item, also when its file name needed the suffix
+# of its place; two defects of one place and one title, with two different runs, are two items. And a
+# worktree with a change nobody committed is refused.
+D='{"where": "src/json.py:parse", "title": "An item from before", "what": "parse of a document with no root returns None, on the base commit too."}'
+E='{"where": "src/json.py:parse", "title": "An item from before", "what": "parse of a document of one number returns a string, on the base commit too."}'
+task_in "$BLG" same-defect app.txt two
+tree=$(project --repo "$BLG" worktree-dir same-defect)
+echo '# An item from before' > "$tree/docs/backlog/an-item-from-before.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): an item with no place"
+land --repo "$BLG" start same-defect >/dev/null && land --repo "$BLG" base same-defect >/dev/null && land --repo "$BLG" gate same-defect >/dev/null
+land --repo "$BLG" read same-defect --record "$(record 1 "$read_must_fix, $(outside "$D")")" >/dev/null
+once=$(land --repo "$BLG" file same-defect | field '[f["item"] for f in d["filed"]]')
+echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix" && land --repo "$BLG" gate same-defect >/dev/null
+land --repo "$BLG" read same-defect --record "$(record 2 "$a_round, $(outside "$D" "$E")")" >/dev/null
+echo stray > "$tree/stray.txt"
+dirty=$(land --repo "$BLG" file same-defect 2>&1 >/dev/null || true)
+rm "$tree/stray.txt"
+twice=$(land --repo "$BLG" file same-defect | field '([f["item"] for f in d["filed"]], [f["item"] for f in d["same"]])')
+if [ "$once" = "['docs/backlog/an-item-from-before-json-parse.md']" ] \
+  && [ "$twice" = "(['docs/backlog/an-item-from-before-json-parse-2.md'], ['docs/backlog/an-item-from-before-json-parse.md'])" ] \
+  && [ "$(cat "$tree/docs/backlog/an-item-from-before.md")" = "# An item from before" ] && grep -q "commit them or remove them" <<<"$dirty"; then
+  pass "a defect that two rounds saw word for word is one item, also under the suffix of its place, and two defects of one place and title with two runs are two; file refuses a worktree with a change nobody committed"
+else
+  fail "the same defect twice: $once / $twice / $dirty"
+fi
+project --repo "$BLG" state same-defect dropped "the test is over" >/dev/null
 
 # The bar: a suppression, a pattern of the project's own, a skipped module, fewer assertions, a test
 # that goes out of a Rust module and a deleted test file, each refused until the plan gives the

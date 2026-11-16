@@ -14,8 +14,9 @@ protected branch is never reached, whoever asks.
     land.py read SLUG      whether a review is due, the least it may be, and what a reviewer gets
     land.py read SLUG --record FILE
                            write down what the review was and what it found
-    land.py read SLUG --filed
-                           the defects the reviews saw outside the change are filed in the backlog
+    land.py file SLUG [--again]
+                           file each defect a review saw outside the change as an item of the
+                           backlog, and commit the items on the task's branch
     land.py propose SLUG --title SUBJECT --notes FILE
                            open the pull request, or mark the branch ready where the remote is not
                            GitHub: the state becomes `open`
@@ -58,11 +59,14 @@ The record of a review is a JSON file:
      "answered": [SOURCE, ...],
      "silent": [{"name": SOURCE, "why": WHAT STOPPED IT}],
      "bar": [{"name": FILE, "why": WHAT THE REVIEW SAYS OF THE REASON GIVEN FOR IT}],
-     "must_fix": N, "should": N, "nit": N, "outside": N}
+     "must_fix": N, "should": N, "nit": N,
+     "outside": [{"where": PATH OR PATH:SYMBOL, "title": ONE LINE, "what": THE RUN THAT SHOWS IT}]}
 
 `attempt`, `kind` and `answered` are always there. `bar` has one entry for each file in which
-the change lowers the bar, and is left out otherwise. `outside` counts the defects the review
-saw that were there before the change: they are no findings of it, and they go to the backlog.
+the change lowers the bar, and is left out otherwise. `outside` names each defect the review saw
+that the base commit already has: it is no finding of the change, and it goes to the backlog.
+`what` is the concrete run: what happens, with the input. A count in its place is refused, and
+`0` reads as none.
 
 A review in which a source did not answer is still a review: the record names who answered and
 who did not. One in which nobody answered is none; it is started once more, and a second such
@@ -77,10 +81,24 @@ Two rounds at most: after that the request is proposed as it is, green when the 
 left nothing open and not green otherwise. `attempt` in a record is the number `read` printed
 for it, so a record that is sent twice is written down once.
 
-The defects outside the change are not lost when a session stops after the record: `read` prints
-`to_file`, the sum of `outside` over the reviews whose defects nobody filed, and `propose` refuses
-while it is not 0. `read --filed` marks them filed, and only when the change holds a new item of
-the backlog folder that the oldest of those reviews did not see.
+No defect outside the change gets lost. `file` writes one item in the settings' backlog folder
+for each such defect of a review that has none yet, in the item format of the `lem-backlog` skill
+(`worth: later`, its `where`, the day it was filed; its title; its run and where it was seen),
+commits the new items on the task's branch, one commit for each round, and keeps the path of
+each defect's item in `landing.json`. A second run files nothing new. `read` names the defects
+that have no item yet (`to_file`), and `propose` refuses while one has none or while an item is
+gone from the tip; the owner's "not wanted" is `worth: no` in the item, never its deletion.
+The file name is the slug of the title. A file of that name that holds the same defect (the same
+`where`, title and run) is its item, and nothing is written twice; a file that holds another
+takes the next name, with a suffix from the `where`, then a number. One defect that two rounds
+describe in other words gets two items: an extra item costs a merge in the backlog's sorting, and
+a lost one costs the defect. The review is asked to repeat an earlier round's words for a defect
+it sees again.
+
+A record that counts the defects outside the change and names none was written by b96ce79 or
+8f7c106, which were never pushed, so it can only be in a throwaway repository: `read` and
+`propose` refuse it and name the task's `landing.json`, and no step converts it, because a count
+says nothing from which an item could be written.
 
 `propose` writes the text of the pull request to `pr.md` in the task's directory, from what the
 steps kept, from the record of the task's decisions (`decisions.py list`) and from the notes
@@ -131,6 +149,7 @@ import json
 import re
 import shutil
 import subprocess
+from datetime import date
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -146,6 +165,13 @@ OVERRULED = "careful: the owner says so"
 READ_AT = 800
 # Who took a decision of the record, as the text of a pull request names them.
 TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout"}
+# What a review names of each defect it saw outside the change.
+DEFECT = ("where", "title", "what")
+# The longest file name an item of the backlog gets from its title, before `.md`. A guess
+# (2026-11-16), not a measurement: long enough for a title of a dozen words.
+SLUG_AT = 80
+# The last paragraph of an item that `file` wrote: where the defect was seen.
+SEEN = re.compile(r"Seen outside the change by review round \d+ of task \S+ \(\d{4}-\d{2}-\d{2}\); the base commit has it\.$")
 # The headings the notes of a pull request hold, in this order: what only the one who read the
 # task's report can say.
 NOTES = ("## Decisions", "## Left open", "## Worth a look", "## Filed in the backlog", "## Not done")
@@ -344,36 +370,109 @@ def backlog_of(task: Task) -> str:
     return Path(task.settings["paths"]["backlog"]["path"]).relative_to(Path(task.settings["root"]).resolve()).as_posix()
 
 
-def new_items(task: Task, read: dict, now: dict) -> list[str]:
-    """The files the change holds now and did not when `read` was recorded, each one added on the
-    branch (no blob on the base) inside the backlog folder: the filing of a review's outside defects."""
-    folder = backlog_of(task)
-    was = read.get("contents") or {}
-    return sorted(
-        path for path, entry in now["contents"].items()
-        if path not in was and set(entry["base"]) == {"0"} and (folder == "." or path.startswith(folder + "/"))
-    )
-
-
 def covers(task: Task, read: dict, now: dict) -> bool:
     """Whether a review that was recorded still covers the change as it is now. It does when the
-    change is the same, or when the change is the reviewed one plus new items of the backlog
-    folder and nothing else: a defect a review saw outside the change is filed there after the
-    review, and that asks for no other review. Any other file does, an item that was on the base
-    too. A folder that is the root gives no such exception, and a record that kept no contents
-    (written before Lem kept them) covers only the same change."""
+    change is the same, or when the change is the reviewed one plus new files of the backlog
+    folder and nothing else: `file` writes the defects a review saw outside the change there after
+    the review, and that asks for no other review. Any other file does, an item that was on the
+    base too. A folder that is the root gives no such exception, and a record that kept no
+    contents covers only the same change."""
     if read["patch"] == now["patch"]:
         return True
     was = read.get("contents")
-    if was is None or backlog_of(task) == ".":
+    folder = backlog_of(task)
+    if was is None or folder == ".":
         return False
-    extra = set(now["contents"]) - set(was)
-    return all(now["contents"].get(path) == entry for path, entry in was.items()) and len(new_items(task, read, now)) == len(extra) > 0
+    extra = [path for path in now["contents"] if path not in was]
+    return bool(extra) and all(now["contents"].get(path) == entry for path, entry in was.items()) and all(
+        set(now["contents"][path]["base"]) == {"0"} and path.startswith(folder + "/") for path in extra
+    )
 
 
-def unfiled(reads: list[dict]) -> list[dict]:
-    """The reviews that saw defects outside the change and whose defects nobody filed yet."""
-    return [read for read in reads if read["answered"] and read.get("outside") and not read.get("filed")]
+def defects_of(value: object) -> list[dict]:
+    """The defects outside the change as a new record names them; `0` is none, and a count is refused."""
+    if isinstance(value, int) and not isinstance(value, bool) and value == 0:
+        return []
+    if not isinstance(value, list) or not all(
+        isinstance(item, dict) and set(item) == set(DEFECT) and all(isinstance(item[key], str) and item[key].strip() for key in DEFECT)
+        and "\n" not in item["where"] + item["title"] and slug_of(item["title"]) for item in value
+    ):
+        raise LandError(
+            "`outside` is the list of the defects the review saw outside the change, each "
+            "{\"where\": PATH OR PATH:SYMBOL, \"title\": ONE LINE, \"what\": THE RUN THAT SHOWS IT}, so that each one can be filed: "
+            "a count names none of them, and 0 is none",
+        )
+    return [{key: item[key].strip() for key in DEFECT} for item in value]
+
+
+def outside_of(task: Task, read: dict) -> list[dict]:
+    """The defects outside the change of one kept review, each with the path of its item once it has one."""
+    value = read.get("outside", [])
+    if isinstance(value, int) and not isinstance(value, bool):
+        if value == 0:
+            return []
+        raise LandError(
+            f"review round {read['round']} in {task.kept_file} counts {value} defect(s) outside the change and names none: "
+            "a form of the record that was never released (b96ce79, 8f7c106), from which no item can be written, so no step converts it. "
+            "Only a throwaway repository holds one: drop the task, or remove that file and start its landing again",
+        )
+    return value
+
+
+def to_file(task: Task, reads: list[dict]) -> list[dict]:
+    """Each defect outside the change of a review that answered, with no item yet."""
+    return [
+        {"round": read["round"], **{key: defect[key] for key in DEFECT}}
+        for read in reads if read["answered"] for defect in outside_of(task, read) if not defect.get("item")
+    ]
+
+
+def slug_of(text: str) -> str:
+    """A file name from a title, as the backlog's item format has it: words joined by `-`."""
+    slug = re.sub(r"[\W_]+", "-", text.lower()).strip("-")
+    return slug if len(slug) <= SLUG_AT else slug[:SLUG_AT].rsplit("-", 1)[0]
+
+
+def names_for(defect: dict):
+    """The file names an item of this defect may take, in turn: its slug, the slug with a suffix
+    from its `where` (`src/json.py:parse` gives `-json-parse`), then that with a number."""
+    slug = slug_of(defect["title"])
+    path, _, symbol = defect["where"].partition(":")
+    suffix = slug_of(f"{Path(path).stem} {symbol}")
+    longer = f"{slug}-{suffix}" if suffix else slug
+    yield f"{slug}.md"
+    if longer != slug:
+        yield f"{longer}.md"
+    number = 2
+    while True:
+        yield f"{longer}-{number}.md"
+        number += 1
+
+
+def holds(file: Path, defect: dict) -> bool:
+    """Whether an item file is this defect: the same `where`, the same title and the same run."""
+    try:
+        text = file.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    front: dict[str, str] = {}
+    head = re.match(r"---\n(.*?)\n---\n", text, re.S)
+    if head:
+        for line in head.group(1).splitlines():
+            key, _, value = line.partition(":")
+            front[key.strip()] = value.strip()
+        text = text[head.end():]
+    lines = text.strip().splitlines()
+    if not lines or not lines[0].startswith("# "):
+        return False
+    body = "\n".join(lines[1:]).strip().split("\n\n")
+    if body and SEEN.match(body[-1]):
+        body = body[:-1]
+    return front.get("where") == defect["where"] and lines[0][2:].strip() == defect["title"] and "\n\n".join(body).strip() == defect["what"]
+
+
+def in_tree(task: Task, tip: str, path: str) -> bool:
+    return run(["git", "-C", str(task.worktree), "cat-file", "-e", f"{tip}:{path}"], check=False).returncode == 0
 
 
 def careful(task: Task, files: list[str], plan: str) -> list[str]:
@@ -571,42 +670,72 @@ def named(value: object, where: str) -> list[dict]:
     return value
 
 
-def cmd_filed(task: Task, state: dict, reads: list[dict]) -> dict:
-    """Mark the outside defects of the reviews filed, once the change holds a new item for them."""
-    waiting = unfiled(reads)
-    if not waiting:
-        raise LandError("no review left defects outside the change to file: `to_file` of `land.py read` is 0")
-    # The oldest review that waits is the measure: a fix builder files with its fix, and the next
-    # round, whose record may come first, can count the same defects again.
-    items = new_items(task, waiting[0], state)
-    if not items:
-        raise LandError(
-            f"no item was added to {backlog_of(task)} since review round {waiting[0]['round']}, which saw {waiting[0]['outside']} defect(s) outside the change: "
-            "a builder files them first, with the job \"the filing of what a review saw outside the change\" of prompts/landing.md, then `gate` runs again",
-        )
-    attempts = [read["attempt"] for read in waiting]
-    script("project.py", task.worktree, "log", task.slug, "review.filed", f"attempts:={json.dumps(attempts)}", f"items:={json.dumps(items)}", f"tip={state['tip'][:9]}")
-    task.keep(reads=[{**read, "filed": True} if read["attempt"] in attempts else read for read in reads])
-    return {"task": task.slug, "filed": sum(read["outside"] for read in waiting), "items": items, "to_file": 0}
+def cmd_file(task: Task, again: bool) -> dict:
+    """File each defect a review saw outside the change as an item of the backlog, and commit the items."""
+    task.need_landing()
+    task.need_worktree()
+    reads = task.kept().get("reads", [])
+    tip = git(task.worktree, "rev-parse", "HEAD")
+    folder = backlog_of(task)
+    today = date.today().isoformat()
+    filed, same, gone, written = [], [], [], {}
+    for read in reads:
+        if not read["answered"]:
+            continue
+        for defect in outside_of(task, read):
+            if defect.get("item"):
+                if in_tree(task, tip, defect["item"]):
+                    continue
+                if not again:
+                    gone.append({"round": read["round"], "title": defect["title"], "item": defect["item"]})
+                    continue
+            # The first name that holds this very defect is its item; the first that is free gets it.
+            # A name that holds another defect is passed: an extra item is the price, never a lost one.
+            for name in names_for(defect):
+                path = name if folder == "." else f"{folder}/{name}"
+                file = task.worktree / path
+                if holds(file, defect):
+                    same.append({"round": read["round"], "title": defect["title"], "item": path})
+                    break
+                if not (file.exists() or file.is_symlink()):
+                    file.parent.mkdir(parents=True, exist_ok=True)
+                    file.write_text(
+                        f"---\nworth: later\nwhere: {defect['where']}\nadded: {today}\n---\n# {defect['title']}\n\n{defect['what']}\n\n"
+                        f"Seen outside the change by review round {read['round']} of task {task.slug} ({read.get('date', today)}); the base commit has it.\n",
+                        encoding="utf-8",
+                    )
+                    filed.append({"round": read["round"], "title": defect["title"], "item": path})
+                    written.setdefault(read["round"], []).append(path)
+                    break
+            defect["item"] = path
+    # One commit for each round, of its new items and nothing else: the worktree was clean.
+    for number, paths in written.items():
+        git(task.worktree, "add", "--", *paths)
+        git(task.worktree, "commit", "-q", "-m", f"docs(backlog): what review round {number} saw outside {task.slug}", "--", *paths)
+    tip = git(task.worktree, "rev-parse", "HEAD")
+    if filed or same:
+        items = [{**entry, "new": True} for entry in filed] + [{**entry, "new": False} for entry in same]
+        script("project.py", task.worktree, "log", task.slug, "review.filed", f"items:={json.dumps(items)}", f"tip={tip[:9]}")
+    # A run cut off after its commit finds each item again by its defect, so this write comes last.
+    task.keep(reads=reads)
+    return {"task": task.slug, "filed": filed, "same": same, "gone": gone, "tip": tip}
 
 
-def cmd_read(task: Task, record: str | None, filed: bool = False) -> dict:
+def cmd_read(task: Task, record: str | None) -> dict:
     task.need_landing()
     task.need_worktree()
     state = due(task)
     if task.kept().get("gated") != state["tip"]:
         raise LandError(f"the review is of the tip the checks passed on, and no check is on record for this tip; `land.py gate {task.slug}` comes first")
     reads = task.kept().get("reads", [])
-    if filed:
-        return cmd_filed(task, state, reads)
     if record is None:
         rules = json.loads(script("project.py", task.worktree, "rules", "--range", f"{state['base']}..{state['tip']}").stdout)["rules"]
         return {
             "task": task.slug, "due": state["due"], "why": state["why"], "floor": state["floor"], "kinds": KIND_SAYS, "round": state["round"],
             # the number the record of this review carries, so that the same record is never written down twice
             "attempt": state["attempt"],
-            # the defects outside the change that reviews saw and nobody filed yet: `--filed` after their filing
-            "to_file": sum(read["outside"] for read in unfiled(reads)),
+            # the defects outside the change that reviews saw and that have no item yet: `land.py file` files them
+            "to_file": to_file(task, reads),
             "careful": state["careful"], "tasks": state["tasks"], "lines": state["lines"], "in_parts": state["in_parts"],
             "reads": [{key: value for key, value in read.items() if key != "contents"} for read in reads],
             # what a reviewer gets, and nothing of the builder's reasoning
@@ -619,6 +748,8 @@ def cmd_read(task: Task, record: str | None, filed: bool = False) -> dict:
                 "review": task.settings["paths"]["review"]["path"],
             },
         }
+    # a kept review of a form that was never released stops this step too, before anything is written
+    to_file(task, reads)
     if state["due"] != "review":
         raise LandError(f"no review is due: {state['why']}")
     try:
@@ -648,10 +779,11 @@ def cmd_read(task: Task, record: str | None, filed: bool = False) -> dict:
         raise LandError("a round names each profile it ran in `ran`, with why that profile fits this change")
     if kind == "full" and left_out:
         raise LandError("the project's full set leaves no profile out: a profile may be added to it, never dropped")
-    counts = {key: said.get(key, 0) for key in ("must_fix", "should", "nit", "outside")}
+    counts = {key: said.get(key, 0) for key in ("must_fix", "should", "nit")}
     if not all(isinstance(count, int) and not isinstance(count, bool) and count >= 0 for count in counts.values()):
-        raise LandError("`must_fix`, `should`, `nit` and `outside` are counts")
-    if not answered and any(counts.values()):
+        raise LandError("`must_fix`, `should` and `nit` are counts")
+    outside = defects_of(said.get("outside", []))
+    if not answered and (any(counts.values()) or outside):
         raise LandError("the record has findings and no source that answered: `answered` names who found them")
     # A lowered bar is what the owner reads himself, so the review says what it thinks of each one.
     lowered = sorted({entry["file"] for entry in task.kept().get("checks", {}).get("bar", {}).get("lowered", [])})
@@ -662,15 +794,15 @@ def cmd_read(task: Task, record: str | None, filed: bool = False) -> dict:
             "`bar` holds one {\"name\": FILE, \"why\": WHAT THE REVIEW SAYS OF THE BUILDER'S REASON} for each such file",
         )
     entry = {
-        "attempt": state["attempt"], "round": state["round"], "kind": kind, "ran": ran, "left_out": left_out, "answered": answered, "silent": silent, "bar": bar_says, **counts,
-        "verdict": "not reviewed" if not answered else "must-fix" if counts["must_fix"] else "clean", "tip": state["tip"][:9], "patch": state["patch"],
+        "attempt": state["attempt"], "round": state["round"], "kind": kind, "ran": ran, "left_out": left_out, "answered": answered, "silent": silent, "bar": bar_says, **counts, "outside": outside,
+        "date": date.today().isoformat(), "verdict": "not reviewed" if not answered else "must-fix" if counts["must_fix"] else "clean", "tip": state["tip"][:9], "patch": state["patch"],
     }
     # The event first: a run that is cut off between the two writes the review down at its next
     # run, and the second event has the same attempt, by which a reader of the log knows it.
     script("project.py", task.worktree, "log", task.slug, "review", *(f"{key}:={json.dumps(value)}" for key, value in entry.items()))
     # The contents of the change stay out of the log: only `covers` reads them, from the kept record.
     task.keep(reads=[*reads, {**entry, "contents": state["contents"]}])
-    return {"task": task.slug, "recorded": entry, "next": due(task)["due"], "to_file": sum(read["outside"] for read in unfiled(task.kept()["reads"]))}
+    return {"task": task.slug, "recorded": entry, "next": due(task)["due"], "to_file": to_file(task, task.kept()["reads"])}
 
 
 def not_green(task: Task, state: dict) -> list[str]:
@@ -785,9 +917,10 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         who = f"answered: {', '.join(read['answered'])}" if read["answered"] else "no source answered"
         quiet = "".join(f"; no answer from {source['name']} ({source['why']})" for source in read["silent"])
         found = f"{read['verdict']}, {read['must_fix']} must-fix, {read['should']} should, {read['nit']} nit" if read["answered"] else "not reviewed"
-        if read.get("outside"):
-            # propose refuses while one is not filed, so each one that is here was filed
-            found += f"; it saw {read['outside']} defect{'' if read['outside'] == 1 else 's'} outside the change, filed in the backlog"
+        defects = outside_of(task, read)
+        if defects:
+            # propose refuses while one has no item in the tip, so each one here is filed
+            found += f"; it saw {len(defects)} defect{'' if len(defects) == 1 else 's'} outside the change, filed as " + ", ".join(f"`{defect['item']}`" for defect in defects)
         out.append(f"- the review, round {read['round']} ({KIND_SAYS[read['kind']]}; {who}{quiet}): {found}")
         out += [f"  - ran {profile['name']}: {profile['why']}" for profile in read["ran"]]
         out += [f"  - left out {profile['name']}: {profile['why']}" for profile in read["left_out"]]
@@ -812,16 +945,28 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     tip = git(task.worktree, "rev-parse", "HEAD")
     if kept.get("gated") != tip:
         raise LandError(f"no green check is on record for this tip; `land.py gate {task.slug}` comes first")
+    reads = kept.get("reads", [])
+    # a kept review of a form that was never released stops this step before anything else
+    unfiled = to_file(task, reads)
     state = due(task)
     if state["due"] == "review":
         raise LandError(f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} at the least ({state['why']}); `land.py read {task.slug}` says what a reviewer gets")
-    # What a review saw outside the change is filed before anything is proposed, so that a session
-    # that stopped after the review's record does not lose it.
-    to_file = sum(read["outside"] for read in unfiled(kept.get("reads", [])))
-    if to_file:
+    # Each defect a review saw outside the change has its item in the tip, so that none is lost: one
+    # that a session never filed, and one whose item a later commit took out.
+    if unfiled:
         raise LandError(
-            f"the review saw {to_file} defect(s) outside the change that nobody filed: a builder files them with the job "
-            f"\"the filing of what a review saw outside the change\" of prompts/landing.md, then `land.py gate {task.slug}` and `land.py read {task.slug} --filed`",
+            f"{len(unfiled)} defect(s) a review saw outside the change have no item in the backlog: "
+            + "; ".join(f"\"{defect['title']}\" (round {defect['round']})" for defect in unfiled)
+            + f". `land.py file {task.slug}` files them, then `land.py gate {task.slug}`",
+        )
+    gone = [(read, defect) for read in reads if read["answered"] for defect in outside_of(task, read) if not in_tree(task, tip, defect["item"])]
+    if gone:
+        read, defect = gone[0]
+        raise LandError(
+            f"the item {defect['item']} of the defect \"{defect['title']}\" (review round {read['round']}) was removed after it was filed"
+            + (f", and {len(gone) - 1} more" if len(gone) > 1 else "")
+            + f": a builder puts it back with `land.py file {task.slug} --again`, then `land.py gate {task.slug}`; when the owner does not want it, "
+            "the item stays with `worth: no` and his reason in it, never deleted",
         )
     # A request is never proposed over an open question of the owner's.
     waiting = next((decision for decision in task.decisions() if decision["state"] == "waits"), None)
@@ -1106,9 +1251,10 @@ def main() -> None:
         commands.add_parser(name).add_argument("slug")
     read = commands.add_parser("read")
     read.add_argument("slug")
-    said = read.add_mutually_exclusive_group()
-    said.add_argument("--record", metavar="FILE", help="a JSON file that says what the review was and what it found; without it the step says what is due")
-    said.add_argument("--filed", action="store_true", help="the defects the reviews saw outside the change are filed in the backlog, as items the change adds")
+    read.add_argument("--record", metavar="FILE", help="a JSON file that says what the review was and what it found; without it the step says what is due")
+    filing = commands.add_parser("file")
+    filing.add_argument("slug")
+    filing.add_argument("--again", action="store_true", help="write once more each item that was filed and is gone from the tip")
     propose = commands.add_parser("propose")
     propose.add_argument("slug")
     propose.add_argument("--title", required=True, help="the subject of the change, one semantic line")
@@ -1127,7 +1273,9 @@ def main() -> None:
         elif args.command == "gate":
             result = cmd_gate(task)
         elif args.command == "read":
-            result = cmd_read(task, args.record, args.filed)
+            result = cmd_read(task, args.record)
+        elif args.command == "file":
+            result = cmd_file(task, args.again)
         elif args.command == "propose":
             result = cmd_propose(task, args.title, args.notes)
         elif args.command == "land":

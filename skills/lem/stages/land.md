@@ -86,7 +86,7 @@ one finds what the run before it finished.
    least it may be, and what a reviewer gets; keep its output as `read.json` in the task
    directory.
    - `due` is `none`: this exact change was reviewed and no must-fix is left. Go to step 6, once
-     `to_file` is 0 (below).
+     `to_file` is empty (below).
    - `due` is `owner`: two rounds are used and something is still open, or the review was
      started twice and nobody answered. Go to step 6; the request is not green, and its first
      lines say why.
@@ -107,14 +107,14 @@ one finds what the run before it finished.
    What the record says decides the next step (`next` and `to_file` in the step's output):
    - *no must-fix*: go to step 6. The should findings stay open and go into the notes: a fix now
      would be a change nobody reviewed.
-   - *defects outside the change* (`to_file` is not 0, in this output or in a later plain
-     `read`): the review saw defects the base already has. `spawn-builder` with the brief below,
-     the job "the filing of what a review saw outside the change", and as its path
-     `reviews/review-N.md`. It files each one in the backlog as a new item and fixes none. Then
-     `gate` again, for the new tip, and `land.py read SLUG --filed`. A new item in the backlog
-     folder keeps the review; an edit of any other file, an older item too, does not. `propose`
-     refuses while `to_file` is not 0. A fix builder of a must-fix round files them in the same
-     pass; then the next round's record and `--filed` come in either order.
+   - *defects outside the change* (`to_file` names some, in this output or in a later plain
+     `read`): the review saw defects the base already has. `land.py file SLUG` writes one item
+     for each in the backlog folder and commits them on the task's branch; then `gate` again,
+     for the new tip. `read` still says `none`: new files of the backlog folder are no change
+     the review did not see. Do this after every record that names some, before a fix builder
+     starts too. `propose` refuses while a defect has no item, and while an item is gone from
+     the tip: then `land.py file SLUG --again` puts it back. An item the owner does not want
+     stays, with `worth: no` and his reason in it; it is never deleted.
    - *a must-fix*: `spawn-builder` with the brief below, the job "the fix of a review's
      findings", and as its paths `reviews/review-N.md` and the task's plan. It fixes each
      must-fix, and each should that is cheap, with a test for what was wrong. Then steps 4 and 5
@@ -139,7 +139,7 @@ one finds what the run before it finished.
      each of its decisions into the text by itself.
    - `## Left open`: each should finding the review left, with its file.
    - `## Worth a look`: up to three places a person's eye is worth, and why each.
-   - `## Filed in the backlog`: each item the closing pass or a review's filing filed, by its
+   - `## Filed in the backlog`: each item the closing pass filed, by its
      first line.
    - `## Not done`: what the request asked for and this change does not do, and what was not
      verified.
@@ -203,7 +203,7 @@ The brief for each builder of this stage is these lines and nothing more. Its st
 
 ```
 Read SKILL_DIR/prompts/landing.md and do the job named here.
-job: the repair of a conflict with the base | the closing pass | the repair of a failed check | the filing of what a review saw outside the change | the fix of a review's findings
+job: the repair of a conflict with the base | the closing pass | the repair of a failed check | the fix of a review's findings
 task: SLUG
 worktree: the worktree's absolute path
 task directory: the task directory's absolute path

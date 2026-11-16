@@ -48,7 +48,11 @@ review that knows why the builder thought it was right finds less.
    must-fix that nobody can make fail.
    A defect that the base commit already has is no finding of this change, whatever a source
    calls it: run the input on the base to tell. List it apart, under "Outside this change", with
-   its file and one line on what is wrong, and count it as `outside`. It goes to the backlog.
+   its `where` (the file, or `file:symbol`, never a line number), a one-line title, and the run
+   that shows it: what happens, with the input. The record's `outside` names the same defects
+   in the same words; Lem files each one in the backlog. A defect that an earlier round of this
+   task named (the `reads` of `read.json` hold them) and that you see again keeps that round's
+   `where`, `title` and `what` word for word, so that it finds the item already filed.
 5. **Who answered.** A source of the round that died (a usage limit, a model at capacity) is
    named with what stopped it; the round still counts, and you do not run it again for that.
    When no source answered, say so and stop: Lem starts the review once more.
@@ -59,7 +63,8 @@ review that knows why the builder thought it was right finds less.
      label, why, and the lines that confirm it. A path is relative to the repository's root.
    - `review-N.json`, the record, in the form `python3 SKILL_DIR/scripts/land.py --help` shows
      under "The record of a review": `attempt` as `read.json` has it, `kind`, `ran` and
-     `left_out` with a `why` each, `answered`, `silent`, the counts `must_fix`, `should`, `nit`
-     and `outside`, and `bar` only when the bar is lower in a file.
+     `left_out` with a `why` each, `answered`, `silent`, the counts `must_fix`, `should` and
+     `nit`, `outside` as the list of the defects outside the change (`[]` when there is none),
+     and `bar` only when the bar is lower in a file.
 
 Your reply is the two paths and one line: the kind, who answered, and the three counts.
