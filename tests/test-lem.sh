@@ -1535,11 +1535,40 @@ still=$(dlist 'next(c["state"] for c in d if c["id"] == 10)')
 mapped=$(decide answer gift-note 10 --chose "a summary line" --words "Put a line at the bottom, please." | field '(d["kind"], d["chose"], d["words"])')
 ten=$(dlist 'next((c["state"], c["chose"], c.get("owner_words"), c.get("story")) for c in d if c["id"] == 10)')
 if grep -qF "the answer to choice 10 is one of its options, word for word: no summary; a summary line" <<<"$free" && grep -qF -- "--words" <<<"$free" \
-  && grep -qF "fits none of them, it is no answer to this choice: ask him again, or log a new decision" <<<"$free" && [ "$freecode" = 1 ] && [ "$still" = waits ] \
+  && grep -qF -- "fits none of them, settle the choice with --instead TEXT, never with a new \`decisions.py log\`" <<<"$free" && [ "$freecode" = 1 ] && [ "$still" = waits ] \
   && [ "$mapped" = "('answered', 'a summary line', 'Put a line at the bottom, please.')" ] && [ "$ten" = "('answered', 'a summary line', 'Put a line at the bottom, please.', 2)" ]; then
   pass "an answer names one of the choice's options word for word, and his own words go beside it; an answer that fits no option is refused and writes nothing; and a story the option changes is changed"
 else
   fail "an answer and the owner's words: $free / $freecode / $still / $mapped / $ten"
+fi
+# A decision of the owner's that is none of the options settles the choice with --instead; a story the choice carries is said changed or kept, never left out.
+decide ask gift-note --what "Email the merchants" --option "email all customers" --option "email nobody" --recommended "email nobody" --why "Nobody asked for it." --said "The two personas split." --irreversible person >/dev/null
+both=$(decide answer gift-note 11 --chose "email nobody" --instead "Email only the beta testers." 2>&1 || true)
+neither=$(decide answer gift-note 11 2>&1 || true)
+bothcode=$(status_of decide answer gift-note 11 --chose "email nobody" --instead "Email only the beta testers.")
+settled=$(decide answer gift-note 11 --instead "Email only the beta testers." --why "They asked to hear first." | field '(d["kind"], d["chose"], d["instead"])')
+eleven=$(dlist 'next((c["state"], c["chose"], c.get("instead"), c.get("owner_why")) for c in d if c["id"] == 11)')
+open_ones=$(decide pending gift-note | field '[c["id"] for c in d]')
+decide ask gift-note --what "The note in the title" --option "no title" --option "a title" --recommended "no title" --why "The rows stay as they are." --said "The two personas split." \
+  --story 1 --was "A CSV export holds the gift note of an order." --changes "a title" >/dev/null
+silent=$(decide answer gift-note 12 --instead "A title on the first page only." 2>&1 || true)
+twoways=$(status_of decide answer gift-note 12 --instead "A title on the first page only." --story-changed --was "old" --story-kept)
+nowas=$(decide answer gift-note 12 --instead "A title on the first page only." --story-changed 2>&1 || true)
+nostory=$(decide answer gift-note 4 --instead "Send it next week." --story-kept 2>&1 || true)
+decide answer gift-note 12 --instead "A title on the first page only." --story-changed --was "A CSV export holds the gift note of an order." >/dev/null
+decide ask gift-note --what "The note in the footer, again" --option "no footer" --option "a footer" --recommended "no footer" --why "The rows stay as they are." --said "The two personas split." \
+  --story 2 --was "An order with no gift note has an empty cell." --changes "a footer" >/dev/null
+decide answer gift-note 13 --instead "A footer on the last page only, which the cells do not see." --story-kept >/dev/null
+stories_now=$(dlist '[(c["id"], c["state"], c.get("instead"), c.get("story"), c.get("was")) for c in d if c["id"] in (12, 13)]')
+if grep -qF -- "--chose names one of the options and --instead a decision of the owner's that is none of them: give one of the two" <<<"$both" && [ "$bothcode" = 1 ] \
+  && grep -qF -- "give one of the two" <<<"$neither" && [ "$settled" = "('answered', 'Email only the beta testers.', True)" ] \
+  && [ "$eleven" = "('answered', 'Email only the beta testers.', True, 'They asked to hear first.')" ] && [ "$open_ones" = "[4]" ] \
+  && grep -qF -- "choice 12 carries story 1: an answer with --instead says --story-changed with --was, the story's text before, or --story-kept" <<<"$silent" && [ "$twoways" = 1 ] \
+  && grep -qF -- "--story-changed needs --was" <<<"$nowas" && grep -qF -- "choice 4 carries no story" <<<"$nostory" \
+  && [ "$stories_now" = "[(12, 'answered', True, 1, 'A CSV export holds the gift note of an order.'), (13, 'answered', True, None, None)]" ]; then
+  pass "a decision of the owner's that is none of the options settles the choice with --instead, an irreversible one too, so it no longer waits; it is refused together with --chose or with neither; and on a choice with a story it says the story changed, with its old text, or kept"
+else
+  fail "an answer that is none of the options: $both / $neither / $settled / $eleven / $open_ones / $silent / $twoways / $nowas / $nostory / $stories_now"
 fi
 # An answer and a timeout at one time: each reads the state inside the lock, so the record holds one outcome.
 rfile=$DC/.git/lem/tasks/race-task/decisions.jsonl
@@ -2458,6 +2487,14 @@ wdec answer waited-change 2 --chose "the first line" --why "The importer reads t
 wdec ask waited-change --what "Which line holds the word" --option "the only line" --option "the second line" --recommended "the second line" --why "A header goes first." \
   --said "The two personas split." --story 1 --was "The file holds the word the owner asked for." --changes "the second line" >/dev/null
 wdec answer waited-change 5 --chose "the second line" >/dev/null
+# the owner decides what none of the options says: an irreversible step that would otherwise wait for ever, and a choice whose story his decision changes
+wdec ask waited-change --what "Email the customers" --option "email all customers" --option "email nobody" --recommended "email nobody" --why "Nobody asked for it." \
+  --said "The two personas split." --irreversible person >/dev/null
+wdec answer waited-change 6 --instead "Email only the beta testers." --why "They asked to hear first." >/dev/null
+wdec ask waited-change --what "The word's line ending" --option "a line break" --option "no line break" --recommended "a line break" --why "Every file ends so." \
+  --said "The two personas split." --story 1 --was "The file holds the word the owner asked for." --changes "no line break" >/dev/null
+wdec answer waited-change 7 --instead "A line break, and a second line with the date." --story-changed --was "The file holds the word the owner asked for." >/dev/null
+instead_pending=$(wdec pending waited-change | field '[c["id"] for c in d]')
 local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
 text=$LOCAL/.git/lem/tasks/waited-change/pr.md
 agent=$(local_land land waited-change --by agent 2>&1 || true)
@@ -2469,15 +2506,19 @@ if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes)
   && [ "$(sed -n 3p "$text")" = "- choice 2 was taken by timeout (Where the word goes): \"the first line\", the recommended option, after the owner's wait of 15 minutes ended with no answer; he answered later with the same (his reason: The importer reads the first line)" ] \
   && [ "$(sed -n 4p "$text")" = "- choice 4 was taken by timeout (The case of the word): \"lower case\", the recommended option, after the owner's wait of 15 minutes ended with no answer; he answered later with \"upper case\", which differs (his words: \"Make it upper case.\"; his reason: The header is in upper case)" ] \
   && [ "$(sed -n 5p "$text")" = "- story 1 changed during the build: choice 5 (Which line holds the word) took \"the second line\", by the owner" ] \
+  && [ "$(sed -n 6p "$text")" = "- story 1 changed during the build: choice 7 (The word's line ending) was settled by the owner with \"A line break, and a second line with the date.\", none of the options" ] \
+  && [ "$instead_pending" = "[]" ] \
   && grep -qxF -- '- story 1: was "The file holds the word the owner asked for.". choice 5 (Which line holds the word) took "the second line", by the owner. The two personas split.' "$text" \
   && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Stories|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
   && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- The name of the file: \"w.txt\", by the lead. The other files have one letter.
 - Where the word goes: \"the first line\", by the timeout, after the owner's wait of 15 minutes. A reader sees it at once. He answered later with the same (his reason: The importer reads the first line).
 - Tell the merchants: \"send the email\", by the owner, over the recommended \"send nothing\" (recommended because: Nothing they see changes). His words: \"Yes, send it.\" His reason: The merchants asked for it.
 - The case of the word: \"lower case\", by the timeout, after the owner's wait of 15 minutes. The test reads it so. He answered later with \"upper case\", which differs (his words: \"Make it upper case.\"; his reason: The header is in upper case).
-- Which line holds the word: \"the second line\", by the owner, as recommended. A header goes first. Story 1 changed." ] \
+- Which line holds the word: \"the second line\", by the owner, as recommended. A header goes first. Story 1 changed.
+- Email the customers: \"Email only the beta testers.\", by the owner, none of the options; the recommended was \"email nobody\" (recommended because: Nobody asked for it). His reason: They asked to hear first.
+- The word's line ending: \"A line break, and a second line with the date.\", by the owner, none of the options; the recommended was \"a line break\" (recommended because: Every file ends so). He gave no reason. Story 1 changed." ] \
   && grep -qF "the request is not green (choice 2 was taken by timeout" <<<"$agent"; then
-  pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken by timeout is a line of its own that is not green, with a late answer, the same or not, and his own words and reason; a story that an answered choice changed is not green; and the text lists each decision of the record with who took it and its reason, the recommendation's reason never as the owner's"
+  pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken by timeout is a line of its own that is not green, with a late answer, the same or not, and his own words and reason; a story that an answered choice changed is not green; a decision of the owner's that is none of the options settles its choice, also an irreversible one, so the request is proposed; and the text lists each decision of the record with who took it and its reason, the recommendation's reason never as the owner's"
 else
   fail "decisions in the landing: $waiting / $forever / $agent / $(cat "$text" 2>/dev/null)"
 fi

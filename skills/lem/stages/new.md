@@ -141,10 +141,14 @@ with the line `lem: SLUG choice N waits`. A builder that leads cannot wake you, 
    the option his answer takes, word for word as the choice has it; the script refuses any
    other text. `--words` is his answer as he gave it, when it is not that text, and `--why`
    his reason, when he gave one, in his words. Never put the recommendation's reason there:
-   the record keeps that one beside it. When his words fit none of the options, they are no
-   answer to this choice: ask him again, or, when he decided something else, log it as a new
-   decision with `--by owner`. A lead in a session gets the answer as one message too; a
-   builder that leads finds it at its next `decisions.py wait`.
+   the record keeps that one beside it. When he decided something that none of the options
+   says, settle the choice with it: `decisions.py answer SLUG N --instead TEXT`, with `--words`
+   and `--why` as above. Never log it as a new decision: the choice would wait for ever, and an
+   irreversible one would hold the pull request. When the choice carries a story, say also
+   whether his decision changed it (`--story-changed --was "the story's text before"`) or kept
+   it true (`--story-kept`); the script refuses neither and both. When you cannot tell what he
+   decided, ask him again. A lead in a session gets the answer as one message too; a builder
+   that leads finds it at its next `decisions.py wait`.
 3. **An answer after the wait** is written down the same way, and the script says it is late,
    also when nobody wrote the timeout yet: it writes the timeout then, and the recommended
    option stands. When the answer differs from what was taken, it is his correction: tell the
@@ -178,7 +182,8 @@ Act on the status:
   outranks the way of asking either skill names. Put the report's run above the card, with whether it was reproduced or derived,
   and its one line on why the case became possible and how far the same cause reaches. Ask all
   held decisions of one task in one go. Log each answer with `decisions.py log SLUG --by owner`,
-  or, for a choice the record already holds as asked, `decisions.py answer SLUG N --chose OPTION --words TEXT`;
+  or, for a choice the record already holds as asked, `decisions.py answer SLUG N --chose OPTION --words TEXT`, or `--instead TEXT` for a decision
+  of his that is none of the options;
   then start a lead. The `lem-panel` skill asks for what users would see under each option; that is in
   the report, and what is missing there the lead adds, not you.
   A task is also `held` when a step is the owner's to do and no decision at all: a trust prompt

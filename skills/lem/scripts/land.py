@@ -839,6 +839,8 @@ def story_why(decision: dict) -> str:
     """Why a story changed: the reason of a decision that was taken, or the choice that took the option that changes it."""
     if decision["state"] == "taken":
         return decision["why"]
+    if decision.get("instead"):
+        return f"choice {decision['id']} ({decision['what']}) was settled by the owner with \"{decision['chose']}\", none of the options"
     return f"choice {decision['id']} ({decision['what']}) took \"{decision['chose']}\", by {TAKEN_BY[decision['by']]}"
 
 
@@ -859,6 +861,8 @@ def later(decision: dict, lead: str) -> str:
     if "why" in late:
         said.append(f"his reason: {reason(late['why'])}")
     told = f" ({'; '.join(said)})" if said else ""
+    if late.get("instead"):
+        return f"{lead} \"{late['chose']}\", none of the options{told}"
     if late["chose"] == decision["chose"]:
         return f"{lead} the same{told}"
     return f"{lead} \"{late['chose']}\", which differs{told}"
@@ -870,7 +874,11 @@ def decided(decision: dict) -> str:
     if decision["state"] == "waits":
         return head + "waits for the owner."
     line = head + f"\"{decision['chose']}\", by {TAKEN_BY[decision['by']]}"
-    if decision["state"] == "answered" and decision["chose"] == decision["recommended"]:
+    if decision["state"] == "answered" and decision.get("instead"):
+        # his own decision, which none of the options says: the recommendation is named as such
+        line += f", none of the options; the recommended was \"{decision['recommended']}\" (recommended because: {reason(decision['why'])})."
+        line += "" if "owner_why" in decision else " He gave no reason."
+    elif decision["state"] == "answered" and decision["chose"] == decision["recommended"]:
         # the recommendation's reason is the reason of the option he took; his own, when he gave one, follows
         line += f", as recommended. {decision['why']}"
     elif decision["state"] == "answered":
@@ -993,7 +1001,8 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         )
         raise LandError(
             f"choice {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): a request is never proposed over an open question of his. "
-            f"Lem writes his answer with `decisions.py answer {task.slug} {waiting['id']} --chose OPTION --words TEXT`, the option word for word and his own words beside it; {ends}",
+            f"Lem writes his answer with `decisions.py answer {task.slug} {waiting['id']} --chose OPTION --words TEXT`, the option word for word and his own words beside it, or `--instead TEXT` "
+            f"for a decision of his that is none of the options; {ends}",
         )
     notes = Path(notes_file).read_text(encoding="utf-8") if Path(notes_file).is_file() else None
     if notes is None:

@@ -31,8 +31,13 @@ however long that takes.
     decisions.py answer SLUG ID --chose OPTION [--words TEXT] [--why TEXT]
                             the owner's answer: the option it takes, word for word, his own
                             words when they are not that text, and his reason when he gave one.
-                            Lem writes it down. An answer that fits no option is refused: it is
-                            no answer to this choice
+                            Lem writes it down. Text that is no option is refused here
+    decisions.py answer SLUG ID --instead TEXT [--story-changed --was TEXT | --story-kept]
+                 [--words TEXT] [--why TEXT]
+                            the owner decided what none of the options says: TEXT settles the
+                            choice, an irreversible one too. On a choice that carries a story,
+                            say whether his decision changed that story (with its text before)
+                            or kept it
     decisions.py timeout SLUG ID
                             the wait ended with no answer: the recommended action is taken.
                             Refused while the wait runs, and always for an irreversible step
@@ -142,11 +147,15 @@ class Task:
                 found[line["id"]].update(
                     state="answered", chose=line["chose"], by="owner", answered=line["at"],
                     **{f"owner_{key}": line[key] for key in ("words", "why") if key in line},
+                    **({"instead": True} if line.get("instead") else {}),
                 )
+                if "story_was" in line:
+                    # his own decision changed the story the choice carries
+                    found[line["id"]].update(story=found[line["id"]]["story_change"]["story"], was=line["story_was"])
             elif line["kind"] == "timeout":
                 found[line["id"]].update(state="timeout", chose=line["chose"], by="timeout", taken=line["at"])
             elif line["kind"] == "late":
-                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why") if key in line}})
+                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why", "instead", "story_was", "story_kept") if key in line}})
         for decision in found.values():
             # a choice that may change a story changed it when the option taken is one that changes it
             change = decision.get("story_change")
@@ -256,9 +265,26 @@ def cmd_wait(task: Task, number: int, seconds: int) -> dict:
         time.sleep(min(5, max(1, until - time.monotonic())))
 
 
-def cmd_answer(task: Task, number: int, chose: str, words: str | None, why: str | None) -> dict:
-    chose = text(chose, "--chose")
-    reason = {key: text(value, f"--{key}") for key, value in (("words", words), ("why", why)) if value is not None}
+def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
+    if (args.chose is None) == (args.instead is None):
+        raise DecisionError("--chose names one of the options and --instead a decision of the owner's that is none of them: give one of the two")
+    instead = args.instead is not None
+    chose = text(args.instead, "--instead") if instead else text(args.chose, "--chose")
+    reason = {key: text(value, f"--{key}") for key, value in (("words", args.words), ("why", args.why)) if value is not None}
+    if not instead and (args.story_changed or args.story_kept or args.was is not None):
+        raise DecisionError("--story-changed, --story-kept and --was go with --instead: an option says by itself whether it changes the story")
+    if args.story_changed and args.story_kept:
+        raise DecisionError("his decision changed the story or kept it: --story-changed or --story-kept, not both")
+    if args.story_changed and args.was is None:
+        raise DecisionError("--story-changed needs --was, the story's text before his decision")
+    if args.was is not None and not args.story_changed:
+        raise DecisionError("--was goes with --story-changed: the story's text before his decision")
+    if instead:
+        reason["instead"] = True
+        if args.story_changed:
+            reason["story_was"] = text(args.was, "--was")
+        elif args.story_kept:
+            reason["story_kept"] = True
     taken: dict = {}
 
     def make(known: list[dict]) -> list[dict]:
@@ -267,13 +293,21 @@ def cmd_answer(task: Task, number: int, chose: str, words: str | None, why: str 
         if decision["state"] == "answered":
             raise DecisionError(f"choice {number} has the owner's answer already: {decision['chose']!r}")
         # The option is what the record, the story it may change and the pull request read; his
-        # own words stay beside it. Words that fit no option answer another question.
-        if chose not in decision["options"]:
+        # own words stay beside it. A decision of his that is none of the options is --instead.
+        if not instead and chose not in decision["options"]:
             raise DecisionError(
                 f"the answer to choice {number} is one of its options, word for word: {'; '.join(decision['options'])}. "
-                "Put the owner's own words in --words. When what he said fits none of them, it is no answer to this choice: "
-                "ask him again, or log a new decision with `decisions.py log`",
+                "Put the owner's own words in --words. When what he decided fits none of them, settle the choice with "
+                "--instead TEXT, never with a new `decisions.py log`, so it does not wait for ever",
             )
+        story = decision.get("story_change")
+        if instead and story and not (args.story_changed or args.story_kept):
+            raise DecisionError(
+                f"choice {number} carries story {story['story']}: an answer with --instead says --story-changed with --was, the story's text before, "
+                "or --story-kept, so that a changed story is never lost by silence",
+            )
+        if instead and not story and (args.story_changed or args.story_kept):
+            raise DecisionError(f"choice {number} carries no story: leave out --story-changed and --story-kept")
         if decision["state"] == "waits" and (decision["irreversible"] or left(decision) > 0):
             return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
         # After the wait the recommended option stands. When nobody wrote the timeout yet, it is
@@ -341,7 +375,11 @@ def main() -> None:
     answer = commands.add_parser("answer")
     answer.add_argument("slug")
     answer.add_argument("id", type=int)
-    answer.add_argument("--chose", required=True, metavar="OPTION", help="the option the owner's answer takes, word for word")
+    answer.add_argument("--chose", metavar="OPTION", help="the option the owner's answer takes, word for word")
+    answer.add_argument("--instead", metavar="TEXT", help="the owner's decision, when it is none of the options; it settles the choice")
+    answer.add_argument("--story-changed", action="store_true", help="with --instead: his decision changed the story the choice carries")
+    answer.add_argument("--was", help="with --story-changed: that story's text before his decision")
+    answer.add_argument("--story-kept", action="store_true", help="with --instead: the story the choice carries stays true")
     answer.add_argument("--words", help="the owner's answer as he gave it, when it is not the option's text")
     answer.add_argument("--why", help="the owner's own reason, in his words, when he gave one; never the recommendation's")
     timeout = commands.add_parser("timeout")
@@ -362,7 +400,7 @@ def main() -> None:
             elif args.command == "wait":
                 result = cmd_wait(task, args.id, args.seconds)
             elif args.command == "answer":
-                result = cmd_answer(task, args.id, args.chose, args.words, args.why)
+                result = cmd_answer(task, args.id, args)
             elif args.command == "timeout":
                 result = cmd_timeout(task, args.id)
             else:
