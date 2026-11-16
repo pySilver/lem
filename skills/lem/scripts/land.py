@@ -32,7 +32,7 @@ bar. A change lowers the bar when it adds a lint or type suppression or a skippe
 a test file, or leaves fewer assertions in one (counted by the words `assert` and `expect` on the
 lines it adds and removes, in a test file and in every Rust file, where unit tests sit beside
 the code). A mark counts when the change leaves more of it in a file than the file had, so a
-line that only moved is no new mark. A lowered bar passes only with a reason for that file under
+line that only moved is no new mark; a mark whose own text changed is a new one. A lowered bar passes only with a reason for that file under
 `## The bar` in the task's plan, as `- PATH: REASON`. The marks looked for are those of Python, JavaScript and
 TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `gate.bar` patterns for any
 file that is not a document. A changed file of another language gets no such check, and the
@@ -62,8 +62,9 @@ The record of a review is a JSON file:
 
 A review in which a source did not answer is still a review: the record names who answered and
 who did not. One in which nobody answered is none; it is started once more, and a second such
-record sends the request on as not reviewed. A review is of a change, known by the lines of its
-diff, so a rebase that changes nothing of it does not undo it, and a change of one space does.
+record sends the request on as not reviewed. A review is of a change, known by the content of
+each file it touches, before and after: a rebase onto a base that left those files alone does
+not undo it, and a change of one space does.
 Two rounds at most: after that the request is proposed as it is, green when the second round
 left nothing open and not green otherwise. `attempt` in a record is the number `read` printed
 for it, so a record that is sent twice is written down once.
@@ -293,12 +294,13 @@ def change(task: Task) -> dict:
     """The change as the branch holds it now: its two ends, its files, its size, and the id of its patch."""
     tip = git(task.worktree, "rev-parse", "HEAD")
     base = git(task.worktree, "merge-base", tip, task.onto)
-    # The id of the change: every line of its diff as it is, without the places git gives them
-    # (the blob ids and the line numbers), so a rebase that changes nothing of it keeps the id.
-    # git's own patch id is not used: it ignores spaces, and a change of spaces is a change.
-    diff = subprocess.run(["git", "-C", str(task.worktree), "diff", "--no-renames", "--binary", base, tip], capture_output=True, check=True).stdout
-    kept = [b"@@" if line.startswith(b"@@") else line for line in diff.split(b"\n") if not line.startswith(b"index ")]
-    patch = hashlib.sha256(b"\n".join(kept)).hexdigest()[:16]
+    # The id of the change: each file it touches, with the content the file had on the base and
+    # the content it has now. A rebase onto a base that left those files alone keeps the id, and
+    # everything else is another change: one space, the same edit in another place of a file, a
+    # base that changed a file under the change. git's own patch id is not used: it ignores
+    # spaces and places, and either can be the whole of a change.
+    raw = git(task.worktree, "diff", "--raw", "--no-abbrev", "--no-renames", base, tip)
+    patch = hashlib.sha256(raw.encode()).hexdigest()[:16]
     counted = git(task.worktree, "diff", "--numstat", "--no-renames", base, tip).splitlines()
     lines = sum(int(n) for row in counted for n in row.split("\t")[:2] if n.isdigit())
     return {"tip": tip, "base": base, "files": changed(task, base, tip), "patch": patch, "lines": lines}
@@ -337,9 +339,11 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     lowered: list[dict] = []
     asserts: dict[str, int] = {}
     # A mark counts when the change leaves more of it in a file than the file had: a line that
-    # only moved, or got another space, took the mark out and put it back.
-    came: dict[tuple[str, str], list[dict]] = {}
-    went: dict[tuple[str, str], int] = {}
+    # only moved, or got another space, took the mark out and put it back. A mark is the same
+    # one only with the same text from the mark to the end of its line: `noqa: F401` that
+    # becomes `noqa` is a wider suppression, and a new one.
+    came: dict[tuple[str, str, str], list[dict]] = {}
+    went: dict[tuple[str, str, str], int] = {}
     file = old = ""
     marks: list[re.Pattern] = []
     # -M: a file that moved is one file, so its tests are not counted as gone and come again
@@ -356,11 +360,12 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
         elif not file or line[:1] not in "+-":
             continue
         else:
-            hit = next((mark for mark in marks if mark.search(line[1:])), None)
+            hit = next((found for mark in marks if (found := mark.search(line[1:]))), None)
+            key = (file, hit.re.pattern, " ".join(line[1:][hit.start():].split())) if hit else None
             if hit and line.startswith("+"):
-                came.setdefault((file, hit.pattern), []).append({"file": file, "what": hit.search(line[1:]).group(0), "line": line[1:].strip()[:160]})
+                came.setdefault(key, []).append({"file": file, "what": hit.group(0), "line": line[1:].strip()[:160]})
             elif hit:
-                went[(file, hit.pattern)] = went.get((file, hit.pattern), 0) + 1
+                went[key] = went.get(key, 0) + 1
             if (TEST_FILE.search(file) or Path(file).suffix.lower() in INLINE_TESTS) and ASSERTS.search(line[1:]):
                 asserts[file] = asserts.get(file, 0) + (1 if line.startswith("-") else -1)
     for key, entries in came.items():
@@ -916,12 +921,16 @@ def cmd_clean(task: Task) -> dict:
         raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays{after}")
     if kept.get("merged") and task.forge:
         # The forge's copy first, and only when it is the commit that was merged: a failure here
-        # is said, and the next run finds the local branch and tries again.
-        there = run(["git", "-C", str(task.main), "ls-remote", "--heads", "origin", branch]).stdout.split()
-        if there and there[0] != kept.get("merged_head"):
-            removed["remote_left"] = f"origin has {there[0][:9]} on {branch}, which is not the commit the forge merged; it stays"
+        # is said, and the next run finds the local branch and tries again. The ref is looked up
+        # by its whole name (a pattern also matches `archive/BRANCH`), and the deletion carries
+        # the commit it was checked at, so a push that came in between stops it.
+        ref = f"refs/heads/{branch}"
+        listed = [line.split("\t") for line in run(["git", "-C", str(task.main), "ls-remote", "origin", ref]).stdout.splitlines()]
+        there = next((commit for commit, name in listed if name == ref), None)
+        if there and there != kept.get("merged_head"):
+            removed["remote_left"] = f"origin has {there[:9]} on {branch}, which is not the commit the forge merged; it stays"
         elif there:
-            git(task.main, "push", "origin", "--delete", branch)
+            git(task.main, "push", f"--force-with-lease={ref}:{there}", "origin", f":{ref}")
             removed["remote"] = branch
     git(task.main, "branch", "-D", branch)
     removed["branch"] = branch

@@ -2222,7 +2222,8 @@ git init -q -b main "$LOCAL" && ident "$LOCAL"
 project --repo "$LOCAL" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' 'bar = ["rubocop:disable"]' '[flow]' 'careful = ["billing/*"]' > "$LOCAL/.lem/project.toml"
 mkdir -p "$LOCAL/tests" "$LOCAL/docs" && printf '%s\n' 'def test_base():' '    assert 1 + 1 == 2' '    assert 2 + 2 == 4' > "$LOCAL/tests/test_base.py" && echo guide > "$LOCAL/docs/guide.md"
-echo 'import plugin # noqa: F401' > "$LOCAL/plug.py"
+printf '%s\n' 'import plugin # noqa: F401' 'import other  # noqa: E402' > "$LOCAL/plug.py"
+printf '%s\n' 'def first():' '    return "old"' '' '' 'def second():' '    return "old"' > "$LOCAL/app.py"
 printf '%s\n' 'pub fn one() -> i32 { 1 }' '#[cfg(test)]' 'mod tests {' '    #[test]' '    fn it_is_one() { assert_eq!(super::one(), 1); }' '}' > "$LOCAL/lib.rs"
 git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start"
 local_land() { land --repo "$LOCAL" "$@"; }
@@ -2278,10 +2279,17 @@ local_land land guide-change --by owner >/dev/null && local_land clean guide-cha
 # after a review, because the owner says careful, asks for the larger review.
 task_in "$LOCAL" spaces s.txt word
 tree=$(project --repo "$LOCAL" worktree-dir spaces)
-echo 'value = "a b"' > "$tree/v.py" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a value"
+echo 'value = "a b"' > "$tree/v.py" && printf '%s\n' 'def first():' '    return "new"' '' '' 'def second():' '    return "old"' > "$tree/app.py"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a value"
 local_land start spaces >/dev/null && local_land base spaces >/dev/null && local_land gate spaces >/dev/null
 local_land read spaces --record "$(clean 1)" >/dev/null
 same=$(local_land read spaces | field 'd["due"]')
+# the same edit in the next function of the file: every line of the diff is the same, and its place is not
+printf '%s\n' 'def first():' '    return "old"' '' '' 'def second():' '    return "new"' > "$tree/app.py"
+git -C "$tree" commit -q -am "fix: the other function" && local_land gate spaces >/dev/null
+moved=$(local_land read spaces | field '(d["due"], d["round"])')
+git -C "$tree" revert --no-edit HEAD >/dev/null && local_land gate spaces >/dev/null
+back=$(local_land read spaces | field 'd["due"]')
 task_dir=$(project --repo "$LOCAL" task-dir spaces)
 printf '%s\n' 'slug: spaces' 'careful: the owner says so' > "$task_dir/brief.md"
 raised=$(local_land read spaces | field '(d["due"], d["floor"])')
@@ -2291,11 +2299,11 @@ spaced=$(local_land read spaces | field '(d["due"], d["round"])')
 local_land read spaces --record "$(clean 2)" >/dev/null
 printf '%s\n' 'slug: spaces' 'careful: the owner says so' > "$task_dir/brief.md"
 late=$(local_land read spaces | field 'd["due"] + ": " + d["why"]')
-if [ "$same" = none ] && [ "$raised" = "('review', 'full')" ] && [ "$spaced" = "('review', 2)" ] \
+if [ "$same" = none ] && [ "$moved" = "('review', 2)" ] && [ "$back" = none ] && [ "$raised" = "('review', 'full')" ] && [ "$spaced" = "('review', 2)" ] \
   && [ "$late" = "owner: two rounds reviewed it: it was one read, and this change gets the project's full set at the least (the request is careful: the owner says so)" ]; then
-  pass "a change of one space after a review is a change nobody reviewed; and when the owner calls a reviewed task careful, the one read no longer counts: the full set is due, or after two rounds the request is not green for it"
+  pass "a change of one space after a review, or the same edit in another place of the file, is a change nobody reviewed, and a change that came back to what was reviewed is not; and when the owner calls a reviewed task careful, the one read no longer counts: the full set is due, or after two rounds the request is not green for it"
 else
-  fail "a review is of the change as it is: $same / $raised / $spaced / $late"
+  fail "a review is of the change as it is: $same / $moved / $back / $raised / $spaced / $late"
 fi
 project --repo "$LOCAL" state spaces dropped "the test is over" >/dev/null
 
@@ -2306,7 +2314,7 @@ task_in "$LOCAL" bar-change calc.py one
 tree=$(project --repo "$LOCAL" worktree-dir bar-change)
 echo 'import os  # noqa: F401' > "$tree/calc.py" && echo 'test -f calc.py' > "$tree/tests/bar-change.sh" && echo 'puts 1 # rubocop:disable Style/X' > "$tree/x.rb"
 printf '%s\n' 'import pytest' 'pytestmark = pytest.mark.skip(reason="later")' 'def test_base():' '    assert 1 + 1 == 2' > "$tree/tests/test_base.py"
-echo 'import plugin  # noqa: F401' > "$tree/plug.py" && echo 'pub fn one() -> i32 { 1 }' > "$tree/lib.rs"
+printf '%s\n' 'import plugin  # noqa: F401' 'import other  # noqa' > "$tree/plug.py" && echo 'pub fn one() -> i32 { 1 }' > "$tree/lib.rs"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: with marks"
 local_land start bar-change >/dev/null && local_land base bar-change >/dev/null
 out=$(local_land gate bar-change 2>/dev/null || true)
@@ -2314,29 +2322,30 @@ err=$(local_land gate bar-change 2>&1 >/dev/null || true)
 git -C "$tree" rm -q tests/test_base.py && git -C "$tree" commit -q -m "fix: the old test goes"
 gone=$(local_land gate bar-change 2>/dev/null || true)
 if [ "$(field '(sorted((e["file"], e["what"], e["reason"]) for e in d["bar"]["lowered"]), d["bar"]["not_covered"], d["bar"]["own_patterns"])' <<<"$out")" \
-  = "([('calc.py', '# noqa', None), ('lib.rs', '1 assertion(s) fewer', None), ('tests/test_base.py', '1 assertion(s) fewer', None), ('tests/test_base.py', 'pytest.mark.skip', None), ('x.rb', 'rubocop:disable', None)], ['.rb'], 1)" ] \
+  = "([('calc.py', '# noqa', None), ('lib.rs', '1 assertion(s) fewer', None), ('plug.py', '# noqa', None), ('tests/test_base.py', '1 assertion(s) fewer', None), ('tests/test_base.py', 'pytest.mark.skip', None), ('x.rb', 'rubocop:disable', None)], ['.rb'], 1)" ] \
   && grep -q "the change lowers the bar with no reason given" <<<"$err" && grep -q "## The bar" <<<"$err" && [ "$(kept_in "$LOCAL" bar-change gated)" = None ] \
   && [ "$(field 'sorted((e["file"], e["what"]) for e in d["bar"]["lowered"] if e["file"].startswith("tests/"))' <<<"$gone")" = "[('tests/test_base.py', 'a test file is deleted')]" ] \
+  && [ "$(field '[e["line"] for e in d["bar"]["lowered"] if e["file"] == "plug.py"]' <<<"$out")" = "['import other  # noqa']" ] \
   && [ "$(status_of local_land read bar-change)" = 1 ]; then
-  pass "a change that adds a suppression, a mark the project named, a skip of a whole module, fewer assertions, a test taken out of a Rust module or a deleted test file is refused until a reason is given; a suppression that was there and only got a space is none; and the result names the kind of file the bar has no marks for"
+  pass "a change that adds a suppression, a mark the project named, a skip of a whole module, fewer assertions, a test taken out of a Rust module or a deleted test file is refused until a reason is given; a suppression that was there and only got a space is none, and one that got wider is one; and the result names the kind of file the bar has no marks for"
 else
   fail "the bar: $out / $err / $gone"
 fi
 plan=$tree/docs/plans/20261115-bar-change.md
 # shellcheck disable=SC2016  # the backticks are the plan's own marks around a path
-printf '%s\n' '' '## The bar' '' '- calc.py: the import registers a plugin.' '- `x.rb`: the cop reads this line wrong.' '- tests/test_base.py: the sum moved to another module with its test.' '- lib.rs: one() has its test in tests/one.rs now.' >> "$plan"
+printf '%s\n' '' '## The bar' '' '- calc.py: the import registers a plugin.' '- `x.rb`: the cop reads this line wrong.' '- tests/test_base.py: the sum moved to another module with its test.' '- lib.rs: one() has its test in tests/one.rs now.' '- plug.py: E402 and F401 both hold for that import.' >> "$plan"
 git -C "$tree" commit -q -am "docs: why the bar is lower"
 out=$(local_land gate bar-change)
 small=$(local_land read bar-change | field 'd["floor"]')
 unsaid=$(local_land read bar-change --record "$(clean 1)" 2>&1 || true)
-local_land read bar-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}, {"name": "x.rb", "why": "the cop is wrong here."}, {"name": "tests/test_base.py", "why": "the sum and its test are in the other module."}, {"name": "lib.rs", "why": "tests/one.rs is not in this change."}]}')" >/dev/null
+local_land read bar-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}, {"name": "x.rb", "why": "the cop is wrong here."}, {"name": "tests/test_base.py", "why": "the sum and its test are in the other module."}, {"name": "lib.rs", "why": "tests/one.rs is not in this change."}, {"name": "plug.py", "why": "name the two codes."}]}')" >/dev/null
 proposed=$(local_land propose bar-change --title "fix: marks" --notes "$NOTES")
 agent=$(local_land land bar-change --by agent 2>&1 || true)
 text=$LOCAL/.git/lem/tasks/bar-change/pr.md
 # shellcheck disable=SC2016
-if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "['one() has its test in tests/one.rs now.', 'the cop reads this line wrong.', 'the import registers a plugin.', 'the sum moved to another module with its test.']" ] \
-  && [ "$small" = read ] && grep -q "the change lowers the bar in calc.py, lib.rs, tests/test_base.py, x.rb and the record says nothing of it" <<<"$unsaid" \
-  && [ "$(field '(d["green"], len(d["not_green"]))' <<<"$proposed")" = "(False, 4)" ] && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
+if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "['E402 and F401 both hold for that import.', 'one() has its test in tests/one.rs now.', 'the cop reads this line wrong.', 'the import registers a plugin.', 'the sum moved to another module with its test.']" ] \
+  && [ "$small" = read ] && grep -q "the change lowers the bar in calc.py, lib.rs, plug.py, tests/test_base.py, x.rb and the record says nothing of it" <<<"$unsaid" \
+  && [ "$(field '(d["green"], len(d["not_green"]))' <<<"$proposed")" = "(False, 5)" ] && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   && grep -q '^- the bar is lower in `calc.py` (# noqa)\. The builder: the import registers a plugin\. The review: the plugin is loaded by that import\.$' "$text" \
   && grep -q '^- the bar is lowered, with these reasons:$' "$text" && grep -q '^  - `calc.py` (# noqa): the import registers a plugin\.$' "$text" \
   && grep -q "^- the bar has no marks of its own for files of these kinds: .rb (the project's 1 pattern(s) in gate.bar were looked for)$" "$text" \
@@ -2487,19 +2496,28 @@ echo more > "$tree/q2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q 
 after=$(gh_land clean pr-squashed 2>&1 || true)
 kept_branch=$(git -C "$GHS" branch --list fix/pr-squashed)
 git -C "$GHS" branch -q -f fix/pr-squashed "$head"
+# a branch on the forge whose name ends the same way and holds the merged commit: it is not the task's branch
+git -C "$GHO" branch -q archive/fix/pr-squashed "$head"
 # shellcheck disable=SC2016  # the hook's own argument, read when the hook runs
 printf '%s\n' '#!/bin/sh' 'case "$3" in 0000000000000000000000000000000000000000) echo "no deletion here" >&2; exit 1 ;; esac' > "$GHO/hooks/update" && chmod +x "$GHO/hooks/update"
 refused=$(gh_land clean pr-squashed 2>&1 || true)
 still=$(git -C "$GHS" branch --list fix/pr-squashed)/$(git -C "$GHO" branch --list fix/pr-squashed)
 rm "$GHO/hooks/update"
+# somebody pushed to the task's branch on the forge after the merge: that copy stays
+later=$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p "$head" -m "fix: pushed later" "$head^{tree}")
+git -C "$GHO" update-ref refs/heads/fix/pr-squashed "$later"
+left=$(gh_land clean pr-squashed | field '(d["branch"], d["remote"], d["remote_left"] is not None)')
+on_forge=$(git -C "$GHO" rev-parse refs/heads/fix/pr-squashed)
+git -C "$GHO" update-ref refs/heads/fix/pr-squashed "$head" && git -C "$GHS" branch -q fix/pr-squashed "$head"
 cleaned=$(gh_land clean pr-squashed)
 if grep -q "the forge merged ${head:0:9}, and the branch has commits after it" <<<"$after" && [ -n "$kept_branch" ] \
   && grep -q "push failed: .*no deletion here" <<<"$refused" && [ "$(tr -d ' *' <<<"$still")" = "fix/pr-squashed/fix/pr-squashed" ] \
+  && [ "$left" = "('fix/pr-squashed', None, True)" ] && [ "$on_forge" = "$later" ] && [ -n "$(git -C "$GHO" branch --list archive/fix/pr-squashed)" ] \
   && [ "$(field '(d["worktree"], d["branch"], d["remote"])' <<<"$cleaned")" = "(False, 'fix/pr-squashed', 'fix/pr-squashed')" ] \
   && [ -z "$(git -C "$GHS" branch --list fix/pr-squashed)" ] && [ -z "$(git -C "$GHO" branch --list fix/pr-squashed)" ]; then
-  pass "after a merge the forge made as one commit, the branch goes only when its tip is the commit that was merged; a deletion the forge refuses is an error that keeps the local branch, and the next run removes both"
+  pass "after a merge the forge made as one commit, the branch goes only when its tip is the commit that was merged; a deletion the forge refuses is an error that keeps the local branch; the forge's copy stays when it holds a later commit, whatever another branch with the same last words holds; and a run with nothing in the way removes both"
 else
-  fail "clean after a merge on the forge: $after / $kept_branch / $refused / $still / $cleaned"
+  fail "clean after a merge on the forge: $after / $kept_branch / $refused / $still / $left / $cleaned"
 fi
 
 if [ -d "$(dirname "$PROJECT")/__pycache__" ]; then fail "the scripts left no __pycache__"; else pass "the scripts left no __pycache__"; fi
