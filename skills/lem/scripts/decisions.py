@@ -28,9 +28,11 @@ however long that takes.
     decisions.py wait SLUG ID [--seconds N]
                             return when the choice is answered, when its wait ends, or after N
                             seconds, and say which
-    decisions.py answer SLUG ID --chose TEXT [--why TEXT]
-                            the owner's answer, in his words, with his reason when he gave one;
-                            Lem writes it down
+    decisions.py answer SLUG ID --chose OPTION [--words TEXT] [--why TEXT]
+                            the owner's answer: the option it takes, word for word, his own
+                            words when they are not that text, and his reason when he gave one.
+                            Lem writes it down. An answer that fits no option is refused: it is
+                            no answer to this choice
     decisions.py timeout SLUG ID
                             the wait ended with no answer: the recommended action is taken.
                             Refused while the wait runs, and always for an irreversible step
@@ -137,11 +139,14 @@ class Task:
             if line["kind"] in ("taken", "asked"):
                 found[line["id"]] = {**line, "state": "taken" if line["kind"] == "taken" else "waits"}
             elif line["kind"] == "answered":
-                found[line["id"]].update(state="answered", chose=line["chose"], by="owner", answered=line["at"], **({"owner_why": line["why"]} if "why" in line else {}))
+                found[line["id"]].update(
+                    state="answered", chose=line["chose"], by="owner", answered=line["at"],
+                    **{f"owner_{key}": line[key] for key in ("words", "why") if key in line},
+                )
             elif line["kind"] == "timeout":
                 found[line["id"]].update(state="timeout", chose=line["chose"], by="timeout", taken=line["at"])
             elif line["kind"] == "late":
-                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **({"why": line["why"]} if "why" in line else {})})
+                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why") if key in line}})
         for decision in found.values():
             # a choice that may change a story changed it when the option taken is one that changes it
             change = decision.get("story_change")
@@ -251,9 +256,9 @@ def cmd_wait(task: Task, number: int, seconds: int) -> dict:
         time.sleep(min(5, max(1, until - time.monotonic())))
 
 
-def cmd_answer(task: Task, number: int, chose: str, why: str | None) -> dict:
+def cmd_answer(task: Task, number: int, chose: str, words: str | None, why: str | None) -> dict:
     chose = text(chose, "--chose")
-    reason = {"why": text(why, "--why")} if why is not None else {}
+    reason = {key: text(value, f"--{key}") for key, value in (("words", words), ("why", why)) if value is not None}
     taken: dict = {}
 
     def make(known: list[dict]) -> list[dict]:
@@ -261,6 +266,14 @@ def cmd_answer(task: Task, number: int, chose: str, why: str | None) -> dict:
         at = stamp(now())
         if decision["state"] == "answered":
             raise DecisionError(f"choice {number} has the owner's answer already: {decision['chose']!r}")
+        # The option is what the record, the story it may change and the pull request read; his
+        # own words stay beside it. Words that fit no option answer another question.
+        if chose not in decision["options"]:
+            raise DecisionError(
+                f"the answer to choice {number} is one of its options, word for word: {'; '.join(decision['options'])}. "
+                "Put the owner's own words in --words. When what he said fits none of them, it is no answer to this choice: "
+                "ask him again, or log a new decision with `decisions.py log`",
+            )
         if decision["state"] == "waits" and (decision["irreversible"] or left(decision) > 0):
             return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
         # After the wait the recommended option stands. When nobody wrote the timeout yet, it is
@@ -328,7 +341,8 @@ def main() -> None:
     answer = commands.add_parser("answer")
     answer.add_argument("slug")
     answer.add_argument("id", type=int)
-    answer.add_argument("--chose", required=True)
+    answer.add_argument("--chose", required=True, metavar="OPTION", help="the option the owner's answer takes, word for word")
+    answer.add_argument("--words", help="the owner's answer as he gave it, when it is not the option's text")
     answer.add_argument("--why", help="the owner's own reason, in his words, when he gave one; never the recommendation's")
     timeout = commands.add_parser("timeout")
     timeout.add_argument("slug")
@@ -348,7 +362,7 @@ def main() -> None:
             elif args.command == "wait":
                 result = cmd_wait(task, args.id, args.seconds)
             elif args.command == "answer":
-                result = cmd_answer(task, args.id, args.chose, args.why)
+                result = cmd_answer(task, args.id, args.chose, args.words, args.why)
             elif args.command == "timeout":
                 result = cmd_timeout(task, args.id)
             else:

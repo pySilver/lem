@@ -841,13 +841,20 @@ def reason(text: str) -> str:
 
 
 def later(decision: dict, lead: str) -> str:
-    """What the owner answered after the timeout, when he did: the same, or what differs and his reason."""
+    """What the owner answered after the timeout, when he did: the same or what differs, with his
+    own words when they are not the option's text, and his reason, whichever it is."""
     if "late" not in decision:
         return ""
-    if decision["late"]["chose"] == decision["chose"]:
-        return f"{lead} the same"
-    why = f" (his reason: {reason(decision['late']['why'])})" if "why" in decision["late"] else ""
-    return f"{lead} \"{decision['late']['chose']}\", which differs{why}"
+    late = decision["late"]
+    said = []
+    if late.get("words", late["chose"]) != late["chose"]:
+        said.append(f"his words: \"{late['words']}\"")
+    if "why" in late:
+        said.append(f"his reason: {reason(late['why'])}")
+    told = f" ({'; '.join(said)})" if said else ""
+    if late["chose"] == decision["chose"]:
+        return f"{lead} the same{told}"
+    return f"{lead} \"{late['chose']}\", which differs{told}"
 
 
 def decided(decision: dict) -> str:
@@ -867,6 +874,8 @@ def decided(decision: dict) -> str:
         line += f", after the owner's wait of {decision['wait_minutes']} minutes. {decision['why']}" + (f" {later(decision, 'He answered later with')}." if "late" in decision else "")
     else:
         line += f" ({decision['said']}). {decision['why']}" if decision["by"] == "personas" else f". {decision['why']}"
+    if decision.get("owner_words", decision["chose"]) != decision["chose"]:
+        line += f" His words: \"{decision['owner_words']}\""
     if "owner_why" in decision:
         line += f" His reason: {decision['owner_why']}"
     return line + (f" Story {decision['story']} changed." if "story" in decision else "")
@@ -977,7 +986,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         )
         raise LandError(
             f"choice {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): a request is never proposed over an open question of his. "
-            f"Lem writes his answer with `decisions.py answer {task.slug} {waiting['id']} --chose TEXT`; {ends}",
+            f"Lem writes his answer with `decisions.py answer {task.slug} {waiting['id']} --chose OPTION --words TEXT`, the option word for word and his own words beside it; {ends}",
         )
     notes = Path(notes_file).read_text(encoding="utf-8") if Path(notes_file).is_file() else None
     if notes is None:
