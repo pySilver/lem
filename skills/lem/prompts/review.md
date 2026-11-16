@@ -14,29 +14,41 @@ review that knows why the builder thought it was right finds less.
    of the plan, then the diff of `range` in `worktree`. When `in_parts` is true the change is
    too large for one sitting: read it task by task, in the plan's own cuts, and say so in your
    file.
-2. **Route.** Read what each profile and each lens of the review tool says it is for (the
-   harness file of your agent says where that line is). Then choose what this change gets,
-   never under `floor`:
-   - `read`, one read: the tool's smallest profile, the one meant for a small change. For a
-     small and simple change: a limited fix, prose, a change of documentation only.
-   - `round`, a round with the profiles or lenses that fit: for every other change. A profile or
-     lens whose subject the change does not touch is left out. Documentation gets no security
-     and no architecture check.
+2. **Route.** Read what each profile and each lens of the review tool is for: its own line of
+   description, and for a profile also which lenses its agents carry. The harness file says how
+   to get both and how a round is run: it is the file named after the agent you run in, in the
+   folder `harness/` beside the folder of this file. Then choose what this change gets, never
+   under `floor`:
+   - `read`, one read: the tool's smallest profile, the one its description gives to a small
+     change; it may have more than one agent. For a small and simple change: a limited fix,
+     prose, a change of documentation only.
+   - `round`, a round with what fits: one profile, or a set of lenses in the place of a
+     profile's roster, for every other change. A lens whose subject the change does not touch
+     is left out. Documentation gets no security and no architecture check.
    - `full`, the project's full set: for a careful request. You may add a lens to it; you leave
      none out.
 
-   Write one reason for each profile or lens you run and one for each you leave out. The reason
-   names what in this diff the profile is about, or that nothing in it is. You judge from the
-   diff and from those descriptions; there is no list of paths or words to match.
+   Write one reason for each profile you run and each you leave out; when you run a set of
+   lenses, for each lens you run and each you leave out. The reason names what in this diff it
+   is about, or that nothing in it is. You judge from the diff and from those descriptions;
+   there is no list of paths or words to match.
 3. **Run it.** `load-skill` the review tool and run one round over `range` with what you chose.
-   Its context holds the owner's words, the stories, the rule files (as paths to read first),
-   and, when `bar` in your inputs lists a lowered bar, each such file with the reason the plan
-   gives. One round at a time: the review tool starts several agents of its own.
+   You write the round's context, in the form the tool's skill gives: it holds the owner's
+   words, the stories, the rule files (as paths to read first), and, when `bar` in your inputs
+   lists a lowered bar, each such file with the reason the plan gives. The round reads the
+   worktree and writes nothing into it: the tool's own files, its output and its log go into
+   `reviews/` in the task directory, as the harness file says. The landing refuses a worktree
+   with a file nobody committed. Nobody watches you: where the tool's skill asks its user
+   something, offers a next step or reports a status to a person, you decide and go on. One
+   round at a time: the review tool starts several agents of its own.
 4. **Confirm and label.** A finding counts when the code confirms it: open what it cites. Label
    each one that counts `must-fix`, `should` or `nit`. A must-fix names the input that fails or
    the story it breaks. When a source calls something a must-fix and names neither, look for
    the input yourself; when you cannot name one, it is a should. A builder is never sent after a
    must-fix that nobody can make fail.
+   A defect that the base commit already has is no finding of this change, whatever a source
+   calls it: run the input on the base to tell. List it apart, under "Outside this change", with
+   its file and one line on what is wrong, and count it as `outside`. It goes to the backlog.
 5. **Who answered.** A source of the round that died (a usage limit, a model at capacity) is
    named with what stopped it; the round still counts, and you do not run it again for that.
    When no source answered, say so and stop: Lem starts the review once more.
@@ -45,8 +57,9 @@ review that knows why the builder thought it was right finds less.
 7. **Write two files** in `reviews/` in the task directory:
    - `review-N.md`: what you chose and why, then each finding with its file, its symbol, its
      label, why, and the lines that confirm it. A path is relative to the repository's root.
-   - `review-N.json`, the record, in the form `python3 SKILL_DIR/scripts/land.py --help` shows:
-     `attempt` as `read.json` has it, `kind`, `ran` and `left_out` with a `why` each,
-     `answered`, `silent`, `bar`, and the counts `must_fix`, `should`, `nit`.
+   - `review-N.json`, the record, in the form `python3 SKILL_DIR/scripts/land.py --help` shows
+     under "The record of a review": `attempt` as `read.json` has it, `kind`, `ran` and
+     `left_out` with a `why` each, `answered`, `silent`, the counts `must_fix`, `should`, `nit`
+     and `outside`, and `bar` only when the bar is lower in a file.
 
 Your reply is the two paths and one line: the kind, who answered, and the three counts.

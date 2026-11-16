@@ -48,7 +48,8 @@ by line before the build.
      code, so say what you see.
    - *a pattern*: the plan starts something other code will copy (a first service layer, a
      first use of a library, a new kind of test).
-   Write the call into the plan as one line, `careful: yes` or `careful: no`, with the one
+   Write the call into the plan as one line under its title, before `## Stories` (a line that
+   is no story is refused inside that section), `careful: yes` or `careful: no`, with the one
    sentence of why: the path, the topic in the owner's words, the pattern, or what you checked
    to say that none is touched. The same line goes into your next state block, where the owner
    reads it on the board while the task builds, and into the report.

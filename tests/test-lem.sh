@@ -2288,8 +2288,12 @@ tree=$(project --repo "$LOCAL" worktree-dir spaces)
 echo 'value = "a b"' > "$tree/v.py" && app_py new old > "$tree/app.py"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a value"
 local_land start spaces >/dev/null && local_land base spaces >/dev/null && local_land gate spaces >/dev/null
-local_land read spaces --record "$(clean 1)" >/dev/null
+to_file=$(local_land read spaces --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 1}')" | field '(d["next"], d["to_file"])')
 same=$(local_land read spaces | field 'd["due"]')
+# the defect the review saw outside the change is filed in the backlog: that is no change of what was reviewed
+mkdir -p "$tree/docs/backlog" && echo '# a defect that was there before' > "$tree/docs/backlog/an-old-defect.md"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): an old defect" && local_land gate spaces >/dev/null
+filed=$(local_land read spaces | field 'd["due"]')
 # the same edit in the next function of the file: every line of the diff is the same, with its
 # context, and only its place is not
 app_py old new > "$tree/app.py"
@@ -2306,11 +2310,11 @@ spaced=$(local_land read spaces | field '(d["due"], d["round"])')
 local_land read spaces --record "$(clean 2)" >/dev/null
 printf '%s\n' 'slug: spaces' 'careful: the owner says so' > "$task_dir/brief.md"
 late=$(local_land read spaces | field 'd["due"] + ": " + d["why"]')
-if [ "$same" = none ] && [ "$moved" = "('review', 2)" ] && [ "$back" = none ] && [ "$raised" = "('review', 'full')" ] && [ "$spaced" = "('review', 2)" ] \
+if [ "$same" = none ] && [ "$to_file" = "('none', 1)" ] && [ "$filed" = none ] && [ "$moved" = "('review', 2)" ] && [ "$back" = none ] && [ "$raised" = "('review', 'full')" ] && [ "$spaced" = "('review', 2)" ] \
   && [ "$late" = "owner: two rounds reviewed it: it was one read, and this change gets the project's full set at the least (the request is careful: the owner says so)" ]; then
-  pass "a change of one space after a review, or the same edit in another place of the file, is a change nobody reviewed, and a change that came back to what was reviewed is not; and when the owner calls a reviewed task careful, the one read no longer counts: the full set is due, or after two rounds the request is not green for it"
+  pass "a change of one space after a review, or the same edit in another place of the file, is a change nobody reviewed, and a change that came back to what was reviewed is not, nor is an item filed in the backlog; and when the owner calls a reviewed task careful, the one read no longer counts: the full set is due, or after two rounds the request is not green for it"
 else
-  fail "a review is of the change as it is: $same / $moved / $back / $raised / $spaced / $late"
+  fail "a review is of the change as it is: $same / $to_file / $filed / $moved / $back / $raised / $spaced / $late"
 fi
 project --repo "$LOCAL" state spaces dropped "the test is over" >/dev/null
 

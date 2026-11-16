@@ -60,6 +60,21 @@ change lowers the bar. No check is ever edited to pass.
 Your reply: for each check, whose failure it was and what you did; the tip
 (`git rev-parse HEAD`); the output of `git status --short`.
 
+## The filing of what a review saw outside the change
+
+The brief gives the review's file (`reviews/review-N.md` in the task directory). Under "Outside
+this change" it lists defects that the base commit already has.
+
+1. File each one: one item in the project's backlog folder
+   (`python3 SKILL_DIR/scripts/project.py path backlog`), in the `lem-backlog` skill's item
+   format, with the file and the input the review gave. Commit them as `docs(backlog):`.
+2. Fix none of them, also not a small one: the review is over, and a fix now would be a change
+   nobody reviewed. An item in the backlog folder does not ask for another review; any other
+   file does.
+
+Your reply: the items you filed, each by its first line and its file; the tip
+(`git rev-parse HEAD`); the output of `git status --short`.
+
 ## The fix of a review's findings
 
 The brief gives the review's file (`reviews/review-N.md` in the task directory) and the task's
@@ -69,7 +84,9 @@ fails or the story it breaks.
 1. For each must-fix: write the test that fails on that input, then the fix. A must-fix you
    find to be wrong, you do not fix and do not drop: say why, with the lines that show it.
 2. A should that is cheap you fix too; the others you leave, and say which.
-3. Change nothing else. The next round reviews what you changed, and it is the last one.
+3. What the file lists under "Outside this change" you file in the backlog, as the job above
+   this one says, and do not fix.
+4. Change nothing else. The next round reviews what you changed, and it is the last one.
 
 Your reply: for each finding, what you did; the tip (`git rev-parse HEAD`); the output of
 `git status --short`.

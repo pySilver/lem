@@ -18,7 +18,8 @@ Your brief gives you one of four jobs:
 - **It names `prompts/review.md`: you review one task's change** and change nothing. Read that
   file and follow it; rules 3 to 6 below are about a builder that edits, which you are not here.
 - **It names `prompts/landing.md` and a job of the landing**: the repair of a conflict with the
-  base, the closing pass, the repair of a failed check, or the fix of a review's findings. Read
+  base, the closing pass, the repair of a failed check, the filing of what a review saw outside
+  the change, or the fix of a review's findings. Read
   that file and do the job it gives under that name. It allows what rules 5 and 6 forbid
   otherwise, and it says what your reply holds.
 

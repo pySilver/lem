@@ -103,9 +103,15 @@ one finds what the run before it finished.
      review down. The step refuses a record under the floor, and one whose `attempt` is not
      the number `read.json` gave: a record that is sent twice counts once.
 
-   What the record says decides the next step (`next` in the step's output):
+   What the record says decides the next step (`next` and `to_file` in the step's output):
    - *no must-fix*: go to step 6. The should findings stay open and go into the notes: a fix now
      would be a change nobody reviewed.
+   - *defects outside the change* (`to_file` is not 0): the review saw defects the base already
+     has. `spawn-builder` with the brief below, the job "the filing of what a review saw outside
+     the change", and as its path `reviews/review-N.md`. It files each one in the backlog and
+     fixes none. Then `gate` again, for the new tip; `read` still says `none`, because an item
+     in the backlog folder is no part of what was reviewed. A fix builder of a must-fix round
+     files them in the same pass.
    - *a must-fix*: `spawn-builder` with the brief below, the job "the fix of a review's
      findings", and as its paths `reviews/review-N.md` and the task's plan. It fixes each
      must-fix, and each should that is cheap, with a test for what was wrong. Then steps 4 and 5
@@ -129,7 +135,8 @@ one finds what the run before it finished.
      lead's call on whether the task is careful, with its sentence of why, is one of them.
    - `## Left open`: each should finding the review left, with its file.
    - `## Worth a look`: up to three places a person's eye is worth, and why each.
-   - `## Filed in the backlog`: each item the closing pass filed, by its first line.
+   - `## Filed in the backlog`: each item the closing pass or a review's filing filed, by its
+     first line.
    - `## Not done`: what the request asked for and this change does not do, and what was not
      verified.
    - `## Migration`, for a careful request only: whether the change holds a migration, and how
@@ -189,7 +196,7 @@ The brief for each builder of this stage is these lines and nothing more. Its st
 
 ```
 Read SKILL_DIR/prompts/landing.md and do the job named here.
-job: the repair of a conflict with the base | the closing pass | the repair of a failed check | the fix of a review's findings
+job: the repair of a conflict with the base | the closing pass | the repair of a failed check | the filing of what a review saw outside the change | the fix of a review's findings
 task: SLUG
 worktree: the worktree's absolute path
 task directory: the task directory's absolute path

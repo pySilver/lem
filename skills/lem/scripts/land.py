@@ -38,9 +38,9 @@ TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `gate.bar` p
 file that is not a document. A changed file of another language gets no such check, and the
 result says which (`not_covered`). The size of the change is counted, for the reviewer.
 
-A review comes before anything is proposed. There are three kinds: one read by one agent, for a
-small and simple change; a round of the project's review tool with the profiles that fit the
-change; the project's full set. Which one a change gets, and which profiles fit it, is the
+A review comes before anything is proposed. There are three kinds: one read, which is the
+review tool's smallest profile, for a small and simple change; a round of the review tool with
+the profiles or lenses that fit the change; the project's full set. Which one a change gets, and which profiles fit it, is the
 judgment of the agent that starts the review, from the diff and from what each profile is for:
 no code and no list of words decides it. This script holds only the floor that no judgment goes
 under: the full set for a careful request (a careful path, the plan's own `careful: yes`, or the
@@ -51,14 +51,16 @@ The record of a review is a JSON file:
 
     {"attempt": N,
      "kind": "read" | "round" | "full",
-     "ran": [{"name": PROFILE, "why": WHY IT FITS THIS CHANGE}],
-     "left_out": [{"name": PROFILE, "why": WHY IT DOES NOT}],
+     "ran": [{"name": PROFILE OR LENS, "why": WHY IT FITS THIS CHANGE}],
+     "left_out": [{"name": PROFILE OR LENS, "why": WHY IT DOES NOT}],
      "answered": [SOURCE, ...],
      "silent": [{"name": SOURCE, "why": WHAT STOPPED IT}],
      "bar": [{"name": FILE, "why": WHAT THE REVIEW SAYS OF THE REASON GIVEN FOR IT}],
-     "must_fix": N, "should": N, "nit": N}
+     "must_fix": N, "should": N, "nit": N, "outside": N}
 
-`bar` has one entry for each file in which the change lowers the bar, and is left out otherwise.
+`attempt`, `kind` and `answered` are always there. `bar` has one entry for each file in which
+the change lowers the bar, and is left out otherwise. `outside` counts the defects the review
+saw that were there before the change: they are no findings of it, and they go to the backlog.
 
 A review in which a source did not answer is still a review: the record names who answered and
 who did not. One in which nobody answered is none; it is started once more, and a second such
@@ -299,7 +301,10 @@ def change(task: Task) -> dict:
     # everything else is another change: one space, the same edit in another place of a file, a
     # base that changed a file under the change. git's own patch id is not used: it ignores
     # spaces and places, and either can be the whole of a change.
-    raw = git(task.worktree, "diff", "--raw", "--no-abbrev", "--no-renames", base, tip)
+    # An item in the backlog folder is no part of the id: a defect that a review saw outside the
+    # change is filed there after the review, and that must not ask for another review.
+    backlog = Path(task.settings["paths"]["backlog"]["path"]).relative_to(Path(task.settings["root"]).resolve()).as_posix()
+    raw = git(task.worktree, "diff", "--raw", "--no-abbrev", "--no-renames", base, tip, "--", ".", f":(exclude){backlog}")
     patch = hashlib.sha256(raw.encode()).hexdigest()[:16]
     counted = git(task.worktree, "diff", "--numstat", "--no-renames", base, tip).splitlines()
     lines = sum(int(n) for row in counted for n in row.split("\t")[:2] if n.isdigit())
@@ -531,7 +536,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
         said = json.loads(Path(record).read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         raise LandError(f"{record} does not read as JSON ({error}); --record names the file that says what the review was and what it found") from error
-    known = {"attempt", "kind", "ran", "left_out", "answered", "silent", "bar", "must_fix", "should", "nit"}
+    known = {"attempt", "kind", "ran", "left_out", "answered", "silent", "bar", "must_fix", "should", "nit", "outside"}
     if not isinstance(said, dict) or set(said) - known or not {"attempt", "kind", "answered"} <= set(said):
         raise LandError(f"the record is one object with `attempt`, `kind` and `answered`, and of the others what applies: {', '.join(sorted(known))}")
     # A record that is sent again, after a run that was cut off or by mistake, must not count as
@@ -554,9 +559,9 @@ def cmd_read(task: Task, record: str | None) -> dict:
         raise LandError("a round names each profile it ran in `ran`, with why that profile fits this change")
     if kind == "full" and left_out:
         raise LandError("the project's full set leaves no profile out: a profile may be added to it, never dropped")
-    counts = {key: said.get(key, 0) for key in ("must_fix", "should", "nit")}
+    counts = {key: said.get(key, 0) for key in ("must_fix", "should", "nit", "outside")}
     if not all(isinstance(count, int) and not isinstance(count, bool) and count >= 0 for count in counts.values()):
-        raise LandError("`must_fix`, `should` and `nit` are counts")
+        raise LandError("`must_fix`, `should`, `nit` and `outside` are counts")
     if not answered and any(counts.values()):
         raise LandError("the record has findings and no source that answered: `answered` names who found them")
     # A lowered bar is what the owner reads himself, so the review says what it thinks of each one.
@@ -575,7 +580,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     # run, and the second event has the same attempt, by which a reader of the log knows it.
     script("project.py", task.worktree, "log", task.slug, "review", *(f"{key}:={json.dumps(value)}" for key, value in entry.items()))
     task.keep(reads=[*reads, entry])
-    return {"task": task.slug, "recorded": entry, "next": due(task)["due"]}
+    return {"task": task.slug, "recorded": entry, "next": due(task)["due"], "to_file": counts["outside"]}
 
 
 def not_green(task: Task, state: dict) -> list[str]:
