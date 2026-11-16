@@ -355,6 +355,9 @@ class Task:
         self.onto = f"origin/{self.base}" if self.remote else str(self.base)
         self.kept_file = self.directory / "landing.json"
         self.recorded: list[dict] | None = None
+        self.stories: dict | None = None
+        self.careful_matches: dict[tuple[str, ...], list[dict]] = {}
+        self.branch_gate: list[str] | None = None
         # The address as the repository has it, before any rewrite of it: the forge is known by its host.
         # A project that wants no pull requests (`branch.propose = "merge"`) has no forge here: its
         # remote is one like any other, and its task lands on the remote's base branch.
@@ -395,7 +398,10 @@ class Task:
         own = self.settings["gate"]["commands"]
         if own or not (self.worktree / ".git").exists():
             return own, False
-        tip = json.loads(script("project.py", self.worktree, "show").stdout)["gate"]["commands"]
+        if self.branch_gate is None:
+            # asked twice by one proposal (the text and its reasons), and kept: no step writes the branch's settings
+            self.branch_gate = json.loads(script("project.py", self.worktree, "show").stdout)["gate"]["commands"]
+        tip = self.branch_gate
         if not tip:
             return [], False
         base = git(self.worktree, "merge-base", "HEAD", self.onto, check=False)
@@ -585,8 +591,12 @@ def polish_missing(task: Task, tip: str, found: dict) -> str | None:
 
 
 def stories_of(task: Task) -> dict:
-    """The task's stories and its plan, through the one script that reads them."""
-    return json.loads(script("stories.py", task.main, "show", task.slug).stdout)
+    """The task's stories and its plan, through the one script that reads them. A step asks for
+    them many times, and no step writes the plan, the approval or a story's record, so the first
+    answer is kept for the life of this process."""
+    if task.stories is None:
+        task.stories = json.loads(script("stories.py", task.main, "show", task.slug).stdout)
+    return task.stories
 
 
 def change(task: Task) -> dict:
@@ -728,8 +738,15 @@ def owner_says_careful(task: Task) -> bool:
 
 
 def careful_path(task: Task, files: list[str]) -> dict | None:
-    """The first changed file that a careful pattern of the settings matches, with that pattern."""
-    matched = json.loads(script("project.py", task.worktree, "careful", *files).stdout)["careful"] if files else []
+    """The first changed file that a careful pattern of the settings matches, with that pattern.
+    A step asks it for the same files more than once (the review's floor, the missed call), and
+    no step writes the settings, so each answer is kept for the life of this process."""
+    if not files:
+        return None
+    key = tuple(files)
+    if key not in task.careful_matches:
+        task.careful_matches[key] = json.loads(script("project.py", task.worktree, "careful", *files).stdout)["careful"]
+    matched = task.careful_matches[key]
     return matched[0] if matched else None
 
 

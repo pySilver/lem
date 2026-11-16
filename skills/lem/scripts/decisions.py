@@ -166,16 +166,19 @@ def read(moment: str) -> datetime:
 
 
 class Task:
-    def __init__(self, repo: Path, slug: str) -> None:
+    def __init__(self, repo: Path, slug: str, tasks: list[dict] | None = None, state: Path | None = None) -> None:
+        """`tasks` and `state`, when given, are `project.py tasks` and `state-dir` as this process
+        read them already: `pending` reads them once for every task it lists."""
         self.repo = repo
         self.slug = slug
-        self.status = self.read_status()
-        self.directory = Path(script("project.py", repo, "state-dir").strip()) / "tasks" / slug
+        self.status = self.read_status(tasks)
+        self.directory = (state or Path(script("project.py", repo, "state-dir").strip())) / "tasks" / slug
         self.file = self.directory / "decisions.jsonl"
 
-    def read_status(self) -> str | None:
+    def read_status(self, tasks: list[dict] | None = None) -> str | None:
         """The task's status now, from its state file: a task may be dropped while a command runs."""
-        tasks = json.loads(script("project.py", self.repo, "tasks"))
+        if tasks is None:
+            tasks = json.loads(script("project.py", self.repo, "tasks"))
         record = next((task for task in tasks if task["slug"] == self.slug), None)
         if record is None:
             raise DecisionError(f"no task {self.slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
@@ -497,10 +500,13 @@ def shown(task: Task, decision: dict) -> dict:
 def cmd_pending(repo: Path, slug: str | None) -> dict:
     """The choices that wait for the owner. A dropped, landed or answered task has none: nobody
     needs his answer there, and the record stays for `list`."""
-    slugs = [slug] if slug else [task["slug"] for task in json.loads(script("project.py", repo, "tasks"))]
+    # Every task, from one read of the tasks and of the state folder: nothing here writes either.
+    listed = json.loads(script("project.py", repo, "tasks")) if not slug else None
+    state = Path(script("project.py", repo, "state-dir").strip()) if listed else None
+    slugs = [slug] if slug else [task["slug"] for task in listed]
     waiting: list[dict] = []
     ended: list[dict] = []
-    for task in (Task(repo, name) for name in slugs):
+    for task in (Task(repo, name, listed, state) for name in slugs):
         open_ones = [decision for decision in task.decisions() if decision["state"] == "waits"]
         if task.status in ENDED:
             if open_ones or slug:
