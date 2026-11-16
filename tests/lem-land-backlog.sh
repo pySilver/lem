@@ -6,7 +6,7 @@
 
 # What a review saw outside the change is filed after it, as new items in the backlog folder: that asks
 # for no other review. Any other file does, an item that was on the base included; the folder is a
-# folder and not a pattern, and the root of the repository is no backlog folder for this.
+# folder and not a pattern. (The settings refuse the root of the repository as the backlog folder.)
 # backlog_repo NAME FOLDER: a repository whose settings name FOLDER as the backlog, with one item there on the base
 backlog_repo() {
   local repo=$WORK/$1
@@ -41,12 +41,10 @@ fi
 backlog_repo backlog-star 'docs/backlog-x*'
 inside=$(reviewed_then "$WORK/backlog-star" in-folder 'echo "# an item" > "docs/backlog-x*/new.md"')
 beside=$(reviewed_then "$WORK/backlog-star" beside-folder 'mkdir -p docs/backlog-xy && echo "x = 1" > docs/backlog-xy/app.py')
-backlog_repo backlog-root .
-rooted=$(reviewed_then "$WORK/backlog-root" root-item 'echo "# an item" > new.md')
-if [ "$inside" = none ] && [ "$beside" = review ] && [ "$rooted" = review ]; then
-  pass "the backlog folder is read as the path it names, not as a pattern: a file in docs/backlog-xy is no item of the folder docs/backlog-x*; and a backlog folder that is the root keeps no review over a new file"
+if [ "$inside" = none ] && [ "$beside" = review ]; then
+  pass "the backlog folder is read as the path it names, not as a pattern: a file in docs/backlog-xy is no item of the folder docs/backlog-x*"
 else
-  fail "the backlog folder as a path: $inside / $beside / $rooted"
+  fail "the backlog folder as a path: $inside / $beside"
 fi
 
 # A review names each defect it saw outside the change, and `land.py file` files each one as an item
