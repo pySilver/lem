@@ -905,10 +905,18 @@ def cmd_gate(task: Task) -> dict:
     missing = polish_missing(task, tip, found)
     if missing:
         raise LandError(missing)
+    commands = task.gate()[0]
+    if not commands:
+        # `start` refuses a project with none; the main checkout's settings may lose them after it
+        task.keep(gated=None, tree=None)
+        raise LandError(
+            f"the gate has no command to run, and a gate that ran nothing shows nothing: {NO_GATE} in the main checkout's .lem/project.toml, "
+            f"and the branch brings none that the base commit lacks. Add the commands to gate.commands there, then run `land.py gate {task.slug}` again",
+        )
     logs = task.directory / "gate"
     logs.mkdir(exist_ok=True)
     results = []
-    for number, command in enumerate(task.gate()[0], start=1):
+    for number, command in enumerate(commands, start=1):
         output = logs / f"{number:02d}.log"
         with output.open("w", encoding="utf-8") as handle:
             code = subprocess.run(command, shell=True, cwd=task.worktree, stdout=handle, stderr=subprocess.STDOUT, check=False).returncode
@@ -917,12 +925,20 @@ def cmd_gate(task: Task) -> dict:
         results.append({"command": command, "exit": code, "last": last, "output": str(output)})
         script("project.py", task.worktree, "log", task.slug, "gate", f"command={command}", f"exit:={code}", f"last={last}", f"tip={tip[:9]}")
     green = all(result["exit"] == 0 for result in results)
-    # A gate command that left a file behind changed the tree it just judged.
+    # A gate command that left a file behind, or made a commit, changed the tree it just judged.
     dirty = git(task.worktree, "status", "--porcelain")
     if green and dirty:
+        task.keep(gated=None, tree=None)
         raise LandError(
             f"the gate left changes in the worktree, so its result is about another tree:\n{dirty}\n"
-            "make the gate command clean up, or have the project ignore what it writes",
+            "remove them, make the gate command clean up after itself or have the project ignore what it writes, then run this again",
+        )
+    moved = git(task.worktree, "rev-parse", "HEAD")
+    if green and moved != tip:
+        task.keep(gated=None, tree=None)
+        raise LandError(
+            f"a gate command made a commit on the branch ({tip[:9]}..{moved[:9]}), so its result is about another tree: "
+            f"make the gate command commit nothing, put the branch back with `git -C {task.worktree} reset --hard {tip}`, then run this again",
         )
     result = {"task": task.slug, "tip": tip, "green": green, "commands": results, "polish": task.kept().get("polish")}
     if not green:
@@ -953,7 +969,7 @@ def cmd_gate(task: Task) -> dict:
             f"the change lowers the bar with no reason given: {named}. Take the mark out, or give the reason in the task's plan "
             "under `## The bar` as `- PATH: REASON`, where the one who reads the change sees it",
         )
-    task.keep(gated=tip, tree=git(task.worktree, "rev-parse", "HEAD^{tree}"), checks={"commands": results, "stories": result["stories"], "bar": result["bar"], "size": result["size"]})
+    task.keep(gated=tip, tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"), checks={"commands": results, "stories": result["stories"], "bar": result["bar"], "size": result["size"]})
     return result
 
 

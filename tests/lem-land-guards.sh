@@ -56,6 +56,16 @@ if grep -qF "the project has no gate command" <<<"$blocked" && grep -qF "then ru
 else
   fail "start after the gate commands were added: $blocked / $was / $again / $(status_in "$GRD" no-gate)"
 fi
+# A gate that runs no command is never green: here the main checkout's settings lose their commands after start.
+g base no-gate >/dev/null 2>&1 || true
+grd_settings ''
+empty=$(g gate no-gate 2>&1 || true)
+grd_settings '"true"'
+if grep -qF "the gate has no command to run" <<<"$empty" && [ "$(kept_in "$GRD" no-gate gated)" = None ] && ! grep -q '"event": "task.red", "task": "no-gate"' "$GRD/.git/lem/events.jsonl"; then
+  pass "a gate with no command to run refuses, and records no green tip"
+else
+  fail "a gate of no command: $empty / $(kept_in "$GRD" no-gate gated)"
+fi
 project --repo "$GRD" state no-gate dropped "the test is over" >/dev/null
 
 # A task whose worktree was removed by hand while it held the landing line: every message on the way names the step out.
@@ -95,6 +105,36 @@ else
   fail "a broken landing record: $broken / $(status_in "$GRD" broken-record)"
 fi
 project --repo "$GRD" state broken-record dropped "the test is over" >/dev/null
+
+# The gate judges one tree: a command that leaves a file or makes a commit changed it, and a story's
+# test that passes on the base commit too holds nothing. Each refusal records no green tip.
+task_in "$GRD" gate-writes x.txt x
+tree=$(wt gate-writes)
+g start gate-writes >/dev/null && g base gate-writes >/dev/null
+tip=$(git -C "$tree" rev-parse HEAD)
+grd_settings '"touch left.txt"'
+left=$(g gate gate-writes 2>&1 || true)
+left_gated=$(kept_in "$GRD" gate-writes gated)
+rm -f "$tree/left.txt"
+grd_settings '"echo x > made.txt && git add made.txt && git -c user.name=t -c user.email=t@t commit -q -m made"'
+made=$(g gate gate-writes 2>&1 || true)
+made_gated=$(kept_in "$GRD" gate-writes gated)
+git -C "$tree" reset -q --hard "$tip"
+grd_settings '"true"'
+echo true > "$tree/tests/gate-writes.sh" && git -C "$tree" commit -q -am "test: one that holds nothing"
+weak=$(g gate gate-writes 2>&1 || true)
+weak_gated=$(kept_in "$GRD" gate-writes gated)
+git -C "$tree" reset -q --hard "$tip"
+green=$(g gate gate-writes | field '(d["green"], d["tip"])')
+if grep -qF "the gate left changes in the worktree" <<<"$left" && grep -qF "left.txt" <<<"$left" && [ "$left_gated" = None ] \
+  && grep -qF "a gate command made a commit on the branch" <<<"$made" && grep -qF "git -C $tree reset --hard $tip" <<<"$made" && [ "$made_gated" = None ] \
+  && grep -qF "passes on the base commit too" <<<"$weak" && [ "$weak_gated" = None ] \
+  && [ "$green" = "(True, '$tip')" ] && [ "$(kept_in "$GRD" gate-writes tree)" = "$(git -C "$tree" rev-parse "$tip^{tree}")" ]; then
+  pass "the gate refuses a command that leaves a file, one that makes a commit, and a story's test that passes on the base commit, and records no green tip for any; a green gate records the tip and that tip's tree"
+else
+  fail "what the gate judges: $left / $made / $weak / $green"
+fi
+project --repo "$GRD" state gate-writes dropped "the test is over" >/dev/null
 
 # What lands is what was proposed and gated: the record of the tip, of the gate and of its tree, each
 # checked by land. The record is edited here; a run of the steps the refusal names lands the new tip.
