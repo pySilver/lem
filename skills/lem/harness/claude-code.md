@@ -243,9 +243,13 @@ pane: the sender `agtermctl` takes by default (`--as`, from the `AGTERM_SESSION_
 pane was accepted (`delivered` named that pane), and `msg read` as that pane returned it with
 `from` and `to` equal. The mailbox chat's waiter for Claude Code, which wakes an idle agent, takes
 any mail of its pane between two turns and reads no sender (`mailbox-chat.py`, its `Waiter`).
-Not checked: that such a line, sent by a builder while Lem was idle, reached Lem as a turn of its
-own; nobody has run it in a real Lem session. Until a run shows it, `decisions.py pending` at
-each of Lem's turns is what makes sure that no choice is missed.
+Checked on 2026-11-16 with agterm 0.41.1 and Claude Code 2.1.325, in a real Lem session: a
+background command of that session sent `lem: wake-probe choice 1 waits` with `agtermctl msg send
+--to SESSION:PANE --socket SOCKET` to the session's own pane, 20 seconds after the session ended
+its turn, and the line reached the idle session as a turn of its own (`[agterm mailbox, not a
+peer chat message]`, from the session's own address). The sender was a background command, not
+a subagent: that a line a builder sends wakes Lem the same way is not checked. Until a run shows
+it, `decisions.py pending` at each of Lem's turns is what makes sure that no choice is missed.
 
 Checked on 2026-11-14: this command, run by Claude Code in a companion session, put its line in
 the mailbox of the pane that opened the session. Checked on 2026-11-15, in the same careful
