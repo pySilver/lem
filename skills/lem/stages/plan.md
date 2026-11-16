@@ -19,13 +19,17 @@ a list of questions that closes with the reviewer's first turn (step 4).
      `show`, `record` and `red` refuse a plan whose stories are not the approved ones with each
      recorded change, word for word, or whose `Kind:` is not the approved kind. An approved
      correction that step 2 finds careful, or that needs a second story, is a feature, and the
-     kind is his only: it is a held decision (step 5), and Lem asks him;
+     kind is his only, so the stories wait for his yes: write `report.md` with the story and why
+     it is a feature on top, and the line `the stories wait for the owner: the correction is a
+     feature`; write the state `held` with that line, and stop. Lem takes it to him as a
+     correction he calls a feature (`stages/new.md`, "A correction");
    - with no approved stories (the rare path, a night plan), write them. A story is one
      business rule of the request in plain language with one concrete example, with real names
      and values: what a person of the project would see, never how the code does it. Take them
      from the outcome and the "done when" of `task.md`, now that you have read the code. A rule
-     you cannot write without guessing what the owner wants is not yours to guess: it is a held
-     decision (step 5), and Lem asks him. The first line of that section is your call,
+     you cannot write without guessing what the owner wants is not yours to guess: the stories
+     wait for him, as for a doubt of the personas below, with the story as you would guess it
+     and each other reading beside it as a proposal. The first line of that section is your call,
      `Kind: feature` or `Kind: correction`, with the reason after `because`. A correction is a
      request that yields one story and is not careful (step 2): its story is the owner's own
      sentence made exact. Everything else is a feature. The owner may overrule the call, as he
@@ -116,8 +120,9 @@ a list of questions that closes with the reviewer's first turn (step 4).
      builder for each of its tasks, which the harness file checked from a `worker` subagent and
      not yet from a `lem-builder`: when your agent refuses you the start of a builder, write the
      state `blocked` with that refusal, and stop.
-   When your brief says `stop after the plan: yes`, stop the same way with the line `the owner
-   reads the plan`.
+   When your brief says `stop after the plan: yes`, take the plan's decisions through step 5
+   first, then stop the same way with the line `the owner reads the plan`; a night plan whose
+   step 5 found a decision of the owner's stops with step 5's line instead.
 4. **A careful or large plan gets a plan talk before any code.** This is the defender's step: the
    agent in the companion session Lem opens for the talk (`prompts/defender.md`), and the only
    step it takes besides the open questions of step 5. It comes before step 5 lets any task be
@@ -258,31 +263,39 @@ a list of questions that closes with the reviewer's first turn (step 4).
    found 19 (mybaze, 2026-09-25 to 2026-11-03, counted by one reader from that project's notes).
    Both were reads, not talks; no talk is measured yet. A plan that is neither careful nor large has
    no talk, and that is what the skip can cost.
-5. **A held decision goes to the owner, the others do not.** For each decision of the plan: a
-   ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and log it
-   with `decisions.py log SLUG --by lead` (`stages/build.md`, "A choice in the build"). It turns on a claim that can be argued both ways ("this will not scale",
-   "nobody uses that") → the `lem-dialectic` skill settles the claim first. Its options each cost a
-   person something and nothing answers it → it is held, and it is not yours to ask. Write it in
-   `report.md` under "held", so that Lem can ask it without reading the code:
-   - one concrete case in numbered steps that ends badly, with real names and values and where
-     each step was read, and whether you reproduced it or derived it;
-   - one line on why the case became possible and how far the same cause reaches;
-   - the options, each as what a person would see and what it costs, and what you would choose.
-   Then build the tasks that do not depend on a held decision. Write the state `held` and stop
-   only when every task that is left depends on one. A builder whose plan is careful or large and
+5. **A decision that is the owner's is asked, and the work goes on.** For each decision of the
+   plan: a ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and
+   log it with `decisions.py log SLUG --by lead` (`stages/build.md`, "A choice in the build"). It
+   turns on a claim that can be argued both ways ("this will not scale", "nobody uses that") → the
+   `lem-dialectic` skill settles the claim first. Its options each cost a person something and
+   nothing answers it → it is the owner's, and it takes the one path every such decision takes,
+   at plan time as in the build: `stages/build.md`, "A choice in the build", step 2. The persona
+   panel reads it first, and a clear answer of theirs is taken and logged; an unclear one is
+   asked with `decisions.py ask`, whose card has to tell the owner one run without the code:
+   - `--case`: one concrete case in numbered steps that ends badly, with real names and values
+     and where each step was read, and `--case-was reproduced` or `--case-was derived`;
+   - `--cause`: one line on why the case became possible and how far the same cause reaches;
+   - an `--option` for each, as what a person would see and what it costs, and `--recommended`
+     with `--why`, what you would choose;
+   - `--said`: what the personas answered.
+   Then tell Lem and give it to the experts, as that step says, and go on to step 6: the build
+   takes the tasks that do not depend on it, and the wait ends as that section's steps 3 and 4
+   say. The state `held` is not for such a decision. A builder whose plan is careful or large and
    has no talk yet has stopped at step 3 before this; the builder that leads after the talk takes
    this step for the plan's own decisions.
    A question the plan talk left open is a decision of this step like any other, with the two
-   positions as what it rests on, and the defender takes it before it stops. One that is held is
-   not written under "held": ask it as a numbered choice, with `decisions.py ask`
-   (`stages/build.md`, "A choice in the build", step 2), whose `--said` holds both positions and
-   what the personas answered, or why they were not asked. A design choice about a decision of
-   the plan (a layer over a decision with no cite, a decision two questions named, or a changed
-   decision that brought issues of its own) is an honest comparison of both sides: one option is
-   the kept decision with each mechanism that guards it, the other the reversed decision with the
-   tasks and the stories it changes and each issue the reviewer raised against it, and `--said`
-   holds both. The builder that leads the build goes
-   on with the tasks that do not depend on it, as that section's steps 3 and 4 say. A design
-   choice of the talk is always asked so, never taken by the defender or the builder: the
-   defender is one of the two positions that did not settle.
+   positions as what it rests on, and the defender takes it before it stops. One that is the
+   owner's is asked the same way, and its `--said` holds both positions and what the personas
+   answered, or why they were not asked. A design choice about a decision of the plan (a layer
+   over a decision with no cite, a decision two questions named, or a changed decision that
+   brought issues of its own) is an honest comparison of both sides: one option is the kept
+   decision with each mechanism that guards it, the other the reversed decision with the tasks
+   and the stories it changes and each issue the reviewer raised against it, and `--said` holds
+   both. A design choice of the talk is always asked so, never taken by the defender or the
+   builder: the defender is one of the two positions that did not settle.
+   A night plan is the exception: its brief has the line `night: yes`, nobody is there to answer,
+   and a night never takes a decision of the owner's by its wait or by the experts, so
+   `decisions.py ask` refuses there. Write each such decision into `report.md` under "for the
+   owner", with the same case, cause and options, write the state `planned` with the line `the
+   plan ends on a decision of the owner's`, and stop (`stages/night.md`, step 4).
 6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.

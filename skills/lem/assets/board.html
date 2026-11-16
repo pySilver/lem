@@ -862,7 +862,7 @@ function derive(now) {
     // proposed: a pull request is open or the branch is ready to land, and it waits for the merge
     proposed: by('open'),
     building: by('building'), queued: by('queued'), ready: by('ready'), landing: by('landing'), blocked: by('blocked'),
-    // A choice runs out, a held decision stops work, a plan and a night draft only wait: in that
+    // A choice runs out, a held task stops work, a plan and a night draft only wait: in that
     // order, the oldest first.
     forOwner: list.filter(t => t.forOwner).sort((a, b) => a.ownerRank - b.ownerRank || a.since - b.since),
     landedToday: list.filter(t => t.status === 'landed' && dayKey(t.since) === dayKey(now)),
@@ -964,9 +964,10 @@ function answerOf(t, c = t.asks[0]) {
   }
   if (t.status === 'open') return /^pull request\b/.test(t.text) ? 'Merge the pull request, or tell Lem in its session to land it.' : 'Tell Lem in its session to land it.';
   if (t.storiesWait) return `${askedHow('the stories, with the personas’ read on top,', true)}. Approve or change them there.`;
-  // A held task waits on what its own state line says: a decision, or a step that is the owner's
-  // to do, such as a trust prompt of the reviewer's agent (stages/new.md). The board quotes the
-  // line and does not guess which; Lem tells him the step, or asks the decision its own way.
+  // A held task waits on what its own state line says, and never on a decision with options, which
+  // is a choice of the record: the stories, one more fact an investigation needs, a step that is
+  // the owner's to do, such as a trust prompt of the reviewer's agent, or an irreversible choice
+  // every task left needs (stages/new.md). The board quotes the line and does not guess which.
   if (t.status === 'held') return `It waits on what its state says: “${t.text}”. Lem tells you in its session what to do and where.`;
   if (t.status === 'planned') return 'Read the plan, then tell Lem in its session: build it or drop it.';
   return `Tell Lem in its session: /lem build ${t.slug}, or drop it.`;
@@ -977,7 +978,7 @@ function buildBanners(m) {
   const out = [];
   if (meta.demo) out.push(keyed('demo', h('div', {class: 'banner demo'}, icon('alert'),
     h('span', {}, h('b', {}, 'Demo data. '), 'These tasks are examples and not real work. Nothing on this page waits for you.'))));
-  // A banner is for what stops work or runs out: a choice whose wait runs, a held decision and a
+  // A banner is for what stops work or runs out: a choice whose wait runs, a held task and a
   // blocked task. A draft waits in its lane.
   for (const t of view ? [] : m.forOwner.filter(x => x.asks.length)) {
     for (const c of t.asks) {
@@ -1440,7 +1441,7 @@ function buildBoardProgress(m) {
         h('div', {class: 'dim'}, n ? `${m.building.length} build${m.building.length === 1 ? 's' : ''}, ${m.landing.length} land${m.landing.length === 1 ? 's' : ''}. ` : '',
           typeof limit === 'number' ? `The project lets ${plural(limit, 'task')} build or land at one time (flow.max_tasks).` : 'The limit comes with the first state block.')),
       h('div', {class: 'stats'},
-        stat('Waits for you', m.forOwner.length, m.forOwner.length ? 'a choice, the stories, a held decision, a plan, a draft or a merge' : 'nothing', m.forOwner.length ? 'you' : ''),
+        stat('Waits for you', m.forOwner.length, m.forOwner.length ? 'a choice, the stories, a step of yours, a plan, a draft or a merge' : 'nothing', m.forOwner.length ? 'you' : ''),
         stat('Queued', m.queued.length, 'asks that wait for a place'),
         stat('Checks and review', m.ready.length + m.landing.length, m.landing.length ? 'the checks or the review run on one' : 'one branch is checked at a time'),
         stat('Landed today', m.landedToday.length, 'on the base branch', m.landedToday.length ? 'ok' : ''),

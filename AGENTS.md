@@ -346,6 +346,26 @@ A lowered bar (a new suppression, a skipped or deleted test, fewer assertions) m
 request not green also when the plan gives its reason: the design session's decision of
 2026-11-16, told to him as its own, and open to him.
 
+## Decisions the maintaining session took
+
+On 2026-11-16 the owner gave the design to the session that builds Lem: "You are the owner and
+long-term maintainer of this codebase, and its design is up to you. Pick recommended action if
+you still see it as best oucome." Two reviews of Lem, by Codex and by Fable, had left the points
+below open, and that session decided each under his sentence. None of them is his ruling: each
+is the session's, and open to him.
+
+- **Every decision that is the owner's takes one path**, at plan time as in the build: the
+  persona panel (`lem-panel`, the lead's step), then `decisions.py ask` with one concrete run
+  (`--case`, `--case-was`, `--cause`, which the card shows above it), the wait of
+  `flow.decision_wait` while the rest goes on, and then the experts' shared pick or the
+  recommended option, not green. The question gate (`lem-gate`) sits at Lem's card. A decision
+  of the plan no longer holds the task: it was the one place where his wait had no end. `held`
+  keeps what has no options: the stories that wait for his yes (a kind only he may change among
+  them), one more fact for an investigation, a step that is his to do, and an irreversible
+  choice that every task left needs. A night plan asks no such decision, since nobody is there
+  and every wait would end without him: its brief says `night: yes`, `decisions.py ask` refuses
+  it, and the draft ends on the decision as before.
+
 ## Checks
 
 ```bash

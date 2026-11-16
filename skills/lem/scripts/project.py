@@ -168,7 +168,8 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   queued    the ask is written and no lead runs yet: the limit was reached
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
-#   held      it waits for the owner: a held decision
+#   held      it waits for the owner on what is no decision with options: the stories, one more fact, a
+#             step of his, or an irreversible choice every task left needs; a decision of his is a choice
 #   blocked   the lead stopped on something the coordinator has to settle
 #   ready     the report is written and the branch waits for its checks
 #   landing   the checks and the read run on it, or a builder repairs what they or the base showed

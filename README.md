@@ -341,6 +341,9 @@ These rules hold for each task:
 - **You are necessary at three points**: the interview with your approval of the stories, a
   decision whose options each cost a person something, and the pull request. Lem takes each other decision, logs it, and lists it for you to
   overturn.
+- **A decision that is yours does not stop the work.** This rule applies to a decision in the
+  plan and to a decision in the build. The decision waits 15 minutes for your answer at the
+  most, and the other work continues.
 - **Only some tasks build at one time.** The limit is the setting `flow.max_tasks`. A task over the
   limit waits in a queue.
 - **A worktree is a plain git worktree.** It has no `.env` file, no virtual environment and no
@@ -404,7 +407,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    you([You]) <-- asks, held decisions, reports --> lem[Lem<br/>one session for the repository]
+    you([You]) <-- asks, choices, reports --> lem[Lem<br/>one session for the repository]
     lem -- starts, reads the state and the report --> leadA[Lead of a task<br/>a builder]
     lem -- opens for a careful or large plan, closes after the talk --> leadB[Defender of the plan<br/>a companion session]
     leadB <-- the plan talk, before any code --> rev[Reviewer<br/>in the other pane]
@@ -430,7 +433,9 @@ There is one Lem for one repository. It is the session where you type `/lem`.
   itself. It writes the decision and the reason into the log of the task.
 - Some matters have options that each cost a person something. Then the personas of the
   project answer first, and Lem asks you with their answers. Work that does not depend on your
-  answer continues.
+  answer continues. A decision in the plan goes the same way as a choice in the build.
+- The question starts with one example that ends badly, in numbered steps. The lead writes it,
+  and it says if it reproduced the example. One line tells why the problem can occur.
 - The lead tells Lem at once when a choice waits for you. Lem then asks you at once. If that
   message does not arrive, Lem finds the choice at its next turn. Then less of the 15 minutes
   can stay for you.
@@ -617,7 +622,7 @@ Three paths did not occur in these runs:
 - The interview, the scout and your approval of the stories. These came after the runs.
 - If the ask is not clear to you yet, before a task, type `/lem interview-me`. Lem asks one
   question at a time.
-- If a decision is yours, Lem shows it to you as a page before the work that depends on it.
+- If a decision is yours, Lem shows it to you as a page. Only the work that depends on it waits.
 
 ### Set up a repository
 
@@ -678,7 +683,7 @@ Linear.
 
 | Command | What it does |
 | --- | --- |
-| `/lem <your ask>`, or `/lem new <what>` | opens a task, interviews you, and shows you the stories with the result of the personas. After your approval it runs the task to a pull request. A ticket with all of its context gets no interview, and a correction does not wait. It does not stop for you to read the plan. The task waits if each place is in use. A careful or large plan gets a companion session for the plan talk, which closes after the talk. It stops for a decision that is yours |
+| `/lem <your ask>`, or `/lem new <what>` | opens a task, interviews you, and shows you the stories with the result of the personas. After your approval it runs the task to a pull request. A ticket with all of its context gets no interview, and a correction does not wait. It does not stop for you to read the plan. The task waits if each place is in use. A careful or large plan gets a companion session for the plan talk, which closes after the talk. A decision that is yours waits 15 minutes at the most, and only a step that nobody can reverse stops the work |
 | `/lem plan <what>` | opens a task and stops after the plan. You read the plan. Then `/lem build` continues |
 | `/lem build` | lists the plans that wait and asks which one it builds |
 | `/lem build <task>`, or `/lem build <plan file>` | builds that plan: a plan that you read, or a draft from the night |
@@ -700,7 +705,7 @@ You can type each of these commands, but usually you do not.
 | Command | Who starts it | What it does |
 | --- | --- | --- |
 | `/lem retro` | a scheduled job, in the morning | reads the landed tasks and the correction queue; finds a correction that you gave more than one time; proposes where it must go |
-| `/lem night` | a scheduled job, at night | writes a plan for one backlog item that needs no decision; you read the plan in the morning |
+| `/lem night` | a scheduled job, at night | writes a plan for one backlog item that needs no decision; you read the plan in the morning. At night nobody can answer, thus a plan that meets a decision of yours stops, and the night report gives you the question |
 
 - The scheduled jobs are jobs in cronn. `/lem init` offers them, and it adds a job only after
   your yes.
@@ -764,7 +769,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `flow.topics` | empty | the danger topics: what must not go wrong, each as one sentence in your words |
 | `flow.careful` | empty | the paths that get the careful flow |
 | `flow.max_tasks` | `4` | how many tasks build or land at one time |
-| `flow.decision_wait` | `15` | how many minutes a choice in the build waits for your answer. Then the lead takes the option of the two experts, or the recommended option when they do not agree. The pull request is not green for it |
+| `flow.decision_wait` | `15` | how many minutes a decision that is yours waits for your answer, in the plan and in the build. Then the lead takes the option of the two experts, or the recommended option when they do not agree. The pull request is not green for it |
 | `seats.reviewer.agent` | none; `/lem init` asks | the reviewer: `claude` or `codex` |
 | `seats.reviewer.model`, `.effort`, `.plan_effort` | the default of the agent | the model of the reviewer, its effort for a diff, and its effort for a plan talk |
 | `seats.planner.agent` | none: Claude Code | the defender of a plan talk: only `claude` |

@@ -41,10 +41,13 @@ RECORD=$TASKDIR/decisions.jsonl
 
 decide() { "$PY" -B "$DECISIONS" --repo "$EX" "$@"; }
 experts() { "$PY" -B "$EXPERTS" --repo "$EX" "$@"; }
+# CASE: the run that ends badly, which every choice for the owner carries above his card
+CASE=(--case $'1. An importer reads the export\'s columns by place (`import.py:read_row`).\n2. A new column after the price moves the total one place to the right.\n3. The importer reads the note "for Ania" as the total of order 1042, and stops.'
+  --case-was derived --cause "The importer reads columns by place, and so does every reader that copies it.")
 # ask WHAT [--irreversible KIND]: a choice of two options, the last column recommended; prints its number
 ask() {
   local what=$1; shift
-  decide ask "$SLUG" --what "$what" --option "the last column" --option "after the price" --recommended "the last column" \
+  decide ask "$SLUG" --what "$what" "${CASE[@]}" --option "the last column" --option "after the price" --recommended "the last column" \
     --why "an import that reads the columns by place keeps working" --said "The merchant picked the last column, the accountant after the price." "$@" | field 'd["id"]'
 }
 # past ID...: the wait of each choice ends, as its deadline is written into the past, the way fifteen minutes later would find it
@@ -218,6 +221,9 @@ holds=yes
 for want in "# Choice $c16 of $SLUG: the experts' brief" "Where the note goes in the second export" "1. the last column" "2. after the price" \
   "Recommended: the last column. Why: an import that reads the columns by place keeps working" \
   "What the personas said: The merchant picked the last column, the accountant after the price." \
+  "The run that ends badly, as the lead derived it:" "1. An importer reads the export's columns by place (\`import.py:read_row\`)." \
+  '3. The importer reads the note "for Ania" as the total of order 1042, and stops.' \
+  "Why it can happen: The importer reads columns by place, and so does every reader that copies it." \
   "Kind: feature, because the export gets a new column." \
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
   '2. An order with no gift note has an empty cell, not the word "None".' \
@@ -235,7 +241,7 @@ if [ "$holds" = yes ] && [ "$paths" = "('$brief', '$TASKDIR/experts/choice-$c16.
   && grep -qF -- "--file missing.sh is not in the task's worktree" <<<"$nofile" && [ "$nofilecode" = 1 ] \
   && grep -qF "choice $c16 of $SLUG does not wait: it is answered" <<<"$answered" && grep -qF "has the advice of both experts already" <<<"$alladvised" \
   && [ "$rest" = "(['astra'], ['fable'])" ] && [ "$forbrief" = 1 ]; then
-  pass "the skill's brief file holds the choice word for word, the recommended option and the personas, the task's stories and its plan, the files the choice is about and the answer's form; it names the experts still to ask, and is refused for a choice that does not wait or that both advised"
+  pass "the skill's brief file holds the choice word for word, the run that ends badly with its cause, the recommended option and the personas, the task's stories and its plan, the files the choice is about and the answer's form; it names the experts still to ask, and is refused for a choice that does not wait or that both advised"
 else
   fail "the experts' brief: $holds / $paths / $nofile / $answered / $alladvised / $rest / $forbrief"
 fi

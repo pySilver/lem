@@ -6,8 +6,9 @@ the lead decides and writes the decision down. A choice that changes a story, or
 each cost a person something, goes to the personas first; a clear answer of theirs is taken and
 written down. Only an unclear one goes to the owner, and it waits for him a fixed time and no
 longer: after that the recommended action is taken, and the pull request is not green for it.
-One kind of step never goes that way: a step that a later "no" cannot reverse waits for his word
-however long that takes.
+A decision of the plan whose options each cost a person something takes the same path. One kind
+of step never goes that way: a step that a later "no" cannot reverse waits for his word however
+long that takes. And a plan written at night asks none: nobody is there to answer.
 
     decisions.py log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas|owner|lem
                  [--said TEXT] [--undo TEXT]
@@ -24,9 +25,14 @@ however long that takes.
     decisions.py changes SLUG
                             the approved stories, each recorded change of them in order, and the
                             stories they give, which the plan's stories must be
-    decisions.py ask SLUG --what TEXT --option TEXT --option TEXT [...] --recommended TEXT
-                 --why TEXT --said TEXT [--irreversible data|system|person|money]
-                            a choice for the owner: it gets a number and the time its wait ends
+    decisions.py ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT
+                 --option TEXT --option TEXT [...] --recommended TEXT --why TEXT --said TEXT
+                 [--irreversible data|system|person|money]
+                            a choice for the owner, of the plan or of the build: it gets a number
+                            and the time its wait ends. --case is one concrete case that ends
+                            badly, in numbered steps, one to a line, and --cause one line on why it
+                            became possible and how far that reaches: his card tells one run.
+                            Refused for a task whose brief says `night: yes`
     decisions.py pending [SLUG]
                             the choices that wait, of one task or of every task, each with the
                             seconds its wait has left (`waiting`). A task that is dropped,
@@ -109,6 +115,7 @@ if sys.version_info < (3, 11):
 import argparse
 import fcntl
 import json
+import re
 import subprocess
 import time
 from datetime import datetime, timedelta, timezone
@@ -120,6 +127,10 @@ BY = ("lead", "personas", "owner", "lem")
 ENDED = ("dropped", "landed", "answered")
 # The two experts of the lem-ask-expert skill, by the names the record keeps their advice under.
 EXPERTS = ("fable", "astra")
+# How the case of a choice is known: the lead ran it, or read it out of the code.
+CASE_WAS = ("reproduced", "derived")
+# The line of a task's brief that says its plan is written at night, as `stages/night.md` writes it.
+NIGHT = "night: yes"
 # Why a later "no" cannot undo a step. A fixed list: see the text above.
 IRREVERSIBLE = {
     "data": "it destroys or rewrites data outside the worktree",
@@ -387,7 +398,35 @@ def cmd_story(task: Task, args: argparse.Namespace) -> dict:
     return {**made, "stories": task.changes()["expected"]}
 
 
+def steps(value: str | None) -> str:
+    """The case of a choice as typed, one step to a line: two numbered steps at the least."""
+    lines = [line.rstrip() for line in (value or "").strip().splitlines() if line.strip()]
+    numbered = [line for line in lines if re.match(r"\s*\d+[.)]\s+\S", line)]
+    if len(numbered) < 2:
+        raise DecisionError(
+            "--case is one concrete case that ends badly, in numbered steps, one to a line (\"1. ...\", \"2. ...\"), "
+            f"with real names and values and where each step was read; this one has {len(numbered)} numbered step{'' if len(numbered) == 1 else 's'}",
+        )
+    return "\n".join(lines)
+
+
+def at_night(task: Task) -> bool:
+    """Whether the task's brief says that its plan is written at night, when nobody can answer."""
+    brief = task.directory / "brief.md"
+    return brief.is_file() and NIGHT in [line.strip() for line in brief.read_text(encoding="utf-8", errors="replace").splitlines()]
+
+
 def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
+    if at_night(task):
+        raise DecisionError(
+            f"the brief of {task.slug} says `{NIGHT}`: nobody is there to answer at night, and a decision of the owner's is never taken "
+            "by its wait or by the experts then. Write it into report.md under \"for the owner\", with its case, its cause and its options, "
+            "write the state `planned` with the line `the plan ends on a decision of the owner's`, and stop (`stages/plan.md`, step 5)",
+        )
+    case = steps(args.case)
+    if args.case_was not in CASE_WAS:
+        raise DecisionError(f"--case-was says how the case is known: {' or '.join(CASE_WAS)}")
+    cause = text(args.cause, "--cause")
     options = [text(option, "--option") for option in args.option or []]
     if len(options) < 2:
         raise DecisionError("a choice has two options or more: --option for each")
@@ -397,7 +436,8 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
     wait = json.loads(script("project.py", task.repo, "show"))["flow"]["decision_wait"]
     asked = now()
     line = {
-        "at": stamp(asked), "kind": "asked", "what": text(args.what, "--what"), "options": options, "recommended": recommended,
+        "at": stamp(asked), "kind": "asked", "what": text(args.what, "--what"), "case": case, "case_was": args.case_was, "cause": cause,
+        "options": options, "recommended": recommended,
         "why": text(args.why, "--why"), "said": text(args.said, "--said"), "irreversible": args.irreversible,
         "wait_minutes": wait, "deadline": stamp(asked + timedelta(minutes=wait)),
     }
@@ -605,6 +645,9 @@ def main() -> None:
     ask = commands.add_parser("ask")
     ask.add_argument("slug")
     ask.add_argument("--what", required=True)
+    ask.add_argument("--case", metavar="STEPS", help="one concrete case that ends badly, in numbered steps, one to a line")
+    ask.add_argument("--case-was", metavar="HOW", help="reproduced, or derived from the code")
+    ask.add_argument("--cause", help="one line: why the case became possible, and how far the same cause reaches")
     ask.add_argument("--option", action="append", metavar="TEXT")
     ask.add_argument("--recommended", required=True)
     ask.add_argument("--why", required=True, help="why that option is recommended")

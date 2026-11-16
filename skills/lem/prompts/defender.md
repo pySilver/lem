@@ -24,8 +24,9 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
    answers the question and misses the others. A story stays as the owner approved it: a question
    that needs a story changed is no repair, and it goes to step 5 as a choice.
 5. **What you never do**: write code or a test, start a builder, build a task, push, merge,
-   land, change another branch, or ask the owner. A question for the owner goes to step 5, and
-   Lem asks it. A step that is his to do, such as the trust prompt of the reviewer's agent, is
+   land, change another branch, or ask the owner. A question for the owner goes to
+   `stages/plan.md` step 5, which asks it with `decisions.py ask` after the personas, and Lem
+   puts it to him; it never makes the state `held`. A step that is his to do, such as the trust prompt of the reviewer's agent, is
    the state `held` with what waits and where, and `lem: SLUG is held`; Lem sends you a message
    when it is done, and you go on in this session.
 6. **The close**, in this order:
