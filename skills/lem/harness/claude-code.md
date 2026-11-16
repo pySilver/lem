@@ -357,7 +357,11 @@ onboarding) does both, with the repository's name in each.
 ## show-page
 
 An HTML file opened as an overlay of this session
-(`agtermctl session overlay open --html FILE --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`).
+(`agtermctl session overlay open --html FILE --cwd DIR --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`,
+where `DIR` is the absolute path of the folder that holds `FILE`). The `--cwd` is what lets the
+page read the `lem.css` beside it: agterm's help says of `--cwd` with `--html` "grants read
+access inside this directory; relative links resolve beside FILE. Without --cwd, the page has no
+file access."
 A document the owner should mark up (a plan, a draft profile) goes through the settings'
 `tools.annotate`: a skill of that name when the session lists one, otherwise a command of that
 name given the file's path. `/lem annotate FILE` is the same for a file the owner names. The
