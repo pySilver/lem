@@ -12,13 +12,21 @@ trap 'rm -rf "$WORK"' EXIT
 # Every call below passes -B: importing bin/lem-ask must not leave a __pycache__ in the plugin (and -I
 # ignores PYTHONDONTWRITEBYTECODE).
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
-# A private HOME keeps the mermaid cache and any personal defaults out of the run; agterm is unset
-# so nothing can reach a real session.
+# The mermaid bundle is fetched once and kept outside the run, in lem-ask's own cache of the real
+# HOME (~/.cache/lem-ask): each run copies it into its private HOME, and a run that downloaded it
+# puts it there. lem-ask checks the bundle's sha256 at every read, so a copy is as good as a download.
+MERMAID_CACHE=$HOME/.cache/lem-ask
+# A private HOME keeps any personal defaults out of the run; agterm is unset so nothing can reach a
+# real session.
 export HOME="$WORK/home" TMPDIR="$WORK/tmp"
 unset AGTERM_ENABLED AGTERM_SESSION_ID AGTERM_SOCKET CLAUDE_CODE_SESSION_ATTENDED
-mkdir -p "$HOME" "$TMPDIR"
+mkdir -p "$HOME/.cache/lem-ask" "$TMPDIR"
+for f in "$MERMAID_CACHE"/mermaid-*.min.js; do
+  if [ -f "$f" ]; then cp "$f" "$HOME/.cache/lem-ask/"; fi
+done
 
 fails=0
+skipped=0
 pass() { printf 'ok   %s\n' "$1"; }
 fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
 
@@ -44,6 +52,9 @@ if [ -x "$B" ]; then pass "bin/lem-ask is executable"; else fail "bin/lem-ask is
 for f in "$SKILL"/templates/*.json "$SKILL"/demos/*.json; do
   n=$(basename "$f" .json)
   if "$PY" -I -B "$B" render "$f" -o "$WORK/$n.html" >/dev/null 2>"$WORK/$n.err"; then pass "render $n"; else fail "render $n: $(cat "$WORK/$n.err")"; fi
+done
+for f in "$HOME"/.cache/lem-ask/mermaid-*.min.js; do
+  if [ -f "$f" ] && [ ! -f "$MERMAID_CACHE/${f##*/}" ]; then mkdir -p "$MERMAID_CACHE" && cp "$f" "$MERMAID_CACHE/"; fi
 done
 
 # Malformed specs fail with the JSON error contract, never a traceback.
@@ -97,6 +108,24 @@ MDNAMES=$("$PY" -I -B -c "$MDCASES" "$WORK")
 for n in $MDNAMES; do
   "$PY" -I -B "$B" render "$WORK/$n.json" -o "$WORK/$n.html" >/dev/null
 done
+
+# A table wider than the window, in a table block, in a key-value block and in markdown, and a grid
+# of options whose preview holds a long path with no space in it (checked in the browser below).
+WIDE=$(cat <<'PY'
+import json, sys
+cell = "a cell with a long text that needs room"
+md = "| " + " | ".join(f"Column {i}" for i in range(10)) + " |\n|" + "---|" * 10 + "\n| " + " | ".join([cell] * 10) + " |"
+path = "skills/lem/scripts/" + "a_very_long_module_name_with_no_space_in_it_" * 4 + ".py"
+spec = {"questions": [
+    {"id": "t", "prompt": "Wide tables?", "context": [{"table": {"columns": [f"Column {i}" for i in range(10)], "rows": [[cell] * 10]}},
+     {"kv": [["key", "/" + "x" * 300]]}, {"md": md}], "options": ["Yes", "No"]},
+    {"id": "g", "prompt": "Which file?", "layout": "grid", "columns": 3,
+     "options": [{"id": f"o{i}", "label": f"File {i}", "preview": {"md": f"`{path}`"}} for i in range(3)]}]}
+json.dump(spec, open(sys.argv[1], "w"))
+PY
+)
+"$PY" -I -B -c "$WIDE" "$WORK/wide.json"
+"$PY" -I -B "$B" render "$WORK/wide.json" -o "$WORK/wide.html" >/dev/null
 
 # An unattended run never opens anything.
 expect "refuses an unattended run" 3 unattended -- env CLAUDE_CODE_SESSION_ATTENDED=0 "$PY" -I -B "$B" q "Which?" A B
@@ -302,6 +331,34 @@ print("; ".join(problems))
 sys.exit(bool(problems))
 PY
 )
+# PROBE PAGE COPY: COPY is PAGE with a script that measures, at each of its two questions, the
+# page's width against its window and each preview of the current question against its card.
+PROBE=$(cat <<'PY'
+import sys
+page = open(sys.argv[1], encoding="utf-8").read()
+probe = """<script>setTimeout(() => {
+  const d = document.documentElement, out = {};
+  const look = () => ({page: [d.scrollWidth, d.clientWidth], prev: [...document.querySelectorAll(".hd-q.cur .hd-prev")].map(n => [n.scrollWidth, n.clientWidth])});
+  out.tables = look();
+  [...document.querySelectorAll(".hd-q")].forEach((q, i) => q.classList.toggle("cur", i === 1));
+  setTimeout(() => { out.grid = look(); d.setAttribute("data-measure", JSON.stringify(out)); }, 300);
+}, 1500);</script>"""
+open(sys.argv[2], "w", encoding="utf-8").write(page.replace("</body>", probe + "</body>", 1))
+PY
+)
+MEASURED=$(cat <<'PY'
+import html, json, re, sys
+found = re.search(r'data-measure="([^"]*)"', open(sys.argv[1], encoding="utf-8").read())
+if not found:
+    sys.exit("the probe wrote nothing")
+m = json.loads(html.unescape(found.group(1)))
+wrong = [f"the page of the {k} is {m[k]['page'][0]} px wide in a window of {m[k]['page'][1]}" for k in ("tables", "grid") if m[k]["page"][0] > m[k]["page"][1]]
+wrong += [f"a preview of the grid is {w} px wide in a card of {c}" for w, c in m["grid"]["prev"] if w > c]
+wrong += [] if len(m["grid"]["prev"]) == 3 else [f"the grid has {len(m['grid']['prev'])} previews, not 3"]
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
 chrome=""
 for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
   if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then chrome=$c; break; fi
@@ -314,6 +371,7 @@ if [ -n "$chrome" ]; then
     diagrams=required
     if grep -q 'mermaid unavailable' "$WORK/$n.err" 2>/dev/null; then
       diagrams=skip
+      skipped=$((skipped + 1))
       printf 'SKIP diagrams on %s: the mermaid bundle could not be downloaded\n' "$n"
     fi
     "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
@@ -453,6 +511,18 @@ PY
   for n in $MDNAMES; do
     if why=$("$PY" -I -B -c "$MDCHECK" "$WORK/$n.dom" "$n"); then pass "$why"; else fail "$why"; fi
   done
+  # At 900 px a wide table scrolls inside its own box and the page stays as wide as its window; the
+  # grid's previews keep their path inside the card. A script added to a copy of the page measures
+  # both questions of the spec and writes the numbers into the page Chrome prints.
+  mkdir -p "$WORK/measure"
+  "$PY" -I -B -c "$PROBE" "$WORK/wide.html" "$WORK/measure/wide.html"
+  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+    --window-size=900,900 --virtual-time-budget=4000 --dump-dom "file://$WORK/measure/wide.html" > "$WORK/measure/wide.dom" 2>/dev/null || true
+  if why=$("$PY" -I -B -c "$MEASURED" "$WORK/measure/wide.dom"); then
+    pass "at 900 px a wide table scrolls inside its own box and the page is no wider than its window; a long path in a grid's preview breaks inside the card"
+  else
+    fail "a wide table or a long path: $why"
+  fi
 else
   printf 'SKIP page loads: no Chrome or Chromium found\n'
 fi
@@ -461,4 +531,8 @@ if [ "$fails" -gt 0 ]; then
   printf '%d lem-ask check(s) failed\n' "$fails"
   exit 1
 fi
-printf 'all lem-ask checks passed\n'
+if [ "$skipped" -gt 0 ]; then
+  printf 'all lem-ask checks passed; the diagram checks of %d pages were skipped: the mermaid bundle could not be downloaded\n' "$skipped"
+else
+  printf 'all lem-ask checks passed\n'
+fi

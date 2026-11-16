@@ -64,12 +64,13 @@
   // table with no header, so it gets no <thead>: an empty row would still take its padding and border.
   function table(lines, i, t) {
     const td = (tag, v, k) => `<${tag}${t.align[k] ? ` style="text-align:${t.align[k]}"` : ""}>${inline(v || "")}</${tag}>`;
-    let h = '<table class="hd-table">';
+    // in a box of its own that scrolls sideways, so a wide table never makes the page wider than its window
+    let h = '<div class="hd-tablewrap"><table class="hd-table">';
     if (t.head.some((c) => c)) h += "<thead><tr>" + t.head.map((c, k) => td("th", c, k)).join("") + "</tr></thead>";
     h += "<tbody>"; i += 2;
     let row;
     while (i < lines.length && lines[i].trim() && (row = cells(lines[i]))) { h += "<tr>" + t.head.map((_, k) => td("td", row[k], k)).join("") + "</tr>"; i++; }
-    return [h + "</tbody></table>", i];
+    return [h + "</tbody></table></div>", i];
   }
   const task = (s) => s.replace(/^\[([ xX])\]\s+/, (_, x) => `<span class="hd-task">${x === " " ? "☐" : "☑"}</span> `);
   // A list: an item indented past this list's own items opens a list inside the item before it, and an
@@ -252,11 +253,11 @@
       const t = b.table, num = (v) => typeof v === "number";
       let h = `<table class="hd-table"><thead><tr>${(t.columns || []).map((c, i) => `<th class="${t.rows && t.rows[0] && num(t.rows[0][i]) ? "num" : ""}">${esc(c)}</th>`).join("")}</tr></thead><tbody>`;
       (t.rows || []).forEach((r) => (h += "<tr>" + r.map((v) => `<td class="${num(v) ? "num" : ""}">${num(v) ? esc(v.toLocaleString()) : inline(v)}</td>`).join("") + "</tr>"));
-      el = $("div", "", h + "</tbody></table>");
+      el = $("div", "hd-tablewrap", h + "</tbody></table>");
     } else if (b.kv) {
       let h = '<table class="hd-table"><tbody>';
       (Array.isArray(b.kv) ? b.kv : Object.entries(b.kv)).forEach(([k, v]) => (h += `<tr><th style="width:35%">${esc(k)}</th><td>${inline(v)}</td></tr>`));
-      el = $("div", "", h + "</tbody></table>");
+      el = $("div", "hd-tablewrap", h + "</tbody></table>");
     } else if (b.callout != null) el = $("div", "hd-callout hd-md " + (b.tone || ""), md(b.callout));
     else if (b.radius != null) {
       el = $("div", "hd-sample"); const box = $("div", "hd-radius-box"); box.style.borderRadius = typeof b.radius === "number" ? b.radius + "px" : b.radius; el.appendChild(box);
