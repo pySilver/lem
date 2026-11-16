@@ -89,8 +89,9 @@ each defect's item in `landing.json`. A second run files nothing new. `read` nam
 that have no item yet (`to_file`), and `propose` refuses while one has none or while an item is
 gone from the tip; the owner's "not wanted" is `worth: no` in the item, never its deletion.
 The file name is the slug of the title. A file of that name that holds the same defect (the same
-`where`, title and run) is its item, and nothing is written twice; a file that holds another
-takes the next name, with a suffix from the `where`, then a number. One defect that two rounds
+`where` and title, and its run word for word as paragraphs of the body, whatever else the body
+says, such as the owner's reason for `worth: no`) is its item, and nothing is written twice; a
+file that holds another takes the next name, with a suffix from the `where`, then a number. One defect that two rounds
 describe in other words gets two items: an extra item costs a merge in the backlog's sorting, and
 a lost one costs the defect. The review is asked to repeat an earlier round's words for a defect
 it sees again.
@@ -170,8 +171,6 @@ DEFECT = ("where", "title", "what")
 # The longest file name an item of the backlog gets from its title, before `.md`. A guess
 # (2026-11-16), not a measurement: long enough for a title of a dozen words.
 SLUG_AT = 80
-# The last paragraph of an item that `file` wrote: where the defect was seen.
-SEEN = re.compile(r"Seen outside the change by review round \d+ of task \S+ \(\d{4}-\d{2}-\d{2}\); the base commit has it\.$")
 # The headings the notes of a pull request hold, in this order: what only the one who read the
 # task's report can say.
 NOTES = ("## Decisions", "## Left open", "## Worth a look", "## Filed in the backlog", "## Not done")
@@ -450,7 +449,9 @@ def names_for(defect: dict):
 
 
 def holds(file: Path, defect: dict) -> bool:
-    """Whether an item file is this defect: the same `where`, the same title and the same run."""
+    """Whether an item file is this defect: the same `where`, the same title, and the defect's run
+    as paragraphs of the body, word for word. Any other text of the body, the owner's reason for a
+    `worth: no` or a later note, leaves it the same defect."""
     try:
         text = file.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -465,10 +466,16 @@ def holds(file: Path, defect: dict) -> bool:
     lines = text.strip().splitlines()
     if not lines or not lines[0].startswith("# "):
         return False
-    body = "\n".join(lines[1:]).strip().split("\n\n")
-    if body and SEEN.match(body[-1]):
-        body = body[:-1]
-    return front.get("where") == defect["where"] and lines[0][2:].strip() == defect["title"] and "\n\n".join(body).strip() == defect["what"]
+    if front.get("where") != defect["where"] or lines[0][2:].strip() != defect["title"]:
+        return False
+    # Paragraphs as `file` writes them: `what` stripped, a blank line between two paragraphs.
+    body = paragraphs("\n".join(lines[1:]))
+    run_of = paragraphs(defect["what"])
+    return any(body[start:start + len(run_of)] == run_of for start in range(len(body) - len(run_of) + 1))
+
+
+def paragraphs(text: str) -> list[str]:
+    return [part.strip() for part in re.split(r"\n[ \t]*\n", text.strip()) if part.strip()]
 
 
 def in_tree(task: Task, tip: str, path: str) -> bool:

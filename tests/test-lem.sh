@@ -2706,6 +2706,26 @@ else
 fi
 project --repo "$BLG" state same-defect dropped "the test is over" >/dev/null
 
+# The owner's "no" is `worth: no` and his reason in the item: the same defect seen again by the next
+# round is still that item, and nothing is filed over his word.
+task_in "$BLG" owner-says-no app.txt two
+tree=$(project --repo "$BLG" worktree-dir owner-says-no)
+land --repo "$BLG" start owner-says-no >/dev/null && land --repo "$BLG" base owner-says-no >/dev/null && land --repo "$BLG" gate owner-says-no >/dev/null
+land --repo "$BLG" read owner-says-no --record "$(record 1 "$read_must_fix, $(outside "$A")")" >/dev/null
+land --repo "$BLG" file owner-says-no >/dev/null
+item=$tree/docs/backlog/empty-input-crashes-the-parser.md
+"$PY" -c 'import sys; p = sys.argv[1]; t = open(p).read().replace("worth: later", "worth: no").replace("\n\nSeen outside", "\n\nThe owner: an empty input never reaches parse, the reader refuses it first.\n\nSeen outside"); open(p, "w").write(t)' "$item"
+echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix, and the owner's no" && land --repo "$BLG" gate owner-says-no >/dev/null
+land --repo "$BLG" read owner-says-no --record "$(record 2 "$a_round, $(outside "$A")")" >/dev/null
+again=$(land --repo "$BLG" file owner-says-no | field '([f["item"] for f in d["filed"]], [f["item"] for f in d["same"]])')
+if [ "$again" = "([], ['docs/backlog/empty-input-crashes-the-parser.md'])" ] && grep -qx "worth: no" "$item" && grep -q "^The owner: " "$item" \
+  && [ "$(git -C "$tree" ls-files docs/backlog | tr '\n' ' ')" = "docs/backlog/empty-input-crashes-the-parser.md docs/backlog/existing.md " ] && [ -z "$(git -C "$tree" status --porcelain)" ]; then
+  pass "an item the owner set to worth: no, with his reason in it, is still the item of the same defect when the next round sees it again: nothing is filed over his no"
+else
+  fail "the owner's no and the same defect again: $again / $(git -C "$tree" ls-files docs/backlog) / $(cat "$item")"
+fi
+project --repo "$BLG" state owner-says-no dropped "the test is over" >/dev/null
+
 # The bar: a suppression, a pattern of the project's own, a skipped module, fewer assertions, a test
 # that goes out of a Rust module and a deleted test file, each refused until the plan gives the
 # file's reason. A suppression that only got another space is not a new one.
