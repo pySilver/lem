@@ -33,7 +33,8 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py tasks                every task's ask, status and newest state block, as JSON
     project.py log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
-    project.py may-start            exit 1 when as many tasks build or land as flow.max_tasks allows
+    project.py may-start SLUG       exit 1 when as many other tasks build or land as flow.max_tasks
+                                    allows; the task SLUG, whose lead starts, is not counted
     project.py state-dir            the folder that holds every task, the event log and the night reports
 
 Task state is kept inside the git directory every worktree shares: it is never committed, a
@@ -1360,14 +1361,17 @@ def read_tasks(root: Path) -> list[dict]:
     return tasks
 
 
-def cmd_may_start(settings: dict, root: Path) -> None:
-    """Exit 1 when as many tasks build or land as the project allows at one time."""
+def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
+    """Exit 1 when as many other tasks build or land as the project allows at one time. The task
+    whose lead starts is not counted: when it builds already (its investigator called the path, or
+    its lead stopped and starts again), the place it holds is the one its next lead takes."""
+    task_directory(root, slug)
     limit = settings["flow"]["max_tasks"]
-    running = [task["slug"] for task in read_tasks(root) if task["status"] in RUNNING]
+    running = [task["slug"] for task in read_tasks(root) if task["status"] in RUNNING and task["slug"] != slug]
     if len(running) >= limit:
         raise SettingsError(
             f"{len(running)} tasks build or land ({', '.join(running)}) and flow.max_tasks is {limit}: "
-            f"write the new task's state as `queued` and start it when one of them stops; "
+            f"write the state of {slug} as `queued` and start it when one of them stops; "
             f"only the owner raises the limit, in {SETTINGS}",
         )
     print(json.dumps({"running": running, "limit": limit}))
@@ -1407,7 +1411,7 @@ def main() -> None:
     log.add_argument("slug")
     log.add_argument("event")
     log.add_argument("fields", nargs="*", metavar="key=value")
-    commands.add_parser("may-start")
+    commands.add_parser("may-start").add_argument("slug")
     commands.add_parser("state-dir")
     args = parser.parse_args()
     try:
@@ -1453,7 +1457,7 @@ def main() -> None:
         elif args.command == "may-land":
             cmd_may_land(settings, args.branch)
         elif args.command == "may-start":
-            cmd_may_start(settings, root)
+            cmd_may_start(settings, root, args.slug)
         else:
             cmd_careful(settings, args.files)
     except SettingsError as error:

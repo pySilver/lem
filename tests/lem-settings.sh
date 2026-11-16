@@ -550,25 +550,35 @@ settings '[flow]' 'topics = "money"'
 err=$(project --repo "$OLD" show 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "flow.topics" <<<"$err" && ! grep -q Traceback <<<"$err"; then pass "danger topics that are not a list are refused"; else fail "flow.topics as a string: $err"; fi
 settings '[branch]' 'base = "master"' '[flow]' 'max_tasks = 2'
-out=$(project --repo "$OLD" may-start)
+project --repo "$OLD" task-dir second-task >/dev/null
+out=$(project --repo "$OLD" may-start second-task)
 if [ "$(field 'd["running"]' <<<"$out")" = "['report-dates-stay-whole']" ] && [ "$(field 'd["limit"]' <<<"$out")" = 2 ]; then
   pass "may-start names the tasks that build and the limit while a place is free"
 else
   fail "may-start below the limit: $out"
 fi
-project --repo "$OLD" task-dir second-task >/dev/null
 project --repo "$OLD" state second-task building "the plan" >/dev/null
-err=$(project --repo "$OLD" may-start 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" may-start)" = 1 ] && grep -q "flow.max_tasks is 2" <<<"$err" && grep -q "queued" <<<"$err"; then
+err=$(project --repo "$OLD" may-start written-by-hand 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" may-start written-by-hand)" = 1 ] && grep -q "flow.max_tasks is 2" <<<"$err" && grep -q "queued" <<<"$err"; then
   pass "may-start refuses a new task at the limit and says to queue it"
 else
   fail "may-start at the limit: $err"
 fi
+# A task whose next lead starts (a lead after its investigator, one started again after it stopped)
+# holds its place already: at the limit it may start, and the place it holds is not counted twice.
+own=$(project --repo "$OLD" may-start second-task 2>&1 || true)
+unknown=$(project --repo "$OLD" may-start no-such-task 2>&1 || true)
+if [ "$(field 'd["running"]' <<<"$own" 2>&1)" = "['report-dates-stay-whole']" ] && [ "$(status_of project --repo "$OLD" may-start report-dates-stay-whole)" = 0 ] \
+  && grep -qF "no task 'no-such-task'" <<<"$unknown" && [ "$(status_of project --repo "$OLD" may-start)" = 2 ]; then
+  pass "may-start names the task whose lead starts and does not count that task's own place, so a task at the limit starts its next lead; an unknown task and no task are refused"
+else
+  fail "may-start for a task that builds: $own / $unknown"
+fi
 project --repo "$OLD" state second-task ready "the report is written" >/dev/null
-if [ "$(status_of project --repo "$OLD" may-start)" = 0 ]; then pass "a task that waits for its landing takes no place"; else fail "may-start after ready"; fi
+if [ "$(status_of project --repo "$OLD" may-start written-by-hand)" = 0 ]; then pass "a task that waits for its landing takes no place"; else fail "may-start after ready"; fi
 project --repo "$OLD" state second-task landing "the gate runs" >/dev/null
-err=$(project --repo "$OLD" may-start 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" may-start)" = 1 ] && grep -q "report-dates-stay-whole, second-task" <<<"$err"; then
+err=$(project --repo "$OLD" may-start written-by-hand 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" may-start written-by-hand)" = 1 ] && grep -q "report-dates-stay-whole, second-task" <<<"$err"; then
   pass "a task whose gate runs holds a place, because a builder may repair what the gate shows"
 else
   fail "may-start during a landing: $err"
@@ -629,14 +639,17 @@ project --repo "$ANS" state zero-after-refund answered "not a bug: the invoice s
 answered=$(project --repo "$ANS" tasks | field 'next((t["status"], t["investigation"]["call"]) for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
 project --repo "$ANS" task-dir other-task >/dev/null
 project --repo "$ANS" state other-task building "lead: builder" "kind: feature, because the ask wants a new column" >/dev/null
-places=$(project --repo "$ANS" may-start 2>&1 || true)
+project --repo "$ANS" task-dir waits-for-a-place >/dev/null
+places=$(project --repo "$ANS" may-start waits-for-a-place 2>&1 || true)
+# with one place, the task that holds it starts its next lead: the investigator's call was a correction
+itself=$(project --repo "$ANS" may-start other-task 2>&1 | field 'd["running"]' 2>&1 || true)
 project --repo "$ANS" state other-task answered "the question is answered" >/dev/null 2>&1 || true
 unreported=$(project --repo "$ANS" tasks | field 'next(t["status"] for t in d if t["slug"] == "other-task")')
 project --repo "$ANS" state other-task dropped "the test is over" >/dev/null
-free=$(project --repo "$ANS" may-start 2>&1 | field 'd["running"]' 2>&1 || true)
+free=$(project --repo "$ANS" may-start waits-for-a-place 2>&1 | field 'd["running"]' 2>&1 || true)
 taken=$(project --repo "$ANS" task-dir zero-after-refund --ask "again" 2>&1 || true)
 if grep -qF "investigation.md" <<<"$no_report" && grep -qF "not-a-bug or answer" <<<"$goes_on" && [ "$answered" = "('answered', 'not-a-bug')" ] \
-  && grep -qF "1 tasks build or land (other-task)" <<<"$places" && [ "$unreported" = "building" ] && [ "$free" = "[]" ] \
+  && grep -qF "1 tasks build or land (other-task)" <<<"$places" && [ "$itself" = "[]" ] && [ "$unreported" = "building" ] && [ "$free" = "[]" ] \
   && grep -qF "the task 'zero-after-refund' is answered; a new task takes a slug of its own" <<<"$taken"; then
   pass "a task is answered only with its investigation's report and a record whose call ends it; an answered task takes no place, and its slug stays its own"
 else

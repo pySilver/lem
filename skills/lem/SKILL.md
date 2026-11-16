@@ -157,9 +157,9 @@ lead whose choice waits for the owner.
   three tasks, gets the companion and the talk too, and a review round at the least. The lead
   writes its call and the one sentence of why into the plan, its state and its report, and the
   owner may overrule a "no" at any time before the landing.
-- **Only so many tasks build or land at one time.** `project.py may-start` exits 1 at the
+- **Only so many tasks build or land at one time.** `project.py may-start SLUG` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
-  the gate runs and a builder may repair what it showed. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
+  the gate runs and a builder may repair what it showed, and not the task SLUG whose lead starts. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
   16 and unstable browser tests (convertiser-server, as its owner reported it on 2026-11-14). A
   task over the limit is queued, never started "just this once"; only the owner raises the limit.
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion

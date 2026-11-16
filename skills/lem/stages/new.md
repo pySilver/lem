@@ -275,7 +275,7 @@ needed to unerstand what triggers the bug that we aim to correct" (the owner, 20
 investigation is the same work with a question in place of the bug, and its answer is the whole
 task.
 
-1. **A place, the worktree and the state.** `project.py may-start`, and the worktree on the
+1. **A place, the worktree and the state.** `project.py may-start SLUG`, and the worktree on the
    task's branch, as steps 1 and 2 of "Start a lead" say: the investigator runs the project's
    tests, so it takes a place. A task queued there starts its investigator when its turn comes,
    not a lead: `project.py tasks` gives its `kind` and no `investigation` yet. Then write the
@@ -360,7 +360,9 @@ has, since where it goes now is his call. Then look at the queue, as the last se
 Every start goes this way: a new task, `/lem build`, a queued task whose turn came, and a lead
 that is started again after it stopped.
 
-1. **A place.** `project.py may-start`. On exit 1 the task waits: write its state as `queued`,
+1. **A place.** `project.py may-start SLUG`, with the slug of the task whose lead starts: a task
+   that builds already (its investigator called the path, its lead stopped) holds its place, and
+   that place is not counted against it. On exit 1 the task waits: write its state as `queued`,
    unless it is `queued` already, tell the owner in one line which tasks hold the places, and
    stop here.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
