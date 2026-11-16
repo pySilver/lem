@@ -654,10 +654,14 @@ fi
 DOCTOR=$PWD/skills/lem/scripts/doctor.py
 BIN=$WORK/bin
 FAKEHOME=$WORK/home
+# doctor.py reads the repository it runs in (its builder, an install of Lem for it, its personas),
+# so the check runs in a repository of its own: nothing of the checkout that runs these tests reaches it.
+MACHINE=$WORK/machine-repo
 mkdir -p "$BIN" "$FAKEHOME"
+git init -q -b main "$MACHINE"
 ln -s "$(command -v git)" "$BIN/git"
 fake() { printf '#!/bin/sh\necho "%s"\n' "$2" > "$BIN/$1"; chmod +x "$BIN/$1"; }
-doctor() { env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR"; }
+doctor() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR"); }
 row() { field "next(t for t in d[\"tools\"] if t[\"name\"] == \"$1\")[\"$2\"]"; }
 out=$(doctor || true)
 if [ "$(status_of doctor)" = 1 ] && [ "$(field 'd["ok"]' <<<"$out")" = "False" ] && [ "$(row revmux found <<<"$out")" = "False" ] && [ "$(row git found <<<"$out")" = "True" ] \
@@ -723,7 +727,7 @@ printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"projec
 elsewhere=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"]' || true)
 printf '%s\n' '{"version": 2, "plugins": {"lem@lem": []}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 elsewhere="$elsewhere$(doctor | field 'next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"]' || true)"
-printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$PWD\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$MACHINE\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 here=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "lem-builder agent")["detail"]' || true)
 printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 user=$(doctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"])' || true)
@@ -747,7 +751,7 @@ if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'lem-builder agent' d
 else
   fail "doctor with the required set: $out"
 fi
-keyed=$(env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
+keyed=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
 if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
   && ! grep -q "sk-not-a-real-key" <<<"$keyed"; then
   pass "the check has no row for the question page, which is a part of Lem; it says whether the key of the decision model is in the environment, and never prints it"
@@ -858,7 +862,7 @@ if [ -n "$old" ]; then
   fi
   rm -f "$CQ/.git/lem/corrections.log"
   # The other scripts under that python3: a row or one line that says what is needed, and no traceback.
-  rows=$("$old" -B "$DOCTOR" 2>&1 || true)
+  rows=$(cd "$MACHINE" && "$old" -B "$DOCTOR" 2>&1 || true)
   said=""
   for script in "$PWD/scripts/setup.py" "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/stories.py" "$PWD/skills/lem/scripts/board.py"; do
     said="$said$("$old" -B "$script" --help 2>&1 || true)"$'\n'
