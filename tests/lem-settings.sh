@@ -630,6 +630,9 @@ if grep -qF "reproduced is a bug's" <<<"$asked_back" && grep -qF "where names th
 else
   fail "the investigation's record: $asked_back / $nowhere / $not_so / $odd_call / $untyped / $before $after_refusals / $none_yet / $found"
 fi
+# a choice the investigation asked while the task built, which nobody answered before the task ended
+"$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund "${CASE[@]}" --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
+  --why "it pins the behavior" --said "The two personas split." >/dev/null
 # `answered` needs the report and a record whose call ends the task; it takes no place and keeps its slug.
 no_report=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
 printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$ans_dir/investigation.md"
@@ -655,14 +658,15 @@ if grep -qF "investigation.md" <<<"$no_report" && grep -qF "not-a-bug or answer"
 else
   fail "the state answered: $no_report / $goes_on / $answered / $places / $unreported / $free / $taken"
 fi
-# A choice of an answered task waits for nobody.
-"$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund "${CASE[@]}" --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
-  --why "it pins the behavior" --said "The two personas split." >/dev/null
+# A choice of an answered task waits for nobody, and the task takes no new one.
 ended=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" pending | field '(d["waiting"], [(e["task"], e["status"]) for e in d["ended"]])' 2>&1 || true)
-if [ "$ended" = "([], [('zero-after-refund', 'answered')])" ]; then
-  pass "an answered task has no choice that waits: pending puts it with the tasks that ended"
+again=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund "${CASE[@]}" --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
+  --why "it pins the behavior" --said "The two personas split." 2>&1 || true)
+if [ "$ended" = "([], [('zero-after-refund', 'answered')])" ] && grep -qF "zero-after-refund is answered" <<<"$again" \
+  && [ "$(grep -c '' "$ANS/.git/lem/tasks/zero-after-refund/decisions.jsonl")" = 1 ]; then
+  pass "an answered task has no choice that waits: pending puts it with the tasks that ended, and a new choice of it is refused"
 else
-  fail "the choices of an answered task: $ended"
+  fail "the choices of an answered task: $ended / $again"
 fi
 
 # A task that was reviewed and proposed and is not green: it waits for the owner's merge, and it does not go back a phase.

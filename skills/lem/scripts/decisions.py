@@ -103,7 +103,9 @@ when the answer differs from it, that is a correction, for the lead while the ta
 new ask after that.
 
 Every write reads the record and checks the state under one lock, so an answer and a timeout that
-come at one time leave one outcome, and two writers never take one number.
+come at one time leave one outcome, and two writers never take one number. A task that is
+dropped, landed or answered takes no write at all, read under the same lock: nobody builds it,
+and its record stays as it ended.
 """
 
 from __future__ import annotations
@@ -273,10 +275,18 @@ class Task:
     def add(self, make) -> list[dict]:
         """Write the lines `make` gives for the record as it is under the lock, so a state is
         checked and changed in one step and two writers never take one number; then each line
-        as an event. `make` refuses by raising, and then nothing is written."""
+        as an event. `make` refuses by raising, and then nothing is written. A task that ended
+        takes no write: nobody builds it, so nothing of it is decided or waits any more."""
         self.directory.mkdir(parents=True, exist_ok=True)
         with (self.directory / "decisions.lock").open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
+            # read again under the lock: the task may have ended while this command waited for it
+            self.status = self.read_status()
+            if self.status in ENDED:
+                raise DecisionError(
+                    f"{self.slug} is {self.status}: nothing of it is decided or waits any more, so this is not written. "
+                    f"Its record stays as it is (`decisions.py list {self.slug}`); new work is a new ask",
+                )
             lines = make(self.decisions())
             with self.file.open("a", encoding="utf-8") as handle:
                 handle.write("".join(json.dumps(line) + "\n" for line in lines))

@@ -181,6 +181,20 @@ if [ "$all_open" = "(['gift-note'], [('dropped-task', 'dropped', [1]), ('landed-
 else
   fail "the choices of an ended task: $all_open / $one_ended / $waited / $took / $kept"
 fi
+# Nothing more is decided in a task that ended: a decision, a choice, an answer and the end of a wait are refused, with its state, and write nothing.
+ended_lines=$(cat "$DC/.git/lem/tasks/dropped-task/decisions.jsonl" "$DC/.git/lem/tasks/landed-task/decisions.jsonl" | grep -c '')
+late_log=$(decide log dropped-task --what "The name of the column" --chose gift_note --why "snake case" --by lead 2>&1 || true)
+late_ask=$(decide ask landed-task "${CASE[@]}" --what "The footer" --option "a footer" --option "none" --recommended "none" --why w --said s 2>&1 || true)
+late_answer=$(decide answer dropped-task 1 --chose "email nobody" 2>&1 || true)
+past "$DC/.git/lem/tasks/landed-task/decisions.jsonl" 1
+late_timeout=$(decide timeout landed-task 1 2>&1 || true)
+if grep -qF "dropped-task is dropped" <<<"$late_log" && grep -qF "landed-task is landed" <<<"$late_ask" && grep -qF "dropped-task is dropped" <<<"$late_answer" \
+  && grep -qF "landed-task is landed" <<<"$late_timeout" && [ "$(status_of decide log dropped-task --what w --chose c --why y --by lead)" = 1 ] \
+  && [ "$(cat "$DC/.git/lem/tasks/dropped-task/decisions.jsonl" "$DC/.git/lem/tasks/landed-task/decisions.jsonl" | grep -c '')" = "$ended_lines" ]; then
+  pass "a dropped or landed task takes no new decision, choice, answer or timeout: each is refused with the task's state and writes nothing"
+else
+  fail "a write to an ended task: $late_log / $late_ask / $late_answer / $late_timeout"
+fi
 # A task dropped while a wait runs ends that wait: the loop reads the task's status each time it reads the choice.
 decide ask cancel-task "${CASE[@]}" --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
 started=$(date +%s)
