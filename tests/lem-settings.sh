@@ -1047,6 +1047,17 @@ if [ "$(field '(d["approved"]["by"], d["changes"], [len(s["tests"]) for s in d["
 else
   fail "a plan of approved stories: $copied / $held"
 fi
+# A story the plan adds after the approved ones, with no record of it, is refused by show and red.
+aplan_with "$s1" "$one" '2. An order with no gift note has the line "1043," and no word after the comma.' "$two" \
+  '3. The note file ends with a line break.' '   - no test: printf ends every line so.'
+extra=$(stories show approved-note 2>&1 || true)
+red_extra=$(stories red approved-note 2>&1 || true)
+if grep -qF "story 3 of 20261116-approved-note.md, 'The note file ends with a line break.', is not among the expected stories, which end at 2" <<<"$extra" \
+  && grep -qF -- "\`--added N --now TEXT\`" <<<"$extra" && grep -qF "story 3 of 20261116-approved-note.md, 'The note file ends with a line break.', is not among" <<<"$red_extra"; then
+  pass "a story the plan adds after the approved ones with no record of it is refused by show and red, with how its addition is recorded"
+else
+  fail "an extra story at the end of the plan: $extra / $red_extra"
+fi
 adecide() { "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ST" "$@"; }
 t1='The note file holds the gift note of order 1042: "for Ania".'
 t2='An order with no gift note has the line "1043," and no word after the comma.'
