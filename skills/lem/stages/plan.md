@@ -40,8 +40,10 @@ question at a time (step 4).
      did not answer is named in `silent` with why; a read in which nobody answered is started
      once more. Nobody confused: freeze the stories they read,
      `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE approve SLUG --read`, which takes the
-     plan's stories and refuses any other text than the one the read names: from then on a story
-     the build changes has its record like an approved one. It is never his yes. The build starts with no wait, and your next
+     plan's stories and refuses any other text than the one the read names. It freezes the task's
+     first contract only, and is refused once the task has any approval: from then on a story the
+     build changes has its record (`decisions.py story`), and the kind is his to change. It is
+     never his yes. The build starts with no wait, and your next
      state block says `nobody confused, read by N personas, one model family`, where he sees it
      and can stop the task. The landing refuses a feature with no such event. A doubt: the
      first line of code waits. Write `report.md` with the stories and the answers that flagged

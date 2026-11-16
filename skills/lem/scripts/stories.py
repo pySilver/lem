@@ -25,14 +25,15 @@ are:
        - no test: the change is one paragraph of the README.
 
     stories.py approve SLUG --file FILE [--correction]
-    stories.py approve SLUG [--file FILE] --read
+    stories.py approve SLUG --read
                               keep the stories the owner approved, as FILE has them: the same
                               section with no test lines, which the lead adds. --correction: Lem
                               approves a correction's one story in his name, and he may still
                               say "this is a feature". --read: the lead of the rare path freezes
-                              the stories its read found nobody confused by, the plan's own when
-                              no FILE is named; that counts for the plan's check and for
-                              `decisions.py story`, and never as his yes
+                              the plan's stories, which a read found nobody confused by, as the
+                              task's first contract; refused when the task has any approval. It
+                              counts for the plan's check and for `decisions.py story`, and never
+                              as his yes
     stories.py approved SLUG  the approved stories of the task, or null when it has none
     stories.py digest SLUG [--file FILE]
                               the digest of the stories' kind and texts, without tests: of FILE,
@@ -463,6 +464,20 @@ def newest_read(task: Task) -> dict | None:
     return found
 
 
+def first_contract(task: Task) -> None:
+    """A read freezes only the first contract of a task: once stories are approved, by him, as a
+    correction or by an earlier read, a story changes only through its record and the kind only
+    through his own approval."""
+    kept = task.approved()
+    if kept is not None:
+        number = kept.get("number") or 1 + len(kept.get("history", []))
+        raise StoriesError(
+            f"{task.slug} has approval {number} of its stories already (by {kept['by']}): a read freezes only the first contract. "
+            f"A story changes through its record, `decisions.py story {task.slug} ...`, and the kind only through his own approval, "
+            f"`stories.py approve {task.slug} --file FILE`",
+        )
+
+
 def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
     """Keep the stories that were approved, word for word, with a digest and a number of their own,
     and log the event. Each approval is a new one, also of a text approved before."""
@@ -481,6 +496,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
     # one mark for this exact set of approved texts; the approval itself is known by its number
     digest = text_digest(read["kind"], [story["text"] for story in stories])
     if by == "read":
+        first_contract(task)
         # the rare path: the lead freezes the stories the personas read, and only when nobody was confused
         last = newest_read(task)
         if last is None or last.get("digest") != digest:
@@ -527,13 +543,16 @@ def main() -> None:
             raise StoriesError("an approval is Lem's for a correction or the read's on the rare path, not both: --correction or --read")
         task = Task(Path(args.repo).resolve(), args.slug)
         if args.step == "approve":
-            if args.file is None and args.read:
-                # the rare path's lead freezes the plan's own stories, which the personas read
+            if args.read:
+                if args.file is not None:
+                    raise StoriesError("--read freezes the plan's own stories, the ones the read named: it takes no --file; a file of stories is approved by him, without --read")
+                # refused before the plan is read: a task with a contract keeps it
+                first_contract(task)
                 result = cmd_approve(task, task.stories()["plan"], "read", plan=True)
             elif args.file is None:
                 raise StoriesError("approve needs --file: the stories he approved, in the form `stories.py --help` shows, with no test lines")
             else:
-                result = cmd_approve(task, args.file, "correction" if args.correction else "read" if args.read else "owner")
+                result = cmd_approve(task, args.file, "correction" if args.correction else "owner")
         elif args.step == "approved":
             kept = task.approved()
             result = {"task": task.slug, "approved": kept} if kept else {

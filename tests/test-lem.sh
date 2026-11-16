@@ -2839,7 +2839,7 @@ local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null 
 unread_feature=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
 project --repo "$LOCAL" log read-doubt stories.read by=lead asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=true "digest=$plan_digest" >/dev/null 2>&1 || true
 split_unseen=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
-freeze_split=$(lstories approve read-doubt --file "$WORK/doubt.md" --read 2>&1 || true)
+freeze_split=$(lstories approve read-doubt --read 2>&1 || true)
 project --repo "$LOCAL" log read-doubt stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=1 split:=false "digest=$plan_digest" >/dev/null 2>&1 || true
 flag_unseen=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
 # the newest read: partial, one story flagged, the families split, and of other stories than he then approved
@@ -2930,11 +2930,33 @@ if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && grep -q "a split is between two model families, and families names one" <<<"$bad_split" && grep -q "digest is the twelve characters" <<<"$bad_digest" \
   && grep -q "stories.read takes by=lem|lead asked:=N answered:=N" <<<"$bad_missing" \
   && [ "$(grep -c '"event": "stories.read", "task": "ticket-word"' "$LOCAL/.git/lem/events.jsonl")" = 1 ] \
-  && grep -qF "the newest \`stories.read\` of ticket-word read, and that read was of the stories with digest $digest, and other.md has" <<<"$freeze_other" \
+  && grep -qF -- "--read freezes the plan's own stories, the ones the read named: it takes no --file" <<<"$freeze_other" \
   && [ "$frozen" = "('read', 1)" ] && grep -qF "story 1 is 'The file holds the word the owner asked for.' after every earlier change" <<<"$recorded"; then
-  pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's report is named; a read's event without its form, with fewer than two personas asked, with nobody or more than were asked answering, or with a missing source unnamed is refused, and nothing is written for it; the lead freezes the stories the read named, and no other text, and from then on a change of them has its record, while the line still says the build did not wait for him"
+  pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's report is named; a read's event without its form, with fewer than two personas asked, with nobody or more than were asked answering, or with a missing source unnamed is refused, and nothing is written for it; the lead freezes the plan's stories the read named, with no file of other stories, and from then on a change of them has its record, while the line still says the build did not wait for him"
 else
   fail "the read of the rare path: $freeze_other / $frozen / $recorded / $bad_by / $bad_one / $bad_none / $bad_more / $bad_quiet / $bad_families / $bad_flagged / $bad_split / $bad_digest / $bad_missing / $(cat "$text" 2>/dev/null)"
+fi
+# A read freezes only the first contract of a task: a second clean read of other stories does not replace the frozen
+# ones, and a read does not replace his own approval, whose kind is his.
+other_digest=$(lstories digest ticket-word --file "$WORK/other.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log ticket-word stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$other_digest" >/dev/null 2>&1 || true
+refile=$(lstories approve ticket-word --read --file "$WORK/other.md" 2>&1 || true)
+refreeze=$(lstories approve ticket-word --read 2>&1 || true)
+printf '%s\n' '## Stories' '' 'Kind: correction, because it is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/as-correction.md"
+correction_digest=$(lstories digest after-change --file "$WORK/as-correction.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log after-change stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$correction_digest" >/dev/null 2>&1 || true
+over_his=$(lstories approve after-change --read 2>&1 || true)
+over_his_file=$(lstories approve after-change --read --file "$WORK/as-correction.md" 2>&1 || true)
+kept_contracts=$("$PY" -c 'import json, sys; print([(json.load(open(f))["number"], json.load(open(f))["by"], json.load(open(f))["kind"]) for f in sys.argv[1:]])' \
+  "$LOCAL/.git/lem/tasks/ticket-word/stories.json" "$LOCAL/.git/lem/tasks/after-change/stories.json" 2>&1 || true)
+if grep -qF "ticket-word has approval 1 of its stories already (by read): a read freezes only the first contract" <<<"$refreeze" \
+  && grep -qF "A story changes through its record, \`decisions.py story ticket-word ...\`, and the kind only through his own approval" <<<"$refreeze" \
+  && grep -qF "after-change has approval 2 of its stories already (by owner): a read freezes only the first contract" <<<"$over_his" \
+  && grep -qF "it takes no --file" <<<"$over_his_file" && grep -qF "it takes no --file" <<<"$refile" \
+  && [ "$kept_contracts" = "[(1, 'read', 'feature'), (2, 'owner', 'feature')]" ]; then
+  pass "a read freezes only the first contract of a task: a second clean read of other stories freezes nothing over a read's contract, and a read never replaces his approval or its kind"
+else
+  fail "a second freeze by a read: $refile / $refreeze / $over_his / $over_his_file / $kept_contracts"
 fi
 project --repo "$LOCAL" state ticket-word dropped "the test is over" >/dev/null
 # A correction: Lem approves its one story in his name, and the personas do not read it.
