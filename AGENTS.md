@@ -38,8 +38,14 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **agterm is a hard dependency**, and so is the mailbox chat from its cookbook. Lem does not run
   outside agterm.
 - **One Lem for one repository.** It coordinates many tasks there. No ability across repositories.
-- **Build first, review after.** The persona panel and the review tool with the project's own
-  lenses stay; a plan argued question by question and a review of every plain task do not.
+- **A review comes before the merge, and a task ends as a pull request.** He chose "build
+  first, review after" on 2026-11-14 and reopened it the next day, of commits that reach the
+  base branch before a review: "I think its very dangerous in most cases". The flow that
+  replaces it is `docs/plans/2026-11-15-three-touches.md` with its amendment, whose intent he
+  confirmed with "yes, thats correct" and whose amended page he answered with "all good. lets
+  wait for a build." (2026-11-16, as the design session carried it). What stays from the first
+  ruling: the persona panel and the review tool with the project's own lenses; no plan argued
+  question by question, and no review of every task of a usual request.
 - **Claude Code first.** The harness file for Codex comes after that works. The reviewer may be
   Codex or a second Claude; Codex as the builder is wanted later.
 - **Opinionated and small.** A developer may use their own tool for a role (`tools.annotate`). Out
@@ -71,8 +77,11 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **Each task of a plan gets a fresh builder** ("I usually start fresh executor for every task..
   since forever"). No threshold decides it.
 - **A small defect outside the task is fixed at the end**, in the landing's closing pass, and a
-  larger one is offered to him as a backlog item ("Polishing step fixes it in place, right away
-  if thats cheap small fixes and offer a backlog filing otherwise").
+  larger one becomes a backlog item ("Polishing step fixes it in place, right away if thats
+  cheap small fixes and offer a backlog filing otherwise"; and on 2026-11-16: "During interview
+  and execution there will be some defects that are out-of-scope. This is where backlog
+  helps."). The item is filed without a question to him, on the task's branch, and the pull
+  request lists it: that form is the design session's, on the page he answered with "all good".
 - **A builder's question about the outcome goes to the personas**, not to the reviewer.
 - **Every project of Lem has personas, and a panel asks the project's own**: "every project has
   personas, I don't see why we can have none when Lem is installed for a project" (2026-11-15).
@@ -214,8 +223,49 @@ him, and they are not his rulings until he says so:
   untracked, read from the main checkout, limited to `[seats]` and `[tools]`, written by
   `/lem reviewer`. Lem never changes the seat by itself.
 
-Open with him, and not built: the order of landing and review ("I think its
-very dangerous in most cases", of commits that reach the base branch before a review).
+His notes of 2026-11-16 on the page of the new flow, as the design session carried them to the
+session that builds. `docs/plans/2026-11-15-three-touches/amendment-2026-11-16.md` has each in
+full, with what was designed from it.
+
+- **The user of Lem is a senior developer with little attention to give**: "Assume that persone
+  that works with Lem will be a skillful developer with many years of experience. Not a business
+  person. Its just a developer that does a lot of things in many projects, so his attention is
+  limited. But he may tell to use this and that technology or reivew options during interview."
+  No text of Lem writes for a business reader. What he names in the interview is a direction
+  the plan follows.
+- **Most requests have an interview and his check of the stories; a green pull request he merges
+  without a read**: "most of the time there will be interview and there will be user stories to
+  check by Lem user. PR review - not necessarily, I think most of the time if everything is
+  green he will be merging it blindly." So the pull request says green or not green first.
+- **The personas read first, and their confusion may change the design**: "any confusion raised
+  by persnas check will drag attention and may turn into design change."
+- **A polish pass is a step of the flow**: "Polishing step, sadly is unavoidable (most likely)
+  ... this step is looking for very specific things, ulike other steps and review profiles".
+  Where it runs (after the last task, before the checks and the review) is the design session's.
+- **A decision in the build goes to the personas first, and waits for him 15 minutes at most**:
+  "Tech lead should first gather personas opionions and if its clear choice - pick it, log the
+  even so it will be presented at PR review time. If choice is unclear - one can try to reach a
+  Human and if there is decision taken in 15 min, then Tech Lead picks a recommended action and
+  logs the event". The design session reads the last part as "if no decision comes"; a step
+  that a later "no" cannot reverse is never taken by timeout, which is its design.
+- **A partial review is a review**: "Revmux can have degraded run, as well as personas check.
+  Thats fine - just log and proceed. Its still a review and read, it's just not perfect." A
+  review that nobody answered counts as none: the design session's.
+- **The review is routed by an agent that knows what each profile is for**: "'One read' at the
+  end is really useful only for small simple changes ... Serious changes usually require revmux
+  run", and "It will be useful if routing Agent will decide what revmux profiles are worthy to
+  be run in this particular plan judging by the diff and knowing what profiles do what. So
+  documentation does not trigger security or architecture checks." No code and no list of words
+  routes; `land.py` holds only the floor.
+- **A plan may end with a documentation task**: "There is a documentation update step. It
+  belongs to a plan".
+- **The shipped skills are for the times he steps in**: "all those cool skills of Lem are useful
+  in interactive mode when human actually does review things (at any point) and they are
+  actually here to help him work with context".
+
+A lowered bar (a new suppression, a skipped or deleted test, fewer assertions) makes a pull
+request not green also when the plan gives its reason: the design session's decision of
+2026-11-16, told to him as its own, and open to him.
 
 ## Checks
 

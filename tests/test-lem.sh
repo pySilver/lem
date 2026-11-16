@@ -308,13 +308,14 @@ else
 fi
 settings '[branch]' 'base = "master"'
 rm -r "$OLD/.git/lem/tasks/from-a-ticket" "$OLD/.git/lem/tasks/the-same-ticket"
-mkdir "$dir/proposed" && touch "$dir/proposed/a-range-across-a-year.md"
-if [ "$(project --repo "$OLD" tasks | field '[t["proposed"] for t in d]')" = "[['a-range-across-a-year.md']]" ]; then
-  pass "tasks names the backlog items a landing proposed and nobody answered yet"
+none=$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')
+echo '{"proposed": "0123", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["story 1 changed during the build: y is taken."]}' > "$dir/landing.json"
+if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['story 1 changed during the build: y is taken.']}]" ]; then
+  pass "tasks says what a landing proposed: the pull request's address, and green or each reason it is not"
 else
-  fail "proposed items in tasks: $(project --repo "$OLD" tasks)"
+  fail "the proposal in tasks: $(project --repo "$OLD" tasks)"
 fi
-rm -r "$dir/proposed"
+rm "$dir/landing.json"
 other=$(project --repo "$OLD" task-dir written-by-hand)
 printf '%s\n' '2026-01-02 build: task 2 of 3 running' > "$other/state.md"
 out=$(project --repo "$OLD" tasks)
@@ -1822,7 +1823,8 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d)[:900])' "$WOR
 else
   printf 'SKIP the board pages: no Chrome or Chromium found\n'
 fi
-# The landing: land.py takes one task from `ready` to the base branch, one refusable step at a time.
+# The landing: land.py takes one task from `ready` through the machine checks and one read to a pull
+# request, or to a branch that is ready to land, and from there to the base branch.
 LAND=$PWD/skills/lem/scripts/land.py
 land() { "$PY" -B "$LAND" "$@"; }
 ORIGIN=$WORK/origin.git
@@ -1837,30 +1839,57 @@ shop_settings() {
     '[gate]' 'commands = ["test -f ok.txt", "echo 7 passed"]' 'ignores = ["docs/*"]' > "$SHOP/.lem/project.toml"
 }
 shop_settings owner keep
-mkdir "$SHOP/docs" && echo guide > "$SHOP/docs/guide.md" && echo one > "$SHOP/app.txt"
+mkdir -p "$SHOP/docs" "$SHOP/.lem/styleguide" && echo guide > "$SHOP/docs/guide.md" && echo one > "$SHOP/app.txt"
+printf '%s\n' '---' 'paths:' '  - "tests/**"' '---' 'A test names what it checks.' > "$SHOP/.lem/styleguide/tests.md"
+printf '%s\n' '---' 'paths:' '  - "billing/**"' '---' 'Money is an integer.' > "$SHOP/.lem/styleguide/money.md"
 git -C "$SHOP" add -A && git -C "$SHOP" commit -q -m "chore: start" && git -C "$SHOP" push -q origin main
-# open_task SLUG FILE TEXT: a task with a worktree, one commit that writes FILE, and the state `ready`
-open_task() {
-  local tree
-  project --repo "$SHOP" task-dir "$1" >/dev/null
-  tree=$(project --repo "$SHOP" worktree-dir "$1")
-  git -C "$SHOP" worktree add -q "$tree" -b "fix/$1" main
-  printf '%s\n' "$3" > "$tree/$2" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: $1"
-  project --repo "$tree" state "$1" ready "the report is written" >/dev/null
+# plan_in TREE SLUG TEST: the task's plan, with one story that TEST holds; TEST is `no test: REASON` for a story with none
+plan_in() {
+  local held="   - test: \`$3\` in \`tests/$2.sh\`"
+  case "$3" in "no test:"*) held="   - $3" ;; esac
+  mkdir -p "$1/docs/plans" "$1/tests"
+  printf '%s\n' "# $2" '' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' \
+    '1. The file holds the word the owner asked for.' "$held" '' '## Tasks' '' '1. The change.' > "$1/docs/plans/20261115-$2.md"
 }
-status() { project --repo "$SHOP" tasks | field "next(t[\"status\"] for t in d if t[\"slug\"] == \"$1\")"; }
-kept() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2]))' "$SHOP/.git/lem/tasks/$1/landing.json" "$2"; }
+# task_in REPO SLUG FILE TEXT: a task with a worktree, one commit that writes FILE, its plan and the test of its story, and the state `ready`
+task_in() {
+  local tree
+  project --repo "$1" task-dir "$2" --ask "Put $4 into $3." >/dev/null
+  tree=$(project --repo "$1" worktree-dir "$2")
+  git -C "$1" worktree add -q "$tree" -b "fix/$2" main
+  plan_in "$tree" "$2" "sh tests/$2.sh"
+  printf '%s\n' "$4" > "$tree/$3" && echo "grep -qx $4 $3" > "$tree/tests/$2.sh"
+  git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: $2"
+  project --repo "$tree" state "$2" ready "the report is written" >/dev/null
+}
+open_task() { task_in "$SHOP" "$@"; }
+status_in() { project --repo "$1" tasks | field "next(t[\"status\"] for t in d if t[\"slug\"] == \"$2\")"; }
+status() { status_in "$SHOP" "$1"; }
+kept_in() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2]))' "$1/.git/lem/tasks/$2/landing.json" "$3"; }
+kept() { kept_in "$SHOP" "$@"; }
+# the three machine steps, a read that found nothing, and the proposal, for the tests that are about a later step
+checked() { land --repo "$SHOP" start "$1" >/dev/null && land --repo "$SHOP" base "$1" >/dev/null && land --repo "$SHOP" gate "$1" >/dev/null; }
+read_clean() { land --repo "$SHOP" read "$1" --record "$CLEAN" >/dev/null; }
+# record JSON: the file that says what a review was and what it found
+record() { printf '%s\n' "$1" > "$WORK/record.json"; echo "$WORK/record.json"; }
+CLEAN=$WORK/clean.json
+echo '{"kind": "read", "answered": ["codex"]}' > "$CLEAN"
+propose() { land --repo "$SHOP" propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null; }
+NOTES=$WORK/notes.md
+printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth a look' '' '- the one line of the file.' '' '## Filed in the backlog' '' 'none' '' '## Not done' '' 'none' > "$NOTES"
 
 open_task first-change ok.txt yes
 open_task second-change app.txt two
-if [ "$(status_of land --repo "$SHOP" gate first-change)" = 1 ] && [ "$(status_of land --repo "$SHOP" base first-change)" = 1 ] && [ "$(status first-change)" = ready ]; then
-  pass "base and gate refuse a task that did not take the landing line"
+if [ "$(status_of land --repo "$SHOP" gate first-change)" = 1 ] && [ "$(status_of land --repo "$SHOP" base first-change)" = 1 ] \
+  && [ "$(status_of land --repo "$SHOP" read first-change)" = 1 ] && [ "$(status_of land --repo "$SHOP" propose first-change --title x --notes "$NOTES")" = 1 ] \
+  && [ "$(status_of land --repo "$SHOP" land first-change --by owner)" = 1 ] && [ "$(status first-change)" = ready ]; then
+  pass "no step runs on a task that did not take the landing line, and the owner's word lands nothing that was not proposed"
 else
   fail "land steps before start"
 fi
 out=$(land --repo "$SHOP" start first-change)
 err=$(land --repo "$SHOP" start second-change 2>&1 || true)
-if [ "$(field 'd["remote"]' <<<"$out")" = True ] && [ "$(status first-change)" = landing ] && [ "$(status_of land --repo "$SHOP" start second-change)" = 1 ] \
+if [ "$(field '(d["remote"], d["forge"])' <<<"$out")" = "(True, None)" ] && [ "$(status first-change)" = landing ] && [ "$(status_of land --repo "$SHOP" start second-change)" = 1 ] \
   && grep -q "first-change is in .landing." <<<"$err" && [ "$(status second-change)" = ready ]; then
   pass "start puts one task in landing, and a second task is refused while it is there"
 else
@@ -1882,15 +1911,59 @@ if [ "$(field '(d["green"], [c["exit"] for c in d["commands"]], d["commands"][1]
 else
   fail "land gate: $out"
 fi
-err=$(land --repo "$SHOP" land first-change --risk normal 2>&1 || true)
-if [ "$(status_of land --repo "$SHOP" land first-change --risk normal)" = 1 ] && grep -q "the owner lands" <<<"$err" \
-  && [ "$(git -C "$ORIGIN" rev-parse main)" = "$(git -C "$SHOP" rev-parse main)" ]; then
-  pass "land changes nothing when the settings say the owner lands"
+if [ "$(field '(d["stories"]["ok"], [(t["story"], t["problem"]) for t in d["stories"]["tests"]], d["bar"], d["size"]["files"], d["size"]["in_parts"])' <<<"$out")" \
+  = "(True, [(1, None)], {'lowered': [], 'not_covered': [], 'own_patterns': 0}, 3, False)" ] && grep -q '"event": "task.red", "task": "first-change"' "$SHOP/.git/lem/events.jsonl"; then
+  pass "after the commands the gate proves each story's test on the branch and on the base commit, looks for a lowered bar and counts the size"
+else
+  fail "the machine checks after the gate's commands: $out"
+fi
+# A review before anything is proposed: the script says the least it may be, and what a reviewer gets.
+err=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" --notes "$NOTES" 2>&1 || true)
+out=$(land --repo "$SHOP" read first-change)
+base=$(git -C "$SHOP" rev-parse origin/main)
+if grep -q "a review is due before anything is proposed, one read at the least" <<<"$err" && [ "$(status first-change)" = landing ] \
+  && [ "$(field '(d["due"], d["floor"], d["round"], d["in_parts"], sorted(d["inputs"]), d["inputs"]["range"], [r.split("/.lem/")[-1] for r in d["inputs"]["rules"]])' <<<"$out")" \
+  = "('review', 'read', 1, False, ['bar', 'plan', 'range', 'review', 'rules', 'words', 'worktree'], '$base..$tip', ['styleguide/tests.md'])" ] \
+  && [ "$(cat "$(field 'd["inputs"]["words"]' <<<"$out")")" = "Put yes into ok.txt." ] && [ -f "$(field 'd["inputs"]["plan"]' <<<"$out")" ] \
+  && [ "$(field 'd["inputs"]["review"]' <<<"$out")" = "$SHOP/.revmux" ]; then
+  pass "nothing is proposed before its review; for a usual request the floor is one read, and a reviewer gets the owner's words, the plan, the range, the rule files of the changed files and the folder of the review tool"
+else
+  fail "the read that is due: $err / $out"
+fi
+err=$(land --repo "$SHOP" read first-change --record "$(record '{"kind": "read", "answered": [], "must_fix": 1}')" 2>&1 || true)
+shape=$(land --repo "$SHOP" read first-change --record "$(record '{"kind": "glance", "answered": ["codex"]}')" 2>&1 || true)
+out=$(land --repo "$SHOP" read first-change --record "$(record '{"kind": "read", "answered": ["codex"], "should": 1}')")
+if grep -q "findings and no source that answered" <<<"$err" && grep -q ".kind. is one of read, round, full" <<<"$shape" \
+  && [ "$(field '(d["recorded"]["round"], d["recorded"]["kind"], d["recorded"]["verdict"], d["recorded"]["should"], d["next"])' <<<"$out")" = "(1, 'read', 'clean', 1, 'none')" ] \
+  && [ "$(grep -c '"event": "review", "task": "first-change"' "$SHOP/.git/lem/events.jsonl")" = 1 ] && [ "$(status_of land --repo "$SHOP" read first-change --record "$CLEAN")" = 1 ]; then
+  pass "a review is written down from a file, with its round, its kind, who answered and its counts; a record that does not have the form is refused, and a change that was reviewed clean is not reviewed again"
+else
+  fail "recording a read: $err / $out"
+fi
+printf '%s\n' '## Decisions' '' 'none' > "$WORK/thin.md"
+err=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" --notes "$WORK/thin.md" 2>&1 || true)
+out=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" --notes "$NOTES")
+text=$SHOP/.git/lem/tasks/first-change/pr.md
+if grep -q "the notes lack ## Left open, ## Worth a look, ## Filed in the backlog, ## Not done" <<<"$err" && [ "$(field '(d["pull_request"], d["green"], d["not_green"], d["branch"])' <<<"$out")" = "(None, True, [], 'fix/first-change')" ] \
+  && [ "$(status first-change)" = open ] && [ "$(kept first-change proposed)" = "$tip" ] && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -q '^green$' "$SHOP/.git/lem/tasks/first-change/state.md" \
+  && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Stories|## Checks|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
+  && grep -q '^> Put yes into ok.txt\.$' "$text" && grep -q '^1\. The file holds the word the owner asked for\.$' "$text" \
+  && grep -q 'sh tests/first-change.sh.: passes on the branch, fails on the base commit' "$text" && grep -q '^- gate, .echo 7 passed.: 7 passed$' "$text" \
+  && grep -q "^- the stories' tests: 1 pass on the branch and fail on the base commit$" "$text" && grep -q '^- the bar: not lowered$' "$text" \
+  && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 1 should, 0 nit$' "$text" && grep -q '^- careful: no$' "$text" && grep -q '^- the one line of the file\.$' "$text"; then
+  pass "with no forge the branch is marked ready: the task is open, and the text for the owner says green first, then holds his words, the stories with their tests, each check with what it returned, then the notes"
+else
+  fail "propose: $err / $out / $(cat "$text" 2>/dev/null)"
+fi
+err=$(land --repo "$SHOP" land first-change --by agent 2>&1 || true)
+if [ "$(status_of land --repo "$SHOP" land first-change --by agent)" = 1 ] && grep -q "a person merges" <<<"$err" \
+  && [ "$(git -C "$ORIGIN" rev-parse main)" = "$(git -C "$SHOP" rev-parse main)" ] && [ "$(status first-change)" = open ]; then
+  pass "an agent lands nothing when the settings say that a person merges"
 else
   fail "land with branch.land = owner: $err"
 fi
 shop_settings agent keep
-if [ "$(status_of land --repo "$SHOP" land first-change --risk normal --message "fix: x")" = 1 ]; then
+if [ "$(status_of land --repo "$SHOP" land first-change --by agent --message "fix: x")" = 1 ]; then
   pass "a commit subject is refused when the branch's own commits land"
 else
   fail "land --message with history = keep"
@@ -1899,27 +1972,33 @@ fi
 other=$WORK/other
 git clone -q "$ORIGIN" "$other" && ident "$other"
 echo late > "$other/late.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: late" && git -C "$other" push -q origin main
-err=$(land --repo "$SHOP" land first-change --risk normal 2>&1 || true)
-if [ "$(status_of land --repo "$SHOP" land first-change --risk normal)" = 1 ] && grep -q "moved after the gate ran, by files the gate reads (late.txt)" <<<"$err" \
-  && [ "$(status first-change)" = landing ]; then
-  pass "land refuses when the base moved by a file the gate reads, and says to run base and gate again"
+err=$(land --repo "$SHOP" land first-change --by agent 2>&1 || true)
+if [ "$(status_of land --repo "$SHOP" land first-change --by agent)" = 1 ] && grep -q "moved after the gate ran, by files the gate reads (late.txt)" <<<"$err" \
+  && grep -q "run .land.py start., .land.py base. and .land.py gate. again" <<<"$err" && [ "$(status first-change)" = open ]; then
+  pass "land refuses when the base moved by a file the gate reads, and says which steps run again"
 else
   fail "land after the base moved: $err"
 fi
-land --repo "$SHOP" base first-change >/dev/null
-if [ "$(kept first-change gated)" = None ] && [ "$(status_of land --repo "$SHOP" land first-change --risk normal)" = 1 ]; then
-  pass "a new base forgets the gate's result, so land waits for a new one"
+land --repo "$SHOP" start first-change >/dev/null && land --repo "$SHOP" base first-change >/dev/null
+if [ "$(status first-change)" = landing ] && [ "$(kept first-change gated)" = None ] && [ "$(status_of land --repo "$SHOP" land first-change --by agent)" = 1 ] \
+  && [ "$(status_of land --repo "$SHOP" propose first-change --title x --notes "$NOTES")" = 1 ]; then
+  pass "an open task takes the landing line again, and a new base forgets the gate's result, so nothing is proposed or landed before a new one"
 else
   fail "base after a green gate keeps the result"
 fi
 land --repo "$SHOP" gate first-change >/dev/null
+out=$(land --repo "$SHOP" read first-change)
+if [ "$(field '(d["due"], d["why"])' <<<"$out")" = "('none', 'round 1 reviewed this change and left no must-fix')" ] && propose first-change && [ "$(status first-change)" = open ]; then
+  pass "a rebase that changes nothing of the change does not undo its review"
+else
+  fail "the read after a rebase: $out"
+fi
 echo more >> "$other/docs/guide.md" && git -C "$other" add -A && git -C "$other" commit -q -m "docs: more" && git -C "$other" push -q origin main
-out=$(land --repo "$SHOP" land first-change --risk high)
-if [ "$(field '(d["pushed"], d["arrived"], d["review"], d["left_behind"])' <<<"$out")" = "(True, ['docs/guide.md'], 1, None)" ] && [ "$(status first-change)" = landed ] \
+out=$(land --repo "$SHOP" land first-change --by agent)
+if [ "$(field '(d["pushed"], d["arrived"], d["left_behind"])' <<<"$out")" = "(True, ['docs/guide.md'], None)" ] && [ "$(status first-change)" = landed ] \
   && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix: first-change" ] && [ "$(git -C "$SHOP" rev-parse main)" = "$(git -C "$ORIGIN" rev-parse main)" ] \
-  && [ -f "$SHOP/ok.txt" ] && [ -f "$SHOP/late.txt" ] \
-  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list | field '[(i["slug"], i["risk"], i["range"]) for i in d]')" = "[('first-change', 'high', '$(field 'd["range"]' <<<"$out")')]" ]; then
-  pass "a base that moved only by files the gate ignores still lands: pushed, the main checkout fast-forwarded, the review queued, the state landed"
+  && [ -f "$SHOP/ok.txt" ] && [ -f "$SHOP/late.txt" ]; then
+  pass "where the settings allow it an agent lands a request that is green and not careful; a base that moved only by files the gate ignores still lands: pushed, the main checkout fast-forwarded, the state landed"
 else
   fail "land: $out"
 fi
@@ -1941,21 +2020,9 @@ fi
 # A conflict with the base is reported and undone, never resolved here.
 git -C "$other" pull -q origin main
 echo other > "$other/app.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: other" && git -C "$other" push -q origin main
-# The owner said that this task is careful while a builder led it: the landing line does not take it before a session read it.
+# The owner said that this task is careful: that word is in its brief, and it decides the read and who merges.
 task_dir=$(project --repo "$SHOP" task-dir second-change)
-printf '%s\n' 'slug: second-change' 'lead: builder' 'careful: the owner says so' > "$task_dir/brief.md"
-err=$(land --repo "$SHOP" start second-change 2>&1 || true)
-status=$(project --repo "$SHOP" tasks | field 'next(t for t in d if t["slug"] == "second-change")["status"]')
-# A brief that already says `lead: session` proves only that a session was meant: the landing still refuses.
 printf '%s\n' 'slug: second-change' 'lead: session' 'careful: the owner says so' > "$task_dir/brief.md"
-meant=$(status_of land --repo "$SHOP" start second-change)
-project --repo "$SHOP" state second-change building 'lead: session' >/dev/null
-project --repo "$SHOP" state second-change ready 'the report is written' 'careful: read by a session' >/dev/null
-if grep -q "the owner called this task careful" <<<"$err" && grep -q "no state of it says .careful: read by a session." <<<"$err" && [ "$status" = "ready" ] && [ "$meant" = 1 ]; then
-  pass "a ready task that the owner called careful does not take the landing line before a session's lead wrote that it was read"
-else
-  fail "land start over the owner's word: $err / $status / $meant"
-fi
 land --repo "$SHOP" start second-change >/dev/null
 out=$(land --repo "$SHOP" base second-change 2>/dev/null || true)
 if [ "$(status_of land --repo "$SHOP" base second-change)" = 1 ] && [ "$(field '(d["conflict"], d["branch"])' <<<"$out")" = "(['app.txt'], 'fix/second-change')" ] \
@@ -1964,97 +2031,121 @@ if [ "$(status_of land --repo "$SHOP" base second-change)" = 1 ] && [ "$(field '
 else
   fail "land base with a conflict: $out"
 fi
-# The builder resolves it; here the test does. Then a red gate, then one commit for the whole branch.
+# The builder resolves it; here the test does. Then a red gate, then a round that finds a must-fix, then one commit for the whole branch.
 tree=$SHOP/.lem/worktrees/second-change
 git -C "$tree" rebase -q origin/main >/dev/null 2>&1 || true
-echo both > "$tree/app.txt" && git -C "$tree" add -A && GIT_EDITOR=true git -C "$tree" rebase --continue >/dev/null 2>&1
+echo both > "$tree/app.txt" && echo 'grep -qx both app.txt' > "$tree/tests/second-change.sh" && git -C "$tree" add -A && GIT_EDITOR=true git -C "$tree" rebase --continue >/dev/null 2>&1
 git -C "$tree" rm -q ok.txt && git -C "$tree" commit -q -m "fix: lose the file the gate wants"
 land --repo "$SHOP" base second-change >/dev/null
 out=$(land --repo "$SHOP" gate second-change 2>/dev/null || true)
-if [ "$(status_of land --repo "$SHOP" gate second-change)" = 1 ] && [ "$(field '(d["green"], [c["exit"] for c in d["commands"]])' <<<"$out")" = "(False, [1, 0])" ] \
-  && [ "$(kept second-change gated)" = None ] && [ "$(status_of land --repo "$SHOP" land second-change --risk normal)" = 1 ]; then
-  pass "a red gate exits 1 with each command's result, and nothing lands on it"
+if [ "$(status_of land --repo "$SHOP" gate second-change)" = 1 ] && [ "$(field '(d["green"], [c["exit"] for c in d["commands"]], "stories" in d)' <<<"$out")" = "(False, [1, 0], False)" ] \
+  && [ "$(kept second-change gated)" = None ] && [ "$(status_of land --repo "$SHOP" read second-change)" = 1 ] && [ "$(status_of land --repo "$SHOP" propose second-change --title x --notes "$NOTES")" = 1 ]; then
+  pass "a red gate exits 1 with each command's result, the later checks do not run, and nothing is read or proposed on it"
 else
   fail "red gate: $out"
 fi
 git -C "$tree" revert --no-edit HEAD >/dev/null
 shop_settings agent squash
 land --repo "$SHOP" gate second-change >/dev/null
-if [ "$(status_of land --repo "$SHOP" land second-change --risk normal)" = 1 ]; then pass "one commit for the branch needs its subject"; else fail "squash without a message"; fi
+out=$(land --repo "$SHOP" read second-change)
+under=$(land --repo "$SHOP" read second-change --record "$(record '{"kind": "round", "ran": [{"name": "correctness", "why": "a line of the app changes"}], "answered": ["codex"]}')" 2>&1 || true)
+dropped=$(land --repo "$SHOP" read second-change --record "$(record '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "left_out": [{"name": "security", "why": "no input is read"}], "answered": ["codex"]}')" 2>&1 || true)
+next=$(land --repo "$SHOP" read second-change --record "$(record '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "answered": ["codex", "claude"], "silent": [{"name": "gemini", "why": "at capacity"}], "must_fix": 1}')" | field '(d["recorded"]["verdict"], d["next"])')
+err=$(land --repo "$SHOP" propose second-change --title x --notes "$NOTES" 2>&1 || true)
+if [ "$(field '(d["due"], d["floor"], d["why"])' <<<"$out")" = "('review', 'full', 'the request is careful: the owner says so')" ] \
+  && grep -q "this change gets the project's full set at the least (the request is careful: the owner says so), and the record says a review round with the profiles that fit" <<<"$under" \
+  && grep -q "the project's full set leaves no profile out" <<<"$dropped" && [ "$next" = "('must-fix', 'review')" ] \
+  && grep -q "a review is due before anything is proposed, the project's full set at the least" <<<"$err"; then
+  pass "a request the owner called careful gets the project's full set: a record of less is refused, one that leaves a profile out too; a round in which one source did not answer counts, and a must-fix is followed by another round"
+else
+  fail "the read of a careful request: $out / $next / $err"
+fi
+echo '# and no other word' >> "$tree/tests/second-change.sh" && git -C "$tree" commit -q -am "fix: what the round found"
+err=$(land --repo "$SHOP" read second-change 2>&1 || true)
+land --repo "$SHOP" gate second-change >/dev/null
+out=$(land --repo "$SHOP" read second-change)
+land --repo "$SHOP" read second-change --record "$(record '{"kind": "full", "ran": [{"name": "default", "why": "the request is careful"}], "answered": ["codex", "claude", "gemini"], "nit": 2}')" >/dev/null
+if grep -q "no check is on record for this tip" <<<"$err" && [ "$(field '(d["due"], d["floor"], d["round"], len(d["reads"]))' <<<"$out")" = "('review', 'full', 2, 1)" ]; then
+  pass "a fix is reviewed only after the machine checks ran on it, and the second round knows the first"
+else
+  fail "the second round: $err / $out"
+fi
+err=$(land --repo "$SHOP" propose second-change --title "fix(app): both lines stay" --notes "$NOTES" 2>&1 || true)
+printf '%s\n' '' '## Migration' '' 'none' >> "$NOTES"
+land --repo "$SHOP" propose second-change --title "fix(app): both lines stay" --notes "$NOTES" >/dev/null
+text=$SHOP/.git/lem/tasks/second-change/pr.md
+agent=$(land --repo "$SHOP" land second-change --by agent --message "fix(app): both lines stay" 2>&1 || true)
+if grep -q "the notes lack ## Migration" <<<"$err" && grep -q '^- careful: yes, the owner says so$' "$text" && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] \
+  && grep -q "^- the review, round 1 (the project's full set; answered: codex, claude; no answer from gemini (at capacity)): must-fix, 1 must-fix, 0 should, 0 nit$" "$text" \
+  && grep -q '^  - ran default: the request is careful$' "$text" \
+  && grep -q "^- the review, round 2 (the project's full set; answered: codex, claude, gemini): clean, 0 must-fix, 0 should, 2 nit$" "$text" \
+  && grep -q "a careful request is merged by a person, whatever the settings say" <<<"$agent" && [ "$(status second-change)" = open ]; then
+  pass "the notes of a careful request say whether it holds a migration, its text shows both rounds with who answered and who did not, and no agent merges it though it is green"
+else
+  fail "a careful request at the proposal: $err / $agent / $(cat "$text" 2>/dev/null)"
+fi
+if [ "$(status_of land --repo "$SHOP" land second-change --by owner)" = 1 ]; then pass "one commit for the branch needs its subject"; else fail "squash without a message"; fi
 before=$(git -C "$ORIGIN" rev-parse main)
 # A commit hook that changes a tracked file makes the one commit another tree than the gate saw.
 gated=$(git -C "$tree" rev-parse HEAD)
 printf '%s\n' '#!/bin/sh' 'echo stamped >> app.txt && git add app.txt' > "$SHOP/.git/hooks/pre-commit"
 chmod +x "$SHOP/.git/hooks/pre-commit"
-err=$(land --repo "$SHOP" land second-change --risk normal --message "fix(app): both lines stay" 2>&1 || true)
+err=$(land --repo "$SHOP" land second-change --by owner --message "fix(app): both lines stay" 2>&1 || true)
 rm "$SHOP/.git/hooks/pre-commit"
 if grep -q "a commit hook changed the files" <<<"$err" && [ "$(git -C "$ORIGIN" rev-parse main)" = "$before" ] && [ "$(git -C "$tree" rev-parse HEAD)" = "$gated" ] \
-  && [ -z "$(git -C "$tree" status --porcelain)" ] && [ "$(status second-change)" = landing ]; then
+  && [ -z "$(git -C "$tree" status --porcelain)" ] && [ "$(status second-change)" = open ]; then
   pass "a commit hook that changes the one commit's files stops the landing, and the branch is put back as the gate saw it"
 else
   fail "squash with a hook that changes the tree: $err"
 fi
-out=$(land --repo "$SHOP" land second-change --risk normal --message "fix(app): both lines stay")
+out=$(land --repo "$SHOP" land second-change --by owner --message "fix(app): both lines stay")
 if [ "$(git -C "$ORIGIN" rev-list --count "$before..main")" = 1 ] && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix(app): both lines stay" ] \
-  && [ "$(git -C "$ORIGIN" show main:app.txt)" = both ] && [ "$(git -C "$ORIGIN" rev-parse 'main^{tree}')" = "$(kept second-change tree)" ]; then
-  pass "with history = squash the branch lands as one commit, and its tree is the tree the gate passed on"
+  && [ "$(git -C "$ORIGIN" show main:app.txt)" = both ] && [ "$(git -C "$ORIGIN" rev-parse 'main^{tree}')" = "$(kept second-change tree)" ] && [ "$(status second-change)" = landed ]; then
+  pass "on the owner's word, with history = squash, the branch lands as one commit, and its tree is the tree the gate passed on"
 else
   fail "squash landing: $out"
 fi
 land --repo "$SHOP" clean second-change >/dev/null
+printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth a look' '' '- the one line of the file.' '' '## Filed in the backlog' '' 'none' '' '## Not done' '' 'none' > "$NOTES"
 
 # A file that moves into an ignored folder also leaves a folder the gate reads.
 shop_settings agent keep
 open_task moved-file extra.txt four
-land --repo "$SHOP" start moved-file >/dev/null && land --repo "$SHOP" base moved-file >/dev/null && land --repo "$SHOP" gate moved-file >/dev/null
+checked moved-file && read_clean moved-file && propose moved-file
 git -C "$other" pull -q origin main && git -C "$other" mv late.txt docs/late.txt && git -C "$other" commit -q -m "docs: move late" && git -C "$other" push -q origin main
-err=$(land --repo "$SHOP" land moved-file --risk normal 2>&1 || true)
-if [ "$(status_of land --repo "$SHOP" land moved-file --risk normal)" = 1 ] && grep -q "files the gate reads (.*late.txt" <<<"$err" && [ "$(status moved-file)" = landing ]; then
+err=$(land --repo "$SHOP" land moved-file --by agent 2>&1 || true)
+if [ "$(status_of land --repo "$SHOP" land moved-file --by agent)" = 1 ] && grep -q "files the gate reads (.*late.txt" <<<"$err" && [ "$(status moved-file)" = open ]; then
   pass "a file moved into an ignored folder still counts as a change of the path it left"
 else
   fail "a rename across gate.ignores: $err"
 fi
-land --repo "$SHOP" base moved-file >/dev/null && land --repo "$SHOP" gate moved-file >/dev/null
-# The landing is cut off after the push: a copy of the scripts whose review queue fails stands in for
-# the kill. The main checkout also has a commit of its own, so it cannot follow the remote.
-BROKEN=$WORK/broken
-cp -R "$PWD/skills/lem/scripts" "$BROKEN"
-printf '%s\n' 'import sys' 'sys.exit("review_queue.py: cut off")' > "$BROKEN/review_queue.py"
-git -C "$SHOP" commit -q --allow-empty -m "chore: only here"
-before=$(git -C "$ORIGIN" rev-parse main)
-if [ "$(status_of "$PY" -B "$BROKEN/land.py" --repo "$SHOP" land moved-file --risk normal)" = 1 ] && [ "$(git -C "$ORIGIN" rev-list --count "$before..main")" = 1 ] \
-  && [ "$(status moved-file)" = landing ]; then
-  pass "a landing cut off after the push leaves the commit on the base and the task in landing"
-else
-  fail "the cut-off landing did not reach the state the next check needs"
-fi
-landed_tip=$(git -C "$ORIGIN" rev-parse main)
-# The item was queued and its review closed before the landing was run again: no second item.
-reviewed=$("$PY" -B "$QUEUE" --repo "$SHOP" add moved-file --range "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["intent"]["range"])' "$SHOP/.git/lem/tasks/moved-file/landing.json")" --risk normal)
-"$PY" -B "$QUEUE" --repo "$SHOP" close "$reviewed" --outcome clean
-# Cut off again, one step later: the item is found and written down, the state is not. A copy of
-# the scripts whose project.py refuses to write `landed` stands in for that kill.
+checked moved-file && propose moved-file
+# The landing is cut off after the push and before its last state write: a copy of the scripts whose
+# project.py refuses to write `landed` stands in for the kill. The main checkout also has a commit of
+# its own, so it cannot follow the remote.
 LATE=$WORK/late
 cp -R "$PWD/skills/lem/scripts" "$LATE"
 printf '%s\n' 'import runpy, sys' 'if "landed" in sys.argv: sys.exit("project.py: cut off")' \
   "sys.argv[0] = '$PWD/skills/lem/scripts/project.py'" "runpy.run_path(sys.argv[0], run_name='__main__')" > "$LATE/project.py"
-"$PY" -B "$LATE/land.py" --repo "$SHOP" land moved-file --risk normal >/dev/null 2>&1 || true
-if [ "$(status moved-file)" = landing ] && [ "$(kept moved-file intent)" != None ] && [ "$(kept moved-file review)" = "$reviewed" ]; then
-  pass "a landing cut off before its last state write keeps the record the next run needs"
+git -C "$SHOP" commit -q --allow-empty -m "chore: only here"
+before=$(git -C "$ORIGIN" rev-parse main)
+if [ "$(status_of "$PY" -B "$LATE/land.py" --repo "$SHOP" land moved-file --by agent)" = 1 ] && [ "$(git -C "$ORIGIN" rev-list --count "$before..main")" = 1 ] \
+  && [ "$(status moved-file)" = open ] && [ "$(kept moved-file intent)" != None ]; then
+  pass "a landing cut off after the push leaves the commit on the base, the task open and the record the next run needs"
 else
   fail "a landing cut off before the landed state: status $(status moved-file), intent $(kept moved-file intent)"
 fi
-out=$(land --repo "$SHOP" land moved-file --risk normal)
+landed_tip=$(git -C "$ORIGIN" rev-parse main)
+out=$(land --repo "$SHOP" land moved-file --by agent)
 if [ "$(status moved-file)" = landed ] && [ "$(git -C "$ORIGIN" rev-parse main)" = "$landed_tip" ] && [ "$(field 'd["tip"]' <<<"$out")" = "$landed_tip" ] \
-  && [ "$(field 'd["review"]' <<<"$out")" = "$reviewed" ] && [ "$(kept moved-file intent)" = None ] \
-  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list --all | field '[i["slug"] for i in d].count("moved-file")')" = 1 ] \
+  && [ "$(kept moved-file intent)" = None ] \
   && [ "$(field '"did not follow origin/main" in d["left_behind"] and "brings it up" not in d["left_behind"]' <<<"$out")" = True ]; then
-  pass "the next run finishes it: the review item that was already queued and closed is kept, the state is landed, nothing is pushed twice, and a main checkout that cannot follow is reported with git's own reason"
+  pass "the next run finishes it: the state is landed, nothing is pushed twice, and a main checkout that cannot follow is reported with git's own reason"
 else
   fail "finishing a cut-off landing: $out"
 fi
-out=$(land --repo "$SHOP" land moved-file --risk normal 2>&1 || true)
-if grep -q "is 'landed', not .landing." <<<"$out"; then pass "a landed task does not land again"; else fail "land twice: $out"; fi
+out=$(land --repo "$SHOP" land moved-file --by agent 2>&1 || true)
+if grep -q "is 'landed', not .open." <<<"$out"; then pass "a landed task does not land again"; else fail "land twice: $out"; fi
 git -C "$SHOP" reset -q --hard origin/main
 out=$(land --repo "$SHOP" clean moved-file)
 if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(True, 'fix/moved-file')" ] && [ ! -e "$SHOP/.lem/worktrees/moved-file" ] && [ -z "$(git -C "$SHOP" branch --list fix/moved-file)" ]; then
@@ -2063,31 +2154,68 @@ else
   fail "land clean: $out"
 fi
 
-# A landing cut off after the push, and then more work on the branch: what was pushed gets its
-# review item, and the new tip lands only through its own base and gate.
+# A landing cut off after the push, and then more work on the branch: what was pushed is written
+# down, and the new tip lands only through its own base, checks and review.
 shop_settings agent keep
 open_task more-work m.txt five
-land --repo "$SHOP" start more-work >/dev/null && land --repo "$SHOP" base more-work >/dev/null && land --repo "$SHOP" gate more-work >/dev/null
-"$PY" -B "$BROKEN/land.py" --repo "$SHOP" land more-work --risk normal >/dev/null 2>&1 || true
+checked more-work && read_clean more-work && propose more-work
+"$PY" -B "$LATE/land.py" --repo "$SHOP" land more-work --by agent >/dev/null 2>&1 || true
 git -C "$SHOP" merge -q --ff-only origin/main
 tree=$SHOP/.lem/worktrees/more-work
-echo six > "$tree/n.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: more-work, the second half"
-err=$(land --repo "$SHOP" land more-work --risk normal 2>&1 || true)
-if grep -q "run .land.py base. and .land.py gate. again" <<<"$err" && [ "$(status more-work)" = landing ] && ! git -C "$ORIGIN" cat-file -e main:n.txt 2>/dev/null \
-  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list --all | field '[i["slug"] for i in d].count("more-work")')" = 1 ]; then
-  pass "after a cut-off landing and more work, the pushed range is queued for review and the new tip is refused until its own gate ran"
+# the first half is on the base now, so its test no longer fails there: the story is held by a test of the second half
+echo six > "$tree/n.txt" && echo 'grep -qx six n.txt' > "$tree/tests/more-work-n.sh"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("tests/more-work.sh", "tests/more-work-n.sh"))' "$tree/docs/plans/20261115-more-work.md"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: more-work, the second half"
+err=$(land --repo "$SHOP" land more-work --by agent 2>&1 || true)
+if grep -q "from a landing that was cut off, and the branch has more work since" <<<"$err" && [ "$(status more-work)" = open ] && ! git -C "$ORIGIN" cat-file -e main:n.txt 2>/dev/null \
+  && [ "$(kept more-work intent)" = None ] && [ "$(kept more-work landed_before | grep -c '\.\.')" = 1 ]; then
+  pass "after a cut-off landing and more work, the pushed range is written down and the new tip is refused until its own checks ran"
 else
   fail "a stale landing record with more work: $err"
 fi
-land --repo "$SHOP" base more-work >/dev/null && land --repo "$SHOP" gate more-work >/dev/null
-out=$(land --repo "$SHOP" land more-work --risk normal)
-if [ "$(git -C "$ORIGIN" show main:n.txt)" = six ] && [ "$(status more-work)" = landed ] && [ "$(field 'd["tip"]' <<<"$out")" = "$(git -C "$ORIGIN" rev-parse main)" ] \
-  && [ "$("$PY" -B "$QUEUE" --repo "$SHOP" list --all | field '[i["slug"] for i in d].count("more-work")')" = 2 ]; then
-  pass "then the second half lands as its own range, with its own review item"
+checked more-work
+out=$(land --repo "$SHOP" read more-work)
+read_clean more-work && propose more-work
+landed=$(land --repo "$SHOP" land more-work --by agent)
+if [ "$(field '(d["due"], d["floor"], d["round"])' <<<"$out")" = "('review', 'read', 2)" ] && [ "$(git -C "$ORIGIN" show main:n.txt)" = six ] && [ "$(status more-work)" = landed ] \
+  && [ "$(field 'd["tip"]' <<<"$landed")" = "$(git -C "$ORIGIN" rev-parse main)" ]; then
+  pass "then the second half gets a review of its own and lands as its own range"
 else
-  fail "landing the work added after a cut-off landing: $out"
+  fail "landing the work added after a cut-off landing: $out / $landed"
 fi
 land --repo "$SHOP" clean more-work >/dev/null
+
+# Two rounds at most. A usual request whose read found a must-fix gets a round after the fix, and one
+# that is not clean after the second round goes to the owner as not green.
+open_task not-clean nc.txt seven
+checked not-clean
+land --repo "$SHOP" read not-clean --record "$(record '{"kind": "read", "answered": ["codex"], "must_fix": 2}')" >/dev/null
+tree=$SHOP/.lem/worktrees/not-clean
+echo eight > "$tree/nc2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the first read's findings"
+land --repo "$SHOP" gate not-clean >/dev/null
+out=$(land --repo "$SHOP" read not-clean)
+again=$(status_of land --repo "$SHOP" read not-clean --record "$CLEAN")
+land --repo "$SHOP" read not-clean --record "$(record '{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "left_out": [{"name": "security", "why": "no input from outside is read"}], "answered": ["codex"], "must_fix": 1}')" >/dev/null
+echo nine > "$tree/nc3.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the round's finding"
+land --repo "$SHOP" gate not-clean >/dev/null
+third=$(land --repo "$SHOP" read not-clean)
+proposed=$(land --repo "$SHOP" propose not-clean --title "fix: not-clean" --notes "$NOTES")
+text=$SHOP/.git/lem/tasks/not-clean/pr.md
+agent=$(land --repo "$SHOP" land not-clean --by agent 2>&1 || true)
+why="two rounds reviewed it: the last one left 1 must-fix, and nobody reviewed what changed after it"
+if [ "$(field '(d["due"], d["floor"], d["why"])' <<<"$out")" = "('review', 'round', 'an earlier review found a must-fix: after its fix a round reviews the change')" ] && [ "$again" = 1 ] \
+  && [ "$(field '(d["due"], d["why"])' <<<"$third")" = "('owner', '$why')" ] && [ "$(status_of land --repo "$SHOP" read not-clean --record "$CLEAN")" = 1 ] \
+  && [ "$(field '(d["green"], d["not_green"])' <<<"$proposed")" = "(False, ['$why'])" ] && [ "$(kept not-clean title)" = "fix: not-clean" ] \
+  && [ "$(sed -n 1p "$text")" = '**Not green.**' ] && [ "$(sed -n 3p "$text")" = "- $why" ] && grep -q '^  - left out security: no input from outside is read$' "$text" \
+  && grep -q "^not green: $why$" "$SHOP/.git/lem/tasks/not-clean/state.md" \
+  && grep -q "the request is not green ($why), so a person merges it" <<<"$agent" && [ "$(status not-clean)" = open ]; then
+  pass "a usual request with a must-fix gets a round after its fix, with each profile it ran or left out and why; after two rounds no third is taken, the request is proposed as not green, which its first lines say with the reason, and no agent merges it"
+else
+  fail "two rounds at most: $out / $third / $proposed / $agent / $(sed -n 1,4p "$text" 2>/dev/null)"
+fi
+land --repo "$SHOP" land not-clean --by owner >/dev/null
+if [ "$(status not-clean)" = landed ] && [ "$(git -C "$ORIGIN" show main:nc3.txt)" = nine ]; then pass "the owner's word lands a request that is not green"; else fail "the owner lands a request that is not green"; fi
+land --repo "$SHOP" clean not-clean >/dev/null
 
 # No gate command, a protected branch, and a repository with no remote.
 open_task third-change note.txt three
@@ -2103,19 +2231,230 @@ if [ "$(status_of land --repo "$SHOP" start third-change)" = 1 ]; then pass "no 
 LOCAL=$WORK/local
 git init -q -b main "$LOCAL" && ident "$LOCAL"
 project --repo "$LOCAL" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' > "$LOCAL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' 'bar = ["rubocop:disable"]' '[flow]' 'careful = ["billing/*"]' > "$LOCAL/.lem/project.toml"
+mkdir -p "$LOCAL/tests" "$LOCAL/docs" && printf '%s\n' 'def test_base():' '    assert 1 + 1 == 2' '    assert 2 + 2 == 4' > "$LOCAL/tests/test_base.py" && echo guide > "$LOCAL/docs/guide.md"
 git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start"
-project --repo "$LOCAL" task-dir local-change >/dev/null
-tree=$(project --repo "$LOCAL" worktree-dir local-change)
-git -C "$LOCAL" worktree add -q "$tree" -b fix/local-change main
-echo x > "$tree/x.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: x"
-project --repo "$tree" state local-change ready "the report is written" >/dev/null
-land --repo "$LOCAL" start local-change >/dev/null && land --repo "$LOCAL" base local-change >/dev/null && land --repo "$LOCAL" gate local-change >/dev/null
-out=$(land --repo "$LOCAL" land local-change --risk normal)
-if [ "$(field 'd["pushed"]' <<<"$out")" = False ] && [ -f "$LOCAL/x.txt" ] && [ "$(git -C "$LOCAL" log -1 --format=%s main)" = "fix: x" ]; then
-  pass "with no remote the base branch is fast-forwarded in the checkout that holds it"
+local_land() { land --repo "$LOCAL" "$@"; }
+task_in "$LOCAL" local-change x.txt x
+local_land start local-change >/dev/null && local_land base local-change >/dev/null && local_land gate local-change >/dev/null && local_land read local-change --record "$CLEAN" >/dev/null
+# A story that changed during the build is written down by the build; the text shows it, and a person merges.
+printf '%s\n' '{"story": 1, "was": "The file holds the word y.", "why": "y is taken by another file.", "said": "Both personas picked x."}' > "$LOCAL/.git/lem/tasks/local-change/story-changes.jsonl"
+local_land propose local-change --title "fix: x" --notes "$NOTES" >/dev/null
+err=$(local_land land local-change --by agent 2>&1 || true)
+out=$(local_land land local-change --by owner)
+if grep -q "the request is not green (story 1 changed during the build: y is taken by another file.), so a person merges it" <<<"$err" \
+  && [ "$(sed -n 1p "$LOCAL/.git/lem/tasks/local-change/pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "$LOCAL/.git/lem/tasks/local-change/pr.md")" = '- story 1 changed during the build: y is taken by another file.' ] \
+  && grep -q '^- story 1: was "The file holds the word y\.". y is taken by another file\. Both personas picked x\.$' "$LOCAL/.git/lem/tasks/local-change/pr.md" \
+  && [ "$(field 'd["pushed"]' <<<"$out")" = False ] && [ -f "$LOCAL/x.txt" ] && [ "$(git -C "$LOCAL" log -1 --format=%s main)" = "fix: local-change" ] && [ "$(status_in "$LOCAL" local-change)" = landed ]; then
+  pass "a request with a changed story is not green: its text says so first and shows the change, and a person merges it whatever the settings say; with no remote the base branch is fast-forwarded in the checkout that holds it"
 else
-  fail "local landing: $out"
+  fail "local landing: $err / $out"
+fi
+local_land clean local-change >/dev/null
+
+# No path rule lets a change skip its review: documentation gets one read at the least. A review that no
+# source answered is none; it is started once more, and then the request goes on as not reviewed.
+project --repo "$LOCAL" task-dir guide-change --ask "Say more in the guide." >/dev/null
+tree=$(project --repo "$LOCAL" worktree-dir guide-change)
+git -C "$LOCAL" worktree add -q "$tree" -b docs/guide-change main
+plan_in "$tree" guide-change "no test: a sentence of the guide, which a person reads"
+echo more >> "$tree/docs/guide.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "docs: more"
+project --repo "$tree" state guide-change ready "the report is written" >/dev/null
+local_land start guide-change >/dev/null && local_land base guide-change >/dev/null
+gate=$(local_land gate guide-change)
+out=$(local_land read guide-change)
+early=$(status_of local_land propose guide-change --title "docs: more" --notes "$NOTES")
+quiet='{"kind": "read", "answered": [], "silent": [{"name": "codex", "why": "the model was at capacity"}]}'
+once=$(local_land read guide-change --record "$(record "$quiet")" | field '(d["recorded"]["verdict"], d["next"])')
+twice=$(local_land read guide-change --record "$(record "$quiet")" | field 'd["next"]')
+local_land propose guide-change --title "docs: more" --notes "$NOTES" >/dev/null
+text=$LOCAL/.git/lem/tasks/guide-change/pr.md
+agent=$(local_land land guide-change --by agent 2>&1 || true)
+if [ "$(field '(d["stories"]["ok"], [w["story"] for w in d["stories"]["without_a_test"]])' <<<"$gate")" = "(True, [1])" ] \
+  && [ "$(field '(d["due"], d["floor"])' <<<"$out")" = "('review', 'read')" ] && [ "$early" = 1 ] && [ "$once" = "('not reviewed', 'review')" ] && [ "$twice" = owner ] \
+  && [ "$(sed -n 1p "$text")" = '**Not green.**' ] && [ "$(sed -n 3p "$text")" = '- not reviewed: the review was started twice and no source answered' ] \
+  && grep -q '^- the review, round 1 (one read; no source answered; no answer from codex (the model was at capacity)): not reviewed$' "$text" \
+  && grep -q '^   - no test: a sentence of the guide, which a person reads$' "$text" \
+  && grep -q "^- the stories' tests: 0 pass on the branch and fail on the base commit; 1 story has no test$" "$text" \
+  && grep -q "the request is not green (not reviewed" <<<"$agent"; then
+  pass "a change of documentation only is not proposed without a review; a review that nobody answered is started once more, and after the second the request is proposed as not reviewed, which no agent merges"
+else
+  fail "a documentation change and a review with no answer: $gate / $out / $once / $twice / $agent / $(cat "$text" 2>/dev/null)"
+fi
+local_land land guide-change --by owner >/dev/null && local_land clean guide-change >/dev/null
+
+# The bar: a suppression, a pattern of the project's own, fewer assertions and a deleted test, each refused until the plan gives the file's reason.
+task_in "$LOCAL" bar-change calc.py one
+tree=$(project --repo "$LOCAL" worktree-dir bar-change)
+echo 'import os  # noqa: F401' > "$tree/calc.py" && echo 'test -f calc.py' > "$tree/tests/bar-change.sh" && echo 'puts 1 # rubocop:disable Style/X' > "$tree/x.rb"
+printf '%s\n' 'def test_base():' '    assert 1 + 1 == 2' > "$tree/tests/test_base.py"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: with marks"
+local_land start bar-change >/dev/null && local_land base bar-change >/dev/null
+out=$(local_land gate bar-change 2>/dev/null || true)
+err=$(local_land gate bar-change 2>&1 >/dev/null || true)
+git -C "$tree" rm -q tests/test_base.py && git -C "$tree" commit -q -m "fix: the old test goes"
+gone=$(local_land gate bar-change 2>/dev/null || true)
+if [ "$(field '(sorted((e["file"], e["what"], e["reason"]) for e in d["bar"]["lowered"]), d["bar"]["not_covered"], d["bar"]["own_patterns"])' <<<"$out")" \
+  = "([('calc.py', '# noqa', None), ('tests/test_base.py', '1 assertion(s) fewer', None), ('x.rb', 'rubocop:disable', None)], ['.rb'], 1)" ] \
+  && grep -q "the change lowers the bar with no reason given" <<<"$err" && grep -q "## The bar" <<<"$err" && [ "$(kept_in "$LOCAL" bar-change gated)" = None ] \
+  && [ "$(field 'sorted((e["file"], e["what"]) for e in d["bar"]["lowered"] if e["file"].startswith("tests/"))' <<<"$gone")" = "[('tests/test_base.py', 'a test file is deleted')]" ] \
+  && [ "$(status_of local_land read bar-change)" = 1 ]; then
+  pass "a change that adds a suppression, a mark the project named, fewer assertions or a deleted test is refused until a reason is given, and the result names the kind of file the bar has no marks for"
+else
+  fail "the bar: $out / $err / $gone"
+fi
+plan=$tree/docs/plans/20261115-bar-change.md
+# shellcheck disable=SC2016  # the backticks are the plan's own marks around a path
+printf '%s\n' '' '## The bar' '' '- calc.py: the import registers a plugin.' '- `x.rb`: the cop reads this line wrong.' '- tests/test_base.py: the sum moved to another module with its test.' >> "$plan"
+git -C "$tree" commit -q -am "docs: why the bar is lower"
+out=$(local_land gate bar-change)
+small=$(local_land read bar-change | field 'd["floor"]')
+unsaid=$(local_land read bar-change --record "$CLEAN" 2>&1 || true)
+local_land read bar-change --record "$(record '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}, {"name": "x.rb", "why": "the cop is wrong here."}, {"name": "tests/test_base.py", "why": "the sum and its test are in the other module."}]}')" >/dev/null
+proposed=$(local_land propose bar-change --title "fix: marks" --notes "$NOTES")
+agent=$(local_land land bar-change --by agent 2>&1 || true)
+text=$LOCAL/.git/lem/tasks/bar-change/pr.md
+# shellcheck disable=SC2016
+if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "['the cop reads this line wrong.', 'the import registers a plugin.', 'the sum moved to another module with its test.']" ] \
+  && [ "$small" = read ] && grep -q "the change lowers the bar in calc.py, tests/test_base.py, x.rb and the record says nothing of it" <<<"$unsaid" \
+  && [ "$(field '(d["green"], len(d["not_green"]))' <<<"$proposed")" = "(False, 3)" ] && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
+  && grep -q '^- the bar is lower in `calc.py` (# noqa)\. The builder: the import registers a plugin\. The review: the plugin is loaded by that import\.$' "$text" \
+  && grep -q '^- the bar is lowered, with these reasons:$' "$text" && grep -q '^  - `calc.py` (# noqa): the import registers a plugin\.$' "$text" \
+  && grep -q "^- the bar has no marks of its own for files of these kinds: .rb (the project's 1 pattern(s) in gate.bar were looked for)$" "$text" \
+  && grep -q "the request is not green (the bar is lower in" <<<"$agent" \
+  && [ "$(grep -c '"event": "proposed", "task": "bar-change", "green": false' "$LOCAL/.git/lem/events.jsonl")" = 1 ]; then
+  pass "with a reason for each file in the plan the gate passes, and the request is still not green: the review says what it thinks of each reason, the text opens with each lowered bar, its reason and the review's word, the event log counts it, and no agent merges it"
+else
+  fail "the bar with reasons: $out / $unsaid / $proposed / $agent / $(cat "$text" 2>/dev/null)"
+fi
+# What makes a request large or careful, read from its plan and its paths.
+local_land start bar-change >/dev/null
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("1. The change.", "1. The change.\n2. Its test.\n3. Its page.\n4. Its note."))' "$plan"
+git -C "$tree" commit -q -am "docs: four tasks" && local_land gate bar-change >/dev/null
+large=$(local_land read bar-change | field '(d["floor"], d["why"])')
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n2. Its test.\n3. Its page.\n4. Its note.", "\n\ncareful: yes, a price is rounded here."))' "$plan"
+git -C "$tree" commit -q -am "docs: one task, and careful" && local_land gate bar-change >/dev/null
+said=$(local_land read bar-change | field '(d["floor"], d["why"])')
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n\ncareful: yes, a price is rounded here.", ""))' "$plan"
+mkdir -p "$tree/billing" && echo 'PRICE = 100' > "$tree/billing/price.py" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a price" && local_land gate bar-change >/dev/null
+path=$(local_land read bar-change | field '(d["floor"], d["why"])')
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("## Tasks\n\n1. The change.\n", ""))' "$plan"
+git -C "$tree" commit -q -am "docs: no tasks" && local_land gate bar-change >/dev/null
+err=$(local_land read bar-change 2>&1 || true)
+if [ "$large" = "('round', 'the plan has 4 tasks, more than three')" ] && [ "$said" = "('full', 'the request is careful: the plan says so')" ] \
+  && [ "$path" = "('full', 'the request is careful: billing/price.py is a careful path (billing/*)')" ] && grep -q "has no .## Tasks. section with numbered tasks" <<<"$err"; then
+  pass "a plan of more than three tasks gets a round at the least, a plan that says careful and a careful path get the full set, and a plan with no task list is refused, not taken for a small one"
+else
+  fail "large and careful: $large / $said / $path / $err"
+fi
+project --repo "$LOCAL" state bar-change dropped "the test is over" >/dev/null
+
+# A GitHub remote: the task ends as a pull request. A stand-in for the `gh` command keeps the pull
+# requests in a file and merges in the bare repository, and the remote's address is rewritten to it.
+GHO=$WORK/gh-origin.git
+GHS=$WORK/gh-shop
+git init -q --bare -b main "$GHO"
+git clone -q "$GHO" "$GHS" 2>/dev/null && ident "$GHS"
+git -C "$GHS" config remote.origin.url https://github.com/acme/shop.git
+git -C "$GHS" config "url.$GHO.insteadOf" https://github.com/acme/shop.git
+project --repo "$GHS" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' > "$GHS/.lem/project.toml"
+git -C "$GHS" add -A && git -C "$GHS" commit -q -m "chore: start" && git -C "$GHS" push -q origin main
+mkdir -p "$WORK/bin"
+cat > "$WORK/gh.py" <<'PY'
+import json, os, subprocess, sys
+state_file, origin = os.environ["GH_STATE"], os.environ["GH_ORIGIN"]
+state = json.load(open(state_file)) if os.path.exists(state_file) else {"prs": {}, "calls": []}
+args = sys.argv[1:]
+state["calls"].append(args)
+def opt(name): return args[args.index(name) + 1] if name in args else None
+def rev(ref): return subprocess.run(["git", "-C", origin, "rev-parse", "--verify", "-q", ref], capture_output=True, text=True).stdout.strip()
+out = ""
+if args[:2] == ["pr", "list"]:
+    out = json.dumps([{"number": int(n), "url": pr["url"]} for n, pr in state["prs"].items() if pr["head"] == opt("--head") and pr["state"] == "OPEN"])
+elif args[:2] == ["pr", "create"]:
+    n = str(7 + len(state["prs"]))
+    state["prs"][n] = {"url": "https://github.com/acme/shop/pull/" + n, "head": opt("--head"), "base": opt("--base"), "title": opt("--title"),
+                       "body": open(opt("--body-file")).read(), "state": "OPEN", "merge": None}
+    out = state["prs"][n]["url"]
+elif args[:2] == ["pr", "edit"]:
+    state["prs"][args[2]].update(title=opt("--title"), body=open(opt("--body-file")).read())
+elif args[:2] == ["pr", "view"]:
+    pr = state["prs"][args[2]]
+    out = json.dumps({"state": pr["state"], "headRefOid": rev("refs/heads/" + pr["head"]), "mergeCommit": {"oid": pr["merge"]} if pr["merge"] else None})
+elif args[:2] == ["pr", "merge"]:
+    pr = state["prs"][args[2]]
+    head = rev("refs/heads/" + pr["head"])
+    if opt("--match-head-commit") != head:
+        sys.exit("the head is another commit")
+    subprocess.run(["git", "-C", origin, "update-ref", "refs/heads/" + pr["base"], head], check=True)
+    pr.update(state="MERGED", merge=head)
+else:
+    sys.exit("gh stand-in: no such command: " + " ".join(args))
+json.dump(state, open(state_file, "w"))
+print(out)
+PY
+printf '%s\n' '#!/bin/sh' "exec '$PY' -I '$WORK/gh.py' \"\$@\"" > "$WORK/bin/gh" && chmod +x "$WORK/bin/gh"
+gh_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gh.json" GH_ORIGIN="$GHO" "$PY" -B "$LAND" --repo "$GHS" "$@"; }
+gh_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$WORK/gh.json" "$1"; }
+gh_checked() { gh_land start "$1" >/dev/null && gh_land base "$1" >/dev/null && gh_land gate "$1" >/dev/null; }
+task_in "$GHS" pr-change p.txt nine
+out=$(gh_land start pr-change)
+gh_land base pr-change >/dev/null && gh_land gate pr-change >/dev/null && gh_land read pr-change --record "$CLEAN" >/dev/null
+proposed=$(gh_land propose pr-change --title "fix: nine" --notes "$NOTES")
+tip=$(git -C "$GHS/.lem/worktrees/pr-change" rev-parse HEAD)
+if [ "$(field 'd["forge"]' <<<"$out")" = github ] && [ "$(field 'd["pull_request"]' <<<"$proposed")" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}" ] \
+  && [ "$(status_in "$GHS" pr-change)" = open ] && grep -q "pull request https://github.com/acme/shop/pull/7" "$GHS/.git/lem/tasks/pr-change/state.md" \
+  && [ "$(git -C "$GHO" rev-parse refs/heads/fix/pr-change)" = "$tip" ] \
+  && [ "$(gh_state '(d["prs"]["7"]["title"], d["prs"]["7"]["base"], d["prs"]["7"]["head"], "## The request" in d["prs"]["7"]["body"], "## Not done" in d["prs"]["7"]["body"])')" = "('fix: nine', 'main', 'fix/pr-change', True, True)" ]; then
+  pass "with a GitHub remote the branch is pushed and a pull request is opened with the title and the text, and the task is open with its address"
+else
+  fail "propose with a forge: $out / $proposed / $(cat "$WORK/gh.json" 2>/dev/null)"
+fi
+# A second proposal updates the same pull request: once from what was kept, once after the record of it was lost.
+gh_checked pr-change && gh_land propose pr-change --title "fix: nine, again" --notes "$NOTES" >/dev/null
+"$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d.pop("pr"); json.dump(d, open(sys.argv[1], "w"))' "$GHS/.git/lem/tasks/pr-change/landing.json"
+gh_checked pr-change && gh_land propose pr-change --title "fix: nine, a third time" --notes "$NOTES" >/dev/null
+if [ "$(gh_state '(len(d["prs"]), d["prs"]["7"]["title"], sum(c[:2] == ["pr", "create"] for c in d["calls"]), sum(c[:2] == ["pr", "edit"] for c in d["calls"]))')" = "(1, 'fix: nine, a third time', 1, 2)" ] \
+  && [ "$(kept_in "$GHS" pr-change pr)" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}" ]; then
+  pass "a second proposal changes the pull request that is there, also when the record of it was lost: the forge is asked, and no second one is opened"
+else
+  fail "a second proposal: $(cat "$WORK/gh.json")"
+fi
+out=$(gh_land land pr-change --by agent)
+if [ "$(field '(d["merged"], d["pull_request"]["number"], d["left_behind"])' <<<"$out")" = "('$tip', 7, None)" ] && [ "$(status_in "$GHS" pr-change)" = landed ] \
+  && [ "$(gh_state '[c for c in d["calls"] if c[:2] == ["pr", "merge"]]')" = "[['pr', 'merge', '7', '--match-head-commit', '$tip', '--rebase']]" ] \
+  && [ "$(git -C "$GHS" rev-parse main)" = "$tip" ] && [ -f "$GHS/p.txt" ]; then
+  pass "a pull request is merged through the forge, only at the commit that was proposed, and the main checkout follows"
+else
+  fail "merging a pull request: $out"
+fi
+out=$(gh_land clean pr-change)
+if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(True, 'fix/pr-change')" ] && [ -z "$(git -C "$GHO" branch --list fix/pr-change)" ]; then
+  pass "after the merge the worktree and the branch go, the forge's copy of the branch too"
+else
+  fail "clean after a merged pull request: $out"
+fi
+# The base moves before the merge; then the owner merges on the forge himself, as one commit.
+task_in "$GHS" pr-squashed q.txt ten
+gh_checked pr-squashed && gh_land read pr-squashed --record "$CLEAN" >/dev/null && gh_land propose pr-squashed --title "fix: ten" --notes "$NOTES" >/dev/null
+gh_other=$WORK/gh-other
+git clone -q "$GHO" "$gh_other" && ident "$gh_other"
+echo late > "$gh_other/late.txt" && git -C "$gh_other" add -A && git -C "$gh_other" commit -q -m "feat: late" && git -C "$gh_other" push -q origin main
+err=$(gh_land land pr-squashed --by agent 2>&1 || true)
+early=$(gh_land merged pr-squashed 2>&1 || true)
+git -C "$gh_other" merge -q --squash origin/fix/pr-squashed && git -C "$gh_other" commit -q -m "fix: ten (#8)" && git -C "$gh_other" push -q origin main
+oid=$(git -C "$gh_other" rev-parse HEAD)
+"$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"]["8"].update(state="MERGED", merge=sys.argv[2]); json.dump(d, open(sys.argv[1], "w"))' "$WORK/gh.json" "$oid"
+out=$(gh_land merged pr-squashed)
+cleaned=$(gh_land clean pr-squashed)
+if grep -q "origin/main moved after the checks ran, by files the gate reads (late.txt)" <<<"$err" && grep -q "the pull request is not merged yet" <<<"$early" \
+  && [ "$(gh_state 'sum(c[:3] == ["pr", "merge", "8"] for c in d["calls"])')" = 0 ] \
+  && [ "$(field '(d["merged"], d["left_behind"])' <<<"$out")" = "('$oid', None)" ] && [ "$(status_in "$GHS" pr-squashed)" = landed ] && [ "$(git -C "$GHS" rev-parse main)" = "$oid" ] \
+  && [ "$(field '(d["worktree"], d["branch"])' <<<"$cleaned")" = "(True, 'fix/pr-squashed')" ] && [ -z "$(git -C "$GHS" branch --list fix/pr-squashed)" ]; then
+  pass "a pull request is not merged over a base that moved by files the gate reads; one the owner merged on the forge as one commit is finished by its own step, and its branch goes though the base does not hold its tip"
+else
+  fail "a pull request the owner merged: $err / $early / $out / $cleaned"
 fi
 
 if [ -d "$(dirname "$PROJECT")/__pycache__" ]; then fail "the scripts left no __pycache__"; else pass "the scripts left no __pycache__"; fi

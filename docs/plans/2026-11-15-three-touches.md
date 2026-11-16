@@ -5,6 +5,15 @@ which took it the same day and added "Read against the code" below. This replace
 first, review after" as Lem's default flow. The owner said on 2026-11-15 that it is built
 directly, with a read by the other lab after each part, and not through Lem.
 
+**Amended on 2026-11-16.** The owner read the page of this flow and sent eleven notes;
+`2026-11-15-three-touches/amendment-2026-11-16.md` holds them, with his words and with what the
+design session built from them. Where this file and the amendment differ, the amendment holds.
+It changes tasks 2, 3, 4, 5 and 8 below and adds two: the polish pass (9) and the documentation
+task (10). In short: the usual request has an interview and then his approval of the stories;
+the review before the pull request is routed by an agent, from one read to the project's full
+set, and no path rule skips it; a review in which a source did not answer counts; a decision in
+the build waits for him 15 minutes at most; and the pull request opens with green or not green.
+
 ## Why
 
 The owner chose "build first, review after" on 2026-11-14 from the convertiser-server
@@ -244,6 +253,25 @@ standing rule of Lem does not carry the flow as written, with what the build doe
 8. **The task states** (`project.py`, `STATES`) follow landings: `ready`, `landing`, `landed`.
    The touches need a state for stories that wait for the owner, for the read, and for an open
    pull request. Task 8 names them; until then the old names stand.
+
+9. **The amendment's review is routed by an agent, and the script holds only its floor**
+   (2026-11-16). `land.py read` prints the floor (the full set for a careful request; a round at
+   the least for a plan of more than three tasks and after a must-fix), the reviewer's inputs
+   and the folder of the review tool. The fresh agent of point 4 chooses within that and writes
+   the record `land.py read --record` takes: the kind, each profile or lens it ran or left out
+   with why, who answered. What a profile is for is the `description:` line the review tool's
+   own files have, so no field was invented. "Two rounds at most" stays from the flow above.
+10. **Green is computed by the script**, from what the steps kept: the checks passed with the
+    bar where it was, the last review answered and left no must-fix for this exact change, no
+    story changed. A lowered bar with a stated reason is not green: the design session decided
+    that on 2026-11-16 and told the owner as its own. Its line holds the builder's reason and
+    what the review said of it. "No decision taken by timeout" joins with task 3.
+11. **The pull request is opened on GitHub only.** Nobody here could check GitLab's command, so
+    a GitLab remote gets a branch marked ready, like a repository with no forge, and
+    `docs/backlog/` holds the item.
+12. **An out-of-scope defect is filed, not offered**: the closing pass commits the item in the
+    backlog folder on the task's branch, so it arrives with the pull request, which lists it.
+    The `proposed/` folder of a task and the offer in the status are gone.
 
 ## Not decided here
 

@@ -5,26 +5,30 @@ description: "Lem coordinates the work of coding agents in one repository: `/lem
 
 # Lem
 
-One command carries a unit of work from the ask to a landed, reviewed change, the same way in
-every repository. What differs between repositories is in the repository: its settings file names
+One command carries a unit of work from the ask to a pull request that says whether it is green,
+the same way in every repository. What differs between repositories is in the repository: its settings file names
 the style guide, the personas, the review configuration, the lessons, the checks that gate a
 landing and the paths that need more care. This skill holds the flow and knows no project.
 
-The flow builds first and reviews after. A plan argued before the build and a review of each task
-before the next make few defects and little progress: in one repository three days of that loop
-produced 37 commits, none in the application (convertiser-server, measured 2026-11-13). The same
-repository then landed 67 branches in about 28 hours with one coordinator and about five builders.
-The price is known too. Per-task review found a must-fix on 184 of 414 tasks in another repository
-(mybaze, 2026-11-11), so those defects now land and wait for the review, and after those 28 hours
-43 of 48 review items were still open. Two rules below pay that price down: the project's
-careful paths keep the slow flow, and the review queue is honest: a high-risk landing is reviewed
-the day it lands, and a change nobody read is closed as "not reviewed" and counted.
+The owner is a developer whose attention is short, so the flow asks for it at few places: the
+interview when the ask is unclear, the stories, which are the contract in plain language and
+become the tests, and the pull request, which he merges without a read when it is green. Between
+those a task builds without him. Before a change is proposed it passes the machine checks and a
+review by an agent that did not build it, as large as the change needs. Nothing is reviewed after
+the merge: in one repository 43 of 48 reviews queued after the landing were still open about 28
+hours later (convertiser-server, 2026-11-14). And nothing is argued task by task: three days of a
+plan argued before the build and a review of each task produced 37 commits, none in the
+application (the same repository, measured 2026-11-13). The price of one review at the end is
+not measured: a review of each task found a must-fix on 184 of 414 tasks in another repository
+(mybaze, 2026-11-11), and nobody sorted those into defects a user would meet and the rest. So
+the event log keeps each review's rounds and counts, and each request that was not green with
+its reason.
 
 ## Two levels
 
 **Lem** is the one session of a repository in which the owner types `/lem`. It takes the asks,
-opens the tasks, starts each task's lead, lands one branch at a time, queues the reviews and
-reports to the owner. It holds no task's details. Of a task it reads three things: the ask it wrote
+opens the tasks, starts each task's lead, takes one branch at a time through the checks and the
+review to a pull request, and tells the owner. It holds no task's details. Of a task it reads three things: the ask it wrote
 down, the newest state block and the report file. It does not read the plan's reasoning, the diff
 or what a builder printed, and it writes no code. Lem is the only context that knows every
 task. When it fills with one task's code, it loses the others.
@@ -75,7 +79,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read | `stages/new.md` |
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state | `stages/new.md` |
-| `land` | the oldest ready task: the gate runs; it lands or waits for the owner; a review item is queued | `stages/land.md` |
+| `land` | the oldest ready task: the machine checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge. `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `review [ID]` | works the review queue by risk, or the one item named; confirmed findings become tasks | `stages/review.md` |
 | `annotate <file>` | opens a plan, a draft or any text file for the owner to mark up, with what the settings' `tools.annotate` names, and takes his notes as corrections | the harness file, `show-page` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
@@ -96,12 +100,12 @@ the payment provider for a sandbox key" is a task. When you cannot tell which
 of the two a line is, ask the owner once in the terminal, in one line, before anything runs: a
 skill such as `lem-release` changes files.
 
-A task runs on from `new` to its landing without the owner, unless a stage file names a stop.
+A task runs on from `new` to its pull request without the owner, unless a stage file names a stop.
 Between two of the owner's messages Lem only waits: a lead that stops wakes it.
 
 ## What holds in every stage
 
-- **The owner is needed at three points.** The ask (`new`), a held decision, and the report.
+- **The owner is needed at three points.** The ask (`new`), a held decision, and the pull request.
   A held decision is one whose options each cost a person something and that no ruling, test or
   probe answers; it goes through the question gate and the persona panel before the owner sees
   it. The panel asks the project's own personas, which every project of Lem has. Every other decision is yours: decide from the code, the settings and the rulings, write it
@@ -164,8 +168,9 @@ worktree, never committed and not removed with a worktree. It holds:
 - `decisions.md`: one line per decision taken without the owner, and each answer the owner gave.
   Lem and the lead both write it.
 - `reports/`: one file per builder of a plan of more tasks. Lem does not read these.
-- `landing.json`, `gate/` and `proposed/`: what the landing keeps: its own record, the output of
-  each gate command, and the backlog items the closing pass proposes.
+- `landing.json`, `gate/`, `read.json`, `reviews/`, `notes.md` and `pr.md`: what the landing
+  keeps: its own record, the output of each gate command, what each review was given and what
+  it found, Lem's notes for the pull request, and the text of the pull request.
 
 The plan itself is a file in the repository, in the settings' `plans` path.
 
@@ -186,11 +191,12 @@ and before you stop. The status says who acts next:
 | `queued` | the ask is written and no lead runs: the limit was reached | Lem, when a lead stops |
 | `building` | a lead plans or builds | the lead |
 | `planned` | the plan is committed and nothing builds it | Lem opens a session, or the owner reads the plan |
-| `held` | it waits for the owner: a held decision, or a landing that is the owner's | the owner, through Lem |
+| `held` | it waits for the owner: a held decision | the owner, through Lem |
 | `blocked` | the lead stopped on something it could not settle | Lem |
-| `ready` | the report is written and the branch waits for its landing | Lem |
-| `landing` | the gate runs on it, or a builder repairs what the gate showed | Lem |
-| `landed` | it is on the base branch and its review is queued | nobody |
+| `ready` | the report is written and the branch waits for its checks | Lem |
+| `landing` | the checks and the review run on it, or a builder repairs what they showed | Lem |
+| `open` | it is proposed: a pull request is open, or the branch is ready to land | the owner merges; Lem, where the project lets an agent merge a green request |
+| `landed` | it is on the base branch | nobody |
 | `drafted` | a plan written at night that waits for the owner's word | the owner |
 | `dropped` | nobody will build it | nobody |
 
@@ -242,15 +248,9 @@ Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists e
 directory with the first line of its `task.md`, its status and the newest block of its
 `state.md`. Say, in plain names and never in task codes: what builds and what each other task
 waits on, what landed today, how many review items are open and how many are due today, and what
-waits for the owner. That includes each backlog item a landing proposed and he has not answered
-(`proposed` in the output, with the file in the task directory's `proposed/`): offer it again,
-by what it says. A task whose status is null has a state nobody wrote through the script: say
+waits for the owner. That includes each `open` task: its pull request's address, or that its
+branch is ready to land, and green or the reasons it is not, as the newest state block has
+them. A task whose status is null has a state nobody wrote through the script: say
 so. A task with a `ticket_owed` ended, and its ticket in the tracker does not say so yet: say
 that too. Open with the newest night report when one is newer than the last status shown. The status
 itself changes nothing.
-
-The owner's answer to a proposed item ends the offer, in whichever session it comes. An item he
-takes goes to the `lem-backlog` skill, which files it, and then its file leaves `proposed/`; the
-board's backlog tab shows it after the next `board.py` run. An
-item he declines is removed from `proposed/`. An item with no answer stays, and the next status
-offers it again.

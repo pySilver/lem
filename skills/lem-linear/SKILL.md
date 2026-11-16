@@ -132,13 +132,13 @@ With `moves = "tracker"`, write nothing: Linear moves the ticket itself.
 
 ## land
 
-After the task's state is `landed` (`stages/land.md`). With `branch.land = "owner"`, after the
-owner says that it landed, and not before.
+After the task's state is `landed` (`stages/land.md`), which the landing writes when the pull
+request is merged or the ready branch is on the base branch, and not before.
 
 1. The workspace test, and the connection's `access` allows a write.
 2. Unless `commented` is written down, or a comment on the ticket ends with `lem: SLUG landed`:
-   `save_comment` on the ticket, in plain words: what the owner gets, the landed range and the
-   base branch, the last line of each gate command, and the review item's risk. A decision Lem
+   `save_comment` on the ticket, in plain words: what the owner gets, the pull request's address or the landed range, the
+   base branch, and the last line of each gate command. A decision Lem
    took alone is written as Lem's ("decided without the owner: ..."), never as his. Its last
    line is `lem: SLUG landed`. Then write the step `commented` down.
 3. With `moves = "lem"`, unless `landed` is written down: `save_issue` with the status the

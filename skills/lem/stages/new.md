@@ -76,11 +76,10 @@ fixed choice, so it stays in the terminal. One such task needs no question.
 The owner may say that a task is careful, at any time before its landing, whatever its lead
 called it. At once, add the line `careful: the owner says so` to the task's brief, and write his
 words in `decisions.md`. The brief is what holds it: whoever reads the task's next stop reads
-that line, also a Lem that started after this one, and `land.py start` refuses the task until
-one of its states says `careful: read by a session`, which a session's lead writes with `ready`. A task that still builds finishes its
-build. When a builder led it and it stops as `ready`, it does not go to the landing: change the
-brief to `lead: session` and start a lead. The session gets the second opinion on the plan and
-a review of what was built, and writes `ready` again.
+that line, also a Lem that started after this one, and the landing reads it too: the change
+gets the project's full review set, its notes say whether it holds a migration, and a person
+merges it whatever the settings say (`stages/land.md`). A task that still builds finishes its
+build and goes to the landing like any other; nothing is built again for the word.
 Then ask what the owner's word was about, when it is not plain. A topic or a path the settings
 already name, which the lead read wrong, is a lesson about that judgment (`stages/learn.md`).
 Something no setting names may be a rule for later tasks or a wish for this one task: only the
@@ -138,9 +137,7 @@ when this happens.
 
 Act on the status:
 
-- **`ready`**: when the brief holds `careful: the owner says so` and no state of the task says
-  `careful: read by a session`, it goes to a session first, as "The owner may say that a task is careful" above says. Otherwise
-  the task joins the landing line. Run `stages/land.md` when no task is in
+- **`ready`**: the task joins the landing line. Run `stages/land.md` when no task is in
   `landing`; a `ready` task waits there in the order of its state's time.
 - **`planned`**: the report says why the lead stopped at the plan.
   - *It needs a session* (the plan is careful): change the brief to `lead: session`, and start

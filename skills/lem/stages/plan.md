@@ -19,11 +19,17 @@ by line before the build.
      feature. The owner may overrule the call, as he may the careful one;
    - run `python3 SKILL_DIR/scripts/stories.py record SLUG`: it refuses a section that does not
      have the form, and it puts the stories where the board and Lem's status show them;
-   - the tasks, one to seven, each an outcome a reviewer can check alone and one builder can
-     finish in a context of its own, with the stories it serves and the files it expects to
-     touch;
+   - `## Tasks`: a numbered list of one to seven tasks, each an outcome a reviewer can check
+     alone and one builder can finish in a context of its own, with the stories it serves and
+     the files it expects to touch. The landing counts the numbered lines under that heading:
+     a plan of more than three gets a review round at the least, and a plan with no such list
+     is refused there;
    - the decisions the plan takes, each with the answer it assumes and what the answer rests on;
-   - what it will not verify, and why.
+   - what it will not verify, and why;
+   - `## The bar`, only when the change has to lower it (a lint or type suppression, a skipped
+     or deleted test, fewer assertions in a test): one line for each such file, `- PATH: REASON`.
+     The landing refuses a lowered bar with no reason, and with one the pull request is not
+     green: the owner reads that line himself. So lower it only where the mark is right.
    Before writing, read the style guide files that cover the files the plan touches and the
    project's lessons (`project.py path lessons`). `python3 SKILL_DIR/scripts/project.py rules
    FILE ...` prints those style guide files, the ones with no scope of their own too: do not

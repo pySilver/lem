@@ -125,14 +125,15 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   queued    the ask is written and no lead runs yet: the limit was reached
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs a session, or the owner reads it
-#   held      it waits for the owner: a held decision, or a landing that is the owner's
+#   held      it waits for the owner: a held decision
 #   blocked   the lead stopped on something the coordinator has to settle
-#   ready     the report is written and the branch waits for its landing
-#   landing   the gate runs on it, or a builder repairs what the gate or the base showed
-#   landed    it is on the base branch and its review is queued
+#   ready     the report is written and the branch waits for its checks
+#   landing   the checks and the read run on it, or a builder repairs what they or the base showed
+#   open      it is proposed: a pull request is open, or the branch is ready to land, and it waits for the merge
+#   landed    it is on the base branch
 #   drafted   a plan written at night that waits for the owner's word
 #   dropped   nobody will build it
-STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "landed", "drafted", "dropped")
+STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "drafted", "dropped")
 # The states in which the task loads the machine: a lead builds, or the gate runs and a builder may
 # repair a conflict or a red gate.
 RUNNING = ("building", "landing")
@@ -145,7 +146,7 @@ MAX_TASKS = 4
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
     "branch": ("base", "land", "history", "protected"),
-    "gate": ("commands", "ignores", "setup"),
+    "gate": ("commands", "ignores", "setup", "bar"),
     "flow": ("careful", "topics", "max_tasks"),
     "seats": ("reviewer",),
     "tools": tuple(TOOLS),
@@ -271,6 +272,16 @@ def nearest(key: str, valid: tuple[str, ...]) -> str:
 def strings(value: object, where: str) -> list[str]:
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise SettingsError(f"{where} must be a list of strings")
+    return value
+
+
+def patterns(value: object, where: str) -> list[str]:
+    """A list of regular expressions, each one read here so that a wrong one is named where it is written."""
+    for item in strings(value, where):
+        try:
+            re.compile(item)
+        except re.error as error:
+            raise SettingsError(f"{where}: {item!r} is not a regular expression ({error})") from error
     return value
 
 
@@ -454,6 +465,7 @@ def load(root: Path) -> dict:
             "commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands"),
             "ignores": strings(raw.get("gate", {}).get("ignores", []), "gate.ignores"),
             "setup": strings(raw.get("gate", {}).get("setup", []), "gate.setup"),
+            "bar": patterns(raw.get("gate", {}).get("bar", []), "gate.bar"),
         },
         "flow": {
             "careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"),
@@ -967,6 +979,21 @@ def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> l
     return [step for step in wanted if step not in steps]
 
 
+def proposal(directory: Path) -> dict | None:
+    """What `land.py propose` kept for a task: the pull request's address, when there is one, and green or the reasons it is not."""
+    kept_file = directory / "landing.json"
+    if not kept_file.is_file():
+        return None
+    try:
+        kept = json.loads(kept_file.read_text(encoding="utf-8"))
+    except ValueError as error:
+        raise SettingsError(f"{kept_file} does not read as JSON ({error}); it is the landing's own record, written by land.py") from error
+    if not kept.get("proposed"):
+        return None
+    reasons = kept.get("not_green", [])
+    return {"pull_request": (kept.get("pr") or {}).get("url"), "green": not reasons, "not_green": reasons}
+
+
 def read_tasks(root: Path) -> list[dict]:
     tasks = []
     parent = state_root(root) / "tasks"
@@ -988,9 +1015,8 @@ def read_tasks(root: Path) -> list[dict]:
             "status": first["status"] if known else None,
             "since": first["since"] if known else None,
             "state": block,
-            # backlog items a closing pass proposed and the owner has not answered: they wait for
-            # him also after the session that offered them is gone
-            "proposed": sorted(f.name for f in (directory / "proposed").iterdir() if f.is_file()) if (directory / "proposed").is_dir() else [],
+            # what the landing proposed to the owner, for the status and the board: where, and green or why not
+            "proposal": proposal(directory),
         })
     if any(task["ticket"] for task in tasks):
         # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly

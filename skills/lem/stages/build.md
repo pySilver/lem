@@ -100,17 +100,13 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   decision". Leave the heading out when there is none;
 - **outside defects**: each defect seen in code outside the task, with its file and one line on
   what is wrong. Do not fix it and do not file it: the closing pass of the landing fixes the
-  small ones in place and proposes the others to the owner (`stages/land.md`, step 3);
-- **review risk**: `high` when the task was careful, or touches authentication, money, a
-  migration, a security boundary or the gate's own tooling; `normal` otherwise. One line says
-  which of these it was;
+  small ones in place and files the others in the backlog (`stages/land.md`, step 3);
+- **worth a look**: up to three places of the change a person's eye is worth, each with why;
+  and, for a careful task, whether the change holds a migration and how to revert it. Lem
+  copies these into the pull request;
 - **the commit subject**: one semantic line for the whole task (`type(scope): subject`). Lem
   uses it when the project lands a task as one commit;
 - **the branch and its tip**: the branch's name and the commit `git rev-parse HEAD` prints.
-
-A session's lead adds the line `careful: read by a session` to its `ready` block, after the
-second opinion on the plan and the review of each task: the landing asks for that line when
-the owner called the task careful.
 
 Then write the state (`ready`, or `held`, `blocked` or `planned` with the line that says why),
 and tell Lem. A builder's reply is the report's path and nothing else. A session uses

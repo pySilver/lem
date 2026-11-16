@@ -1,33 +1,96 @@
 #!/usr/bin/env python3
-"""Land one task's branch on the project's base branch, one step at a time.
+"""Take one task's branch from `ready` to a pull request and to the base branch, one step at a time.
 
-Lem lands one branch at a time. Each step here is one command, prints JSON, and refuses with
-exit 1 and the reason when the step may not run; nothing is retried and nothing is forced. Every
-step first asks `project.py may-land` about the settings' base branch, so a protected branch is
-never reached, whoever asks.
+Nothing reaches the base branch without the machine checks and a review by an agent that did not
+build it, and a task ends as a pull request. Each step here is one command, prints JSON, and
+refuses with exit 1 and the reason when the step may not run; nothing is retried and nothing is
+forced. Every step first asks `project.py may-land` about the settings' base branch, so a
+protected branch is never reached, whoever asks.
 
     land.py start SLUG     the task takes the landing line: its state becomes `landing`
     land.py base SLUG      bring the base branch in by a rebase; a conflict is reported, not resolved
-    land.py gate SLUG      run every gate command on the tip, each with its output in a file
-    land.py land SLUG --risk high|normal [--message SUBJECT]
-                           put the gated tip on the base branch and queue its review
-    land.py clean SLUG     remove the task's worktree and its branch after the landing
+    land.py gate SLUG      the machine checks on the tip: every gate command, each story's tests,
+                           the bar, the size
+    land.py read SLUG      whether a review is due, the least it may be, and what a reviewer gets
+    land.py read SLUG --record FILE
+                           write down what the review was and what it found
+    land.py propose SLUG --title SUBJECT --notes FILE
+                           open the pull request, or mark the branch ready where the remote is not
+                           GitHub: the state becomes `open`
+    land.py land SLUG --by owner|agent [--message SUBJECT]
+                           merge the pull request, or put a ready branch on the base branch
+    land.py merged SLUG    the owner merged the pull request on the forge: finish the bookkeeping
+    land.py clean SLUG     remove the task's worktree and its branch after the merge
 
 What each step keeps for the next is in `landing.json` in the task's directory: the task's
-branch, the base it was rebased on, and the commit and tree the gate passed on. `land` lands only
-that tree: when the tip is another tree than the gate saw, or the base moved by more than the
-paths the settings' `gate.ignores` name, it refuses and says to run `base` and `gate` again.
+branch, the base it was rebased on, the commit and tree the checks passed on, each review, and
+the pull request.
+
+The machine checks have no model in them. `gate` runs the settings' `gate.commands`, then
+`stories.py red` (each story's tests pass on the branch and fail on the base commit), then the
+bar. A change lowers the bar when it adds a lint or type suppression or a skipped test, deletes
+a test file, or leaves fewer assertions in one (counted by the words `assert` and `expect` on the
+lines it adds and removes); it passes only with a reason for that file under `## The bar` in the
+task's plan, as `- PATH: REASON`. The marks looked for are those of Python, JavaScript and
+TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `gate.bar` patterns for any
+file that is not a document. A changed file of another language gets no such check, and the
+result says which (`not_covered`). The size of the change is counted, for the reviewer.
+
+A review comes before anything is proposed. There are three kinds: one read by one agent, for a
+small and simple change; a round of the project's review tool with the profiles that fit the
+change; the project's full set. Which one a change gets, and which profiles fit it, is the
+judgment of the agent that starts the review, from the diff and from what each profile is for:
+no code and no list of words decides it. This script holds only the floor that no judgment goes
+under: the full set for a careful request (a careful path, the plan's own `careful: yes`, or the
+owner's word in the brief), and a round at the least for a plan of more than three tasks and
+after a review that found a must-fix.
+
+The record of a review is a JSON file:
+
+    {"kind": "read" | "round" | "full",
+     "ran": [{"name": PROFILE, "why": WHY IT FITS THIS CHANGE}],
+     "left_out": [{"name": PROFILE, "why": WHY IT DOES NOT}],
+     "answered": [SOURCE, ...],
+     "silent": [{"name": SOURCE, "why": WHAT STOPPED IT}],
+     "bar": [{"name": FILE, "why": WHAT THE REVIEW SAYS OF THE REASON GIVEN FOR IT}],
+     "must_fix": N, "should": N, "nit": N}
+
+`bar` has one entry for each file in which the change lowers the bar, and is left out otherwise.
+
+A review in which a source did not answer is still a review: the record names who answered and
+who did not. One in which nobody answered is none; it is started once more, and a second such
+record sends the request on as not reviewed. A review is of a change, known by the id git gives
+its patch, so a rebase that changes nothing does not undo it. Two rounds at most: after that the
+request is proposed as it is.
+
+`propose` writes the text of the pull request to `pr.md` in the task's directory, from what the
+steps kept and from the notes file, whose headings it checks. The text opens with green or not
+green. Green says that the machine checks passed with the bar where it was, a review with at
+least one source left no must-fix, and no story changed during the build. A lowered bar is not
+green with a reason either: its line holds the builder's reason and what the review said of it.
+Each reason a request is not green stands before everything else, one line each. With a GitHub remote `propose` pushes the task's branch
+and opens the pull request with the `gh` command; a second run updates it. With any other
+remote, or none, the branch is marked ready. GitLab is not built: nobody checked its command.
+
+`land --by owner` is the owner's word. `land --by agent` is refused unless the settings'
+`branch.land` is `agent`, and then still for a careful request and for one that is not green. A
+pull request is merged through the forge, so the forge's own rules hold; `merged` is for one the
+owner merged himself. What lands is the tree the checks passed on: when the tip is another tree,
+or the base moved by more than the paths the settings' `gate.ignores` name, `land` refuses and
+says which steps run again.
 
 A step that was cut off is run again. `land` writes down the commit it is about to put on the base
-before it does, so a second run that finds that commit on the base only finishes the bookkeeping:
-the review item and the state. `clean` knows the branch from `landing.json`, so it finds it after
-the worktree is gone.
+before it does, so a second run that finds that commit on the base only finishes the bookkeeping.
+`clean` knows the branch from `landing.json`, so it finds it after the worktree is gone.
 
-The landing is a fast-forward and nothing else. With a remote named `origin` the tip is pushed to
-the base branch there with a plain push, which the remote refuses when someone else pushed first;
+The landing of a ready branch is a fast-forward and nothing else. With a remote named `origin`
+the tip is pushed to the base branch there with a plain push, which the remote refuses when
+someone else pushed first;
 then the checkout that holds the base branch is fast-forwarded when it is clean, and left alone
-with a note when it is not. With no remote, the base branch itself is fast-forwarded. A branch is
-never force-pushed and a ref is never moved behind a checkout's back.
+with a note when it is not. With no remote, the base branch itself is fast-forwarded. The base
+branch is never force-pushed and a ref is never moved behind a checkout's back. The task's own
+branch on the forge is the one ref pushed with force, and with a lease: a rebase rewrites it,
+and a commit somebody else pushed there stops the push.
 """
 
 from __future__ import annotations
@@ -41,12 +104,42 @@ if sys.version_info < (3, 11):
 import argparse
 import fnmatch
 import json
+import re
+import shutil
 import subprocess
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
-RISKS = ("high", "normal")
-HISTORY = ("keep", "squash")
+BY = ("owner", "agent")
+# The review a change gets, from the least to the most: one read by one agent, a round of the
+# project's review tool with the profiles that fit the change, the project's full set.
+KINDS = ("read", "round", "full")
+KIND_SAYS = {"read": "one read", "round": "a review round with the profiles that fit", "full": "the project's full set"}
+# The line Lem writes into a task's brief when the owner says that the task is careful.
+OVERRULED = "careful: the owner says so"
+# How many changed lines one reader takes as one piece; a larger change is read task by task, in
+# the plan's own cuts. A guess (2026-11-15), not a measurement.
+READ_AT = 800
+# The headings the notes of a pull request hold, in this order: what only the one who read the
+# task's report can say.
+NOTES = ("## Decisions", "## Left open", "## Worth a look", "## Filed in the backlog", "## Not done")
+# A document may quote a mark of the bar, the plan's own reason for one too: no mark is looked for in these.
+DOCS = (".md", ".rst", ".adoc")
+# The marks by which a change lowers the bar, for the languages whose tools read them. Chosen by
+# the session that built this check (2026-11-15) from those tools' own syntax; not measured.
+BAR = {
+    (".py",): (r"#\s*noqa", r"#\s*type:\s*ignore", r"#\s*pyright:\s*ignore", r"#\s*pylint:\s*disable", r"@pytest\.mark\.(skip|xfail)", r"@unittest\.skip", r"pytest\.skip\("),
+    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\b(it|test|describe)\.skip\(", r"\bx(it|describe)\("),
+    (".go",): (r"//\s*nolint", r"\bt\.Skip\("),
+    (".rs",): (r"#\[allow\(", r"#\[ignore\]"),
+    (".java", ".kt"): (r"@Disabled", r"@Ignore", r"@SuppressWarnings"),
+    (".sh", ".bash"): (r"#\s*shellcheck\s+disable",),
+}
+# Files that are neither code nor documentation: no language's marks apply, and none is missed.
+DATA = (".txt", ".json", ".toml", ".yaml", ".yml", ".lock", ".cfg", ".ini", ".csv", ".tsv", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".html", ".css", ".xml", "")
+# An assertion, as far as a line shows one: the word a test framework uses for it.
+ASSERTS = re.compile(r"\b(assert|expect)", re.IGNORECASE)
+TEST_FILE = re.compile(r"(^|/)(tests?|spec|specs|__tests__)/|(^|/)test_[^/]*$|_test\.[A-Za-z0-9]+$|\.(test|spec)\.[A-Za-z0-9]+$")
 
 
 class LandError(Exception):
@@ -104,6 +197,9 @@ class Task:
         self.remote = git(self.main, "remote", "get-url", "origin", check=False) != ""
         self.onto = f"origin/{self.base}" if self.remote else str(self.base)
         self.kept_file = self.directory / "landing.json"
+        # The address as the repository has it, before any rewrite of it: the forge is known by its host.
+        url = git(self.main, "config", "--get", "remote.origin.url", check=False)
+        self.forge = "github" if re.match(r"(https://|ssh://git@|git@)github\.com[:/]", url) else None
 
     def need_worktree(self) -> None:
         if not (self.worktree / ".git").exists():
@@ -130,29 +226,11 @@ class Task:
             git(self.main, "fetch", "origin", str(self.base))
 
 
-# The line Lem writes into a task's brief when the owner says that the task is careful, and the
-# line a session's lead puts into its `ready` state block after the reviewer's read.
-OVERRULED = "careful: the owner says so"
-READ = "careful: read by a session"
-
-
 def cmd_start(task: Task) -> dict:
     if task.others_landing:
         raise LandError(f"{task.others_landing[0]} is in `landing`: one branch lands at a time, so finish that one first")
-    if task.record["status"] not in ("ready", "landing"):
-        raise LandError(f"the task is {task.record['status']!r}; only a `ready` task takes the landing line")
-    # The owner's word that a task is careful holds whoever starts the landing, and however. The
-    # proof that a session read the task is in its states, which only a lead that finished writes:
-    # a brief that already says `lead: session` proves only that someone meant to start one.
-    def lines(name: str) -> list[str]:
-        file = task.directory / name
-        return [line.strip() for line in file.read_text(encoding="utf-8", errors="replace").splitlines()] if file.is_file() else []
-
-    if OVERRULED in lines("brief.md") and READ not in lines("state.md"):
-        raise LandError(
-            f"the owner called this task careful (`{OVERRULED}` in its brief) and no state of it says `{READ}`: "
-            "put `lead: session` into the brief and start a lead, as stages/new.md says; a session's lead writes that line with `ready` after the reviewer's read",
-        )
+    if task.record["status"] not in ("ready", "landing", "open"):
+        raise LandError(f"the task is {task.record['status']!r}; only a `ready` task, or an `open` one whose base moved, takes the landing line")
     if not task.settings["gate"]["commands"]:
         task.state("blocked", "the project has no gate command")
         raise LandError(
@@ -160,12 +238,17 @@ def cmd_start(task: Task) -> dict:
             "Add the commands to gate.commands in .lem/project.toml",
         )
     task.need_worktree()
-    if task.record["status"] != "landing":
+    if task.record["status"] == "ready":
+        # A task that was built further starts over, with new checks and new reads. Its pull request stays its own.
+        pr = task.kept().get("pr")
         task.kept_file.unlink(missing_ok=True)
+        if pr:
+            task.keep(pr=pr)
+    if task.record["status"] != "landing":
         # kept here because `clean` needs the branch after the worktree, which names it, is gone
         task.keep(branch=git(task.worktree, "branch", "--show-current"))
-        task.state("landing", "the landing starts")
-    return {"task": task.slug, "base": task.base, "worktree": str(task.worktree), "remote": task.remote}
+        task.state("landing", "the checks start" if task.record["status"] == "ready" else "the base moved: the checks run again")
+    return {"task": task.slug, "base": task.base, "worktree": str(task.worktree), "remote": task.remote, "forge": task.forge}
 
 
 def cmd_base(task: Task) -> dict:
@@ -190,6 +273,88 @@ def cmd_base(task: Task) -> dict:
     # a new base or a new tip means the gate's last result is about another tree
     task.keep(base=onto, gated=None, tree=None)
     return {"task": task.slug, "onto": task.onto, "base": onto, "tip": tip, "moved": tip != before, "ahead": ahead}
+
+
+def stories_of(task: Task) -> dict:
+    """The task's stories and its plan, through the one script that reads them."""
+    return json.loads(script("stories.py", task.main, "show", task.slug).stdout)
+
+
+def change(task: Task) -> dict:
+    """The change as the branch holds it now: its two ends, its files, its size, and the id of its patch."""
+    tip = git(task.worktree, "rev-parse", "HEAD")
+    base = git(task.worktree, "merge-base", tip, task.onto)
+    diff = run(["git", "-C", str(task.worktree), "diff", "--no-renames", base, tip]).stdout
+    patch = subprocess.run(["git", "patch-id", "--stable"], input=diff, capture_output=True, text=True, check=False).stdout.split()
+    counted = git(task.worktree, "diff", "--numstat", "--no-renames", base, tip).splitlines()
+    lines = sum(int(n) for row in counted for n in row.split("\t")[:2] if n.isdigit())
+    return {"tip": tip, "base": base, "files": changed(task, base, tip), "patch": patch[0] if patch else "", "lines": lines}
+
+
+def careful(task: Task, files: list[str], plan: str) -> list[str]:
+    """Each reason for which this request is careful; none when it is not."""
+    why = []
+    brief = task.directory / "brief.md"
+    if brief.is_file() and OVERRULED in [line.strip() for line in brief.read_text(encoding="utf-8", errors="replace").splitlines()]:
+        why.append("the owner says so")
+    if re.search(r"(?mi)^careful:\s*yes\b", plan):
+        why.append("the plan says so")
+    if files:
+        matched = json.loads(script("project.py", task.worktree, "careful", *files).stdout)["careful"]
+        if matched:
+            why.append(f"{matched[0]['file']} is a careful path ({matched[0]['pattern']})")
+    return why
+
+
+def tasks_of(plan: str) -> int:
+    """How many tasks the plan has: the numbered lines, or numbered headings, under its `## Tasks` heading."""
+    section = re.search(r"(?ms)^##\s+Tasks\b[^\n]*$(.*?)(?=^##\s|\Z)", plan)
+    count = len(re.findall(r"(?m)^(?:###\s+)?\d+\.\s", section.group(1))) if section else 0
+    if not count:
+        # no quiet default: the count decides which read the change gets
+        raise LandError("the task's plan has no `## Tasks` section with numbered tasks, and their count decides which read the change gets; the lead writes the section")
+    return count
+
+
+def bar(task: Task, base: str, tip: str, plan: str) -> dict:
+    """Where the change lowers the bar, each with the reason the plan gives for that file, or none."""
+    extra = [re.compile(pattern) for pattern in task.settings["gate"]["bar"]]
+    section = re.search(r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)", plan)
+    reasons = {found.group(1).strip(): found.group(2).strip() for found in re.finditer(r"(?m)^-\s+`?([^`:\n]+?)`?:\s+(\S.*)$", section.group(1))} if section else {}
+    lowered: list[dict] = []
+    asserts: dict[str, int] = {}
+    file = ""
+    # -M: a file that moved is one file, so its tests are not counted as gone and come again
+    for line in git(task.worktree, "diff", "-U0", "-M", base, tip).splitlines():
+        if line.startswith("+++ "):
+            file = line[6:] if line.startswith("+++ b/") else ""
+            if Path(file).suffix.lower() in DOCS:
+                # a document may quote a mark, the plan's own reason for one too
+                file = ""
+        elif line.startswith("--- ") or not file:
+            continue
+        elif line.startswith("+"):
+            marks = [*extra, *(re.compile(mark) for suffixes, found in BAR.items() if Path(file).suffix.lower() in suffixes for mark in found)]
+            hit = next((mark.search(line[1:]) for mark in marks if mark.search(line[1:])), None)
+            if hit:
+                lowered.append({"file": file, "what": hit.group(0), "line": line[1:].strip()[:160]})
+            if TEST_FILE.search(file) and ASSERTS.search(line):
+                asserts[file] = asserts.get(file, 0) - 1
+        elif line.startswith("-") and TEST_FILE.search(file) and ASSERTS.search(line):
+            asserts[file] = asserts.get(file, 0) + 1
+    for name, fewer in sorted(asserts.items()):
+        if fewer > 0:
+            lowered.append({"file": name, "what": f"{fewer} assertion(s) fewer", "line": ""})
+    for row in git(task.worktree, "diff", "--name-status", "-M", base, tip).splitlines():
+        status, _, name = row.partition("\t")
+        if status == "D" and TEST_FILE.search(name):
+            lowered = [entry for entry in lowered if entry["file"] != name]
+            lowered.append({"file": name, "what": "a test file is deleted", "line": ""})
+    for entry in lowered:
+        entry["reason"] = reasons.get(entry["file"])
+    covered = {suffix for suffixes in BAR for suffix in suffixes}
+    not_covered = sorted({Path(name).suffix.lower() for name in changed(task, base, tip)} - covered - set(DOCS) - set(DATA))
+    return {"lowered": lowered, "not_covered": not_covered, "own_patterns": len(extra)}
 
 
 def cmd_gate(task: Task) -> dict:
@@ -217,12 +382,36 @@ def cmd_gate(task: Task) -> dict:
             f"the gate left changes in the worktree, so its result is about another tree:\n{dirty}\n"
             "make the gate command clean up, or have the project ignore what it writes",
         )
-    task.keep(gated=tip if green else None, tree=git(task.worktree, "rev-parse", "HEAD^{tree}") if green else None)
     result = {"task": task.slug, "tip": tip, "green": green, "commands": results}
     if not green:
+        task.keep(gated=None, tree=None)
         print(json.dumps(result, indent=2))
         red = [r["command"] for r in results if r["exit"] != 0]
         raise LandError(f"the gate is red on {len(red)} command(s): {'; '.join(red)}. A builder reads the output files; the gate is never edited to pass")
+    # The gate's commands are green. Now what no command of the project checks: that each story is
+    # held by a test that fails without the change, and that the change did not lower the bar.
+    task.keep(gated=None, tree=None)
+    held = script("stories.py", task.main, "red", task.slug, check=False)
+    try:
+        result["stories"] = json.loads(held.stdout)
+    except ValueError:
+        result["stories"] = None
+    if held.returncode != 0:
+        print(json.dumps(result, indent=2))
+        raise LandError(f"{held.stderr.strip().removeprefix('stories.py: ')}. A builder repairs the test or the plan; the check is never edited to pass")
+    plan = Path(stories_of(task)["plan"]).read_text(encoding="utf-8")
+    now = change(task)
+    result["bar"] = bar(task, now["base"], tip, plan)
+    result["size"] = {"files": len(now["files"]), "lines": now["lines"], "in_parts": now["lines"] > READ_AT}
+    unexplained = [entry for entry in result["bar"]["lowered"] if not entry["reason"]]
+    if unexplained:
+        print(json.dumps(result, indent=2))
+        named = "; ".join(f"{entry['file']} ({entry['what']})" for entry in unexplained[:5])
+        raise LandError(
+            f"the change lowers the bar with no reason given: {named}. Take the mark out, or give the reason in the task's plan "
+            "under `## The bar` as `- PATH: REASON`, where the one who reads the change sees it",
+        )
+    task.keep(gated=tip, tree=git(task.worktree, "rev-parse", "HEAD^{tree}"), checks={"commands": results, "stories": result["stories"], "bar": result["bar"], "size": result["size"]})
     return result
 
 
@@ -236,60 +425,373 @@ def changed(task: Task, old: str, new: str) -> list[str]:
     return git(task.worktree, "diff", "--name-only", "--no-renames", old, new).splitlines()
 
 
-def queue_review(task: Task, landed: str, risk: str) -> int:
-    """The review item of a landed range. A range is queued once, whatever became of its item since."""
-    queued = json.loads(script("review_queue.py", task.main, "list", "--all").stdout)
-    known = next((entry["id"] for entry in queued if entry["slug"] == task.slug and entry["range"] == landed), None)
-    if known is not None:
-        return known
-    return int(script("review_queue.py", task.main, "add", task.slug, "--range", landed, "--risk", risk).stdout.strip())
+def due(task: Task) -> dict:
+    """Whether a review is due now, and the least it may be. Within that, the one who starts the review chooses."""
+    now = change(task)
+    plan = Path(stories_of(task)["plan"]).read_text(encoding="utf-8")
+    reads = task.kept().get("reads", [])
+    answered = [read for read in reads if read["answered"]]
+    why_careful = careful(task, now["files"], plan)
+    facts = {"round": len(answered) + 1, "careful": why_careful, "tasks": tasks_of(plan), "lines": now["lines"], "in_parts": now["lines"] > READ_AT, **now}
+    # The floor is what no judgment goes under. Which profiles fit a change is read from the diff
+    # and from what each profile is for, by an agent: no code and no list of words decides that.
+    if why_careful:
+        floor, why = "full", f"the request is careful: {why_careful[0]}"
+    elif facts["tasks"] > 3:
+        floor, why = "round", f"the plan has {facts['tasks']} tasks, more than three"
+    elif any(read["must_fix"] for read in answered):
+        floor, why = "round", "an earlier review found a must-fix: after its fix a round reviews the change"
+    else:
+        floor, why = "read", "nothing asks for more than one read: the diff and what each profile is for decide"
+    facts.update(floor=floor)
+    last = reads[-1] if reads else None
+    if last and last["answered"] and not last["must_fix"] and last["patch"] == now["patch"]:
+        return {"due": "none", "why": f"round {last['round']} reviewed this change and left no must-fix", **facts}
+    if len(answered) >= 2:
+        left = answered[-1]["must_fix"]
+        how = [f"the last one left {left} must-fix"] if left else []
+        if answered[-1]["patch"] != now["patch"]:
+            how.append("nobody reviewed what changed after it")
+        return {"due": "owner", "why": f"two rounds reviewed it: {', and '.join(how)}", **facts}
+    silent = len(reads) - max((index for index, read in enumerate(reads) if read["answered"]), default=-1) - 1
+    if silent >= 2:
+        return {"due": "owner", "why": "not reviewed: the review was started twice and no source answered", **facts}
+    return {"due": "review", "why": why, **facts}
 
 
-def finish(task: Task, tip: str, landed: str, risk: str, arrived: list[str]) -> dict:
-    """The bookkeeping after the base holds the tip: the base checkout follows, the review is queued, the state says landed."""
-    left_behind = None
-    if task.remote and task.base_checkout is not None:
-        # The checkout that holds the base follows, so the next task's worktree starts from what just
-        # landed. git refuses the fast-forward, and changes nothing, when a file with changes of its
-        # own is in the way or the checkout has commits the remote lacks; then it stays as it is.
-        followed = run(["git", "-C", str(task.base_checkout), "merge", "--ff-only", f"origin/{task.base}"], check=False)
-        if followed.returncode != 0:
-            why = [line for line in (followed.stderr or followed.stdout).strip().splitlines() if line.strip()]
-            left_behind = f"{task.base_checkout} did not follow origin/{task.base}, and nothing in it was changed. git said: {why[-1] if why else 'nothing'}"
-    item = queue_review(task, landed, risk)
-    task.keep(landed=landed, review=item)
-    task.state("landed", f"{task.base} {landed}", f"review item {item}, {risk}")
-    # Dropped last: until the state says `landed`, a run that is cut off must find the record again.
-    task.keep(intent=None)
-    return {"task": task.slug, "base": task.base, "range": landed, "tip": tip, "pushed": task.remote, "review": item,
-            "arrived": arrived, "left_behind": left_behind}
+def named(value: object, where: str) -> list[dict]:
+    """A list of names, each with its why: the profiles of a round, or the sources that did not answer."""
+    if not isinstance(value, list) or not all(
+        isinstance(item, dict) and set(item) == {"name", "why"} and all(isinstance(text, str) and text.strip() for text in item.values()) for item in value
+    ):
+        raise LandError(f"`{where}` is a list of {{\"name\": ..., \"why\": ...}}, each with both as text")
+    return value
 
 
-def cmd_land(task: Task, risk: str, message: str | None) -> dict:
+def cmd_read(task: Task, record: str | None) -> dict:
     task.need_landing()
     task.need_worktree()
-    if task.settings["branch"]["land"] != "agent":
-        raise LandError("branch.land is \"owner\" in .lem/project.toml: the owner lands; report the gate's result and write the state `held`")
+    state = due(task)
+    if task.kept().get("gated") != state["tip"]:
+        raise LandError(f"the review is of the tip the checks passed on, and no check is on record for this tip; `land.py gate {task.slug}` comes first")
+    reads = task.kept().get("reads", [])
+    if record is None:
+        rules = json.loads(script("project.py", task.worktree, "rules", "--range", f"{state['base']}..{state['tip']}").stdout)["rules"]
+        return {
+            "task": task.slug, "due": state["due"], "why": state["why"], "floor": state["floor"], "kinds": KIND_SAYS, "round": state["round"],
+            "careful": state["careful"], "tasks": state["tasks"], "lines": state["lines"], "in_parts": state["in_parts"], "reads": reads,
+            # what a reviewer gets, and nothing of the builder's reasoning
+            "inputs": {
+                # the owner's words as given, and the request as Lem wrote it down, where the task has them
+                **{name: str(task.directory / file) for name, file in (("words", "ask.txt"), ("request", "task.md")) if (task.directory / file).is_file()},
+                "plan": stories_of(task)["plan"], "range": f"{state['base']}..{state['tip']}",
+                "worktree": str(task.worktree), "rules": [rule["file"] for rule in rules], "bar": task.kept().get("checks", {}).get("bar"),
+                # where the project's review tool keeps each profile and lens, with what each is for
+                "review": task.settings["paths"]["review"]["path"],
+            },
+        }
+    if state["due"] != "review":
+        raise LandError(f"no review is due: {state['why']}")
+    try:
+        said = json.loads(Path(record).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise LandError(f"{record} does not read as JSON ({error}); --record names the file that says what the review was and what it found") from error
+    known = {"kind", "ran", "left_out", "answered", "silent", "bar", "must_fix", "should", "nit"}
+    if not isinstance(said, dict) or set(said) - known or "kind" not in said or "answered" not in said:
+        raise LandError(f"the record is one object with `kind` and `answered`, and of the others what applies: {', '.join(sorted(known))}")
+    kind = said["kind"]
+    if kind not in KINDS:
+        raise LandError(f"`kind` is one of {', '.join(KINDS)}: {'; '.join(f'{name} is {says}' for name, says in KIND_SAYS.items())}")
+    if KINDS.index(kind) < KINDS.index(state["floor"]):
+        raise LandError(f"this change gets {KIND_SAYS[state['floor']]} at the least ({state['why']}), and the record says {KIND_SAYS[kind]}")
+    ran, left_out, silent, bar_says = (named(said.get(key, []), key) for key in ("ran", "left_out", "silent", "bar"))
+    answered = said["answered"]
+    if not isinstance(answered, list) or not all(isinstance(source, str) and source.strip() for source in answered):
+        raise LandError("`answered` is the list of the sources that answered, by name; an empty list says that none did")
+    if kind != "read" and not ran:
+        raise LandError("a round names each profile it ran in `ran`, with why that profile fits this change")
+    if kind == "full" and left_out:
+        raise LandError("the project's full set leaves no profile out: a profile may be added to it, never dropped")
+    counts = {key: said.get(key, 0) for key in ("must_fix", "should", "nit")}
+    if not all(isinstance(count, int) and not isinstance(count, bool) and count >= 0 for count in counts.values()):
+        raise LandError("`must_fix`, `should` and `nit` are counts")
+    if not answered and any(counts.values()):
+        raise LandError("the record has findings and no source that answered: `answered` names who found them")
+    # A lowered bar is what the owner reads himself, so the review says what it thinks of each one.
+    lowered = sorted({entry["file"] for entry in task.kept().get("checks", {}).get("bar", {}).get("lowered", [])})
+    unsaid = [file for file in lowered if file not in {entry["name"] for entry in bar_says}]
+    if answered and unsaid:
+        raise LandError(
+            f"the change lowers the bar in {', '.join(unsaid)} and the record says nothing of it: "
+            "`bar` holds one {\"name\": FILE, \"why\": WHAT THE REVIEW SAYS OF THE BUILDER'S REASON} for each such file",
+        )
+    entry = {
+        "round": state["round"], "kind": kind, "ran": ran, "left_out": left_out, "answered": answered, "silent": silent, "bar": bar_says, **counts,
+        "verdict": "not reviewed" if not answered else "must-fix" if counts["must_fix"] else "clean", "tip": state["tip"][:9], "patch": state["patch"],
+    }
+    task.keep(reads=[*reads, entry])
+    script("project.py", task.worktree, "log", task.slug, "review", *(f"{key}:={json.dumps(value)}" for key, value in entry.items()))
+    return {"task": task.slug, "recorded": entry, "next": due(task)["due"]}
+
+
+def not_green(task: Task, state: dict) -> list[str]:
+    """Each reason for which this request is not green, one line each; none when it is green."""
+    reasons = []
+    if state["due"] != "none":
+        reasons.append(state["why"])
+    # A lowered bar is never green, with a reason too: it is the one change that makes the other
+    # green lines worth less, so the owner reads its line himself.
     kept = task.kept()
+    said = {entry["name"]: entry["why"] for read in kept.get("reads", []) if read["answered"] for entry in read.get("bar", [])}
+    for entry in (kept.get("checks") or {}).get("bar", {}).get("lowered", []):
+        review = f"The review: {said[entry['file']]}" if entry["file"] in said else "No review said anything of it."
+        reasons.append(f"the bar is lower in `{entry['file']}` ({entry['what']}). The builder: {entry['reason']} {review}")
+    changes = task.directory / "story-changes.jsonl"
+    if changes.is_file():
+        for line in changes.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                was = json.loads(line)
+                reasons.append(f"story {was.get('story')} changed during the build: {was.get('why', 'no reason was written down')}")
+    return reasons
+
+
+def pr_text(task: Task, notes: str, state: dict) -> str:
+    """The text of the pull request, in the order the owner reads it."""
+    kept = task.kept()
+    checks = kept.get("checks") or {}
+    found = stories_of(task)
+    ask = (task.directory / "ask.txt").read_text(encoding="utf-8").strip() if (task.directory / "ask.txt").is_file() else ""
+    held = {(test["story"], test["command"]): test for test in (checks.get("stories") or {}).get("tests", [])}
+    out: list[str] = []
+    reasons = not_green(task, state)
+    if reasons:
+        out += ["**Not green.**", "", *(f"- {reason}" for reason in reasons), ""]
+    else:
+        out += ["**Green.** The machine checks passed with the bar where it was, the review left no must-fix, and no story changed.", ""]
+    out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
+    out += ["## Stories", "", f"{found['kind'].capitalize()}, because {found['why']}", ""]
+    for story in found["stories"]:
+        out.append(f"{story['n']}. {story['text']}")
+        for test in story["tests"]:
+            proof = held.get((story["n"], test["command"]))
+            out.append(f"   - `{test['command']}`: {'passes on the branch, fails on the base commit' if proof and not proof['problem'] else 'not checked'}")
+        if story["no_test"]:
+            out.append(f"   - no test: {story['no_test']}")
+    changes = task.directory / "story-changes.jsonl"
+    if changes.is_file() and changes.read_text().strip():
+        out += ["", "Stories that changed during the build:", ""]
+        for line in changes.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                was = json.loads(line)
+                out.append(f"- story {was.get('story')}: was \"{was.get('was')}\". {was.get('why', '')} {was.get('said', '')}".rstrip())
+    out += ["", "## Checks", ""]
+    for command in checks.get("commands", []):
+        code = command["exit"]
+        out.append(f"- gate, `{command['command']}`: {command['last'] or f'exit {code}'}")
+    tests = (checks.get("stories") or {}).get("tests", [])
+    without = (checks.get("stories") or {}).get("without_a_test", [])
+    out.append(f"- the stories' tests: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} stor{'y has' if len(without) == 1 else 'ies have'} no test" if without else ""))
+    lowered = (checks.get("bar") or {}).get("lowered", [])
+    out.append("- the bar: not lowered" if not lowered else "- the bar is lowered, with these reasons:")
+    out += [f"  - `{entry['file']}` ({entry['what']}): {entry['reason']}" for entry in lowered]
+    if (checks.get("bar") or {}).get("not_covered"):
+        own = checks["bar"].get("own_patterns", 0)
+        out.append(f"- the bar has no marks of its own for files of these kinds: {', '.join(checks['bar']['not_covered'])}" + (f" (the project's {own} pattern(s) in gate.bar were looked for)" if own else ""))
+    size = checks.get("size") or {}
+    out.append(f"- size: {size.get('files', '?')} files, {size.get('lines', '?')} changed lines")
+    for read in kept.get("reads", []):
+        who = f"answered: {', '.join(read['answered'])}" if read["answered"] else "no source answered"
+        quiet = "".join(f"; no answer from {source['name']} ({source['why']})" for source in read["silent"])
+        found = f"{read['verdict']}, {read['must_fix']} must-fix, {read['should']} should, {read['nit']} nit" if read["answered"] else "not reviewed"
+        out.append(f"- the review, round {read['round']} ({KIND_SAYS[read['kind']]}; {who}{quiet}): {found}")
+        out += [f"  - ran {profile['name']}: {profile['why']}" for profile in read["ran"]]
+        out += [f"  - left out {profile['name']}: {profile['why']}" for profile in read["left_out"]]
+    out.append(f"- careful: {'yes, ' + '; '.join(state['careful']) if state['careful'] else 'no'}")
+    return "\n".join(out) + "\n\n" + notes.strip() + "\n"
+
+
+def gh(task: Task, *args: str, check: bool = True) -> subprocess.CompletedProcess:
+    if not shutil.which("gh"):
+        raise LandError("the remote is GitHub and the `gh` command is not on PATH: install it and sign in, then run this again")
+    ran = subprocess.run(["gh", *args], cwd=task.worktree if task.worktree.exists() else task.main, capture_output=True, text=True, check=False)
+    if check and ran.returncode != 0:
+        raise LandError(f"gh {' '.join(args[:2])} failed: {(ran.stderr or ran.stdout).strip()}")
+    return ran
+
+
+def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
+    task.need_landing()
+    task.need_worktree()
+    kept = task.kept()
+    tip = git(task.worktree, "rev-parse", "HEAD")
+    if kept.get("gated") != tip:
+        raise LandError(f"no green check is on record for this tip; `land.py gate {task.slug}` comes first")
+    state = due(task)
+    if state["due"] == "review":
+        raise LandError(f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} at the least ({state['why']}); `land.py read {task.slug}` says what a reviewer gets")
+    notes = Path(notes_file).read_text(encoding="utf-8") if Path(notes_file).is_file() else None
+    if notes is None:
+        raise LandError(f"{notes_file} is not a file; --notes names the notes of the pull request")
+    wanted = [*NOTES, *(["## Migration"] if state["careful"] else [])]
+    missing = [heading for heading in wanted if not re.search(rf"(?m)^{re.escape(heading)}\s*$", notes)]
+    if missing:
+        raise LandError(f"the notes lack {', '.join(missing)}: they hold {', '.join(wanted)}, each with what is true of this task or the one word `none`")
+    if not title.strip() or "\n" in title:
+        raise LandError("--title is one line: the subject of the change")
+    body = task.directory / "pr.md"
+    body.write_text(pr_text(task, notes, state), encoding="utf-8")
+    reasons = not_green(task, state)
+    says = "green" if not reasons else f"not green: {'; '.join(reasons)}"
+    # for the retro: how often a request is not green, and for which reason
+    script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
+    branch = git(task.worktree, "branch", "--show-current")
+    pr = kept.get("pr")
+    if task.forge == "github":
+        if not pr:
+            # a run that was cut off after the forge made the pull request wrote none down: the forge knows it
+            there = json.loads(gh(task, "pr", "list", "--head", branch, "--base", str(task.base), "--state", "open", "--json", "number,url").stdout)
+            pr = {"number": there[0]["number"], "url": there[0]["url"]} if there else None
+        elif (state_now := viewed(task, pr)["state"]) != "OPEN":
+            raise LandError(
+                f"the pull request {pr['url']} is {state_now.lower()}: " + ("`land.py merged` finishes the task" if state_now == "MERGED" else "whether the task is dropped or goes on is the owner's call"),
+            )
+        # with lease: after a rebase the remote branch is behind, and nobody else pushes to a task's branch
+        git(task.worktree, "push", "--force-with-lease", "origin", f"HEAD:refs/heads/{branch}")
+        if pr:
+            gh(task, "pr", "edit", str(pr["number"]), "--title", title, "--body-file", str(body))
+        else:
+            url = gh(task, "pr", "create", "--base", str(task.base), "--head", branch, "--title", title, "--body-file", str(body)).stdout.strip().splitlines()[-1]
+            number = url.rstrip("/").rsplit("/", 1)[-1]
+            if not number.isdigit():
+                raise LandError(f"gh pr create printed no pull request address: {url!r}")
+            pr = {"number": int(number), "url": url}
+        task.keep(pr=pr, proposed=tip, title=title, not_green=reasons)
+        task.state("open", f"pull request {pr['url']}", says)
+    else:
+        task.keep(proposed=tip, title=title, not_green=reasons)
+        task.state("open", f"ready to land on {task.base} at {tip[:9]}", says)
+    return {"task": task.slug, "text": str(body), "pull_request": pr, "green": not reasons, "not_green": reasons, "branch": branch, "tip": tip}
+
+
+def follow(task: Task) -> str | None:
+    """After the remote's base moved: the checkout that holds the base follows, or the reason it did not."""
+    if not (task.remote and task.base_checkout is not None):
+        return None
+    # The checkout that holds the base follows, so the next task's worktree starts from what just
+    # landed. git refuses the fast-forward, and changes nothing, when a file with changes of its
+    # own is in the way or the checkout has commits the remote lacks; then it stays as it is.
+    followed = run(["git", "-C", str(task.base_checkout), "merge", "--ff-only", f"origin/{task.base}"], check=False)
+    if followed.returncode == 0:
+        return None
+    why = [line for line in (followed.stderr or followed.stdout).strip().splitlines() if line.strip()]
+    return f"{task.base_checkout} did not follow origin/{task.base}, and nothing in it was changed. git said: {why[-1] if why else 'nothing'}"
+
+
+def finish(task: Task, tip: str, landed: str, arrived: list[str]) -> dict:
+    """The bookkeeping after the base holds the tip: the base checkout follows, the state says landed."""
+    left_behind = follow(task)
+    task.keep(landed=landed)
+    task.state("landed", f"{task.base} {landed}")
+    # Dropped last: until the state says `landed`, a run that is cut off must find the record again.
+    task.keep(intent=None)
+    return {"task": task.slug, "base": task.base, "range": landed, "tip": tip, "pushed": task.remote, "arrived": arrived, "left_behind": left_behind}
+
+
+def may_merge(task: Task, by: str) -> None:
+    """Who may merge. The owner's word is enough; an agent merges only what nobody has a reason to look at first."""
+    if by == "owner":
+        return
+    if task.settings["branch"]["land"] != "agent":
+        raise LandError("branch.land is \"owner\" in .lem/project.toml: a person merges; the task waits as `open` for the owner's word")
+    state = due(task)
+    if state["careful"]:
+        raise LandError(f"a careful request is merged by a person, whatever the settings say ({state['careful'][0]}); it waits as `open` for the owner's word")
+    reasons = not_green(task, state)
+    if reasons:
+        raise LandError(f"the request is not green ({'; '.join(reasons)}), so a person merges it, whatever the settings say; it waits as `open` for the owner's word")
+
+
+def forge_done(task: Task, view: dict) -> dict:
+    task.fetch()
+    pr = task.kept()["pr"]
+    merged = (view.get("mergeCommit") or {}).get("oid")
+    task.keep(merged=merged or True)
+    left_behind = follow(task)
+    task.state("landed", f"{task.base}: pull request {pr['url']} is merged")
+    return {"task": task.slug, "base": task.base, "pull_request": pr, "merged": merged, "left_behind": left_behind}
+
+
+def viewed(task: Task, pr: dict | None = None) -> dict:
+    pr = pr or task.kept()["pr"]
+    return json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "state,headRefOid,mergeCommit").stdout)
+
+
+def cmd_merged(task: Task) -> dict:
+    if task.record["status"] != "open" or not task.kept().get("pr"):
+        raise LandError(f"the task is {task.record['status']!r} and has {'a' if task.kept().get('pr') else 'no'} pull request; this step is for an `open` task whose pull request the owner merged")
+    view = viewed(task)
+    if view["state"] == "MERGED":
+        return forge_done(task, view)
+    if view["state"] == "CLOSED":
+        raise LandError("the pull request was closed without a merge: whether the task is dropped or goes on is the owner's call")
+    raise LandError("the pull request is not merged yet")
+
+
+def cmd_land(task: Task, by: str, message: str | None) -> dict:
+    if task.record["status"] != "open":
+        raise LandError(f"the task is {task.record['status']!r}, not `open`; `land.py propose {task.slug}` comes first")
+    task.need_worktree()
+    kept = task.kept()
+    intent = kept.get("intent")
+    if intent and not kept.get("pr"):
+        task.fetch()
+        if run(["git", "-C", str(task.worktree), "merge-base", "--is-ancestor", intent["tip"], task.onto], check=False).returncode == 0:
+            # An earlier run put this commit on the base and was cut off before the bookkeeping. Who
+            # may merge was settled by that run, so this one only finishes.
+            if git(task.worktree, "rev-parse", "HEAD") == intent["tip"]:
+                return finish(task, intent["tip"], intent["range"], intent["arrived"])
+            # The branch got more work since. What landed then is written down, and what the branch
+            # holds now lands like any tip: through its own base, checks and read.
+            task.keep(intent=None, landed_before=[*kept.get("landed_before", []), intent["range"]])
+            raise LandError(f"{intent['range']} is on {task.onto} from a landing that was cut off, and the branch has more work since: run `land.py start`, `land.py base` and `land.py gate` again for it")
+    view = viewed(task) if kept.get("pr") else None
+    if view and view["state"] == "MERGED":
+        # the forge already holds the merge, whoever made it: only the bookkeeping is left
+        return forge_done(task, view)
+    may_merge(task, by)
     if not kept.get("gated"):
-        raise LandError(f"no green gate is on record for this tip; `land.py gate {task.slug}` comes first")
+        raise LandError("no green check is on record for this tip; `land.py start`, `base` and `gate` come first")
     squash = task.settings["branch"]["history"] == "squash"
     if squash and not message:
         raise LandError("branch.history is \"squash\": pass --message with the one commit's subject, from the task's report")
     if not squash and message:
         raise LandError("branch.history is \"keep\": the branch's own commits land, so --message has nothing to name")
+    if view:
+        # A pull request is merged by the forge, under the forge's own rules, and only at the commit that was proposed.
+        if view["state"] != "OPEN":
+            raise LandError("the pull request was closed without a merge: whether the task is dropped or goes on is the owner's call")
+        tip = git(task.worktree, "rev-parse", "HEAD")
+        if view["headRefOid"] != tip or kept.get("proposed") != tip:
+            raise LandError("the pull request's head is not the tip that was proposed; run `land.py start`, `land.py base`, `land.py gate` and `land.py propose` again")
+        task.fetch()
+        base_now = git(task.worktree, "rev-parse", task.onto)
+        moved = changed(task, kept["base"], base_now) if base_now != kept["base"] else []
+        if not ignored(task, moved):
+            raise LandError(
+                f"{task.onto} moved after the checks ran, by files the gate reads ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); "
+                "run `land.py start`, `land.py base`, `land.py gate` and `land.py propose` again",
+            )
+        how = ["--squash", "--subject", message] if squash else ["--rebase"]
+        gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how)
+        view = viewed(task)
+        if view["state"] != "MERGED":
+            raise LandError("the forge took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `land.py merged` when it is")
+        return forge_done(task, view)
+    if kept.get("proposed") != git(task.worktree, "rev-parse", "HEAD"):
+        raise LandError("the branch's tip is not the tip that was proposed; run `land.py start`, `land.py base`, `land.py gate` and `land.py propose` again")
 
     task.fetch()
     base_now = git(task.worktree, "rev-parse", task.onto)
-    intent = kept.get("intent")
-    if intent and run(["git", "-C", str(task.worktree), "merge-base", "--is-ancestor", intent["tip"], task.onto], check=False).returncode == 0:
-        # An earlier run put this commit on the base and was cut off before the bookkeeping.
-        if git(task.worktree, "rev-parse", "HEAD") == intent["tip"]:
-            return finish(task, intent["tip"], intent["range"], risk, intent["arrived"])
-        # The branch got more work since. What landed then is queued for its review, and what the
-        # branch holds now lands like any tip: through its own base and gate.
-        queue_review(task, intent["range"], risk)
-        task.keep(intent=None)
     arrived: list[str] = []
     if base_now != kept["base"]:
         # The base moved after the gate ran. The result stands only when every file that arrived is
@@ -298,17 +800,17 @@ def cmd_land(task: Task, risk: str, message: str | None) -> dict:
         if not ignored(task, arrived):
             raise LandError(
                 f"{task.onto} moved after the gate ran, by files the gate reads ({', '.join(arrived[:5])}"
-                f"{', ...' if len(arrived) > 5 else ''}); run `land.py base` and `land.py gate` again",
+                f"{', ...' if len(arrived) > 5 else ''}); run `land.py start`, `land.py base` and `land.py gate` again",
             )
         if run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False).returncode != 0:
             git(task.worktree, "rebase", "--abort", check=False)
-            raise LandError(f"{task.onto} moved after the gate ran and the rebase onto it stopped; run `land.py base` again")
+            raise LandError(f"{task.onto} moved after the gate ran and the rebase onto it stopped; run `land.py start` and `land.py base` again")
     elif git(task.worktree, "rev-parse", "HEAD") != kept["gated"]:
-        raise LandError("the branch's tip is not the commit the gate passed on; run `land.py gate` again")
+        raise LandError("the branch's tip is not the commit the gate passed on; run `land.py start`, `land.py base` and `land.py gate` again")
     # What lands is the tree the gate saw, plus only the ignored files that arrived on the base.
     differs = changed(task, kept["tree"], "HEAD^{tree}")
     if not set(differs) <= set(arrived):
-        raise LandError(f"the tree that would land differs from the tree the gate passed on in {', '.join(differs[:5])}; run `land.py gate` again")
+        raise LandError(f"the tree that would land differs from the tree the gate passed on in {', '.join(differs[:5])}; run `land.py start`, `land.py base` and `land.py gate` again")
 
     if squash:
         # A commit runs the project's hooks, and a hook may change what is committed. The one commit
@@ -324,7 +826,7 @@ def cmd_land(task: Task, risk: str, message: str | None) -> dict:
             git(task.worktree, "reset", "--hard", before)
             raise LandError(
                 "a commit hook changed the files of the one commit, so it is not the tree the gate passed on; the branch is as it was. "
-                "Commit what the hook changes on the branch, then run `land.py base` and `land.py gate` again",
+                "Commit what the hook changes on the branch, then run `land.py start`, `land.py base` and `land.py gate` again",
             )
     tip = git(task.worktree, "rev-parse", "HEAD")
     landed = f"{base_now[:9]}..{tip[:9]}"
@@ -339,7 +841,7 @@ def cmd_land(task: Task, risk: str, message: str | None) -> dict:
     else:
         # No checkout holds the base branch, so its ref may move; without `+` git allows a fast-forward only.
         git(task.worktree, "fetch", ".", f"HEAD:{task.base}")
-    return finish(task, tip, landed, risk, arrived)
+    return finish(task, tip, landed, arrived)
 
 
 def cmd_clean(task: Task) -> dict:
@@ -363,10 +865,15 @@ def cmd_clean(task: Task) -> dict:
         return {"task": task.slug, **removed}
     # `branch -d` judges by the checkout it runs in, which may be behind. The proof wanted is that
     # the base holds the branch's tip, so that is what is checked before the branch goes.
-    if run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", branch, task.onto], check=False).returncode != 0:
+    # A pull request that the forge merged as one commit, or as a merge commit, leaves no such
+    # proof in git: there the forge's own word that it is merged stands in for it.
+    if not task.kept().get("merged") and run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", branch, task.onto], check=False).returncode != 0:
         raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays")
     git(task.main, "branch", "-D", branch)
     removed["branch"] = branch
+    if task.kept().get("merged"):
+        # the forge may have removed its copy of the branch already; that is no error
+        run(["git", "-C", str(task.main), "push", "origin", "--delete", branch], check=False)
     return {"task": task.slug, **removed}
 
 
@@ -374,11 +881,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("start", "base", "gate", "clean"):
+    for name in ("start", "base", "gate", "merged", "clean"):
         commands.add_parser(name).add_argument("slug")
+    read = commands.add_parser("read")
+    read.add_argument("slug")
+    read.add_argument("--record", metavar="FILE", help="a JSON file that says what the review was and what it found; without it the step says what is due")
+    propose = commands.add_parser("propose")
+    propose.add_argument("slug")
+    propose.add_argument("--title", required=True, help="the subject of the change, one semantic line")
+    propose.add_argument("--notes", required=True, metavar="FILE", help="the notes of the pull request: decisions, what is left open, what is worth a look, what was filed, what was not done")
     land = commands.add_parser("land")
     land.add_argument("slug")
-    land.add_argument("--risk", required=True, choices=RISKS)
+    land.add_argument("--by", required=True, choices=BY, help="who merges: the owner's word, or the agent where the settings and the request allow it")
     land.add_argument("--message", help="the subject of the one commit, when branch.history is \"squash\"")
     args = parser.parse_args()
     try:
@@ -389,8 +903,14 @@ def main() -> None:
             result = cmd_base(task)
         elif args.command == "gate":
             result = cmd_gate(task)
+        elif args.command == "read":
+            result = cmd_read(task, args.record)
+        elif args.command == "propose":
+            result = cmd_propose(task, args.title, args.notes)
         elif args.command == "land":
-            result = cmd_land(task, args.risk, args.message)
+            result = cmd_land(task, args.by, args.message)
+        elif args.command == "merged":
+            result = cmd_merged(task)
         else:
             result = cmd_clean(task)
     except LandError as error:

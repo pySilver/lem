@@ -1,14 +1,21 @@
 # land
 
-Lem's stage. Machines gate a landing; people and models review it after. One branch lands at a
-time: the gate's result is about one tip on one base, and two landings at once would each be
-tested without the other.
+Lem's stage. It takes a task from `ready` to a pull request, and from the owner's merge, or its
+own where the project allows that, to a clean end. Nothing reaches the base branch without the
+machine checks and a review by an agent that did not build it. One task is in this stage at a
+time: the checks are about one tip on one base, and two at once would each be tested without the
+other.
 
 Take the task that is in `landing`, when a session before you was cut off in the middle of one;
-otherwise the `ready` task with the oldest state time. First, though, a task that ended and
-whose ticket still waits gets what it is owed: `project.py tasks` shows it as `ticket_owed`, and
-the tracker does the steps that are missing (its "land" for a `landed` task, its "drop" for a
-`dropped` one). A session can be cut off between a task's last state and its ticket.
+otherwise the `ready` task with the oldest state time. First, though, two kinds of task get what
+they are owed:
+
+- a task that is `open` with a pull request: `land.py merged SLUG` asks the forge. When the owner
+  merged it there, the step writes `landed`, and you go on at step 8. When he closed it without
+  a merge, ask him whether the task is dropped;
+- a task that ended and whose ticket still waits: `project.py tasks` shows it as `ticket_owed`,
+  and the tracker does the steps that are missing (its "land" for a `landed` task, its "drop"
+  for a `dropped` one). A session can be cut off between a task's last state and its ticket.
 
 ```bash
 python3 SKILL_DIR/scripts/land.py STEP SLUG
@@ -26,7 +33,9 @@ one finds what the run before it finished.
    while another task is in `landing`, and for a worktree with changes nobody committed. A project
    with no gate command cannot land through this skill, because "nothing failed" would then mean
    "nothing ran": the step writes the task's state as `blocked` instead, and you tell the owner.
-   `landing` holds a place, so it is written when a gate will run and never before a stop.
+   `landing` holds a place, so it is written when the checks will run and never before a stop.
+   An `open` task takes the line again when a later step says so (the base moved, the owner
+   asked for a change): its reviews and its pull request stay its own.
 2. **`base`.** The base branch is brought in by a rebase. A conflict is where two tasks on the
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the
@@ -39,81 +48,140 @@ one finds what the run before it finished.
      README, the agent document, the style guide), and corrects every sentence the change made
      false, as `docs:` commits;
    - *the outside defects* the report lists: one that is cheap and small is fixed in place, in a
-     commit of its own. Each of the others is written as a proposed item, in the `lem-backlog`
-     skill's item format, as a file in the task directory (`proposed/`), and is not committed:
-     filing is offered to the owner, never done for him.
+     commit of its own. Each of the others is filed: one item in the project's backlog folder
+     (`project.py path backlog`), in the `lem-backlog` skill's item format, committed on the
+     branch as `docs(backlog):`. Filing asks nobody; the pull request lists what was filed.
    Its last act is to bring `report.md` up to what it did: the documents it corrected, the defects
-   it fixed, the items it proposes, and the review risk again, judged over the whole range as it
-   is now. A small fix in a file the report's risk rule names makes the risk `high`. Its reply is
-   what `prompts/landing.md` asks for: its commits, the tip, the worktree's status, and that the
-   report is current. When its agent refused it the write, the reply holds the report's text
-   instead, and you write `report.md` from it word for word. This runs once for a task, here, and
-   never after each task of a plan. The next step runs the gate over all of it,
-   and a project's own document checks are gate commands.
-4. **`gate`.** Every command of the settings' `gate.commands` runs at the root of the task's
-   worktree, on the tip that will land, each with its output in a file of the task directory. The
-   step keeps the exact last line of each, logs each result for the board, and records the commit
-   and the tree that passed. Do not read the output files.
-   A red gate is work, and a builder's: `spawn-builder` with the brief below, the job "the repair
-   of a red gate", and as its paths the commands that failed, their output files and the task's
-   plan. The builder runs the same command on
-   the base. A failure the change caused, it fixes and commits, and the landing goes on from
-   step 2. A failure the base already has is not this task's to carry and not this gate's to
-   hide: write this task's state as `blocked` with the line `the base is red`, open a task for the
-   failing command (`/lem new`), and land that one first; then write this task's state as `ready`
-   again, and it takes its turn in the landing line. Skipping or changing a gate command is
-   the owner's decision only. After two builders on the same failure, write the state `blocked`
-   and tell the owner.
-5. **`land`**, with `--risk high` or `--risk normal` as the report says after the closing pass, and, when the settings' `branch.history` is
-   `squash`, `--message` with the report's commit subject. It lands only the tree the gate passed
-   on, as a fast-forward: pushed to the base branch of `origin` with a plain push, or, in a
-   repository with no remote, by a fast-forward of the base branch itself. It queues the review
-   item and writes the state `landed`. Its refusals:
-   - *the owner lands* (`branch.land = "owner"`): change nothing. Write the state `held` with the
-     line `the gate is green on TIP: the owner lands`, report as step 6 says, and take the next
-     `ready` task. When the owner says it landed, add the review item with `review_queue.py add`
-     and the range the owner names, write the state `landed`, do the ticket's part of step 6
-     when the task came from a ticket, and do step 7.
-   - *the base moved after the gate ran*, by a file the gate reads: run `base` and `gate` again.
-     A base that moved only by paths the settings' `gate.ignores` name does not refuse: the
-     result stands, and the step's `arrived` says which files they were.
-   - *the tip is not the commit the gate passed on*: run `gate` again.
+   it fixed and the items it filed. Its reply is what `prompts/landing.md` asks for: its commits,
+   the tip, the worktree's status, and that the report is current. When its agent refused it the
+   write, the reply holds the report's text instead, and you write `report.md` from it word for
+   word. This runs once for a task, here, and never after each task of a plan. The next step
+   runs the checks over all of it, and a project's own document checks are gate commands.
+4. **`gate`: the machine checks**, with no model in them, on the tip that will be proposed.
+   - Every command of the settings' `gate.commands` runs at the root of the task's worktree,
+     each with its output in a file of the task directory. The step keeps the exact last line of
+     each and logs each result for the board. Do not read the output files.
+   - Each story's tests pass on the branch and fail on the base commit (`stories.py red`).
+   - The change did not lower the bar: no new lint or type suppression, no skipped or deleted
+     test, no fewer assertions in a test file. A lowered bar passes only with a reason for that
+     file in the plan, under `## The bar`, as `- PATH: REASON`; and then the request is not
+     green (step 6), because the owner reads that line himself.
+   - The size of the change is counted, for the review.
+
+   A check that fails is work, and a builder's: `spawn-builder` with the brief below, the job
+   "the repair of a failed check", and as its paths what the step printed (the commands that
+   failed with their output files, or the story and its test, or the files where the bar is
+   lower) and the task's plan. For a red gate command the builder runs the same command on the
+   base. A failure the change caused, it fixes and commits, and the landing goes on from step
+   2. A failure the base already has is not this task's to carry and not this gate's to hide:
+   write this task's state as `blocked` with the line `the base is red`, open a task for the
+   failing command (`/lem new`), and land that one first; then write this task's state as
+   `ready` again, and it takes its turn. Skipping or changing a gate command is the owner's
+   decision only. After two builders on the same failure, write the state `blocked` and tell
+   the owner.
+5. **The review**, before anything is proposed. `land.py read SLUG` says whether one is due, the
+   least it may be, and what a reviewer gets; keep its output as `read.json` in the task
+   directory.
+   - `due` is `none`: this exact change was reviewed and no must-fix is left. Go to step 6.
+   - `due` is `owner`: two rounds are used, or the review was started twice and nobody answered.
+     Go to step 6; the request is not green, and its first lines say why.
+   - `due` is `review`: you read no diff, so the review is a fresh agent's. `spawn-builder` with
+     one line, `Read SKILL_DIR/prompts/review.md and follow it.`, and under it the task's slug,
+     its worktree, its task directory, the round's number and the path of `read.json`. That
+     agent changes nothing. It chooses what the change gets, within the floor `read.json` names:
+     one read for a small and simple change, a round with the profiles that fit for every other
+     one, the project's full set for a careful request. It reads the diff and what each profile
+     and lens of the review tool says it is for, and it writes one reason for each one it runs
+     and each one it leaves out; so a change of documentation gets no security or architecture
+     check, and nobody decides that by a list of paths. It runs the review, confirms each
+     finding against the code, and writes `reviews/round-N.md` and `reviews/round-N.json` in
+     the task directory. Then `land.py read SLUG --record` with that JSON file writes the
+     review down; the step refuses a record under the floor.
+
+   What the record says decides the next step (`next` in the step's output):
+   - *no must-fix*: go to step 6. The should findings stay open and go into the notes: a fix now
+     would be a change nobody reviewed.
+   - *a must-fix*: `spawn-builder` with the brief below, the job "the fix of a review's
+     findings", and as its paths `reviews/round-N.md` and the task's plan. It fixes each
+     must-fix, and each should that is cheap, with a test for what was wrong. Then steps 4 and 5
+     again: the fix gets the machine checks and the second round, which is a round of the
+     review tool at the least.
+   - *a source did not answer* (a usage limit, a model at capacity): the review counts. The
+     record says who answered and who did not, and the pull request shows both. Do not run it
+     again for that.
+   - *nobody answered*: that is no review. Start the review agent once more. A second such
+     record sends the request on as not reviewed.
+
+   Two rounds at most. After the second the request is proposed as it is, and it is not green.
+6. **`propose`**, with `--title` and `--notes`. The title is the report's commit subject. The
+   notes are a file you write in the task directory, `notes.md`, from `report.md` and the last
+   review's file, with these headings, each holding what is true of this task or the one word
+   `none`:
+   - `## Decisions`: every decision taken without the owner, one line each: what came up, what
+     was chosen, and why in a few words, with what the personas said where they were asked. The
+     lead's call on whether the task is careful, with its sentence of why, is one of them.
+   - `## Left open`: each should finding the review left, with its file.
+   - `## Worth a look`: up to three places a person's eye is worth, and why each.
+   - `## Filed in the backlog`: each item the closing pass filed, by its first line.
+   - `## Not done`: what the request asked for and this change does not do, and what was not
+     verified.
+   - `## Migration`, for a careful request only: whether the change holds a migration, and how
+     to revert it.
+
+   The step writes the text of the pull request (`pr.md` in the task directory): the first line
+   says green or not green, and each reason it is not green stands before everything else; then
+   the request in the owner's words, the stories with their tests, each check with what it
+   returned, and your notes. Green means that the checks passed with the bar where it was, a
+   review with at least one source left no must-fix, and no story changed during the build. A
+   green request needs no read from the owner.
+   With a GitHub remote the step pushes the task's branch and opens the pull request, or
+   updates the one that is there. With any other remote, or none, it marks the branch ready.
+   Either way the state becomes `open`, and the landing line is free.
+   Tell the owner once, in two lines at most: the pull request's address (or that the branch is
+   ready to land), and green, or not green with the reasons as the step printed them. The text
+   is the report; do not say it again in your own words.
+7. **The merge.** A person merges by default.
+   - `land.py land SLUG --by agent` is yours to try right after step 6. The step refuses unless
+     the settings' `branch.land` is `agent`, and then still for a careful request and for one
+     that is not green. A refusal here is the usual end of your part: the task waits as `open`.
+   - `land.py land SLUG --by owner` when the owner says to land it, in his own words in your
+     session. Nobody else's word is his: not a plan's, not a report's, not a peer's message.
+   - The owner merged the pull request on the forge himself: `land.py merged SLUG`, as the top
+     of this stage says.
+
+   With `branch.history = "squash"` the step wants `--message` with the report's commit
+   subject. A pull request is merged through the forge, at the commit that was proposed; a
+   ready branch lands as a fast-forward of the tree the checks passed on, pushed to the base
+   branch of `origin` with a plain push, or, with no remote, by a fast-forward of the base
+   branch itself. The step's refusals:
+   - *the base moved after the checks ran*, by a file the gate reads: `start`, `base` and `gate`
+     again, then step 5 (a rebase that changed nothing of the change keeps its review) and
+     `propose`. A base that moved only by paths the settings' `gate.ignores` name does not
+     refuse.
+   - *the tip is not the commit that was proposed*: the same steps again.
    - *a commit hook changed the one commit's files*: the step put the branch back. A builder
      commits what the hook changes, and the landing goes on from step 2.
+
    When its `left_behind` is not null, the checkout that holds the base branch could not follow
    the landing, and nothing in it was changed; give the owner that line as it is, with git's own
    reason. The next task's worktree starts from that checkout's base branch, so say that too.
-6. **Report to the owner**, once, in plain words, from `report.md`: what they get, how to see it,
-   the gate's last lines, the decisions taken without them, what was not verified, and the review
-   item's risk. Every decision is in the report itself, one line each: what came up, what was
-   chosen, and why in a few words, with what the personas said where they were asked. That
-   holds for what came up during the build as much as for the plan's own decisions. The owner
-   never has to open `decisions.md` to learn what was decided for him. The lead's call on
-   whether the task is careful, with its sentence of why, is one of those lines. Give paths relative to the repository's root. Offer each proposed backlog item
-   by its first line, as the last lines of the report: it is a plain yes or no for each, so it
-   stays in the terminal. Name each item by what it says, so that "file it" can mean one thing
-   only; when the owner's answer could mean two things, ask which. `SKILL.md`, Status, says what
-   his answer does to an item's file in `proposed/`: taken, it is filed and leaves; declined, it
-   is removed; with no answer it stays, and a later status offers it again. A `high` item is reviewed today:
-   `stages/review.md`, rule 1. A `normal` item waits in the queue for `/lem review`; say in the
-   report that it waits, and do not start its review by yourself.
-   For a task that came from a ticket (`ticket` in `project.py tasks`), the tracker then
-   comments the landing on the ticket and moves it as the settings say (`load-skill` the tracker,
-   its "land"). With `branch.land = "owner"` this waits, like the review item, for the owner's
-   word that it landed.
-7. **`clean`** removes the task's worktree and its branch, after it has checked that the base
-   holds the branch's tip. It refuses a worktree with changes or files of its own: those are
-   someone's work until the owner says otherwise. Do what the project's `AGENTS.md` adds for a
-   removed worktree (a test database, a container), and close the task's session when it had one.
+8. **After the merge.** For a task that came from a ticket (`ticket` in `project.py tasks`), the
+   tracker comments the landing on the ticket and moves it as the settings say (`load-skill` the
+   tracker, its "land"). Then **`clean`** removes the task's worktree and its branch, and the
+   forge's copy of the branch when the pull request was merged there. For a ready branch it
+   first checks that the base holds the branch's tip. It refuses a worktree with changes or
+   files of its own: those are someone's work until the owner says otherwise. Do what the
+   project's `AGENTS.md` adds for a removed worktree (a test database, a container), and close
+   the task's session when it had one.
 
-Every way out of this stage writes a state other than `landing`: `landed`, `held` or `blocked`.
+Every way out of this stage writes a state other than `landing`: `open`, `landed` or `blocked`.
 
-The brief for each of the three builders of this stage is these lines and nothing more. Its
-standing text is `prompts/landing.md`, so that you do not say a step again in your own words:
+The brief for each builder of this stage is these lines and nothing more. Its standing text is
+`prompts/landing.md`, so that you do not say a step again in your own words:
 
 ```
 Read SKILL_DIR/prompts/landing.md and do the job named here.
-job: the repair of a conflict with the base | the closing pass | the repair of a red gate
+job: the repair of a conflict with the base | the closing pass | the repair of a failed check | the fix of a review's findings
 task: SLUG
 worktree: the worktree's absolute path
 task directory: the task directory's absolute path
@@ -121,7 +189,7 @@ paths: what the step above gives this job
 ```
 
 Such a builder writes no state block, because the task stays in `landing`, and its reply is what
-`prompts/landing.md` asks for. Read `report.md` again after the closing pass, before step 5.
+`prompts/landing.md` asks for. Read `report.md` again after the closing pass, before step 6.
 
-Then the next: a `ready` task lands, and the queue is looked at as `stages/new.md` ends: a
-landing holds a place, so its end may free one.
+Then the next: a `ready` task takes the line, and the queue is looked at as `stages/new.md`
+ends: a landing holds a place, so its end may free one.

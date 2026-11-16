@@ -498,6 +498,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `gate.commands` | empty | the check commands; with none, no task lands |
 | `gate.ignores` | empty | the paths that the gate does not read |
 | `gate.setup` | empty | the commands that a new worktree needs before its tests can start, for example an install of the packages |
+| `gate.bar` | empty | more regular expressions for a mark that lowers the bar, for a language that Lem has no marks for |
 | `flow.topics` | empty | the danger topics: what must not go wrong, each as one sentence in your words |
 | `flow.careful` | empty | the paths that get the careful flow |
 | `flow.max_tasks` | `4` | how many tasks build or land at one time |

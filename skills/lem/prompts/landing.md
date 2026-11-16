@@ -27,12 +27,11 @@ The brief gives the task's plan and `report.md`.
    agent document, the style guide) and correct every sentence the change made false. Commit
    these as `docs:`.
 2. **The outside defects** that `report.md` lists. One that is cheap and small you fix in place,
-   in a commit of its own. Each of the others you write as a proposed item in the `lem-backlog`
-   skill's item format, as a file in `proposed/` in the task directory. Do not commit a proposed
-   item and do not file it: the owner is offered each one.
+   in a commit of its own. Each of the others you file: one item in the project's backlog folder
+   (`python3 SKILL_DIR/scripts/project.py path backlog`), in the `lem-backlog` skill's item
+   format, committed as `docs(backlog):`. You ask nobody; the pull request lists what was filed.
 3. **The report.** Bring `report.md` up to what you did: the documents you corrected, the defects
-   you fixed, the items you propose, and the review risk again, judged over the whole range as it
-   is now. A small fix in a file the report's risk rule names makes the risk `high`.
+   you fixed, and the items you filed, each by its first line and its file.
 
 When your agent refuses you the write of a file, do not go around it: put the text in your reply
 and say which file it is for.
@@ -40,15 +39,37 @@ and say which file it is for.
 Your reply: the commits you made, by subject; the tip (`git rev-parse HEAD`); the output of
 `git status --short`; and that `report.md` is current, or the text for it.
 
-## The repair of a red gate
+## The repair of a failed check
 
-The brief gives the commands that failed and the files that hold their output.
+The brief gives what the machine checks printed: the gate commands that failed with the files
+that hold their output, or the story whose test does not hold it, or the files in which the
+change lowers the bar. No check is ever edited to pass.
 
-1. Read the output files. Run each failed command on the base branch too, in a way that leaves
-   the worktree as it was.
-2. A failure the change caused, you fix and commit.
-3. A failure the base already has, you do not fix here and do not hide: say so, with the last
-   line of the command on the base and on the branch. The gate is never edited to pass.
+- *A gate command.* Read its output file. Run the command on the base branch too, in a way that
+  leaves the worktree as it was. A failure the change caused, you fix and commit. A failure the
+  base already has, you do not fix here and do not hide: say so, with the last line of the
+  command on the base and on the branch.
+- *A story's test* that passes on the base commit too, or does not start there, does not hold
+  its story: it tests something the base already did. Write the test that fails without the
+  change, and name it under the story in the plan.
+- *A lowered bar* (a new suppression, a skipped or deleted test, fewer assertions). Take the
+  mark out and fix what it hid. Only when the mark is right do you keep it, with the reason for
+  that file in the plan under `## The bar`, as `- PATH: REASON`; the owner then reads that line
+  himself, and the request is not green for it.
 
-Your reply: for each command, whose failure it was and what you did; the tip
+Your reply: for each check, whose failure it was and what you did; the tip
 (`git rev-parse HEAD`); the output of `git status --short`.
+
+## The fix of a review's findings
+
+The brief gives the review's file (`reviews/round-N.md` in the task directory) and the task's
+plan. Each finding there was confirmed against the code, and each must-fix names the input that
+fails or the story it breaks.
+
+1. For each must-fix: write the test that fails on that input, then the fix. A must-fix you
+   find to be wrong, you do not fix and do not drop: say why, with the lines that show it.
+2. A should that is cheap you fix too; the others you leave, and say which.
+3. Change nothing else. The next round reviews what you changed, and it is the last one.
+
+Your reply: for each finding, what you did; the tip (`git rev-parse HEAD`); the output of
+`git status --short`.
