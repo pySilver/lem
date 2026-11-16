@@ -138,23 +138,39 @@ def says_nothing(o):
                 or o.get("cons") or o.get("tags") or isinstance(o.get("recommended"), str) or o.get("values"))
 
 
+def size_problem(size):
+    """What is wrong with a panel size, or None: it is "auto", "full" or a whole percent of 1 to 100."""
+    if size in ("auto", "full") or (isinstance(size, int) and not isinstance(size, bool) and 1 <= size <= 100):
+        return None
+    return f"`size` is \"auto\", \"full\" or a whole percent of the session from 1 to 100, not {size!r}"
+
+
 def check_spec(spec):
+    """The spec's shape, and the type of every field this script reads itself; the page reads the rest."""
     if not isinstance(spec, dict):
         die("spec must be a JSON object")
     qs = spec.get("questions", [spec])
     if not isinstance(qs, list) or not qs:
         die("`questions` must be a non-empty list")
     check_keys(spec, TOP_KEYS if "questions" in spec else TOP_KEYS | QUESTION_KEYS, "spec")
+    if "size" in spec and (problem := size_problem(spec["size"])):
+        die(f"spec: {problem}")
     ids = set()
     for i, q in enumerate(qs):
         if not isinstance(q, dict):
             die(f"question {i + 1} must be a JSON object, got {type(q).__name__}")
+        if q.get("id") is not None and not isinstance(q["id"], str):
+            die(f"question {i + 1}: `id` must be a string, got {json.dumps(q['id'])}")
         qid = q.get("id") or (f"q{i + 1}" if spec.get("questions") else "answer")
         if "questions" in spec:
             check_keys(q, QUESTION_KEYS, f"question {qid!r}")
-        for c in q.get("controls") or []:
-            if isinstance(c, dict):
-                check_keys(c, CONTROL_KEYS, f"question {qid!r}, control {c.get('id')!r}")
+        controls = q.get("controls") or []
+        if not isinstance(controls, list):
+            die(f"question {qid!r}: `controls` must be a list of objects, got {json.dumps(controls)}")
+        for k, c in enumerate(controls):
+            if not isinstance(c, dict):
+                die(f"question {qid!r}: control {k + 1} must be an object with an id, a label and a value, got {json.dumps(c)}")
+            check_keys(c, CONTROL_KEYS, f"question {qid!r}, control {c.get('id')!r}")
         if qid in ids:
             die(f"duplicate question id {qid!r}")
         ids.add(qid)
@@ -167,6 +183,8 @@ def check_spec(spec):
             if not isinstance(o, (str, dict)):
                 die(f"question {qid!r}: option {j + 1} must be a string or an object")
             if isinstance(o, dict):
+                if o.get("id") is not None and not isinstance(o["id"], str):
+                    die(f"question {qid!r}: option {j + 1}: `id` must be a string, got {json.dumps(o['id'])}")
                 check_keys(o, OPTION_KEYS, f"question {qid!r}, option {o.get('id') or j + 1!r}")
             if says_nothing(o):
                 shown = o if isinstance(o, str) else o.get("label") or o.get("id")
@@ -212,6 +230,8 @@ def load_files(node, base):
         if not (isinstance(src, dict) and "file" in src):
             continue
         shown = src["file"]
+        if not isinstance(shown, str) or not shown.strip():
+            die(f"{k} block: `file` is the path of a file in quotes, got {json.dumps(shown)}")
         p = os.path.expanduser(shown)
         if not os.path.isabs(p):
             p = os.path.join(base, p)
@@ -326,7 +346,10 @@ def build_html(spec, base):
 
 
 def write_page(html):
-    os.makedirs(OUTDIR, exist_ok=True)
+    try:
+        os.makedirs(OUTDIR, exist_ok=True)
+    except OSError as e:
+        die(f"cannot make the folder for the page, {OUTDIR}: {e}; point TMPDIR at a folder this user may write")
     now = time.time()
     for old in glob.glob(os.path.join(OUTDIR, "*.html")):  # keep a day for debugging
         try:
@@ -340,17 +363,44 @@ def write_page(html):
     return path
 
 
+class DefaultsError(Exception):
+    """A defaults file this script cannot use; the message names the file and the fix."""
+
+
+def defaults_problem(values):
+    """What is wrong with a defaults file's values that this script reads itself, or None."""
+    if not isinstance(values, dict):
+        return f"it is a JSON object of settings, not {type(values).__name__}"
+    if "size" in values and (problem := size_problem(values["size"])):
+        return problem
+    if "browser" in values and not isinstance(values["browser"], bool):
+        return f"`browser` is true or false, not {json.dumps(values['browser'])}"
+    status = values.get("status", {})
+    if not isinstance(status, dict):
+        return f"`status` is an object with `asking` and `answered`, not {json.dumps(status)}"
+    for key in ("asking", "answered"):
+        glyph = status.get(key, ["x"])
+        if not isinstance(glyph, list) or not glyph or not all(isinstance(word, str) and word for word in glyph):
+            return f"`status.{key}` is a list of the words `agtermctl session status` takes, as [\"blocked\"], not {json.dumps(glyph)}"
+    return None
+
+
 def defaults():
-    """The skill's neutral defaults.json, overlaid by the user's own file (LEM_ASK_CONFIG)."""
+    """The skill's neutral defaults.json, overlaid by the user's own file (LEM_ASK_CONFIG). A file
+    that is not JSON, or holds a value of the wrong type, is refused: a setting dropped without a
+    word would be a page that looks other than its owner chose."""
     merged = {}
     for path in (DEFAULTS, USER_DEFAULTS):
         try:
             with open(path, encoding="utf-8") as f:
-                merged.update(json.load(f))
+                values = json.load(f)
         except FileNotFoundError:
-            pass
-        except (OSError, json.JSONDecodeError) as e:
-            print(f"lem-ask: ignoring {path}: {e}", file=sys.stderr)
+            continue
+        except (OSError, ValueError) as e:
+            raise DefaultsError(f"{path} cannot be read as JSON ({e}); correct the file or remove it") from e
+        if problem := defaults_problem(values):
+            raise DefaultsError(f"{path}: {problem}; correct the file or remove it")
+        merged.update(values)
     return merged
 
 
@@ -759,10 +809,17 @@ def main():
         check_spec(spec)
         apply_defaults(spec)
         base = os.path.dirname(os.path.abspath(a.spec)) if a.spec != "-" else os.getcwd()
-        with open(a.out, "w", encoding="utf-8") as f:
-            f.write(build_html(spec, base))
+        html = build_html(spec, base)
+        try:
+            with open(a.out, "w", encoding="utf-8") as f:
+                f.write(html)
+        except OSError as e:
+            die(f"cannot write the page to {a.out}: {e}")
         print(a.out)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except DefaultsError as error:
+        die(str(error))

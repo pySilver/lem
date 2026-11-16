@@ -73,6 +73,22 @@ bad "a misspelled option key" '{"prompt": "p", "options": [{"label": "Yes", "det
 bad "options that only count" '{"prompt": "Approve?", "mode": "multi", "options": ["Story 1", "Story 2"]}'
 bad "a counting label with nothing else" '{"prompt": "p", "options": [{"id": "a", "label": "Option A"}, {"id": "b", "label": "Cache it"}]}'
 bad "lines past the end" "{\"prompt\": \"p\", \"context\": {\"code\": {\"file\": \"$PWD/$B\", \"lines\": \"9000-9001\"}}}"
+# Every field this script reads itself has its type checked: a wrong one is the error contract, never a traceback.
+bad "controls that are not a list" '{"prompt": "p", "controls": 5}'
+bad "a control that is not an object" '{"prompt": "p", "controls": ["radius"]}'
+bad "a question id that is not a string" '{"questions": [{"id": ["a"], "prompt": "p"}]}'
+bad "an option id that is not a string" '{"prompt": "p", "options": [{"id": ["a"], "label": "Cache it"}, "Keep it"]}'
+bad "a file that is not a string" '{"prompt": "p", "context": {"code": {"file": 5}}}'
+bad "a size that is no percent" '{"prompt": "p", "size": "big"}'
+bad "a size past 100" '{"prompt": "p", "size": 150}'
+printf '{"prompt": "p", "options": ["Yes", "No"]}' > "$WORK/plain.json"
+expect "rejects an output in a folder that is not there" 1 error -- "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/no/such/folder/x.html"
+printf '[1]' > "$WORK/defaults-list.json"
+expect "rejects a defaults file that is not an object" 1 error -- env LEM_ASK_CONFIG="$WORK/defaults-list.json" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html"
+printf '{"status": {"asking": "blocked"}}' > "$WORK/defaults-status.json"
+expect "rejects a defaults file whose status glyph is not a list" 1 error -- env LEM_ASK_CONFIG="$WORK/defaults-status.json" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html"
+printf '{"size": "big"}' > "$WORK/defaults-size.json"
+expect "rejects a defaults file whose size is no percent" 1 error -- env LEM_ASK_CONFIG="$WORK/defaults-size.json" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html"
 
 # A counting label is fine once the option carries its text, and a key starting with "_" is the author's own.
 printf '{"prompt": "Approve?", "_data": 1, "options": [{"label": "Story 1", "detail": "The operator approves by hand."}, "Yes"]}' > "$WORK/carried.json"
