@@ -216,11 +216,31 @@ else
 fi
 settings '[branch]' 'base = "v2"' 'protected = ["master", "develop"]'
 err=$(project --repo "$OLD" may-land master 2>&1 || true)
+unborn=$(project --repo "$OLD" may-land v2 2>&1 || true)
+commit "$OLD" "the first commit" && git -C "$OLD" branch v2
 if [ "$(status_of project --repo "$OLD" may-land master)" = 1 ] && grep -q "protected" <<<"$err" && [ "$(status_of project --repo "$OLD" may-land feature)" = 1 ] \
-  && [ "$(status_of project --repo "$OLD" may-land v2)" = 0 ]; then
-  pass "may-land refuses a protected branch and any branch but the base, and accepts the base"
+  && grep -qF "branch.base = 'v2' is no branch of this repository" <<<"$unborn" && [ "$(status_of project --repo "$OLD" may-land v2)" = 0 ]; then
+  pass "may-land refuses a protected branch, any branch but the base, and a base the repository does not have, and accepts the base"
 else
-  fail "may-land: $err"
+  fail "may-land: $err / $unborn"
+fi
+settings '[branch]' 'base = ""'
+empty_base=$(project --repo "$OLD" show 2>&1 || true)
+settings '[gate]' 'commands = ["make test", " "]'
+blank_command=$(project --repo "$OLD" show 2>&1 || true)
+settings '[gate]' 'setup = [""]'
+blank_setup=$(project --repo "$OLD" show 2>&1 || true)
+settings '[paths]' 'backlog = ""'
+root_backlog=$(project --repo "$OLD" show 2>&1 || true)
+settings '[paths]' 'worktrees = "."'
+root_worktrees=$(project --repo "$OLD" worktree-dir some-task 2>&1 || true)
+if grep -qF "branch.base = '' names no branch" <<<"$empty_base" && grep -qF "gate.commands holds an empty command" <<<"$blank_command" \
+  && grep -qF "gate.setup holds an empty command" <<<"$blank_setup" && grep -qF "paths.backlog = '' names the root of the checkout" <<<"$root_backlog" \
+  && grep -qF "paths.worktrees = '.' names the root of the checkout" <<<"$root_worktrees" && [ ! -e "$OLD/.gitignore" ] \
+  && ! grep -q Traceback <<<"$empty_base$blank_command$blank_setup$root_backlog$root_worktrees"; then
+  pass "an empty base branch, an empty command of the gate or its setup, and a path that is the root of the checkout are refused, each with what to write"
+else
+  fail "empty settings values: $empty_base / $blank_command / $blank_setup / $root_backlog / $root_worktrees / $(cat "$OLD/.gitignore" 2>&1)"
 fi
 settings '[branch]' 'base = "master"' 'protected = ["master"]'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a base branch that is also protected is refused as a contradiction"; else fail "protected base"; fi
@@ -241,6 +261,12 @@ if [ "$(field 'sorted(c["file"] for c in d["careful"])' <<<"$out")" = "['app/out
   pass "careful names the files a pattern matches, nested ones and absolute paths too"
 else
   fail "careful: $out"
+fi
+err=$(project --repo "$OLD" careful "$WORK/elsewhere/a.py" 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" careful "$WORK/elsewhere/a.py")" = 1 ] && grep -qF "$WORK/elsewhere/a.py is not inside $OLD; name files of this repository" <<<"$err" && ! grep -q Traceback <<<"$err"; then
+  pass "careful refuses a file outside the repository and names the fix"
+else
+  fail "careful outside the repository: $err"
 fi
 if [ "$(status_of project --repo "$WORK" show)" = 1 ]; then pass "a directory outside any checkout is refused"; else fail "outside a checkout"; fi
 

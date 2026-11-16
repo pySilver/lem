@@ -242,7 +242,8 @@ TEMPLATE = """\
 [branch]
 # The branch a task starts from and lands on.
 base = "{base}"
-# Who lands a finished task: "owner", or "agent" once the gate is green.
+# Who lands a finished task: "owner", or "agent", which lands only a request that is green and
+# not careful; the owner lands every other one.
 land = "owner"
 # What lands: "keep" lands the branch's own commits, "squash" lands one commit for the whole task.
 history = "keep"
@@ -356,6 +357,14 @@ def strings(value: object, where: str) -> list[str]:
     return value
 
 
+def commands(value: object, where: str) -> list[str]:
+    """A list of shell commands. An empty one runs nothing and exits 0, so a gate of it is green."""
+    found = strings(value, where)
+    if any(not item.strip() for item in found):
+        raise SettingsError(f"{where} holds an empty command, which passes without running anything; take it out of the list")
+    return found
+
+
 def patterns(value: object, where: str) -> list[str]:
     """A list of regular expressions, each one read here so that a wrong one is named where it is written."""
     for item in strings(value, where):
@@ -372,6 +381,10 @@ def inside(root: Path, relative: str, where: str) -> Path:
     resolved = (root / relative).resolve()
     if not resolved.is_relative_to(root.resolve()):
         raise SettingsError(f"{where} = {relative!r} leaves the repository")
+    if resolved == root.resolve():
+        # every path names a folder or a file of its own: the root would read the whole checkout as
+        # backlog items or rules, and a worktrees folder there ignores every file of the project
+        raise SettingsError(f"{where} = {relative!r} names the root of the checkout; name a folder or a file inside it, or leave the line out for the default")
     return resolved
 
 
@@ -473,6 +486,8 @@ def load(root: Path) -> dict:
     base = branch.get("base")
     if base is not None and not isinstance(base, str):
         raise SettingsError(f"{SETTINGS}: branch.base must be a string")
+    if base is not None and not base.strip():
+        raise SettingsError(f"{SETTINGS}: branch.base = {base!r} names no branch; write the branch tasks start from and land on, as base = \"main\"")
     land = branch.get("land", "owner")
     if land not in LAND:
         raise SettingsError(f"{SETTINGS}: branch.land = {land!r} must be one of {', '.join(LAND)}")
@@ -555,9 +570,9 @@ def load(root: Path) -> dict:
         "paths": paths,
         "branch": {"base": base, "land": land, "history": history, "propose": propose, "protected": protected},
         "gate": {
-            "commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands"),
+            "commands": commands(raw.get("gate", {}).get("commands", []), "gate.commands"),
             "ignores": strings(raw.get("gate", {}).get("ignores", []), "gate.ignores"),
-            "setup": strings(raw.get("gate", {}).get("setup", []), "gate.setup"),
+            "setup": commands(raw.get("gate", {}).get("setup", []), "gate.setup"),
             "bar": patterns(raw.get("gate", {}).get("bar", []), "gate.bar"),
         },
         "flow": {
@@ -587,6 +602,8 @@ def cmd_careful(settings: dict, files: list[str]) -> None:
     for file in files:
         relative = Path(file)
         if relative.is_absolute():
+            if not relative.resolve().is_relative_to(root):
+                raise SettingsError(f"{file} is not inside {root}; name files of this repository")
             relative = relative.resolve().relative_to(root)
         match = next((p for p in settings["flow"]["careful"] if fnmatch.fnmatchcase(relative.as_posix(), p)), None)
         if match:
@@ -605,6 +622,9 @@ def cmd_may_land(settings: dict, target: str) -> None:
         raise SettingsError(f"{SETTINGS} names no branch.base, so no branch can be landed on")
     if target != branch["base"]:
         raise SettingsError(f"tasks of this project land on {branch['base']!r}, not on {target!r}")
+    found = subprocess.run(["git", "-C", settings["root"], "rev-parse", "--verify", "--quiet", f"refs/heads/{target}"], capture_output=True, text=True, check=False)
+    if found.returncode != 0:
+        raise SettingsError(f"branch.base = {target!r} is no branch of this repository; correct it in {SETTINGS}, or make the branch first")
     print(f"{target}: tasks land here; the {branch['land']} lands")
 
 
