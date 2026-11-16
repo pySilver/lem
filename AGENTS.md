@@ -418,7 +418,14 @@ is the session's, and open to him.
 ## Checks
 
 ```bash
-bash tests/test-lem.sh        # Lem's scripts, in throwaway repositories; loads the board in headless Chrome when one is installed
+bash tests/all.sh              # every suite below at the same time, one log each, a line of ok and FAIL per suite
+```
+
+One suite alone:
+
+```bash
+bash tests/test-lem.sh         # Lem's scripts, in throwaway repositories: the blocks tests/lem-*.sh at the same time; loads the board in headless Chrome when one is installed
+bash tests/lem-land-shop.sh    # one block of them, alone (each block sources tests/lib.sh)
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs

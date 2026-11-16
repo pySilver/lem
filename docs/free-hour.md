@@ -32,8 +32,8 @@ worktree.
   is not made (`AGENTS.md`, "Opinionated and small").
 - **The rules of a change here hold** (`AGENTS.md`): a number carries its source and date, a
   stage names a capability and never a tool, a change to a script comes with its test.
-- **Run the checks** in the worktree before the commit: the four commands under "Checks" in
-  `AGENTS.md`.
+- **Run the checks** in the worktree before the commit: `bash tests/all.sh`, the one command
+  under "Checks" in `AGENTS.md`, which runs every suite.
 - **Commit on the branch, and stop there.** Never push. Never merge. Never check out another
   branch in the main checkout, and never commit, stash or reset there.
 - **The owner's rulings are not the hour's to change** (`AGENTS.md`, "The owner's rulings").

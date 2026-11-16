@@ -27,13 +27,9 @@ protected = []
 
 [gate]
 # The machine checks that gate a landing, each run at the root of the task's worktree.
-commands = [
-  "shellcheck tests/*.sh",
-  "bash tests/test-lem.sh",
-  "bash tests/test-gate-panel.sh",
-  "bash tests/test-ask.sh",
-  "bash tests/test-ask-expert.sh",
-]
+# tests/all.sh runs every suite of the repository and ShellCheck at the same time; its last line
+# says whether all passed, which is what the landing shows of each command.
+commands = ["bash tests/all.sh"]
 # Paths the gate does not read. When the base branch moves after a green gate by these files
 # only, the result stands; any other file means the gate runs again. A `*` crosses directories.
 ignores = []

@@ -945,6 +945,14 @@ person. Thus nobody ran the two install commands above in that exact form.
 
 ## Tests
 
+This command runs all the test suites at the same time. It shows one line for each suite.
+
+```bash
+bash tests/all.sh
+```
+
+To run one suite, use its command:
+
 ```bash
 bash tests/test-lem.sh
 bash tests/test-gate-panel.sh

@@ -7,15 +7,67 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Lem's users are on macOS, where agterm runs; a project's gate may run on Linux.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - name: ShellCheck
-        run: shellcheck tests/*.sh
-      - name: Tests
+      - uses: actions/checkout@v5
+      # the oldest Python Lem supports, so that a newer feature in a script fails here
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: What the suites need
         run: |
-          bash tests/test-lem.sh
-          bash tests/test-gate-panel.sh
-          bash tests/test-ask.sh
-          bash tests/test-ask-expert.sh
-          bash tests/test-board.sh
+          if [ "$RUNNER_OS" = macOS ]; then brew install shellcheck; else sudo apt-get update -q && sudo apt-get install -y -q shellcheck; fi
+          python3 --version
+          shellcheck --version | sed -n 2p
+          git --version
+          # the page checks load pages in headless Chrome; with none they print SKIP and pass
+          chrome=""
+          for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
+            if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then chrome=$c; break; fi
+          done
+          if [ -n "$chrome" ]; then "$chrome" --version; else echo "::warning::no Chrome or Chromium: the page checks are skipped"; fi
+      # One step for each suite, each run even when one before it failed: a red suite hides no other.
+      - name: ShellCheck
+        if: ${{ !cancelled() }}
+        run: shellcheck tests/*.sh
+      - name: Lem's scripts, settings, stories and the board
+        if: ${{ !cancelled() }}
+        run: bash tests/lem-settings.sh
+      - name: Lem's scripts, the machine check, the hook and the setup
+        if: ${{ !cancelled() }}
+        run: bash tests/lem-machine.sh
+      - name: Lem's scripts, decisions
+        if: ${{ !cancelled() }}
+        run: bash tests/lem-decisions.sh
+      - name: Lem's scripts, the landing with a remote
+        if: ${{ !cancelled() }}
+        run: bash tests/lem-land-shop.sh
+      - name: Lem's scripts, the landing with no remote
+        if: ${{ !cancelled() }}
+        run: bash tests/lem-land-local.sh
+      - name: Lem's scripts, the landing's backlog
+        if: ${{ !cancelled() }}
+        run: bash tests/lem-land-backlog.sh
+      - name: Lem's scripts, the landing on GitHub
+        if: ${{ !cancelled() }}
+        run: bash tests/lem-land-github.sh
+      - name: The board
+        if: ${{ !cancelled() }}
+        run: bash tests/test-board.sh
+      - name: The gate and the panel
+        if: ${{ !cancelled() }}
+        run: bash tests/test-gate-panel.sh
+      - name: lem-ask
+        if: ${{ !cancelled() }}
+        run: bash tests/test-ask.sh
+      - name: The experts
+        if: ${{ !cancelled() }}
+        run: bash tests/test-ask-expert.sh
+      - name: The scripts left no __pycache__
+        if: ${{ !cancelled() }}
+        run: "! find skills scripts bin -name __pycache__ -type d | grep ."
