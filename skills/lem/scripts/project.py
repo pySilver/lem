@@ -34,7 +34,7 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
     project.py may-start            exit 1 when as many tasks build or land as flow.max_tasks allows
-    project.py state-dir            the folder that holds every task, the review queue and the night reports
+    project.py state-dir            the folder that holds every task, the event log and the night reports
 
 Task state is kept inside the git directory every worktree shares: it is never committed, a
 worktree's removal does not take it, and a session that replaces another finds it.

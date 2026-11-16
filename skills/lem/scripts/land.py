@@ -30,8 +30,10 @@ The machine checks have no model in them. `gate` runs the settings' `gate.comman
 `stories.py red` (each story's tests pass on the branch and fail on the base commit), then the
 bar. A change lowers the bar when it adds a lint or type suppression or a skipped test, deletes
 a test file, or leaves fewer assertions in one (counted by the words `assert` and `expect` on the
-lines it adds and removes); it passes only with a reason for that file under `## The bar` in the
-task's plan, as `- PATH: REASON`. The marks looked for are those of Python, JavaScript and
+lines it adds and removes, in a test file and in every Rust file, where unit tests sit beside
+the code). A mark counts when the change leaves more of it in a file than the file had, so a
+line that only moved is no new mark. A lowered bar passes only with a reason for that file under
+`## The bar` in the task's plan, as `- PATH: REASON`. The marks looked for are those of Python, JavaScript and
 TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `gate.bar` patterns for any
 file that is not a document. A changed file of another language gets no such check, and the
 result says which (`not_covered`). The size of the change is counted, for the reviewer.
@@ -47,7 +49,8 @@ after a review that found a must-fix.
 
 The record of a review is a JSON file:
 
-    {"kind": "read" | "round" | "full",
+    {"attempt": N,
+     "kind": "read" | "round" | "full",
      "ran": [{"name": PROFILE, "why": WHY IT FITS THIS CHANGE}],
      "left_out": [{"name": PROFILE, "why": WHY IT DOES NOT}],
      "answered": [SOURCE, ...],
@@ -59,9 +62,11 @@ The record of a review is a JSON file:
 
 A review in which a source did not answer is still a review: the record names who answered and
 who did not. One in which nobody answered is none; it is started once more, and a second such
-record sends the request on as not reviewed. A review is of a change, known by the id git gives
-its patch, so a rebase that changes nothing does not undo it. Two rounds at most: after that the
-request is proposed as it is.
+record sends the request on as not reviewed. A review is of a change, known by the lines of its
+diff, so a rebase that changes nothing of it does not undo it, and a change of one space does.
+Two rounds at most: after that the request is proposed as it is, green when the second round
+left nothing open and not green otherwise. `attempt` in a record is the number `read` printed
+for it, so a record that is sent twice is written down once.
 
 `propose` writes the text of the pull request to `pr.md` in the task's directory, from what the
 steps kept and from the notes file, whose headings it checks. The text opens with green or not
@@ -103,6 +108,7 @@ if sys.version_info < (3, 11):
 
 import argparse
 import fnmatch
+import hashlib
 import json
 import re
 import shutil
@@ -128,10 +134,10 @@ DOCS = (".md", ".rst", ".adoc")
 # The marks by which a change lowers the bar, for the languages whose tools read them. Chosen by
 # the session that built this check (2026-11-15) from those tools' own syntax; not measured.
 BAR = {
-    (".py",): (r"#\s*noqa", r"#\s*type:\s*ignore", r"#\s*pyright:\s*ignore", r"#\s*pylint:\s*disable", r"@pytest\.mark\.(skip|xfail)", r"@unittest\.skip", r"pytest\.skip\("),
-    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\b(it|test|describe)\.skip\(", r"\bx(it|describe)\("),
-    (".go",): (r"//\s*nolint", r"\bt\.Skip\("),
-    (".rs",): (r"#\[allow\(", r"#\[ignore\]"),
+    (".py",): (r"#\s*noqa", r"#\s*type:\s*ignore", r"#\s*pyright:\s*ignore", r"#\s*pylint:\s*disable", r"#\s*nosec", r"\bpytest\.mark\.(skip|xfail)", r"\bunittest\.skip", r"\bpytest\.skip\("),
+    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\b(it|test|describe)\.(skip|todo)\(", r"\bx(it|test|describe)\("),
+    (".go",): (r"//\s*nolint", r"\bt\.Skip(f|Now)?\("),
+    (".rs",): (r"#!?\[allow\(", r"#\[ignore\b"),
     (".java", ".kt"): (r"@Disabled", r"@Ignore", r"@SuppressWarnings"),
     (".sh", ".bash"): (r"#\s*shellcheck\s+disable",),
 }
@@ -139,7 +145,10 @@ BAR = {
 DATA = (".txt", ".json", ".toml", ".yaml", ".yml", ".lock", ".cfg", ".ini", ".csv", ".tsv", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".html", ".css", ".xml", "")
 # An assertion, as far as a line shows one: the word a test framework uses for it.
 ASSERTS = re.compile(r"\b(assert|expect)", re.IGNORECASE)
+# A test file, by its place or its name.
 TEST_FILE = re.compile(r"(^|/)(tests?|spec|specs|__tests__)/|(^|/)test_[^/]*$|_test\.[A-Za-z0-9]+$|\.(test|spec)\.[A-Za-z0-9]+$")
+# The languages that keep unit tests in the module they test: there every file's assertions count.
+INLINE_TESTS = (".rs",)
 
 
 class LandError(Exception):
@@ -284,11 +293,15 @@ def change(task: Task) -> dict:
     """The change as the branch holds it now: its two ends, its files, its size, and the id of its patch."""
     tip = git(task.worktree, "rev-parse", "HEAD")
     base = git(task.worktree, "merge-base", tip, task.onto)
-    diff = run(["git", "-C", str(task.worktree), "diff", "--no-renames", base, tip]).stdout
-    patch = subprocess.run(["git", "patch-id", "--stable"], input=diff, capture_output=True, text=True, check=False).stdout.split()
+    # The id of the change: every line of its diff as it is, without the places git gives them
+    # (the blob ids and the line numbers), so a rebase that changes nothing of it keeps the id.
+    # git's own patch id is not used: it ignores spaces, and a change of spaces is a change.
+    diff = subprocess.run(["git", "-C", str(task.worktree), "diff", "--no-renames", "--binary", base, tip], capture_output=True, check=True).stdout
+    kept = [b"@@" if line.startswith(b"@@") else line for line in diff.split(b"\n") if not line.startswith(b"index ")]
+    patch = hashlib.sha256(b"\n".join(kept)).hexdigest()[:16]
     counted = git(task.worktree, "diff", "--numstat", "--no-renames", base, tip).splitlines()
     lines = sum(int(n) for row in counted for n in row.split("\t")[:2] if n.isdigit())
-    return {"tip": tip, "base": base, "files": changed(task, base, tip), "patch": patch[0] if patch else "", "lines": lines}
+    return {"tip": tip, "base": base, "files": changed(task, base, tip), "patch": patch, "lines": lines}
 
 
 def careful(task: Task, files: list[str], plan: str) -> list[str]:
@@ -323,25 +336,35 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     reasons = {found.group(1).strip(): found.group(2).strip() for found in re.finditer(r"(?m)^-\s+`?([^`:\n]+?)`?:\s+(\S.*)$", section.group(1))} if section else {}
     lowered: list[dict] = []
     asserts: dict[str, int] = {}
-    file = ""
+    # A mark counts when the change leaves more of it in a file than the file had: a line that
+    # only moved, or got another space, took the mark out and put it back.
+    came: dict[tuple[str, str], list[dict]] = {}
+    went: dict[tuple[str, str], int] = {}
+    file = old = ""
+    marks: list[re.Pattern] = []
     # -M: a file that moved is one file, so its tests are not counted as gone and come again
     for line in git(task.worktree, "diff", "-U0", "-M", base, tip).splitlines():
-        if line.startswith("+++ "):
-            file = line[6:] if line.startswith("+++ b/") else ""
+        if line.startswith("--- "):
+            old = line[6:] if line.startswith("--- a/") else ""
+        elif line.startswith("+++ "):
+            # a file that is gone has its lines counted under the name it had
+            file = line[6:] if line.startswith("+++ b/") else old
             if Path(file).suffix.lower() in DOCS:
                 # a document may quote a mark, the plan's own reason for one too
                 file = ""
-        elif line.startswith("--- ") or not file:
+            marks = [*extra, *(re.compile(mark) for suffixes, found in BAR.items() if Path(file).suffix.lower() in suffixes for mark in found)] if file else []
+        elif not file or line[:1] not in "+-":
             continue
-        elif line.startswith("+"):
-            marks = [*extra, *(re.compile(mark) for suffixes, found in BAR.items() if Path(file).suffix.lower() in suffixes for mark in found)]
-            hit = next((mark.search(line[1:]) for mark in marks if mark.search(line[1:])), None)
-            if hit:
-                lowered.append({"file": file, "what": hit.group(0), "line": line[1:].strip()[:160]})
-            if TEST_FILE.search(file) and ASSERTS.search(line):
-                asserts[file] = asserts.get(file, 0) - 1
-        elif line.startswith("-") and TEST_FILE.search(file) and ASSERTS.search(line):
-            asserts[file] = asserts.get(file, 0) + 1
+        else:
+            hit = next((mark for mark in marks if mark.search(line[1:])), None)
+            if hit and line.startswith("+"):
+                came.setdefault((file, hit.pattern), []).append({"file": file, "what": hit.search(line[1:]).group(0), "line": line[1:].strip()[:160]})
+            elif hit:
+                went[(file, hit.pattern)] = went.get((file, hit.pattern), 0) + 1
+            if (TEST_FILE.search(file) or Path(file).suffix.lower() in INLINE_TESTS) and ASSERTS.search(line[1:]):
+                asserts[file] = asserts.get(file, 0) + (1 if line.startswith("-") else -1)
+    for key, entries in came.items():
+        lowered += entries[went.get(key, 0):]
     for name, fewer in sorted(asserts.items()):
         if fewer > 0:
             lowered.append({"file": name, "what": f"{fewer} assertion(s) fewer", "line": ""})
@@ -443,16 +466,21 @@ def due(task: Task) -> dict:
         floor, why = "round", "an earlier review found a must-fix: after its fix a round reviews the change"
     else:
         floor, why = "read", "nothing asks for more than one read: the diff and what each profile is for decide"
-    facts.update(floor=floor)
-    last = reads[-1] if reads else None
-    if last and last["answered"] and not last["must_fix"] and last["patch"] == now["patch"]:
+    facts.update(floor=floor, attempt=len(reads) + 1)
+    # What the newest review that answered leaves open, for this change as it is now.
+    last = answered[-1] if answered else None
+    unmet = []
+    if last:
+        if last["must_fix"]:
+            unmet.append(f"the last one left {last['must_fix']} must-fix")
+        if last["patch"] != now["patch"]:
+            unmet.append("nobody reviewed what changed after it")
+        if KINDS.index(last["kind"]) < KINDS.index(floor):
+            unmet.append(f"it was {KIND_SAYS[last['kind']]}, and this change gets {KIND_SAYS[floor]} at the least ({why})")
+    if last and not unmet:
         return {"due": "none", "why": f"round {last['round']} reviewed this change and left no must-fix", **facts}
     if len(answered) >= 2:
-        left = answered[-1]["must_fix"]
-        how = [f"the last one left {left} must-fix"] if left else []
-        if answered[-1]["patch"] != now["patch"]:
-            how.append("nobody reviewed what changed after it")
-        return {"due": "owner", "why": f"two rounds reviewed it: {', and '.join(how)}", **facts}
+        return {"due": "owner", "why": f"two rounds reviewed it: {', and '.join(unmet)}", **facts}
     silent = len(reads) - max((index for index, read in enumerate(reads) if read["answered"]), default=-1) - 1
     if silent >= 2:
         return {"due": "owner", "why": "not reviewed: the review was started twice and no source answered", **facts}
@@ -479,6 +507,8 @@ def cmd_read(task: Task, record: str | None) -> dict:
         rules = json.loads(script("project.py", task.worktree, "rules", "--range", f"{state['base']}..{state['tip']}").stdout)["rules"]
         return {
             "task": task.slug, "due": state["due"], "why": state["why"], "floor": state["floor"], "kinds": KIND_SAYS, "round": state["round"],
+            # the number the record of this review carries, so that the same record is never written down twice
+            "attempt": state["attempt"],
             "careful": state["careful"], "tasks": state["tasks"], "lines": state["lines"], "in_parts": state["in_parts"], "reads": reads,
             # what a reviewer gets, and nothing of the builder's reasoning
             "inputs": {
@@ -496,9 +526,16 @@ def cmd_read(task: Task, record: str | None) -> dict:
         said = json.loads(Path(record).read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         raise LandError(f"{record} does not read as JSON ({error}); --record names the file that says what the review was and what it found") from error
-    known = {"kind", "ran", "left_out", "answered", "silent", "bar", "must_fix", "should", "nit"}
-    if not isinstance(said, dict) or set(said) - known or "kind" not in said or "answered" not in said:
-        raise LandError(f"the record is one object with `kind` and `answered`, and of the others what applies: {', '.join(sorted(known))}")
+    known = {"attempt", "kind", "ran", "left_out", "answered", "silent", "bar", "must_fix", "should", "nit"}
+    if not isinstance(said, dict) or set(said) - known or not {"attempt", "kind", "answered"} <= set(said):
+        raise LandError(f"the record is one object with `attempt`, `kind` and `answered`, and of the others what applies: {', '.join(sorted(known))}")
+    # A record that is sent again, after a run that was cut off or by mistake, must not count as
+    # a second review: it says which start of the review it is, and only the next one is taken.
+    if said["attempt"] != state["attempt"]:
+        raise LandError(
+            f"the record says attempt {said['attempt']!r}, and the next review of this task is attempt {state['attempt']}: "
+            + ("that review is written down already" if said["attempt"] in [read.get("attempt") for read in reads] else "`land.py read` prints the number a record carries"),
+        )
     kind = said["kind"]
     if kind not in KINDS:
         raise LandError(f"`kind` is one of {', '.join(KINDS)}: {'; '.join(f'{name} is {says}' for name, says in KIND_SAYS.items())}")
@@ -526,11 +563,13 @@ def cmd_read(task: Task, record: str | None) -> dict:
             "`bar` holds one {\"name\": FILE, \"why\": WHAT THE REVIEW SAYS OF THE BUILDER'S REASON} for each such file",
         )
     entry = {
-        "round": state["round"], "kind": kind, "ran": ran, "left_out": left_out, "answered": answered, "silent": silent, "bar": bar_says, **counts,
+        "attempt": state["attempt"], "round": state["round"], "kind": kind, "ran": ran, "left_out": left_out, "answered": answered, "silent": silent, "bar": bar_says, **counts,
         "verdict": "not reviewed" if not answered else "must-fix" if counts["must_fix"] else "clean", "tip": state["tip"][:9], "patch": state["patch"],
     }
-    task.keep(reads=[*reads, entry])
+    # The event first: a run that is cut off between the two writes the review down at its next
+    # run, and the second event has the same attempt, by which a reader of the log knows it.
     script("project.py", task.worktree, "log", task.slug, "review", *(f"{key}:={json.dumps(value)}" for key, value in entry.items()))
+    task.keep(reads=[*reads, entry])
     return {"task": task.slug, "recorded": entry, "next": due(task)["due"]}
 
 
@@ -715,7 +754,8 @@ def forge_done(task: Task, view: dict) -> dict:
     task.fetch()
     pr = task.kept()["pr"]
     merged = (view.get("mergeCommit") or {}).get("oid")
-    task.keep(merged=merged or True)
+    # the commit of the branch that the forge merged: `clean` removes the branch only when it holds nothing after it
+    task.keep(merged=merged or True, merged_head=view["headRefOid"])
     left_behind = follow(task)
     task.state("landed", f"{task.base}: pull request {pr['url']} is merged")
     return {"task": task.slug, "base": task.base, "pull_request": pr, "merged": merged, "left_behind": left_behind}
@@ -727,8 +767,9 @@ def viewed(task: Task, pr: dict | None = None) -> dict:
 
 
 def cmd_merged(task: Task) -> dict:
-    if task.record["status"] != "open" or not task.kept().get("pr"):
-        raise LandError(f"the task is {task.record['status']!r} and has {'a' if task.kept().get('pr') else 'no'} pull request; this step is for an `open` task whose pull request the owner merged")
+    # `landing` too: the owner may merge on the forge while an open task runs its checks again
+    if task.record["status"] not in ("open", "landing") or not task.kept().get("pr"):
+        raise LandError(f"the task is {task.record['status']!r} and has {'a' if task.kept().get('pr') else 'no'} pull request; this step is for a task whose pull request the owner merged")
     view = viewed(task)
     if view["state"] == "MERGED":
         return forge_done(task, view)
@@ -847,7 +888,7 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
 def cmd_clean(task: Task) -> dict:
     if task.record["status"] not in ("landed", "dropped"):
         raise LandError(f"the task is {task.record['status']!r}; only a landed or dropped task loses its worktree")
-    removed: dict = {"worktree": False, "branch": None, "branch_left": None}
+    removed: dict = {"worktree": False, "branch": None, "branch_left": None, "remote": None, "remote_left": None}
     # The worktree names its branch while it is there; after it, what `start` wrote down does.
     branch = task.kept().get("branch")
     if (task.worktree / ".git").exists():
@@ -866,14 +907,24 @@ def cmd_clean(task: Task) -> dict:
     # `branch -d` judges by the checkout it runs in, which may be behind. The proof wanted is that
     # the base holds the branch's tip, so that is what is checked before the branch goes.
     # A pull request that the forge merged as one commit, or as a merge commit, leaves no such
-    # proof in git: there the forge's own word that it is merged stands in for it.
-    if not task.kept().get("merged") and run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", branch, task.onto], check=False).returncode != 0:
-        raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays")
+    # proof in git: there the proof is that the branch's tip is the commit the forge merged.
+    kept = task.kept()
+    tip = git(task.main, "rev-parse", branch)
+    on_base = run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", tip, task.onto], check=False).returncode == 0
+    if not on_base and not (kept.get("merged") and tip == kept.get("merged_head")):
+        after = f"; the forge merged {kept['merged_head'][:9]}, and the branch has commits after it" if kept.get("merged") else ""
+        raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays{after}")
+    if kept.get("merged") and task.forge:
+        # The forge's copy first, and only when it is the commit that was merged: a failure here
+        # is said, and the next run finds the local branch and tries again.
+        there = run(["git", "-C", str(task.main), "ls-remote", "--heads", "origin", branch]).stdout.split()
+        if there and there[0] != kept.get("merged_head"):
+            removed["remote_left"] = f"origin has {there[0][:9]} on {branch}, which is not the commit the forge merged; it stays"
+        elif there:
+            git(task.main, "push", "origin", "--delete", branch)
+            removed["remote"] = branch
     git(task.main, "branch", "-D", branch)
     removed["branch"] = branch
-    if task.kept().get("merged"):
-        # the forge may have removed its copy of the branch already; that is no error
-        run(["git", "-C", str(task.main), "push", "origin", "--delete", branch], check=False)
     return {"task": task.slug, **removed}
 
 

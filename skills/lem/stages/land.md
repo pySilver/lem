@@ -11,8 +11,10 @@ otherwise the `ready` task with the oldest state time. `/lem land SLUG`, typed b
 task that is `open`, is his word to merge it: step 7, with `--by owner`. First, though, two kinds of task get what
 they are owed:
 
-- a task that is `open` with a pull request: `land.py merged SLUG` asks the forge. When the owner
-  merged it there, the step writes `landed`, and you go on at step 8. When he closed it without
+- a task that is `open` with a pull request, or `landing` again with one: `land.py merged SLUG`
+  asks the forge. When the owner merged it there, the step writes `landed`, and you go on at
+  step 8. `clean` then removes the branch only when its tip is the commit the forge merged: a
+  commit a builder added after that is work nobody merged, and the branch stays. When he closed it without
   a merge, ask him whether the task is dropped;
 - a task that ended and whose ticket still waits: `project.py tasks` shows it as `ticket_owed`,
   and the tracker does the steps that are missing (its "land" for a `landed` task, its "drop"
@@ -84,26 +86,28 @@ one finds what the run before it finished.
    least it may be, and what a reviewer gets; keep its output as `read.json` in the task
    directory.
    - `due` is `none`: this exact change was reviewed and no must-fix is left. Go to step 6.
-   - `due` is `owner`: two rounds are used, or the review was started twice and nobody answered.
-     Go to step 6; the request is not green, and its first lines say why.
+   - `due` is `owner`: two rounds are used and something is still open, or the review was
+     started twice and nobody answered. Go to step 6; the request is not green, and its first
+     lines say why.
    - `due` is `review`: you read no diff, so the review is a fresh agent's. `spawn-builder` with
      one line, `Read SKILL_DIR/prompts/review.md and follow it.`, and under it the task's slug,
-     its worktree, its task directory, the round's number and the path of `read.json`. That
+     its worktree, its task directory and the path of `read.json`. That
      agent changes nothing. It chooses what the change gets, within the floor `read.json` names:
      one read for a small and simple change, a round with the profiles that fit for every other
      one, the project's full set for a careful request. It reads the diff and what each profile
      and lens of the review tool says it is for, and it writes one reason for each one it runs
      and each one it leaves out; so a change of documentation gets no security or architecture
      check, and nobody decides that by a list of paths. It runs the review, confirms each
-     finding against the code, and writes `reviews/round-N.md` and `reviews/round-N.json` in
-     the task directory. Then `land.py read SLUG --record` with that JSON file writes the
-     review down; the step refuses a record under the floor.
+     finding against the code, and writes `reviews/review-N.md` and `reviews/review-N.json` in
+     the task directory, N being the `attempt` of `read.json`. Then `land.py read SLUG --record` with that JSON file writes the
+     review down. The step refuses a record under the floor, and one whose `attempt` is not
+     the number `read.json` gave: a record that is sent twice counts once.
 
    What the record says decides the next step (`next` in the step's output):
    - *no must-fix*: go to step 6. The should findings stay open and go into the notes: a fix now
      would be a change nobody reviewed.
    - *a must-fix*: `spawn-builder` with the brief below, the job "the fix of a review's
-     findings", and as its paths `reviews/round-N.md` and the task's plan. It fixes each
+     findings", and as its paths `reviews/review-N.md` and the task's plan. It fixes each
      must-fix, and each should that is cheap, with a test for what was wrong. Then steps 4 and 5
      again: the fix gets the machine checks and the second round, which is a round of the
      review tool at the least.
@@ -113,7 +117,9 @@ one finds what the run before it finished.
    - *nobody answered*: that is no review. Start the review agent once more. A second such
      record sends the request on as not reviewed.
 
-   Two rounds at most. After the second the request is proposed as it is, and it is not green.
+   Two rounds at most. After the second nothing is reviewed again: the request is proposed as
+   it is. It is green when the second round left no must-fix and nothing changed after it, and
+   not green otherwise.
 6. **`propose`**, with `--title` and `--notes`. The title is the report's commit subject. The
    notes are a file you write in the task directory, `notes.md`, from `report.md` and the last
    review's file, with these headings, each holding what is true of this task or the one word
@@ -160,8 +166,9 @@ one finds what the run before it finished.
      `propose`. A base that moved only by paths the settings' `gate.ignores` name does not
      refuse.
    - *the tip is not the commit that was proposed*: the same steps again.
-   - *a commit hook changed the one commit's files*: the step put the branch back. A builder
-     commits what the hook changes, and the landing goes on from step 2.
+   - *a commit hook changed the one commit's files*: the step put the branch back, and the task
+     is still `open`. A builder commits what the hook changes, and the landing goes on from
+     step 1: `start` takes the line again.
 
    When its `left_behind` is not null, the checkout that holds the base branch could not follow
    the landing, and nothing in it was changed; give the owner that line as it is, with git's own

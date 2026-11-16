@@ -604,7 +604,8 @@ function derive(now) {
     }
     // Each review of the task's change before it is proposed, and what the proposal said: green,
     // or each reason it is not.
-    if (e.event === 'review') { t.reviews.push({ts: at(e), round: e.round, kind: e.kind, verdict: e.verdict, must_fix: e.must_fix, should: e.should, nit: e.nit, answered: e.answered ?? [], silent: e.silent ?? [], ran: e.ran ?? [], left_out: e.left_out ?? [], tip: e.tip}); continue; }
+    // A review that was written down again after a cut-off run has the same attempt: it is one review.
+    if (e.event === 'review') { t.reviews = t.reviews.filter(r => r.attempt == null || r.attempt !== e.attempt); t.reviews.push({ts: at(e), attempt: e.attempt, round: e.round, kind: e.kind, verdict: e.verdict, must_fix: e.must_fix, should: e.should, nit: e.nit, answered: e.answered ?? [], silent: e.silent ?? [], ran: e.ran ?? [], left_out: e.left_out ?? [], tip: e.tip}); continue; }
     if (e.event === 'proposed') { t.proposal = {ts: at(e), green: e.green === true, reasons: e.not_green ?? [], tip: e.tip}; continue; }
     if (e.event !== 'task.state') continue;
     const ts = at(e);

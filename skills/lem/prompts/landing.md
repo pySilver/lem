@@ -62,7 +62,7 @@ Your reply: for each check, whose failure it was and what you did; the tip
 
 ## The fix of a review's findings
 
-The brief gives the review's file (`reviews/round-N.md` in the task directory) and the task's
+The brief gives the review's file (`reviews/review-N.md` in the task directory) and the task's
 plan. Each finding there was confirmed against the code, and each must-fix names the input that
 fails or the story it breaks.
 

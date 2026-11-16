@@ -159,7 +159,8 @@ These rules hold for each task:
   pull request says who answered. If no source answers two times, the pull request says "not
   reviewed".
 - **A review has two rounds at most.** A finding that must change goes to a builder. After the
-  second round, Lem proposes the change as it is, and the pull request is not green.
+  second round, Lem proposes the change as it is. The pull request is green only if that round
+  found nothing that must change.
 - **A task ends as a pull request.** With a remote on GitHub, Lem opens it with the `gh`
   command. With a different remote, or with none, Lem marks the branch as ready.
 - **The first line says green or not green.** Each reason for "not green" is one line, before
