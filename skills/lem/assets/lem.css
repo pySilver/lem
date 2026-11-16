@@ -106,7 +106,9 @@ button:focus-visible { outline: 2px solid var(--gate); outline-offset: 2px; }
 .doc li { overflow-wrap: anywhere; }
 .doc code, .doc pre { font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .doc code { padding: 1px 6px; border-radius: 6px; background: var(--card-hi); border: 1px solid var(--line); overflow-wrap: anywhere; }
-.doc pre { margin: 0; padding: 11px 14px; border-radius: 10px; background: var(--card-hi); border: 1px solid var(--line); overflow-x: auto; white-space: pre; }
+/* A page of Lem's is read, not scrolled: a long command wraps, so the owner sees all of it before he
+   runs it, and a soft wrap is no newline in what he copies. */
+.doc pre { margin: 0; padding: 11px 14px; border-radius: 10px; background: var(--card-hi); border: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
 .doc pre code { padding: 0; border: 0; background: none; }
 .doc blockquote { margin: 0; padding: 4px 0 4px 14px; border-left: 3px solid var(--line-strong); color: var(--dim); max-width: 84ch; }
 .doc table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
