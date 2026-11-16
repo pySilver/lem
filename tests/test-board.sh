@@ -261,14 +261,56 @@ for slug in restored-read unread-change; do
 done
 stories approve restored-read --file "$WORK/restored-read.md" >/dev/null
 
-if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 18 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
+# The two experts' advice on five choices: one they settled while the owner was away, with his answer
+# after it, one taken at
+# the end of its wait with their shared pick, one at the end of its wait while they split, and two
+# that still wait, the first with a shared pick and the second with none. Its state block comes a
+# minute after the gift note's, so that the gift note stays the news of the board of all tasks.
+X=expert-advice
+task "$X" "Print the invoice for the post"
+project state "$X" building "lead: builder" >/dev/null
+decide ask "$X" --what "The paper size" --option "A4" --option "Letter" --recommended "Letter" --why "the printer has Letter in its tray" --said "The two personas split." >/dev/null
+decide advise "$X" 1 --expert fable --pick A4 --why "every customer of the shop is in Europe, where the post reads A4" >/dev/null
+decide advise "$X" 1 --expert astra --pick A4 --why "the envelopes of the shop are cut for A4" >/dev/null
+decide settle "$X" 1 --away >/dev/null
+decide answer "$X" 1 --chose Letter --words "Letter, it is in the tray" >/dev/null
+decide ask "$X" --what "The color of the logo" --option "black" --option "the green of the shop" --recommended "black" --why "a black logo prints on every printer" --said "The two personas split." >/dev/null
+decide advise "$X" 2 --expert fable --pick "the green of the shop" --why "the invoice is a page of the shop" >/dev/null
+decide advise "$X" 2 --expert astra --pick "the green of the shop" --why "the printer prints in color" >/dev/null
+decide ask "$X" --what "The order number on the page" --option "at the top" --option "at the foot" --recommended "at the top" --why "the post office reads the top first" --said "The two personas split." >/dev/null
+decide advise "$X" 3 --expert fable --pick "at the top" --why "a reader looks for it first" >/dev/null
+decide advise "$X" 3 --expert astra --pick "at the foot" --why "the top holds the address window" >/dev/null
+past "$X" 2 3
+decide timeout "$X" 2 >/dev/null
+decide timeout "$X" 3 >/dev/null
+decide ask "$X" --what "The font of the invoice" --option "serif" --option "sans" --recommended "sans" --why "it reads well on a screen" --said "The two personas split." >/dev/null
+decide advise "$X" 4 --expert fable --pick serif --why "a printed invoice reads better in serif" >/dev/null
+decide advise "$X" 4 --expert astra --pick serif --why "the letters of the shop are in serif" >/dev/null
+decide ask "$X" --what "The size of the total" --option "12 pt" --option "14 pt" --recommended "14 pt" --why "a reader finds the total first" --said "The two personas split." >/dev/null
+decide advise "$X" 5 --expert fable --none --why "the total should be bold, not bigger" >/dev/null
+decide advise "$X" 5 --expert astra --pick "12 pt" --why "the other lines are 12 pt" >/dev/null
+retime "$X" now -50 -49 -48 -47 -46 -45.5 -45 -44 -43 -42 -41 -40 -29 -26 -6 -5 -4 -3 -2 -1
+
+# A landing whose polish pass is logged and whose checks run, and one that has only started.
+P=polished
+task "$P" "Name the invoice files by order"
+project state "$P" ready "the report is written" >/dev/null
+project state "$P" landing "the checks start" >/dev/null
+project log "$P" polish before=abc1234 after=def5678 commits:=2 'filed:=["docs/backlog/invoice-footer-typo.md"]' >/dev/null
+retime "$P" now -40 -30 -12
+task landing-starts "Print the order date on the invoice"
+project state landing-starts ready "the report is written" >/dev/null
+project state landing-starts landing "the checks start" >/dev/null
+retime landing-starts now -20 -10
+
+if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 37 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
   pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log holds the moved times"
 else
   fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events"
 fi
 
 board --no-open >/dev/null
-for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change; do board --no-open --task "$slug" >/dev/null; done
+for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts; do board --no-open --task "$slug" >/dev/null; done
 
 SHOWN=$(cat <<'PY'
 import re, sys
@@ -348,6 +390,44 @@ print("; ".join(wrong))
 sys.exit(bool(wrong))
 PY
 )
+# ROWS DOM ID 'ANCHOR|WANT|...' ...: a row of the element ID (one of its children) holds the text
+# ANCHOR, and that same row holds each WANT: a text, "!TEXT" that it must not hold, "~PATTERN" a
+# regular expression, "@CLASS" a class of the row. So a text of another row cannot stand in.
+ROWS=$(cat <<'PY'
+import re, sys
+from html.parser import HTMLParser
+VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+class P(HTMLParser):
+    def __init__(self, target):
+        super().__init__(); self.target = target; self.depth = 0; self.inside = None; self.done = False; self.rows = []
+    def handle_starttag(self, tag, attrs):
+        if tag in VOID: return
+        self.depth += 1
+        if self.inside is None and not self.done and dict(attrs).get("id") == self.target: self.inside = self.depth
+        elif self.inside is not None and self.depth == self.inside + 1: self.rows.append({"cls": (dict(attrs).get("class") or "").split(), "text": []})
+    def handle_endtag(self, tag):
+        if tag in VOID: return
+        if self.inside is not None and self.depth == self.inside: self.inside = None; self.done = True
+        self.depth -= 1
+    def handle_data(self, data):
+        if self.inside is not None and self.depth > self.inside and self.rows: self.rows[-1]["text"].append(data)
+p = P(sys.argv[2]); p.feed(open(sys.argv[1], encoding="utf-8").read())
+rows = [{"cls": r["cls"], "text": " ".join(" ".join(r["text"]).split())} for r in p.rows]
+wrong = []
+for want in sys.argv[3:]:
+    anchor, *needs = want.split("|")
+    row = next((r for r in rows if anchor in r["text"]), None)
+    if row is None:
+        wrong.append(f"no row of #{sys.argv[2]} holds {anchor!r} (its rows: {[r['text'][:90] for r in rows]})")
+        continue
+    for need in needs:
+        ok = (need[1:] in row["cls"]) if need.startswith("@") else (need[1:] not in row["text"]) if need.startswith("!") \
+            else bool(re.search(need[1:], row["text"])) if need.startswith("~") else need in row["text"]
+        if not ok: wrong.append(f"the row {anchor!r} does not hold {need!r}: {row['text']!r} (class {' '.join(row['cls'])})")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
 
 chrome=""
 for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
@@ -390,8 +470,9 @@ elif [ -n "$chrome" ]; then
     "^Choice 7 waits for you: Gift note export · The note of a cancelled order · (9m [0-9]{2}s|10m) left Lem puts choice 7 to you as a page in its session" \
     "^Choice 4 waits for you: Gift note export · Email the merchants about the new column · no end: no timeout takes it Lem puts choice 4" \
     "^Choice 1 waits for you: Held choice · Refund the 12 duplicate orders now · no end: no timeout takes it" \
-    "^Waits for you: Stories wait · the stories wait for the owner" "!^Choice 6" "!Choice 5" "!^Waits for you: Held choice") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "10 wait for you, 8 build, 3 in checks and review, 1 queued" "You · choice 7 of the task" "!Demo data"); then
+    "^Waits for you: Stories wait · the stories wait for the owner" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
+    "!^Choice [123] waits for you: Expert advice") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "11 wait for you, 9 build, 5 in checks and review, 1 queued" "You · choice 7 of the task" "!Demo data"); then
     pass "the board of all tasks puts each choice that waits for the owner in a banner and in the card it opens on, with its count-down, or no end for an irreversible step, and none whose wait is over"
   else
     fail "the banners: $why"
@@ -400,9 +481,9 @@ elif [ -n "$chrome" ]; then
   draw "task-$G"
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$G.dom" "Decisions" "2 wait for you · 1 with the wait over · 4 taken" \
     "Choice 7 waits for you: The note of a cancelled order" "options: keep it · leave it out" "recommended: keep it, because the export shows cancelled orders as they were" \
-    "the personas: The merchant would keep it, the accountant is in doubt." "Its wait ends at " 'then the lead takes “keep it”.' "~(9m [0-9]{2}s|10m) left" \
+    "the personas: The merchant would keep it, the accountant is in doubt." "Its wait ends at " 'then the lead takes “keep it”, the recommended option, unless both experts pick one option before then.' "~(9m [0-9]{2}s|10m) left" \
     "Choice 4 waits for you: Email the merchants about the new column" "It waits for your answer, with no end: it sends something to a person, so no timeout takes it." "no end" \
-    "Choice 6, its wait is over: A note longer than the cell" 'and no timeout is written yet: the lead takes “all of it”.' "wait over" \
+    "Choice 6, its wait is over: A note longer than the cell" 'and no timeout is written yet: the lead takes “all of it”, the recommended option, as no expert advised.' "wait over" \
     "5. The header of the column → Gift note" "taken by the timeout at " "no answer came in 15 minutes. The recommended action stands, and the pull request is not green for it." \
     "1. The name of the new column → gift_note" "taken by the lead, because the other columns of the export are in snake case" "to undo: rename the column" \
     "2. Two notes on one order → both notes, with a semicolon between them" "taken by the personas, because a merchant reads both" "the personas: The merchant and the accountant both picked the semicolon." \
@@ -548,6 +629,63 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     pass "stories the personas' read froze on the rare path are shown as such, never as a correction or as the owner's yes"
   else
     fail "the read's approval: $why"
+  fi
+
+  # The experts' advice. Each check reads one row of one card, or one banner, so that a text of
+  # another choice or of the activity cannot stand in for it.
+  draw "task-$X"
+  # shellcheck disable=SC1111,SC1112  # the curly quotes around a pick are the page's
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" decisions \
+      "Choice 4 waits for you: The font of the invoice|Fable picks “serif”, because a printed invoice reads better in serif|Astra picks “serif”, because the letters of the shop are in serif|~Its wait ends at [0-9]{2}:[0-9]{2}; then the lead takes “serif”, the experts’ shared pick\.|Where you answer: Lem puts choice 4 to you as a page in its session. Answer it there before its wait ends; then the lead takes the experts’ shared pick.|!the recommended option" \
+      "Choice 5 waits for you: The size of the total|Fable finds that none of the options fits, because the total should be bold, not bigger|Astra picks “12 pt”, because the other lines are 12 pt|then the lead takes “14 pt”, the recommended option, as the experts have no shared pick.|then the lead takes the recommended action.|!the experts’ shared pick" \
+      "1. The paper size|!Fable picks|!waits for you") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" now \
+      "2 choices wait for you|The font of the invoice|the experts: Fable “serif” · Astra “serif”|~until [0-9]{2}:[0-9]{2}; then the lead takes the experts’ shared pick") \
+    && why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
+      "^Choice 4 waits for you: Expert advice · The font of the invoice · .* then the lead takes the experts’ shared pick\.$" \
+      "^Choice 5 waits for you: Expert advice · The size of the total · .* then the lead takes the recommended action\.$"); then
+    pass "a choice that waits shows each expert's advice in its own row of the Decisions card, a pick or none fits with its reasons, and its row, its banner and the head of its board say that the end of the wait takes the experts' shared pick when both agree, else the recommended option"
+  else
+    fail "the experts' advice on a choice that waits: $why"
+  fi
+  # shellcheck disable=SC1111,SC1112  # the curly quotes around a pick are the page's
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" decisions \
+      "1. The paper size → A4|@a-bad|~taken by the experts at [0-9]{2}:[0-9]{2}, while you were away, before its wait ended: both picked it\. The pull request is not green for it\.|Fable picked “A4”, because every customer of the shop is in Europe, where the post reads A4|Astra picked “A4”, because the envelopes of the shop are cut for A4|~Your answer came at [0-9]{2}:[0-9]{2}, after the experts took it: “Letter” \(Letter, it is in the tray\)\. It differs from what was taken|!taken by the timeout") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" feed \
+      "Choice 1 taken by the experts while you were away|A4|Fable: every customer of the shop is in Europe, where the post reads A4 · Astra: the envelopes of the shop are cut for A4" \
+      "Your answer to choice 1 came after it was taken|Letter") \
+    && grep -Eq 'data-head="You · Choice 1: The paper size" data-sub="the experts took “A4” at [0-9]{2}:[0-9]{2}, while you were away"' "$WORK/task-$X.dom"; then
+    pass "a choice the experts settled while the owner was away is in the Decisions card as taken by the experts, marked like a timeout, with their pick and both reasons, and his answer after it as after the experts took it; the activity and the time card say so"
+  else
+    fail "a choice the experts settled: ${why:-the hover of the settled choice}"
+  fi
+  # shellcheck disable=SC1111,SC1112  # the curly quotes around a pick are the page's
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" decisions \
+      "2. The color of the logo → the green of the shop|@a-bad|~taken by the experts at the end of the wait, at [0-9]{2}:[0-9]{2}: no answer came in 15 minutes, and both picked it\. The pull request is not green for it\.|Fable picked “the green of the shop”, because the invoice is a page of the shop|Astra picked “the green of the shop”, because the printer prints in color|!taken by the timeout" \
+      "3. The order number on the page → at the top|@a-bad|~taken by the timeout at [0-9]{2}:[0-9]{2}: no answer came in 15 minutes\. The recommended action stands, and the pull request is not green for it\.|the experts split: Fable picked “at the top”, because a reader looks for it first · Astra picked “at the foot”, because the top holds the address window|!taken by the experts") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" feed \
+      "Choice 2 taken by the experts at the end of its wait|the green of the shop|Fable: the invoice is a page of the shop · Astra: the printer prints in color" \
+      "Choice 3 taken by the timeout|at the top|!experts" \
+      "Astra advised on choice 3|picks “at the foot”|the top holds the address window" \
+      "Fable advised on choice 5|none of the options fits|the total should be bold, not bigger") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" progress "Decisions|3 taken, 1 by the timeout, 2 by the experts") \
+    && grep -Eq 'data-head="You · Choice 2: The color of the logo" data-sub="its wait ended at [0-9]{2}:[0-9]{2}; the experts’ shared pick “the green of the shop” was taken at [0-9]{2}:[0-9]{2}"' "$WORK/task-$X.dom"; then
+    pass "a timeout that took the experts' shared pick names them with both reasons, and one whose experts split is the timeout's with the recommended option and each expert's advice, in the Decisions card, the activity, the count of decisions and the time card"
+  else
+    fail "a timeout with the experts' advice: ${why:-the hover of the timeout the experts took}"
+  fi
+  draw "task-$P" && draw task-landing-starts
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$P.dom" feed "The polish pass|2 commits, 1 item filed in the backlog|abc1234 → def5678|docs/backlog/invoice-footer-typo.md") \
+    && why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$P.dom" "You|Lem|The builders|The checks" "Lem=~10m · 2[45]%" "The builders=~18m · 4[45]%" "The checks=~1[12]m · (2[89]|3[01])%") \
+    && grep -q 'data-head="The builders · The polish pass" data-sub="from the event before it: its start is not logged, so the rebase onto the base is in it"' "$WORK/task-$P.dom" \
+    && grep -q 'data-head="The checks · The checks run"' "$WORK/task-$P.dom" \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$P.dom" now "The checks and the review run on it") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-landing-starts.dom" now "It starts its landing: the rebase onto the base, then the polish pass|!The checks and the review run on it") \
+    && grep -q 'data-head="Lem · The landing starts: the rebase onto the base, then the polish pass, and no event says which runs yet"' "$WORK/task-landing-starts.dom" \
+    && ! grep -q 'data-head="The checks · The checks run"' "$WORK/task-landing-starts.dom"; then
+    pass "the polish pass is in the activity with its commits and the items it filed, and on the time card as the builders' span from the event before it; a landing with no polish and no check yet says that it starts, not that its checks run"
+  else
+    fail "the polish pass: ${why:-a span of the time card}"
   fi
   # The project's own asker: the page says where the owner answers, by the settings' tools.ask.
   printf '%s\n' '[tools]' 'ask = "terminal"' > "$R/.lem/project.local.toml"

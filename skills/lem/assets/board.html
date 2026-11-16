@@ -418,9 +418,11 @@
 // on that task; any other name opens on all tasks.
 //
 // A decision of the build is the events with its `id` (decisions.py): `decision.taken` or
-// `decision.asked` opens it, and `decision.answered`, `decision.timeout` and `decision.late` are
-// joined to it by that number. A choice whose wait ended with no timeout written still waits in
-// the record, and the board says that its wait is over.
+// `decision.asked` opens it, and `decision.advised` (one expert's advice), `decision.answered`,
+// `decision.settled` (the experts' shared pick, taken while the owner is away), `decision.timeout`
+// (the experts' shared pick or the recommended option, by its `by`) and `decision.late` are joined
+// to it by that number. A choice whose wait ended with no timeout written still waits in the
+// record, and the board says that its wait is over and what its timeout will take.
 //
 // "Where the time went" on the board of one task draws only what an event shows: a state block
 // starts a span and the next one ends it, a check's or a review's event ends its span inside a
@@ -472,7 +474,32 @@ const PHASES = ['Stories', 'Plan', 'Build', 'Checks', 'Review', 'Proposed', 'Lan
 // then what only waits for his word.
 const OWNER_ORDER = ['choice', 'held', 'planned', 'drafted', 'open'];
 // Who took a decision, in the page's words to the owner.
-const BY_WHOM = {lead: 'the lead', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout'};
+const BY_WHOM = {lead: 'the lead', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout', experts: 'the experts'};
+// The two experts of the lem-ask-expert skill, by the names decisions.py keeps their advice under.
+const EXPERTS = {fable: 'Fable', astra: 'Astra'};
+const expertName = key => EXPERTS[key] ?? key;
+// The option both experts picked, as decisions.py `shared` reads it: none when one is missing, one
+// found that none fits, or they split.
+function sharedPick(d) {
+  const picks = Object.keys(EXPERTS).map(key => d.advice[key]);
+  return picks.every(a => a && a.pick != null) && new Set(picks.map(a => a.pick)).size === 1 ? picks[0].pick : null;
+}
+// What the end of a choice's wait takes, and why: the experts' shared pick, or the recommended
+// option. While the wait runs and an expert has not advised yet, their pick may still come.
+function endOf(d, over) {
+  const pick = sharedPick(d);
+  if (pick != null) return `“${pick}”, the experts’ shared pick`;
+  const advised = Object.keys(EXPERTS).filter(key => d.advice[key]);
+  if (!over && advised.length < 2) return `“${d.recommended}”, the recommended option, unless both experts pick one option before then`;
+  return `“${d.recommended}”, the recommended option, as ${!advised.length ? 'no expert advised' : advised.length === 1 ? `only ${expertName(advised[0])} advised` : 'the experts have no shared pick'}`;
+}
+// One expert's advice, on a choice that waits (now) or on one that was taken (then).
+const adviceLine = (key, a, then) => (a.pick != null
+  ? `${expertName(key)} ${then ? 'picked' : 'picks'} “${a.pick}”, because ${a.why}`
+  : `${expertName(key)} ${then ? 'found' : 'finds'} that none of the options fits, because ${a.why}`);
+// The experts' reasons a settle or a timeout carries (`experts`: {name: why}), in one line.
+const reasonsOf = experts => Object.entries(experts ?? {}).map(([key, why]) => `${expertName(key)}: ${why}`).join(' · ');
+const adviceLines = (d, then) => Object.keys(EXPERTS).filter(key => d.advice[key]).map(key => adviceLine(key, d.advice[key], then));
 // Why a later "no" cannot undo a step, in decisions.py's four kinds.
 const IRREVERSIBLE = {
   data: 'it destroys or rewrites data outside the worktree', system: 'it writes to a system outside the repository',
@@ -661,7 +688,7 @@ function derive(now) {
     let t = tasks.get(e.task);
     if (!t) tasks.set(e.task, t = {
       slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], reviews: [], proposal: null, stories: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null,
-      events: [], decisions: new Map(), orphans: [], changes: [], approvals: [], reads: [], talk: null, filed: [], missed: null,
+      events: [], decisions: new Map(), orphans: [], changes: [], approvals: [], reads: [], talk: null, filed: [], missed: null, polish: null,
     });
     // every event of the task, in the order of the log: "Where the time went" reads them all
     t.events.push(e);
@@ -679,6 +706,8 @@ function derive(now) {
     if (e.event === 'plan.talk') { t.talk = {ts: at(e), reviewer: e.reviewer, turns: e.turns, settled: e.settled, open: e.open}; continue; }
     if (e.event === 'review.filed') { t.filed.push({ts: at(e), items: e.items ?? [], tip: e.tip}); continue; }
     if (e.event === 'careful.missed') { t.missed = {ts: at(e), path: e.path, pattern: e.pattern}; continue; }
+    // the polish pass of the landing, as land.py polish --done logged it; it has no start event
+    if (e.event === 'polish') { t.polish = {ts: at(e), before: e.before, after: e.after, commits: e.commits, filed: e.filed ?? []}; continue; }
     // The stories of the task's plan, as the lead last recorded them, and the newest check that
     // each one's tests pass on the branch and fail on the base commit.
     if (e.event === 'task.stories') { t.stories = {order: t.events.length, kind: e.kind, why: e.why, digest: e.digest, list: e.stories ?? [], ts: at(e)}; continue; }
@@ -738,8 +767,8 @@ function derive(now) {
     // Each decision of the build as it stands, and the choices that still wait in the record: the
     // one whose wait ends first comes first, then one with no end (an irreversible step), then one
     // whose wait is over with no timeout written. Only the first two wait for the owner: after the
-    // wait the recommended action stands, and his answer is a late one (decisions.py). A task that
-    // is landed or dropped has none that waits (decisions.py pending).
+    // wait the experts' shared pick or the recommended action stands, and his answer is a late one
+    // (decisions.py). A task that is landed or dropped has none that waits (decisions.py pending).
     const over = d => !d.irreversible && d.deadline != null && d.deadline <= now;
     const rank = d => (over(d) ? 2 : d.irreversible ? 1 : 0);
     t.choices = [...t.decisions.values()].sort((a, b) => a.id - b.id);
@@ -805,15 +834,18 @@ function decisionEvent(t, e) {
       id: e.id, kind, ts, what: e.what, chose: e.chose ?? null, why: e.why, by: e.by ?? null, said: e.said ?? null, undo: e.undo ?? null,
       options: e.options ?? [], recommended: e.recommended ?? null, irreversible: e.irreversible ?? null,
       wait: e.wait_minutes ?? null, deadline: e.deadline ? new Date(e.deadline).getTime() : null,
-      state: kind === 'taken' ? 'taken' : 'waits', ended: null, late: null,
+      state: kind === 'taken' ? 'taken' : 'waits', ended: null, late: null, advice: {}, experts: null, away: false,
     });
     return;
   }
   const d = t.decisions.get(e.id);
   // An outcome whose question is not in the log is shown as such, never dropped.
   if (!d || d.kind !== 'asked') { t.orphans.push({ts, kind, id: e.id, chose: e.chose}); return; }
-  if (kind === 'answered') Object.assign(d, {state: 'answered', chose: e.chose, by: 'owner', ended: ts, words: e.words ?? null, ownerWhy: e.why ?? null, instead: e.instead === true});
-  else if (kind === 'timeout') Object.assign(d, {state: 'timeout', chose: e.chose, by: 'timeout', ended: ts});
+  if (kind === 'advised') d.advice[e.expert] = {ts, pick: e.none ? null : e.pick ?? null, why: e.why};
+  else if (kind === 'answered') Object.assign(d, {state: 'answered', chose: e.chose, by: 'owner', ended: ts, words: e.words ?? null, ownerWhy: e.why ?? null, instead: e.instead === true});
+  // A timeout written before the experts existed has no `by`: it took the recommended option.
+  else if (kind === 'timeout') Object.assign(d, {state: 'timeout', chose: e.chose, by: e.by ?? 'timeout', ended: ts, experts: e.experts ?? null});
+  else if (kind === 'settled') Object.assign(d, {state: 'settled', chose: e.chose, by: 'experts', ended: ts, experts: e.experts ?? null, away: true});
   else if (kind === 'late') d.late = {ts, chose: e.chose, words: e.words ?? null, why: e.why ?? null, instead: e.instead === true};
   else t.orphans.push({ts, kind, id: e.id, chose: e.chose});
 }
@@ -869,7 +901,7 @@ function answerOf(t, c = t.asks[0]) {
   if (c) {
     return c.irreversible
       ? `${askedHow(`choice ${c.id}`)}. Answer it there: it waits for your word, with no end.`
-      : `${askedHow(`choice ${c.id}`)}. Answer it there before its wait ends; then the lead takes the recommended action.`;
+      : `${askedHow(`choice ${c.id}`)}. Answer it there before its wait ends; then the lead takes ${sharedPick(c) != null ? 'the experts’ shared pick' : 'the recommended action'}.`;
   }
   if (t.status === 'open') return /^pull request\b/.test(t.text) ? 'Merge the pull request, or tell Lem in its session to land it.' : 'Tell Lem in its session to land it.';
   if (t.storiesWait) return `${askedHow('the stories, with the personas’ read on top,', true)}. Approve or change them there.`;
@@ -964,7 +996,13 @@ function buildLegend(m, tasks) {
 // ---- where the time of one task went ----
 
 const taskLine = b => b.status === 'building' && [b.text, ...b.lines].join(' ').match(/\btask (\d+) of (\d+)\b/);
-const CHECKS = ['gate', 'task.red', 'review', 'review.filed', 'proposed'];
+// The events that cut a landing. `polish` is the end of the polish pass (land.py polish --done),
+// which logs no start: its span runs from the event before it.
+const CHECKS = ['polish', 'gate', 'task.red', 'review', 'review.filed', 'proposed'];
+// A landing starts with the rebase onto the base and, for a task that is no correction, the polish
+// pass; no event says which runs until the pass ends. A pass of an earlier landing still counts.
+const kindOf = t => t.stories?.kind ?? t.approvals.at(-1)?.kind ?? null;
+const startsLanding = t => t.status === 'landing' && !t.gates.length && !t.polish && kindOf(t) !== 'correction';
 
 // The spans of one task, each on the row of who held the work, the marks of what logged only its
 // end, and the bands of the stages behind them. `end` is where the drawing stops: the last event of
@@ -993,6 +1031,13 @@ function timeOf(t, end) {
     for (const e of inside) {
       const x = at(e);
       let repairing = false;
+      if (e.event === 'polish') {
+        // The pass's builder worked from the event before it; the rebase of `base` is in that span
+        // too. The checks after it start on a new tip, with nothing owed.
+        add('builders', prev, x, 'The polish pass', 'from the event before it: its start is not logged, so the rebase onto the base is in it');
+        run = null; owed = false; prev = x; before = e;
+        continue;
+      }
       if (e.event === 'gate') {
         if (!run || run.done || !sameTip(run.tip, e.tip)) {
           repairing = Boolean(run) && !sameTip(run.tip, e.tip) && (run.failed || owed);
@@ -1018,7 +1063,8 @@ function timeOf(t, end) {
     if (open) {
       // After a failed run nothing says yet whether a builder repairs or the task stops: the time is Lem's, as the landing's owner.
       const afterFailure = ['lem', 'After a failed check: a repair or a stop, and no event says which yet'];
-      const [row, head] = !last ? ['checks', 'The checks run']
+      const [row, head] = !last ? (startsLanding(t) ? ['lem', 'The landing starts: the rebase onto the base, then the polish pass, and no event says which runs yet'] : ['checks', 'The checks run'])
+        : last === 'polish' ? ['checks', 'The checks run']
         : last === 'gate' ? (run.failed && run.done ? afterFailure
           : run.failed && gates == null ? ['lem', 'A command of this run failed: the next command, a repair or a stop, and no event says which yet']
             : run.done ? ['checks', 'The stories’ tests run'] : ['checks', gates ? `The checks run: ${run.count} of ${gates} commands done${run.failed ? ', one failed' : ''}` : 'The checks run'])
@@ -1074,14 +1120,17 @@ function timeOf(t, end) {
     since = a.order;
   }
   // A choice is his from its question to its outcome, and never after its wait ends: then the
-  // recommended action stands, whenever the timeout is written. One with no outcome and a wait
-  // that still runs, or with no end, runs to now while the task is open.
+  // experts' shared pick or the recommended action stands, whenever the timeout is written. One the
+  // experts settled while he was away ends there. One with no outcome and a wait that still runs,
+  // or with no end, runs to now while the task is open.
   for (const c of t.choices.filter(d => d.kind === 'asked')) {
     const limit = c.irreversible || c.deadline == null ? Infinity : c.deadline;
     const outcome = c.ended ?? (t.closed ? Math.max(c.ts, t.lastTs) : null);
     const running = outcome == null && limit > end;
     const stop = running ? end : Math.min(outcome ?? Infinity, limit);
     const how = c.state === 'answered' && c.ended <= limit ? `you answered: ${c.chose}`
+      : c.state === 'settled' ? `the experts took “${c.chose}” at ${hhmm(c.ended)}, while you were away`
+      : c.state === 'timeout' && c.by === 'experts' ? `its wait ended at ${hhmm(limit)}; the experts’ shared pick “${c.chose}” was taken at ${hhmm(c.ended)}`
       : c.state === 'timeout' ? `its wait ended at ${hhmm(limit)}; the timeout took “${c.chose}” at ${hhmm(c.ended)}`
         : t.closed && outcome <= limit ? `the task is ${t.status}: it no longer waits`
           : c.irreversible ? 'it waits for your word, with no end' : running ? 'it waits for you' : `its wait ended at ${hhmm(limit)}${c.state === 'waits' ? ', and no timeout is written' : ''}`;
@@ -1187,11 +1236,18 @@ const SAYS = {
   'proposed': e => ({info: {actor: e.green ? 'done' : 'you', icon: e.green ? 'check' : 'alert'}, head: e.green ? 'Proposed: green' : 'Proposed: not green', text: (e.not_green ?? []).join(' · ')}),
   'plan.talk': e => ({info: {actor: 'gate', icon: 'split'}, head: 'Plan talk', text: `with ${e.reviewer}: ${plural(e.turns, 'turn')}, ${e.settled} settled, ${e.open} open`}),
   'careful.missed': e => ({info: {actor: 'bad', icon: 'alert'}, head: 'A careful path the plan missed', text: `${e.path} (${e.pattern})`}),
+  'polish': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass',
+    text: `${plural(e.commits ?? 0, 'commit')}, ${(e.filed ?? []).length ? plural(e.filed.length, 'item') : 'no item'} filed in the backlog`,
+    sub: [`${e.before ?? '?'} → ${e.after ?? '?'}`, ...(e.filed ?? [])].join(' · ')}),
   'decision.taken': e => ({info: {actor: 'done', icon: 'check'}, head: `Decision ${e.id}, by ${BY_WHOM[e.by] ?? e.by}`, text: `${e.what} → ${e.chose}`}),
   'decision.asked': e => ({info: {actor: 'you', icon: 'help'}, head: `Choice ${e.id} asked`, text: e.what, sub: e.irreversible ? 'it waits for your answer, with no end' : `its wait ends at ${hhmm(new Date(e.deadline).getTime())}`}),
   'decision.answered': e => ({info: {actor: 'you', icon: 'user'}, head: `You answered choice ${e.id}`, text: e.chose}),
-  'decision.timeout': e => ({info: {actor: 'bad', icon: 'clock'}, head: `Choice ${e.id} taken by the timeout`, text: e.chose}),
-  'decision.late': e => ({info: {actor: 'you', icon: 'user'}, head: `Your answer to choice ${e.id} came after its wait`, text: e.chose}),
+  'decision.advised': e => ({info: {actor: 'quiet', icon: 'users'}, head: `${expertName(e.expert)} advised on choice ${e.id}`, text: e.none ? 'none of the options fits' : `picks “${e.pick}”`, sub: e.why}),
+  'decision.settled': e => ({info: {actor: 'bad', icon: 'clock'}, head: `Choice ${e.id} taken by the experts while you were away`, text: e.chose, sub: reasonsOf(e.experts)}),
+  'decision.timeout': e => (e.by === 'experts'
+    ? {info: {actor: 'bad', icon: 'clock'}, head: `Choice ${e.id} taken by the experts at the end of its wait`, text: e.chose, sub: reasonsOf(e.experts)}
+    : {info: {actor: 'bad', icon: 'clock'}, head: `Choice ${e.id} taken by the timeout`, text: e.chose}),
+  'decision.late': e => ({info: {actor: 'you', icon: 'user'}, head: `Your answer to choice ${e.id} came after it was taken`, text: e.chose}),
   'decision.story': e => ({info: {actor: 'you', icon: 'alert'}, head: `Story ${e.story} ${e.how === 'changed' ? 'changed' : e.how === 'added' ? 'was added' : 'was removed'}`, text: e.why}),
 };
 
@@ -1358,10 +1414,12 @@ function buildTaskNow(t) {
           h('div', {class: 'now-head'}, t.asks.length > 1 ? `${t.asks.length} choices wait for you` : `Choice ${c.id} waits for you`),
           h('div', {class: 'now-status'}, c.what),
           h('div', {class: 'now-ctx'}, `recommended: ${c.recommended} · ${STATUS[t.status]?.label ?? t.status}: ${t.text}`),
+          Object.keys(c.advice).length ? h('div', {class: 'now-ctx'}, `the experts: ${Object.keys(EXPERTS).filter(key => c.advice[key])
+            .map(key => `${expertName(key)} ${c.advice[key].pick != null ? `“${c.advice[key].pick}”` : 'none fits'}`).join(' · ')}`) : '',
           h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t)),
           h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, c.irreversible ? live(c.ts, 'clock') : until(c.deadline, 'clock')),
             h('span', {class: 'note'}, c.irreversible ? `since it was asked · it waits for your answer, with no end: ${IRREVERSIBLE[c.irreversible] ?? c.irreversible}`
-              : `left of the wait, until ${hhmm(c.deadline)}; then the lead takes the recommended action`)))),
+              : `left of the wait, until ${hhmm(c.deadline)}; then the lead takes ${sharedPick(c) != null ? 'the experts’ shared pick' : 'the recommended action'}`)))),
       h('div', {class: 'now-spacer'}),
       h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last block'), h('span', {}, h('span', {'data-ago': t.lastTs})),
         pane?.status ? h('span', {}, `· the session is ${pane.status}`) : '',
@@ -1369,7 +1427,8 @@ function buildTaskNow(t) {
   }
   const head = {
     queued: 'Waits for a free place', building: t.lead === 'session' ? 'Its session builds it' : 'Its builder builds it', planned: t.forOwner ? 'The plan waits for you' : 'The plan waits for a session',
-    held: t.storiesWait ? 'The stories wait for your yes' : 'Waits for you', blocked: 'The lead stopped; Lem has to settle it', ready: 'Waits for its checks', landing: 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
+    held: t.storiesWait ? 'The stories wait for your yes' : 'Waits for you', blocked: 'The lead stopped; Lem has to settle it', ready: 'Waits for its checks',
+    landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
   }[t.status] ?? `Status "${t.status}"`;
   return keyed(`now:${t.slug}:${t.status}:${t.text}:${t.lastTs}:${pane?.status ?? ''}`, h('div', {class: t.info.live ? '' : 'still'},
     h('div', {class: 'now-in'},
@@ -1409,8 +1468,10 @@ function buildTaskProgress(t) {
   const review = t.reviews.at(-1);
   const sub = k => (k === 2 && p ? `task ${done ? p.of : p.n} of ${p.of}` : k === 3 && t.gates.length ? (t.gateBad ? `${t.gateBad} red` : `${t.gates.length} green`)
     : k === 4 && review ? review.verdict : k === 5 && t.proposal ? (t.proposal.green ? 'green' : 'not green') : '');
-  const taken = t.choices.filter(d => d.state !== 'waits').length, timeouts = t.choices.filter(d => d.state === 'timeout').length;
-  return keyed(`prog:${t.slug}:${at_}:${p?.n}:${p?.of}:${t.status}:${t.gates.length}:${t.gateBad}:${t.reviews.map(r => r.verdict).join()}:${t.proposal?.green}:${t.commit?.head}:${t.asks.length}:${taken}:${timeouts}`,
+  // A choice the timeout or the experts took keeps the request from green; the two are counted apart.
+  const taken = t.choices.filter(d => d.state !== 'waits').length;
+  const timeouts = t.choices.filter(d => d.state === 'timeout' && d.by !== 'experts').length, experts = t.choices.filter(d => d.by === 'experts').length;
+  return keyed(`prog:${t.slug}:${at_}:${p?.n}:${p?.of}:${t.status}:${t.gates.length}:${t.gateBad}:${t.reviews.map(r => r.verdict).join()}:${t.proposal?.green}:${t.commit?.head}:${t.asks.length}:${taken}:${timeouts}:${experts}`,
     h('div', {class: 'prog'},
       ring(finished, current, total || 1, total ? `${finished}/${total}` : '–', 'plan tasks'),
       h('div', {class: `phases a-${t.info.actor}`}, PHASES.map((name, k) => h('div', {class: `phase ${k < at_ ? 'past' : k === at_ ? 'cur' : ''}`}, h('i'), name, h('small', {}, sub(k))))),
@@ -1420,8 +1481,9 @@ function buildTaskProgress(t) {
         stat('Open for', t.closed ? span(t.since - t.first) : live(t.first), `first block ${stamp(t.first, Date.now())}`),
         stat('Gate', t.gates.length ? (t.gateBad ? 'red' : 'green') : '–', t.gates.length ? `${plural(t.gates.length, 'command')} in the last run` : 'it runs at the landing', t.gates.length ? (t.gateBad ? 'bad' : 'ok') : ''),
         stat('Review', review ? review.verdict : '–', review ? `round ${review.round}, ${KIND[review.kind] ?? review.kind}` : 'after the checks, before the proposal', review ? (review.verdict === 'clean' ? 'ok' : 'bad') : ''),
-        stat('Decisions', t.asks.length ? `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''}` : taken, t.choices.length ? `${taken} taken${timeouts ? `, ${timeouts} by the timeout` : ''}` : 'none yet',
-          t.asks.length ? 'you' : timeouts ? 'bad' : ''))));
+        stat('Decisions', t.asks.length ? `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''}` : taken,
+          t.choices.length ? `${taken} taken${timeouts ? `, ${timeouts} by the timeout` : ''}${experts ? `, ${experts} by the experts` : ''}` : 'none yet',
+          t.asks.length ? 'you' : timeouts || experts ? 'bad' : ''))));
 }
 
 function buildStates(t, now) {
@@ -1561,10 +1623,12 @@ function buildDecisions(t, now) {
           h('span', {class: 'sub'}, `options: ${d.options.join(' · ')}`),
           h('span', {class: 'sub'}, `recommended: ${d.recommended}, because ${d.why}`),
           d.said ? h('span', {class: 'sub'}, `the personas: ${d.said}`) : '',
-          h('span', {class: 'sub'}, d.irreversible ? `It waits for your answer, with no end: ${IRREVERSIBLE[d.irreversible] ?? d.irreversible}, so no timeout takes it. The rest of the plan goes on.`
-            : over ? `Its wait ended at ${hhmm(d.deadline)}, and no timeout is written yet: the lead takes “${d.recommended}”.`
-              : `Its wait ends at ${hhmm(d.deadline)}; then the lead takes “${d.recommended}”.`),
-          over ? h('span', {class: 'sub'}, 'An answer of yours now comes after the wait: the recommended action stands, and an answer that differs is a correction for the lead.')
+          // the experts' advice, one line each, and a line for one whose advice has not come
+          Object.keys(EXPERTS).map(key => h('span', {class: 'sub'}, d.advice[key] ? adviceLine(key, d.advice[key], false) : `${expertName(key)}: no advice yet`)),
+          h('span', {class: 'sub'}, d.irreversible ? `It waits for your answer, with no end: ${IRREVERSIBLE[d.irreversible] ?? d.irreversible}, so no timeout takes it. The experts advise on it and never take it. The rest of the plan goes on.`
+            : over ? `Its wait ended at ${hhmm(d.deadline)}, and no timeout is written yet: the lead takes ${endOf(d, true)}.`
+              : `Its wait ends at ${hhmm(d.deadline)}; then the lead takes ${endOf(d, false)}.`),
+          over ? h('span', {class: 'sub'}, `An answer of yours now comes after the wait: “${sharedPick(d) ?? d.recommended}” stands, and an answer that differs is a correction for the lead.`)
             : h('span', {class: 'sub'}, h('b', {}, 'Where you answer: '), answerOf(t, d))),
         h('span', {class: 'rtime'}, d.irreversible ? 'no end' : over ? 'wait over' : until(d.deadline))));
     }
@@ -1574,14 +1638,23 @@ function buildDecisions(t, now) {
         h('div', {class: 'rtext'}, h('b', {}, `${d.id}. `), d.what, h('span', {class: 'sub'}, `The task is ${t.status}: this choice no longer waits, and it needs no answer.`)),
         h('span', {class: 'rtime'}, stamp(d.ts, now))));
     }
-    const timeout = d.state === 'timeout';
-    const late = d.late ? [h('span', {class: 'sub'}, `Your answer came at ${hhmm(d.late.ts)}, after the wait: “${d.late.chose}”${d.late.words ? ` (${d.late.words})` : ''}. `,
+    // A choice the timeout or the experts took is marked alike: neither is his answer, and each keeps the request from green.
+    const timeout = d.state === 'timeout' || d.state === 'settled';
+    const late = d.late ? [h('span', {class: 'sub'}, `Your answer came at ${hhmm(d.late.ts)}, after ${d.state === 'settled' ? 'the experts took it' : 'the wait'}: “${d.late.chose}”${d.late.words ? ` (${d.late.words})` : ''}. `,
       d.late.chose === d.chose ? 'It is what was taken.' : 'It differs from what was taken: a correction for the lead.')] : [];
     const how = d.kind === 'taken' ? `taken by ${BY_WHOM[d.by] ?? d.by}, because ${d.why}`
       : d.state === 'answered' ? `answered by you${d.instead ? ', with none of the options' : ''}${d.words ? `: “${d.words}”` : ''}${d.ownerWhy ? `, because ${d.ownerWhy}` : ''}`
-        : `taken by the timeout at ${hhmm(d.ended)}: no answer came in ${d.wait ?? '?'} minutes. The recommended action stands, and the pull request is not green for it.`;
+        : d.state === 'settled' ? `taken by the experts at ${hhmm(d.ended)}, while you were away, before its wait ended: both picked it. The pull request is not green for it.`
+          : d.by === 'experts' ? `taken by the experts at the end of the wait, at ${hhmm(d.ended)}: no answer came in ${d.wait ?? '?'} minutes, and both picked it. The pull request is not green for it.`
+            : `taken by the timeout at ${hhmm(d.ended)}: no answer came in ${d.wait ?? '?'} minutes. The recommended action stands, and the pull request is not green for it.`;
+    // The experts' reasons: from the line that took their pick, else from their advice. Advice that
+    // did not decide (a split, or none fits) is shown as theirs, beside what was taken.
+    const reasons = d.experts ?? Object.fromEntries(Object.entries(d.advice).map(([key, a]) => [key, a.why]));
+    const experts = d.by === 'experts'
+      ? Object.entries(reasons).map(([key, why]) => h('span', {class: 'sub'}, adviceLine(key, {pick: d.chose, why}, true)))
+      : d.kind === 'asked' && Object.keys(d.advice).length ? [h('span', {class: 'sub'}, `the experts ${sharedPick(d) == null && Object.keys(d.advice).length > 1 ? 'split' : 'advised'}: ${adviceLines(d, true).join(' · ')}`)] : [];
     return keyed(`d:${d.id}:${d.state}:${Boolean(d.late)}`, h('div', {class: `row a-${timeout ? 'bad' : 'done'}`}, h('span', {class: 'fi'}, icon(timeout ? 'clock' : d.by === 'owner' ? 'user' : d.by === 'personas' ? 'users' : 'check')),
-      h('div', {class: 'rtext'}, h('b', {}, `${d.id}. `), d.what, ' → ', h('b', {}, d.chose), h('span', {class: 'sub'}, how),
+      h('div', {class: 'rtext'}, h('b', {}, `${d.id}. `), d.what, ' → ', h('b', {}, d.chose), h('span', {class: 'sub'}, how), experts,
         d.said ? h('span', {class: 'sub'}, `the personas: ${d.said}`) : '', d.undo ? h('span', {class: 'sub'}, `to undo: ${d.undo}`) : '', late),
       h('span', {class: 'rtime'}, stamp(d.ended ?? d.ts, now))));
   });
