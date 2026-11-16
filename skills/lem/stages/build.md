@@ -69,8 +69,17 @@ action, logged so that the pull request shows it. Every decision goes into the t
 through one script, which also puts it on the board:
 
 ```bash
-python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT] [--story N --was TEXT]
+python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT] [--story N --was TEXT | --story N --added | --story N --removed --was TEXT]
 ```
+
+A story the owner approved (`stories.py approved SLUG`) is changed in the plan only with such a
+decision, in the commit that changes it: `--story N --was TEXT` for a story you cannot keep as
+written, `--story N --added` for one the code shows is missing (N its number in the plan), and
+`--story N --removed --was TEXT` for one the change no longer holds (N its approved number, TEXT
+its approved text word for word). A story that changes, comes or goes is never yours alone: it
+takes step 2 below, the personas first. The stories script refuses the plan until the record
+holds each, and the pull request is not green for any of them. A plan that departs from a direction
+(`directions.md`) is a decision of this section too, with the direction in `--what`.
 
 1. **The stories and the directions stay true**: decide it yourself, from the code, the settings
    and the rulings, and log it with `--by lead` and `--undo`, what it would take to undo it.

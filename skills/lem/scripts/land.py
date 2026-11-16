@@ -105,7 +105,9 @@ says nothing from which an item could be written.
 steps kept, from the record of the task's decisions (`decisions.py list`) and from the notes
 file, whose headings it checks. The text opens with green or not green. Green says that the
 machine checks passed with the bar where it was, a review with at least one source left no
-must-fix, no story changed during the build, and no decision was taken by timeout. A lowered bar
+must-fix, no story changed during the build, and no decision was taken by timeout. A story the
+build added or removed is a changed story here: a decision of the record says so
+(`decisions.py log --story N --added`, or `--removed`), and it has its own line. A lowered bar
 is not green with a reason either: its line holds the builder's reason and what the review said
 of it. A choice taken by timeout is a line of its own, and so is an answer of the owner's that
 came after it and differs. Each reason a request is not green stands before everything else, one
@@ -118,7 +120,11 @@ with who argued the plan with the lead, the turns, and the positions settled and
 talk is a step before the build, so a request that is careful only by the owner's later word or
 by a path its diff matches gets the full set and no talk; it is not asked for one, and its checks
 say in words that it had none and why, which is no cause of not green. A usual request gets
-neither line. A careful path that the diff matches and the plan's own call missed is a lesson
+neither line. The checks also hold one line on the personas' read of the stories, from the
+newest `stories.read` event (`project.py log` gives its form): how many personas read them, in
+how many model families, how many stories they flagged, and when the owner approved them
+(`stories.py approve`), or that the build started with no wait for him; for a correction, that
+the personas did not read it. A scout's report in the task's directory is named there as a file. A careful path that the diff matches and the plan's own call missed is a lesson
 about that call: `propose` writes one `careful.missed` event with the path and its pattern, the
 first time it finds the case, for the retro. With a GitHub remote `propose` pushes the task's branch
 and opens the pull request with the `gh` command; a second run updates it. With any other
@@ -179,6 +185,12 @@ READ_AT = 800
 LARGE_AFTER = 3
 # The plan's own call that the task is careful, as `stages/plan.md` step 2 has the lead write it.
 PLAN_CAREFUL = re.compile(r"(?mi)^careful:\s*yes\b")
+# What a decision of the build did to its story, as a line of the pull request says it.
+STORY_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}
+# The form of the one event that records the personas' read of a task's stories.
+READ_FORM = "`by=lem|lead personas:=N families:='[\"FAMILY\", ...]' stories:=N flagged:=N`"
+# How many model families read the stories, in the words of the pull request.
+FAMILIES = {1: "one model family", 2: "two model families"}
 # Who took a decision of the record, as the text of a pull request names them.
 TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout"}
 # What a review names of each defect it saw outside the change.
@@ -754,6 +766,43 @@ def talked(talk: dict) -> str:
     )
 
 
+def story_read_of(task: Task) -> dict | None:
+    """The newest record of the personas' read of the task's stories in the event log."""
+    return next((record for record in reversed(events_of(task)) if record.get("event") == "stories.read"), None)
+
+
+def read_form(read: dict) -> bool:
+    """Whether a `stories.read` event has the form `project.py log` gives it."""
+    counts = ("personas", "stories", "flagged")
+    families = read.get("families")
+    return (
+        read.get("by") in ("lem", "lead")
+        and all(isinstance(read.get(key), int) and not isinstance(read.get(key), bool) and read[key] >= 0 for key in counts)
+        and isinstance(families, list) and bool(families) and all(isinstance(name, str) and name.strip() for name in families)
+    )
+
+
+def read_line(read: dict | None, found: dict) -> str:
+    """The personas' read of the stories and his approval, as one line of the pull request's checks."""
+    approval = found.get("approved")
+    approved = ""
+    if approval:
+        day = approval["at"][:10]
+        approved = f"he approved them on {day}" if approval["by"] == "owner" else f"Lem approved it in his name on {day}, as a correction"
+    if read:
+        count = len(read["families"])
+        line = (
+            f"- the stories were read by {read['personas']} personas, {FAMILIES.get(count, f'{count} model families')} ({', '.join(read['families'])}); "
+            + ("nobody confused" if not read["flagged"] else f"{read['flagged']} of {read['stories']} stor{'y' if read['stories'] == 1 else 'ies'} flagged")
+        )
+        if approved:
+            return f"{line}; {approved}"
+        return line + ("; the build started with no wait for him" if not read["flagged"] else "; no approval of his is on record")
+    if found["kind"] == "correction" or (approval and approval["by"] == "correction"):
+        return "- a correction: not read by the personas" + (f"; {approved}" if approved else "")
+    return "- the stories: no read by the personas is on record" + (f"; {approved}" if approved else "")
+
+
 def named(value: object, where: str) -> list[dict]:
     """A list of names, each with its why: the profiles of a round, or the sources that did not answer."""
     if not isinstance(value, list) or not all(
@@ -912,13 +961,18 @@ def not_green(task: Task, state: dict) -> list[str]:
         reasons.append(f"the bar is lower in `{entry['file']}` ({entry['what']}). The builder: {entry['reason']} {review}")
     for decision in task.decisions():
         if "story" in decision:
-            reasons.append(f"story {decision['story']} changed during the build: {story_why(decision)}")
+            reasons.append(f"story {decision['story']} {STORY_HOW[story_how(decision)]} during the build: {story_why(decision)}")
         if decision["state"] == "timeout":
             reasons.append(
                 f"choice {decision['id']} was taken by timeout ({decision['what']}): \"{decision['chose']}\", the recommended option, "
                 f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer{later(decision, '; he answered later with')}",
             )
     return reasons
+
+
+def story_how(decision: dict) -> str:
+    """How a decision touched its story: it changed it, added it or removed it."""
+    return decision.get("story_how", "changed")
 
 
 def story_why(decision: dict) -> str:
@@ -979,7 +1033,7 @@ def decided(decision: dict) -> str:
         line += f" His words: \"{decision['owner_words']}\""
     if "owner_why" in decision:
         line += f" His reason: {decision['owner_why']}"
-    return line + (f" Story {decision['story']} changed." if "story" in decision else "")
+    return line + (f" Story {decision['story']} {STORY_HOW[story_how(decision)].removeprefix('was ')}." if "story" in decision else "")
 
 
 def pr_text(task: Task, notes: str, state: dict) -> str:
@@ -1007,7 +1061,11 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     changed_stories = [decision for decision in task.decisions() if "story" in decision]
     if changed_stories:
         out += ["", "Stories that changed during the build:", ""]
-        out += [f"- story {was['story']}: was \"{was['was']}\". {story_why(was)}{'' if was['state'] == 'taken' else '.'} {was.get('said', '')}".rstrip() for was in changed_stories]
+        before = {"changed": "was \"{}\"", "added": "added, not among the stories he approved", "removed": "removed; he had approved \"{}\""}
+        out += [
+            f"- story {was['story']}: {before[story_how(was)].format(was.get('was'))}. {story_why(was)}{'' if was['state'] == 'taken' else '.'} {was.get('said', '')}".rstrip()
+            for was in changed_stories
+        ]
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]
@@ -1015,6 +1073,10 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     tests = (checks.get("stories") or {}).get("tests", [])
     without = (checks.get("stories") or {}).get("without_a_test", [])
     out.append(f"- the stories' tests: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} stor{'y has' if len(without) == 1 else 'ies have'} no test" if without else ""))
+    out.append(read_line(story_read_of(task), found))
+    scout = task.directory / "scout.md"
+    if scout.is_file():
+        out.append(f"- the scout's report, the facts of the code the stories were written from: `{scout}`")
     lowered = (checks.get("bar") or {}).get("lowered", [])
     out.append("- the bar: not lowered" if not lowered else "- the bar is lowered, with these reasons:")
     out += [f"  - `{entry['file']}` ({entry['what']}): {entry['reason']}" for entry in lowered]
@@ -1082,6 +1144,9 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         and all(isinstance(talk.get(key), int) and not isinstance(talk.get(key), bool) for key in ("turns", "settled", "open"))
     ):
         raise LandError(f"the newest `plan.talk` of {task.slug} does not have the form `reviewer=AGENT turns:=N settled:=N open:=N`; the lead writes it again with `project.py log`")
+    read = story_read_of(task)
+    if read is not None and not read_form(read):
+        raise LandError(f"the newest `stories.read` of {task.slug} does not have the form {READ_FORM}; whoever ran the read writes it again with `project.py log`")
     # Each defect a review saw outside the change has its item in the tip, so that none is lost: one
     # that a session never filed, and one whose item a later commit took out.
     if unfiled:

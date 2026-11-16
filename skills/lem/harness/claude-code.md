@@ -87,6 +87,11 @@ a path, a number), a bare go-ahead on a step just described, and a fixed, trivia
 needs no context. The owner's global instructions say how a question is told; they outrank this
 file.
 
+When the owner is away (he left before he answered, or a question starts at a time he said he is
+not there), Lem has no channel of its own. Where his own instructions name one, such as an inbox
+he reads away from the Mac, the question goes there, with the same case and options; otherwise
+it waits for him, and the task's state says what waits. Not checked in a run.
+
 ## spawn-builder
 
 The `Agent` tool with `subagent_type: "lem-builder"` when the session lists an agent of that
@@ -129,7 +134,11 @@ another tool to get the file written goes around a guard, and it must not.
 A builder can start builders of its own with the same tool, so a builder leads a plan of two or
 three tasks. Checked on 2026-11-14 in Claude Code 2.1.325: a subagent of the type `worker`, which like
 `lem-builder` names no tool list and so inherits every tool, called `Agent`, and the nested
-agent's reply came back to it. Not run yet: the same from a `lem-builder`. A builder has no pane
+agent's reply came back to it. Not run yet: the same from a `lem-builder`. The persona agents of
+a lead's read of its stories start the same way: on 2026-11-16 a `worker` subagent on Opus,
+standing in for a lead, started two persona subagents and had both answers in 25 seconds
+(07:23:25Z to 07:23:50Z); not checked from a `lem-builder`, which has the same tools. The scout of
+an interview is a builder too, with `prompts/scout.md` as its brief. A builder has no pane
 of its own, so no reviewer sits beside it and the owner cannot type to it. A careful or large task
 gets a session for that reason: its plan talk needs the reviewer's pane and the mailbox.
 

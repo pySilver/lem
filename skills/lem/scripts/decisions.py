@@ -10,9 +10,13 @@ One kind of step never goes that way: a step that a later "no" cannot reverse wa
 however long that takes.
 
     decisions.py log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas|owner|lem
-                 [--said TEXT] [--undo TEXT] [--story N --was TEXT]
+                 [--said TEXT] [--undo TEXT] [--story N --was TEXT | --story N --added
+                 | --story N --removed --was TEXT]
                             a decision that was taken; --said is what the personas answered,
                             and --story with --was is the story it changed, with its old text.
+                            --added is a story the build adds (N its number in the plan),
+                            --removed one it takes out (N its approved number, --was its text);
+                            each counts as a changed story.
                             `owner` is a word of his that nobody asked for (the task is careful),
                             `lem` one that Lem took before the task had a lead (out of scope)
     decisions.py ask SLUG --what TEXT --option TEXT --option TEXT [...] --recommended TEXT
@@ -211,9 +215,20 @@ def text(value: str | None, flag: str) -> str:
 def cmd_log(task: Task, args: argparse.Namespace) -> dict:
     if args.by == "personas" and not args.said:
         raise DecisionError("--by personas needs --said: who answered and what each picked, in one or two sentences")
-    if (args.story is None) != (args.was is None):
-        raise DecisionError("a story that changed is named by both --story N and --was, its text before the change")
+    if args.added and args.removed:
+        raise DecisionError("a story is added or removed, not both: --added or --removed")
+    if (args.added or args.removed) and args.story is None:
+        raise DecisionError(f"--{'added' if args.added else 'removed'} names its story with --story N")
+    if args.added and args.was is not None:
+        raise DecisionError("an added story had no text before: leave out --was")
+    if not args.added and (args.story is None) != (args.was is None):
+        raise DecisionError(
+            "a story that was removed is named by --story N, its approved number, and --was, its approved text"
+            if args.removed else "a story that changed is named by both --story N and --was, its text before the change",
+        )
     line = {"at": stamp(now()), "kind": "taken", "what": text(args.what, "--what"), "chose": text(args.chose, "--chose"), "why": text(args.why, "--why"), "by": args.by}
+    if args.added or args.removed:
+        line["story_how"] = "added" if args.added else "removed"
     for key in ("said", "undo", "was"):
         # an empty value is refused, never dropped: a story with no old text breaks the pull request
         if getattr(args, key) is not None:
@@ -391,7 +406,9 @@ def main() -> None:
     log.add_argument("--said", help="what the personas answered: who, which option, in one or two sentences")
     log.add_argument("--undo", help="what it would take to undo the decision")
     log.add_argument("--story", type=int, metavar="N", help="the number of the story this decision changed")
-    log.add_argument("--was", help="that story's text before the change")
+    log.add_argument("--was", help="that story's text before the change, or the approved text of a removed one")
+    log.add_argument("--added", action="store_true", help="with --story N: the build adds story N, which he did not approve")
+    log.add_argument("--removed", action="store_true", help="with --story N and --was: the build takes out approved story N")
     ask = commands.add_parser("ask")
     ask.add_argument("slug")
     ask.add_argument("--what", required=True)

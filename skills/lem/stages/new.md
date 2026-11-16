@@ -35,9 +35,18 @@ a lead is started, and what to do each time a lead stops.
    "done when" line that needs the code is the lead's to sharpen in its plan. A line you put out
    of scope by yourself is a decision taken without the owner: log it, once the task directory
    is there, with `decisions.py log SLUG --by lem`.
-3. **Is the ask clear?** If you cannot write the outcome without choosing between two readings
-   that give the owner different things, ask once through `ask-owner`, each reading as what the
-   owner would get. Anything else is the lead's to read from the code and log.
+3. **Which path.** Choose one, and tell the owner in one line which one and why:
+   - *a correction*: the ask is one rule in his own sentence, and it names nothing careful (no
+     danger topic of `flow.topics`, no path a careful pattern matches). Write its one story and
+     approve it in his name, as "A correction" below says, then go on with step 4.
+   - *the rare path*: the whole context and a defined outcome are written already: a ticket whose
+     description says what is wanted and how to tell that it is done, a backlog item whose
+     options are settled, a night plan he starts. No interview: the lead writes the stories from
+     the code and has the personas read them (`stages/plan.md`, step 1). He can say "interview
+     me", and then it is the usual path. Go on with step 4.
+   - *the usual path*, for every other ask: the interview, then the stories he approves, as
+     "The interview and the stories" below says, all in one sitting while he is there. Then go on
+     with step 4.
 4. **The brief.** Write `brief.md` in the task directory, with this and nothing more:
 
    ```
@@ -85,6 +94,92 @@ Then ask what the owner's word was about, when it is not plain. A topic or a pat
 already name, which the lead read wrong, is a lesson about that judgment (`stages/learn.md`).
 Something no setting names may be a rule for later tasks or a wish for this one task: only the
 owner knows, and only his yes puts a topic or a path into the settings.
+
+## The interview and the stories
+
+The usual path, between step 2 and the brief. He is there for it, and it ends with stories he
+approved, which the lead may not change without the record saying so.
+
+1. **Start the scout and the interview at once.** The scout is a fresh read-only agent that
+   reads the code around the ask and returns facts, not a plan: `spawn-builder` with the brief
+
+   ```
+   Read SKILL_DIR/prompts/scout.md and follow it.
+   request: TASK_DIRECTORY/ask.txt
+   checkout: the main checkout's absolute path
+   task directory: TASK_DIRECTORY
+   ```
+
+   The interview does not wait for it, so it costs him no wait: on 2026-11-16 a scout took 26.7 s
+   in a tiny repository and 116.5 s in Lem's own, 12 files opened in each (one request each).
+   Its reply is its report: write it word for word into `scout.md` in the task directory. It is
+   the one place where knowledge of the code comes up to you, and only as facts for the stories:
+   you still read no diff and write no code.
+2. **The interview.** One question at a time through `ask-owner`, each with your own guess, so
+   that he reacts and does not compose. The `lem-interview-me` skill holds the method
+   (`load-skill`). A fact of the scout's report may go into a later question ("the export already
+   writes an empty cell for a missing value; keep that for the note?"). It may be technical: he
+   is a developer. Stop when you can write the outcome and each rule without a guess.
+3. **The directions.** What he names in the interview, a technology, a library, an approach, an
+   option he picked between two, is a direction. Write `directions.md` in the task directory, one
+   line each, with his words. The lead's plan follows them; a plan that departs from one is a
+   decision of the build (`stages/build.md`, "A choice in the build"). Then write `task.md` again
+   with the outcome and the "done when" his answers gave.
+4. **The stories**, when the scout's report is in and not before. Write them from his words, the
+   directions, the project's profile and the report, in the form `stories.py --help` shows: the
+   `## Stories` heading, the `Kind:` line, and numbered stories, each a business rule in plain
+   language with one concrete example, with real names and values. No test lines: the lead adds
+   those. Keep the file in the task directory, and for each story the facts of the report that
+   shaped it, for his page.
+5. **Show them, and start the personas' read in the same moment.** Show him the stories and the
+   directions at once (`show-page`, or in the conversation), so that he reads while the personas
+   do. The read is the persona panel's "Reading stories" mode (`load-skill`), here in your
+   session with the paired agent of the other family, so that both families answer; without one
+   the panel says that one family answered. On 2026-11-16 a read with two families of two
+   personas over two stories took 2 min 9 s from the stories shown to both families' answers
+   written (one request, one repository). When the answers are in, write the one event the
+   landing reads:
+
+   ```bash
+   python3 SKILL_DIR/scripts/project.py log SLUG stories.read by=lem personas:=N families:='["FAMILY", ...]' stories:=N flagged:=N
+   ```
+
+   `flagged` counts the stories that an answer called unexpected, confusing or wrong, and each
+   story on which the two families split: a split counts as a doubt.
+6. **Ask for his yes** through `ask-owner`, on one page:
+   - the personas' result on top, for each persona and each model family; a split between the
+     families in one line at the top ("the Opus answers doubt story 1, the Sol answers do not");
+   - each story, with the scout's facts that shaped it beside it;
+   - a story a persona flagged as you wrote it, with the answers that flagged it quoted beside
+     it. Never reword it before he sees it: what changes it is his;
+   - the directions.
+   He approves, or changes a story, a direction or the set. Write each change in his words into
+   the stories file or `directions.md`. When he approved before the read was in and a story is
+   flagged, put that story and its answers to him before you go on.
+7. **Freeze them**: `python3 SKILL_DIR/scripts/stories.py approve SLUG --file FILE`. The stories
+   are then kept word for word with a digest, and the plan's stories have to be those, with
+   only the test lines added: a story the build changes, adds or drops is a decision of the
+   build, and the pull request is not green for it. Go on with step 4 of "Open the task".
+
+When he leaves before he answers, write the state `held` with the line `the stories wait for the
+owner`, and put the page to him again the way `ask-owner` says for an owner who is away. His
+answer goes on from step 6. A task with that line has no lead: when it is approved, write the
+brief and start one.
+
+## A correction
+
+One story, his own sentence made exact, and nothing careful: it is shown and it does not wait.
+Write the story file as step 4 above says, with `Kind: correction, because ...`, show it to him,
+and approve it in his name:
+
+```bash
+python3 SKILL_DIR/scripts/stories.py approve SLUG --file FILE --correction
+```
+
+Tell him in the same line that you took it as a correction and that he may say "this is a
+feature". The personas do not read a correction's one story; the pull request says so. When he
+says "this is a feature", it takes steps 5 to 7 of the usual path; a story he changes after its
+lead started is a decision of the build (`decisions.py log SLUG --by owner --story N --was TEXT`).
 
 ## When a task is dropped
 
@@ -193,6 +288,10 @@ Act on the status:
   held decision of the report, which the record does not hold, is logged with
   `decisions.py log SLUG --by owner`. Then start a lead. The `lem-panel` skill asks for what users would see under each option; that is in
   the report, and what is missing there the lead adds, not you.
+  A lead of the rare path that holds the task because a persona doubted its stories puts the
+  stories and the answers on top of its report, with the line `the stories wait for the owner`.
+  Put them to him as step 6 of "The interview and the stories" says, with the lead's read as the
+  result on top, freeze his answer with step 7, and start a lead: it copies the approved stories.
   A task is also `held` when a step is the owner's to do and no decision at all: a trust prompt
   of the reviewer's agent, a command an agent is refused. Tell the owner that step as it is, with
   where he does it; it needs no gate and no panel. The lead goes on when the step is done.

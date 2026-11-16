@@ -10,7 +10,11 @@ directory, which lead you are (`builder` or `session`) and whether you stop afte
    `SKILL_DIR/harness/` named after the agent you run in. The subcommands in `SKILL.md` are
    Lem's, not yours.
 2. **Read where the task stands**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE tasks`
-   for its status, then `task.md` in the task directory. When the status is `ready`, `landing`,
+   for its status, then `task.md` in the task directory, with `directions.md` and `scout.md` when
+   it has them: what the owner named in his interview, which the plan follows, and the facts a
+   scout read in the code then. `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE approved
+   SLUG` gives the stories he approved: they are the plan's stories word for word, and only a
+   decision of the build changes one (`stages/plan.md`, step 1). When the status is `ready`, `landing`,
    `landed` or `dropped`, say so and stop: there is nothing to lead. When the task directory holds
    a `report.md`, a `decisions.jsonl` or a longer `state.md`, a lead before you stopped: read the
    report, the state, `python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE list SLUG` and the

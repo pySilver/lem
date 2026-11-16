@@ -8,18 +8,42 @@ question at a time (step 4).
 1. **Write the plan** as one file in the settings' `plans` path, named `YYYYMMDD-<slug>.md`, and
    commit it as the branch's first commit. It opens with the stories, because they are the
    owner's document: he reads them and not the rest of the plan, and they become the tests.
-   - `## Stories`, in the form `python3 SKILL_DIR/scripts/stories.py --help` shows. A story is
-     one business rule of the request in plain language with one concrete example, with real
-     names and values: what a person of the project would see, never how the code does it. Take
-     them from the outcome and the "done when" of `task.md`, now that you have read the code. A
-     rule you cannot write without guessing what the owner wants is not yours to guess: it is a
-     held decision (step 5), and Lem asks him;
-   - the first line of that section is your call, `Kind: feature` or `Kind: correction`, with
-     the reason after `because`. A correction is a request that yields one story and is not
-     careful (step 2): its story is the owner's own sentence made exact. Everything else is a
-     feature. The owner may overrule the call, as he may the careful one;
+   - `## Stories`, in the form `python3 SKILL_DIR/scripts/stories.py --help` shows. First run
+     `python3 SKILL_DIR/scripts/stories.py approved SLUG`. When the owner approved stories at
+     his interview, they are your stories: copy the section word for word, numbered the same,
+     and add only the test lines under each, at the end of the build. You may break a story's
+     text into other lines; you may not change a word of it. The plan follows the task's
+     `directions.md` too, when the task directory has one. A story or a direction the code shows
+     you cannot keep, or a story that is missing, is a decision of the build (`stages/build.md`,
+     "A choice in the build"), never a silent edit: `show`, `record` and `red` refuse a plan whose
+     stories differ from the approved ones without a decision for each difference. An approved
+     correction that step 2 finds careful, or that needs a second story, is a feature: the
+     record gets that decision, and the personas read its stories as the next bullet says;
+   - with no approved stories (the rare path, a night plan), write them. A story is one
+     business rule of the request in plain language with one concrete example, with real names
+     and values: what a person of the project would see, never how the code does it. Take them
+     from the outcome and the "done when" of `task.md`, now that you have read the code. A rule
+     you cannot write without guessing what the owner wants is not yours to guess: it is a held
+     decision (step 5), and Lem asks him. The first line of that section is your call,
+     `Kind: feature` or `Kind: correction`, with the reason after `because`. A correction is a
+     request that yields one story and is not careful (step 2): its story is the owner's own
+     sentence made exact. Everything else is a feature. The owner may overrule the call, as he
+     may the careful one;
+   - then the personas read the stories you wrote, unless they are a correction's one story:
+     the persona panel's "Reading stories" mode (`load-skill`), run by you while you write the
+     rest of the plan. You have no paired agent of the other family, so one family answers: the
+     panel's own persona agents, which a lead can start (the harness file, `spawn-builder`). Write
+     the event the landing reads, `python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG
+     stories.read by=lead personas:=N families:='["FAMILY"]' stories:=N flagged:=N`. Nobody
+     confused: the build starts with no wait, and your next state block says `nobody confused,
+     read by N personas, one model family`, where he sees it and can stop the task. A doubt: the
+     first line of code waits. Write `report.md` with the stories and the answers that flagged
+     them on top, quoted, and the line `the stories wait for the owner`; write the state `held`
+     with that line, and stop. Leave a flagged story as you wrote it: what you would change goes
+     beside it, as a proposal, and he decides;
    - run `python3 SKILL_DIR/scripts/stories.py record SLUG`: it refuses a section that does not
-     have the form, and it puts the stories where the board and Lem's status show them;
+     have the form, or that departs from the approved stories, and it puts the stories where
+     the board and Lem's status show them;
    - `## Tasks`: a numbered list of one to seven tasks, each an outcome a reviewer can check
      alone and one builder can finish in a context of its own, with the stories it serves and
      the files it expects to touch. The landing counts the numbered lines under that heading:

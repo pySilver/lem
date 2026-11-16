@@ -1411,6 +1411,98 @@ else
   fail "the form of the stories: $no_section / $no_kind / $two / $order"
 fi
 
+# Approved stories are frozen as written: the plan's stories are those, word for word, with only test lines added.
+# They are approved at the interview, before the task has a worktree.
+project --repo "$ST" task-dir approved-note >/dev/null
+printf '%s\n' '## Stories' '' 'Kind: feature, because the note gets a file and an empty case.' '' '1. The note file holds the gift note of order 1042: "for Ania".' \
+  '2. An order with no gift note has the line "1043," and no word' '   after the comma.' > "$WORK/approved.md"
+approved=$(stories approve approved-note --file "$WORK/approved.md" 2>&1 || true)
+kept_stories=$ST/.git/lem/tasks/approved-note/stories.json
+# shellcheck disable=SC2016
+printf '%s\n' '## Stories' '' 'Kind: feature, because of a test.' '' '1. A story.' '   - test: `sh t.sh` in `t.sh`' > "$WORK/tested.md"
+tested=$(stories approve approved-note --file "$WORK/tested.md" 2>&1 || true)
+not_one=$(stories approve approved-note --file "$WORK/approved.md" --correction 2>&1 || true)
+no_file=$(stories approve approved-note 2>&1 || true)
+kept_now=$(stories approved approved-note 2>/dev/null | field '(d["approved"]["by"], d["approved"]["digest"], [s["text"] for s in d["approved"]["stories"]])' 2>&1 || true)
+if [ "$(field '(d["by"], d["kind"], len(d["digest"]), [s["n"] for s in d["stories"]], d["stories"][1]["text"])' <<<"$approved" 2>/dev/null)" \
+  = "('owner', 'feature', 12, [1, 2], 'An order with no gift note has the line \"1043,\" and no word after the comma.')" ] \
+  && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["text"] == open(sys.argv[2]).read())' "$kept_stories" "$WORK/approved.md" 2>/dev/null)" = True ] \
+  && [ "$(grep -c '"event": "stories.approved", "task": "approved-note", "by": "owner"' "$ST/.git/lem/events.jsonl")" = 1 ] \
+  && [ "$kept_now" = "('owner', '$(field 'd["digest"]' <<<"$approved" 2>/dev/null)', ['The note file holds the gift note of order 1042: \"for Ania\".', 'An order with no gift note has the line \"1043,\" and no word after the comma.'])" ] \
+  && grep -q "story 1 of tested.md has a test line: the stories he approves have none, and the lead adds them in the plan" <<<"$tested" \
+  && grep -q "says .Kind: feature.: a feature waits for his own yes" <<<"$not_one" && grep -q "approve needs --file" <<<"$no_file" \
+  && [ "$(grep -c '"event": "stories.approved"' "$ST/.git/lem/events.jsonl")" = 1 ]; then
+  pass "approve keeps the stories the owner approved, before the task has a worktree: their text as written, a digest and who approved them, with one event for the board; a file with a test line, a feature as a correction and no file are refused"
+else
+  fail "stories approve: $approved / $tested / $not_one / $no_file / $kept_now"
+fi
+# The plan copies the approved stories, broken into other lines, and adds only the test lines: show and red take it.
+atw=$(project --repo "$ST" worktree-dir approved-note)
+git -C "$ST" worktree add -q -b feat/approved-note "$atw" main
+project --repo "$ST" state approved-note building 'lead: builder' >/dev/null
+mkdir -p "$atw/docs/plans" "$atw/tests"
+aplan=$atw/docs/plans/20261116-approved-note.md
+# aplan_with LINE...: the plan of approved-note, with these lines as its stories, and its commit
+aplan_with() {
+  printf '%s\n' '# The note' '' 'careful: no, it touches one new file.' '' '## Stories' '' 'Kind: feature, because the note gets a file and an empty case.' '' "$@" '' '## Tasks' '' '1. The note.' > "$aplan"
+  git -C "$atw" add -A && git -C "$atw" commit -q -m "docs: the plan"
+}
+printf '%s\n' 'for Ania' '1043,' > "$atw/note.txt"
+echo 'grep -qx "for Ania" note.txt' > "$atw/tests/ania.sh" && echo 'grep -qx "1043," note.txt' > "$atw/tests/empty.sh"
+# shellcheck disable=SC2016
+one='   - test: `sh tests/ania.sh` in `tests/ania.sh`'
+# shellcheck disable=SC2016
+two='   - test: `sh tests/empty.sh` in `tests/empty.sh`'
+s1='1. The note file holds the gift note of order 1042: "for Ania".'
+aplan_with "$s1" "$one" '2. An order with no gift note has the line "1043," and' '   no word after the comma.' "$two"
+copied=$(stories show approved-note 2>&1 || true)
+held=$(stories red approved-note 2>&1 || true)
+if [ "$(field '(d["approved"]["by"], d["departures"], [len(s["tests"]) for s in d["stories"]])' <<<"$copied" 2>/dev/null)" = "('owner', [], [1, 1])" ] \
+  && [ "$(field 'd["approved"]["digest"]' <<<"$copied" 2>/dev/null)" = "$(field 'd["digest"]' <<<"$approved" 2>/dev/null)" ] \
+  && [ "$(field '(d["ok"], [t["story"] for t in d["tests"]])' <<<"$held" 2>/dev/null)" = "(True, [1, 2])" ]; then
+  pass "a plan whose stories are the approved ones, in other line breaks and with test lines added, passes show and red"
+else
+  fail "a plan of approved stories: $copied / $held"
+fi
+adecide() { "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ST" "$@"; }
+# A reworded story is refused by show and red until the record holds its change.
+aplan_with '1. The note file holds the gift note of order 1042, "for Ania".' "$one" '2. An order with no gift note has the line "1043," and no word after the comma.' "$two"
+reworded=$(stories show approved-note 2>&1 || true)
+red_reworded=$(stories red approved-note 2>&1 || true)
+adecide log approved-note --what "The colon of story 1" --chose "a comma" --why "The importer splits on a colon." --by lead --story 1 --was "$s1" >/dev/null 2>&1 || true
+changed_now=$(stories show approved-note 2>/dev/null | field '[(p["story"], p["how"], p["decision"]) for p in d["departures"]]' 2>&1 || true)
+# A dropped story is refused until a decision removes it, with its approved text word for word.
+aplan_with "$s1" "$one"
+dropped=$(stories show approved-note 2>&1 || true)
+adecide log approved-note --what "The empty case" --chose "no story for it" --why "Every order has a note now." --by lead --story 2 --removed --was "An order with no gift note has the line 1043." >/dev/null 2>&1 || true
+wrong_was=$(stories show approved-note 2>&1 || true)
+adecide log approved-note --what "The empty case" --chose "no story for it" --why "Every order has a note now." --by lead --story 2 --removed \
+  --was 'An order with no gift note has the line "1043," and no word after the comma.' >/dev/null 2>&1 || true
+removed_now=$(stories show approved-note 2>/dev/null | field '[(p["story"], p["how"]) for p in d["departures"]]' 2>&1 || true)
+# An added story is refused until a decision adds it.
+aplan_with "$s1" "$one" '2. The note file ends with a line break.' '   - no test: printf ends every line so.'
+added=$(stories show approved-note 2>&1 || true)
+adecide log approved-note --what "The line break" --chose "a story for it" --why "The reader of the file needs it." --by lead --story 2 --added >/dev/null 2>&1 || true
+added_now=$(stories show approved-note 2>/dev/null | field '[(p["story"], p["how"]) for p in d["departures"]]' 2>&1 || true)
+added_was=$(adecide log approved-note --what x --chose y --why z --by lead --story 3 --added --was "old" 2>&1 || true)
+no_number=$(adecide log approved-note --what x --chose y --why z --by lead --removed --was "old" 2>&1 || true)
+plain=$(stories show export-has-the-gift-note | field '(d["approved"], d["departures"])' 2>&1 || true)
+# shellcheck disable=SC2016
+if grep -q "story 1 of 20261116-approved-note.md is not story 1 as he approved it: it says 'The note file holds the gift note of order 1042, \"for Ania\".'" <<<"$reworded" \
+  && grep -q 'decisions.py log approved-note ... --story N --was TEXT. for a changed one, .--story N --added. for an added one' <<<"$reworded" \
+  && grep -q "story 1 of 20261116-approved-note.md is not story 1 as he approved it" <<<"$red_reworded" \
+  && [ "$changed_now" = "[(1, 'changed', 1)]" ] \
+  && grep -q "20261116-approved-note.md lacks story 2 as he approved it, .An order with no gift note has the line \"1043,\" and no word after the comma.., and no decision removes it" <<<"$dropped" \
+  && grep -q "decision 2 removes story 2, and its --was is not the approved text" <<<"$wrong_was" && [ "$removed_now" = "[(2, 'removed')]" ] \
+  && grep -q "story 2 of 20261116-approved-note.md, .The note file ends with a line break.., is not among the stories he approved, and no decision adds it" <<<"$added" \
+  && [ "$added_now" = "[(2, 'removed'), (2, 'added')]" ] \
+  && grep -q "an added story had no text before: leave out --was" <<<"$added_was" && grep -q -- "--removed names its story with --story N" <<<"$no_number" \
+  && [ "$plain" = "(None, [])" ]; then
+  pass "a plan that rewords, drops or adds an approved story is refused by show and red, and passes once the record holds the decision of a changed, removed or added story; a removal must name the approved text; a task with no approved stories keeps the plan as the source"
+else
+  fail "departures from the approved stories: $reworded / $red_reworded / $changed_now / $dropped / $wrong_was / $removed_now / $added / $added_now / $added_was / $no_number / $plain"
+fi
+
 # The decisions of a task: each one the lead or the personas took, and each choice that waits for the
 # owner a fixed time and no longer, except a step that a later "no" cannot reverse.
 DECISIONS=$PWD/skills/lem/scripts/decisions.py
@@ -2657,6 +2749,92 @@ else
   fail "decisions in the landing: $waiting / $forever / $agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/null
+
+# Approved stories in the landing: a story the build added or removed is not green, like a changed one; and the
+# checks hold one line on the personas' read of the stories, from its event, with his approval.
+lstories() { "$PY" -B "$STORIES" --repo "$LOCAL" "$@"; }
+ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
+# to_open SLUG: the machine steps, a clean read and the proposal of a task of the local repository
+to_open() {
+  local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && local_land gate "$1" >/dev/null \
+    && local_land read "$1" --record "$(clean 1)" >/dev/null && local_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
+}
+approved_day() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["at"][:10])' "$LOCAL/.git/lem/tasks/$1/stories.json" 2>/dev/null || true; }
+task_in "$LOCAL" story-departs d.txt d
+tree=$(project --repo "$LOCAL" worktree-dir story-departs)
+printf '%s\n' '## Stories' '' 'Kind: feature, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' '2. The file has one line.' > "$WORK/approved.md"
+lstories approve story-departs --file "$WORK/approved.md" >/dev/null 2>&1 || true
+# shellcheck disable=SC2016
+printf '%s\n' '# story-departs' '' '## Stories' '' 'Kind: feature, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' \
+  '   - test: `sh tests/story-departs.sh` in `tests/story-departs.sh`' '2. The file ends with a line break.' '   - no test: printf ends every line so.' '' '## Tasks' '' '1. The change.' \
+  > "$tree/docs/plans/20261115-story-departs.md"
+git -C "$tree" commit -q -am "docs: the stories as they are built"
+unrecorded=$(local_land start story-departs >/dev/null && local_land base story-departs >/dev/null && local_land gate story-departs 2>&1 || true)
+ldecide log story-departs --what "The one-line rule" --chose "no such rule" --why "A second line holds the date now." --by personas --said "Both personas picked it." \
+  --story 2 --removed --was "The file has one line." >/dev/null 2>&1 || true
+ldecide log story-departs --what "The line break" --chose "a rule for it" --why "The importer reads whole lines only." --by lead --story 2 --added >/dev/null 2>&1 || true
+project --repo "$LOCAL" log story-departs stories.read by=lem personas:=2 'families:=["opus", "sol"]' stories:=2 flagged:=0 >/dev/null 2>&1 || true
+local_land gate story-departs >/dev/null 2>&1 && local_land read story-departs --record "$(clean 1)" >/dev/null 2>&1 \
+  && local_land propose story-departs --title "fix: story-departs" --notes "$NOTES" >/dev/null 2>&1 || true
+text=$LOCAL/.git/lem/tasks/story-departs/pr.md
+agent=$(local_land land story-departs --by agent 2>&1 || true)
+# shellcheck disable=SC2016
+if grep -q "story 2 of 20261115-story-departs.md is not story 2 as he approved it" <<<"$unrecorded" \
+  && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
+  && [ "$(sed -n 3p "$text")" = '- story 2 was removed during the build: A second line holds the date now.' ] \
+  && [ "$(sed -n 4p "$text")" = '- story 2 was added during the build: The importer reads whole lines only.' ] \
+  && grep -qxF -- '- story 2: removed; he had approved "The file has one line.". A second line holds the date now. Both personas picked it.' "$text" \
+  && grep -qxF -- '- story 2: added, not among the stories he approved. The importer reads whole lines only.' "$text" \
+  && grep -qxF -- '- The one-line rule: "no such rule", by the personas (Both personas picked it.). A second line holds the date now. Story 2 removed.' "$text" \
+  && grep -qxF -- '- The line break: "a rule for it", by the lead. The importer reads whole lines only. Story 2 added.' "$text" \
+  && [ -n "$(approved_day story-departs)" ] \
+  && grep -qxF -- "- the stories were read by 2 personas, two model families (opus, sol); nobody confused; he approved them on $(approved_day story-departs)" "$text" \
+  && grep -qF "the request is not green (story 2 was removed during the build" <<<"$agent"; then
+  pass "a story the build removed or added is not green, each with its line first and its reason, the gate refuses the plan until the record holds both, and the checks say that two model families read the stories and when he approved them"
+else
+  fail "an added and a removed story in the landing: $unrecorded / $agent / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state story-departs dropped "the test is over" >/dev/null
+# The rare path: the lead ran the read with one model family, nobody was confused, and there is no approval; a scout's report is named.
+task_in "$LOCAL" ticket-word t.txt t
+tree=$(project --repo "$LOCAL" worktree-dir ticket-word)
+sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-ticket-word.md"
+rm "$tree/docs/plans/20261115-ticket-word.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
+bad_by=$(project --repo "$LOCAL" log ticket-word stories.read by=owner personas:=2 'families:=["opus"]' stories:=1 flagged:=0 2>&1 || true)
+bad_one=$(project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=1 'families:=["opus"]' stories:=1 flagged:=0 2>&1 || true)
+bad_families=$(project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=2 families=opus stories:=1 flagged:=0 2>&1 || true)
+bad_more=$(project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=2 'families:=["opus"]' stories:=1 flagged:=2 2>&1 || true)
+bad_missing=$(project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=2 'families:=["opus"]' stories:=1 2>&1 || true)
+project --repo "$LOCAL" log ticket-word stories.read by=lead personas:=2 'families:=["opus"]' stories:=1 flagged:=0 >/dev/null
+echo '1. t.txt does not exist on the base branch (git ls-files).' > "$LOCAL/.git/lem/tasks/ticket-word/scout.md"
+to_open ticket-word || true
+text=$LOCAL/.git/lem/tasks/ticket-word/pr.md
+if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
+  && grep -qxF -- "- the stories were read by 2 personas, one model family (opus); nobody confused; the build started with no wait for him" "$text" \
+  && grep -qxF -- "- the scout's report, the facts of the code the stories were written from: \`$LOCAL/.git/lem/tasks/ticket-word/scout.md\`" "$text" \
+  && grep -q "by is lem, when Lem ran the read" <<<"$bad_by" && grep -q "a read has two personas at the least" <<<"$bad_one" \
+  && grep -q "families is the list of the model families that answered" <<<"$bad_families" && grep -q "no more stories flagged than it read" <<<"$bad_more" \
+  && grep -q "stories.read takes by=lem|lead personas:=N" <<<"$bad_missing" \
+  && [ "$(grep -c '"event": "stories.read", "task": "ticket-word"' "$LOCAL/.git/lem/events.jsonl")" = 1 ]; then
+  pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's report is named; a read's event without its form is refused, and nothing is written for it"
+else
+  fail "the read of the rare path: $bad_by / $bad_one / $bad_families / $bad_more / $bad_missing / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state ticket-word dropped "the test is over" >/dev/null
+# A correction: Lem approves its one story in his name, and the personas do not read it.
+task_in "$LOCAL" one-word o.txt o
+printf '%s\n' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/correction.md"
+lstories approve one-word --file "$WORK/correction.md" --correction >/dev/null 2>&1 || true
+to_open one-word || true
+text=$LOCAL/.git/lem/tasks/one-word/pr.md
+if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] && [ -n "$(approved_day one-word)" ] \
+  && grep -qxF -- "- a correction: not read by the personas; Lem approved it in his name on $(approved_day one-word), as a correction" "$text" \
+  && ! grep -q 'the stories were read by' "$text"; then
+  pass "a correction approved in his name is proposed with the line that the personas did not read it and when Lem approved it for him"
+else
+  fail "a correction's line: $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state one-word dropped "the test is over" >/dev/null
 
 # No path rule lets a change skip its review: documentation gets one read at the least. A review that no
 # source answered is none; it is started once more, and then the request goes on as not reviewed.

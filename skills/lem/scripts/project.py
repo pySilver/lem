@@ -46,9 +46,13 @@ cannot read a file with fetch, and it can load a script (measured in agterm 0.34
 this one follows). `state` writes `task.state` with the status, the lines, the ask, the limit and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
 second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
-JSON, so a commit made only of digits stays a string and an exit code stays a number. One event
-has a fixed form, because the landing reads it: `plan.talk`, which the lead of a careful or large
-task writes after its plan talk, as `reviewer=AGENT turns:=N settled:=N open:=N`.
+JSON, so a commit made only of digits stays a string and an exit code stays a number. Two events
+have a fixed form, because the landing reads them: `plan.talk`, which the lead of a careful or
+large task writes after its plan talk, as `reviewer=AGENT turns:=N settled:=N open:=N`; and
+`stories.read`, which Lem or the lead writes after the personas read the stories, as
+`by=lem|lead personas:=N families:='["FAMILY", ...]' stories:=N flagged:=N`: who ran the read,
+how many personas answered, the model families that answered, how many stories they read and
+how many of those a persona or a split between the families flagged.
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens), which tool marks up a plan and
@@ -977,7 +981,28 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
             raise SettingsError(f"{key!r} is not JSON ({error}): {raw!r}") from error
     if event == "plan.talk":
         talk_form(fields)
+    if event == "stories.read":
+        read_form(fields)
     print(json.dumps(append_event(root, event, slug, fields)))
+
+
+def read_form(fields: dict) -> None:
+    """The personas' read of the stories is read by the landing, so it has one form: who ran it,
+    how many personas answered, which model families, how many stories, and how many flagged."""
+    form = "stories.read takes by=lem|lead personas:=N families:='[\"FAMILY\", ...]' stories:=N flagged:=N"
+    counts = ("personas", "stories", "flagged")
+    if set(fields) != {"by", "families", *counts}:
+        raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
+    if fields["by"] not in ("lem", "lead"):
+        raise SettingsError(f"{form}: by is lem, when Lem ran the read in its session, or lead, when the task's lead ran it")
+    if not all(isinstance(fields[key], int) and not isinstance(fields[key], bool) and fields[key] >= 0 for key in counts):
+        raise SettingsError(f"{form}: each N is a whole number, written with := so that it stays one")
+    families = fields["families"]
+    if not isinstance(families, list) or not families or not all(isinstance(name, str) and name.strip() for name in families) or len(set(families)) != len(families):
+        raise SettingsError(f"{form}: families is the list of the model families that answered, each named once, as in families:='[\"opus\", \"sol\"]'")
+    # the panel's own floor: "Two personas per story is the floor" (the lem-panel skill, Reading stories)
+    if fields["personas"] < 2 or fields["stories"] < 1 or fields["flagged"] > fields["stories"]:
+        raise SettingsError(f"{form}: a read has two personas at the least, one story at the least, and no more stories flagged than it read")
 
 
 def talk_form(fields: dict) -> None:

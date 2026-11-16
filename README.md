@@ -37,6 +37,12 @@ line that the other agents work on, and it answers to you for all of them.
 - **Builder**: a new agent that gets one job. It writes code and it commits.
 - **Lead**: the agent that owns one task from its plan to its report.
 - **Story**: one rule of your ask in plain language, with one example. Each story gets a test.
+- **Interview**: Lem asks you about your ask, one question at a time, before it writes the
+  stories.
+- **Scout**: an agent that reads the code around your ask during the interview. It gives facts
+  to Lem, not a plan. It changes nothing.
+- **Direction**: a technology, a library or an approach that you name in the interview. The plan
+  obeys it.
 - **Gate**: the check commands of your project, for example the tests. Each command must pass
   before Lem proposes a change.
 - **Review**: an agent that did not build the change reads it, before Lem proposes it.
@@ -119,7 +125,13 @@ The board shows these things:
 ```mermaid
 flowchart TD
     ask([You: /lem and your ask]) --> open[Lem opens the task:<br/>a branch, a worktree, the ask in your words]
-    open --> plan[A builder writes a short plan<br/>as the first commit]
+    open --> path{Is the whole context<br/>written already?<br/>For example, a ticket<br/>with a defined result}
+    path -- no --> interview[The interview: Lem asks you,<br/>one question at a time.<br/>A scout reads the code<br/>at the same time]
+    interview --> stories[Lem writes the stories.<br/>The personas read them]
+    stories --> approve[You approve the stories,<br/>with the result of the personas on top]
+    approve --> plan[A builder writes a short plan<br/>as the first commit.<br/>It copies your stories]
+    path -- yes --> rare[A builder writes the stories and the plan.<br/>The personas read the stories.<br/>A doubt stops it for you]
+    rare --> careful
     plan --> careful{Is the task careful or large?<br/>Careful: it touches a danger topic or a careful path,<br/>or it starts a pattern that other code will copy.<br/>Large: the plan has more than three tasks}
     careful -- no --> count{How many tasks<br/>are in the plan?}
     count -- one --> same[The same builder builds it]
@@ -142,6 +154,34 @@ flowchart TD
 
 These rules hold for each task:
 
+- **Usually, Lem interviews you first.** Lem asks one question at a time, and it gives its own
+  guess with each question. Thus you react, and you do not write the answer from nothing. You
+  can be technical. You can name a technology, a library or an approach.
+- **A scout reads the code during the interview.** It is an agent that changes nothing. It gives
+  facts to Lem: what exists, what the code does today, and what limits your ask. Lem can use a
+  fact in a later question. Thus the scout costs you no wait. In two measured runs it took 26.7
+  seconds in a small repository and 116.5 seconds in the repository of Lem (2026-11-16).
+- **Lem writes the stories after the interview.** It uses your words, your directions, the
+  profile of the project and the report of the scout. Lem writes no code.
+- **The personas read the stories before you approve them.** When both model families answer,
+  a split between them counts as a doubt. One measured read took 2 minutes and 9 seconds
+  (2026-11-16, two personas, two stories).
+- **You approve the stories on one page.** The result of the personas is on top. Each story shows
+  the facts of the scout that it comes from. A story that a persona flagged stays as Lem wrote
+  it, with the answers of the personas next to it. You approve the stories, or you change a
+  story, a direction or the set. The build starts only after your approval.
+- **Approved stories do not change silently.** The plan must hold your stories word for word.
+  The lead adds only the tests. If the build must change, add or remove a story, the lead
+  records that decision. Then the pull request is not green, and it shows the reason.
+- **A ticket with all of its context gets no interview.** This is the rare path: a ticket, a
+  backlog item whose options are settled, or a night plan that you start, each with a defined
+  result. Lem tells you in one line that it takes this path, and why. You can say "interview
+  me". The lead writes the stories from the code. One model family of personas reads them. If
+  nobody is confused, the build starts and does not wait for you. The board shows "nobody
+  confused", and you can stop the task. If a persona has a doubt, the task waits for you.
+- **A correction does not wait.** A correction is one story in your own words, and it touches
+  nothing careful. Lem shows the story and approves it for you. The personas do not read it.
+  You can say "this is a feature".
 - **The plan starts with the stories.** A story is one rule of your ask in plain language, with
   one example. You read the stories, and the agents read the plan. Each story gets a test.
 - **A check proves each test.** The test of a story must pass on the branch, and it must fail on
@@ -170,6 +210,10 @@ These rules hold for each task:
 - **The first line says green or not green.** Each reason for "not green" is one line, before
   all other text. Then come your words, the stories with their tests, each check with its
   result, and the notes of Lem.
+- **The checks tell you who read the stories.** One line gives the number of personas, the
+  model families, the stories that they flagged, and the date of your approval. For a
+  correction, the line says that the personas did not read it. The line also names the report
+  of the scout.
 - **A careful task gets more care.** The project names what must not go wrong: as danger
   topics in your words, and as paths. Examples of topics are the price that a customer pays,
   data that nobody can make again, and private data.
@@ -209,8 +253,8 @@ These rules hold for each task:
 - **A project with no gate command gets no pull request from Lem.**
 - **The board is local.** It reads files in the git directory of one clone. A second person
   with a second clone does not see it.
-- **You are necessary at three points**: the ask, a decision whose options each cost a person
-  something, and the report. Lem takes each other decision, logs it, and lists it for you to
+- **You are necessary at three points**: the interview with your approval of the stories, a
+  decision whose options each cost a person something, and the pull request. Lem takes each other decision, logs it, and lists it for you to
   overturn.
 - **Only some tasks build at one time.** The limit is the setting `flow.max_tasks`. A task over the
   limit waits in a queue.
@@ -275,7 +319,7 @@ flowchart TD
         wt[.lem/worktrees/<br/>one worktree for each task; git ignores this folder]
     end
     subgraph gitdir [The git directory, shared by all worktrees]
-        tasks[lem/tasks/NAME/<br/>task.md, brief.md, state.md, report.md, decisions.jsonl]
+        tasks[lem/tasks/NAME/<br/>task.md, scout.md, directions.md, stories.json,<br/>brief.md, state.md, report.md, decisions.jsonl]
         events[lem/events.jsonl<br/>each state block, gate result, review and proposal]
     end
     wt -. writes the state .-> tasks
@@ -414,9 +458,11 @@ workspace.
 Lem wrote the comment through the connection of the owner. Thus Linear shows the owner as its
 author, and the last line of the comment says that it is from Lem.
 
-Two paths did not occur in these runs:
+Three paths did not occur in these runs:
 
-- If the ask is not clear to you, type `/lem interview-me`. Lem asks one question at a time.
+- The interview, the scout and your approval of the stories. These came after the runs.
+- If the ask is not clear to you yet, before a task, type `/lem interview-me`. Lem asks one
+  question at a time.
 - If a decision is yours, Lem shows it to you as a page before the work that depends on it.
 
 ### Set up a repository
@@ -477,7 +523,7 @@ Linear.
 
 | Command | What it does |
 | --- | --- |
-| `/lem <your ask>`, or `/lem new <what>` | opens a task and runs it to the gate. It has no interview, and it does not stop for you to read the plan. The task waits if each place is in use. A careful or large plan gets a session for the plan talk. It stops for a decision that is yours |
+| `/lem <your ask>`, or `/lem new <what>` | opens a task, interviews you, and shows you the stories with the result of the personas. After your approval it runs the task to the gate. A ticket with all of its context gets no interview, and a correction does not wait. It does not stop for you to read the plan. The task waits if each place is in use. A careful or large plan gets a session for the plan talk. It stops for a decision that is yours |
 | `/lem plan <what>` | opens a task and stops after the plan. You read the plan. Then `/lem build` continues |
 | `/lem build` | lists the plans that wait and asks which one it builds |
 | `/lem build <task>`, or `/lem build <plan file>` | builds that plan: a plan that you read, or a draft from the night |

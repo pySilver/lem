@@ -10,10 +10,13 @@ the same way in every repository. What differs between repositories is in the re
 the style guide, the personas, the review configuration, the lessons, the checks that gate a
 landing and the paths that need more care. This skill holds the flow and knows no project.
 
-The owner is a developer whose attention is short, so the flow asks for it at few places: the
-interview when the ask is unclear, the stories, which are the contract in plain language and
-become the tests, and the pull request, which he merges without a read when it is green. Between
-those a task builds without him. Before a change is proposed it passes the machine checks and a
+The owner is a developer whose attention is short, so the flow asks for it at three touches:
+the interview, while a scout reads the code around his ask; the stories, which the personas read
+before he does and which he approves, so that they are the contract in plain language and become
+the tests; and the pull request, which he merges without a read when it is green. A request whose
+whole context is written (a ticket, a settled backlog item) has no interview, and its stories
+wait for him only when a persona doubts them; a correction, one story in his own sentence, waits
+for nothing. Between the touches a task builds without him. Before a change is proposed it passes the machine checks and a
 review by an agent that did not build it, as large as the change needs. Nothing is reviewed after
 the merge: in one repository 43 of 48 reviews queued after the landing were still open about 28
 hours later (convertiser-server, 2026-11-14). And nothing is argued task by task: three days of a
@@ -30,7 +33,8 @@ its reason.
 **Lem** is the one session of a repository in which the owner types `/lem`. It takes the asks,
 opens the tasks, starts each task's lead, takes one branch at a time through the checks and the
 review to a pull request, and tells the owner. It holds no task's details. Of a task it reads three things: the ask it wrote
-down, the newest state block and the report file. It does not read the plan's reasoning, the diff
+down, the newest state block and the report file; and during an interview the scout's report,
+which gives facts of the code for the stories and nothing else. It does not read the plan's reasoning, the diff
 or what a builder printed, and it writes no code. Lem is the only context that knows every
 task. When it fills with one task's code, it loses the others.
 
@@ -77,7 +81,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 
 | Subcommand | Does | Read |
 | --- | --- | --- |
-| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and starts its lead. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
+| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words), interviews the owner while a scout reads the code, has the personas read the stories and takes his yes to them, and starts its lead. A ticket or an item whose whole context is written skips the interview, and a correction does not wait. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read | `stages/new.md` |
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state | `stages/new.md` |
@@ -106,8 +110,8 @@ Between two of the owner's messages Lem only waits: a lead that stops wakes it.
 
 ## What holds in every stage
 
-- **The owner is needed at three points.** The ask (`new`), a held decision, and the pull request.
-  A held decision is one whose options each cost a person something and that no ruling, test or
+- **The owner is needed at three points.** The interview and his yes to the stories (`new`), a
+  held decision, and the pull request. A held decision is one whose options each cost a person something and that no ruling, test or
   probe answers; it goes through the question gate and the persona panel before the owner sees
   it. The panel asks the project's own personas, which every project of Lem has. Every other decision is yours: decide from the code, the settings and the rulings, write it
   in the decisions log, and go on. A red test, a failed command or a moving base branch is the
@@ -170,6 +174,14 @@ worktree, never committed and not removed with a worktree. It holds:
   them. `ticket.txt` holds the id of the tracker's ticket, for a task that came from one, and
   `ticket-steps.txt` what Lem did to that ticket; `project.py tasks` gives both, and
   `ticket_owed`: what an ended task's ticket still waits for.
+- `scout.md`: the scout's report of the interview, facts of the code around the ask. Lem writes
+  it from the scout's reply, and reads it: it is the one place where knowledge of the code
+  comes up to Lem, and only for the stories.
+- `directions.md`: what the owner named in the interview (a technology, a library, an approach,
+  an option he picked), one line each in his words. Lem writes it; the plan follows it.
+- `stories.json`: the stories the owner approved, word for word, with a digest, who approved them
+  and when. Only `stories.py approve` writes it; `stories.py approved SLUG` prints it, and the
+  plan's stories must be those, with the test lines added.
 - `brief.md`: the lead's brief. Lem writes it.
 - `state.md`: newest block first. Lem and the lead write it, and only through the script.
 - `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that
