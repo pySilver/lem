@@ -259,7 +259,9 @@ printf '%s\n' 'pick: after the price' 'why: The accountant reads the price first
 fabled=$(experts record "$SLUG" "$c18" --expert fable | field '(d["expert"], d["pick"], d["why"])' || true)
 printf '%s\n' 'None fits' 'why: Both break an import.' > "$answers/choice-$c18.astra.md"
 astrad=$(experts record "$SLUG" "$c18" --expert astra | field '(d["expert"], d.get("none"), d["experts_pick"])' || true)
+# the refusal says what the skill allows: one more ask with the same brief, then nothing recorded for that expert
 if grep -qF "choice-$c18.fable.md is not there" <<<"$absent" && grep -qF "is not an answer in the brief's form" <<<"$badform" \
+  && grep -qF "Ask fable once more with the same brief" <<<"$badform" && grep -qF "record nothing for fable" <<<"$badform" && ! grep -qF "decisions.py advise" <<<"$badform" \
   && grep -qF "the pick of an expert is one of the options of choice $c18, word for word" <<<"$noption" \
   && [ "$fabled" = "('fable', 'after the price', 'The accountant reads the price first. A note beside it is seen.')" ] \
   && [ "$astrad" = "('astra', True, None)" ] && [ "$(advised_lines "$c18")" = 2 ]; then

@@ -179,8 +179,8 @@ def cmd_record(repo: Path, slug: str, number: int, expert: str) -> dict:
     if found is None:
         raise ExpertError(
             f"{answer} is not an answer in the brief's form (`pick: OPTION` or `none fits`, then `why: ...`). "
-            f"Ask {expert} again with the same brief, or, when its text names one option plainly, record it yourself with "
-            f"`decisions.py advise {slug} {number} --expert {expert} --pick OPTION --why TEXT`",
+            f"Ask {expert} once more with the same brief. When that answer is refused too, record nothing for {expert} and say so "
+            "in one line: with one expert's advice the end of the wait takes the recommended option",
         )
     why = " ".join(found["why"].split())
     if found["none"]:
