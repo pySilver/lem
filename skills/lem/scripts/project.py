@@ -25,7 +25,7 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py task-dir SLUG [--ask TEXT] [--ticket ID]
                                     make and print one task's state directory; keep the owner's words
                                     and the ticket the ask came from
-    project.py ticket-step SLUG started|commented|landed|dropped
+    project.py ticket-step SLUG started|commented|landed|dropped|answered
                                     write down what Lem did to the task's ticket, once
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
     project.py state SLUG STATUS LINE...
@@ -46,24 +46,39 @@ cannot read a file with fetch, and it can load a script (measured in agterm 0.34
 this one follows). `state` writes `task.state` with the status, the lines, the ask, the limit and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
 second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
-JSON, so a commit made only of digits stays a string and an exit code stays a number. Three events
-have a fixed form. `plan.talk.start`, which the lead of a careful or large task writes when the
-reviewer's seat opens, as `reviewer=AGENT`, so that the board draws the talk from its start.
-`plan.talk`, which the landing reads and the lead writes after the talk, as `reviewer=AGENT
-turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N`: the turns, the
-questions of the reviewer's first list, how many of them were settled and left open (the two add
-up to questions), how many the lead repaired, how many of the open ones are a design choice, and
-how many were raised after the list and not argued; a talk has at most 4 × questions + 2 turns.
+JSON, so a commit made only of digits stays a string and an exit code stays a number. Four events
+have a fixed form. `plan.talk.start`, which the defender of a careful or large plan writes when
+the reviewer's seat opens, as `reviewer=AGENT`, so that the board draws the talk from its start.
+`plan.talk`, which the landing reads and the plan's defender writes after the talk, as
+`reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N
+root:=N layer:=N shared:=N`: the turns, the questions of the reviewer's first list, how many of
+them were settled and left open (the two add up to questions), how many the defender repaired,
+how many of the open ones are a design choice, how many were raised after the list and not
+argued, how many repairs changed a decision of the plan and how many put a layer over a decision
+with a cite (the two add up to at most the repairs), and how many decisions two questions named
+(at most the design choices); a talk has at most 4 × questions + 2 turns. `tasks` gives each task
+its newest `plan.talk` as `talk`, the record Lem and a builder read before the build of a
+careful or large plan.
 And `stories.read`, which Lem or the lead writes after the personas read the stories, as
 `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ..., "why":
 ...}]' stories:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many personas
 were asked and how many answered, the model families that answered, each source that did not
 and why (a partial read counts), how many stories were read and how many an answer flagged,
 whether the families split, and the digest `stories.py digest` gives for the stories read.
+`investigation`, which Lem writes after it reads the investigator's report of a bug or a
+question, as `kind=bug|investigation call=CALL line=TEXT [where=PATH:SYMBOL]
+[reproduced:=true|false]`: a bug's call is correction, usual, not-a-bug or not-reproduced, and it
+says whether the bug was reproduced; a plain cause names its place; an investigation's call is
+answer. `tasks` gives each task its newest as `investigation`, and `state SLUG answered` refuses
+a task with no `investigation.md` and no record whose call is not-a-bug or answer.
+
+A state line that starts with `kind:` names the kind of the request with its reason, as `kind:
+bug, because the total is wrong today`, one of bug, feature, correction, investigation, chore and
+docs; `state` refuses any other, and `tasks` gives the newest as `kind`.
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
-reviewer's pane (the usual reviewer is down, or out of tokens), which tool marks up a plan and
-which one puts a question to the owner, and a no to the correction queue for that one person. It
+reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
+a plan talk runs, which tool marks up a plan and which one puts a question to the owner, and a no to the correction queue for that one person. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]` and
 `[tools]`, and `[corrections]` with `collect = false`, and nothing else: the gate, the careful
@@ -126,18 +141,30 @@ PATHS: dict[str, tuple[str, str | None]] = {
 LAND = ("owner", "agent")
 # How a task's branch reaches the base branch: its own commits, or one commit for the whole branch.
 HISTORY = ("keep", "squash")
+# How a task that has a forge ends: a pull request there, or a merge into the base branch with
+# none, for a developer who wants no pull requests. With no forge it is always the merge.
+PROPOSE = ("pull-request", "merge")
 # the agents that can sit in the reviewer's pane
 REVIEWERS = ("claude", "codex")
 # The reviewer's seat: the agent, and what its pane is started with. A model and an effort are
 # not checked against a list: their names change with each release of an agent's command, and
 # that command refuses a wrong one loudly when the pane starts.
 SEAT = ("agent", "model", "effort", "plan_effort")
+# The defender's seat: the agent Lem starts in the companion of a plan talk, which defends the
+# plan against the reviewer. Only Claude Code, because the harness was checked in no other agent.
+PLANNERS = ("claude",)
+PLANNER_SEAT = ("agent", "model", "effort")
+# seat -> (the keys it takes, the agents that may sit in it, why only those)
+SEATS = {
+    "reviewer": (SEAT, REVIEWERS, "the agents that can sit in the reviewer's pane"),
+    "planner": (PLANNER_SEAT, PLANNERS, "the harness was checked in Claude Code only"),
+}
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 # What a task's newest state block may say, and who acts next:
 #   queued    the ask is written and no lead runs yet: the limit was reached
 #   building  a lead plans or builds
-#   planned   the plan is committed and nothing builds it: it needs a session, or the owner reads it
+#   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
 #   held      it waits for the owner: a held decision
 #   blocked   the lead stopped on something the coordinator has to settle
 #   ready     the report is written and the branch waits for its checks
@@ -146,7 +173,19 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   landed    it is on the base branch
 #   drafted   a plan written at night that waits for the owner's word
 #   dropped   nobody will build it
-STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "drafted", "dropped")
+#   answered  it ended with a report and nothing to merge: a question answered, or a bug that is none
+STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "drafted", "dropped", "answered")
+# The states a task does not leave: its files stay under its slug, and nothing of it waits.
+ENDED = ("landed", "dropped", "answered")
+# The kind of a request, which Lem takes from the ask's words alone (`stages/new.md`, "Open the task").
+# A state line `kind: KIND, because WHY` says it; no code matches an ask's words against them.
+KINDS = ("bug", "feature", "correction", "investigation", "chore", "docs")
+KIND_LINE = re.compile(r"kind:\s*(?P<kind>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+))?")
+# What the investigation of a bug or of a question found, as `log investigation` takes it: the call
+# that sets the task's next path (`stages/new.md`, "A bug and an investigation"). Two of them end the
+# task with its report, as `answered`.
+CALLS = {"bug": ("correction", "usual", "not-a-bug", "not-reproduced"), "investigation": ("answer",)}
+ANSWERING = ("not-a-bug", "answer")
 # The states in which the task loads the machine: a lead builds, or the gate runs and a builder may
 # repair a conflict or a red gate.
 RUNNING = ("building", "landing")
@@ -161,10 +200,10 @@ MAX_TASKS = 4
 DECISION_WAIT = 15
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
-    "branch": ("base", "land", "history", "protected"),
+    "branch": ("base", "land", "history", "propose", "protected"),
     "gate": ("commands", "ignores", "setup", "bar"),
     "flow": ("careful", "topics", "max_tasks", "decision_wait"),
-    "seats": ("reviewer",),
+    "seats": ("reviewer", "planner"),
     "tools": tuple(TOOLS),
     "corrections": ("collect",),
     "tracker": ("kind", "server", "workspace", "team", "moves", "started", "landed"),
@@ -181,7 +220,10 @@ TICKET = re.compile(r"[A-Za-z][A-Za-z0-9]*-[0-9]+")
 #   commented  the landing was commented on the ticket
 #   landed     the ticket got the status for work that landed
 #   dropped    the ticket got the comment that its task was dropped
-TICKET_STEPS = ("started", "commented", "landed", "dropped")
+#   answered   the ticket got the comment with its task's answer: not a bug, or the answer to a question
+TICKET_STEPS = ("started", "commented", "landed", "dropped", "answered")
+# The ended states that give a task's ticket back: a new task may take it. A landed task keeps it.
+RETURNED = ("dropped", "answered")
 
 TEMPLATE = """\
 # What Lem reads in this repository. `project.py show` prints it resolved.
@@ -197,6 +239,9 @@ base = "{base}"
 land = "owner"
 # What lands: "keep" lands the branch's own commits, "squash" lands one commit for the whole task.
 history = "keep"
+# How a task ends where the remote is GitHub: "pull-request" opens one there, "merge" lands the
+# branch on the remote's base branch with none. With any other remote, or none, it is the merge.
+propose = "pull-request"
 # Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
 protected = []
 
@@ -212,9 +257,9 @@ ignores = []
 setup = []
 
 [flow]
-# Paths whose change takes the careful flow: a session leads the task, its plan is talked
-# through with the reviewer before any code, and the landing gives it the project's full review
-# set. A `*` crosses directories.
+# Paths whose change takes the careful flow: its plan is talked through with the reviewer before
+# any code, in a companion session of its own, and the landing gives it the project's full
+# review set. A `*` crosses directories.
 careful = []
 # What must not go wrong in this project, each as one sentence in the owner's words: "a price a
 # customer pays", "data that cannot be rebuilt", "who may sign in". No code matches these: the
@@ -231,12 +276,21 @@ decision_wait = {decision_wait}
 
 [seats.reviewer]
 # The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one talks
-# the plan of a careful or large task through with its lead. The same family twice is allowed.
+# the plan of a careful or large task through with its defender, in the plan talk's companion.
+# The same family twice is allowed.
 {reviewer}
 # What its pane starts with. Leave one out and the agent's own default holds.
 # model = ""
 # effort = ""        # for the review of a diff
 # plan_effort = ""   # for the talk over a plan
+
+[seats.planner]
+# The agent that defends a careful or large plan in its talk with the reviewer, in a companion
+# session Lem opens for the talk and closes after it. Only "claude" for now. Leave a line out and
+# the agent's own default holds.
+# agent = "claude"
+# model = ""
+# effort = ""
 
 [corrections]
 # Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
@@ -352,23 +406,24 @@ def read_settings(file: Path, name: Path, tables: tuple[str, ...]) -> dict:
     return raw
 
 
-def seat(raw: dict, name: Path) -> dict | None:
-    """The reviewer's seat one file names, checked; None when the file names none."""
-    given = raw.get("seats", {}).get("reviewer")
+def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
+    """The seat (`SEATS`) one file names, checked; None when the file names none."""
+    keys, agents, why = SEATS[which]
+    given = raw.get("seats", {}).get(which)
     if given is None:
         return None
     if not isinstance(given, dict):
-        raise SettingsError(f'{name}: seats.reviewer is a table: write [seats.reviewer] and under it agent = "codex"')
+        raise SettingsError(f'{name}: seats.{which} is a table: write [seats.{which}] and under it agent = "{agents[-1]}"')
     for key, value in given.items():
-        if key not in SEAT:
-            raise SettingsError(f"{name}: unknown key seats.reviewer.{key}{nearest(key, SEAT)}")
+        if key not in keys:
+            raise SettingsError(f"{name}: unknown key seats.{which}.{key}{nearest(key, keys)}")
         if not isinstance(value, str) or not value.strip():
-            raise SettingsError(f"{name}: seats.reviewer.{key} must be a word, not {value!r}; leave the line out for the agent's own default")
-    if "agent" in given and given["agent"] not in REVIEWERS:
-        raise SettingsError(f"{name}: seats.reviewer.agent = {given['agent']!r} must be one of {', '.join(REVIEWERS)}")
+            raise SettingsError(f"{name}: seats.{which}.{key} must be a word, not {value!r}; leave the line out for the agent's own default")
+    if "agent" in given and given["agent"] not in agents:
+        raise SettingsError(f"{name}: seats.{which}.agent = {given['agent']!r} must be {' or '.join(agents)}: {why}")
     if "agent" not in given and given:
-        raise SettingsError(f"{name}: seats.reviewer names a model or an effort and no agent; a model belongs to one agent")
-    return {key: given.get(key) for key in SEAT}
+        raise SettingsError(f"{name}: seats.{which} names a model or an effort and no agent; a model belongs to one agent")
+    return {key: given.get(key) for key in keys}
 
 
 def local_off(local: dict) -> bool:
@@ -418,7 +473,13 @@ def load(root: Path) -> dict:
     history = branch.get("history", "keep")
     if history not in HISTORY:
         raise SettingsError(f"{SETTINGS}: branch.history = {history!r} must be one of {', '.join(HISTORY)}")
-    protected = strings(branch.get("protected", []), "branch.protected")
+    propose = branch.get("propose", "pull-request")
+    if propose not in PROPOSE:
+        raise SettingsError(
+            f"{SETTINGS}: branch.propose = {propose!r} must be one of {', '.join(PROPOSE)}: "
+            '"pull-request" ends a task as a pull request on the forge, "merge" lands it on the base branch with none',
+        )
+    protected =strings(branch.get("protected", []), "branch.protected")
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
     overridden = []
@@ -431,11 +492,13 @@ def load(root: Path) -> dict:
             overridden.append(f"tools.{role}")
 
     # A local seat replaces the project's whole: its model and effort belong to the project's agent.
-    reviewer = seat(raw, SETTINGS) or {key: None for key in SEAT}
-    local_seat = seat(local, LOCAL)
-    if local_seat is not None:
-        reviewer = local_seat
-        overridden.append("seats.reviewer")
+    seats = {}
+    for which, (keys, _agents, _why) in SEATS.items():
+        seats[which] = seat(raw, SETTINGS, which) or {key: None for key in keys}
+        local_seat = seat(local, LOCAL, which)
+        if local_seat is not None:
+            seats[which] = local_seat
+            overridden.append(f"seats.{which}")
     collect = raw.get("corrections", {}).get("collect", False)
     if not isinstance(collect, bool):
         raise SettingsError(f"{SETTINGS}: corrections.collect = {collect!r} must be true or false")
@@ -483,7 +546,7 @@ def load(root: Path) -> dict:
         "main": str(main_checkout(root)),
         "settings": str(file) if file.is_file() else None,
         "paths": paths,
-        "branch": {"base": base, "land": land, "history": history, "protected": protected},
+        "branch": {"base": base, "land": land, "history": history, "propose": propose, "protected": protected},
         "gate": {
             "commands": strings(raw.get("gate", {}).get("commands", []), "gate.commands"),
             "ignores": strings(raw.get("gate", {}).get("ignores", []), "gate.ignores"),
@@ -496,7 +559,7 @@ def load(root: Path) -> dict:
             "max_tasks": max_tasks,
             "decision_wait": decision_wait,
         },
-        "seats": {"reviewer": reviewer},
+        "seats": seats,
         "tools": tools,
         "corrections": {"collect": collect},
         "tracker": tracker,
@@ -625,6 +688,7 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     for role in TOOLS:
         tool_of(local, LOCAL, role)
     local_off(local)
+    seat(local, LOCAL, "planner")
     if words == ["default"]:
         local.get("seats", {}).pop("reviewer", None)
     else:
@@ -839,7 +903,7 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> 
     if ask is not None or ticket is not None:
         # This call opens a task. A slug whose task has ended keeps that task's files, its state and
         # what was done to its ticket: a new task under it would start with another task's record.
-        ended = next((task["status"] for task in read_tasks(root) if task["slug"] == slug and task["status"] in ("landed", "dropped")), None)
+        ended = next((task["status"] for task in read_tasks(root) if task["slug"] == slug and task["status"] in ENDED), None)
         if ended:
             raise SettingsError(f"the task {slug!r} is {ended}; a new task takes a slug of its own: add a word to this one")
     if ticket is not None:
@@ -848,7 +912,7 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> 
         ticket = ticket.upper()
         # one ticket is one task: a second task for it would be a second branch for the same work
         tasks = read_tasks(root)
-        taken = next((task["slug"] for task in tasks if task["ticket"] == ticket and task["slug"] != slug and task["status"] != "dropped"), None)
+        taken = next((task["slug"] for task in tasks if task["ticket"] == ticket and task["slug"] != slug and task["status"] not in RETURNED), None)
         if taken:
             raise SettingsError(f"the task {taken!r} already holds the ticket {ticket}; go on with that task, or drop it first")
         mine = next((task["ticket"] for task in tasks if task["slug"] == slug), None)
@@ -952,6 +1016,10 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
     if any(not line.strip() or "\n" in line for line in lines):
         # a blank line ends a block, so one inside a block would hide the lines after it
         raise SettingsError("each LINE of a state block is one line of text, and none is empty")
+    for line in lines:
+        kind_line(line)
+    if status == "answered":
+        answered_form(root, directory, slug)
     # the time is the clock's, never a writer's estimate
     since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     block = "\n".join([f"{since} {status}: {lines[0].strip()}", *(line.strip() for line in lines[1:])])
@@ -966,6 +1034,64 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
         "limit": settings["flow"]["max_tasks"], **task_worktree(root, settings, slug),
     })
     print(json.dumps({"slug": slug, "status": status, "since": since}))
+
+
+def kind_line(line: str) -> dict | None:
+    """The kind of the request, when the line names one: `kind: bug, because the total is wrong
+    today`. The status and the board read it, so a line that starts with `kind:` has this form."""
+    if not line.strip().startswith("kind:"):
+        return None
+    found = KIND_LINE.fullmatch(line.strip())
+    kind = found["kind"] if found else line.strip().removeprefix("kind:").strip()
+    if kind not in KINDS:
+        raise SettingsError(f"{kind!r} is not a kind of request{nearest(kind, KINDS)}; a kind line reads `kind: KIND, because WHY`")
+    if not found or not found["why"]:
+        raise SettingsError(f"the line {line.strip()!r} names the kind without its reason: write it as `kind: {kind}, because ...`")
+    return {"kind": kind, "why": found["why"].strip()}
+
+
+def answered_form(root: Path, directory: Path, slug: str) -> None:
+    """A task is answered only when it has something to show: the investigation's report in its
+    directory, and a record of it whose call ends the task (a question answered, a bug that is none)."""
+    if not (directory / "investigation.md").is_file():
+        raise SettingsError(
+            f"the task {slug!r} has no investigation.md in its directory: an answered task ends with its report; "
+            "write the investigator's report there first",
+        )
+    found = newest_events(root, "investigation").get(slug)
+    if not found or found.get("call") not in ANSWERING:
+        said = f"its newest says {found.get('call')!r}" if found else "it has none"
+        raise SettingsError(
+            f"the task {slug!r} is answered only after a record whose call is not-a-bug or answer (`log {slug} investigation ...`); {said}",
+        )
+
+
+def investigation_form(fields: dict) -> None:
+    """What the investigation of a bug or of a question found, which Lem writes after it reads the
+    report: the kind, the call that sets the next path, one line (the cause, the answer, or what was
+    tried), the cause's place, and for a bug whether it was reproduced."""
+    form = "investigation takes kind=bug|investigation call=CALL line=TEXT [where=PATH:SYMBOL] [reproduced:=true|false, for a bug]"
+    allowed = {"kind", "call", "line", "where", "reproduced"}
+    if not {"kind", "call", "line"} <= set(fields) <= allowed:
+        raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
+    kind, call = fields["kind"], fields["call"]
+    if kind not in CALLS:
+        raise SettingsError(f"{form}: kind is bug or investigation, not {kind!r}")
+    if call not in CALLS[kind]:
+        raise SettingsError(f"{form}: call is correction, usual, not-a-bug or not-reproduced for a bug, and answer for an investigation; this one is {call!r} for a {kind}")
+    if not isinstance(fields["line"], str) or not fields["line"].strip() or "\n" in fields["line"]:
+        raise SettingsError(f"{form}: line is one line of text: the cause, the answer, or what was tried")
+    if "where" in fields and (not isinstance(fields["where"], str) or not fields["where"].strip()):
+        raise SettingsError(f"{form}: where is the cause's file and symbol, as path:symbol")
+    if kind == "investigation" and "reproduced" in fields:
+        raise SettingsError(f"{form}: reproduced is a bug's; an investigation answers a question and reproduces nothing")
+    if kind == "bug":
+        if not isinstance(fields.get("reproduced"), bool):
+            raise SettingsError(f"{form}: a bug's record says whether it was reproduced, as reproduced:=true or reproduced:=false, written with :=")
+        if call in ("correction", "usual") and not fields.get("where"):
+            raise SettingsError(f"{form}: a plain cause has a place: where names the cause's file and symbol")
+        if call == "not-reproduced" and fields["reproduced"]:
+            raise SettingsError(f"{form}: not-reproduced is a bug that was not reproduced, and this record says it was")
 
 
 def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
@@ -992,6 +1118,8 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
         talk_form(fields)
     if event == "stories.read":
         read_form(fields)
+    if event == "investigation":
+        investigation_form(fields)
     print(json.dumps(append_event(root, event, slug, fields)))
 
 
@@ -1043,7 +1171,7 @@ def talk_start_form(fields: dict) -> None:
         raise SettingsError(f"plan.talk.start takes reviewer=AGENT, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
 
 
-# The most turns a talk of N questions has: the reviewer's list, two answers of the lead and two of
+# The most turns a talk of N questions has: the reviewer's list, two answers of the defender and two of
 # the reviewer on each question (a question that holds a second time stops), and the close. Derived
 # from the rules of `stages/plan.md` step 4, in a Fable second opinion (2026-11-16); no talk under
 # these rules has been measured yet.
@@ -1052,17 +1180,20 @@ TURNS_AROUND = 2
 
 
 def talk_form(fields: dict) -> None:
-    """A plan talk's record is read by the landing, so it has one form: who argued the plan with the
-    lead, how many turns the talk had, how many questions the reviewer's first list held, how many
+    """A plan talk's record is read by the landing, so it has one form: who argued the plan with its
+    defender, how many turns the talk had, how many questions the reviewer's first list held, how many
     of them it settled and left open, how many the lead repaired, how many of the open ones are a
-    design choice (a question that held a second time), and how many questions were raised after
-    the list and not argued."""
-    form = "plan.talk takes reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N"
-    counts = ("turns", "questions", "settled", "open", "repaired", "design", "unargued")
+    design choice (a question that held a second time), how many questions were raised after the
+    list and not argued, and three counts of Fable's check for a layer of patches (2026-11-16):
+    `root`, the repairs that changed a decision of the plan; `layer`, the repairs that put a
+    mechanism over a decision the plan cites (a story, a ruling, existing code) and stayed; and
+    `shared`, the decisions two questions named."""
+    form = "plan.talk takes reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N"
+    counts = ("turns", "questions", "settled", "open", "repaired", "design", "unargued", "root", "layer", "shared")
     if set(fields) != {"reviewer", *counts}:
         raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
     if not isinstance(fields["reviewer"], str) or not fields["reviewer"].strip():
-        raise SettingsError(f"{form}: reviewer names the agent that argued the plan with the lead")
+        raise SettingsError(f"{form}: reviewer names the agent that argued the plan with its defender")
     if not all(isinstance(fields[key], int) and not isinstance(fields[key], bool) and fields[key] >= 0 for key in counts):
         raise SettingsError(f"{form}: each N is a whole number, written with := so that it stays one")
     turns, questions = fields["turns"], fields["questions"]
@@ -1075,9 +1206,18 @@ def talk_form(fields: dict) -> None:
         raise SettingsError(f"{form}: a design choice is a question left open because it held a second time, so design is at most open")
     if fields["repaired"] > questions:
         raise SettingsError(f"{form}: a question gets one repair at the most, so repaired is at most questions")
+    if fields["root"] + fields["layer"] > fields["repaired"]:
+        raise SettingsError(
+            f"{form}: a repair either changed a decision of the plan (root) or put a mechanism over a decision with a cite (layer), "
+            "or neither, so root and layer add up to at most repaired",
+        )
+    # derived from the rule of `stages/plan.md` step 4 that the second question on one decision
+    # closes at once as a design choice; not measured
+    if fields["shared"] > fields["design"]:
+        raise SettingsError(f"{form}: the second question that names a decision closes at once as a design choice, so shared is at most design")
     if turns > TURNS_PER_QUESTION * questions + TURNS_AROUND:
         raise SettingsError(
-            f"{form}: a talk of N questions has at most {TURNS_PER_QUESTION} × N + {TURNS_AROUND} turns: the reviewer's list, two answers of the lead "
+            f"{form}: a talk of N questions has at most {TURNS_PER_QUESTION} × N + {TURNS_AROUND} turns: the reviewer's list, two answers of the defender "
             f"and two of the reviewer on each question, and the close; this one has {turns} turns for {questions} questions",
         )
 
@@ -1089,8 +1229,9 @@ def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> l
         return []
     if status == "landed":
         wanted = ["commented", *(["landed"] if tracker["moves"] == "lem" else [])]
-    elif status == "dropped":
-        wanted = ["dropped"]
+    elif status in RETURNED:
+        # the comment of the tracker's "drop" or "answer", and no status: where it goes is the owner's call
+        wanted = [status]
     else:
         wanted = []
     return [step for step in wanted if step not in steps]
@@ -1111,8 +1252,42 @@ def proposal(directory: Path) -> dict | None:
     return {"pull_request": (kept.get("pr") or {}).get("url"), "green": not reasons, "not_green": reasons}
 
 
+def newest_events(root: Path, event: str) -> dict[str, dict]:
+    """Each task's newest event of one name in the event log. Lem closes a talk's companion, and a
+    builder leads the build of a careful or large plan, only on the newest `plan.talk`, never on a
+    line that says so; Lem takes a bug's next path on the newest `investigation`."""
+    log, found = state_root(root) / "events.jsonl", {}
+    if not log.is_file():
+        return found
+    for number, line in enumerate(log.read_text(encoding="utf-8").splitlines(), 1):
+        if f'"{event}"' not in line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError as error:
+            raise SettingsError(f"{log}:{number} does not read as JSON ({error}); the log is written by project.py, never by hand") from error
+        if record.get("event") == event:
+            found[record.get("task")] = record
+    return found
+
+
+def kind_of(text: str) -> dict | None:
+    """The newest kind of the request that a block of state.md names (newest block first)."""
+    for line in text.splitlines():
+        try:
+            found = kind_line(line)
+        except SettingsError:
+            # state wrote every kind line in its form; a line written by hand that is not is no kind
+            continue
+        if found:
+            return found
+    return None
+
+
 def read_tasks(root: Path) -> list[dict]:
     tasks = []
+    talks = newest_events(root, "plan.talk")
+    investigations = newest_events(root, "investigation")
     parent = state_root(root) / "tasks"
     for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
         state = directory / "state.md"
@@ -1123,7 +1298,7 @@ def read_tasks(root: Path) -> list[dict]:
         tasks.append({
             "slug": directory.name,
             "ask": ask_of(directory),
-            # the tracker's ticket the ask came from; a dropped task gives its ticket back
+            # the tracker's ticket the ask came from; a dropped or answered task gives its ticket back
             "ticket": (directory / "ticket.txt").read_text().strip() or None if (directory / "ticket.txt").is_file() else None,
             # what Lem did to that ticket so far (TICKET_STEPS)
             "ticket_steps": (directory / "ticket-steps.txt").read_text().split() if (directory / "ticket-steps.txt").is_file() else [],
@@ -1134,6 +1309,12 @@ def read_tasks(root: Path) -> list[dict]:
             "state": block,
             # what the landing proposed to the owner, for the status and the board: where, and green or why not
             "proposal": proposal(directory),
+            # the newest record of its plan talk, as `log plan.talk` wrote it, or null when it had none
+            "talk": talks.get(directory.name),
+            # the kind of the request with its reason, from the newest block that names it, or null
+            "kind": kind_of(state.read_text()) if state.is_file() else None,
+            # what the investigation of a bug or a question found, as `log investigation` wrote it last, or null
+            "investigation": investigations.get(directory.name),
         })
     if any(task["ticket"] for task in tasks):
         # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly

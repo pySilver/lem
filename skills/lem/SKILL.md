@@ -16,7 +16,11 @@ before he does and which he approves, so that they are the contract in plain lan
 the tests; and the pull request, which he merges without a read when it is green. A request whose
 whole context is written (a ticket, a settled backlog item) has no interview, and its stories
 wait for him only when a persona doubts them; a correction, one story in his own sentence, waits
-for nothing. Between the touches a task builds without him. A plan whose change makes a document
+for nothing. Lem names the kind of each request from its words (a bug, a feature, a correction,
+an investigation, a chore, docs) and asks when they do not settle it. A bug is investigated
+before any story: a fresh builder reproduces it as a failing test and finds its cause, and its
+report sets the path. An investigation is the same work for a question, and ends `answered`, with
+a report and nothing to merge. Between the touches a task builds without him. A plan whose change makes a document
 false ends with a documentation task. After the last task a fresh builder makes the polish pass, a
 short fixed list of what a build leaves behind (a comment made false, a leftover, code that reads
 badly, a document made false, the defects outside the task, fixed when cheap or filed), and changes
@@ -38,29 +42,33 @@ its reason.
 opens the tasks, starts each task's lead, takes one branch at a time through the checks and the
 review to a pull request, and tells the owner. It holds no task's details. Of a task it reads three things: the ask it wrote
 down, the newest state block and the report file; and during an interview the scout's report,
-which gives facts of the code for the stories and nothing else. It does not read the plan's reasoning, the diff
+or for a bug the investigator's, which gives facts of the code for the stories and nothing else. It does not read the plan's reasoning, the diff
 or what a builder printed, and it writes no code. Lem is the only context that knows every
 task. When it fills with one task's code, it loses the others.
 
-**A task's lead** owns one task from its plan to its report, in a context of its own:
+**A task's lead** is a builder: one fresh agent, in a context of its own, that owns one task from
+its plan to its report. It writes the plan. A plan of one task it builds itself; for a plan of
+more tasks it starts one fresh builder for each task, reads their reports and writes no code.
 
-- **a builder**, for a plain task: one fresh agent that writes the plan. A plan of one task it
-  builds itself. For a plan of two or three tasks it starts one fresh builder for each task,
-  reads their reports and writes no code;
-- **a session**, for a careful or large task (a plan of more than three tasks): an agent in a
-  session of its own, with the reviewer in its other pane, for the plan talk. The two argue the
-  plan through the mailbox before any code. Then it starts the builders the same way, and its
-  tasks are built like any others.
+**A plan talk's defender** is the agent of a companion session that Lem opens for a careful or
+large plan (a plan of more than three tasks), with the reviewer in its other pane. A builder
+writes the plan and stops at it; the defender and the reviewer argue it through the mailbox
+before any code; the defender repairs the plan, writes down how the talk went, and stops. Lem
+closes the companion, and a fresh builder leads the build of the talked plan like any other. The
+owner asked for it so: "a pair setup ... two agents of specific models and efforts have a chat
+about the plan under some rules that disallow endless discussion" (2026-11-16).
 
-Each task of a plan gets a builder with a context of its own, whoever leads. Every task starts
-with a builder as its lead, unless the owner calls it careful in the ask. The plan says which of
-the two it is (`stages/plan.md`), because only the plan names the files and the tasks. A lead answers to Lem
-and never asks the owner, so the owner has one place to answer.
+Each task of a plan gets a builder with a context of its own. Every task starts with a builder
+as its lead, also one the owner calls careful in the ask: there is no talk before there is a
+plan. The plan says whether it is careful or large (`stages/plan.md`), because only the plan
+names the files and the tasks. A lead and a defender answer to Lem and never ask the owner, so
+the owner has one place to answer.
 
-A lead's standing brief is `prompts/lead.md`. If your first message named that file, you are a
-lead: your stages are `stages/plan.md` and `stages/build.md`, and the subcommands below are
-Lem's. When the owner types `/lem` in a lead's session, say that the ask belongs in Lem's
-session, and change nothing.
+A lead's standing brief is `prompts/lead.md`, and a defender's is `prompts/defender.md`, which
+`prompts/lead.md` sends it to. If your first message named either file, your stages are
+`stages/plan.md` and `stages/build.md` (a defender's, step 4 of the first and step 5 for the
+talk's open questions), and the subcommands below are Lem's. When the owner types `/lem` in a
+lead's or a defender's session, say that the ask belongs in Lem's session, and change nothing.
 
 ## Before any subcommand
 
@@ -85,11 +93,11 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 
 | Subcommand | Does | Read |
 | --- | --- | --- |
-| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words), interviews the owner while a scout reads the code, has the personas read the stories and takes his yes to them, and starts its lead. A ticket or an item whose whole context is written skips the interview, and a correction does not wait. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
+| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words), interviews the owner while a scout reads the code, has the personas read the stories and takes his yes to them, and starts its lead. A ticket or an item whose whole context is written skips the interview, and a correction does not wait. A bug is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read | `stages/new.md` |
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
-| a lead stopped | its reply or its message arrived: act on the task's newest state | `stages/new.md` |
-| `land` | the oldest ready task: the polish pass, the machine checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge. `land <task>` on the owner's word merges an open one | `stages/land.md` |
+| a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report: act on it as "A bug and an investigation" says | `stages/new.md` |
+| `land` | the oldest ready task: the polish pass, the machine checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `annotate <file>` | opens a plan, a draft or any text file for the owner to mark up, with what the settings' `tools.annotate` names, and takes his notes as corrections | the harness file, `show-page` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
@@ -139,12 +147,12 @@ Between two of the owner's messages Lem only waits: a lead that stops wakes it.
 - **What must not go wrong takes the careful flow.** The project names it two ways: paths
   (`project.py careful FILE...` says which files of a change match) and danger topics in the
   owner's words (`flow.topics`), which the lead reads a plan against. One match of either makes
-  the task careful: a session leads it, for the plan talk with the reviewer before any code
-  (`stages/plan.md`, step 4); its tasks are built like any others; and the landing gives it the
-  project's full review set. A large task, a plan of more than three tasks, gets the session and
-  the talk too, and a review round at the least. The lead writes its call and the one sentence
-  of why into the plan, its state and its report, and the owner may overrule a "no" at any time
-  before the landing.
+  the task careful: its plan is talked through with the reviewer before any code, in a
+  companion session of its own (`stages/plan.md`, step 4); its tasks are built like any others;
+  and the landing gives it the project's full review set. A large task, a plan of more than
+  three tasks, gets the companion and the talk too, and a review round at the least. The lead
+  writes its call and the one sentence of why into the plan, its state and its report, and the
+  owner may overrule a "no" at any time before the landing.
 - **Only so many tasks build or land at one time.** `project.py may-start` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
   the gate runs and a builder may repair what it showed. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
@@ -185,6 +193,11 @@ worktree, never committed and not removed with a worktree. It holds:
 - `scout.md`: the scout's report of the interview, facts of the code around the ask. Lem writes
   it from the scout's reply, and reads it: it is the one place where knowledge of the code
   comes up to Lem, and only for the stories.
+- `investigation.md`: the investigator's report of a bug or a question: reproduced or not and
+  how, the cause and its place or the answer, what else the cause reaches, and its call of what
+  follows (`prompts/investigator.md`). The investigator writes it, or Lem from its reply. Lem
+  reads it as it reads the scout's report, and it stands in for that report in the interview
+  of a bug.
 - `directions.md`: what the owner named in the interview (a technology, a library, an approach,
   an option he picked), one line each in his words. Lem writes it; the plan follows it.
 - `outside.md`: the defects outside the request that the interview found, one line each with its
@@ -228,8 +241,8 @@ and before you stop. The status says who acts next:
 | Status | Means | Who acts |
 | --- | --- | --- |
 | `queued` | the ask is written and no lead runs: the limit was reached | Lem, when a lead stops |
-| `building` | a lead plans or builds | the lead |
-| `planned` | the plan is committed and nothing builds it | Lem opens a session, or the owner reads the plan |
+| `building` | a lead plans or builds, or a builder investigates a bug or a question | the lead, or the investigator |
+| `planned` | the plan is committed and nothing builds it | Lem opens the plan talk's companion, or starts a builder after the talk, or the owner reads the plan |
 | `held` | it waits for the owner: a held decision | the owner, through Lem |
 | `blocked` | the lead stopped on something it could not settle | Lem |
 | `ready` | the report is written and the branch waits for its checks | Lem |
@@ -238,11 +251,14 @@ and before you stop. The status says who acts next:
 | `landed` | it is on the base branch | nobody |
 | `drafted` | a plan written at night that waits for the owner's word | the owner |
 | `dropped` | nobody will build it | nobody |
+| `answered` | it ended with a report and nothing to merge: a question answered, or a bug that is none | nobody |
 
 Every state block is also an event in the log the board draws, with the newest commit of the
-task's worktree, so the board needs no second command from anyone. Four lines have a fixed form,
-because the board reads them: `lead: builder` or `lead: session`, `session: ID`, `plan committed`
-with `N tasks`, and `task N of M`.
+task's worktree, so the board needs no second command from anyone. Six lines have a fixed form,
+because the board reads them: `lead: builder` or `lead: session` (the plan talk's companion),
+`session: ID`, `plan committed` with `N tasks`, `task N of M`, `investigation: bug` or
+`investigation: question` (a builder investigates before any lead), and `kind: KIND, because
+WHY`, which `state` refuses in another form.
 
 Nothing else keeps a task's place. A session that was compacted or replaced, Lem's or a lead's,
 reads `project.py tasks`, then the state file and the report of the task it acts on, and goes on.
@@ -287,13 +303,13 @@ one, say that a panel needs a second person who would notice other things.
 Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists every task
 directory with the first line of its `task.md`, its status and the newest block of its
 `state.md`. Say, in plain names and never in task codes: what builds and what each other task
-waits on, what landed today, and what
+waits on, what landed today, what was answered today with its answer in one line, and what
 waits for the owner. That includes each `open` task: its pull request's address, or that its
 branch is ready to land, and green or the reasons it is not, as the newest state block has
 them. It includes each choice of a build that waits for him, as `python3
 SKILL_DIR/scripts/decisions.py pending` lists them under `waiting`: the task, the choice, and the
-minutes its wait has left, or that it waits for his word. A dropped or landed task has no
-choice that waits. A task whose status is null has a state nobody wrote through the script: say
+minutes its wait has left, or that it waits for his word. A dropped, landed or answered task has
+no choice that waits. A task whose status is null has a state nobody wrote through the script: say
 so. A task with a `ticket_owed` ended, and its ticket in the tracker does not say so yet: say
 that too. Open with the newest night report when one is newer than the last status shown. The status
 itself changes nothing.

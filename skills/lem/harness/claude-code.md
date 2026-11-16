@@ -136,21 +136,24 @@ builder never counts on that write: when it is refused, its reply is the whole r
 one who started it writes the file from the reply, as the stage files say. A builder that takes
 another tool to get the file written goes around a guard, and it must not.
 
-A builder can start builders of its own with the same tool, so a builder leads a plan of two or
-three tasks. Checked on 2026-11-14 in Claude Code 2.1.325: a subagent of the type `worker`, which like
-`lem-builder` names no tool list and so inherits every tool, called `Agent`, and the nested
-agent's reply came back to it. Not run yet: the same from a `lem-builder`. The persona agents of
-a lead's read of its stories start the same way: on 2026-11-16 a `worker` subagent on Opus,
-standing in for a lead, started two persona subagents and had both answers in 25 seconds
-(07:23:25Z to 07:23:50Z); not checked from a `lem-builder`, which has the same tools. The scout of
-an interview is a builder too, with `prompts/scout.md` as its brief. A builder has no pane
-of its own, so no reviewer sits beside it and the owner cannot type to it. A careful or large task
-gets a session for that reason: its plan talk needs the reviewer's pane and the mailbox.
+A builder can start builders of its own with the same tool, so a builder leads a plan of any size,
+also the build of a careful or large plan after its talk. Checked on 2026-11-14 in Claude Code
+2.1.325: a subagent of the type `worker`, which like `lem-builder` names no tool list and so
+inherits every tool, called `Agent`, and the nested agent's reply came back to it. Not run yet: the
+same from a `lem-builder`. The persona agents of a lead's read of its stories start the same way: on
+2026-11-16 a `worker` subagent on Opus, standing in for a lead, started two persona subagents and
+had both answers in 25 seconds (07:23:25Z to 07:23:50Z); not checked from a `lem-builder`, which has
+the same tools. The scout of an interview is a builder too, with `prompts/scout.md` as its brief,
+and so is the investigator of a bug or a question, with `prompts/investigator.md`. A
+builder has no pane of its own, so no reviewer sits beside it and the owner cannot type to it. A
+careful or large plan gets a companion session for its talk for that reason: the talk needs the
+reviewer's pane and the mailbox.
 
 ## open-task-session
 
 A companion session of this one, which runs Claude Code with the brief's file named in its first
-prompt.
+prompt. Lem opens one for a plan talk only: its agent is the plan's defender
+(`prompts/defender.md`), and the companion is closed when the talk is done.
 
 1. **The brief** is the task's `brief.md`. Add one line to it: `coordinator: SESSION:PANE`, with
    this session's `AGTERM_SESSION_ID` and this pane's `AGTERM_PANE_ID`.
@@ -158,8 +161,13 @@ prompt.
 
    ```bash
    agtermctl session new --parent "$AGTERM_SESSION_ID" --cwd WORKTREE --name SLUG --no-select \
-     --command "LOGIN_SHELL -l -c 'claude \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
+     --command "LOGIN_SHELL -l -c 'claude --model MODEL --effort EFFORT \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
    ```
+
+   `MODEL` and `EFFORT` are the settings' `seats.planner` (`project.py show`). Leave a flag out
+   when the seat does not name its value: the agent's own default holds then, as for the
+   reviewer's pane. The seat's `agent` can only be `claude`, since this file is the only one the
+   contract was checked in.
 
    `LOGIN_SHELL` is the owner's login shell by absolute path
    (`dscl . -read /Users/NAME UserShell`), not the shell of your own Bash tool. agterm starts the
@@ -175,12 +183,16 @@ prompt.
    under it. That is a good open, and the board goes to the same place. Only a node that is gone
    at once means the command failed; then open it again with `--wait` and read its screen with
    `agtermctl session text --target ID`. Never open a second session for a task whose first one
-   runs. Write the id in the task's state.
+   runs. Write the id in the task's state. Then read the model and the effort from the status
+   line on that screen, and write them in the state as `defender: MODEL, EFFORT`, never the ones
+   you asked for: the talk's record names them, as it names the reviewer's.
 4. **Send it a message** later (the owner's answers, a changed base):
    `agtermctl msg send --stdin --to ID:left --socket "$AGTERM_SOCKET" < FILE`. The mailbox hook of
    the mailbox chat hands it to the agent there at the end of its turn. When the session is gone,
    open one again: the new lead reads the task's files.
-5. **Close it** after the landing: `agtermctl session close --target ID --socket "$AGTERM_SOCKET"`.
+5. **Close it** when the talk is done, once `project.py tasks` gives the task a `talk`, or when the
+   task is dropped: `agtermctl session close --target ID --socket "$AGTERM_SOCKET"`. Its experts
+   and the reviewer's pane end with it.
 
 Under agterm's rerun restore mode a relaunch of agterm starts each session's command again. A
 lead started that way is a fresh agent with the same brief; `prompts/lead.md` tells it to read the
@@ -193,12 +205,13 @@ careful task that ran through Lem: Lem, itself in a companion session, opened th
 this way and it came up as Lem's sibling; its lead stopped at Codex's trust prompt with the
 state `held`; Lem sent it the owner's answer as in step 4; the lead then had the plan read,
 started a builder, had the diff reviewed and wrote `ready`, and the task landed. The task's
-event log holds each state with its time. Not run yet: a relaunch of agterm with a lead's
-session open.
+event log holds each state with its time. Not run yet: a relaunch of agterm with a companion
+open, a companion for a plan talk alone and closed at its end, and the launch line with
+`--model` or `--effort`.
 
 ## tell-coordinator
 
-In a task's session, with the address from the brief's `coordinator:` line:
+In a plan talk's companion, with the address from the brief's `coordinator:` line:
 
 ```bash
 agtermctl msg send "lem: SLUG is STATUS" --to SESSION:PANE --socket "$AGTERM_SOCKET"
@@ -218,12 +231,11 @@ transcript of Lem's session).
 
 ## second-opinion
 
-The reviewer is a second agent in the split pane of the session that asks (a task's session, for
-a careful or large task); the owner reads both panes. `project.py show` gives the seat as
-`seats.reviewer`: its `agent` (`claude` or `codex`) and, when the project or this machine set
-them, its `model`, its `effort` for the review of a diff and its `plan_effort` for the talk over
-a plan. When `agent` is null, ask the owner once and write the answer into
-`.lem/project.toml`.
+The reviewer is a second agent in the split pane of the session that asks (the companion of a plan
+talk, for a careful or large plan); the owner reads both panes. `project.py show` gives the seat as
+`seats.reviewer`: its `agent` (`claude` or `codex`) and, when the project or this machine set them,
+its `model`, its `effort` for the review of a diff and its `plan_effort` for the talk over a plan.
+When `agent` is null, ask the owner once and write the answer into `.lem/project.toml`.
 
 The seat may be this machine's own for a while: the usual reviewer is down, or out of tokens.
 `/lem reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]` runs `project.py reviewer` with those words,

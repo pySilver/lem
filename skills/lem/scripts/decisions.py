@@ -29,8 +29,8 @@ however long that takes.
                             a choice for the owner: it gets a number and the time its wait ends
     decisions.py pending [SLUG]
                             the choices that wait, of one task or of every task, each with the
-                            seconds its wait has left (`waiting`). A task that is dropped or
-                            landed has none: its choices that never got an answer are named
+                            seconds its wait has left (`waiting`). A task that is dropped,
+                            landed or answered has none: its choices that never got an answer are named
                             under `ended`, with the task's status, and need no answer
     decisions.py wait SLUG ID [--seconds N]
                             return when the choice is answered, when its wait ends, or after N
@@ -116,8 +116,8 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
 BY = ("lead", "personas", "owner", "lem")
-# The task states in which nothing of a task waits any more.
-ENDED = ("dropped", "landed")
+# The task states in which nothing of a task waits any more, as project.py's ENDED.
+ENDED = ("dropped", "landed", "answered")
 # The two experts of the lem-ask-expert skill, by the names the record keeps their advice under.
 EXPERTS = ("fable", "astra")
 # Why a later "no" cannot undo a step. A fixed list: see the text above.
@@ -453,8 +453,8 @@ def shown(task: Task, decision: dict) -> dict:
 
 
 def cmd_pending(repo: Path, slug: str | None) -> dict:
-    """The choices that wait for the owner. A dropped or landed task has none: nobody needs his
-    answer there, and the record stays for `list`."""
+    """The choices that wait for the owner. A dropped, landed or answered task has none: nobody
+    needs his answer there, and the record stays for `list`."""
     slugs = [slug] if slug else [task["slug"] for task in json.loads(script("project.py", repo, "tasks"))]
     waiting: list[dict] = []
     ended: list[dict] = []

@@ -53,8 +53,8 @@ that, name `docs/linear.md`, and stop. Never fall back to a guess of the ticket 
 `whoami` takes an optional `source`: pass `lem-linear`, so the calls are known as Lem's.
 
 What follows about each tool's answer was read from the real server on 2026-11-15, with one
-ticket of one team. All five procedures but "drop" ran on that ticket the same day, in one task
-from its start to its landing.
+ticket of one team. The four procedures from "check" to "land" ran on that ticket the same day,
+in one task from its start to its landing; "drop" and "answer" have not run yet.
 
 ## check
 
@@ -104,7 +104,7 @@ Lem did to that ticket so far. Before a write, look there: a step that is listed
 it is never done again. After a write that the server took, write the step down at once:
 
 ```bash
-python3 SKILL_DIR/scripts/project.py ticket-step SLUG started|commented|landed|dropped
+python3 SKILL_DIR/scripts/project.py ticket-step SLUG started|commented|landed|dropped|answered
 ```
 
 `SKILL_DIR` is the `lem` skill's directory. `ticket_owed` in the same output is what an ended
@@ -112,8 +112,8 @@ task's ticket still waits for: a later session sees there what a session before 
 finish.
 
 A session can also be cut off between the two: the server took a comment, and the step was not
-written down yet. So each comment of Lem's ends with a line of its own, `lem: SLUG landed` or
-`lem: SLUG dropped`, and before a comment is posted, `list_comments` on the ticket is read for
+written down yet. So each comment of Lem's ends with a line of its own, `lem: SLUG landed`,
+`lem: SLUG dropped` or `lem: SLUG answered`, and before a comment is posted, `list_comments` on the ticket is read for
 that line. When it is there, the comment was posted: write the step down and post nothing. A
 status change needs no such line, because a ticket that already has the status is left as it
 is.
@@ -158,6 +158,22 @@ When a task that came from a ticket is dropped (`stages/new.md`, "When a task is
    `lem: SLUG dropped`. Then write the step `dropped` down.
 3. No status change. Tell the owner which status the ticket has now: where a ticket goes when
    its work is not done is his call, and he moves it.
+
+## answer
+
+When a task that came from a ticket ends as `answered`: its investigation found that the bug is
+not one, or answered the question, and nothing is merged (`stages/new.md`, "A bug and an
+investigation"). A drop's comment would tell the people who read the ticket that the work was
+not wanted, while the task has a finding for them; so an answer has its own comment.
+
+1. The workspace test, and the connection's `access` allows a write.
+2. Unless `answered` is written down, or a comment on the ticket ends with `lem: SLUG answered`:
+   `save_comment` with the answer as the task's state gives it in one line (the newest
+   `investigation` in `project.py tasks`: its `line`, and its `where` when it has one), and that
+   the report is in the task's directory, not on the ticket. Its last line is `lem: SLUG answered`.
+   Then write the step `answered` down.
+3. No status change, as for a drop. Tell the owner which status the ticket has now: whether an
+   answer closes the ticket is his call, and he moves it.
 
 The connection is a person's, so Linear shows that person as the author of the comment and of
 the status changes. The comment's last line is what says that Lem wrote it; never leave it out.

@@ -460,6 +460,21 @@ const STATUS = {
   landed: {actor: 'done', who: 'Nobody', label: 'Landed', icon: 'check', live: false},
   drafted: {actor: 'you', who: 'You', label: 'Drafted at night', icon: 'moon', live: false},
   dropped: {actor: 'quiet', who: 'Nobody', label: 'Dropped', icon: 'x', live: false},
+  answered: {actor: 'done', who: 'Nobody', label: 'Answered', icon: 'file', live: false},
+};
+// The states a task does not leave (project.py ENDED): nobody acts, and nothing of it waits.
+const ENDED = ['landed', 'dropped', 'answered'];
+// The kind of a request, from its state line `kind: KIND, because WHY` (stages/new.md), in the card's words.
+const KINDS = {bug: 'a bug', feature: 'a feature', correction: 'a correction', investigation: 'an investigation', chore: 'a chore', docs: 'documentation'};
+// What the investigation of a bug or a question found (project.py `log investigation`), as the
+// head of its line, the card's word before it, and the sentence of the task's own board: the call
+// says which path the task took after it.
+const CALLS = {
+  correction: {head: 'The investigation found a plain cause: one rule fixes it', card: 'The cause', now: 'A plain cause, which one rule fixes: the task goes on as a correction'},
+  usual: {head: 'The investigation found a plain cause: a larger change', card: 'The cause', now: 'A plain cause, and a larger change: the interview starts from it'},
+  'not-a-bug': {head: 'The investigation found no bug', card: 'No bug', now: 'No bug: the code does what it should'},
+  'not-reproduced': {head: 'The investigation did not reproduce the bug', card: 'Not reproduced', now: 'Not reproduced: Lem asks you for one more fact'},
+  answer: {head: 'The investigation answered the question', card: 'The answer', now: 'The answer to the question'},
 };
 const UNKNOWN = {actor: 'bad', who: 'Nobody', label: 'No status', icon: 'alert', live: false};
 // The lanes are who acts: the owner, a lead and its builders, the machine checks and the review.
@@ -476,6 +491,17 @@ const PHASES = ['Stories', 'Plan', 'Build', 'Checks', 'Review', 'Proposed', 'Lan
 const OWNER_ORDER = ['choice', 'held', 'planned', 'drafted', 'open'];
 // Who took a decision, in the page's words to the owner.
 const BY_WHOM = {lead: 'the lead', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout', experts: 'the experts'};
+// Who leads a task, from its state lines. `lead: session` is the companion Lem opens for a careful
+// or large plan's talk, which builds nothing; `lead: builder` after a plan talk is the builder that
+// leads the build of the talked plan.
+const LEAD = {
+  session: {tag: 'talk companion', title: 'A companion session holds the plan talk: its agent defends the plan, the reviewer sits in its other pane, and a builder leads the build after it',
+    head: 'Its companion talks the plan through', stat: 'a companion for the plan talk, with the reviewer in its other pane'},
+  talked: {tag: 'builder', title: 'One builder leads the build, after the plan talk in its companion',
+    head: 'Its builder builds it', stat: 'one builder leads the build, after the plan talk in its companion'},
+  builder: {tag: 'builder', title: 'One builder leads this task', head: 'Its builder builds it', stat: 'one builder plans and builds'},
+};
+const leadOf = t => (t.lead === 'session' ? 'session' : t.talks.length ? 'talked' : 'builder');
 // The two experts of the lem-ask-expert skill, by the names decisions.py keeps their advice under.
 const EXPERTS = {fable: 'Fable', astra: 'Astra'};
 const expertName = key => EXPERTS[key] ?? key;
@@ -619,13 +645,18 @@ const dayLabel = ms => new Date(ms).toLocaleDateString([], {day: 'numeric', mont
 // A time on another day than today carries its date, or 00:10 and 23:50 read as one evening.
 const stamp = (ms, now) => (dayKey(ms) === dayKey(now) ? '' : `${dayLabel(ms)} `) + hhmm(ms);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-// A plan talk's record in words: its questions and turns, how its questions ended, its repairs, and
-// the questions raised after the list. A record with no `questions` in an older log holds only its
-// turns and what it settled and left open.
+// A plan talk's record in words: its questions and turns, how its questions ended, its repairs (how
+// many changed a decision of the plan, and how many put a layer over a decision with a cite), the
+// decisions two questions named, and the questions raised after the list. A record with no
+// `questions` in an older log holds only its turns and what it settled and left open, and one with
+// no `root` has no count of where its repairs went.
 function talkCounts(x) {
   if (x.questions == null) return `${plural(x.turns, 'turn')}, ${x.settled} settled, ${x.open} open`;
   const design = x.design ? `, ${x.design} of them ${x.design === 1 ? 'a design choice' : 'design choices'}` : '';
-  return [`${plural(x.questions, 'question')} in ${plural(x.turns, 'turn')}`, `${x.settled} settled, ${x.open} open${design}`, `${x.repaired} repaired`,
+  const where = [...(x.root ? [`${x.root} at the cause`] : []), ...(x.layer ? [`${x.layer} ${x.layer === 1 ? 'a layer' : 'layers'} over a cited decision`] : [])];
+  return [`${plural(x.questions, 'question')} in ${plural(x.turns, 'turn')}`, `${x.settled} settled, ${x.open} open${design}`,
+    `${x.repaired} repaired${where.length ? `: ${where.join(', ')}` : ''}`,
+    ...(x.shared ? [`${x.shared} ${x.shared === 1 ? 'decision' : 'decisions'} two questions named`] : []),
     ...(x.unargued ? [`${x.unargued} raised, not argued`] : [])].join(' · ');
 }
 // "report-dates-stay-whole" -> "Report dates stay whole": the owner reads names, never codes.
@@ -699,6 +730,7 @@ function derive(now) {
     if (!t) tasks.set(e.task, t = {
       slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], reviews: [], proposal: null, stories: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null,
       events: [], decisions: new Map(), orphans: [], changes: [], approvals: [], reads: [], talks: [], talkStart: null, filed: [], missed: null, polish: null,
+      kind: null, investigation: null,
     });
     // every event of the task, in the order of the log: "Where the time went" reads them all
     t.events.push(e);
@@ -718,7 +750,7 @@ function derive(now) {
     if (e.event === 'plan.talk.start') { t.talkStart = {ts: at(e), reviewer: e.reviewer}; continue; }
     if (e.event === 'plan.talk') {
       t.talks.push({ts: at(e), start: t.talkStart?.ts ?? null, reviewer: e.reviewer, turns: e.turns, questions: e.questions, settled: e.settled, open: e.open,
-        repaired: e.repaired, design: e.design, unargued: e.unargued});
+        repaired: e.repaired, design: e.design, unargued: e.unargued, root: e.root, layer: e.layer, shared: e.shared});
       t.talkStart = null;
       continue;
     }
@@ -726,6 +758,8 @@ function derive(now) {
     if (e.event === 'careful.missed') { t.missed = {ts: at(e), path: e.path, pattern: e.pattern}; continue; }
     // the polish pass of the landing, as land.py polish --done logged it; it has no start event
     if (e.event === 'polish') { t.polish = {ts: at(e), before: e.before, after: e.after, commits: e.commits, filed: e.filed ?? []}; continue; }
+    // what the investigation of a bug or a question found, as Lem logged it after the report; the newest stands
+    if (e.event === 'investigation') { t.investigation = {ts: at(e), kind: e.kind, call: e.call, line: e.line, where: e.where ?? null, reproduced: e.reproduced ?? null}; continue; }
     // The stories of the task's plan, as the lead last recorded them, and the newest check that
     // each one's tests pass on the branch and fail on the base commit.
     if (e.event === 'task.stories') { t.stories = {order: t.events.length, kind: e.kind, why: e.why, digest: e.digest, list: e.stories ?? [], ts: at(e)}; continue; }
@@ -761,6 +795,9 @@ function derive(now) {
       if (session) t.session = session[1];
       const progress = e.status === 'building' && line.match(/\btask (\d+) of (\d+)\b/);
       if (progress) t.progress = {n: Number(progress[1]), of: Number(progress[2])};
+      // project.py state writes this line only in its form, with a kind of KINDS
+      const kind = line.match(/^kind: ([a-z]+), because (.+)$/);
+      if (kind && KINDS[kind[1]]) t.kind = {kind: kind[1], why: kind[2]};
     }
     // The block that says the plan is committed also says how many tasks it has; the lead is then on the first.
     const planned = e.status === 'building' && /\bplan committed\b/.test(lines.join(' ')) && lines.join(' ').match(/\b(\d+) tasks?\b/);
@@ -781,12 +818,12 @@ function derive(now) {
     while (i > 0 && t.blocks[i - 1].status === t.status) i--;
     t.since = t.blocks[i].ts;
     t.first = t.blocks[0].ts;
-    t.closed = t.status === 'landed' || t.status === 'dropped';
+    t.closed = ENDED.includes(t.status);
     // Each decision of the build as it stands, and the choices that still wait in the record: the
     // one whose wait ends first comes first, then one with no end (an irreversible step), then one
     // whose wait is over with no timeout written. Only the first two wait for the owner: after the
     // wait the experts' shared pick or the recommended action stands, and his answer is a late one
-    // (decisions.py). A task that is landed or dropped has none that waits (decisions.py pending).
+    // (decisions.py). A task that has ended has none that waits (decisions.py pending).
     const over = d => !d.irreversible && d.deadline != null && d.deadline <= now;
     const rank = d => (over(d) ? 2 : d.irreversible ? 1 : 0);
     t.choices = [...t.decisions.values()].sort((a, b) => a.id - b.id);
@@ -800,6 +837,9 @@ function derive(now) {
     // while the rest of its plan goes on.
     t.forOwner = t.asks.length > 0 || t.status === 'held' || t.status === 'drafted' || t.status === 'open' || (t.status === 'planned' && /\bowner\b/.test(t.text));
     if (t.forOwner && t.info.actor !== 'you') t.info = {...t.info, actor: 'you', who: 'You'};
+    // a builder that investigates a bug or a question works before any lead
+    t.investigating = investigates(last);
+    if (t.investigating && !t.forOwner) t.info = {...t.info, who: 'The investigator', label: 'Investigating', icon: 'eye'};
     t.ownerRank = OWNER_ORDER.indexOf(t.asks.length ? 'choice' : t.status);
     t.lane = t.forOwner ? 'you' : t.closed ? 'done' : t.status === 'ready' || t.status === 'landing' ? 'checks' : 'build';
     t.segments = [];
@@ -884,10 +924,11 @@ function statusPill(t) {
 
 function tags(t) {
   const out = [];
+  if (t.kind) out.push(h('span', {class: 'tag', title: `The kind of the request, as Lem took it from the ask: ${t.kind.kind}, because ${t.kind.why}`}, icon('flag'), h('span', {}, KINDS[t.kind.kind])));
   for (const c of t.waiting) out.push(h('span', {class: `tag c-you${t.asks.includes(c) ? ' live' : ''}`, title: `${c.what}\nrecommended: ${c.recommended}`}, icon('help'),
     h('span', {}, `choice ${c.id}: `, c.irreversible ? 'no end' : t.asks.includes(c) ? until(c.deadline) : 'wait over')));
-  if (t.lead) out.push(h('span', {class: `tag c-lead${t.status === 'building' ? ' live' : ''}`, title: t.lead === 'session' ? 'A session of its own leads this task, with a reviewer in its other pane' : 'One builder leads this task'},
-    icon(t.lead === 'session' ? 'split' : 'code'), h('span', {}, t.lead === 'session' ? 'session' : 'builder')));
+  if (t.lead) out.push(h('span', {class: `tag c-lead${t.status === 'building' ? ' live' : ''}`, title: LEAD[leadOf(t)].title},
+    icon(t.lead === 'session' ? 'split' : 'code'), h('span', {}, LEAD[leadOf(t)].tag)));
   if (t.progress && t.status === 'building') out.push(h('span', {class: 'tag', title: 'The task of the plan the lead is on'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
   if (t.commit) out.push(h('span', {class: 'tag mono', title: `${t.commit.head} ${t.commit.subject}${t.branch ? ` · ${t.branch}` : ''}`}, icon('commit'), h('span', {}, `${t.commit.head} ${t.commit.subject}`)));
   if (t.stories) out.push(h('span', {class: 'tag', title: t.stories.list.map(st => `${st.n}. ${st.text}`).join('\n')}, icon('file'),
@@ -1014,6 +1055,8 @@ function buildLegend(m, tasks) {
 // ---- where the time of one task went ----
 
 const taskLine = b => b.status === 'building' && [b.text, ...b.lines].join(' ').match(/\btask (\d+) of (\d+)\b/);
+// A builder investigates a bug or a question before any lead: the block's line `investigation: bug` or `investigation: question` (stages/new.md).
+const investigates = b => b.status === 'building' && [b.text, ...b.lines].some(line => /^investigation:/.test(line));
 // The events that cut a landing. `polish` is the end of the polish pass (land.py polish --done),
 // which logs no start: its span runs from the event before it.
 const CHECKS = ['polish', 'gate', 'task.red', 'review', 'review.filed', 'proposed'];
@@ -1096,6 +1139,7 @@ function timeOf(t, end) {
   const stageOf = b => {
     const task = taskLine(b);
     if (task) { sawTask = true; return {key: `task-${task[1]}`, label: `Task ${task[1]}`, short: `T${task[1]}`, sub: `of ${task[2]}`}; }
+    if (investigates(b)) return {key: 'investigation', label: 'Investigation', short: 'Inv.'};
     if (b.status === 'building') return sawTask ? {key: 'build', label: 'Build', short: 'Build'} : {key: 'plan', label: 'Plan', short: 'Plan'};
     if (b.status === 'planned' || b.status === 'drafted') return {key: 'plan', label: 'Plan', short: 'Plan'};
     if (b.status === 'queued') return {key: 'queued', label: 'Queued', short: 'Queued'};
@@ -1116,11 +1160,13 @@ function timeOf(t, end) {
     const from = b.ts, to = next ?? (open ? end : b.ts);
     const task = taskLine(b);
     const what = [b.text, ...b.lines].join(' · ');
-    if (b.status !== 'landed' && b.status !== 'dropped' && STATUS[b.status]) { stage = stageOf(b); band(stage, from, to, open); }
+    if (!ENDED.includes(b.status) && STATUS[b.status]) { stage = stageOf(b); band(stage, from, to, open); }
     if (b.status === 'queued') add('lem', from, to, 'Queued: it waits for a free place', what, open);
     else if (b.status === 'building' && task) add('builders', from, to, `Task ${task[1]} of ${task[2]}`, what, open);
+    else if (investigates(b)) add('builders', from, to, 'The investigation', what, open);
     else if (b.status === 'building') add('lead', from, to, 'The lead', what, open);
-    else if (b.status === 'planned') add(/\bowner\b/.test(b.text) ? 'you' : 'lem', from, to, /\bowner\b/.test(b.text) ? 'The plan waits for you' : 'The plan waits for a session', what, open);
+    else if (b.status === 'planned') add(/\bowner\b/.test(b.text) ? 'you' : 'lem', from, to, /\bowner\b/.test(b.text) ? 'The plan waits for you'
+      : t.talks.some(x => x.ts <= b.ts) ? 'The plan talk is done: the plan waits for its builder lead' : 'The plan waits for its talk companion', what, open);
     else if (b.status === 'held') add('you', from, to, /\bstories wait\b/.test(what) ? 'The stories wait for your yes' : 'Held: it waits for you', what, open);
     else if (b.status === 'blocked') add('lem', from, to, 'Blocked: Lem has to settle it', what, open);
     else if (b.status === 'drafted') add('you', from, to, 'A night draft waits for your word', what, open);
@@ -1248,6 +1294,9 @@ function showTip(ev) {
   tipBox.style.top = `${Math.max(0, Math.min(py + 14, box.height - hgt))}px`;
 }
 
+// The place of an investigation's cause, and for a bug whether it was reproduced.
+const investigationSub = x => [x.where, x.kind === 'bug' && x.reproduced != null ? (x.reproduced ? 'reproduced' : 'not reproduced') : ''].filter(Boolean).join(' · ');
+
 // What each event of the scripts says, in the feed's words; an event not named here is shown as its fields.
 const SAYS = {
   'task.stories': e => ({info: {actor: 'lead', icon: 'file'}, head: 'Stories recorded', text: `${e.kind}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
@@ -1263,6 +1312,8 @@ const SAYS = {
   'plan.talk.start': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk started', text: `with ${e.reviewer}`}),
   'plan.talk': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk ended', text: `with ${e.reviewer}: ${talkCounts(e)}`}),
   'careful.missed': e => ({info: {actor: 'bad', icon: 'alert'}, head: 'A careful path the plan missed', text: `${e.path} (${e.pattern})`}),
+  'investigation': e => ({info: {actor: e.call === 'not-reproduced' ? 'you' : 'done', icon: 'eye'}, head: CALLS[e.call]?.head ?? `The investigation: ${e.call}`,
+    text: e.line, sub: investigationSub(e)}),
   'polish': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass',
     text: `${plural(e.commits ?? 0, 'commit')}, ${(e.filed ?? []).length ? plural(e.filed.length, 'item') : 'no item'} filed in the backlog`,
     sub: [`${e.before ?? '?'} → ${e.after ?? '?'}`, ...(e.filed ?? [])].join(' · ')}),
@@ -1343,7 +1394,7 @@ function buildBoardNow(m) {
     return keyed('now:idle', h('div', {class: 'still'}, h('div', {class: 'now-in'},
       h('div', {class: 'avatar'}, icon('check')),
       h('div', {class: 'now-body'}, h('div', {class: 'now-eyebrow'}, 'Lem'), h('div', {class: 'now-head'}, m.list.length ? 'Nothing runs' : 'No task was opened yet'),
-        h('div', {class: 'now-ctx'}, m.list.length ? 'Every task has landed or was dropped.' : 'Type /lem and an ask in Lem’s session.')))));
+        h('div', {class: 'now-ctx'}, m.list.length ? 'Every task has landed, was answered or was dropped.' : 'Type /lem and an ask in Lem’s session.')))));
   }
   const {t, others} = f;
   const pane = paneOf(t.session);
@@ -1400,6 +1451,7 @@ function taskCard(t) {
     h('div', {class: 'tc-top'}, h('div', {class: 'tc-title'}, t.title), h('div', {class: 'tc-time'}, t.closed ? '' : live(t.since))),
     t.ask ? h('div', {class: 'tc-ask'}, t.ask) : '',
     h('div', {class: 'tc-text'}, `${t.info.label}: ${t.text}`),
+    t.status === 'answered' && t.investigation ? h('div', {class: 'tc-text'}, `${CALLS[t.investigation.call]?.card ?? t.investigation.call}: ${t.investigation.line}`) : '',
     t.waiting.map(c => h('div', {class: 'tc-text'}, t.asks.includes(c) ? `Choice ${c.id} waits for you: ${c.what} · ` : `Choice ${c.id}, its wait is over: ${c.what}`,
       c.irreversible ? 'no end' : t.asks.includes(c) ? until(c.deadline) : '')),
     t.forOwner ? h('div', {class: 'tc-where'}, answerOf(t)) : '',
@@ -1453,11 +1505,17 @@ function buildTaskNow(t) {
         pane ? h('span', {class: 'right'}, jump(pane.id, 'Go to the session')) : '')));
   }
   const head = {
-    queued: 'Waits for a free place', building: t.lead === 'session' ? 'Its session builds it' : 'Its builder builds it', planned: t.forOwner ? 'The plan waits for you' : 'The plan waits for a session',
+    queued: 'Waits for a free place', building: t.investigating ? 'Its investigator examines it, before any story' : LEAD[leadOf(t)].head,
+    planned: t.forOwner ? 'The plan waits for you' : t.talks.length ? 'The plan talk is done: the plan waits for its builder lead' : 'The plan waits for its talk companion',
     held: t.storiesWait ? 'The stories wait for your yes' : 'Waits for you', blocked: 'The lead stopped; Lem has to settle it', ready: 'Waits for its checks',
     landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
+    answered: 'Answered: it ended with a report and nothing to merge',
   }[t.status] ?? `Status "${t.status}"`;
-  return keyed(`now:${t.slug}:${t.status}:${t.text}:${t.lastTs}:${pane?.status ?? ''}`, h('div', {class: t.info.live ? '' : 'still'},
+  // What the investigation found, on every task that had one: the answer of an answered task, the cause of a fix.
+  const x = t.investigation;
+  const found = x ? [h('div', {class: 'now-ctx'}, h('b', {}, `${CALLS[x.call]?.now ?? x.call}: `), x.line, investigationSub(x) ? ` · ${investigationSub(x)}` : ''),
+    h('div', {class: 'now-ctx'}, 'The report: investigation.md in the task directory')] : [];
+  return keyed(`now:${t.slug}:${t.status}:${t.text}:${t.lastTs}:${x?.ts ?? ''}:${pane?.status ?? ''}`, h('div', {class: t.info.live ? '' : 'still'},
     h('div', {class: 'now-in'},
       h('div', {class: 'avatar'}, icon(t.info.icon)),
       h('div', {class: 'now-body'},
@@ -1465,6 +1523,7 @@ function buildTaskNow(t) {
         h('div', {class: 'now-head'}, head),
         h('div', {class: 'now-status'}, t.text),
         t.blocks.at(-1).lines.length ? h('div', {class: 'now-ctx'}, t.blocks.at(-1).lines.join(' · ')) : '',
+        ...found,
         t.forOwner ? h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t)) : '',
         h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, t.closed ? stamp(t.since, Date.now()) : live(t.since, 'clock')),
           h('span', {class: 'note'}, t.closed ? `after ${span(t.since - t.first)}` : 'in this state')))),
@@ -1478,6 +1537,8 @@ function buildTaskNow(t) {
 // review, the pull request. A task that waits for the owner or is blocked stays where it got to.
 function phaseIndex(t) {
   const reached = t.reached;
+  // an answered task ended with a report before any step of the flow that leads to a merge
+  if (reached === 'answered') return -1;
   if (reached === 'landed') return PHASES.length;
   if (reached === 'open') return 5;
   if (reached === 'landing') return t.reviews.length ? 4 : 3;
@@ -1503,7 +1564,7 @@ function buildTaskProgress(t) {
       ring(finished, current, total || 1, total ? `${finished}/${total}` : '–', 'plan tasks'),
       h('div', {class: `phases a-${t.info.actor}`}, PHASES.map((name, k) => h('div', {class: `phase ${k < at_ ? 'past' : k === at_ ? 'cur' : ''}`}, h('i'), name, h('small', {}, sub(k))))),
       h('div', {class: 'stats'},
-        stat('Lead', t.lead ?? '–', t.lead === 'session' ? 'a session with a reviewer' : t.lead === 'builder' ? 'one builder plans and builds' : 'no lead was started yet'),
+        stat('Lead', t.lead ? LEAD[leadOf(t)].tag : '–', t.lead ? LEAD[leadOf(t)].stat : 'no lead was started yet'),
         stat('Last commit', t.commit?.head ?? '–', t.commit ? t.commit.subject : 'no commit on its branch yet'),
         stat('Open for', t.closed ? span(t.since - t.first) : live(t.first), `first block ${stamp(t.first, Date.now())}`),
         stat('Gate', t.gates.length ? (t.gateBad ? 'red' : 'green') : '–', t.gates.length ? `${plural(t.gates.length, 'command')} in the last run` : 'it runs at the landing', t.gates.length ? (t.gateBad ? 'bad' : 'ok') : ''),

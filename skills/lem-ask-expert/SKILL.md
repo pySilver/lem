@@ -71,7 +71,7 @@ checkout.
    one expert's advice the end of the wait takes the recommended option. Advice after the wait
    ended is refused too, and changes nothing.
 
-4. **Tell who reads it.** A task's lead in a session of its own sends
+4. **Tell who reads it.** The defender of a plan talk, in its companion session, sends
    `lem: SLUG choice N advised` through `tell-coordinator` when both answers are in the record;
    a builder that leads has no such line, and Lem finds the advice in `decisions.py pending`. Lem
    then does what `stages/new.md` says. When the owner called this skill, tell him both answers:

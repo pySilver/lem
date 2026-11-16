@@ -46,6 +46,14 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   wait for a build." (2026-11-16, as the design session carried it). What stays from the first
   ruling: the persona panel and the review tool with the project's own lenses; no plan argued
   question by question, and no review of every task of a usual request.
+- **A project may land with no pull request**, for a developer who works alone and does not want
+  their burden: "Yep, fix that. ... When remote GitHub exists, but developer does not want to use
+  PR-s it is still valuable to merge with remote main dir, so parallel tasks will not be confused
+  (worktrees will all merge with remote main, but without PR). When there is no remote git, then
+  OK, merge with local main branch" (2026-11-16). The review still comes first, and who merges
+  is still `branch.land`. The form is the session's design: `branch.propose = "merge"` beside the
+  default `"pull-request"`, a GitHub remote then landed like any other remote, and onboarding
+  asks it with who lands.
 - **Claude Code first.** The harness file for Codex comes after that works. The reviewer may be
   Codex or a second Claude; Codex as the builder is wanted later.
 - **Opinionated and small.** A developer may use their own tool for a role (`tools.annotate`). Out
@@ -206,6 +214,44 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   review before the pull request checks it; a scope the plan puts out of the change is no
   question. `plan.md` step 4 holds the rules, and `project.py`'s `plan.talk` the counts, with
   the bound of 4 × questions + 2 turns, which is derived and not measured.
+- **The plan talk is a pair in a companion that closes after it**: "for such review we need a
+  pair setup, so Lem (or Lead?) should open a companion where two agents of specific models and
+  efforts have a chat about the plan under some rules that disallow endless discussion. This is
+  the oppsite than calling fresh context all the time + gives a visibility if Owner want to have
+  a look. Companion is closed once discussion is done" (2026-11-16). The form is the session's
+  design, which he answered with "Good design!": Lem opens the companion when a builder stops at
+  a careful or large plan, and closes it when the task's event log holds the talk's
+  `plan.talk`; its left agent is the plan's defender (`prompts/defender.md`), on the seat
+  `[seats.planner]` (only `claude`, with a model and an effort), and builds nothing; the build
+  goes to a builder lead, one fresh builder per task; and a Fable second opinion's check for a
+  layer of patches, which he asked for in "Sometimes the fix in the plan, even during discussion
+  is just another layer of patching. It stays ugly but in a different way. And due to cap and
+  rules it goes that way. So we need a critical look whether fix is good or just another layer":
+  a repair that adds a mechanism names the decision it sits on, the reviewer says `at the cause`
+  or `layer over D`, a layer over a decision with no cite closes as a design choice, and
+  `plan.talk` counts `root`, `layer` and `shared`. He agreed with the check and asked: "One
+  question - whether it will catch an issue where fix should be applied at root level (whatever
+  it calls) and that change would trigger number of other issues (sign that such change is
+  probably not the best solution)" (2026-11-16). What answers it is the session's design: each
+  issue the reviewer finds in a changed decision is a hold of the same question, so such a
+  question closes as a design choice, and the card compares the kept decision and its mechanisms
+  with the reversed one, its tasks, its stories and each issue raised against it.
+- **Lem tells the kind of a request, asks when it is unclear, and a bug is investigated
+  first**: of a small fix taken as a correction with no scout, "Well typically the
+  root-cause-investigation is needed to unerstand what triggers the bug that we aim to correct,
+  isn't it?"; of the ask "invoices show 0 after a refund", "From such input its kinda hard to
+  deduct if we want to investigate the bug or its a feature request. Confusion."; and "Lem should
+  try to understand from the requestwhat kind of request it is and ask for clarification when
+  confused? We may want to list few keywords for different types of work" (2026-11-16). The form
+  is the session's design, to which he wrote "I have no objections for other stuff (work kind,
+  merge strategies)": six kinds (bug, feature, correction, investigation, chore, docs) taken from
+  the ask's words alone, with example words in `stages/new.md` as hints and no code that matches
+  them; the first question of the interview when the words do not settle it; the kind in
+  `task.md` and in a state line `kind: KIND, because WHY`, and the branch's type from it; a bug
+  investigated before any story by a fresh builder (`prompts/investigator.md`) that commits a
+  failing test and finds the cause with the `lem-root-cause` method, whose report takes the
+  correction path, the usual path, or ends the task; an investigation that ends with its answer;
+  and the state `answered`, a task that ended with a report and nothing to merge.
 
 Designs taken on 2026-11-14 and 2026-11-15 after a question of the owner's. They are open to
 him, and they are not his rulings until he says so:
@@ -324,9 +370,10 @@ real task, so say in the commit which task showed the need.
   and the blocks of a page to read. `handover.html` is the pattern of the onboarding's page.
   A new page for the owner links `lem.css` and brings no style of its own.
 - `skills/lem/templates/`: the shapes onboarding fills.
-- `skills/lem/prompts/`: the standing briefs of a task's lead, of the builders of a landing, of
-  the agent that routes and runs a review before a change is proposed, and of the reviewer in
-  the other pane.
+- `skills/lem/prompts/`: the standing briefs of a task's lead, of a plan talk's defender, of the
+  scout of an interview, of the investigator of a bug or a question (`investigator.md`), of the
+  builders of a landing, of the agent that routes and runs a review before a change is proposed,
+  and of the reviewer in the other pane.
 - `docs/`: `free-hour.md` (how an unattended session may change Lem), `linear.md` (how a
   project connects Linear), and `backlog/`, Lem's own deferred work.
 - `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `lem-ask`

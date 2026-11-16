@@ -88,6 +88,8 @@ a list of questions that closes with the reviewer's first turn (step 4).
      code, so say what you see.
    - *a pattern*: the plan starts something other code will copy (a first service layer, a
      first use of a library, a new kind of test).
+   A brief with the line `careful: the owner says so` is a yes too, whatever the three tests
+   give: the owner called the task careful before its plan, in the ask or later.
    Write the call into the plan as one line under its title, before `## Stories` (a line that
    is no story is refused inside that section), `careful: yes` or `careful: no`, with the one
    sentence of why: the path, the topic in the owner's words, the pattern, or what you checked
@@ -95,17 +97,32 @@ a list of questions that closes with the reviewer's first turn (step 4).
    reads it on the board while the task builds, and into the report.
    An outcome that needs more than seven tasks is two asks: say so in the report, and plan the
    first.
-3. **A builder does not lead a careful or large task.** A plan is large when `## Tasks` has more
-   than three numbered tasks. When your brief says `lead: builder` and step 2 says careful, or the
-   plan is large: write `report.md` with what says so (the path, the topic, the pattern, or the
-   count); write the state `planned` with the line `needs a session: careful` or
-   `needs a session: large, N tasks`; and stop. The plan talk of step 4 needs the reviewer's pane
-   and the mailbox, and a builder has neither (the harness file, `spawn-builder`). Lem opens a
-   session, and its lead starts from your plan. When your brief says `stop after the plan: yes`,
-   stop the same way with the line `the owner reads the plan`.
-4. **A careful or large plan gets a plan talk before any code.** This is the session's step, and
-   it comes before step 5 lets any task be built. The lead and the reviewer argue the plan
-   through the mailbox to find the obstacle the planner did not see and a better design. A
+3. **A careful or large plan is talked through before a builder leads its build.** A plan is
+   large when `## Tasks` has more than three numbered tasks. When step 2 says careful, or the
+   plan is large, read `talk` in `python3 SKILL_DIR/scripts/project.py --repo WORKTREE tasks`
+   for this task: the newest `plan.talk` of its event log, or null.
+   - *null*: write `report.md` with what says so (the path, the topic, the pattern, or the
+     count); write the state `planned` with the line `needs a session: careful` or
+     `needs a session: large, N tasks`; and stop. The plan talk of step 4 needs the reviewer's
+     pane and the mailbox, and a builder has neither (the harness file, `spawn-builder`). Lem
+     opens a companion session for the talk, and its agent, the plan's defender, starts from your
+     plan (`prompts/defender.md`).
+   - *a record*: the talk is done, and you lead the build of the plan it left: skip step 4, take
+     the questions it left open at step 5, and go on. Read the `## Plan talk` section first: a
+     repair changed the plan after you or another builder wrote it. A plan of more than one task
+     has you start a builder for each, which the harness file checked from a `worker` subagent
+     and not yet from a `lem-builder`: when your agent refuses you the start of a builder, write
+     the state `blocked` with that refusal, and stop.
+   When your brief says `stop after the plan: yes`, stop the same way with the line `the owner
+   reads the plan`.
+4. **A careful or large plan gets a plan talk before any code.** This is the defender's step: the
+   agent in the companion session Lem opens for the talk (`prompts/defender.md`), and the only
+   step it takes besides the open questions of step 5. It comes before step 5 lets any task be
+   built. The defender and the reviewer argue the plan through the mailbox to find the obstacle
+   the planner did not see and a better design. The owner asked for the talk in a pair: "two
+   agents of specific models and efforts have a chat about the plan under some rules that
+   disallow endless discussion ... gives a visibility if Owner want to have a look. Companion is
+   closed once discussion is done" (2026-11-16). A
    one-shot read does not do that: "there is no interaction between plan writer and reviwer, so
    they cannot look for a better design together, this proces just makes the writer satisfy the
    reviewer without actually changing the approach" (the owner, 2026-11-15). Nor may the talk run
@@ -151,6 +168,37 @@ a list of questions that closes with the reviewer's first turn (step 4).
      produces that failure, whether that input is realistic here, and what breaks without it. A
      refused addition goes into the record as unpriced. "Argue why this fails" is answered with
      refutations of the plan as it stands, never with additions.
+   - **A repair that adds a mechanism says what it sits on.** The owner, 2026-11-16: "Sometimes
+     the fix in the plan, even during discussion is just another layer of patching. It stays ugly
+     but in a different way. And due to cap and rules it goes that way." So a repair that adds a
+     guard, a job, an invalidation, a cache, a flag, a sync or a retry names a fifth thing beside
+     the four: which decision of the plan made the case possible (by its line in the plan's
+     decisions), what that decision rests on (a story, a ruling, existing code, or only the
+     planner's choice), and how far it reaches. The reviewer answers such a repair with
+     `closed, at the cause` or `closed, layer over D`, or `holds, layer over D`, D being that
+     decision. This is a Fable second opinion's form (2026-11-16):
+     - a layer over a decision with a cite (a story, a ruling, existing code) stays, and the
+       record names it;
+     - a layer over a decision with no cite is not the repair: the one repair changes that
+       decision instead. When you keep such a decision, the question closes at once as a design
+       choice; so does a second question that names a decision another question named;
+     - a repair that changed a decision (one the record counts as `root`) can be no better than the
+       layer it replaced: the changed decision may bring issues of its own. Each issue the reviewer
+       finds in the changed decision is a hold of the same question, never a new question, since it
+       is a flaw in the repair's own new text. Your one answer to it is a refutation with a cite,
+       never a second repair; when the question held before the repair, or the refutation does not
+       close it, it has held a second time and closes as a design choice. The owner asked about this
+       case on 2026-11-16: "whether it will catch an issue where fix should be applied at root
+       level (whatever it calls) and that change would trigger number of other issues (sign that
+       such change is probably not the best solution)";
+     - the owner's card of such a design choice compares both sides honestly (step 5): the kept
+       decision with each mechanism that guards it, against the reversed decision with the tasks
+       and the stories it changes and each issue the reviewer raised against it;
+     - no root-cause run: Fable advised against one here, because it examines a failure that
+       happened, and it has no bound.
+     Open: whether a fresh agent should read the repaired plan once more at the end. What would
+     say yes: the review before the pull request finds a defect in a mechanism the record names
+     while the talk's `layer` was 0. Until a review shows that, no such read runs.
    - **What a person of the project would see** is not the two agents' to settle. A question
      about it goes to the persona panel, in its reviewing mode, with both positions; its clear
      answer settles the question, and the record says the personas settled it. One with no clear
@@ -159,12 +207,15 @@ a list of questions that closes with the reviewer's first turn (step 4).
      write `nothing further`; the reviewer adds no turn after that.
    Commit every repair before any code. Then write the record into the plan, as a section
    `## Plan talk` after `## Tasks`, and commit it:
-   - who argued the plan with you: the agent, and its model and effort as its pane's status line
-     shows them;
+   - who argued the plan: the reviewer's agent, and its model and effort as its pane's status
+     line shows them; and you, with the model and effort the `defender:` line of the task's
+     state gives, which Lem read from your pane's status line;
    - the list, numbered as the reviewer gave it, each question with how it ended: settled, with
      its cite and after it the words "settled by the two, not checked by the review"; a design
      choice, with the two positions, each with its cite, and the choice step 5 asks; or open, with
      the two positions and where it went (step 5 takes it);
+   - each mechanism a repair added, with the decision it sits on and the reviewer's word: at the
+     cause, or a layer over that decision and its cite;
    - each question raised after the first turn, marked "raised, not argued", with its mechanism
      and place;
    - each addition that was refused as unpriced;
@@ -174,27 +225,31 @@ a list of questions that closes with the reviewer's first turn (step 4).
    and write the one event the landing reads:
 
    ```bash
-   python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N
+   python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N
    ```
 
    `turns` counts each message of either side; `questions`, the questions of the reviewer's first
    list; `settled` and `open`, how many of them ended each way, a design choice counted as open;
-   `design`, the open ones that held a second time; `repaired`, the questions whose answer
-   changed the plan; and `unargued`, the questions raised after the list. The script refuses a
-   record of fewer than two turns, or one with no question settled and none left open: a floor
-   against an empty record, not a measure of a good talk. It refuses counts that do not agree:
-   settled and open that do not add up to questions, more design choices than open questions,
-   more repairs than questions. And it refuses more than 4 × questions + 2 turns: the list, two
-   answers of each side on each question, and the close. That bound is derived from these rules
-   in a Fable second opinion (2026-11-16), not measured. The landing refuses a request whose
-   plan says `careful: yes` or has more than three tasks with no such event, and the pull request's checks show the newest one. A task that
-   becomes careful after its plan, by the owner's word or by a path its diff matches, gets no
-   talk afterwards: the landing's full review reads the code that exists. A one-shot read of a careful plan, before this talk replaced it,
-   took nine minutes and found three design failures before any code (convertiser-server,
-   2026-11-14). In another repository a plan round before any code found at least one major
-   finding in 7 of 9 plans whose records tell majors from minors, and the largest found 19
-   (mybaze, 2026-09-25 to 2026-11-03, counted by one reader from that project's notes). Both
-   were reads, not talks; no talk is measured yet. A plan that is neither careful nor large has
+   `design`, the open ones that closed as a design choice; `repaired`, the questions whose answer
+   changed the plan; `unargued`, the questions raised after the list; `root`, the repairs that
+   changed a decision of the plan; `layer`, the layers over a cited decision that stayed; and
+   `shared`, the decisions that two questions named. The script refuses a record of fewer than two
+   turns, or one with no question settled and none left open: a floor against an empty record, not a
+   measure of a good talk. It refuses counts that do not agree: settled and open that do not add up
+   to questions, more design choices than open questions, more repairs than questions, more repairs
+   at the cause and layers together than repairs, and more shared decisions than design choices (the
+   second question on a decision closes as one; derived from the rule above, not measured). And it
+   refuses more than 4 × questions + 2 turns: the list, two answers of each side on each question,
+   and the close. That bound is derived from these rules in a Fable second opinion (2026-11-16), not
+   measured. The landing refuses a request whose plan says `careful: yes` or has more than three
+   tasks with no such event, and the pull request's checks show the newest one. A task that becomes
+   careful after its plan, by the owner's word or by a path its diff matches, gets no talk
+   afterwards: the landing's full review reads the code that exists. A one-shot read of a careful
+   plan, before this talk replaced it, took nine minutes and found three design failures before any
+   code (convertiser-server, 2026-11-14). In another repository a plan round before any code found
+   at least one major finding in 7 of 9 plans whose records tell majors from minors, and the largest
+   found 19 (mybaze, 2026-09-25 to 2026-11-03, counted by one reader from that project's notes).
+   Both were reads, not talks; no talk is measured yet. A plan that is neither careful nor large has
    no talk, and that is what the skip can cost.
 5. **A held decision goes to the owner, the others do not.** For each decision of the plan: a
    ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and log it
@@ -207,13 +262,20 @@ a list of questions that closes with the reviewer's first turn (step 4).
    - one line on why the case became possible and how far the same cause reaches;
    - the options, each as what a person would see and what it costs, and what you would choose.
    Then build the tasks that do not depend on a held decision. Write the state `held` and stop
-   only when every task that is left depends on one. A builder whose plan is careful or large has
-   stopped at step 3 before this, and the session that takes the plan over does step 4 first.
+   only when every task that is left depends on one. A builder whose plan is careful or large and
+   has no talk yet has stopped at step 3 before this; the builder that leads after the talk takes
+   this step for the plan's own decisions.
    A question the plan talk left open is a decision of this step like any other, with the two
-   positions as what it rests on. One that is held is not written under "held": ask it as a
-   numbered choice, with `decisions.py ask` (`stages/build.md`, "A choice in the build", step 2),
-   whose `--said` holds both positions and what the personas answered, or why they were not
-   asked, and go on with the tasks that do not depend on it, as that section's steps 3 and 4 say.
-   A design choice of the talk is always asked so, never taken by you: the lead is one of the two
-   positions that did not settle.
+   positions as what it rests on, and the defender takes it before it stops. One that is held is
+   not written under "held": ask it as a numbered choice, with `decisions.py ask`
+   (`stages/build.md`, "A choice in the build", step 2), whose `--said` holds both positions and
+   what the personas answered, or why they were not asked. A design choice about a decision of
+   the plan (a layer over a decision with no cite, a decision two questions named, or a changed
+   decision that brought issues of its own) is an honest comparison of both sides: one option is
+   the kept decision with each mechanism that guards it, the other the reversed decision with the
+   tasks and the stories it changes and each issue the reviewer raised against it, and `--said`
+   holds both. The builder that leads the build goes
+   on with the tasks that do not depend on it, as that section's steps 3 and 4 say. A design
+   choice of the talk is always asked so, never taken by the defender or the builder: the
+   defender is one of the two positions that did not settle.
 6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.

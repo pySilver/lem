@@ -26,7 +26,7 @@ line that the other agents work on, and it answers to you for all of them.
 > ran through the new flow yet.
 >
 > **Not run yet.** A task in the new flow. A pull request on GitHub: only a stand-in for the
-> `gh` command ran in the tests. A plan with more than one task. A plan talk. A reviewer that is a second
+> `gh` command ran in the tests. A plan with more than one task. A plan talk, and its companion session. A reviewer that is a second
 > Claude. A restart of agterm while a task is open. The correction hook in a real session.
 >
 > **Not built.** A pull request on GitLab. Lem marks the branch as ready there.
@@ -41,6 +41,11 @@ line that the other agents work on, and it answers to you for all of them.
   stories.
 - **Scout**: an agent that reads the code around your ask during the interview. It gives facts
   to Lem, not a plan. It changes nothing.
+- **Kind**: the type of your ask: a bug, a feature, a correction, an investigation, a chore or
+  docs. Lem takes it from your words.
+- **Investigator**: a builder that examines a bug or a question before Lem writes a story. For a
+  bug, it writes a test that fails because of the bug, and it finds the cause.
+- **Answered**: the end of a task with a report and no change to merge.
 - **Direction**: a technology, a library or an approach that you name in the interview. The plan
   obeys it.
 - **Gate**: the check commands of your project, for example the tests. Each command must pass
@@ -51,11 +56,13 @@ line that the other agents work on, and it answers to you for all of them.
 - **Green**: the first word of a pull request that you can merge without a read. The checks
   passed, the review found nothing that must change, and no story changed.
 - **Land**: put the commits of a task branch on the base branch.
-- **Careful task**: a task that touches what must not go wrong. A session leads it, and the
-  landing gives it the full review set of the project.
-- **Large task**: a task whose plan has more than three tasks. A session leads it too.
-- **Plan talk**: the lead and the reviewer argue a careful or large plan before the build. The
-  reviewer gives all of its questions in its first turn.
+- **Careful task**: a task that touches what must not go wrong. Its plan gets a plan talk, and
+  the landing gives it the full review set of the project.
+- **Large task**: a task whose plan has more than three tasks. Its plan gets a plan talk too.
+- **Plan talk**: two agents argue a careful or large plan before the build. The reviewer gives
+  all of its questions in its first turn.
+- **Defender**: the agent that holds the plan talk for the plan. It is in a companion session
+  that Lem opens for the talk. The reviewer is in the other pane of that session.
 - **Question gate**: a different thing. It decides if a question must go to you. In this
   README, "the gate" is always the check commands.
 
@@ -126,7 +133,9 @@ The board shows these things:
 
 ```mermaid
 flowchart TD
-    ask([You: /lem and your ask]) --> open[Lem opens the task:<br/>a branch, a worktree, the ask in your words]
+    ask([You: /lem and your ask]) --> kind{Lem names the kind of your ask.<br/>If your words do not show it,<br/>Lem asks you}
+    kind -- a bug or a question --> inv[An investigator examines it first.<br/>See "The kind of your ask"]
+    kind -- a feature, a correction,<br/>a chore or docs --> open[Lem opens the task:<br/>a branch, a worktree, the ask in your words]
     open --> path{Is the whole context<br/>written already?<br/>For example, a ticket<br/>with a defined result}
     path -- no --> interview[The interview: Lem asks you,<br/>one question at a time.<br/>A scout reads the code<br/>at the same time]
     interview --> stories[Lem writes the stories.<br/>The personas read them]
@@ -138,9 +147,10 @@ flowchart TD
     careful -- no --> count{How many tasks<br/>are in the plan?}
     count -- one --> same[The same builder builds it]
     count -- two or three --> build[One new builder<br/>for each task of the plan.<br/>If a document must change,<br/>the last task is for documents]
-    careful -- yes --> session[A session of its own<br/>with a reviewer in the other pane]
-    session --> talk[The plan talk: the lead and the reviewer<br/>argue a list of questions<br/>that the first turn closes,<br/>before any code]
-    talk --> buildc[One new builder<br/>for each task of the plan.<br/>If a document must change,<br/>the last task is for documents]
+    careful -- yes --> session[Lem opens a companion session:<br/>the defender, with a reviewer<br/>in the other pane]
+    session --> talk[The plan talk: the defender and the reviewer<br/>argue a list of questions<br/>that the first turn closes,<br/>before any code]
+    talk --> close[Lem closes the companion.<br/>A new builder leads the build]
+    close --> buildc[One new builder<br/>for each task of the plan.<br/>If a document must change,<br/>the last task is for documents]
     same --> report[The lead writes the report<br/>and the state: ready]
     build --> report
     buildc --> report
@@ -242,6 +252,10 @@ These rules hold for each task:
   found nothing that must change.
 - **A task ends as a pull request.** With a remote on GitHub, Lem opens it with the `gh`
   command. With a different remote, or with none, Lem marks the branch as ready.
+- **A project can work with no pull requests.** Set `branch.propose = "merge"`. Then Lem marks
+  the branch as ready also with a remote on GitHub. Lem pushes it to the base branch on
+  `origin`, so the tasks in the other worktrees start from it. With no remote, Lem merges into
+  the local base branch. The text of the request is in `pr.md` in the folder of the task.
 - **The first line says green or not green.** Each reason for "not green" is one line, before
   all other text. Then come your words, the stories with their tests, each check with its
   result, and the notes of Lem.
@@ -261,19 +275,36 @@ These rules hold for each task:
 - **You can overrule that decision.** Tell Lem that a task is careful, at each moment before
   the landing. A match of a path is always careful.
 - **A plan that starts a pattern for other code is careful too.**
-- **A careful or large plan gets a plan talk.** A session leads the task. The lead and the
-  reviewer argue the plan in their two panes before any code. They look for an obstacle that
-  the plan did not see, and for a better design.
+- **A careful or large plan gets a plan talk.** The builder that wrote the plan stops. Lem
+  opens a companion session for the talk. Its agent, the defender, and the reviewer argue the
+  plan in the two panes before any code. They look for an obstacle that the plan did not see,
+  and for a better design. You can read the two panes while they talk.
+- **The companion closes after the talk.** Lem closes it when the log of the task has the record
+  of the talk. Then a new builder leads the build, with one builder for each task of the plan.
+- **You choose the models of the talk.** `[seats.planner]` names the model and the effort of the
+  defender, and `[seats.reviewer]` names those of the reviewer.
 - **The reviewer gives all of its questions first.** It reads the full plan. Its first turn is
   a numbered list of questions, with the most expensive first. The list closes with that turn.
-- **Each question gets one repair.** The lead repairs the plan, or it refutes the question with
-  a cite. The reviewer answers each question by its number: closed, or it holds.
-- **A question that holds two times stops.** It becomes a design choice. The lead does not
+- **Each question gets one repair.** The defender repairs the plan, or it refutes the question
+  with a cite. The reviewer answers each question by its number: closed, or it holds.
+- **A question that holds two times stops.** It becomes a design choice. The defender does not
   change the plan for it, and Lem asks it as a choice.
+- **A repair that adds a mechanism names the decision under it.** A mechanism is, for example, a
+  guard, a cache, a flag or a retry. The repair names the decision of the plan that made the
+  problem possible, and the source of that decision: a story, a ruling, the code, or only the
+  choice of the planner.
+- **A layer over a weak decision is not a repair.** The reviewer says "at the cause" or "layer
+  over" the decision. A layer stays only if the decision has a source. Otherwise the repair must
+  change the decision. If the defender keeps it, the question becomes a design choice. A second
+  question about the same decision becomes a design choice too.
+- **A changed decision can bring new problems.** Each problem that the reviewer finds in it is
+  the same question again, not a new question. Thus the question soon becomes a design choice.
+  Your card then shows the two sides: the old decision with its mechanisms, and the new decision
+  with the tasks and stories that it changes and each problem that the reviewer found.
 - **A late question is not argued.** The plan records it as "raised, not argued". The review
   before the pull request examines it.
-- **A scope that the plan puts out of the change is not a question.** The lead answers such a
-  question with the line of the plan, and closes it.
+- **A scope that the plan puts out of the change is not a question.** The defender answers such
+  a question with the line of the plan, and closes it.
 - **The talk has a limit.** It has four turns for each question at the most, plus two. This
   limit comes from the rules. Nobody measured it.
 - **A disagreement about what a person sees goes to the personas.** A disagreement that stays at
@@ -311,19 +342,68 @@ These rules hold for each task:
 - **A builder obeys the `AGENTS.md` of the project.** It runs the formatter, the linter and the
   type checker that this file names.
 
+## The kind of your ask
+
+Lem names the kind of each ask from your words, before an agent reads the code. It tells you the
+kind in one line, with the reason. The words in the table are examples for the judgment of Lem.
+No code compares your words with them.
+
+| Kind | Use it when | Words that often show it | What Lem does |
+| --- | --- | --- | --- |
+| bug | something is wrong today | "broken", "shows 0", "since yesterday" | an investigator finds the cause first |
+| feature | something is not there | "add", "allow", "let me" | the interview and the stories |
+| correction | one rule in your sentence, and the cause is clear | "the button says Save, not Submit" | one story, and no wait |
+| investigation | you want an answer, not a change | "why", "find out", "check if" | an investigator writes the answer |
+| chore | the work is on the project, and no user sees it | "upgrade", "rename" | the interview and the stories |
+| docs | only a document changes | "document" | the interview and the stories |
+
+The kind also gives the type of the branch: `fix` for a bug and a correction, `feat`, `chore` or
+`docs` for the others. For an investigation, Lem selects the type and tells you why.
+
+If your words do not show the kind, the first question of the interview asks it, with the guess
+of Lem. For example (an illustration, not a recorded run): "Is the 0 wrong today, a bug, or do you
+want a new rule for refunds, a feature?"
+
+### A bug and a question
+
+```mermaid
+flowchart TD
+    bug([A bug: something is wrong today]) --> place[The task gets a place, a worktree and a branch]
+    question([An investigation: a question]) --> place
+    place --> inv[A new builder, the investigator, examines it.<br/>For a bug: a test that fails because of the bug,<br/>and the cause, as a file and a symbol.<br/>It changes no behavior]
+    inv --> report[Its report: reproduced or not,<br/>the cause or the answer,<br/>what else the cause touches,<br/>and what must come next]
+    report -- one rule removes the cause --> corr[A correction: one story,<br/>and the test of the investigator is its test]
+    report -- a larger change --> interview[The interview starts from the cause]
+    report -- the code does what it should --> nb[Lem tells you what the code does and why.<br/>The task is answered]
+    report -- not reproduced --> fact[Lem tells you each try<br/>and asks you for one more fact]
+    report -- the answer to a question --> ans[Lem shows you the answer.<br/>The task is answered]
+    fact --> inv
+```
+
+- **A bug gets an investigation first.** You saw a symptom. The cause decides what the change
+  must be. Thus Lem starts no story before the cause is known.
+- **The investigator changes no behavior.** For a bug, its one commit is the test that fails. For
+  a question, it commits nothing, and it removes each temporary file.
+- **The report replaces the scout.** Lem reads the report as it reads the report of a scout. The
+  interview of a bug starts from the cause.
+- **An answered task has nothing to merge.** It goes to the "Done" lane of the board with its
+  answer. The branch stays, because it can hold the test of the bug.
+- **You can start a task from a report.** Type `/lem new` and the path of the report. The report
+  is the written context of the new task.
+- **The pull request names the cause.** A correction or a feature that came from a bug shows the
+  cause in one line.
+
 ## Two levels
 
 ```mermaid
 flowchart LR
     you([You]) <-- asks, held decisions, reports --> lem[Lem<br/>one session for the repository]
-    lem -- starts, reads the state and the report --> leadA[Lead of a plain task<br/>a builder]
-    lem -- starts, reads the state and the report --> leadB[Lead of a careful or large task<br/>a session of its own]
-    leadA -- a plan of one task --> self[It builds the task itself]
-    leadA -- a plan of two or three tasks --> b1[Builder: task 1]
-    leadA -- a plan of two or three tasks --> b2[Builder: task 2]
+    lem -- starts, reads the state and the report --> leadA[Lead of a task<br/>a builder]
+    lem -- opens for a careful or large plan, closes after the talk --> leadB[Defender of the plan<br/>a companion session]
     leadB <-- the plan talk, before any code --> rev[Reviewer<br/>in the other pane]
-    leadB --> b3[Builder: task 1]
-    leadB --> b4[Builder: task 2]
+    leadA -- a plan of one task --> self[It builds the task itself]
+    leadA -- a plan of more tasks --> b1[Builder: task 1]
+    leadA -- a plan of more tasks --> b2[Builder: task 2]
     lem -- checks and proposes one branch at a time --> pr[(A pull request)]
 ```
 
@@ -333,9 +413,11 @@ There is one Lem for one repository. It is the session where you type `/lem`.
   review to a pull request.
 - Lem holds no details of a task. It reads the ask, the newest state block and the report.
 - A lead owns one task from its plan to its report. A lead never asks you a question.
-- The lead of a careful or large task is a session. The reviewer is in its other pane. The two
-  argue the plan before any code, through the mailbox. A builder has no pane, thus it cannot
-  lead such a task.
+- A builder leads each task. A builder has no pane, thus it cannot hold the plan talk of a
+  careful or large plan. It stops after the plan.
+- Lem then opens a companion session for the talk. The defender is in its left pane and the
+  reviewer in the other. The two argue the plan before any code, through the mailbox.
+- The companion closes after the talk. A new builder then leads the build of the plan.
 - Something that the plan did not see can occur in the build. The lead decides a small matter
   itself. It writes the decision and the reason into the log of the task.
 - Some matters have options that each cost a person something. Then the personas of the
@@ -371,7 +453,7 @@ flowchart TD
         wt[.lem/worktrees/<br/>one worktree for each task; git ignores this folder]
     end
     subgraph gitdir [The git directory, shared by all worktrees]
-        tasks[lem/tasks/NAME/<br/>task.md, scout.md, directions.md, stories.json,<br/>brief.md, state.md, report.md, decisions.jsonl]
+        tasks[lem/tasks/NAME/<br/>task.md, scout.md, investigation.md, directions.md,<br/>stories.json, brief.md, state.md, report.md, decisions.jsonl]
         events[lem/events.jsonl<br/>each state block, gate result, review and proposal]
     end
     wt -. writes the state .-> tasks
@@ -440,7 +522,7 @@ To remove Lem from a repository:
 8. Delete the folder `.lem/`. Git does not track the settings of this computer and the
    worktrees in it, thus `git rm` leaves them.
 9. Delete `.revmux/` too, if you do not use the review tool for other work.
-10. Delete the branch of each task that you dropped.
+10. Delete the branch of each task that you dropped, and of each task that Lem answered.
 
 ## Examples
 
@@ -576,7 +658,7 @@ Linear.
 
 | Command | What it does |
 | --- | --- |
-| `/lem <your ask>`, or `/lem new <what>` | opens a task, interviews you, and shows you the stories with the result of the personas. After your approval it runs the task to the gate. A ticket with all of its context gets no interview, and a correction does not wait. It does not stop for you to read the plan. The task waits if each place is in use. A careful or large plan gets a session for the plan talk. It stops for a decision that is yours |
+| `/lem <your ask>`, or `/lem new <what>` | opens a task, interviews you, and shows you the stories with the result of the personas. After your approval it runs the task to the gate. A ticket with all of its context gets no interview, and a correction does not wait. It does not stop for you to read the plan. The task waits if each place is in use. A careful or large plan gets a companion session for the plan talk, which closes after the talk. It stops for a decision that is yours |
 | `/lem plan <what>` | opens a task and stops after the plan. You read the plan. Then `/lem build` continues |
 | `/lem build` | lists the plans that wait and asks which one it builds |
 | `/lem build <task>`, or `/lem build <plan file>` | builds that plan: a plan that you read, or a draft from the night |
@@ -649,6 +731,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `branch.protected` | empty | the branches that nothing lands on |
 | `branch.land` | `owner` | who merges: `owner`, or `agent` for a pull request that is green and not careful |
 | `branch.history` | `keep` | what lands: the commits of the branch (`keep`) or one commit (`squash`) |
+| `branch.propose` | `pull-request` | how a task ends with a remote on GitHub: a pull request (`pull-request`), or a merge into the base branch with no pull request (`merge`) |
 | `gate.commands` | empty | the check commands; with none, Lem proposes no change |
 | `gate.ignores` | empty | the paths that the gate does not read |
 | `gate.setup` | empty | the commands that a new worktree needs before its tests can start, for example an install of the packages |
@@ -659,6 +742,8 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `flow.decision_wait` | `15` | how many minutes a choice in the build waits for your answer. Then the lead takes the option of the two experts, or the recommended option when they do not agree. The pull request is not green for it |
 | `seats.reviewer.agent` | none; `/lem init` asks | the reviewer: `claude` or `codex` |
 | `seats.reviewer.model`, `.effort`, `.plan_effort` | the default of the agent | the model of the reviewer, its effort for a diff, and its effort for a plan talk |
+| `seats.planner.agent` | none: Claude Code | the defender of a plan talk: only `claude` |
+| `seats.planner.model`, `.effort` | the default of the agent | the model and the effort of the defender |
 | `tools.annotate` | `webrev` | the tool with which you mark a plan; webrev is a recommended tool that you install |
 | `tools.ask` | `lem-ask` | how a question comes to you: the page of Lem, `terminal`, or a skill or a command of yours |
 | `corrections.collect` | `false` | `true` keeps a queue of corrections for `/lem retro`, for each person who works in the repository with the hook |
@@ -667,7 +752,8 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 - `tracker.moves` says who changes the status of a ticket: `lem`, or `tracker` for the automation
   of the tracker. With `lem`, the table also names the two statuses, `started` and `landed`.
 - `.lem/project.local.toml` is for one computer. Git does not track it. It can change the
-  reviewer, the mark tool and the question tool.
+  reviewer, the defender, the mark tool and the question tool. You write the defender there
+  yourself, under `[seats.planner]`.
 - That file can also have `[corrections]` with `collect = false`. Then the hook sends no message
   from this computer. The file cannot set `collect = true`.
 
@@ -761,8 +847,8 @@ python3 scripts/setup.py --corrections off --project ~/code/shop   # remove that
   its question page by its path.
 - The links point at the clone. A `git pull` in the clone changes Lem in each linked repository
   at once.
-- A task session starts in the permission mode that your Claude Code settings give a new
-  session. The run from the Linear ticket used the auto mode.
+- The companion session of a plan talk starts in the permission mode that your Claude Code
+  settings give a new session. The run from the Linear ticket used the auto mode.
 - A project that wants a different builder keeps a file with the same name in its own
   `.claude/agents/`.
 - The correction queue is optional. Its hook sends the messages that you type to the Jev

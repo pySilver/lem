@@ -132,6 +132,8 @@ For a repository that has code:
   Confirm or correct both. This is the one
   setting that is the owner's to choose.
 - **Who lands**: the owner, or the agent once the gate is green; and the branch tasks land on.
+  Where the remote is GitHub, in the same question: a pull request on the forge, or a merge into
+  the base branch with no pull request (`branch.propose = "merge"`).
 - **What lands**: a task's own commits, or one commit for the whole task. Guess from the last
   fifty merges in `examined.md`.
 - **Which branches are closed**: branches nothing may land on or be pushed to, such as a
@@ -149,7 +151,8 @@ For a repository that has code:
   step 1 found it, since two model families disagree more usefully than one family twice, and a
   reviewer on another provider's quota does not spend the builders'. Then, only when the owner
   has a preference: the reviewer's model, its effort for the review of a diff and its effort for
-  the talk over a careful or large plan. No answer means the agent's own default.
+  the talk over a careful or large plan. No answer means the agent's own default. Ask the same
+  of the plan's defender in that talk, the other side of it: its model and its effort, on Claude.
 - **The folders already here**, when `project.py existing` listed any: link them, so the older
   tools and this skill read one copy and nothing moves; or generate new profiles under
   `.lem/`, and leave the old folders for the owner to remove. Linking is what a project that
@@ -171,9 +174,10 @@ python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --exist
 ```
 
 Leave `--existing` out when `project.py existing` listed nothing, or the style guide alone: a rules folder needs no choice, and every other folder it lists does. Then edit `.lem/project.toml`: the
-gate commands from `examined.md`, the danger topics (`flow.topics`) and the careful patterns the owner confirmed, `land`, `history`,
+gate commands from `examined.md`, the danger topics (`flow.topics`) and the careful patterns the owner confirmed, `land`, `history`, `propose`,
 the protected branches, the `[tracker]` table when the project has one, the reviewer's `model`,
-`effort` and `plan_effort` when the owner named them, and `tools.annotate` or `tools.ask` when the owner marks up plans or takes questions with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
+`effort` and `plan_effort` when the owner named them, `[seats.planner]` (`agent = "claude"`, the
+defender's `model` and `effort`) when he named those, and `tools.annotate` or `tools.ask` when the owner marks up plans or takes questions with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
 only means the gate runs again whenever the base moves.
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
 and say so in the handover.

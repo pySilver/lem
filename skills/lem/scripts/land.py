@@ -2,10 +2,10 @@
 """Take one task's branch from `ready` to a pull request and to the base branch, one step at a time.
 
 Nothing reaches the base branch without the machine checks and a review by an agent that did not
-build it, and a task ends as a pull request. Each step here is one command, prints JSON, and
-refuses with exit 1 and the reason when the step may not run; nothing is retried and nothing is
-forced. Every step first asks `project.py may-land` about the settings' base branch, so a
-protected branch is never reached, whoever asks.
+build it, and a task ends as a pull request where there is a forge and the project wants one.
+Each step here is one command, prints JSON, and refuses with exit 1 and the reason when the step
+may not run; nothing is retried and nothing is forced. Every step first asks `project.py
+may-land` about the settings' base branch, so a protected branch is never reached, whoever asks.
 
     land.py start SLUG     the task takes the landing line: its state becomes `landing`
     land.py base SLUG      bring the base branch in by a rebase; a conflict is reported, not resolved
@@ -22,7 +22,7 @@ protected branch is never reached, whoever asks.
                            backlog, and commit the items on the task's branch
     land.py propose SLUG --title SUBJECT --notes FILE
                            open the pull request, or mark the branch ready where the remote is not
-                           GitHub: the state becomes `open`
+                           GitHub or `branch.propose` is `merge`: the state becomes `open`
     land.py land SLUG --by owner|agent [--message SUBJECT]
                            merge the pull request, or put a ready branch on the base branch
     land.py merged SLUG    the owner merged the pull request on the forge: finish the bookkeeping
@@ -141,9 +141,10 @@ is an answer of the owner's that came after either and differs. Each reason a re
 green stands before everything else, one line each; each decision of the record is one line
 before the notes. `propose` is refused while a choice of the task waits for the owner. A plan
 that calls itself careful (`careful: yes`) or has more than three tasks was talked through by
-its session lead and the reviewer before any code, and the lead wrote it down as one `plan.talk`
-event in the log `project.py` keeps: `propose` refuses such a request with none, and the text's
-checks hold one line from the newest, with who argued the plan with the lead, the turns, the
+its defender and the reviewer in the plan talk's companion before any code, and the defender
+wrote it down as one `plan.talk` event in the log `project.py` keeps: `propose` refuses such a
+request with none, and the text's checks hold one line from the newest, with who argued the plan
+with its defender, the turns, the
 positions settled and left open, and every other count the event holds, in words where Lem
 knows the count (`TALK_SAYS`) and by its name where it does not. An event of the older form,
 with no counts but those three, reads as before. A talk is a step before the build, so a request that is careful only by the owner's later word or
@@ -157,13 +158,18 @@ build started with no wait for him; for a correction, that the personas did not 
 the stories the read names by their digest are not the plan's (which the gate makes the expected
 ones), one more line says that they changed after the read, by his later approval or by a change
 of the build, and that the change was not read; that line is no cause of not green. A scout's report in the task's directory is named there as a file.
+A request that came from a bug has one more line with the cause its investigation found, the
+cause's place and the report, from the newest `investigation` event; a question's has none.
 `propose` refuses a feature with no `stories.read`, and one whose newest read flagged a story or
 showed a split between the families with no approval of his at or after it; the rare path's
 freeze of a read (`stories.py approve --read`) is no approval of his. A careful path that the diff matches and the plan's own call missed is a lesson
 about that call: `propose` writes one `careful.missed` event with the path and its pattern, the
 first time it finds the case, for the retro. With a GitHub remote `propose` pushes the task's branch
 and opens the pull request with the `gh` command; a second run updates it. With any other
-remote, or none, the branch is marked ready. GitLab is not built: nobody checked its command.
+remote, or none, the branch is marked ready. So it is with a GitHub remote when the settings'
+`branch.propose` is `merge`, for a developer who wants no pull requests: the remote is then one
+like any other, no task branch is pushed, and `merged` is refused. GitLab is not built: nobody
+checked its command.
 
 `land --by owner` is the owner's word. `land --by agent` is refused unless the settings'
 `branch.land` is `agent`, and then still for a careful request and for one that is not green. A
@@ -174,7 +180,9 @@ says which steps run again.
 
 A step that was cut off is run again. `land` writes down the commit it is about to put on the base
 before it does, so a second run that finds that commit on the base only finishes the bookkeeping.
-`clean` knows the branch from `landing.json`, so it finds it after the worktree is gone.
+`clean` knows the branch from `landing.json`, so it finds it after the worktree is gone. It
+takes a landed, a dropped or an answered task; the branch of the last two stays, with what it
+holds and how to delete it.
 
 The landing of a ready branch is a fast-forward and nothing else. With a remote named `origin`
 the tip is pushed to the base branch there with a plain push, which the remote refuses when
@@ -227,14 +235,17 @@ READ_FORM = "`by=lem|lead asked:=N answered:=N families:='[...]' silent:='[...]'
 # How many model families read the stories, in the words of the pull request.
 FAMILIES = {1: "one model family", 2: "two model families"}
 # The form of the one event that records a plan talk, as `talk_form` in `project.py` checks it.
-TALK_FORM = "reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N"
+TALK_FORM = "reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N"
 # The counts of a plan talk after its turns and positions, in the words of the pull request, one
 # form for one and one for more. A count the event holds and this table does not is shown by its name.
 TALK_SAYS = {
     "questions": ("question in the reviewer's first list", "questions in the reviewer's first list"),
-    "repaired": ("repaired by the lead", "repaired by the lead"),
+    "repaired": ("repaired by the defender", "repaired by the defender"),
     "design": ("of the open ones a design choice", "of the open ones a design choice"),
     "unargued": ("raised after the list and not argued", "raised after the list and not argued"),
+    "root": ("repaired at the cause", "repaired at the cause"),
+    "layer": ("layer over a cited decision", "layers over a cited decision"),
+    "shared": ("decision two questions named", "decisions two questions named"),
 }
 # What every event has and the talk's line says first, so it is no count after the positions.
 TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open")
@@ -327,8 +338,12 @@ class Task:
         self.kept_file = self.directory / "landing.json"
         self.recorded: list[dict] | None = None
         # The address as the repository has it, before any rewrite of it: the forge is known by its host.
+        # A project that wants no pull requests (`branch.propose = "merge"`) has no forge here: its
+        # remote is one like any other, and its task lands on the remote's base branch.
         url = git(self.main, "config", "--get", "remote.origin.url", check=False)
-        self.forge = "github" if re.match(r"(https://|ssh://git@|git@)github\.com[:/]", url) else None
+        github = re.match(r"(https://|ssh://git@|git@)github\.com[:/]", url)
+        self.merges = self.settings["branch"]["propose"] == "merge"
+        self.forge = "github" if github and not self.merges else None
 
     def need_worktree(self) -> None:
         if not (self.worktree / ".git").exists():
@@ -946,7 +961,7 @@ def talked(talk: dict) -> str:
         if key not in TALK_FIRST and isinstance(value, int) and not isinstance(value, bool)
     ]
     return (
-        f"- the plan talk: {talk['reviewer']} argued the plan with the lead, {many(talk['turns'], 'turn', 'turns')}; "
+        f"- the plan talk: {talk['reviewer']} argued the plan with its defender, {many(talk['turns'], 'turn', 'turns')}; "
         f"{many(talk['settled'], 'position', 'positions')} settled by the two, {talk['open']} left open"
         + (f"; {', '.join(counts)}" if counts else "")
     )
@@ -1320,6 +1335,11 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     scout = task.directory / "scout.md"
     if scout.is_file():
         out.append(f"- the scout's report, the facts of the code the stories were written from: `{scout}`")
+    cause = task.record.get("investigation")
+    if cause and cause.get("kind") == "bug":
+        # a correction or a feature that came from a bug names the cause its investigation found
+        where = f" ({cause['where']})" if cause.get("where") else ""
+        out.append(f"- the cause, as the investigation before the build found it: {cause['line']}{where}; its report: `{task.directory / 'investigation.md'}`")
     lowered = (checks.get("bar") or {}).get("lowered", [])
     out.append("- the bar: not lowered" if not lowered else "- the bar is lowered, with these reasons:")
     out += [f"  - `{entry['file']}` ({entry['what']}): {entry['reason']}" for entry in lowered]
@@ -1372,21 +1392,22 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     state = due(task)
     if state["due"] == "review":
         raise LandError(f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} at the least ({state['why']}); `land.py read {task.slug}` says what a reviewer gets")
-    # A careful or large plan is talked through by its session lead and the reviewer before any
-    # code. The talk leaves one event, and a request without it skipped that step.
+    # A careful or large plan is talked through by its defender and the reviewer, in the plan
+    # talk's companion, before any code. The talk leaves one event, and a request without it
+    # skipped that step.
     needs_talk = talk_due(task, state)
     talk = talk_of(task) if needs_talk else None
     if needs_talk and talk is None:
         raise LandError(
-            f"{needs_talk}, so its plan is talked through by a session lead and the reviewer before any code (`stages/plan.md`, step 4), "
-            f"and the event log has no `plan.talk` of {task.slug}. The lead writes it after the talk: "
-            f"`project.py log {task.slug} plan.talk {TALK_FORM}`; a plan that had no talk gets one from a session lead first",
+            f"{needs_talk}, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (`stages/plan.md`, step 4), "
+            f"and the event log has no `plan.talk` of {task.slug}. The defender writes it after the talk: "
+            f"`project.py log {task.slug} plan.talk {TALK_FORM}`; for a plan that had no talk, Lem opens the companion first, as for `needs a session` (`stages/new.md`)",
         )
     if talk is not None and not (
         isinstance(talk.get("reviewer"), str) and talk["reviewer"].strip()
         and all(isinstance(talk.get(key), int) and not isinstance(talk.get(key), bool) for key in ("turns", "settled", "open"))
     ):
-        raise LandError(f"the newest `plan.talk` of {task.slug} does not have the form `{TALK_FORM}`; the lead writes it again with `project.py log`")
+        raise LandError(f"the newest `plan.talk` of {task.slug} does not have the form `{TALK_FORM}`; its defender writes it again with `project.py log`")
     read = story_read_of(task)
     if read is not None and not read_form(read):
         raise LandError(f"the newest `stories.read` of {task.slug} does not have the form {READ_FORM}; whoever ran the read writes it again with `project.py log`")
@@ -1539,6 +1560,11 @@ def viewed(task: Task, pr: dict | None = None) -> dict:
 
 
 def cmd_merged(task: Task) -> dict:
+    if task.merges:
+        raise LandError(
+            f'branch.propose is "merge" in .lem/project.toml: no pull request is opened, so none is merged on the forge; '
+            f"`land.py land {task.slug} --by owner|agent` puts the ready branch on the base branch",
+        )
     # `landing` too: the owner may merge on the forge while an open task runs its checks again
     if task.record["status"] not in ("open", "landing") or not task.kept().get("pr"):
         raise LandError(f"the task is {task.record['status']!r} and has {'a' if task.kept().get('pr') else 'no'} pull request; this step is for a task whose pull request the owner merged")
@@ -1658,8 +1684,8 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
 
 
 def cmd_clean(task: Task) -> dict:
-    if task.record["status"] not in ("landed", "dropped"):
-        raise LandError(f"the task is {task.record['status']!r}; only a landed or dropped task loses its worktree")
+    if task.record["status"] not in ("landed", "dropped", "answered"):
+        raise LandError(f"the task is {task.record['status']!r}; only a landed, dropped or answered task loses its worktree")
     removed: dict = {"worktree": False, "branch": None, "branch_left": None, "remote": None, "remote_left": None}
     # The worktree names its branch while it is there; after it, what `start` wrote down does.
     branch = task.kept().get("branch")
@@ -1673,8 +1699,11 @@ def cmd_clean(task: Task) -> dict:
     if not branch or not git(task.main, "branch", "--list", branch):
         return {"task": task.slug, **removed}
     if task.record["status"] != "landed":
-        # A dropped task's commits are on no other branch: its branch is the owner's to delete.
-        removed["branch_left"] = f"{branch} holds the dropped task's commits; `git branch -D {branch}` deletes them"
+        # A dropped task's commits are on no other branch: its branch is the owner's to delete. An
+        # answered task's may hold the test that reproduced its bug, which a task started from its
+        # report can take.
+        held = "the dropped task's commits" if task.record["status"] == "dropped" else "the answered task's commits, the test that reproduced its bug among them when it has one"
+        removed["branch_left"] = f"{branch} holds {held}; `git branch -D {branch}` deletes them"
         return {"task": task.slug, **removed}
     # `branch -d` judges by the checkout it runs in, which may be behind. The proof wanted is that
     # the base holds the branch's tip, so that is what is checked before the branch goes.

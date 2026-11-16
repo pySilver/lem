@@ -9,9 +9,8 @@ fills.
 
 ## A builder with a plan of one task: you build it
 
-Your brief says `lead: builder` and the plan has one task: you wrote the plan, and you are its
-one builder. A session never takes this section: its lead writes no code, so its one task gets a
-builder of its own, as the next section says.
+Your brief says `lead: builder` and the plan has one task: you wrote the plan, or a builder
+before you wrote it and its talk is done, and you are its one builder.
 
 1. **Build the task.** Write it, with at least one test for each story of the plan: a test that
    fails on the base commit and passes with your change. A story no test can hold, such as a
@@ -24,11 +23,11 @@ builder of its own, as the next section says.
    and stop: Lem gives the task to a fresh builder.
 3. **Go on to "The report".**
 
-## A plan of more tasks, or any plan of a session: you coordinate
+## A plan of more tasks: you coordinate
 
-You write no code. A builder leads this way as a session does, and a session lead builds its
-tasks like any other lead: its plan talk is done (`stages/plan.md`, step 4), and the review comes
-at the landing, which reads the whole change. The harness file says whether a builder can start
+You write no code. A careful or large plan comes here once its plan talk is done
+(`stages/plan.md`, step 3), and its tasks are built like any others: the review comes at the
+landing, which reads the whole change. The harness file says whether a builder can start
 builders in your agent, and what to do when it cannot.
 
 1. **One builder per task of the plan**, through `spawn-builder`, in the task's worktree, one
@@ -50,7 +49,9 @@ builders in your agent, and what to do when it cannot.
    Write the state `building` with the line `task N of M` when a builder starts.
 2. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
    - *a failure nobody can explain after two tries*: the `lem-root-cause` skill, before
-     a third try;
+     a third try. A task that came from a bug had that method once already, before its stories
+     (`prompts/investigator.md`): read its `investigation.md` first, since the failure may be
+     what else the same cause reaches;
    - *an approach that failed twice*: it is not tried a third time with a patch. State the problem
      again in plain terms, name what the two tries assumed, and brief the next builder with a
      different approach and why it avoids that assumption;
@@ -115,17 +116,17 @@ a correction, or the other way, is a held decision. A plan that departs from a d
      and change the story in the plan in the commit that builds the option. A forgotten record
      does not pass: the gate refuses a plan whose stories are not the expected ones. The choice waits the
      settings' `flow.decision_wait` (15 minutes unless the project says otherwise). Tell Lem that
-     it waits: in a session, `tell-coordinator` with the line `lem: SLUG choice N waits`. A
-     builder that leads has no `tell-coordinator` (the harness file defines it from a task's
-     session only), so its choice reaches Lem at Lem's next turn, through `decisions.py pending`,
-     and may end its wait before the owner sees it.
+     it waits: the defender of a plan talk, in its companion, with `tell-coordinator` and the line
+     `lem: SLUG choice N waits`. A builder that leads has no `tell-coordinator` (the harness file
+     defines it from a task's session only), so its choice reaches Lem at Lem's next turn, through
+     `decisions.py pending`, and may end its wait before the owner sees it.
 
      Right after the ask, before anything else, give the choice to the experts: the
      `lem-ask-expert` skill (`load-skill`), with the slug, the choice's number and the files the
      choice is about. Two experts of two model families answer it in the background, and their
      advice goes on the owner's card. It also decides what the end of the wait takes, so it is
      not skipped for an irreversible step either: there it is advice and nothing more. In a
-     session, send `lem: SLUG choice N advised` when both answers are in the record.
+     companion, send `lem: SLUG choice N advised` when both answers are in the record.
 3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
    before you start one that depends on it, run `decisions.py --repo WORKTREE wait SLUG N`. It
    returns when the owner answered, when the wait is over, or after nine minutes: run it again
@@ -190,8 +191,8 @@ repository's root, never a path inside the worktree: the worktree is gone when t
 - **the branch and its tip**: the branch's name and the commit `git rev-parse HEAD` prints.
 
 Then write the state (`ready`, or `held`, `blocked` or `planned` with the line that says why),
-and tell Lem. A builder's reply is the report's path and nothing else. A session uses
-`tell-coordinator`.
+and tell Lem. A builder's reply is the report's path and nothing else. The defender of a plan
+talk uses `tell-coordinator` (`prompts/defender.md`).
 
 When your agent refuses you the write of `report.md`, do not go around the refusal. Add the line
 `report in the reply` to the state, and make your reply the whole report, in this form: Lem

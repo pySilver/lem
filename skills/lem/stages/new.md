@@ -13,20 +13,43 @@ a lead is started, and what to do each time a lead stops.
    none, and ask the owner for the ask in his words. When `project.py tasks` already lists a task
    with this ticket that is not `dropped`, do not open a second one: say which task it is and
    where it stands.
-1. **The slug and the branch.** A slug of two to five plain words that say what the owner gets
-   ("report-dates-stay-whole"), never a code. The branch is `<type>/<slug>` with a semantic type
-   (`feat`, `fix`, `chore`, `docs`), unless the project's `AGENTS.md` gives its own scheme. Take
-   the type from the ask alone: `fix` when the ask says that something is wrong today, `feat`
-   when it asks for something that is not there, and `feat` when you cannot tell. The branch's
-   type binds nobody; each commit of the lead carries its own. A slug that a `landed` or a
-   `dropped` task has is taken, since that task's files stay under it: add a word, as
-   `task-dir` says when it refuses. For a ticket, the branch is the
+1. **The kind of the request**, from the ask's words alone, before anything reads the code. Tell
+   the owner in one line which kind and why ("a bug: the ask says the total is wrong today"). The
+   words after each kind are hints for your judgment, not a list to match; no code matches them,
+   as none routes a review:
+   - *bug*: something is wrong today ("broken", "shows 0", "since yesterday", "fails again");
+   - *feature*: something that is not there ("add", "allow", "let me", "support");
+   - *correction*: one rule in his own sentence, with a cause that is plain from the ask ("the
+     button says Save, not Submit"). A symptom whose cause the ask does not show is a bug, even
+     when the fix may turn out to be one line;
+   - *investigation*: the answer is a report, not a change ("why", "find out", "check if", "how
+     often");
+   - *chore*: work no user of the product sees ("upgrade", "rename", "move", "clean up");
+   - *docs*: a document and nothing else ("document", "explain in the README").
+   When the words do not settle it, ask before step 2, as the first question of the interview,
+   with your guess and what each answer would mean: "Is the 0 wrong today, a bug, or do you want
+   a new rule for refunds, a feature?" (2026-11-16, his example: "From such input its kinda hard
+   to deduct if we want to investigate the bug or its a feature request.") His answer sets the
+   kind. The kind goes into `task.md` with its reason, and as the line `kind: KIND, because WHY`
+   into the first state block you write for the task; `project.py state` refuses that line in
+   any other form, and `project.py tasks` gives it as `kind`. When he changes the kind later,
+   write a state block with the new line.
+2. **The slug and the branch.** A slug of two to five plain words that say what the owner gets
+   ("report-dates-stay-whole"), never a code. The branch is `<type>/<slug>` with a semantic type,
+   unless the project's `AGENTS.md` gives its own scheme. The kind gives the type: `fix` for a bug
+   and a correction, `feat` for a feature, `chore` for a chore and `docs` for docs. For an
+   investigation, choose the type of the change its answer would most likely lead to, and say
+   why in the line that names the kind; its branch gets a commit only when the investigator
+   reproduces a bug. The branch's type binds nobody; each commit of the lead carries its own. A
+   slug that a `landed`, an `answered` or a `dropped` task has is taken, since that task's files
+   stay under it: add a word, as `task-dir` says when it refuses. For a ticket, the branch is the
    name the tracker gives for it, when it gives one: the tracker and its automation find the
    work by that name.
-2. **The task directory.** `project.py task-dir SLUG --ask "the owner's words"` keeps the ask as
+3. **The task directory.** `project.py task-dir SLUG --ask "the owner's words"` keeps the ask as
    the owner gave it, for the board and the status. For a ticket, add `--ticket ID`, and the ask
    is the ticket's title; the command refuses a ticket another task holds. Then write `task.md`:
    - the ask, verbatim; for a ticket, its id, its link, its title and its description as written;
+   - the kind, with its reason (step 1);
    - the outcome in one or two sentences, as the person it is for would see it;
    - done when: the evidence that shows the outcome, each line something a command or a look at
      the product can show;
@@ -35,24 +58,29 @@ a lead is started, and what to do each time a lead stops.
    "done when" line that needs the code is the lead's to sharpen in its plan. A line you put out
    of scope by yourself is a decision taken without the owner: log it, once the task directory
    is there, with `decisions.py log SLUG --by lem`.
-3. **Which path.** Choose one, and tell the owner in one line which one and why:
-   - *a correction*: the ask is one rule in his own sentence, and it names nothing careful (no
-     danger topic of `flow.topics`, no path a careful pattern matches). Write its one story and
-     approve it in his name, as "A correction" below says, then go on with step 4.
+4. **Which path.** Choose one, and tell the owner in one line which one and why:
+   - *the investigation first*, for a bug and an investigation: a fresh builder reproduces the
+     bug and finds its cause, or answers the question, before anyone writes a story, as "A bug
+     and an investigation" below says. For a bug, its report then takes one of the three paths
+     below; an investigation ends with its answer.
+   - *a correction*: the kind is a correction, and the ask names nothing careful (no danger topic
+     of `flow.topics`, no path a careful pattern matches). Write its one story and approve it in
+     his name, as "A correction" below says, then go on with step 5.
    - *the rare path*: the whole context and a defined outcome are written already: a ticket whose
      description says what is wanted and how to tell that it is done, a backlog item whose
-     options are settled, a night plan he starts. No interview: the lead writes the stories from
-     the code and has the personas read them (`stages/plan.md`, step 1). He can say "interview
-     me", and then it is the usual path. Go on with step 4.
+     options are settled, a night plan he starts, an investigation's report that settles what is
+     wanted. No interview: the lead writes the stories from the code and has the personas read
+     them (`stages/plan.md`, step 1). He can say "interview me", and then it is the usual path.
+     Go on with step 5.
    - *the usual path*, for every other ask: the interview, then the stories he approves, as
      "The interview and the stories" below says, all in one sitting while he is there. Then go on
-     with step 4.
-4. **The brief.** Write `brief.md` in the task directory, with this and nothing more:
+     with step 5.
+5. **The brief.** Write `brief.md` in the task directory, with this and nothing more:
 
    ```
    Read SKILL_DIR/prompts/lead.md and follow it.
    task: SLUG
-   branch: the branch of step 1
+   branch: the branch of step 2
    worktree: the path `project.py worktree-dir SLUG` prints
    task directory: the task directory's absolute path
    lead: builder
@@ -63,16 +91,19 @@ a lead is started, and what to do each time a lead stops.
    `task.md`, in the owner's words. The brief is a file because a task may wait in the queue or
    get a second lead, and each start has to find the same answers: `/lem plan <what>` writes
    `stop after the plan: yes` here, and that line is what keeps a queued plan from being built.
-   When the owner called the task careful in the ask, write `lead: session`.
-5. **Does it wait for another task?** Two asks that name the same thing (the same screen, the
+   When the owner called the task careful in the ask, add the line `careful: the owner says so`
+   and log his words, as the paragraph on his word below says. A builder still writes the plan:
+   it reads that line as a yes (`stages/plan.md`, step 2) and stops for the plan talk, which
+   needs a plan to talk about.
+6. **Does it wait for another task?** Two asks that name the same thing (the same screen, the
    same file, the same command) run one after the other. Write the later one's state as `queued`
    with the line `after: SLUG` of the earlier one, and stop here: it starts when that task is
-   `landed` or `dropped`, so it builds on what the earlier one changed. Do not read the code to
-   find an overlap the asks do not show; the landing line settles that one (`stages/land.md`,
-   step 1).
-6. **Start its lead**, as the next section says. Open the board when this session has not
+   `landed`, `answered` or `dropped`, so it builds on what the earlier one changed. Do not read
+   the code to find an overlap the asks do not show; the landing line settles that one
+   (`stages/land.md`, step 1).
+7. **Start its lead**, as the next section says. Open the board when this session has not
    opened it yet (`SKILL.md`, Status); it stays in the sidebar beside your session.
-7. **Tell the owner**, in a few lines: the task's plain name, the outcome and the "done when"
+8. **Tell the owner**, in a few lines: the task's plain name, the outcome and the "done when"
    lines as you wrote them, each decision you took for him (what you put out of scope), and that
    the report comes after the landing. Then go back to the owner's next message. Do not wait for
    the lead and do not watch it.
@@ -97,10 +128,12 @@ owner knows, and only his yes puts a topic or a path into the settings.
 
 ## The interview and the stories
 
-The usual path, between step 2 and the brief. He is there for it, and it ends with stories he
+The usual path, between step 3 and the brief. He is there for it, and it ends with stories he
 approved, which the lead may not change without the record saying so.
 
-1. **Start the scout and the interview at once.** The scout is a fresh read-only agent that
+1. **Start the scout and the interview at once.** A bug whose investigation found its cause has
+   no scout: the investigation's report is its facts of the code, and wherever these steps name
+   the scout's report, read that one. The scout is a fresh read-only agent that
    reads the code around the ask and returns facts, not a plan: `spawn-builder` with the brief
 
    ```
@@ -178,7 +211,7 @@ approved, which the lead may not change without the record saying so.
    each change of his. The stories are then kept word for word with a digest, and the plan's
    stories have to be those, with only the test lines added: a story the build changes, adds or
    drops has its own record (`decisions.py story`), and the pull request is not green for it.
-   Go on with step 4 of "Open the task". The landing refuses a feature whose stories nobody read,
+   Go on with step 5 of "Open the task". The landing refuses a feature whose stories nobody read,
    and one whose read found a doubt with no yes of his after it.
 
 When he leaves before he answers, write the state `held` with the line `the stories wait for the
@@ -202,10 +235,88 @@ say "this is a feature". The personas do not read a correction's one story; the 
 says "this is a feature", it takes steps 5 to 7 of the usual path: the personas read it, and his
 approval of the stories as a feature replaces the correction's. A change of the kind is his only.
 
+## A bug and an investigation
+
+A bug is investigated before anyone writes a story: "typically the root-cause-investigation is
+needed to unerstand what triggers the bug that we aim to correct" (the owner, 2026-11-16). An
+investigation is the same work with a question in place of the bug, and its answer is the whole
+task.
+
+1. **A place, the worktree and the state.** `project.py may-start`, and the worktree on the
+   task's branch, as steps 1 and 2 of "Start a lead" say: the investigator runs the project's
+   tests, so it takes a place. A task queued there starts its investigator when its turn comes,
+   not a lead: `project.py tasks` gives its `kind` and no `investigation` yet. Then write the
+   state:
+
+   ```bash
+   python3 SKILL_DIR/scripts/project.py state SLUG building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because WHY"
+   ```
+
+   with `investigation: question` and the kind line of an investigation for a question. The
+   board draws a block with an `investigation:` line as the investigation.
+2. **Start the investigator**, a fresh builder (`spawn-builder`) with the brief
+
+   ```
+   Read SKILL_DIR/prompts/investigator.md and follow it.
+   request: TASK_DIRECTORY/ask.txt
+   kind: bug or investigation
+   worktree: the path `project.py worktree-dir SLUG` prints
+   branch: the branch of step 2 of "Open the task"
+   task directory: TASK_DIRECTORY
+   ```
+
+   Tell the owner in one line that it runs, and go back to his next message: its reply wakes you.
+   No investigation has been timed yet.
+3. **Read its report.** Its reply is the path of `investigation.md` in the task directory. When
+   its agent refused it the write, its reply is the whole report: write it into that file word
+   for word, with one line at the top that says who copied it and why. The report is knowledge of
+   the code for the stories, as the scout's is; you still read no diff and write no code. Then
+   write what it found, which the board shows and the landing reads:
+
+   ```bash
+   python3 SKILL_DIR/scripts/project.py log SLUG investigation kind=bug call=CALL "line=ONE LINE" where=PATH:SYMBOL reproduced:=true|false
+   ```
+
+   `call` is the report's: `correction`, `usual`, `not-a-bug` or `not-reproduced` for a bug, and
+   `answer` for an investigation, which has no `reproduced`. `line` is the cause, the answer, or
+   what was tried, in one line. `where` is the cause's place, which a plain cause has. When you
+   take another call than the report's (a one-rule fix in a careful path is not a correction),
+   log yours and tell the owner why in one line.
+4. **The path**, from the call:
+   - *correction*: the correction path, with its one story the rule that removes the cause, in
+     his words made exact, and with nothing careful (`project.py careful PATH` for the cause's
+     file). The reproducing test is the story's test: the lead adds its line under the story in
+     the plan. Go on with step 5 of "Open the task".
+   - *usual*: the usual path, with no scout, whose interview starts from the cause ("the total
+     adds the refund as a payment, in `billing/invoice.py:total`; should the refund lower the
+     total, or stand as a line of its own?"). Write the state `held` with the line `the
+     interview waits for the owner` first: the investigator's place is free again.
+   - *not a bug*: tell him what the code does in his case and why, as one run (`SKILL.md`, "What
+     the owner has to understand is told as one run"), with where each step was read. Write the
+     state `answered` with that in one line, and `land.py clean SLUG`: the worktree goes, and the
+     branch stays with its commits, the reproducing test among them.
+   - *not reproduced*: tell him each try in one line, and ask him for one more fact: the record,
+     the input, the time, what he saw. Write the state `held` with the line `the investigation
+     waits for one more fact`. Write his answer into `task.md`, and start a fresh investigator
+     with the same brief and one more line, `tried before:` with the report's tries.
+   - *answer*, for an investigation: show him the answer as the report gives it, with where each
+     part was read. Write the state `answered` with the answer in one line, and `land.py clean
+     SLUG`.
+   `project.py state SLUG answered` refuses a task with no `investigation.md` or no record whose
+   call is `not-a-bug` or `answer`. For an answered task that came from a ticket, the tracker
+   then comments the answer on the ticket and changes no status (its "answer"): tell the owner
+   which status the ticket has. A task that goes on keeps the report in its directory, and
+   its pull request names the cause in one line, from the record.
+5. **A task from the report.** He can start one with `/lem new` and the report's path, as he can
+   with a backlog item: the new task's ask is his words, and the report its written context. Copy
+   the report into the new task's directory as `investigation.md`, name it in its `task.md`, and
+   take its path in step 4: when the report and his words settle what is wanted, that is the rare
+   path. The answered task's branch may hold a test the new task can take.
+
 ## When a task is dropped
 
 The owner says that a task is not wanted, at any point before its landing. Write the state
-`dropped` with his reason in one line. Close the task's session when it has one, and remove its
+`dropped` with his reason in one line. Close the task's companion when one is open, and remove its
 worktree the way the project does; the branch stays, because its commits are on no other branch
 (`land.py clean` does both and says so). For a task that came from a ticket, the tracker then
 says so on the ticket (its "drop") and changes no status: tell the owner which status the ticket
@@ -232,11 +343,14 @@ that is started again after it stopped.
    `lead: session` as the brief says, so the next `may-start` counts this task. For a task that
    came from a ticket, the tracker then marks the ticket as started (its "start"); it writes
    nothing when the project's settings say that the tracker moves its own tickets. Then, for a
-   builder, `spawn-builder` with one line: `Read TASK_DIRECTORY/brief.md and follow it.` For a
-   session, `open-task-session` with the same file; write the state again with the line
-   `session: ID` and the id the session got, so the board can show the session and it can be
-   closed after the landing. When the task's session is still there, the start is one message to
-   it with what changed (the owner's answers, a settled blocker) instead of a second session.
+   builder, `spawn-builder` with one line: `Read TASK_DIRECTORY/brief.md and follow it.` For
+   `lead: session`, the plan talk's companion: `open-task-session` with the same file, its agent
+   on the model and the effort of the settings' `seats.planner` when they name them; write the
+   state again with the line `session: ID` and the id the session got, so the board can show the
+   companion and it can be closed after the talk, and with the line `defender: MODEL, EFFORT` as
+   the companion's status line shows them, which the talk's record names. When the companion is
+   still there, the start is one message to it with what changed (the owner's answers, a settled
+   blocker) instead of a second session.
 
 A lead that is started again is a fresh agent with the same brief. It finds the plan, the report,
 the decisions and the commits on the branch; that is the whole handover.
@@ -244,8 +358,9 @@ the decisions and the commits on the branch; that is the whole handover.
 ## When a choice waits for the owner
 
 A lead that meets a choice the personas leave unclear asks it with `decisions.py ask`, and the
-task goes on without it (`stages/build.md`, "A choice in the build"). A session's lead tells you
-with the line `lem: SLUG choice N waits`. A builder that leads cannot wake you, so run
+task goes on without it (`stages/build.md`, "A choice in the build"). The defender of a plan
+talk asks the choices the talk left open the same way, and tells you with the line
+`lem: SLUG choice N waits`. A builder that leads cannot wake you, so run
 `python3 SKILL_DIR/scripts/decisions.py pending` at each of your turns: its `waiting` list is what
 needs his answer. A task that was dropped or landed while a choice waited is under `ended`, and
 its choices need no answer.
@@ -260,10 +375,10 @@ its choices need no answer.
    and that only that part of the plan waits for his word.
    The lead gives each choice to the experts (the `lem-ask-expert` skill) right after its ask, and
    their answers take some seconds to minutes. When `advice` is not complete yet, say on the card
-   that the experts were asked; a session's lead sends `lem: SLUG choice N advised` when both
-   answers are in, and then you tell him both in one short message. When the task's directory has
-   no `experts/choice-N.brief.md`, nobody gave the choice to them: run the `lem-ask-expert` skill
-   yourself, at once.
+   that the experts were asked; the defender of a plan talk sends `lem: SLUG choice N advised`
+   when both answers are in, and then you tell him both in one short message. When the task's
+   directory has no `experts/choice-N.brief.md`, nobody gave the choice to them: run the
+   `lem-ask-expert` skill yourself, at once.
 2. **Write his answer**: `decisions.py answer SLUG N --chose OPTION --words TEXT`. `--chose` is
    the option his answer takes, word for word as the choice has it; the script refuses any
    other text. `--words` is his answer as he gave it, when it is not that text, and `--why`
@@ -287,15 +402,16 @@ its choices need no answer.
    words in this session that he is away or leaves, or a question of this turn that went to his
    away channel. His silence is no such fact. The script refuses when the experts split, when
    one has not answered, after the wait ended (the timeout takes it then) and always for an
-   irreversible step; a choice it refuses waits its time. A session's lead gets one message with
-   the option taken; a builder that leads finds it at its next `decisions.py wait`. Tell him at
+   irreversible step; a choice it refuses waits its time. A defender whose companion is open
+   gets one message with the option taken; a builder that leads finds it at its next
+   `decisions.py wait`. Tell him at
    his return what was taken for him and the experts' reasons.
 
 ## When a lead stops
 
-A builder's reply is the path of its report. A session's lead sends one message that starts with
-`lem:` and names the task. Either is only a wake-up. The fact is the task's newest state block:
-`project.py tasks`, then read the task's `report.md`.
+A builder's reply is the path of its report. The defender of a plan talk sends one message
+that starts with `lem:` and names the task. Either is only a wake-up. The fact is the task's
+newest state block: `project.py tasks`, then read the task's `report.md`.
 
 A lead whose agent refused it the write of `report.md` says so in its state (`report in the
 reply`), and its reply is the whole report. Write that text into `report.md` word for word, with
@@ -308,8 +424,16 @@ Act on the status:
   `landing`; a `ready` task waits there in the order of its state's time.
 - **`planned`**: the report says why the lead stopped at the plan.
   - *It needs a session* (`needs a session: careful`, or `needs a session: large` for a plan of
-    more than three tasks): change the brief to `lead: session`, and start a lead. Its plan talk
-    needs the reviewer's pane, which a builder does not have.
+    more than three tasks): change the brief to `lead: session`, and start a lead. That opens
+    the plan talk's companion, whose agent defends the plan against the reviewer in its other
+    pane (`prompts/defender.md`): a builder has no pane for the reviewer.
+  - *The talk is done* (`the plan talk is done`, after `lem: SLUG talk done`): read `talk` in
+    `project.py tasks`, never the line's claim. A record there: close the companion
+    (`open-task-session`), change the brief to `lead: builder`, and start a lead; the builder
+    leads the build of the talked plan, one fresh builder for each of its tasks
+    (`stages/plan.md`, step 3). Each choice the talk left open waits in `decisions.py pending`:
+    ask it as the section above says. No record: the defender ended without its last step, so
+    send it one message that says so, and close nothing.
   - *The owner asked for the plan only*: show the owner the plan through the settings'
     `tools.annotate`, and leave the task as it is until the owner says build or drop.
 - **`held`**: the report holds one or more decisions that are the owner's, each in the form
@@ -342,5 +466,6 @@ Act on the status:
 
 After any of these, look at what is owed and at the queue. A task that ended with a
 `ticket_owed` in `project.py tasks` gets those steps from the tracker now. Take the `queued` tasks in the order of their state's
-time, leave out each one whose `after:` task is neither `landed` nor `dropped`, and start a lead
-for the first that is left. Step 1 of "Start a lead" decides whether there is a place.
+time, leave out each one whose `after:` task is not `landed`, `answered` or `dropped`, and start
+a lead, or the investigator of a bug or an investigation, for the first that is left. Step 1 of
+"Start a lead" decides whether there is a place.

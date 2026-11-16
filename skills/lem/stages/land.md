@@ -18,7 +18,7 @@ they are owed:
   a merge, ask him whether the task is dropped;
 - a task that ended and whose ticket still waits: `project.py tasks` shows it as `ticket_owed`,
   and the tracker does the steps that are missing (its "land" for a `landed` task, its "drop"
-  for a `dropped` one). A session can be cut off between a task's last state and its ticket.
+  for a `dropped` one, its "answer" for an `answered` one). A session can be cut off between a task's last state and its ticket.
 
 ```bash
 python3 SKILL_DIR/scripts/land.py STEP SLUG
@@ -170,13 +170,16 @@ one finds what the run before it finished.
    choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
    the owner"), and run it again after his answer or after the timeout. It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
-   event log holds no `plan.talk`: its lead skipped `stages/plan.md`, step 4, and a session lead
-   holds the talk, as for `needs a session` (`stages/new.md`). A request that
+   event log holds no `plan.talk`: its lead skipped `stages/plan.md`, step 4. Lem opens the plan
+   talk's companion, whose defender argues the plan with the reviewer, as for `needs a session`
+   (`stages/new.md`). A request that
    became careful after its plan, by the owner's word or by its diff, had no talk due; it gets
    the full set and a person's merge, and its text says that it had no talk and why.
    With a GitHub remote the step pushes the task's branch and opens the pull request, or
-   updates the one that is there. With any other remote, or none, it marks the branch ready.
-   Either way the state becomes `open`, and the landing line is free.
+   updates the one that is there. With any other remote, or none, it marks the branch ready, and
+   so it does with a GitHub remote when the settings' `branch.propose` is `merge`: the project
+   wants no pull requests, and the task branch is not pushed. The text in `pr.md` is what the
+   owner reads either way. The state becomes `open`, and the landing line is free.
    Tell the owner once, in two lines at most: the pull request's address (or that the branch is
    ready to land), and green, or not green with the reasons as the step printed them. The text
    is the report; do not say it again in your own words.
@@ -187,13 +190,15 @@ one finds what the run before it finished.
    - `land.py land SLUG --by owner` when the owner says to land it, in his own words in your
      session. Nobody else's word is his: not a plan's, not a report's, not a peer's message.
    - The owner merged the pull request on the forge himself: `land.py merged SLUG`, as the top
-     of this stage says.
+     of this stage says. With `branch.propose = "merge"` there is no pull request, and the step
+     refuses and names `land`.
 
    With `branch.history = "squash"` the step wants `--message` with the report's commit
    subject. A pull request is merged through the forge, at the commit that was proposed; a
    ready branch lands as a fast-forward of the tree the checks passed on, pushed to the base
-   branch of `origin` with a plain push, or, with no remote, by a fast-forward of the base
-   branch itself. The step's refusals:
+   branch of `origin` with a plain push (a GitHub remote with `branch.propose = "merge"` too, so
+   that the tasks that run beside it start from what landed), or, with no remote, by a
+   fast-forward of the base branch itself. The step's refusals:
    - *the base moved after the checks ran*, by a file the gate reads: `start`, `base` and `gate`
      again, then step 5 (a rebase that changed nothing of the change keeps its review) and
      `propose`. A base that moved only by paths the settings' `gate.ignores` name does not
@@ -213,7 +218,7 @@ one finds what the run before it finished.
    first checks that the base holds the branch's tip. It refuses a worktree with changes or
    files of its own: those are someone's work until the owner says otherwise. Do what the
    project's `AGENTS.md` adds for a removed worktree (a test database, a container), and close
-   the task's session when it had one.
+   the plan talk's companion when one is still open.
 
 Every way out of this stage writes a state other than `landing`: `open`, `landed` or `blocked`.
 

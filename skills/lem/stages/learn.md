@@ -9,7 +9,8 @@ sessions, and the owner gave that correction again to eight sessions in two minu
 
 When the owner corrects you, disagrees with an approach, or tells you something for the second
 time ("again", "I told you", "we discussed"), do this in the same reply, before going on. The
-owner may correct Lem or, in a task's session, its lead; whoever was corrected does it:
+owner may correct Lem or, in a plan talk's companion, its defender; whoever was corrected does
+it:
 
 1. **Say the lesson in one sentence** an agent could follow next time.
 2. **Find the file that owns the step**, the first that fits:

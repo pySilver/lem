@@ -156,6 +156,18 @@ else
 fi
 settings '[branch]' 'base = "master"' 'history = "rewrite"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a history other than keep or squash is refused"; else fail "history value"; fi
+# How a task is proposed: a pull request on the forge unless the settings say a merge with none.
+settings '[branch]' 'base = "master"' 'propose = "push"'
+err=$(project --repo "$OLD" show 2>&1 || true)
+settings '[branch]' 'base = "master"' 'propose = "merge"'
+merge=$(project --repo "$OLD" show | field 'd["branch"]["propose"]')
+settings '[branch]' 'base = "master"'
+if [ "$(status_of project --repo "$OLD" show)" = 0 ] && grep -qF "branch.propose = 'push' must be one of pull-request, merge" <<<"$err" \
+  && [ "$merge" = merge ] && [ "$(project --repo "$OLD" show | field 'd["branch"]["propose"]')" = pull-request ] && grep -q '^propose = "pull-request"$' "$NEW/.lem/project.toml"; then
+  pass "a task ends as a pull request unless the settings say a merge with none, and any other word is refused with the two it may be"
+else
+  fail "branch.propose: $err / $merge"
+fi
 settings '[branch]' 'base = "master"' '[gate]' 'ignores = ["docs/*"]'
 if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], d["gate"]["ignores"])')" = "('keep', ['docs/*'])" ] && grep -q '^history = "keep"$' "$NEW/.lem/project.toml"; then
   pass "a branch's own commits land unless the settings say one commit, and the gate may name paths it does not read"
@@ -176,6 +188,29 @@ if [ "$(project --repo "$OLD" show | field 'd["seats"]["reviewer"]')" = "{'agent
   pass "the reviewer's seat names the agent, which may be the builder's family, and what its pane starts with"
 else
   fail "reviewer seat: $(project --repo "$OLD" show | field 'd["seats"]')"
+fi
+# The defender's seat: the agent of the plan talk's companion, only Claude Code while the harness was checked in no other.
+settings '[branch]' 'base = "master"'
+unset_seat=$(project --repo "$OLD" show | field 'd["seats"]["planner"]' 2>&1 || true)
+settings '[seats.planner]' 'agent = "claude"' 'model = "a-model"' 'effort = "high"'
+set_seat=$(project --repo "$OLD" show | field 'd["seats"]["planner"]' 2>&1 || true)
+settings '[seats.planner]' 'agent = "codex"'
+codex_err=$(project --repo "$OLD" show 2>&1 || true)
+settings '[seats.planner]' 'model = "a-model"'
+agentless=$(status_of project --repo "$OLD" show)
+settings '[seats.planner]' 'agent = "claude"' 'plan_effort = "xhigh"'
+plan_effort_err=$(project --repo "$OLD" show 2>&1 || true)
+settings '[seats]' 'planner = "claude"'
+bare_err=$(project --repo "$OLD" show 2>&1 || true)
+settings '[seats.planner]' 'agent = "claude"' 'effort = ""'
+empty=$(status_of project --repo "$OLD" show)
+if [ "$unset_seat" = "{'agent': None, 'model': None, 'effort': None}" ] && [ "$set_seat" = "{'agent': 'claude', 'model': 'a-model', 'effort': 'high'}" ] \
+  && grep -q "seats.planner.agent = 'codex' must be claude" <<<"$codex_err" && grep -q "checked in Claude Code only" <<<"$codex_err" \
+  && [ "$agentless" = 1 ] && grep -q "unknown key seats.planner.plan_effort" <<<"$plan_effort_err" && grep -q "seats.planner is a table" <<<"$bare_err" \
+  && [ "$empty" = 1 ] && ! grep -q Traceback <<<"$codex_err$plan_effort_err$bare_err"; then
+  pass "the defender's seat names claude, a model and an effort, and nothing when unset; another agent, a model with no agent, a key of the reviewer's seat, a bare word and an empty value are refused"
+else
+  fail "the defender's seat: $unset_seat / $set_seat / $codex_err / $agentless / $plan_effort_err / $bare_err / $empty"
 fi
 settings '[branch]' 'base = "v2"' 'protected = ["master", "develop"]'
 err=$(project --repo "$OLD" may-land master 2>&1 || true)
@@ -262,7 +297,7 @@ else
 fi
 if [ -e "$OLD/.git/lem/tasks/empty-ask" ]; then fail "a refused task-dir made its directory"; fi
 rm -r "$titled" "$plain"
-# One ticket is one task, until that task is dropped.
+# One ticket is one task, until that task is dropped or answered.
 project --repo "$OLD" task-dir from-a-ticket --ticket mbz-12 --ask "Report dates are cut" >/dev/null
 err=$(project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 2>&1 || true)
 if [ "$(project --repo "$OLD" tasks | field '{t["slug"]: t["ticket"] for t in d}')" = "{'from-a-ticket': 'MBZ-12', 'report-dates-stay-whole': None}" ] \
@@ -306,8 +341,22 @@ if grep -q "is dropped; a new task takes a slug of its own" <<<"$err" && project
 else
   fail "the ticket of a dropped task: $err"
 fi
+# A task that ended with an answer gives its ticket back too, and the ticket is owed the answer's
+# comment until that step is written down.
+owed_by() { project --repo "$OLD" tasks | field "next(t[\"ticket_owed\"] for t in d if t[\"slug\"] == \"$1\")"; }
+printf '%s\n' '2026-01-01T00:00Z answered: not a bug: the report cuts no date' > "$OLD/.git/lem/tasks/the-same-ticket/state.md"
+answered=$(owed_by the-same-ticket)
+again=$(project --repo "$OLD" task-dir after-the-answer --ticket MBZ-12 2>&1 || true)
+project --repo "$OLD" ticket-step the-same-ticket answered >/dev/null 2>&1 || true
+if [ "$answered" = "['answered']" ] && [ "$(project --repo "$OLD" tasks | field '{t["slug"]: t["ticket"] for t in d if t["ticket"]}')" = "{'after-the-answer': 'MBZ-12', 'from-a-ticket': 'MBZ-12', 'the-same-ticket': 'MBZ-12'}" ] \
+  && [ "$(owed_by the-same-ticket)" = "[]" ] && [ "$(owed_by after-the-answer)" = "[]" ]; then
+  pass "an answered task gives its ticket back to a task with a slug of its own, and its ticket is owed the answer's comment until the step answered is written down"
+else
+  fail "the ticket of an answered task: $answered / $again / $(owed_by the-same-ticket)"
+fi
 settings '[branch]' 'base = "master"'
 rm -r "$OLD/.git/lem/tasks/from-a-ticket" "$OLD/.git/lem/tasks/the-same-ticket"
+rm -rf "$OLD/.git/lem/tasks/after-the-answer"
 none=$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')
 echo '{"proposed": "0123", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["story 1 changed during the build: y is taken."]}' > "$dir/landing.json"
 if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['story 1 changed during the build: y is taken.']}]" ]; then
@@ -389,6 +438,25 @@ else
 fi
 project --repo "$OLD" reviewer codex >/dev/null && project --repo "$OLD" reviewer default >/dev/null
 if [ ! -e "$OLD/.lem/project.local.toml" ]; then pass "a local file with nothing left in it is removed"; else fail "empty local file stays"; fi
+# One machine may name its own defender too, read from the main checkout, and a rewrite of the reviewer's seat keeps it.
+settings '[branch]' 'base = "master"' '[seats.planner]' 'agent = "claude"' 'model = "the-usual"' 'effort = "high"'
+printf '%s\n' '[seats.planner]' 'agent = "claude"' 'model = "a-local-model"' > "$OLD/.lem/project.local.toml"
+local_seat=$(project --repo "$WORK/wt" show | field '(d["seats"]["planner"], d["local"]["overrides"])' 2>&1 || true)
+project --repo "$OLD" reviewer codex >/dev/null 2>&1 || true
+both=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["seats"]["reviewer"]["agent"], d["local"]["overrides"])' 2>&1 || true)
+project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
+kept=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["local"]["overrides"])' 2>&1 || true)
+printf '%s\n' '[seats.planner]' 'agent = "codex"' > "$OLD/.lem/project.local.toml"
+err=$(project --repo "$OLD" reviewer claude 2>&1 || true)
+if [ "$local_seat" = "({'agent': 'claude', 'model': 'a-local-model', 'effort': None}, ['seats.planner'])" ] \
+  && [ "$both" = "('a-local-model', 'codex', ['seats.reviewer', 'seats.planner'])" ] && [ "$kept" = "('a-local-model', ['seats.planner'])" ] \
+  && grep -q "project.py: .lem/project.local.toml: seats.planner.agent = 'codex' must be claude" <<<"$err" \
+  && [ "$(cat "$OLD/.lem/project.local.toml")" = "$(printf '%s\n' '[seats.planner]' 'agent = "codex"')" ]; then
+  pass "the machine's own file may name the defender's seat, which replaces the project's whole and show says so; reviewer keeps it through a rewrite, and refuses a wrong one already there, leaving the file as it was"
+else
+  fail "the defender's seat in the local file: $local_seat / $both / $kept / $err"
+fi
+rm "$OLD/.lem/project.local.toml"
 settings '[branch]' 'base = "master"'
 # A checkout whose folder name holds a line break is still one path.
 ODD="$WORK/odd
@@ -439,6 +507,29 @@ if [ "$(status_of project --repo "$OLD" log with-a-worktree task.state status=la
 else
   fail "log refusals"
 fi
+# A plan talk's record counts the repairs at the cause and the layers over a cited decision, and
+# the decisions two questions named; `tasks` gives each task its newest talk, which Lem and a
+# builder read before the build of a careful or large plan.
+talk() { project --repo "$OLD" log with-a-worktree plan.talk reviewer=codex turns:=6 questions:=3 settled:=2 open:=1 design:=1 unargued:=0 "$@" 2>&1 || true; }
+before=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+untold=$(talk repaired:=2)
+layered=$(talk repaired:=2 root:=1 layer:=2 shared:=0)
+unshared=$(talk repaired:=2 root:=1 layer:=1 shared:=2)
+typed=$(talk repaired:=2 root:=1 layer=1 shared:=0)
+none_yet=$(project --repo "$OLD" tasks | field '[t["talk"] for t in d if t["slug"] == "with-a-worktree"]' 2>&1 || true)
+after_refusals=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+talk repaired:=1 root:=0 layer:=1 shared:=0 >/dev/null
+written=$(talk repaired:=2 root:=1 layer:=1 shared:=1)
+told=$(project --repo "$OLD" tasks | field '[(t["slug"], t["talk"] and (t["talk"]["root"], t["talk"]["layer"], t["talk"]["shared"], bool(t["talk"]["ts"]))) for t in d if t["slug"] in ("with-a-worktree", "report-dates-stay-whole")]' 2>&1 || true)
+if grep -qF "and nothing else; this one has design, open, questions, repaired, reviewer, settled, turns, unargued" <<<"$untold" \
+  && grep -qF "root and layer add up to at most repaired" <<<"$layered" && grep -qF "shared is at most design" <<<"$unshared" \
+  && grep -qF "each N is a whole number" <<<"$typed" && [ "$none_yet" = "[None]" ] && [ "$after_refusals" = "$before" ] \
+  && [ "$(field '(d["root"], d["layer"], d["shared"])' <<<"$written")" = "(1, 1, 1)" ] \
+  && [ "$told" = "[('report-dates-stay-whole', None), ('with-a-worktree', (1, 1, 1, True))]" ]; then
+  pass "a plan talk's record names its repairs at the cause, its layers over a cited decision and its decisions two questions named: root and layer add up to at most repaired, shared is at most design, and a refused record writes nothing; tasks gives each task its newest talk, or none"
+else
+  fail "the talk's new counts: $untold / $layered / $unshared / $typed / $none_yet / $written / $told"
+fi
 project --repo "$OLD" state with-a-worktree dropped "the test is over" >/dev/null
 
 # The limit on tasks that build at one time.
@@ -488,6 +579,76 @@ for bad in 0 true '"four"' 2.5; do
 done
 if [ -z "$accepted" ]; then pass "a limit that is not a whole number of 1 or more is refused"; else fail "max_tasks accepted:$accepted"; fi
 settings '[branch]' 'base = "master"'
+
+# The kind of a request, and a task that ends with a report and nothing to merge: `answered`.
+ANS=$WORK/answered
+git init -q -b main "$ANS"
+project --repo "$ANS" init --base main --reviewer codex >/dev/null
+"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^max_tasks = 4$", "max_tasks = 1", s, count=1))' "$ANS/.lem/project.toml"
+ans_dir=$(project --repo "$ANS" task-dir zero-after-refund --ask "invoices show 0 after a refund")
+before=$(grep -c '' "$ANS/.git/lem/events.jsonl" 2>/dev/null || echo 0)
+unknown=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: defect, because the total is wrong" 2>&1 || true)
+unsaid=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug" 2>&1 || true)
+after_refusals=$(grep -c '' "$ANS/.git/lem/events.jsonl" 2>/dev/null || echo 0)
+project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the ask says the total is wrong today" >/dev/null
+project --repo "$ANS" state zero-after-refund building "the test that reproduces the bug is committed" "investigation: bug" >/dev/null
+kind=$(project --repo "$ANS" tasks | field 'next(t["kind"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
+if grep -qF "'defect' is not a kind of request" <<<"$unknown" && grep -qF "kind: bug, because" <<<"$unsaid" && [ "$after_refusals" = "$before" ] \
+  && [ "$kind" = "{'kind': 'bug', 'why': 'the ask says the total is wrong today'}" ]; then
+  pass "a state line that names the kind of a request names one of the six with its reason, and tasks gives the newest kind also when a later block says nothing of it"
+else
+  fail "the kind of a request: $unknown / $unsaid / $before $after_refusals / $kind"
+fi
+# The investigation's record: a bug's call, whether it was reproduced and where the cause is; a question's answer.
+inv() { project --repo "$ANS" log zero-after-refund investigation "$@" 2>&1 || true; }
+before=$(grep -c '' "$ANS/.git/lem/events.jsonl")
+asked_back=$(inv kind=investigation call=answer "line=the refund writes a credit note" reproduced:=true)
+nowhere=$(inv kind=bug call=correction "line=the total skips credit notes" reproduced:=true)
+not_so=$(inv kind=bug call=not-reproduced "line=a refund of 10 gave 90" reproduced:=true)
+odd_call=$(inv kind=bug call=maybe "line=x" reproduced:=false)
+untyped=$(inv kind=bug call=usual "line=x" where=a.py:f reproduced=true)
+after_refusals=$(grep -c '' "$ANS/.git/lem/events.jsonl")
+none_yet=$(project --repo "$ANS" tasks | field 'next(t["investigation"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
+inv kind=bug call=usual "line=the invoice total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
+found=$(project --repo "$ANS" tasks | field 'next((t["investigation"]["call"], t["investigation"]["where"], t["investigation"]["reproduced"]) for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
+if grep -qF "reproduced is a bug's" <<<"$asked_back" && grep -qF "where names the cause" <<<"$nowhere" && grep -qF "not-reproduced is a bug that was not reproduced" <<<"$not_so" \
+  && grep -qF "call is correction, usual, not-a-bug or not-reproduced for a bug" <<<"$odd_call" && grep -qF "written with :=" <<<"$untyped" \
+  && [ "$after_refusals" = "$before" ] && [ "$none_yet" = "None" ] && [ "$found" = "('usual', 'billing/invoice.py:total', True)" ]; then
+  pass "an investigation's record names its kind, its call and its one line, a bug's whether it was reproduced and a cause's place; a wrong one writes nothing, and tasks gives the newest"
+else
+  fail "the investigation's record: $asked_back / $nowhere / $not_so / $odd_call / $untyped / $before $after_refusals / $none_yet / $found"
+fi
+# `answered` needs the report and a record whose call ends the task; it takes no place and keeps its slug.
+no_report=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
+printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$ans_dir/investigation.md"
+goes_on=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
+inv kind=bug call=not-a-bug "line=a refund is a credit note, and the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
+project --repo "$ANS" state zero-after-refund answered "not a bug: the invoice shows what is left to pay" "report: investigation.md" >/dev/null 2>&1 || true
+answered=$(project --repo "$ANS" tasks | field 'next((t["status"], t["investigation"]["call"]) for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
+project --repo "$ANS" task-dir other-task >/dev/null
+project --repo "$ANS" state other-task building "lead: builder" "kind: feature, because the ask wants a new column" >/dev/null
+places=$(project --repo "$ANS" may-start 2>&1 || true)
+project --repo "$ANS" state other-task answered "the question is answered" >/dev/null 2>&1 || true
+unreported=$(project --repo "$ANS" tasks | field 'next(t["status"] for t in d if t["slug"] == "other-task")')
+project --repo "$ANS" state other-task dropped "the test is over" >/dev/null
+free=$(project --repo "$ANS" may-start 2>&1 | field 'd["running"]' 2>&1 || true)
+taken=$(project --repo "$ANS" task-dir zero-after-refund --ask "again" 2>&1 || true)
+if grep -qF "investigation.md" <<<"$no_report" && grep -qF "not-a-bug or answer" <<<"$goes_on" && [ "$answered" = "('answered', 'not-a-bug')" ] \
+  && grep -qF "1 tasks build or land (other-task)" <<<"$places" && [ "$unreported" = "building" ] && [ "$free" = "[]" ] \
+  && grep -qF "the task 'zero-after-refund' is answered; a new task takes a slug of its own" <<<"$taken"; then
+  pass "a task is answered only with its investigation's report and a record whose call ends it; an answered task takes no place, and its slug stays its own"
+else
+  fail "the state answered: $no_report / $goes_on / $answered / $places / $unreported / $free / $taken"
+fi
+# A choice of an answered task waits for nobody.
+"$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
+  --why "it pins the behavior" --said "The two personas split." >/dev/null
+ended=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" pending | field '(d["waiting"], [(e["task"], e["status"]) for e in d["ended"]])' 2>&1 || true)
+if [ "$ended" = "([], [('zero-after-refund', 'answered')])" ]; then
+  pass "an answered task has no choice that waits: pending puts it with the tasks that ended"
+else
+  fail "the choices of an answered task: $ended"
+fi
 
 # The machine check: a required tool that is absent fails it, an optional one only changes its row.
 DOCTOR=$PWD/skills/lem/scripts/doctor.py
@@ -2416,6 +2577,29 @@ if [ "$(status_of land --repo "$SHOP" clean second-change)" = 1 ] && [ -d "$SHOP
 else
   fail "clean before the landing"
 fi
+# An answered task loses its worktree as a dropped one does, and its branch stays: it may hold the test that reproduced the bug.
+AC=$WORK/answered-clean
+git init -q -b main "$AC" && git -C "$AC" config user.name t && git -C "$AC" config user.email t@t
+project --repo "$AC" init --base main --reviewer codex >/dev/null
+git -C "$AC" add -A && git -C "$AC" commit -q -m "chore: start"
+acd=$(project --repo "$AC" task-dir refund-shows-zero --ask "invoices show 0 after a refund")
+act=$(project --repo "$AC" worktree-dir refund-shows-zero)
+git -C "$AC" worktree add -q -b fix/refund-shows-zero "$act" main
+# shellcheck disable=SC2016 # the test file's own text, with its quotes
+mkdir -p "$act/tests" && echo 'test "$(cat total)" = 0' > "$act/tests/refund.sh"
+git -C "$act" add -A && git -C "$act" commit -q -m "test: an invoice after a refund shows what is left to pay"
+project --repo "$AC" state refund-shows-zero building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the ask says the total is wrong today" >/dev/null
+printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$acd/investigation.md"
+project --repo "$AC" log refund-shows-zero investigation kind=bug call=not-a-bug "line=the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
+project --repo "$AC" state refund-shows-zero answered "not a bug: the invoice shows what is left to pay" >/dev/null
+out=$(land --repo "$AC" clean refund-shows-zero 2>&1 || true)
+if [ "$(field '(d["worktree"], d["branch"])' <<<"$out" 2>&1 || true)" = "(True, None)" ] && [ ! -e "$act" ] \
+  && grep -qF "fix/refund-shows-zero holds the answered task's commits, the test that reproduced its bug among them when it has one" <<<"$out" \
+  && git -C "$AC" rev-parse -q --verify fix/refund-shows-zero >/dev/null && [ -f "$acd/investigation.md" ]; then
+  pass "clean removes an answered task's worktree and leaves its branch, which may hold the test that reproduced the bug, with how to delete it; the report stays"
+else
+  fail "land clean of an answered task: $out"
+fi
 
 # A conflict with the base is reported and undone, never resolved here.
 git -C "$other" pull -q origin main
@@ -2526,14 +2710,14 @@ git -C "$tree" commit -q -am "docs: four tasks"
 checked four-tasks
 land --repo "$SHOP" read four-tasks --record "$(record 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "four tasks change the app"}], "answered": ["codex"]}')" >/dev/null
 # the talk of another task, landed before: a valid event that is not this task's
-project --repo "$SHOP" log second-change plan.talk reviewer=codex turns:=4 questions:=1 settled:=1 open:=0 repaired:=1 design:=0 unargued:=0 >/dev/null
+project --repo "$SHOP" log second-change plan.talk reviewer=codex turns:=4 questions:=1 settled:=1 open:=0 repaired:=1 design:=0 unargued:=0 root:=1 layer:=0 shared:=0 >/dev/null
 talkless=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES" 2>&1 || true)
-typed=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns=5 questions:=3 settled:=2 open:=1 repaired:=1 design:=1 unargued:=0 2>&1 || true)
-missing=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=3 settled:=2 repaired:=1 design:=1 unargued:=0 2>&1 || true)
-empty=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 2>&1 || true)
-if grep -q "the plan has 4 tasks, more than three, so its plan is talked through by a session lead and the reviewer before any code" <<<"$talkless" \
+typed=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns=5 questions:=3 settled:=2 open:=1 repaired:=1 design:=1 unargued:=0 root:=1 layer:=0 shared:=0 2>&1 || true)
+missing=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=3 settled:=2 repaired:=1 design:=1 unargued:=0 root:=1 layer:=0 shared:=0 2>&1 || true)
+empty=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 2>&1 || true)
+if grep -q "the plan has 4 tasks, more than three, so its defender and the reviewer talk its plan through in the plan talk's companion before any code" <<<"$talkless" \
   && grep -q "the event log has no .plan.talk. of four-tasks" <<<"$talkless" && [ "$(status four-tasks)" = landing ] \
-  && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has design, questions, repaired, reviewer, settled, turns, unargued" <<<"$missing" \
+  && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has design, layer, questions, repaired, reviewer, root, settled, shared, turns, unargued" <<<"$missing" \
   && grep -q "ends in a settled position or a disagreement left open" <<<"$empty" \
   && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl" \
   && [ "$(grep -c '"event": "plan.talk", "task": "second-change", "reviewer": "codex", "turns": 4' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
@@ -2542,13 +2726,13 @@ else
   fail "a large request with no plan talk: $talkless / $typed / $missing / $empty"
 fi
 # The talk's counts agree with each other, and its turns stay inside the bound its rules give: the
-# reviewer's list, two answers of the lead and two of the reviewer on each question, and the close.
+# reviewer's list, two answers of the defender and two of the reviewer on each question, and the close.
 talk_log() { project --repo "$SHOP" log four-tasks plan.talk reviewer=codex "$@" 2>&1 || true; }
-lost=$(talk_log turns:=6 questions:=3 settled:=1 open:=1 repaired:=1 design:=0 unargued:=0)
-undesigned=$(talk_log turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 design:=2 unargued:=0)
-overrepaired=$(talk_log turns:=6 questions:=3 settled:=3 open:=0 repaired:=4 design:=0 unargued:=0)
-endless=$(talk_log turns:=11 questions:=2 settled:=1 open:=1 repaired:=1 design:=1 unargued:=3)
-bounded=$(talk_log turns:=10 questions:=2 settled:=1 open:=1 repaired:=2 design:=1 unargued:=3)
+lost=$(talk_log turns:=6 questions:=3 settled:=1 open:=1 repaired:=1 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
+undesigned=$(talk_log turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 design:=2 unargued:=0 root:=0 layer:=0 shared:=0)
+overrepaired=$(talk_log turns:=6 questions:=3 settled:=3 open:=0 repaired:=4 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
+endless=$(talk_log turns:=11 questions:=2 settled:=1 open:=1 repaired:=1 design:=1 unargued:=3 root:=0 layer:=0 shared:=0)
+bounded=$(talk_log turns:=10 questions:=2 settled:=1 open:=1 repaired:=2 design:=1 unargued:=3 root:=1 layer:=1 shared:=1)
 startless=$(project --repo "$SHOP" log four-tasks plan.talk.start 2>&1 || true)
 overstarted=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=codex turns:=2 2>&1 || true)
 started=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=codex 2>&1 || true)
@@ -2564,14 +2748,14 @@ if grep -qF "settled and open add up to questions" <<<"$lost" && grep -qF "desig
 else
   fail "the counts of a plan talk: $lost / $undesigned / $overrepaired / $endless / $bounded / $startless / $overstarted / $started"
 fi
-project --repo "$SHOP" log four-tasks plan.talk reviewer=claude turns:=3 questions:=1 settled:=1 open:=0 repaired:=0 design:=0 unargued:=0 >/dev/null
-project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=9 questions:=5 settled:=4 open:=1 repaired:=3 design:=1 unargued:=2 >/dev/null
+project --repo "$SHOP" log four-tasks plan.talk reviewer=claude turns:=3 questions:=1 settled:=1 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 >/dev/null
+project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=9 questions:=5 settled:=4 open:=1 repaired:=3 design:=1 unargued:=2 root:=2 layer:=1 shared:=0 >/dev/null
 # the same event with one count more, which Lem has no words for: a count added to the event later needs no change of the landing
 "$PY" -c 'import json, sys; p = sys.argv[1]; talk = json.loads(open(p).read().splitlines()[-1]); talk["rounds"] = 2; open(p, "a").write(json.dumps(talk) + "\n")' "$SHOP/.git/lem/events.jsonl"
 out=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES")
 text=$SHOP/.git/lem/tasks/four-tasks/pr.md
 if [ "$(field 'd["green"]' <<<"$out")" = True ] && [ "$(status four-tasks)" = open ] \
-  && grep -qxF -- "- the plan talk: codex argued the plan with the lead, 9 turns; 4 positions settled by the two, 1 left open; 5 questions in the reviewer's first list, 3 repaired by the lead, 1 of the open ones a design choice, 2 raised after the list and not argued, rounds: 2" "$text" \
+  && grep -qxF -- "- the plan talk: codex argued the plan with its defender, 9 turns; 4 positions settled by the two, 1 left open; 5 questions in the reviewer's first list, 3 repaired by the defender, 1 of the open ones a design choice, 2 raised after the list and not argued, 2 repaired at the cause, 1 layer over a cited decision, 0 decisions two questions named, rounds: 2" "$text" \
   && [ "$(grep -c 'plan talk' "$text")" = 1 ] && grep -q '^- careful: no$' "$text"; then
   pass "after its plan talk a plan of four tasks is proposed, and its text holds one line of the talk, from the newest event, with each of its counts in words, and a count Lem has no words for by its name"
 else
@@ -2589,10 +2773,12 @@ git -C "$tree" commit -q -am "docs: the plan is careful"
 checked careful-plan
 land --repo "$SHOP" read careful-plan --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the plan says careful"}], "answered": ["codex"]}')" >/dev/null
 talkless=$(land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" 2>&1 || true)
-if grep -q "the plan says that the request is careful, so its plan is talked through by a session lead and the reviewer before any code (.stages/plan.md., step 4)" <<<"$talkless" \
-  && grep -q "the event log has no .plan.talk. of careful-plan" <<<"$talkless" && grep -qF "project.py log careful-plan plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N\`" <<<"$talkless" \
+if grep -q "the plan says that the request is careful, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (.stages/plan.md., step 4)" <<<"$talkless" \
+  && grep -q "the event log has no .plan.talk. of careful-plan. The defender writes it after the talk" <<<"$talkless" \
+  && grep -qF "project.py log careful-plan plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N\`" <<<"$talkless" \
+  && grep -qF "for a plan that had no talk, Lem opens the companion first, as for \`needs a session\`" <<<"$talkless" \
   && [ ! -f "$SHOP/.git/lem/tasks/careful-plan/pr.md" ] && [ "$(status careful-plan)" = landing ]; then
-  pass "a request whose plan says careful is not proposed while its event log has no plan talk, and the refusal names the plan stage's step and the event the lead writes"
+  pass "a request whose plan says careful is not proposed while its event log has no plan talk, and the refusal names the plan stage's step, the companion Lem opens for the talk, and the event its defender writes in the form project.py takes"
 else
   fail "a careful plan with no plan talk: $talkless"
 fi
@@ -2600,14 +2786,34 @@ fi
 printf '%s\n' '{"ts": "2026-11-15T10:00:00Z", "event": "plan.talk", "task": "careful-plan", "reviewer": "codex", "turns": 6, "settled": 2, "open": 1}' >> "$SHOP/.git/lem/events.jsonl"
 land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" >/dev/null
 text=$SHOP/.git/lem/tasks/careful-plan/pr.md
-if [ "$(grep 'plan talk' "$text" || true)" = "- the plan talk: codex argued the plan with the lead, 6 turns; 2 positions settled by the two, 1 left open" ] \
+if [ "$(grep 'plan talk' "$text" || true)" = "- the plan talk: codex argued the plan with its defender, 6 turns; 2 positions settled by the two, 1 left open" ] \
   && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c 'plan talk')" = 1 ] && grep -q '^- careful: yes, the plan says so$' "$text" \
   && [ "$(status careful-plan)" = open ]; then
-  pass "after its plan talk a request whose plan says careful is proposed, and the checks of its text say who argued the plan with the lead, the turns, and the positions settled and left open; an event of the older form, with no other count, reads as before"
+  pass "after its plan talk a request whose plan says careful is proposed, and the checks of its text say who argued the plan with its defender, the turns, and the positions settled and left open; an event of the older form, with no other count, reads as before"
 else
   fail "the plan talk in the text of a careful plan: $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$SHOP" state careful-plan dropped "the test is over" >/dev/null
+
+# A correction or a feature that came from a bug names, in its checks, the cause the investigation
+# before the build found and where; a question's answer, or no investigation, gives no such line.
+open_task bug-cause seven.txt seven
+project --repo "$SHOP" log bug-cause investigation kind=bug call=correction "line=the total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
+checked bug-cause && read_clean bug-cause && propose bug-cause
+open_task question-cause eight.txt eight
+project --repo "$SHOP" log question-cause investigation kind=investigation call=answer "line=the export reads the totals of the night before" >/dev/null
+checked question-cause && read_clean question-cause && propose question-cause
+text=$SHOP/.git/lem/tasks/bug-cause/pr.md
+if grep -qxF -- "- the cause, as the investigation before the build found it: the total adds the refund as a payment (billing/invoice.py:total); its report: \`$SHOP/.git/lem/tasks/bug-cause/investigation.md\`" "$text" \
+  && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c '^- the cause, as the investigation')" = 1 ] \
+  && ! grep -q 'the cause, as the investigation' "$SHOP/.git/lem/tasks/question-cause/pr.md" \
+  && ! grep -q 'the cause, as the investigation' "$SHOP/.git/lem/tasks/careful-plan/pr.md"; then
+  pass "a correction that came from a bug names in its checks the cause its investigation found, with its place and the report; one after a question's answer, or with no investigation, has no such line"
+else
+  fail "the cause of a bug in the text: $(cat "$text" 2>/dev/null) / $(grep 'cause' "$SHOP/.git/lem/tasks/question-cause/pr.md" 2>/dev/null)"
+fi
+project --repo "$SHOP" state bug-cause dropped "the test is over" >/dev/null
+project --repo "$SHOP" state question-cause dropped "the test is over" >/dev/null
 
 # A file that moves into an ignored folder also leaves a folder the gate reads.
 open_task moved-file extra.txt four
@@ -3638,6 +3844,42 @@ if grep -q "the forge merged ${head:0:9}, and the branch has commits after it" <
   pass "after a merge the forge made as one commit, the branch goes only when its tip is the commit that was merged; a deletion the forge refuses is an error that keeps the local branch; the forge's copy stays when it holds a later commit, whatever another branch with the same last words holds; and a run with nothing in the way removes both"
 else
   fail "clean after a merge on the forge: $after / $kept_branch / $refused / $still / $left / $cleaned"
+fi
+# A GitHub remote, and a developer who wants no pull requests (`branch.propose = "merge"`): the task
+# lands on the remote's base branch as a ready branch does, so the next task starts from it, and the
+# forge is never asked. The stand-in `gh` here only writes down that it was called.
+GMO=$WORK/gm-origin.git
+GMS=$WORK/gm-shop
+git init -q --bare -b main "$GMO"
+git clone -q "$GMO" "$GMS" 2>/dev/null && ident "$GMS"
+git -C "$GMS" config remote.origin.url git@github.com:acme/solo.git
+git -C "$GMS" config "url.$GMO.insteadOf" git@github.com:acme/solo.git
+project --repo "$GMS" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'propose = "merge"' '[gate]' 'commands = ["true"]' > "$GMS/.lem/project.toml"
+git -C "$GMS" add -A && git -C "$GMS" commit -q -m "chore: start" && git -C "$GMS" push -q origin main
+mkdir -p "$WORK/gm-bin"
+printf '%s\n' '#!/bin/sh' "echo \"\$*\" >> '$WORK/gm-gh-calls'" 'exit 1' > "$WORK/gm-bin/gh" && chmod +x "$WORK/gm-bin/gh"
+gm_land() { PATH="$WORK/gm-bin:$PATH" "$PY" -B "$LAND" --repo "$GMS" "$@"; }
+task_in "$GMS" solo-change s.txt eleven
+out=$(gm_land start solo-change)
+gm_land base solo-change >/dev/null && gm_land gate solo-change >/dev/null && gm_land read solo-change --record "$(clean 1)" >/dev/null
+proposed=$(gm_land propose solo-change --title "fix: eleven" --notes "$NOTES" 2>&1 || true)
+tip=$(git -C "$GMS/.lem/worktrees/solo-change" rev-parse HEAD)
+opened=$(cat "$GMS/.git/lem/tasks/solo-change/state.md")
+pushed_branch=$(git -C "$GMO" branch --list fix/solo-change)
+merged=$(gm_land merged solo-change 2>&1 || true)
+landed=$(gm_land land solo-change --by agent 2>&1 || true)
+cleaned=$(gm_land clean solo-change 2>&1 || true)
+if [ "$(field 'd["forge"]' <<<"$out")" = None ] && [ "$(field '(d["pull_request"], d["green"])' <<<"$proposed")" = "(None, True)" ] \
+  && head -1 "$GMS/.git/lem/tasks/solo-change/pr.md" | grep -q '^\*\*Green\.\*\*' && grep -q "ready to land on main at ${tip:0:9}" <<<"$opened" && [ -z "$pushed_branch" ] \
+  && grep -qF 'branch.propose is "merge"' <<<"$merged" && grep -qF "land.py land solo-change" <<<"$merged" \
+  && [ "$(field '(d["tip"], d["pushed"], d["left_behind"])' <<<"$landed")" = "('$tip', True, None)" ] && [ "$(git -C "$GMO" rev-parse main)" = "$tip" ] \
+  && [ "$(git -C "$GMS" rev-parse main)" = "$tip" ] && [ "$(status_in "$GMS" solo-change)" = landed ] \
+  && [ "$(field '(d["worktree"], d["branch"], d["remote"])' <<<"$cleaned")" = "(True, 'fix/solo-change', None)" ] && [ -z "$(git -C "$GMS" branch --list fix/solo-change)" ] \
+  && [ ! -e "$WORK/gm-gh-calls" ]; then
+  pass "with a GitHub remote and branch.propose = merge, no pull request is opened and no task branch is pushed; the branch lands on origin's base branch, merged is refused with the step that lands, and clean removes the worktree and the branch, with no call of gh"
+else
+  fail "a GitHub remote with no pull requests: $out / $proposed / $opened / $merged / $landed / $cleaned / $(cat "$WORK/gm-gh-calls" 2>/dev/null)"
 fi
 
 if [ -d "$(dirname "$PROJECT")/__pycache__" ]; then fail "the scripts left no __pycache__"; else pass "the scripts left no __pycache__"; fi
