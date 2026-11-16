@@ -245,15 +245,18 @@ a list of questions that closes with the reviewer's first turn (step 4).
    changed a decision of the plan; `layer`, the layers over a cited decision that stayed; and
    `shared`, the decisions that two questions named. The script refuses a record of fewer than two
    turns: a floor against an empty record, not a measure of a good talk. A talk of no question is
-   the reviewer's empty list and your close, `turns:=2 questions:=0` with every other count 0; the
-   bound below keeps it at two turns, and the script refuses a question raised after an empty
-   list, since no turn is left to raise it in. It refuses counts that do not agree: settled and open that do not add up
-   to questions, more design choices than open questions, more repairs than questions, more repairs
-   at the cause and layers together than repairs, and more shared decisions than design choices (the
-   second question on a decision closes as one; derived from the rule above, not measured). And it
-   refuses more than 4 × questions + 2 turns: the list, two answers of each side on each question,
-   and the close. That bound is derived from these rules in a Fable second opinion (2026-11-16), not
-   measured. The landing refuses a request whose plan says `careful: yes` or has more than three
+   the reviewer's empty list and your close, `turns:=2 questions:=0` with every other count 0, and
+   the script refuses a question raised after an empty list in a talk of two turns, since no turn
+   was left to raise it in. It refuses counts that do not agree: settled and open that do not add
+   up to questions, more design choices than open questions, more repairs than questions, and more
+   repairs at the cause and layers together than repairs.
+   The rules keep a talk within 4 × questions + 2 turns: the list, two answers of each side on each
+   question, and the close. That bound is derived from these rules in a Fable second opinion
+   (2026-11-16), not measured, and it is yours to keep. A talk that went over it, or in which a
+   second question on a decision did not close as a design choice, is still a fact: write it down
+   as it ran. The script takes the record and adds the bound to it as `bound`, and the pull
+   request's line of the talk and the board say that the talk went over. A record the script
+   refused would leave the companion open and the request unproposed for ever. The landing refuses a request whose plan says `careful: yes` or has more than three
    tasks with no such event, and the pull request's checks show the newest one. A task that becomes
    careful after its plan, by the owner's word or by a path its diff matches, gets no talk
    afterwards: the landing's full review reads the code that exists. A one-shot read of a careful

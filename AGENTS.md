@@ -365,6 +365,13 @@ is the session's, and open to him.
   choice that every task left needs. A night plan asks no such decision, since nobody is there
   and every wait would end without him: its brief says `night: yes`, `decisions.py ask` refuses
   it, and the draft ends on the decision as before.
+- **A plan talk's record is taken as it ran.** The bound of 4 × questions + 2 turns stays the
+  rule of `stages/plan.md` step 4, which the defender keeps. The script no longer refuses a
+  record over it, nor one in which a second question on a decision did not close as a design
+  choice: such a record is a fact, and its refusal left the companion open and the request
+  unproposed for ever. `project.py log` adds the bound to the event as `bound`, and the pull
+  request's line of the talk and the board say "N turns, over the bound of M for its Q
+  questions". The checks that only a miscount breaks stay, and so does the floor of two turns.
 
 ## Checks
 

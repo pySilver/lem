@@ -147,7 +147,7 @@ that calls itself careful (`careful: yes`) or has more than three tasks was talk
 its defender and the reviewer in the plan talk's companion before any code, and the defender
 wrote it down as one `plan.talk` event in the log `project.py` keeps: `propose` refuses such a
 request with none, and the text's checks hold one line from the newest, with who argued the plan
-with its defender, the turns, the
+with its defender, the turns (with the bound of its rules, when the talk went over it), the
 positions settled and left open, and every other count the event holds, in words where Lem
 knows the count (`TALK_SAYS`) and by its name where it does not. An event of the older form,
 with no counts but those three, reads as before. A talk is a step before the build, so a request that is careful only by the owner's later word or
@@ -254,8 +254,9 @@ TALK_SAYS = {
     "layer": ("layer over a cited decision", "layers over a cited decision"),
     "shared": ("decision two questions named", "decisions two questions named"),
 }
-# What every event has and the talk's line says first, so it is no count after the positions.
-TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open")
+# What every event has and the talk's line says first, so it is no count after the positions; and the
+# bound of turns its rules give, which `project.py log` adds and the line names only when the talk went over it.
+TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open", "bound")
 # Who took a decision of the record, as the text of a pull request names them.
 TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout", "experts": "the experts"}
 # What a review names of each defect it saw outside the change.
@@ -966,8 +967,9 @@ def untalked(task: Task, state: dict) -> str | None:
 
 
 def talked(talk: dict) -> str:
-    """The plan talk as one line of the pull request's checks: the turns and the positions, then each
-    other count the event holds, in the event's order. An event of the older form has none."""
+    """The plan talk as one line of the pull request's checks: the turns, with the bound of its rules
+    when the talk went over it, and the positions, then each other count the event holds, in the
+    event's order. An event of the older form has none."""
     def many(count: int, one: str, more: str) -> str:
         return f"{count} {one if count == 1 else more}"
     counts = [
@@ -975,8 +977,10 @@ def talked(talk: dict) -> str:
         for key, value in talk.items()
         if key not in TALK_FIRST and isinstance(value, int) and not isinstance(value, bool)
     ]
+    bound = talk.get("bound")
+    over = f", over the bound of {bound} for its {many(talk['questions'], 'question', 'questions')}" if isinstance(bound, int) and talk["turns"] > bound else ""
     return (
-        f"- the plan talk: {talk['reviewer']} argued the plan with its defender, {many(talk['turns'], 'turn', 'turns')}; "
+        f"- the plan talk: {talk['reviewer']} argued the plan with its defender, {many(talk['turns'], 'turn', 'turns')}{over}; "
         f"{many(talk['settled'], 'position', 'positions')} settled by the two, {talk['open']} left open"
         + (f"; {', '.join(counts)}" if counts else "")
     )

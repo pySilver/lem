@@ -120,7 +120,7 @@ project log "$L" stories.read by=lem asked:=2 answered:=2 'families:=["opus", "s
 stories approve "$L" --file "$WORK/landed.md" >/dev/null
 project state "$L" building "lead: session" >/dev/null
 # the talk's start is not in this log, as in a log written before the lead logged it
-project log "$L" plan.talk reviewer=codex turns:=6 questions:=4 settled:=3 open:=1 repaired:=2 design:=1 unargued:=1 root:=2 layer:=0 shared:=0 >/dev/null
+project log "$L" plan.talk reviewer=codex turns:=19 questions:=4 settled:=3 open:=1 repaired:=2 design:=1 unargued:=1 root:=2 layer:=0 shared:=0 >/dev/null
 project state "$L" building "plan committed, 2 tasks" >/dev/null
 project state "$L" building "task 1 of 2" >/dev/null
 project state "$L" building "task 2 of 2" >/dev/null
@@ -763,7 +763,7 @@ PY
     && why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$K.dom" "You|The lead|The review" "The lead=25m · 100%" "The review=18m · 72%") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$K.dom" feed "The plan talk started|with codex" "The plan talk ended|with codex: 3 questions in 7 turns|1 of them a design choice|2 raised, not argued") \
     && ! grep -q 'data-sub="[^"]*its start is not logged' "$WORK/task-$K.dom" \
-    && grep -q 'data-head="The review · The plan talk ended" data-sub="with codex: 4 questions in 6 turns · 3 settled, 1 open, 1 of them a design choice · 2 repaired: 2 at the cause · 1 raised, not argued · its start is not logged"' "$WORK/task-$L.dom" \
+    && grep -q 'data-head="The review · The plan talk ended" data-sub="with codex: 4 questions in 19 turns, over the bound of 18 for its 4 questions · 3 settled, 1 open, 1 of them a design choice · 2 repaired: 2 at the cause · 1 raised, not argued · its start is not logged"' "$WORK/task-$L.dom" \
     && grep -q 'data-head="The review · The plan talk runs" data-sub="with claude; its record comes when the talk ends"' "$WORK/task-talk-runs.dom"; then
     pass "the plan talk is the review's span from its start to its record, with its questions, turns, settled, open, design choices, repairs at the cause and layers over a cited decision, decisions two questions named and questions raised and not argued; one with no start logged is a dot where it ended, and one with no record yet runs"
   else

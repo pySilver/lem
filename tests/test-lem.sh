@@ -530,19 +530,20 @@ talk() { project --repo "$OLD" log with-a-worktree plan.talk reviewer=codex turn
 before=$(grep -c '' "$OLD/.git/lem/events.jsonl")
 untold=$(talk repaired:=2)
 layered=$(talk repaired:=2 root:=1 layer:=2 shared:=0)
-unshared=$(talk repaired:=2 root:=1 layer:=1 shared:=2)
 typed=$(talk repaired:=2 root:=1 layer=1 shared:=0)
 none_yet=$(project --repo "$OLD" tasks | field '[t["talk"] for t in d if t["slug"] == "with-a-worktree"]' 2>&1 || true)
 after_refusals=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+# more decisions two questions named than design choices breaks a rule of the talk, not a count: the record is taken
+unshared=$(talk repaired:=2 root:=1 layer:=1 shared:=2)
 talk repaired:=1 root:=0 layer:=1 shared:=0 >/dev/null
 written=$(talk repaired:=2 root:=1 layer:=1 shared:=1)
 told=$(project --repo "$OLD" tasks | field '[(t["slug"], t["talk"] and (t["talk"]["root"], t["talk"]["layer"], t["talk"]["shared"], bool(t["talk"]["ts"]))) for t in d if t["slug"] in ("with-a-worktree", "report-dates-stay-whole")]' 2>&1 || true)
 if grep -qF "and nothing else; this one has design, open, questions, repaired, reviewer, settled, turns, unargued" <<<"$untold" \
-  && grep -qF "root and layer add up to at most repaired" <<<"$layered" && grep -qF "shared is at most design" <<<"$unshared" \
+  && grep -qF "root and layer add up to at most repaired" <<<"$layered" && [ "$(field '(d["shared"], d["design"], d["bound"])' <<<"$unshared")" = "(2, 1, 14)" ] \
   && grep -qF "each N is a whole number" <<<"$typed" && [ "$none_yet" = "[None]" ] && [ "$after_refusals" = "$before" ] \
   && [ "$(field '(d["root"], d["layer"], d["shared"])' <<<"$written")" = "(1, 1, 1)" ] \
   && [ "$told" = "[('report-dates-stay-whole', None), ('with-a-worktree', (1, 1, 1, True))]" ]; then
-  pass "a plan talk's record names its repairs at the cause, its layers over a cited decision and its decisions two questions named: root and layer add up to at most repaired, shared is at most design, and a refused record writes nothing; tasks gives each task its newest talk, or none"
+  pass "a plan talk's record names its repairs at the cause, its layers over a cited decision and its decisions two questions named: root and layer add up to at most repaired, a record with more decisions two questions named than design choices is taken with its bound, and a refused record writes nothing; tasks gives each task its newest talk, or none"
 else
   fail "the talk's new counts: $untold / $layered / $unshared / $typed / $none_yet / $written / $told"
 fi
@@ -2757,24 +2758,27 @@ project --repo "$SHOP" log second-change plan.talk reviewer=codex turns:=4 quest
 talkless=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES" 2>&1 || true)
 typed=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns=5 questions:=3 settled:=2 open:=1 repaired:=1 design:=1 unargued:=0 root:=1 layer:=0 shared:=0 2>&1 || true)
 missing=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=3 settled:=2 repaired:=1 design:=1 unargued:=0 root:=1 layer:=0 shared:=0 2>&1 || true)
-empty=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 2>&1 || true)
+self_bound=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex bound:=5 turns:=5 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 2>&1 || true)
 if grep -q "the plan has 4 tasks, more than three, so its defender and the reviewer talk its plan through in the plan talk's companion before any code" <<<"$talkless" \
   && grep -q "the event log has no .plan.talk. of four-tasks" <<<"$talkless" && [ "$(status four-tasks)" = landing ] \
   && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has design, layer, questions, repaired, reviewer, root, settled, shared, turns, unargued" <<<"$missing" \
-  && grep -qF "this one has 5 turns for 0 questions" <<<"$empty" \
+  && grep -qF "and nothing else; this one has bound, design," <<<"$self_bound" \
   && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl" \
   && [ "$(grep -c '"event": "plan.talk", "task": "second-change", "reviewer": "codex", "turns": 4' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
-  pass "a plan of four tasks with no plan talk is not proposed, though another task's talk is in the log; a talk's event without its form is refused, and nothing is written for it"
+  pass "a plan of four tasks with no plan talk is not proposed, though another task's talk is in the log; a talk's event without its form is refused, the bound among its fields too, which the log adds itself, and nothing is written for it"
 else
-  fail "a large request with no plan talk: $talkless / $typed / $missing / $empty"
+  fail "a large request with no plan talk: $talkless / $typed / $missing / $self_bound"
 fi
-# The talk's counts agree with each other, and its turns stay inside the bound its rules give: the
-# reviewer's list, two answers of the defender and two of the reviewer on each question, and the close.
+# The talk's counts agree with each other. A talk that ran over the bound its rules give (the reviewer's
+# list, two answers of the defender and two of the reviewer on each question, and the close) is a fact,
+# and its record is taken with that bound beside it; so is one whose second question on a decision did not close as a design choice.
 talk_log() { project --repo "$SHOP" log four-tasks plan.talk reviewer=codex "$@" 2>&1 || true; }
 lost=$(talk_log turns:=6 questions:=3 settled:=1 open:=1 repaired:=1 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
 undesigned=$(talk_log turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 design:=2 unargued:=0 root:=0 layer:=0 shared:=0)
 overrepaired=$(talk_log turns:=6 questions:=3 settled:=3 open:=0 repaired:=4 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
 endless=$(talk_log turns:=11 questions:=2 settled:=1 open:=1 repaired:=1 design:=1 unargued:=3 root:=0 layer:=0 shared:=0)
+unshared=$(talk_log turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 design:=0 unargued:=0 root:=0 layer:=0 shared:=1)
+raised_late=$(talk_log turns:=3 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=1 root:=0 layer:=0 shared:=0)
 bounded=$(talk_log turns:=10 questions:=2 settled:=1 open:=1 repaired:=2 design:=1 unargued:=3 root:=1 layer:=1 shared:=1)
 # a reviewer who found nothing: its first turn says it has no question, and the defender closes
 lone=$(talk_log turns:=1 questions:=0 settled:=0 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0)
@@ -2785,28 +2789,29 @@ overstarted=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=cod
 started=$(project --repo "$SHOP" log four-tasks plan.talk.start reviewer=codex 2>&1 || true)
 if grep -qF "settled and open add up to questions" <<<"$lost" && grep -qF "design is at most open" <<<"$undesigned" \
   && grep -qF "repaired is at most questions" <<<"$overrepaired" \
-  && grep -qF "at most 4 × N + 2 turns" <<<"$endless" && grep -qF "this one has 11 turns for 2 questions" <<<"$endless" \
-  && [ "$(field 'd["turns"], d["questions"], d["design"], d["unargued"]' <<<"$bounded")" = "(10, 2, 1, 3)" ] \
-  && grep -qF "a talk has two turns at the least" <<<"$lone" && grep -qF "a talk of no question has no turn after the list, so unargued is 0" <<<"$quiet_raised" \
-  && [ "$(field 'd["turns"], d["questions"], d["settled"], d["open"]' <<<"$quiet")" = "(2, 0, 0, 0)" ] \
+  && [ "$(field 'd["turns"], d["questions"], d["bound"]' <<<"$endless")" = "(11, 2, 10)" ] && [ "$(field 'd["shared"], d["design"]' <<<"$unshared")" = "(1, 0)" ] \
+  && [ "$(field 'd["turns"], d["questions"], d["design"], d["unargued"], d["bound"]' <<<"$bounded")" = "(10, 2, 1, 3, 10)" ] \
+  && grep -qF "a talk has two turns at the least" <<<"$lone" && grep -qF "a talk of no question and two turns has no turn after the list, so unargued is 0" <<<"$quiet_raised" \
+  && [ "$(field 'd["turns"], d["unargued"], d["bound"]' <<<"$raised_late")" = "(3, 1, 2)" ] \
+  && [ "$(field 'd["turns"], d["questions"], d["settled"], d["open"], d["bound"]' <<<"$quiet")" = "(2, 0, 0, 0, 2)" ] \
   && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$startless" && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$overstarted" \
   && [ "$(field 'd["event"], d["reviewer"]' <<<"$started")" = "('plan.talk.start', 'codex')" ] \
-  && [ "$(grep -c '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 2 ] \
+  && [ "$(grep -c '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 5 ] \
   && [ "$(grep -c '"event": "plan.talk.start", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
-  pass "a talk's counts agree: each question of the list ends settled or open, a design choice is an open one, a question gets one repair at most, and a talk has at most 4 × questions + 2 turns; a talk of no question has its two turns and nothing raised after them; the start of a talk names its reviewer and nothing else, and a refused record writes nothing"
+  pass "a talk's counts agree: each question of the list ends settled or open, a design choice is an open one, and a question gets one repair at most; a talk over its bound of 4 × questions + 2 turns, or with more decisions two questions named than design choices, is written as it ran, with the bound the log adds; a talk of no question and two turns has nothing raised after its list; the start of a talk names its reviewer and nothing else, and a refused record writes nothing"
 else
-  fail "the counts of a plan talk: $lost / $undesigned / $overrepaired / $endless / $bounded / $lone / $quiet_raised / $quiet / $startless / $overstarted / $started"
+  fail "the counts of a plan talk: $lost / $undesigned / $overrepaired / $endless / $unshared / $bounded / $lone / $quiet_raised / $raised_late / $quiet / $startless / $overstarted / $started"
 fi
 project --repo "$SHOP" log four-tasks plan.talk reviewer=claude turns:=3 questions:=1 settled:=1 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 >/dev/null
-project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=9 questions:=5 settled:=4 open:=1 repaired:=3 design:=1 unargued:=2 root:=2 layer:=1 shared:=0 >/dev/null
+project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=23 questions:=5 settled:=4 open:=1 repaired:=3 design:=1 unargued:=2 root:=2 layer:=1 shared:=0 >/dev/null
 # the same event with one count more, which Lem has no words for: a count added to the event later needs no change of the landing
 "$PY" -c 'import json, sys; p = sys.argv[1]; talk = json.loads(open(p).read().splitlines()[-1]); talk["rounds"] = 2; open(p, "a").write(json.dumps(talk) + "\n")' "$SHOP/.git/lem/events.jsonl"
 out=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES")
 text=$SHOP/.git/lem/tasks/four-tasks/pr.md
 if [ "$(field 'd["green"]' <<<"$out")" = True ] && [ "$(status four-tasks)" = open ] \
-  && grep -qxF -- "- the plan talk: codex argued the plan with its defender, 9 turns; 4 positions settled by the two, 1 left open; 5 questions in the reviewer's first list, 3 repaired by the defender, 1 of the open ones a design choice, 2 raised after the list and not argued, 2 repaired at the cause, 1 layer over a cited decision, 0 decisions two questions named, rounds: 2" "$text" \
+  && grep -qxF -- "- the plan talk: codex argued the plan with its defender, 23 turns, over the bound of 22 for its 5 questions; 4 positions settled by the two, 1 left open; 5 questions in the reviewer's first list, 3 repaired by the defender, 1 of the open ones a design choice, 2 raised after the list and not argued, 2 repaired at the cause, 1 layer over a cited decision, 0 decisions two questions named, rounds: 2" "$text" \
   && [ "$(grep -c 'plan talk' "$text")" = 1 ] && grep -q '^- careful: no$' "$text"; then
-  pass "after its plan talk a plan of four tasks is proposed, and its text holds one line of the talk, from the newest event, with each of its counts in words, and a count Lem has no words for by its name"
+  pass "after its plan talk a plan of four tasks is proposed, and its text holds one line of the talk, from the newest event, with its turns over the bound when they are, each of its counts in words, and a count Lem has no words for by its name"
 else
   fail "a large request after its plan talk: $out / $(cat "$text" 2>/dev/null)"
 fi

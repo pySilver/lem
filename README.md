@@ -311,6 +311,8 @@ These rules hold for each task:
   a question with the line of the plan, and closes it.
 - **The talk has a limit.** It has four turns for each question at the most, plus two. This
   limit comes from the rules. Nobody measured it.
+- **A talk that goes over the limit is recorded as it occurred.** The pull request and the board
+  show the turns and the limit.
 - **A disagreement about what a person sees goes to the personas.** A disagreement that stays at
   the end is a decision. If it must go to you, Lem asks you, and the other work continues.
 - **A settled position is a claim.** The plan keeps a record of the talk. The review before the

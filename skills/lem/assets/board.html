@@ -649,12 +649,14 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 // many changed a decision of the plan, and how many put a layer over a decision with a cite), the
 // decisions two questions named, and the questions raised after the list. A record with no
 // `questions` in an older log holds only its turns and what it settled and left open, and one with
-// no `root` has no count of where its repairs went.
+// no `root` has no count of where its repairs went. A talk that ran over the bound its rules give
+// (`bound`, which project.py adds to the record) says so after its turns.
 function talkCounts(x) {
   if (x.questions == null) return `${plural(x.turns, 'turn')}, ${x.settled} settled, ${x.open} open`;
+  const over = x.bound != null && x.turns > x.bound ? `, over the bound of ${x.bound} for its ${plural(x.questions, 'question')}` : '';
   const design = x.design ? `, ${x.design} of them ${x.design === 1 ? 'a design choice' : 'design choices'}` : '';
   const where = [...(x.root ? [`${x.root} at the cause`] : []), ...(x.layer ? [`${x.layer} ${x.layer === 1 ? 'a layer' : 'layers'} over a cited decision`] : [])];
-  return [`${plural(x.questions, 'question')} in ${plural(x.turns, 'turn')}`, `${x.settled} settled, ${x.open} open${design}`,
+  return [`${plural(x.questions, 'question')} in ${plural(x.turns, 'turn')}${over}`,`${x.settled} settled, ${x.open} open${design}`,
     `${x.repaired} repaired${where.length ? `: ${where.join(', ')}` : ''}`,
     ...(x.shared ? [`${x.shared} ${x.shared === 1 ? 'decision' : 'decisions'} two questions named`] : []),
     ...(x.unargued ? [`${x.unargued} raised, not argued`] : [])].join(' · ');
@@ -750,7 +752,7 @@ function derive(now) {
     if (e.event === 'plan.talk.start') { t.talkStart = {ts: at(e), reviewer: e.reviewer}; continue; }
     if (e.event === 'plan.talk') {
       t.talks.push({ts: at(e), start: t.talkStart?.ts ?? null, reviewer: e.reviewer, turns: e.turns, questions: e.questions, settled: e.settled, open: e.open,
-        repaired: e.repaired, design: e.design, unargued: e.unargued, root: e.root, layer: e.layer, shared: e.shared});
+        repaired: e.repaired, design: e.design, unargued: e.unargued, root: e.root, layer: e.layer, shared: e.shared, bound: e.bound});
       t.talkStart = null;
       continue;
     }
