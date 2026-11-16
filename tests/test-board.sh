@@ -167,14 +167,67 @@ story_file "$WORK/correction.md" correction
 stories approve correction-one --file "$WORK/correction.md" --correction >/dev/null
 project state correction-one building "lead: builder" >/dev/null
 
-if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 12 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
+# A choice taken by a timeout written an hour after its wait ended, and a review logged in the same
+# second as the next state block: on 11 November.
+T=timed-out
+task "$T" "Round the shipping costs"
+project state "$T" building "lead: builder" >/dev/null
+decide ask "$T" --what "Round up or to the nearest cent" --option "up" --option "to the nearest cent" --recommended "to the nearest cent" --why "the carrier rounds so" --said "The two personas split." >/dev/null
+past "$T" 1
+decide timeout "$T" 1 >/dev/null
+project state "$T" ready "the report is written" >/dev/null
+project state "$T" landing "the checks start" >/dev/null
+project log "$T" gate "command=make test" exit:=0 "last=3 passed" tip=abc1234 >/dev/null
+project log "$T" task.red ok:=true digest=000000000000 base=0a1b2c3d4 tip=abc123456 'tests:=[]' 'without_a_test:=[]' 'run_without:=[]' >/dev/null
+project log "$T" review attempt:=1 round:=1 kind=read verdict=clean must_fix:=0 should:=0 nit:=0 'answered:=["codex"]' 'silent:=[]' 'ran:=[]' 'left_out:=[]' tip=abc1234 >/dev/null
+project state "$T" open "ready to land on main at abc1234" "green" >/dev/null
+project state "$T" landed "main abc1234" >/dev/null
+retime "$T" 2026-11-11T09:00:00Z 0 5 65 70 72 74 76 80 80 90
+
+# A gate command that failed five minutes into a landing that is still open.
+task red-gate "Keep the cart for a week"
+project state red-gate ready "the report is written" >/dev/null
+project state red-gate landing "the checks start" >/dev/null
+project log red-gate gate "command=make test" exit:=1 "last=1 failed, 8 passed" tip=fed4321 >/dev/null
+retime red-gate now -40 -30 -25
+
+# Stories that nobody was confused by, which still wait for the owner's yes: he left before he gave it.
+task clear-read-held "Show the stock on the product page"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the page gets a new line.' '' '1. A product with 3 in stock says "3 left".' > "$WORK/stock.md"
+digest=$(stories digest clear-read-held --file "$WORK/stock.md" | field 'd["digest"]')
+project log clear-read-held stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+project state clear-read-held held "the stories wait for the owner" >/dev/null
+
+# A story change of the build that the owner's next approval took over, and one after that approval.
+C=changed-then-approved
+task "$C" "Name the export file by its date"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the file name changes.' '' '1. The export of 3 May is named export-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-1.md"
+stories approve "$C" --file "$WORK/name-1.md" >/dev/null
+project state "$C" building "lead: builder" >/dev/null
+decide story "$C" --changed 1 --was "The export of 3 May is named export-05-03.csv." --now "The export of 3 May is named export-2026-05-03.csv." --why "a year keeps the names apart" --by lead >/dev/null
+printf '%s\n' '## Stories' '' 'Kind: feature, because the file name changes.' '' '1. The export of 3 May is named export-2026-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-2.md"
+stories approve "$C" --file "$WORK/name-2.md" >/dev/null
+decide story "$C" --changed 2 --was "A second export that day gets -2." --now "A second export that day gets -2, a third -3." --why "the counter goes on" --by lead >/dev/null
+
+# The rare path: the lead's read found nobody confused, and froze the plan's stories.
+task rare-path "Show the VAT number on the invoice"
+rw=$(project worktree-dir rare-path)
+git -C "$R" worktree add -q -b feat/rare-path "$rw" main
+mkdir -p "$rw/docs/plans"
+printf '%s\n' '# Rare path' '' '## Stories' '' 'Kind: feature, because the invoice gets a new line.' '' '1. An invoice to a company shows its VAT number under its name.' '' '## Tasks' '' '1. The line.' > "$rw/docs/plans/20261116-rare-path.md"
+project state rare-path building "lead: builder" >/dev/null
+digest=$(stories digest rare-path | field 'd["digest"]')
+project log rare-path stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+stories approve rare-path --read >/dev/null
+
+if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 16 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
   pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log holds the moved times"
 else
   fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events"
 fi
 
 board --no-open >/dev/null
-for slug in "$G" "$L" correction-one; do board --no-open --task "$slug" >/dev/null; done
+for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path; do board --no-open --task "$slug" >/dev/null; done
 
 SHOWN=$(cat <<'PY'
 import re, sys
@@ -198,6 +251,18 @@ missing += [f"no {want[1:]!r}" for want in sys.argv[2:] if want.startswith("!") 
 if "PROBLEM" in p.title or "does not parse" in shown: missing.append(f"no problem on the page (title {p.title!r})")
 print("; ".join(missing))
 sys.exit(bool(missing))
+PY
+)
+# BANNERS DOM PATTERN ...: each regular expression matches the text of one banner, and "!PATTERN" none
+BANNERS=$(cat <<'PY'
+import html, re, sys
+dom = open(sys.argv[1], encoding="utf-8").read()
+area = dom[dom.index('id="banners"'):dom.index('<header class="top">')]
+banners = [" ".join(html.unescape(re.sub(r"<[^>]+>", " ", '<div class="banner ' + part)).split()) for part in re.split(r'<div class="banner ', area)[1:]]
+wrong = [f"no banner matches {want!r}" for want in sys.argv[2:] if not want.startswith("!") and not any(re.search(want, text) for text in banners)]
+wrong += [f"a banner matches {want[1:]!r}" for want in sys.argv[2:] if want.startswith("!") and any(re.search(want[1:], text) for text in banners)]
+print("; ".join(wrong) + (f" (the banners: {banners})" if wrong else ""))
+sys.exit(bool(wrong))
 PY
 )
 # LANES DOM 'LANE=TITLE|WHERE' ...: the card of TITLE is in LANE, and its line of where the owner answers is WHERE
@@ -247,21 +312,26 @@ elif [ -n "$chrome" ]; then
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" \
     "Waits for you=Gift note export|Lem puts choice 7 to you as a page in its session. Answer it there before its wait ends; then the lead takes the recommended action." \
     "Waits for you=Held choice|Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, with no end." \
-    "Waits for you=Held question|Lem puts this question to you in its session, as a page. Answer it there." \
+    "Waits for you=Held question|Lem puts this question to you as a page in its session. Answer it there." \
+    "Waits for you=Clear read held|Lem shows you the stories, with the personas’ read on top, as a page in its session. Approve or change them there." \
     "Waits for you=Stories wait|Lem shows you the stories, with the personas’ read on top, as a page in its session. Approve or change them there." \
     "Waits for you=Plan for you|Read the plan, then tell Lem in its session: build it or drop it." \
     "Waits for you=Night draft|Tell Lem in its session: /lem build night-draft, or drop it." \
     "Waits for you=Open pr|Merge the pull request, or tell Lem in its session to land it." \
     "Waits for you=Ready to land|Tell Lem in its session to land it." \
-    "Building=Building one" "Building=Queued one" "Building=Blocked one" "Building=Correction one" \
-    "Checks and review=Ready one" "Checks and review=In checks" "Done=Landed one"); then
+    "Building=Building one" "Building=Queued one" "Building=Blocked one" "Building=Correction one" "Building=Changed then approved" "Building=Rare path" \
+    "Checks and review=Ready one" "Checks and review=In checks" "Checks and review=Red gate" "Done=Landed one" "Done=Timed out"); then
     pass "each task is in the lane of who acts, and each one that waits for the owner says where he answers: a choice, a held decision, the stories, a plan, a draft, a pull request, a branch to land"
   else
     fail "the lanes: $why"
   fi
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "8 wait for you, 3 build, 2 in checks and review, 1 queued" \
-    "Choice 7 waits for you:" "~The note of a cancelled order · (9m [0-9]{2}s|10m) left" "You · choice 7 of the task" "Choice 4 waits for you:" "no end: no timeout takes it" "Choice 1 waits for you:" \
-    "!Choice 6 waits for you" "!Demo data"); then
+  # Each banner is read alone, so that a card's text elsewhere on the page cannot stand in for one.
+  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
+    "^Choice 7 waits for you: Gift note export · The note of a cancelled order · (9m [0-9]{2}s|10m) left Lem puts choice 7 to you as a page in its session" \
+    "^Choice 4 waits for you: Gift note export · Email the merchants about the new column · no end: no timeout takes it Lem puts choice 4" \
+    "^Choice 1 waits for you: Held choice · Refund the 12 duplicate orders now · no end: no timeout takes it" \
+    "^Waits for you: Stories wait · the stories wait for the owner" "!^Choice 6" "!Choice 5" "!^Waits for you: Held choice") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "9 wait for you, 5 build, 3 in checks and review, 1 queued" "You · choice 7 of the task" "!Demo data"); then
     pass "the board of all tasks puts each choice that waits for the owner in a banner and in the card it opens on, with its count-down, or no end for an irreversible step, and none whose wait is over"
   else
     fail "the banners: $why"
@@ -352,6 +422,66 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     pass "a hover on a band, a span or a mark of the time card says what it is, how long it took and its two clock times, as in \"Task 1 · 18m · 09:40:00 → 09:58:00\""
   else
     fail "the hover of the time card: $hovered"
+  fi
+
+  # A choice whose wait ended at 09:20 and whose timeout was written at 10:05 held the owner 15 minutes, not an hour.
+  draw "task-$T"
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$T.dom" "You 25m · 28%") \
+    && grep -q 'data-head="You · Choice 1: Round up or to the nearest cent" data-sub="its wait ended at 09:20; the timeout took “to the nearest cent” at 10:05"' "$WORK/task-$T.dom"; then
+    pass "a choice holds the owner's row from its question to the end of its wait, and not until a timeout written later"
+  else
+    fail "a choice after its wait: ${why:-the hover of the choice}"
+  fi
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$T.dom" "The review 4m 00s · 4%" "Lem 2m 00s · 2%" "The checks 4m 00s · 4%"); then
+    pass "a review logged in the same second as the next state block is still the review's time: the order of the log, not the second, says which block an event belongs to"
+  else
+    fail "an event in the second of the next block: $why"
+  fi
+  draw task-red-gate
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-red-gate.dom" "The checks 5m 00s") \
+    && grep -q 'data-head="Lem · After a failed check: a repair or a stop, and no event says which yet"' "$WORK/task-red-gate.dom" \
+    && ! grep -q 'data-head="The checks · The checks run"' "$WORK/task-red-gate.dom"; then
+    pass "after a failed check in an open landing the time is not drawn as checks that go on: no event shows a check, and the span says that none says what comes"
+  else
+    fail "after a failed check: ${why:-the span after the red gate}"
+  fi
+  draw task-clear-read-held
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-clear-read-held.dom" "Nobody confused" "The stories wait for your yes" "!The build started with no wait for you"); then
+    pass "a read that found nobody confused does not say that the build started, while the stories wait for the owner's yes"
+  else
+    fail "a clear read that waits for him: $why"
+  fi
+  draw "task-$C"
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$C.dom" "approval 2; it replaces approval 1" \
+    "Story 1 changed during the build" "Approved by you afterwards (approval 2): it is yours, and no cause of not green" \
+    "Story 2 changed during the build" "the counter goes on · by the lead · the pull request is not green for it" \
+    "!a year keeps the names apart · by the lead · the pull request is not green for it"); then
+    pass "a story change that the owner's later approval took over is his and no cause of not green, and a change after that approval still is one"
+  else
+    fail "story changes and approvals: $why"
+  fi
+  draw task-rare-path
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-rare-path.dom" "Frozen by the personas’ read, with no wait for you" "!Taken as a correction" "!Approved by you"); then
+    pass "stories the personas' read froze on the rare path are shown as such, never as a correction or as the owner's yes"
+  else
+    fail "the read's approval: $why"
+  fi
+  # The project's own asker: the page says where the owner answers, by the settings' tools.ask.
+  printf '%s\n' '[tools]' 'ask = "terminal"' > "$R/.lem/project.local.toml"
+  board --no-open >/dev/null && draw board && cp "$WORK/board.dom" "$WORK/board-terminal.dom"
+  printf '%s\n' '[tools]' 'ask = "my-asker"' > "$R/.lem/project.local.toml"
+  board --no-open >/dev/null && draw board
+  rm "$R/.lem/project.local.toml"
+  board --no-open >/dev/null
+  if why=$("$PY" -I -B -c "$LANES" "$WORK/board-terminal.dom" \
+      "Waits for you=Gift note export|Lem asks you choice 7 in its session, as text in the conversation. Answer it there before its wait ends; then the lead takes the recommended action." \
+      "Waits for you=Stories wait|Lem shows you the stories, with the personas’ read on top, in its session, as text in the conversation. Approve or change them there.") \
+    && why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" \
+      "Waits for you=Held choice|Lem asks you choice 1 with my-asker, the asker this project names. Answer it there: it waits for your word, with no end." \
+      "Waits for you=Held question|Lem asks you this question with my-asker, the asker this project names. Answer it there."); then
+    pass "where the owner answers follows the project's tools.ask: Lem's page, the conversation, or the developer's own asker by its name"
+  else
+    fail "the project's asker: $why"
   fi
 
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.

@@ -1938,8 +1938,8 @@ named=$(cat "$OLD/.git/lem/meta.js")
 board --repo "$OLD" --no-open >/dev/null
 if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.git/lem/board.html" ] && cmp -s "$OLD/.git/lem/board.html" "$PWD/skills/lem/assets/board.html" \
   && cmp -s "$OLD/.git/lem/lem.css" "$PWD/skills/lem/assets/lem.css" \
-  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": ""});' ] \
-  && [ "$(cat "$OLD/.git/lem/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": ""});' ]; then
+  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "ask": "lem-ask"});' ] \
+  && [ "$(cat "$OLD/.git/lem/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "ask": "lem-ask"});' ]; then
   pass "board --no-open writes the page and the stylesheet it links into the shared state folder, from a worktree too, with the repository's name and its base"
 else
   fail "board --no-open: $out / $named / $(cat "$OLD/.git/lem/meta.js" 2>&1)"

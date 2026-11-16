@@ -8,7 +8,8 @@
 
 The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`,
 which `project.py` appends to, and `meta.js`, which this script writes (the repository's name,
-the base branch, the session that opened the board). A file:// page cannot read a file with
+the base branch, the session that opened the board, and the settings' `tools.ask`, how Lem puts a
+question to the owner, so the page says where he answers). A file:// page cannot read a file with
 fetch and it can load a script, so each of them is one.
 
 The board's second tab is the backlog, from `backlog.js`, which this script writes at every run:
@@ -178,7 +179,8 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
             known = ", ".join(task["slug"] for task in json.loads(project(repo, "tasks"))) or "none yet"
             raise BoardError(f"no task {slug!r}; the tasks are: {known}")
     # The main checkout names the repository; a worktree's folder is named after its task.
-    meta = {"repo": Path(settings["main"]).name, "base": settings["branch"]["base"], "session": session}
+    # `ask` is how Lem puts a question to the owner (`tools.ask`), so the page says where he answers.
+    meta = {"repo": Path(settings["main"]).name, "base": settings["branch"]["base"], "session": session, "ask": settings["tools"]["ask"]}
     if keep_session:
         # A run that opens nothing only writes the files again. The session the board names is the
         # one that opened it: the page types an ask into it, so a run from another session, a
