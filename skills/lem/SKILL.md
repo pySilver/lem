@@ -258,8 +258,9 @@ waits on, what landed today, and what
 waits for the owner. That includes each `open` task: its pull request's address, or that its
 branch is ready to land, and green or the reasons it is not, as the newest state block has
 them. It includes each choice of a build that waits for him, as `python3
-SKILL_DIR/scripts/decisions.py pending` lists them: the task, the choice, and the minutes its
-wait has left, or that it waits for his word. A task whose status is null has a state nobody wrote through the script: say
+SKILL_DIR/scripts/decisions.py pending` lists them under `waiting`: the task, the choice, and the
+minutes its wait has left, or that it waits for his word. A dropped or landed task has no
+choice that waits. A task whose status is null has a state nobody wrote through the script: say
 so. A task with a `ticket_owed` ended, and its ticket in the tracker does not say so yet: say
 that too. Open with the newest night report when one is newer than the last status shown. The status
 itself changes nothing.

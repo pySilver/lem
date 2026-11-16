@@ -1417,6 +1417,7 @@ DECISIONS=$PWD/skills/lem/scripts/decisions.py
 DC=$WORK/decisions-repo
 git init -q -b main "$DC" && commit "$DC" start && project --repo "$DC" init --base main >/dev/null
 project --repo "$DC" task-dir gift-note >/dev/null && project --repo "$DC" task-dir other-task >/dev/null && project --repo "$DC" task-dir race-task >/dev/null
+project --repo "$DC" task-dir dropped-task >/dev/null && project --repo "$DC" task-dir landed-task >/dev/null
 decide() { "$PY" -B "$DECISIONS" --repo "$DC" "$@"; }
 dlist() { decide list gift-note | field "$1"; }
 dfile=$DC/.git/lem/tasks/gift-note/decisions.jsonl
@@ -1441,12 +1442,12 @@ asked=$(decide ask gift-note --what "Where the note goes in the row" --option "t
 forever=$(decide ask gift-note --what "Send the merchants an email about the new column" --option "send it" --option "do not send it" --recommended "do not send it" \
   --why "the column is visible in the export" --said "The merchant wants the email, the accountant does not." --irreversible person)
 waits=$(decide pending gift-note)
-everywhere=$(decide pending | field '[(c["task"], c["id"]) for c in d]')
+everywhere=$(decide pending | field '([(c["task"], c["id"]) for c in d["waiting"]], d["ended"])')
 if grep -q "a choice has two options or more" <<<"$one" && grep -qF -- "--recommended is one of the options, word for word: the first; the last" <<<"$notone" \
   && [ "$(field '(d["id"], d["wait_minutes"], "tell Lem that choice 3 of gift-note waits" in d["next"])' <<<"$asked")" = "(3, 15, True)" ] \
   && [ "$(field '(d["id"], d["irreversible"], "no timeout takes it" in d["next"])' <<<"$forever")" = "(4, 'person', True)" ] \
-  && [ "$(field '[(c["id"], c["state"], 840 < c["seconds_left"] <= 900 if c["seconds_left"] is not None else None) for c in d]' <<<"$waits")" = "[(3, 'waits', True), (4, 'waits', None)]" ] \
-  && [ "$everywhere" = "[('gift-note', 3), ('gift-note', 4)]" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.git/lem/events.jsonl")" = 2 ]; then
+  && [ "$(field '[(c["id"], c["state"], 840 < c["seconds_left"] <= 900 if c["seconds_left"] is not None else None) for c in d["waiting"]]' <<<"$waits")" = "[(3, 'waits', True), (4, 'waits', None)]" ] \
+  && [ "$everywhere" = "([('gift-note', 3), ('gift-note', 4)], [])" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.git/lem/events.jsonl")" = 2 ]; then
   pass "a choice for the owner has two options or more and recommends one of them; it waits the settings' 15 minutes, and pending lists each choice that waits with the seconds it has left, and none for a step no timeout takes"
 else
   fail "decisions.py ask and pending: $one / $notone / $asked / $forever / $waits / $everywhere"
@@ -1548,7 +1549,7 @@ neither=$(decide answer gift-note 11 2>&1 || true)
 bothcode=$(status_of decide answer gift-note 11 --chose "email nobody" --instead "Email only the beta testers.")
 settled=$(decide answer gift-note 11 --instead "Email only the beta testers." --why "They asked to hear first." | field '(d["kind"], d["chose"], d["instead"])')
 eleven=$(dlist 'next((c["state"], c["chose"], c.get("instead"), c.get("owner_why")) for c in d if c["id"] == 11)')
-open_ones=$(decide pending gift-note | field '[c["id"] for c in d]')
+open_ones=$(decide pending gift-note | field '[c["id"] for c in d["waiting"]]')
 decide ask gift-note --what "The note in the title" --option "no title" --option "a title" --recommended "no title" --why "The rows stay as they are." --said "The two personas split." \
   --story 1 --was "A CSV export holds the gift note of an order." --changes "a title" >/dev/null
 silent=$(decide answer gift-note 12 --instead "A title on the first page only." 2>&1 || true)
@@ -1569,6 +1570,49 @@ if grep -qF -- "--chose names one of the options and --instead a decision of the
   pass "a decision of the owner's that is none of the options settles the choice with --instead, an irreversible one too, so it no longer waits; it is refused together with --chose or with neither; and on a choice with a story it says the story changed, with its old text, or kept"
 else
   fail "an answer that is none of the options: $both / $neither / $settled / $eleven / $open_ones / $silent / $twoways / $nowas / $nostory / $stories_now"
+fi
+# His own decision may change a story that no option touched: --story-changed names it with --story, and on a choice with a story --story may name another.
+decide ask gift-note --what "The order of the rows" --option "by date" --option "by number" --recommended "by date" --why "A merchant reads the newest first." --said "The two personas split." >/dev/null
+nonumber=$(decide answer gift-note 14 --instead "Export only orders with a note." --story-changed --was "Every order is in the export." 2>&1 || true)
+loose=$(decide answer gift-note 14 --instead "Export only orders with a note." --story 1 2>&1 || true)
+decide answer gift-note 14 --instead "Export only orders with a note." --story-changed --story 1 --was "Every order is in the export." >/dev/null
+decide ask gift-note --what "The note's place" --option "in the row" --option "in a column of its own" --recommended "in the row" --why "No column moves." --said "The two personas split." \
+  --story 2 --was "An order with no gift note has an empty cell." --changes "in a column of its own" >/dev/null
+decide answer gift-note 15 --instead "In the row, and only for orders with a note." --story-changed --story 1 --was "Every order is in the export." >/dev/null
+ownstory=$(dlist '[(c["id"], c.get("story"), c.get("was")) for c in d if c["id"] in (14, 15)]')
+if grep -qF -- "choice 14 carries no story: --story-changed names the story his decision changed with --story N" <<<"$nonumber" \
+  && grep -qF -- "--story goes with --story-changed" <<<"$loose" \
+  && [ "$ownstory" = "[(14, 1, 'Every order is in the export.'), (15, 1, 'Every order is in the export.')]" ]; then
+  pass "a decision of the owner's that is none of the options records the story it changes, also on a choice whose options touched no story, and on a choice with a story it may name another"
+else
+  fail "a story his own decision changes: $nonumber / $loose / $ownstory"
+fi
+# A task that is dropped or landed has nothing that waits: pending leaves its choices out and says why, wait returns at once, and list still shows them.
+decide ask dropped-task --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
+decide ask landed-task --what "The header" --option "a header" --option "no header" --recommended "no header" --why "The rows stay." --said "The two personas split." >/dev/null
+project --repo "$DC" state dropped-task dropped "the owner dropped it" >/dev/null && project --repo "$DC" state landed-task landed "main a..b" >/dev/null
+all_open=$(decide pending | field '(sorted({c["task"] for c in d["waiting"]}), [(e["task"], e["status"], e["choices"]) for e in d["ended"]])')
+one_ended=$(decide pending dropped-task | field '(d["waiting"], d["ended"][0]["status"], d["ended"][0]["says"])')
+started=$(date +%s)
+waited=$(decide wait dropped-task 1 --seconds 20 | field '(d["ended"], d["status"])')
+took=$(( $(date +%s) - started ))
+kept=$(decide list dropped-task | field '[(c["id"], c["state"]) for c in d]')
+if [ "$all_open" = "(['gift-note'], [('dropped-task', 'dropped', [1]), ('landed-task', 'landed', [1])])" ] \
+  && [ "$one_ended" = "([], 'dropped', 'the task is dropped: its choices no longer wait for an answer')" ] \
+  && [ "$waited" = "('the task is dropped: the choice no longer waits', 'dropped')" ] && [ "$took" -lt 10 ] && [ "$kept" = "[(1, 'waits')]" ]; then
+  pass "a dropped or landed task has no choice that waits: pending leaves it out and says why, wait returns at once with the task's status, and list still shows its record"
+else
+  fail "the choices of an ended task: $all_open / $one_ended / $waited / $took / $kept"
+fi
+# The owner's answer to a choice that waits is written with answer, by Lem and by a session's lead: a new decision would leave the choice waiting.
+SKILLTEXT=${SKILLTEXT:-$PWD/skills/lem}
+lead_brief=$SKILLTEXT/prompts/lead.md
+# shellcheck disable=SC2016  # the backticks are the stage text's own marks around a command
+if grep -qF 'decisions.py answer SLUG N' "$lead_brief" && grep -qF -- '`--instead TEXT`' "$lead_brief" && grep -qF 'his that answers no choice is logged with `decisions.py log SLUG --by owner`' "$lead_brief" \
+  && ! grep -qE 'log it with `decisions.py log SLUG --by owner`|Log each answer with `decisions.py log' "$lead_brief" "$SKILLTEXT"/stages/*.md "$SKILLTEXT"/prompts/*.md; then
+  pass "the lead's brief and Lem's stage write the owner's answer to a choice that waits with answer, --instead included, and log a word of his only when it answers no choice"
+else
+  fail "the owner's answer in the lead's brief and the stages: $(grep -n 'by owner' "$SKILLTEXT"/stages/*.md "$SKILLTEXT"/prompts/*.md)"
 fi
 # An answer and a timeout at one time: each reads the state inside the lock, so the record holds one outcome.
 rfile=$DC/.git/lem/tasks/race-task/decisions.jsonl
@@ -2494,7 +2538,7 @@ wdec answer waited-change 6 --instead "Email only the beta testers." --why "They
 wdec ask waited-change --what "The word's line ending" --option "a line break" --option "no line break" --recommended "a line break" --why "Every file ends so." \
   --said "The two personas split." --story 1 --was "The file holds the word the owner asked for." --changes "no line break" >/dev/null
 wdec answer waited-change 7 --instead "A line break, and a second line with the date." --story-changed --was "The file holds the word the owner asked for." >/dev/null
-instead_pending=$(wdec pending waited-change | field '[c["id"] for c in d]')
+instead_pending=$(wdec pending waited-change | field '[c["id"] for c in d["waiting"]]')
 local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
 text=$LOCAL/.git/lem/tasks/waited-change/pr.md
 agent=$(local_land land waited-change --by agent 2>&1 || true)

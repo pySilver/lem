@@ -130,7 +130,9 @@ the decisions and the commits on the branch; that is the whole handover.
 A lead that meets a choice the personas leave unclear asks it with `decisions.py ask`, and the
 task goes on without it (`stages/build.md`, "A choice in the build"). A session's lead tells you
 with the line `lem: SLUG choice N waits`. A builder that leads cannot wake you, so run
-`python3 SKILL_DIR/scripts/decisions.py pending` at each of your turns.
+`python3 SKILL_DIR/scripts/decisions.py pending` at each of your turns: its `waiting` list is what
+needs his answer. A task that was dropped or landed while a choice waited is under `ended`, and
+its choices need no answer.
 
 1. **Ask him at once**, through `ask-owner`: the personas' answers on top (`said`), then what the
    choice is, the options, the recommended one with its reason, and the time the wait ends, in
@@ -146,8 +148,11 @@ with the line `lem: SLUG choice N waits`. A builder that leads cannot wake you, 
    and `--why` as above. Never log it as a new decision: the choice would wait for ever, and an
    irreversible one would hold the pull request. When the choice carries a story, say also
    whether his decision changed it (`--story-changed --was "the story's text before"`) or kept
-   it true (`--story-kept`); the script refuses neither and both. When you cannot tell what he
-   decided, ask him again. A lead in a session gets the answer as one message too; a builder
+   it true (`--story-kept`); the script refuses neither and both. His decision may also change a
+   story that no option touched: before you write it, read his words against each story of the
+   plan (`stories.py show SLUG`), and when one is no longer true, add
+   `--story-changed --story N --was "its text before"`. Left out, a changed story would give a
+   green pull request. When you cannot tell what he decided, ask him again. A lead in a session gets the answer as one message too; a builder
    that leads finds it at its next `decisions.py wait`.
 3. **An answer after the wait** is written down the same way, and the script says it is late,
    also when nobody wrote the timeout yet: it writes the timeout then, and the recommended
@@ -181,10 +186,11 @@ Act on the status:
   reaches him through `ask-owner`, which shows it as the settings' `tools.ask` says: that key
   outranks the way of asking either skill names. Put the report's run above the card, with whether it was reproduced or derived,
   and its one line on why the case became possible and how far the same cause reaches. Ask all
-  held decisions of one task in one go. Log each answer with `decisions.py log SLUG --by owner`,
-  or, for a choice the record already holds as asked, `decisions.py answer SLUG N --chose OPTION --words TEXT`, or `--instead TEXT` for a decision
-  of his that is none of the options;
-  then start a lead. The `lem-panel` skill asks for what users would see under each option; that is in
+  held decisions of one task in one go. An answer to a choice the record holds as asked is
+  written with `decisions.py answer SLUG N --chose OPTION --words TEXT`, or `--instead TEXT` for
+  a decision of his that is none of the options, as the section above says; only an answer to a
+  held decision of the report, which the record does not hold, is logged with
+  `decisions.py log SLUG --by owner`. Then start a lead. The `lem-panel` skill asks for what users would see under each option; that is in
   the report, and what is missing there the lead adds, not you.
   A task is also `held` when a step is the owner's to do and no decision at all: a trust prompt
   of the reviewer's agent, a command an agent is refused. Tell the owner that step as it is, with

@@ -24,7 +24,9 @@ however long that takes.
                             is a changed story
     decisions.py pending [SLUG]
                             the choices that wait, of one task or of every task, each with the
-                            seconds its wait has left
+                            seconds its wait has left (`waiting`). A task that is dropped or
+                            landed has none: its choices that never got an answer are named
+                            under `ended`, with the task's status, and need no answer
     decisions.py wait SLUG ID [--seconds N]
                             return when the choice is answered, when its wait ends, or after N
                             seconds, and say which
@@ -32,12 +34,13 @@ however long that takes.
                             the owner's answer: the option it takes, word for word, his own
                             words when they are not that text, and his reason when he gave one.
                             Lem writes it down. Text that is no option is refused here
-    decisions.py answer SLUG ID --instead TEXT [--story-changed --was TEXT | --story-kept]
+    decisions.py answer SLUG ID --instead TEXT [--story-changed [--story N] --was TEXT | --story-kept]
                  [--words TEXT] [--why TEXT]
                             the owner decided what none of the options says: TEXT settles the
                             choice, an irreversible one too. On a choice that carries a story,
-                            say whether his decision changed that story (with its text before)
-                            or kept it
+                            say whether his decision changed a story (with its text before) or
+                            kept it. His decision may change a story no option touched:
+                            --story-changed then names it with --story N
     decisions.py timeout SLUG ID
                             the wait ended with no answer: the recommended action is taken.
                             Refused while the wait runs, and always for an irreversible step
@@ -83,6 +86,8 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
 BY = ("lead", "personas", "owner", "lem")
+# The task states in which nothing of a task waits any more.
+ENDED = ("dropped", "landed")
 # Why a later "no" cannot undo a step. A fixed list: see the text above.
 IRREVERSIBLE = {
     "data": "it destroys or rewrites data outside the worktree",
@@ -120,8 +125,10 @@ class Task:
         self.repo = repo
         self.slug = slug
         tasks = json.loads(script("project.py", repo, "tasks"))
-        if not any(task["slug"] == slug for task in tasks):
+        record = next((task for task in tasks if task["slug"] == slug), None)
+        if record is None:
             raise DecisionError(f"no task {slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
+        self.status = record["status"]
         self.directory = Path(script("project.py", repo, "state-dir").strip()) / "tasks" / slug
         self.file = self.directory / "decisions.jsonl"
 
@@ -150,12 +157,13 @@ class Task:
                     **({"instead": True} if line.get("instead") else {}),
                 )
                 if "story_was" in line:
-                    # his own decision changed the story the choice carries
-                    found[line["id"]].update(story=found[line["id"]]["story_change"]["story"], was=line["story_was"])
+                    # his own decision changed a story: the one it names, or the one the choice carries
+                    number = line.get("story_number", (found[line["id"]].get("story_change") or {}).get("story"))
+                    found[line["id"]].update(story=number, was=line["story_was"])
             elif line["kind"] == "timeout":
                 found[line["id"]].update(state="timeout", chose=line["chose"], by="timeout", taken=line["at"])
             elif line["kind"] == "late":
-                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why", "instead", "story_was", "story_kept") if key in line}})
+                found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why", "instead", "story_number", "story_was", "story_kept") if key in line}})
         for decision in found.values():
             # a choice that may change a story changed it when the option taken is one that changes it
             change = decision.get("story_change")
@@ -247,9 +255,23 @@ def shown(task: Task, decision: dict) -> dict:
     return out
 
 
-def cmd_pending(repo: Path, slug: str | None) -> list[dict]:
+def cmd_pending(repo: Path, slug: str | None) -> dict:
+    """The choices that wait for the owner. A dropped or landed task has none: nobody needs his
+    answer there, and the record stays for `list`."""
     slugs = [slug] if slug else [task["slug"] for task in json.loads(script("project.py", repo, "tasks"))]
-    return [shown(task, decision) for task in (Task(repo, name) for name in slugs) for decision in task.decisions() if decision["state"] == "waits"]
+    waiting: list[dict] = []
+    ended: list[dict] = []
+    for task in (Task(repo, name) for name in slugs):
+        open_ones = [decision for decision in task.decisions() if decision["state"] == "waits"]
+        if task.status in ENDED:
+            if open_ones or slug:
+                ended.append({
+                    "task": task.slug, "status": task.status, "choices": [decision["id"] for decision in open_ones],
+                    "says": f"the task is {task.status}: its choices no longer wait for an answer",
+                })
+        else:
+            waiting += [shown(task, decision) for decision in open_ones]
+    return {"waiting": waiting, "ended": ended}
 
 
 def cmd_wait(task: Task, number: int, seconds: int) -> dict:
@@ -258,6 +280,8 @@ def cmd_wait(task: Task, number: int, seconds: int) -> dict:
         decision = task.one(number)
         if decision["state"] != "waits":
             return {**shown(task, decision), "ended": "answered" if decision["state"] == "answered" else "taken by timeout"}
+        if task.status in ENDED:
+            return {**shown(task, decision), "ended": f"the task is {task.status}: the choice no longer waits", "status": task.status}
         if not decision["irreversible"] and left(decision) <= 0:
             return {**shown(task, decision), "ended": "the wait is over", "next": f"`decisions.py timeout {task.slug} {number}` takes the recommended action"}
         if time.monotonic() >= until:
@@ -277,12 +301,16 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
         raise DecisionError("his decision changed the story or kept it: --story-changed or --story-kept, not both")
     if args.story_changed and args.was is None:
         raise DecisionError("--story-changed needs --was, the story's text before his decision")
+    if args.story is not None and not args.story_changed:
+        raise DecisionError("--story goes with --story-changed: the number of the story his decision changed")
     if args.was is not None and not args.story_changed:
         raise DecisionError("--was goes with --story-changed: the story's text before his decision")
     if instead:
         reason["instead"] = True
         if args.story_changed:
             reason["story_was"] = text(args.was, "--was")
+            if args.story is not None:
+                reason["story_number"] = args.story
         elif args.story_kept:
             reason["story_kept"] = True
     taken: dict = {}
@@ -306,8 +334,10 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
                 f"choice {number} carries story {story['story']}: an answer with --instead says --story-changed with --was, the story's text before, "
                 "or --story-kept, so that a changed story is never lost by silence",
             )
-        if instead and not story and (args.story_changed or args.story_kept):
-            raise DecisionError(f"choice {number} carries no story: leave out --story-changed and --story-kept")
+        if instead and not story and args.story_kept:
+            raise DecisionError(f"choice {number} carries no story: leave out --story-kept")
+        if instead and not story and args.story_changed and args.story is None:
+            raise DecisionError(f"choice {number} carries no story: --story-changed names the story his decision changed with --story N")
         if decision["state"] == "waits" and (decision["irreversible"] or left(decision) > 0):
             return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
         # After the wait the recommended option stands. When nobody wrote the timeout yet, it is
@@ -378,6 +408,7 @@ def main() -> None:
     answer.add_argument("--chose", metavar="OPTION", help="the option the owner's answer takes, word for word")
     answer.add_argument("--instead", metavar="TEXT", help="the owner's decision, when it is none of the options; it settles the choice")
     answer.add_argument("--story-changed", action="store_true", help="with --instead: his decision changed the story the choice carries")
+    answer.add_argument("--story", type=int, metavar="N", help="with --story-changed: the story his decision changed, when the choice carries none or another")
     answer.add_argument("--was", help="with --story-changed: that story's text before his decision")
     answer.add_argument("--story-kept", action="store_true", help="with --instead: the story the choice carries stays true")
     answer.add_argument("--words", help="the owner's answer as he gave it, when it is not the option's text")

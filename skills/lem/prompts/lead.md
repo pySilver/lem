@@ -22,9 +22,14 @@ directory, which lead you are (`builder` or `session`) and whether you stop afte
    another branch or touch the checkout the worktree came from.
 5. **You never ask the owner.** A decision that is the owner's goes into `report.md` in the form
    `plan.md` gives under "A held decision", and Lem asks it. When the owner writes to you in your
-   session, do what the owner says, and log it with `decisions.py log SLUG --by owner` so Lem
-   reads it too. A choice in the build waits for him a fixed time at most: `stages/build.md`, "A
-   choice in the build", says how it is asked and logged.
+   session, do what the owner says, and write it down so Lem reads it too. When his words answer
+   a choice that waits (`decisions.py list SLUG`), write them with `decisions.py answer SLUG N
+   --chose OPTION --words TEXT`, or with `--instead TEXT` when he decided what none of the
+   options says (`stages/new.md`, "When a choice waits for the owner", says how, also for a
+   story his decision changes). A new decision would leave the choice waiting. Only a word of
+   his that answers no choice is logged with `decisions.py log SLUG --by owner`. A choice in the
+   build waits for him a fixed time at most: `stages/build.md`, "A choice in the build", says
+   how it is asked and logged.
 6. **Write the state as you go**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG
    STATUS "one line"`. It is the only thing Lem and the owner's board see of you while you work.
 7. **Stop the way `build.md` ends**: `report.md`, then the state, then tell Lem. Do this before
