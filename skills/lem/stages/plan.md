@@ -58,6 +58,12 @@ question at a time (step 4).
      the files it expects to touch. The landing counts the numbered lines under that heading:
      a plan of more than three is large, gets a plan talk before any code (step 4) and a review
      round at the least, and a plan with no such list is refused there;
+   - the documentation task, last, when the change makes a document false: a guide, the README,
+     the agent document, the style guide, a page of help. Write it like any other task, with the
+     documents it corrects by path and what in each one the change makes false; it serves no
+     story unless a story is about a document. The landing's polish pass checks that no document
+     the change made false was missed; it is the check, not the place where documents are
+     written;
    - the decisions the plan takes, each with the answer it assumes and what the answer rests on;
    - what it will not verify, and why;
    - `## The bar`, only when the change has to lower it (a lint or type suppression, a skipped

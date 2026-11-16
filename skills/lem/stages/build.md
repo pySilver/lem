@@ -110,7 +110,7 @@ a correction, or the other way, is a held decision. A plan that departs from a d
 
      `--said` holds what the personas answered, or why they were not asked. A choice carries no
      story. Whichever way it ends, by his answer, by a decision of his that is none of the
-     options, or by the timeout, read what was taken against each story: when one no longer
+     options, by the timeout or by the experts, read what was taken against each story: when one no longer
      holds, or a story has to come or go, record it with `decisions.py story ... --choice N`,
      and change the story in the plan in the commit that builds the option. A forgotten record
      does not pass: the gate refuses a plan whose stories are not the expected ones. The choice waits the
@@ -119,15 +119,24 @@ a correction, or the other way, is a held decision. A plan that departs from a d
      builder that leads has no `tell-coordinator` (the harness file defines it from a task's
      session only), so its choice reaches Lem at Lem's next turn, through `decisions.py pending`,
      and may end its wait before the owner sees it.
+
+     Right after the ask, before anything else, give the choice to the experts: the
+     `lem-ask-expert` skill (`load-skill`), with the slug, the choice's number and the files the
+     choice is about. Two experts of two model families answer it in the background, and their
+     advice goes on the owner's card. It also decides what the end of the wait takes, so it is
+     not skipped for an irreversible step either: there it is advice and nothing more. In a
+     session, send `lem: SLUG choice N advised` when both answers are in the record.
 3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
    before you start one that depends on it, run `decisions.py --repo WORKTREE wait SLUG N`. It
    returns when the owner answered, when the wait is over, or after nine minutes: run it again
    while it says `still waits`, when nothing else is left to do. When the wait is over, run
-   `decisions.py --repo WORKTREE timeout SLUG N`: the recommended option is taken, and the pull
-   request is not green for it. `decisions.py list SLUG` shows each decision as it stands; an
+   `decisions.py --repo WORKTREE timeout SLUG N`: the option both experts picked is taken, or the
+   recommended option when they split or one gave no advice in time, and the pull request is not
+   green for it either way. `wait` also returns when Lem settled the choice with the experts'
+   pick because the owner is away (`settled`): build that option. `decisions.py list SLUG` shows each decision as it stands; an
    answer that came after the timeout and differs from what was taken is the owner's correction:
    build his answer, and log it with `--by lead` and why.
-4. **A step that a later "no" cannot reverse is never taken by timeout.** The four kinds, and no
+4. **A step that a later "no" cannot reverse is never taken by timeout or by the experts.** The four kinds, and no
    other: it destroys or rewrites data outside the worktree (`data`); it writes to a system
    outside the repository beyond what the settings already allow, such as the tracker's ticket
    (`system`); it sends something to a person (`person`); it spends money (`money`). Ask it with
@@ -170,8 +179,9 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   decision", and each choice of an irreversible step that still waits, by its number. Leave the
   heading out when there is none;
 - **outside defects**: each defect seen in code outside the task, with its file and one line on
-  what is wrong. Do not fix it and do not file it: the closing pass of the landing fixes the
-  small ones in place and files the others in the backlog (`stages/land.md`, step 3);
+  what is wrong. Do not fix it and do not file it: the polish pass of the landing fixes the
+  small ones in place and files the others in the backlog (`stages/land.md`, step 3), with those
+  of the interview's `outside.md`;
 - **worth a look**: up to three places of the change a person's eye is worth, each with why;
   and, for a careful task, whether the change holds a migration and how to revert it. Lem
   copies these into the pull request;

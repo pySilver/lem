@@ -16,7 +16,11 @@ before he does and which he approves, so that they are the contract in plain lan
 the tests; and the pull request, which he merges without a read when it is green. A request whose
 whole context is written (a ticket, a settled backlog item) has no interview, and its stories
 wait for him only when a persona doubts them; a correction, one story in his own sentence, waits
-for nothing. Between the touches a task builds without him. Before a change is proposed it passes the machine checks and a
+for nothing. Between the touches a task builds without him. A plan whose change makes a document
+false ends with a documentation task. After the last task a fresh builder makes the polish pass, a
+short fixed list of what a build leaves behind (a comment made false, a leftover, code that reads
+badly, a document made false, the defects outside the task, fixed when cheap or filed), and changes
+no behavior. Then the change passes the machine checks and a
 review by an agent that did not build it, as large as the change needs. Nothing is reviewed after
 the merge: in one repository 43 of 48 reviews queued after the landing were still open about 28
 hours later (convertiser-server, 2026-11-14). And nothing is argued task by task: three days of a
@@ -85,7 +89,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read | `stages/new.md` |
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state | `stages/new.md` |
-| `land` | the oldest ready task: the machine checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge. `land <task>` on the owner's word merges an open one | `stages/land.md` |
+| `land` | the oldest ready task: the polish pass, the machine checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge. `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `annotate <file>` | opens a plan, a draft or any text file for the owner to mark up, with what the settings' `tools.annotate` names, and takes his notes as corrections | the harness file, `show-page` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
@@ -93,7 +97,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `status`, bare `/lem` | the board of all tasks, and in words: every open task, what is proposed and what waits for the owner | below |
 | `status <task>` | the board of one task | below |
 | `reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]`, `reviewer default` | who sits in the reviewer's pane on this machine for now, and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
@@ -117,9 +121,13 @@ Between two of the owner's messages Lem only waits: a lead that stops wakes it.
   in the decisions log, and go on. A red test, a failed command or a moving base branch is the
   work, never a reason to stop. A choice in the build that the personas leave unclear waits for
   the owner the settings' `flow.decision_wait` at most, 15 minutes unless the project says
-  otherwise; then the lead takes the recommended option and the pull request is not green for
-  it. A step that a later "no" cannot reverse is the one exception: it waits for his word, and
-  the rest of the plan goes on (`stages/build.md`, "A choice in the build").
+  otherwise. Two experts of two model families answer it in the background from the start of
+  the wait (the `lem-ask-expert` skill), and their answers are on his card. When the wait ends,
+  the lead takes the option both experts picked, or the recommended one when they split; when
+  he is away, Lem takes their shared pick at once. The pull request is not green for either. A
+  step that a later "no" cannot reverse is the one exception: the experts only advise, and it
+  waits for his word while the rest of the plan goes on (`stages/build.md`, "A choice in the
+  build").
 - **Decisions are logged, and the owner can overturn each.** Each decision made without the
   owner, each choice that went to him and his answer, through `scripts/decisions.py`: what, what
   was chosen, by whom, why, and what it would take to undo. It writes `decisions.jsonl` in the
@@ -179,6 +187,8 @@ worktree, never committed and not removed with a worktree. It holds:
   comes up to Lem, and only for the stories.
 - `directions.md`: what the owner named in the interview (a technology, a library, an approach,
   an option he picked), one line each in his words. Lem writes it; the plan follows it.
+- `outside.md`: the defects outside the request that the interview found, one line each with its
+  place. Lem writes it; the landing's polish pass fixes or files each one.
 - `stories.json`: the stories the owner approved, word for word, with a digest, who approved them
   and when, and the number of the approval, with the earlier approvals under `history`. On the
   rare path the lead's read freezes them there too (`by: read`), which is never his yes. Only `stories.py approve` writes it; `stories.py approved SLUG` prints it, and the
@@ -192,10 +202,14 @@ worktree, never committed and not removed with a worktree. It holds:
   text before and after. Lem and the lead both write it, and only through
   `scripts/decisions.py`; `decisions.py list SLUG` shows each decision as it stands, and
   `decisions.py changes SLUG` the story changes with the stories they give.
+- `experts/`: for each choice given to the experts, the brief they read (`choice-N.brief.md`)
+  and each one's answer (`choice-N.fable.md`, `choice-N.astra.md`), which the `lem-ask-expert`
+  skill writes into the record.
 - `reports/`: one file per builder of a plan of more tasks. Lem does not read these.
-- `landing.json`, `gate/`, `read.json`, `reviews/`, `notes.md` and `pr.md`: what the landing
-  keeps: its own record, the output of each gate command, what each review was given and what
-  it found, Lem's notes for the pull request, and the text of the pull request.
+- `landing.json`, `polish.json`, `gate/`, `read.json`, `reviews/`, `notes.md` and `pr.md`: what
+  the landing keeps: its own record, what the polish pass was given, the output of each gate
+  command, what each review was given and what it found, Lem's notes for the pull request, and
+  the text of the pull request.
 
 The plan itself is a file in the repository, in the settings' `plans` path.
 

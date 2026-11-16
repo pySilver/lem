@@ -9,6 +9,9 @@ protected branch is never reached, whoever asks.
 
     land.py start SLUG     the task takes the landing line: its state becomes `landing`
     land.py base SLUG      bring the base branch in by a rebase; a conflict is reported, not resolved
+    land.py polish SLUG    the polish pass starts: what its builder gets, and the tip it starts at
+    land.py polish SLUG --done
+                           after the polish builder: what it committed is checked, and logged
     land.py gate SLUG      the machine checks on the tip: every gate command, each story's tests,
                            the bar, the size
     land.py read SLUG      whether a review is due, the least it may be, and what a reviewer gets
@@ -40,6 +43,27 @@ line that only moved is no new mark; a mark whose own text changed is a new one.
 TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `gate.bar` patterns for any
 file that is not a document. A changed file of another language gets no such check, and the
 result says which (`not_covered`). The size of the change is counted, for the reviewer.
+
+The polish pass comes after the task's own work and before the machine checks, so that the
+review reads the code as it will merge. A fresh builder looks for a short fixed list (a comment
+the change made false, a leftover, code that reads badly, a document the change made false, and
+the defects outside the task that the lead's report and the interview named) and changes no
+behavior. `polish` prints what that builder gets: the range of the task's own commits from the
+base, the plan, the report, `outside.md` of the interview when the task has one, the backlog
+folder, and the files the pass may not change. It keeps the tip the pass starts at; a second
+start before `--done` keeps the same one. `polish --done` refuses a worktree with changes
+nobody committed, a branch that no longer holds that tip, a pass that leaves a story's test
+file or the plan other than it found them, and stories' tests that no longer pass on the branch and fail on
+the base commit (`stories.py red`, run when the pass committed anything). Otherwise it logs one
+`polish` event (the tip before and after, the count of commits, the items it added to the
+backlog folder). `gate` refuses a feature with no pass of this landing whose last commit the
+tip holds, and any task whose pass started and is not done. A correction skips the pass, unless
+its report lists a defect outside the task, which only the pass files: one builder changed one
+rule, its own checks ran, and the review reads every line of it. The commits
+that come after the pass, a repair, a fix of a review's findings, the items `file` writes, are
+on top of it, and a rebase by `base` gives the pass's commits their new names; any other rewrite
+of the branch asks for the pass again. The pass is one of this landing: `start` of a `ready`
+task forgets it with the rest of `landing.json`.
 
 A review comes before anything is proposed. There are three kinds: one read, which is the
 review tool's smallest profile, for a small and simple change; a round of the review tool with
@@ -366,9 +390,133 @@ def cmd_base(task: Task) -> dict:
     ahead = int(git(task.worktree, "rev-list", "--count", f"{onto}..HEAD"))
     if ahead == 0:
         raise LandError(f"the branch has no commit that {task.onto} lacks: there is nothing to land")
+    if tip != before and task.kept().get("polish"):
+        # The rebase rewrote the commits the polish pass names; each takes its new name, so that
+        # the gate still finds the pass on the tip it checks.
+        task.keep(polish=through_rebase(task, task.kept()["polish"], before, tip, onto))
     # a new base or a new tip means the gate's last result is about another tree
     task.keep(base=onto, gated=None, tree=None)
     return {"task": task.slug, "onto": task.onto, "base": onto, "tip": tip, "moved": tip != before, "ahead": ahead}
+
+
+def holds_commit(task: Task, commit: str | None, tip: str) -> bool:
+    """Whether the branch at `tip` holds `commit`."""
+    return bool(commit) and run(["git", "-C", str(task.worktree), "merge-base", "--is-ancestor", str(commit), tip], check=False).returncode == 0
+
+
+def through_rebase(task: Task, polish: dict, before: str, tip: str, onto: str) -> dict:
+    """The polish pass's record after a rebase by `base`: each commit it names, by its place from
+    the tip. A rebase keeps the branch's commits one for one, unless one became empty and was
+    dropped; then no place is sure, the names are dropped, and the gate asks for the pass again."""
+    same = int(git(task.worktree, "rev-list", "--count", f"{onto}..{before}")) == int(git(task.worktree, "rev-list", "--count", f"{onto}..{tip}"))
+    moved = dict(polish)
+    for key in ("before", "after"):
+        commit = polish.get(key)
+        if not commit:
+            continue
+        if same and holds_commit(task, commit, before):
+            after = int(git(task.worktree, "rev-list", "--count", f"{commit}..{before}"))
+            moved[key] = git(task.worktree, "rev-parse", f"{tip}~{after}")
+        else:
+            moved[key] = None
+    return moved
+
+
+def test_files(found: dict) -> list[str]:
+    """The files that hold a story's test, as the plan names them."""
+    return sorted({file for story in found["stories"] for test in story["tests"] for file in test["files"]})
+
+
+def cmd_polish(task: Task, done: bool) -> dict:
+    """The polish pass: what its builder gets, and after the builder, the check of what it did."""
+    task.need_landing()
+    task.need_worktree()
+    kept = task.kept()
+    if "base" not in kept:
+        raise LandError(f"`land.py base {task.slug}` comes first: the polish pass works on the branch as it will be checked")
+    tip = git(task.worktree, "rev-parse", "HEAD")
+    found = stories_of(task)
+    plan = Path(found["plan"]).relative_to(task.worktree).as_posix()
+    frozen = test_files(found)
+    polish = kept.get("polish")
+    if not done:
+        # A pass that started and is not done keeps the tip it started at: a run that is cut off,
+        # or a second start, must not take the builder's first commits for the task's own.
+        if not polish or not polish.get("before") or (polish.get("done") and not holds_commit(task, polish.get("after"), tip)):
+            polish = {"before": tip, "done": False}
+            task.keep(polish=polish)
+        base = git(task.worktree, "merge-base", polish["before"], task.onto)
+        report, outside = task.directory / "report.md", task.directory / "outside.md"
+        return {
+            "task": task.slug, "kind": found["kind"], "done": polish["done"], "before": polish["before"],
+            # the task's own commits, which the pass reads; what it commits comes after `before`
+            "range": f"{base}..{polish['before']}",
+            "commits": git(task.worktree, "log", "--format=%h %s", f"{base}..{polish['before']}").splitlines(),
+            "plan": found["plan"], "report": str(report) if report.is_file() else None, "outside": str(outside) if outside.is_file() else None,
+            "backlog": backlog_of(task),
+            # what the pass may not change: the stories' test files and the plan that names them
+            "frozen": [*frozen, plan],
+        }
+    if not polish:
+        raise LandError(f"no polish pass started for this landing; `land.py polish {task.slug}` starts it and prints what its builder gets")
+    if polish.get("done"):
+        raise LandError(f"the polish pass of this landing is done already, at {str(polish.get('after'))[:9]}; a builder of the landing after it has the same list in its brief")
+    before = polish["before"]
+    if not holds_commit(task, before, tip):
+        raise LandError(
+            f"the branch no longer holds {str(before)[:9]}, the tip the polish pass started at: its builder rewrote the task's commits, which no builder of the pass does. "
+            "Put the branch back on its own commits (git reflog names them), then run this again",
+        )
+    commits = git(task.worktree, "log", "--reverse", "--format=%H %s", f"{before}..{tip}").splitlines()
+    touched: dict[str, list[str]] = {}
+    for line in commits:
+        commit = line.split(" ", 1)[0]
+        for file in git(task.worktree, "diff-tree", "--no-commit-id", "--name-only", "--no-renames", "-r", commit).splitlines():
+            touched.setdefault(file, []).append(commit[:9])
+    # What counts is what the pass leaves: a commit that changed a story's test and one that put it back leave the contract as it was.
+    differs = set(changed(task, before, tip))
+    wrong = [f"{file} (by {', '.join(touched.get(file, []))})" for file in [*frozen, plan] if file in differs]
+    if wrong:
+        raise LandError(
+            f"the polish pass changed what it may not: {'; '.join(wrong)}. A story's test and the plan are the task's contract, and the pass changes no behavior: "
+            f"a builder reverts those commits (`git revert`), and this step runs again",
+        )
+    result: dict = {"task": task.slug, "before": before, "after": tip, "commits": [line.split(" ", 1)[1] if " " in line else "" for line in commits]}
+    if commits:
+        held = script("stories.py", task.main, "red", task.slug, check=False)
+        if held.returncode != 0:
+            raise LandError(
+                f"after the polish pass the stories' tests do not hold: {held.stderr.strip().removeprefix('stories.py: ')}. "
+                "The pass changes no behavior: a builder finds the commit of the pass that broke it and takes it out, and this step runs again",
+            )
+        result["stories"] = json.loads(held.stdout)
+    else:
+        result["stories"] = None
+    folder = backlog_of(task)
+    added = [row.split("\t", 1)[1] for row in git(task.worktree, "diff", "--name-status", "--no-renames", before, tip).splitlines() if row.startswith("A\t")]
+    result["filed"] = [path for path in added if folder != "." and path.startswith(folder + "/")]
+    script("project.py", task.worktree, "log", task.slug, "polish", f"before={before[:9]}", f"after={tip[:9]}", f"commits:={len(commits)}", f"filed:={json.dumps(result['filed'])}")
+    task.keep(polish={"before": before, "after": tip, "done": True, "commits": len(commits), "filed": result["filed"]})
+    return result
+
+
+def polish_missing(task: Task, tip: str, found: dict) -> str | None:
+    """Why the gate may not run on this tip for want of the polish pass; none when it may. A feature
+    needs a pass of this landing whose last commit the tip holds. A correction skips the pass, and
+    only a pass that started and is not done stops it: a builder may still be at work."""
+    polish = task.kept().get("polish")
+    if polish and not polish.get("done"):
+        return f"the polish pass started at {str(polish.get('before'))[:9]} and is not done: after its builder, `land.py polish {task.slug} --done` checks what it did"
+    if found["kind"] == "correction":
+        return None
+    if not polish:
+        return f"{task.slug} is a feature, and no polish pass is on record for this landing: `land.py polish {task.slug}` starts it, a builder does it, and `--done` checks it"
+    if not holds_commit(task, polish.get("after"), tip):
+        return (
+            f"the tip does not hold the polish pass's last commit ({str(polish.get('after'))[:9]}): the branch was rewritten after the pass by something else than `land.py base`. "
+            f"The pass runs again: `land.py polish {task.slug}`, its builder, and `--done`"
+        )
+    return None
 
 
 def stories_of(task: Task) -> dict:
@@ -612,6 +760,14 @@ def cmd_gate(task: Task) -> dict:
     if "base" not in task.kept():
         raise LandError(f"`land.py base {task.slug}` comes first: the gate runs on the tip that will land")
     tip = git(task.worktree, "rev-parse", "HEAD")
+    # Before any command runs: the review reads the code as it will merge, so the polish pass comes first.
+    try:
+        found = stories_of(task)
+    except LandError as error:
+        raise LandError(f"{error}. A builder repairs the test or the plan; the check is never edited to pass") from error
+    missing = polish_missing(task, tip, found)
+    if missing:
+        raise LandError(missing)
     logs = task.directory / "gate"
     logs.mkdir(exist_ok=True)
     results = []
@@ -631,7 +787,7 @@ def cmd_gate(task: Task) -> dict:
             f"the gate left changes in the worktree, so its result is about another tree:\n{dirty}\n"
             "make the gate command clean up, or have the project ignore what it writes",
         )
-    result = {"task": task.slug, "tip": tip, "green": green, "commands": results}
+    result = {"task": task.slug, "tip": tip, "green": green, "commands": results, "polish": task.kept().get("polish")}
     if not green:
         task.keep(gated=None, tree=None)
         print(json.dumps(result, indent=2))
@@ -772,6 +928,17 @@ def talked(talk: dict) -> str:
         f"- the plan talk: {talk['reviewer']} argued the plan with the lead, {many(talk['turns'], 'turn', 'turns')}; "
         f"{many(talk['settled'], 'position', 'positions')} settled by the two, {talk['open']} left open"
     )
+
+
+def polished(polish: dict | None, found: dict) -> str:
+    """The polish pass as one line of the pull request's checks, from what `polish --done` logged."""
+    if polish and polish.get("done"):
+        commits, filed = polish["commits"], len(polish["filed"])
+        return f"- the polish pass: {commits} commit{'' if commits == 1 else 's'}, {filed} item{'' if filed == 1 else 's'} filed in the backlog"
+    if found["kind"] == "correction":
+        return "- the polish pass: none, as a correction skips it"
+    # the gate refuses a feature with no pass, so only a record from before the pass existed is here
+    return "- the polish pass: none on record"
 
 
 def story_read_of(task: Task) -> dict | None:
@@ -1106,6 +1273,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     tests = (checks.get("stories") or {}).get("tests", [])
     without = (checks.get("stories") or {}).get("without_a_test", [])
     out.append(f"- the stories' tests: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} stor{'y has' if len(without) == 1 else 'ies have'} no test" if without else ""))
+    out.append(polished(kept.get("polish"), found))
     read = story_read_of(task)
     out.append(read_line(read, found))
     if unread(read, found):
@@ -1503,6 +1671,9 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("start", "base", "gate", "merged", "clean"):
         commands.add_parser(name).add_argument("slug")
+    polish = commands.add_parser("polish")
+    polish.add_argument("slug")
+    polish.add_argument("--done", action="store_true", help="after the polish builder: check what it committed, and log the pass")
     read = commands.add_parser("read")
     read.add_argument("slug")
     read.add_argument("--record", metavar="FILE", help="a JSON file that says what the review was and what it found; without it the step says what is due")
@@ -1524,6 +1695,8 @@ def main() -> None:
             result = cmd_start(task)
         elif args.command == "base":
             result = cmd_base(task)
+        elif args.command == "polish":
+            result = cmd_polish(task, args.done)
         elif args.command == "gate":
             result = cmd_gate(task)
         elif args.command == "read":

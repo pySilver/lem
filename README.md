@@ -45,6 +45,8 @@ line that the other agents work on, and it answers to you for all of them.
   obeys it.
 - **Gate**: the check commands of your project, for example the tests. Each command must pass
   before Lem proposes a change.
+- **Polish pass**: a new builder reads the change after the last task. It removes leftovers and
+  corrects false comments and documents. It changes no behavior.
 - **Review**: an agent that did not build the change reads it, before Lem proposes it.
 - **Green**: the first word of a pull request that you can merge without a read. The checks
   passed, the review found nothing that must change, and no story changed.
@@ -135,16 +137,16 @@ flowchart TD
     plan --> careful{Is the task careful or large?<br/>Careful: it touches a danger topic or a careful path,<br/>or it starts a pattern that other code will copy.<br/>Large: the plan has more than three tasks}
     careful -- no --> count{How many tasks<br/>are in the plan?}
     count -- one --> same[The same builder builds it]
-    count -- two or three --> build[One new builder<br/>for each task of the plan]
+    count -- two or three --> build[One new builder<br/>for each task of the plan.<br/>If a document must change,<br/>the last task is for documents]
     careful -- yes --> session[A session of its own<br/>with a reviewer in the other pane]
     session --> talk[The plan talk: the lead and the reviewer<br/>argue the plan, one question at a time,<br/>before any code]
-    talk --> buildc[One new builder<br/>for each task of the plan]
+    talk --> buildc[One new builder<br/>for each task of the plan.<br/>If a document must change,<br/>the last task is for documents]
     same --> report[The lead writes the report<br/>and the state: ready]
     build --> report
     buildc --> report
     report --> base[Lem rebases the branch<br/>on the base branch]
-    base --> closing[Closing pass: the documents,<br/>and small defects outside the task]
-    closing --> gate{The machine checks:<br/>the gate, the test of each story,<br/>the bar}
+    base --> polish[The polish pass: a new builder removes<br/>false comments and leftovers, corrects documents,<br/>and repairs or files the defects outside the task.<br/>A correction does not get it]
+    polish --> gate{The machine checks:<br/>the gate, the test of each story,<br/>the bar}
     gate -- red --> repair[A builder repairs it] --> base
     gate -- green --> review{A review, as large<br/>as the change needs}
     review -- a finding that must change --> fix[A builder corrects it] --> gate
@@ -201,7 +203,26 @@ These rules hold for each task:
 - **A check proves each test.** The test of a story must pass on the branch, and it must fail on
   the base commit. The check uses a worktree of its own. The board of a task shows the stories
   and the result of that check.
-- **The machine checks come first.** They are the gate commands, the check of each story's
+- **A polish pass comes after the last task.** A new builder reads the change of the task,
+  before the machine checks and the review. Thus the review reads the code as it will merge.
+- **The polish pass looks for a short, fixed list.** It looks for a comment or a document that
+  the change made false, for leftovers, and for code that works but is difficult to read.
+- **Leftovers are specific.** They are debug output, dead code, a name that nothing uses, a block
+  of code in comments, and a note of a builder to itself.
+- **The polish pass changes no behavior.** It must not change the test of a story or the plan.
+  After the pass, the test of each story runs again. Lem refuses a pass that breaks one.
+- **A builder that repairs a finding of the review gets the same list.** No second polish pass
+  comes after it.
+- **A correction gets no polish pass.** Its one builder changed one rule, and the review reads
+  each line of it. If its report lists a defect outside the task, the pass runs.
+- **Defects outside the task go to the backlog.** The interview, the scout and the builders find
+  them. The polish pass repairs a small one. It files each other one as a backlog item on the
+  task branch.
+- **Nobody asks you about a backlog item.** The pull request lists each item that the polish pass
+  filed, and how many commits the pass made.
+- **A plan can end with a documentation task.** If the change makes a document false, the last
+  task of the plan corrects it. The polish pass makes sure that no false document stays.
+- **The machine checks come next.** They are the gate commands, the check of each story's
   test, and the bar. They use no model.
 - **The bar must not go down.** A new lint or type suppression, a skipped or deleted test, and
   fewer assertions in a test each lower the bar. Lem refuses such a change. It passes only if the
@@ -311,8 +332,13 @@ There is one Lem for one repository. It is the session where you type `/lem`.
 - Some matters have options that each cost a person something. Then the personas of the
   project answer first, and Lem asks you with their answers. Work that does not depend on your
   answer continues.
+- Two experts answer each such choice when Lem asks you. They are agents of two different model
+  families. Their two answers are on the page with the question.
 - A choice waits 15 minutes for your answer (`flow.decision_wait`). Then the lead takes the
-  recommended option, and the pull request is not green for that choice.
+  option that both experts selected. When the experts do not agree, the lead takes the
+  recommended option. The pull request is not green for that choice.
+- When you are away, Lem does not wait 15 minutes. If the two experts selected the same option,
+  Lem takes it at once. The pull request is not green for that choice.
 - A step that nobody can reverse later never goes ahead without your answer. Examples are an
   email to a person and a payment. Only that part of the plan waits.
 - The report of each task lists each decision that an agent took without you, with its reason.
@@ -519,7 +545,8 @@ Three paths did not occur in these runs:
    changed.
 4. The builder writes the report. The report says what you get and gives the proof for each
    "done when" line. It also says what the builder did not verify.
-5. Lem brings the base branch in, and a builder does the closing pass.
+5. Lem brings the base branch in. A new builder does the polish pass. It removes one debug
+   line.
 6. Lem runs the machine checks. They are green.
 7. A new agent reads the diff. It chooses one read, because the change is small. It finds
    nothing that must change.
@@ -582,6 +609,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `/lem release` | you make a release: Lem finds the next version and writes the notes, and you approve them | `/lem release` |
 | `/lem last-tag` | you want to see the commits after the last release | `/lem last-tag` |
 | `/lem pr-review` | a pull request or an issue from a different person needs an answer; Lem writes a draft comment | `/lem pr-review 42` |
+| `/lem ask-expert` | a choice of a task waits for you, and you want the two experts to answer it; Lem gives it to them by itself, so you need this only for a choice that has no answer from them | `/lem ask-expert gift-note 3` |
 
 ### Skills that Lem uses without a command from you
 
@@ -589,6 +617,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | --- | --- |
 | `lem-ask` | each question that asks you to choose or to approve, as a page |
 | `lem-gate` | the question gate: it decides if a question must go to you at all |
+| `lem-ask-expert` | each choice of a build that waits for you: two experts answer it at the same time, and they change no file |
 | `lem-panel` | the personas of the project: an agent answers as each person that the decision has an effect on |
 | `lem-linear` | the tickets of Linear; Lem tests the connection in `/lem init`, and again when it reads a ticket |
 
@@ -618,7 +647,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `flow.topics` | empty | the danger topics: what must not go wrong, each as one sentence in your words |
 | `flow.careful` | empty | the paths that get the careful flow |
 | `flow.max_tasks` | `4` | how many tasks build or land at one time |
-| `flow.decision_wait` | `15` | how many minutes a choice in the build waits for your answer. Then the lead takes the recommended option, and the pull request is not green for it |
+| `flow.decision_wait` | `15` | how many minutes a choice in the build waits for your answer. Then the lead takes the option of the two experts, or the recommended option when they do not agree. The pull request is not green for it |
 | `seats.reviewer.agent` | none; `/lem init` asks | the reviewer: `claude` or `codex` |
 | `seats.reviewer.model`, `.effort`, `.plan_effort` | the default of the agent | the model of the reviewer, its effort for a diff, and its effort for a plan talk |
 | `tools.annotate` | `webrev` | the tool with which you mark a plan; webrev is a recommended tool that you install |
@@ -784,5 +813,6 @@ person. Thus nobody ran the two install commands above in that exact form.
 bash tests/test-lem.sh
 bash tests/test-gate-panel.sh
 bash tests/test-ask.sh
+bash tests/test-ask-expert.sh
 shellcheck tests/*.sh
 ```

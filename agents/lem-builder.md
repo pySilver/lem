@@ -21,7 +21,7 @@ Your brief gives you one of five jobs:
   owner about it. Read that file and follow it. You change nothing and run nothing that writes,
   and your reply is the report itself; rules 3 to 6 and 9 below are not yours here.
 - **It names `prompts/landing.md` and a job of the landing**: the repair of a conflict with the
-  base, the closing pass, the repair of a failed check, or the fix of a review's findings. Read
+  base, the polish pass, the repair of a failed check, or the fix of a review's findings. Read
   that file and do the job it gives under that name. It allows what rules 5 and 6 forbid
   otherwise, and it says what your reply holds.
 
@@ -43,8 +43,8 @@ What holds for every builder, unless your job says otherwise as above:
    subject`). Never push, merge or land, and never change another branch. Rebase the task's
    branch only when your brief is the repair of a conflict with the base.
 6. **A defect outside your task is listed, not fixed and not filed.** Its file and one line on
-   what is wrong go into your report. The landing's closing pass decides what becomes of it;
-   when your brief is that closing pass, you are the one who fixes the small ones and files
+   what is wrong go into your report. The landing's polish pass decides what becomes of it;
+   when your brief is that polish pass, you are the one who fixes the small ones and files
    the others.
 7. **You ask nobody.** A decision the plan did not take, you take and write in your report with
    its reason, while the stories stay true. A choice that would change a story, whose options

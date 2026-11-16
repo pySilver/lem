@@ -76,7 +76,7 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   night palette of its dark-theme version is his pick too.
 - **Each task of a plan gets a fresh builder** ("I usually start fresh executor for every task..
   since forever"). No threshold decides it.
-- **A small defect outside the task is fixed at the end**, in the landing's closing pass, and a
+- **A small defect outside the task is fixed at the end**, in the landing's polish pass, and a
   larger one becomes a backlog item ("Polishing step fixes it in place, right away if thats
   cheap small fixes and offer a backlog filing otherwise"; and on 2026-11-16: "During interview
   and execution there will be some defects that are out-of-scope. This is where backlog
@@ -183,6 +183,17 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   content follows a page of his own; no code of it is used.
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
+- **Two experts answer a choice that waits for him**: "also at Lem we will need a skill "ask
+  expert" which calls Fable subagent and GPT-6 Astra experts in background. This is good
+  solution / way out in a situation where human isn't here to answer the question and we need to
+  take a decision" (2026-11-16). On a page the same day he picked "At the start of every wait"
+  for when they come in: their two answers are on his card while he decides, their shared pick
+  is taken at the end of the wait (the recommended option when they split), and at once when he
+  is away. And he picked "Not green" for a choice they decided: one line of the pull request
+  names their pick and their reasons, and he reads it before he merges. A step that a later "no"
+  cannot reverse is never decided by the experts and waits for him; that one was kept without a
+  question and told to him on the page. The form is the session's design: the `lem-ask-expert`
+  skill, `decisions.py advise` and `settle --away`, and the harness's `ask-experts`.
 
 Designs taken on 2026-11-14 and 2026-11-15 after a question of the owner's. They are open to
 him, and they are not his rulings until he says so:
@@ -272,6 +283,7 @@ request not green also when the plan gives its reason: the design session's deci
 bash tests/test-lem.sh        # Lem's scripts, in throwaway repositories; loads the board in headless Chrome when one is installed
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
+bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs
 shellcheck tests/*.sh
 ```
 
@@ -292,7 +304,8 @@ real task, so say in the commit which task showed the need.
   the setup links as the `jev` command), `stories.py` (a task's stories, read from the top of
   its plan, and the check that each one's tests pass on the branch and fail on the base commit),
   `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, and
-  each choice that waits for him `flow.decision_wait` minutes at most, which the landing reads).
+  each choice that waits for him `flow.decision_wait` minutes at most, with the experts' advice
+  on it, which the landing reads).
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both, and
   on the board of all tasks a second tab for the backlog.
   `lem.css` beside it is the look every page of Lem shares: its colors, its type, its header
@@ -325,7 +338,9 @@ real task, so say in the commit which task showed the need.
   that ran through Lem, over its real event log.
 - `skills/lem-ask/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
   `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
-  `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`: the skills Lem names and ships.
+  `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-ask-expert/`: the
+  skills Lem names and ships. `lem-ask-expert` is Lem's own, written under the rules above, with
+  `scripts/experts.py` (the experts' brief, and their answers into the record).
   `NOTICE` says where each came from.
 
 ## The shipped skills are copies, not yet under the rules above

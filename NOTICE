@@ -158,6 +158,10 @@ read from the project and the server at run time and never written into the skil
 server is asked who it is before the first write. That repository has no license, so none of its
 text is used.
 
+## lem-ask-expert
+
+`skills/lem-ask-expert/` was written for Lem on 2026-11-16. No text of another source is used.
+
 ## lem-dialectic, lem-root-cause, lem-release, lem-last-tag and lem-pr-review
 
 `skills/lem-dialectic/` and `skills/lem-root-cause/` (there `root-cause-investigator`) are copied

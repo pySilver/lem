@@ -18,25 +18,56 @@ The brief gives the branch to rebase onto and the files git named as in conflict
 Your reply: the files you resolved, one line each on how; the tip (`git rev-parse HEAD`); the
 output of `git status --short`.
 
-## The closing pass
+## The polish pass
 
-The brief gives the task's plan and `report.md`.
+The brief gives `polish.json`, what `land.py polish` printed: the range of the task's own
+commits from the base (`range`), the plan, `report.md`, the interview's `outside.md` when the task
+has one, the backlog folder, and the files you may not change (`frozen`: each story's test file,
+and the plan).
 
-1. **The documents.** List what the change renamed, moved or removed: symbols, paths, commands,
-   settings. Search the repository's durable documents for each (the guides, the README, the
-   agent document, the style guide) and correct every sentence the change made false. Commit
-   these as `docs:`.
-2. **The outside defects** that `report.md` lists. One that is cheap and small you fix in place,
-   in a commit of its own. Each of the others you file: one item in the project's backlog folder
-   (`python3 SKILL_DIR/scripts/project.py path backlog`), in the `lem-backlog` skill's item
-   format, committed as `docs(backlog):`. You ask nobody; the pull request lists what was filed.
-3. **The report.** Bring `report.md` up to what you did: the documents you corrected, the defects
-   you fixed, and the items you filed, each by its first line and its file.
+The task's builders are done, and each of them checked its own work. This pass looks for what
+they leave behind all the same, and it looks for a short fixed list, nothing else. It is no
+review: a finding that is not on the list is not yours. Read the diff of `range` and the files
+it touches, and look for these in the lines the change wrote or that sit next to them:
+
+1. **A comment or a docstring the change made false**: one that describes the old behavior, a
+   contract the code no longer keeps (an order, a "callers must", a "never"), a count or a list
+   of callers that the change made wrong. Correct it in place, to what the code does. A note on a
+   regular expression or a dense line is corrected, never deleted.
+2. **A leftover**: a debug print or log line, dead code, a name nothing uses, a commented-out
+   block, a marker of the task's own work (a TODO of this task, a note of a builder to itself).
+   Take it out.
+3. **Code that works and reads badly**, inside the change: a name that says another thing than
+   what it holds or does, a block written twice where the change could share one. Rename or
+   share it; change nothing that a test or a caller sees.
+4. **A document the change made false.** List what the change renamed, moved or removed
+   (symbols, paths, commands, settings) and what it changed of a behavior a document describes.
+   Search the repository's durable documents for each (the guides, the README, the agent
+   document, the style guide) and correct every sentence the change made false. When the plan
+   has a documentation task, check that it missed none.
+5. **The defects outside the task** that `report.md` lists and that `outside.md` names. One that
+   is cheap and small, and changes no behavior that a story or a test of the task holds, you fix
+   in place, in a commit of its own. Each of the others you file: one item in the backlog folder,
+   in the `lem-backlog` skill's item format, committed as `docs(backlog):`. You ask nobody; the
+   pull request lists what was filed.
+
+Commit each kind on its own (`docs:` for comments and documents, `refactor:` or `chore:` for the
+code), never in one commit with another kind. You change no behavior: a story's test file and the
+plan stay as they are, and when a fix would change what a test sees, it is not on the list. Run
+the stories' tests (each `- test:` command of the plan) before your first commit and after your
+last, and the tests, the formatter and the linter of the files you touched, as the project's
+`AGENTS.md` names them. After you, `land.py polish --done` runs the stories' tests in fresh
+worktrees and refuses a pass that changed a frozen file.
+
+Last, bring `report.md` up to what you did: the documents and comments you corrected, the
+leftovers you took out, the defects you fixed, and the items you filed, each item by its first
+line and its file. Lem copies the items into the pull request's `## Filed in the backlog`.
 
 When your agent refuses you the write of a file, do not go around it: put the text in your reply
 and say which file it is for.
 
-Your reply: the commits you made, by subject; the tip (`git rev-parse HEAD`); the output of
+Your reply: the commits you made, by subject; the stories' tests before and after, each with the
+exact last line of its output; the tip (`git rev-parse HEAD`); the output of
 `git status --short`; and that `report.md` is current, or the text for it.
 
 ## The repair of a failed check
@@ -72,6 +103,10 @@ fails or the story it breaks.
 3. What the file lists under "Outside this change" you neither fix nor file: Lem's script filed
    it after the review. An item of the backlog folder you leave as it is.
 4. Change nothing else. The next round reviews what you changed, and it is the last one.
+5. Hold your own lines to the list of "The polish pass" above, items 1 to 4: the polish pass ran
+   before the review, and no second one follows your fix. Before you commit, read your diff for
+   a comment it made false, a leftover, a name that says another thing, and a document it made
+   false.
 
 Your reply: for each finding, what you did; the tip (`git rev-parse HEAD`); the output of
 `git status --short`.

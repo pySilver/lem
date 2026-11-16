@@ -43,24 +43,38 @@ one finds what the run before it finished.
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the
    base", and as its paths the branch to rebase onto and those files. Then run the step again.
-3. **The closing pass.** The task's own work is done, so this is the one moment for what was
-   left around it. `spawn-builder` with the brief below, the job "the closing pass", and as its
-   paths the task's plan and `report.md`. It does two things, each in commits of its own:
-   - *the documents*: it lists what the change renamed, moved or removed (symbols, paths,
-     commands, settings), searches the repository's durable documents for each (the guides, the
-     README, the agent document, the style guide), and corrects every sentence the change made
-     false, as `docs:` commits;
-   - *the outside defects* the report lists: one that is cheap and small is fixed in place, in a
-     commit of its own. Each of the others is filed: one item in the project's backlog folder
-     (`project.py path backlog`), in the `lem-backlog` skill's item format, committed on the
-     branch as `docs(backlog):`. Filing asks nobody; the pull request lists what was filed.
-   Its last act is to bring `report.md` up to what it did: the documents it corrected, the defects
-   it fixed and the items it filed. Its reply is what `prompts/landing.md` asks for: its commits,
-   the tip, the worktree's status, and that the report is current. When its agent refused it the
-   write, the reply holds the report's text instead, and you write `report.md` from it word for
-   word. This runs once for a task, here, and never after each task of a plan. The next step
-   runs the checks over all of it, and a project's own document checks are gate commands.
+3. **`polish`: the polish pass.** The task's own work is done, so this is the one moment for what
+   it left around it, before the checks and the review, so that the review reads the code as it
+   will merge. Rules and reviews do not catch what this pass catches: "Polishing step, sadly is
+   unavoidable (most likely). I've tried many rules etc but polishing step shows that there are
+   some drifted comments, ugly code, leftovers and so on always to be found" (the owner,
+   2026-11-16). `land.py polish SLUG` prints what the pass works on and keeps the tip it starts
+   at; keep its output as `polish.json` in the task directory. `spawn-builder` with the brief
+   below, the job "the polish pass", and as its path that file. The builder looks for a short
+   fixed list and nothing else, inside the task's own commits (`prompts/landing.md` has the
+   list): a comment the change made false, a leftover, code that works and reads badly, a
+   document the change made false, and the defects outside the task that `report.md` and the
+   interview's `outside.md` name, each fixed in place when cheap or filed in the backlog. It
+   changes no behavior. Then `land.py polish SLUG --done` checks what it committed: it refuses a
+   worktree with changes nobody committed, a change of a story's test file or of the plan, and
+   stories' tests that no longer pass on the branch and fail on the base commit; a refusal goes
+   back to a builder with the same job and the step's message. Otherwise it logs the pass, and
+   the pull request's checks say how many commits it made and how many items it filed.
+   The pass runs once for a task, here, and never after each task of a plan; a builder of a
+   later job of this landing has the same list in its brief. So when the landing comes back
+   here from a later step and `land.py polish` prints `"done": true`, go on to step 4. `gate` refuses a feature with no
+   pass on the tip it checks. A correction skips the pass: one builder changed one rule, its own
+   checks ran, and the review reads every line of it. Run it for a correction all the same when
+   its `report.md` lists a defect outside the task, since only the pass files those. A rewrite
+   of the branch after the pass, other than the rebase of `base`, asks for the pass again: `gate`
+   says so.
+   Read `report.md` again after the pass: its builder brought it up to what it did, the
+   documents it corrected, the defects it fixed and the items it filed. When its agent refused
+   it the write, its reply holds the report's text instead, and you write `report.md` from it
+   word for word.
 4. **`gate`: the machine checks**, with no model in them, on the tip that will be proposed.
+   - The polish pass is on that tip (step 3): the step refuses a feature without one before any
+     command runs.
    - Every command of the settings' `gate.commands` runs at the root of the task's worktree,
      each with its output in a file of the task directory. The step keeps the exact last line of
      each and logs each result for the board. Do not read the output files.
@@ -139,8 +153,8 @@ one finds what the run before it finished.
      each of its decisions into the text by itself.
    - `## Left open`: each should finding the review left, with its file.
    - `## Worth a look`: up to three places a person's eye is worth, and why each.
-   - `## Filed in the backlog`: each item the closing pass filed, by its
-     first line.
+   - `## Filed in the backlog`: each item the polish pass filed, by its first line, as
+     `report.md` names them.
    - `## Not done`: what the request asked for and this change does not do, and what was not
      verified.
    - `## Migration`, for a careful request only: whether the change holds a migration, and how
@@ -208,7 +222,7 @@ The brief for each builder of this stage is these lines and nothing more. Its st
 
 ```
 Read SKILL_DIR/prompts/landing.md and do the job named here.
-job: the repair of a conflict with the base | the closing pass | the repair of a failed check | the fix of a review's findings
+job: the repair of a conflict with the base | the polish pass | the repair of a failed check | the fix of a review's findings
 task: SLUG
 worktree: the worktree's absolute path
 task directory: the task directory's absolute path
@@ -216,7 +230,7 @@ paths: what the step above gives this job
 ```
 
 Such a builder writes no state block, because the task stays in `landing`, and its reply is what
-`prompts/landing.md` asks for. Read `report.md` again after the closing pass, before step 6.
+`prompts/landing.md` asks for. Read `report.md` again after the polish pass, before step 6.
 
 Then the next: a `ready` task takes the line, and the queue is looked at as `stages/new.md`
 ends: a landing holds a place, so its end may free one.

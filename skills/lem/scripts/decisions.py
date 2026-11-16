@@ -42,9 +42,18 @@ however long that takes.
     decisions.py answer SLUG ID --instead TEXT [--words TEXT] [--why TEXT]
                             the owner decided what none of the options says: TEXT settles the
                             choice, an irreversible one too
+    decisions.py advise SLUG ID --expert fable|astra (--pick OPTION | --none) --why TEXT
+                            one expert's advice on a choice that waits: the option it picks, word
+                            for word, or none of them, with its reasons. One advice of each expert,
+                            given before the wait ends; an irreversible step takes advice too
     decisions.py timeout SLUG ID
-                            the wait ended with no answer: the recommended action is taken.
+                            the wait ended with no answer: the experts' shared pick is taken when
+                            both picked the same option, the recommended action otherwise.
                             Refused while the wait runs, and always for an irreversible step
+    decisions.py settle SLUG ID --away
+                            the owner is away: the experts' shared pick is taken now, before the
+                            wait ends. Refused unless both picked the same option, and always for
+                            an irreversible step; when they split, the choice waits its time
     decisions.py list SLUG  every decision of the task, each as it stands now
 
 The record is `decisions.jsonl` in the task's directory, one line for each thing that happened;
@@ -72,8 +81,16 @@ outside the repository, beyond what the settings already allow, such as the trac
 `person` (it sends something to a person), `money` (it spends money). The lead says which; no
 code can tell.
 
+The experts are two agents of two model families, `fable` and `astra`, that the lem-ask-expert
+skill gives the same brief when the wait starts; the owner asked for them as the way out when he
+is not there to answer (2026-11-16). Their advice goes on his card while he decides. At the end
+of the wait their shared pick is taken (`by: experts`, with both reasons), and the recommended
+option when they split or one is missing (`by: timeout`); when he is away, `settle` takes the
+shared pick at once. Either way the pull request is not green for it. Advice after the wait
+ended is refused, so what the timeout takes does not depend on when somebody writes it.
+
 An answer that comes after the wait is written down as late, also when nobody wrote the timeout
-yet: then the timeout and the late answer are written together. The recommended action stands;
+yet: then the timeout and the late answer are written together. What was taken stands;
 when the answer differs from it, that is a correction, for the lead while the task builds and a
 new ask after that.
 
@@ -101,6 +118,8 @@ SCRIPTS = Path(__file__).resolve().parent
 BY = ("lead", "personas", "owner", "lem")
 # The task states in which nothing of a task waits any more.
 ENDED = ("dropped", "landed")
+# The two experts of the lem-ask-expert skill, by the names the record keeps their advice under.
+EXPERTS = ("fable", "astra")
 # Why a later "no" cannot undo a step. A fixed list: see the text above.
 IRREVERSIBLE = {
     "data": "it destroys or rewrites data outside the worktree",
@@ -173,8 +192,16 @@ class Task:
                     **{f"owner_{key}": line[key] for key in ("words", "why") if key in line},
                     **({"instead": True} if line.get("instead") else {}),
                 )
+            elif line["kind"] == "advised":
+                found[line["id"]].setdefault("advice", {})[line["expert"]] = {key: line[key] for key in ("pick", "none", "why", "at") if key in line}
             elif line["kind"] == "timeout":
-                found[line["id"]].update(state="timeout", chose=line["chose"], by="timeout", taken=line["at"])
+                # a timeout before the experts existed has no `by`: it took the recommended option
+                found[line["id"]].update(
+                    state="timeout", chose=line["chose"], by=line.get("by", "timeout"), taken=line["at"],
+                    **({"experts": line["experts"]} if "experts" in line else {}),
+                )
+            elif line["kind"] == "settled":
+                found[line["id"]].update(state="settled", chose=line["chose"], by="experts", taken=line["at"], experts=line["experts"], away=True)
             elif line["kind"] == "late":
                 found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why", "instead") if key in line}})
         return [found[key] for key in sorted(found)]
@@ -244,6 +271,23 @@ class Task:
 
 def left(decision: dict) -> int:
     return int((read(decision["deadline"]) - now()).total_seconds())
+
+
+def shared(decision: dict) -> str | None:
+    """The option both experts picked, or None: one is missing, one found none fits, or they split."""
+    advice = decision.get("advice", {})
+    picks = {advice[name].get("pick") for name in EXPERTS if name in advice}
+    if len(advice) < len(EXPERTS) or len(picks) != 1 or None in picks:
+        return None
+    return picks.pop()
+
+
+def ending(number: int, decision: dict, at: str) -> dict:
+    """The line that ends a wait with no answer: the experts' shared pick, or the recommended option."""
+    pick = shared(decision)
+    if pick is None:
+        return {"id": number, "at": at, "kind": "timeout", "chose": decision["recommended"], "by": "timeout"}
+    return {"id": number, "at": at, "kind": "timeout", "chose": pick, "by": "experts", "experts": {name: decision["advice"][name]["why"] for name in EXPERTS}}
 
 
 def text(value: str | None, flag: str) -> str:
@@ -332,8 +376,8 @@ def cmd_story(task: Task, args: argparse.Namespace) -> dict:
     def make(known: list[dict]) -> list[dict]:
         if args.choice is not None:
             choice = task.one(args.choice, known)
-            if choice["state"] not in ("answered", "timeout"):
-                raise DecisionError(f"choice {args.choice} is {choice['state']}: a story changes after a choice that was answered or taken by timeout")
+            if choice["state"] not in ("answered", "timeout", "settled"):
+                raise DecisionError(f"choice {args.choice} is {choice['state']}: a story changes after a choice that was answered or taken by timeout, or that the experts settled")
         lines = task.lines()
         # the same computation the stories' check makes, with this change last: a wrong record never enters
         task.changes([*lines, line])
@@ -358,16 +402,53 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
         "wait_minutes": wait, "deadline": stamp(asked + timedelta(minutes=wait)),
     }
     made = task.add(lambda known: [{"id": len(known) + 1, **line}])[0]
-    return {**made, "next": (
+    experts = f"give it to the experts now, with the lem-ask-expert skill ({task.slug} {made['id']}); "
+    return {**made, "next": experts + (
         "this step waits for the owner's word, however long: the rest of the plan goes on, and no timeout takes it" if args.irreversible
         else f"tell Lem that choice {made['id']} of {task.slug} waits; go on with what does not depend on it; `decisions.py wait {task.slug} {made['id']}` says when it is answered or its wait ends"
     )}
+
+
+def cmd_advise(task: Task, number: int, args: argparse.Namespace) -> dict:
+    """One expert's advice on a choice that waits, checked against the record under the lock."""
+    if (args.pick is None) == (not args.none):
+        raise DecisionError("an expert's advice is --pick OPTION, one of the choice's options word for word, or --none when it found that none fits: one of the two")
+    line = {"id": number, "at": stamp(now()), "kind": "advised", "expert": args.expert}
+    if args.none:
+        line["none"] = True
+    else:
+        line["pick"] = text(args.pick, "--pick")
+    line["why"] = text(args.why, "--why")
+
+    def make(known: list[dict]) -> list[dict]:
+        decision = task.one(number, known)
+        if decision["state"] != "waits":
+            raise DecisionError(f"choice {number} does not wait: it is {decision['state']}, with {decision['chose']!r}; advice on it changes nothing")
+        if not decision["irreversible"] and left(decision) <= 0:
+            raise DecisionError(
+                f"the wait of choice {number} ended at {decision['deadline']}: advice after it changes nothing. "
+                f"`decisions.py timeout {task.slug} {number}` takes what the advice given in time says",
+            )
+        if args.expert in decision.get("advice", {}):
+            raise DecisionError(f"choice {number} has the advice of {args.expert} already: one advice of each expert, and `decisions.py list {task.slug}` shows it")
+        if "pick" in line and line["pick"] not in decision["options"]:
+            raise DecisionError(
+                f"the pick of an expert is one of the options of choice {number}, word for word: {'; '.join(decision['options'])}. "
+                "An answer that fits none of them is --none, with its reasons in --why",
+            )
+        return [line]
+
+    made = task.add(make)[0]
+    advised = task.one(number)
+    return {**made, "advised": sorted(advised.get("advice", {})), "experts_pick": shared(advised)}
 
 
 def shown(task: Task, decision: dict) -> dict:
     out = {"task": task.slug, **{key: value for key, value in decision.items() if key != "kind"}}
     if decision["kind"] == "asked" and decision["state"] == "waits":
         out["seconds_left"] = None if decision["irreversible"] else max(0, left(decision))
+        if "advice" in decision:
+            out["experts_pick"] = shared(decision)
     return out
 
 
@@ -395,11 +476,14 @@ def cmd_wait(task: Task, number: int, seconds: int) -> dict:
     while True:
         decision = task.one(number)
         if decision["state"] != "waits":
-            return {**shown(task, decision), "ended": "answered" if decision["state"] == "answered" else "taken by timeout"}
+            ended = {"answered": "answered", "settled": "settled by the experts while the owner is away"}.get(
+                decision["state"], "taken by timeout, with the experts' shared pick" if decision["by"] == "experts" else "taken by timeout",
+            )
+            return {**shown(task, decision), "ended": ended}
         if task.status in ENDED:
             return {**shown(task, decision), "ended": f"the task is {task.status}: the choice no longer waits", "status": task.status}
         if not decision["irreversible"] and left(decision) <= 0:
-            return {**shown(task, decision), "ended": "the wait is over", "next": f"`decisions.py timeout {task.slug} {number}` takes the recommended action"}
+            return {**shown(task, decision), "ended": "the wait is over", "next": f"`decisions.py timeout {task.slug} {number}` takes the experts' shared pick, or the recommended action when they split"}
         if time.monotonic() >= until:
             return {**shown(task, decision), "ended": "still waits"}
         # A short step, so that an answer or a drop ends the wait within two seconds or so; the
@@ -432,18 +516,19 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
             )
         if decision["state"] == "waits" and (decision["irreversible"] or left(decision) > 0):
             return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
-        # After the wait the recommended option stands. When nobody wrote the timeout yet, it is
-        # written here with the answer, in the same write, so nothing reads one without the other.
-        lines = [] if decision["state"] == "timeout" else [{"id": number, "at": at, "kind": "timeout", "chose": decision["recommended"]}]
-        taken.update(chose=decision["chose"] if decision["state"] == "timeout" else decision["recommended"], timeout_written=bool(lines))
+        # After the wait, or after the experts settled it while he was away, what was taken stands.
+        # When nobody wrote the timeout yet, it is written here with the answer, in the same write,
+        # so nothing reads one without the other; it takes what a timeout would.
+        lines = [] if decision["state"] in ("timeout", "settled") else [ending(number, decision, at)]
+        taken.update(chose=lines[0]["chose"] if lines else decision["chose"], timeout_written=bool(lines), state="settled" if decision["state"] == "settled" else "timeout")
         return [*lines, {"id": number, "at": at, "kind": "late", "chose": chose, **reason}]
 
     made = task.add(make)[-1]
     if made["kind"] == "answered":
         return made
-    return {**made, "state": "timeout", "taken": taken["chose"], "timeout_written": taken["timeout_written"], "next": (
+    return {**made, "state": taken["state"], "taken": taken["chose"], "timeout_written": taken["timeout_written"], "next": (
         "the answer is the action that was taken: nothing more to do" if chose == taken["chose"]
-        else "the recommended action was taken when the wait ended, and the answer differs: it is a correction. Tell the lead while the task builds; after that it is a new ask"
+        else f"\"{taken['chose']}\" was taken without him, and the answer differs: it is a correction. Tell the lead while the task builds; after that it is a new ask"
     )}
 
 
@@ -459,7 +544,37 @@ def cmd_timeout(task: Task, number: int) -> dict:
             )
         if left(decision) > 0:
             raise DecisionError(f"the wait of choice {number} has {left(decision)} seconds left (until {decision['deadline']}); the owner may still answer")
-        return [{"id": number, "at": stamp(now()), "kind": "timeout", "chose": decision["recommended"]}]
+        return [ending(number, decision, stamp(now()))]
+
+    return task.add(make)[0]
+
+
+def cmd_settle(task: Task, number: int) -> dict:
+    """The owner is away: the experts' shared pick is taken before the wait ends. Only Lem knows
+    that he is away (`stages/new.md`); this command takes its word for it and checks the rest."""
+    def make(known: list[dict]) -> list[dict]:
+        decision = task.one(number, known)
+        if decision["state"] != "waits":
+            raise DecisionError(f"choice {number} does not wait: it is {decision['state']}, with {decision['chose']!r}")
+        if decision["irreversible"]:
+            raise DecisionError(
+                f"choice {number} is a step that a later \"no\" cannot reverse ({IRREVERSIBLE[decision['irreversible']]}): "
+                "the experts never take it. It waits for the owner's word, and the rest of the plan goes on",
+            )
+        if left(decision) <= 0:
+            raise DecisionError(f"the wait of choice {number} ended at {decision['deadline']}: `decisions.py timeout {task.slug} {number}` takes it, with the experts' shared pick when they have one")
+        pick = shared(decision)
+        if pick is None:
+            advice = decision.get("advice", {})
+            said = "; ".join(f"{name}: {advice[name]['pick'] if 'pick' in advice[name] else 'none fits'}" for name in EXPERTS if name in advice) or "no advice yet"
+            missing = [name for name in EXPERTS if name not in advice]
+            raise DecisionError(
+                f"the experts have no shared pick for choice {number} ({said}{'; no advice of ' + ' or '.join(missing) + ' yet' if missing else ''}): "
+                + ("settle it again when both advised; otherwise " if missing else "")
+                + f"it waits its time, until {decision['deadline']}, and then the timeout takes it",
+            )
+        return [{"id": number, "at": stamp(now()), "kind": "settled", "chose": pick, "by": "experts", "away": True,
+                 "experts": {name: decision["advice"][name]["why"] for name in EXPERTS}}]
 
     return task.add(make)[0]
 
@@ -511,6 +626,17 @@ def main() -> None:
     timeout = commands.add_parser("timeout")
     timeout.add_argument("slug")
     timeout.add_argument("id", type=int)
+    advise = commands.add_parser("advise")
+    advise.add_argument("slug")
+    advise.add_argument("id", type=int)
+    advise.add_argument("--expert", required=True, choices=EXPERTS)
+    advise.add_argument("--pick", metavar="OPTION", help="the option the expert picked, word for word")
+    advise.add_argument("--none", action="store_true", help="the expert found that none of the options fits")
+    advise.add_argument("--why", required=True, help="the expert's reasons, in two to four sentences")
+    settle = commands.add_parser("settle")
+    settle.add_argument("slug")
+    settle.add_argument("id", type=int)
+    settle.add_argument("--away", action="store_true", help="the owner is away, as his own words or his away channel say")
     commands.add_parser("list").add_argument("slug")
     args = parser.parse_args()
     repo = Path(args.repo)
@@ -533,6 +659,15 @@ def main() -> None:
                 result = cmd_answer(task, args.id, args)
             elif args.command == "timeout":
                 result = cmd_timeout(task, args.id)
+            elif args.command == "advise":
+                result = cmd_advise(task, args.id, args)
+            elif args.command == "settle":
+                if not args.away:
+                    raise DecisionError(
+                        "settle takes a choice before its wait ends only because the owner is away: add --away when his own words "
+                        "or his away channel say so (`stages/new.md`); otherwise the choice waits its time",
+                    )
+                result = cmd_settle(task, args.id)
             else:
                 result = [shown(task, decision) for decision in task.decisions()]
     except DecisionError as error:

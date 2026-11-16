@@ -92,6 +92,11 @@ not there), Lem has no channel of its own. Where his own instructions name one, 
 he reads away from the Mac, the question goes there, with the same case and options; otherwise
 it waits for him, and the task's state says what waits. Not checked in a run.
 
+Lem takes him as away on two facts only, never on a guess from his silence: his own words in
+this session that he is away or leaves (until he types again), or a question of this turn that
+went to his away channel because his instructions sent it there. For a choice of a build that
+waits, that is what `decisions.py settle SLUG N --away` stands on (`stages/new.md`).
+
 ## spawn-builder
 
 The `Agent` tool with `subagent_type: "lem-builder"` when the session lists an agent of that
@@ -295,6 +300,40 @@ day: `codex -m`, `codex -c`, `claude --model`, `claude --effort`).
 ## fan-out
 
 Several `Agent` calls in one message. The `Workflow` tool only when the owner asked for one.
+
+## ask-experts
+
+Both in one message, so that they start at one moment; `BRIEF`, `WORKTREE` and each answer file
+are the paths `experts.py brief` printed.
+
+- `fable`: the `Agent` tool with `subagent_type: "Plan"`, `model: "fable"` and the prompt
+  `Read BRIEF and follow it. Your reply is your answer, in the form the brief's last section
+  gives, and nothing else.` The `Plan` agent has no edit or write tool, so it reads; it has Bash,
+  so the brief's "change no file" is what keeps it from a write there. It runs in the
+  background, and its reply reaches you as its message: write that reply into its answer file
+  word for word, without the indent Claude Code puts before each line of a subagent's report,
+  then run `experts.py record`.
+- `astra`: the `Bash` tool with `run_in_background`, on this line:
+
+  ```bash
+  codex exec -m gpt-6-astra -c model_reasoning_effort=high -s read-only --skip-git-repo-check --ephemeral -C WORKTREE -o ANSWER - < BRIEF > ANSWER.log 2>&1
+  ```
+
+  `-` reads the prompt from stdin, and the brief file is that stdin, so it ends: a Codex in the
+  background whose stdin stays open waits for input and never starts (seen 2026-11-16, a headless
+  Codex review). `-o` writes its last message into the answer file. You are told when the command
+  exits; then run `experts.py record`. A non-zero exit, or an answer file that is not there, is
+  an expert that did not answer: the skill's step 3 says what follows.
+
+Checked on 2026-11-16 in a scratch repository, Claude Code 2.1.325 and codex-cli 0.169.0, on a
+toy choice of two options with two stories and one file: both started in one message (`date -u`
+read 13:23:11Z in the call before it). `fable` answered in 12.1 seconds (the subagent's
+`duration_ms`, 12093) and `astra` in 18 seconds (13:23:18Z to 13:23:36Z, `date -u` around the
+command); both picked the same option, each answer was recorded by `experts.py record` as it
+came, `decisions.py settle --away` took the pick, and both checkouts were clean after it. That
+was started from a subagent, the way a builder that leads starts them; not run yet from a
+`lem-builder` or from a task's session. One run of a toy choice: a real choice, with a plan and
+more files to read, takes longer, and that time comes out of the owner's wait.
 
 ## A session's name
 

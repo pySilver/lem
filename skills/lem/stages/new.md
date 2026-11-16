@@ -125,6 +125,11 @@ approved, which the lead may not change without the record saying so.
    line each, with his words. The lead's plan follows them; a plan that departs from one is a
    decision of the build (`stages/build.md`, "A choice in the build"). Then write `task.md` again
    with the outcome and the "done when" his answers gave.
+   A defect outside the request, that he names or that the scout's report shows, is no part of
+   the task and is not lost: write it to `outside.md` in the task directory, one line each, with
+   its place (`path` or `path:symbol`) and what is wrong. Do not ask him whether to file it, and
+   do not put it into the stories. The landing's polish pass fixes a cheap one in place and files
+   each other one in the backlog, and the pull request lists what was filed.
 4. **The stories**, when the scout's report is in and not before. Write them from his words, the
    directions, the project's profile and the report, in the form `stories.py --help` shows: the
    `## Stories` heading, the `Kind:` line, and numbered stories, each a business rule in plain
@@ -245,11 +250,20 @@ with the line `lem: SLUG choice N waits`. A builder that leads cannot wake you, 
 needs his answer. A task that was dropped or landed while a choice waited is under `ended`, and
 its choices need no answer.
 
-1. **Ask him at once**, through `ask-owner`: the personas' answers on top (`said`), then what the
+1. **Ask him at once**, through `ask-owner`: on top the two experts' answers (`advice`: each
+   one's pick, or that none fits, with its reasons) beside the personas' (`said`), then what the
    choice is, the options, the recommended one with its reason, and the time the wait ends, in
-   his clock (`deadline` is in UTC). After that time the lead takes the recommended option and
-   the pull request is not green for it. A choice with `irreversible` set has no such time: say
-   which of the four kinds it is, and that only that part of the plan waits for his word.
+   his clock (`deadline` is in UTC). After that time the lead takes the option both experts
+   picked (`experts_pick`), or the recommended one when they split, and the pull request is not
+   green for it either way: say which of the two it will be. A choice with `irreversible` set has
+   no such time: say which of the four kinds it is, that the experts' answers are advice only,
+   and that only that part of the plan waits for his word.
+   The lead gives each choice to the experts (the `lem-ask-expert` skill) right after its ask, and
+   their answers take some seconds to minutes. When `advice` is not complete yet, say on the card
+   that the experts were asked; a session's lead sends `lem: SLUG choice N advised` when both
+   answers are in, and then you tell him both in one short message. When the task's directory has
+   no `experts/choice-N.brief.md`, nobody gave the choice to them: run the `lem-ask-expert` skill
+   yourself, at once.
 2. **Write his answer**: `decisions.py answer SLUG N --chose OPTION --words TEXT`. `--chose` is
    the option his answer takes, word for word as the choice has it; the script refuses any
    other text. `--words` is his answer as he gave it, when it is not that text, and `--why`
@@ -263,10 +277,19 @@ its choices need no answer.
    session gets the answer as one message too; a builder that leads finds it at its next
    `decisions.py wait`.
 3. **An answer after the wait** is written down the same way, and the script says it is late,
-   also when nobody wrote the timeout yet: it writes the timeout then, and the recommended
-   option stands. When the answer differs from what was taken, it is his correction: tell the
+   also when nobody wrote the timeout yet: it writes the timeout then, and what the timeout
+   takes stands. When the answer differs from what was taken, it is his correction: tell the
    lead while the task builds, and after that it is a new ask. The pull request names it either
-   way.
+   way. An answer after the experts settled the choice is late in the same way.
+4. **When he is away**, the choice does not wait its time for him: once both experts picked the
+   same option, `decisions.py settle SLUG N --away` takes it at once, and the pull request is not
+   green for it. He is away on two facts only, as the harness file's `ask-owner` says: his own
+   words in this session that he is away or leaves, or a question of this turn that went to his
+   away channel. His silence is no such fact. The script refuses when the experts split, when
+   one has not answered, after the wait ended (the timeout takes it then) and always for an
+   irreversible step; a choice it refuses waits its time. A session's lead gets one message with
+   the option taken; a builder that leads finds it at its next `decisions.py wait`. Tell him at
+   his return what was taken for him and the experts' reasons.
 
 ## When a lead stops
 

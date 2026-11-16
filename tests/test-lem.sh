@@ -1938,8 +1938,8 @@ named=$(cat "$OLD/.git/lem/meta.js")
 board --repo "$OLD" --no-open >/dev/null
 if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.git/lem/board.html" ] && cmp -s "$OLD/.git/lem/board.html" "$PWD/skills/lem/assets/board.html" \
   && cmp -s "$OLD/.git/lem/lem.css" "$PWD/skills/lem/assets/lem.css" \
-  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "ask": "lem-ask"});' ] \
-  && [ "$(cat "$OLD/.git/lem/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "ask": "lem-ask"});' ]; then
+  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "ask": "lem-ask", "gates": 0});' ] \
+  && [ "$(cat "$OLD/.git/lem/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "ask": "lem-ask", "gates": 0});' ]; then
   pass "board --no-open writes the page and the stylesheet it links into the shared state folder, from a worktree too, with the repository's name and its base"
 else
   fail "board --no-open: $out / $named / $(cat "$OLD/.git/lem/meta.js" 2>&1)"
@@ -2813,9 +2813,11 @@ project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/nul
 # checks hold one line on the personas' read of the stories, from its event, with his approval.
 lstories() { "$PY" -B "$STORIES" --repo "$LOCAL" "$@"; }
 ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
-# to_open SLUG: the machine steps, a clean read and the proposal of a task of the local repository
+# polish_local SLUG: a polish pass that finds nothing to change, as a feature's gate needs one
+polish_local() { local_land polish "$1" >/dev/null && local_land polish "$1" --done >/dev/null; }
+# to_open SLUG: the machine steps with a polish pass, a clean read and the proposal of a task of the local repository
 to_open() {
-  local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && local_land gate "$1" >/dev/null \
+  local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land gate "$1" >/dev/null \
     && local_land read "$1" --record "$(clean 1)" >/dev/null && local_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
 approved_day() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["at"][:10])' "$LOCAL/.git/lem/tasks/$1/stories.json" 2>/dev/null || true; }
@@ -2839,7 +2841,7 @@ early=$(ldecide story story-departs --removed 2 --was "The file has one line." -
 ldecide answer story-departs 1 --chose "no such rule" >/dev/null 2>&1 || true
 ldecide story story-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --choice 1 >/dev/null 2>&1 || true
 ldecide story story-departs --added 2 --now "The file ends with a line break." --why "The importer reads whole lines only." --by lead >/dev/null 2>&1 || true
-local_land gate story-departs >/dev/null 2>&1 && local_land read story-departs --record "$(clean 1)" >/dev/null 2>&1 \
+polish_local story-departs 2>/dev/null && local_land gate story-departs >/dev/null 2>&1 && local_land read story-departs --record "$(clean 1)" >/dev/null 2>&1 \
   && local_land propose story-departs --title "fix: story-departs" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.git/lem/tasks/story-departs/pr.md
 agent=$(local_land land story-departs --by agent 2>&1 || true)
@@ -2866,7 +2868,7 @@ sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: fe
 rm "$tree/docs/plans/20261115-read-doubt.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
 printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/doubt.md"
 plan_digest=$(lstories digest read-doubt 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
-local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null && local_land gate read-doubt >/dev/null && local_land read read-doubt --record "$(clean 1)" >/dev/null
+local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null && polish_local read-doubt && local_land gate read-doubt >/dev/null && local_land read read-doubt --record "$(clean 1)" >/dev/null
 unread_feature=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
 project --repo "$LOCAL" log read-doubt stories.read by=lead asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=true "digest=$plan_digest" >/dev/null 2>&1 || true
 split_unseen=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
@@ -3004,6 +3006,89 @@ else
   fail "a correction's line: $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state one-word dropped "the test is over" >/dev/null
+# The polish pass: after the task's own work and before the machine checks, a fresh builder takes out
+# what the change left behind, and the script checks what it committed. Here the test is the builder.
+task_in "$LOCAL" polish-me p.txt p
+tree=$(project --repo "$LOCAL" worktree-dir polish-me)
+pdir=$LOCAL/.git/lem/tasks/polish-me
+sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the file gets a word and a tool that writes it./' "$tree/docs/plans/20261115-polish-me.md"
+rm "$tree/docs/plans/20261115-polish-me.md.bak"
+# the lead's change leaves a false comment, a debug line and a name nothing uses
+printf '%s\n' '# writes q into p.txt' 'echo "debug: here" >&2' 'unused=1' 'echo p > p.txt' > "$tree/tool.sh"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "feat: the tool"
+lead_tip=$(git -C "$tree" rev-parse HEAD)
+echo '- docs/guide.md: says nothing of p.txt' > "$pdir/outside.md"
+echo '## Outside defects' > "$pdir/report.md"
+local_land start polish-me >/dev/null && local_land base polish-me >/dev/null
+no_pass=$(local_land gate polish-me 2>&1 || true)
+first=$(local_land polish polish-me)
+echo '# writes p into p.txt' > "$tree/tool.sh"
+dirty=$(local_land polish polish-me --done 2>&1 || true)
+echo 'echo p > p.txt' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "refactor: the tool says what it writes, and nothing else"
+started=$(local_land gate polish-me 2>&1 || true)
+again=$(local_land polish polish-me)
+if grep -qF "polish-me is a feature, and no polish pass is on record for this landing: \`land.py polish polish-me\` starts it" <<<"$no_pass" \
+  && [ "$(field '(d["kind"], d["done"], d["before"], d["range"].split("..")[1], d["commits"], d["plan"].endswith("docs/plans/20261115-polish-me.md"), d["report"], d["outside"], d["backlog"], d["frozen"])' <<<"$first")" \
+  = "('feature', False, '$lead_tip', '$lead_tip', ['$(git -C "$tree" rev-parse --short "$lead_tip") feat: the tool', '$(git -C "$tree" log -1 --format='%h %s' "$lead_tip~1")'], True, '$pdir/report.md', '$pdir/outside.md', 'docs/backlog', ['tests/polish-me.sh', 'docs/plans/20261115-polish-me.md'])" ] \
+  && [ "$(field '(d["before"], d["range"])' <<<"$again")" = "$(field '(d["before"], d["range"])' <<<"$first")" ] && [ "$(kept_in "$LOCAL" polish-me polish)" = "{'before': '$lead_tip', 'done': False}" ]; then
+  pass "a feature's gate waits for the polish pass; polish prints the range of the task's own commits from the base, the plan, the report, the interview's outside.md, the backlog folder and the files the pass may not change, and keeps the tip it starts at, also when it is started again after the builder's first commit"
+else
+  fail "polish: $no_pass / $first / $again"
+fi
+# What --done refuses: a worktree with changes, a story's test changed, stories' tests that no longer hold.
+echo '# and a note' >> "$tree/tests/polish-me.sh" && git -C "$tree" commit -q -am "test: a note"
+frozen=$(local_land polish polish-me --done 2>&1 || true)
+git -C "$tree" revert --no-edit HEAD >/dev/null
+echo q > "$tree/p.txt" && git -C "$tree" commit -q -am "refactor: the word"
+broken=$(local_land polish polish-me --done 2>&1 || true)
+git -C "$tree" revert --no-edit HEAD >/dev/null
+mkdir -p "$tree/docs/backlog" && printf '%s\n' '---' 'worth: later' 'where: docs/guide.md' 'added: 2026-11-16' '---' '# The guide says nothing of p.txt' > "$tree/docs/backlog/the-guide-says-nothing-of-p-txt.md"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): the guide says nothing of p.txt"
+done_out=$(local_land polish polish-me --done)
+after_tip=$(git -C "$tree" rev-parse HEAD)
+twice=$(local_land polish polish-me --done 2>&1 || true)
+if grep -qF "the worktree has changes nobody committed" <<<"$dirty" && grep -qF "the polish pass started at $(git -C "$tree" rev-parse --short=9 "$lead_tip") and is not done" <<<"$started" \
+  && grep -qF "the polish pass changed what it may not: tests/polish-me.sh (by " <<<"$frozen" \
+  && grep -qF "after the polish pass the stories' tests do not hold" <<<"$broken" \
+  && [ "$(field '(d["before"], d["after"], len(d["commits"]), d["filed"], d["stories"]["ok"])' <<<"$done_out")" = "('$lead_tip', '$after_tip', 6, ['docs/backlog/the-guide-says-nothing-of-p-txt.md'], True)" ] \
+  && grep -qF '"event": "polish", "task": "polish-me", "before": "'"${lead_tip:0:9}"'", "after": "'"${after_tip:0:9}"'", "commits": 6, "filed": ["docs/backlog/the-guide-says-nothing-of-p-txt.md"]' "$LOCAL/.git/lem/events.jsonl" \
+  && grep -qF "the polish pass of this landing is done already" <<<"$twice" && [ "$(head -1 "$tree/tool.sh")" = '# writes p into p.txt' ]; then
+  pass "polish --done refuses a worktree with changes, a pass that changed a story's test file, and one after which the stories' tests no longer hold; otherwise it runs them, logs one polish event with the tips, the commits and the items filed, and a pass is done once"
+else
+  fail "polish --done: $dirty / $started / $frozen / $broken / $done_out / $twice"
+fi
+# The gate: the pass is on the tip it checks while the commits after it are on top, and a rebase by `base` keeps it.
+gated=$(local_land gate polish-me | field 'd["polish"]["after"]')
+echo '# a fix' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "fix: what a review found"
+on_top=$(status_of local_land gate polish-me)
+git -C "$tree" reset -q --hard "$after_tip~1" && echo 'echo p > p.txt' > "$tree/tool.sh" && git -C "$tree" commit -q -am "refactor: written again"
+rewritten=$(local_land gate polish-me 2>&1 || true)
+git -C "$tree" reset -q --hard "$after_tip" && echo '# a fix' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "fix: what a review found"
+echo late > "$LOCAL/polish-late.txt" && git -C "$LOCAL" add polish-late.txt && git -C "$LOCAL" commit -q -m "chore: a late file"
+local_land base polish-me >/dev/null
+moved=$(local_land gate polish-me | field 'd["polish"]["after"]')
+if [ "$gated" = "$after_tip" ] && [ "$on_top" = 0 ] && grep -qF "the tip does not hold the polish pass's last commit (${after_tip:0:9})" <<<"$rewritten" \
+  && [ "$moved" = "$(git -C "$tree" rev-parse HEAD~1)" ] && [ "$moved" != "$after_tip" ] && [ "$(git -C "$tree" log -1 --format=%s "$moved")" = "docs(backlog): the guide says nothing of p.txt" ]; then
+  pass "the gate finds the polish pass on its tip with a fix on top of it, refuses a branch rewritten under the pass, and after a rebase by base knows the pass's last commit by its new name"
+else
+  fail "the gate and the polish pass: $gated / $on_top / $rewritten / $moved"
+fi
+# The pull request's checks hold one line from the pass; a correction skips the pass, and its line says so.
+digest=$(lstories digest polish-me 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log polish-me stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
+local_land read polish-me --record "$(clean 1)" >/dev/null 2>&1 && local_land propose polish-me --title "feat: p" --notes "$NOTES" >/dev/null 2>&1 || true
+project --repo "$LOCAL" state polish-me dropped "the test is over" >/dev/null
+task_in "$LOCAL" skips-polish s.txt s
+local_land start skips-polish >/dev/null && local_land base skips-polish >/dev/null
+skipped=$(local_land gate skips-polish | field 'd["polish"]')
+local_land read skips-polish --record "$(clean 1)" >/dev/null && local_land propose skips-polish --title "fix: s" --notes "$NOTES" >/dev/null
+project --repo "$LOCAL" state skips-polish dropped "the test is over" >/dev/null
+if grep -qxF -- "- the polish pass: 6 commits, 1 item filed in the backlog" "$pdir/pr.md" && [ "$skipped" = None ] \
+  && grep -qxF -- "- the polish pass: none, as a correction skips it" "$LOCAL/.git/lem/tasks/skips-polish/pr.md"; then
+  pass "the pull request's checks say how many commits the polish pass made and how many items it filed; a correction's gate runs with no pass, and its checks say that a correction skips it"
+else
+  fail "the polish pass in the pull request: $skipped / $(cat "$pdir/pr.md" 2>/dev/null)"
+fi
 
 # No path rule lets a change skip its review: documentation gets one read at the least. A review that no
 # source answered is none; it is started once more, and then the request goes on as not reviewed.
