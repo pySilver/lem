@@ -34,9 +34,9 @@ the pull request.
 
 The machine checks have no model in them. `gate` runs the settings' `gate.commands`, then
 `stories.py red` (each story's tests pass on the branch and fail on the base commit), then the
-bar. A change lowers the bar when it adds a lint or type suppression or a skipped test, deletes
-a test file, or leaves fewer assertions in one (counted by the words `assert` and `expect` on the
-lines it adds and removes, in a test file and in every Rust file, where unit tests sit beside
+bar. A change lowers the bar when it adds a lint or type suppression, a skipped test or a mark
+that runs one test alone, deletes a test file or moves it out of the tests, or leaves fewer
+assertions in one (counted by the words `assert` and `expect` on the lines it adds and removes, in a test file and in every Rust file, where unit tests sit beside
 the code). A mark counts when the change leaves more of it in a file than the file had, so a
 line that only moved is no new mark; a mark whose own text changed is a new one. A lowered bar passes only with a reason for that file under
 `## The bar` in the task's plan, as `- PATH: REASON`. The marks looked for are those of Python, JavaScript and
@@ -297,10 +297,12 @@ NOTES = ("## Decisions", "## Left open", "## Worth a look", "## Filed in the bac
 # A document may quote a mark of the bar, the plan's own reason for one too: no mark is looked for in these.
 DOCS = (".md", ".rst", ".adoc")
 # The marks by which a change lowers the bar, for the languages whose tools read them. Chosen by
-# the session that built this check (2026-11-15) from those tools' own syntax; not measured.
+# the session that built this check (2026-11-15) from those tools' own syntax, and the focus marks
+# of JavaScript's runners (`.only`, `fit`, `fdescribe`), which run one test alone and so leave the
+# others out, after an audit of the bar (2026-11-17); not measured.
 BAR = {
     (".py",): (r"#\s*noqa", r"#\s*type:\s*ignore", r"#\s*pyright:\s*ignore", r"#\s*pylint:\s*disable", r"#\s*nosec", r"\bpytest\.mark\.(skip|xfail)", r"\bunittest\.skip", r"\bpytest\.skip\("),
-    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\b(it|test|describe)\.(skip|todo)\(", r"\bx(it|test|describe)\("),
+    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\b(it|test|describe)\.(skip|todo|only)\(", r"\bx(it|test|describe)\(", r"\bf(it|describe)\("),
     (".go",): (r"//\s*nolint", r"\bt\.Skip(f|Now)?\("),
     (".rs",): (r"#!?\[allow\(", r"#\[ignore\b"),
     (".java", ".kt"): (r"@Disabled", r"@Ignore", r"@SuppressWarnings"),
@@ -880,10 +882,12 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
         if fewer > 0:
             lowered.append({"file": name, "what": f"{fewer} assertion(s) fewer", "line": ""})
     for row in git(task.worktree, "diff", "--name-status", "-M", base, tip).splitlines():
-        status, _, name = row.partition("\t")
-        if status == "D" and TEST_FILE.search(name):
+        status, name, *moved = row.split("\t")
+        # a test file that moved out of the tests is one the tests no longer run, as a deleted one
+        gone = status == "D" or (status.startswith("R") and moved and not TEST_FILE.search(moved[0]))
+        if gone and TEST_FILE.search(name):
             lowered = [entry for entry in lowered if entry["file"] != name]
-            lowered.append({"file": name, "what": "a test file is deleted", "line": ""})
+            lowered.append({"file": name, "what": "a test file is deleted" if status == "D" else f"a test file is moved out of the tests, to {moved[0]}", "line": ""})
     for entry in lowered:
         entry["reason"] = reasons.get(entry["file"])
     covered = {suffix for suffixes in BAR for suffix in suffixes}

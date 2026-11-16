@@ -196,6 +196,24 @@ else
 fi
 land --repo "$GRD" clean squashed >/dev/null 2>&1 || true
 
+# The bar: a test file moved out of the tests is one the tests lose, and a focus mark runs one test alone.
+task_in "$GRD" bar-moves m.txt m
+tree=$(wt bar-moves)
+mkdir -p "$tree/attic" && git -C "$tree" mv tests/test_old.py attic/old.py
+printf '%s\n' 'it.only("runs alone", () => {});' 'fit("runs alone too", () => {});' 'fdescribe("a group alone", () => {});' \
+  'test.only("one test", () => {});' 'describe.only("one group", () => {});' 'profit(1);' > "$tree/tests/focus.test.js"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "test: moved and focused"
+g start bar-moves >/dev/null && g base bar-moves >/dev/null
+moved=$(g gate bar-moves 2>/dev/null || true)
+if [ "$(field 'sorted((e["file"], e["what"]) for e in d["bar"]["lowered"])' <<<"$moved" 2>/dev/null)" \
+  = "[('tests/focus.test.js', 'describe.only('), ('tests/focus.test.js', 'fdescribe('), ('tests/focus.test.js', 'fit('), ('tests/focus.test.js', 'it.only('), ('tests/focus.test.js', 'test.only('), ('tests/test_old.py', 'a test file is moved out of the tests, to attic/old.py')]" ] \
+  && [ "$(kept_in "$GRD" bar-moves gated)" = None ]; then
+  pass "a test file moved out of the tests lowers the bar as a deleted one does, and so does a mark that runs one test or group alone; a word that only ends the same way is none"
+else
+  fail "the bar of a move and of focus marks: $moved"
+fi
+project --repo "$GRD" state bar-moves dropped "the test is over" >/dev/null
+
 # The base moved by a file the gate ignores, and the rebase onto it stops: nothing changes, and the refusal names the steps.
 GO=$WORK/guards-origin.git
 GC=$WORK/guards-clone
