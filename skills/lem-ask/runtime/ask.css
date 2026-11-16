@@ -68,6 +68,12 @@ body {
 .hd-md ul, .hd-md ol { margin: 0 0 8px; padding-left: 20px; } .hd-md li { margin: 2px 0; }
 .hd-md h1, .hd-md h2, .hd-md h3 { margin: 10px 0 6px; font-size: 15px; font-weight: 650; }
 .hd-md h1 { font-size: 17px; }
+.hd-md h4, .hd-md h5, .hd-md h6 { margin: 8px 0 4px; font-size: 13.5px; font-weight: 650; }
+.hd-md h5, .hd-md h6 { color: var(--muted); }
+.hd-md li > ul, .hd-md li > ol { margin: 2px 0 0; }
+.hd-md .hd-task { color: var(--muted); }
+.hd-md hr { border: 0; border-top: 1px solid var(--line); margin: 10px 0; }
+.hd-md .hd-table { margin: 0 0 8px; } .hd-md .hd-table:last-child { margin-bottom: 0; }
 .hd-md blockquote { margin: 0 0 8px; padding: 2px 12px; border-left: 3px solid var(--line-strong); color: var(--muted); }
 .hd-md a { color: var(--accent); }
 .hd-md code, .hd-code { font-family: var(--mono); font-size: 12.5px; }

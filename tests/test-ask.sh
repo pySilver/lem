@@ -70,6 +70,34 @@ if "$PY" -I -B "$B" render "$WORK/carried.json" -o "$WORK/carried.html" >/dev/nu
 printf '{"questions": [{"id": "a", "prompt": "First?", "context": "QCTX-MARKER-ONE", "options": ["Yes", "No"]}, {"id": "b", "prompt": "Second?", "body": "QCTX-MARKER-TWO", "options": ["Yes", "No"]}]}' > "$WORK/qctx.json"
 "$PY" -I -B "$B" render "$WORK/qctx.json" -o "$WORK/qctx.html" >/dev/null
 
+# Markdown an agent writes by habit, each case a page of its own (checked in the browser below). md-owner
+# is the table of /lem init's last page on 2026-11-16, which showed as raw "| | |" and "|---|---|" lines.
+MDCASES=$(cat <<'PY'
+import json, os, sys
+cases = {
+    "md-owner": "| | |\n|---|---|\n| Outcome | Lem builds Lem: each change ... |\n| Careful paths | `land.py`, `stories.py`, ... |",
+    "md-header": "| Name | Value |\n| :--- | ---: |\n| a | **b** |",
+    "md-pipe-code": "| Op | Note |\n|---|---|\n| `a|b` | x \\| y |",
+    "md-no-delim": "a | b | c\nd | e | f",
+    "md-hr": "above\n\n---\n\nbelow",
+    "md-h4": "#### Deep heading\n##### Deeper",
+    "md-nested": "- top\n  - child\n    more of the child\n- next",
+    "md-tilde": "~~~\ncode here\n~~~",
+    "md-task": "- [ ] open\n- [x] done",
+    "md-plus": "+ one\n+ two",
+    "md-start": "3. three\n4. four",
+}
+for name, text in cases.items():
+    with open(os.path.join(sys.argv[1], name + ".json"), "w") as f:
+        json.dump({"prompt": "p", "context": text, "options": ["Yes", "No"]}, f)
+print(" ".join(cases))
+PY
+)
+MDNAMES=$("$PY" -I -B -c "$MDCASES" "$WORK")
+for n in $MDNAMES; do
+  "$PY" -I -B "$B" render "$WORK/$n.json" -o "$WORK/$n.html" >/dev/null
+done
+
 # An unattended run never opens anything.
 expect "refuses an unattended run" 3 unattended -- env CLAUDE_CODE_SESSION_ATTENDED=0 "$PY" -I -B "$B" q "Which?" A B
 # Outside agterm it opens nothing unless the browser is asked for: the agent runs lem-ask without checking first.
@@ -314,6 +342,117 @@ shown = " ".join(p.text)
 sys.exit(not ("QCTX-MARKER-ONE" in shown and "QCTX-MARKER-TWO" in shown))
 PY
   then pass "a question's own context and body are shown"; else fail "a question's own context and body are shown"; fi
+  MDCHECK=$(cat <<'PY'
+import sys
+from html.parser import HTMLParser
+VOID = {"br", "hr", "img", "input", "meta", "link", "col", "area", "base", "embed", "source", "track", "wbr"}
+class Node:
+    def __init__(self, tag, attrs):
+        self.tag, self.attrs, self.kids = tag, dict(attrs), []
+    def text(self):
+        return "".join(k if isinstance(k, str) else k.text() for k in self.kids)
+    def find(self, tag):
+        out = []
+        for k in self.kids:
+            if not isinstance(k, str):
+                out += [k] if k.tag == tag else []
+                out += k.find(tag)
+        return out
+    def els(self):
+        return [k for k in self.kids if not isinstance(k, str)]
+class P(HTMLParser):
+    def __init__(self):
+        super().__init__(); self.root = Node("root", []); self.stack = [self.root]
+    def handle_starttag(self, tag, attrs):
+        n = Node(tag, attrs); self.stack[-1].kids.append(n)
+        if tag not in VOID:
+            self.stack.append(n)
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, 0, -1):
+            if self.stack[i].tag == tag:
+                del self.stack[i:]; break
+    def handle_data(self, data):
+        if self.stack[-1].tag not in ("script", "style"):
+            self.stack[-1].kids.append(data)
+p = P(); p.feed(open(sys.argv[1], encoding="utf-8").read())
+page, case = p.root, sys.argv[2]
+texts = lambda nodes: [n.text().strip() for n in nodes]
+tables = page.find("table")
+bad = []
+def want(cond, why):
+    if not cond:
+        bad.append(why)
+if case == "md-owner":
+    want(len(tables) == 1, f"{len(tables)} tables")
+    if tables:
+        t = tables[0]
+        want(t.find("th") == [], "a header row of empty cells")
+        rows = t.find("tr")
+        want([texts(r.find("td"))[0] for r in rows] == ["Outcome", "Careful paths"], f"rows {[texts(r.find('td')) for r in rows]}")
+        want(texts(t.find("code")) == ["land.py", "stories.py"], f"code {texts(t.find('code'))}")
+    shown = page.text()
+    want("|---" not in shown and "| |" not in shown and "| Outcome" not in shown, "raw table text on the page")
+elif case == "md-header":
+    want(len(tables) == 1, f"{len(tables)} tables")
+    if tables:
+        t = tables[0]
+        want(texts(t.find("th")) == ["Name", "Value"], f"header {texts(t.find('th'))}")
+        want(texts(t.find("td")) == ["a", "b"] and texts(t.find("b")) == ["b"], f"cells {texts(t.find('td'))}")
+        want("right" in t.find("td")[1].attrs.get("style", "") if len(t.find("td")) > 1 else False, "the ---: column is not right-aligned")
+elif case == "md-pipe-code":
+    tds = tables[0].find("tr")[-1].find("td") if tables else []
+    want(len(tds) == 2, f"{len(tds)} cells in the row")
+    if len(tds) == 2:
+        want(texts(tds[0].find("code")) == ["a|b"], f"code {texts(tds[0].find('code'))}")
+        want(tds[1].text().strip() == "x | y", f"escaped pipe cell {tds[1].text()!r}")
+elif case == "md-no-delim":
+    want(tables == [], "a table with no delimiter line")
+    want(any("a | b | c" in t for t in texts(page.find("p"))), "the lines are not a paragraph")
+elif case == "md-hr":
+    want(len(page.find("hr")) == 1, f"{len(page.find('hr'))} rules")
+    want("---" not in page.text(), "raw --- on the page")
+elif case == "md-h4":
+    want(texts(page.find("h4")) == ["Deep heading"] and texts(page.find("h5")) == ["Deeper"], "no h4 and h5")
+    want("####" not in page.text(), "raw #### on the page")
+elif case == "md-nested":
+    top = [u for u in page.find("ul") if any(li.text().startswith("top") for li in u.els())]
+    want(len(top) == 1 and len(top[0].els()) == 2, "the outer list has not two items")
+    if top:
+        inner = top[0].els()[0].find("ul")
+        want(len(inner) == 1 and "child" in inner[0].text() and "more of the child" in inner[0].text(), "the child is not a list in the first item")
+elif case == "md-tilde":
+    pres = [x for x in page.find("pre") if x.text() == "code here"]
+    want(len(pres) == 1, "no code block")
+    want("~~~" not in page.text(), "raw ~~~ on the page")
+elif case == "md-task":
+    shown = page.text()
+    want("[ ]" not in shown and "[x]" not in shown, "raw task boxes on the page")
+    want("☐" in shown and "☑" in shown, "no box glyphs")
+elif case == "md-plus":
+    want(any(texts(u.els()) == ["one", "two"] for u in page.find("ul")), "no list of two items")
+elif case == "md-start":
+    ols = page.find("ol")
+    want(len(ols) == 1 and ols[0].attrs.get("start") == "3", "the list does not start at 3")
+said = {
+    "md-owner": "a table with an empty header row renders its rows and code, and no raw |---|",
+    "md-header": "a table with a header row renders it, with the alignment marks",
+    "md-pipe-code": "a pipe in a code span, or escaped, stays in its cell",
+    "md-no-delim": "lines with pipes and no delimiter line stay a paragraph",
+    "md-hr": "a --- line is a rule",
+    "md-h4": "a heading of level 4 or 5 is a heading",
+    "md-nested": "an indented item is a list in its parent item",
+    "md-tilde": "a ~~~ fence is a code block",
+    "md-task": "a task item shows a box",
+    "md-plus": "a + item is a list item",
+    "md-start": "an ordered list keeps its first number",
+}[case]
+print(f"markdown {case}: " + ("; ".join(bad) if bad else said))
+sys.exit(bool(bad))
+PY
+)
+  for n in $MDNAMES; do
+    if why=$("$PY" -I -B -c "$MDCHECK" "$WORK/$n.dom" "$n"); then pass "$why"; else fail "$why"; fi
+  done
 else
   printf 'SKIP page loads: no Chrome or Chromium found\n'
 fi
