@@ -180,4 +180,33 @@ else
 fi
 project --repo "$BLG" state owner-says-no dropped "the test is over" >/dev/null
 
+# The items `file` commits hold no code and no test, so they ask for no gate again: the request is
+# proposed and lands on the gate's result. An item written by hand after the gate is a commit like
+# any other, and asks for the gate. Last in this block: the landed item is on the base from here on.
+task_in "$BLG" by-hand app.txt two
+tree=$(project --repo "$BLG" worktree-dir by-hand)
+land --repo "$BLG" start by-hand >/dev/null && land --repo "$BLG" base by-hand >/dev/null && land --repo "$BLG" gate by-hand >/dev/null
+land --repo "$BLG" read by-hand --record "$(clean 1)" >/dev/null
+echo '# found by hand' > "$tree/docs/backlog/found-by-hand.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): found by hand"
+hand=$(land --repo "$BLG" propose by-hand --title "fix: by-hand" --notes "$NOTES" 2>&1 || true)
+project --repo "$BLG" state by-hand dropped "the test is over" >/dev/null
+task_in "$BLG" filed-only app.txt two
+tree=$(project --repo "$BLG" worktree-dir filed-only)
+land --repo "$BLG" start filed-only >/dev/null && land --repo "$BLG" base filed-only >/dev/null && land --repo "$BLG" gate filed-only >/dev/null
+gated=$(git -C "$tree" rev-parse HEAD)
+land --repo "$BLG" read filed-only --record "$(record 1 "$a_read, $(outside "$A")")" >/dev/null
+land --repo "$BLG" file filed-only >/dev/null
+filed_tip=$(git -C "$tree" rev-parse HEAD)
+carried=$(land --repo "$BLG" propose filed-only --title "fix: filed-only" --notes "$NOTES" 2>&1 || true)
+landed=$(land --repo "$BLG" land filed-only --by agent 2>&1 || true)
+if grep -qF "no green check is on record for this tip; \`land.py gate by-hand\` comes first" <<<"$hand" \
+  && [ "$filed_tip" != "$gated" ] && [ "$(field '(d["green"], d["tip"])' <<<"$carried" 2>/dev/null)" = "(True, '$filed_tip')" ] \
+  && [ "$(field 'd["tip"]' <<<"$landed" 2>/dev/null)" = "$filed_tip" ] && [ "$(status_in "$BLG" filed-only)" = landed ] \
+  && [ "$(git -C "$BLG" show main:docs/backlog/empty-input-crashes-the-parser.md | sed -n 6p)" = "# Empty input crashes the parser" ] \
+  && [ "$(grep -c '"event": "gate", "task": "filed-only"' "$BLG/.git/lem/events.jsonl")" = 1 ]; then
+  pass "the items land.py file commits after the gate ask for no gate again: the request is proposed and lands with them on the gate's one run; an item written by hand after the gate asks for the gate"
+else
+  fail "the gate's result over the filed items: $hand / $carried / $landed"
+fi
+
 finish

@@ -129,11 +129,12 @@ one finds what the run before it finished.
      would be a change nobody reviewed.
    - *defects outside the change* (`to_file` names some, in this output or in a later plain
      `read`): the review saw defects the base already has. `land.py file SLUG` writes one item
-     for each in the backlog folder and commits them on the task's branch; then `gate` again,
-     for the new tip. `read` still says `none`: new files of the backlog folder are no change
-     the review did not see. Do this after every record that names some, before a fix builder
-     starts too. `propose` refuses while a defect has no item, and while an item is gone from
-     the tip: then `land.py file SLUG --again` puts it back. An item the owner does not want
+     for each in the backlog folder and commits them on the task's branch. Those commits ask
+     for no `gate` again, since they hold no code and no test, and `read` still says `none`: new
+     files of the backlog folder are no change the review did not see. An item written by hand
+     asks for the gate, as any other commit does. Do this after every record that names some,
+     before a fix builder starts too. `propose` refuses while a defect has no item, and while an
+     item is gone from the tip: then `land.py file SLUG --again` puts it back. An item the owner does not want
      stays, with `worth: no` and his reason in it; it is never deleted.
    - *a must-fix*: `spawn-builder` with the brief below, the job "the fix of a review's
      findings", and as its paths `reviews/review-N.md` and the task's plan. It fixes each

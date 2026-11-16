@@ -126,8 +126,11 @@ No defect outside the change gets lost. `file` writes one item in the settings' 
 for each such defect of a review that has none yet, in the item format of the `lem-backlog` skill
 (`worth: later`, its `where`, the day it was filed; its title; its run and where it was seen),
 commits the new items on the task's branch, one commit for each round, and keeps the path of
-each defect's item in `landing.json`. A second run files nothing new. `read` names the defects
-that have no item yet (`to_file`), and `propose` refuses while one has none or while an item is
+each defect's item in `landing.json`. A second run files nothing new. Those commits ask for no
+gate again: `read` and `propose` take the gate's result for a tip whose commits after the gated
+one only add items whose paths `landing.json` keeps, and keep the result for that tip, so that
+`land` finds what it checks. An item written by hand is a commit like any other. `read` names
+the defects that have no item yet (`to_file`), and `propose` refuses while one has none or while an item is
 gone from the tip; the owner's "not wanted" is `worth: no` in the item, never its deletion.
 The file name is the slug of the title. A file of that name that holds the same defect (the same
 `where` and title, and its run word for word as paragraphs of the body, whatever else the body
@@ -1240,6 +1243,26 @@ def named(value: object, where: str) -> list[dict]:
     return value
 
 
+def gate_holds(task: Task, tip: str) -> bool:
+    """Whether the gate's result holds for `tip`: the tip is the commit it passed on, or that commit
+    with commits after it that only add the backlog items `file` wrote for this landing's reviews.
+    Those hold no code and no test, so they ask for no gate again; the result is then kept for the
+    tip, so that `land` finds what it checks. Any other commit, an item written by hand among them,
+    asks for the gate."""
+    kept = task.kept()
+    gated = kept.get("gated")
+    if gated == tip:
+        return True
+    if not gated or not holds_commit(task, gated, tip):
+        return False
+    items = {defect["item"] for read in kept.get("reads", []) if read["answered"] for defect in outside_of(read) if defect.get("item")}
+    rows = [row.split("\t", 1) for row in git(task.worktree, "diff", "--name-status", "--no-renames", gated, tip).splitlines()]
+    if not rows or not all(status == "A" and path in items for status, path in rows):
+        return False
+    task.keep(gated=tip, tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"))
+    return True
+
+
 def cmd_file(task: Task, again: bool) -> dict:
     """File each defect a review saw outside the change as an item of the backlog, and commit the items."""
     task.need_landing()
@@ -1295,7 +1318,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     task.need_landing()
     task.need_worktree()
     state = due(task)
-    if task.kept().get("gated") != state["tip"]:
+    if not gate_holds(task, state["tip"]):
         raise LandError(f"the review is of the tip the checks passed on, and no check is on record for this tip; `land.py gate {task.slug}` comes first")
     reads = task.kept().get("reads", [])
     if record is None:
@@ -1585,12 +1608,12 @@ def gh(task: Task, *args: str, check: bool = True) -> subprocess.CompletedProces
 def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     task.need_landing()
     task.need_worktree()
-    kept = task.kept()
     tip = git(task.worktree, "rev-parse", "HEAD")
-    if kept.get("gated") != tip:
+    if not gate_holds(task, tip):
         raise LandError(f"no green check is on record for this tip; `land.py gate {task.slug}` comes first")
+    kept = task.kept()
     reads = kept.get("reads", [])
-    unfiled = to_file(task, reads)
+    unfiled = to_file(reads)
     state = due(task)
     if state["due"] == "review":
         raise LandError(f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} at the least ({state['why']}); `land.py read {task.slug}` says what a reviewer gets")
@@ -1648,7 +1671,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(
             f"{len(unfiled)} defect(s) a review saw outside the change have no item in the backlog: "
             + "; ".join(f"\"{defect['title']}\" (round {defect['round']})" for defect in unfiled)
-            + f". `land.py file {task.slug}` files them, then `land.py gate {task.slug}`",
+            + f". `land.py file {task.slug}` files them, then this step runs again",
         )
     gone = [(read, defect) for read in reads if read["answered"] for defect in outside_of(read) if not in_tree(task, tip, defect["item"])]
     if gone:
@@ -1656,7 +1679,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(
             f"the item {defect['item']} of the defect \"{defect['title']}\" (review round {read['round']}) was removed after it was filed"
             + (f", and {len(gone) - 1} more" if len(gone) > 1 else "")
-            + f": a builder puts it back with `land.py file {task.slug} --again`, then `land.py gate {task.slug}`; when the owner does not want it, "
+            + f": a builder puts it back with `land.py file {task.slug} --again`, then this step runs again; when the owner does not want it, "
             "the item stays with `worth: no` and his reason in it, never deleted",
         )
     # A request is never proposed over an open question of the owner's.
