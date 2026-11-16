@@ -154,7 +154,12 @@ one finds what the run before it finished.
    at least one source left no must-fix, no story changed during the build, and no choice was
    taken by timeout. A green request needs no read from the owner. The step refuses while a
    choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
-   the owner"), and run it again after his answer or after the timeout.
+   the owner"), and run it again after his answer or after the timeout. It refuses a request
+   whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
+   event log holds no `plan.talk`: its lead skipped `stages/plan.md`, step 4, and a session lead
+   holds the talk, as for `needs a session` (`stages/new.md`). A request that
+   became careful after its plan, by the owner's word or by its diff, had no talk due; it gets
+   the full set and a person's merge, and its text says that it had no talk and why.
    With a GitHub remote the step pushes the task's branch and opens the pull request, or
    updates the one that is there. With any other remote, or none, it marks the branch ready.
    Either way the state becomes `open`, and the landing line is free.

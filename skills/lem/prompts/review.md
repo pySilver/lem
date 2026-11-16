@@ -13,7 +13,10 @@ review that knows why the builder thought it was right finds less.
 1. **Read the change.** The owner's words (`words`, and `request` when it is there), the stories
    of the plan, then the diff of `range` in `worktree`. When `in_parts` is true the change is
    too large for one sitting: read it task by task, in the plan's own cuts, and say so in your
-   file.
+   file. A careful or large plan has a section `## Plan talk`: each position there that says
+   "settled by the two, not checked by the review" is a claim of two agents that argued the plan
+   before any code. Agreement carries no authority, so check each one the diff rests on in the
+   code, as you would any claim.
 2. **Route.** Read what each profile and each lens of the review tool is for: its own line of
    description, and for a profile also which lenses its agents carry. The harness file says how
    to get both and how a round is run: it is the file named after the agent you run in, in the

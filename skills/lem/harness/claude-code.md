@@ -126,12 +126,12 @@ builder never counts on that write: when it is refused, its reply is the whole r
 one who started it writes the file from the reply, as the stage files say. A builder that takes
 another tool to get the file written goes around a guard, and it must not.
 
-A builder can start builders of its own with the same tool, so a builder leads a plan of more
-tasks. Checked on 2026-11-14 in Claude Code 2.1.325: a subagent of the type `worker`, which like
+A builder can start builders of its own with the same tool, so a builder leads a plan of two or
+three tasks. Checked on 2026-11-14 in Claude Code 2.1.325: a subagent of the type `worker`, which like
 `lem-builder` names no tool list and so inherits every tool, called `Agent`, and the nested
 agent's reply came back to it. Not run yet: the same from a `lem-builder`. A builder has no pane
-of its own, so no reviewer sits beside it and the owner cannot type to it. A careful task gets a
-session for that reason.
+of its own, so no reviewer sits beside it and the owner cannot type to it. A careful or large task
+gets a session for that reason: its plan talk needs the reviewer's pane and the mailbox.
 
 ## open-task-session
 
@@ -205,10 +205,10 @@ transcript of Lem's session).
 ## second-opinion
 
 The reviewer is a second agent in the split pane of the session that asks (a task's session, for
-a careful task); the owner reads both panes. `project.py show` gives the seat as
+a careful or large task); the owner reads both panes. `project.py show` gives the seat as
 `seats.reviewer`: its `agent` (`claude` or `codex`) and, when the project or this machine set
-them, its `model`, its `effort` for the review of a diff and its `plan_effort` for the read of a
-careful plan. When `agent` is null, ask the owner once and write the answer into
+them, its `model`, its `effort` for the review of a diff and its `plan_effort` for the talk over
+a plan. When `agent` is null, ask the owner once and write the answer into
 `.lem/project.toml`.
 
 The seat may be this machine's own for a while: the usual reviewer is down, or out of tokens.
@@ -232,9 +232,9 @@ every report says that the reviewer is this machine's choice, and "same family" 
        prompt; with an effort, `-c model_reasoning_effort=EFFORT`.
      - Claude Code: `claude --append-system-prompt "$(cat PATH/prompts/reviewer.md)" "You are the reviewer. Wait for the first message."`
        With a model, add `--model MODEL`; with an effort, `--effort EFFORT`.
-     The effort is `plan_effort` when the review is the read of a plan, and `effort` otherwise.
+     The effort is `plan_effort` when the pane is for a plan talk, and `effort` otherwise.
      Leave a flag out when the seat does not name its value: the agent's own default holds then.
-     The reviewer's pane is new for each review, so a plan read simply starts with its own effort.
+     The reviewer's pane is new for each review, so a plan talk simply starts with its own effort.
    - read the model and the effort back from the pane's status line, and name those in the
      report, never the ones you asked for. In one repository seven or more tasks were reviewed on
      another model than the run's log said (mybaze, 2026-11-07, from that project's
@@ -261,7 +261,7 @@ every report says that the reviewer is this machine's choice, and "same family" 
 5. **A reviewer is fresh for each review.** Before the next one, `agtermctl session split close`
    on this session ends the pane and its agent, and step 2 opens a new one. The dispute of a
    review's points and the check of the fixes it asked for belong to that review and stay in its
-   pane.
+   pane. A plan talk is one review: every turn of it goes to the same pane.
    A new pane is not always a new Codex. With agterm's cookbook recipe for Codex session resume
    installed, a `codex` typed in a session continues that session's conversation: its wrapper
    keeps the session's Codex thread in `~/.codex/agterm/SESSION-ID` (the id in lower case). On

@@ -46,7 +46,9 @@ cannot read a file with fetch, and it can load a script (measured in agterm 0.34
 this one follows). `state` writes `task.state` with the status, the lines, the ask, the limit and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
 second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
-JSON, so a commit made only of digits stays a string and an exit code stays a number.
+JSON, so a commit made only of digits stays a string and an exit code stays a number. One event
+has a fixed form, because the landing reads it: `plan.talk`, which the lead of a careful or large
+task writes after its plan talk, as `reviewer=AGENT turns:=N settled:=N open:=N`.
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens), which tool marks up a plan and
@@ -199,8 +201,9 @@ ignores = []
 setup = []
 
 [flow]
-# Paths whose change takes the careful flow: the plan is read by the reviewer and each task
-# is reviewed before the next starts. A `*` crosses directories.
+# Paths whose change takes the careful flow: a session leads the task, its plan is talked
+# through with the reviewer before any code, and the landing gives it the project's full review
+# set. A `*` crosses directories.
 careful = []
 # What must not go wrong in this project, each as one sentence in the owner's words: "a price a
 # customer pays", "data that cannot be rebuilt", "who may sign in". No code matches these: the
@@ -216,13 +219,13 @@ max_tasks = {max_tasks}
 decision_wait = {decision_wait}
 
 [seats.reviewer]
-# The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one reads the
-# plan and the diffs of a careful task. The same family twice is allowed.
+# The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one talks
+# the plan of a careful or large task through with its lead. The same family twice is allowed.
 {reviewer}
 # What its pane starts with. Leave one out and the agent's own default holds.
 # model = ""
 # effort = ""        # for the review of a diff
-# plan_effort = ""   # for the read of a careful plan
+# plan_effort = ""   # for the talk over a plan
 
 [corrections]
 # Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
@@ -972,7 +975,24 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
             fields[key] = json.loads(raw) if typed else raw
         except json.JSONDecodeError as error:
             raise SettingsError(f"{key!r} is not JSON ({error}): {raw!r}") from error
+    if event == "plan.talk":
+        talk_form(fields)
     print(json.dumps(append_event(root, event, slug, fields)))
+
+
+def talk_form(fields: dict) -> None:
+    """A plan talk's record is read by the landing, so it has one form: who argued the plan with the
+    lead, how many turns the talk had, and how many positions it settled and left open."""
+    form = "plan.talk takes reviewer=AGENT turns:=N settled:=N open:=N"
+    counts = ("turns", "settled", "open")
+    if set(fields) != {"reviewer", *counts}:
+        raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
+    if not isinstance(fields["reviewer"], str) or not fields["reviewer"].strip():
+        raise SettingsError(f"{form}: reviewer names the agent that argued the plan with the lead")
+    if not all(isinstance(fields[key], int) and not isinstance(fields[key], bool) and fields[key] >= 0 for key in counts):
+        raise SettingsError(f"{form}: each N is a whole number, written with := so that it stays one")
+    if fields["turns"] < 2 or fields["settled"] + fields["open"] < 1:
+        raise SettingsError(f"{form}: a talk has two turns at the least, and ends in a settled position or a disagreement left open")
 
 
 def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> list[str]:

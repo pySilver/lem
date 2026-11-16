@@ -31,8 +31,9 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    - **run now**: the code the plan names is as it was;
    - **replan**: the files the plan names changed on the base branch since the draft;
    - **drop**: the item is gone from the backlog or another branch took it.
-   Write the draft's state as `drafted`. When its report says the plan needs a session, say so in
-   the night report: the draft stands, and its build takes the careful flow.
+   Write the draft's state as `drafted`. When its report says the plan needs a session (a careful
+   or a large plan), say so in the night report: the draft stands, and its build starts with a
+   session lead and the plan talk.
 
 In the morning `/lem status` opens with the night report. The owner starts a draft with
 `/lem build <task>`, or says hold or drop.

@@ -2196,8 +2196,9 @@ if grep -q "the notes lack ## Left open, ## Worth a look, ## Filed in the backlo
   && grep -q '^> Put yes into ok.txt\.$' "$text" && grep -q '^1\. The file holds the word the owner asked for\.$' "$text" \
   && grep -q 'sh tests/first-change.sh.: passes on the branch, fails on the base commit' "$text" && grep -q '^- gate, .echo 7 passed.: 7 passed$' "$text" \
   && grep -q "^- the stories' tests: 1 pass on the branch and fail on the base commit$" "$text" && grep -q '^- the bar: not lowered$' "$text" \
-  && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 1 should, 0 nit$' "$text" && grep -q '^- careful: no$' "$text" && grep -q '^- the one line of the file\.$' "$text"; then
-  pass "with no forge the branch is marked ready: the task is open, and the text for the owner says green first, then holds his words, the stories with their tests, each check with what it returned, the decisions of the record (none here), then the notes"
+  && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 1 should, 0 nit$' "$text" && grep -q '^- careful: no$' "$text" && grep -q '^- the one line of the file\.$' "$text" \
+  && ! grep -q 'plan talk' "$text" && ! grep -q '"event": "plan.talk", "task": "first-change"' "$SHOP/.git/lem/events.jsonl"; then
+  pass "with no forge the branch is marked ready: the task is open, and the text for the owner says green first, then holds his words, the stories with their tests, each check with what it returned, the decisions of the record (none here), then the notes; a plain request of one task needs no plan talk, and its text has no line of one"
 else
   fail "propose: $err / $out / $(cat "$text" 2>/dev/null)"
 fi
@@ -2316,10 +2317,18 @@ if grep -q "no check is on record for this tip" <<<"$err" && [ "$(field '(d["due
 else
   fail "the second round: $err / $out"
 fi
+# Careful only by the owner's word, given after its plan: no talk was due, so none is asked for, and the text says why it had none.
 err=$(land --repo "$SHOP" propose second-change --title "fix(app): both lines stay" --notes "$NOTES" 2>&1 || true)
 printf '%s\n' '' '## Migration' '' 'none' >> "$NOTES"
 land --repo "$SHOP" propose second-change --title "fix(app): both lines stay" --notes "$NOTES" >/dev/null
 text=$SHOP/.git/lem/tasks/second-change/pr.md
+if grep -q "^- no plan talk: the request became careful after its plan, by the owner's word$" "$text" \
+  && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c 'plan talk')" = 1 ] && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] \
+  && ! grep -q '"event": "careful.missed", "task": "second-change"' "$SHOP/.git/lem/events.jsonl"; then
+  pass "a request the owner called careful after its plan is proposed with no plan talk, its checks say in words that it had none and why, and that is no cause of not green"
+else
+  fail "a request careful by the owner's later word: $(cat "$text" 2>/dev/null)"
+fi
 agent=$(land --repo "$SHOP" land second-change --by agent --message "fix(app): both lines stay" 2>&1 || true)
 if grep -q "the notes lack ## Migration" <<<"$err" && grep -q '^- careful: yes, the owner says so$' "$text" && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] \
   && grep -q "^- the review, round 1 (the project's full set; answered: codex, claude; no answer from gemini (at capacity)): must-fix, 1 must-fix, 0 should, 0 nit$" "$text" \
@@ -2354,8 +2363,71 @@ fi
 land --repo "$SHOP" clean second-change >/dev/null
 printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth a look' '' '- the one line of the file.' '' '## Filed in the backlog' '' 'none' '' '## Not done' '' 'none' > "$NOTES"
 
-# A file that moves into an ignored folder also leaves a folder the gate reads.
+# A plan of four tasks is large: it needs a plan talk too, and the talk's event has one form. The
+# event log already holds the talk of another task, which does not count for this one.
 shop_settings agent keep
+open_task four-tasks five.txt five
+tree=$(project --repo "$SHOP" worktree-dir four-tasks)
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("1. The change.", "1. The change.\n2. Its test.\n3. Its page.\n4. Its note."))' "$tree/docs/plans/20261115-four-tasks.md"
+git -C "$tree" commit -q -am "docs: four tasks"
+checked four-tasks
+land --repo "$SHOP" read four-tasks --record "$(record 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "four tasks change the app"}], "answered": ["codex"]}')" >/dev/null
+talkless=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES" 2>&1 || true)
+typed=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns=5 settled:=2 open:=1 2>&1 || true)
+missing=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 settled:=2 2>&1 || true)
+empty=$(project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=5 settled:=0 open:=0 2>&1 || true)
+if grep -q "the plan has 4 tasks, more than three, so its plan is talked through by a session lead and the reviewer before any code" <<<"$talkless" \
+  && grep -q "the event log has no .plan.talk. of four-tasks" <<<"$talkless" && [ "$(status four-tasks)" = landing ] \
+  && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has reviewer, settled, turns" <<<"$missing" \
+  && grep -q "ends in a settled position or a disagreement left open" <<<"$empty" \
+  && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl"; then
+  pass "a plan of four tasks with no plan talk is not proposed, though another task's talk is in the log; a talk's event without its form is refused, and nothing is written for it"
+else
+  fail "a large request with no plan talk: $talkless / $typed / $missing / $empty"
+fi
+project --repo "$SHOP" log four-tasks plan.talk reviewer=claude turns:=3 settled:=1 open:=0 >/dev/null
+project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=9 settled:=4 open:=1 >/dev/null
+out=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES")
+text=$SHOP/.git/lem/tasks/four-tasks/pr.md
+if [ "$(field 'd["green"]' <<<"$out")" = True ] && [ "$(status four-tasks)" = open ] \
+  && grep -q '^- the plan talk: codex argued the plan with the lead, 9 turns; 4 positions settled by the two, 1 left open$' "$text" \
+  && [ "$(grep -c 'plan talk' "$text")" = 1 ] && grep -q '^- careful: no$' "$text"; then
+  pass "after its plan talk a plan of four tasks is proposed, and its text holds one line of the talk, from the newest event"
+else
+  fail "a large request after its plan talk: $out / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$SHOP" state four-tasks dropped "the test is over" >/dev/null
+
+# A plan that says careful calls for a plan talk: the request is not proposed without one, and with one its text holds the talk's line.
+MIG=$WORK/notes-migration.md
+cp "$NOTES" "$MIG" && printf '%s\n' '' '## Migration' '' 'none' >> "$MIG"
+open_task careful-plan six.txt six
+tree=$(project --repo "$SHOP" worktree-dir careful-plan)
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n## Stories", "careful: yes, a price is rounded here.\n\n## Stories", 1))' "$tree/docs/plans/20261115-careful-plan.md"
+git -C "$tree" commit -q -am "docs: the plan is careful"
+checked careful-plan
+land --repo "$SHOP" read careful-plan --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the plan says careful"}], "answered": ["codex"]}')" >/dev/null
+talkless=$(land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" 2>&1 || true)
+if grep -q "the plan says that the request is careful, so its plan is talked through by a session lead and the reviewer before any code (.stages/plan.md., step 4)" <<<"$talkless" \
+  && grep -q "the event log has no .plan.talk. of careful-plan" <<<"$talkless" && grep -q "project.py log careful-plan plan.talk reviewer=AGENT turns:=N settled:=N open:=N" <<<"$talkless" \
+  && [ ! -f "$SHOP/.git/lem/tasks/careful-plan/pr.md" ] && [ "$(status careful-plan)" = landing ]; then
+  pass "a request whose plan says careful is not proposed while its event log has no plan talk, and the refusal names the plan stage's step and the event the lead writes"
+else
+  fail "a careful plan with no plan talk: $talkless"
+fi
+project --repo "$SHOP" log careful-plan plan.talk reviewer=codex turns:=6 settled:=2 open:=1 >/dev/null
+land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" >/dev/null
+text=$SHOP/.git/lem/tasks/careful-plan/pr.md
+if grep -q '^- the plan talk: codex argued the plan with the lead, 6 turns; 2 positions settled by the two, 1 left open$' "$text" \
+  && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c 'plan talk')" = 1 ] && grep -q '^- careful: yes, the plan says so$' "$text" \
+  && [ "$(status careful-plan)" = open ]; then
+  pass "after its plan talk a request whose plan says careful is proposed, and the checks of its text say who argued the plan with the lead, the turns, and the positions settled and left open"
+else
+  fail "the plan talk in the text of a careful plan: $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$SHOP" state careful-plan dropped "the test is over" >/dev/null
+
+# A file that moves into an ignored folder also leaves a folder the gate reads.
 open_task moved-file extra.txt four
 checked moved-file && read_clean moved-file && propose moved-file
 git -C "$other" pull -q origin main && git -C "$other" mv late.txt docs/late.txt && git -C "$other" commit -q -m "docs: move late" && git -C "$other" push -q origin main
@@ -2895,6 +2967,27 @@ else
   fail "large and careful: $large / $said / $path / $err"
 fi
 project --repo "$LOCAL" state bar-change dropped "the test is over" >/dev/null
+
+# Careful only by its diff: a careful path the plan's own call missed. No talk was due, the text says
+# why it had none, and the miss is one event for the retro, also after a second proposal.
+task_in "$LOCAL" price-change seven.txt seven
+tree=$(project --repo "$LOCAL" worktree-dir price-change)
+mkdir -p "$tree/billing" && echo 'PRICE = 7' > "$tree/billing/price.py" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a price"
+local_land start price-change >/dev/null && local_land base price-change >/dev/null && local_land gate price-change >/dev/null
+local_land read price-change --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "a price changes"}], "answered": ["codex"]}')" >/dev/null
+local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
+text=$LOCAL/.git/lem/tasks/price-change/pr.md
+first=$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.git/lem/events.jsonl" || true)
+local_land start price-change >/dev/null && local_land base price-change >/dev/null && local_land gate price-change >/dev/null && local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
+if grep -q '^- no plan talk: the request became careful after its plan, by its diff$' "$text" && grep -q '^- careful: yes, billing/price.py is a careful path (billing/\*)$' "$text" \
+  && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && [ "$first" = 1 ] \
+  && [ "$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.git/lem/events.jsonl")" = 1 ] \
+  && grep -q '"event": "careful.missed", "task": "price-change", "path": "billing/price.py", "pattern": "billing/\*"' "$LOCAL/.git/lem/events.jsonl"; then
+  pass "a request careful only by a path its diff matches is proposed with no plan talk, its checks say why it had none, and the careful call its plan missed is one event with the path and its pattern, also after a second proposal"
+else
+  fail "a request careful by its diff: first $first / $(grep careful.missed "$LOCAL/.git/lem/events.jsonl") / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state price-change dropped "the test is over" >/dev/null
 
 # A GitHub remote: the task ends as a pull request. A stand-in for the `gh` command keeps the pull
 # requests in a file and merges in the bare repository, and the remote's address is rewritten to it.

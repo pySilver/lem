@@ -149,7 +149,7 @@ For a repository that has code:
   step 1 found it, since two model families disagree more usefully than one family twice, and a
   reviewer on another provider's quota does not spend the builders'. Then, only when the owner
   has a preference: the reviewer's model, its effort for the review of a diff and its effort for
-  the read of a careful plan. No answer means the agent's own default.
+  the talk over a careful or large plan. No answer means the agent's own default.
 - **The folders already here**, when `project.py existing` listed any: link them, so the older
   tools and this skill read one copy and nothing moves; or generate new profiles under
   `.lem/`, and leave the old folders for the owner to remove. Linking is what a project that

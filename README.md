@@ -26,7 +26,7 @@ line that the other agents work on, and it answers to you for all of them.
 > ran through the new flow yet.
 >
 > **Not run yet.** A task in the new flow. A pull request on GitHub: only a stand-in for the
-> `gh` command ran in the tests. A plan with more than one task. A reviewer that is a second
+> `gh` command ran in the tests. A plan with more than one task. A plan talk. A reviewer that is a second
 > Claude. A restart of agterm while a task is open. The correction hook in a real session.
 >
 > **Not built.** A pull request on GitLab. Lem marks the branch as ready there.
@@ -43,7 +43,11 @@ line that the other agents work on, and it answers to you for all of them.
 - **Green**: the first word of a pull request that you can merge without a read. The checks
   passed, the review found nothing that must change, and no story changed.
 - **Land**: put the commits of a task branch on the base branch.
-- **Careful task**: a task that a reviewer reads before the build and after each step.
+- **Careful task**: a task that touches what must not go wrong. A session leads it, and the
+  landing gives it the full review set of the project.
+- **Large task**: a task whose plan has more than three tasks. A session leads it too.
+- **Plan talk**: the lead and the reviewer argue a careful or large plan before the build, one
+  question at a time.
 - **Question gate**: a different thing. It decides if a question must go to you. In this
   README, "the gate" is always the check commands.
 
@@ -116,13 +120,13 @@ The board shows these things:
 flowchart TD
     ask([You: /lem and your ask]) --> open[Lem opens the task:<br/>a branch, a worktree, the ask in your words]
     open --> plan[A builder writes a short plan<br/>as the first commit]
-    plan --> careful{Is the task careful?<br/>It touches a danger topic or a careful path,<br/>or it starts a pattern that other code will copy}
+    plan --> careful{Is the task careful or large?<br/>Careful: it touches a danger topic or a careful path,<br/>or it starts a pattern that other code will copy.<br/>Large: the plan has more than three tasks}
     careful -- no --> count{How many tasks<br/>are in the plan?}
     count -- one --> same[The same builder builds it]
-    count -- more --> build[One new builder<br/>for each task of the plan]
+    count -- two or three --> build[One new builder<br/>for each task of the plan]
     careful -- yes --> session[A session of its own<br/>with a reviewer in the other pane]
-    session --> opinion[The reviewer reads the plan<br/>before any code]
-    opinion --> buildc[One new builder for each task,<br/>and a review of each task]
+    session --> talk[The plan talk: the lead and the reviewer<br/>argue the plan, one question at a time,<br/>before any code]
+    talk --> buildc[One new builder<br/>for each task of the plan]
     same --> report[The lead writes the report<br/>and the state: ready]
     build --> report
     buildc --> report
@@ -153,8 +157,8 @@ These rules hold for each task:
 - **An agent decides how large the review is.** A small change gets one read. Each other change
   gets a round of the review tool with the profiles that fit. That agent reads what each
   profile is for. Thus a change of documents gets no security check.
-- **A careful request always gets the full set of the project.** A plan with more than three
-  tasks gets a round at the least. No agent can go below that.
+- **A careful request always gets the full set of the project.** A large request gets a round
+  at the least. No agent can go below that.
 - **A review can be incomplete.** If one source does not answer, the review counts, and the
   pull request says who answered. If no source answers two times, the pull request says "not
   reviewed".
@@ -166,7 +170,7 @@ These rules hold for each task:
 - **The first line says green or not green.** Each reason for "not green" is one line, before
   all other text. Then come your words, the stories with their tests, each check with its
   result, and the notes of Lem.
-- **A careful task keeps the slow flow.** The project names what must not go wrong: as danger
+- **A careful task gets more care.** The project names what must not go wrong: as danger
   topics in your words, and as paths. Examples of topics are the price that a customer pays,
   data that nobody can make again, and private data.
 - **The lead decides if a task is careful, and it says why.** It reads its plan against each
@@ -174,8 +178,25 @@ These rules hold for each task:
   You see that sentence on the board and in the report.
 - **You can overrule that decision.** Tell Lem that a task is careful, at each moment before
   the landing. A match of a path is always careful.
-- **A plan that starts a pattern for other code is careful too.** A careful plan gets a second
-  opinion, and each of its tasks gets a review.
+- **A plan that starts a pattern for other code is careful too.**
+- **A careful or large plan gets a plan talk.** A session leads the task. The lead and the
+  reviewer argue the plan in their two panes before any code. They look for an obstacle that
+  the plan did not see, and for a better design.
+- **The talk has rules.** The lead states a position with the code that supports it. The
+  reviewer refutes it with a cite or an input that breaks it, or agrees with a cite. The talk
+  continues while each turn adds something new.
+- **A disagreement about what a person sees goes to the personas.** A disagreement that stays at
+  the end is a decision. If it must go to you, Lem asks you, and the other work continues.
+- **A settled position is a claim.** The plan keeps a record of the talk. The review before the
+  pull request does not take the agreement of two agents as a fact.
+- **The pull request shows the talk.** One line gives the reviewer, the turns, and the positions
+  that were settled and left open. Lem proposes no request without a talk if its plan asked for
+  one.
+- **A task can become careful after its plan.** You can say so, or its diff can touch a careful
+  path. Then it gets no talk, because the code exists. It gets the full review set, and you
+  merge it. The pull request says why it had no talk.
+- **No review after each task.** The tasks of a careful or large plan get builders like all
+  others. The review before the pull request reads the whole change.
 - **One builder for each task of a plan.** Each builder starts with an empty context. A plain
   plan with one task is the exception: the builder that wrote the plan builds it.
 - **One branch is in the checks at a time.** The gate result is about one tip on one base.
@@ -205,12 +226,13 @@ These rules hold for each task:
 flowchart LR
     you([You]) <-- asks, held decisions, reports --> lem[Lem<br/>one session for the repository]
     lem -- starts, reads the state and the report --> leadA[Lead of a plain task<br/>a builder]
-    lem -- starts, reads the state and the report --> leadB[Lead of a careful task<br/>a session of its own]
+    lem -- starts, reads the state and the report --> leadB[Lead of a careful or large task<br/>a session of its own]
     leadA -- a plan of one task --> self[It builds the task itself]
-    leadA -- a plan of more tasks --> b1[Builder: task 1]
-    leadA -- a plan of more tasks --> b2[Builder: task 2]
+    leadA -- a plan of two or three tasks --> b1[Builder: task 1]
+    leadA -- a plan of two or three tasks --> b2[Builder: task 2]
+    leadB <-- the plan talk, before any code --> rev[Reviewer<br/>in the other pane]
     leadB --> b3[Builder: task 1]
-    leadB <-- plan and diffs --> rev[Reviewer<br/>in the other pane]
+    leadB --> b4[Builder: task 2]
     lem -- checks and proposes one branch at a time --> pr[(A pull request)]
 ```
 
@@ -220,6 +242,9 @@ There is one Lem for one repository. It is the session where you type `/lem`.
   review to a pull request.
 - Lem holds no details of a task. It reads the ask, the newest state block and the report.
 - A lead owns one task from its plan to its report. A lead never asks you a question.
+- The lead of a careful or large task is a session. The reviewer is in its other pane. The two
+  argue the plan before any code, through the mailbox. A builder has no pane, thus it cannot
+  lead such a task.
 - Something that the plan did not see can occur in the build. The lead decides a small matter
   itself. It writes the decision and the reason into the log of the task.
 - Some matters have options that each cost a person something. Then the personas of the
@@ -452,7 +477,7 @@ Linear.
 
 | Command | What it does |
 | --- | --- |
-| `/lem <your ask>`, or `/lem new <what>` | opens a task and runs it to the gate. It has no interview, and it does not stop for you to read the plan. The task waits if each place is in use. It stops for the reviewer of a careful plan, and for a decision that is yours |
+| `/lem <your ask>`, or `/lem new <what>` | opens a task and runs it to the gate. It has no interview, and it does not stop for you to read the plan. The task waits if each place is in use. A careful or large plan gets a session for the plan talk. It stops for a decision that is yours |
 | `/lem plan <what>` | opens a task and stops after the plan. You read the plan. Then `/lem build` continues |
 | `/lem build` | lists the plans that wait and asks which one it builds |
 | `/lem build <task>`, or `/lem build <plan file>` | builds that plan: a plan that you read, or a draft from the night |
@@ -532,7 +557,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `flow.max_tasks` | `4` | how many tasks build or land at one time |
 | `flow.decision_wait` | `15` | how many minutes a choice in the build waits for your answer. Then the lead takes the recommended option, and the pull request is not green for it |
 | `seats.reviewer.agent` | none; `/lem init` asks | the reviewer: `claude` or `codex` |
-| `seats.reviewer.model`, `.effort`, `.plan_effort` | the default of the agent | the model of the reviewer, its effort for a diff, and its effort for a plan |
+| `seats.reviewer.model`, `.effort`, `.plan_effort` | the default of the agent | the model of the reviewer, its effort for a diff, and its effort for a plan talk |
 | `tools.annotate` | `webrev` | the tool with which you mark a plan; webrev is a recommended tool that you install |
 | `tools.ask` | `lem-ask` | how a question comes to you: the page of Lem, `terminal`, or a skill or a command of yours |
 | `corrections.collect` | `false` | `true` keeps a queue of corrections for `/lem retro`, for each person who works in the repository with the hook |

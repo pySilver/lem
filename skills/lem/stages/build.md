@@ -10,8 +10,8 @@ fills.
 ## A builder with a plan of one task: you build it
 
 Your brief says `lead: builder` and the plan has one task: you wrote the plan, and you are its
-one builder. A session never takes this section. Its plan is careful, so its one task gets a
-builder of its own and a review of its diff, as the next section says.
+one builder. A session never takes this section: its lead writes no code, so its one task gets a
+builder of its own, as the next section says.
 
 1. **Build the task.** Write it, with at least one test for each story of the plan: a test that
    fails on the base commit and passes with your change. A story no test can hold, such as a
@@ -26,8 +26,10 @@ builder of its own and a review of its diff, as the next section says.
 
 ## A plan of more tasks, or any plan of a session: you coordinate
 
-You write no code. A builder leads this way as a session does; the harness file says whether a
-builder can start builders in your agent, and what to do when it cannot.
+You write no code. A builder leads this way as a session does, and a session lead builds its
+tasks like any other lead: its plan talk is done (`stages/plan.md`, step 4), and the review comes
+at the landing, which reads the whole change. The harness file says whether a builder can start
+builders in your agent, and what to do when it cannot.
 
 1. **One builder per task of the plan**, through `spawn-builder`, in the task's worktree, one
    after the other unless two tasks touch no common file. Its brief names, by path:
@@ -46,13 +48,7 @@ builder can start builders in your agent, and what to do when it cannot.
    Read the report file, never a summary of it. When a builder's reply is the report itself,
    because its agent refused it the write, put that text into the report file word for word.
    Write the state `building` with the line `task N of M` when a builder starts.
-2. **A careful task is reviewed before the next one starts.** This is the session's step. Send
-   the diff of that task to `second-opinion` with the plan section and the style guide files
-   `project.py rules --range BASE..TIP` prints for it: does
-   the change deliver the task, and is any existing caller or reverse path left inconsistent?
-   Must-fix items go back to a builder. A task of a plan that is not careful is not reviewed here;
-   its review comes from the queue after the landing.
-3. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
+2. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
    - *a failure nobody can explain after two tries*: the `lem-root-cause` skill, before
      a third try;
    - *an approach that failed twice*: it is not tried a third time with a patch. State the problem
@@ -62,7 +58,7 @@ builder can start builders in your agent, and what to do when it cannot.
      the reviewer.
    A builder's report also lists the decisions it took that the plan did not. Write each one into
    the record, as the next section says, before the next builder starts.
-4. **Go on to "The report"** when every task has its report.
+3. **Go on to "The report"** when every task has its report.
 
 ## A choice in the build
 

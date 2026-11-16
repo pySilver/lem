@@ -110,7 +110,17 @@ is not green with a reason either: its line holds the builder's reason and what 
 of it. A choice taken by timeout is a line of its own, and so is an answer of the owner's that
 came after it and differs. Each reason a request is not green stands before everything else, one
 line each; each decision of the record is one line before the notes. `propose` is refused while a
-choice of the task waits for the owner. With a GitHub remote `propose` pushes the task's branch
+choice of the task waits for the owner. A plan that calls itself careful (`careful: yes`) or
+has more than three tasks was talked through by its session lead and the reviewer before any
+code, and the lead wrote it down as one `plan.talk` event in the log `project.py` keeps:
+`propose` refuses such a request with none, and the text's checks hold one line from the newest,
+with who argued the plan with the lead, the turns, and the positions settled and left open. A
+talk is a step before the build, so a request that is careful only by the owner's later word or
+by a path its diff matches gets the full set and no talk; it is not asked for one, and its checks
+say in words that it had none and why, which is no cause of not green. A usual request gets
+neither line. A careful path that the diff matches and the plan's own call missed is a lesson
+about that call: `propose` writes one `careful.missed` event with the path and its pattern, the
+first time it finds the case, for the retro. With a GitHub remote `propose` pushes the task's branch
 and opens the pull request with the `gh` command; a second run updates it. With any other
 remote, or none, the branch is marked ready. GitLab is not built: nobody checked its command.
 
@@ -164,6 +174,11 @@ OVERRULED = "careful: the owner says so"
 # How many changed lines one reader takes as one piece; a larger change is read task by task, in
 # the plan's own cuts. A guess (2026-11-15), not a measurement.
 READ_AT = 800
+# A plan of more tasks than this is large: it gets a round at the least, and a plan talk before
+# any code. The three-touches plan's own line (2026-11-15), not a measurement.
+LARGE_AFTER = 3
+# The plan's own call that the task is careful, as `stages/plan.md` step 2 has the lead write it.
+PLAN_CAREFUL = re.compile(r"(?mi)^careful:\s*yes\b")
 # Who took a decision of the record, as the text of a pull request names them.
 TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout"}
 # What a review names of each defect it saw outside the change.
@@ -482,18 +497,28 @@ def in_tree(task: Task, tip: str, path: str) -> bool:
     return run(["git", "-C", str(task.worktree), "cat-file", "-e", f"{tip}:{path}"], check=False).returncode == 0
 
 
+def owner_says_careful(task: Task) -> bool:
+    """Whether the owner's word that the task is careful is in its brief."""
+    brief = task.directory / "brief.md"
+    return brief.is_file() and OVERRULED in [line.strip() for line in brief.read_text(encoding="utf-8", errors="replace").splitlines()]
+
+
+def careful_path(task: Task, files: list[str]) -> dict | None:
+    """The first changed file that a careful pattern of the settings matches, with that pattern."""
+    matched = json.loads(script("project.py", task.worktree, "careful", *files).stdout)["careful"] if files else []
+    return matched[0] if matched else None
+
+
 def careful(task: Task, files: list[str], plan: str) -> list[str]:
     """Each reason for which this request is careful; none when it is not."""
     why = []
-    brief = task.directory / "brief.md"
-    if brief.is_file() and OVERRULED in [line.strip() for line in brief.read_text(encoding="utf-8", errors="replace").splitlines()]:
+    if owner_says_careful(task):
         why.append("the owner says so")
-    if re.search(r"(?mi)^careful:\s*yes\b", plan):
+    if PLAN_CAREFUL.search(plan):
         why.append("the plan says so")
-    if files:
-        matched = json.loads(script("project.py", task.worktree, "careful", *files).stdout)["careful"]
-        if matched:
-            why.append(f"{matched[0]['file']} is a careful path ({matched[0]['pattern']})")
+    matched = careful_path(task, files)
+    if matched:
+        why.append(f"{matched['file']} is a careful path ({matched['pattern']})")
     return why
 
 
@@ -641,7 +666,7 @@ def due(task: Task) -> dict:
     # and from what each profile is for, by an agent: no code and no list of words decides that.
     if why_careful:
         floor, why = "full", f"the request is careful: {why_careful[0]}"
-    elif facts["tasks"] > 3:
+    elif facts["tasks"] > LARGE_AFTER:
         floor, why = "round", f"the plan has {facts['tasks']} tasks, more than three"
     elif any(read["must_fix"] for read in answered):
         floor, why = "round", "an earlier review found a must-fix: after its fix a round reviews the change"
@@ -666,6 +691,67 @@ def due(task: Task) -> dict:
     if silent >= 2:
         return {"due": "owner", "why": "not reviewed: the review was started twice and no source answered", **facts}
     return {"due": "review", "why": why, **facts}
+
+
+def talk_due(task: Task, state: dict) -> str | None:
+    """Why this request's plan had to be talked through before any code; none when it did not.
+
+    A talk is a step before the build, so only the plan itself calls for one: its own `careful:
+    yes` line, or more than three tasks. The owner's later word, or a careful path that only the
+    diff matches, gives the full review set at the landing and no talk after the code exists."""
+    if PLAN_CAREFUL.search(Path(stories_of(task)["plan"]).read_text(encoding="utf-8")):
+        return "the plan says that the request is careful"
+    if state["tasks"] > LARGE_AFTER:
+        return f"the plan has {state['tasks']} tasks, more than three"
+    return None
+
+
+def events_of(task: Task) -> list[dict]:
+    """The task's events in the log `project.py` writes, oldest first."""
+    log = task.directory.parent.parent / "events.jsonl"
+    found = []
+    lines = log.read_text(encoding="utf-8").splitlines() if log.is_file() else []
+    for number, line in enumerate(lines, start=1):
+        if f'"task": {json.dumps(task.slug)}' not in line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError as error:
+            raise LandError(f"line {number} of {log} is not JSON ({error}); the log is written by `project.py log`, never by hand") from error
+        if record.get("task") == task.slug:
+            found.append(record)
+    return found
+
+
+def talk_of(task: Task) -> dict | None:
+    """The newest record of the task's plan talk in the event log."""
+    return next((record for record in reversed(events_of(task)) if record.get("event") == "plan.talk"), None)
+
+
+def missed(task: Task, state: dict) -> dict | None:
+    """The careful path the plan's own call missed: the diff matches one, and the plan does not say
+    careful. The plan-time call is the lead's, so the retro counts each such miss."""
+    if PLAN_CAREFUL.search(Path(stories_of(task)["plan"]).read_text(encoding="utf-8")):
+        return None
+    return careful_path(task, state["files"])
+
+
+def untalked(task: Task, state: dict) -> str | None:
+    """Why a careful request had no plan talk, when none was due: it became careful after its plan."""
+    if not state["careful"] or talk_due(task, state):
+        return None
+    how = [*(["by the owner's word"] if owner_says_careful(task) else []), *(["by its diff"] if missed(task, state) else [])]
+    return f"- no plan talk: the request became careful after its plan, {' and '.join(how)}"
+
+
+def talked(talk: dict) -> str:
+    """The plan talk as one line of the pull request's checks."""
+    def many(count: int, one: str, more: str) -> str:
+        return f"{count} {one if count == 1 else more}"
+    return (
+        f"- the plan talk: {talk['reviewer']} argued the plan with the lead, {many(talk['turns'], 'turn', 'turns')}; "
+        f"{many(talk['settled'], 'position', 'positions')} settled by the two, {talk['open']} left open"
+    )
 
 
 def named(value: object, where: str) -> list[dict]:
@@ -948,6 +1034,12 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         out.append(f"- the review, round {read['round']} ({KIND_SAYS[read['kind']]}; {who}{quiet}): {found}")
         out += [f"  - ran {profile['name']}: {profile['why']}" for profile in read["ran"]]
         out += [f"  - left out {profile['name']}: {profile['why']}" for profile in read["left_out"]]
+    if talk_due(task, state):
+        # propose refuses a request whose plan called for a talk with none on record, so there is one here
+        out.append(talked(talk_of(task)))
+    elif untalked(task, state):
+        # careful after its plan: the full set ran and a person merges, so this is no cause of not green
+        out.append(untalked(task, state))
     out.append(f"- careful: {'yes, ' + '; '.join(state['careful']) if state['careful'] else 'no'}")
     out += ["", "## Decisions of the build", "", *([decided(decision) for decision in task.decisions()] or ["none"])]
     return "\n".join(out) + "\n\n" + notes.strip() + "\n"
@@ -975,6 +1067,21 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     state = due(task)
     if state["due"] == "review":
         raise LandError(f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} at the least ({state['why']}); `land.py read {task.slug}` says what a reviewer gets")
+    # A careful or large plan is talked through by its session lead and the reviewer before any
+    # code. The talk leaves one event, and a request without it skipped that step.
+    needs_talk = talk_due(task, state)
+    talk = talk_of(task) if needs_talk else None
+    if needs_talk and talk is None:
+        raise LandError(
+            f"{needs_talk}, so its plan is talked through by a session lead and the reviewer before any code (`stages/plan.md`, step 4), "
+            f"and the event log has no `plan.talk` of {task.slug}. The lead writes it after the talk: "
+            f"`project.py log {task.slug} plan.talk reviewer=AGENT turns:=N settled:=N open:=N`; a plan that had no talk gets one from a session lead first",
+        )
+    if talk is not None and not (
+        isinstance(talk.get("reviewer"), str) and talk["reviewer"].strip()
+        and all(isinstance(talk.get(key), int) and not isinstance(talk.get(key), bool) for key in ("turns", "settled", "open"))
+    ):
+        raise LandError(f"the newest `plan.talk` of {task.slug} does not have the form `reviewer=AGENT turns:=N settled:=N open:=N`; the lead writes it again with `project.py log`")
     # Each defect a review saw outside the change has its item in the tip, so that none is lost: one
     # that a session never filed, and one whose item a later commit took out.
     if unfiled:
@@ -1017,6 +1124,11 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     body.write_text(pr_text(task, notes, state), encoding="utf-8")
     reasons = not_green(task, state)
     says = "green" if not reasons else f"not green: {'; '.join(reasons)}"
+    # A careful path that the plan's own call missed is a lesson about that call: one event for the
+    # retro, written the first time a proposal finds it.
+    path = missed(task, state)
+    if path and not any(record.get("event") == "careful.missed" for record in events_of(task)):
+        script("project.py", task.worktree, "log", task.slug, "careful.missed", f"path={path['file']}", f"pattern={path['pattern']}")
     # for the retro: how often a request is not green, and for which reason
     script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
     branch = git(task.worktree, "branch", "--show-current")

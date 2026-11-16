@@ -176,8 +176,9 @@ Act on the status:
 - **`ready`**: the task joins the landing line. Run `stages/land.md` when no task is in
   `landing`; a `ready` task waits there in the order of its state's time.
 - **`planned`**: the report says why the lead stopped at the plan.
-  - *It needs a session* (the plan is careful): change the brief to `lead: session`, and start
-    a lead.
+  - *It needs a session* (`needs a session: careful`, or `needs a session: large` for a plan of
+    more than three tasks): change the brief to `lead: session`, and start a lead. Its plan talk
+    needs the reviewer's pane, which a builder does not have.
   - *The owner asked for the plan only*: show the owner the plan through the settings'
     `tools.annotate`, and leave the task as it is until the owner says build or drop.
 - **`held`**: the report holds one or more decisions that are the owner's, each in the form

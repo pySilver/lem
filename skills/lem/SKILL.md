@@ -18,7 +18,8 @@ review by an agent that did not build it, as large as the change needs. Nothing 
 the merge: in one repository 43 of 48 reviews queued after the landing were still open about 28
 hours later (convertiser-server, 2026-11-14). And nothing is argued task by task: three days of a
 plan argued before the build and a review of each task produced 37 commits, none in the
-application (the same repository, measured 2026-11-13). The price of one review at the end is
+application (the same repository, measured 2026-11-13). Only a careful or large plan is talked
+through, once, before any code. The price of one review at the end is
 not measured: a review of each task found a must-fix on 184 of 414 tasks in another repository
 (mybaze, 2026-11-11), and nobody sorted those into defects a user would meet and the rest. So
 the event log keeps each review's rounds and counts, and each request that was not green with
@@ -36,15 +37,16 @@ task. When it fills with one task's code, it loses the others.
 **A task's lead** owns one task from its plan to its report, in a context of its own:
 
 - **a builder**, for a plain task: one fresh agent that writes the plan. A plan of one task it
-  builds itself. For a plan of more tasks it starts one fresh builder for each task, reads their
-  reports and writes no code;
-- **a session**, for a careful task: an agent in a session of its own, with the reviewer in its
-  other pane. It starts the builders the same way, and each task of its plan is
-  reviewed before the next.
+  builds itself. For a plan of two or three tasks it starts one fresh builder for each task,
+  reads their reports and writes no code;
+- **a session**, for a careful or large task (a plan of more than three tasks): an agent in a
+  session of its own, with the reviewer in its other pane, for the plan talk. The two argue the
+  plan through the mailbox before any code. Then it starts the builders the same way, and its
+  tasks are built like any others.
 
 Each task of a plan gets a builder with a context of its own, whoever leads. Every task starts
 with a builder as its lead, unless the owner calls it careful in the ask. The plan says which of
-the two it is (`stages/plan.md`), because only the plan names the files. A lead answers to Lem
+the two it is (`stages/plan.md`), because only the plan names the files and the tasks. A lead answers to Lem
 and never asks the owner, so the owner has one place to answer.
 
 A lead's standing brief is `prompts/lead.md`. If your first message named that file, you are a
@@ -125,10 +127,12 @@ Between two of the owner's messages Lem only waits: a lead that stops wakes it.
 - **What must not go wrong takes the careful flow.** The project names it two ways: paths
   (`project.py careful FILE...` says which files of a change match) and danger topics in the
   owner's words (`flow.topics`), which the lead reads a plan against. One match of either makes
-  the task careful: a session leads it, its plan is read by a second opinion before the build,
-  and each of its tasks is reviewed before the next. The lead writes its call and the one
-  sentence of why into the plan, its state and its report, and the owner may overrule a "no"
-  at any time before the landing.
+  the task careful: a session leads it, for the plan talk with the reviewer before any code
+  (`stages/plan.md`, step 4); its tasks are built like any others; and the landing gives it the
+  project's full review set. A large task, a plan of more than three tasks, gets the session and
+  the talk too, and a review round at the least. The lead writes its call and the one sentence
+  of why into the plan, its state and its report, and the owner may overrule a "no" at any time
+  before the landing.
 - **Only so many tasks build or land at one time.** `project.py may-start` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
   the gate runs and a builder may repair what it showed. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
