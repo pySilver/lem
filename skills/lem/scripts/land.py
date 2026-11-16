@@ -1915,20 +1915,26 @@ def cmd_clean(task: Task) -> dict:
         removed["worktree"] = True
     if not branch or not git(task.main, "branch", "--list", branch):
         return {"task": task.slug, **removed}
+    # `branch -d` judges by the checkout it runs in, which may be behind. The proof wanted is that
+    # the base holds the branch's tip, so that is what is checked before the branch goes.
+    tip = git(task.main, "rev-parse", branch)
+    on_base = run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", tip, task.onto], check=False).returncode == 0
     if task.record["status"] != "landed":
         # A dropped task's commits are on no other branch: its branch is the owner's to delete. An
         # answered task's may hold the test that reproduced its bug, which a task started from its
-        # report can take.
-        held = "the dropped task's commits" if task.record["status"] == "dropped" else "the answered task's commits, the test that reproduced its bug among them when it has one"
-        removed["branch_left"] = f"{branch} holds {held}; `git branch -D {branch}` deletes them"
+        # report can take. A branch with no commit of its own, which the base (or the base branch
+        # here, when a remote is behind it) holds whole, holds nothing of either, and goes.
+        here = run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", tip, f"refs/heads/{task.base}"], check=False).returncode == 0
+        if not (on_base or here):
+            held = "the dropped task's commits" if task.record["status"] == "dropped" else "the answered task's commits, the test that reproduced its bug among them when it has one"
+            removed["branch_left"] = f"{branch} holds {held}; `git branch -D {branch}` deletes them"
+            return {"task": task.slug, **removed}
+        git(task.main, "branch", "-D", branch)
+        removed["branch"] = branch
         return {"task": task.slug, **removed}
-    # `branch -d` judges by the checkout it runs in, which may be behind. The proof wanted is that
-    # the base holds the branch's tip, so that is what is checked before the branch goes.
     # A pull request that the forge merged as one commit, or as a merge commit, leaves no such
     # proof in git: there the proof is that the branch's tip is the commit the forge merged.
     kept = task.kept()
-    tip = git(task.main, "rev-parse", branch)
-    on_base = run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", tip, task.onto], check=False).returncode == 0
     if not on_base and not (kept.get("merged") and tip == kept.get("merged_head")):
         after = f"; the forge merged {kept['merged_head'][:9]}, and the branch has commits after it" if kept.get("merged") else ""
         raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays{after}")

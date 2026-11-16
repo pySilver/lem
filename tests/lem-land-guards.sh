@@ -214,6 +214,27 @@ else
 fi
 project --repo "$GRD" state bar-moves dropped "the test is over" >/dev/null
 
+# A branch with nothing of its own: base says so with the step that ends the task, and clean deletes the branch
+# of a dropped task that holds no commit of its own, while one with commits stays.
+project --repo "$GRD" task-dir empty-branch --ask "Nothing." >/dev/null
+etree=$(wt empty-branch)
+git -C "$GRD" worktree add -q "$etree" -b fix/empty-branch main
+project --repo "$etree" state empty-branch ready "the report is written" >/dev/null
+g start empty-branch >/dev/null
+nothing=$(g base empty-branch 2>&1 || true)
+project --repo "$GRD" state empty-branch dropped "nothing to land" >/dev/null
+emptied=$(g clean empty-branch 2>&1 || true)
+kept_branch=$(g clean detached 2>&1 || true)
+if grep -qF "the branch has no commit that main lacks: there is nothing to land" <<<"$nothing" && grep -qF "\`project.py state empty-branch dropped \"WHY\"\`" <<<"$nothing" \
+  && [ "$(field '(d["worktree"], d["branch"], d["branch_left"])' <<<"$emptied" 2>/dev/null)" = "(True, 'fix/empty-branch', None)" ] \
+  && ! git -C "$GRD" rev-parse -q --verify fix/empty-branch >/dev/null \
+  && [ "$(field '(d["worktree"], d["branch"])' <<<"$kept_branch" 2>/dev/null)" = "(True, None)" ] \
+  && grep -qF "fix/detached holds the dropped task's commits" <<<"$kept_branch" && git -C "$GRD" rev-parse -q --verify fix/detached >/dev/null; then
+  pass "a branch with no commit of its own is refused by base with the step that ends the task; clean deletes a dropped task's branch the base holds, and keeps one with commits of its own, with how to delete it"
+else
+  fail "an empty branch: $nothing / $emptied / $kept_branch"
+fi
+
 # The base moved by a file the gate ignores, and the rebase onto it stops: nothing changes, and the refusal names the steps.
 GO=$WORK/guards-origin.git
 GC=$WORK/guards-clone
