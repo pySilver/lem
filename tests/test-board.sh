@@ -884,7 +884,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" feed \
       "The investigation found no bug|a refund is a credit note, and the invoice shows what is left to pay|billing/invoice.py:total · reproduced" "Answered|not a bug: the invoice shows what is left to pay") \
     && ! grep -q 'class="phase cur"' "$WORK/task-$A.dom" \
-    && grep -q 'data-head="The builders · The investigation" data-sub="a builder reproduces the bug and finds its cause · investigation: bug · kind: bug, because the ask says the total is wrong today"' "$WORK/task-$A.dom" \
+    && grep -q 'data-head="The builders · The investigation" data-sub="a builder reproduces the bug and finds its cause · a bug, because the ask says the total is wrong today"' "$WORK/task-$A.dom" \
     && grep -q 'data-head="Investigation"' "$WORK/task-$A.dom" && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$A.dom" "Inv." "!Waits for you"); then
     pass "an answered task is in the lane of what ended with its kind and its investigation's answer; its own board says it ended with a report, names the call, the cause's place and the report, and draws the investigation as the builders' span"
   else
@@ -892,10 +892,86 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   fi
   draw task-cart-total-wrong
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Cart total wrong|Investigating: a builder reproduces the bug and finds its cause|a bug") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any story|investigation: bug|!lead"); then
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any story|a bug, because the ask says the total is wrong since yesterday|!lead"); then
     pass "a task whose investigation runs says so on its card and on its own board, and names the investigator, not a lead"
   else
     fail "a task whose investigation runs: $why"
+  fi
+  # The investigation is the first step of the task's phases while it runs, and the time card of a
+  # span under six minutes reads its axis to the second, so no two ticks say the same minute.
+  if grep -Eq 'class="phase cur"><i[^>]*></i>Investigation<' "$WORK/task-cart-total-wrong.dom" \
+    && ! grep -q 'class="phase past"' "$WORK/task-cart-total-wrong.dom" \
+    && grep -Eq 'class="phase past"><i[^>]*></i>Investigation<' "$WORK/task-$A.dom" \
+    && why=$("$PY" -I -c 'import re, sys
+dom = open(sys.argv[1], encoding="utf-8").read()
+area = dom[dom.index("id=\"timeline\""):]
+ticks = re.findall(r"<text class=\"axis\"[^>]*>([^<]*)</text>", area)
+ok = len(ticks) == 7 and len(set(ticks)) == 7 and all(re.fullmatch(r"\d\d:\d\d:\d\d", x) for x in ticks)
+print("" if ok else f"the ticks are {ticks}")
+sys.exit(not ok)' "$WORK/task-cart-total-wrong.dom"); then
+    pass "a task whose bug is investigated has the investigation as its first phase, current while it runs and done after it, and a short time card reads its axis to the second"
+  else
+    fail "the investigation's phase or a short axis: ${why:-a phase}"
+  fi
+  # An answered task lands nowhere and has no stories, decisions, checks or review: none is drawn empty.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$A.dom" "!lands on" "!The agent writes the stories") \
+    && grep -Eq 'id="stories-card"[^>]* hidden' "$WORK/task-$A.dom" && grep -Eq 'id="decisions-card"[^>]* hidden' "$WORK/task-$A.dom" \
+    && grep -Eq 'id="gate-card"[^>]* hidden' "$WORK/task-$A.dom" && grep -Eq 'id="review-card"[^>]* hidden' "$WORK/task-$A.dom" \
+    && ! grep -Eq 'id="decisions-card"[^>]* hidden' "$WORK/task-$G.dom"; then
+    pass "an answered task names no branch it lands on, and draws no empty card of stories, decisions, checks or review"
+  else
+    fail "the empty cards of an answered task: ${why:-a card is drawn}"
+  fi
+  # The rest of an answered task's card: its phases end with the answer, and its checks and review say why there are none.
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" progress "Investigation|Answered|!Stories|!Landed|none: it ended with a report") \
+    && [ "$(grep -o 'class="phase past"' "$WORK/task-$A.dom" | wc -l | tr -d ' ')" = 2 ]; then
+    pass "an answered task's phases are its investigation and its answer, and its checks and review say that it ended with a report"
+  else
+    fail "the phases of an answered task: ${why:-a phase is not done}"
+  fi
+  # The time card gives the task's whole time beside the rows' totals, which are shares of it; a
+  # choice that no expert advised on yet says so in one line.
+  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
+  if grep -Eq '<span class="whole"[^>]*>2h 20m in all</span>' "$WORK/task-$L.dom" \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$G.dom" decisions "Choice 7 waits for you: The note of a cancelled order|No expert advised on it yet.|!Fable: no advice yet|!Astra: no advice yet"); then
+    pass "the time card says the task's whole time beside the rows' shares of it, and a choice with no advice yet says so in one line"
+  else
+    fail "the whole time, or the experts' empty advice: ${why:-no whole time on the card}"
+  fi
+  # A read in which nobody answered says so, in the bad color, with each persona that was silent.
+  draw task-silent-read && draw task-queued-after
+  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-silent-read.dom" stories "Nobody answered the personas’ read|(0 of 2)|@a-bad|no answer from Merchant, opus (the model timed out)|no answer from Accountant, sol|!Nobody confused|!read by 0") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-after.dom" now "Waits for a free place|it starts after “Building one” ends"); then
+    pass "a read of the stories that no persona answered is shown as no read, with who was silent and why, and a task queued behind another names it"
+  else
+    fail "a read nobody answered, or a task queued after another: $why"
+  fi
+  # The board of all tasks: its activity takes the whole width, and its legend has one entry for each
+  # look of a bar, so three statuses drawn in one color are one entry.
+  if grep -q 'id="cols" class="cols one"' "$WORK/board.dom" && grep -Eq 'id="stack" class="stack" hidden' "$WORK/board.dom" \
+    && ! grep -q 'id="cols" class="cols one"' "$WORK/task-$G.dom" \
+    && why=$("$PY" -I -c 'import html, re, sys
+dom = open(sys.argv[1], encoding="utf-8").read()
+area = dom[dom.index("id=\"legend\""):]
+area = area[:area.index("</div>")]
+items = [(cls, i or "", html.unescape(label)) for cls, i, label in re.findall(r"<span class=\"([^\"]*)\"[^>]*><i(?: class=\"([^\"]*)\")?></i>([^<]*)</span>", area)]
+looks = [(cls, i) for cls, i, _ in items]
+labels = [label for *_, label in items]
+ok = len(set(looks)) == len(looks) and "Waits for you · Waits for the merge · Drafted at night" in labels and "Waits for the merge" not in labels
+print("" if ok else f"the legend is {items}")
+sys.exit(not ok)' "$WORK/board.dom"); then
+    pass "on the board of all tasks the activity takes the whole width, and the legend has one entry for each look of a bar: the statuses that wait for the owner share one"
+  else
+    fail "the activity's width or the legend: ${why:-the activity is in a column}"
+  fi
+  # The backlog tab counts the items whose place is gone or cannot be read, in a sentence.
+  draw board backlog
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/board-backlog.dom" "4 items in docs/backlog · 2 items name a place that is gone or cannot be read" \
+    "billing/gone.py:total · the file is not there" "locked.txt:secret · the file cannot be read" "Decided against" "!points at" "!2 point "); then
+    pass "the backlog tab says how many items name a place that is gone or cannot be read, and marks each one"
+  else
+    fail "the backlog tab: $why"
   fi
   # A fixed line of a state block is said in words on every page, or left out; never shown as it is written.
   raw=()

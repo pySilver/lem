@@ -91,7 +91,11 @@ def where_problem(root: Path, where: str) -> str:
         return "the file is not there"
     if not symbol or target.is_dir():
         return ""
-    text = target.read_text(encoding="utf-8", errors="replace")
+    try:
+        text = target.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        # a file nobody may read (mode 000) is a problem of this item, not a reason to stop the board
+        return "the file cannot be read"
     if target.suffix == ".md":
         return "" if symbol in text else "the heading is not in the file"
     missing = [part for part in symbol.split(".") if part and not re.search(rf"\b{re.escape(part)}\b", text)]

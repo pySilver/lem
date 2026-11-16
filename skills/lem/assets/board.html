@@ -31,14 +31,27 @@
   .tc-where { font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
   .banners { display: flex; flex-direction: column; gap: 8px; }
   .banners:empty { display: none; }
+  /* past three banners the rest fold under one line that counts them */
+  .banner-fold { display: flex; flex-direction: column; gap: 8px; }
+  .fold-toggle {
+    appearance: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 12px; text-align: left;
+    font: inherit; font-weight: 550; color: var(--fg); background: transparent; border: 1px dashed color-mix(in srgb, var(--you) 60%, transparent);
+  }
+  .fold-toggle:hover { background: color-mix(in srgb, var(--you) 8%, transparent); }
+  .fold-toggle .ic { width: 16px; height: 16px; color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
+  .fold-toggle b { color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
+  .fold-rest { display: flex; flex-direction: column; gap: 8px; }
+  .fold-rest[hidden] { display: none; }
 
   .card { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; min-width: 0; }
   .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; margin-bottom: 12px; }
   h2 { margin: 0; font-size: 11px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
 
   .hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
-  .cols { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
   .stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  /* the board of all tasks has only the activity here: it takes the whole width */
+  .cols.one { grid-template-columns: minmax(0, 1fr); }
   @media (max-width: 1080px) { .hero, .cols { grid-template-columns: minmax(0, 1fr); } }
 
   /* now */
@@ -105,6 +118,8 @@
   .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); }
   .legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .legend i { width: 9px; height: 9px; border-radius: 3px; background: var(--actor); }
+  .legend i.s-queued { background: color-mix(in srgb, var(--quiet) 45%, transparent); }
+  .legend i.s-ready { background: color-mix(in srgb, var(--gate) 45%, transparent); }
   .tl-svg { display: block; overflow: visible; }
   .tl-svg .lane-label { font: 550 11.5px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; fill: var(--dim); }
   .tl-svg .track { fill: color-mix(in srgb, var(--fg) 4%, transparent); }
@@ -120,6 +135,7 @@
   .tl-empty, .empty { padding: 22px 0; text-align: center; color: var(--faint); }
   /* where the time of one task went: a row for each actor, a band for each stage behind them */
   #tl-wrap { position: relative; }
+  .legend .whole { color: var(--fg); font-family: var(--mono); font-size: 11.5px; }
   .legend em { font-style: normal; font-family: var(--mono); color: var(--fg); font-size: 11.5px; }
   .tl-svg .band { fill: transparent; }
   .tl-svg .band.odd { fill: color-mix(in srgb, var(--fg) 3.5%, transparent); }
@@ -199,7 +215,7 @@
   .rtext .sub { display: block; color: var(--dim); }
   .rtext .cmd { font-family: var(--mono); font-size: 11.5px; }
   .rtime { font: 11px var(--mono); color: var(--dim); white-space: nowrap; padding-top: 5px; text-align: right; }
-  .rlink { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+  .rlink { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font-weight: 600; text-align: left; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
   .feed { max-height: 460px; overflow: auto; margin: 0 -10px; padding: 0 10px; }
 
   .foot { display: flex; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; font-size: 11.5px; color: var(--dim); }
@@ -378,8 +394,8 @@
     <div id="tl-note" class="tl-note"></div>
   </section>
 
-  <div class="cols" data-tasks>
-    <div class="stack">
+  <div id="cols" class="cols" data-tasks>
+    <div id="stack" class="stack">
       <section id="stories-card" class="card">
         <div class="card-head"><h2>Stories</h2><div id="stories-sum" class="dim small"></div></div>
         <div id="stories" class="rows"></div>
@@ -389,11 +405,11 @@
         <div id="decisions" class="rows"></div>
       </section>
       <section id="states-card" class="card">
-        <div class="card-head"><h2>State blocks</h2><div id="states-sum" class="dim small"></div></div>
+        <div class="card-head"><h2>History</h2><div id="states-sum" class="dim small"></div></div>
         <div id="states" class="rows"></div>
       </section>
       <section id="gate-card" class="card">
-        <div class="card-head"><h2>Gate</h2><div id="gate-sum" class="dim small"></div></div>
+        <div class="card-head"><h2>Checks</h2><div id="gate-sum" class="dim small"></div></div>
         <div id="gate" class="rows"></div>
       </section>
       <section id="review-card" class="card">
@@ -441,6 +457,10 @@
 const FEED_EVERY_MS = 2000;
 const TREE_EVERY_MS = 3000;
 const DONE_SHOWN = 6;
+// Past this many banners the rest fold under one line: on 2026-11-16 thirteen banners filled the
+// first screen of a board of 40 tasks and pushed its lanes below it (audit of the board, that day).
+const BANNERS_SHOWN = 3;
+let bannersOpen = false;
 
 const START_VIEW = (decodeURIComponent(location.pathname.split('/').at(-1)).match(/^task-([a-z0-9-]+)\.html$/) ?? [])[1] ?? null;
 let view = START_VIEW;
@@ -450,7 +470,7 @@ let tab = !START_VIEW && location.hash === '#backlog' ? 'backlog' : 'tasks';
 // Who acts in each status, in the words of SKILL.md's table.
 const STATUS = {
   queued: {actor: 'quiet', who: 'Lem', label: 'Queued', icon: 'clock', live: false},
-  building: {actor: 'lead', who: 'The lead', label: 'Building', icon: 'code', live: true},
+  building: {actor: 'lead', who: 'The agent', label: 'Building', icon: 'code', live: true},
   planned: {actor: 'lem', who: 'Lem', label: 'Planned', icon: 'file', live: false},
   held: {actor: 'you', who: 'You', label: 'Waits for you', icon: 'user', live: true},
   blocked: {actor: 'bad', who: 'Lem', label: 'Blocked', icon: 'alert', live: false},
@@ -490,16 +510,18 @@ const PHASES = ['Stories', 'Plan', 'Build', 'Checks', 'Review', 'Proposed', 'Lan
 // then what only waits for his word.
 const OWNER_ORDER = ['choice', 'held', 'planned', 'drafted', 'open'];
 // Who took a decision, in the page's words to the owner.
-const BY_WHOM = {lead: 'the lead', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout', experts: 'the experts'};
-// Who leads a task, from its state lines. `lead: session` is the companion Lem opens for a careful
-// or large plan's talk, which builds nothing; `lead: builder` after a plan talk is the builder that
-// leads the build of the talked plan.
+const BY_WHOM = {lead: 'the agent', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout', experts: 'the experts'};
+// Who works on a task, from its state lines, in words a developer needs no glossary for: the page
+// never says "lead" or "defender". `lead: session` is the companion Lem opens for a careful or large
+// plan's talk, which builds nothing; `lead: builder` after a plan talk is the agent that builds the
+// talked plan.
 const LEAD = {
-  session: {tag: 'talk companion', title: 'A companion session holds the plan talk: its agent defends the plan, the reviewer sits in its other pane, and a builder leads the build after it',
-    head: 'Its companion talks the plan through', stat: 'a companion for the plan talk, with the reviewer in its other pane'},
-  talked: {tag: 'builder', title: 'One builder leads the build, after the plan talk in its companion',
-    head: 'Its builder builds it', stat: 'one builder leads the build, after the plan talk in its companion'},
-  builder: {tag: 'builder', title: 'One builder leads this task', head: 'Its builder builds it', stat: 'one builder plans and builds'},
+  session: {tag: 'plan talk', title: 'A companion session talks the plan through, with the reviewer in its other pane; an agent builds it after the talk',
+    head: 'Its companion talks the plan through', stat: 'a companion talks the plan through, with the reviewer in its other pane'},
+  talked: {tag: 'one agent', title: 'One agent builds it, after the plan talk in its companion',
+    head: 'An agent builds it', stat: 'one agent builds the plan its companion talked through'},
+  builder: {tag: 'one agent', title: 'One agent plans this task, and a fresh builder builds each task of its plan', head: 'An agent plans and builds it',
+    stat: 'one agent plans it, and a fresh builder builds each task of the plan'},
 };
 const leadOf = t => (t.lead === 'session' ? 'session' : t.talks.length ? 'talked' : 'builder');
 // The two experts of the lem-ask-expert skill, by the names decisions.py keeps their advice under.
@@ -538,7 +560,7 @@ const FAMILIES = {1: 'one model family', 2: 'two model families'};
 const ROWS = [
   {key: 'you', label: 'You', fill: 'var(--you)'},
   {key: 'lem', label: 'Lem', fill: 'var(--lem)'},
-  {key: 'lead', label: 'The lead', fill: 'var(--lead)'},
+  {key: 'lead', label: 'The agent', fill: 'var(--lead)'},
   {key: 'builders', label: 'The builders', fill: 'color-mix(in srgb, var(--lead) 55%, var(--fg))'},
   {key: 'scout', label: 'The scout', fill: 'color-mix(in srgb, var(--lem) 55%, var(--fg))'},
   {key: 'personas', label: 'The personas', fill: 'var(--quiet)'},
@@ -663,6 +685,29 @@ function talkCounts(x) {
 }
 // "report-dates-stay-whole" -> "Report dates stay whole": the owner reads names, never codes.
 const titleOf = slug => { const words = String(slug).replace(/-+/g, ' ').trim(); return words ? words[0].toUpperCase() + words.slice(1) : 'A task'; };
+// A line of a state block as the page says it. The fixed lines (SKILL.md, the lines the board
+// reads, and `after: SLUG` of stages/new.md) are written for the scripts: each is said in words, or
+// left out (null) where the page says it elsewhere: the session by its button, the investigation by
+// the task's own head, the report of an answered task by the line of its investigation. Any other line is the agent's own words and stays as it was written.
+function words(line, talked = false) {
+  const s = String(line);
+  if (/^lead: builder\b/.test(s)) return talked ? 'an agent builds the plan its companion talked through' : 'an agent plans and builds it';
+  if (/^lead: session\b/.test(s)) return 'its companion talks the plan through';
+  if (/^session: \S+$/.test(s) || /^investigation: (bug|question)$/.test(s)) return null;
+  const kind = s.match(/^kind: ([a-z]+), because (.+)$/);
+  if (kind) return `${KINDS[kind[1]] ?? kind[1]}, because ${kind[2]}`;
+  const plan = /^plan committed\b/.test(s) && s.match(/\b(\d+) tasks?\b/);
+  if (plan) return `the plan is committed, with ${plural(Number(plan[1]), 'task')}`;
+  if (/^plan committed\b/.test(s)) return 'the plan is committed';
+  const after = s.match(/^after: ([a-z0-9-]+)$/);
+  if (after) return `it starts after “${titleOf(after[1])}” ends`;
+  const report = s.match(/^report: (\S+)$/);
+  if (report) return null;
+  return s;
+}
+// A state block's lines as the page says them; `talked` when a plan talk ended before it.
+const saidOf = (b, talked = false) => [b.text, ...(b.lines ?? [])].map(line => words(line, talked)).filter(Boolean);
+const talkedBefore = (t, ms) => t.talks.some(x => x.ts <= ms);
 
 const NICE_MINUTES = [1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 480, 720, 1080, 1440];
 const niceCeil = ms => (NICE_MINUTES.find(m => m * 60000 >= ms) ?? Math.ceil(ms / 86400000) * 1440) * 60000;
@@ -814,6 +859,10 @@ function derive(now) {
     t.status = last.status;
     t.info = STATUS[t.status] ?? UNKNOWN;
     t.text = last.text;
+    // what the newest block says, in the page's words: its first line, and the rest
+    const shown = saidOf(last, talkedBefore(t, last.ts));
+    t.shown = shown[0] ?? '';
+    t.more = shown.slice(1);
     t.lastTs = last.ts;
     // "since" is when the task entered the status it has now, not when its newest block was written.
     let i = t.blocks.length - 1;
@@ -854,6 +903,8 @@ function derive(now) {
     // Where the task got to: the newest status that is a step forward. A task that waits for the
     // owner or is blocked stays at the phase it reached.
     t.reached = t.blocks.findLast(b => !['held', 'blocked'].includes(b.status))?.status ?? t.status;
+    // a builder investigated a bug or a question before the stories: the task's phases start with it
+    t.investigated = t.blocks.some(investigates) || t.investigation != null;
     t.planCommitted = t.blocks.some(b => b.status === 'planned' || b.status === 'drafted' || /\bplan committed\b/.test([b.text, ...b.lines].join(' ')));
     t.gateBad = t.gates.filter(g => g.exit !== 0).length;
   }
@@ -874,6 +925,8 @@ function derive(now) {
     // Only a task with a state block has a status to draw: one whose stories were read before its
     // first block (the usual path) has its events in the feed and no board yet.
     task: view ? list.find(x => x.slug === view) ?? null : null,
+    // the board's lanes: each task is in one, so these numbers add up to the cards
+    lane: Object.fromEntries(LANES.map(lane => [lane.key, list.filter(t => t.lane === lane.key)])),
     early: view && !list.some(x => x.slug === view) ? tasks.get(view)?.events.length ?? 0 : 0,
   };
   return m;
@@ -931,19 +984,22 @@ function tags(t) {
     h('span', {}, `choice ${c.id}: `, c.irreversible ? 'no end' : t.asks.includes(c) ? until(c.deadline) : 'wait over')));
   if (t.lead) out.push(h('span', {class: `tag c-lead${t.status === 'building' ? ' live' : ''}`, title: LEAD[leadOf(t)].title},
     icon(t.lead === 'session' ? 'split' : 'code'), h('span', {}, LEAD[leadOf(t)].tag)));
-  if (t.progress && t.status === 'building') out.push(h('span', {class: 'tag', title: 'The task of the plan the lead is on'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
+  if (t.progress && t.status === 'building') out.push(h('span', {class: 'tag', title: 'The task of the plan that is built now'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
   if (t.commit) out.push(h('span', {class: 'tag mono', title: `${t.commit.head} ${t.commit.subject}${t.branch ? ` · ${t.branch}` : ''}`}, icon('commit'), h('span', {}, `${t.commit.head} ${t.commit.subject}`)));
   if (t.stories) out.push(h('span', {class: 'tag', title: t.stories.list.map(st => `${st.n}. ${st.text}`).join('\n')}, icon('file'),
     h('span', {}, t.stories.kind === 'correction' ? 'a correction: 1 story' : plural(t.stories.list.length, 'story').replace('storys', 'stories'))));
   if (t.gates.length) out.push(h('span', {class: `tag ${t.gateBad ? 'c-bad' : 'c-ok'}`, title: t.gates.map(g => `${g.exit === 0 ? 'green' : `exit ${g.exit}`}  ${g.command}  ${g.last ?? ''}`).join('\n')},
-    icon(t.gateBad ? 'alert' : 'check'), h('span', {}, t.gateBad ? `gate red: ${t.gateBad} of ${t.gates.length}` : `gate green: ${t.gates.length}`)));
+    icon(t.gateBad ? 'alert' : 'check'), h('span', {}, t.gateBad ? `checks red: ${t.gateBad} of ${t.gates.length}` : `checks green: ${t.gates.length}`)));
   const r = t.reviews.at(-1);
   if (r) out.push(h('span', {class: `tag ${r.verdict === 'clean' ? 'c-ok' : 'c-bad'}`, title: t.reviews.map(reviewLine).join('\n')},
     icon('eye'), h('span', {}, r.verdict === 'clean' ? `review ${r.round}: clean` : r.verdict === 'must-fix' ? `review ${r.round}: ${r.must_fix} must-fix` : `review ${r.round}: not reviewed`)));
-  if (t.proposal) out.push(h('span', {class: `tag ${t.proposal.green ? 'c-ok' : 'c-you'}`, title: t.proposal.green ? 'The checks passed with the bar where it was, the review left no must-fix, no story changed' : t.proposal.reasons.join('\n')},
+  if (t.proposal) out.push(h('span', {class: `tag ${t.proposal.green ? 'c-ok' : 'c-you'}`, title: t.proposal.green ? GREEN : t.proposal.reasons.join('\n')},
     icon(t.proposal.green ? 'check' : 'alert'), h('span', {}, t.proposal.green ? 'green' : 'not green')));
   return out;
 }
+
+// What green means, in the words of land.py's reasons for not green.
+const GREEN = 'The checks passed with no test skipped, removed or weakened, a review left no must-fix, no story changed during the build, and no choice was taken by a timeout or by the experts';
 
 // How Lem puts a question to the owner: the project's `tools.ask` (`project.py show`), which board.py
 // writes into meta.js. Lem's own page, the conversation in Lem's session, or the developer's own
@@ -962,15 +1018,17 @@ function answerOf(t, c = t.asks[0]) {
   if (c) {
     return c.irreversible
       ? `${askedHow(`choice ${c.id}`)}. Answer it there: it waits for your word, with no end.`
-      : `${askedHow(`choice ${c.id}`)}. Answer it there before its wait ends; then the lead takes ${sharedPick(c) != null ? 'the experts’ shared pick' : 'the recommended action'}.`;
+      : `${askedHow(`choice ${c.id}`)}. Answer it there before its wait ends; then the build goes on with ${sharedPick(c) != null ? 'the experts’ shared pick' : 'the recommended action'}.`;
   }
   if (t.status === 'open') return /^pull request\b/.test(t.text) ? 'Merge the pull request, or tell Lem in its session to land it.' : 'Tell Lem in its session to land it.';
+  // a read in which no persona answered puts nothing on top of the stories
+  if (t.storiesWait && t.reads.at(-1)?.answered === 0) return `${askedHow('the stories', true)}. No persona answered the read of them. Approve or change them there.`;
   if (t.storiesWait) return `${askedHow('the stories, with the personas’ read on top,', true)}. Approve or change them there.`;
   // A held task waits on what its own state line says, and never on a decision with options, which
   // is a choice of the record: the stories, one more fact an investigation needs, a step that is
   // the owner's to do, such as a trust prompt of the reviewer's agent, or an irreversible choice
   // every task left needs (stages/new.md). The board quotes the line and does not guess which.
-  if (t.status === 'held') return `It waits on what its state says: “${t.text}”. Lem tells you in its session what to do and where.`;
+  if (t.status === 'held') return `It waits on what its state says: “${t.shown}”. Lem tells you in its session what to do and where.`;
   if (t.status === 'planned') return 'Read the plan, then tell Lem in its session: build it or drop it.';
   return `Tell Lem in its session: /lem build ${t.slug}, or drop it.`;
 }
@@ -981,23 +1039,34 @@ function buildBanners(m) {
   if (meta.demo) out.push(keyed('demo', h('div', {class: 'banner demo'}, icon('alert'),
     h('span', {}, h('b', {}, 'Demo data. '), 'These tasks are examples and not real work. Nothing on this page waits for you.'))));
   // A banner is for what stops work or runs out: a choice whose wait runs, a held task and a
-  // blocked task. A draft waits in its lane.
+  // blocked task. A draft waits in its lane. Past the first three they fold under one line.
+  const waits = [];
   for (const t of view ? [] : m.forOwner.filter(x => x.asks.length)) {
     for (const c of t.asks) {
-      out.push(keyed(`choice:${t.slug}:${c.id}:${c.irreversible ? 'forever' : 'runs'}`, h('div', {class: 'banner attention'}, icon('help'),
+      waits.push(keyed(`choice:${t.slug}:${c.id}:${c.irreversible ? 'forever' : 'runs'}`, h('div', {class: 'banner attention'}, icon('help'),
         h('span', {}, h('b', {}, `Choice ${c.id} waits for you: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${c.what} · `,
           c.irreversible ? 'no end: no timeout takes it' : until(c.deadline)),
         h('span', {class: 'sub where'}, answerOf(t, c))), toLem())));
     }
   }
   for (const t of view ? [] : m.forOwner.filter(x => x.status === 'held' && !x.asks.length)) {
-    out.push(keyed(`you:${t.slug}:${t.status}`, h('div', {class: 'banner attention'}, icon('user'),
-      h('span', {}, h('b', {}, `${t.info.label}: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.text} · `, live(t.since)),
+    waits.push(keyed(`you:${t.slug}:${t.status}`, h('div', {class: 'banner attention'}, icon('user'),
+      h('span', {}, h('b', {}, `${t.info.label}: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.shown} · `, live(t.since)),
         h('span', {class: 'sub where'}, answerOf(t))), toLem())));
   }
   for (const t of view ? [] : m.blocked) {
-    out.push(keyed(`blocked:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
-      h('span', {}, h('b', {}, 'Blocked: '), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.text} · `, live(t.since))))));
+    waits.push(keyed(`blocked:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
+      h('span', {}, h('b', {}, 'Blocked: '), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.shown} · `, live(t.since))))));
+  }
+  out.push(...waits.slice(0, BANNERS_SHOWN));
+  const rest = waits.slice(BANNERS_SHOWN);
+  if (rest.length) {
+    const yours = rest.filter(n => n.classList.contains('attention')).length, blocked = rest.length - yours;
+    const what = [yours && `${yours} wait${yours === 1 ? 's' : ''} for you`, blocked && `${blocked} blocked`].filter(Boolean).join(', ');
+    out.push(keyed(`fold:${bannersOpen}:${rest.map(n => n.dataset.key).join(',')}`, h('div', {class: 'banner-fold'},
+      h('button', {class: 'fold-toggle', type: 'button', 'data-fold': '', 'aria-expanded': String(bannersOpen)}, icon('layers'),
+        h('span', {}, `${rest.length} more: ${what} · `, h('b', {}, bannersOpen ? 'Hide them' : 'Show them'))),
+      h('div', {class: 'fold-rest', hidden: !bannersOpen}, rest))));
   }
   for (const t of m.unknown) {
     out.push(keyed(`unknown:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
@@ -1005,14 +1074,14 @@ function buildBanners(m) {
   }
   if (view && !m.task && m.early) {
     out.push(keyed(`early:${m.early}`, h('div', {class: 'banner attention'}, icon('clock'),
-      h('span', {}, `No state block was written yet for the task "${view}": its ${plural(m.early, 'event')} ${m.early === 1 ? 'is' : 'are'} in the activity below, and the rest comes with its first state.`))));
-  } else if (view && !m.task) out.push(keyed('notask', h('div', {class: 'banner problem'}, icon('alert'), h('span', {}, `No state block was written yet for the task "${view}"`))));
+      h('span', {}, `No state was written yet for the task "${view}": its ${plural(m.early, 'event')} ${m.early === 1 ? 'is' : 'are'} in the activity below, and the rest comes with its first state.`))));
+  } else if (view && !m.task) out.push(keyed('notask', h('div', {class: 'banner problem'}, icon('alert'), h('span', {}, `No state was written yet for the task "${view}"`))));
   return out;
 }
 
 function buildTimeline(m, tasks, width) {
   const rows = tasks.filter(t => t.segments.length);
-  if (!rows.length) return keyed('tl', h('div', {class: 'tl-empty'}, 'A lane appears with a task’s first state block'));
+  if (!rows.length) return keyed('tl', h('div', {class: 'tl-empty'}, 'A row appears when a task writes its first state'));
   const padL = view ? 14 : Math.min(230, Math.max(120, Math.round(width * 0.2))), padR = 14, rowH = 26, top = 6;
   const t0 = Math.min(...rows.map(t => t.first));
   // Drawn to a coarser clock than the page's, so the markup holds still between steps. When every
@@ -1027,7 +1096,7 @@ function buildTimeline(m, tasks, width) {
   for (let i = 0; i <= steps; i++) {
     const ms = t0 + (span0 * i) / steps, gx = x(ms);
     svg.append(s('line', {class: 'grid', x1: gx, x2: gx, y1: top, y2: H - 20}));
-    svg.append(s('text', {class: 'axis', x: gx, y: H - 6, 'text-anchor': i === 0 ? 'start' : i === steps ? 'end' : 'middle'}, stamp(ms, m.now)));
+    svg.append(s('text', {class: 'axis', x: gx, y: H - 6, 'text-anchor': i === 0 ? 'start' : i === steps ? 'end' : 'middle'}, tickLabel(ms, span0, m.now)));
   }
   rows.forEach((t, r) => {
     const y = top + r * rowH;
@@ -1049,11 +1118,21 @@ function buildTimeline(m, tasks, width) {
   return keyed('tl', h('div', {}, svg));
 }
 
+// One entry for each look a bar can have: the statuses drawn alike (the three that wait for the
+// owner, the two that ended) share an entry, so no two entries show the same swatch.
+const LOOK = k => `${STATUS[k].actor}${k === 'queued' || k === 'ready' ? `:${k}` : ''}`;
 function buildLegend(m, tasks) {
   const total = new Map();
   for (const t of tasks) for (const g of t.segments) total.set(g.status, (total.get(g.status) ?? 0) + (g.open ? m.now : g.end) - g.start);
-  return Object.keys(STATUS).filter(k => total.get(k) > 0).map(k => keyed(`lg:${k}`, h('span', {class: `a-${STATUS[k].actor}`, title: `${STATUS[k].who} acts`}, h('i'), STATUS[k].label)));
+  const looks = new Map();
+  for (const k of Object.keys(STATUS).filter(k => total.get(k) > 0)) looks.set(LOOK(k), [...(looks.get(LOOK(k)) ?? []), k]);
+  return [...looks.entries()].map(([look, keys]) => keyed(`lg:${look}:${keys.join()}`, h('span', {class: `a-${STATUS[keys[0]].actor}`, title: keys.map(k => `${STATUS[k].label}: ${STATUS[k].who} acts`).join('\n')},
+    h('i', {class: look.includes(':') ? `s-${keys[0]}` : null}), keys.map(k => STATUS[k].label).join(' · '))));
 }
+
+// The label of a tick of a time axis: to the second when the axis spans under six minutes, where
+// six ticks of whole minutes would repeat one minute.
+const tickLabel = (ms, whole, now) => (whole < 6 * 60000 ? hms(ms, now) : stamp(ms, now));
 
 // ---- where the time of one task went ----
 
@@ -1162,15 +1241,15 @@ function timeOf(t, end) {
     const open = next == null && !t.closed;
     const from = b.ts, to = next ?? (open ? end : b.ts);
     const task = taskLine(b);
-    const what = [b.text, ...b.lines].join(' · ');
+    const what = saidOf(b, talkedBefore(t, b.ts)).join(' · ');
     if (!ENDED.includes(b.status) && STATUS[b.status]) { stage = stageOf(b); band(stage, from, to, open); }
     if (b.status === 'queued') add('lem', from, to, 'Queued: it waits for a free place', what, open);
     else if (b.status === 'building' && task) add('builders', from, to, `Task ${task[1]} of ${task[2]}`, what, open);
     else if (investigates(b)) add('builders', from, to, 'The investigation', what, open);
-    else if (b.status === 'building') add('lead', from, to, 'The lead', what, open);
+    else if (b.status === 'building') add('lead', from, to, 'It plans the task', what, open);
     else if (b.status === 'planned') add(/\bowner\b/.test(b.text) ? 'you' : 'lem', from, to, /\bowner\b/.test(b.text) ? 'The plan waits for you'
-      : t.talks.some(x => x.ts <= b.ts) ? 'The plan talk is done: the plan waits for its builder lead' : 'The plan waits for its talk companion', what, open);
-    else if (b.status === 'held') add('you', from, to, /\bstories wait\b/.test(what) ? 'The stories wait for your yes' : 'Held: it waits for you', what, open);
+      : t.talks.some(x => x.ts <= b.ts) ? 'The plan talk is done: the plan waits for the agent that builds it' : 'The plan waits for its talk companion', what, open);
+    else if (b.status === 'held') add('you', from, to, /\bstories wait\b/.test(what) ? 'The stories wait for your yes' : 'It waits for you', what, open);
     else if (b.status === 'blocked') add('lem', from, to, 'Blocked: Lem has to settle it', what, open);
     else if (b.status === 'drafted') add('you', from, to, 'A night draft waits for your word', what, open);
     else if (b.status === 'ready') add('lem', from, to, 'Ready: it waits for its checks', what, open);
@@ -1220,7 +1299,7 @@ function timeOf(t, end) {
   for (const e of t.events.filter(x => x.event === 'task.red')) {
     // the check the lead runs before the task is ready; the landing's own is a span above
     const inBuild = t.blocks[blockOf.get(e)]?.status !== 'landing';
-    if (inBuild) marks.push({row: 'checks', at: at(e), head: 'The stories’ tests, checked by the lead', sub: e.ok ? 'each test holds its story' : 'a test does not hold its story'});
+    if (inBuild) marks.push({row: 'checks', at: at(e), head: 'The stories’ tests, checked before the landing', sub: e.ok ? 'each test holds its story' : 'a test does not hold its story'});
   }
 
   // the total of each row is the time it held the work: two spans of one row that overlap count once
@@ -1252,7 +1331,7 @@ function buildTimeCard(m, t, width) {
   for (let i = 0; i <= 6; i++) {
     const ms = model.t0 + (span0 * i) / 6, gx = x(ms);
     svg.append(s('line', {class: 'grid', x1: gx, x2: gx, y1: top - 4, y2: bottom}));
-    svg.append(s('text', {class: 'axis', x: gx, y: H - 6, 'text-anchor': i === 0 ? 'start' : i === 6 ? 'end' : 'middle'}, stamp(ms, m.now)));
+    svg.append(s('text', {class: 'axis', x: gx, y: H - 6, 'text-anchor': i === 0 ? 'start' : i === 6 ? 'end' : 'middle'}, tickLabel(ms, span0, m.now)));
   }
   rows.forEach((r, i) => {
     const y = top + i * (laneH + gap);
@@ -1275,9 +1354,10 @@ function buildTimeCard(m, t, width) {
 // Each row's total and its share of the task's time. A choice that waits for the owner runs while
 // the build goes on, so rows overlap and the shares need not add up to 100.
 function buildTimeLegend(model, rows) {
-  return rows.filter(r => model.totals[r.key] > 0).map(r => keyed(`lt:${r.key}:${Math.round(model.totals[r.key] / 1000)}:${Math.round(model.whole / 1000)}`,
+  // the whole first: each share below is of it
+  return [keyed(`lt:whole:${Math.round(model.whole / 1000)}`, h('span', {class: 'whole'}, `${span(model.whole)} in all`)), ...rows.filter(r => model.totals[r.key] > 0).map(r => keyed(`lt:${r.key}:${Math.round(model.totals[r.key] / 1000)}:${Math.round(model.whole / 1000)}`,
     h('span', {title: `${r.label} held the work for ${span(model.totals[r.key])} of the task’s ${span(model.whole)}`}, h('i', {style: `background:${r.fill}`}), r.label,
-      h('em', {}, `${span(model.totals[r.key])} · ${Math.round((100 * model.totals[r.key]) / model.whole)}%`))));
+      h('em', {}, `${span(model.totals[r.key])} · ${Math.round((100 * model.totals[r.key]) / model.whole)}%`))))];
 }
 
 // The hover of a band, a span or a mark: what it is, how long it took and its two clock times.
@@ -1339,11 +1419,13 @@ function describe(e, m) {
   const title = titleOf(e.task);
   if (e.event === 'task.state') {
     const info = STATUS[e.status] ?? UNKNOWN;
-    return {info, head: info.label, text: e.text, sub: (e.lines ?? []).join(' · '), title};
+    const t = m.list.find(x => x.slug === e.task);
+    const lines = saidOf(e, t ? talkedBefore(t, at(e)) : false);
+    return {info, head: info.label, text: lines[0] ?? '', sub: lines.slice(1).join(' · '), title};
   }
   if (e.event === 'gate') {
     const ok = e.exit === 0;
-    return {info: {actor: ok ? 'done' : 'bad', icon: ok ? 'check' : 'alert'}, head: ok ? 'Gate green' : `Gate red, exit ${e.exit}`, text: e.command, sub: e.last ?? '', title, mono: true};
+    return {info: {actor: ok ? 'done' : 'bad', icon: ok ? 'check' : 'alert'}, head: ok ? 'Check passed' : `Check failed, exit ${e.exit}`, text: e.command, sub: e.last ?? '', title, mono: true};
   }
   const said = SAYS[e.event]?.(e);
   if (said) return {title, sub: '', ...said};
@@ -1380,7 +1462,7 @@ function buildReview(t, now) {
   if (t.proposal) rows.push(keyed(`p:${t.proposal.ts}`, h('div', {class: `row a-${t.proposal.green ? 'done' : 'you'}`},
     h('span', {class: 'fi'}, icon(t.proposal.green ? 'check' : 'alert')),
     h('div', {class: 'rtext'}, h('b', {}, t.proposal.green ? 'Proposed: green' : 'Proposed: not green'),
-      h('span', {class: 'sub'}, t.proposal.green ? 'the checks passed with the bar where it was, the review left no must-fix, no story changed' : t.proposal.reasons.join(' · '))),
+      h('span', {class: 'sub'}, t.proposal.green ? GREEN.toLowerCase() : t.proposal.reasons.join(' · '))),
     h('span', {class: 'rtime'}, stamp(t.proposal.ts, now)))));
   return rows;
 }
@@ -1412,13 +1494,13 @@ function buildBoardNow(m) {
       h('div', {class: 'now-body'},
         h('div', {class: 'now-eyebrow'}, c ? `You · choice ${c.id} of the task` : `${t.info.who} · ${t.info.label}`),
         h('div', {class: 'now-head'}, t.title),
-        h('div', {class: 'now-status'}, c ? c.what : t.text),
+        h('div', {class: 'now-status'}, c ? c.what : t.shown),
         c ? h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t, c)) : t.ask ? h('div', {class: 'now-ctx'}, t.ask) : '',
         h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, c && !c.irreversible ? until(c.deadline, 'clock') : live(c ? c.ts : t.since, 'clock')),
           h('span', {class: 'note'}, c ? (c.irreversible ? 'since it was asked; it waits with no end' : `left of the wait, until ${hhmm(c.deadline)}`) : 'in this state',
             others > 0 ? ` · ${plural(others, 'more task')} like it` : '')))),
     h('div', {class: 'now-spacer'}),
-    h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last block'), h('span', {}, h('span', {'data-ago': t.lastTs})),
+    h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last update'), h('span', {}, h('span', {'data-ago': t.lastTs})),
       h('span', {class: 'right'}, h('button', {class: 'jump', type: 'button', 'data-open': t.slug}, 'Open the task', ' ', icon('arrow'))))));
 }
 
@@ -1441,7 +1523,7 @@ function buildBoardProgress(m) {
       h('div', {},
         h('div', {class: 'now-head'}, n ? `${plural(n, 'place')} taken` : 'No place is taken'),
         h('div', {class: 'dim'}, n ? `${m.building.length} build${m.building.length === 1 ? 's' : ''}, ${m.landing.length} land${m.landing.length === 1 ? 's' : ''}. ` : '',
-          typeof limit === 'number' ? `The project lets ${plural(limit, 'task')} build or land at one time (flow.max_tasks).` : 'The limit comes with the first state block.')),
+          typeof limit === 'number' ? `The project lets ${plural(limit, 'task')} build or land at one time (flow.max_tasks).` : 'The limit comes with the first task.')),
       h('div', {class: 'stats'},
         stat('Waits for you', m.forOwner.length, m.forOwner.length ? 'a choice, the stories, a step of yours, a plan, a draft or a merge' : 'nothing', m.forOwner.length ? 'you' : ''),
         stat('Queued', m.queued.length, 'asks that wait for a place'),
@@ -1456,7 +1538,7 @@ function taskCard(t) {
   return keyed(`c:${t.slug}`, h('button', {class: `tcard s-${t.status} a-${t.info.actor}`, type: 'button', 'data-open': t.slug, title: 'Open the board of this task'},
     h('div', {class: 'tc-top'}, h('div', {class: 'tc-title'}, t.title), h('div', {class: 'tc-time'}, t.closed ? '' : live(t.since))),
     t.ask ? h('div', {class: 'tc-ask'}, t.ask) : '',
-    h('div', {class: 'tc-text'}, `${t.info.label}: ${t.text}`),
+    h('div', {class: 'tc-text'}, t.shown ? `${t.info.label}: ${t.shown}` : t.info.label),
     t.status === 'answered' && t.investigation ? h('div', {class: 'tc-text'}, `${CALLS[t.investigation.call]?.card ?? t.investigation.call}: ${t.investigation.line}`) : '',
     t.waiting.map(c => h('div', {class: 'tc-text'}, t.asks.includes(c) ? `Choice ${c.id} waits for you: ${c.what} · ` : `Choice ${c.id}, its wait is over: ${c.what}`,
       c.irreversible ? 'no end' : t.asks.includes(c) ? until(c.deadline) : '')),
@@ -1476,8 +1558,7 @@ function buildLanes(m) {
     const hidden = lane.key === 'done' ? Math.max(0, tasks.length - DONE_SHOWN) : 0;
     if (hidden) tasks = tasks.slice(0, DONE_SHOWN);
     return keyed(`lane:${lane.key}`, h('div', {class: `lane a-${lane.actor}`},
-      h('div', {class: 'lane-head'}, h('i'), lane.title, h('em', {}, lane.key === 'build' && tasks.some(t => t.status !== 'building')
-        ? `${m.building.length} of ${tasks.length}` : tasks.length + hidden)),
+      h('div', {class: 'lane-head'}, h('i'), lane.title, h('em', {}, tasks.length + hidden)),
       tasks.length ? tasks.map(taskCard).map(c => { phase(c); return c; }) : h('div', {class: 'lane-empty'}, lane.empty),
       hidden ? h('div', {class: 'more'}, `and ${plural(hidden, 'older task')}`) : ''));
   });
@@ -1498,43 +1579,43 @@ function buildTaskNow(t) {
           h('div', {class: 'now-eyebrow'}, 'You act'),
           h('div', {class: 'now-head'}, t.asks.length > 1 ? `${t.asks.length} choices wait for you` : `Choice ${c.id} waits for you`),
           h('div', {class: 'now-status'}, c.what),
-          h('div', {class: 'now-ctx'}, `recommended: ${c.recommended} · ${STATUS[t.status]?.label ?? t.status}: ${t.text}`),
+          h('div', {class: 'now-ctx'}, `recommended: ${c.recommended} · ${STATUS[t.status]?.label ?? t.status}${t.shown ? `: ${t.shown}` : ''}`),
           Object.keys(c.advice).length ? h('div', {class: 'now-ctx'}, `the experts: ${Object.keys(EXPERTS).filter(key => c.advice[key])
             .map(key => `${expertName(key)} ${c.advice[key].pick != null ? `“${c.advice[key].pick}”` : 'none fits'}`).join(' · ')}`) : '',
           h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t)),
           h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, c.irreversible ? live(c.ts, 'clock') : until(c.deadline, 'clock')),
             h('span', {class: 'note'}, c.irreversible ? `since it was asked · it waits for your answer, with no end: ${IRREVERSIBLE[c.irreversible] ?? c.irreversible}`
-              : `left of the wait, until ${hhmm(c.deadline)}; then the lead takes ${sharedPick(c) != null ? 'the experts’ shared pick' : 'the recommended action'}`)))),
+              : `left of the wait, until ${hhmm(c.deadline)}; then the build goes on with ${sharedPick(c) != null ? 'the experts’ shared pick' : 'the recommended action'}`)))),
       h('div', {class: 'now-spacer'}),
-      h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last block'), h('span', {}, h('span', {'data-ago': t.lastTs})),
+      h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last update'), h('span', {}, h('span', {'data-ago': t.lastTs})),
         pane?.status ? h('span', {}, `· the session is ${pane.status}`) : '',
         pane ? h('span', {class: 'right'}, jump(pane.id, 'Go to the session')) : '')));
   }
   const head = {
     queued: 'Waits for a free place', building: t.investigating ? 'Its investigator examines it, before any story' : LEAD[leadOf(t)].head,
-    planned: t.forOwner ? 'The plan waits for you' : t.talks.length ? 'The plan talk is done: the plan waits for its builder lead' : 'The plan waits for its talk companion',
-    held: t.storiesWait ? 'The stories wait for your yes' : 'Waits for you', blocked: 'The lead stopped; Lem has to settle it', ready: 'Waits for its checks',
+    planned: t.forOwner ? 'The plan waits for you' : t.talks.length ? 'The plan talk is done: the plan waits for the agent that builds it' : 'The plan waits for its talk companion',
+    held: t.storiesWait ? 'The stories wait for your yes' : 'Waits for you', blocked: 'The agent stopped; Lem has to settle it', ready: 'Waits for its checks',
     landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
     answered: 'Answered: it ended with a report and nothing to merge',
   }[t.status] ?? `Status "${t.status}"`;
   // What the investigation found, on every task that had one: the answer of an answered task, the cause of a fix.
   const x = t.investigation;
   const found = x ? [h('div', {class: 'now-ctx'}, h('b', {}, `${CALLS[x.call]?.now ?? x.call}: `), x.line, investigationSub(x) ? ` · ${investigationSub(x)}` : ''),
-    h('div', {class: 'now-ctx'}, 'The report: investigation.md in the task directory')] : [];
+    h('div', {class: 'now-ctx'}, 'The report is investigation.md in the task directory')] : [];
   return keyed(`now:${t.slug}:${t.status}:${t.text}:${t.lastTs}:${x?.ts ?? ''}:${pane?.status ?? ''}`, h('div', {class: t.info.live ? '' : 'still'},
     h('div', {class: 'now-in'},
       h('div', {class: 'avatar'}, icon(t.info.icon)),
       h('div', {class: 'now-body'},
         h('div', {class: 'now-eyebrow'}, t.info.who === 'You' ? 'You act' : t.info.who === 'Nobody' ? 'Closed' : `${t.info.who} acts`),
         h('div', {class: 'now-head'}, head),
-        h('div', {class: 'now-status'}, t.text),
-        t.blocks.at(-1).lines.length ? h('div', {class: 'now-ctx'}, t.blocks.at(-1).lines.join(' · ')) : '',
+        t.shown ? h('div', {class: 'now-status'}, t.shown) : '',
+        t.more.length ? h('div', {class: 'now-ctx'}, t.more.join(' · ')) : '',
         ...found,
         t.forOwner ? h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t)) : '',
         h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, t.closed ? stamp(t.since, Date.now()) : live(t.since, 'clock')),
           h('span', {class: 'note'}, t.closed ? `after ${span(t.since - t.first)}` : 'in this state')))),
     h('div', {class: 'now-spacer'}),
-    h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last block'), h('span', {}, h('span', {'data-ago': t.lastTs})),
+    h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last update'), h('span', {}, h('span', {'data-ago': t.lastTs})),
       pane?.status ? h('span', {}, `· the session is ${pane.status}`) : '',
       pane ? h('span', {class: 'right'}, jump(pane.id, 'Go to the session')) : '')));
 }
@@ -1555,12 +1636,21 @@ function phaseIndex(t) {
 }
 
 function buildTaskProgress(t) {
-  const at_ = phaseIndex(t);
+  // A task whose bug or question a builder investigated first has that step before its stories: it
+  // is the current one while the investigation runs, and done after it.
+  // An answered task ended with its report: its phases are the investigation and the answer, both done.
+  const lead = t.investigated ? 1 : 0;
+  const answered = t.status === 'answered';
+  const phases = answered ? [...(lead ? ['Investigation'] : []), 'Answered'] : t.investigated ? ['Investigation', ...PHASES] : PHASES;
+  const step = t.investigating ? 0 : answered ? -1 : phaseIndex(t) + lead;
+  const past = t.investigating ? 0 : answered ? phases.length : step;
+  const at_ = step;
   const p = t.progress;
   const done = ['landed', 'ready', 'landing', 'open'].includes(t.reached);
   const total = p?.of ?? 0, finished = done ? total : Math.max(0, (p?.n ?? 1) - 1), current = !done && p && t.status === 'building' ? 1 : 0;
   const review = t.reviews.at(-1);
-  const sub = k => (k === 2 && p ? `task ${done ? p.of : p.n} of ${p.of}` : k === 3 && t.gates.length ? (t.gateBad ? `${t.gateBad} red` : `${t.gates.length} green`)
+  const sub = k => (k < lead ? (t.investigation ? CALLS[t.investigation.call]?.card ?? '' : '') : phaseSub(k - lead));
+  const phaseSub = k => (k === 2 && p ? `task ${done ? p.of : p.n} of ${p.of}` : k === 3 && t.gates.length ? (t.gateBad ? `${t.gateBad} red` : `${t.gates.length} green`)
     : k === 4 && review ? review.verdict : k === 5 && t.proposal ? (t.proposal.green ? 'green' : 'not green') : '');
   // A choice the timeout or the experts took keeps the request from green; the two are counted apart.
   const taken = t.choices.filter(d => d.state !== 'waits').length;
@@ -1568,13 +1658,13 @@ function buildTaskProgress(t) {
   return keyed(`prog:${t.slug}:${at_}:${p?.n}:${p?.of}:${t.status}:${t.gates.length}:${t.gateBad}:${t.reviews.map(r => r.verdict).join()}:${t.proposal?.green}:${t.commit?.head}:${t.asks.length}:${taken}:${timeouts}:${experts}`,
     h('div', {class: 'prog'},
       ring(finished, current, total || 1, total ? `${finished}/${total}` : '–', 'plan tasks'),
-      h('div', {class: `phases a-${t.info.actor}`}, PHASES.map((name, k) => h('div', {class: `phase ${k < at_ ? 'past' : k === at_ ? 'cur' : ''}`}, h('i'), name, h('small', {}, sub(k))))),
+      h('div', {class: `phases a-${t.info.actor}`}, phases.map((name, k) => h('div', {class: `phase ${k < past ? 'past' : k === at_ ? 'cur' : ''}`}, h('i'), name, h('small', {}, sub(k))))),
       h('div', {class: 'stats'},
-        stat('Lead', t.lead ? LEAD[leadOf(t)].tag : '–', t.lead ? LEAD[leadOf(t)].stat : 'no lead was started yet'),
+        stat('Who works on it', t.lead ? LEAD[leadOf(t)].tag : t.investigated ? 'investigator' : '–', t.lead ? LEAD[leadOf(t)].stat : t.investigated ? 'a builder examined the bug or the question first' : 'no agent was started yet'),
         stat('Last commit', t.commit?.head ?? '–', t.commit ? t.commit.subject : 'no commit on its branch yet'),
-        stat('Open for', t.closed ? span(t.since - t.first) : live(t.first), `first block ${stamp(t.first, Date.now())}`),
-        stat('Gate', t.gates.length ? (t.gateBad ? 'red' : 'green') : '–', t.gates.length ? `${plural(t.gates.length, 'command')} in the last run` : 'it runs at the landing', t.gates.length ? (t.gateBad ? 'bad' : 'ok') : ''),
-        stat('Review', review ? review.verdict : '–', review ? `round ${review.round}, ${KIND[review.kind] ?? review.kind}` : 'after the checks, before the proposal', review ? (review.verdict === 'clean' ? 'ok' : 'bad') : ''),
+        stat('Open for', t.closed ? span(t.since - t.first) : live(t.first), `opened ${stamp(t.first, Date.now())}`),
+        stat('Checks', t.gates.length ? (t.gateBad ? 'red' : 'green') : '–', t.gates.length ? `${plural(t.gates.length, 'command')} in the last run` : t.status === 'answered' ? 'none: it ended with a report' : 'they run before the pull request', t.gates.length ? (t.gateBad ? 'bad' : 'ok') : ''),
+        stat('Review', review ? review.verdict : '–', review ? `round ${review.round}, ${KIND[review.kind] ?? review.kind}` : t.status === 'answered' ? 'none: it ended with a report' : 'after the checks, before the proposal', review ? (review.verdict === 'clean' ? 'ok' : 'bad') : ''),
         stat('Decisions', t.asks.length ? `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''}` : taken,
           t.choices.length ? `${taken} taken${timeouts ? `, ${timeouts} by the timeout` : ''}${experts ? `, ${experts} by the experts` : ''}` : 'none yet',
           t.asks.length ? 'you' : timeouts || experts ? 'bad' : ''))));
@@ -1586,13 +1676,13 @@ function buildStates(t, now) {
     const next = t.blocks[k + 1]?.ts;
     return keyed(`s:${k}:${next ?? 'open'}`, h('div', {class: `row a-${info.actor}`},
       h('span', {class: 'fi'}, icon(info.icon)),
-      h('div', {class: 'rtext'}, h('b', {}, info.label), ' · ', b.text, b.lines.length ? h('span', {class: 'sub'}, b.lines.join(' · ')) : ''),
+      h('div', {class: 'rtext', title: [b.text, ...b.lines].join('\n')}, h('b', {}, info.label), ...(lines => [lines[0] ? ` · ${lines[0]}` : '', lines.length > 1 ? h('span', {class: 'sub'}, lines.slice(1).join(' · ')) : ''])(saidOf(b, talkedBefore(t, b.ts)))),
       h('span', {class: 'rtime'}, stamp(b.ts, now), h('br'), next ? span(next - b.ts) : t.closed ? '' : live(b.ts))));
   });
 }
 
 function buildGate(t, now) {
-  if (!t.gates.length) return [keyed('empty', h('div', {class: 'empty'}, 'The gate runs when the task takes the landing line'))];
+  if (!t.gates.length) return [keyed('empty', h('div', {class: 'empty'}, 'The checks run when the branch’s turn to land comes'))];
   return t.gates.map((g, k) => keyed(`g:${k}:${g.exit}`, h('div', {class: `row a-${g.exit === 0 ? 'done' : 'bad'}`},
     h('span', {class: 'fi'}, icon(g.exit === 0 ? 'check' : 'alert')),
     h('div', {class: 'rtext'}, h('b', {}, g.exit === 0 ? 'green' : `exit ${g.exit}`), ' · ', h('span', {class: 'cmd'}, g.command ?? ''),
@@ -1628,13 +1718,13 @@ function buildStories(t, now) {
   // Stories approved after the lead recorded the plan's (or before it wrote any) are the contract
   // now: the plan's older stories and their tests' results no longer stand for them.
   if (current && (!t.stories || current.approval.order > t.stories.order)) {
-    const note = t.stories ? 'approved after the plan’s stories were recorded: the lead records them again, with their tests' : 'no test yet: the lead adds its tests in the plan';
+    const note = t.stories ? 'approved after the plan’s stories were recorded: the agent records them again, with their tests' : 'no test yet: the agent adds its tests in the plan';
     return [...head, ...current.texts.map((text, i) => keyed(`story:${i + 1}:approved:${current.approval.number}:${text.length}`, h('div', {class: 'row a-quiet'},
       h('span', {class: 'fi'}, icon('file')),
       h('div', {class: 'rtext'}, h('b', {}, `${i + 1}. `), text, h('span', {class: 'sub'}, note)),
       h('span', {class: 'rtime'}, ''))))];
   }
-  if (!t.stories) return head.length ? head : [keyed('empty', h('div', {class: 'empty'}, 'The lead writes the stories at the top of the plan'))];
+  if (!t.stories) return head.length ? head : [keyed('empty', h('div', {class: 'empty'}, 'The agent writes the stories at the top of the plan'))];
   return [...head, ...storyRows(t)];
 }
 
@@ -1648,7 +1738,14 @@ function storiesHead(t, now) {
   // An approval of his after a change of the build made that change his (decisions.py
   // `taken_over_by`): it is no cause of not green.
   const takenOver = c => t.approvals.find(x => x.number > c.approval && x.by === 'owner')?.number ?? null;
-  if (r) {
+  if (r && r.answered === 0) {
+    // A read in which no persona answered is no read: it found nothing, and it says so in the bad color.
+    rows.push(keyed(`read:${r.ts}:silent`, h('div', {class: 'row a-bad'},
+      h('span', {class: 'fi'}, icon('alert')),
+      h('div', {class: 'rtext'}, h('b', {}, 'Nobody answered the personas’ read'), ` (0 of ${r.asked}), run by ${r.by === 'lead' ? 'the agent' : 'Lem'}: it found nothing, either way`,
+        r.silent.map(x => h('span', {class: 'sub'}, `no answer from ${x.name} (${x.why})`))),
+      h('span', {class: 'rtime'}, stamp(r.ts, now)))));
+  } else if (r) {
     const doubt = r.split || r.flagged > 0;
     // As land.py `unread` says it: only when the stories as they stand are not the ones read, and
     // then what changed them, an approval of his with other stories or a change of the build.
@@ -1663,7 +1760,7 @@ function storiesHead(t, now) {
       h('div', {class: 'rtext'},
         r.split ? h('b', {}, 'The two model families split on a story. ') : '',
         h('b', {}, r.flagged ? `${r.flagged} of ${plural(r.stories, 'story').replace('storys', 'stories')} flagged` : 'Nobody confused'),
-        ` · read by ${r.answered} of ${r.asked} personas, ${FAMILIES[r.families.length] ?? `${r.families.length} model families`} (${r.families.join(', ')}), run by ${r.by === 'lead' ? 'the lead' : 'Lem'}`,
+        ` · read by ${r.answered} of ${r.asked} personas, ${FAMILIES[r.families.length] ?? `${r.families.length} model families`} (${r.families.join(', ')}), run by ${r.by === 'lead' ? 'the agent' : 'Lem'}`,
         r.silent.map(x => h('span', {class: 'sub'}, `no answer from ${x.name} (${x.why})`)),
         stale ? h('span', {class: 'sub'}, stale) : ''),
       h('span', {class: 'rtime'}, stamp(r.ts, now)))));
@@ -1718,11 +1815,12 @@ function buildDecisions(t, now) {
           h('span', {class: 'sub'}, `recommended: ${d.recommended}, because ${d.why}`),
           d.said ? h('span', {class: 'sub'}, `the personas: ${d.said}`) : '',
           // the experts' advice, one line each, and a line for one whose advice has not come
-          Object.keys(EXPERTS).map(key => h('span', {class: 'sub'}, d.advice[key] ? adviceLine(key, d.advice[key], false) : `${expertName(key)}: no advice yet`)),
+          Object.keys(d.advice).length ? Object.keys(EXPERTS).map(key => h('span', {class: 'sub'}, d.advice[key] ? adviceLine(key, d.advice[key], false) : `${expertName(key)}: no advice yet`))
+            : h('span', {class: 'sub'}, 'No expert advised on it yet.'),
           h('span', {class: 'sub'}, d.irreversible ? `It waits for your answer, with no end: ${IRREVERSIBLE[d.irreversible] ?? d.irreversible}, so no timeout takes it. The experts advise on it and never take it. The rest of the plan goes on.`
-            : over ? `Its wait ended at ${hhmm(d.deadline)}, and no timeout is written yet: the lead takes ${endOf(d, true)}.`
-              : `Its wait ends at ${hhmm(d.deadline)}; then the lead takes ${endOf(d, false)}.`),
-          over ? h('span', {class: 'sub'}, `An answer of yours now comes after the wait: “${sharedPick(d) ?? d.recommended}” stands, and an answer that differs is a correction for the lead.`)
+            : over ? `Its wait ended at ${hhmm(d.deadline)}, and no timeout is written yet: the build goes on with ${endOf(d, true)}.`
+              : `Its wait ends at ${hhmm(d.deadline)}; then the build goes on with ${endOf(d, false)}.`),
+          over ? h('span', {class: 'sub'}, `An answer of yours now comes after the wait: “${sharedPick(d) ?? d.recommended}” stands, and an answer that differs is a correction for the agent that builds it.`)
             : h('span', {class: 'sub'}, h('b', {}, 'Where you answer: '), answerOf(t, d))),
         h('span', {class: 'rtime'}, d.irreversible ? 'no end' : over ? 'wait over' : until(d.deadline))));
     }
@@ -1735,7 +1833,7 @@ function buildDecisions(t, now) {
     // A choice the timeout or the experts took is marked alike: neither is his answer, and each keeps the request from green.
     const timeout = d.state === 'timeout' || d.state === 'settled';
     const late = d.late ? [h('span', {class: 'sub'}, `Your answer came at ${hhmm(d.late.ts)}, after ${d.state === 'settled' ? 'the experts took it' : 'the wait'}: “${d.late.chose}”${d.late.words ? ` (${d.late.words})` : ''}. `,
-      d.late.chose === d.chose ? 'It is what was taken.' : 'It differs from what was taken: a correction for the lead.')] : [];
+      d.late.chose === d.chose ? 'It is what was taken.' : 'It differs from what was taken: a correction for the agent that builds it.')] : [];
     const how = d.kind === 'taken' ? `taken by ${BY_WHOM[d.by] ?? d.by}, because ${d.why}`
       : d.state === 'answered' ? `answered by you${d.instead ? ', with none of the options' : ''}${d.words ? `: “${d.words}”` : ''}${d.ownerWhy ? `, because ${d.ownerWhy}` : ''}`
         : d.state === 'settled' ? `taken by the experts at ${hhmm(d.ended)}, while you were away, before its wait ended: both picked it. The pull request is not green for it.`
@@ -1882,12 +1980,12 @@ function renderBacklog() {
   $('bl-sum').replaceChildren(
     bl.reading ? 'reading… ' : '',
     backlogProblem ? h('span', {class: 'error'}, `${backlogProblem} · `) : '',
-    backlog ? `${bl.q.trim() ? `${items.length} of ${all.length}` : plural(all.length, 'item')} in ${backlog.folder} · ${stale ? `${stale} point${stale === 1 ? 's' : ''} at a place that is gone` : 'every place named is there'} ${broken ? ` · ${broken} cannot be read` : ''} · ${backlog.judged ? 'sorted by who can act' : 'sorted by the verdict in each item'} · read ${stamp(new Date(backlog.read).getTime(), Date.now())}` : '');
+    backlog ? `${bl.q.trim() ? `${items.length} of ${all.length}` : plural(all.length, 'item')} in ${backlog.folder} · ${stale ? `${plural(stale, 'item')} ${stale === 1 ? 'names' : 'name'} a place that is gone or cannot be read` : 'every place named is there'} ${broken ? ` · ${broken} cannot be read` : ''} · ${backlog.judged ? 'sorted by who can act' : 'sorted by the verdict in each item'} · read ${stamp(new Date(backlog.read).getTime(), Date.now())}` : '');
   const groups = groupsOf(items).map(g => h('div', {class: `bl-group a-${g.actor}${g.recessive ? ' recessive' : ''}`},
     h('div', {class: 'lane-head'}, h('i', {}), g.name, h('em', {}, g.items.length)),
     g.items.map(itemRow)));
   $('bl-groups').replaceChildren(...(groups.length ? groups : [h('div', {class: 'lane-empty'},
-    !backlog ? (backlogProblem ?? 'The backlog was not read yet.') : all.length ? 'No item has these words.' : `No item in ${backlog.folder}. The closing pass of a landing proposes items, and /lem backlog adds one.`)]));
+    !backlog ? (backlogProblem ?? 'The backlog was not read yet.') : all.length ? 'No item has these words.' : `No item in ${backlog.folder}. The polish pass of a landing files items, and /lem backlog adds one.`)]));
 }
 
 async function readBacklog() {
@@ -1990,7 +2088,8 @@ function render() {
     patch($('meta'), t ? [
       keyed(`st:${t.status}`, statusPill(t)),
       t.branch ? chip('branch', 'branch', 'mono', t.branch) : null,
-      meta.base ? chip('base', 'flag', '', 'lands on ', h('b', {}, meta.base)) : null,
+      // an answered or dropped task lands nowhere
+      meta.base && !['answered', 'dropped'].includes(t.status) ? chip('base', 'flag', '', 'lands on ', h('b', {}, meta.base)) : null,
       ...tags(t).map((n, i) => keyed(`tag:${i}`, n)),
     ] : []);
     $('now').className = `card now a-${t?.info.actor ?? 'quiet'}`;
@@ -2004,12 +2103,15 @@ function render() {
     $('decisions-sum').textContent = t?.choices.length ? [t.asks.length && `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''} for you`,
       overs && `${overs} with the wait over`, `${t.choices.filter(d => d.state !== 'waits').length} taken`].filter(Boolean).join(' · ') : '';
     patch($('states'), t ? buildStates(t, now) : []);
-    $('states-sum').textContent = t ? plural(t.blocks.length, 'block') : '';
+    $('states-sum').textContent = t ? plural(t.blocks.length, 'update') : '';
     patch($('gate'), t ? buildGate(t, now) : []);
     $('gate-sum').textContent = t?.gates.length ? (t.gateBad ? `${t.gateBad} of ${t.gates.length} red` : `${plural(t.gates.length, 'command')} green`) : '';
   } else {
-    const parts = [m.forOwner.length && `${m.forOwner.length} wait${m.forOwner.length === 1 ? 's' : ''} for you`, m.building.length && `${m.building.length} build${m.building.length === 1 ? 's' : ''}`,
-      (m.ready.length + m.landing.length) && `${m.ready.length + m.landing.length} in checks and review`, m.queued.length && `${m.queued.length} queued`].filter(Boolean);
+    // counted by lane, so the numbers add up to the cards: a task that builds while a choice waits for you is counted where it waits
+    const inBuild = status => m.lane.build.filter(x => x.status === status).length;
+    const parts = [m.forOwner.length && `${m.forOwner.length} wait${m.forOwner.length === 1 ? 's' : ''} for you`, inBuild('building') && `${inBuild('building')} build${inBuild('building') === 1 ? 's' : ''}`,
+      m.lane.checks.length && `${m.lane.checks.length} in checks and review`, inBuild('queued') && `${inBuild('queued')} queued`,
+      inBuild('planned') && `${inBuild('planned')} wait for their plan talk`, inBuild('blocked') && `${inBuild('blocked')} blocked`].filter(Boolean);
     $('title').textContent = parts.length ? parts.join(', ') : m.list.length ? 'Nothing runs' : 'Waiting for the first task';
     $('ask').textContent = '';
     patch($('meta'), [
@@ -2024,11 +2126,13 @@ function render() {
     patch($('lanes'), buildLanes(m));
   }
   $('lanes-section').hidden = Boolean(view) || tab === 'backlog';
-  $('stories-card').hidden = !view;
-  $('decisions-card').hidden = !view;
+  // The board of all tasks has only the activity in this row, across the page. A card of a task
+  // that ended with nothing in it is not drawn: an answered task has no stories, checks or review.
+  $('cols').classList.toggle('one', !view);
+  $('stack').hidden = !view;
+  const empty = id => t?.closed && [...$(id).children].every(n => n.dataset.key === 'empty');
+  for (const id of ['stories', 'decisions', 'gate']) { const none = empty(id); if (none) patch($(id), []); $(`${id}-card`).hidden = !view || none; }
   $('states-card').hidden = !view;
-  $('gate-card').hidden = !view;
-  $('review-card').hidden = !view;
 
   // On the board the timeline holds the tasks that are open and the ones that closed today, a row
   // for each by its state; the board of one task has a row for each actor that held its work.
@@ -2038,7 +2142,7 @@ function render() {
     patch($('timeline'), [card]);
     $('tl-note').textContent = 'Each row is who held the work; a band is a stage, and inside the build a task of the plan. '
       + 'Rows overlap where the build goes on while a choice waits for you, so the shares need not add up to 100. '
-      + 'The interview and the scout write no event, so they are not drawn; the personas’ read logs only its end, which is a dot, and the plan talk is drawn from its start to its record.';
+      + 'The interview and the first read of the code write no event, so they are not drawn; the personas’ read logs only its end, which is a dot, and the plan talk is drawn from its start to its record.';
   } else {
     const shown = view ? [] : m.list.filter(x => !x.closed || dayKey(x.since) === dayKey(now)).sort((a, b) => a.first - b.first);
     patch($('legend'), buildLegend(m, shown));
@@ -2047,6 +2151,7 @@ function render() {
   }
 
   patch($('review'), view && t ? buildReview(t, now) : []);
+  { const none = empty('review'); if (none) patch($('review'), []); $('review-card').hidden = !view || none; }
   $('review-sum').textContent = view && t?.reviews.length ? plural(t.reviews.length, 'round') : '';
   const feed = view ? events.filter(e => e.task === view) : events;
   patch($('feed'), buildFeed(m, feed));
@@ -2059,7 +2164,7 @@ function render() {
   ]);
   tick(now);
 
-  const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (tab === 'backlog' ? `Backlog · ${repo} · ` : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.building.length} build · ${m.forOwner.length} for you`);
+  const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (tab === 'backlog' ? `Backlog · ${repo} · ` : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.lane.build.filter(x => x.status === 'building').length} build · ${m.forOwner.length} for you`);
   if (title !== lastTitle) document.title = lastTitle = title;
 }
 
@@ -2078,7 +2183,7 @@ function tick(now) {
 async function pollFiles() {
   const feed = await readScript('events.js', 'lemEvent', events.length);
   if (feed.records) { events = feed.records; lastGoodRead = Date.now(); delete problems.events; }
-  else problems.events = feed.missing ? 'events.js is missing: no state block was written yet' : feed.problem;
+  else problems.events = feed.missing ? 'events.js is missing: no state was written yet' : feed.problem;
   const about = await readScript('meta.js', 'lemMeta', 0);
   if (about.records?.length) { meta = about.records.at(-1); delete problems.meta; }
   else problems.meta = about.problem ?? 'meta.js is missing or empty: open the board with board.py';
@@ -2114,6 +2219,7 @@ document.addEventListener('click', async ev => {
   if (pick('cancel', () => { bl.confirm = null; renderBacklog(); })) return;
   if (pick('start', slug => startTask(slug))) return;
   if (pick('toggle', slug => { bl.open.has(slug) ? bl.open.delete(slug) : bl.open.add(slug); bl.cursor = slug; bl.confirm = null; renderBacklog(); })) return;
+  if (ev.target.closest('[data-fold]')) { bannersOpen = !bannersOpen; return void render(); }
   const task = ev.target.closest('[data-open]');
   if (task) {
     view = task.dataset.open || null;
