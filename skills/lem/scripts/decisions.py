@@ -51,8 +51,10 @@ The record is `decisions.jsonl` in the task's directory, one line for each thing
 a decision is the lines with its number. Each line is also an event in the log the board draws.
 
 A story change is a line of the same record, with a number of its own (`change`). It applies to
-the stories the owner approved (`stories.json`, which `stories.py approve` writes) and names
-their digest, so a later approval of his starts from his stories again. `story` computes the
+the newest approval of the stories (`stories.json`, which `stories.py approve` writes) and names
+that approval by its number, so a later approval starts from its stories again, also when its text
+is one approved before. `changes` keeps every change in `history`: one that a later approval of
+the owner's took over is his, and the pull request shows it as approved by him afterwards. `story` computes the
 stories as they stand after every earlier change, and refuses a change whose story N is not the
 text `--was` names: a wrong record never enters. Texts are compared with each run of spaces as
 one, as a story written over two lines reads; they are kept as typed. A choice carries no story:
@@ -188,18 +190,33 @@ class Task:
             raise DecisionError(f"{kept} does not read as JSON ({error}); it is written by `stories.py approve` only") from error
 
     def changes(self, lines: list[dict] | None = None) -> dict:
-        """The approved stories, the recorded changes of them in order, and the stories they give.
-        A change made under an earlier approval is his no longer: his later approval replaced it."""
+        """The approvals, the recorded changes of the stories in order, and the stories they give.
+
+        An approval is known by its number, not by its text: one of a text approved before is still
+        a new one. The expected stories are the newest approval's with the changes recorded after
+        it. Every change of the task stays in `history`, each with the approval it applied to and,
+        when an approval of the owner's came after it, that approval's number (`taken_over_by`): his
+        approval of the stories made the change his."""
         approved = self.approved()
         if approved is None:
-            return {"task": self.slug, "approved": None, "changes": [], "expected": None}
-        changes = [line for line in (self.lines() if lines is None else lines) if line["kind"] == "story" and line["approved"] == approved["digest"]]
+            return {"task": self.slug, "approved": None, "approvals": [], "changes": [], "history": [], "expected": None}
+        keys = ("number", "at", "by", "kind", "digest")
+        approvals = [{key: old.get(key) for key in keys} for old in approved.get("history", [])] + [{key: approved.get(key) for key in keys}]
+        # a file an approve before numbered approvals wrote has one approval, the first
+        approvals[-1]["number"] = approvals[-1]["number"] or len(approvals)
+        newest = approvals[-1]["number"]
+        everything = [line for line in (self.lines() if lines is None else lines) if line["kind"] == "story"]
+        history = []
+        for line in everything:
+            later = next((old["number"] for old in approvals if old["number"] > line.get("approval", 0) and old["by"] == "owner"), None)
+            history.append({**line, "taken_over_by": later})
+        changes = [line for line in everything if line.get("approval") == newest]
         expected = [story["text"] for story in approved["stories"]]
         for change in changes:
             expected = applied(expected, change)
         return {
-            "task": self.slug, "approved": {key: approved[key] for key in ("at", "by", "kind", "digest")},
-            "changes": changes, "expected": expected,
+            "task": self.slug, "approved": {key: approved.get(key) for key in keys} | {"number": newest}, "approvals": approvals,
+            "changes": changes, "history": history, "expected": expected,
         }
 
     def one(self, number: int, known: list[dict] | None = None) -> dict:
@@ -302,7 +319,7 @@ def cmd_story(task: Task, args: argparse.Namespace) -> dict:
             f"{task.slug} has no approved stories, so no change of them is recorded: its plan's stories are their one source. "
             "Approved stories are kept by `stories.py approve`",
         )
-    line = {"at": stamp(now()), "kind": "story", "how": how, "story": getattr(args, how), "why": text(args.why, "--why"), "approved": approved["digest"]}
+    line = {"at": stamp(now()), "kind": "story", "how": how, "story": getattr(args, how), "why": text(args.why, "--why"), "approval": approved.get("number") or 1 + len(approved.get("history", []))}
     for key in wants:
         line[key] = typed(getattr(args, key), f"--{key}")
     if args.choice is not None:

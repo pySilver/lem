@@ -106,8 +106,10 @@ steps kept, from the record of the task's decisions (`decisions.py list`) and fr
 file, whose headings it checks. The text opens with green or not green. Green says that the
 machine checks passed with the bar where it was, a review with at least one source left no
 must-fix, no story changed during the build, and no decision was taken by timeout. A story
-changed, added or removed after his approval is one line each, from its record
-(`decisions.py story`), with what it was, what it is and why. A lowered bar
+changed, added or removed after the newest approval is one line each, from its record
+(`decisions.py story`), with what it was, what it is and why. The text lists every story change
+of the task, under every approval; one that a later approval of his took over says so and is no
+cause of not green, since his approval made it his. A lowered bar
 is not green with a reason either: its line holds the builder's reason and what the review said
 of it. A choice taken by timeout is a line of its own, and so is an answer of the owner's that
 came after it and differs. Each reason a request is not green stands before everything else, one
@@ -125,11 +127,12 @@ newest `stories.read` event (`project.py log` gives its form): how many of the p
 answered, in which model families, who did not answer and why, how many stories they flagged,
 whether the families split, and when the owner approved them (`stories.py approve`), or that the
 build started with no wait for him; for a correction, that the personas did not read it. When
-the stories the read names by their digest are not the approved ones (or, with no approval, the
-plan's), one more line says that they changed after the read and the change was not read; that
-is no cause of not green. A scout's report in the task's directory is named there as a file.
+the stories the read names by their digest are not the plan's (which the gate makes the expected
+ones), one more line says that they changed after the read, by his later approval or by a change
+of the build, and that the change was not read; that line is no cause of not green. A scout's report in the task's directory is named there as a file.
 `propose` refuses a feature with no `stories.read`, and one whose newest read flagged a story or
-showed a split between the families with no approval of his at or after it. A careful path that the diff matches and the plan's own call missed is a lesson
+showed a split between the families with no approval of his at or after it; the rare path's
+freeze of a read (`stories.py approve --read`) is no approval of his. A careful path that the diff matches and the plan's own call missed is a lesson
 about that call: `propose` writes one `careful.missed` event with the path and its pattern, the
 first time it finds the case, for the retro. With a GitHub remote `propose` pushes the task's branch
 and opens the pull request with the `gh` command; a second run updates it. With any other
@@ -790,18 +793,19 @@ def read_form(read: dict) -> bool:
 
 
 def approved_after(found: dict, read: dict) -> bool:
-    """Whether the owner himself approved the stories at the read's time or after it."""
-    approval = found.get("approved")
-    return bool(approval) and approval["by"] == "owner" and approval["at"] >= read["ts"]
+    """Whether the owner himself approved the stories at the read's time or after it. A freeze of
+    the rare path's read (`by: read`) and Lem's approval of a correction are not his yes."""
+    return any(approval["by"] == "owner" and approval["at"] >= read["ts"] for approval in found.get("approvals", []))
 
 
 def read_line(read: dict | None, found: dict) -> str:
     """The personas' read of the stories and his approval, as one line of the pull request's checks."""
     approval = found.get("approved")
     approved = ""
-    if approval:
-        day = approval["at"][:10]
-        approved = f"he approved them on {day}" if approval["by"] == "owner" else f"Lem approved it in his name on {day}, as a correction"
+    if approval and approval["by"] == "owner":
+        approved = f"he approved them on {approval['at'][:10]}"
+    elif approval and approval["by"] == "correction":
+        approved = f"Lem approved it in his name on {approval['at'][:10]}, as a correction"
     if read:
         count = len(read["families"])
         line = (
@@ -819,15 +823,14 @@ def read_line(read: dict | None, found: dict) -> str:
 
 
 def unread(read: dict | None, found: dict) -> str | None:
-    """The line that says the stories changed after the personas read them, when they did."""
-    if read is None:
+    """The line that says the stories are not the ones the personas read, and what changed them.
+    The plan's stories are the expected ones (the gate refuses any other), so they are compared."""
+    if read is None or found["stories_digest"] == read["digest"]:
         return None
-    approval = found.get("approved")
-    if (approval["digest"] if approval else found["stories_digest"]) == read["digest"]:
-        return None
-    if approval and approval["by"] == "owner":
-        return "- he changed the stories after the personas' read, and the change was not read"
-    return "- the stories changed after the personas' read, and the change was not read"
+    # an approval of his after the read changed the stories only when it holds other stories than the read did
+    his = [approval for approval in found.get("approvals", []) if approval["by"] == "owner" and approval["at"] >= read["ts"] and approval["digest"] != read["digest"]]
+    what = [*([f"by his approval {his[-1]['number']}"] if his else []), *(["by a change of the build"] if any(change["at"] >= read["ts"] for change in found.get("history", [])) else [])]
+    return f"- the stories changed after the personas' read{', ' + ' and '.join(what) if what else ''}, and the change was not read"
 
 
 def named(value: object, where: str) -> list[dict]:
@@ -986,7 +989,8 @@ def not_green(task: Task, state: dict) -> list[str]:
     for entry in (kept.get("checks") or {}).get("bar", {}).get("lowered", []):
         review = f"The review: {said[entry['file']]}" if entry["file"] in said else "No review said anything of it."
         reasons.append(f"the bar is lower in `{entry['file']}` ({entry['what']}). The builder: {entry['reason']} {review}")
-    for change in stories_of(task)["changes"]:
+    # a change that a later approval of his took over is his, and no cause of not green
+    for change in (change for change in stories_of(task)["history"] if change["taken_over_by"] is None):
         reasons.append(f"story {change['story']} {STORY_HOW[change['how']]} during the build: {story_why(task, change)}")
     for decision in task.decisions():
         if decision["state"] == "timeout":
@@ -1014,7 +1018,8 @@ def story_line(task: Task, change: dict) -> str:
         "removed": f"removed, was \"{change.get('was')}\"",
     }[change["how"]]
     who = "" if "choice" in change else " By the lead." if change["by"] == "lead" else f" By the personas: {change['said']}"
-    return f"- story {change['story']}: {said}. {reason(story_why(task, change))}.{who}"
+    later = f" Approved by you afterwards (approval {change['taken_over_by']})." if change.get("taken_over_by") else ""
+    return f"- story {change['story']}: {said}. {reason(story_why(task, change))}.{who}{later}"
 
 
 def reason(text: str) -> str:
@@ -1091,9 +1096,9 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
             out.append(f"   - `{test['command']}`: {'passes on the branch, fails on the base commit' if proof and not proof['problem'] else 'not checked'}")
         if story["no_test"]:
             out.append(f"   - no test: {story['no_test']}")
-    if found["changes"]:
+    if found["history"]:
         out += ["", "Stories that changed during the build, in the order of the record:", ""]
-        out += [story_line(task, change) for change in found["changes"]]
+        out += [story_line(task, change) for change in found["history"]]
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]

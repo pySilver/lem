@@ -180,7 +180,8 @@ worktree, never committed and not removed with a worktree. It holds:
 - `directions.md`: what the owner named in the interview (a technology, a library, an approach,
   an option he picked), one line each in his words. Lem writes it; the plan follows it.
 - `stories.json`: the stories the owner approved, word for word, with a digest, who approved them
-  and when. Only `stories.py approve` writes it; `stories.py approved SLUG` prints it, and the
+  and when, and the number of the approval, with the earlier approvals under `history`. On the
+  rare path the lead's read freezes them there too (`by: read`), which is never his yes. Only `stories.py approve` writes it; `stories.py approved SLUG` prints it, and the
   plan's stories must be those, with the test lines added.
 - `brief.md`: the lead's brief. Lem writes it.
 - `state.md`: newest block first. Lem and the lead write it, and only through the script.

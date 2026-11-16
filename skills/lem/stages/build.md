@@ -72,8 +72,9 @@ through one script, which also puts it on the board:
 python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT]
 ```
 
-A story the owner approved (`stories.py approved SLUG`) changes in the plan only with its own
-record, written before the commit that changes it, with its text before and after:
+A story the owner approved, or the rare path's read froze (`stories.py approved SLUG`), changes
+in the plan only with its own record, written before the commit that changes it, with its text
+before and after:
 
 ```bash
 python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE story SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])

@@ -25,10 +25,14 @@ are:
        - no test: the change is one paragraph of the README.
 
     stories.py approve SLUG --file FILE [--correction]
+    stories.py approve SLUG [--file FILE] --read
                               keep the stories the owner approved, as FILE has them: the same
                               section with no test lines, which the lead adds. --correction: Lem
                               approves a correction's one story in his name, and he may still
-                              say "this is a feature"
+                              say "this is a feature". --read: the lead of the rare path freezes
+                              the stories its read found nobody confused by, the plan's own when
+                              no FILE is named; that counts for the plan's check and for
+                              `decisions.py story`, and never as his yes
     stories.py approved SLUG  the approved stories of the task, or null when it has none
     stories.py digest SLUG [--file FILE]
                               the digest of the stories' kind and texts, without tests: of FILE,
@@ -38,10 +42,12 @@ are:
     stories.py red SLUG       each story's tests pass on the branch and fail on the base commit
 
 Approved stories are frozen as written. `approve` keeps them in `stories.json` in the task's
-directory, with their text and a digest, and logs one `stories.approved` event. From then on the
-plan's stories are the expected ones: the approved stories with each change of them that
-`decisions.py story` recorded applied in the order of the record (`decisions.py changes SLUG`
-gives them). They are compared text for text and in order, with each run of spaces as one, so
+directory, with their text, a digest and a number of their own (approval 1, 2, ...), the earlier
+approvals under `history`, and logs one `stories.approved` event. An approval of a text approved
+before is still a new approval, with no change after it. From then on the
+plan's stories are the expected ones: the newest approval's stories with each change of them that
+`decisions.py story` recorded after it applied in the order of the record (`decisions.py changes
+SLUG` gives them). They are compared text for text and in order, with each run of spaces as one, so
 how a story is broken into lines does not count; the plan's `Kind:` is the approved kind, which
 only his next approval changes. `show`, `record` and `red` refuse a plan that differs, and name
 the first story that does. So the lead can neither reword, drop nor add a story without the
@@ -272,9 +278,12 @@ class Task:
         changes = self.changes()
         digest = text_digest(read["kind"], [story["text"] for story in read["stories"]])
         if changes["approved"] is None:
-            return {"task": self.slug, "plan": str(plan), **read, "stories_digest": digest, "approved": None, "changes": []}
+            return {"task": self.slug, "plan": str(plan), **read, "stories_digest": digest, "approved": None, "approvals": [], "changes": [], "history": []}
         against(read, changes, plan.name, self.slug)
-        return {"task": self.slug, "plan": str(plan), **read, "stories_digest": digest, "approved": changes["approved"], "changes": changes["changes"]}
+        return {
+            "task": self.slug, "plan": str(plan), **read, "stories_digest": digest,
+            **{key: changes[key] for key in ("approved", "approvals", "changes", "history")},
+        }
 
     def changes(self) -> dict:
         """The approved stories and their recorded changes, through the one script that writes them."""
@@ -442,31 +451,61 @@ def cmd_red(task: Task) -> dict:
     }
 
 
-def cmd_approve(task: Task, file: str, correction: bool) -> dict:
-    """Keep the stories the owner approved, word for word, with a digest, and log the event."""
+def newest_read(task: Task) -> dict | None:
+    """The newest `stories.read` event of the task, from the log `project.py` writes."""
+    log = task.directory.parent.parent / "events.jsonl"
+    found = None
+    for line in (log.read_text(encoding="utf-8").splitlines() if log.is_file() else []):
+        if '"stories.read"' in line:
+            record = json.loads(line)
+            if record.get("event") == "stories.read" and record.get("task") == task.slug:
+                found = record
+    return found
+
+
+def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
+    """Keep the stories that were approved, word for word, with a digest and a number of their own,
+    and log the event. Each approval is a new one, also of a text approved before."""
     source = Path(file)
     if not source.is_file():
         raise StoriesError(f"{file} is not a file; --file names the stories he approved, in the form `stories.py --help` shows")
     text = source.read_text(encoding="utf-8")
     read = parse(text, source.name)
     tested = [story["n"] for story in read["stories"] if story["tests"] or story["no_test"]]
-    if tested:
+    # the plan's own stories carry the lead's test lines, which are no part of a story's text
+    if tested and not plan:
         raise StoriesError(f"story {tested[0]} of {source.name} has a test line: the stories he approves have none, and the lead adds them in the plan")
-    if correction and read["kind"] != "correction":
+    if by == "correction" and read["kind"] != "correction":
         raise StoriesError(f"--correction approves a correction's one story in his name, and {source.name} says `Kind: {read['kind']}`: a feature waits for his own yes")
     stories = [{"n": story["n"], "text": story["text"]} for story in read["stories"]]
-    # one mark for this exact set of approved texts, so that a later approval is known as another
+    # one mark for this exact set of approved texts; the approval itself is known by its number
     digest = text_digest(read["kind"], [story["text"] for story in stories])
+    if by == "read":
+        # the rare path: the lead freezes the stories the personas read, and only when nobody was confused
+        last = newest_read(task)
+        if last is None or last.get("digest") != digest:
+            raise StoriesError(
+                f"--read freezes the stories the newest `stories.read` of {task.slug} read, and "
+                + ("there is none" if last is None else f"that read was of the stories with digest {last.get('digest')}, and {source.name} has {digest}")
+                + ": run the read over these stories first (`stages/plan.md`, step 1)",
+            )
+        if last["flagged"] or last["split"]:
+            raise StoriesError(
+                f"the newest read of {task.slug}'s stories found {'a flagged story' if last['flagged'] else 'a split between the families'}: "
+                "the stories wait for the owner, and only his approval freezes them",
+            )
     before = task.approved()
+    history = [*before.get("history", []), {key: value for key, value in before.items() if key not in ("history", "task", "text")}] if before else []
     record = {
-        "task": task.slug, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        # who approved: the owner, or Lem in his name for a correction that does not wait
-        "by": "correction" if correction else "owner", "kind": read["kind"], "why": read["why"], "digest": digest, "stories": stories, "text": text,
-        **({"replaces": before["digest"]} if before else {}),
+        "task": task.slug, "number": len(history) + 1, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        # who approved: the owner; Lem in his name, for a correction that does not wait; or the
+        # lead's read of the rare path, which counts for the plan's check and never as his yes
+        "by": by, "kind": read["kind"], "why": read["why"], "digest": digest, "stories": stories, "text": text,
+        **({"replaces": before["number"]} if before else {}), "history": history,
     }
     task.directory.mkdir(parents=True, exist_ok=True)
     task.approved_file.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    task.log("stories.approved", by=record["by"], kind=record["kind"], why=record["why"], digest=digest, stories=stories, **({"replaces": before["digest"]} if before else {}))
+    task.log("stories.approved", by=by, number=record["number"], kind=record["kind"], why=record["why"], digest=digest, stories=stories, **({"replaces": before["number"]} if before else {}))
     return {**record, "file": str(task.approved_file)}
 
 
@@ -477,17 +516,24 @@ def main() -> None:
     parser.add_argument("slug")
     parser.add_argument("--file", help="with approve: the stories he approved, in the form above and with no test lines; with digest: the stories to mark")
     parser.add_argument("--correction", action="store_true", help="with approve: Lem approves a correction's one story in his name")
+    parser.add_argument("--read", action="store_true", help="with approve: the lead of the rare path freezes the stories a read in which nobody was confused read")
     args = parser.parse_args()
     try:
         if args.file is not None and args.step not in ("approve", "digest"):
             raise StoriesError("--file goes with `approve` and `digest`")
-        if args.correction and args.step != "approve":
-            raise StoriesError("--correction goes with `approve`")
+        if (args.correction or args.read) and args.step != "approve":
+            raise StoriesError("--correction and --read go with `approve`")
+        if args.correction and args.read:
+            raise StoriesError("an approval is Lem's for a correction or the read's on the rare path, not both: --correction or --read")
         task = Task(Path(args.repo).resolve(), args.slug)
         if args.step == "approve":
-            if args.file is None:
+            if args.file is None and args.read:
+                # the rare path's lead freezes the plan's own stories, which the personas read
+                result = cmd_approve(task, task.stories()["plan"], "read", plan=True)
+            elif args.file is None:
                 raise StoriesError("approve needs --file: the stories he approved, in the form `stories.py --help` shows, with no test lines")
-            result = cmd_approve(task, args.file, args.correction)
+            else:
+                result = cmd_approve(task, args.file, "correction" if args.correction else "read" if args.read else "owner")
         elif args.step == "approved":
             kept = task.approved()
             result = {"task": task.slug, "approved": kept} if kept else {

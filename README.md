@@ -182,13 +182,16 @@ These rules hold for each task:
   The lead adds only the tests. If the build must change, add or remove a story, the lead
   records the change with the text before and after. Then the pull request is not green, and it
   shows the change and its reason. The gate stops a plan whose stories are not your stories
-  with the recorded changes. Only you can change the kind of the stories, a feature or a
+  with the recorded changes. If you approve the changed stories later, the pull request still
+  shows each change, with "approved by you afterwards", and that change does not make it not
+  green. Only you can change the kind of the stories, a feature or a
   correction.
 - **A ticket with all of its context gets no interview.** This is the rare path: a ticket, a
   backlog item whose options are settled, or a night plan that you start, each with a defined
   result. Lem tells you in one line that it takes this path, and why. You can say "interview
   me". The lead writes the stories from the code. One model family of personas reads them. If
-  nobody is confused, the build starts and does not wait for you. The board shows "nobody
+  nobody is confused, the lead freezes the stories that the personas read, and the build starts.
+  It does not wait for you. The board shows "nobody
   confused", and you can stop the task. If a persona has a doubt, the task waits for you.
 - **A correction does not wait.** A correction is one story in your own words, and it touches
   nothing careful. Lem shows the story and approves it for you. The personas do not read it.

@@ -1548,6 +1548,23 @@ if [ "$reset" = "(0, ['$code1', 'Order 1043 has no note line.'])" ] && [ "$space
 else
   fail "a new approval, spaces and the kind: $reset / $spaced / $kind / $kept_spaces"
 fi
+# An approval is known by its number, not by its text: his approval of a text approved before is a new one, with no
+# change after it, and the changes of an earlier approval do not come back when its text does.
+stories approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
+same_text=$(adecide changes approved-note 2>/dev/null | field '(d["approved"]["number"], len(d["changes"]), d["expected"][0])' 2>&1 || true)
+# shellcheck disable=SC2016
+aplan_with '1. The note file holds the code `A  B` for order 1042.' '2. Order 1043 has no note line.'
+just_approved=$(stories show approved-note 2>&1 | field '(d["approved"]["number"], d["changes"])' 2>&1 || true)
+stories approve approved-note --file "$WORK/approved.md" >/dev/null 2>&1 || true
+stories approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
+back_again=$(adecide changes approved-note 2>/dev/null | field '(d["approved"]["number"], len(d["changes"]), [(c["approval"], c["taken_over_by"]) for c in d["history"]][-1], [a["number"] for a in d["approvals"]])' 2>&1 || true)
+numbered=$(grep '"event": "stories.approved", "task": "approved-note"' "$ST/.git/lem/events.jsonl" | "$PY" -c 'import json, sys; print([json.loads(line).get("number") for line in sys.stdin])')
+if [ "$same_text" = "(3, 0, '$code1')" ] && [ "$just_approved" = "(3, [])" ] && [ "$back_again" = "(5, 0, (2, 3), [1, 2, 3, 4, 5])" ] \
+  && [ "$numbered" = "[1, 2, 3, 4, 5]" ]; then
+  pass "an approval has a number of its own: his approval of a text approved before starts with no change after it, the plan that holds what he just approved passes, and the changes of an earlier approval do not come back with its text; each change stays in the history with the approval that took it over"
+else
+  fail "approvals by number: $same_text / $just_approved / $back_again / $numbered"
+fi
 
 # The decisions of a task: each one the lead or the personas took, and each choice that waits for the
 # owner a fixed time and no longer, except a step that a later "no" cannot reverse.
@@ -2804,9 +2821,9 @@ if grep -qF "story 2 of 20261115-story-departs.md says 'The file ends with a lin
   && grep -qxF -- '- story 2: added, "The file ends with a line break.". The importer reads whole lines only. By the lead.' "$text" \
   && [ -n "$(approved_day story-departs)" ] \
   && grep -qxF -- "- the stories were read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; he approved them on $(approved_day story-departs)" "$text" \
-  && ! grep -q "after the personas' read" "$text" \
+  && grep -qxF -- "- the stories changed after the personas' read, by a change of the build, and the change was not read" "$text" \
   && grep -qF "the request is not green (story 2 was removed during the build" <<<"$agent"; then
-  pass "a story a choice of the build removed and one the lead added are not green, each with its line first, what it was or is, its reason and the choice that led to it; a story changes only after its choice is answered; the gate refuses the plan until both are recorded; and the checks say that two model families read the stories and when he approved them"
+  pass "a story a choice of the build removed and one the lead added are not green, each with its line first, what it was or is, its reason and the choice that led to it; a story changes only after its choice is answered; the gate refuses the plan until both are recorded; and the checks say that two model families read the stories, when he approved them, and that a change of the build came after the read"
 else
   fail "an added and a removed story in the landing: $unrecorded / $early / $agent / $(cat "$text" 2>/dev/null)"
 fi
@@ -2822,6 +2839,7 @@ local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null 
 unread_feature=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
 project --repo "$LOCAL" log read-doubt stories.read by=lead asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=true "digest=$plan_digest" >/dev/null 2>&1 || true
 split_unseen=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
+freeze_split=$(lstories approve read-doubt --file "$WORK/doubt.md" --read 2>&1 || true)
 project --repo "$LOCAL" log read-doubt stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=1 split:=false "digest=$plan_digest" >/dev/null 2>&1 || true
 flag_unseen=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
 # the newest read: partial, one story flagged, the families split, and of other stories than he then approved
@@ -2833,14 +2851,47 @@ text=$LOCAL/.git/lem/tasks/read-doubt/pr.md
 if grep -qF "read-doubt is a feature, and the event log has no \`stories.read\`" <<<"$unread_feature" && grep -qF 'stages/new.md' <<<"$unread_feature" \
   && grep -qF "the newest read of read-doubt's stories found a split between the two families, and no approval of his came after it" <<<"$split_unseen" \
   && grep -qF "found 1 flagged story, and no approval of his came after it" <<<"$flag_unseen" && grep -qF "stories.py approve read-doubt --file FILE" <<<"$flag_unseen" \
+  && grep -qF "the newest read of read-doubt's stories found a split between the families: the stories wait for the owner, and only his approval freezes them" <<<"$freeze_split" \
   && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && grep -qxF -- "- the stories were read by 2 of 3 personas asked, two model families (opus, sol); 1 of 1 story flagged; the two families split; no answer from the accountant, sol (the model was at capacity); he approved them on $(approved_day read-doubt)" "$text" \
-  && grep -qxF -- "- he changed the stories after the personas' read, and the change was not read" "$text"; then
+  && grep -qxF -- "- the stories changed after the personas' read, by his approval 1, and the change was not read" "$text"; then
   pass "a feature with no read of its stories is not proposed, nor one whose newest read flagged a story or split the families with no approval of his after it; a partial read counts and says who did not answer and why; and stories he changed after the read are one line that is no cause of not green"
 else
-  fail "the read before a proposal: $unread_feature / $split_unseen / $flag_unseen / $(cat "$text" 2>/dev/null)"
+  fail "the read before a proposal: $unread_feature / $split_unseen / $freeze_split / $flag_unseen / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state read-doubt dropped "the test is over" >/dev/null
+# The read is compared with the stories as they are now, and the history of story changes stays in the pull request:
+# approval 1, the personas change its story, a clean read of the changed story, then his approval of it.
+task_in "$LOCAL" after-change a.txt a
+tree=$(project --repo "$LOCAL" worktree-dir after-change)
+sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-after-change.md"
+rm "$tree/docs/plans/20261115-after-change.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word y.' > "$WORK/first.md"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/changed.md"
+lstories approve after-change --file "$WORK/first.md" >/dev/null 2>&1 || true
+ldecide story after-change --changed 1 --was "The file holds the word y." --now "The file holds the word the owner asked for." --why "y is taken by another file." \
+  --by personas --said "Both personas picked the owner's word." >/dev/null 2>&1 || true
+digest=$(lstories digest after-change 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log after-change stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
+to_open after-change || true
+text=$LOCAL/.git/lem/tasks/after-change/pr.md
+cp "$text" "$WORK/first-pr.md" 2>/dev/null || : > "$WORK/first-pr.md"
+# he approves the changed story; the proposal is made again
+project --repo "$LOCAL" state after-change landing "he approved the changed story" >/dev/null
+lstories approve after-change --file "$WORK/changed.md" >/dev/null 2>&1 || true
+local_land propose after-change --title "fix: a" --notes "$NOTES" >/dev/null 2>&1 || true
+history_line='- story 1: was "The file holds the word y.", now "The file holds the word the owner asked for.". y is taken by another file. By the personas: Both personas picked the owner'"'"'s word.'
+if [ "$(sed -n 1p "$WORK/first-pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "$WORK/first-pr.md")" = '- story 1 changed during the build: y is taken by another file.' ] \
+  && grep -qxF -- "$history_line" "$WORK/first-pr.md" && ! grep -q "after the personas' read" "$WORK/first-pr.md" \
+  && [ "$(sed -n 1p "$text" | cut -c1-10)" = '**Green.**' ] \
+  && grep -qxF -- "$history_line Approved by you afterwards (approval 2)." "$text" \
+  && grep -qxF -- "- the stories were read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; he approved them on $(approved_day after-change)" "$text" \
+  && ! grep -q "after the personas' read" "$text"; then
+  pass "a read of the stories as a recorded change made them is the read of the stories now, and no line says otherwise; a change he approved afterwards stays in the pull request with its reason and the personas' answer, marked as approved by him, and is no cause of not green"
+else
+  fail "the read and the history after a later approval: $(cat "$WORK/first-pr.md") / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state after-change dropped "the test is over" >/dev/null
 # The rare path: the lead ran the read with one model family, nobody was confused, and there is no approval; a scout's report is named.
 task_in "$LOCAL" ticket-word t.txt t
 tree=$(project --repo "$LOCAL" worktree-dir ticket-word)
@@ -2859,6 +2910,12 @@ bad_split=$(read_with by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:
 bad_digest=$(read_with by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false digest=abc)
 bad_missing=$(read_with by=lead asked:=2 answered:=2 'families:=["opus"]' stories:=1 flagged:=0 split:=false "digest=$digest")
 project --repo "$LOCAL" log ticket-word stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
+# the lead freezes what the personas read: another text is refused, the plan's own stories are kept with `by: read`
+printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds another word.' > "$WORK/other.md"
+freeze_other=$(lstories approve ticket-word --file "$WORK/other.md" --read 2>&1 || true)
+lstories approve ticket-word --read >/dev/null 2>&1 || true
+frozen=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["by"], d["number"]))' "$LOCAL/.git/lem/tasks/ticket-word/stories.json" 2>&1 || true)
+recorded=$(ldecide story ticket-word --changed 1 --was "Not the story." --now "x" --why "w" --by lead 2>&1 || true)
 echo '1. t.txt does not exist on the base branch (git ls-files).' > "$LOCAL/.git/lem/tasks/ticket-word/scout.md"
 to_open ticket-word || true
 text=$LOCAL/.git/lem/tasks/ticket-word/pr.md
@@ -2872,10 +2929,12 @@ if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && grep -q "families is the list of the model families that answered" <<<"$bad_families" && grep -q "no more stories flagged than it read" <<<"$bad_flagged" \
   && grep -q "a split is between two model families, and families names one" <<<"$bad_split" && grep -q "digest is the twelve characters" <<<"$bad_digest" \
   && grep -q "stories.read takes by=lem|lead asked:=N answered:=N" <<<"$bad_missing" \
-  && [ "$(grep -c '"event": "stories.read", "task": "ticket-word"' "$LOCAL/.git/lem/events.jsonl")" = 1 ]; then
-  pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's report is named; a read's event without its form, with fewer than two personas asked, with nobody or more than were asked answering, or with a missing source unnamed is refused, and nothing is written for it"
+  && [ "$(grep -c '"event": "stories.read", "task": "ticket-word"' "$LOCAL/.git/lem/events.jsonl")" = 1 ] \
+  && grep -qF "the newest \`stories.read\` of ticket-word read, and that read was of the stories with digest $digest, and other.md has" <<<"$freeze_other" \
+  && [ "$frozen" = "('read', 1)" ] && grep -qF "story 1 is 'The file holds the word the owner asked for.' after every earlier change" <<<"$recorded"; then
+  pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's report is named; a read's event without its form, with fewer than two personas asked, with nobody or more than were asked answering, or with a missing source unnamed is refused, and nothing is written for it; the lead freezes the stories the read named, and no other text, and from then on a change of them has its record, while the line still says the build did not wait for him"
 else
-  fail "the read of the rare path: $bad_by / $bad_one / $bad_none / $bad_more / $bad_quiet / $bad_families / $bad_flagged / $bad_split / $bad_digest / $bad_missing / $(cat "$text" 2>/dev/null)"
+  fail "the read of the rare path: $freeze_other / $frozen / $recorded / $bad_by / $bad_one / $bad_none / $bad_more / $bad_quiet / $bad_families / $bad_flagged / $bad_split / $bad_digest / $bad_missing / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state ticket-word dropped "the test is over" >/dev/null
 # A correction: Lem approves its one story in his name, and the personas do not read it.
