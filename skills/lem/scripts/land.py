@@ -737,7 +737,7 @@ def outside_of(read: dict) -> list[dict]:
     return read.get("outside", [])
 
 
-def to_file(task: Task, reads: list[dict]) -> list[dict]:
+def to_file(reads: list[dict]) -> list[dict]:
     """Each defect outside the change of a review that answered, with no item yet."""
     return [
         {"round": read["round"], **{key: defect[key] for key in DEFECT}}
@@ -1328,7 +1328,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
             # the number the record of this review carries, so that the same record is never written down twice
             "attempt": state["attempt"],
             # the defects outside the change that reviews saw and that have no item yet: `land.py file` files them
-            "to_file": to_file(task, reads),
+            "to_file": to_file(reads),
             "careful": state["careful"], "tasks": state["tasks"], "lines": state["lines"], "in_parts": state["in_parts"],
             "reads": [{key: value for key, value in read.items() if key != "contents"} for read in reads],
             # what a reviewer gets, and nothing of the builder's reasoning
@@ -1393,7 +1393,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     script("project.py", task.worktree, "log", task.slug, "review", *(f"{key}:={json.dumps(value)}" for key, value in entry.items()))
     # The contents of the change stay out of the log: only `covers` reads them, from the kept record.
     task.keep(reads=[*reads, {**entry, "contents": state["contents"]}])
-    return {"task": task.slug, "recorded": entry, "next": due(task)["due"], "to_file": to_file(task, task.kept()["reads"])}
+    return {"task": task.slug, "recorded": entry, "next": due(task)["due"], "to_file": to_file(task.kept()["reads"])}
 
 
 def not_green(task: Task, state: dict) -> list[str]:
