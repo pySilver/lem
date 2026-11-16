@@ -124,13 +124,17 @@ class Task:
     def __init__(self, repo: Path, slug: str) -> None:
         self.repo = repo
         self.slug = slug
-        tasks = json.loads(script("project.py", repo, "tasks"))
-        record = next((task for task in tasks if task["slug"] == slug), None)
-        if record is None:
-            raise DecisionError(f"no task {slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
-        self.status = record["status"]
+        self.status = self.read_status()
         self.directory = Path(script("project.py", repo, "state-dir").strip()) / "tasks" / slug
         self.file = self.directory / "decisions.jsonl"
+
+    def read_status(self) -> str | None:
+        """The task's status now, from its state file: a task may be dropped while a command runs."""
+        tasks = json.loads(script("project.py", self.repo, "tasks"))
+        record = next((task for task in tasks if task["slug"] == self.slug), None)
+        if record is None:
+            raise DecisionError(f"no task {self.slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
+        return record["status"]
 
     def lines(self) -> list[dict]:
         if not self.file.is_file():
@@ -286,7 +290,10 @@ def cmd_wait(task: Task, number: int, seconds: int) -> dict:
             return {**shown(task, decision), "ended": "the wait is over", "next": f"`decisions.py timeout {task.slug} {number}` takes the recommended action"}
         if time.monotonic() >= until:
             return {**shown(task, decision), "ended": "still waits"}
-        time.sleep(min(5, max(1, until - time.monotonic())))
+        # A short step, so that an answer or a drop ends the wait within two seconds or so; the
+        # status is read again with the choice, because a task dropped or landed during the wait ends it.
+        time.sleep(min(2, max(0.5, until - time.monotonic())))
+        task.status = task.read_status()
 
 
 def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:

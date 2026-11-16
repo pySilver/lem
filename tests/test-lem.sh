@@ -1417,7 +1417,7 @@ DECISIONS=$PWD/skills/lem/scripts/decisions.py
 DC=$WORK/decisions-repo
 git init -q -b main "$DC" && commit "$DC" start && project --repo "$DC" init --base main >/dev/null
 project --repo "$DC" task-dir gift-note >/dev/null && project --repo "$DC" task-dir other-task >/dev/null && project --repo "$DC" task-dir race-task >/dev/null
-project --repo "$DC" task-dir dropped-task >/dev/null && project --repo "$DC" task-dir landed-task >/dev/null
+project --repo "$DC" task-dir dropped-task >/dev/null && project --repo "$DC" task-dir landed-task >/dev/null && project --repo "$DC" task-dir cancel-task >/dev/null
 decide() { "$PY" -B "$DECISIONS" --repo "$DC" "$@"; }
 dlist() { decide list gift-note | field "$1"; }
 dfile=$DC/.git/lem/tasks/gift-note/decisions.jsonl
@@ -1603,6 +1603,21 @@ if [ "$all_open" = "(['gift-note'], [('dropped-task', 'dropped', [1]), ('landed-
   pass "a dropped or landed task has no choice that waits: pending leaves it out and says why, wait returns at once with the task's status, and list still shows its record"
 else
   fail "the choices of an ended task: $all_open / $one_ended / $waited / $took / $kept"
+fi
+# A task dropped while a wait runs ends that wait: the loop reads the task's status each time it reads the choice.
+decide ask cancel-task --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
+started=$(date +%s)
+"$PY" -B "$DECISIONS" --repo "$DC" wait cancel-task 1 --seconds 8 > "$WORK/cancel-wait.out" 2>&1 &
+waiter=$!
+sleep 1
+project --repo "$DC" state cancel-task dropped "the owner dropped it while a choice waited" >/dev/null
+wait "$waiter" || true
+took=$(( $(date +%s) - started ))
+cancelled=$(field '(d["ended"], d.get("status"))' < "$WORK/cancel-wait.out" || true)
+if [ "$cancelled" = "('the task is dropped: the choice no longer waits', 'dropped')" ] && [ "$took" -lt 8 ]; then
+  pass "a task dropped while a wait on its choice runs ends that wait before its time, with the task's status"
+else
+  fail "a task dropped during a wait: $cancelled / $took s / $(cat "$WORK/cancel-wait.out")"
 fi
 # The owner's answer to a choice that waits is written with answer, by Lem and by a session's lead: a new decision would leave the choice waiting.
 SKILLTEXT=${SKILLTEXT:-$PWD/skills/lem}
