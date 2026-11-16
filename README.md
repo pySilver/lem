@@ -8,7 +8,8 @@
 # Lem
 
 Lem coordinates the agents that write code in one repository. You type `/lem` and your ask. Lem
-gives the work to builders, lands the change, and puts the change in a review queue.
+gives the work to builders. Then the change gets the machine checks and a review. The result is
+a pull request, and its first line says green or not green.
 
 The name is from Stanisław Lem. Lem is the one in the middle. It builds nothing. It holds the
 line that the other agents work on, and it answers to you for all of them.
@@ -20,16 +21,27 @@ line that the other agents work on, and it answers to you for all of them.
 > **Where it runs.** Lem runs on macOS, in the [agterm](https://agterm.com) terminal only. Only
 > Claude Code can run `/lem`. In Codex, `/lem` stops. Codex can be the reviewer.
 >
-> **Not run yet.** A plan with more than one task. A reviewer that is a second Claude. A restart
-> of agterm while a task is open. The correction hook in a real session.
+> **The flow changed on 2026-11-16.** Those three runs used the flow of 2026-11-15: Lem landed
+> a branch first, and a review came after. Now a review comes before a pull request. No task
+> ran through the new flow yet.
+>
+> **Not run yet.** A task in the new flow. A pull request on GitHub: only a stand-in for the
+> `gh` command ran in the tests. A plan with more than one task. A reviewer that is a second
+> Claude. A restart of agterm while a task is open. The correction hook in a real session.
+>
+> **Not built.** A pull request on GitLab. Lem marks the branch as ready there.
 
 ## Words
 
 - **Task**: one ask, with its own branch and its own worktree.
 - **Builder**: a new agent that gets one job. It writes code and it commits.
 - **Lead**: the agent that owns one task from its plan to its report.
+- **Story**: one rule of your ask in plain language, with one example. Each story gets a test.
 - **Gate**: the check commands of your project, for example the tests. Each command must pass
-  before a branch lands.
+  before Lem proposes a change.
+- **Review**: an agent that did not build the change reads it, before Lem proposes it.
+- **Green**: the first word of a pull request that you can merge without a read. The checks
+  passed, the review found nothing that must change, and no story changed.
 - **Land**: put the commits of a task branch on the base branch.
 - **Careful task**: a task that a reviewer reads before the build and after each step.
 - **Question gate**: a different thing. It decides if a question must go to you. In this
@@ -88,7 +100,7 @@ The board shows these things:
   - it is in the landing line
   - it is done
 - Each card shows the status of the task, the lead, the newest commit, the gate result and the
-  review item.
+  newest review. A task that Lem proposed shows green or not green.
 - The board of one task says who acts next.
 - A line that waits for you says where you answer.
 - A second tab shows the backlog: the work for later, in groups. A group is "Needs you", "An
@@ -116,11 +128,12 @@ flowchart TD
     buildc --> report
     report --> base[Lem rebases the branch<br/>on the base branch]
     base --> closing[Closing pass: the documents,<br/>and small defects outside the task]
-    closing --> gate{The gate:<br/>the machine checks}
+    closing --> gate{The machine checks:<br/>the gate, the test of each story,<br/>the bar}
     gate -- red --> repair[A builder repairs it] --> base
-    gate -- green --> land[You land the branch,<br/>or Lem lands it]
-    land --> queue[(The review queue)]
-    queue --> review[A review round reads the landed change.<br/>A confirmed defect becomes a new task]
+    gate -- green --> review{A review, as large<br/>as the change needs}
+    review -- a finding that must change --> fix[A builder corrects it] --> gate
+    review -- nothing must change,<br/>or two rounds are done --> pr[A pull request:<br/>green or not green in its first line]
+    pr --> merge[You merge it.<br/>Lem merges a green one,<br/>if the settings permit that]
 ```
 
 These rules hold for each task:
@@ -130,11 +143,28 @@ These rules hold for each task:
 - **A check proves each test.** The test of a story must pass on the branch, and it must fail on
   the base commit. The check uses a worktree of its own. The board of a task shows the stories
   and the result of that check.
-- **Build first, review after.** The check commands gate the landing. A review reads the landed
-  change from a queue. Thus a defect that the checks do not find lands first, and the review
-  finds it later.
-- **Lem has no pull request step.** A team that reviews each change before a merge has a
-  different flow. Lem does not fit that flow now.
+- **The machine checks come first.** They are the gate commands, the check of each story's
+  test, and the bar. They use no model.
+- **The bar must not go down.** A new lint or type suppression, a skipped or deleted test, and
+  fewer assertions in a test each lower the bar. Lem refuses such a change. It passes only if the
+  plan gives a reason for that file, and then the pull request is not green.
+- **A review comes before the pull request.** An agent that did not build the change reads the
+  diff. It does not get the reasons of the builder.
+- **An agent decides how large the review is.** A small change gets one read. Each other change
+  gets a round of the review tool with the profiles that fit. That agent reads what each
+  profile is for. Thus a change of documents gets no security check.
+- **A careful request always gets the full set of the project.** A plan with more than three
+  tasks gets a round at the least. No agent can go below that.
+- **A review can be incomplete.** If one source does not answer, the review counts, and the
+  pull request says who answered. If no source answers two times, the pull request says "not
+  reviewed".
+- **A review has two rounds at most.** A finding that must change goes to a builder. After the
+  second round, Lem proposes the change as it is, and the pull request is not green.
+- **A task ends as a pull request.** With a remote on GitHub, Lem opens it with the `gh`
+  command. With a different remote, or with none, Lem marks the branch as ready.
+- **The first line says green or not green.** Each reason for "not green" is one line, before
+  all other text. Then come your words, the stories with their tests, each check with its
+  result, and the notes of Lem.
 - **A careful task keeps the slow flow.** The project names what must not go wrong: as danger
   topics in your words, and as paths. Examples of topics are the price that a customer pays,
   data that nobody can make again, and private data.
@@ -147,23 +177,16 @@ These rules hold for each task:
   opinion, and each of its tasks gets a review.
 - **One builder for each task of a plan.** Each builder starts with an empty context. A plain
   plan with one task is the exception: the builder that wrote the plan builds it.
-- **One branch lands at a time.** The gate result is about one tip on one base.
-- **You land, unless the settings say that Lem lands.** The default of `branch.land` is `owner`.
-  Then Lem rebases the task branch, does the closing pass, and runs the gate. It does not change
-  the base branch. It tells you that the branch is ready. You put the branch on the base branch,
-  and you tell Lem.
-- **With `branch.land = "agent"`, Lem lands a green branch.** It pushes the commits to the base
-  branch on `origin`. It makes no pull request. In a repository with no remote, it moves the
-  base branch forward.
-- **After a landing, Lem removes the worktree of the task.** It removes the branch too, if the
-  base branch has the last commit of that branch. If you landed one squash commit yourself, the
-  branch stays, and you delete it.
-- **A project with no gate command lands nothing.**
-- **The review queue is honest.** A high-risk item is due on the day it lands. `/lem review`
-  closes a normal item as "not reviewed" after seven days without a review, and the report says
-  so. No timer does this.
-- **The review queue is local.** It is a file in the git directory of one clone. A second person
-  with a second clone does not see it. The board is local too.
+- **One branch is in the checks at a time.** The gate result is about one tip on one base.
+- **You merge, unless the settings say that an agent can.** The default of `branch.land` is
+  `owner`. With `agent`, Lem merges a pull request only if it is green and the request is not
+  careful.
+- **Tell Lem "land it" for a branch that is ready.** Lem puts it on the base branch as a
+  fast-forward. With a pull request, merge it on GitHub, or tell Lem to merge it.
+- **After the merge, Lem removes the worktree and the branch of the task.**
+- **A project with no gate command gets no pull request from Lem.**
+- **The board is local.** It reads files in the git directory of one clone. A second person
+  with a second clone does not see it.
 - **You are necessary at three points**: the ask, a decision whose options each cost a person
   something, and the report. Lem takes each other decision, logs it, and lists it for you to
   overturn.
@@ -187,12 +210,13 @@ flowchart LR
     leadA -- a plan of more tasks --> b2[Builder: task 2]
     leadB --> b3[Builder: task 1]
     leadB <-- plan and diffs --> rev[Reviewer<br/>in the other pane]
-    lem -- lands one branch at a time --> basebranch[(The base branch)]
+    lem -- checks and proposes one branch at a time --> pr[(A pull request)]
 ```
 
 There is one Lem for one repository. It is the session where you type `/lem`.
 
-- Lem takes the asks, starts each task, lands the branches, and reports to you.
+- Lem takes the asks, starts each task, and takes each branch through the checks and the
+  review to a pull request.
 - Lem holds no details of a task. It reads the ask, the newest state block and the report.
 - A lead owns one task from its plan to its report. A lead never asks you a question.
 - Something that the plan did not see can occur in the build. The lead decides a small matter
@@ -222,13 +246,11 @@ flowchart TD
     end
     subgraph gitdir [The git directory, shared by all worktrees]
         tasks[lem/tasks/NAME/<br/>task.md, brief.md, state.md, report.md, decisions.md]
-        events[lem/events.jsonl<br/>each state block and gate result]
-        queue[lem/review-queue.jsonl<br/>the landed changes that wait for a review]
+        events[lem/events.jsonl<br/>each state block, gate result, review and proposal]
     end
     wt -. writes the state .-> tasks
     tasks --> board[The board]
     events --> board
-    queue --> board
 ```
 
 - The settings of a project are in its repository. `/lem init` writes them.
@@ -268,10 +290,11 @@ flowchart TD
 | The repository, or your computer | one hook in `.claude/settings.local.json` of the repository, or in `~/.claude/settings.json`; only if you run `--corrections on` | `setup.py --corrections off`, with the same `--project` |
 | Your computer | scheduled jobs in cronn, only after your yes in `/lem init` | remove the job in cronn |
 | The repository | `.lem/` and the starter set in `.revmux/`, on the branch `chore/lem-onboarding` | before you answer "land": answer "drop"; after that: the steps below |
-| The repository | one branch for each task, and its worktree in `.lem/worktrees/` | Lem removes the worktree after the landing, and the branch if the base branch has its commits |
+| The repository | one branch for each task, and its worktree in `.lem/worktrees/` | Lem removes the worktree and the branch after the merge |
 | The repository | the state of the tasks in the git directory, in `.git/lem/`; git does not commit it | delete that folder |
 | The repository | the commits of a task on the base branch, when the task lands | `git revert` |
-| The remote | a push to the base branch on `origin`, only with `branch.land = "agent"` | `git revert`, then a push |
+| The remote | the branch of each task that Lem proposes, and its pull request, on GitHub | close the pull request, and delete the branch |
+| The remote | a merge of a pull request, or a push to the base branch on `origin` for a branch with no pull request. Lem does this on your word, or with `branch.land = "agent"` | `git revert`, then a push |
 | Linear | status changes and one comment on the ticket of a task, only with a `[tracker]` table | change the ticket in Linear |
 
 - The scripts of Lem do not edit your `.gitignore`. They write their own ignore file in `.lem/`
@@ -295,8 +318,9 @@ To remove Lem from a repository:
 
 ## Examples
 
-The first three examples are real runs. The other two examples are illustrations of the flow:
-their names and answers are examples, not results.
+The first three examples are real runs of 2026-11-15. They show the flow of that day: Lem
+landed a branch first, and a review item came after. That flow is gone. The other two examples
+are illustrations: their names and answers are examples, not results.
 
 ### Start from an idea: a real run
 
@@ -403,12 +427,13 @@ Two paths did not occur in these runs:
 4. The builder writes the report. The report says what you get and gives the proof for each
    "done when" line. It also says what the builder did not verify.
 5. Lem brings the base branch in, and a builder does the closing pass.
-6. Lem runs the gate. The gate is green.
-7. Lem lands the branch, because `branch.land` is `agent` in this example. It adds a review item
-   with the risk `normal`.
-8. Lem reports to you in plain words: what you get, and how to see it.
-9. The report also gives the last line of each gate command and the decisions that Lem took
-   without you.
+6. Lem runs the machine checks. They are green.
+7. A new agent reads the diff. It chooses one read, because the change is small. It finds
+   nothing that must change.
+8. Lem opens a pull request. Its first line is "Green."
+9. Lem gives you the address of the pull request, and the word green.
+10. You merge it. In this example `branch.land` is `owner`.
+11. Lem removes the worktree and the branch.
 
 A ticket in Linear can be the ask too: `/lem new MBZ-12`. Lem reads the ticket, and it comments
 on the ticket when the task lands. [docs/linear.md](docs/linear.md) says how a project connects
@@ -426,10 +451,9 @@ Linear.
 | `/lem plan <what>` | opens a task and stops after the plan. You read the plan. Then `/lem build` continues |
 | `/lem build` | lists the plans that wait and asks which one it builds |
 | `/lem build <task>`, or `/lem build <plan file>` | builds that plan: a plan that you read, or a draft from the night |
-| `/lem land` | runs the gate for the oldest task that is ready; lands it if `branch.land` is `agent` |
+| `/lem land` | takes the oldest task that is ready through the machine checks and the review, and opens its pull request |
+| `/lem land <task>` | your word to merge a pull request that is open, or to land a branch that is ready |
 | `/lem`, `/lem status`, `/lem status <task>` | opens the board of all tasks, or of one task |
-| `/lem review` | shows the review queue, and reviews its first item |
-| `/lem review <id>` | reviews the item that you name |
 | `/lem ask <question>` | puts a question to you as a page with the options side by side |
 | `/lem annotate <file>` | opens a plan or a document for you to mark, with the tool in `tools.annotate` |
 | `/lem learn` | you corrected an agent a moment ago: Lem puts the correction into the file that owns that step, and tells you each change |
@@ -444,7 +468,6 @@ You can type each of these commands, but usually you do not.
 
 | Command | Who starts it | What it does |
 | --- | --- | --- |
-| `/lem review` | Lem, when a high-risk task lands; a scheduled job for the normal items, if you accepted that job in `/lem init` | reads one landed change with the review tool; a confirmed defect becomes a new task; closes a normal item after seven days without a review |
 | `/lem retro` | a scheduled job, in the morning | reads the landed tasks and the correction queue; finds a correction that you gave more than one time; proposes where it must go |
 | `/lem night` | a scheduled job, at night | writes a plan for one backlog item that needs no decision; you read the plan in the morning |
 
@@ -493,9 +516,9 @@ Each skill that comes with Lem has the id `lem-<name>`. You start it with `/lem 
 | `paths.worktrees` | `.lem/worktrees` | the worktrees of the tasks |
 | `branch.base` | the default branch of `origin` | the branch that tasks land on |
 | `branch.protected` | empty | the branches that nothing lands on |
-| `branch.land` | `owner` | who lands: `owner` or `agent` |
+| `branch.land` | `owner` | who merges: `owner`, or `agent` for a pull request that is green and not careful |
 | `branch.history` | `keep` | what lands: the commits of the branch (`keep`) or one commit (`squash`) |
-| `gate.commands` | empty | the check commands; with none, no task lands |
+| `gate.commands` | empty | the check commands; with none, Lem proposes no change |
 | `gate.ignores` | empty | the paths that the gate does not read |
 | `gate.setup` | empty | the commands that a new worktree needs before its tests can start, for example an install of the packages |
 | `gate.bar` | empty | more regular expressions for a mark that lowers the bar, for a language that Lem has no marks for |

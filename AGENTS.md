@@ -17,7 +17,7 @@ in that project's repository. `README.md` says what it does; this file says how 
 - **A harness file exists only for an agent the contract was checked in.** Do not write one from
   another project's notes about an agent.
 - **A number in a skill file carries its source and date.** A rule that rests on a measurement
-  says so; a rule that rests on a guess says that instead (`EXPIRE_AFTER` in `review_queue.py`).
+  says so; a rule that rests on a guess says that instead (`READ_AT` in `land.py`).
 - **One stage file per subcommand, read only when it runs.** `SKILL.md` holds what is true in
   every stage. A rule that one stage needs goes in that stage.
 - **Lem's stages and a lead's stages stay apart.** `plan` and `build` are a lead's; the others
@@ -191,8 +191,7 @@ him, and they are not his rulings until he says so:
   `/lem annotate`?": it runs what `tools.annotate` names, as `/lem ask` is his verb for a
   question.
 - **`/lem build` takes a plan file too, and lists the waiting plans when it gets no name**,
-  after "why not `/lem build <path to plan>` instead?". `/lem review ID` takes one item, after
-  "do I get to choose what to review from the list or what?".
+  after "why not `/lem build <path to plan>` instead?".
 - **The correction hook is registered for one repository first**, after "should we place a hook
   per project or globally?": the yes is one project's, and a hook in the home settings starts on
   every message in every repository. The session that carried his notes decided it and told
@@ -285,8 +284,9 @@ real task, so say in the commit which task showed the need.
 - `skills/lem/stages/`: one file per subcommand.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `project.py` (a repository's settings, task state and the event log),
-  `doctor.py` (the machine), `review_queue.py` (landed changes that wait for a review),
-  `board.py` (opens the board), `land.py` (the landing, one refusable step at a time),
+  `doctor.py` (the machine),
+  `board.py` (opens the board), `land.py` (the landing, one refusable step at a time: the
+  machine checks, the review's floor and its record, the pull request, the merge),
   `corrections.py` (the optional queue of the owner's corrections: its hook, and what a retro
   reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
   the setup links as the `jev` command), `stories.py` (a task's stories, read from the top of
@@ -297,8 +297,9 @@ real task, so say in the commit which task showed the need.
   and the blocks of a page to read. `handover.html` is the pattern of the onboarding's page.
   A new page for the owner links `lem.css` and brings no style of its own.
 - `skills/lem/templates/`: the shapes onboarding fills.
-- `skills/lem/prompts/`: the standing briefs of a task's lead, of the three builders of a
-  landing, and of the reviewer.
+- `skills/lem/prompts/`: the standing briefs of a task's lead, of the builders of a landing, of
+  the agent that routes and runs a review before a change is proposed, and of the reviewer in
+  the other pane.
 - `docs/`: `free-hour.md` (how an unattended session may change Lem), `linear.md` (how a
   project connects Linear), and `backlog/`, Lem's own deferred work.
 - `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `lem-ask`

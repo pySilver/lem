@@ -489,44 +489,6 @@ done
 if [ -z "$accepted" ]; then pass "a limit that is not a whole number of 1 or more is refused"; else fail "max_tasks accepted:$accepted"; fi
 settings '[branch]' 'base = "master"'
 
-# The review queue: a landing adds an item, high risk first, and an unread normal item expires.
-QUEUE=$PWD/skills/lem/scripts/review_queue.py
-queue() { "$PY" -B "$QUEUE" --repo "$OLD" "$@"; }
-first=$(queue add report-dates --range abc..def --risk normal)
-second=$("$PY" -B "$QUEUE" --repo "$WORK/wt" add auth-token-index --range def..123 --risk high --note "touches the token lookup")
-out=$(queue list)
-if [ "$first" = 1 ] && [ "$second" = 2 ] && [ "$(field '[i["id"] for i in d]' <<<"$out")" = "[2, 1]" ] && [ "$(field 'd[0]["due"]' <<<"$out")" = "today" ]; then
-  pass "a landing from any worktree joins one queue, and a high item is listed first and due today"
-else
-  fail "queue order: $out"
-fi
-queue close 2 --outcome "fixed in token-index-added"
-if [ "$(queue list --all | field '[(i["id"], i["outcome"]) for i in d]')" = "[(1, None), (2, 'fixed in token-index-added')]" ]; then
-  pass "list --all gives every item, closed ones too"
-else
-  fail "list --all: $(queue list --all)"
-fi
-if [ "$(grep -c '' "$OLD/.git/lem/review-queue.js")" = 3 ] \
-  && [ "$(sed -n 3p "$OLD/.git/lem/review-queue.js")" = "lemReview($(sed -n 3p "$OLD/.git/lem/review-queue.jsonl"));" ]; then
-  pass "each queue event is also a line the board can load"
-else
-  fail "review-queue.js: $(cat "$OLD/.git/lem/review-queue.js")"
-fi
-if [ "$(status_of queue close 2 --outcome again)" = 1 ] && [ "$(status_of queue close 9 --outcome x)" = 1 ]; then
-  pass "closing an item twice, or one that does not exist, is refused"
-else
-  fail "close refusals"
-fi
-printf '%s\n' '{"id": 3, "slug": "old-normal", "range": "a..b", "risk": "normal", "note": null, "added": "2020-01-01T00:00:00+00:00", "outcome": null}' \
-  '{"id": 4, "slug": "old-high", "range": "b..c", "risk": "high", "note": null, "added": "2020-01-01T00:00:00+00:00", "outcome": null}' >> "$OLD/.git/lem/review-queue.jsonl"
-out=$(queue expire)
-left=$(queue list)
-if [ "$(field 'd["expired"]' <<<"$out")" = "[3]" ] && [ "$(field '[(i["id"], i["due"]) for i in d]' <<<"$left")" = "[(4, 'overdue'), (1, 'when the day allows')]" ]; then
-  pass "expire closes an old normal item as not reviewed, and an old high item stays open and overdue"
-else
-  fail "expire: $out / $left"
-fi
-
 # The machine check: a required tool that is absent fails it, an optional one only changes its row.
 DOCTOR=$PWD/skills/lem/scripts/doctor.py
 BIN=$WORK/bin
@@ -737,7 +699,7 @@ if [ -n "$old" ]; then
   # The other scripts under that python3: a row or one line that says what is needed, and no traceback.
   rows=$("$old" -B "$DOCTOR" 2>&1 || true)
   said=""
-  for script in "$PWD/scripts/setup.py" "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/review_queue.py" "$PWD/skills/lem/scripts/board.py"; do
+  for script in "$PWD/scripts/setup.py" "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/stories.py" "$PWD/skills/lem/scripts/board.py"; do
     said="$said$("$old" -B "$script" --help 2>&1 || true)"$'\n'
   done
   if [ "$(field '(d["ok"], d["tools"][0]["name"], d["tools"][0]["found"])' <<<"$rows")" = "(False, 'python3', False)" ] && [ "$(grep -c "Lem needs Python 3.11 or newer, and this python3 is" <<<"$said")" = 5 ] \
@@ -1164,11 +1126,14 @@ if [ "$(row cronn found <<<"$out")" = "True" ] && [ "$(row cronn running <<<"$ou
 else
   fail "doctor with cronn: $out"
 fi
-# A task whose gate is green and whose landing is the owner's: it waits, and it does not go back a phase.
+# A task that was reviewed and proposed and is not green: it waits for the owner's merge, and it does not go back a phase.
 project --repo "$OLD" task-dir owner-lands-it >/dev/null
-for block in 'building|plan committed, 3 tasks' 'building|task 3 of 3' 'ready|the report is written' 'landing|the gate runs' 'held|the gate is green on abc1234: the owner lands'; do
+for block in 'building|plan committed, 3 tasks' 'building|task 3 of 3' 'ready|the report is written' 'landing|the checks start'; do
   project --repo "$OLD" state owner-lands-it "${block%%|*}" "${block#*|}" >/dev/null
 done
+project --repo "$OLD" log owner-lands-it review round:=1 kind=read verdict=clean must_fix:=0 should:=1 nit:=0 'answered:=["codex"]' 'silent:=[]' 'ran:=[]' 'left_out:=[]' tip=abc1234 >/dev/null
+project --repo "$OLD" log owner-lands-it proposed green:=false 'not_green:=["story 1 changed during the build: y is taken."]' tip=abc1234 >/dev/null
+project --repo "$OLD" state owner-lands-it open "ready to land on master at abc1234" "not green: story 1 changed during the build: y is taken." >/dev/null
 
 # The rule picker: one match of a change against the scopes of the style guide files, for every reader of the rules.
 RUL=$WORK/rules-repo
@@ -1661,9 +1626,9 @@ if [ -n "$chrome" ]; then
     # A Chrome that cannot start (a sandbox that forbids it) says nothing about the page.
     printf 'SKIP the board pages: %s printed no page\n' "$chrome"
   elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 waits for you, 1 builds, 1 in the landing line" "Report dates stay whole" \
-    "Owner lands it" "Land the branch, then tell Lem in its session that it landed." "!Demo data" "Keep report dates whole." \
-    "Building: task 2 of 3" "Second task" "Ready to land: the gate was cut off" "1 of 4" "normal, due when the day allows" "tasks land on master"); then
-    pass "the board draws each task in its lane from the events, with the review queue"
+    "Owner lands it" "Tell Lem in its session to land it." "!Demo data" "Keep report dates whole." \
+    "Building: task 2 of 3" "Second task" "Ready for its checks: the gate was cut off" "1 of 4" "1 waits for the merge" "1 not green" "tasks land on master" "!Review queue"); then
+    pass "the board draws each task in its lane from the events, with what waits for the merge and whether it is green"
   else
     fail "the board: missing $why"
   fi
@@ -1678,13 +1643,14 @@ if [ -n "$chrome" ]; then
   fi
   board --repo "$OLD" --no-open --task owner-lands-it >/dev/null
   draw task-owner-lands-it
-  if [ -s "$WORK/task-owner-lands-it.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-owner-lands-it.dom" "Owner lands it · Waits for you" "3/3" "Where you answer:" "!2/3"); then
-    pass "a task that waits for the owner after a green gate keeps the phase and the plan tasks it reached"
+  if [ -s "$WORK/task-owner-lands-it.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-owner-lands-it.dom" "Owner lands it · Waits for the merge" "3/3" "Where you answer:" "!2/3" \
+    "round 1, one read: clean, 0 must-fix, 1 should, 0 nit" "answered: codex" "Proposed: not green" "story 1 changed during the build: y is taken."); then
+    pass "a task that waits for the merge keeps the phase and the plan tasks it reached, and its board shows its review and why it is not green"
   elif [ -s "$WORK/task-owner-lands-it.dom" ]; then
-    fail "a task that waits after the gate: missing $why"
+    fail "a task that waits for the merge: missing $why"
   fi
   # A closed task looked at much later: its time axis ends at its last block and has no line for now.
-  mkdir -p "$WORK/aged" && cp "$OLD/.git/lem/task-with-a-worktree.html" "$OLD/.git/lem/meta.js" "$OLD/.git/lem/review-queue.js" "$WORK/aged/"
+  mkdir -p "$WORK/aged" && cp "$OLD/.git/lem/task-with-a-worktree.html" "$OLD/.git/lem/meta.js" "$WORK/aged/"
   "$PY" -c 'import json, sys
 rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
 mine = [r for r in rows if r["task"] == "with-a-worktree"]

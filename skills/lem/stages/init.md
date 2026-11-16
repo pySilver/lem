@@ -268,13 +268,11 @@ what repo it belongs to" (2026-11-15).
 
 ## 7. Scheduled work for this repository
 
-Only when step 1 showed cronn running. Offer three jobs that belong to this repository, each a
+Only when step 1 showed cronn running. Offer two jobs that belong to this repository, each a
 session started in it with nobody at the terminal:
 
 - a retro each morning (`/lem retro`), so a correction that came back is moved before the next
   day's work;
-- a pass over the review queue (`/lem review`), so a `high` item is not left to whoever lands
-  next;
 - a night plan (`/lem night`), which leaves the owner a plan each morning for one backlog item
   that needs no decision.
 

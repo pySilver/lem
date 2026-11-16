@@ -6,10 +6,10 @@
     board.py [--repo DIR] [--task SLUG] --no-open  write the page's files and print where; open nothing
     board.py ... --demo                            mark the state folder's tasks as examples, for good
 
-The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`
-and `review-queue.js`, which `project.py` and `review_queue.py` append to, and `meta.js`, which
-this script writes (the repository's name, the base branch, the session that opened the board). A
-file:// page cannot read a file with fetch and it can load a script, so each of the three is one.
+The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`,
+which `project.py` appends to, and `meta.js`, which this script writes (the repository's name,
+the base branch, the session that opened the board). A file:// page cannot read a file with
+fetch and it can load a script, so each of them is one.
 
 The board's second tab is the backlog, from `backlog.js`, which this script writes at every run:
 each item of the settings' backlog folder in the main checkout, with its `worth`, its `where` and

@@ -1,6 +1,6 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `review`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each task to a lead in a context of its own, lands one branch at a time and reports to the owner. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), builds first and reviews the landed change from a queue, and keeps the pair flow for the paths the project calls careful. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem review\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each task to a lead in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), and gives what the project calls careful the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
@@ -80,12 +80,11 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state | `stages/new.md` |
 | `land` | the oldest ready task: the machine checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge. `land <task>` on the owner's word merges an open one | `stages/land.md` |
-| `review [ID]` | works the review queue by risk, or the one item named; confirmed findings become tasks | `stages/review.md` |
 | `annotate <file>` | opens a plan, a draft or any text file for the owner to mark up, with what the settings' `tools.annotate` names, and takes his notes as corrections | the harness file, `show-page` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
-| `status`, bare `/lem` | the board of all tasks, and in words: every open task, the review queue and what waits for the owner | below |
+| `status`, bare `/lem` | the board of all tasks, and in words: every open task, what is proposed and what waits for the owner | below |
 | `status <task>` | the board of one task | below |
 | `reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]`, `reviewer default` | who sits in the reviewer's pane on this machine for now, and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
 | a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
@@ -218,8 +217,9 @@ python3 SKILL_DIR/scripts/board.py --task SLUG # the board of one task
 
 The board opens as a page beside the sessions it shows, under Lem's session or under the top of
 its group, and stays there: each task in the lane of who acts
-on it, with its lead, its newest commit, its gate result and its review item; the review queue;
-and where each task's time went. A task's own board adds its state blocks and each gate command.
+on it, with its lead, its newest commit, its gate result, its newest review and, once it is
+proposed, green or not green; and where each task's time went. A task's own board adds its
+state blocks, each gate command and each review with who answered.
 It reads the event log by itself every two seconds, so open it once, and again after agterm was
 started again.
 
@@ -247,7 +247,7 @@ one, say that a panel needs a second person who would notice other things.
 Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists every task
 directory with the first line of its `task.md`, its status and the newest block of its
 `state.md`. Say, in plain names and never in task codes: what builds and what each other task
-waits on, what landed today, how many review items are open and how many are due today, and what
+waits on, what landed today, and what
 waits for the owner. That includes each `open` task: its pull request's address, or that its
 branch is ready to land, and green or the reasons it is not, as the newest state block has
 them. A task whose status is null has a state nobody wrote through the script: say

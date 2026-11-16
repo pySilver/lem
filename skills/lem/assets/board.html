@@ -167,7 +167,7 @@
   .mini span.cur { background: var(--lead); animation: breathe 2s ease-in-out infinite; }
   .more { padding: 0 4px; font-size: 12px; color: var(--faint); }
 
-  /* lists: state blocks, gate commands, review items, activity */
+  /* lists: state blocks, gate commands, reviews, activity */
   .rows { display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 6px 0; position: relative; }
   .row + .row { border-top: 1px solid var(--line); }
@@ -370,8 +370,8 @@
         <div class="card-head"><h2>Gate</h2><div id="gate-sum" class="dim small"></div></div>
         <div id="gate" class="rows"></div>
       </section>
-      <section class="card">
-        <div class="card-head"><h2>Review queue</h2><div id="review-sum" class="dim small"></div></div>
+      <section id="review-card" class="card">
+        <div class="card-head"><h2>Review</h2><div id="review-sum" class="dim small"></div></div>
         <div id="review" class="rows"></div>
       </section>
     </div>
@@ -385,10 +385,9 @@
 </main>
 
 <script type="module">
-// The board of one repository's tasks, and the board of one task. It draws three files that sit
-// beside it in the state folder: events.js (project.py: every state block and gate result),
-// review-queue.js (review_queue.py) and meta.js (board.py: the repository, the base branch, Lem's
-// session). A copy named task-SLUG.html opens on that task; any other name opens on all tasks.
+// The board of one repository's tasks, and the board of one task. It draws two files that sit
+// beside it in the state folder: events.js (project.py: every state block, gate result, review
+// and proposal) and meta.js (board.py: the repository, the base branch, Lem's session). A copy named task-SLUG.html opens on that task; any other name opens on all tasks.
 //
 // The board of all tasks has a second tab, the backlog, from backlog.js (board.py: the items of the
 // backlog folder). Items change rarely, so that file is read when the tab opens and on a key, not
@@ -413,8 +412,9 @@ const STATUS = {
   planned: {actor: 'lem', who: 'Lem', label: 'Planned', icon: 'file', live: false},
   held: {actor: 'you', who: 'You', label: 'Waits for you', icon: 'user', live: true},
   blocked: {actor: 'bad', who: 'Lem', label: 'Blocked', icon: 'alert', live: false},
-  ready: {actor: 'gate', who: 'Lem', label: 'Ready to land', icon: 'flag', live: false},
-  landing: {actor: 'gate', who: 'The gate', label: 'Landing', icon: 'play', live: true},
+  ready: {actor: 'gate', who: 'Lem', label: 'Ready for its checks', icon: 'flag', live: false},
+  landing: {actor: 'gate', who: 'The checks', label: 'Checks and review', icon: 'play', live: true},
+  open: {actor: 'you', who: 'You', label: 'Waits for the merge', icon: 'branch', live: false},
   landed: {actor: 'done', who: 'Nobody', label: 'Landed', icon: 'check', live: false},
   drafted: {actor: 'you', who: 'You', label: 'Drafted at night', icon: 'moon', live: false},
   dropped: {actor: 'quiet', who: 'Nobody', label: 'Dropped', icon: 'x', live: false},
@@ -423,11 +423,11 @@ const UNKNOWN = {actor: 'bad', who: 'Nobody', label: 'No status', icon: 'alert',
 const LANES = [
   {key: 'you', title: 'Waits for you', actor: 'you', empty: 'Nothing waits for you'},
   {key: 'build', title: 'Building, or about to', actor: 'lead', empty: 'No task builds'},
-  {key: 'land', title: 'Landing line', actor: 'gate', empty: 'No branch waits to land'},
+  {key: 'land', title: 'Landing line', actor: 'gate', empty: 'No branch waits for its checks'},
   {key: 'done', title: 'Done', actor: 'done', empty: 'Nothing landed yet'},
 ];
-const PHASES = ['Opened', 'Plan', 'Build', 'Ready', 'Gate', 'Landed'];
-const OWNER_ORDER = ['held', 'planned', 'drafted'];
+const PHASES = ['Opened', 'Plan', 'Build', 'Ready', 'Checks', 'Proposed', 'Landed'];
+const OWNER_ORDER = ['held', 'planned', 'drafted', 'open'];
 
 const ICONS = {
   code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
@@ -451,7 +451,6 @@ const ICONS = {
 };
 
 let events = [];
-let reviews = [];
 let meta = {};
 let problems = {};
 let lastGoodRead = 0;
@@ -590,7 +589,7 @@ function derive(now) {
   for (const e of events) {
     if (!e.task) continue;
     let t = tasks.get(e.task);
-    if (!t) tasks.set(e.task, t = {slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], stories: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null});
+    if (!t) tasks.set(e.task, t = {slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], reviews: [], proposal: null, stories: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null});
     // The stories of the task's plan, as the lead last recorded them, and the newest check that
     // each one's tests pass on the branch and fail on the base commit.
     if (e.event === 'task.stories') { t.stories = {kind: e.kind, why: e.why, digest: e.digest, list: e.stories ?? [], ts: at(e)}; continue; }
@@ -603,11 +602,17 @@ function derive(now) {
       t.gates = [...t.gates.filter(g => g.command !== result.command), result];
       continue;
     }
+    // Each review of the task's change before it is proposed, and what the proposal said: green,
+    // or each reason it is not.
+    if (e.event === 'review') { t.reviews.push({ts: at(e), round: e.round, kind: e.kind, verdict: e.verdict, must_fix: e.must_fix, should: e.should, nit: e.nit, answered: e.answered ?? [], silent: e.silent ?? [], ran: e.ran ?? [], left_out: e.left_out ?? [], tip: e.tip}); continue; }
+    if (e.event === 'proposed') { t.proposal = {ts: at(e), green: e.green === true, reasons: e.not_green ?? [], tip: e.tip}; continue; }
     if (e.event !== 'task.state') continue;
     const ts = at(e);
     const lines = [e.text, ...(e.lines ?? [])].map(String);
     // A landing that starts is a new run of the gate; the results of an earlier one are history.
+    // A task that comes back from the build starts over, with new reviews too.
     if (e.status === 'landing' && t.blocks.at(-1)?.status !== 'landing') t.gates = [];
+    if (e.status === 'landing' && t.blocks.at(-1)?.status === 'ready') { t.reviews = []; t.proposal = null; }
     t.blocks.push({ts, status: e.status, text: String(e.text ?? ''), lines: (e.lines ?? []).map(String)});
     // an older log may hold the first line of task.md with its heading mark
     t.ask = e.ask ? String(e.ask).replace(/^[#>\s]+/, '') : t.ask;
@@ -641,7 +646,8 @@ function derive(now) {
     t.first = t.blocks[0].ts;
     t.closed = t.status === 'landed' || t.status === 'dropped';
     // A planned task waits for the owner only when its lead said the owner reads the plan.
-    t.forOwner = t.status === 'held' || t.status === 'drafted' || (t.status === 'planned' && /\bowner\b/.test(t.text));
+    // A proposed task waits for the owner's merge.
+    t.forOwner = t.status === 'held' || t.status === 'drafted' || t.status === 'open' || (t.status === 'planned' && /\bowner\b/.test(t.text));
     if (t.status === 'planned' && t.forOwner) t.info = {...t.info, actor: 'you', who: 'You'};
     t.lane = t.forOwner ? 'you' : t.closed ? 'done' : t.status === 'ready' || t.status === 'landing' ? 'land' : 'build';
     t.segments = [];
@@ -658,24 +664,15 @@ function derive(now) {
     t.gateBad = t.gates.filter(g => g.exit !== 0).length;
   }
 
-  const items = new Map();
-  for (const r of reviews) items.set(r.id, {...(items.get(r.id) ?? {}), ...r});
-  const open = [...items.values()].filter(r => r.outcome == null)
-    .map(r => ({...r, added_ms: new Date(r.added).getTime()}))
-    // review_queue.py compares UTC dates; the page must give the same answer near midnight.
-    .map(r => ({...r, due: r.risk !== 'high' ? 'when the day allows' : new Date(r.added_ms).toISOString().slice(0, 10) === new Date(now).toISOString().slice(0, 10) ? 'today' : 'overdue'}))
-    .sort((a, b) => (a.risk === b.risk ? a.added_ms - b.added_ms : a.risk === 'high' ? -1 : 1));
-  const closed = [...items.values()].filter(r => r.outcome != null);
-  for (const t of list) t.review = [...items.values()].filter(r => r.slug === t.slug);
-
   const by = status => list.filter(t => t.status === status).sort((a, b) => a.since - b.since);
   const m = {
-    now, list, limit, open, closed,
+    now, list, limit,
+    // proposed: a pull request is open or the branch is ready to land, and it waits for the merge
+    proposed: by('open'),
     building: by('building'), queued: by('queued'), ready: by('ready'), landing: by('landing'), blocked: by('blocked'),
     // A held decision stops work, a plan and a night draft only wait: in that order, the oldest first.
     forOwner: list.filter(t => t.forOwner).sort((a, b) => OWNER_ORDER.indexOf(a.status) - OWNER_ORDER.indexOf(b.status) || a.since - b.since),
     landedToday: list.filter(t => t.status === 'landed' && dayKey(t.since) === dayKey(now)),
-    due: open.filter(r => r.due !== 'when the day allows'),
     // What project.py may-start counts: a task that builds, and the one the gate runs on.
     places: list.filter(t => t.status === 'building' || t.status === 'landing').length,
     unknown: list.filter(t => !STATUS[t.status]),
@@ -708,18 +705,18 @@ function tags(t) {
     h('span', {}, t.stories.kind === 'correction' ? 'a correction: 1 story' : plural(t.stories.list.length, 'story').replace('storys', 'stories'))));
   if (t.gates.length) out.push(h('span', {class: `tag ${t.gateBad ? 'c-bad' : 'c-ok'}`, title: t.gates.map(g => `${g.exit === 0 ? 'green' : `exit ${g.exit}`}  ${g.command}  ${g.last ?? ''}`).join('\n')},
     icon(t.gateBad ? 'alert' : 'check'), h('span', {}, t.gateBad ? `gate red: ${t.gateBad} of ${t.gates.length}` : `gate green: ${t.gates.length}`)));
-  for (const r of t.review) {
-    const closed = r.outcome != null;
-    out.push(h('span', {class: `tag ${closed ? (r.outcome === 'not reviewed' ? 'c-bad' : 'c-ok') : r.risk === 'high' ? 'c-you' : 'c-gate'}`, title: `review item ${r.id} · ${r.range}`},
-      icon('eye'), h('span', {}, closed ? `review: ${r.outcome}` : `review ${r.risk}, open`)));
-  }
+  const r = t.reviews.at(-1);
+  if (r) out.push(h('span', {class: `tag ${r.verdict === 'clean' ? 'c-ok' : 'c-bad'}`, title: t.reviews.map(reviewLine).join('\n')},
+    icon('eye'), h('span', {}, r.verdict === 'clean' ? `review ${r.round}: clean` : r.verdict === 'must-fix' ? `review ${r.round}: ${r.must_fix} must-fix` : `review ${r.round}: not reviewed`)));
+  if (t.proposal) out.push(h('span', {class: `tag ${t.proposal.green ? 'c-ok' : 'c-you'}`, title: t.proposal.green ? 'The checks passed with the bar where it was, the review left no must-fix, no story changed' : t.proposal.reasons.join('\n')},
+    icon(t.proposal.green ? 'check' : 'alert'), h('span', {}, t.proposal.green ? 'green' : 'not green')));
   return out;
 }
 
 // Where the owner answers what waits for them. Lem is the one voice to the owner, so the answer is
 // always given in Lem's session; what differs is what the owner does there.
 function answerOf(t) {
-  if (t.status === 'held' && /\bowner lands\b/.test(t.text)) return 'Land the branch, then tell Lem in its session that it landed.';
+  if (t.status === 'open') return /^pull request\b/.test(t.text) ? 'Merge the pull request, or tell Lem in its session to land it.' : 'Tell Lem in its session to land it.';
   if (t.status === 'held') return 'Lem puts this question to you in its session, as a page. Answer it there.';
   if (t.status === 'planned') return 'Read the plan, then tell Lem in its session: build it or drop it.';
   return `Tell Lem in its session: /lem build ${t.slug}, or drop it.`;
@@ -819,17 +816,26 @@ function buildFeed(m, list) {
   });
 }
 
-function buildReview(m, items) {
-  if (!items.length) return [keyed('empty', h('div', {class: 'empty'}, view ? 'This task has no review item yet' : 'No landed change waits for a review'))];
-  return items.map(r => {
-    const closed = r.outcome != null;
-    const actor = closed ? (r.outcome === 'not reviewed' ? 'bad' : 'done') : r.due === 'when the day allows' ? 'gate' : 'you';
-    return keyed(`r:${r.id}:${r.outcome ?? ''}`, h('div', {class: `row a-${actor}`},
-      h('span', {class: 'fi'}, icon(closed ? 'check' : 'eye')),
-      h('div', {class: 'rtext'}, view ? '' : [open(r.slug, titleOf(r.slug)), ' · '], h('b', {}, closed ? r.outcome : `${r.risk}, due ${r.due}`),
-        h('span', {class: 'sub mono'}, r.range, r.note ? ` · ${r.note}` : '')),
-      h('span', {class: 'rtime'}, closed ? stamp(new Date(r.closed).getTime(), m.now) : live(new Date(r.added).getTime()))));
-  });
+// The three kinds of review, in the words of land.py.
+const KIND = {read: 'one read', round: 'a round with the profiles that fit', full: "the project's full set"};
+const reviewLine = r => `round ${r.round}, ${KIND[r.kind] ?? r.kind}: ${r.verdict === 'not reviewed' ? 'not reviewed' : `${r.verdict}, ${r.must_fix} must-fix, ${r.should} should, ${r.nit} nit`}`;
+
+// The reviews of one task's change, each with who answered and what was run or left out, and
+// under them what the proposal said: green, or each reason it is not.
+function buildReview(t, now) {
+  if (!t.reviews.length && !t.proposal) return [keyed('empty', h('div', {class: 'empty'}, 'The review comes after the machine checks, before anything is proposed'))];
+  const rows = t.reviews.map((r, k) => keyed(`r:${k}:${r.verdict}`, h('div', {class: `row a-${r.verdict === 'clean' ? 'done' : 'bad'}`},
+    h('span', {class: 'fi'}, icon(r.verdict === 'clean' ? 'check' : 'eye')),
+    h('div', {class: 'rtext'}, h('b', {}, reviewLine(r)),
+      h('span', {class: 'sub'}, r.answered.length ? `answered: ${r.answered.join(', ')}` : 'no source answered', r.silent.map(x => ` · no answer from ${x.name} (${x.why})`).join(''),
+        r.ran.length ? ` · ran ${r.ran.map(x => x.name).join(', ')}` : '', r.left_out.length ? ` · left out ${r.left_out.map(x => x.name).join(', ')}` : '', r.tip ? ` · on ${r.tip}` : '')),
+    h('span', {class: 'rtime'}, stamp(r.ts, now)))));
+  if (t.proposal) rows.push(keyed(`p:${t.proposal.ts}`, h('div', {class: `row a-${t.proposal.green ? 'done' : 'you'}`},
+    h('span', {class: 'fi'}, icon(t.proposal.green ? 'check' : 'alert')),
+    h('div', {class: 'rtext'}, h('b', {}, t.proposal.green ? 'Proposed: green' : 'Proposed: not green'),
+      h('span', {class: 'sub'}, t.proposal.green ? 'the checks passed with the bar where it was, the review left no must-fix, no story changed' : t.proposal.reasons.join(' · '))),
+    h('span', {class: 'rtime'}, stamp(t.proposal.ts, now)))));
+  return rows;
 }
 
 // ---- the board of all tasks ----
@@ -878,7 +884,8 @@ const stat = (label, value, sub, cls = '') => h('div', {class: `stat ${cls}`, ti
 function buildBoardProgress(m) {
   const limit = m.limit ?? '?';
   const n = m.places;
-  return keyed(`prog:${n}:${m.building.length}:${limit}:${m.queued.length}:${m.ready.length}:${m.landing.length}:${m.forOwner.length}:${m.landedToday.length}:${m.open.length}:${m.due.length}:${m.blocked.length}`,
+  const notGreen = m.proposed.filter(t => t.proposal && !t.proposal.green).length;
+  return keyed(`prog:${n}:${m.building.length}:${limit}:${m.queued.length}:${m.ready.length}:${m.landing.length}:${m.forOwner.length}:${m.landedToday.length}:${m.proposed.length}:${notGreen}:${m.blocked.length}`,
     h('div', {class: 'prog'},
       ring(0, n, typeof limit === 'number' ? limit : Math.max(n, 1), `${n}/${limit}`, 'places'),
       h('div', {},
@@ -886,11 +893,11 @@ function buildBoardProgress(m) {
         h('div', {class: 'dim'}, n ? `${m.building.length} build${m.building.length === 1 ? 's' : ''}, ${m.landing.length} land${m.landing.length === 1 ? 's' : ''}. ` : '',
           typeof limit === 'number' ? `The project lets ${plural(limit, 'task')} build or land at one time (flow.max_tasks).` : 'The limit comes with the first state block.')),
       h('div', {class: 'stats'},
-        stat('Waits for you', m.forOwner.length, m.forOwner.length ? 'a held decision, a plan or a draft' : 'nothing', m.forOwner.length ? 'you' : ''),
+        stat('Waits for you', m.forOwner.length, m.forOwner.length ? 'a held decision, a plan, a draft or a merge' : 'nothing', m.forOwner.length ? 'you' : ''),
         stat('Queued', m.queued.length, 'asks that wait for a place'),
-        stat('Landing line', m.ready.length + m.landing.length, m.landing.length ? 'the gate runs on one' : 'one branch lands at a time'),
+        stat('Landing line', m.ready.length + m.landing.length, m.landing.length ? 'the checks run on one' : 'one branch is checked at a time'),
         stat('Landed today', m.landedToday.length, 'on the base branch', m.landedToday.length ? 'ok' : ''),
-        stat('Review open', m.open.length, m.due.length ? `${m.due.length} due or overdue` : 'none due today', m.due.length ? 'you' : ''),
+        stat('Proposed', m.proposed.length, m.proposed.length ? (notGreen ? `${notGreen} not green` : 'all green') : 'none waits for the merge', notGreen ? 'you' : ''),
         stat('Blocked', m.blocked.length, 'Lem has to settle these', m.blocked.length ? 'bad' : ''))));
 }
 
@@ -928,7 +935,7 @@ function buildTaskNow(t) {
   const pane = paneOf(t.session);
   const head = {
     queued: 'Waits for a free place', building: t.lead === 'session' ? 'Its session builds it' : 'Its builder builds it', planned: t.forOwner ? 'The plan waits for you' : 'The plan waits for a session',
-    held: 'Waits for you', blocked: 'The lead stopped; Lem has to settle it', ready: 'Waits for its landing', landing: 'The gate runs on it', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
+    held: 'Waits for you', blocked: 'The lead stopped; Lem has to settle it', ready: 'Waits for its checks', landing: 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
   }[t.status] ?? `Status "${t.status}"`;
   return keyed(`now:${t.slug}:${t.status}:${t.text}:${t.lastTs}:${pane?.status ?? ''}`, h('div', {class: t.info.live ? '' : 'still'},
     h('div', {class: 'now-in'},
@@ -950,6 +957,7 @@ function buildTaskNow(t) {
 function phaseIndex(t) {
   const reached = t.reached;
   if (reached === 'landed') return PHASES.length;
+  if (reached === 'open') return 5;
   if (reached === 'landing') return 4;
   if (reached === 'ready') return 3;
   if (reached === 'queued' && !t.planCommitted) return 0;
@@ -959,11 +967,11 @@ function phaseIndex(t) {
 function buildTaskProgress(t) {
   const at_ = phaseIndex(t);
   const p = t.progress;
-  const done = ['landed', 'ready', 'landing'].includes(t.reached);
+  const done = ['landed', 'ready', 'landing', 'open'].includes(t.reached);
   const total = p?.of ?? 0, finished = done ? total : Math.max(0, (p?.n ?? 1) - 1), current = !done && p && t.status === 'building' ? 1 : 0;
   const sub = k => (k === 2 && p ? `task ${done ? p.of : p.n} of ${p.of}` : k === 4 && t.gates.length ? (t.gateBad ? `${t.gateBad} red` : `${t.gates.length} green`) : '');
-  const openReview = t.review.filter(r => r.outcome == null);
-  return keyed(`prog:${t.slug}:${at_}:${p?.n}:${p?.of}:${t.status}:${t.gates.length}:${t.gateBad}:${t.review.map(r => r.outcome).join()}:${t.commit?.head}`,
+  const review = t.reviews.at(-1);
+  return keyed(`prog:${t.slug}:${at_}:${p?.n}:${p?.of}:${t.status}:${t.gates.length}:${t.gateBad}:${t.reviews.map(r => r.verdict).join()}:${t.proposal?.green}:${t.commit?.head}`,
     h('div', {class: 'prog'},
       ring(finished, current, total || 1, total ? `${finished}/${total}` : '–', 'plan tasks'),
       h('div', {class: `phases a-${t.info.actor}`}, PHASES.map((name, k) => h('div', {class: `phase ${k < at_ ? 'past' : k === at_ ? 'cur' : ''}`}, h('i'), name, h('small', {}, sub(k))))),
@@ -972,7 +980,7 @@ function buildTaskProgress(t) {
         stat('Last commit', t.commit?.head ?? '–', t.commit ? t.commit.subject : 'no commit on its branch yet'),
         stat('Open for', t.closed ? span(t.since - t.first) : live(t.first), `first block ${stamp(t.first, Date.now())}`),
         stat('Gate', t.gates.length ? (t.gateBad ? 'red' : 'green') : '–', t.gates.length ? `${plural(t.gates.length, 'command')} in the last run` : 'it runs at the landing', t.gates.length ? (t.gateBad ? 'bad' : 'ok') : ''),
-        stat('Review', t.review.length ? (openReview.length ? 'open' : t.review.at(-1).outcome) : '–', t.review.length ? `risk ${t.review.at(-1).risk}` : 'queued when it lands', openReview.length ? 'you' : ''),
+        stat('Review', review ? review.verdict : '–', review ? `round ${review.round}, ${KIND[review.kind] ?? review.kind}` : 'after the checks, before the proposal', review ? (review.verdict === 'clean' ? 'ok' : 'bad') : ''),
         stat('State blocks', t.blocks.length, `the newest at ${stamp(t.lastTs, Date.now())}`))));
 }
 
@@ -988,7 +996,7 @@ function buildStates(t, now) {
 }
 
 function buildGate(t, now) {
-  if (!t.gates.length) return [keyed('empty', h('div', {class: 'empty'}, 'The gate runs when the task lands'))];
+  if (!t.gates.length) return [keyed('empty', h('div', {class: 'empty'}, 'The gate runs when the task takes the landing line'))];
   return t.gates.map((g, k) => keyed(`g:${k}:${g.exit}`, h('div', {class: `row a-${g.exit === 0 ? 'done' : 'bad'}`},
     h('span', {class: 'fi'}, icon(g.exit === 0 ? 'check' : 'alert')),
     h('div', {class: 'rtext'}, h('b', {}, g.exit === 0 ? 'green' : `exit ${g.exit}`), ' · ', h('span', {class: 'cmd'}, g.command ?? ''),
@@ -1250,7 +1258,7 @@ function render() {
     patch($('meta'), [
       meta.base ? chip('base', 'branch', '', 'tasks land on ', h('b', {}, meta.base)) : null,
       chip(`limit:${m.places}`, 'layers', '', h('b', {}, `${m.places} of ${m.limit ?? '?'}`), ' places taken'),
-      chip(`review:${m.open.length}:${m.due.length}`, 'eye', m.due.length ? 'you' : '', h('b', {}, m.open.length), ` review ${m.open.length === 1 ? 'item' : 'items'} open`, m.due.length ? `, ${m.due.length} due` : ''),
+      m.proposed.length ? chip(`proposed:${m.proposed.length}`, 'branch', 'you', h('b', {}, m.proposed.length), m.proposed.length === 1 ? ' waits for the merge' : ' wait for the merge') : null,
       m.blocked.length ? chip('blocked', 'alert', 'bad', h('b', {}, m.blocked.length), ' blocked') : null,
     ]);
     $('now').className = `card now a-${focusOf(m)?.t.info.actor ?? 'done'}`;
@@ -1262,15 +1270,15 @@ function render() {
   $('stories-card').hidden = !view;
   $('states-card').hidden = !view;
   $('gate-card').hidden = !view;
+  $('review-card').hidden = !view;
 
   // On the board the timeline holds the tasks that are open and the ones that closed today.
   const shown = view ? (t ? [t] : []) : m.list.filter(x => !x.closed || dayKey(x.since) === dayKey(now)).sort((a, b) => a.first - b.first);
   patch($('legend'), buildLegend(m, shown));
   patch($('timeline'), [buildTimeline(m, shown, $('tl-wrap').clientWidth)]);
 
-  const reviewItems = view ? (t?.review ?? []).map(r => ({...r, due: m.open.find(o => o.id === r.id)?.due})) : m.open;
-  patch($('review'), buildReview(m, reviewItems));
-  $('review-sum').textContent = view ? '' : `${m.open.length} open · ${m.due.length} due · ${m.closed.length} closed`;
+  patch($('review'), view && t ? buildReview(t, now) : []);
+  $('review-sum').textContent = view && t?.reviews.length ? plural(t.reviews.length, 'round') : '';
   const feed = view ? events.filter(e => e.task === view) : events;
   patch($('feed'), buildFeed(m, feed));
   $('feed-sum').textContent = plural(feed.length, 'event');
@@ -1298,9 +1306,6 @@ async function pollFiles() {
   const feed = await readScript('events.js', 'lemEvent', events.length);
   if (feed.records) { events = feed.records; lastGoodRead = Date.now(); delete problems.events; }
   else problems.events = feed.missing ? 'events.js is missing: no state block was written yet' : feed.problem;
-  // No landing yet means no review queue: a missing file is an empty queue, a broken one a problem.
-  const queue = await readScript('review-queue.js', 'lemReview', reviews.length);
-  if (queue.records) { reviews = queue.records; delete problems.reviews; } else if (queue.missing) { reviews = []; delete problems.reviews; } else problems.reviews = queue.problem;
   const about = await readScript('meta.js', 'lemMeta', 0);
   if (about.records?.length) { meta = about.records.at(-1); delete problems.meta; }
   else problems.meta = about.problem ?? 'meta.js is missing or empty: open the board with board.py';

@@ -7,7 +7,8 @@ time: the checks are about one tip on one base, and two at once would each be te
 other.
 
 Take the task that is in `landing`, when a session before you was cut off in the middle of one;
-otherwise the `ready` task with the oldest state time. First, though, two kinds of task get what
+otherwise the `ready` task with the oldest state time. `/lem land SLUG`, typed by the owner for a
+task that is `open`, is his word to merge it: step 7, with `--by owner`. First, though, two kinds of task get what
 they are owed:
 
 - a task that is `open` with a pull request: `land.py merged SLUG` asks the forge. When the owner
