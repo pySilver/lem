@@ -26,6 +26,8 @@ in that project's repository. `README.md` says what it does; this file says how 
 - **Scripts are standard-library Python, 3.11 or newer**, print JSON for an agent to read, and
   refuse a wrong input with exit 1 and a message that names the fix. No silent default for a
   choice that is the owner's (`project.py init --existing`).
+- **A change is measured by what it costs a developer on a small task** (the touches it asks of
+  him, the waits, the agents it starts) as well as by what it guards.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously".
 - **A session with nobody at the terminal reads `docs/free-hour.md` first.** A setup links Lem
   from this clone's main checkout, so an edit there is live at once in every repository that
@@ -35,6 +37,15 @@ in that project's repository. `README.md` says what it does; this file says how 
 
 Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A quote is his words.
 
+- **Lem is for experienced developers, and every change is measured against that** (2026-11-16):
+  "it is crucial not to forget that this tool is for experienced developers, so it has to be: 1.
+  Polished experience 2. Actually helpful, not confusing 3. Opionated but extemely smart and
+  pleasant to use 4. Lem would be positioned as an every day Developer's companion 5. Lem should
+  not make simple things complicated, otherwise developers will get frustrated so often they will
+  stop using Lem", and after it: "Think of Lem as a commercial product (even if its not), not
+  half-done half-broken open source project. It has to be easy to adopt, easy to use, easy to
+  understand, easy to predict while being complex inside. And boy, it has to be beautiful and
+  clear."
 - **agterm is a hard dependency**, and so is the mailbox chat from its cookbook. Lem does not run
   outside agterm.
 - **One Lem for one repository.** It coordinates many tasks there. No ability across repositories.
