@@ -40,11 +40,16 @@ git -C "$R" add -A && git -C "$R" commit -q -m "chore: the settings"
 # retime SLUG BASE MINUTES...: the events of one task, in the order the scripts wrote them, get the
 # times BASE + MINUTES (BASE is an ISO time, or `now`). A decision's own time moves with its event,
 # and a choice's deadline stays its wait after its question, as decisions.py writes it.
+#
+# `now` is one fixed moment, NOW, the next whole minute after the last event of the fixture, and the
+# pages are drawn with their clock stopped at it (draw). So a count-down or a share of an open task
+# reads the same on a fast run and on a loaded one. Each retime is noted where its task's events end
+# and run once NOW is known, before the board is written.
 RETIME=$(cat <<'PY'
 import json, sys
 from datetime import datetime, timedelta, timezone
-log, slug, base, *minutes = sys.argv[1:]
-start = datetime.now(timezone.utc).replace(microsecond=0) if base == "now" else datetime.strptime(base, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+log, now, slug, base, *minutes = sys.argv[1:]
+start = datetime.strptime(now if base == "now" else base, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 rows = [json.loads(line) for line in open(log, encoding="utf-8") if line.strip()]
 mine = [row for row in rows if row["task"] == slug]
 if len(mine) != len(minutes):
@@ -61,7 +66,11 @@ open(log, "w", encoding="utf-8").write("".join(json.dumps(row, ensure_ascii=Fals
 open(log.removesuffix("jsonl") + "js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(row, ensure_ascii=False)});\n" for row in rows))
 PY
 )
-retime() { "$PY" -I -c "$RETIME" "$STATE/events.jsonl" "$@"; }
+retime() { printf '%s\n' "$*" >> "$WORK/retimes"; }
+retime_all() {
+  local args
+  while read -r -a args; do "$PY" -I -c "$RETIME" "$STATE/events.jsonl" "$NOW" "${args[@]}"; done < "$WORK/retimes"
+}
 # past SLUG ID...: the wait of each choice ends in decisions.py's own record, the way fifteen minutes later would find it
 past() { "$PY" -I -c 'import json, sys
 path = sys.argv[1]
@@ -342,14 +351,52 @@ retime "$A" now -30 -12 -11
 task cart-total-wrong "The cart total is wrong since yesterday"
 project state cart-total-wrong building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the ask says the total is wrong since yesterday" >/dev/null
 
+# A read of the stories in which no persona answered, and the stories still wait for the owner.
+task silent-read "Show the delivery date on the order page"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the page gets a new line.' '' '1. An order shipped on 3 May says "arrives 5 May".' > "$WORK/delivery.md"
+digest=$(stories digest silent-read --file "$WORK/delivery.md" | field 'd["digest"]')
+project log silent-read stories.read by=lem asked:=2 answered:=0 'families:=[]' \
+  'silent:=[{"name": "Merchant, opus", "why": "the model timed out"}, {"name": "Accountant, sol", "why": "the model was at capacity"}]' \
+  stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+project state silent-read held "the stories wait for the owner" >/dev/null
+# A task queued behind another one that names the same thing (stages/new.md, step 6).
+task queued-after "Cache the product images"
+project state queued-after queued "waits for the task that caches the product list" "after: building-one" >/dev/null
+
+# The backlog of the main checkout: an item whose place is gone, one whose place is there, one whose
+# file cannot be read by anyone, and one decided against.
+mkdir -p "$R/docs/backlog"
+printf '%s\n' '---' 'worth: yes' 'where: billing/gone.py:total' 'added: 2026-11-01' '---' '' '# The total of a refund is rounded twice' '' 'Seen in a review.' > "$R/docs/backlog/refund-rounded-twice.md"
+printf '%s\n' '---' 'worth: later' 'where: app.txt' 'added: 2026-11-02' '---' '' '# The app file has one line' > "$R/docs/backlog/app-one-line.md"
+printf '%s\n' '---' 'worth: yes' 'where: locked.txt:secret' 'added: 2026-11-03' '---' '' '# The locked file' > "$R/docs/backlog/locked-file.md"
+printf '%s\n' '---' 'worth: no' 'added: 2026-11-04' '---' '' '# Rewrite the shop in another language' '' 'Decided against: the shop works.' > "$R/docs/backlog/rewrite-the-shop.md"
+echo secret > "$R/locked.txt"
+git -C "$R" add -A && git -C "$R" commit -q -m "docs: the backlog"
+chmod 000 "$R/locked.txt"
+
+NOW=$("$PY" -I -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:00Z"))')
+retime_all
+
 if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 37 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
   pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log holds the moved times"
 else
   fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events"
 fi
 
-board --no-open >/dev/null
-for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts "$K" talk-runs "$M" "$A" cart-total-wrong; do board --no-open --task "$slug" >/dev/null; done
+# An item whose place is a file nobody can read is shown with that problem, and the board of the
+# other items is still written.
+if board --no-open > "$WORK/board.json" 2> "$WORK/board.err" \
+  && why=$("$PY" -I -c 'import json, re, sys
+feed = json.loads(re.fullmatch(r"lemBacklog\((.*)\);\n", open(sys.argv[1], encoding="utf-8").read(), re.S).group(1))
+problems = {item["slug"]: item["where_problem"] for item in feed["items"]}
+want = {"locked-file": "the file cannot be read", "refund-rounded-twice": "the file is not there", "app-one-line": "", "rewrite-the-shop": ""}
+print("" if problems == want else f"the items: {problems}")
+sys.exit(problems != want)' "$STATE/backlog.js"); then
+  pass "a backlog item whose place is a file nobody can read says so, and the board of the other items is written"
+else
+  fail "a backlog item with an unreadable place: ${why:-$(tail -1 "$WORK/board.err")}"
+fi
+for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts "$K" talk-runs "$M" "$A" cart-total-wrong silent-read queued-after; do board --no-open --task "$slug" >/dev/null; done
 
 SHOWN=$(cat <<'PY'
 import re, sys
@@ -391,34 +438,75 @@ print("; ".join(wrong))
 sys.exit(bool(wrong))
 PY
 )
-# BANNERS DOM PATTERN ...: each regular expression matches the text of one banner, and "!PATTERN" none
+# BANNERS DOM PATTERN ...: each regular expression matches the text of one banner, and "!PATTERN"
+# none. A banner folded under the first ones counts too; "#N" says that N banners are shown, and
+# "=PATTERN" matches the text of the line that unfolds the rest.
 BANNERS=$(cat <<'PY'
-import html, re, sys
-dom = open(sys.argv[1], encoding="utf-8").read()
-area = dom[dom.index('id="banners"'):dom.index('<header class="top">')]
-banners = [" ".join(html.unescape(re.sub(r"<[^>]+>", " ", '<div class="banner ' + part)).split()) for part in re.split(r'<div class="banner ', area)[1:]]
-wrong = [f"no banner matches {want!r}" for want in sys.argv[2:] if not want.startswith("!") and not any(re.search(want, text) for text in banners)]
-wrong += [f"a banner matches {want[1:]!r}" for want in sys.argv[2:] if want.startswith("!") and any(re.search(want[1:], text) for text in banners)]
+import re, sys
+from html.parser import HTMLParser
+VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+class P(HTMLParser):
+    def __init__(self):
+        super().__init__(); self.stack = []; self.banners = []; self.fold = []; self.inside = None; self.done = False
+    def handle_starttag(self, tag, attrs):
+        if tag in VOID or self.done: return
+        a = dict(attrs); cls = (a.get("class") or "").split()
+        if a.get("id") == "banners": self.inside = len(self.stack)
+        hidden = "hidden" in a or any(n["hidden"] for n in self.stack)
+        node = {"tag": tag, "hidden": hidden, "banner": None, "fold": None}
+        if self.inside is not None and tag == "div" and "banner" in cls and not any(n["banner"] is not None for n in self.stack):
+            node["banner"] = {"text": [], "shown": not hidden}; self.banners.append(node["banner"])
+        if self.inside is not None and "banner-fold" in cls:
+            node["fold"] = []; self.fold.append(node["fold"])
+        self.stack.append(node)
+    def handle_endtag(self, tag):
+        if tag in VOID or self.done or not self.stack: return
+        self.stack.pop()
+        if self.inside is not None and len(self.stack) == self.inside: self.done = True
+    def handle_data(self, data):
+        for n in self.stack:
+            if n["banner"] is not None: n["banner"]["text"].append(data)
+            if n["fold"] is not None: n["fold"].append(data)
+p = P(); p.feed(open(sys.argv[1], encoding="utf-8").read())
+banners = [" ".join(" ".join(b["text"]).split()) for b in p.banners]
+shown = sum(b["shown"] for b in p.banners)
+fold = " ".join(" ".join(" ".join(f) for f in p.fold).split())
+wrong = []
+for want in sys.argv[2:]:
+    if want.startswith("#"):
+        if shown != int(want[1:]): wrong.append(f"{shown} banners are shown, not {want[1:]}")
+    elif want.startswith("="):
+        if not re.search(want[1:], fold): wrong.append(f"the fold says {fold!r}, not {want[1:]!r}")
+    elif want.startswith("!"):
+        if any(re.search(want[1:], text) for text in banners): wrong.append(f"a banner matches {want[1:]!r}")
+    elif not any(re.search(want, text) for text in banners):
+        wrong.append(f"no banner matches {want!r}")
 print("; ".join(wrong) + (f" (the banners: {banners})" if wrong else ""))
 sys.exit(bool(wrong))
 PY
 )
-# LANES DOM 'LANE=TITLE|WHERE' ...: the card of TITLE is in LANE, and its line of where the owner answers is WHERE
+# LANES DOM 'LANE=TITLE|WHERE' ...: the card of TITLE is in LANE, and its line of where the owner
+# answers is WHERE. "#counts": the head of each lane counts its cards and the older ones it names.
 LANES=$(cat <<'PY'
 import html, re, sys
 dom = open(sys.argv[1], encoding="utf-8").read()
 text = lambda s: " ".join(html.unescape(re.sub(r"<[^>]+>", " ", s)).split())
-lanes = {}
+lanes, counts = {}, {}
 for part in re.split(r'<div class="lane a-', dom)[1:]:
     title = text(re.search(r'<div class="lane-head">(.*?)<em', part, re.S).group(1))
+    head = text(re.search(r'<div class="lane-head">.*?<em[^>]*>(.*?)</em>', part, re.S).group(1))
+    older = re.search(r'<div class="more">and (\d+) older', part)
     cards = {}
     for card in re.split(r'<button class="tcard ', part)[1:]:
         name = text(re.search(r'<div class="tc-title">(.*?)</div>', card, re.S).group(1))
         where = re.search(r'<div class="tc-where">(.*?)</div>', card, re.S)
         cards[name] = text(where.group(1)) if where else ""
     lanes[title] = cards
+    counts[title] = (head, len(cards) + int(older.group(1) if older else 0))
 wrong = []
-for want in sys.argv[2:]:
+if "#counts" in sys.argv[2:]:
+    wrong += [f"the head of {lane!r} says {head!r} over {n} cards" for lane, (head, n) in counts.items() if head != str(n)]
+for want in [w for w in sys.argv[2:] if w != "#counts"]:
     lane, _, rest = want.partition("=")
     name, _, where = rest.partition("|")
     if name not in lanes.get(lane, {}):
@@ -474,7 +562,23 @@ for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.ap
 done
 # Every clock time on the pages is in UTC, so a check of one reads the same on every machine.
 headless() { TZ=UTC "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" "$@" 2>/dev/null || true; }
-draw() { headless --virtual-time-budget=5000 --dump-dom "file://$STATE/$1.html" > "$WORK/$1.dom"; }
+# draw PAGE [TAB]: the page as Chrome leaves it, into PAGE.dom (PAGE-TAB.dom for a tab), with its clock
+# stopped at NOW: a script before the page's own makes Date.now() give NOW. board.py writes the page
+# again at every run, so each draw puts the script in once more.
+STOP=$(cat <<'PY'
+import sys
+page, now = sys.argv[1:]
+text = open(page, encoding="utf-8").read()
+mark = "<script>/* the fixture's clock */"
+if mark not in text:
+    text = text.replace("<head>", f'<head>{mark} {{ const fixed = Date.parse("{now}"); Date.now = () => fixed; }}</script>', 1)
+open(page, "w", encoding="utf-8").write(text)
+PY
+)
+draw() {
+  "$PY" -I -c "$STOP" "$STATE/$1.html" "$NOW"
+  headless --virtual-time-budget=5000 --dump-dom "file://$STATE/$1.html${2:+#$2}" > "$WORK/$1${2:+-$2}.dom"
+}
 
 if [ -z "$chrome" ]; then
   printf 'SKIP the board pages: no Chrome or Chromium found\n'
@@ -487,44 +591,58 @@ if [ -n "$chrome" ] && [ ! -s "$WORK/board.dom" ]; then
 elif [ -n "$chrome" ]; then
   # shellcheck disable=SC1111  # the curly quotes around a state's own line are the page's
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" \
-    "Waits for you=Gift note export|Lem puts choice 7 to you as a page in its session. Answer it there before its wait ends; then the lead takes the recommended action." \
+    "Waits for you=Gift note export|Lem puts choice 7 to you as a page in its session. Answer it there before its wait ends; then the build goes on with the recommended action." \
     "Waits for you=Held choice|Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, with no end." \
     "Waits for you=Held question|It waits on what its state says: “how the totals round is the owner's to decide”. Lem tells you in its session what to do and where." \
     "Waits for you=Trust prompt|It waits on what its state says: “the reviewer's trust prompt waits for the owner's yes”. Lem tells you in its session what to do and where." \
     "Building=Approved again" "Building=Restored read" "Building=Unread change" \
     "Waits for you=Clear read held|Lem shows you the stories, with the personas’ read on top, as a page in its session. Approve or change them there." \
     "Waits for you=Stories wait|Lem shows you the stories, with the personas’ read on top, as a page in its session. Approve or change them there." \
+    "Waits for you=Silent read|Lem shows you the stories as a page in its session. No persona answered the read of them. Approve or change them there." \
     "Waits for you=Plan for you|Read the plan, then tell Lem in its session: build it or drop it." \
     "Waits for you=Night draft|Tell Lem in its session: /lem build night-draft, or drop it." \
     "Waits for you=Open pr|Merge the pull request, or tell Lem in its session to land it." \
     "Waits for you=Ready to land|Tell Lem in its session to land it." \
     "Building=Building one" "Building=Queued one" "Building=Blocked one" "Building=Correction one" "Building=Changed then approved" "Building=Rare path" \
-    "Checks and review=Ready one" "Checks and review=In checks" "Checks and review=Red gate" "Done=Landed one" "Done=Timed out"); then
+    "Checks and review=Ready one" "Checks and review=In checks" "Checks and review=Red gate" "Done=Landed one" "Done=Timed out" "Building=Queued after"); then
     pass "each task is in the lane of who acts, and each one that waits for the owner says where he answers: a choice, a held decision, the stories, a plan, a draft, a pull request, a branch to land"
   else
     fail "the lanes: $why"
   fi
+  # The head of a lane counts the cards under it, and the page's title counts what the lanes hold.
+  if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "#counts") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "12 wait for you, 10 build, 5 in checks and review, 2 queued, 1 blocked"); then
+    pass "the head of each lane counts the cards under it, and the title's numbers add up to the lanes: a task that builds while a choice waits for the owner is counted once, where it waits"
+  else
+    fail "the counts of the lanes: $why"
+  fi
   # Each banner is read alone, so that a card's text elsewhere on the page cannot stand in for one.
   if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
-    "^Choice 7 waits for you: Gift note export · The note of a cancelled order · (9m [0-9]{2}s|10m) left Lem puts choice 7 to you as a page in its session" \
+    "^Choice 7 waits for you: Gift note export · The note of a cancelled order · 10m left Lem puts choice 7 to you as a page in its session" \
     "^Choice 4 waits for you: Gift note export · Email the merchants about the new column · no end: no timeout takes it Lem puts choice 4" \
     "^Choice 1 waits for you: Held choice · Refund the 12 duplicate orders now · no end: no timeout takes it" \
     "^Waits for you: Stories wait · the stories wait for the owner" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
     "!^Choice [123] waits for you: Expert advice") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "11 wait for you, 12 build, 5 in checks and review, 1 queued" "You · choice 7 of the task" "!Demo data"); then
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "You · choice 7 of the task" "!Demo data"); then
     pass "the board of all tasks puts each choice that waits for the owner in a banner and in the card it opens on, with its count-down, or no end for an irreversible step, and none whose wait is over"
   else
     fail "the banners: $why"
+  fi
+  # Eleven banners would fill a screen: the first three are shown, and one line counts the rest.
+  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" "#3" "=^8 more: 7 wait for you, 1 blocked · Show them" "^Blocked: Blocked one"); then
+    pass "past three banners the rest fold under one line that counts what waits for the owner and what is blocked, so the lanes stay on the first screen"
+  else
+    fail "the fold of the banners: $why"
   fi
 
   draw "task-$G"
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$G.dom" "Decisions" "2 wait for you · 1 with the wait over · 4 taken" \
     "Choice 7 waits for you: The note of a cancelled order" "options: keep it · leave it out" "recommended: keep it, because the export shows cancelled orders as they were" \
-    "the personas: The merchant would keep it, the accountant is in doubt." "Its wait ends at " 'then the lead takes “keep it”, the recommended option, unless both experts pick one option before then.' "~(9m [0-9]{2}s|10m) left" \
+    "the personas: The merchant would keep it, the accountant is in doubt." "Its wait ends at " 'then the build goes on with “keep it”, the recommended option, unless both experts pick one option before then.' "10m left" \
     "Choice 4 waits for you: Email the merchants about the new column" "It waits for your answer, with no end: it sends something to a person, so no timeout takes it." "no end" \
-    "Choice 6, its wait is over: A note longer than the cell" 'and no timeout is written yet: the lead takes “all of it”, the recommended option, as no expert advised.' "wait over" \
+    "Choice 6, its wait is over: A note longer than the cell" 'and no timeout is written yet: the build goes on with “all of it”, the recommended option, as no expert advised.' "wait over" \
     "5. The header of the column → Gift note" "taken by the timeout at " "no answer came in 15 minutes. The recommended action stands, and the pull request is not green for it." \
-    "1. The name of the new column → gift_note" "taken by the lead, because the other columns of the export are in snake case" "to undo: rename the column" \
+    "1. The name of the new column → gift_note" "taken by the agent, because the other columns of the export are in snake case" "to undo: rename the column" \
     "2. Two notes on one order → both notes, with a semicolon between them" "taken by the personas, because a merchant reads both" "the personas: The merchant and the accountant both picked the semicolon." \
     "3. Where the note goes in the row → the last column" 'answered by you: “last, like the other new columns”' \
     "2 choices wait for you" "left of the wait, until "); then
@@ -534,7 +652,7 @@ elif [ -n "$chrome" ]; then
   fi
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$G.dom" "The two model families split on a story." "1 of 2 stories flagged" \
     "read by 2 of 3 personas, two model families (opus, sol), run by Lem" "no answer from Accountant, sol (the model was at capacity)" "Approved by you after the personas’ read" \
-    'A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' "no test yet: the lead adds its tests in the plan") \
+    'A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' "no test yet: the agent adds its tests in the plan") \
     && "$PY" -I -c 'import re, sys
 dom = re.sub(r"<[^>]+>", " ", open(sys.argv[1], encoding="utf-8").read())
 sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 stories flagged") < dom.index("read by 2 of 3 personas"))' "$WORK/task-$G.dom"; then
@@ -552,8 +670,8 @@ sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 stori
 
   draw "task-$L"
   # The rows and the legend are read from the card itself, so that a name elsewhere on the page cannot stand in for a row.
-  if why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$L.dom" "You|Lem|The lead|The builders|The personas|The checks|The review" \
-    "You=1h 05m · 46%" "Lem=6m 00s · 4%" "The lead=17m · 12%" "The builders=42m · 30%" "The checks=5m 00s · 4%" "The review=11m · 8%") \
+  if why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$L.dom" "You|Lem|The agent|The builders|The personas|The checks|The review" \
+    "You=1h 05m · 46%" "Lem=6m 00s · 4%" "The agent=17m · 12%" "The builders=42m · 30%" "The checks=5m 00s · 4%" "The review=11m · 8%") \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$L.dom" "Where the time went" "Stories" "Plan" "T1" "T2" "Checks" "PR") \
     && ! grep -q 'class="nowline"' "$WORK/task-$L.dom"; then
     pass "the time card of a task has a row for each actor that held its work and a band for each stage and plan task, and its legend gives each actor's total and share of the task's time"
@@ -619,34 +737,8 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     fail "an event in the second of the next block: $why"
   fi
   draw task-red-gate
-  # The task is open, so its card runs to the board's now, which is later than the fixture's now by the
-  # run time between the two, d >= 0: retime floors its now to the second and the board ceils its own to
-  # 15 s. The checks hold 10m whatever d is, and Lem holds 30m + d, so the two shares move with d (25% and
-  # 75% at d = 0, 24% and 76% once d passes about 49 s). SHARES takes Lem's minutes as shown and accepts
-  # only the shares that some d inside that minute gives.
-  SHARES=$(cat <<'PY'
-import html, math, re, sys
-dom = open(sys.argv[1], encoding="utf-8").read()
-area = dom[dom.index('id="legend"'):]
-area = area[:area.index("</div>")]
-legend = {html.unescape(label): html.unescape(value) for label, value in re.findall(r"<span[^>]*><i[^>]*></i>(.*?)<em>(.*?)</em></span>", area)}
-lem = re.fullmatch(r"(?:(\d+)h )?(\d+)m · (\d+)%", legend.get("Lem", ""))
-checks = re.fullmatch(r"10m · (\d+)%", legend.get("The checks", ""))
-if not lem or not checks:
-    sys.exit(f"the legend is {legend}")
-minutes = 60 * int(lem.group(1) or 0) + int(lem.group(2))
-share = lambda part, whole: math.floor(100 * part / whole + 0.5)  # Math.round
-# Lem holds [minutes, minutes + 1) minutes, the checks 10, the whole is the sum of the two.
-low, high = 60 * minutes, 60 * minutes + 60
-want_checks = {share(600, 600 + low), share(600, 600 + high)}
-want_lem = {share(low, 600 + low), share(high, 600 + high)}
-ok = minutes >= 30 and min(want_checks) <= int(checks.group(1)) <= max(want_checks) and min(want_lem) <= int(lem.group(3)) <= max(want_lem)
-print("" if ok else f"the legend is {legend}: with Lem at {minutes}m the checks' share is one of {sorted(want_checks)} and Lem's one of {sorted(want_lem)}")
-sys.exit(not ok)
-PY
-)
-  if why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-red-gate.dom" "You|Lem|The checks" "The checks=~10m · \d+%" "Lem=~(\d+h )?\d+m · \d+%") \
-    && why=$("$PY" -I -B -c "$SHARES" "$WORK/task-red-gate.dom") \
+  # The task is open, so its card runs to NOW, where the page's clock stands: Lem holds 30m, the checks 10m.
+  if why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-red-gate.dom" "You|Lem|The checks" "The checks=10m · 25%" "Lem=30m · 75%") \
     && grep -q 'data-head="Lem · After a failed check: a repair or a stop, and no event says which yet"' "$WORK/task-red-gate.dom" \
     && ! grep -q 'data-head="The checks · The checks run' "$WORK/task-red-gate.dom"; then
     pass "a gate run whose first command failed is checks until its last command, with no repair between its commands, and after the whole run failed the time is not drawn as checks that go on"
@@ -654,7 +746,7 @@ PY
     fail "after a failed check: ${why:-the span after the red gate}"
   fi
   draw task-read-first
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-read-first.dom" "No state block was written yet for the task \"read-first\": its 1 event is in the activity below" \
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-read-first.dom" "No state was written yet for the task \"read-first\": its 1 event is in the activity below" \
     "The personas read the stories" "nobody confused · 2 of 2 answered"); then
     pass "the board of a task whose stories were read before its first state block draws its events and says that its state comes later"
   else
@@ -662,7 +754,7 @@ PY
   fi
   draw task-approved-again
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-approved-again.dom" "1. A slip for Berlin or Vienna is in German." \
-    "approved after the plan’s stories were recorded: the lead records them again, with their tests" "approval 2; it replaces approval 1" \
+    "approved after the plan’s stories were recorded: the agent records them again, with their tests" "approval 2; it replaces approval 1" \
     "!held by its tests" "!A slip for Berlin is in German." "feature, because the slip gets a language."); then
     pass "after a new approval the Stories card shows the approved stories, not the plan's older ones and their tests' result"
   else
@@ -684,8 +776,8 @@ PY
   draw "task-$C"
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$C.dom" "approval 2; it replaces approval 1" \
     "Story 1 changed during the build" "Approved by you afterwards (approval 2): it is yours, and no cause of not green" \
-    "Story 2 changed during the build" "the counter goes on · by the lead · the pull request is not green for it" \
-    "!a year keeps the names apart · by the lead · the pull request is not green for it"); then
+    "Story 2 changed during the build" "the counter goes on · by the agent · the pull request is not green for it" \
+    "!a year keeps the names apart · by the agent · the pull request is not green for it"); then
     pass "a story change that the owner's later approval took over is his and no cause of not green, and a change after that approval still is one"
   else
     fail "story changes and approvals: $why"
@@ -702,14 +794,14 @@ PY
   draw "task-$X"
   # shellcheck disable=SC1111,SC1112  # the curly quotes around a pick are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" decisions \
-      "Choice 4 waits for you: The font of the invoice|Fable picks “serif”, because a printed invoice reads better in serif|Astra picks “serif”, because the letters of the shop are in serif|~Its wait ends at [0-9]{2}:[0-9]{2}; then the lead takes “serif”, the experts’ shared pick\.|Where you answer: Lem puts choice 4 to you as a page in its session. Answer it there before its wait ends; then the lead takes the experts’ shared pick.|!the recommended option" \
-      "Choice 5 waits for you: The size of the total|Fable finds that none of the options fits, because the total should be bold, not bigger|Astra picks “12 pt”, because the other lines are 12 pt|then the lead takes “14 pt”, the recommended option, as the experts have no shared pick.|then the lead takes the recommended action.|!the experts’ shared pick" \
+      "Choice 4 waits for you: The font of the invoice|Fable picks “serif”, because a printed invoice reads better in serif|Astra picks “serif”, because the letters of the shop are in serif|~Its wait ends at [0-9]{2}:[0-9]{2}; then the build goes on with “serif”, the experts’ shared pick\.|Where you answer: Lem puts choice 4 to you as a page in its session. Answer it there before its wait ends; then the build goes on with the experts’ shared pick.|!the recommended option" \
+      "Choice 5 waits for you: The size of the total|Fable finds that none of the options fits, because the total should be bold, not bigger|Astra picks “12 pt”, because the other lines are 12 pt|then the build goes on with “14 pt”, the recommended option, as the experts have no shared pick.|then the build goes on with the recommended action.|!the experts’ shared pick" \
       "1. The paper size|!Fable picks|!waits for you") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" now \
-      "2 choices wait for you|The font of the invoice|the experts: Fable “serif” · Astra “serif”|~until [0-9]{2}:[0-9]{2}; then the lead takes the experts’ shared pick") \
+      "2 choices wait for you|The font of the invoice|the experts: Fable “serif” · Astra “serif”|~until [0-9]{2}:[0-9]{2}; then the build goes on with the experts’ shared pick") \
     && why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
-      "^Choice 4 waits for you: Expert advice · The font of the invoice · .* then the lead takes the experts’ shared pick\.$" \
-      "^Choice 5 waits for you: Expert advice · The size of the total · .* then the lead takes the recommended action\.$"); then
+      "^Choice 4 waits for you: Expert advice · The font of the invoice · .* then the build goes on with the experts’ shared pick\.$" \
+      "^Choice 5 waits for you: Expert advice · The size of the total · .* then the build goes on with the recommended action\.$"); then
     pass "a choice that waits shows each expert's advice in its own row of the Decisions card, a pick or none fits with its reasons, and its row, its banner and the head of its board say that the end of the wait takes the experts' shared pick when both agree, else the recommended option"
   else
     fail "the experts' advice on a choice that waits: $why"
@@ -742,7 +834,7 @@ PY
   fi
   draw "task-$P" && draw task-landing-starts
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$P.dom" feed "The polish pass|2 commits, 1 item filed in the backlog|abc1234 → def5678|docs/backlog/invoice-footer-typo.md") \
-    && why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$P.dom" "You|Lem|The builders|The checks" "Lem=~10m · 2[45]%" "The builders=~18m · 4[45]%" "The checks=~1[12]m · (2[89]|3[01])%") \
+    && why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$P.dom" "You|Lem|The builders|The checks" "Lem=10m · 25%" "The builders=18m · 45%" "The checks=12m · 30%") \
     && grep -q 'data-head="The builders · The polish pass" data-sub="from the event before it: its start is not logged, so the rebase onto the base is in it"' "$WORK/task-$P.dom" \
     && grep -q 'data-head="The checks · The checks run"' "$WORK/task-$P.dom" \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$P.dom" now "The checks and the review run on it") \
@@ -757,7 +849,7 @@ PY
   # no start in the log it is a dot where it ended, and with a start and no record yet it runs.
   draw "task-$K" && draw task-talk-runs && draw "task-$L"
   if grep -q 'data-head="The review · The plan talk" data-sub="with codex: 3 questions in 7 turns · 2 settled, 1 open, 1 of them a design choice · 2 repaired: 1 at the cause, 1 a layer over a cited decision · 1 decision two questions named · 2 raised, not argued"' "$WORK/task-$K.dom" \
-    && why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$K.dom" "You|The lead|The review" "The lead=25m · 100%" "The review=18m · 72%") \
+    && why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$K.dom" "You|The agent|The review" "The agent=25m · 100%" "The review=18m · 72%") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$K.dom" feed "The plan talk started|with codex" "The plan talk ended|with codex: 3 questions in 7 turns|1 of them a design choice|2 raised, not argued") \
     && ! grep -q 'data-sub="[^"]*its start is not logged' "$WORK/task-$K.dom" \
     && grep -q 'data-head="The review · The plan talk ended" data-sub="with codex: 4 questions in 6 turns · 3 settled, 1 open, 1 of them a design choice · 2 repaired: 2 at the cause · 1 raised, not argued · its start is not logged"' "$WORK/task-$L.dom" \
@@ -768,13 +860,13 @@ PY
   fi
   # The talk's companion is shown as a companion of the talk, and the builder lead after it.
   draw "task-$M"
-  if grep -q 'title="A companion session holds the plan talk: its agent defends the plan, the reviewer sits in its other pane, and a builder leads the build after it"' "$WORK/task-talk-runs.dom" \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-talk-runs.dom" "Its companion talks the plan through" "talk companion" "a companion for the plan talk, with the reviewer in its other pane" "!Its session builds it") \
-    && grep -q 'title="One builder leads the build, after the plan talk in its companion"' "$WORK/task-$M.dom" \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$M.dom" "one builder leads the build, after the plan talk in its companion" "!talk companion") \
-    && grep -q 'data-head="Lem · The plan talk is done: the plan waits for its builder lead"' "$WORK/task-$M.dom" \
+  if grep -q 'title="A companion session talks the plan through, with the reviewer in its other pane; an agent builds it after the talk"' "$WORK/task-talk-runs.dom" \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-talk-runs.dom" "Its companion talks the plan through" "plan talk" "a companion talks the plan through, with the reviewer in its other pane" "!Its session builds it" "!defend") \
+    && grep -q 'title="One agent builds it, after the plan talk in its companion"' "$WORK/task-$M.dom" \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$M.dom" "one agent builds the plan its companion talked through" "An agent builds it" "!builder lead") \
+    && grep -q 'data-head="Lem · The plan talk is done: the plan waits for the agent that builds it"' "$WORK/task-$M.dom" \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$M.dom" feed "The plan talk ended|with codex: 2 questions in 5 turns|2 repaired: 1 a layer over a cited decision|!at the cause") \
-    && grep -q 'title="A companion session holds the plan talk' "$WORK/board.dom" && grep -q 'title="One builder leads the build, after the plan talk in its companion"' "$WORK/board.dom"; then
+    && grep -q 'title="A companion session talks the plan through' "$WORK/board.dom" && grep -q 'title="One agent builds it, after the plan talk in its companion"' "$WORK/board.dom"; then
     pass "a task whose plan talk runs in its companion shows the companion as the talk's, and after the talk the builder lead that builds it, with the wait between the two as Lem's and the layer the talk accepted"
   else
     fail "the talk's companion and the builder after it: ${why:-a tag, a head or a span}"
@@ -802,6 +894,19 @@ PY
   else
     fail "a task whose investigation runs: $why"
   fi
+  # A fixed line of a state block is said in words on every page, or left out; never shown as it is written.
+  raw=()
+  for dom in "$WORK/board.dom" "$WORK"/task-*.dom; do
+    [ -e "$dom" ] || continue
+    why=$("$PY" -I -B -c "$SHOWN" "$dom" "!lead: builder" "!lead: session" "!session: C0FFEE" "!plan committed" "!investigation: bug" "!kind: bug" "!after: building-one" "!report: investigation.md") \
+      || raw+=("$(basename "$dom"): $why")
+  done
+  if [ "${#raw[@]}" -eq 0 ] \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Correction one|Building: an agent plans and builds it" "Talk runs|Building: its companion talks the plan through"); then
+    pass "no page shows a fixed line of a state block as it is written: who works on a task, its plan, its kind, its investigation and what it waits for are said in words"
+  else
+    fail "a fixed line of a state block: ${raw[*]:-} ${why:-}"
+  fi
   # The project's own asker: the page says where the owner answers, by the settings' tools.ask.
   printf '%s\n' '[tools]' 'ask = "terminal"' > "$R/.lem/project.local.toml"
   board --no-open >/dev/null && draw board && cp "$WORK/board.dom" "$WORK/board-terminal.dom"
@@ -810,7 +915,7 @@ PY
   rm "$R/.lem/project.local.toml"
   board --no-open >/dev/null
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board-terminal.dom" \
-      "Waits for you=Gift note export|Lem asks you choice 7 in its session, as text in the conversation. Answer it there before its wait ends; then the lead takes the recommended action." \
+      "Waits for you=Gift note export|Lem asks you choice 7 in its session, as text in the conversation. Answer it there before its wait ends; then the build goes on with the recommended action." \
       "Waits for you=Stories wait|Lem shows you the stories, with the personas’ read on top, in its session, as text in the conversation. Approve or change them there.") \
     && why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" \
       "Waits for you=Held choice|Lem asks you choice 1 with my-asker, the asker this project names. Answer it there: it waits for your word, with no end." \
