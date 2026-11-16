@@ -2448,12 +2448,8 @@ tree=$(project --repo "$LOCAL" worktree-dir spaces)
 echo 'value = "a b"' > "$tree/v.py" && app_py new old > "$tree/app.py"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a value"
 local_land start spaces >/dev/null && local_land base spaces >/dev/null && local_land gate spaces >/dev/null
-to_file=$(local_land read spaces --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 1}')" | field '(d["next"], d["to_file"])')
+local_land read spaces --record "$(clean 1)" >/dev/null
 same=$(local_land read spaces | field 'd["due"]')
-# the defect the review saw outside the change is filed in the backlog: that is no change of what was reviewed
-mkdir -p "$tree/docs/backlog" && echo '# a defect that was there before' > "$tree/docs/backlog/an-old-defect.md"
-git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): an old defect" && local_land gate spaces >/dev/null
-filed=$(local_land read spaces | field 'd["due"]')
 # the same edit in the next function of the file: every line of the diff is the same, with its
 # context, and only its place is not
 app_py old new > "$tree/app.py"
@@ -2470,13 +2466,103 @@ spaced=$(local_land read spaces | field '(d["due"], d["round"])')
 local_land read spaces --record "$(clean 2)" >/dev/null
 printf '%s\n' 'slug: spaces' 'careful: the owner says so' > "$task_dir/brief.md"
 late=$(local_land read spaces | field 'd["due"] + ": " + d["why"]')
-if [ "$same" = none ] && [ "$to_file" = "('none', 1)" ] && [ "$filed" = none ] && [ "$moved" = "('review', 2)" ] && [ "$back" = none ] && [ "$raised" = "('review', 'full')" ] && [ "$spaced" = "('review', 2)" ] \
+if [ "$same" = none ] && [ "$moved" = "('review', 2)" ] && [ "$back" = none ] && [ "$raised" = "('review', 'full')" ] && [ "$spaced" = "('review', 2)" ] \
   && [ "$late" = "owner: two rounds reviewed it: it was one read, and this change gets the project's full set at the least (the request is careful: the owner says so)" ]; then
-  pass "a change of one space after a review, or the same edit in another place of the file, is a change nobody reviewed, and a change that came back to what was reviewed is not, nor is an item filed in the backlog; and when the owner calls a reviewed task careful, the one read no longer counts: the full set is due, or after two rounds the request is not green for it"
+  pass "a change of one space after a review, or the same edit in another place of the file, is a change nobody reviewed, and a change that came back to what was reviewed is not; and when the owner calls a reviewed task careful, the one read no longer counts: the full set is due, or after two rounds the request is not green for it"
 else
-  fail "a review is of the change as it is: $same / $to_file / $filed / $moved / $back / $raised / $spaced / $late"
+  fail "a review is of the change as it is: $same / $moved / $back / $raised / $spaced / $late"
 fi
 project --repo "$LOCAL" state spaces dropped "the test is over" >/dev/null
+
+# What a review saw outside the change is filed after it, as new items in the backlog folder: that asks
+# for no other review. Any other file does, an item that was on the base included; the folder is a
+# folder and not a pattern, and the root of the repository is no backlog folder for this.
+# backlog_repo NAME FOLDER: a repository whose settings name FOLDER as the backlog, with one item there on the base
+backlog_repo() {
+  local repo=$WORK/$1
+  git init -q -b main "$repo" && ident "$repo" && project --repo "$repo" init --base main >/dev/null
+  printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' '[paths]' "backlog = \"$2\"" > "$repo/.lem/project.toml"
+  mkdir -p "$repo/$2" && echo '# an item from before' > "$repo/$2/existing.md" && echo one > "$repo/app.txt"
+  git -C "$repo" add -A && git -C "$repo" commit -q -m "chore: start"
+}
+# reviewed_then REPO SLUG CHANGE: a task whose change one read reviewed, then CHANGE run in its
+# worktree and committed, and the checks again; prints what is due
+reviewed_then() {
+  local tree
+  task_in "$1" "$2" app.txt two
+  tree=$(project --repo "$1" worktree-dir "$2")
+  land --repo "$1" start "$2" >/dev/null && land --repo "$1" base "$2" >/dev/null && land --repo "$1" gate "$2" >/dev/null
+  land --repo "$1" read "$2" --record "$(clean 1)" >/dev/null
+  (cd "$tree" && sh -c "$3")
+  git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): after the review" && land --repo "$1" gate "$2" >/dev/null
+  land --repo "$1" read "$2" | field 'd["due"]'
+  project --repo "$1" state "$2" dropped "the test is over" >/dev/null
+}
+backlog_repo backlog-land docs/backlog
+BLG=$WORK/backlog-land
+added=$(reviewed_then "$BLG" new-item 'echo "# a defect from before" > docs/backlog/new.md')
+edited=$(reviewed_then "$BLG" edited-item 'echo more >> docs/backlog/existing.md')
+removed=$(reviewed_then "$BLG" removed-item 'rm docs/backlog/existing.md')
+if [ "$added" = none ] && [ "$edited" = review ] && [ "$removed" = review ]; then
+  pass "a new item in the backlog folder after a review keeps the review, and an edit or a deletion of an item that was on the base asks for another"
+else
+  fail "backlog items after a review: $added / $edited / $removed"
+fi
+backlog_repo backlog-star 'docs/backlog-x*'
+inside=$(reviewed_then "$WORK/backlog-star" in-folder 'echo "# an item" > "docs/backlog-x*/new.md"')
+beside=$(reviewed_then "$WORK/backlog-star" beside-folder 'mkdir -p docs/backlog-xy && echo "x = 1" > docs/backlog-xy/app.py')
+backlog_repo backlog-root .
+rooted=$(reviewed_then "$WORK/backlog-root" root-item 'echo "# an item" > new.md')
+if [ "$inside" = none ] && [ "$beside" = review ] && [ "$rooted" = review ]; then
+  pass "the backlog folder is read as the path it names, not as a pattern: a file in docs/backlog-xy is no item of the folder docs/backlog-x*; and a backlog folder that is the root keeps no review over a new file"
+else
+  fail "the backlog folder as a path: $inside / $beside / $rooted"
+fi
+
+# The defects outside the change are not lost when a session stops after the review's record: `read`
+# names them until a new item is filed and `--filed` says so, and nothing is proposed before that.
+task_in "$BLG" outside app.txt two
+tree=$(project --repo "$BLG" worktree-dir outside)
+land --repo "$BLG" start outside >/dev/null && land --repo "$BLG" base outside >/dev/null && land --repo "$BLG" gate outside >/dev/null
+recorded=$(land --repo "$BLG" read outside --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 1}')" | field '(d["next"], d["to_file"])')
+stopped=$(land --repo "$BLG" read outside | field '(d["due"], d["to_file"])')
+unfiled=$(land --repo "$BLG" propose outside --title "fix: outside" --notes "$NOTES" 2>&1 >/dev/null || true)
+early=$(land --repo "$BLG" read outside --filed 2>&1 >/dev/null || true)
+echo '# a defect from before' > "$tree/docs/backlog/old-defect.md"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): a defect from before" && land --repo "$BLG" gate outside >/dev/null
+marked=$(land --repo "$BLG" read outside --filed | field '(d["filed"], d["items"], d["to_file"])')
+again=$(land --repo "$BLG" read outside | field '(d["due"], d["to_file"])')
+green=$(land --repo "$BLG" propose outside --title "fix: outside" --notes "$NOTES" | field 'd["green"]')
+text=$BLG/.git/lem/tasks/outside/pr.md
+logged=$("$PY" -c 'import json, sys; print([(e["attempts"], e["items"]) for e in map(json.loads, open(sys.argv[1])) if e["event"] == "review.filed"])' "$BLG/.git/lem/events.jsonl")
+if [ "$recorded" = "('none', 1)" ] && [ "$stopped" = "('none', 1)" ] \
+  && grep -q "the filing of what a review saw outside the change" <<<"$unfiled" && grep -q -- "--filed" <<<"$unfiled" \
+  && grep -q "no item was added to docs/backlog since review round 1" <<<"$early" \
+  && [ "$marked" = "(1, ['docs/backlog/old-defect.md'], 0)" ] && [ "$again" = "('none', 0)" ] && [ "$green" = True ] \
+  && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit; it saw 1 defect outside the change, filed in the backlog$' "$text" \
+  && [ "$logged" = "[([1], ['docs/backlog/old-defect.md'])]" ]; then
+  pass "after a review that saw a defect outside the change, read names it to file until --filed, which needs a new item in the backlog; propose waits for that, and the pull request says the defect was filed"
+else
+  fail "the filing of what a review saw outside the change: $recorded / $stopped / $unfiled / $early / $marked / $again / $green / $logged / $(grep 'the review, round' "$text" 2>/dev/null)"
+fi
+project --repo "$BLG" state outside dropped "the test is over" >/dev/null
+
+# A fix builder of a must-fix round files them in the same pass: the next round's record may come
+# before --filed, and its reviewer may count the same defects again.
+task_in "$BLG" fix-and-file app.txt two
+tree=$(project --repo "$BLG" worktree-dir fix-and-file)
+land --repo "$BLG" start fix-and-file >/dev/null && land --repo "$BLG" base fix-and-file >/dev/null && land --repo "$BLG" gate fix-and-file >/dev/null
+land --repo "$BLG" read fix-and-file --record "$(record 1 '{"kind": "read", "answered": ["codex"], "must_fix": 1, "outside": 2}')" >/dev/null
+echo '# a second defect from before' > "$tree/docs/backlog/second-defect.md" && echo 'two ' > "$tree/notes.txt"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix, and the defects filed" && land --repo "$BLG" gate fix-and-file >/dev/null
+second=$(land --repo "$BLG" read fix-and-file --record "$(record 2 '{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "answered": ["codex"], "outside": 2}')" | field '(d["next"], d["to_file"])')
+marked=$(land --repo "$BLG" read fix-and-file --filed | field '(d["filed"], d["to_file"])')
+if [ "$second" = "('none', 4)" ] && [ "$marked" = "(4, 0)" ]; then
+  pass "the defects a fix builder filed with its fix are marked filed after the next round's record too, also when that round counted them again"
+else
+  fail "the filing in a must-fix round: $second / $marked"
+fi
+project --repo "$BLG" state fix-and-file dropped "the test is over" >/dev/null
 
 # The bar: a suppression, a pattern of the project's own, a skipped module, fewer assertions, a test
 # that goes out of a Rust module and a deleted test file, each refused until the plan gives the

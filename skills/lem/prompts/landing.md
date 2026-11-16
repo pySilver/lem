@@ -65,12 +65,14 @@ Your reply: for each check, whose failure it was and what you did; the tip
 The brief gives the review's file (`reviews/review-N.md` in the task directory). Under "Outside
 this change" it lists defects that the base commit already has.
 
-1. File each one: one item in the project's backlog folder
+1. File each one: one new item in the project's backlog folder
    (`python3 SKILL_DIR/scripts/project.py path backlog`), in the `lem-backlog` skill's item
    format, with the file and the input the review gave. Commit them as `docs(backlog):`.
 2. Fix none of them, also not a small one: the review is over, and a fix now would be a change
-   nobody reviewed. An item in the backlog folder does not ask for another review; any other
-   file does.
+   nobody reviewed. A new item in the backlog folder does not ask for another review; any other
+   file does, an item that was there before too, so add items and edit none.
+
+After you, Lem runs `land.py gate` and `land.py read SLUG --filed`, which marks the defects filed.
 
 Your reply: the items you filed, each by its first line and its file; the tip
 (`git rev-parse HEAD`); the output of `git status --short`.
