@@ -454,13 +454,14 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
         "at": stamp(asked), "kind": "asked", "what": text(args.what, "--what"), "case": case, "case_was": args.case_was, "cause": cause,
         "options": options, "recommended": recommended,
         "why": text(args.why, "--why"), "said": text(args.said, "--said"), "irreversible": args.irreversible,
-        "wait_minutes": wait, "deadline": stamp(asked + timedelta(minutes=wait)),
+        # a step that a later "no" cannot reverse waits with no end, so it has no deadline
+        "wait_minutes": wait, "deadline": None if args.irreversible else stamp(asked + timedelta(minutes=wait)),
     }
     made = task.add(lambda known: [{"id": len(known) + 1, **line}])[0]
-    experts = f"give it to the experts now, with the lem-ask-expert skill ({task.slug} {made['id']}); "
+    experts = f"give it to the experts now, with the lem-ask-expert skill ({task.slug} {made['id']}); tell Lem that choice {made['id']} of {task.slug} waits; "
     return {**made, "next": experts + (
-        "this step waits for the owner's word, however long: the rest of the plan goes on, and no timeout takes it" if args.irreversible
-        else f"tell Lem that choice {made['id']} of {task.slug} waits; go on with what does not depend on it; `decisions.py wait {task.slug} {made['id']}` says when it is answered or its wait ends"
+        "it waits for the owner's word, however long: the rest of the plan goes on, and no timeout takes it" if args.irreversible
+        else f"go on with what does not depend on it; `decisions.py wait {task.slug} {made['id']}` says when it is answered or its wait ends"
     )}
 
 

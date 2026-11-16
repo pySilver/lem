@@ -39,7 +39,7 @@ asked_to=$(date +%s)
 everywhere=$(decide pending | field '([(c["task"], c["id"]) for c in d["waiting"]], d["ended"])')
 if grep -q "a choice has two options or more" <<<"$one" && grep -qF -- "--recommended is one of the options, word for word: the first; the last" <<<"$notone" \
   && [ "$(field '(d["id"], d["wait_minutes"], "tell Lem that choice 3 of gift-note waits" in d["next"])' <<<"$asked")" = "(3, 15, True)" ] \
-  && [ "$(field '(d["id"], d["irreversible"], "no timeout takes it" in d["next"])' <<<"$forever")" = "(4, 'person', True)" ] \
+  && [ "$(field '(d["id"], d["irreversible"], "no timeout takes it" in d["next"], "tell Lem that choice 4 of gift-note waits" in d["next"], d["deadline"])' <<<"$forever")" = "(4, 'person', True, True, None)" ] \
   && [ "$(field '[(c["id"], c["state"], 900 - '"$((asked_to - asked_from))"' <= c["seconds_left"] <= 900 if c["seconds_left"] is not None else None) for c in d["waiting"]]' <<<"$waits")" = "[(3, 'waits', True), (4, 'waits', None)]" ] \
   && [ "$everywhere" = "([('gift-note', 3), ('gift-note', 4)], [])" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.git/lem/events.jsonl")" = 2 ]; then
   pass "a choice for the owner has two options or more and recommends one of them; it waits the settings' 15 minutes, and pending lists each choice that waits with the seconds it has left, and none for a step no timeout takes"
@@ -163,6 +163,16 @@ if grep -qF -- "--chose names one of the options and --instead a decision of the
   pass "a decision of the owner's that is none of the options settles the choice with --instead, an irreversible one too, so it no longer waits; it is refused together with --chose or with neither; and it carries no story"
 else
   fail "an answer that is none of the options: $both / $neither / $settled / $eleven / $open_ones / $flagged_answer / $twelve"
+fi
+# A step that a later "no" cannot reverse has no end to its wait: his answer an hour later is an answer, never late, and no timeout goes in with it.
+decide ask gift-note "${CASE[@]}" --what "Delete the old exports" --option "delete them" --option "keep them" --recommended "keep them" --why "Nobody asked." --said "The two personas split." --irreversible data >/dev/null
+past "$dfile" 13
+hour_later=$(decide answer gift-note 13 --chose "delete them" 2>&1 | field '(d["kind"], d["chose"])' 2>&1 || true)
+thirteen=$(grep '"id": 13' "$dfile" | "$PY" -c 'import json, sys; print([json.loads(line)["kind"] for line in sys.stdin])')
+if [ "$hour_later" = "('answered', 'delete them')" ] && [ "$thirteen" = "['asked', 'answered']" ] && [ "$(dlist 'next((c["state"], c["by"]) for c in d if c["id"] == 13)')" = "('answered', 'owner')" ]; then
+  pass "an answer to an irreversible step after any time is his answer: no timeout is written with it, and the step is taken as he said"
+else
+  fail "a late answer to an irreversible step: $hour_later / $thirteen"
 fi
 # A task that is dropped or landed has nothing that waits: pending leaves its choices out and says why, wait returns at once, and list still shows them.
 decide ask dropped-task "${CASE[@]}" --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
