@@ -28,8 +28,8 @@ are:
     stories.py approve SLUG --read
                               keep the stories the owner approved, as FILE has them: the same
                               section with no test lines, which the lead adds. --correction: Lem
-                              approves a correction's one story in his name, and he may still
-                              say "this is a feature". --read: the lead of the rare path freezes
+                              approves a correction's one story in his name, as the task's first
+                              contract only, and he may still say "this is a feature". --read: the lead of the rare path freezes
                               the plan's stories, which a read found nobody confused by, as the
                               task's first contract; refused when the task has any approval. It
                               counts for the plan's check and for `decisions.py story`, and never
@@ -464,15 +464,20 @@ def newest_read(task: Task) -> dict | None:
     return found
 
 
-def first_contract(task: Task) -> None:
-    """A read freezes only the first contract of a task: once stories are approved, by him, as a
-    correction or by an earlier read, a story changes only through its record and the kind only
-    through his own approval."""
+# The automatic approvals, which no word of his gave in the moment: the rare path's read, and Lem's
+# approval of a correction in his name. Each is a task's first contract only.
+AUTOMATIC = {"read": "a read freezes only the first contract", "correction": "Lem approves a correction in his name only as the first contract"}
+
+
+def first_contract(task: Task, by: str) -> None:
+    """An automatic approval is only the first contract of a task: once stories are approved, by
+    him, as a correction or by a read, a story changes only through its record and the kind only
+    through his own approval, which is always allowed and always makes a new number."""
     kept = task.approved()
     if kept is not None:
         number = kept.get("number") or 1 + len(kept.get("history", []))
         raise StoriesError(
-            f"{task.slug} has approval {number} of its stories already (by {kept['by']}): a read freezes only the first contract. "
+            f"{task.slug} has approval {number} of its stories already (by {kept['by']}): {AUTOMATIC[by]}. "
             f"A story changes through its record, `decisions.py story {task.slug} ...`, and the kind only through his own approval, "
             f"`stories.py approve {task.slug} --file FILE`",
         )
@@ -480,7 +485,9 @@ def first_contract(task: Task) -> None:
 
 def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
     """Keep the stories that were approved, word for word, with a digest and a number of their own,
-    and log the event. Each approval is a new one, also of a text approved before."""
+    and log the event. Each approval is a new one, also of a text approved before. The check of
+    what is approved already and the write are one step under the task's lock, so an approval of
+    his and an automatic one that come at one time never both pass."""
     source = Path(file)
     if not source.is_file():
         raise StoriesError(f"{file} is not a file; --file names the stories he approved, in the form `stories.py --help` shows")
@@ -495,33 +502,36 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
     stories = [{"n": story["n"], "text": story["text"]} for story in read["stories"]]
     # one mark for this exact set of approved texts; the approval itself is known by its number
     digest = text_digest(read["kind"], [story["text"] for story in stories])
-    if by == "read":
-        first_contract(task)
-        # the rare path: the lead freezes the stories the personas read, and only when nobody was confused
-        last = newest_read(task)
-        if last is None or last.get("digest") != digest:
-            raise StoriesError(
-                f"--read freezes the stories the newest `stories.read` of {task.slug} read, and "
-                + ("there is none" if last is None else f"that read was of the stories with digest {last.get('digest')}, and {source.name} has {digest}")
-                + ": run the read over these stories first (`stages/plan.md`, step 1)",
-            )
-        if last["flagged"] or last["split"]:
-            raise StoriesError(
-                f"the newest read of {task.slug}'s stories found {'a flagged story' if last['flagged'] else 'a split between the families'}: "
-                "the stories wait for the owner, and only his approval freezes them",
-            )
-    before = task.approved()
-    history = [*before.get("history", []), {key: value for key, value in before.items() if key not in ("history", "task", "text")}] if before else []
-    record = {
-        "task": task.slug, "number": len(history) + 1, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        # who approved: the owner; Lem in his name, for a correction that does not wait; or the
-        # lead's read of the rare path, which counts for the plan's check and never as his yes
-        "by": by, "kind": read["kind"], "why": read["why"], "digest": digest, "stories": stories, "text": text,
-        **({"replaces": before["number"]} if before else {}), "history": history,
-    }
     task.directory.mkdir(parents=True, exist_ok=True)
-    task.approved_file.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    task.log("stories.approved", by=by, number=record["number"], kind=record["kind"], why=record["why"], digest=digest, stories=stories, **({"replaces": before["number"]} if before else {}))
+    with (task.directory / "stories.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if by in AUTOMATIC:
+            first_contract(task, by)
+        if by == "read":
+            # the rare path: the lead freezes the stories the personas read, and only when nobody was confused
+            last = newest_read(task)
+            if last is None or last.get("digest") != digest:
+                raise StoriesError(
+                    f"--read freezes the stories the newest `stories.read` of {task.slug} read, and "
+                    + ("there is none" if last is None else f"that read was of the stories with digest {last.get('digest')}, and {source.name} has {digest}")
+                    + ": run the read over these stories first (`stages/plan.md`, step 1)",
+                )
+            if last["flagged"] or last["split"]:
+                raise StoriesError(
+                    f"the newest read of {task.slug}'s stories found {'a flagged story' if last['flagged'] else 'a split between the families'}: "
+                    "the stories wait for the owner, and only his approval freezes them",
+                )
+        before = task.approved()
+        history = [*before.get("history", []), {key: value for key, value in before.items() if key not in ("history", "task", "text")}] if before else []
+        record = {
+            "task": task.slug, "number": len(history) + 1, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            # who approved: the owner; Lem in his name, for a correction that does not wait; or the
+            # lead's read of the rare path, which counts for the plan's check and never as his yes
+            "by": by, "kind": read["kind"], "why": read["why"], "digest": digest, "stories": stories, "text": text,
+            **({"replaces": before["number"]} if before else {}), "history": history,
+        }
+        task.approved_file.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        task.log("stories.approved", by=by, number=record["number"], kind=record["kind"], why=record["why"], digest=digest, stories=stories, **({"replaces": before["number"]} if before else {}))
     return {**record, "file": str(task.approved_file)}
 
 
@@ -546,8 +556,8 @@ def main() -> None:
             if args.read:
                 if args.file is not None:
                     raise StoriesError("--read freezes the plan's own stories, the ones the read named: it takes no --file; a file of stories is approved by him, without --read")
-                # refused before the plan is read: a task with a contract keeps it
-                first_contract(task)
+                # refused before the plan is read, and again under the lock: a task with a contract keeps it
+                first_contract(task, "read")
                 result = cmd_approve(task, task.stories()["plan"], "read", plan=True)
             elif args.file is None:
                 raise StoriesError("approve needs --file: the stories he approved, in the form `stories.py --help` shows, with no test lines")

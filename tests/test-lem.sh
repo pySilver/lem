@@ -1565,6 +1565,37 @@ if [ "$same_text" = "(3, 0, '$code1')" ] && [ "$just_approved" = "(3, [])" ] && 
 else
   fail "approvals by number: $same_text / $just_approved / $back_again / $numbered"
 fi
+# An automatic approval is only ever the first contract: Lem's approval of a correction in his name does not replace his feature.
+printf '%s\n' '## Stories' '' 'Kind: correction, because it is one sentence.' '' '1. The note file omits the code for order 1042.' > "$WORK/omits.md"
+over_feature=$(stories approve approved-note --file "$WORK/omits.md" --correction 2>&1 || true)
+contract=$(stories approved approved-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"], d["approved"]["kind"], d["approved"]["stories"][0]["text"])' 2>&1 || true)
+if grep -qF "approved-note has approval 5 of its stories already (by owner): Lem approves a correction in his name only as the first contract" <<<"$over_feature" \
+  && grep -qF "the kind only through his own approval" <<<"$over_feature" && [ "$contract" = "(5, 'owner', 'feature', '$code1')" ]; then
+  pass "Lem's approval of a correction in his name is only a task's first contract: over his approved feature it is refused, and his stories and their kind stay"
+else
+  fail "a correction over his feature: $over_feature / $contract"
+fi
+# Every approval takes the task's lock for its check and its write: while a freeze holds it, his approval waits, and then the
+# freeze, which comes too late, is refused.
+project --repo "$ST" task-dir locked-note >/dev/null
+"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(20)' \
+  "$ST/.git/lem/tasks/locked-note/stories.lock" > "$WORK/stories-lock.out" &
+holder=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$WORK/stories-lock.out" ] && break; sleep 0.2; done
+"$PY" -B "$STORIES" --repo "$ST" approve locked-note --file "$WORK/reapproved.md" > "$WORK/his-approval.out" 2>&1 &
+his=$!
+sleep 0.5
+while_held=$([ -e "$ST/.git/lem/tasks/locked-note/stories.json" ] && echo written || echo waits)
+kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
+wait "$his" || true
+late_freeze=$(stories approve locked-note --read 2>&1 || true)
+after_lock=$(stories approved locked-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"])' 2>&1 || true)
+if [ "$while_held" = waits ] && [ "$after_lock" = "(1, 'owner')" ] \
+  && grep -qF "locked-note has approval 1 of its stories already (by owner): a read freezes only the first contract" <<<"$late_freeze"; then
+  pass "an approval checks and writes under the task's lock: his approval waits while another holds it, and a freeze after his approval is refused"
+else
+  fail "approvals under one lock: $while_held / $after_lock / $late_freeze / $(cat "$WORK/his-approval.out")"
+fi
 
 # The decisions of a task: each one the lead or the personas took, and each choice that waits for the
 # owner a fixed time and no longer, except a step that a later "no" cannot reverse.

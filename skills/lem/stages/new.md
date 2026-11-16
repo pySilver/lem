@@ -191,8 +191,9 @@ and approve it in his name:
 python3 SKILL_DIR/scripts/stories.py approve SLUG --file FILE --correction
 ```
 
-Tell him in the same line that you took it as a correction and that he may say "this is a
-feature". The personas do not read a correction's one story; the pull request says so. When he
+An approval in his name is only ever a task's first contract: the script refuses it once
+any approval exists. Tell him in the same line that you took it as a correction and that he may
+say "this is a feature". The personas do not read a correction's one story; the pull request says so. When he
 says "this is a feature", it takes steps 5 to 7 of the usual path: the personas read it, and his
 approval of the stories as a feature replaces the correction's. A change of the kind is his only.
 
