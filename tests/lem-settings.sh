@@ -1341,7 +1341,7 @@ if [ -n "$chrome" ]; then
   if [ ! -s "$WORK/task-with-a-worktree.dom" ]; then
     printf 'SKIP the board of one task: %s printed no page\n' "$chrome"
   elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-with-a-worktree.dom" "With a worktree · Dropped" "fix/with-a-worktree" "fix: 0123 is a string" \
-    "make test" "5 passed in 0.1s" "the test is over" "All tasks" "gate green: 1" "!gate red"); then
+    "make test" "5 passed in 0.1s" "the test is over" "All tasks" "checks green: 1" "!checks red"); then
     pass "a task's board draws its state blocks, its newest commit and the gate's newest result, not a failure a later run repaired"
   else
     fail "a task's board: missing $why"
@@ -1409,7 +1409,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     --virtual-time-budget=5000 --dump-dom "file://$BKB/.git/lem/board.html#backlog" > "$WORK/backlog.dom" 2>/dev/null || true
   if [ ! -s "$WORK/backlog.dom" ]; then
     printf 'SKIP the backlog tab: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/backlog.dom" "Backlog · backlog-board" "8 items in docs/backlog" "2 point at a place that is gone" "2 cannot be read" "sorted by who can act" \
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/backlog.dom" "Backlog · backlog-board" "8 items in docs/backlog" "2 items name a place that is gone or cannot be read" "2 cannot be read" "sorted by who can act" \
     "Needs you" "An agent can take it" "Not judged yet" "Decided against" "The export drops custom columns" "an agent can take it · 0.86" \
     "app/report.py:monthly · the file is not there" "new, not committed" "worth: unset" "!Waits for something"); then
     pass "the backlog tab draws the items in groups by who can act, each with its word and its count, and shows a place that is gone"
