@@ -619,7 +619,34 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     fail "an event in the second of the next block: $why"
   fi
   draw task-red-gate
-  if why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-red-gate.dom" "You|Lem|The checks" "The checks=10m · 25%" "Lem=~(29|30|31)m · 7[0-9]%") \
+  # The task is open, so its card runs to the board's now, which is later than the fixture's now by the
+  # run time between the two, d >= 0: retime floors its now to the second and the board ceils its own to
+  # 15 s. The checks hold 10m whatever d is, and Lem holds 30m + d, so the two shares move with d (25% and
+  # 75% at d = 0, 24% and 76% once d passes about 49 s). SHARES takes Lem's minutes as shown and accepts
+  # only the shares that some d inside that minute gives.
+  SHARES=$(cat <<'PY'
+import html, math, re, sys
+dom = open(sys.argv[1], encoding="utf-8").read()
+area = dom[dom.index('id="legend"'):]
+area = area[:area.index("</div>")]
+legend = {html.unescape(label): html.unescape(value) for label, value in re.findall(r"<span[^>]*><i[^>]*></i>(.*?)<em>(.*?)</em></span>", area)}
+lem = re.fullmatch(r"(?:(\d+)h )?(\d+)m · (\d+)%", legend.get("Lem", ""))
+checks = re.fullmatch(r"10m · (\d+)%", legend.get("The checks", ""))
+if not lem or not checks:
+    sys.exit(f"the legend is {legend}")
+minutes = 60 * int(lem.group(1) or 0) + int(lem.group(2))
+share = lambda part, whole: math.floor(100 * part / whole + 0.5)  # Math.round
+# Lem holds [minutes, minutes + 1) minutes, the checks 10, the whole is the sum of the two.
+low, high = 60 * minutes, 60 * minutes + 60
+want_checks = {share(600, 600 + low), share(600, 600 + high)}
+want_lem = {share(low, 600 + low), share(high, 600 + high)}
+ok = minutes >= 30 and min(want_checks) <= int(checks.group(1)) <= max(want_checks) and min(want_lem) <= int(lem.group(3)) <= max(want_lem)
+print("" if ok else f"the legend is {legend}: with Lem at {minutes}m the checks' share is one of {sorted(want_checks)} and Lem's one of {sorted(want_lem)}")
+sys.exit(not ok)
+PY
+)
+  if why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-red-gate.dom" "You|Lem|The checks" "The checks=~10m · \d+%" "Lem=~(\d+h )?\d+m · \d+%") \
+    && why=$("$PY" -I -B -c "$SHARES" "$WORK/task-red-gate.dom") \
     && grep -q 'data-head="Lem · After a failed check: a repair or a stop, and no event says which yet"' "$WORK/task-red-gate.dom" \
     && ! grep -q 'data-head="The checks · The checks run' "$WORK/task-red-gate.dom"; then
     pass "a gate run whose first command failed is checks until its last command, with no repair between its commands, and after the whole run failed the time is not drawn as checks that go on"
