@@ -194,11 +194,13 @@ approved, which the lead may not change without the record saying so.
    task directory, and log `project.py log SLUG scout`, its end. It is the one place where
    knowledge of the code comes up to you, and only as facts for the stories: you still read no
    diff and write no code.
-2. **The interview.** One question at a time in the conversation, one line each with your own
-   guess, so that he reacts and does not compose; he answers by typing. No page opens for a
-   question of the interview: it asks what he wants, and a page for each would cost him one page
-   per question. A question whose options each cost a person something is no question of the
-   interview: it is a decision, and goes where decisions go. The questions come from the
+2. **The interview.** One question at a time, each with your own guess, so that he reacts and
+   does not compose. A question he answers with a yes to your guess, or by typing a value (a
+   name, a number, a word), is one line in the conversation: that is the owner's own exception
+   to the page, "something fixed choice, trivial, without additional context". A question that
+   sets two or more options side by side, each with what it changes for a person, goes on the
+   question page (`ask-owner`), as his ruling says of every other question; put the options
+   that are ready on one page, never one page per question. The questions come from the
    `lem-interview-me` method (`load-skill`); its restate and its explicit yes are the stories
    and his yes to them (steps 4 to 7), so nothing is restated before the stories and he says yes
    once. A fact of the scout's report may go into a later question ("the export already
