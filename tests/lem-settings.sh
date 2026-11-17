@@ -128,7 +128,7 @@ settings '[branch]' 'base = "master"' 'land = "robot"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a land value other than owner or agent is refused"; else fail "land value"; fi
 settings '[paths]' 'styleguide = "../elsewhere"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a path that leaves the repository is refused"; else fail "path outside"; fi
-settings '[gate]' 'commands = "pytest"'
+settings '[checks]' 'commands = "pytest"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "gate commands that are not a list are refused"; else fail "gate type"; fi
 # The tracker: no table means no tracker; a table names its kind, its server, its team and who moves a ticket.
 settings '[branch]' 'base = "master"'
@@ -170,51 +170,98 @@ if [ "$(status_of project --repo "$OLD" show)" = 0 ] && grep -qF "branch.propose
 else
   fail "branch.propose: $err / $merge"
 fi
-settings '[branch]' 'base = "master"' '[gate]' 'ignores = ["docs/*"]'
-if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], d["gate"]["ignores"])')" = "('keep', ['docs/*'])" ] && grep -q '^history = "keep"$' "$NEW/.lem/project.toml"; then
+settings '[branch]' 'base = "master"' '[checks]' 'ignores = ["docs/*"]'
+if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], d["checks"]["ignores"])')" = "('keep', ['docs/*'])" ] && grep -q '^history = "keep"$' "$NEW/.lem/project.toml"; then
   pass "a branch's own commits land unless the settings say one commit, and the gate may name paths it does not read"
 else
-  fail "history and gate.ignores"
+  fail "history and checks.ignores"
 fi
-settings '[seats.reviewer]' 'agent = "gemini"'
-if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a reviewer that is neither claude nor codex is refused"; else fail "reviewer value"; fi
-settings '[seats]' 'reviewer = "claude"'
-err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "seats.reviewer is a table" <<<"$err"; then pass "the reviewer as a bare word is refused, with the table to write instead"; else fail "reviewer as a string: $err"; fi
-settings '[seats.reviewer]' 'model = "some-model"'
-if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a reviewer's model with no agent is refused"; else fail "model without agent"; fi
-settings '[seats.reviewer]' 'agent = "codex"' 'modle = "some-model"'
-if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "an unknown key of the reviewer's seat is refused"; else fail "unknown seat key"; fi
-# `effort` was the reviewer's effort for the review of a diff, which no step used: a file that still has it is read, and the key is not given
-settings '[seats.reviewer]' 'agent = "claude"' 'model = "some-model"' 'effort = "high"' 'plan_effort = "xhigh"'
-if [ "$(project --repo "$OLD" show | field 'd["seats"]["reviewer"]')" = "{'agent': 'claude', 'model': 'some-model', 'plan_effort': 'xhigh'}" ]; then
-  pass "the reviewer's seat names the agent, which may be the builder's family, its model and its effort for the plan talk; a file that still names an effort for the review of a diff is read, and that key is not used"
-else
-  fail "reviewer seat: $(project --repo "$OLD" show | field 'd["seats"]')"
-fi
-# The defender's seat: the agent of the plan talk's companion, only Claude Code while the harness was checked in no other.
+# A seat is one string, agent/model:effort: the effort, or the model and the effort, may be left out, and then
+# nothing is passed for it. show gives each seat parsed; the experts are two, in the two places of a choice's record.
+settings '[seats]' 'reviewer = "codex/gpt-6.1-sol:high"' 'planner = "claude/opus"' 'experts = ["claude/fable:high", "codex"]'
+seats=$(project --repo "$OLD" show | field '(d["seats"]["reviewer"], d["seats"]["planner"], [(e["agent"], e["model"], e["effort"], e["place"]) for e in d["seats"]["experts"]])' 2>&1 || true)
+settings '[seats]' 'reviewer = "codex:high"'
+no_model=$(project --repo "$OLD" show | field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"], d["seats"]["reviewer"]["effort"])' 2>&1 || true)
 settings '[branch]' 'base = "master"'
-unset_seat=$(project --repo "$OLD" show | field 'd["seats"]["planner"]' 2>&1 || true)
-settings '[seats.planner]' 'agent = "claude"' 'model = "a-model"' 'effort = "high"'
-set_seat=$(project --repo "$OLD" show | field 'd["seats"]["planner"]' 2>&1 || true)
-settings '[seats.planner]' 'agent = "codex"'
-codex_err=$(project --repo "$OLD" show 2>&1 || true)
-settings '[seats.planner]' 'model = "a-model"'
-agentless=$(status_of project --repo "$OLD" show)
-settings '[seats.planner]' 'agent = "claude"' 'plan_effort = "xhigh"'
-plan_effort_err=$(project --repo "$OLD" show 2>&1 || true)
-settings '[seats]' 'planner = "claude"'
-bare_err=$(project --repo "$OLD" show 2>&1 || true)
-settings '[seats.planner]' 'agent = "claude"' 'effort = ""'
-empty=$(status_of project --repo "$OLD" show)
-if [ "$unset_seat" = "{'agent': None, 'model': None, 'effort': None}" ] && [ "$set_seat" = "{'agent': 'claude', 'model': 'a-model', 'effort': 'high'}" ] \
-  && grep -q "seats.planner.agent = 'codex' must be claude" <<<"$codex_err" && grep -q "checked in Claude Code only" <<<"$codex_err" \
-  && [ "$agentless" = 1 ] && grep -q "unknown key seats.planner.plan_effort" <<<"$plan_effort_err" && grep -q "seats.planner is a table" <<<"$bare_err" \
-  && [ "$empty" = 1 ] && ! grep -q Traceback <<<"$codex_err$plan_effort_err$bare_err"; then
-  pass "the defender's seat names claude, a model and an effort, and nothing when unset; another agent, a model with no agent, a key of the reviewer's seat, a bare word and an empty value are refused"
+unset=$(project --repo "$OLD" show | field '(d["seats"]["reviewer"], d["seats"]["planner"]["agent"], [e["seat"] for e in d["seats"]["experts"]])' 2>&1 || true)
+if [ "$seats" = "({'agent': 'codex', 'model': 'gpt-6.1-sol', 'effort': 'high', 'seat': 'codex/gpt-6.1-sol:high'}, {'agent': 'claude', 'model': 'opus', 'effort': None, 'seat': 'claude/opus'}, [('claude', 'fable', 'high', 'fable'), ('codex', None, None, 'astra')])" ] \
+  && [ "$no_model" = "('codex', None, 'high')" ] \
+  && [ "$unset" = "({'agent': None, 'model': None, 'effort': None, 'seat': None}, None, ['claude/fable', 'codex/gpt-6-astra:high'])" ] \
+  && grep -qxF 'plan_file = "YYYY-MM-DD-<slug>.md"' "$NEW/.lem/project.toml" && grep -qxF 'reviewer = "codex"' "$NEW/.lem/project.toml" \
+  && grep -qxF '# experts = ["claude/fable", "codex/gpt-6-astra:high"]' "$NEW/.lem/project.toml"; then
+  pass "a seat is one string agent/model:effort, shown parsed: the effort or the model may be left out, the experts are two in the record's two places, and with no seat the reviewer is unset and the experts are Fable and GPT-6 Astra"
 else
-  fail "the defender's seat: $unset_seat / $set_seat / $codex_err / $agentless / $plan_effort_err / $bare_err / $empty"
+  fail "seats: $seats / $no_model / $unset"
 fi
+refused=""
+for bad in 'reviewer = ""' 'reviewer = "codex /gpt"' 'reviewer = "gemini/pro:high"' 'reviewer = "codex/"' 'reviewer = "codex/gpt:"' 'reviewer = "/gpt:high"' \
+           'reviewer = 3' 'planner = "codex/gpt:high"' 'experts = ["claude/fable"]' 'experts = "claude/fable"' 'experts = ["claude/fable", "gemini"]'; do
+  settings '[seats]' "$bad"
+  err=$(project --repo "$OLD" show 2>&1 || true)
+  if [ "$(status_of project --repo "$OLD" show)" != 1 ] || grep -q Traceback <<<"$err" || ! grep -q "agent/model:effort\|must be claude\|must be claude or codex" <<<"$err"; then refused="$refused [$bad: $err]"; fi
+done
+settings '[seats]' 'reviewer = "codex/gpt:"'
+no_effort=$(project --repo "$OLD" show 2>&1 || true)
+settings '[seats]' 'planner = "codex/gpt:high"'
+planner_codex=$(project --repo "$OLD" show 2>&1 || true)
+if [ -z "$refused" ] && grep -qF "names no effort after the \`:\`" <<<"$no_effort" && grep -qF "checked in Claude Code only" <<<"$planner_codex"; then
+  pass "a seat is refused empty, with a space, for an agent that cannot sit there, with a / or a : and nothing after it, and the experts as anything but two seats; each refusal names the form"
+else
+  fail "seat refusals:$refused / $no_effort / $planner_codex"
+fi
+# The tables of an older Lem are refused with the one line that says the same now.
+settings '[seats.reviewer]' 'agent = "codex"' 'model = "gpt-6.1-sol"' 'effort = "xhigh"' 'plan_effort = "high"'
+old_reviewer=$(project --repo "$OLD" show 2>&1 || true)
+settings '[seats.planner]' 'agent = "claude"' 'model = "opus"' 'effort = "high"'
+old_planner=$(project --repo "$OLD" show 2>&1 || true)
+settings '[seats.reviewer]' 'model = "gpt"'
+old_agentless=$(project --repo "$OLD" show 2>&1 || true)
+if grep -qF "[seats.reviewer] is one line now, \"agent/model:effort\". Write \`reviewer = \"codex/gpt-6.1-sol:high\"\` under [seats] in place of the [seats.reviewer] table" <<<"$old_reviewer" \
+  && grep -qF "its effort for the review of a diff was used by no step" <<<"$old_reviewer" \
+  && grep -qF "Write \`planner = \"claude/opus:high\"\` under [seats]" <<<"$old_planner" && grep -qF "Write \`reviewer = \"AGENT/gpt\"\`" <<<"$old_agentless" \
+  && [ "$(status_of project --repo "$OLD" show)" = 1 ]; then
+  pass "the seat tables of an older Lem are refused with the line to write under [seats], its effort for the plan talk as the effort"
+else
+  fail "older seat tables: $old_reviewer / $old_planner / $old_agentless"
+fi
+# The checks: [gate] is their older name, refused with the lines to write in its place.
+settings '[gate]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]'
+gate_err=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF "[gate] is called [checks] now" <<<"$gate_err" \
+  && [ "$(printf '%s\n' "$gate_err" | tail -4)" = "$(printf '%s\n' '[checks]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]')" ]; then
+  pass "a settings file with the older [gate] table is refused with the [checks] lines to write in its place, its own values in them"
+else
+  fail "the older [gate] table: $gate_err"
+fi
+# A plan's file name: paths.plan_file, YYYY-MM-DD-<slug>.md by default; a plan of the older name YYYYMMDD-<slug>.md is found too.
+settings '[branch]' 'base = "master"'
+mkdir -p "$OLD/docs/plans"
+built=$(project --repo "$OLD" plan-file gift-note --date 2026-11-17 | field '(d["name"], d["found"])')
+touch "$OLD/docs/plans/20261116-gift-note.md" "$OLD/docs/plans/20261116-gift-note-extra.md" "$OLD/docs/plans/2026-11-17-other.md"
+older=$(project --repo "$OLD" plan-file gift-note | field 'd["found"]')
+touch "$OLD/docs/plans/2026-11-17-gift-note.md"
+newer=$(project --repo "$OLD" plan-file gift-note | field 'd["found"]')
+settings '[paths]' 'plan_file = "<slug>-YYYYMMDD.md"'
+own=$(project --repo "$OLD" plan-file gift-note --date 2026-11-18 | field '(d["name"], d["found"])')
+touch "$OLD/docs/plans/gift-note-20261118.md"
+own_found=$(project --repo "$OLD" plan-file gift-note | field 'd["found"]')
+plan_refused=""
+for bad in 'plan_file = "YYYY-MM-DD.md"' 'plan_file = "plans/<slug>.md"' 'plan_file = "<slug>.txt"' 'plan_file = "<slug>-<date>.md"' 'plan_file = "<slug>-<slug>.md"' 'plan_file = ""' 'plan_file = "YYYY-YYYY-<slug>.md"'; do
+  settings '[paths]' "$bad"
+  err=$(project --repo "$OLD" show 2>&1 || true)
+  if [ "$(status_of project --repo "$OLD" show)" != 1 ] || ! grep -q "paths.plan_file" <<<"$err" || grep -q Traceback <<<"$err"; then plan_refused="$plan_refused [$bad: $err]"; fi
+done
+settings '[branch]' 'base = "master"'
+path_err=$(project --repo "$OLD" path plan_file 2>&1 || true)
+rm -f "$OLD"/docs/plans/*.md
+if [ "$built" = "('2026-11-17-gift-note.md', None)" ] && [ "$older" = "$OLD/docs/plans/20261116-gift-note.md" ] && [ "$newer" = "$OLD/docs/plans/2026-11-17-gift-note.md" ] \
+  && [ "$own" = "('gift-note-20261118.md', '$OLD/docs/plans/20261116-gift-note.md')" ] && [ "$own_found" = "$OLD/docs/plans/gift-note-20261118.md" ] \
+  && [ -z "$plan_refused" ] && grep -qF "paths.plan_file is the pattern of a plan's name, not a path" <<<"$path_err"; then
+  pass "a plan's name is paths.plan_file, YYYY-MM-DD-<slug>.md by default; a plan of the older YYYYMMDD-<slug>.md is found, the newest day wins, another task's plan is never it, and a pattern with no <slug>, a folder, another ending, an unknown or a twice-named token is refused"
+else
+  fail "plan file names: $built / $older / $newer / $own / $own_found /$plan_refused / $path_err"
+fi
+
 settings '[branch]' 'base = "v2"' 'protected = ["master", "develop"]'
 err=$(project --repo "$OLD" may-land master 2>&1 || true)
 unborn=$(project --repo "$OLD" may-land v2 2>&1 || true)
@@ -227,16 +274,16 @@ else
 fi
 settings '[branch]' 'base = ""'
 empty_base=$(project --repo "$OLD" show 2>&1 || true)
-settings '[gate]' 'commands = ["make test", " "]'
+settings '[checks]' 'commands = ["make test", " "]'
 blank_command=$(project --repo "$OLD" show 2>&1 || true)
-settings '[gate]' 'setup = [""]'
+settings '[checks]' 'setup = [""]'
 blank_setup=$(project --repo "$OLD" show 2>&1 || true)
 settings '[paths]' 'backlog = ""'
 root_backlog=$(project --repo "$OLD" show 2>&1 || true)
 settings '[paths]' 'worktrees = "."'
 root_worktrees=$(project --repo "$OLD" worktree-dir some-task 2>&1 || true)
-if grep -qF "branch.base = '' names no branch" <<<"$empty_base" && grep -qF "gate.commands holds an empty command" <<<"$blank_command" \
-  && grep -qF "gate.setup holds an empty command" <<<"$blank_setup" && grep -qF "paths.backlog = '' names the root of the checkout" <<<"$root_backlog" \
+if grep -qF "branch.base = '' names no branch" <<<"$empty_base" && grep -qF "checks.commands holds an empty command" <<<"$blank_command" \
+  && grep -qF "checks.setup holds an empty command" <<<"$blank_setup" && grep -qF "paths.backlog = '' names the root of the checkout" <<<"$root_backlog" \
   && grep -qF "paths.worktrees = '.' names the root of the checkout" <<<"$root_worktrees" && [ ! -e "$OLD/.gitignore" ] \
   && ! grep -q Traceback <<<"$empty_base$blank_command$blank_setup$root_backlog$root_worktrees"; then
   pass "an empty base branch, an empty command of the gate or its setup, and a path that is the root of the checkout are refused, each with what to write"
@@ -433,12 +480,12 @@ else
 fi
 
 # This machine's own settings: read from the main checkout in a worktree too, only seats and tools.
-settings '[branch]' 'base = "master"' '[seats.reviewer]' 'agent = "codex"' 'model = "the-usual" ' 'effort = "high"'
-out=$(project --repo "$WORK/wt" reviewer claude a-claude-model high)
-if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'plan_effort': 'high'}, ['seats.reviewer'])" ] \
-  && [ -f "$OLD/.lem/project.local.toml" ] && [ ! -e "$WORK/wt/.lem/project.local.toml" ] \
+settings '[branch]' 'base = "master"' '[seats]' 'reviewer = "codex/the-usual:high"'
+out=$(project --repo "$WORK/wt" reviewer claude/a-claude-model:high)
+if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'effort': 'high', 'seat': 'claude/a-claude-model:high'}, ['seats.reviewer'])" ] \
+  && [ -f "$OLD/.lem/project.local.toml" ] && [ ! -e "$WORK/wt/.lem/project.local.toml" ] && grep -qxF 'reviewer = "claude/a-claude-model:high"' "$OLD/.lem/project.local.toml" \
   && [ "$(project --repo "$OLD" show | field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"], d["local"]["file"])')" = "('claude', 'a-claude-model', '$OLD/.lem/project.local.toml')" ]; then
-  pass "reviewer, run in a worktree, writes this machine's seat in the main checkout; it replaces the project's seat whole and show says so"
+  pass "reviewer AGENT/MODEL:EFFORT, run in a worktree, writes this machine's seat in the main checkout in the same form; it replaces the project's seat whole and show says so"
 else
   fail "reviewer override: $out"
 fi
@@ -446,19 +493,21 @@ fi
 printf '%s\n' '[tools]' 'annotate = "/opt/my \"own\" rev-🚀\\x"' >> "$OLD/.lem/project.local.toml"
 project --repo "$OLD" reviewer claude >/dev/null
 out=$(project --repo "$OLD" reviewer default)
-if [ "$(field '(d["reviewer"]["agent"], d["reviewer"]["model"], d["local"]["overrides"])' <<<"$out")" = "('codex', 'the-usual', ['tools.annotate'])" ] \
+if [ "$(field '(d["reviewer"]["agent"], d["reviewer"]["model"], d["reviewer"]["effort"], d["local"]["overrides"])' <<<"$out")" = "('codex', 'the-usual', 'high', ['tools.annotate'])" ] \
   && [ "$(project --repo "$OLD" show | field 'd["tools"]["annotate"]')" = '/opt/my "own" rev-🚀\x' ] && ! grep -q "seats" "$OLD/.lem/project.local.toml"; then
   pass "reviewer default gives the project's reviewer back and keeps what else the machine set, character for character"
 else
   fail "reviewer default: $out / $(cat "$OLD/.lem/project.local.toml")"
 fi
-printf '%s\n' '[gate]' 'commands = []' > "$OLD/.lem/project.local.toml"
+printf '%s\n' '[checks]' 'commands = []' > "$OLD/.lem/project.local.toml"
 err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "\[gate\] is the project's rule" <<<"$err" \
+printf '%s\n' '[gate]' 'commands = []' > "$OLD/.lem/project.local.toml"
+old_err=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "\[checks\] is the project's rule" <<<"$err" && grep -qF "[gate] is called [checks] now" <<<"$old_err" \
   && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ]; then
-  pass "the machine's own file may not hold the gate or any other rule of the project"
+  pass "the machine's own file may not hold the checks or any other rule of the project, nor the checks' older table"
 else
-  fail "a gate in the local file: $err"
+  fail "the checks in the local file: $err / $old_err"
 fi
 printf '%s\n' '[tools]' 'ask = "my-asker"' > "$OLD/.lem/project.local.toml"
 if [ "$(project --repo "$OLD" show | field '(d["tools"]["ask"], d["tools"]["annotate"], d["local"]["overrides"])')" = "('my-asker', 'webrev', ['tools.ask'])" ]; then
@@ -488,30 +537,35 @@ if [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] && [ "$(status_o
 else
   fail "a number as the local annotate tool: $err"
 fi
+printf '%s\n' '[seats.reviewer]' 'agent = "codex"' > "$OLD/.lem/project.local.toml"
+old_local=$(project --repo "$OLD" reviewer default 2>&1 || true)
 rm "$OLD/.lem/project.local.toml"
-four=$(project --repo "$OLD" reviewer codex a b c 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && grep -qF "reviewer takes AGENT [MODEL [PLAN_EFFORT]]" <<<"$four" && [ ! -e "$OLD/.lem/project.local.toml" ]; then
-  pass "reviewer refuses an agent that cannot review and a fourth word, and writes nothing then"
+words=$(project --repo "$OLD" reviewer codex gpt-6.1-sol high 2>&1 || true)
+gemini=$(project --repo "$OLD" reviewer gemini/pro 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && grep -qF "reviewer takes one seat, \"agent/model:effort\", as \`reviewer codex/gpt-6.1-sol:high\`" <<<"$words" \
+  && grep -qF "the agent 'gemini' must be claude or codex" <<<"$gemini" && [ "$(status_of project --repo "$OLD" reviewer codex/)" = 1 ] && [ ! -e "$OLD/.lem/project.local.toml" ] \
+  && grep -qF "Write \`reviewer = \"codex\"\` under [seats] in place of the [seats.reviewer] table" <<<"$old_local"; then
+  pass "reviewer refuses an agent that cannot review, the older three words and a seat that does not parse, and writes nothing then; an older seat table already in the file is refused with its line"
 else
-  fail "reviewer refusals"
+  fail "reviewer refusals: $words / $gemini / $old_local"
 fi
 project --repo "$OLD" reviewer codex >/dev/null && project --repo "$OLD" reviewer default >/dev/null
 if [ ! -e "$OLD/.lem/project.local.toml" ]; then pass "a local file with nothing left in it is removed"; else fail "empty local file stays"; fi
-# One machine may name its own defender too, read from the main checkout, and a rewrite of the reviewer's seat keeps it.
-settings '[branch]' 'base = "master"' '[seats.planner]' 'agent = "claude"' 'model = "the-usual"' 'effort = "high"'
-printf '%s\n' '[seats.planner]' 'agent = "claude"' 'model = "a-local-model"' > "$OLD/.lem/project.local.toml"
-local_seat=$(project --repo "$WORK/wt" show | field '(d["seats"]["planner"], d["local"]["overrides"])' 2>&1 || true)
+# One machine may name its own defender and experts too, read from the main checkout, and a rewrite of the reviewer's seat keeps them.
+settings '[branch]' 'base = "master"' '[seats]' 'planner = "claude/the-usual:high"'
+printf '%s\n' '[seats]' 'planner = "claude/a-local-model"' 'experts = ["claude/opus:high", "codex/gpt-6.1-sol:high"]' > "$OLD/.lem/project.local.toml"
+local_seat=$(project --repo "$WORK/wt" show | field '(d["seats"]["planner"], [e["seat"] for e in d["seats"]["experts"]], d["local"]["overrides"])' 2>&1 || true)
 project --repo "$OLD" reviewer codex >/dev/null 2>&1 || true
-both=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["seats"]["reviewer"]["agent"], d["local"]["overrides"])' 2>&1 || true)
+both=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["seats"]["reviewer"]["agent"], len(d["seats"]["experts"]), d["local"]["overrides"])' 2>&1 || true)
 project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
 kept=$(project --repo "$OLD" show | field '(d["seats"]["planner"]["model"], d["local"]["overrides"])' 2>&1 || true)
-printf '%s\n' '[seats.planner]' 'agent = "codex"' > "$OLD/.lem/project.local.toml"
+printf '%s\n' '[seats]' 'planner = "codex"' > "$OLD/.lem/project.local.toml"
 err=$(project --repo "$OLD" reviewer claude 2>&1 || true)
-if [ "$local_seat" = "({'agent': 'claude', 'model': 'a-local-model', 'effort': None}, ['seats.planner'])" ] \
-  && [ "$both" = "('a-local-model', 'codex', ['seats.reviewer', 'seats.planner'])" ] && [ "$kept" = "('a-local-model', ['seats.planner'])" ] \
-  && grep -q "project.py: .lem/project.local.toml: seats.planner.agent = 'codex' must be claude" <<<"$err" \
-  && [ "$(cat "$OLD/.lem/project.local.toml")" = "$(printf '%s\n' '[seats.planner]' 'agent = "codex"')" ]; then
-  pass "the machine's own file may name the defender's seat, which replaces the project's whole and show says so; reviewer keeps it through a rewrite, and refuses a wrong one already there, leaving the file as it was"
+if [ "$local_seat" = "({'agent': 'claude', 'model': 'a-local-model', 'effort': None, 'seat': 'claude/a-local-model'}, ['claude/opus:high', 'codex/gpt-6.1-sol:high'], ['seats.planner', 'seats.experts'])" ] \
+  && [ "$both" = "('a-local-model', 'codex', 2, ['seats.reviewer', 'seats.planner', 'seats.experts'])" ] && [ "$kept" = "('a-local-model', ['seats.planner', 'seats.experts'])" ] \
+  && grep -qF "project.py: .lem/project.local.toml: seats.planner = 'codex': the agent 'codex' must be claude" <<<"$err" \
+  && [ "$(cat "$OLD/.lem/project.local.toml")" = "$(printf '%s\n' '[seats]' 'planner = "codex"')" ]; then
+  pass "the machine's own file may name the defender's seat and the experts, which replace the project's whole and show says so; reviewer keeps them through a rewrite, and refuses a wrong one already there, leaving the file as it was"
 else
   fail "the defender's seat in the local file: $local_seat / $both / $kept / $err"
 fi
@@ -1055,7 +1109,7 @@ if grep -q 'criterion 3: `sh export.sh` passes on the base commit too, so it doe
 else
   fail "criteria red refusals: $weak / $writes / $helper / $unstarted / $folder / $bare / $said / $dirty"
 fi
-# A test that needs what a fresh worktree lacks is named as such, and the settings' gate.setup makes it.
+# A test that needs what a fresh worktree lacks is named as such, and the settings' checks.setup makes it.
 echo 'test -f .made-by-setup && sh export.sh | grep -q "1042,for Ania"' > "$stw/tests/env.sh" && git -C "$stw" add -A && git -C "$stw" commit -q -m "test: one that needs a setup" && before=$(git -C "$stw" rev-parse HEAD)
 # shellcheck disable=SC2016
 lacks=$(story3 '3. The export has the note, in a set-up worktree.' '   - test: `sh tests/env.sh` in `tests/env.sh`')
@@ -1069,13 +1123,13 @@ sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/
 git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-tip" main && git -C "$ST" worktree lock "$ST/.lem/worktrees/export-has-the-gift-note.red-tip"
 git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-999999" main
 criteria red export-has-the-gift-note >/dev/null
-if grep -q "fails in a fresh worktree of the branch (exit 1). If it passes in the task's worktree, it needs something a fresh one lacks: put the commands that make it into gate.setup" <<<"$lacks" \
+if grep -q "fails in a fresh worktree of the branch (exit 1). If it passes in the task's worktree, it needs something a fresh one lacks: put the commands that make it into checks.setup" <<<"$lacks" \
   && [ "$made" = "(True, [{'on': 'branch', 'command': 'touch .made-by-setup', 'exit': 0}, {'on': 'base', 'command': 'touch .made-by-setup', 'exit': 0}], None)" ] \
-  && grep -q "of gate.setup failed in a fresh worktree of the branch (exit 3)" <<<"$broken" \
+  && grep -q "of checks.setup failed in a fresh worktree of the branch (exit 3)" <<<"$broken" \
   && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ] && [ "$(git -C "$ST" worktree list | grep -c '')" = 2 ]; then
-  pass "a test that needs what a fresh worktree lacks is named as such and not taken for proof; the settings' gate.setup makes it in each of the two worktrees; a setup command that fails stops the check; and a worktree that a killed run left is removed"
+  pass "a test that needs what a fresh worktree lacks is named as such and not taken for proof; the settings' checks.setup makes it in each of the two worktrees; a setup command that fails stops the check; and a worktree that a killed run left is removed"
 else
-  fail "criteria red and gate.setup: $lacks / $made / $broken / $(git -C "$ST" worktree list)"
+  fail "criteria red and checks.setup: $lacks / $made / $broken / $(git -C "$ST" worktree list)"
 fi
 # Each run has a worktree and a setup of its own, so what a test writes on the branch does not reach the base run;
 # the result names the files of the branch that the base run lacked.
@@ -1128,7 +1182,7 @@ sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/
 # shellcheck disable=SC2016
 if grep -q 'criterion 3: `sh tests/state.sh` passes on the base commit too' <<<"$state" && [ "$lacked" = "(True, False, True)" ] \
   && [ "$hooked" = 1 ] && [ "$watched" = "True 0" ] && [ "$after_hook" = 2 ] && [ "$locked" = True ] && [ "$after_lock" = "2 0" ] \
-  && grep -q "of gate.setup failed in a fresh worktree of the branch (exit 3)" <<<"$stuck" && grep -q "red-tip could not be removed; remove it yourself: git -C" <<<"$stuck" && [ "$after_stuck" = "2 0" ] \
+  && grep -q "of checks.setup failed in a fresh worktree of the branch (exit 3)" <<<"$stuck" && grep -q "red-tip could not be removed; remove it yourself: git -C" <<<"$stuck" && [ "$after_stuck" = "2 0" ] \
   && grep -q "another check of this task's criteria runs now" <<<"$second" \
   && [ "$started" -ge 1 ] && [ "$left" = 0 ] && [ "$after_stop" = "2 0" ] && grep -q "the check was stopped, and its commands are ended; its worktrees are removed" "$WORK/stopped.out"; then
   pass "each run of the check has a worktree and a setup of its own, and the result names what the base run lacked; a failed hook, a locked worktree and a stopped check leave no worktree and no process; and a second check of one task waits"

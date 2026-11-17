@@ -14,8 +14,8 @@ may-land` about the settings' base branch, so a protected branch is never reache
     land.py polish SLUG    the polish pass starts: what its builder gets, and the tip it starts at
     land.py polish SLUG --done
                            after the polish builder: what it committed is checked, and logged
-    land.py gate SLUG      the machine checks on the tip: every gate command, each criterion's tests,
-                           the bar, the size
+    land.py checks SLUG    the machine checks on the tip: every command of the checks, each
+                           criterion's tests, the bar, the size
     land.py read SLUG      whether a review is due, the least it may be, and what a reviewer gets
     land.py read SLUG --record FILE
                            write down what the review was and what it found
@@ -38,21 +38,23 @@ What each step keeps for the next is in `landing.json` in the task's directory: 
 branch, the base it was rebased on, the commit and tree the checks passed on, each review, and
 the pull request. Three steps log the start of what they start, so that the board's time card has
 a start and an end for each: `polish` logs `polish.start` when a pass starts (not again for a
-second start of the same pass), `gate` logs `gate.start` before its first command, and `read`
-logs `review.start` once for the attempt that is due; `polish --done`, the gate's results and
-`read --record` are their ends.
+second start of the same pass), `checks` logs `gate.start` before its first command, and `read`
+logs `review.start` once for the attempt that is due; `polish --done`, the results of the checks
+and `read --record` are their ends. The checks keep the names their step had before it was called
+the checks: the events `gate` and `gate.start`, the folder `gate/` of a task's directory and
+`gated` in `landing.json`, which open tasks, the board and `meta.js` read.
 
 A small change has no plan: its one acceptance criterion is `criteria.md` in the task directory
 (`criteria.py` gives `small`), which the steps read in the plan's place. It is one task and never gets a polish
 pass (`polish` refuses it): its builder files each defect it saw outside the change in the backlog
 folder, in a commit of its own, and the pull request lists each file the branch adds there. It has
-no reason for a lowered bar (the gate refuses one: a lowered bar is a full change's), and its pull
+no reason for a lowered bar (the checks refuse one: a lowered bar is a full change's), and its pull
 request's text is short. One that is careful after all is not green, since it took the short path
 with no interview, read or plan.
 
-The machine checks have no model in them. `gate` runs the settings' `gate.commands`, the whole
+The machine checks have no model in them. `checks` runs the settings' `checks.commands`, the whole
 suite, which runs here one time and in no builder; then, when they all passed, each command of
-`gate.alone`, the ones that need the machine to themselves (an end-to-end suite on fixed ports, one
+`checks.alone`, the ones that need the machine to themselves (an end-to-end suite on fixed ports, one
 database, a browser), each under the repository's one lock for them through `project.py alone`,
 which waits while a builder or another check holds it; then `criteria.py red` (each criterion's tests pass on the branch and fail on the base commit), then the
 bar. A change lowers the bar when it adds a lint or type suppression, a skipped test or a mark
@@ -61,20 +63,20 @@ assertions in one (counted by the words `assert` and `expect` on the lines it ad
 the code). A mark counts when the change leaves more of it in a file than the file had, so a
 line that only moved is no new mark; a mark whose own text changed is a new one. A lowered bar passes only with a reason for that file under
 `## The bar` in the task's plan, as `- PATH: REASON`. The marks looked for are those of Python, JavaScript and
-TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `gate.bar` patterns for any
+TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `checks.bar` patterns for any
 file that is not a document. A changed file of another language gets no such check, and the
 result says which (`not_covered`). The size of the change is counted, for the reviewer.
 
-Each gate command runs in a process group of its own, with no standard input; the group is ended
+Each command of the checks runs in a process group of its own, with no standard input; the group is ended
 when the command ends, so a server or a `sleep` it left behind does not outlive it, and when the
-gate is stopped (a signal, an interrupt) the command that runs is ended with its group and the
-gate exits 1 with no result kept. A gate with no command to run is refused, since a gate that ran nothing shows nothing; so is one
+checks are stopped (a signal, an interrupt) the command that runs is ended with its group and the
+step exits 1 with no result kept. Checks with no command to run are refused, since checks that ran nothing show nothing; so is one
 whose command changed a tracked file or made a commit on the branch, since its result is then
 about another tree. A file its commands wrote that git neither tracks nor ignores (Python's bytecode
-in a repository with no rule for it) is the run's output, and nothing of it lands: the gate notes
+in a repository with no rule for it) is the run's output, and nothing of it lands: the step notes
 what git does not know before its first command, removes after its last each such file that was
 not there before and each folder that leaves empty, names them in its output (`removed_untracked`)
-and in one line of the last command's output file, and goes on. What the gate keeps is the tip it
+and in one line of the last command's output file, and goes on. What the checks keep is the tip they
 ran on and that tip's tree.
 
 An `open` task takes the line again when its base moved: after a merge of another task, Lem takes
@@ -95,16 +97,16 @@ reviewed as a change like any other.
 `start` refuses a worktree on no branch: `propose` pushes the task's branch and `clean` deletes
 it. Two `start`s at one moment take turns: each reads the tasks' states and writes `landing` under a
 lock of the state folder (`landing.lock`), so the second finds the first in `landing` and is
-refused. With no gate command it writes the task's state `blocked`, and a later `start` takes that task
+refused. With no command of the checks it writes the task's state `blocked`, and a later `start` takes that task
 back once the commands are there. A task in `landing` holds the line for every other; each
 refusal on the way names the step out, also when its worktree is gone.
 
-The gate is the main checkout's. One task may bring its own: when the main checkout's settings
-name no gate command and the task's branch adds them to its `.lem/project.toml` (they are not on
-the base commit), `start` and `gate` take those commands, as for the first task of a new
+The checks are the main checkout's. One task may bring its own: when the main checkout's settings
+name no command of the checks and the task's branch adds them to its `.lem/project.toml` (they are not on
+the base commit, under `[checks]` or under the older name `[gate]`), `start` and `checks` take those commands, as for the first task of a new
 repository, "set up the checks"; the request is then not green, so that a person reads the
-checks once. The rest of the branch's settings, its `gate.ignores`, `gate.bar` and `gate.setup`
-too, are not read. A branch that changes a gate the main checkout has is gated by the main
+checks once. The rest of the branch's settings, its `checks.ignores`, `checks.bar` and `checks.setup`
+too, are not read. A branch that changes checks the main checkout has is checked by the main
 checkout's.
 
 The polish pass comes after the task's own work and before the machine checks, so that the
@@ -119,7 +121,7 @@ nobody committed, a branch that no longer holds that tip, a pass that leaves a c
 file or the plan other than it found them, and tests of the criteria that no longer pass on the branch and fail on
 the base commit (`criteria.py red`, run when the pass committed anything). Otherwise it logs one
 `polish` event (the tip before and after, the count of commits, the items it added to the
-backlog folder). `gate` refuses a full change with no pass of this landing whose last commit the
+backlog folder). `checks` refuses a full change with no pass of this landing whose last commit the
 tip holds, and any task whose pass started and is not done. Every task with a plan is a full
 change: `criteria.py` refuses a plan that says `Size: small`, and so does every step here that
 reads the criteria. The commits
@@ -143,7 +145,7 @@ when the plan says so (its `careful: yes` under its title, in its text now or in
 branch: a later commit does not take the yes back), when the newest review that answered says so,
 or when the change edits `.lem/project.toml` at all. The last is the one rule this script matches
 by itself, because the file is Lem's own and a task rarely edits it: its tables say, for every
-later task, what is careful, what the gate runs, who merges and where a task lands, and the reason
+later task, what is careful, what the checks run, who merges and where a task lands, and the reason
 names each table whose values the change edits, that only its text changed, or that the file is
 gone. A change that adds, changes or removes `.lem/project.local.toml` is careful by the same rule:
 that file is one machine's own and is not to be tracked. The review is the look at the diff itself, by
@@ -188,7 +190,7 @@ for each such defect of a review that has none yet, in the item format of the `l
 (`worth: later`, its `where`, the day it was filed; its title; its run and where it was seen),
 commits the new items on the task's branch, one commit for each round, and keeps the path of
 each defect's item in `landing.json`. A second run files nothing new. Those commits ask for no
-gate again: `read` and `propose` take the gate's result for a tip whose commits after the gated
+check again: `read` and `propose` take the checks' result for a tip whose commits after the checked
 one only add items whose paths `landing.json` keeps, and keep the result for that tip, so that
 `land` finds what it checks. An item written by hand is a commit like any other. `read` names
 the defects that have no item yet (`to_file`), and `propose` refuses while one has none or while an item is
@@ -242,7 +244,7 @@ newest `criteria.read` event (`project.py log` gives its form): how many of the 
 answered, in which model families, who did not answer and why, how many criteria they flagged,
 whether the families split, and when the owner approved them (`criteria.py approve`), or that the
 build started with no wait for the owner.
-When the criteria the read names by their digest are not the plan's (which the gate makes the expected
+When the criteria the read names by their digest are not the plan's (which the checks make the expected
 ones), one more line says that they changed after the read, by a later approval of the owner's or by
 a change of the build, and that the change was not read; that line is no cause of not green. A
 task whose scout read the code has one line that says the criteria were written from its facts.
@@ -295,7 +297,7 @@ that is not reviewed among them), and for one whose newest review that answered 
 call. A
 pull request is merged through the forge, so the forge's own rules hold; `merged` is for one the
 owner merged by hand. What lands is the tree the checks passed on: when the tip is another tree,
-or the base moved by more than the paths the settings' `gate.ignores` name, `land` refuses and
+or the base moved by more than the paths the settings' `checks.ignores` name, `land` refuses and
 says which steps run again.
 
 A step that was cut off is run again. `land` writes down the commit it is about to put on the base
@@ -347,12 +349,14 @@ KINDS = ("read", "round", "full")
 KIND_SAYS = {"read": "one read", "round": "a review round with the profiles that fit", "full": "the project's full set"}
 # The line Lem writes into a task's brief when the owner says that the task is careful.
 OVERRULED = "careful: the owner says so"
-# The state line `start` writes when the project has no gate command; a task blocked with it is
-# the one `start` takes back once the commands are there.
-NO_GATE = "the project has no gate command"
+# The state line `start` writes when the project has no command of its checks; a task blocked with
+# it is the one `start` takes back once the commands are there. A task an older Lem blocked has the
+# line it wrote then, which is taken back too; a later change may drop it once no such task is open.
+NO_GATE = "the project has no command in its checks"
+OLD_NO_GATE = "the project has no gate command"
 # The steps that take a tip from the start to a proposal, which a refusal of `land` names when the
 # tip, the base or the tree is not the one on record.
-AGAIN = "run `land.py start`, `land.py base`, `land.py gate` and `land.py propose` again"
+AGAIN = "run `land.py start`, `land.py base`, `land.py checks` and `land.py propose` again"
 # How many changed lines one reader takes as one piece; a larger change is read task by task, in
 # the plan's own cuts. A guess (2026-11-15), not a measurement.
 READ_AT = 800
@@ -363,7 +367,7 @@ LARGE_AFTER = 3
 # one line under the plan's title, before its first `##` heading. A line further down is no call:
 # the plan talk's record or a fenced block may quote one.
 PLAN_CALL = re.compile(r"(?mi)^careful:\s*(yes|no)\b")
-# Lem's own settings: what must never go wrong, what the gate runs, who merges, where a task lands.
+# Lem's own settings: what must never go wrong, what the checks run, who merges, where a task lands.
 # Any edit of the file is careful by this script, not by a judgment: the file is Lem's, a task
 # rarely edits it, and every table of it guards something for every later task (audit A1,
 # 2026-11-17: a branch that set `branch.land` to "agent" got one read and a green pull request).
@@ -486,7 +490,7 @@ class Task:
         self.settings = json.loads(script("project.py", repo, "show").stdout)
         if Path(self.settings["root"]).resolve() != Path(self.settings["main"]).resolve():
             # Run from a task's worktree, the landing still reads the main checkout's settings:
-            # the branch it lands does not get to choose its gate or what is careful.
+            # the branch it lands does not get to choose its checks or what is careful.
             self.settings = json.loads(script("project.py", Path(self.settings["main"]), "show").stdout)
         if self.settings["settings"] is None:
             raise LandError("this repository has no .lem/project.toml; `/lem init` writes it")
@@ -544,9 +548,9 @@ class Task:
             raise LandError(f"the worktree has changes nobody committed:\n{dirty}\ncommit them or remove them before this step")
 
     def blocked_by_start(self) -> bool:
-        """Whether the task is `blocked` by `start` itself, for want of a gate command."""
+        """Whether the task is `blocked` by `start` itself, for want of a command of the checks."""
         block = self.record.get("state") or ""
-        return self.record["status"] == "blocked" and block.splitlines()[0].endswith(f" blocked: {NO_GATE}")
+        return self.record["status"] == "blocked" and block.splitlines()[0].endswith((f" blocked: {NO_GATE}", f" blocked: {OLD_NO_GATE}"))
 
     def need_landing(self) -> None:
         if self.record["status"] != "landing":
@@ -579,21 +583,23 @@ class Task:
         return self.recorded
 
     def gate(self) -> tuple[list[str], bool]:
-        """The gate commands of this task, and whether its own branch brought them: the main
+        """The commands of this task's checks, and whether its own branch brought them: the main
         checkout's, unless those are none and the branch adds some to its `.lem/project.toml`."""
-        own = self.settings["gate"]["commands"]
+        own = self.settings["checks"]["commands"]
         if own or not (self.worktree / ".git").exists():
             return own, False
         if self.branch_gate is None:
             # asked twice by one proposal (the text and its reasons), and kept: no step writes the branch's settings
-            self.branch_gate = json.loads(script("project.py", self.worktree, "show").stdout)["gate"]["commands"]
+            self.branch_gate = json.loads(script("project.py", self.worktree, "show").stdout)["checks"]["commands"]
         tip = self.branch_gate
         if not tip:
             return [], False
         base = git(self.worktree, "merge-base", "HEAD", self.onto, check=False)
         before = git(self.worktree, "show", f"{base}:.lem/project.toml", check=False) if base else ""
         try:
-            on_base = tomllib.loads(before).get("gate", {}).get("commands", []) if before else []
+            # the base commit's file may name the table as an older Lem did, `[gate]`
+            parsed = tomllib.loads(before) if before else {}
+            on_base = (parsed.get("checks") or parsed.get("gate") or {}).get("commands", [])
         except tomllib.TOMLDecodeError:
             on_base = []
         return (tip, True) if not on_base else ([], False)
@@ -647,7 +653,7 @@ def start_locked(task: Task, after: str | None = None) -> dict:
             f"{other} is in `landing`: one branch lands at a time, so finish that one first. When it cannot go on (its worktree or its work is gone), "
             f"`project.py state {other} ready --start-over \"WHY\"` gives the line back and its landing starts over, or `project.py state {other} dropped \"WHY\"` ends it",
         )
-    # a task `start` blocked for want of a gate command is taken back as a `ready` one
+    # a task `start` blocked for want of a command of the checks is taken back as a `ready` one
     again = task.blocked_by_start()
     if task.record["status"] not in ("ready", "landing", "open") and not again:
         raise LandError(f"the task is {task.record['status']!r}; only a `ready` task, or an `open` one whose base moved, takes the landing line")
@@ -659,7 +665,7 @@ def start_locked(task: Task, after: str | None = None) -> dict:
             task.state("blocked", NO_GATE)
         raise LandError(
             f"{NO_GATE}, so nothing would show that the change works; the task is `blocked`. "
-            "Add the commands to gate.commands in .lem/project.toml, or, for the task that sets up the checks, in its own branch's, "
+            "Add the commands to checks.commands in .lem/project.toml, or, for the task that sets up the checks, in its own branch's, "
             f"then run `land.py start {task.slug}` again",
         )
     task.need_worktree()
@@ -738,7 +744,7 @@ def cmd_base(task: Task) -> dict:
     origin = pending["before"] if pending else before
     if tip != origin and task.kept().get("polish"):
         # The rebase rewrote the commits the polish pass names; each takes its new name, so that
-        # the gate still finds the pass on the tip it checks.
+        # the checks still find the pass on the tip they check.
         task.keep(polish=through_rebase(task, task.kept()["polish"], origin, tip, onto))
     now = change(task)
     updates: dict = {"base": onto, "gated": None, "tree": None, "conflict": None}
@@ -758,7 +764,7 @@ def cmd_base(task: Task) -> dict:
         updates["reads"] = reads
     if kept.get("sync"):
         updates["sync"] = {**task.kept()["sync"], "onto": onto[:9], "moved": tip != origin, "resolved": resolved or task.kept()["sync"].get("resolved", False)}
-    # a new base or a new tip means the gate's last result is about another tree
+    # a new base or a new tip means the last result of the checks is about another tree
     task.keep(**updates)
     return {"task": task.slug, "onto": task.onto, "base": onto, "tip": tip, "moved": tip != before, "ahead": ahead, "resolved": pending["files"] if resolved else None}
 
@@ -771,7 +777,7 @@ def holds_commit(task: Task, commit: str | None, tip: str) -> bool:
 def through_rebase(task: Task, polish: dict, before: str, tip: str, onto: str) -> dict:
     """The polish pass's record after a rebase by `base`: each commit it names, by its place from
     the tip. A rebase keeps the branch's commits one for one, unless one became empty and was
-    dropped; then no place is sure, the names are dropped, and the gate asks for the pass again."""
+    dropped; then no place is sure, the names are dropped, and the checks ask for the pass again."""
     same = int(git(task.worktree, "rev-list", "--count", f"{onto}..{before}")) == int(git(task.worktree, "rev-list", "--count", f"{onto}..{tip}"))
     moved = dict(polish)
     for key in ("before", "after"):
@@ -799,7 +805,7 @@ def cmd_polish(task: Task, done: bool) -> dict:
     if found["small"]:
         raise LandError(
             f"a small change has no polish pass: its builder filed in the backlog what it saw outside the change, in a commit of its own, "
-            f"and the review reads every line of it. `land.py gate {task.slug}` is the next step",
+            f"and the review reads every line of it. `land.py checks {task.slug}` is the next step",
         )
     kept = task.kept()
     if "base" not in kept:
@@ -872,7 +878,7 @@ def cmd_polish(task: Task, done: bool) -> dict:
 
 
 def polish_missing(task: Task, tip: str, found: dict) -> str | None:
-    """Why the gate may not run on this tip for want of the polish pass; none when it may. A full
+    """Why the checks may not run on this tip for want of the polish pass; none when it may. A full
     change, which is every task with a plan, needs a pass of this landing whose last commit the tip holds,
     and a pass that started and is not done stops it: a builder may still be at work. A small
     change never has one."""
@@ -1082,12 +1088,12 @@ def plan_careful(task: Task) -> bool:
 
 def settings_edit(task: Task, now: dict) -> str | None:
     """Why the change is careful by its edit of Lem's own settings: any edit of `.lem/project.toml`,
-    whose tables, once landed, say for every later task what is careful, what the gate runs, who
+    whose tables, once landed, say for every later task what is careful, what the checks run, who
     merges and where a task lands. The reason names each table whose values change, or says that
     only the file's text does. None when the change leaves the file alone."""
     if SETTINGS_FILE not in now["files"]:
         return None
-    guards = "Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+    guards = "Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
     if not in_commit(task, now["tip"], SETTINGS_FILE):
         # removed, or moved away: no table of it is edited, the whole file is gone
         return f"the change removes {SETTINGS_FILE}, {guards}"
@@ -1163,7 +1169,7 @@ def tasks_of(plan: str) -> int:
 
 def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     """Where the change lowers the bar, each with the reason the plan gives for that file, or none."""
-    extra = [re.compile(pattern) for pattern in task.settings["gate"]["bar"]]
+    extra = [re.compile(pattern) for pattern in task.settings["checks"]["bar"]]
     section = re.search(r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)", plan)
     reasons = {found.group(1).strip(): found.group(2).strip() for found in re.finditer(r"(?m)^-\s+`?([^`:\n]+?)`?:\s+(\S.*)$", section.group(1))} if section else {}
     lowered: list[dict] = []
@@ -1217,11 +1223,11 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     return {"lowered": lowered, "not_covered": not_covered, "own_patterns": len(extra)}
 
 
-def cmd_gate(task: Task) -> dict:
+def cmd_checks(task: Task) -> dict:
     task.need_landing()
     task.need_worktree()
     if "base" not in task.kept():
-        raise LandError(f"`land.py base {task.slug}` comes first: the gate runs on the tip that will land")
+        raise LandError(f"`land.py base {task.slug}` comes first: the checks run on the tip that will land")
     tip = git(task.worktree, "rev-parse", "HEAD")
     # Before any command runs: the review reads the code as it will merge, so the polish pass comes first.
     try:
@@ -1236,8 +1242,8 @@ def cmd_gate(task: Task) -> dict:
         # `start` refuses a project with none; the main checkout's settings may lose them after it
         task.keep(gated=None, tree=None)
         raise LandError(
-            f"the gate has no command to run, and a gate that ran nothing shows nothing: {NO_GATE} in the main checkout's .lem/project.toml, "
-            f"and the branch brings none that the base commit lacks. Add the commands to gate.commands there, then run `land.py gate {task.slug}` again",
+            f"the checks have no command to run, and checks that ran nothing show nothing: {NO_GATE} in the main checkout's .lem/project.toml, "
+            f"and the branch brings none that the base commit lacks. Add the commands to checks.commands there, then run `land.py checks {task.slug}` again",
         )
     logs = task.directory / "gate"
     logs.mkdir(exist_ok=True)
@@ -1248,7 +1254,8 @@ def cmd_gate(task: Task) -> dict:
     # the start of the checks: the board draws them from here to their last result
     # The commands that need the machine to themselves come after the others, each under the
     # repository's one lock for them (`project.py alone`), and only when the others passed.
-    alone = task.settings["gate"].get("alone", [])
+    # The output folder and the events keep the step's older name, `gate`, which the board reads.
+    alone = task.settings["checks"]["alone"]
     script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands) + len(alone)}")
     results = []
     running: list[subprocess.Popen] = []
@@ -1278,7 +1285,7 @@ def cmd_gate(task: Task) -> dict:
     except KeyboardInterrupt:
         end_group(running)
         task.keep(gated=None, tree=None)
-        raise LandError(f"the gate was stopped, and the command that ran is ended with what it started; `land.py gate {task.slug}` runs it again") from None
+        raise LandError(f"the checks were stopped, and the command that ran is ended with what it started; `land.py checks {task.slug}` runs them again") from None
     finally:
         end_group(running)
         signal.signal(signal.SIGTERM, before)
@@ -1292,29 +1299,29 @@ def cmd_gate(task: Task) -> dict:
         remove_left(task, path)
     if removed:
         with output.open("a", encoding="utf-8") as handle:
-            handle.write(f"land.py removed what the gate's commands left untracked: {', '.join(removed)}\n")
-    # A gate command that changed a tracked file, or made a commit, changed the tree it just judged.
+            handle.write(f"land.py removed what the commands of the checks left untracked: {', '.join(removed)}\n")
+    # A command of the checks that changed a tracked file, or made a commit, changed the tree it just judged.
     dirty = git(task.worktree, "status", "--porcelain")
     if green and dirty:
         task.keep(gated=None, tree=None)
         raise LandError(
-            f"a gate command changed what git tracks, so its result is about another tree:\n{dirty}\n"
-            f"put the files back (`git -C {task.worktree} checkout -- FILE`) and make the gate command change no tracked file, then run this again",
+            f"a command of the checks changed what git tracks, so its result is about another tree:\n{dirty}\n"
+            f"put the files back (`git -C {task.worktree} checkout -- FILE`) and make the command change no tracked file, then run this again",
         )
     moved = git(task.worktree, "rev-parse", "HEAD")
     if green and moved != tip:
         task.keep(gated=None, tree=None)
         raise LandError(
-            f"a gate command made a commit on the branch ({tip[:9]}..{moved[:9]}), so its result is about another tree: "
-            f"make the gate command commit nothing, put the branch back with `git -C {task.worktree} reset --hard {tip}`, then run this again",
+            f"a command of the checks made a commit on the branch ({tip[:9]}..{moved[:9]}), so its result is about another tree: "
+            f"make the command commit nothing, put the branch back with `git -C {task.worktree} reset --hard {tip}`, then run this again",
         )
     result = {"task": task.slug, "tip": tip, "green": green, "commands": results, "removed_untracked": removed, "polish": task.kept().get("polish")}
     if not green:
         task.keep(gated=None, tree=None)
         print(json.dumps(result, indent=2))
         red = [r["command"] for r in results if r["exit"] != 0]
-        raise LandError(f"the gate is red on {len(red)} command(s): {'; '.join(red)}. A builder reads the output files; the gate is never edited to pass")
-    # The gate's commands are green. Now what no command of the project checks: that each criterion is
+        raise LandError(f"the checks are red on {len(red)} command(s): {'; '.join(red)}. A builder reads the output files; the checks are never edited to pass")
+    # The commands of the checks are green. Now what no command of the project checks: that each criterion is
     # held by a test that fails without the change, and that the change did not lower the bar.
     task.keep(gated=None, tree=None)
     held = script("criteria.py", task.main, "red", task.slug, check=False)
@@ -1381,7 +1388,7 @@ def untracked(task: Task) -> list[str]:
 
 
 def remove_left(task: Task, path: str) -> None:
-    """Remove one file a gate command left untracked, and each folder above it that it leaves
+    """Remove one file a command of the checks left untracked, and each folder above it that it leaves
     empty, up to the worktree's root. A link is removed as a link, never followed."""
     root = task.worktree.resolve()
     file = root / path
@@ -1400,7 +1407,7 @@ def remove_left(task: Task, path: str) -> None:
 
 
 def ignored(task: Task, files: list[str]) -> bool:
-    patterns = task.settings["gate"]["ignores"]
+    patterns = task.settings["checks"]["ignores"]
     return all(any(fnmatch.fnmatchcase(file, pattern) for pattern in patterns) for file in files)
 
 
@@ -1560,7 +1567,7 @@ def polished(polish: dict | None) -> str:
     if polish and polish.get("done"):
         commits, filed = polish["commits"], len(polish["filed"])
         return f"- the polish pass: {commits} commit{'' if commits == 1 else 's'}, {filed} item{'' if filed == 1 else 's'} filed in the backlog"
-    # the gate refuses a full change with no pass, so only a record from before the pass existed is here
+    # the checks refuse a full change with no pass, so only a record from before the pass existed is here
     return "- the polish pass: none on record"
 
 
@@ -1679,7 +1686,7 @@ def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dic
 
 def unread(read: dict | None, found: dict) -> str | None:
     """The line that says the criteria are not the ones the personas read, and what changed them.
-    The plan's criteria are the expected ones (the gate refuses any other), so they are compared."""
+    The plan's criteria are the expected ones (the checks refuse any other), so they are compared."""
     if read is None or not read["answered"] or found["criteria_digest"] == read["digest"]:
         return None
     # an approval of his after the read changed the criteria only when it holds other criteria than the read did
@@ -1698,11 +1705,11 @@ def named(value: object, where: str) -> list[dict]:
 
 
 def gate_holds(task: Task, tip: str) -> bool:
-    """Whether the gate's result holds for `tip`: the tip is the commit it passed on, or that commit
+    """Whether the result of the checks holds for `tip`: the tip is the commit they passed on, or that commit
     with commits after it that only add the backlog items `file` wrote for this landing's reviews.
-    Those hold no code and no test, so they ask for no gate again; the result is then kept for the
+    Those hold no code and no test, so they ask for no checks again; the result is then kept for the
     tip, so that `land` finds what it checks. Any other commit, an item written by hand among them,
-    asks for the gate."""
+    asks for the checks."""
     kept = task.kept()
     gated = kept.get("gated")
     if gated == tip:
@@ -1797,7 +1804,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     task.need_worktree()
     state = due(task)
     if not gate_holds(task, state["tip"]):
-        raise LandError(f"the review is of the tip the checks passed on, and no check is on record for this tip; `land.py gate {task.slug}` comes first")
+        raise LandError(f"the review is of the tip the checks passed on, and no check is on record for this tip; `land.py checks {task.slug}` comes first")
     reads = task.kept().get("reads", [])
     if record is None:
         # The review starts when it is due, and its record ends it. A second `read` of the same
@@ -1928,8 +1935,8 @@ def not_green(task: Task, state: dict) -> list[str]:
     commands, brought = task.gate()
     if brought:
         reasons.append(
-            "the gate came with this change: the main checkout's settings name no gate command, and the branch's .lem/project.toml brings "
-            + ", ".join(f"`{command}`" for command in commands) + ". Read the checks once: every later task is gated on them",
+            "the checks came with this change: the main checkout's settings name no command of the checks, and the branch's .lem/project.toml brings "
+            + ", ".join(f"`{command}`" for command in commands) + ". Read the checks once: every later task is checked by them",
         )
     if state["due"] != "none":
         reasons.append(state["why"])
@@ -2043,7 +2050,7 @@ def decided(decision: dict) -> str:
 
 
 def checked_criteria(checks: dict) -> dict:
-    """What the gate kept of the check of the criteria; a landing an older Lem ran kept it as
+    """What the checks kept of the check of the criteria; a landing an older Lem ran kept it as
     `stories`, with each test's criterion under `story`. A later change may drop the old form once
     no task whose landing kept it is open."""
     kept = checks.get("criteria") or checks.get("stories") or {}
@@ -2115,7 +2122,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     out += criteria_lines(found, held)
     out += [change_line(task, change) for change in found["history"]]
     out += ["", "## Checks", ""]
-    out += [f"- gate, `{command['command']}`{' (alone, under the lock)' if command.get('alone') else ''}: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
+    out += [f"- check, `{command['command']}`{' (alone, under the lock)' if command.get('alone') else ''}: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
     own = builder_filed(task)
     if own:
         out.append("- filed in the backlog by the builder: " + ", ".join(f"`{path}`" for path in own))
@@ -2174,7 +2181,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]
-        out.append(f"- gate, `{command['command']}`{' (alone, under the lock)' if command.get('alone') else ''}: {command['last'] or f'exit {code}'}")
+        out.append(f"- check, `{command['command']}`{' (alone, under the lock)' if command.get('alone') else ''}: {command['last'] or f'exit {code}'}")
     tests = checked_criteria(checks)["tests"]
     without = checked_criteria(checks).get("without_a_test", [])
     out.append(f"- the tests of the criteria: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} {'criterion has' if len(without) == 1 else 'criteria have'} no test" if without else ""))
@@ -2196,7 +2203,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out += [f"  - `{entry['file']}` ({entry['what']}): {entry['reason']}" for entry in lowered]
     if (checks.get("bar") or {}).get("not_covered"):
         own = checks["bar"].get("own_patterns", 0)
-        out.append(f"- the bar has no marks of its own for files of these kinds: {', '.join(checks['bar']['not_covered'])}" + (f" (the project's {own} pattern(s) in gate.bar were looked for)" if own else ""))
+        out.append(f"- the bar has no marks of its own for files of these kinds: {', '.join(checks['bar']['not_covered'])}" + (f" (the project's {own} pattern(s) in checks.bar were looked for)" if own else ""))
     size = checks.get("size") or {}
     out.append(f"- size: {size.get('files', '?')} files, {size.get('lines', '?')} changed lines")
     for read in kept.get("reads", []):
@@ -2243,7 +2250,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     task.need_worktree()
     tip = git(task.worktree, "rev-parse", "HEAD")
     if not gate_holds(task, tip):
-        raise LandError(f"no green check is on record for this tip; `land.py gate {task.slug}` comes first")
+        raise LandError(f"no green check is on record for this tip; `land.py checks {task.slug}` comes first")
     kept = task.kept()
     reads = kept.get("reads", [])
     unfiled = to_file(reads)
@@ -2609,7 +2616,7 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
         moved = changed(task, kept["base"], base_now) if base_now != kept["base"] else []
         if not ignored(task, moved):
             raise LandError(
-                f"{task.onto} moved after the checks ran, by files the gate reads ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}",
+                f"{task.onto} moved after the checks ran, by files the checks read ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}",
             )
         how = ["--squash", "--subject", message] if squash else ["--rebase"]
         gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how)
@@ -2624,23 +2631,23 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
     base_now = git(task.worktree, "rev-parse", task.onto)
     arrived: list[str] = []
     if base_now != kept["base"]:
-        # The base moved after the gate ran. The result stands only when every file that arrived is
-        # one the project says the gate does not read.
+        # The base moved after the checks ran. The result stands only when every file that arrived is
+        # one the project says the checks do not read.
         arrived = changed(task, kept["base"], base_now)
         if not ignored(task, arrived):
             raise LandError(
-                f"{task.onto} moved after the gate ran, by files the gate reads ({', '.join(arrived[:5])}"
+                f"{task.onto} moved after the checks ran, by files the checks read ({', '.join(arrived[:5])}"
                 f"{', ...' if len(arrived) > 5 else ''}); {AGAIN}",
             )
         if run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False).returncode != 0:
             git(task.worktree, "rebase", "--abort", check=False)
-            raise LandError(f"{task.onto} moved after the gate ran and the rebase onto it stopped, and the branch is as it was; {AGAIN}, where `base` names the files that meet")
+            raise LandError(f"{task.onto} moved after the checks ran and the rebase onto it stopped, and the branch is as it was; {AGAIN}, where `base` names the files that meet")
     elif git(task.worktree, "rev-parse", "HEAD") != kept["gated"]:
-        raise LandError(f"the branch's tip is not the commit the gate passed on; {AGAIN}")
-    # What lands is the tree the gate saw, plus only the ignored files that arrived on the base.
+        raise LandError(f"the branch's tip is not the commit the checks passed on; {AGAIN}")
+    # What lands is the tree the checks saw, plus only the ignored files that arrived on the base.
     differs = changed(task, kept["tree"], "HEAD^{tree}")
     if not set(differs) <= set(arrived):
-        raise LandError(f"the tree that would land differs from the tree the gate passed on in {', '.join(differs[:5])}; {AGAIN}")
+        raise LandError(f"the tree that would land differs from the tree the checks passed on in {', '.join(differs[:5])}; {AGAIN}")
 
     if squash:
         # A commit runs the project's hooks, and a hook may change what is committed. The one commit
@@ -2659,7 +2666,7 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
         if git(task.worktree, "rev-parse", "HEAD^{tree}") != checked:
             git(task.worktree, "reset", "--hard", before)
             raise LandError(
-                "a commit hook changed the files of the one commit, so it is not the tree the gate passed on; the branch is as it was. "
+                "a commit hook changed the files of the one commit, so it is not the tree the checks passed on; the branch is as it was. "
                 f"Commit what the hook changes on the branch, then {AGAIN}",
             )
     tip = git(task.worktree, "rev-parse", "HEAD")
@@ -2738,8 +2745,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("base", "gate", "merged", "clean"):
+    for name in ("base", "checks", "merged", "clean"):
         commands.add_parser(name).add_argument("slug")
+    # the step's older name, refused with the name of now: a session that read an older stage text may still type it
+    commands.add_parser("gate", help="the older name of `checks`, refused with it").add_argument("slug")
     start = commands.add_parser("start")
     start.add_argument("slug")
     start.add_argument("--after", metavar="SLUG", help="for an open task: the landed task whose merge moved the base, which the pull request's text names")
@@ -2766,6 +2775,8 @@ def main() -> None:
         if args.command == "watch":
             print(json.dumps(cmd_watch(Path(args.repo)), indent=2))
             return
+        if args.command == "gate":
+            raise LandError(f"`land.py gate` is `land.py checks` now, with the same steps: run `land.py checks {args.slug}`")
         task = Task(Path(args.repo), args.slug)
         if args.command == "start":
             result = cmd_start(task, args.after)
@@ -2773,8 +2784,8 @@ def main() -> None:
             result = cmd_base(task)
         elif args.command == "polish":
             result = cmd_polish(task, args.done)
-        elif args.command == "gate":
-            result = cmd_gate(task)
+        elif args.command == "checks":
+            result = cmd_checks(task)
         elif args.command == "read":
             result = cmd_read(task, args.record)
         elif args.command == "file":

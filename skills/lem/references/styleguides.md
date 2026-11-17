@@ -4,7 +4,7 @@ A project's style guide is not written from nothing when a well-used public one 
 Onboarding offers the guides below for the stack it found, and the owner picks one or none.
 
 **A published guide enters a project as a linter configuration and one page of differences, never
-as a copy of its text.** The configuration goes into the gate, so a builder meets a rule as a
+as a copy of its text.** The configuration goes into the checks, so a builder meets a rule as a
 failed check with the rule's name. The project's style guide file says which guide the project
 follows, links it, and lists only where the project differs and the rules of its own that no
 linter knows. A copied guide is thousands of lines no one keeps true.

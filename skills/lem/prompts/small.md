@@ -14,7 +14,7 @@ is the directory above this file's. This file and your standing rules are all yo
    holds it`. The checks run the whole suite one time before the pull request, and that is the
    proof; you do not run it.
 4. **Check** the tests of your files and of their direct callers, and the formatter, linter and
-   type checker the project's `AGENTS.md` names. A test that the settings' `gate.alone` lists
+   type checker the project's `AGENTS.md` names. A test that the settings' `checks.alone` lists
    (`project.py --repo WORKTREE show`), or that belongs to such a suite, needs the machine to
    itself: run it through `python3 SKILL_DIR/scripts/project.py --repo WORKTREE alone -- COMMAND`,
    never bare.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The commands that need the machine to themselves (`gate.alone`): `project.py alone` runs one under
-# the repository's one lock, the checks of a landing run them after `gate.commands` pass, and the check
+# The commands that need the machine to themselves (`checks.alone`): `project.py alone` runs one under
+# the repository's one lock, the checks of a landing run them after `checks.commands` pass, and the check
 # of the criteria runs a test of such a suite under the same lock.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
@@ -73,9 +73,9 @@ else
   fail "a stale lock: $stale / $after / $((SECONDS - started)) s"
 fi
 
-# The checks of a landing: gate.commands first, then each gate.alone command under the lock, each with its output and its result.
+# The checks of a landing: checks.commands first, then each checks.alone command under the lock, each with its output and its result.
 small_task_in "$AL" alone-change a.txt one
-printf '%s\n' '[branch]' 'base = "main"' '[gate]' 'commands = ["echo 3 passed"]' "alone = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["echo 3 passed"]' "alone = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: an e2e suite that needs the machine"
 tree=$AL/.lem/worktrees/alone-change
 # the e2e suite says whether it ran under the lock, by the holder line project.py writes there
@@ -87,12 +87,12 @@ land --repo "$AL" start alone-change >/dev/null && land --repo "$AL" base alone-
 alone -- sleep 6 &
 holder=$!
 soon test -s "$LOCK"
-gated=$(land --repo "$AL" gate alone-change 2>&1 || true)
+gated=$(land --repo "$AL" checks alone-change 2>&1 || true)
 wait "$holder"
 if [ "$(field '[(c["command"], c["exit"], c["last"], c.get("alone", False)) for c in d["commands"]]' <<<"$gated" 2>&1)" = "[('echo 3 passed', 0, '3 passed', False), ('sh e2e.sh', 0, 'e2e: 2 passed, alone', True)]" ] \
   && grep -qF "the machine is held by a command that needs it alone" "$AL/.lem/state/tasks/alone-change/gate/02.log" \
   && [ "$(grep -c '"event": "gate", "task": "alone-change"' "$AL/.lem/state/events.jsonl")" = 2 ] && grep -q '"event": "gate.start", "task": "alone-change", "tip": "[0-9a-f]*", "commands": 2' "$AL/.lem/state/events.jsonl"; then
-  pass "the checks run each gate.alone command after gate.commands, under the one lock (waiting while a builder holds it), with its output in a file and its result logged"
+  pass "the checks run each checks.alone command after checks.commands, under the one lock (waiting while a builder holds it), with its output in a file and its result logged"
 else
   fail "the gate's alone commands: $gated"
 fi
@@ -103,17 +103,17 @@ if grep -qF '"gates": 2, "alone": 1' "$AL/.lem/state/meta.js"; then
 else
   fail "the board's count of the checks: $(cat "$AL/.lem/state/meta.js")"
 fi
-# A red gate.commands leaves the alone commands out: they run only after the others passed.
-printf '%s\n' '[branch]' 'base = "main"' '[gate]' 'commands = ["echo 1 failed; exit 1"]' "alone = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
-red=$(land --repo "$AL" gate alone-change 2>/dev/null || true)
+# A red checks.commands leaves the alone commands out: they run only after the others passed.
+printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["echo 1 failed; exit 1"]' "alone = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
+red=$(land --repo "$AL" checks alone-change 2>/dev/null || true)
 if [ "$(field '[(c["command"], c["exit"]) for c in d["commands"]]' <<<"$red" 2>&1)" = "[('echo 1 failed; exit 1', 1)]" ]; then
-  pass "a red gate command leaves the alone commands out: they run only after gate.commands pass"
+  pass "a red gate command leaves the alone commands out: they run only after checks.commands pass"
 else
   fail "a red gate before the alone commands: $red"
 fi
 
 # The check of the criteria runs a test of an alone suite under the lock, and any other test bare.
-printf '%s\n' '[branch]' 'base = "main"' '[gate]' 'commands = ["true"]' "alone = [\"sh tests/e2e\"]" > "$AL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' "alone = [\"sh tests/e2e\"]" > "$AL/.lem/project.toml"
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: the e2e suite is a folder of tests"
 small_task_in "$AL" alone-criterion b.txt two
 tree=$AL/.lem/worktrees/alone-criterion
@@ -125,7 +125,7 @@ git -C "$tree" add -A && git -C "$tree" commit -q -m "test: the criterion in the
 "$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("`sh tests/alone-criterion.sh` in `tests/alone-criterion.sh`", "`sh tests/e2e/b.sh` in `tests/e2e/b.sh`"))' "$directory/criteria.md"
 held=$("$PY" -B "$CRITERIA" --repo "$AL" red alone-criterion 2>&1 || true)
 if [ "$(field '(d["ok"], [(t["command"], t["on_branch"], t["on_base"]) for t in d["tests"]])' <<<"$held" 2>&1)" = "(True, [('sh tests/e2e/b.sh', 0, 2)])" ]; then
-  pass "the check of the criteria runs a test whose command starts with a gate.alone command under the one lock, on the branch and on the base commit"
+  pass "the check of the criteria runs a test whose command starts with a checks.alone command under the one lock, on the branch and on the base commit"
 else
   fail "a criterion's test of an alone suite: $held"
 fi

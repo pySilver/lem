@@ -84,13 +84,15 @@ printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[gate]' 'commands = [
 git -C "$OS" add -A && git -C "$OS" commit -q -m "chore: start"
 old_open "$OS" old-word
 before=$(oproject --repo "$OS" tasks | field '[(t["slug"], t["status"]) for t in d]')
+# the scripts of now read the checks as [checks], and refuse the older [gate] with the lines the owner writes in its place
+printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$OS/.lem/project.toml"
 # The first script of now that reads the state moves it, says so in one line on stderr, and its JSON is as before.
 tasks=$(project --repo "$OS" tasks 2>"$WORK/move.err")
 again=$(project --repo "$OS" tasks 2>&1 >/dev/null)
 if [ "$before" = "[('old-word', 'open')]" ] && [ "$(field '[(t["slug"], t["status"]) for t in d]' <<<"$tasks")" = "$before" ] \
   && [ "$(cat "$WORK/move.err")" = "project.py: moved Lem's state from $OS/.git/lem to $OS/.lem/state (renamed); nothing reads $OS/.git/lem any more" ] \
   && [ -z "$again" ] && [ ! -e "$OS/.git/lem" ] && [ -f "$OS/.lem/state/tasks/old-word/landing.json" ] && [ -f "$OS/.lem/state/events.jsonl" ] \
-  && [ -z "$(git -C "$OS" status --porcelain --untracked-files=all)" ]; then
+  && [ -z "$(git -C "$OS" status --porcelain --untracked-files=all -- . ':!.lem/project.toml')" ]; then
   pass "a repository whose state is in .git/lem is moved once by the first script that reads it, which says so in one line on stderr; the next call says nothing, and git sees nothing"
 else
   fail "the move of the state: $before / $tasks / $(cat "$WORK/move.err") / $again"
@@ -99,7 +101,7 @@ fi
 landed=$(land --repo "$OS" land old-word --by owner 2>"$WORK/land.err" | field 'd["range"]' 2>&1 || true)
 cleaned=$(land --repo "$OS" clean old-word 2>&1 | field 'd["worktree"]' 2>&1 || true)
 if [ -n "$landed" ] && [ "$(status_in "$OS" old-word)" = landed ] && [ "$(git -C "$OS" show main:old-word.txt)" = word ] && [ "$cleaned" = True ] \
-  && [ ! -e "$OS/.lem/worktrees/old-word" ] && [ ! -e "$OS/.git/lem" ] && [ -z "$(git -C "$OS" status --porcelain --untracked-files=all)" ]; then
+  && [ ! -e "$OS/.lem/worktrees/old-word" ] && [ ! -e "$OS/.git/lem" ] && [ -z "$(git -C "$OS" status --porcelain --untracked-files=all -- . ':!.lem/project.toml')" ]; then
   pass "a task the scripts before the move took to open lands by the owner's word with the scripts of now, a fast-forward in the checkout that holds the state, and clean removes its worktree"
 else
   fail "the landing of an old task: $landed / $cleaned / $(cat "$WORK/land.err") / $(status_in "$OS" old-word)"
@@ -111,6 +113,7 @@ oproject --repo "$RL" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[gate]' 'commands = ["true"]' > "$RL/.lem/project.toml"
 git -C "$RL" add -A && git -C "$RL" commit -q -m "chore: start"
 old_open "$RL" relayed
+printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$RL/.lem/project.toml"
 land --repo "$RL" land relayed --by owner >/dev/null 2>"$WORK/relay.err" || true
 if grep -qF "project.py: moved Lem's state from $RL/.git/lem to $RL/.lem/state (renamed)" "$WORK/relay.err" && [ "$(status_in "$RL" relayed)" = landed ] && [ ! -e "$RL/.git/lem" ]; then
   pass "when land.py is the first script of now, the line of the move reaches its stderr from the project.py it runs, and the landing goes on"

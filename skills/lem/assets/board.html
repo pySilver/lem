@@ -1333,7 +1333,7 @@ function timeOf(t, end) {
     // shows only as a run on another tip after a failed run, a failed check of the criteria or a must-fix,
     // or as a builder's own start.
     const gates = Number.isInteger(meta.gates) && meta.gates > 0 ? meta.gates : null;
-    // the commands of gate.alone come last and run only when the others passed (meta.js `alone`)
+    // the commands of checks.alone come last and run only when the others passed (meta.js `alone`)
     const aloneN = Number.isInteger(meta.alone) ? meta.alone : 0;
     const sameTip = (a, b) => Boolean(a && b) && (String(a).startsWith(b) || String(b).startsWith(a));
     let run = null, owed = false, prev = from, before = null, opened = null;
@@ -1374,7 +1374,7 @@ function timeOf(t, end) {
         if (!e.ok) owed = true;
       } else if (e.event === 'review' && e.verdict === 'must-fix') owed = true;
       if (repairing) add('builders', prev, x, 'A repair, and the checks again', 'no event tells the repair from the checks');
-      else if (e.event === 'gate') add('checks', prev, x, `The checks: ${e.command ?? 'a gate command'}`, e.exit === 0 ? `green · ${e.last ?? ''}` : `exit ${e.exit} · ${e.last ?? ''}`);
+      else if (e.event === 'gate') add('checks', prev, x, `The checks: ${e.command ?? 'a command'}`, e.exit === 0 ? `green · ${e.last ?? ''}` : `exit ${e.exit} · ${e.last ?? ''}`);
       else if (e.event === 'task.red') add('checks', prev, x, 'The tests of the criteria, on the branch and on the base commit', e.ok ? 'each test holds its criterion' : 'a test does not hold its criterion');
       else if (e.event === 'review') add('review', prev, x, `${e.of === 'resolution' ? 'Review of the conflict’s resolution' : `Review round ${e.round ?? '?'}`}: ${KIND[e.kind] ?? e.kind}`, `${e.verdict}${(e.answered ?? []).length ? ` · answered: ${e.answered.join(', ')}` : ''}`);
       else if (e.event === 'review.filed') add('lem', prev, x, 'Lem files the defects outside the change', plural((e.items ?? []).length, 'item'));

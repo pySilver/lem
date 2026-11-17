@@ -169,7 +169,8 @@ a lead is started, and what to do each time a lead stops.
 its lead. When its `report.md` or a state block of it says `needs a session:` and `project.py
 tasks` gives it no `talk`, change the brief to `lead: session` first: that start opens the plan
 talk's companion at once, where a builder would only stop at the plan again. A path to a plan file names its task too: the
-file is `YYYYMMDD-<slug>.md`, and the slug is the task's. With no name, list the tasks in those
+file's name is the settings' `paths.plan_file` (`YYYY-MM-DD-<slug>.md` unless they say otherwise;
+a plan of an older Lem is `YYYYMMDD-<slug>.md`), and the slug is the task's. With no name, list the tasks in those
 two states (`project.py tasks`), each with its ask and its plan's path, and ask which one: a
 fixed choice, so it stays in the terminal. One such task needs no question.
 
@@ -497,7 +498,7 @@ that is started again after it stopped.
    settings say that the tracker moves its own tickets. Then, for a
    builder, `spawn-builder` with one line: `Read TASK_DIRECTORY/brief.md and follow it.` For
    `lead: session`, the plan talk's companion: `open-task-session` with the same file, its agent
-   on the model and the effort of the settings' `seats.planner` when they name them; write the
+   on the model and the effort of the settings' `seats.planner` when the seat names them; write the
    state again with the line `session: ID` and the id the session got, so the board can show the
    companion and it can be closed after the talk, and with the line `defender: MODEL, EFFORT` as
    the companion's status line shows them, which the talk's record names. When the companion is
@@ -553,7 +554,7 @@ its choices need no answer.
    says, settle the choice with it: `decisions.py answer SLUG N --instead TEXT`, with `--words`
    and `--why` as above. Never log it as a new decision: the choice would wait for ever, and an
    irreversible one would hold the pull request. A choice carries no criterion: a criterion his
-   answer changes is the lead's to record with `decisions.py criterion ... --choice N`, and the gate
+   answer changes is the lead's to record with `decisions.py criterion ... --choice N`, and the checks
    refuses the plan until it does. When you cannot tell what he decided, ask him again. A lead in a
    session gets the answer as one message too; a builder that leads finds it at its next
    `decisions.py wait`.
@@ -616,7 +617,7 @@ Act on the status:
   - *one more fact*: the investigation's, as "A bug and a question" says;
   - *a step that is his to do*, and no decision at all: a trust prompt of the reviewer's agent, a
     command an agent is refused. Tell the owner that step as it is, with where he does it; it
-    needs no gate and no panel. When he says it is done, start a lead as "Start a lead" says:
+    needs no question gate and no panel. When he says it is done, start a lead as "Start a lead" says:
     for a defender whose companion is still open that is one message to it, and otherwise a
     fresh lead that reads the state and goes on;
   - *choice N waits for the owner*: an irreversible step that every task left depends on. It is

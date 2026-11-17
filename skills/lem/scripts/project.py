@@ -2,7 +2,7 @@
 """Say where one repository keeps what Lem reads, and what its flow settings are.
 
 Every project keeps its own settings in its repository: what the project is, its style guide, its
-personas, its review configuration, its lessons, the checks that gate a landing, and what must
+personas, its review configuration, its lessons, the machine checks of a landing, and what must
 never go wrong there. `.lem/project.toml` at the root of the checkout names them. A project that keeps a cast or a profile where an older tool already reads them
 (`.personas`), or its worktrees, may point at them there (`init --existing link`), so adopting the skill moves
 nothing, or start the skill's own layout beside them (`init --existing new`). Which of the two is
@@ -15,7 +15,7 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py existing             the folders an older tool already reads here, as JSON
     project.py init [--base NAME] [--existing link|new] [--reviewer claude|codex]
                                     write .lem/project.toml
-    project.py reviewer AGENT [MODEL [PLAN_EFFORT]]
+    project.py reviewer AGENT[/MODEL[:EFFORT]]
                                     who reviews on this machine, until `reviewer default`
     project.py reviewer default     the project's own reviewer again
     project.py rules [FILE ...] [--range BASE..TIP]
@@ -39,6 +39,9 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py alone -- COMMAND ...
                                     run one command that needs the machine to itself, under the
                                     repository's one lock for such commands
+    project.py plan-file SLUG [--date YYYY-MM-DD]
+                                    the name a task's plan takes (`paths.plan_file`), and the plan
+                                    of the task the plans folder holds, as JSON
 
 Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py` names for
 every script: every worktree writes there, git never tracks it, a worktree's removal does not take
@@ -60,7 +63,7 @@ second command. `log` writes any other event: `key=value` stores a string and `k
 JSON, so a commit made only of digits stays a string and an exit code stays a number. The start
 of each stage that logs its end has a fixed form (`STARTS`: `interview.start`, `scout.start` and
 `scout`, `criteria.read.start`, `investigation.start`, `builder.start`, and the three `land.py`
-writes, `polish.start`, `gate.start` and `review.start`), so that the board draws each span from
+writes, `polish.start`, `gate.start` (the start of the checks, by the step's older name) and `review.start`), so that the board draws each span from
 its start to its end. Four more events have a fixed form. `plan.talk.start`, which the defender of a careful or large plan writes when
 the reviewer's seat opens, as `reviewer=AGENT`, so that the board draws the talk from its start.
 `plan.talk`, which the landing reads and the plan's defender writes after the talk, as
@@ -104,7 +107,7 @@ reviewer's pane (the usual reviewer is down, or out of tokens) and on which mode
 a plan talk runs, which tool marks up a plan and which one puts a question to the owner, and a no to the correction queue for that one person. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]` and
-`[tools]`, and `[corrections]` with `collect = false`, and nothing else: the gate, what must
+`[tools]`, and `[corrections]` with `collect = false`, and nothing else: the checks, what must
 never go wrong, the protected branches and who lands are the project's rules, and a file nobody reviews
 must not open them. For the same reason it can switch the correction queue off for its person
 and never on: nobody's messages are sent because of a file that git does not show. `show` names each setting that
@@ -122,22 +125,36 @@ What must never go wrong is `flow.topics`: sentences in the owner's words, again
 reads an ask, a plan and a diff. No list of paths says whether a change is careful: such a list
 goes stale as the code moves, misses new code, and a branch can edit the list that guards it.
 `flow.careful` is refused, with the sentence to write in its place. The `[flow]` table is read
-from the main checkout's `.lem/project.toml`, also in a task's worktree, as the gate is read by
+from the main checkout's `.lem/project.toml`, also in a task's worktree, as the checks are read by
 the landing: a branch that empties its topics or shortens the owner's wait lifts nothing, since
 every lead, reviewer and landing reads the table as the base branch's checkout has it. The
 table the branch writes is still checked, so that its error shows before it lands.
 
-`gate.alone` names the commands that need the machine to themselves: an end-to-end suite that
+`[checks]` holds the machine checks of a landing: `commands`, the whole suite, `setup`, `ignores`
+and `bar`. A file that still has the table under its older name, `[gate]`, is refused with the
+lines to write in its place. `checks.alone` names the commands that need the machine to themselves: an end-to-end suite that
 uses fixed ports, one database or a browser. `alone` runs any command under one lock for the
 repository, `alone.lock` in the state folder, apart from the landing's lock, since a builder takes
-this one too: the checks of a landing run each `gate.alone` command through it after
-`gate.commands` pass, `criteria.py red` runs a criterion's test of such a suite through it, and a
+this one too: the checks of a landing run each `checks.alone` command through it after
+`checks.commands` pass, `criteria.py red` runs a criterion's test of such a suite through it, and a
 builder runs such a test through it in its worktree. It waits while another run holds the lock
 and says so on stderr with the holder's line, passes the command's exit status through (128 and
 the signal's number for a command a signal ended), and ends the command's process group when it
 is stopped. The lock is the kernel's: it goes with the process that holds it, however that ends,
 so a file a dead run left blocks nothing. One word list after `--` runs as it is; one quoted line
-runs in the shell, as a gate command does.
+runs in the shell, as a command of the checks does.
+
+A seat is one string, `agent/model:effort`: `seats.reviewer`, the agent in the reviewer's pane;
+`seats.planner`, the defender of a plan talk; and `seats.experts`, the two experts of a choice
+that waits for the owner. The effort may be left out (`codex/gpt-6.1-sol`), and so may the model
+(`codex`, `codex:high`): the part left out is that agent's own default, and Lem passes nothing for
+it. `show` gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written. The
+tables of an older Lem (`[seats.reviewer]` with `agent`, `model` and `plan_effort`) are refused
+with the line to write in their place.
+
+A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
+`<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it; a plan named `YYYYMMDD-<slug>.md`, as an older Lem
+named it, is found too: `lem_plans` is the one place that builds and finds the name, and `plan-file` prints both.
 
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
@@ -166,6 +183,7 @@ from pathlib import Path
 # The one place that says where the state is, shared with the scripts that cannot import this file.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lem_plans  # noqa: E402
 import lem_state  # noqa: E402
 
 # A role a developer may give to a tool of their own -> the tool Lem uses for it unless the
@@ -197,23 +215,34 @@ HISTORY = ("keep", "squash")
 PROPOSE = ("pull-request", "merge")
 # the agents that can sit in the reviewer's pane
 REVIEWERS = ("claude", "codex")
-# The reviewer's seat: the agent, and what its pane is started with. A model and an effort are
-# not checked against a list: their names change with each release of an agent's command, and
-# that command refuses a wrong one loudly when the pane starts. The reviewer's pane opens for the
-# plan talk only, so its one effort is `plan_effort`.
-SEAT = ("agent", "model", "plan_effort")
-# `effort` was the reviewer's effort for the review of a diff, which no step used (audit W7,
-# 2026-11-16). A settings file that still has it is read as before, and the key is not used.
-UNUSED_SEAT_KEYS = {"reviewer": ("effort",)}
+# A seat is one string, `agent/model:effort` (the owner, 2026-11-17: "I personally prefer
+# `codex/gpt-6.1-sol:high`"). A model and an effort are not checked against a list: their names
+# change with each release of an agent's command, and that command refuses a wrong one loudly when
+# it starts. A part left out is the agent's own default, and Lem passes nothing for it.
+SEAT_FORM = "agent/model:effort"
+SEAT_KEYS = ("agent", "model", "effort")
 # The defender's seat: the agent Lem starts in the companion of a plan talk, which defends the
 # plan against the reviewer. Only Claude Code, because the harness was checked in no other agent.
 PLANNERS = ("claude",)
-PLANNER_SEAT = ("agent", "model", "effort")
-# seat -> (the keys it takes, the agents that may sit in it, why only those)
+# The experts of a choice that waits for the owner: two, because the record of a choice holds two
+# answers (`decisions.py advise --expert fable|astra`): the first seat answers in the place named
+# `fable`, the second in the place named `astra`. The default is what `harness/claude-code.md`
+# ran before the seats named them: Fable as a Claude Code subagent at the agent's own effort, and
+# GPT-6 Astra through Codex at high.
+EXPERTS = ("claude/fable", "codex/gpt-6-astra:high")
+EXPERT_PLACES = ("fable", "astra")
+# seat -> (the agents that may sit in it, why only those, an example of the line)
 SEATS = {
-    "reviewer": (SEAT, REVIEWERS, "the agents that can sit in the reviewer's pane"),
-    "planner": (PLANNER_SEAT, PLANNERS, "the harness was checked in Claude Code only"),
+    "reviewer": (REVIEWERS, "the agents that can sit in the reviewer's pane", "codex/gpt-6.1-sol:high"),
+    "planner": (PLANNERS, "the harness was checked in Claude Code only", "claude/opus:high"),
 }
+# The keys the tables of an older Lem had for each seat, read only to write the refusal's line:
+# `[seats.reviewer]` with `plan_effort` as its effort, and `effort`, the effort for the review of a
+# diff, which no step used (audit W7, 2026-11-16); `[seats.planner]` with `effort`.
+OLD_SEAT_EFFORT = {"reviewer": "plan_effort", "planner": "effort"}
+# A plan's file name: its default, and its tokens; `lem_plans` builds and finds the name.
+PLAN_FILE = lem_plans.PLAN_FILE
+PLAN_TOKENS = lem_plans.TOKENS
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 # What a task's newest state block may say, and who acts next:
@@ -238,7 +267,7 @@ WITH_LANDING = ("landing", "open")
 # The states only a lead, or the start or the queue of a task, writes. None comes over a task with its
 # landing: there it is a lead that woke late. `ready` does with `--start-over`, which only the way out
 # that land.py names gives: a landing that cannot go on, or whose record is broken, starts over.
-# `held` is not here: Lem writes it over `landing` when the gate finds a small change to be a full
+# `held` is not here: Lem writes it over `landing` when the checks find a small change to be a full
 # change, and the interview of a full change starts with it (`stages/new.md`, "A small change").
 LEADS_WRITE = ("queued", "building", "planned", "ready", "drafted")
 # The type of a request, which Lem takes from the request's words alone (`stages/new.md`, "Open the
@@ -264,8 +293,8 @@ ANSWERING = ("not-a-bug", "answer")
 # task with such a record is open.
 OLD_INVESTIGATION_KINDS = {"bug": "fix", "investigation": "question"}
 OLD_CALLS = {"correction": "small", "usual": "full"}
-# The states in which the task loads the machine: a lead builds, or the gate runs and a builder may
-# repair a conflict or a red gate.
+# The states in which the task loads the machine: a lead builds, or the checks run and a builder may
+# repair a conflict or a red check.
 RUNNING = ("building", "landing")
 # The lock of the commands that need the machine to themselves (`alone`), in the state folder. Not the
 # landing's `landing.lock`: a builder takes this one too, while another task holds the landing line.
@@ -284,11 +313,11 @@ DECISION_WAIT = 15
 # and one call of the forge a minute stays far under its limits.
 WATCH_SECONDS = 60
 TABLES: dict[str, tuple[str, ...]] = {
-    "paths": tuple(PATHS),
+    "paths": (*PATHS, "plan_file"),
     "branch": ("base", "land", "history", "propose", "protected"),
-    "gate": ("commands", "ignores", "setup", "bar", "alone"),
+    "checks": ("commands", "ignores", "setup", "bar", "alone"),
     "flow": ("topics", "max_tasks", "decision_wait", "watch_seconds"),
-    "seats": ("reviewer", "planner"),
+    "seats": ("reviewer", "planner", "experts"),
     "tools": tuple(TOOLS),
     "corrections": ("collect",),
     "tracker": ("kind", "server", "workspace", "team", "moves", "started", "landed"),
@@ -316,6 +345,9 @@ TEMPLATE = """\
 [paths]
 # Where each kind of setting lives, relative to the root of the checkout.
 {paths}
+# The name of a plan's file in the plans folder: YYYY, MM and DD are the day the plan was
+# written, <slug> is the task's. A plan named YYYYMMDD-<slug>.md is found too.
+plan_file = "{plan_file}"
 
 [branch]
 # The branch a task starts from and lands on.
@@ -333,11 +365,12 @@ propose = "pull-request"
 # Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
 protected = []
 
-[gate]
-# The machine checks that gate a landing, each run at the root of the task's worktree.
+[checks]
+# The machine checks of a landing, each run at the root of the task's worktree: the whole suite,
+# which runs here one time, before the pull request, and in no builder.
 commands = []
-# Paths the gate does not read. When the base branch moves after a green gate by these files
-# only, the result stands; any other file means the gate runs again. A `*` crosses directories.
+# Paths the checks do not read. When the base branch moves after green checks by these files
+# only, the result stands; any other file means the checks run again. A `*` crosses directories.
 ignores = []
 # What a fresh worktree of this project needs before its tests can start: install the packages,
 # copy an environment file. The check that each criterion's tests fail on the base commit runs in a
@@ -369,22 +402,19 @@ decision_wait = {decision_wait}
 # a merge or a close the owner made there. A guess, not a measurement.
 watch_seconds = {watch_seconds}
 
-[seats.reviewer]
-# The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one talks
-# the plan of a careful or large task through with its defender, in the plan talk's companion.
-# The same family twice is allowed.
+[seats]
+# Who sits where, each as "agent/model:effort". Leave out the effort ("codex/gpt-6.1-sol"), or
+# the model and the effort ("codex"), and that agent's own default holds.
+# The reviewer: "claude" or "codex". Lem's builders build; this one talks the plan of a careful
+# or large task through with its defender, in the plan talk's companion. The same family twice is
+# allowed.
 {reviewer}
-# What its pane starts with. Leave one out and the agent's own default holds.
-# model = ""
-# plan_effort = ""   # for the talk over a plan
-
-[seats.planner]
-# The agent that defends a careful or large plan in its talk with the reviewer, in a companion
-# session Lem opens for the talk and closes after it. Only "claude" for now. Leave a line out and
-# the agent's own default holds.
-# agent = "claude"
-# model = ""
-# effort = ""
+# The defender of a careful or large plan in its talk with the reviewer, in a companion session
+# Lem opens for the talk and closes after it. Only "claude" for now.
+# planner = "claude/opus:high"
+# The two experts who answer a choice that waits for the owner, at the same moment and read-only:
+# two model families, so that their agreement is worth more than two of one.
+# experts = [{experts}]
 
 [corrections]
 # Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
@@ -443,7 +473,7 @@ def strings(value: object, where: str) -> list[str]:
 
 
 def commands(value: object, where: str) -> list[str]:
-    """A list of shell commands. An empty one runs nothing and exits 0, so a gate of it is green."""
+    """A list of shell commands. An empty one runs nothing and exits 0, so checks of it are green."""
     found = strings(value, where)
     if any(not item.strip() for item in found):
         raise SettingsError(f"{where} holds an empty command, which passes without running anything; take it out of the list")
@@ -507,15 +537,20 @@ def toml_string(value: str) -> str:
     return '"' + "".join(f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c for c in escaped) + '"'
 
 
-def read_settings(file: Path, name: Path, tables: tuple[str, ...]) -> dict:
-    """One settings file as a dict, with every table and key it may not hold refused."""
+def read_settings(file: Path, name: Path, tables: tuple[str, ...], branch_copy: bool = False) -> dict:
+    """One settings file as a dict, with every table and key it may not hold refused. A task
+    branch's copy (`branch_copy`) in the form of an older Lem is read in the form of now."""
     if not file.is_file():
         return {}
     try:
         raw = tomllib.loads(text_of(file))
     except tomllib.TOMLDecodeError as error:
         raise SettingsError(f"{name}: {error}") from error
+    if branch_copy:
+        raw = now_form(raw, name)
     for table, body in raw.items():
+        if table == "gate":
+            raise SettingsError(gate_gone(name, body))
         if table not in TABLES:
             raise SettingsError(f"{name}: unknown table [{table}]{nearest(table, tuple(TABLES))}")
         if table not in tables:
@@ -531,6 +566,27 @@ def read_settings(file: Path, name: Path, tables: tuple[str, ...]) -> dict:
             if key not in TABLES[table]:
                 raise SettingsError(f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
     return raw
+
+
+def toml_value(value: object) -> str:
+    """A value of a settings file as TOML writes it: a string, a list of strings, true or false, a number."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return toml_string(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(toml_value(item) for item in value) + "]"
+    return str(value)
+
+
+def gate_gone(name: Path, body: object) -> str:
+    """The refusal of the table's older name, with the lines to write in its place. The keys are
+    the same, so the lines are the table's own; an unknown key among them is refused after the move."""
+    lines = [f"{key} = {toml_value(value)}" for key, value in body.items()] if isinstance(body, dict) else []
+    return (
+        f"{name}: [gate] is called [checks] now, with the same keys (commands, setup, ignores, bar, alone). "
+        "Write these lines in place of the [gate] table:\n" + "\n".join(["[checks]", *lines])
+    )
 
 
 def careful_gone(name: Path, paths: object) -> str:
@@ -563,24 +619,122 @@ def flow_of(raw: dict, name: Path) -> dict:
     return {"topics": strings(flow.get("topics", []), "flow.topics"), "max_tasks": max_tasks, "decision_wait": decision_wait, "watch_seconds": watch_seconds}
 
 
+def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str) -> dict:
+    """One seat, `agent/model:effort`, as its parts: the agent, the model and the effort, each None
+    when the line leaves it out, and the line as written. The effort is what follows the last `:`
+    after the model, or after the agent when the line names no model."""
+    form = f'one string, "{SEAT_FORM}", as "{example}"; the effort, or the model and the effort, may be left out'
+    if not isinstance(text, str):
+        raise SettingsError(f"{where} = {text!r} must be {form}")
+    if not text.strip():
+        raise SettingsError(f"{where} is empty: it is {form}. Leave the line out for Lem's default")
+    if any(char.isspace() for char in text):
+        raise SettingsError(f"{where} = {text!r} holds a space: it is {form}, with no space in it")
+    agent, slash, rest = text.partition("/")
+    if slash:
+        model, colon, effort = rest.rpartition(":") if ":" in rest else (rest, "", "")
+    else:
+        agent, colon, effort = agent.partition(":")
+        model = None
+    if not agent:
+        raise SettingsError(f"{where} = {text!r} names no agent before the `/`: it is {form}")
+    if slash and not model:
+        raise SettingsError(f"{where} = {text!r} names no model after the `/`: leave the `/` out with the model, as \"{agent}\", or write {form}")
+    if colon and not effort:
+        raise SettingsError(f"{where} = {text!r} names no effort after the `:`: leave the `:` out with the effort, or write {form}")
+    if agent not in agents:
+        raise SettingsError(f"{where} = {text!r}: the agent {agent!r} must be {' or '.join(agents)}: {why}")
+    return {"agent": agent, "model": model or None, "effort": effort or None, "seat": text}
+
+
+def old_seat_value(which: str, table: dict) -> str:
+    """The one line an older Lem's seat table says now, from what the table holds."""
+    agent, model, effort = table.get("agent"), table.get("model"), table.get(OLD_SEAT_EFFORT[which])
+    words = [value if isinstance(value, str) and value.strip() else None for value in (agent, model, effort)]
+    return (words[0] or "AGENT") + (f"/{words[1]}" if words[1] else "") + (f":{words[2]}" if words[2] else "")
+
+
+def old_seat_line(which: str, table: dict) -> str:
+    """The line to write in place of an older Lem's seat table."""
+    return f"{which} = {toml_string(old_seat_value(which, table))}"
+
+
+def now_form(raw: dict, name: Path) -> dict:
+    """A task branch's copy of the settings in the form an older Lem wrote, in the form of now: the
+    `[gate]` table as `[checks]`, a seat table as its one line. The branch took the file from a base
+    of before the change, and gets the file of now when it is brought onto the base; until then its
+    task goes on. The main checkout's own file, which the owner keeps, is refused instead (`gate_gone`,
+    `seat`). One line on stderr says what was read so. A later change may drop this once no task
+    whose branch holds such a file is open."""
+    read = []
+    if "gate" in raw and "checks" not in raw:
+        raw = {("checks" if table == "gate" else table): body for table, body in raw.items()}
+        read.append("[gate] as [checks]")
+    seats = raw.get("seats")
+    if isinstance(seats, dict):
+        for which in SEATS:
+            if isinstance(seats.get(which), dict):
+                seats[which] = old_seat_value(which, seats[which])
+                read.append(f"[seats.{which}] as {which} = {toml_string(seats[which])}")
+    if read:
+        print(
+            f"project.py: this worktree's {name} has the form of an older Lem, read as now ({'; '.join(read)}); "
+            "the branch gets the file of now when it is brought onto the base",
+            file=sys.stderr,
+        )
+    return raw
+
+
 def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     """The seat (`SEATS`) one file names, checked; None when the file names none."""
-    keys, agents, why = SEATS[which]
+    agents, why, example = SEATS[which]
     given = raw.get("seats", {}).get(which)
     if given is None:
         return None
-    if not isinstance(given, dict):
-        raise SettingsError(f'{name}: seats.{which} is a table: write [seats.{which}] and under it agent = "{agents[-1]}"')
-    for key, value in given.items():
-        if key not in keys and key not in UNUSED_SEAT_KEYS.get(which, ()):
-            raise SettingsError(f"{name}: unknown key seats.{which}.{key}{nearest(key, keys)}")
-        if not isinstance(value, str) or not value.strip():
-            raise SettingsError(f"{name}: seats.{which}.{key} must be a word, not {value!r}; leave the line out for the agent's own default")
-    if "agent" in given and given["agent"] not in agents:
-        raise SettingsError(f"{name}: seats.{which}.agent = {given['agent']!r} must be {' or '.join(agents)}: {why}")
-    if "agent" not in given and given:
-        raise SettingsError(f"{name}: seats.{which} names a model or an effort and no agent; a model belongs to one agent")
-    return {key: given.get(key) for key in keys}
+    if isinstance(given, dict):
+        # the table of an older Lem: refused with the one line that says the same now
+        raise SettingsError(
+            f"{name}: [seats.{which}] is one line now, \"{SEAT_FORM}\". Write `{old_seat_line(which, given)}` under [seats] in place of the [seats.{which}] table"
+            + ("; its effort for the review of a diff was used by no step, and has no place in the line" if which == "reviewer" and "effort" in given else ""),
+        )
+    return parse_seat(given, f"{name}: seats.{which}", agents, why, example)
+
+
+def experts_of(raw: dict, name: Path) -> list[dict] | None:
+    """The two experts one file names, checked; None when the file names none."""
+    given = raw.get("seats", {}).get("experts")
+    if given is None:
+        return None
+    if not isinstance(given, list) or len(given) != len(EXPERT_PLACES):
+        raise SettingsError(
+            f'{name}: seats.experts = {given!r} must be a list of two seats, "{SEAT_FORM}" each, as experts = [{", ".join(toml_string(one) for one in EXPERTS)}]: '
+            "a choice's record holds the answers of two experts",
+        )
+    return [
+        {**parse_seat(one, f"{name}: seats.experts[{number}]", REVIEWERS, "the agents the harness starts an expert with", EXPERTS[number]), "place": place}
+        for number, (one, place) in enumerate(zip(given, EXPERT_PLACES))
+    ]
+
+
+def plan_file_of(raw: dict, name: Path) -> str:
+    """The pattern of a plan's file name, checked: the tokens it may hold, `<slug>` once, a name
+    and not a path, and a markdown file."""
+    pattern = raw.get("paths", {}).get("plan_file", PLAN_FILE)
+    where = f"{name}: paths.plan_file"
+    if not isinstance(pattern, str) or not pattern.strip():
+        raise SettingsError(f'{where} = {pattern!r} must be a file name in quotes, as plan_file = "{PLAN_FILE}"')
+    if pattern.count("<slug>") != 1:
+        raise SettingsError(f'{where} = {pattern!r} must hold <slug> once, where the task\'s slug goes, as plan_file = "{PLAN_FILE}": without it no plan can be told from another task\'s')
+    if "/" in pattern or "\\" in pattern:
+        raise SettingsError(f"{where} = {pattern!r} is a file name in the plans folder, with no folder in it; paths.plans names the folder")
+    if not pattern.endswith(".md"):
+        raise SettingsError(f"{where} = {pattern!r} must end with .md: a plan is a markdown file")
+    if re.search(r"<(?!slug>)[^>]*>", pattern):
+        raise SettingsError(f"{where} = {pattern!r} holds a token Lem does not know; it knows YYYY, MM, DD and <slug>")
+    twice = [token for token in PLAN_TOKENS if pattern.count(token) > 1]
+    if twice:
+        raise SettingsError(f"{where} = {pattern!r} holds {twice[0]} twice; each of YYYY, MM, DD and <slug> stands in it once at most")
+    return pattern
 
 
 def local_off(local: dict) -> bool:
@@ -607,8 +761,9 @@ def tool_of(raw: dict, name: Path, role: str) -> str | None:
 
 def load(root: Path) -> dict:
     file = root / SETTINGS
-    raw = read_settings(file, SETTINGS, tuple(TABLES))
     main = main_checkout(root)
+    # in a task's worktree the file is the branch's copy, which may be older than the main checkout's
+    raw = read_settings(file, SETTINGS, tuple(TABLES), branch_copy=main.resolve() != root.resolve())
     local_file = main / LOCAL
     local = read_settings(local_file, LOCAL, LOCAL_TABLES)
     # What must never go wrong, and the owner's wait, are the main checkout's: the branch that a
@@ -624,6 +779,8 @@ def load(root: Path) -> dict:
             raise SettingsError(f"{SETTINGS}: paths.{name} must be a string")
         resolved = inside(root, relative, f"paths.{name}")
         paths[name] = {"path": str(resolved), "exists": resolved.exists()}
+    # a pattern, not a path: the name of a plan's file in the plans folder
+    paths["plan_file"] = {"pattern": plan_file_of(raw, SETTINGS)}
 
     branch = raw.get("branch", {})
     base = branch.get("base")
@@ -657,13 +814,18 @@ def load(root: Path) -> dict:
             overridden.append(f"tools.{role}")
 
     # A local seat replaces the project's whole: its model and effort belong to the project's agent.
-    seats = {}
-    for which, (keys, _agents, _why) in SEATS.items():
-        seats[which] = seat(raw, SETTINGS, which) or {key: None for key in keys}
+    seats: dict = {}
+    for which in SEATS:
+        seats[which] = seat(raw, SETTINGS, which) or {**{key: None for key in SEAT_KEYS}, "seat": None}
         local_seat = seat(local, LOCAL, which)
         if local_seat is not None:
             seats[which] = local_seat
             overridden.append(f"seats.{which}")
+    seats["experts"] = experts_of(raw, SETTINGS) or experts_of({"seats": {"experts": list(EXPERTS)}}, Path("Lem's default"))
+    local_experts = experts_of(local, LOCAL)
+    if local_experts is not None:
+        seats["experts"] = local_experts
+        overridden.append("seats.experts")
     collect = raw.get("corrections", {}).get("collect", False)
     if not isinstance(collect, bool):
         raise SettingsError(f"{SETTINGS}: corrections.collect = {collect!r} must be true or false")
@@ -704,12 +866,12 @@ def load(root: Path) -> dict:
         "settings": str(file) if file.is_file() else None,
         "paths": paths,
         "branch": {"base": base, "land": land, "history": history, "propose": propose, "protected": protected},
-        "gate": {
-            "commands": commands(raw.get("gate", {}).get("commands", []), "gate.commands"),
-            "ignores": strings(raw.get("gate", {}).get("ignores", []), "gate.ignores"),
-            "setup": commands(raw.get("gate", {}).get("setup", []), "gate.setup"),
-            "bar": patterns(raw.get("gate", {}).get("bar", []), "gate.bar"),
-            "alone": commands(raw.get("gate", {}).get("alone", []), "gate.alone"),
+        "checks": {
+            "commands": commands(raw.get("checks", {}).get("commands", []), "checks.commands"),
+            "ignores": strings(raw.get("checks", {}).get("ignores", []), "checks.ignores"),
+            "setup": commands(raw.get("checks", {}).get("setup", []), "checks.setup"),
+            "bar": patterns(raw.get("checks", {}).get("bar", []), "checks.bar"),
+            "alone": commands(raw.get("checks", {}).get("alone", []), "checks.alone"),
         },
         # read from the main checkout's settings, in a task's worktree too
         "flow": flow,
@@ -723,9 +885,27 @@ def load(root: Path) -> dict:
 
 
 def cmd_path(settings: dict, name: str) -> None:
+    if name == "plan_file":
+        raise SettingsError("paths.plan_file is the pattern of a plan's name, not a path: `project.py plan-file SLUG` prints the name of a task's plan")
     if name not in settings["paths"]:
         raise SettingsError(f"no path named {name!r}{nearest(name, tuple(PATHS))}")
     print(settings["paths"][name]["path"])
+
+
+def cmd_plan_file(settings: dict, slug: str, day: str | None) -> None:
+    """The name a task's plan takes, written today or on DAY, and the plan the plans folder holds now."""
+    if not SLUG.fullmatch(slug):
+        raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
+    day = day or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    try:
+        datetime.strptime(day, "%Y-%m-%d")
+    except ValueError as error:
+        raise SettingsError(f"--date {day!r} is not a day as YYYY-MM-DD") from error
+    pattern = settings["paths"]["plan_file"]["pattern"]
+    folder = Path(settings["paths"]["plans"]["path"])
+    found = lem_plans.found(folder, pattern, slug)
+    name = lem_plans.name(pattern, slug, day)
+    print(json.dumps({"slug": slug, "pattern": pattern, "name": name, "path": str(folder / name), "found": str(found) if found else None}, indent=2))
 
 
 def cmd_may_land(settings: dict, target: str) -> None:
@@ -823,8 +1003,11 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
         chosen = older[name] if name in older and (name == "styleguide" or existing == "link") else default
         lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
-    agent = f'agent = "{reviewer}"' if reviewer else '# agent = "codex"'
-    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, watch_seconds=WATCH_SECONDS, **TOOLS), encoding="utf-8")
+    agent = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex/gpt-6.1-sol:high"'
+    file.write_text(TEMPLATE.format(
+        paths="\n".join(lines), plan_file=PLAN_FILE, base=base, reviewer=agent, experts=", ".join(toml_string(one) for one in EXPERTS),
+        max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, watch_seconds=WATCH_SECONDS, **TOOLS,
+    ), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
     # too, for a repository whose ignore file is older than it)
     ignore = file.parent / ".gitignore"
@@ -844,24 +1027,25 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     for role in TOOLS:
         tool_of(local, LOCAL, role)
     local_off(local)
+    seat(local, LOCAL, "reviewer")
     seat(local, LOCAL, "planner")
+    experts_of(local, LOCAL)
     if words == ["default"]:
         local.get("seats", {}).pop("reviewer", None)
     else:
-        if len(words) > len(SEAT):
-            raise SettingsError(f"reviewer takes AGENT [MODEL [PLAN_EFFORT]], not {len(words)} words: the reviewer's pane opens for the plan talk only, and PLAN_EFFORT is its effort there")
-        local.setdefault("seats", {})["reviewer"] = dict(zip(SEAT, words))
-        seat(local, LOCAL)
+        if len(words) != 1:
+            raise SettingsError(
+                f'reviewer takes one seat, "{SEAT_FORM}", as `reviewer codex/gpt-6.1-sol:high`, or the word default; '
+                f"not {len(words)} words. The effort, or the model and the effort, may be left out",
+            )
+        parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2])
+        local.setdefault("seats", {})["reviewer"] = words[0]
     lines = ["# This machine's own settings for Lem. Not committed; `project.py reviewer` writes the seat."]
     for table in LOCAL_TABLES:
         body = local.get(table) or {}
-        plain = {key: value for key, value in body.items() if not isinstance(value, dict)}
-        if plain:
-            # a value here is a word in quotes, or the one `false` the corrections table may hold
-            lines += ["", f"[{table}]", *(f"{key} = {'false' if value is False else toml_string(value)}" for key, value in plain.items())]
-        for key, value in body.items():
-            if isinstance(value, dict) and value:
-                lines += ["", f"[{table}.{key}]", *(f"{k} = {toml_string(v)}" for k, v in value.items())]
+        if body:
+            # a value here is a word in quotes, a list of them, or the one `false` the corrections table may hold
+            lines += ["", f"[{table}]", *(f"{key} = {toml_value(value)}" for key, value in body.items())]
     if len(lines) == 1:
         file.unlink(missing_ok=True)
     else:
@@ -1410,7 +1594,7 @@ def read_form(fields: dict) -> None:
 # `interview.start` ends at the first `criteria.read.start` or `criteria.approved` after it, the
 # scout at `scout`, the read at `criteria.read`, an investigation at `investigation`, a builder's
 # job at the next state block or step of the landing after it, the polish pass at `polish`, the
-# checks at the gate's last `gate` or `task.red`, and the review at `review`.
+# checks at their last `gate` or `task.red` (the events keep the step's older name), and the review at `review`.
 BUILDER_JOBS = ("the small change", "the repair of a conflict with the base", "the repair of a failed check", "the fix of a review's findings")
 TASK_JOB = re.compile(r"task [1-9]\d* of [1-9]\d*")
 STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
@@ -1424,7 +1608,7 @@ STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
         {"job": None},
     ),
     "polish.start": ("polish.start takes before=TIP, and land.py polish writes it", {"before": None}),
-    "gate.start": ("gate.start takes tip=TIP commands:=N, and land.py gate writes it", {"tip": None, "commands": None}),
+    "gate.start": ("gate.start takes tip=TIP commands:=N, and land.py checks writes it", {"tip": None, "commands": None}),
     "review.start": ("review.start takes attempt:=N floor=read|round|full, and land.py read writes it", {"attempt": None, "floor": ("read", "round", "full")}),
 }
 
@@ -1720,7 +1904,10 @@ def main() -> None:
     init.add_argument("--existing", choices=("link", "new"))
     init.add_argument("--reviewer", choices=REVIEWERS)
     commands.add_parser("existing")
-    commands.add_parser("reviewer").add_argument("words", nargs="+", metavar="AGENT|default")
+    commands.add_parser("reviewer").add_argument("words", nargs="+", metavar="AGENT[/MODEL[:EFFORT]]|default")
+    plan_file = commands.add_parser("plan-file", help="the name a task's plan takes, and the plan the plans folder holds")
+    plan_file.add_argument("slug")
+    plan_file.add_argument("--date", metavar="YYYY-MM-DD", help="the day the plan is written (default: today, in UTC)")
     rules = commands.add_parser("rules")
     rules.add_argument("files", nargs="*", metavar="FILE")
     rules.add_argument("--range", dest="commits", metavar="BASE..TIP", help="also the files this range of commits changes")
@@ -1789,6 +1976,8 @@ def main() -> None:
             cmd_path(settings, args.name)
         elif args.command == "worktree-dir":
             cmd_worktree_dir(settings, args.slug)
+        elif args.command == "plan-file":
+            cmd_plan_file(settings, args.slug, args.date)
         elif args.command == "may-land":
             cmd_may_land(settings, args.branch)
         else:

@@ -8,7 +8,7 @@
 LOCAL=$WORK/local
 git init -q -b main "$LOCAL" && ident "$LOCAL"
 project --repo "$LOCAL" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' 'bar = ["rubocop:disable"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$LOCAL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' 'bar = ["rubocop:disable"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$LOCAL/.lem/project.toml"
 mkdir -p "$LOCAL/tests" "$LOCAL/docs" && printf '%s\n' 'def test_base():' '    assert 1 + 1 == 2' '    assert 2 + 2 == 4' > "$LOCAL/tests/test_base.py" && echo guide > "$LOCAL/docs/guide.md"
 printf '%s\n' 'import plugin # noqa: F401' 'import other  # noqa: E402' > "$LOCAL/plug.py"
 # app_py FIRST SECOND: two functions alike in every line but their names, each longer than the
@@ -28,7 +28,7 @@ printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names 
 "$PY" -B "$DECISIONS" --repo "$LOCAL" criterion local-change --changed 1 --was "The file holds the word y." --now "The file holds the word the owner asked for." \
   --why "y is taken by another file." --by personas --said "Both personas picked x." >/dev/null 2>&1 || true
 read_in "$LOCAL" local-change
-local_land start local-change >/dev/null && local_land base local-change >/dev/null && polish_in "$LOCAL" local-change && local_land gate local-change >/dev/null && local_land read local-change --record "$(clean 1)" >/dev/null
+local_land start local-change >/dev/null && local_land base local-change >/dev/null && polish_in "$LOCAL" local-change && local_land checks local-change >/dev/null && local_land read local-change --record "$(clean 1)" >/dev/null
 local_land propose local-change --title "fix: x" --notes "$NOTES" >/dev/null
 err=$(local_land land local-change --by agent 2>&1 || true)
 out=$(local_land land local-change --by owner)
@@ -45,7 +45,7 @@ local_land clean local-change >/dev/null
 # A choice that waits for the owner holds the proposal; one taken by timeout is not green, and a late answer that differs is said.
 task_in "$LOCAL" waited-change w.txt w
 read_in "$LOCAL" waited-change
-local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land gate waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
+local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land checks waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
 wdec() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
 wfile=$LOCAL/.lem/state/tasks/waited-change/decisions.jsonl
 wdec log waited-change --what "The name of the file" --chose w.txt --why "The other files have one letter." --by lead >/dev/null
@@ -100,7 +100,7 @@ project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/nul
 # their pick and both reasons. A timeout whose experts split takes the recommended option, as before.
 task_in "$LOCAL" expert-change e.txt e
 read_in "$LOCAL" expert-change
-local_land start expert-change >/dev/null && local_land base expert-change >/dev/null && polish_in "$LOCAL" expert-change && local_land gate expert-change >/dev/null && local_land read expert-change --record "$(clean 1)" >/dev/null
+local_land start expert-change >/dev/null && local_land base expert-change >/dev/null && polish_in "$LOCAL" expert-change && local_land checks expert-change >/dev/null && local_land read expert-change --record "$(clean 1)" >/dev/null
 efile=$LOCAL/.lem/state/tasks/expert-change/decisions.jsonl
 # eask WHAT FIRST SECOND RECOMMENDED WHY: a choice for the owner that the personas left unclear
 eask() { wdec ask expert-change "${CASE[@]}" --what "$1" --option "$2" --option "$3" --recommended "$4" --why "$5" --said "The two personas split." >/dev/null; }
@@ -148,11 +148,11 @@ project --repo "$LOCAL" state expert-change dropped "the test is over" >/dev/nul
 # checks hold one line on the personas' read of the criteria, from its event, with his approval.
 lcriteria() { "$PY" -B "$CRITERIA" --repo "$LOCAL" "$@"; }
 ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
-# polish_local SLUG: a polish pass that finds nothing to change, as a full change's gate needs one
+# polish_local SLUG: a polish pass that finds nothing to change, as a full change's checks needs one
 polish_local() { polish_in "$LOCAL" "$1"; }
 # to_open SLUG: the machine steps with a polish pass, a clean read and the proposal of a task of the local repository
 to_open() {
-  local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land gate "$1" >/dev/null \
+  local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land checks "$1" >/dev/null \
     && local_land read "$1" --record "$(clean 1)" >/dev/null && local_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
 approved_day() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["at"][:10])' "$LOCAL/.lem/state/tasks/$1/criteria.json" 2>/dev/null || true; }
@@ -168,7 +168,7 @@ printf '%s\n' '# criterion-departs' '' '## Acceptance criteria' '' 'Size: full, 
   '   - test: `sh tests/criterion-departs.sh` in `tests/criterion-departs.sh`' '2. The file ends with a line break.' '   - no test: printf ends every line so.' '' '## Tasks' '' '1. The change.' \
   > "$tree/docs/plans/20261115-criterion-departs.md"
 git -C "$tree" commit -q -am "docs: the criteria as they are built"
-unrecorded=$(local_land start criterion-departs >/dev/null && local_land base criterion-departs >/dev/null && local_land gate criterion-departs 2>&1 || true)
+unrecorded=$(local_land start criterion-departs >/dev/null && local_land base criterion-departs >/dev/null && local_land checks criterion-departs 2>&1 || true)
 # a criterion that a choice of the build removes, once the choice is answered; and one the lead adds
 ldecide ask criterion-departs "${CASE[@]}" --what "The one-line rule" --option "keep the rule" --option "no such rule" --recommended "keep the rule" --why "A reader counts on it." \
   --said "The two personas split." >/dev/null 2>&1 || true
@@ -176,7 +176,7 @@ early=$(ldecide criterion criterion-departs --removed 2 --was "The file has one 
 ldecide answer criterion-departs 1 --chose "no such rule" >/dev/null 2>&1 || true
 ldecide criterion criterion-departs --removed 2 --was "The file has one line." --why "A second line holds the date now." --choice 1 >/dev/null 2>&1 || true
 ldecide criterion criterion-departs --added 2 --now "The file ends with a line break." --why "The importer reads whole lines only." --by lead >/dev/null 2>&1 || true
-polish_local criterion-departs 2>/dev/null && local_land gate criterion-departs >/dev/null 2>&1 && local_land read criterion-departs --record "$(clean 1)" >/dev/null 2>&1 \
+polish_local criterion-departs 2>/dev/null && local_land checks criterion-departs >/dev/null 2>&1 && local_land read criterion-departs --record "$(clean 1)" >/dev/null 2>&1 \
   && local_land propose criterion-departs --title "fix: criterion-departs" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.lem/state/tasks/criterion-departs/pr.md
 agent=$(local_land land criterion-departs --by agent 2>&1 || true)
@@ -201,7 +201,7 @@ task_in "$LOCAL" read-doubt r.txt r
 tree=$(project --repo "$LOCAL" worktree-dir read-doubt)
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/doubt.md"
 plan_digest=$(lcriteria digest read-doubt 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
-local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null && polish_local read-doubt && local_land gate read-doubt >/dev/null && local_land read read-doubt --record "$(clean 1)" >/dev/null
+local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null && polish_local read-doubt && local_land checks read-doubt >/dev/null && local_land read read-doubt --record "$(clean 1)" >/dev/null
 unread_feature=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
 project --repo "$LOCAL" log read-doubt criteria.read by=lead asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' criteria:=1 flagged:=0 split:=true "digest=$plan_digest" >/dev/null 2>&1 || true
 split_unseen=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
@@ -334,7 +334,7 @@ empty_family=$(empty_with 'families:=["opus"]' "$quiet" flagged:=0)
 empty_unnamed=$(empty_with 'families:=[]' 'silent:=[{"name": "the buyer, opus", "why": "the model was at capacity"}]' flagged:=0)
 empty_flagged=$(empty_with 'families:=[]' "$quiet" flagged:=1)
 first_empty=$(empty_with 'families:=[]' "$quiet" flagged:=0)
-local_land start nobody-read >/dev/null && local_land base nobody-read >/dev/null && polish_local nobody-read && local_land gate nobody-read >/dev/null \
+local_land start nobody-read >/dev/null && local_land base nobody-read >/dev/null && polish_local nobody-read && local_land checks nobody-read >/dev/null \
   && local_land read nobody-read --record "$(clean 1)" >/dev/null
 once=$(local_land propose nobody-read --title "fix: n" --notes "$NOTES" 2>&1 || true)
 freeze_once=$(lcriteria approve nobody-read --read 2>&1 || true)
@@ -370,7 +370,7 @@ git -C "$tree" commit -q -am "docs: the plan of a small change"
 as_plan=$(lcriteria show one-word 2>&1 || true)
 local_land start one-word >/dev/null && local_land base one-word >/dev/null
 as_polish=$(local_land polish one-word 2>&1 || true)
-as_gate=$(local_land gate one-word 2>&1 || true)
+as_gate=$(local_land checks one-word 2>&1 || true)
 printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/correction.md"
 lcriteria approve one-word --file "$WORK/correction.md" --small >/dev/null 2>&1 || true
 approved_plan=$(lcriteria red one-word 2>&1 || true)
@@ -395,7 +395,7 @@ project --repo "$LOCAL" state one-word dropped "the test is over" >/dev/null
 skip_read() { ldecide log "$1" --by "$2" --what "the personas' read of the criteria" --chose "no read: the criteria name only the developer" --why "y" 2>&1 || true; }
 # checked_local SLUG: the machine steps, a polish pass and a clean read, up to the proposal
 checked_local() {
-  local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land gate "$1" >/dev/null \
+  local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land checks "$1" >/dev/null \
     && local_land read "$1" --record "$(clean 1)" >/dev/null
 }
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/mine.md"
@@ -464,18 +464,18 @@ lead_tip=$(git -C "$tree" rev-parse HEAD)
 echo '- docs/guide.md: says nothing of p.txt' > "$pdir/outside.md"
 echo '## Outside defects' > "$pdir/report.md"
 local_land start polish-me >/dev/null && local_land base polish-me >/dev/null
-no_pass=$(local_land gate polish-me 2>&1 || true)
+no_pass=$(local_land checks polish-me 2>&1 || true)
 first=$(local_land polish polish-me)
 echo '# writes p into p.txt' > "$tree/tool.sh"
 dirty=$(local_land polish polish-me --done 2>&1 || true)
 echo 'echo p > p.txt' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "refactor: the tool says what it writes, and nothing else"
-started=$(local_land gate polish-me 2>&1 || true)
+started=$(local_land checks polish-me 2>&1 || true)
 again=$(local_land polish polish-me)
 if grep -qF "polish-me is a full change, and no polish pass is on record for this landing: \`land.py polish polish-me\` starts it" <<<"$no_pass" \
   && [ "$(field '(d["size"], d["done"], d["before"], d["range"].split("..")[1], d["commits"], d["plan"].endswith("docs/plans/20261115-polish-me.md"), d["report"], d["outside"], d["backlog"], d["frozen"])' <<<"$first")" \
   = "('full', False, '$lead_tip', '$lead_tip', ['$(git -C "$tree" rev-parse --short "$lead_tip") feat: the tool', '$(git -C "$tree" log -1 --format='%h %s' "$lead_tip~1")'], True, '$pdir/report.md', '$pdir/outside.md', 'docs/backlog', ['tests/polish-me.sh', 'docs/plans/20261115-polish-me.md'])" ] \
   && [ "$(field '(d["before"], d["range"])' <<<"$again")" = "$(field '(d["before"], d["range"])' <<<"$first")" ] && [ "$(kept_in "$LOCAL" polish-me polish)" = "{'before': '$lead_tip', 'done': False}" ]; then
-  pass "a full change's gate waits for the polish pass; polish prints the range of the task's own commits from the base, the plan, the report, the interview's outside.md, the backlog folder and the files the pass may not change, and keeps the tip it starts at, also when it is started again after the builder's first commit"
+  pass "a full change's checks waits for the polish pass; polish prints the range of the task's own commits from the base, the plan, the report, the interview's outside.md, the backlog folder and the files the pass may not change, and keeps the tip it starts at, also when it is started again after the builder's first commit"
 else
   fail "polish: $no_pass / $first / $again"
 fi
@@ -507,15 +507,15 @@ else
   fail "polish --done: $dirty / $started / $frozen / $broken / $done_out / $twice"
 fi
 # The gate: the pass is on the tip it checks while the commits after it are on top, and a rebase by `base` keeps it.
-gated=$(local_land gate polish-me | field 'd["polish"]["after"]')
+gated=$(local_land checks polish-me | field 'd["polish"]["after"]')
 echo '# a fix' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "fix: what a review found"
-on_top=$(status_of local_land gate polish-me)
+on_top=$(status_of local_land checks polish-me)
 git -C "$tree" reset -q --hard "$after_tip~1" && echo 'echo p > p.txt' > "$tree/tool.sh" && git -C "$tree" commit -q -am "refactor: written again"
-rewritten=$(local_land gate polish-me 2>&1 || true)
+rewritten=$(local_land checks polish-me 2>&1 || true)
 git -C "$tree" reset -q --hard "$after_tip" && echo '# a fix' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "fix: what a review found"
 echo late > "$LOCAL/polish-late.txt" && git -C "$LOCAL" add polish-late.txt && git -C "$LOCAL" commit -q -m "chore: a late file"
 local_land base polish-me >/dev/null
-moved=$(local_land gate polish-me | field 'd["polish"]["after"]')
+moved=$(local_land checks polish-me | field 'd["polish"]["after"]')
 if [ "$gated" = "$after_tip" ] && [ "$on_top" = 0 ] && grep -qF "the tip does not hold the polish pass's last commit (${after_tip:0:9})" <<<"$rewritten" \
   && [ "$moved" = "$(git -C "$tree" rev-parse HEAD~1)" ] && [ "$moved" != "$after_tip" ] && [ "$(git -C "$tree" log -1 --format=%s "$moved")" = "docs(backlog): the guide says nothing of p.txt" ]; then
   pass "the gate finds the polish pass on its tip with a fix on top of it, refuses a branch rewritten under the pass, and after a rebase by base knows the pass's last commit by its new name"
@@ -543,7 +543,7 @@ echo more >> "$tree/docs/guide.md" && git -C "$tree" add -A && git -C "$tree" co
 project --repo "$tree" state guide-change ready "the report is written" >/dev/null
 read_in "$LOCAL" guide-change
 local_land start guide-change >/dev/null && local_land base guide-change >/dev/null && polish_in "$LOCAL" guide-change
-gate=$(local_land gate guide-change)
+gate=$(local_land checks guide-change)
 out=$(local_land read guide-change)
 early=$(status_of local_land propose guide-change --title "docs: more" --notes "$NOTES")
 quiet='{"kind": "read", "answered": [], "silent": [{"name": "codex", "why": "the model was at capacity"}]}'
@@ -571,21 +571,21 @@ task_in "$LOCAL" spaces s.txt word
 tree=$(project --repo "$LOCAL" worktree-dir spaces)
 echo 'value = "a b"' > "$tree/v.py" && app_py new old > "$tree/app.py"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a value"
-local_land start spaces >/dev/null && local_land base spaces >/dev/null && polish_in "$LOCAL" spaces && local_land gate spaces >/dev/null
+local_land start spaces >/dev/null && local_land base spaces >/dev/null && polish_in "$LOCAL" spaces && local_land checks spaces >/dev/null
 local_land read spaces --record "$(clean 1)" >/dev/null
 same=$(local_land read spaces | field 'd["due"]')
 # the same edit in the next function of the file: every line of the diff is the same, with its
 # context, and only its place is not
 app_py old new > "$tree/app.py"
-git -C "$tree" commit -q -am "fix: the other function" && local_land gate spaces >/dev/null
+git -C "$tree" commit -q -am "fix: the other function" && local_land checks spaces >/dev/null
 moved=$(local_land read spaces | field '(d["due"], d["round"])')
-git -C "$tree" revert --no-edit HEAD >/dev/null && local_land gate spaces >/dev/null
+git -C "$tree" revert --no-edit HEAD >/dev/null && local_land checks spaces >/dev/null
 back=$(local_land read spaces | field 'd["due"]')
 task_dir=$(project --repo "$LOCAL" task-dir spaces)
 printf '%s\n' 'slug: spaces' 'careful: the owner says so' > "$task_dir/brief.md"
 raised=$(local_land read spaces | field '(d["due"], d["floor"])')
 rm "$task_dir/brief.md"
-echo 'value = "ab"' > "$tree/v.py" && git -C "$tree" commit -q -am "fix: no space" && local_land gate spaces >/dev/null
+echo 'value = "ab"' > "$tree/v.py" && git -C "$tree" commit -q -am "fix: no space" && local_land checks spaces >/dev/null
 spaced=$(local_land read spaces | field '(d["due"], d["round"])')
 local_land read spaces --record "$(clean 2)" >/dev/null
 printf '%s\n' 'slug: spaces' 'careful: the owner says so' > "$task_dir/brief.md"
@@ -609,10 +609,10 @@ printf '%s\n' 'import pytest' 'pytestmark = pytest.mark.skip(reason="later")' 'd
 printf '%s\n' 'import plugin  # noqa: F401' 'import other  # noqa' > "$tree/plug.py" && echo 'pub fn one() -> i32 { 1 }' > "$tree/lib.rs"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: with marks"
 local_land start bar-change >/dev/null && local_land base bar-change >/dev/null && polish_in "$LOCAL" bar-change
-out=$(local_land gate bar-change 2>/dev/null || true)
-err=$(local_land gate bar-change 2>&1 >/dev/null || true)
+out=$(local_land checks bar-change 2>/dev/null || true)
+err=$(local_land checks bar-change 2>&1 >/dev/null || true)
 git -C "$tree" rm -q tests/test_base.py && git -C "$tree" commit -q -m "fix: the old test goes"
-gone=$(local_land gate bar-change 2>/dev/null || true)
+gone=$(local_land checks bar-change 2>/dev/null || true)
 if [ "$(field '(sorted((e["file"], e["what"], e["reason"]) for e in d["bar"]["lowered"]), d["bar"]["not_covered"], d["bar"]["own_patterns"])' <<<"$out")" \
   = "([('calc.py', '# noqa', None), ('lib.rs', '1 assertion(s) fewer', None), ('plug.py', '# noqa', None), ('tests/test_base.py', '1 assertion(s) fewer', None), ('tests/test_base.py', 'pytest.mark.skip', None), ('x.rb', 'rubocop:disable', None)], ['.rb'], 1)" ] \
   && grep -q "the change lowers the bar with no reason given" <<<"$err" && grep -q "## The bar" <<<"$err" && [ "$(kept_in "$LOCAL" bar-change gated)" = None ] \
@@ -627,7 +627,7 @@ plan=$tree/docs/plans/20261115-bar-change.md
 # shellcheck disable=SC2016  # the backticks are the plan's own marks around a path
 printf '%s\n' '' '## The bar' '' '- calc.py: the import registers a plugin.' '- `x.rb`: the cop reads this line wrong.' '- tests/test_base.py: the sum moved to another module with its test.' '- lib.rs: one() has its test in tests/one.rs now.' '- plug.py: E402 and F401 both hold for that import.' >> "$plan"
 git -C "$tree" commit -q -am "docs: why the bar is lower"
-out=$(local_land gate bar-change)
+out=$(local_land checks bar-change)
 small=$(local_land read bar-change | field 'd["floor"]')
 unsaid=$(local_land read bar-change --record "$(clean 1)" 2>&1 || true)
 local_land read bar-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}, {"name": "x.rb", "why": "the cop is wrong here."}, {"name": "tests/test_base.py", "why": "the sum and its test are in the other module."}, {"name": "lib.rs", "why": "tests/one.rs is not in this change."}, {"name": "plug.py", "why": "name the two codes."}]}')" >/dev/null
@@ -640,7 +640,7 @@ if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "
   && [ "$(field '(d["green"], len(d["not_green"]))' <<<"$proposed")" = "(False, 5)" ] && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   && grep -q '^- the bar is lower in `calc.py` (# noqa)\. The builder: the import registers a plugin\. The review: the plugin is loaded by that import\.$' "$text" \
   && grep -q '^- the bar is lowered, with these reasons:$' "$text" && grep -q '^  - `calc.py` (# noqa): the import registers a plugin\.$' "$text" \
-  && grep -q "^- the bar has no marks of its own for files of these kinds: .rb (the project's 1 pattern(s) in gate.bar were looked for)$" "$text" \
+  && grep -q "^- the bar has no marks of its own for files of these kinds: .rb (the project's 1 pattern(s) in checks.bar were looked for)$" "$text" \
   && grep -q "the request is not green (the bar is lower in" <<<"$agent" \
   && [ "$(grep -c '"event": "proposed", "task": "bar-change", "green": false' "$LOCAL/.lem/state/events.jsonl")" = 1 ]; then
   pass "with a reason for each file in the plan the gate passes, and the request is still not green: the review says what it thinks of each reason, the text opens with each lowered bar, its reason and the review's word, the event log counts it, and no agent merges it"
@@ -652,21 +652,21 @@ fi
 # that takes a yes back leaves the request careful, since the talk was due when the plan said it.
 local_land start bar-change >/dev/null
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("1. The change.", "1. The change.\n2. Its test.\n3. Its page.\n4. Its note."))' "$plan"
-git -C "$tree" commit -q -am "docs: four tasks" && local_land gate bar-change >/dev/null
+git -C "$tree" commit -q -am "docs: four tasks" && local_land checks bar-change >/dev/null
 large=$(local_land read bar-change | field '(d["floor"], d["why"])')
 # shellcheck disable=SC2016  # the backticks are the plan's own fence
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read().replace("\n2. Its test.\n3. Its page.\n4. Its note.", "").replace("\n## Acceptance criteria", "careful: no, nothing here reaches a price.\n\n## Acceptance criteria", 1)
 open(p, "w").write(s + "\n## Plan talk\n\nThe reviewer asked whether the plan should open with this line:\n\n```\ncareful: yes\n```\n")' "$plan"
-git -C "$tree" commit -q -am "docs: one task, not careful, and a talk that quotes the line" && local_land gate bar-change >/dev/null
+git -C "$tree" commit -q -am "docs: one task, not careful, and a talk that quotes the line" && local_land checks bar-change >/dev/null
 quoted=$(local_land read bar-change | field '(d["floor"], d["careful"])')
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("careful: no, nothing here reaches a price.", "careful: yes, a price is rounded here."))' "$plan"
-git -C "$tree" commit -q -am "docs: careful" && local_land gate bar-change >/dev/null
+git -C "$tree" commit -q -am "docs: careful" && local_land checks bar-change >/dev/null
 said=$(local_land read bar-change | field '(d["floor"], d["why"])')
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("careful: yes, a price is rounded here.", "careful: no, the price is not rounded after all."))' "$plan"
-git -C "$tree" commit -q -am "docs: not careful after all" && local_land gate bar-change >/dev/null
+git -C "$tree" commit -q -am "docs: not careful after all" && local_land checks bar-change >/dev/null
 taken_back=$(local_land read bar-change | field '(d["floor"], d["why"])')
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("## Tasks\n\n1. The change.\n", ""))' "$plan"
-git -C "$tree" commit -q -am "docs: no tasks" && local_land gate bar-change >/dev/null
+git -C "$tree" commit -q -am "docs: no tasks" && local_land checks bar-change >/dev/null
 err=$(local_land read bar-change 2>&1 || true)
 if [ "$large" = "('round', 'the plan has 4 tasks, more than three')" ] && [ "$quoted" = "('read', [])" ] && [ "$said" = "('full', 'the request is careful: the plan says so')" ] \
   && [ "$taken_back" = "('full', 'the request is careful: the plan says so')" ] && grep -q "has no .## Tasks. section with numbered tasks" <<<"$err"; then
@@ -684,7 +684,7 @@ task_in "$LOCAL" price-change seven.txt seven
 read_in "$LOCAL" price-change
 tree=$(project --repo "$LOCAL" worktree-dir price-change)
 mkdir -p "$tree/billing" && echo 'PRICE = 7' > "$tree/billing/price.py" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a price"
-local_land start price-change >/dev/null && local_land base price-change >/dev/null && polish_in "$LOCAL" price-change && local_land gate price-change >/dev/null
+local_land start price-change >/dev/null && local_land base price-change >/dev/null && polish_in "$LOCAL" price-change && local_land checks price-change >/dev/null
 printf '%s\n' '{"attempt": 1, "kind": "full", "ran": [{"name": "default", "why": "a price changes"}], "answered": ["codex"]}' > "$WORK/no-call.json"
 nocall=$(local_land read price-change --record "$WORK/no-call.json" 2>&1 || true)
 priced="billing/price.py:PRICE is what a customer pays, so a customer is charged the wrong price"
@@ -696,7 +696,7 @@ local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
 text=$LOCAL/.lem/state/tasks/price-change/pr.md
 first=$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.lem/state/events.jsonl" || true)
 agent=$(local_land land price-change --by agent 2>&1 || true)
-local_land start price-change >/dev/null && local_land base price-change >/dev/null && local_land gate price-change >/dev/null && local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
+local_land start price-change >/dev/null && local_land base price-change >/dev/null && local_land checks price-change >/dev/null && local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
 if grep -qF "the record makes the careful call" <<<"$nocall" && grep -qF '"careful": true or false' <<<"$nocall" && grep -qF '"careful_why"' <<<"$nocall" \
   && grep -qF "a change the review calls careful gets the project's full set" <<<"$less" \
   && grep -q '^- no plan talk: the request became careful after its plan, by its review$' "$text" && grep -qxF -- "- careful: yes, the review says so: $priced" "$text" \
@@ -714,7 +714,7 @@ project --repo "$LOCAL" state price-change dropped "the test is over" >/dev/null
 # call, as a review written down before the call was asked holds none, leaves the merge to a person.
 task_in "$LOCAL" call-kept eight.txt eight
 read_in "$LOCAL" call-kept
-local_land start call-kept >/dev/null && local_land base call-kept >/dev/null && polish_in "$LOCAL" call-kept && local_land gate call-kept >/dev/null && local_land read call-kept --record "$(clean 1)" >/dev/null
+local_land start call-kept >/dev/null && local_land base call-kept >/dev/null && polish_in "$LOCAL" call-kept && local_land checks call-kept >/dev/null && local_land read call-kept --record "$(clean 1)" >/dev/null
 local_land propose call-kept --title "fix: eight" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/call-kept/pr.md
 kept_file=$LOCAL/.lem/state/tasks/call-kept/landing.json
@@ -743,14 +743,14 @@ read_in "$LOCAL" lift-topics
 tree=$(project --repo "$LOCAL" worktree-dir lift-topics)
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("topics = [\"a customer is charged the wrong price\"]", "topics = []"))' "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "chore: no topics"
-local_land start lift-topics >/dev/null && local_land base lift-topics >/dev/null && polish_in "$LOCAL" lift-topics && local_land gate lift-topics >/dev/null
+local_land start lift-topics >/dev/null && local_land base lift-topics >/dev/null && polish_in "$LOCAL" lift-topics && local_land checks lift-topics >/dev/null
 lifted=$(local_land read lift-topics | field '(d["floor"], d["why"], d["inputs"]["topics"])')
 from_tree=$(land --repo "$tree" read lift-topics | field '(d["floor"], d["inputs"]["topics"])')
 local_land read lift-topics --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
 local_land propose lift-topics --title "chore: no topics" --notes "$MIG" >/dev/null
 agent=$(local_land land lift-topics --by agent 2>&1 || true)
 text=$LOCAL/.lem/state/tasks/lift-topics/pr.md
-settings_why="the change edits [flow] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+settings_why="the change edits [flow] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 # the reason holds an apostrophe, so Python's repr of it is in double quotes
 if [ "$lifted" = "('full', \"the request is careful: $settings_why\", ['a customer is charged the wrong price'])" ] \
   && [ "$from_tree" = "('full', ['a customer is charged the wrong price'])" ] \
@@ -770,7 +770,7 @@ read_in "$LOCAL" lands-alone
 tree=$(project --repo "$LOCAL" worktree-dir lands-alone)
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("land = \"agent\"", "land = \"agent\"\nhistory = \"squash\""))' "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "chore: one commit for each task"
-local_land start lands-alone >/dev/null && local_land base lands-alone >/dev/null && polish_in "$LOCAL" lands-alone && local_land gate lands-alone >/dev/null
+local_land start lands-alone >/dev/null && local_land base lands-alone >/dev/null && polish_in "$LOCAL" lands-alone && local_land checks lands-alone >/dev/null
 branch_floor=$(local_land read lands-alone | field '(d["floor"], d["why"])')
 local_land read lands-alone --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
 local_land propose lands-alone --title "chore: squash" --notes "$MIG" >/dev/null
@@ -780,11 +780,11 @@ task_in "$LOCAL" settings-note eleven.txt eleven
 tree=$(project --repo "$LOCAL" worktree-dir settings-note)
 printf '%s\n' '# the owner keeps the topics short' >> "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "docs: a note in the settings"
-local_land start settings-note >/dev/null && local_land base settings-note >/dev/null && polish_in "$LOCAL" settings-note && local_land gate settings-note >/dev/null
+local_land start settings-note >/dev/null && local_land base settings-note >/dev/null && polish_in "$LOCAL" settings-note && local_land checks settings-note >/dev/null
 note_floor=$(local_land read settings-note | field '(d["floor"], d["why"])')
 project --repo "$LOCAL" state settings-note dropped "the test is over" >/dev/null
-branch_why="the change edits [branch] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
-note_why="the change edits the text of .lem/project.toml, and no value in it, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+branch_why="the change edits [branch] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
+note_why="the change edits the text of .lem/project.toml, and no value in it, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 if [ "$branch_floor" = "('full', \"the request is careful: $branch_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($branch_why)" <<<"$branch_agent" \
   && grep -qxF -- "- careful: yes, $branch_why; the review says no: $NOT_CAREFUL" "$LOCAL/.lem/state/tasks/lands-alone/pr.md" \
   && [ "$note_floor" = "('full', \"the request is careful: $note_why\")" ]; then
@@ -797,10 +797,10 @@ fi
 task_in "$LOCAL" settings-gone twelve.txt twelve
 tree=$(project --repo "$LOCAL" worktree-dir settings-gone)
 git -C "$tree" rm -q .lem/project.toml && git -C "$tree" commit -q -m "chore: no settings"
-local_land start settings-gone >/dev/null && local_land base settings-gone >/dev/null && polish_in "$LOCAL" settings-gone && local_land gate settings-gone >/dev/null
+local_land start settings-gone >/dev/null && local_land base settings-gone >/dev/null && polish_in "$LOCAL" settings-gone && local_land checks settings-gone >/dev/null
 gone_floor=$(local_land read settings-gone | field '(d["floor"], d["why"])')
 project --repo "$LOCAL" state settings-gone dropped "the test is over" >/dev/null
-gone_why="the change removes .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+gone_why="the change removes .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the checks run, who merges and where a task lands"
 if [ "$gone_floor" = "('full', \"the request is careful: $gone_why\")" ]; then
   pass "a branch that removes Lem's own settings is careful by the script, and the reason says that it removes the file"
 else
@@ -814,7 +814,7 @@ read_in "$LOCAL" local-tracked
 tree=$(project --repo "$LOCAL" worktree-dir local-tracked)
 printf '%s\n' '[tools]' 'ask = "terminal"' > "$tree/.lem/project.local.toml"
 git -C "$tree" add -f .lem/project.local.toml && git -C "$tree" commit -q -m "chore: my asker"
-local_land start local-tracked >/dev/null && local_land base local-tracked >/dev/null && polish_in "$LOCAL" local-tracked && local_land gate local-tracked >/dev/null
+local_land start local-tracked >/dev/null && local_land base local-tracked >/dev/null && polish_in "$LOCAL" local-tracked && local_land checks local-tracked >/dev/null
 local_floor=$(local_land read local-tracked | field '(d["floor"], d["why"])')
 local_land read local-tracked --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
 local_land propose local-tracked --title "chore: my asker" --notes "$MIG" >/dev/null

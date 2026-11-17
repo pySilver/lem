@@ -55,7 +55,7 @@ onboarding directory, every line with the path it was read from:
   folder of the git directory (`git rev-parse --git-path hooks`). Write which hooks run at a
   commit and what each one runs. Note a sign of a suite that needs the machine to itself too: a
   Playwright, Cypress or Selenium configuration, a compose file for the tests. These become the
-  gate commands;
+  commands of the checks;
 - how work lands: the default branch, the branches the last fifty merges went into, whether
   commits are squashed, the form of the commit subjects, whether the remote is GitHub, and any
   branch nothing lands on (a release branch frozen for a rewrite);
@@ -134,14 +134,14 @@ an agent already loads by itself stay in their folder whatever `--existing` says
 settings name it as the style guide. Then edit `.lem/project.toml` with the three answers and
 the assumptions of step 6:
 
-- the gate commands from `examined.md`. `gate.commands` is the whole suite, which runs one time,
+- the commands of the checks from `examined.md`. `checks.commands` is the whole suite, which runs one time,
   in the checks before the pull request; no builder runs it. When git hooks run at a commit,
   propose only the test commands: the hooks run the formatter, the linter and the type check at
   each commit of a builder, and the checks need not run them again ("test runs only", the owner,
   2026-11-17). With no hooks, propose the linter and the type check the repository has as well;
-- `gate.alone`, only when `examined.md` shows a sign of a suite that needs the machine to itself:
+- `checks.alone`, only when `examined.md` shows a sign of a suite that needs the machine to itself:
   the test command of that suite, your guess from the file the sign is in, out of
-  `gate.commands`. The checks run it after `gate.commands` pass, under one lock for the
+  `checks.commands`. The checks run it after `checks.commands` pass, under one lock for the
   repository, and a builder runs a test of it through the same lock. With no sign it stays empty
   and nothing about it is said;
 - the sentences of what must never go wrong (`flow.topics`) the owner confirmed;
@@ -155,24 +155,24 @@ the assumptions of step 6:
   check that fails leaves the table out and says why on the page;
 - the reviewer: Codex when step 1 found it, since two model families disagree more usefully than
   one family twice and a reviewer on another provider's quota does not spend the builders';
-  otherwise a second Claude. Its model and its `plan_effort`, and the defender's seat
-  (`[seats.planner]`), stay the agents' own defaults;
+  otherwise a second Claude: `reviewer = "codex"` under `[seats]`. Its model and its effort, the
+  defender's seat (`seats.planner`) and the experts (`seats.experts`) stay Lem's defaults;
 - `tools.annotate` and `tools.ask` keep Lem's defaults.
 
-Run each gate command once, at the root, for the last line the hand-over page shows, and each
-`gate.alone` command through `python3 SKILL_DIR/scripts/project.py alone -- COMMAND`. Then look at
+Run each command of the checks once, at the root, for the last line the hand-over page shows, and each
+`checks.alone` command through `python3 SKILL_DIR/scripts/project.py alone -- COMMAND`. Then look at
 what they left that git neither tracks nor ignores (`git status --porcelain --untracked-files=all`):
 a cache of Python's bytecode, a coverage file, a build folder. Propose an ignore line for each kind
 in the repository's ignore file, `.gitignore` when it has none, in the onboarding's commit, and
 list them on the hand-over page among the assumptions ("change ignore none" leaves them out). The
-gate removes such files after every run anyway (`stages/land.md`, step 4), so the lines keep the
+checks remove such files after every run anyway (`stages/land.md`, step 4), so the lines keep the
 developer's own checkout tidy and nothing waits on them. Then remove what the commands left, the
 way it came: the files they wrote, never a file that was there before. In a Python module with
-no `.gitignore`, the gate's `python3 -m unittest` left two `__pycache__` folders, the gate of that
+no `.gitignore`, the checks' `python3 -m unittest` left two `__pycache__` folders, the checks of that
 day refused the tree, and the first small change ended in a second task for the ignore rule (a
 scratch repository, 2026-11-17).
 
-Leave `gate.ignores` empty: an empty list only means the gate runs again whenever the base moves.
+Leave `checks.ignores` empty: an empty list only means the checks run again whenever the base moves.
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
 and say so on the page.
 
@@ -191,7 +191,7 @@ is, and no persona file that is there is overwritten.
   `README.md` says it too: a thin persona answers every question the same way, and only the
   owner can make it a person.
 - **The style guide**: first offer the published guides `references/styleguides.md` lists for the
-  project's stack; one the owner picks enters as a linter configuration in the gate and a page of
+  project's stack; one the owner picks enters as a linter configuration in the checks and a page of
   differences, as that file says. Then one file per area of the code. Its frontmatter names the
   paths it covers in the one form `project.py rules` reads, `paths:` with a list of globs, and a
   file without that covers every path; each rule has its reason and the file it was read from. Write only conventions `examined.md` shows the code
@@ -208,10 +208,10 @@ is, and no persona file that is there is overwritten.
   reads the ones that cover what it changes. With it an agent that runs without Lem finds the
   rules; with Lem, the picker hands them over. Show the paragraph on the hand-over page and put
   it into the agent document, on the onboarding's branch, only on the owner's yes.
-- **The gate of a new project** does not exist yet. Leave `gate.commands` empty and name "set up
+- **The checks of a new project** do not exist yet. Leave `checks.commands` empty and name "set up
   the checks" (formatter, linter, type checker, a first test) as the task to run first: no task
   lands through this skill before it. That task's branch writes the commands into
-  `gate.commands` of its own `.lem/project.toml`, and the landing gates it with them
+  `checks.commands` of its own `.lem/project.toml`, and the landing checks it with them
   (`stages/land.md`, step 1); its pull request is not green, so that the owner reads the checks. The onboarding's own branch is not a task: it holds
   settings and drafts, and step 6 lands it.
 - **The review configuration**: the review tool's own starter set, in the review tool's own
@@ -241,10 +241,10 @@ builder of its own, and how (the harness file, `spawn-builder`).
 **The assumptions**, each one line with its value, where it came from, and the words that change
 it: who lands (`owner`; "change land agent"), a pull request or a merge, what lands, the closed
 branches, the tracker, the reviewer and the defender with their models, the folders already here
-(linked or new), and each gate command. With git hooks, one line says, in these words, why the
-gate has only tests: "the git hooks run the rest at each commit of a builder" (the hook files;
-"change gate add COMMAND"). With a sign of a suite that needs the machine to itself, one line
-names your guess for `gate.alone` with the file the sign is in ("change alone COMMAND", "change
+(linked or new), and each command of the checks. With git hooks, one line says, in these words, why the
+checks have only tests: "the git hooks run the rest at each commit of a builder" (the hook files;
+"change checks add COMMAND"). With a sign of a suite that needs the machine to itself, one line
+names your guess for `checks.alone` with the file the sign is in ("change alone COMMAND", "change
 alone none"): that line is the one question about it, and it waits for no answer either. He
 corrects one with "change" and what; nothing on the list waits for an answer. With `branch.propose = "pull-request"` one line of it says, in these
 words, what his "land" approves: "Lem pushes each task's branch and opens its pull request
@@ -252,7 +252,7 @@ without asking" (`branch.propose`; "change propose merge"). That line makes the 
 standing word for the push, so that no task stops before its pull request to ask for it.
 
 A list of file names is not a hand-over. Every generated file is a draft, and three are read
-first: what must never go wrong, the gate, the personas. Name each persona that is a thin guess, as the
+first: what must never go wrong, the checks, the personas. Name each persona that is a thin guess, as the
 one the owner should correct first. Offer to open each in the annotate tool
 (`show-page`; `tools.annotate` in the settings), one after the other, and take the owner's notes
 as corrections: edit, commit on the same branch, say for each file what changed.
@@ -288,7 +288,7 @@ The page and your last message end with the three replies you take, in these wor
   when the base moved, and leave the checkout on the base branch. That holds whatever
   `branch.land` says: the owner's read was the review and this word is his go-ahead. It does not
   go through `stages/land.md`, which reads settings the base branch does not have yet. When the
-  settings name gate commands, run them on the branch first and do not land on a red result; a
+  settings name commands of the checks, run them on the branch first and do not land on a red result; a
   new project names none, and its onboarding lands without them. Never hand him git commands to
   type. Then write the state `landed` with that line (`project.py state onboarding landed
   "main is at COMMIT: Lem's settings and drafts"`). Open your answer with what you did

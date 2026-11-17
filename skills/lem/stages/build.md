@@ -34,7 +34,7 @@ you the start of one, write the state `blocked` with that refusal, and stop.
      change. The owner: "what worked for us is to run only subset of tests during plan execution,
      not the whole suite that takes ages. whole test suite run at the very late stage"
      (2026-11-17);
-   - when the settings' `gate.alone` names commands (`project.py show`), those commands, and the
+   - when the settings' `checks.alone` names commands (`project.py show`), those commands, and the
      line that runs a test of such a suite: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE
      alone -- COMMAND`, with `SKILL_DIR` and `WORKTREE` written out. Such a test needs the machine
      to itself (fixed ports, one database, a browser), and four builders may run at one moment, so
@@ -127,7 +127,7 @@ has no plan, and the size is no choice of this section. A plan that departs from
      options, by the timeout or by the experts, read what was taken against each criterion: when one no longer
      holds, or a criterion has to come or go, record it with `decisions.py criterion ... --choice
      N`, and change the criterion in the plan in the commit that builds the option. A forgotten
-     record does not pass: the gate refuses a plan whose criteria are not the expected ones. The
+     record does not pass: the checks refuse a plan whose criteria are not the expected ones. The
      choice waits the settings' `flow.decision_wait` (15 minutes unless the project says otherwise),
      and it counts from the ask, so two things come at once, in this order, as `decisions.py ask`
      prints them in its `next`. First give the choice to the experts: the `lem-ask-expert` skill
@@ -189,7 +189,7 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   branch that the base run lacked, which the check takes for the change: a helper of a test in that
   list means the test's failure proved nothing, and the helper belongs among the criterion's files.
   Repair what the check names before the task is `ready`, and give its last line here. A project
-  whose tests need more than a fresh worktree has says what in the settings' `gate.setup`; when that
+  whose tests need more than a fresh worktree has says what in the settings' `checks.setup`; when that
   is missing, it is an outside defect for your report, not yours to set;
 - **not verified**: what you could not or did not check;
 - **decisions**: each one taken without the owner, with why and what it would take to undo, by

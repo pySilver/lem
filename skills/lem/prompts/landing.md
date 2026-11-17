@@ -74,12 +74,12 @@ exact last line of its output; the tip (`git rev-parse HEAD`); the output of
 
 ## The repair of a failed check
 
-The brief gives what the machine checks printed: the gate commands that failed with the files
+The brief gives what the machine checks printed: the commands of the checks that failed with the files
 that hold their output, or the criterion whose test does not hold it, or the files in which the
 change lowers the bar. No check is ever edited to pass.
 
-- *A gate command.* Read its output file. Run the command on the base branch too, in a way that
-  leaves the worktree as it was. A command of `gate.alone` (`project.py --repo WORKTREE show`)
+- *A command of the checks.* Read its output file. Run the command on the base branch too, in a way that
+  leaves the worktree as it was. A command of `checks.alone` (`project.py --repo WORKTREE show`)
   needs the machine to itself: run it, on the branch and on the base, through `python3
   SKILL_DIR/scripts/project.py --repo WORKTREE alone -- COMMAND`, never bare (`SKILL_DIR` is
   the directory above this file's). A failure the change caused, you fix and commit. A failure

@@ -11,14 +11,14 @@
 backlog_repo() {
   local repo=$WORK/$1
   git init -q -b main "$repo" && ident "$repo" && project --repo "$repo" init --base main >/dev/null
-  printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' '[paths]' "backlog = \"$2\"" > "$repo/.lem/project.toml"
+  printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[paths]' "backlog = \"$2\"" > "$repo/.lem/project.toml"
   mkdir -p "$repo/$2" && echo '# an item from before' > "$repo/$2/existing.md" && echo one > "$repo/app.txt"
   git -C "$repo" add -A && git -C "$repo" commit -q -m "chore: start"
 }
 # blg_task SLUG: a full change of the backlog repository, with the lead's read of its criteria
 blg_task() { task_in "$BLG" "$1" app.txt two && read_in "$BLG" "$1"; }
 # checked_in REPO SLUG: the task takes the landing line, its base, its polish pass and its gate
-checked_in() { land --repo "$1" start "$2" >/dev/null && land --repo "$1" base "$2" >/dev/null && polish_in "$1" "$2" && land --repo "$1" gate "$2" >/dev/null; }
+checked_in() { land --repo "$1" start "$2" >/dev/null && land --repo "$1" base "$2" >/dev/null && polish_in "$1" "$2" && land --repo "$1" checks "$2" >/dev/null; }
 # reviewed_then REPO SLUG CHANGE: a task whose change one read reviewed, then CHANGE run in its
 # worktree and committed, and the checks again; prints what is due
 reviewed_then() {
@@ -28,7 +28,7 @@ reviewed_then() {
   checked_in "$1" "$2"
   land --repo "$1" read "$2" --record "$(clean 1)" >/dev/null
   (cd "$tree" && sh -c "$3")
-  git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): after the review" && land --repo "$1" gate "$2" >/dev/null
+  git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): after the review" && land --repo "$1" checks "$2" >/dev/null
   land --repo "$1" read "$2" | field 'd["due"]'
   project --repo "$1" state "$2" dropped "the test is over" >/dev/null
 }
@@ -83,7 +83,7 @@ day_from=$(date +%F)
 first=$(land --repo "$BLG" read two-defects --record "$(record 1 "$read_must_fix, $(outside "$A")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
 filed_a=$(land --repo "$BLG" file two-defects | field '([(f["round"], f["item"]) for f in d["filed"]], d["same"])')
 day_to=$(date +%F)
-echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix" && land --repo "$BLG" gate two-defects >/dev/null
+echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix" && land --repo "$BLG" checks two-defects >/dev/null
 second=$(land --repo "$BLG" read two-defects --record "$(record 2 "$a_round, $(outside "$B")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
 unfiled=$(land --repo "$BLG" propose two-defects --title "fix: two-defects" --notes "$NOTES" 2>&1 >/dev/null || true)
 filed_b=$(land --repo "$BLG" file two-defects | field '[(f["round"], f["item"]) for f in d["filed"]]')
@@ -91,7 +91,7 @@ commit_b=$(git -C "$tree" show --name-only --format=%s HEAD | tr '\n' '|')
 tip_b=$(git -C "$tree" rev-parse HEAD)
 rerun=$(land --repo "$BLG" file two-defects | field '(d["filed"], d["same"])')
 [ "$(git -C "$tree" rev-parse HEAD)" = "$tip_b" ] || rerun="$rerun, and a commit"
-land --repo "$BLG" gate two-defects >/dev/null
+land --repo "$BLG" checks two-defects >/dev/null
 after=$(land --repo "$BLG" read two-defects | field '(d["due"], d["to_file"])')
 green=$(land --repo "$BLG" propose two-defects --title "fix: two-defects" --notes "$NOTES" | field 'd["green"]')
 text=$BLG/.lem/state/tasks/two-defects/pr.md
@@ -124,10 +124,10 @@ checked_in "$BLG" item-goes
 land --repo "$BLG" read item-goes --record "$(record 1 "$a_read, $(outside "$A")")" >/dev/null
 before=$(land --repo "$BLG" propose item-goes --title "fix: item-goes" --notes "$NOTES" 2>&1 >/dev/null || true)
 land --repo "$BLG" file item-goes >/dev/null
-rm "$tree/docs/backlog/empty-input-crashes-the-parser.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: an item less" && land --repo "$BLG" gate item-goes >/dev/null
+rm "$tree/docs/backlog/empty-input-crashes-the-parser.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: an item less" && land --repo "$BLG" checks item-goes >/dev/null
 gone=$(land --repo "$BLG" propose item-goes --title "fix: item-goes" --notes "$NOTES" 2>&1 >/dev/null || true)
 back=$(land --repo "$BLG" file item-goes --again | field '[f["item"] for f in d["filed"]]')
-land --repo "$BLG" gate item-goes >/dev/null
+land --repo "$BLG" checks item-goes >/dev/null
 green=$(land --repo "$BLG" propose item-goes --title "fix: item-goes" --notes "$NOTES" | field 'd["green"]')
 if grep -q "Empty input crashes the parser" <<<"$before" && grep -q "land.py file item-goes" <<<"$before" \
   && grep -q "docs/backlog/empty-input-crashes-the-parser.md" <<<"$gone" && grep -q "was removed after it was filed" <<<"$gone" && grep -q -- "--again" <<<"$gone" && grep -q "worth: no" <<<"$gone" \
@@ -149,7 +149,7 @@ echo '# An item from before' > "$tree/docs/backlog/an-item-from-before.md" && gi
 checked_in "$BLG" same-defect
 land --repo "$BLG" read same-defect --record "$(record 1 "$read_must_fix, $(outside "$D")")" >/dev/null
 once=$(land --repo "$BLG" file same-defect | field '[f["item"] for f in d["filed"]]')
-echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix" && land --repo "$BLG" gate same-defect >/dev/null
+echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix" && land --repo "$BLG" checks same-defect >/dev/null
 land --repo "$BLG" read same-defect --record "$(record 2 "$a_round, $(outside "$D" "$E")")" >/dev/null
 echo stray > "$tree/stray.txt"
 dirty=$(land --repo "$BLG" file same-defect 2>&1 >/dev/null || true)
@@ -173,7 +173,7 @@ land --repo "$BLG" read owner-says-no --record "$(record 1 "$read_must_fix, $(ou
 land --repo "$BLG" file owner-says-no >/dev/null
 item=$tree/docs/backlog/empty-input-crashes-the-parser.md
 "$PY" -c 'import sys; p = sys.argv[1]; t = open(p).read().replace("worth: later", "worth: no").replace("\n\nSeen outside", "\n\nThe owner: an empty input never reaches parse, the reader refuses it first.\n\nSeen outside"); open(p, "w").write(t)' "$item"
-echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix, and the owner's no" && land --repo "$BLG" gate owner-says-no >/dev/null
+echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix, and the owner's no" && land --repo "$BLG" checks owner-says-no >/dev/null
 land --repo "$BLG" read owner-says-no --record "$(record 2 "$a_round, $(outside "$A")")" >/dev/null
 again=$(land --repo "$BLG" file owner-says-no | field '([f["item"] for f in d["filed"]], [f["item"] for f in d["same"]])')
 if [ "$again" = "([], ['docs/backlog/empty-input-crashes-the-parser.md'])" ] && grep -qx "worth: no" "$item" && grep -q "^The owner: " "$item" \
@@ -197,7 +197,7 @@ told=$(land --repo "$BLG" read builder-filed | field '[(i["item"], i["where"], i
 land --repo "$BLG" read builder-filed --record "$(record 1 "$a_read, $(outside "$A" "$B")")" >/dev/null
 before_file=$(git -C "$tree" rev-parse HEAD)
 filing=$(land --repo "$BLG" file builder-filed | field '([f["item"] for f in d["filed"]], [(n["item"], n["where"]) for n in d["named"]])')
-land --repo "$BLG" gate builder-filed >/dev/null
+land --repo "$BLG" checks builder-filed >/dev/null
 green=$(land --repo "$BLG" propose builder-filed --title "fix: builder-filed" --notes "$NOTES" | field 'd["green"]')
 text=$BLG/.lem/state/tasks/builder-filed/pr.md
 if [ "$told" = "[('$own', 'src/json.py:parse', 'The parser fails on an empty input')]" ] \
@@ -229,7 +229,7 @@ land --repo "$BLG" file filed-only >/dev/null
 filed_tip=$(git -C "$tree" rev-parse HEAD)
 carried=$(land --repo "$BLG" propose filed-only --title "fix: filed-only" --notes "$NOTES" 2>&1 || true)
 landed=$(land --repo "$BLG" land filed-only --by agent 2>&1 || true)
-if grep -qF "no green check is on record for this tip; \`land.py gate by-hand\` comes first" <<<"$hand" \
+if grep -qF "no green check is on record for this tip; \`land.py checks by-hand\` comes first" <<<"$hand" \
   && [ "$filed_tip" != "$gated" ] && [ "$(field '(d["green"], d["tip"])' <<<"$carried" 2>/dev/null)" = "(True, '$filed_tip')" ] \
   && [ "$(field 'd["tip"]' <<<"$landed" 2>/dev/null)" = "$filed_tip" ] && [ "$(status_in "$BLG" filed-only)" = landed ] \
   && [ "$(git -C "$BLG" show main:docs/backlog/empty-input-crashes-the-parser.md | sed -n 6p)" = "# Empty input crashes the parser" ] \

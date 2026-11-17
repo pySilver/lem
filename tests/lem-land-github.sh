@@ -13,7 +13,7 @@ git clone -q "$GHO" "$GHS" 2>/dev/null && ident "$GHS"
 git -C "$GHS" config remote.origin.url https://github.com/acme/shop.git
 git -C "$GHS" config "url.$GHO.insteadOf" https://github.com/acme/shop.git
 project --repo "$GHS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' > "$GHS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$GHS/.lem/project.toml"
 git -C "$GHS" add -A && git -C "$GHS" commit -q -m "chore: start" && git -C "$GHS" push -q origin main
 mkdir -p "$WORK/bin"
 cat > "$WORK/gh.py" <<'PY'
@@ -73,10 +73,10 @@ gh_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gh.json" GH_ORIGIN="$GHO" "$P
 gh_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$WORK/gh.json" "$1"; }
 # gh_set PYTHON [FILE]: change the stand-in's pull requests as the forge would, written whole, since a watch may read them at that moment
 gh_set() { "$PY" -c 'import json, os, sys; d = json.load(open(sys.argv[2])); exec(sys.argv[1]); json.dump(d, open(sys.argv[2] + ".set", "w")); os.replace(sys.argv[2] + ".set", sys.argv[2])' "$1" "${2:-$WORK/gh.json}"; }
-gh_checked() { gh_land start "$1" >/dev/null && gh_land base "$1" >/dev/null && gh_land gate "$1" >/dev/null; }
+gh_checked() { gh_land start "$1" >/dev/null && gh_land base "$1" >/dev/null && gh_land checks "$1" >/dev/null; }
 small_task_in "$GHS" pr-change p.txt nine
 out=$(gh_land start pr-change)
-gh_land base pr-change >/dev/null && gh_land gate pr-change >/dev/null && gh_land read pr-change --record "$(clean 1)" >/dev/null
+gh_land base pr-change >/dev/null && gh_land checks pr-change >/dev/null && gh_land read pr-change --record "$(clean 1)" >/dev/null
 proposed=$(gh_land propose pr-change --title "fix: nine" --notes "$NOTES")
 tip=$(git -C "$GHS/.lem/worktrees/pr-change" rev-parse HEAD)
 if [ "$(field 'd["forge"]' <<<"$out")" = github ] && [ "$(field 'd["pull_request"]' <<<"$proposed")" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}" ] \
@@ -129,7 +129,7 @@ git -C "$gh_other" merge -q --squash origin/fix/pr-squashed && git -C "$gh_other
 oid=$(git -C "$gh_other" rev-parse HEAD)
 gh_set "d['prs']['8'].update(state='MERGED', merge='$oid')"
 out=$(gh_land merged pr-squashed)
-if grep -q "origin/main moved after the checks ran, by files the gate reads (late.txt)" <<<"$err" && grep -q "the pull request is not merged yet" <<<"$early" \
+if grep -q "origin/main moved after the checks ran, by files the checks read (late.txt)" <<<"$err" && grep -q "the pull request is not merged yet" <<<"$early" \
   && [ "$(gh_state 'sum(c[:3] == ["pr", "merge", "8"] for c in d["calls"])')" = 0 ] \
   && [ "$(field '(d["merged"], d["left_behind"])' <<<"$out")" = "('$oid', None)" ] && [ "$(status_in "$GHS" pr-squashed)" = landed ] && [ "$(git -C "$GHS" rev-parse main)" = "$oid" ]; then
   pass "a pull request is not merged over a base that moved by files the gate reads; one the owner merged on the forge as one commit is finished by its own step, also while the task has the landing line again"
@@ -194,7 +194,7 @@ moved_head=$(gh_land land pr-guards --by agent 2>&1 || true)
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$tip"
 gh_set "d['prs']['$number']['state'] = 'CLOSED'"
 closed_land=$(gh_land land pr-guards --by agent 2>&1 || true)
-if grep -qF "the pull request's head is not the tip that was proposed; run \`land.py start\`, \`land.py base\`, \`land.py gate\` and \`land.py propose\` again" <<<"$moved_head" \
+if grep -qF "the pull request's head is not the tip that was proposed; run \`land.py start\`, \`land.py base\`, \`land.py checks\` and \`land.py propose\` again" <<<"$moved_head" \
   && grep -qF "the pull request was closed without a merge: \`land.py merged pr-guards\` writes the task dropped" <<<"$closed_land" \
   && [ "$(gh_state "sum(c[:3] == ['pr', 'merge', '$number'] for c in d['calls'])")" = 0 ] && [ "$(status_in "$GHS" pr-guards)" = open ]; then
   pass "land merges no pull request whose head on the forge is not the proposed tip, nor a closed one, and names the step for a closed one"
@@ -223,14 +223,14 @@ git clone -q "$GMO" "$GMS" 2>/dev/null && ident "$GMS"
 git -C "$GMS" config remote.origin.url git@github.com:acme/solo.git
 git -C "$GMS" config "url.$GMO.insteadOf" git@github.com:acme/solo.git
 project --repo "$GMS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'propose = "merge"' '[gate]' 'commands = ["true"]' > "$GMS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'propose = "merge"' '[checks]' 'commands = ["true"]' > "$GMS/.lem/project.toml"
 git -C "$GMS" add -A && git -C "$GMS" commit -q -m "chore: start" && git -C "$GMS" push -q origin main
 mkdir -p "$WORK/gm-bin"
 printf '%s\n' '#!/bin/sh' "echo \"\$*\" >> '$WORK/gm-gh-calls'" 'exit 1' > "$WORK/gm-bin/gh" && chmod +x "$WORK/gm-bin/gh"
 gm_land() { PATH="$WORK/gm-bin:$PATH" "$PY" -B "$LAND" --repo "$GMS" "$@"; }
 small_task_in "$GMS" solo-change s.txt eleven
 out=$(gm_land start solo-change)
-gm_land base solo-change >/dev/null && gm_land gate solo-change >/dev/null && gm_land read solo-change --record "$(clean 1)" >/dev/null
+gm_land base solo-change >/dev/null && gm_land checks solo-change >/dev/null && gm_land read solo-change --record "$(clean 1)" >/dev/null
 proposed=$(gm_land propose solo-change --title "fix: eleven" --notes "$NOTES" 2>&1 || true)
 tip=$(git -C "$GMS/.lem/worktrees/solo-change" rev-parse HEAD)
 opened=$(cat "$GMS/.lem/state/tasks/solo-change/state.md")
@@ -259,7 +259,7 @@ git clone -q "$GWO" "$GWS" 2>/dev/null && ident "$GWS"
 git -C "$GWS" config remote.origin.url https://github.com/acme/watch.git
 git -C "$GWS" config "url.$GWO.insteadOf" https://github.com/acme/watch.git
 project --repo "$GWS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' '[gate]' 'commands = ["true"]' '[flow]' 'watch_seconds = 1' > "$GWS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' '[flow]' 'watch_seconds = 1' > "$GWS/.lem/project.toml"
 printf 'l%s\n' 1 2 3 4 5 6 7 8 9 > "$GWS/shop.txt"
 git -C "$GWS" add -A && git -C "$GWS" commit -q -m "chore: start" && git -C "$GWS" push -q origin main
 GW=$WORK/gw.json
@@ -290,7 +290,7 @@ line_task() {
 proposed() {
   gw_land start "$1" >/dev/null && gw_land base "$1" >/dev/null
   if [ -e "$GWS/docs/plans/20261115-$1.md" ] || [ -e "$GWS/.lem/worktrees/$1/docs/plans/20261115-$1.md" ]; then polish_in_gw "$1"; fi
-  gw_land gate "$1" >/dev/null && gw_land read "$1" --record "$(clean 1)" >/dev/null && gw_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
+  gw_land checks "$1" >/dev/null && gw_land read "$1" --record "$(clean 1)" >/dev/null && gw_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
 polish_in_gw() {
   local started
@@ -348,7 +348,7 @@ gw_land merged w-one >/dev/null
 started=$(gw_land start w-two --after w-one 2>&1 || true)
 based=$(gw_land base w-two 2>&1 || true)
 polished=$(gw_land polish w-two 2>&1 || true)
-gw_land gate w-two >/dev/null 2>&1 || true
+gw_land checks w-two >/dev/null 2>&1 || true
 due_after=$(gw_land read w-two 2>&1 || true)
 again=$(gw_land propose w-two --title "fix: w-two" --notes "$NOTES" 2>&1 || true)
 tree=$GWS/.lem/worktrees/w-two
@@ -386,7 +386,7 @@ git -C "$tree" rebase -q origin/main >/dev/null 2>&1 || true
 git -C "$tree" add shop.txt && GIT_EDITOR=true git -C "$tree" rebase --continue >/dev/null 2>&1
 resolved=$(gw_land base w-four 2>&1 || true)
 polished=$(gw_land polish w-four 2>&1 || true)
-gw_land gate w-four >/dev/null 2>&1 || true
+gw_land checks w-four >/dev/null 2>&1 || true
 due_read=$(gw_land read w-four 2>&1 || true)
 recorded=$(gw_land read w-four --record "$(clean 2)" 2>&1 || true)
 due_after=$(gw_land read w-four 2>&1 || true)
@@ -468,6 +468,8 @@ if git cat-file -e "ccba3bd^{commit}" 2>/dev/null; then
     ox propose old-pr --title "fix: twelve" --notes "$NOTES" >/dev/null
   )
   opened=$("$PY" -B "$OLDLEM/skills/lem/scripts/project.py" --repo "$GXS" tasks | field '[(t["slug"], t["status"]) for t in d]')
+  # the settings of that commit name the checks `[gate]`, which the scripts of now refuse with the lines the owner writes
+  printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$GXS/.lem/project.toml"
   number=$("$PY" -c 'import json, sys; print(next(iter(json.load(open(sys.argv[1]))["prs"])))' "$WORK/gx.json")
   head=$(git -C "$GXO" rev-parse refs/heads/fix/old-pr)
   git -C "$GXO" update-ref refs/heads/main "$head"
@@ -477,7 +479,7 @@ if git cat-file -e "ccba3bd^{commit}" 2>/dev/null; then
   cleaned=$(gx_land clean old-pr 2>&1 | field 'd["worktree"]' 2>&1 || true)
   if [ "$opened" = "[('old-pr', 'open')]" ] && grep -qF "project.py: moved Lem's state from $GXS/.git/lem to $GXS/.lem/state (renamed)" "$WORK/gx.err" \
     && [ "$merged" = "$head" ] && [ "$(status_in "$GXS" old-pr)" = landed ] && [ "$cleaned" = True ] && [ ! -e "$GXS/.git/lem" ] \
-    && [ "$(git -C "$GXS" rev-parse main)" = "$head" ] && [ -z "$(git -C "$GXS" status --porcelain --untracked-files=all)" ]; then
+    && [ "$(git -C "$GXS" rev-parse main)" = "$head" ] && [ -z "$(git -C "$GXS" status --porcelain --untracked-files=all -- . ':!.lem/project.toml')" ]; then
     pass "a pull request opened by the scripts before the state moved and merged by the owner on the forge is finished by merged of now, which moves the state and says so; tasks and clean read it there"
   else
     fail "an old pull request after the move: $opened / $merged / $cleaned / $(cat "$WORK/gx.err")"

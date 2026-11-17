@@ -6,7 +6,8 @@ by line before the build. Only a careful or large plan is talked through with th
 a list of questions that closes with the reviewer's first turn, by its defender and not by you
 (`stages/talk.md`).
 
-1. **Write the plan** as one file in the settings' `plans` path, named `YYYYMMDD-<slug>.md`, and
+1. **Write the plan** as one file at the path `python3 SKILL_DIR/scripts/project.py --repo WORKTREE plan-file SLUG`
+   prints (`path`; its name is the settings' `paths.plan_file`, `YYYY-MM-DD-<slug>.md` unless they say otherwise), and
    commit it as your first commit: after a bug, the investigator's test comes before it. It opens with the acceptance criteria, because they are the
    owner's document: he reads them and not the rest of the plan, and they become the tests.
    - `## Acceptance criteria`, in the form `python3 SKILL_DIR/scripts/criteria.py --help` shows.

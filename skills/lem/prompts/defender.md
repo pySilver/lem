@@ -17,7 +17,7 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
    `directions.md` when it is there, the acceptance criteria (`python3 SKILL_DIR/scripts/criteria.py
    --repo WORKTREE approved SLUG`), the builder's `report.md`, and the plan on the task's branch, in
    the settings' `plans` path, with the code it rests on.
-3. **Hold the talk** by `stages/talk.md`, with the reviewer's seat at its `plan_effort`.
+3. **Hold the talk** by `stages/talk.md`, with the reviewer's seat at its effort.
    You are the plan's side in it: you answer each question with one repair or one refutation
    with a cite, and you check each claim of the reviewer's in the code before you answer.
 4. **The plan is the one file you edit.** Each repair is yours to write and to commit on the

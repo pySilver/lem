@@ -6,9 +6,9 @@ machine checks and a review by an agent that did not build it. One task is in th
 time: the checks are about one tip on one base, and two at once would each be tested without the
 other.
 
-A small change lands by five steps and no more: `start`, `base`, `gate`, the review at its
+A small change lands by five steps and no more: `start`, `base`, `checks`, the review at its
 floor, which is one read by the review agent itself, and `propose`. It has no polish pass (step
-3): its builder filed what it saw outside the change. Its criterion's check runs once, at the gate,
+3): its builder filed what it saw outside the change. Its criterion's check runs once, in the checks,
 and its pull request is short: green or not green, the acceptance criterion, the checks with the
 items its builder filed, and the read. Its criterion is `criteria.md` in the task directory, which
 the steps read in the place of a plan; a step's word "the plan" means that file for it.
@@ -43,14 +43,14 @@ one finds what the run before it finished.
 
 1. **`start`.** The task takes the landing line and its state becomes `landing`. It is refused
    while another task is in `landing`, and for a worktree with changes nobody committed. A project
-   with no gate command cannot land through this skill, because "nothing failed" would then mean
+   with no command in its checks cannot land through this skill, because "nothing failed" would then mean
    "nothing ran": the step writes the task's state as `blocked` instead, and you tell the owner.
    Once the commands are in the settings, `start` again takes the task it blocked.
    The one exception is the task that sets up the checks (`stages/init.md`): when the main
-   checkout's settings have no gate command and the task's own branch adds them to its
-   `.lem/project.toml`, its gate is those commands, and its pull request is not green for that,
-   so that the owner reads the checks once. A branch that changes a gate the main checkout has
-   is gated by the main checkout's, as every task is.
+   checkout's settings have no command in `checks.commands` and the task's own branch adds them to its
+   `.lem/project.toml`, its checks are those commands, and its pull request is not green for that,
+   so that the owner reads the checks once. A branch that changes checks the main checkout has
+   is checked by the main checkout's, as every task is.
    `landing` holds a place, so it is written when the checks will run and never before a stop.
    An `open` task takes the line again when a later step says so (the base moved, a commit hook
    changed the one commit): its reviews and its pull request stay its own. That is the one way
@@ -80,26 +80,26 @@ one finds what the run before it finished.
    the pull request's checks say how many commits it made and how many items it filed.
    The pass runs once for a task, here, and never after each task of a plan; a builder of a
    later job of this landing has the same list in its brief. So when the landing comes back
-   here from a later step and `land.py polish` prints `"done": true`, go on to step 4. `gate` refuses a full change with
+   here from a later step and `land.py polish` prints `"done": true`, go on to step 4. `checks` refuses a full change with
    no pass on the tip it checks. A small change never has the pass, and `land.py polish` refuses
    one: one builder changed one rule, its own checks ran, the review reads every line of it, and
    its builder filed each defect it saw outside the change in a commit of its own, which the pull
    request lists. In the first real small change, a polish pass started a second builder only
    to file one item, and took 73 s, as long as the builder of the change itself (a scratch
    repository, 2026-11-17). A rewrite of the branch after the pass, other than the rebase of
-   `base`, asks for the pass again: `gate` says so.
+   `base`, asks for the pass again: `checks` says so.
    Read `report.md` again after the pass: its builder brought it up to what it did, the
    documents it corrected, the defects it fixed and the items it filed. When its agent refused
    it the write, its reply holds the report's text instead, and you write `report.md` from it
    word for word.
-4. **`gate`: the machine checks**, with no model in them, on the tip that will be proposed.
+4. **`checks`: the machine checks**, with no model in them, on the tip that will be proposed.
    - The polish pass is on that tip (step 3): the step refuses a full change without one before any
      command runs.
-   - Every command of the settings' `gate.commands` runs at the root of the task's worktree,
+   - Every command of the settings' `checks.commands` runs at the root of the task's worktree,
      each with its output in a file of the task directory. The step keeps the exact last line of
      each and logs each result for the board. Do not read the output files. This is the one run
      of the whole suite: no builder runs it.
-   - Then, when they all passed, each command of `gate.alone`, the ones that need the machine to
+   - Then, when they all passed, each command of `checks.alone`, the ones that need the machine to
      themselves, under the repository's one lock for them (`project.py alone`): the step waits
      while a builder or another task's check holds it.
    - What the commands wrote that git neither tracks nor ignores (a `__pycache__` in a
@@ -120,13 +120,13 @@ one finds what the run before it finished.
    A check that fails is work, and a builder's: `spawn-builder` with the brief below, the job
    "the repair of a failed check", and as its paths what the step printed (the commands that
    failed with their output files, or the criterion and its test, or the files where the bar is
-   lower) and the task's plan. For a red gate command the builder runs the same command on the
+   lower) and the task's plan. For a red command of the checks the builder runs the same command on the
    base. A failure the change caused, it fixes and commits, and the landing goes on from step
-   2. A failure the base already has is not this task's to carry and not this gate's to hide:
+   2. A failure the base already has is not this task's to carry and not these checks' to hide:
    open a task for the failing command (`/lem new`), write this task's state as `blocked` with
    the lines `the base is red` and `after: SLUG` of that new task, and land that one first. The
    queue step at the end of `stages/new.md` writes this task's state `ready` again once that task
-   is `landed`, and it takes its turn. Skipping or changing a gate command is the owner's
+   is `landed`, and it takes its turn. Skipping or changing a command of the checks is the owner's
    decision only. After two builders on the same failure, write the state `blocked` and tell
    the owner.
 5. **The review**, before anything is proposed. `land.py read SLUG` says whether one is due, the
@@ -163,9 +163,9 @@ one finds what the run before it finished.
    - *defects outside the change* (`to_file` names some, in this output or in a later plain
      `read`): the review saw defects the base already has. `land.py file SLUG` writes one item
      for each in the backlog folder and commits them on the task's branch. Those commits ask
-     for no `gate` again, since they hold no code and no test, and `read` still says `none`: new
+     for no `checks` again, since they hold no code and no test, and `read` still says `none`: new
      files of the backlog folder are no change the review did not see. An item written by hand
-     asks for the gate, as any other commit does. Do this after every record that names some,
+     asks for the checks, as any other commit does. Do this after every record that names some,
      before a fix builder starts too. `propose` refuses while a defect has no item, and while an
      item is gone from the tip: then `land.py file SLUG --again` puts it back. An item the owner does not want
      stays, with `worth: no` and his reason in it; it is never deleted.
@@ -208,7 +208,7 @@ one finds what the run before it finished.
    and your notes. Green means seven things, the seven the step checks: the checks passed with
    the bar where it was; a review with at least one source left no must-fix and saw the change
    as it is; no criterion changed during the build; no choice was taken by timeout or by the
-   experts; the gate was the main checkout's own; no read of the criteria went unanswered twice;
+   experts; the checks were the main checkout's own; no read of the criteria went unanswered twice;
    and a small change is not careful. A green request needs no read from the owner. The step refuses while a
    choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
    the owner"), and run it again after his answer or after the timeout. It refuses a request
@@ -256,9 +256,9 @@ one finds what the run before it finished.
    branch of `origin` with a plain push (a GitHub remote with `branch.propose = "merge"` too, so
    that the tasks that run beside it start from what landed), or, with no remote, by a
    fast-forward of the base branch itself. The step's refusals:
-   - *the base moved after the checks ran*, by a file the gate reads: `start`, `base` and `gate`
+   - *the base moved after the checks ran*, by a file the checks read: `start`, `base` and `checks`
      again, then step 5 (a rebase that changed nothing of the change keeps its review) and
-     `propose`. A base that moved only by paths the settings' `gate.ignores` name does not
+     `propose`. A base that moved only by paths the settings' `checks.ignores` name does not
      refuse.
    - *the tip is not the commit that was proposed*: the same steps again.
    - *a commit hook changed the one commit's files*: the step put the branch back, and the task
@@ -290,7 +290,7 @@ one finds what the run before it finished.
      conflict is step 2: a builder resolves it, with the job "the repair of a conflict with the
      base", and `base` runs again. It finds the builder's rebase, and the polish pass by its
      commits' new names, so the pass is not run again.
-   - `gate`: the checks run again on the new base, and a red one is step 4.
+   - `checks`: the checks run again on the new base, and a red one is step 4.
    - `land.py read SLUG`. After a rebase with no conflict it says `none`: the review that saw the
      change stands, also when the base changed a file of the change in other lines. After a
      builder's resolution it asks for one read of what the resolution changed (`resolution` in
@@ -324,7 +324,7 @@ paths: what the step above gives this job
 Such a builder writes no state block, because the task stays in `landing`, and its reply is what
 `prompts/landing.md` asks for. As it starts, log its job for the board, `python3
 SKILL_DIR/scripts/project.py log SLUG builder.start "job=JOB"` with the job of its brief; the
-polish pass is the one job whose start `land.py polish` logs itself, as `gate` and `read` log the
+polish pass is the one job whose start `land.py polish` logs itself, as `checks` and `read` log the
 start of the checks and of a review that is due. Read `report.md` again after the polish pass, before step 6.
 
 Then the next: a `ready` task takes the line, and the queue is looked at as `stages/new.md`

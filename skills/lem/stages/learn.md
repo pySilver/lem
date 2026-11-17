@@ -41,7 +41,7 @@ it:
    changes goes unnamed, whichever folder holds it.
 4. A lead commits a project file on the task's branch with the work. Lem has no task's branch:
    there the edit of a project file is a task of its own (`/lem new`), so it lands through the
-   gate like any change. Every file a lesson changes is in this repository, the review tool's
+   checks like any change. Every file a lesson changes is in this repository, the review tool's
    folder included: never a file in the home directory, and no session commits in another
    repository. A retro started in one repository once committed an edit of a stage on the
    checked-out base branch of the clone the skill was linked from, with nobody's review, and the
@@ -72,7 +72,7 @@ for what came back:
   settings change on his yes only;
 - a review finding that repeats across items: a style guide line or a check, so the builder meets
   it before the review does;
-- a gate, a check or a step of this skill that cost time and changed nothing: propose to remove
+- a check or a step of this skill that cost time and changed nothing: propose to remove
   it, with the turns that show the cost.
 
 The owner sees only moves and removals, in one question through `ask-owner`, each with the case

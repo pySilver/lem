@@ -77,7 +77,7 @@ other criteria than the approved ones shows.
 not test the change, and a criterion with no test at the end of a build is refused.
 
 It never moves the task's worktree. It makes two worktrees of its own beside it, each with the
-commands of the settings' `gate.setup` run in it first (what a fresh worktree of this project
+commands of the settings' `checks.setup` run in it first (what a fresh worktree of this project
 needs before its tests can start), so that nothing one run writes reaches the other:
 
 - one at the branch's tip, where each test must pass. A test that passes in the task's worktree
@@ -99,7 +99,7 @@ every file the base run lacked (`run_without`), for the one who reads the change
 
 A test that needs the machine to itself runs under the repository's one lock for such commands,
 through `project.py alone`: a test whose command starts with the words of a command of the
-settings' `gate.alone`, whose last word may be a folder of the test's path (`npx playwright test
+settings' `checks.alone`, whose last word may be a folder of the test's path (`npx playwright test
 e2e/export.spec.ts` under `npx playwright test`, `sh tests/e2e/b.sh` under `sh tests/e2e`), so
 that two checks of two tasks, or a check and a builder, never run such a suite at one moment.
 
@@ -131,6 +131,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
+# The one place that builds and finds a plan's name, shared with project.py.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(SCRIPTS))
+import lem_plans  # noqa: E402
 # The size of a change: a full change, with its plan and lead, or a small change of one builder.
 SIZES = ("full", "small")
 # The heading of the section, and the heading an older Lem wrote, which still reads. A later change
@@ -345,19 +349,22 @@ class Task:
 
     def criteria(self) -> dict:
         self.need_worktree()
-        # the plan of this task and of no other: a date, a hyphen and the task's whole name
-        named = re.compile(rf"\d{{8}}-{re.escape(self.slug)}\.md")
-        found = sorted(file for file in self.plans.iterdir() if named.fullmatch(file.name)) if self.plans.is_dir() else []
+        # the plan of this task and of no other: the name `paths.plan_file` gives, with the task's whole slug
+        pattern = self.settings["paths"]["plan_file"]["pattern"]
+        found = lem_plans.found(self.plans, pattern, self.slug)
         small_file = self.small_file if self.small_file.is_file() else self.old_small_file
         small = not found and small_file.is_file()
         if not found and not small:
-            raise CriteriaError(f"no plan of this task in {self.plans}: its name is YYYYMMDD-{self.slug}.md; only a small change keeps its criterion in the task directory instead, in {self.small_file}")
-        plan = small_file if small else found[-1]
+            raise CriteriaError(
+                f"no plan of this task in {self.plans}: its name is {pattern.replace('<slug>', self.slug)} (`project.py plan-file {self.slug}` prints it); "
+                f"only a small change keeps its criterion in the task directory instead, in {self.small_file}",
+            )
+        plan = small_file if small else found
         read = parse(plan.read_text(encoding="utf-8"), plan.name)
         if small and read["size"] != "small":
             raise CriteriaError(
                 f"{plan} says `Size: {read['size']}`: only a small change (`Size: small`) keeps its criterion in the task directory. "
-                f"A full change's criteria are at the top of its plan, and the branch has none in {self.plans}: its lead writes YYYYMMDD-{self.slug}.md",
+                f"A full change's criteria are at the top of its plan, and the branch has none in {self.plans}: its lead writes {pattern.replace('<slug>', self.slug)}",
             )
         changes = self.changes()
         digest = text_digest(read["mark"], [criterion["text"] for criterion in read["criteria"]])
@@ -426,7 +433,7 @@ def unstarted(command: str, where: Path) -> bool:
 
 def needs_alone(command: str, alone: list[str]) -> bool:
     """Whether a test belongs to a suite that needs the machine to itself: its command starts with
-    the words of one of the settings' `gate.alone`, the last of which may also be a folder of the
+    the words of one of the settings' `checks.alone`, the last of which may also be a folder of the
     test's path (`sh tests/e2e` holds `sh tests/e2e/export.sh`). Words, so that a test's own file
     or filter after the suite's command still counts, and `npx playwright` never matches `npx play`."""
     try:
@@ -529,10 +536,10 @@ def cmd_red(task: Task) -> dict:
                         continue
             child.clear()
 
-        alone = task.settings["gate"].get("alone", [])
+        alone = task.settings["checks"]["alone"]
 
         def outcome(command: str, where: Path, test: bool = False) -> int:
-            # through a shell, as the gate's commands run: a test command is a line the project would type;
+            # through a shell, as the commands of the checks run: a test command is a line the project would type;
             # a test of a suite that needs the machine to itself runs under its lock, which project.py holds
             line: str | list[str] = command
             if test and needs_alone(command, alone):
@@ -569,12 +576,12 @@ def cmd_red(task: Task) -> dict:
                 grouped(task.main, "worktree", "add", "-q", "--detach", str(place), tip if name == "branch" else base)
                 if name == "base":
                     grouped(place, "checkout", tip, "--", *laid)
-                for command in task.settings["gate"]["setup"]:
+                for command in task.settings["checks"]["setup"]:
                     code = outcome(command, place)
                     setup.append({"on": name, "command": command, "exit": code})
                     if code != 0:
                         where = "a fresh worktree of the branch" if name == "branch" else "a fresh worktree of the base commit, with the test files laid over it"
-                        raise CriteriaError(f"`{command}` of gate.setup failed in {where} (exit {code}), so no test could run there; correct that command in .lem/project.toml")
+                        raise CriteriaError(f"`{command}` of checks.setup failed in {where} (exit {code}), so no test could run there; correct that command in .lem/project.toml")
                 if name == "base":
                     # looked for before any test runs there, which might write the file
                     absent = [unstarted(test["command"], place) for _, test in tests]
@@ -596,7 +603,7 @@ def cmd_red(task: Task) -> dict:
             if green != 0:
                 problem = (
                     f"fails in a fresh worktree of the branch (exit {green}). If it passes in the task's worktree, it needs something a fresh one "
-                    "lacks: put the commands that make it into gate.setup of .lem/project.toml"
+                    "lacks: put the commands that make it into checks.setup of .lem/project.toml"
                 )
             elif red == 0:
                 problem = "passes on the base commit too, so it does not test the change"

@@ -11,11 +11,14 @@ rulings = "docs/rulings"
 backlog = "docs/backlog"
 plans = "docs/plans"
 worktrees = ".lem/worktrees"
+# The name of a plan's file in the plans folder: YYYY, MM and DD are the day the plan was
+# written, <slug> is the task's. A plan named YYYYMMDD-<slug>.md is found too.
+plan_file = "YYYY-MM-DD-<slug>.md"
 
 [branch]
 # The branch a task starts from and lands on.
 base = "main"
-# Who lands a finished task: "owner", or "agent" once the gate is green.
+# Who lands a finished task: "owner", or "agent" once the checks are green.
 land = "owner"
 # What lands: "keep" lands the branch's own commits, "squash" lands one commit for the whole task.
 history = "squash"
@@ -25,13 +28,13 @@ propose = "pull-request"
 # Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
 protected = []
 
-[gate]
-# The machine checks that gate a landing, each run at the root of the task's worktree.
+[checks]
+# The machine checks of a landing, each run at the root of the task's worktree.
 # tests/all.sh runs every suite of the repository and ShellCheck at the same time; its last line
 # says whether all passed, which is what the landing shows of each command.
 commands = ["bash tests/all.sh"]
-# Paths the gate does not read. When the base branch moves after a green gate by these files
-# only, the result stands; any other file means the gate runs again. A `*` crosses directories.
+# Paths the checks do not read. When the base branch moves after green checks by these files
+# only, the result stands; any other file means the checks run again. A `*` crosses directories.
 ignores = []
 # What a fresh worktree of this project needs before its tests can start: install the packages,
 # copy an environment file. The check that each criterion's tests fail on the base commit runs in a
@@ -58,7 +61,7 @@ topics = [
   "The landing lets through a change that should not land: one the checks or the review did not pass, one a person should merge, or one aimed at a protected branch.",
   "A criterion's test is taken as its proof when it is not: it passes on the base commit too, or it holds another criterion than its own.",
   "A decision that is the owner's is taken without him, or one taken for him is missing from the pull request he reads.",
-  "Lem reads a project's settings wrong: what must never go wrong, the gate or who lands taken from a file the branch changed, or a default nobody chose taken for the owner's word.",
+  "Lem reads a project's settings wrong: what must never go wrong, the checks or who lands taken from a file the branch changed, or a default nobody chose taken for the owner's word.",
   "The correction hook breaks the developer's session: it fails, hangs or slows every message he types.",
   "Lem as a plugin does not load in a developer's Claude Code, or brings a hook or a command he did not install.",
   "A builder or a lead works outside its brief: it edits the main checkout, another task's worktree or a branch it does not own, or it pushes.",
@@ -73,22 +76,19 @@ max_tasks = 2
 # option, and the pull request is not green for it. The owner's own number (2026-11-16).
 decision_wait = 15
 
-[seats.reviewer]
-# The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one talks
-# the plan of a careful or large task through with its defender, in the plan talk's companion.
-# The same family twice is allowed.
-agent = "codex"
-# What its pane starts with. Leave one out and the agent's own default holds.
-# model = ""
-# plan_effort = ""   # for the talk over a plan
-
-[seats.planner]
-# The agent that defends a careful or large plan in its talk with the reviewer, in a companion
-# session Lem opens for the talk and closes after it. Only "claude" for now. Leave a line out and
-# the agent's own default holds.
-# agent = "claude"
-# model = ""
-# effort = ""
+[seats]
+# Who sits where, each as "agent/model:effort". Leave out the effort ("codex/gpt-6.1-sol"), or
+# the model and the effort ("codex"), and that agent's own default holds.
+# The reviewer: "claude" or "codex". Lem's builders build; this one talks the plan of a careful
+# or large task through with its defender, in the plan talk's companion. The same family twice is
+# allowed.
+reviewer = "codex"
+# The defender of a careful or large plan in its talk with the reviewer, in a companion session
+# Lem opens for the talk and closes after it. Only "claude" for now.
+# planner = "claude/opus:high"
+# The two experts who answer a choice that waits for the owner, at the same moment and read-only:
+# two model families, so that their agreement is worth more than two of one.
+# experts = ["claude/fable", "codex/gpt-6-astra:high"]
 
 [corrections]
 # Keep a queue of the owner's corrections for the retro. The hook that fills it sends each

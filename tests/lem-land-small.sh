@@ -10,7 +10,7 @@
 SMALL=$WORK/small
 git init -q -b main "$SMALL" && ident "$SMALL"
 project --repo "$SMALL" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$SMALL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$SMALL/.lem/project.toml"
 git -C "$SMALL" add -A && git -C "$SMALL" commit -q -m "chore: start"
 s() { land --repo "$SMALL" "$@"; }
 criteria() { "$PY" -B "$CRITERIA" --repo "$SMALL" "$@"; }
@@ -42,7 +42,7 @@ tree=$(small_in date-nowrap small)
 built date-nowrap "$tree"
 shown=$(criteria show date-nowrap 2>&1 | field '(d["small"], d["size"], d["plan"].endswith("tasks/date-nowrap/criteria.md"))' 2>&1 || true)
 s start date-nowrap >/dev/null && s base date-nowrap >/dev/null
-gated=$(s gate date-nowrap 2>&1 | field '(d["green"], d["polish"], d["criteria"]["ok"])' 2>&1 || true)
+gated=$(s checks date-nowrap 2>&1 | field '(d["green"], d["polish"], d["criteria"]["ok"])' 2>&1 || true)
 due=$(s read date-nowrap 2>&1 | field '(d["due"], d["floor"], d["small"], d["tasks"])' 2>&1 || true)
 s read date-nowrap >/dev/null 2>&1 || true
 s read date-nowrap --record "$(clean 1)" >/dev/null 2>&1 || true
@@ -85,13 +85,13 @@ mkdir -p "$tree/docs/backlog" && printf '%s\n' '---' 'worth: later' 'where: repo
 git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): what the builder of date-outside saw outside it"
 s start date-outside >/dev/null && s base date-outside >/dev/null
 no_polish=$(s polish date-outside 2>&1 || true)
-outside_gate=$(s gate date-outside 2>&1 | field '(d["green"], d["criteria"]["ok"], d["bar"]["lowered"], d["criteria"]["run_without"])' 2>&1 || true)
+outside_gate=$(s checks date-outside 2>&1 | field '(d["green"], d["criteria"]["ok"], d["bar"]["lowered"], d["criteria"]["run_without"])' 2>&1 || true)
 s read date-outside >/dev/null 2>&1 || true
 s read date-outside --record "$(clean 1)" >/dev/null 2>&1 || true
 outside_due=$(s read date-outside 2>&1 | field '(d["due"], d["to_file"])' 2>&1 || true)
 outside_green=$(s propose date-outside --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
 text=$(dir_of date-outside)/pr.md
-if grep -qF "a small change has no polish pass" <<<"$no_polish" && grep -qF "\`land.py gate date-outside\`" <<<"$no_polish" \
+if grep -qF "a small change has no polish pass" <<<"$no_polish" && grep -qF "\`land.py checks date-outside\`" <<<"$no_polish" \
   && [ "$outside_gate" = "(True, True, [], ['date-outside.css', '$item'])" ] && [ "$outside_due" = "('none', [])" ] && [ "$outside_green" = True ] \
   && grep -qxF -- "- filed in the backlog by the builder: \`$item\`" "$text" && ! grep -q 'polish' "$text" \
   && ! grep -q "\"event\": \"polish.start\", \"task\": \"date-outside\"" "$SMALL/.lem/state/events.jsonl"; then
@@ -106,7 +106,7 @@ tree=$(small_in date-feature full)
 built date-feature "$tree"
 feature=$(criteria show date-feature 2>&1 || true)
 s start date-feature >/dev/null && s base date-feature >/dev/null
-feature_gate=$(s gate date-feature 2>&1 || true)
+feature_gate=$(s checks date-feature 2>&1 || true)
 if grep -qF "criteria.md says \`Size: full\`: only a small change (\`Size: small\`) keeps its criterion in the task directory" <<<"$feature" \
   && grep -qF "A full change's criteria are at the top of its plan" <<<"$feature_gate" && [ "$(kept_in "$SMALL" date-feature gated)" = None ]; then
   pass "a full change with no plan file on the branch is refused by the criteria and by the gate, also with a criterion file in its task directory"
@@ -117,9 +117,9 @@ project --repo "$SMALL" state date-feature dropped "the test is over" >/dev/null
 
 # A small change whose diff reaches what guards the project is careful: the full set, not green, and a person merges it.
 tree=$(small_in gate-edit small)
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true", "true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$tree/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true", "true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$tree/.lem/project.toml"
 built gate-edit "$tree"
-s start gate-edit >/dev/null && s base gate-edit >/dev/null && { s gate gate-edit > "$WORK/gate-edit.out" 2>&1 || true; }
+s start gate-edit >/dev/null && s base gate-edit >/dev/null && { s checks gate-edit > "$WORK/gate-edit.out" 2>&1 || true; }
 floor=$(s read gate-edit 2>&1 | field '(d["floor"], len(d["careful"]))' 2>&1 || true)
 one_read=$(s read gate-edit --record "$(clean 1)" 2>&1 || true)
 s read gate-edit --record "$(record 1 '{"kind": "full", "ran": [{"name": "full", "why": "the change edits the gate"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
@@ -140,7 +140,7 @@ tree=$(small_in skips-test small)
 printf '%s\n' 'import pytest' '' '@pytest.mark.skip' 'def test_old():' '    assert True' > "$tree/tests/test_old.py"
 built skips-test "$tree"
 s start skips-test >/dev/null && s base skips-test >/dev/null
-lowered=$(s gate skips-test 2>&1 || true)
+lowered=$(s checks skips-test 2>&1 || true)
 if grep -qF "a small change does not lower the bar: tests/test_old.py" <<<"$lowered" && grep -qF "it is a full change" <<<"$lowered" && [ "$(kept_in "$SMALL" skips-test gated)" = None ]; then
   pass "a small change that lowers the bar is refused at the gate, with the full change's path named, since a small change has no plan to give the reason in"
 else

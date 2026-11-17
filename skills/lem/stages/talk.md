@@ -22,7 +22,7 @@ with checkout. So the questions are a closed list, each gets one repair, and a q
 comes back stops, as revmux stops a loop whose finding of the last round arrives again. The
 rules:
 
-- **Open the seat** with `second-opinion`, at the seat's `plan_effort`, and log its start, so
+- **Open the seat** with `second-opinion`, at the effort of the seat `seats.reviewer`, and log its start, so
   that the board draws the talk from it:
 
   ```bash

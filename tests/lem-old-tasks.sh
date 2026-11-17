@@ -138,6 +138,18 @@ oland polish old-full >/dev/null && oland polish old-full --done >/dev/null
 oland gate old-full >/dev/null && oland read old-full --record "$(clean 1)" >/dev/null
 oland propose old-full --title "feat: old-full" --notes "$NOTES" >/dev/null
 
+# The settings of the older Lem name the checks `[gate]`: the scripts of now refuse that table with the lines to
+# write in its place, and once the owner wrote them, they go on with the tasks the older scripts left.
+refused=$(project --repo "$OT" show 2>&1 >/dev/null || true)
+landed_refused=$(nland merged old-small 2>&1 || true)
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$OT/.lem/project.toml"
+if grep -qF "[gate] is called [checks] now" <<<"$refused" && grep -qF "[gate] is called [checks] now" <<<"$landed_refused" \
+  && [ "$(printf '%s\n' "$refused" | tail -2)" = "$(printf '%s\n' '[checks]' 'commands = ["true"]')" ] && [ "$(status_in "$OT" old-small)" = open ]; then
+  pass "the settings of an older Lem, whose checks are a [gate] table, are refused with the lines to write, and nothing of a task moves before they are written"
+else
+  fail "the [gate] table of an older Lem: $refused / $landed_refused"
+fi
+
 # The scripts of now list the three as they are, with the type each older kind reads as.
 listed=$(project --repo "$OT" tasks | field '[(t["slug"], t["status"], (t["type"] or {}).get("type"), (t["investigation"] or {}).get("type"), (t["investigation"] or {}).get("call")) for t in d]')
 if [ "$listed" = "[('old-bug', 'open', 'fix', 'fix', 'small'), ('old-full', 'open', 'feat', None, None), ('old-small', 'open', 'fix', None, None)]" ]; then
@@ -147,21 +159,22 @@ else
 fi
 
 # The bug lands by an agent's merge: the landing reads its older story, approval and review, finds it green, and the forge merges it.
-merged_bug=$(nland land old-bug --by agent 2>&1 | field '(d["pull_request"]["number"], d["left_behind"])' 2>&1 || true)
-clean_bug=$(nland clean old-bug 2>&1 | field '(d["worktree"], d["branch"], d["remote"])' 2>&1 || true)
+merged_bug=$(nland land old-bug --by agent 2>>"$WORK/old.err" | field '(d["pull_request"]["number"], d["left_behind"])' 2>&1 || true)
+clean_bug=$(nland clean old-bug 2>>"$WORK/old.err" | field '(d["worktree"], d["branch"], d["remote"])' 2>&1 || true)
 if [ "$merged_bug" = "(3, None)" ] && [ "$(status_in "$OT" old-bug)" = landed ] && [ "$clean_bug" = "(True, 'fix/old-bug', 'fix/old-bug')" ] \
-  && [ "$(git -C "$OT" show main:bug.txt)" = word ]; then
-  pass "a bug an older Lem proposed lands by an agent's merge, since the landing finds its older records green, and clean removes its worktree and both its branches"
+  && [ "$(git -C "$OT" show main:bug.txt)" = word ] \
+  && grep -qF "project.py: this worktree's .lem/project.toml has the form of an older Lem, read as now ([gate] as [checks]); the branch gets the file of now when it is brought onto the base" "$WORK/old.err"; then
+  pass "a bug an older Lem proposed lands by an agent's merge, since the landing finds its older records green, and clean removes its worktree and both its branches; its branch's copy of the settings, with the older [gate], is read as [checks] and the scripts say so"
 else
-  fail "the bug of an older Lem: $merged_bug / $clean_bug / $(status_in "$OT" old-bug)"
+  fail "the bug of an older Lem: $merged_bug / $clean_bug / $(status_in "$OT" old-bug) / $(cat "$WORK/old.err")"
 fi
 
 # The small change is merged by the owner on the forge; `merged` finishes it, and `clean` removes it.
 head=$(git -C "$GHO" rev-parse refs/heads/fix/old-small)
 git -C "$GHO" update-ref refs/heads/main "$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p main -p "$head" -m "Merge pull request #2" "$head^{tree}")"
 "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"]["2"].update(state="MERGED", merge=sys.argv[2]); json.dump(d, open(sys.argv[1], "w"))' "$GH_STATE" "$(git -C "$GHO" rev-parse main)"
-merged_small=$(nland merged old-small 2>&1 | field 'd["pull_request"]["number"]' 2>&1 || true)
-clean_small=$(nland clean old-small 2>&1 | field '(d["worktree"], d["branch"])' 2>&1 || true)
+merged_small=$(nland merged old-small 2>>"$WORK/old.err" | field 'd["pull_request"]["number"]' 2>&1 || true)
+clean_small=$(nland clean old-small 2>>"$WORK/old.err" | field '(d["worktree"], d["branch"])' 2>&1 || true)
 if [ "$merged_small" = 2 ] && [ "$(status_in "$OT" old-small)" = landed ] && [ "$clean_small" = "(True, 'fix/old-small')" ] && [ ! -e "$OT/.lem/worktrees/old-small" ]; then
   pass "a small change an older Lem proposed, which the owner merged on the forge, is finished by merged and cleaned"
 else
@@ -172,14 +185,14 @@ fi
 # older plan, approval and read and propose it again on the same pull request; then the owner's word lands it.
 project --repo "$OT" state old-full ready --start-over "the base moved: the landing starts over" >/dev/null
 nland start old-full >/dev/null && nland base old-full >/dev/null
-polished=$(nland polish old-full 2>&1 | field 'd["done"]' 2>&1 || true)
+polished=$(nland polish old-full 2>>"$WORK/old.err" | field 'd["done"]' 2>&1 || true)
 nland polish old-full --done >/dev/null 2>&1 || true
-gated=$(nland gate old-full 2>&1 | field 'd["green"]' 2>&1 || true)
+gated=$(nland checks old-full 2>>"$WORK/old.err" | field 'd["green"]' 2>&1 || true)
 nland read old-full --record "$(clean 1)" >/dev/null 2>&1 || true
-again=$(nland propose old-full --title "feat: old-full" --notes "$NOTES" 2>&1 | field '(d["green"], d["pull_request"]["number"])' 2>&1 || true)
+again=$(nland propose old-full --title "feat: old-full" --notes "$NOTES" 2>>"$WORK/old.err" | field '(d["green"], d["pull_request"]["number"])' 2>&1 || true)
 text=$OT/.lem/state/tasks/old-full/pr.md
-landed_full=$(nland land old-full --by owner 2>&1 | field 'd["pull_request"]["number"]' 2>&1 || true)
-clean_full=$(nland clean old-full 2>&1 | field 'd["worktree"]' 2>&1 || true)
+landed_full=$(nland land old-full --by owner 2>>"$WORK/old.err" | field 'd["pull_request"]["number"]' 2>&1 || true)
+clean_full=$(nland clean old-full 2>>"$WORK/old.err" | field 'd["worktree"]' 2>&1 || true)
 if [ "$polished" = False ] && [ "$gated" = True ] && [ "$again" = "(True, 4)" ] \
   && grep -qxF -- "1. The file full.txt holds the word the owner asked for." "$text" && grep -qx "## Acceptance criteria" "$text" \
   && [ -f "$OT/.lem/state/tasks/old-full/stories.json" ] && [ ! -e "$OT/.lem/state/tasks/old-full/criteria.json" ] \

@@ -1,13 +1,13 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, checks, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
 
 One command carries a unit of work from the ask to a pull request that says whether it is green,
 the same way in every repository. What differs between repositories is in the repository: its settings file names
-the style guide, the personas, the review configuration, the lessons, the checks that gate a
+the style guide, the personas, the review configuration, the lessons, the machine checks of a
 landing and what must never go wrong. This skill holds the flow and knows no project.
 
 The owner is a developer whose attention is short, and the size of a change decides its path.
@@ -89,7 +89,7 @@ python3 SKILL_DIR/scripts/project.py show
 ```
 
 `SKILL_DIR` is this skill's own directory. The output is the project's settings, resolved: each
-path with whether it exists, the base branch, who lands, the gate commands and the topics of
+path with whether it exists, the base branch, who lands, the commands of the checks and the topics of
 what must never go wrong (`flow.topics`). When `settings` is null the repository was never onboarded: only `init` and `status`
 run, and every other subcommand says so and stops. Read the project's `AGENTS.md` once per
 session; it is where a project says what its own scripts are (a worktree script, a landing
@@ -115,7 +115,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
 | `status`, bare `/lem` | the board of all tasks, and in words: every open task, what is proposed and what waits for the owner | below |
 | `status <task>` | the board of one task | below |
-| `reviewer AGENT [MODEL [PLAN_EFFORT]]`, `reviewer default` | who sits in the reviewer's pane on this machine for now, and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
+| `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
 | a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
@@ -157,7 +157,7 @@ lead whose choice waits for the owner.
   task's directory and an event for the board; nobody writes that file by hand. The report lists
   them as decisions, never as questions, and the pull request lists each one from the record.
 - **A destructive or outward step is never yours.** Dropping data, rewriting shared history,
-  touching production, bending a gate, pushing to a branch the settings do not name: stop and
+  touching production, bending a check, pushing to a branch the settings do not name: stop and
   ask, with the evidence.
 - **The pull request is no step to ask about.** `land.py propose` pushes the task's own branch
   and opens or updates its pull request, and you run it without a question. The owner approved
@@ -186,10 +186,10 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   table is read from the main checkout's settings, also in a task's worktree, so a branch
   cannot lift what guards it, and a change that edits `.lem/project.toml` at all, or puts the
   machine's own `.lem/project.local.toml` into git, is careful by the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
-  as what is careful and what the gate runs, and a task rarely edits it.
+  as what is careful and what the checks run, and a task rarely edits it.
 - **Only so many tasks build or land at one time.** `project.py may-start SLUG` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
-  the gate runs and a builder may repair what it showed, and not the task SLUG whose lead starts. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
+  the checks run and a builder may repair what they showed, and not the task SLUG whose lead starts. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
   16 and unstable browser tests (convertiser-server, as its owner reported it on 2026-11-14). A
   task over the limit is queued, never started "just this once"; only the owner raises the limit.
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion
@@ -200,7 +200,7 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   decision, the run goes into its ask, with what follows it (`stages/plan.md`, step 5).
 - **Numbers carry their source.** A count is a command's output, a time is `date -u`, a test
   result is the exact last line of the run. One coordinator made four factual errors in owner
-  reports in its first 28 hours: clock values it estimated, a count and a claim about the gate.
+  reports in its first 28 hours: clock values it estimated, a count and a claim about the checks.
 - **A brief is checked before it is sent.** A builder copies a wrong sentence from its brief into
   the code and into its report. Before a brief goes out, every sentence about the code is one you
   read in the code, and a sentence with "never", "always" or "the same" gets its counterexample
@@ -260,8 +260,8 @@ moves it there and says so in one line on stderr: tell the owner that line once,
   skill writes into the record.
 - `reports/`: one file per builder of a plan's task. Lem does not read these.
 - `landing.json`, `polish.json`, `gate/`, `read.json`, `reviews/`, `notes.md` and `pr.md`: what
-  the landing keeps: its own record, what the polish pass was given, the output of each gate
-  command, what each review was given and what it found, Lem's notes for the pull request, and
+  the landing keeps: its own record, what the polish pass was given, the output of each command
+  of the checks (the folder keeps the step's older name), what each review was given and what it found, Lem's notes for the pull request, and
   the text of the pull request.
 
 A full change's plan itself is a file in the repository, in the settings' `plans` path.
@@ -314,8 +314,8 @@ scout starts and when its report is written), `criteria.read.start by=lem|lead` 
 `builder.start job=JOB` for a builder's job, `task N of M`, `the small change`, `the repair of a
 conflict with the base`, `the repair of a failed check` or `the fix of a review's findings` (it
 ends at the next state block or step of the landing). Logged by `land.py` itself:
-`polish.start before=TIP` (it ends at `polish`), `gate.start tip=TIP commands:=N` (it ends at the
-last `gate` or `task.red` of that run) and `review.start attempt:=N floor=KIND`, once for the
+`polish.start before=TIP` (it ends at `polish`), `gate.start tip=TIP commands:=N`, the start of
+the checks under the step's older name (it ends at the last `gate` or `task.red` of that run) and `review.start attempt:=N floor=KIND`, once for the
 attempt that is due (it ends at `review`). `plan.talk.start` and `plan.talk` have the same pairing.
 
 Nothing else keeps a task's place. A session that was compacted or replaced, Lem's or a lead's,
@@ -331,9 +331,9 @@ python3 SKILL_DIR/scripts/board.py --task SLUG # the board of one task
 
 The board opens as a page beside the sessions it shows, under Lem's session or under the top of
 its group, and stays there: each task in the lane of who acts
-on it, with its lead, its newest commit, its gate result, its newest review and, once it is
+on it, with its lead, its newest commit, the result of its checks, its newest review and, once it is
 proposed, green or not green; and where each task's time went. A task's own board adds its
-state blocks, each gate command and each review with who answered.
+state blocks, each command of the checks and each review with who answered.
 It reads the event log by itself every two seconds, so open it once, and again after agterm was
 started again.
 

@@ -139,7 +139,7 @@
     <p>Each is a draft. I open them for you one after the other, and your notes are my corrections.</p>
     <ol class="reads">
       <li><b>What must not go wrong</b><span>a sentence for each, in your words: <code>flow.topics</code> in <code>.lem/project.toml</code></span></li>
-      <li><b>The gate</b><span><code>gate.commands</code> in <code>.lem/project.toml</code></span></li>
+      <li><b>The checks</b><span><code>checks.commands</code> in <code>.lem/project.toml</code></span></li>
       <li><b>The people</b><span><code>.lem/personas/NAME.md</code>, and each one that is a thin guess for you to correct</span></li>
     </ol>
   </section>
@@ -162,9 +162,9 @@
       <thead><tr><th>Setting</th><th>Value</th><th>From</th></tr></thead>
       <tbody>
         <tr><td>who lands</td><td><code>owner</code></td><td class="from">assumption: a person merges; <code>change land agent</code></td></tr>
-        <tr><td>the gate</td><td><code>COMMAND</code></td><td class="from"><code>AGENTS.md</code>; it ran green: LAST LINE</td></tr>
+        <tr><td>the checks</td><td><code>COMMAND</code></td><td class="from"><code>AGENTS.md</code>; it ran green: LAST LINE</td></tr>
         <!-- only with a sign of a suite that needs the machine to itself (a Playwright, Cypress or Selenium configuration, a compose file for the tests) -->
-        <tr><td>alone</td><td><code>COMMAND</code></td><td class="from">assumption: <code>FILE OF THE SIGN</code>; it runs after the gate, under one lock; <code>change alone none</code></td></tr>
+        <tr><td>alone</td><td><code>COMMAND</code></td><td class="from">assumption: <code>FILE OF THE SIGN</code>; it runs after the other checks, under one lock; <code>change alone none</code></td></tr>
         <tr><td>SETTING</td><td>VALUE</td><td class="from">WHERE IT WAS READ, OR "your answer", OR "assumption: WHY" AND THE WORDS THAT CHANGE IT</td></tr>
       </tbody>
     </table>
@@ -181,15 +181,15 @@
     <h2>Assumptions: say <code>change</code> and what</h2>
     <!-- each setting nobody asked about: who lands, a pull request or a merge, what lands, the
          closed branches, the tracker, the reviewer and the defender, the folders already here,
-         the gate with only tests when git hooks run the rest, and the ignore lines for what the
-         gate commands left untracked -->
+         the checks with only tests when git hooks run the rest, and the ignore lines for what the
+         commands of the checks left untracked -->
     <ul>
       <li>THE ASSUMPTION AND ITS VALUE <span class="dim">(<code>WHERE IT WAS READ</code>, OR THE DEFAULT)</span>: <code>change WORDS</code></li>
       <!-- with branch.propose = "pull-request", this line word for word: "land" approves it -->
       <li>Lem pushes each task's branch and opens its pull request without asking <span class="dim">(<code>branch.propose = "pull-request"</code>)</span>: <code>change propose merge</code></li>
-      <!-- with git hooks that run at a commit: the gate has only the test commands -->
-      <li>the gate runs the tests only: the git hooks run the rest at each commit of a builder <span class="dim">(<code>HOOK FILE</code>)</span>: <code>change gate add COMMAND</code></li>
-      <li>ignore what the gate leaves: <code>__pycache__/</code> in <code>.gitignore</code> <span class="dim">(the gate's run of <code>COMMAND</code> left it)</span>: <code>change ignore none</code></li>
+      <!-- with git hooks that run at a commit: the checks have only the test commands -->
+      <li>the checks run the tests only: the git hooks run the rest at each commit of a builder <span class="dim">(<code>HOOK FILE</code>)</span>: <code>change checks add COMMAND</code></li>
+      <li>ignore what the checks leave: <code>__pycache__/</code> in <code>.gitignore</code> <span class="dim">(the checks' run of <code>COMMAND</code> left it)</span>: <code>change ignore none</code></li>
     </ul>
   </section>
 

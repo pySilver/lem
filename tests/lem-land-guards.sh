@@ -10,7 +10,7 @@ GRD=$WORK/guards
 git init -q -b main "$GRD" && ident "$GRD"
 project --repo "$GRD" init --base main >/dev/null
 # grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit
-grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[gate]' "commands = [$1]" > "$GRD/.lem/project.toml"; }
+grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" > "$GRD/.lem/project.toml"; }
 grd_settings '"true"'
 mkdir -p "$GRD/tests" && printf '%s\n' 'def test_old():' '    assert 1 + 1 == 2' > "$GRD/tests/test_old.py"
 git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: start"
@@ -22,7 +22,7 @@ set_kept() {
     "$GRD/.lem/state/tasks/$1/landing.json" "$2" "$3"
 }
 to_proposed() {
-  g start "$1" >/dev/null && g base "$1" >/dev/null && g gate "$1" >/dev/null && g read "$1" --record "$(clean 1)" >/dev/null \
+  g start "$1" >/dev/null && g base "$1" >/dev/null && g checks "$1" >/dev/null && g read "$1" --record "$(clean 1)" >/dev/null \
     && g propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
 
@@ -50,23 +50,36 @@ was=$(status_in "$GRD" no-gate)
 again=$(g start no-gate 2>&1 || true)
 grd_settings '"true"'
 g start no-gate >/dev/null 2>&1 || true
-if grep -qF "the project has no gate command" <<<"$blocked" && grep -qF "then run \`land.py start no-gate\` again" <<<"$blocked" && [ "$was" = blocked ] \
-  && grep -qF "the project has no gate command" <<<"$again" && [ "$(status_in "$GRD" no-gate)" = landing ]; then
-  pass "with no gate command start blocks the task and says to add the commands and run start again, which then takes the task it blocked"
+if grep -qF "the project has no command in its checks" <<<"$blocked" && grep -qF "Add the commands to checks.commands in .lem/project.toml" <<<"$blocked" \
+  && grep -qF "then run \`land.py start no-gate\` again" <<<"$blocked" && [ "$was" = blocked ] \
+  && grep -qF "the project has no command in its checks" <<<"$again" && [ "$(status_in "$GRD" no-gate)" = landing ]; then
+  pass "with no command in its checks start blocks the task and says to add the commands and run start again, which then takes the task it blocked"
 else
   fail "start after the gate commands were added: $blocked / $was / $again / $(status_in "$GRD" no-gate)"
 fi
 # A gate that runs no command is never green: here the main checkout's settings lose their commands after start.
 g base no-gate >/dev/null 2>&1 || true
 grd_settings ''
-empty=$(g gate no-gate 2>&1 || true)
+empty=$(g checks no-gate 2>&1 || true)
 grd_settings '"true"'
-if grep -qF "the gate has no command to run" <<<"$empty" && [ "$(kept_in "$GRD" no-gate gated)" = None ] && ! grep -q '"event": "task.red", "task": "no-gate"' "$GRD/.lem/state/events.jsonl"; then
+if grep -qF "the checks have no command to run" <<<"$empty" && [ "$(kept_in "$GRD" no-gate gated)" = None ] && ! grep -q '"event": "task.red", "task": "no-gate"' "$GRD/.lem/state/events.jsonl"; then
   pass "a gate with no command to run refuses, and records no green tip"
 else
   fail "a gate of no command: $empty / $(kept_in "$GRD" no-gate gated)"
 fi
 project --repo "$GRD" state no-gate dropped "the test is over" >/dev/null
+# A task an older Lem blocked for want of a gate command has that older line, and start takes it back the same way.
+small_task_in "$GRD" old-blocked o.txt o
+project --repo "$GRD" state old-blocked blocked "the project has no gate command" >/dev/null
+old_gate=$(g gate old-blocked 2>&1 || true)
+g start old-blocked >/dev/null 2>&1 || true
+if [ "$(status_in "$GRD" old-blocked)" = landing ] && grep -qF "\`land.py gate\` is \`land.py checks\` now, with the same steps: run \`land.py checks old-blocked\`" <<<"$old_gate" \
+  && [ "$(status_of g gate old-blocked)" = 1 ]; then
+  pass "a task an older Lem blocked with its line for no gate command is taken back by start, and the step's older name, land.py gate, is refused with its name of now"
+else
+  fail "an older blocked task: $(status_in "$GRD" old-blocked) / $old_gate"
+fi
+project --repo "$GRD" state old-blocked dropped "the test is over" >/dev/null
 
 # A task whose worktree was removed by hand while it held the landing line: every message on the way names the step out.
 small_task_in "$GRD" stuck s.txt s
@@ -113,19 +126,19 @@ small_task_in "$GRD" gate-caches c.txt c
 tree=$(wt gate-caches)
 g start gate-caches >/dev/null && g base gate-caches >/dev/null
 grd_settings '"mkdir -p shop/__pycache__ tests/__pycache__ && touch shop/__pycache__/c.pyc tests/__pycache__/t.pyc left.txt"'
-cached=$(g gate gate-caches 2>&1 || true)
+cached=$(g checks gate-caches 2>&1 || true)
 grd_settings '"true"'
 if [ "$(field '(d["green"], d["removed_untracked"])' <<<"$cached" 2>/dev/null)" = "(True, ['left.txt', 'shop/__pycache__/c.pyc', 'tests/__pycache__/t.pyc'])" ] \
   && [ ! -e "$tree/shop" ] && [ ! -e "$tree/tests/__pycache__" ] && [ ! -e "$tree/left.txt" ] && [ -f "$tree/tests/gate-caches.sh" ] \
   && [ -z "$(git -C "$tree" status --porcelain --untracked-files=all)" ] && [ "$(kept_in "$GRD" gate-caches gated)" = "$(git -C "$tree" rev-parse HEAD)" ] \
-  && [ "$(tail -n 1 "$GRD/.lem/state/tasks/gate-caches/gate/01.log")" = "land.py removed what the gate's commands left untracked: left.txt, shop/__pycache__/c.pyc, tests/__pycache__/t.pyc" ]; then
+  && [ "$(tail -n 1 "$GRD/.lem/state/tasks/gate-caches/gate/01.log")" = "land.py removed what the commands of the checks left untracked: left.txt, shop/__pycache__/c.pyc, tests/__pycache__/t.pyc" ]; then
   pass "a gate command that writes a cache folder and a file git does not know passes: the gate removes them and the folders they emptied, keeps the tracked folder, names them in its output and in one line of its log, and records the tip"
 else
   fail "a gate that leaves caches: $cached / $(git -C "$tree" status --porcelain --untracked-files=all)"
 fi
 # A file that was there before the run is someone's: the gate removes none, it refuses, and so does start.
 echo mine > "$tree/mine.txt"
-before_gate=$(g gate gate-caches 2>&1 || true)
+before_gate=$(g checks gate-caches 2>&1 || true)
 project --repo "$GRD" state gate-caches ready --start-over "the landing starts over" >/dev/null
 before_start=$(g start gate-caches 2>&1 || true)
 if grep -qF "the worktree has changes nobody committed" <<<"$before_gate" && grep -qF "mine.txt" <<<"$before_gate" \
@@ -144,22 +157,22 @@ tree=$(wt gate-writes)
 g start gate-writes >/dev/null && g base gate-writes >/dev/null
 tip=$(git -C "$tree" rev-parse HEAD)
 grd_settings '"echo y >> x.txt && touch left.txt"'
-left=$(g gate gate-writes 2>&1 || true)
+left=$(g checks gate-writes 2>&1 || true)
 left_gated=$(kept_in "$GRD" gate-writes gated)
 git -C "$tree" checkout -q -- x.txt
 grd_settings '"echo x > made.txt && git add made.txt && git -c user.name=t -c user.email=t@t commit -q -m made"'
-made=$(g gate gate-writes 2>&1 || true)
+made=$(g checks gate-writes 2>&1 || true)
 made_gated=$(kept_in "$GRD" gate-writes gated)
 git -C "$tree" reset -q --hard "$tip"
 grd_settings '"true"'
 echo true > "$tree/tests/gate-writes.sh" && git -C "$tree" commit -q -am "test: one that holds nothing"
-weak=$(g gate gate-writes 2>&1 || true)
+weak=$(g checks gate-writes 2>&1 || true)
 weak_gated=$(kept_in "$GRD" gate-writes gated)
 git -C "$tree" reset -q --hard "$tip"
-green=$(g gate gate-writes | field '(d["green"], d["tip"])')
-if grep -qF "a gate command changed what git tracks, so its result is about another tree" <<<"$left" && grep -qx "M x.txt" <<<"$left" && ! grep -qF "?? left.txt" <<<"$left" \
+green=$(g checks gate-writes | field '(d["green"], d["tip"])')
+if grep -qF "a command of the checks changed what git tracks, so its result is about another tree" <<<"$left" && grep -qx "M x.txt" <<<"$left" && ! grep -qF "?? left.txt" <<<"$left" \
   && [ ! -e "$tree/left.txt" ] && [ "$left_gated" = None ] \
-  && grep -qF "a gate command made a commit on the branch" <<<"$made" && grep -qF "git -C $tree reset --hard $tip" <<<"$made" && [ "$made_gated" = None ] \
+  && grep -qF "a command of the checks made a commit on the branch" <<<"$made" && grep -qF "git -C $tree reset --hard $tip" <<<"$made" && [ "$made_gated" = None ] \
   && grep -qF "passes on the base commit too" <<<"$weak" && [ "$weak_gated" = None ] \
   && [ "$green" = "(True, '$tip')" ] && [ "$(kept_in "$GRD" gate-writes tree)" = "$(git -C "$tree" rev-parse "$tip^{tree}")" ]; then
   pass "the gate refuses a command that edits a tracked file, one that makes a commit, and a criterion's test that passes on the base commit, and records no green tip for any; a green gate records the tip and that tip's tree"
@@ -172,7 +185,7 @@ project --repo "$GRD" state gate-writes dropped "the test is over" >/dev/null
 # checked by land. The record is edited here; a run of the steps the refusal names lands the new tip.
 small_task_in "$GRD" guarded y.txt y
 tree=$(wt guarded)
-g start guarded >/dev/null && g base guarded >/dev/null && g gate guarded >/dev/null && g read guarded --record "$(clean 1)" >/dev/null
+g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean 1)" >/dev/null
 no_notes=$(g propose guarded --title "fix: y" --notes "$WORK/no-such-notes.md" 2>&1 || true)
 two_lines=$(g propose guarded --title $'fix: y\nand more' --notes "$NOTES" 2>&1 || true)
 unwritten=$([ -e "$GRD/.lem/state/tasks/guarded/pr.md" ] && echo written || echo none)
@@ -191,14 +204,14 @@ echo more > "$tree/y2.txt" && git -C "$tree" add -A && git -C "$tree" commit -q 
 main_was=$(git -C "$GRD" rev-parse main)
 c2=$(g land guarded --by owner 2>&1 || true)
 unlanded=$(git -C "$GRD" rev-parse main)
-g start guarded >/dev/null && g base guarded >/dev/null && g gate guarded >/dev/null && g read guarded --record "$(clean 2)" >/dev/null \
+g start guarded >/dev/null && g base guarded >/dev/null && g checks guarded >/dev/null && g read guarded --record "$(clean 2)" >/dev/null \
   && g propose guarded --title "fix: y" --notes "$NOTES" >/dev/null && g land guarded --by owner >/dev/null || true
 if grep -qF "is not a file; --notes names the notes" <<<"$no_notes" && grep -qF -- "--title is one line" <<<"$two_lines" && [ "$unwritten" = none ] \
-  && grep -qF "the tree that would land differs from the tree the gate passed on" <<<"$c1" \
-  && grep -qF "the branch's tip is not the commit the gate passed on" <<<"$c3" \
+  && grep -qF "the tree that would land differs from the tree the checks passed on" <<<"$c1" \
+  && grep -qF "the branch's tip is not the commit the checks passed on" <<<"$c3" \
   && grep -qF "no green check is on record for this tip" <<<"$ungated" \
   && grep -qF "the branch's tip is not the tip that was proposed" <<<"$c2" \
-  && grep -qF "run \`land.py start\`, \`land.py base\`, \`land.py gate\` and \`land.py propose\` again" <<<"$c2" \
+  && grep -qF "run \`land.py start\`, \`land.py base\`, \`land.py checks\` and \`land.py propose\` again" <<<"$c2" \
   && [ "$unlanded" = "$main_was" ] \
   && [ "$(status_in "$GRD" guarded)" = landed ] && [ "$(git -C "$GRD" show main:y2.txt)" = more ]; then
   pass "propose refuses notes that are no file and a title of two lines before it writes anything; land refuses a tree, a gated commit and a tip other than the ones on record, and no record of a gate; after a commit past the proposal the steps the refusal names land the new tip"
@@ -236,8 +249,8 @@ printf '%s\n' 'it.only("runs alone", () => {});' 'fit("runs alone too", () => {}
   'test.only("one test", () => {});' 'describe.only("one group", () => {});' 'profit(1);' > "$tree/tests/focus.test.js"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "test: moved and focused"
 g start bar-moves >/dev/null && g base bar-moves >/dev/null
-moved=$(g gate bar-moves 2>/dev/null || true)
-moved_err=$(g gate bar-moves 2>&1 >/dev/null || true)
+moved=$(g checks bar-moves 2>/dev/null || true)
+moved_err=$(g checks bar-moves 2>&1 >/dev/null || true)
 if [ "$(field 'sorted((e["file"], e["what"]) for e in d["bar"]["lowered"])' <<<"$moved" 2>/dev/null)" \
   = "[('tests/focus.test.js', 'describe.only'), ('tests/focus.test.js', 'fdescribe'), ('tests/focus.test.js', 'fit'), ('tests/focus.test.js', 'it.only'), ('tests/focus.test.js', 'test.only'), ('tests/test_old.py', 'a test file is moved out of the tests, to attic/old.py')]" ] \
   && grep -qF "tests/focus.test.js (it.only);" <<<"$moved_err" && ! grep -qF "only()" <<<"$moved_err" && [ "$(kept_in "$GRD" bar-moves gated)" = None ]; then
@@ -287,12 +300,12 @@ small_task_in "$GRD" gate-group g.txt g
 gone_soon() { local tries=15; while kill -0 "$1" 2>/dev/null && [ "$tries" -gt 0 ]; do sleep 0.2; tries=$((tries - 1)); done; }
 g start gate-group >/dev/null && g base gate-group >/dev/null
 grd_settings "\"sleep 61 > /dev/null 2>&1 & echo \$! > $WORK/left.pid\""
-g gate gate-group >/dev/null 2>&1 || true
+g checks gate-group >/dev/null 2>&1 || true
 left=$(cat "$WORK/left.pid")
 gone_soon "$left"
 left_state=$(kill -0 "$left" 2>/dev/null && echo alive || echo ended)
 grd_settings "\"sleep 62 > /dev/null 2>&1 & echo \$! > $WORK/held.pid; wait\""
-"$PY" -B "$LAND" --repo "$GRD" gate gate-group > "$WORK/stopped.out" 2>&1 &
+"$PY" -B "$LAND" --repo "$GRD" checks gate-group > "$WORK/stopped.out" 2>&1 &
 gate_pid=$!
 soon test -s "$WORK/held.pid"
 kill -TERM "$gate_pid" 2>/dev/null || true
@@ -301,7 +314,7 @@ held=$(cat "$WORK/held.pid")
 gone_soon "$held"
 held_state=$(kill -0 "$held" 2>/dev/null && echo alive || echo ended)
 grd_settings '"true"'
-if [ "$left_state" = ended ] && [ "$held_state" = ended ] && grep -qF "the gate was stopped, and the command that ran is ended" "$WORK/stopped.out" \
+if [ "$left_state" = ended ] && [ "$held_state" = ended ] && grep -qF "the checks were stopped, and the command that ran is ended" "$WORK/stopped.out" \
   && [ "$(kept_in "$GRD" gate-group gated)" = None ]; then
   pass "a gate command's process group ends with it, so a process it left behind is ended; a gate that is stopped ends the command that runs and what it started, says so, and keeps no result"
 else
@@ -337,21 +350,21 @@ GC=$WORK/guards-clone
 git init -q --bare -b main "$GO"
 git clone -q "$GO" "$GC" 2>/dev/null && ident "$GC"
 project --repo "$GC" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' '[gate]' 'commands = ["true"]' 'ignores = ["docs/*"]' > "$GC/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' 'ignores = ["docs/*"]' > "$GC/.lem/project.toml"
 mkdir -p "$GC/docs" && echo one > "$GC/docs/note.md"
 git -C "$GC" add -A && git -C "$GC" commit -q -m "chore: start" && git -C "$GC" push -q origin main
 small_task_in "$GC" docs-meet q.txt q
 tree=$(project --repo "$GC" worktree-dir docs-meet)
 echo branch > "$tree/docs/note.md" && git -C "$tree" commit -q -am "docs: the branch's note"
-land --repo "$GC" start docs-meet >/dev/null && land --repo "$GC" base docs-meet >/dev/null && land --repo "$GC" gate docs-meet >/dev/null \
+land --repo "$GC" start docs-meet >/dev/null && land --repo "$GC" base docs-meet >/dev/null && land --repo "$GC" checks docs-meet >/dev/null \
   && land --repo "$GC" read docs-meet --record "$(clean 1)" >/dev/null && land --repo "$GC" propose docs-meet --title "fix: q" --notes "$NOTES" >/dev/null
 proposed=$(git -C "$tree" rev-parse HEAD)
 gother=$WORK/guards-other
 git clone -q "$GO" "$gother" && ident "$gother"
 echo base > "$gother/docs/note.md" && git -C "$gother" commit -q -am "docs: the base's note" && git -C "$gother" push -q origin main
 stopped=$(land --repo "$GC" land docs-meet --by owner 2>&1 || true)
-if grep -qF "origin/main moved after the gate ran and the rebase onto it stopped, and the branch is as it was" <<<"$stopped" \
-  && grep -qF "run \`land.py start\`, \`land.py base\`, \`land.py gate\` and \`land.py propose\` again, where \`base\` names the files that meet" <<<"$stopped" \
+if grep -qF "origin/main moved after the checks ran and the rebase onto it stopped, and the branch is as it was" <<<"$stopped" \
+  && grep -qF "run \`land.py start\`, \`land.py base\`, \`land.py checks\` and \`land.py propose\` again, where \`base\` names the files that meet" <<<"$stopped" \
   && [ "$(git -C "$tree" rev-parse HEAD)" = "$proposed" ] && [ -z "$(git -C "$tree" status --porcelain)" ] && [ "$(status_in "$GC" docs-meet)" = open ] \
   && [ "$(git -C "$GO" log -1 --format=%s main)" = "docs: the base's note" ]; then
   pass "a base that moved only by ignored files and whose rebase stops is refused by land with the branch as it was proposed, and the steps that run again"

@@ -161,8 +161,9 @@ prompt. Lem opens one for a plan talk only: its agent is the plan's defender
      --command "LOGIN_SHELL -l -c 'claude --model MODEL --effort EFFORT \"Read BRIEF and follow it.\"'" --socket "$AGTERM_SOCKET"
    ```
 
-   `MODEL` and `EFFORT` are the settings' `seats.planner` (`project.py show`). Leave a flag out
-   when the seat does not name its value: the agent's own default holds then, as for the
+   `MODEL` and `EFFORT` are the `model` and the `effort` of the settings' `seats.planner`, which
+   `project.py show` gives parsed from its one line, `claude/MODEL:EFFORT`. Leave a flag out when
+   the seat does not name its value (`null`): the agent's own default holds then, as for the
    reviewer's pane. The seat's `agent` can only be `claude`, since this file is the only one the
    contract was checked in.
 
@@ -258,17 +259,18 @@ transcript of Lem's session).
 ## second-opinion
 
 The reviewer is a second agent in the split pane of the session that asks (the companion of a plan
-talk, for a careful or large plan); the owner reads both panes. `project.py show` gives the seat as
-`seats.reviewer`: its `agent` (`claude` or `codex`) and, when the project or this machine set them,
-its `model` and its `plan_effort`, the effort of its pane for the plan talk, which is the one
-thing this pane opens for. A settings file that still names an `effort` for the review of a diff
-is read, and that key is not used: no step reviews a diff in this pane.
-When `agent` is null, ask the owner once and write the answer into `.lem/project.toml`.
+talk, for a careful or large plan); the owner reads both panes. The settings hold the seat as one
+line, `reviewer = "AGENT/MODEL:EFFORT"` under `[seats]`, and `project.py show` gives it parsed as
+`seats.reviewer`: its `agent` (`claude` or `codex`), its `model` and its `effort`, each null when
+the line leaves it out, and `seat`, the line as written. The effort is the one of its pane for the
+plan talk, which is the one thing this pane opens for.
+When `agent` is null, ask the owner once and write the answer into `.lem/project.toml` as that line.
 
 The seat may be this machine's own for a while: the usual reviewer is down, or out of tokens.
-`/lem reviewer AGENT [MODEL [PLAN_EFFORT]]` runs `project.py reviewer` with those words,
-which writes the seat into `.lem/project.local.toml`, a file git does not track; `/lem reviewer
-default` removes it. Never change the seat by yourself. When the reviewer does not answer, or
+`/lem reviewer AGENT/MODEL:EFFORT` (`/lem reviewer codex/gpt-6.1-sol:high`, or `/lem reviewer
+claude` for the agent's own model and effort) runs `project.py reviewer` with that seat, which
+writes it into `.lem/project.local.toml` in the same form, a file git does not track; `/lem
+reviewer default` removes it. Never change the seat by yourself. When the reviewer does not answer, or
 says it is out of tokens, ask the owner once whether the other agent reviews for now, and write
 the seat on his yes. While `project.py show` lists `seats.reviewer` under `local.overrides`,
 every report says that the reviewer is this machine's choice, and "same family" when it is.
@@ -286,8 +288,8 @@ every report says that the reviewer is this machine's choice, and "same family" 
        prompt; with an effort, `-c model_reasoning_effort=EFFORT`.
      - Claude Code: `claude --append-system-prompt "$(cat PATH/prompts/reviewer.md)" "You are the reviewer. Wait for the first message."`
        With a model, add `--model MODEL`; with an effort, `--effort EFFORT`.
-     The effort is the seat's `plan_effort`. Leave a flag out when the seat does not name its
-     value: the agent's own default holds then.
+     `MODEL` and `EFFORT` are the seat's `model` and `effort` from `project.py show`. Leave a flag
+     out when the seat does not name its value (`null`): the agent's own default holds then.
    - read the model and the effort back from the pane's status line, and name those in the
      report, never the ones you asked for. In one repository seven or more tasks were reviewed on
      another model than the run's log said (mybaze, 2026-11-07, from that project's
@@ -345,17 +347,28 @@ Several `Agent` calls in one message. The `Workflow` tool only when the owner as
 Both in one message, so that they start at one moment; `BRIEF`, `WORKTREE` and each answer file
 are the paths `experts.py brief` printed.
 
-- `fable`: the `Agent` tool with `subagent_type: "Plan"`, `model: "fable"` and the prompt
+The two experts are the settings' `seats.experts` (`project.py show`): two seats, each with its
+`agent`, `model` and `effort` parsed from its line, `claude/fable` and `codex/gpt-6-astra:high`
+unless the project or this machine names others, and each with its `place` in the choice's
+record, `fable` for the first and `astra` for the second, whatever model sits there: the place is
+the `--expert` word of `experts.py record` and the name of its answer file. Start each by its
+agent:
+
+- an expert whose `agent` is `claude` (the first by default, in the place `fable`): the `Agent`
+  tool with `subagent_type: "Plan"`, `model` the seat's `model` (left out when it is null), `effort`
+  the seat's `effort` only when it names one, and the prompt
   `Read BRIEF and follow it. Your reply is your answer, in the form the brief's last section
   gives, and nothing else.` The `Plan` agent has no edit or write tool, so it reads; it has Bash,
   so the brief's "change no file" is what keeps it from a write there. It runs in the
   background, and its reply reaches you as its message: write that reply into its answer file
   word for word, without the indent Claude Code puts before each line of a subagent's report,
   then run `experts.py record`.
-- `astra`: the `Bash` tool with `run_in_background`, on this line:
+- an expert whose `agent` is `codex` (the second by default, in the place `astra`): the `Bash`
+  tool with `run_in_background`, on this line, with `-m MODEL` only when the seat names a model
+  and `-c model_reasoning_effort=EFFORT` only when it names an effort:
 
   ```bash
-  codex exec -m gpt-6-astra -c model_reasoning_effort=high -s read-only --skip-git-repo-check --ephemeral -C WORKTREE -o ANSWER - < BRIEF > ANSWER.log 2>&1
+  codex exec -m MODEL -c model_reasoning_effort=EFFORT -s read-only --skip-git-repo-check --ephemeral -C WORKTREE -o ANSWER - < BRIEF > ANSWER.log 2>&1
   ```
 
   `-` reads the prompt from stdin, and the brief file is that stdin, so it ends: a Codex in the

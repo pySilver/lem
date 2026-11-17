@@ -52,7 +52,7 @@ What holds for every builder, unless your job says otherwise as above:
    callers, and the formatter, the linter and the type checker the project's `AGENTS.md` names.
    Never the whole suite, whatever your brief says: it runs one time, in the checks before the
    pull request. A test of a suite that needs the machine to itself (one the settings list under
-   `gate.alone`, or one that belongs to such a suite) you run through the `project.py alone` line
+   `checks.alone`, or one that belongs to such a suite) you run through the `project.py alone` line
    your brief gives, never bare: it waits while another run holds the machine.
 5. **Commit your own work** on the task's branch, with a semantic message (`type(scope):
    subject`). Never push, merge or land, and never change another branch. Rebase the task's
