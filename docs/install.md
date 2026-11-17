@@ -1,8 +1,9 @@
 # Install and remove
 
 Lem comes in two forms: a Claude Code plugin, and a clone with links. Use one form in one
-repository. This page gives what Lem needs, each form, what Lem writes, and how to remove all of
-it.
+repository. To change a repository from the links to the plugin, do the steps in "From the links
+to the plugin". This page gives what Lem needs, each form, what Lem writes, and how to remove all
+of it.
 
 ## What Lem needs
 
@@ -126,6 +127,23 @@ python3 scripts/setup.py --home DIR --bin DIR                     # a different 
 - The companion session of a plan talk starts in the permission mode that your Claude Code
   settings give a new session. The run from the Linear ticket used the auto mode (2026-11-15).
 
+## From the links to the plugin
+
+The plugin brings the correction hook. If the links also added the hook, Claude Code starts the
+hook two times for each message. Do these steps in the clone of Lem, for the repository `DIR`:
+
+1. Remove the hook of the links: `python3 scripts/setup.py --corrections off --project DIR`.
+2. Remove the links: `python3 scripts/setup.py --project DIR --remove`.
+3. Install the plugin with the two commands in "The plugin".
+4. Start a new session in `DIR`, and type `/lem status`.
+
+If the hook is still in two places, `/lem status` tells you. It gives each place, and the command
+that removes the extra hook. A hook in your home settings is such a place. Remove it with
+`python3 scripts/setup.py --corrections off`, without `--project`, if no other repository uses it.
+
+A hook in two places still queues each message one time. The first copy of the hook claims the
+message, and the second copy stops. The second copy still starts for each message, so remove it.
+
 ## The correction hook
 
 The correction queue is optional. With it, `/lem retro` can find a correction that you gave two
@@ -138,7 +156,8 @@ times or more.
 - The request uses the `OPENROUTER_API_KEY` of each person. A person without a key sends nothing.
 - A person who does not want it puts `collect = false` under `[corrections]` into
   `.lem/project.local.toml`.
-- With the plugin, the hook comes with the install. Do not add it a second time with the setup.
+- With the plugin, the hook comes with the install. The setup does not add it a second time: it
+  stops and tells you why.
 - With links, you add the hook yourself, on the day of the setup or later. An agent does not add
   it for you. Use `--project`: the hook then goes into `.claude/settings.local.json` of one
   repository.
@@ -177,6 +196,9 @@ times or more.
 - `decide-gate.jsonl`, the log of the question gate;
 - `backlog-triage.json`, the verdicts of the backlog sort;
 - `corrections.jsonl`, `corrections-reviews.jsonl` and `corrections.log`, the correction queue;
+- `corrections-claims/`, one small file for each new message of the correction hook. A second
+  copy of the hook sees the file and stops. At the next message, the hook removes each file that
+  is older than 20 seconds;
 - `night/`, the night reports;
 - the page of the board and its data files.
 
