@@ -42,7 +42,8 @@ a list of questions that closes with the reviewer's first turn, by its defender 
      refuses one that comes after a lead started. The read is the persona panel's "Reading stories" mode (`load-skill`), run by you while you write the
      rest of the plan. You have no paired agent of the other family, so one family answers: the
      panel's own persona agents, started the way the `lem-panel` skill starts a persona, never
-     as a builder: `lem-builder` has no persona among its jobs. Write
+     as a builder: `lem-builder` has no persona among its jobs. Log its start as it starts,
+     `python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG stories.read.start by=lead`. Write
      the event the landing reads, in the form `stages/new.md` gives ("The interview and the
      stories", step 5), with `by=lead`, your one family, and the `digest` field of what
      `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE digest SLUG` prints for the plan's stories. A persona agent that

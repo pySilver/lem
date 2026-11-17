@@ -57,7 +57,7 @@ a lead is started, and what to do each time a lead stops.
    unless the project's `AGENTS.md` gives its own scheme. The kind gives the type: `fix` for a bug
    and a correction, `feat` for a feature, `chore` for a chore and `docs` for docs. For an
    investigation, choose the type of the change its answer would most likely lead to, and say
-   why in the line that names the kind; its branch gets a commit only when the investigator
+   why in the line of step 5; its branch gets a commit only when the investigator
    reproduces a bug. The branch's type binds nobody; each commit of the lead carries its own. A
    slug that a `landed`, an `answered` or a `dropped` task has is taken, since that task's files
    stay under it: add a word, as `task-dir` says when it refuses. For a ticket, the branch is the
@@ -188,9 +188,12 @@ approved, which the lead may not change without the record saying so.
 
    The interview does not wait for it, so it costs him no wait: on 2026-11-16 a scout took 26.7 s
    in a tiny repository and 116.5 s in Lem's own, 12 files opened in each (one request each).
-   Its reply is its report: write it word for word into `scout.md` in the task directory. It is
-   the one place where knowledge of the code comes up to you, and only as facts for the stories:
-   you still read no diff and write no code.
+   Log the start of each, so that the board draws both: `python3 SKILL_DIR/scripts/project.py
+   log SLUG scout.start` as the scout starts, and `project.py log SLUG interview.start` before
+   the first question. Its reply is its report: write it word for word into `scout.md` in the
+   task directory, and log `project.py log SLUG scout`, its end. It is the one place where
+   knowledge of the code comes up to you, and only as facts for the stories: you still read no
+   diff and write no code.
 2. **The interview.** One question at a time in the conversation, one line each with your own
    guess, so that he reacts and does not compose; he answers by typing. No page opens for a
    question of the interview: it asks what he wants, and a page for each would cost him one page
@@ -220,8 +223,10 @@ approved, which the lead may not change without the record saying so.
 5. **Show them in the conversation, and start the personas' read in the same moment.** Write the
    stories as plain text, each with the scout's facts that shaped it beside it, and the
    directions, and say that the personas read them now. No page opens before the read is in.
-   The read is the persona panel's "Reading stories" mode (`load-skill`), here in your session
-   with the paired agent of the other family, so that both families answer; without one the
+   Log its start, `python3 SKILL_DIR/scripts/project.py log SLUG stories.read.start by=lem`; the
+   record below is its end, and the end of the interview. The read is the persona panel's
+   "Reading stories" mode (`load-skill`), here in your session with the paired agent of the other
+   family, so that both families answer; without one the
    panel says that one family answered. A persona agent that does not answer leaves a partial
    read, which counts: the record says who did not answer and why. A read in which nobody
    answered is written down too, with `answered:=0`, `families:='[]'` and each source in
@@ -337,7 +342,8 @@ flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` h
 
 When he says "feature" of a small change, or "this is a feature", it takes the usual path the
 same way: the interview, the personas' read, and his approval, which replaces the correction's.
-A change of the kind is his only.
+A builder that runs then finishes, and its commits stay on the branch for the lead. A change of
+the kind is his only.
 
 ## A bug and an investigation
 
@@ -370,8 +376,10 @@ task.
    task directory: TASK_DIRECTORY
    ```
 
-   Tell the owner in one line that it runs, and go back to his next message: its reply wakes you.
-   No investigation has been timed yet.
+   Log its start as it starts, `python3 SKILL_DIR/scripts/project.py log SLUG investigation.start
+   kind=bug` (or `kind=investigation`); the record of step 3 is its end. Then go back to his next
+   message: its reply wakes you, and the line of step 5 of "Open the task" told him already. No
+   investigation has been timed yet.
 3. **Read its report.** Its reply is the path of `investigation.md` in the task directory. When
    its agent refused it the write, its reply is the whole report: write it into that file word
    for word, with one line at the top that says who copied it and why. The report is knowledge of
@@ -454,7 +462,10 @@ that is started again after it stopped.
    lines): a lead tells the session those lines name. A small change's brief has none: its
    builder's reply is its only word. Write the state `building` first, with the line `lead:
    builder` or `lead: session` as the brief says, or `small change: one builder` for a brief that
-   names `prompts/small.md`, so the next `may-start` counts this task. The task's first block
+   names `prompts/small.md`, so the next `may-start` counts this task. A small change's builder
+   gets one more line, its start for the board, as it starts: `python3
+   SKILL_DIR/scripts/project.py log SLUG builder.start "job=the small change"`; its state of
+   `ready` or `held` is its end. The task's first block
    carries the kind line of step 1 of "Open the task" too, when no block before it has one. For a task that
    came from a ticket, the tracker then marks the ticket as started (its "start"); it writes
    nothing when the project's settings say that the tracker moves its own tickets. Then, for a

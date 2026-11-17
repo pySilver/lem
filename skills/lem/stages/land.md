@@ -267,7 +267,10 @@ paths: what the step above gives this job
 ```
 
 Such a builder writes no state block, because the task stays in `landing`, and its reply is what
-`prompts/landing.md` asks for. Read `report.md` again after the polish pass, before step 6.
+`prompts/landing.md` asks for. As it starts, log its job for the board, `python3
+SKILL_DIR/scripts/project.py log SLUG builder.start "job=JOB"` with the job of its brief; the
+polish pass is the one job whose start `land.py polish` logs itself, as `gate` and `read` log the
+start of the checks and of a review that is due. Read `report.md` again after the polish pass, before step 6.
 
 Then the next: a `ready` task takes the line, and the queue is looked at as `stages/new.md`
 ends: a landing holds a place, so its end may free one.

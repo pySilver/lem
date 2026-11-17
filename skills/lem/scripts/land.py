@@ -30,7 +30,17 @@ may-land` about the settings' base branch, so a protected branch is never reache
 
 What each step keeps for the next is in `landing.json` in the task's directory: the task's
 branch, the base it was rebased on, the commit and tree the checks passed on, each review, and
-the pull request.
+the pull request. Three steps log the start of what they start, so that the board's time card has
+a start and an end for each: `polish` logs `polish.start` when a pass starts (not again for a
+second start of the same pass), `gate` logs `gate.start` before its first command, and `read`
+logs `review.start` once for the attempt that is due; `polish --done`, the gate's results and
+`read --record` are their ends.
+
+A small change has no plan: its one story is `stories.md` in the task directory (`stories.py`
+gives `small`), which the steps read in the plan's place. It is one task, gets no polish pass
+unless its report names a defect outside it, has no reason for a lowered bar (the gate refuses
+one: a lowered bar is a feature's), and its pull request's text is short. One that is careful
+after all is not green, since it took the short path with no interview, read or plan.
 
 The machine checks have no model in them. `gate` runs the settings' `gate.commands`, then
 `stories.py red` (each story's tests pass on the branch and fail on the base commit), then the
@@ -615,6 +625,8 @@ def cmd_polish(task: Task, done: bool) -> dict:
         if not polish or not polish.get("before") or (polish.get("done") and not holds_commit(task, polish.get("after"), tip)):
             polish = {"before": tip, "done": False}
             task.keep(polish=polish)
+            # the start of the pass, once: the board draws its span from here to `polish`
+            script("project.py", task.worktree, "log", task.slug, "polish.start", f"before={tip[:9]}")
         base = git(task.worktree, "merge-base", polish["before"], task.onto)
         report, outside = task.directory / "report.md", task.directory / "outside.md"
         return {
@@ -999,6 +1011,8 @@ def cmd_gate(task: Task) -> dict:
         )
     logs = task.directory / "gate"
     logs.mkdir(exist_ok=True)
+    # the start of the checks: the board draws them from here to their last result
+    script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands)}")
     results = []
     for number, command in enumerate(commands, start=1):
         output = logs / f"{number:02d}.log"
@@ -1415,6 +1429,12 @@ def cmd_read(task: Task, record: str | None) -> dict:
         raise LandError(f"the review is of the tip the checks passed on, and no check is on record for this tip; `land.py gate {task.slug}` comes first")
     reads = task.kept().get("reads", [])
     if record is None:
+        # The review starts when it is due, and its record ends it. A second `read` of the same
+        # attempt, after a cut-off run or before `file`, is the same review and logs no second start.
+        if state["due"] == "review" and not any(
+            event.get("event") == "review.start" and event.get("attempt") == state["attempt"] for event in events_of(task)
+        ):
+            script("project.py", task.worktree, "log", task.slug, "review.start", f"attempt:={state['attempt']}", f"floor={state['floor']}")
         rules = json.loads(script("project.py", task.worktree, "rules", "--range", f"{state['base']}..{state['tip']}").stdout)["rules"]
         return {
             "task": task.slug, "due": state["due"], "why": state["why"], "floor": state["floor"], "kinds": KIND_SAYS, "round": state["round"],

@@ -44,6 +44,7 @@ shown=$(stories show date-nowrap 2>&1 | field '(d["small"], d["kind"], d["plan"]
 s start date-nowrap >/dev/null && s base date-nowrap >/dev/null
 gated=$(s gate date-nowrap 2>&1 | field '(d["green"], d["polish"], d["stories"]["ok"])' 2>&1 || true)
 due=$(s read date-nowrap 2>&1 | field '(d["due"], d["floor"], d["small"], d["tasks"])' 2>&1 || true)
+s read date-nowrap >/dev/null 2>&1 || true
 s read date-nowrap --record "$(clean 1)" >/dev/null 2>&1 || true
 proposed=$(s propose date-nowrap --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
 merged=$(s land date-nowrap --by agent 2>&1 | field 'd["pushed"]' 2>&1 || true)
@@ -59,6 +60,15 @@ if [ "$shown" = "(True, 'correction', True)" ] && [ "$gated" = "(True, None, Tru
   pass "a small change with its story in the task directory goes from Lem's approval through the gate, one read and a short pull request to an agent's merge, with no plan file on the branch and the stories' check run once"
 else
   fail "a small change: $shown / $gated / $due / $proposed / $merged / reds $(reds date-nowrap) / $(cat "$text" 2>/dev/null)"
+fi
+
+# The landing logs the start of the checks and of the review itself, so that each has a span: the review's once for its attempt, however often read is asked.
+events_of() { "$PY" -c 'import json, sys; print([(e["event"], {k: v for k, v in e.items() if k in ("tip", "commands", "attempt", "floor")}) for e in map(json.loads, open(sys.argv[1])) if e["task"] == sys.argv[2] and e["event"] in ("gate.start", "gate", "review.start", "review")])' "$SMALL/.git/lem/events.jsonl" "$1"; }
+tip=$(git -C "$SMALL" rev-parse --short=9 main)
+if [ "$(events_of date-nowrap)" = "[('gate.start', {'tip': '$tip', 'commands': 1}), ('gate', {'tip': '$tip'}), ('review.start', {'attempt': 1, 'floor': 'read'}), ('review', {'attempt': 1, 'tip': '$tip'})]" ]; then
+  pass "gate logs gate.start with the tip and the count of its commands before the first runs, and read logs review.start once for the attempt that is due, before the review's record"
+else
+  fail "the starts of the landing: $(events_of date-nowrap)"
 fi
 
 # A feature keeps its stories at the top of its plan: with no plan file on the branch it is refused, also with a story file in the task directory.

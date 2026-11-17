@@ -477,6 +477,11 @@ if grep -qF "polish-me is a feature, and no polish pass is on record for this la
 else
   fail "polish: $no_pass / $first / $again"
 fi
+if [ "$(grep '"event": "polish.start", "task": "polish-me"' "$LOCAL/.git/lem/events.jsonl" | field 'd["before"]' 2>&1)" = "${lead_tip:0:9}" ]; then
+  pass "polish logs polish.start once, with the tip the pass starts at, and not again when it is started a second time before --done"
+else
+  fail "polish.start: $(grep '"polish.start"' "$LOCAL/.git/lem/events.jsonl")"
+fi
 # What --done refuses: a worktree with changes, a story's test changed, stories' tests that no longer hold.
 echo '# and a note' >> "$tree/tests/polish-me.sh" && git -C "$tree" commit -q -am "test: a note"
 frozen=$(local_land polish polish-me --done 2>&1 || true)

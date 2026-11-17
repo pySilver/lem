@@ -39,7 +39,7 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
      send `lem: SLUG choice N advised`;
    - `report.md` in the task directory, whole: what changed in the plan, by question and by task;
      each choice you asked, by its number; and who argued the plan, with the models and efforts
-     of step 4's record;
+     of the talk's record (`stages/talk.md`);
    - the state `planned` with the line `the plan talk is done`;
    - `tell-coordinator` with the line `lem: SLUG talk done`.
    A step your agent refuses you is not gone around: write the state `blocked` with the refusal,

@@ -286,6 +286,20 @@ because the board reads them: `lead: builder` or `lead: session` (the plan talk'
 (a builder investigates before any lead), and `kind: KIND, because WHY`, which `state` refuses in
 another form.
 
+A stage's start is an event too, so that the board's time card has a start and an end for each
+span (the owner's pick of 2026-11-17). Each has a fixed form that `project.py log` checks, and
+the event that already ends the stage ends it. Logged by the agent that runs the stage, where its
+stage text says: `interview.start` (Lem, before the first question; it ends at the first
+`stories.read.start` or `stories.approved` after it), `scout.start` and `scout` (Lem, as the
+scout starts and when its report is written), `stories.read.start by=lem|lead` (it ends at
+`stories.read`), `investigation.start kind=bug|investigation` (it ends at `investigation`), and
+`builder.start job=JOB` for a builder's job, `task N of M`, `the small change`, `the repair of a
+conflict with the base`, `the repair of a failed check` or `the fix of a review's findings` (it
+ends at the next state block or step of the landing). Logged by `land.py` itself:
+`polish.start before=TIP` (it ends at `polish`), `gate.start tip=TIP commands:=N` (it ends at the
+last `gate` or `task.red` of that run) and `review.start attempt:=N floor=KIND`, once for the
+attempt that is due (it ends at `review`). `plan.talk.start` and `plan.talk` have the same pairing.
+
 Nothing else keeps a task's place. A session that was compacted or replaced, Lem's or a lead's,
 reads `project.py tasks`, then the state file and the report of the task it acts on, and goes on.
 Lem keeps no notes of its own beside these files.

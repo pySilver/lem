@@ -36,7 +36,10 @@ you the start of one, write the state `blocked` with that refusal, and stop.
    reach a builder in your agent.
    Read the report file, never a summary of it. When a builder's reply is the report itself,
    because its agent refused it the write, put that text into the report file word for word.
-   Write the state `building` with the line `task N of M` when a builder starts.
+   Write the state `building` with the line `task N of M` when a builder starts, and log its
+   start for the board, `python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG
+   builder.start "job=task N of M"`: two builders may run at one time, and a state block names
+   only the newest.
 2. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
    - *a failure nobody can explain after two tries*: the `lem-root-cause` skill, before
      a third try. A task that came from a bug had that method once already, before its stories

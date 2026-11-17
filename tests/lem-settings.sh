@@ -705,6 +705,29 @@ if grep -qF "reproduced is a bug's" <<<"$asked_back" && grep -qF "where names th
 else
   fail "the investigation's record: $asked_back / $nowhere / $not_so / $odd_call / $untyped / $before $after_refusals / $none_yet / $found"
 fi
+# The start of each stage an agent runs has one form, so that the board draws its span from it to the event that ends it.
+starts() { project --repo "$ANS" log zero-after-refund "$@" 2>&1 || true; }
+before=$(grep -c '' "$ANS/.git/lem/events.jsonl")
+good=$(for form in "interview.start" "scout.start" "scout" "stories.read.start by=lem" "stories.read.start by=lead" "investigation.start kind=bug" "investigation.start kind=investigation" \
+  "builder.start job=task 2 of 3" "builder.start job=the small change" "builder.start job=the repair of a conflict with the base" "builder.start job=the repair of a failed check" "builder.start job=the fix of a review's findings"; do
+  read -r -a words <<<"${form%% *}"; if [ "$form" = "${form%% *}" ]; then starts "${words[0]}" | field 'd["event"]'; else starts "${words[0]}" "${form#* }" | field 'd["event"]'; fi; done | sort -u | tr '\n' ' ')
+added=$(( $(grep -c '' "$ANS/.git/lem/events.jsonl") - before ))
+with_field=$(starts interview.start by=lem)
+no_by=$(starts stories.read.start)
+odd_by=$(starts stories.read.start by=owner)
+odd_kind=$(starts investigation.start kind=question)
+odd_job=$(starts builder.start "job=the polish pass")
+task_zero=$(starts builder.start "job=task 0 of 3")
+script_start=$(starts gate.start tip=abc123456)
+if [ "$good" = "builder.start interview.start investigation.start scout scout.start stories.read.start " ] && [ "$added" = 12 ] \
+  && grep -qF "interview.start takes nothing" <<<"$with_field" && grep -qF "stories.read.start takes by=lem|lead, and nothing else" <<<"$no_by" && grep -qF "by is 'owner'" <<<"$odd_by" \
+  && grep -qF "investigation.start takes kind=bug|investigation" <<<"$odd_kind" && grep -qF "builder.start takes job=" <<<"$odd_job" && grep -qF "the polish pass logs its own start" <<<"$odd_job" \
+  && grep -qF "builder.start takes job=" <<<"$task_zero" && grep -qF "gate.start takes tip=TIP commands:=N" <<<"$script_start" \
+  && [ "$(grep -c '' "$ANS/.git/lem/events.jsonl")" = $((before + 12)) ]; then
+  pass "the start of the interview, the scout, the personas' read, an investigation and a builder's job each has one form, the scout's end too; a start with a wrong field, a job no builder has or a script's start in another form writes nothing"
+else
+  fail "the forms of the starts: $good / $added / $with_field / $no_by / $odd_by / $odd_kind / $odd_job / $task_zero / $script_start"
+fi
 # a choice the investigation asked while the task built, which nobody answered before the task ended
 "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund "${CASE[@]}" --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
   --why "it pins the behavior" --said "The two personas split." >/dev/null
