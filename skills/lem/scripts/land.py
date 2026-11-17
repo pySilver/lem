@@ -2313,7 +2313,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         out.append(unread(read, found))
     if (task.directory / "scout.md").is_file():
         # no path: the pull request is read on the forge, where a file of this machine leads nowhere
-        out.append("- the criteria were written from the scout's facts of the code, read before the interview")
+        out.append("- the criteria were written from the scout's facts of the code, read during the interview")
     cause = task.record.get("investigation")
     if cause and cause.get("type") == "fix":
         # a full change that came from a bug names the cause its investigation found

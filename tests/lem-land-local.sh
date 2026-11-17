@@ -285,7 +285,7 @@ text=$LOCAL/.lem/state/tasks/ticket-word/pr.md
 if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && grep -qxF -- "- the criteria were read by 2 of 2 personas asked, one model family (opus); nobody confused; the build started with no wait for the owner" "$text" \
   && ! grep -q "after the personas' read" "$text" \
-  && grep -qxF -- "- the criteria were written from the scout's facts of the code, read before the interview" "$text" && ! grep -qF "$LOCAL" "$text" \
+  && grep -qxF -- "- the criteria were written from the scout's facts of the code, read during the interview" "$text" && ! grep -qF "$LOCAL" "$text" \
   && grep -q "by is lem, when Lem ran the read" <<<"$bad_by" && grep -q "a read asks two personas at the least" <<<"$bad_one" \
   && grep -q "a read in which nobody answered has families:='\[\]'" <<<"$bad_none" && grep -q "answered is at most asked" <<<"$bad_more" \
   && grep -q "silent names each source that did not, with why" <<<"$bad_quiet" \
