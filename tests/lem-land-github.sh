@@ -296,13 +296,20 @@ NR=$WORK/no-remote
 git init -q -b main "$NR" && ident "$NR" && commit "$NR" "chore: start"
 project --repo "$NR" init --base main >/dev/null && project --repo "$NR" task-dir local-one --ask "One." >/dev/null
 local_tree=$(project --repo "$NR" worktree local-one fix/local-one 2>&1 || true)
+# an origin that does not answer: the task starts from the local base branch, and one line on stderr says so
+git -C "$GHS" config remote.origin.url "$WORK/no-such-origin.git"
+project --repo "$GHS" task-dir quiet-origin --ask "Origin is away." >/dev/null 2>&1
+away=$(project --repo "$GHS" worktree quiet-origin feat/quiet-origin 2>"$WORK/away.err" || true)
+git -C "$GHS" config remote.origin.url https://github.com/acme/shop.git
 if [ "$(field '(d["made"], d["from"], d["commit"])' <<<"$fresh" 2>&1)" = "(True, 'origin/main', '$(git -C "$mate" rev-parse HEAD)')" ] \
   && [ "$(git -C "$fresh_tree" rev-parse HEAD)" = "$(git -C "$mate" rev-parse HEAD)" ] && [ "$(git -C "$GHS" rev-parse main)" != "$(git -C "$mate" rev-parse HEAD)" ] \
   && [ "$upstream" != 0 ] && [ "$(field '(d["made"], d["worktree"])' <<<"$second" 2>&1)" = "(False, '$fresh_tree')" ] \
-  && [ "$(field '(d["made"], d["from"], d["commit"])' <<<"$local_tree" 2>&1)" = "(True, 'main', '$(git -C "$NR" rev-parse main)')" ]; then
-  pass "a new task's worktree starts from origin's base branch after a fetch, with no upstream, while the local base branch is older; a second call finds it; with no remote it starts from the local base branch"
+  && [ "$(field '(d["made"], d["from"], d["commit"])' <<<"$local_tree" 2>&1)" = "(True, 'main', '$(git -C "$NR" rev-parse main)')" ] \
+  && [ "$(field '(d["made"], d["from"], d["commit"])' <<<"$away" 2>&1)" = "(True, 'main', '$(git -C "$GHS" rev-parse main)')" ] \
+  && grep -qF "project.py: origin did not answer (" "$WORK/away.err" && grep -qF "so quiet-origin starts from the local main as it is now" "$WORK/away.err"; then
+  pass "a new task's worktree starts from origin's base branch after a fetch, with no upstream, while the local base branch is older; a second call finds it; with no remote, or an origin that does not answer, it starts from the local base branch, and the second says so on stderr"
 else
-  fail "a new task's worktree: $fresh / $second / $upstream / $local_tree"
+  fail "a new task's worktree: $fresh / $second / $upstream / $local_tree / $away / $(cat "$WORK/away.err")"
 fi
 
 # A GitHub remote, and a developer who wants no pull requests (`branch.propose = "merge"`): the task

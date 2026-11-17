@@ -31,7 +31,8 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     lem project worktree SLUG BRANCH
                                     make the task's worktree there, on BRANCH: a branch that exists
                                     as it is, a new one from origin's base branch after a fetch
-                                    (from the local base branch with no remote), with no upstream
+                                    (from the local base branch with no remote, or when origin
+                                    does not answer), with no upstream
     lem project state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
     lem project tasks               every task's ask, status and newest state block, as JSON
@@ -1574,8 +1575,8 @@ def cmd_worktree_dir(settings: dict, slug: str) -> None:
 def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
     """Make the task's worktree where `worktree-dir` says, on BRANCH. A new branch starts from the
     base branch as origin has it now, after a fetch: the local base branch may be days old. It gets
-    no upstream, so that no `git push` of a builder's reaches the base. With no remote it starts
-    from the local base branch."""
+    no upstream, so that no `git push` of a builder's reaches the base. With no remote, or an
+    origin that does not answer (said in one line on stderr), it starts from the local base branch."""
     def git(*args: str) -> subprocess.CompletedProcess:
         return subprocess.run(["git", "-C", str(main), *args], capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL)
 
@@ -1611,12 +1612,10 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
         start = base
         if git("remote", "get-url", "origin").returncode == 0:
             fetched = git("fetch", "-q", "origin", base)
-            if fetched.returncode != 0:
-                raise SettingsError(
-                    f"origin did not answer ({said(fetched)}), and a new task starts from {base} as origin has it: run this again when it answers. "
-                    f"To start from the local {base} instead, as it is now, `git -C {main} worktree add -b {branch} {place} {base}` makes the worktree",
-                )
-            start = f"origin/{base}"
+            if fetched.returncode == 0:
+                start = f"origin/{base}"
+            else:
+                print(f"project.py: origin did not answer ({said(fetched)}), so {slug} starts from the local {base} as it is now", file=sys.stderr)
         made = git("worktree", "add", "--no-track", "-b", branch, str(place), start)
     if made.returncode != 0:
         raise SettingsError(f"git could not make the worktree {place} on {branch}: {said(made)}")
