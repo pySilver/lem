@@ -285,7 +285,7 @@ text=$LOCAL/.git/lem/tasks/ticket-word/pr.md
 if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && grep -qxF -- "- the stories were read by 2 of 2 personas asked, one model family (opus); nobody confused; the build started with no wait for the owner" "$text" \
   && ! grep -q "after the personas' read" "$text" \
-  && grep -qxF -- "- the scout's report, the facts of the code the stories were written from: \`$LOCAL/.git/lem/tasks/ticket-word/scout.md\`" "$text" \
+  && grep -qxF -- "- the stories were written from the scout's facts of the code, read before the interview" "$text" && ! grep -qF "$LOCAL" "$text" \
   && grep -q "by is lem, when Lem ran the read" <<<"$bad_by" && grep -q "a read asks two personas at the least" <<<"$bad_one" \
   && grep -q "a read in which nobody answered has families:='\[\]'" <<<"$bad_none" && grep -q "answered is at most asked" <<<"$bad_more" \
   && grep -q "silent names each source that did not, with why" <<<"$bad_quiet" \
@@ -295,7 +295,7 @@ if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && [ "$(grep -c '"event": "stories.read", "task": "ticket-word"' "$LOCAL/.git/lem/events.jsonl")" = 1 ] \
   && grep -qF -- "--read freezes the plan's own stories, the ones the read named: it takes no --file" <<<"$freeze_other" \
   && [ "$frozen" = "('read', 1)" ] && grep -qF "story 1 is 'The file holds the word the owner asked for.' after every earlier change" <<<"$recorded"; then
-  pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's report is named; a read's event without its form, with fewer than two personas asked, with nobody or more than were asked answering, or with a missing source unnamed is refused, and nothing is written for it; the lead freezes the plan's stories the read named, with no file of other stories, and from then on a change of them has its record, while the line still says the build did not wait for him"
+  pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's facts are named with no path of this machine; a read's event without its form, with fewer than two personas asked, with nobody or more than were asked answering, or with a missing source unnamed is refused, and nothing is written for it; the lead freezes the plan's stories the read named, with no file of other stories, and from then on a change of them has its record, while the line still says the build did not wait for him"
 else
   fail "the read of the rare path: $freeze_other / $frozen / $recorded / $bad_by / $bad_one / $bad_none / $bad_more / $bad_quiet / $bad_families / $bad_flagged / $bad_split / $bad_digest / $bad_missing / $(cat "$text" 2>/dev/null)"
 fi

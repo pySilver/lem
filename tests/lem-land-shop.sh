@@ -400,7 +400,7 @@ else
 fi
 project --repo "$SHOP" state careful-plan dropped "the test is over" >/dev/null
 
-# A correction or a feature that came from a bug names, in its checks, the cause the investigation
+# A request that came from a bug names, in its checks, the cause the investigation
 # before the build found and where; a question's answer, or no investigation, gives no such line.
 open_task bug-cause seven.txt seven
 project --repo "$SHOP" log bug-cause investigation kind=bug call=correction "line=the total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
@@ -409,11 +409,12 @@ open_task question-cause eight.txt eight
 project --repo "$SHOP" log question-cause investigation kind=investigation call=answer "line=the export reads the totals of the night before" >/dev/null
 checked question-cause && read_clean question-cause && propose question-cause
 text=$SHOP/.git/lem/tasks/bug-cause/pr.md
-if grep -qxF -- "- the cause, as the investigation before the build found it: the total adds the refund as a payment (billing/invoice.py:total); its report: \`$SHOP/.git/lem/tasks/bug-cause/investigation.md\`" "$text" \
+if grep -qxF -- "- the cause, as the investigation before the build found it: the total adds the refund as a payment (billing/invoice.py:total)" "$text" \
+  && ! grep -qF "$SHOP" "$text" \
   && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c '^- the cause, as the investigation')" = 1 ] \
   && ! grep -q 'the cause, as the investigation' "$SHOP/.git/lem/tasks/question-cause/pr.md" \
   && ! grep -q 'the cause, as the investigation' "$SHOP/.git/lem/tasks/careful-plan/pr.md"; then
-  pass "a correction that came from a bug names in its checks the cause its investigation found, with its place and the report; one after a question's answer, or with no investigation, has no such line"
+  pass "a request that came from a bug names in its checks the cause its investigation found, with its place and no path of this machine; one after a question's answer, or with no investigation, has no such line"
 else
   fail "the cause of a bug in the text: $(cat "$text" 2>/dev/null) / $(grep 'cause' "$SHOP/.git/lem/tasks/question-cause/pr.md" 2>/dev/null)"
 fi

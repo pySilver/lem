@@ -206,7 +206,10 @@ whether the families split, and when the owner approved them (`stories.py approv
 build started with no wait for the owner.
 When the stories the read names by their digest are not the plan's (which the gate makes the expected
 ones), one more line says that they changed after the read, by a later approval of the owner's or by
-a change of the build, and that the change was not read; that line is no cause of not green. A scout's report in the task's directory is named there as a file.
+a change of the build, and that the change was not read; that line is no cause of not green. A
+task whose scout read the code has one line that says the stories were written from its facts.
+The text names no file of the task directory: the pull request is read on the forge, where no
+path of this machine leads anywhere.
 A request that came from a bug has one more line with the cause its investigation found, the
 cause's place and the report, from the newest `investigation` event; a question's has none.
 `propose` refuses a feature with no `stories.read`, unless the owner skipped the read: that word
@@ -1814,14 +1817,14 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out.append(read_line(read, found, unanswered(task), read_skipped(task)[0] if read is None else None))
     if unread(read, found):
         out.append(unread(read, found))
-    scout = task.directory / "scout.md"
-    if scout.is_file():
-        out.append(f"- the scout's report, the facts of the code the stories were written from: `{scout}`")
+    if (task.directory / "scout.md").is_file():
+        # no path: the pull request is read on the forge, where a file of this machine leads nowhere
+        out.append("- the stories were written from the scout's facts of the code, read before the interview")
     cause = task.record.get("investigation")
     if cause and cause.get("kind") == "bug":
         # a feature that came from a bug names the cause its investigation found
         where = f" ({cause['where']})" if cause.get("where") else ""
-        out.append(f"- the cause, as the investigation before the build found it: {cause['line']}{where}; its report: `{task.directory / 'investigation.md'}`")
+        out.append(f"- the cause, as the investigation before the build found it: {cause['line']}{where}")
     lowered = (checks.get("bar") or {}).get("lowered", [])
     out.append("- the bar: not lowered" if not lowered else "- the bar is lowered, with these reasons:")
     out += [f"  - `{entry['file']}` ({entry['what']}): {entry['reason']}" for entry in lowered]
