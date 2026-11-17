@@ -1,6 +1,6 @@
 # Is the answer a durable ruling?
 
-The `jev` spec. `QUESTION` is the question as the user saw it, one or two sentences; `ANSWER` is the
+The `lem-jev` spec. `QUESTION` is the question as the user saw it, one or two sentences; `ANSWER` is the
 user's choice and their words, verbatim. When the answer points at an option instead of saying
 it ("yes", "option 1", "as written"), put that option's text into `ANSWER` after the user's words:
 measured 2026-11-07, "Yes, narrowed as written" alone was judged a one-off, the same answer with the

@@ -23,9 +23,9 @@ judged on a timer. The verdicts live in Lem's folder of the repository's git dir
 Lem's removal takes them; a record whose item is gone is dropped. A file an older copy of this
 script kept in the git directory itself is moved there on the first run.
 
-Jev is called through JEV_BIN when it names a command, else the `jev` command on PATH (Lem's setup
-links one for a home), else Lem's own `jev.py` beside this skill, by its path: a trial linked into
-one repository has no command on PATH. An input Jev refuses as too long is reported under
+Jev is called through JEV_BIN when it names a command, else through Lem's own `jev.py` beside this
+skill, by its path, which is the file the plugin's `lem-jev` command runs. A `jev` command on PATH
+is a developer's own, and is never taken for Lem's. An input Jev refuses as too long is reported under
 "unjudged" with the reason; it is never cut down to fit.
 """
 
@@ -37,7 +37,6 @@ import hashlib
 import json
 import re
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -133,17 +132,17 @@ class Store:
         tmp.replace(self.path)
 
 
-# Lem's own client of Jev, beside this skill in the same clone, whether it is linked or loaded as a plugin
+# Lem's own client of Jev, beside this skill in the same plugin
 OWN_JEV = Path(__file__).resolve().parents[2] / "lem" / "scripts" / "jev.py"
 
 
 def jev_bin() -> list[str]:
-    """The command that asks Jev: JEV_BIN, the `jev` on PATH, or Lem's own jev.py by its path."""
-    found = os.environ.get("JEV_BIN") or shutil.which("jev")
+    """The command that asks Jev: JEV_BIN, or Lem's own jev.py by its path."""
+    found = os.environ.get("JEV_BIN")
     if found:
         return [found]
     if not OWN_JEV.is_file():
-        fail(f"no jev command on PATH and no {OWN_JEV}; set JEV_BIN to the jev.py of Lem's clone")
+        fail(f"no {OWN_JEV}, the client of Jev that comes with Lem; reinstall Lem's plugin, or set JEV_BIN to a command that answers as it does")
     return [sys.executable, "-B", str(OWN_JEV)]
 
 

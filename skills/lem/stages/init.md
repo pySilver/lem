@@ -37,9 +37,9 @@ A required tool that is absent stops the onboarding: say which, what it is used 
 installed, and end. Every other row is no question now: an optional tool that is absent is one
 line of the hand-over page (the row's `without_it`), and a recommended tool that is absent, cronn
 and the correction queue are offers in the short list at the end of that page (step 6). A
-`correction hook` row (the hook registered in two places, as when links registered it before the
-plugin came) is one line of that page too, with the places and the command it names; and the
-offer of the correction queue then says that the hook is there already.
+`correction hook` row (a settings file that still holds the hook an install of Lem before the
+plugin wrote) is one line of that page too, with each file and the entry its guide says to delete
+by hand.
 
 ## 2. Examine the project
 
@@ -185,7 +185,7 @@ is, and no persona file that is there is overwritten.
   correction repeats (`stages/learn.md`). A new project gets the copy the owner took from the
   offers of step 6, or no style guide yet.
   A draft never cites a file of this skill by the path you read it from. That path is one
-  setup's link and does not exist in the next checkout. Name what the owner can use instead:
+  install's copy and does not exist in the next checkout. Name what the owner can use instead:
   `/lem learn`, "the published guides Lem lists for this stack". The first onboarding wrote
   `.claude/skills/lem/stages/learn.md` into a style guide (2026-11-15).
 - **A paragraph for the project's agent document**, as a proposal: where the rules are, that a
@@ -218,8 +218,8 @@ stylesheet is the one the board uses, so the page looks like the same tool; the 
 onboarding's page was written by hand, and the owner found it "a bit old school" (2026-11-15).
 Its title names the repository and its first line is the
 root as an absolute path: every other path on the page is relative to it, and a page without it
-cannot be checked against any folder. Then what the machine has and lacks, what was linked and
-what was generated, and the settings file. The machine's part lists the tools the check lists and
+cannot be checked against any folder. Then what the machine has and lacks, which folders the
+settings link and what was generated, and the settings file. The machine's part lists the tools the check lists and
 no part of Lem itself: the question page comes with Lem. Say there that the project may bring a
 builder of its own, and how (the harness file, `spawn-builder`).
 
@@ -249,12 +249,9 @@ as corrections: edit, commit on the same branch, say for each file what changed.
   in the tracked settings, so it holds for everybody who works in this repository with the hook,
   and one person can say no for themselves (the harness file says how). The check's
   "OpenRouter key" row says whether this session has a key; without one the queue stays empty
-  and its log fills, so say that too. On his yes, set `corrections.collect = true` on the
-  onboarding's branch. With Lem as a plugin the hook is there already and nothing is
-  registered; with Lem linked by the setup, name the one command that registers the hook, in the
-  form for this one repository, which he runs himself, today or on any later day. Give him no
-  settings lines to paste, and never name that command to an owner who has Lem as a plugin: it
-  would add the hook a second time;
+  and its log fills, so say that too. On his yes, set `corrections.collect = true` in the
+  settings draft on the onboarding's branch, which his "land" then approves with the rest. The
+  hook comes with the plugin, so nothing is registered and he has nothing to run;
 - **each recommended tool that is absent**: what it gives and its guide (the row's `guide`). Lem
   brings none of them, and installs one only on his yes; a guide copies a skill into the owner's
   own skills folder, so where your agent refuses you the step, give him the guide's commands;
@@ -281,7 +278,7 @@ The page and your last message end with the three replies you take, in these wor
   the owner took it for a refusal of a landing that then happened (2026-11-15).
 - **change** and what: you edit, commit, and show the file again.
 - **drop**: you remove the branch and the onboarding's directory, and say what stays on the
-  machine: the links of the setup, a scheduled job, the hook.
+  machine: Lem's plugin and a scheduled job.
 
 The first onboarding ended on "Read these three first" over a list of paths and on a
 `git switch` and `git merge` line for the owner, in a project whose settings said the agent
@@ -300,7 +297,7 @@ to this repository, each a session started in it with nobody at the terminal:
 
 Offer a job only when its first run has something to read, and say what that is. A retro reads
 landed tasks and the correction queue: in a repository with neither, say that it is worth adding
-after the first landing or once the hook is registered, and add nothing now.
+after the first landing or once the queue is on, and add nothing now.
 
 Add a job only on the owner's yes, through the `cronn` skill when it is installed, and name the
 job after the repository. When the step is refused to you, give the owner the command. A scheduled job starts an agent that nobody watches: that choice is

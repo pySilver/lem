@@ -1362,16 +1362,18 @@ if [ "$(field '[e["slug"] for e in d["owner"]]' <<<"$out")" = "['slow-report']" 
 else
   fail "the place of the verdicts: $out / $(ls -A "$BKL/.git" "$BKL/.git/lem" 2>&1)"
 fi
-# With no jev command and no JEV_BIN, as in a trial linked into one repository, Lem's own jev.py runs by its path: with no key it says so, and sends nothing.
+# With no JEV_BIN, Lem's own jev.py runs by its path, also beside a developer's own `jev` on PATH, which it never
+# takes for Lem's: with no key it says so, and sends nothing.
 mkdir -p "$WORK/gitonly" && ln -sf "$(command -v git)" "$WORK/gitonly/git"
+printf '%s\n' '#!/bin/sh' 'echo "the developer'"'"'s own jev ran" >&2' 'exit 1' > "$WORK/gitonly/jev" && chmod +x "$WORK/gitonly/jev"
 printf '%s\n' '# A second item' 'It needs a verdict.' > "$BKL/notes/later/second.md"
 bypath=$(env -i PATH="$WORK/gitonly" HOME="$WORK" "$PY" -B "$TRIAGE" item second --repo "$BKL" 2>&1 || true)
 printf 'caf\351\n' > "$BKL/notes/later/latin.md"
 latin=$(env JEV_BIN="$WORK/jevbin/triage-jev" "$PY" -B "$TRIAGE" refresh --repo "$BKL" 2>&1 || true)
 rm "$BKL/notes/later/latin.md" "$BKL/notes/later/second.md"
-if grep -qF "OPENROUTER_API_KEY is not set" <<<"$bypath" && ! grep -qF "not on PATH" <<<"$bypath" \
+if grep -qF "lem-jev: OPENROUTER_API_KEY is not set" <<<"$bypath" && ! grep -qF "not on PATH" <<<"$bypath" && ! grep -qF "own jev ran" <<<"$bypath" \
   && grep -qF "notes/later/latin.md is not UTF-8 text" <<<"$latin" && ! grep -q Traceback <<<"$bypath$latin"; then
-  pass "with no jev command the sorting runs Lem's own client by its path, and an item that is not UTF-8 is named"
+  pass "with no JEV_BIN the sorting runs Lem's own client by its path and never a developer's own jev on PATH, and an item that is not UTF-8 is named"
 else
   fail "the sorting without a jev command: $bypath / $latin"
 fi

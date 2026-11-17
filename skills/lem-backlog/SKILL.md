@@ -195,8 +195,8 @@ invisible from every other machine, so the push is part of filing rather than an
 ## Triage: who can act on each item
 
 `scripts/triage.py` sorts the items by who can act on them next, using TypeSafe's Jev model
-through the `jev` command when one is on PATH, and otherwise through Lem's own `jev.py` by its
-path; either reads `OPENROUTER_API_KEY`:
+through Lem's own `jev.py` by its path (the file behind the plugin's `lem-jev` command), or the
+command `JEV_BIN` names; it reads `OPENROUTER_API_KEY`:
 
 - **owner**: it needs a ruling the owner has not given;
 - **agent**: an agent can plan and do it with nothing new from the owner;

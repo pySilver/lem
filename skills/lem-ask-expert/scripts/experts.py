@@ -40,7 +40,7 @@ import re
 import subprocess
 from pathlib import Path
 
-# Lem's own scripts, beside this skill in the same clone, whether it is linked or loaded as a plugin
+# Lem's own scripts, beside this skill in the same plugin
 SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 EXPERTS = ("fable", "astra")
 

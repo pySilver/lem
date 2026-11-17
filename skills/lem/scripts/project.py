@@ -331,8 +331,7 @@ decision_wait = {decision_wait}
 # Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
 # message the owner types, with the agent message it answers, to the Jev decision model. That
 # is the owner's choice, so it is false until the owner says yes. `true` here, in git, is a yes for
-# everybody who works in this repository with the hook: with Lem as a plugin the hook comes with
-# the install, with links the owner registers it by one command of Lem's setup. One person says
+# everybody who works in this repository: the hook comes with Lem's plugin. One person says
 # no for themselves with `collect = false` under [corrections] in .lem/project.local.toml.
 collect = false
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""jev: ask TypeSafe's Jev decision model one or more choice questions through OpenRouter.
+"""lem-jev: ask TypeSafe's Jev decision model one or more choice questions through OpenRouter.
 
-  jev SPEC.json | jev - < spec.json     ask, print the answers as JSON
-  jev check SPEC.json | jev check -     validate the spec and its size, send nothing
+  lem-jev SPEC.json | lem-jev - < spec.json     ask, print the answers as JSON
+  lem-jev check SPEC.json | lem-jev check -     validate the spec and its size, send nothing
 
-Lem's own copy. The correction hook runs it by its path (`corrections.py`), and the setup links
-it as the `jev` command for the skills that ask Jev by that name.
+Lem's own copy. The plugin puts it on the Bash tool's PATH as `lem-jev` (`bin/lem-jev`), named so
+that it does not shadow a developer's own `jev`, and the correction hook and the backlog's sorting
+run it by its path.
 
 A spec is {"state": "<the facts to decide on>", "questions": {NAME: QUESTION, ...}} and
 optionally "model". A question is {"instructions": "<what to decide>", "choices": {ID: "<what
@@ -152,10 +153,10 @@ def main(argv: list[str]) -> int:
         print(json.dumps(ask(body, timeout)))
         return 0
     except OverflowError as error:
-        print(f"jev: {error}", file=sys.stderr)
+        print(f"lem-jev: {error}", file=sys.stderr)
         return 3
     except (SpecError, OSError, RuntimeError) as error:
-        print(f"jev: {error}", file=sys.stderr)
+        print(f"lem-jev: {error}", file=sys.stderr)
         return 1
 
 

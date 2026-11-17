@@ -54,7 +54,7 @@ for suite in "${suites[@]}"; do
   printf '%-4s %-16s %4d ok  %3d FAIL  %2d SKIP  exit %-3s %4ds\n' "$verdict" "$suite" "$oks" "$bad" "$skips" "$code" "$seconds"
 done
 # what no suite checks alone: the scripts of every suite, run at one time, left no cache
-caches=$(find skills scripts bin -name __pycache__ -type d 2>/dev/null)
+caches=$(find skills bin -name __pycache__ -type d 2>/dev/null)
 if [ -n "$caches" ]; then
   printf 'FAIL the scripts left a __pycache__: %s\n' "$caches"
   failed+=(__pycache__)

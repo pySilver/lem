@@ -71,9 +71,7 @@ to choose or to approve:
 - `lem-ask`, unless the settings say otherwise: Lem's own page, each option with what the
   owner would see and what it costs. The owner does not have to type `/lem ask` for it; Lem opens the page. It
   is a part of Lem, not a tool of the machine: the machine check has no row for it, and no page
-  for the owner lists it as one. The setup links its `lem-ask` command for a home; where it is not
-  on `PATH` (Lem linked into one repository), run it by its path, `bin/lem-ask` in that skill's
-  folder.
+  for the owner lists it as one. The plugin puts its `lem-ask` command on the Bash tool's `PATH`.
 - `terminal`: the question in the conversation, as a numbered list with the recommended option
   first.
 - any other name, the developer's own asker: a skill of that name when the session lists one,
@@ -104,23 +102,18 @@ name, and with `subagent_type: "lem:lem-builder"` otherwise. Lem brings that age
 `agents/lem-builder.md` in Lem's repository. Its body holds the builder's standing rules, so a
 brief stays short and no builder misses one; its frontmatter sets the model and the effort,
 because a subagent on another model than the session's does not take the session's effort. There
-is no fallback to another agent type: when the session lists neither name, the setup is not
-done; say so, name `doctor.py`, and stop.
+is no fallback to another agent type: when the session lists neither name, Lem's plugin is not
+installed here; say so, name `doctor.py`, and stop.
 
-The two names are the two ways Lem reaches a session. Linked by the setup, the file is in
-`~/.claude/agents/` or the repository's `.claude/agents/`, and its name is `lem-builder`. Loaded
-as the plugin `lem`, Claude Code puts the plugin's name before it, `lem:lem-builder`, and the
-plain name answers "Agent type 'lem-builder' not found" (checked on 2026-11-15 in Claude Code
-2.1.325, with the plugin loaded through `--plugin-dir` and through a project's settings; the
-plugin's agent ran on the model its file names).
+The plugin `lem` brings the agent, and Claude Code puts the plugin's name before it,
+`lem:lem-builder`; the plain name then answers "Agent type 'lem-builder' not found" (checked on
+2026-11-15 in Claude Code 2.1.325, with the plugin loaded through `--plugin-dir` and through a
+project's settings; the plugin's agent ran on the model its file names).
 
 A project that wants another builder (another model, more rules) keeps a file named
 `lem-builder.md` in its own `.claude/agents/`. That agent is `lem-builder`, so the rule above
-picks it in both forms. Beside linked files, Claude Code takes the project's definition before
-the user's (its documentation gives the order: managed, the `--agents` flag, the project, the
-user, a plugin; https://code.claude.com/docs/en/sub-agents, read 2026-11-15); beside the plugin,
-the two agents have two names, and a call of `lem-builder` reached the project's file in the
-same check. No setting of Lem's is involved.
+picks it first. Beside the plugin the two agents have two names, and a call of `lem-builder`
+reached the project's file in the same check. No setting of Lem's is involved.
 
 The brief gives the task's worktree as an absolute path; do not pass `isolation: "worktree"`,
 since the task already has its worktree. Agents run in the background and you are told when one
@@ -415,32 +408,14 @@ hook and an OpenRouter key, and everybody can read it in git. Say that to the ow
 says yes, in those words. One person says no for themselves with `collect = false` under
 `[corrections]` in `.lem/project.local.toml`; that file can never say yes.
 
-How the hook gets there depends on how Lem reached the session.
+The hook comes with the plugin, in its `hooks/hooks.json`, and nobody registers anything. It
+starts on each message in every repository where the plugin is on.
 
-- **Lem as a plugin** (the skill list shows `lem:lem`): the hook comes with the install,
-  from the plugin's `hooks/hooks.json`. Nobody registers anything, and the `setup.py` command
-  below is not for this form: it would add the same hook a second time.
-- **Lem linked by the setup**: the owner registers the hook with one command of Lem's setup, on
-  the day of the onboarding or any later day, and takes it out the same way. `CLONE` is Lem's
-  clone: two folders above the real path of `SKILL_DIR`.
-
-```bash
-python3 CLONE/scripts/setup.py --corrections on --project ROOT   # for this repository
-python3 CLONE/scripts/setup.py --corrections on                  # for every repository of this home
-python3 CLONE/scripts/setup.py --corrections off                 # with --project ROOT when it went in that way
-```
-
-Name the first form. The yes is one project's (`corrections.collect`), and a hook in the home
-settings starts a process on every message in every repository only to find that out. The
-second form is for an owner with many repositories that use Lem: say that it exists, in one
-line. Print no JSON for him to paste. The command adds one
-`UserPromptSubmit` hook to Claude Code's settings (`~/.claude/settings.json`, or the checkout's
-`.claude/settings.local.json`), keeps the rest of the file, and refuses a file it cannot read,
-one that holds the hook in another form, and for one repository a settings file that is a link
-out of it. It also refuses, and registers nothing, where Lem's plugin or the other form already
-starts the hook for the same message; its message names the place and the fix. `setup.py
---check` says whether it is registered. A hook registered twice still judges each message once
-(the first copy claims it), and the machine check's `correction hook` row names the places.
+A settings file can still hold the hook that an install of Lem before the plugin wrote there
+(`~/.claude/settings.json`, or a checkout's `.claude/settings.local.json`). Beside the plugin it
+starts a second copy for each message; the first copy claims the message, so it is still judged
+once, and the machine check's `correction hook` row names each such file with the entry to delete
+from it by hand. Say that in one line, and do not edit the file: it is the owner's.
 
 - It needs Python 3.11 or newer as `python3`. Under an older one it judges nothing, and says so
   in its log. It finds `python3` and `git` on the hook's `PATH`, as any hook does; with no `git`
@@ -449,19 +424,18 @@ starts the hook for the same message; its message names the place and the fix. `
   environment Claude Code starts with.
 - It prints nothing and does not wait for the model: a detached copy asks it. The hook's own two
   waits, for its input and for each of its git calls, end after two seconds each, a bound chosen by guess
-  on 2026-11-15. The `timeout` of 10 seconds above is the value its source ran with in one
+  on 2026-11-15. The `timeout` of 10 seconds in `hooks/hooks.json` is the value its source ran with in one
   repository since 2026-11-07; it is not a measurement.
 - What fails goes to `corrections.log` in Lem's folder of the git directory, and
   `corrections.py list` counts it.
-- You do not run that command. A hook that sends the owner's messages to an outside service is
-  his to add, and Claude Code's classifier refuses the step to an agent (the next section).
+- The yes is a line of the tracked settings, which a task's branch and the owner's review carry
+  like any other change. A hook that sends the owner's messages to an outside service is his to
+  turn on: the line goes in only on his yes, in his words.
 
-Run: the setup's command on a real settings file (the owner, in a scratch repository,
-2026-11-15: registered in that checkout's local settings, as another session read it); and the
-plugin's hook starting on each message, with the plugin's folder in `CLAUDE_PLUGIN_ROOT`
+Run: the plugin's hook starting on each message, with the plugin's folder in `CLAUDE_PLUGIN_ROOT`
 (2026-11-15, Claude Code 2.1.325, three headless sessions with a probe line). Not run yet: a
 message that went through the hook to the model in a real session. The hook's two halves are
-tested with a stand-in for the model, and the command with settings files in a throwaway home.
+tested with a stand-in for the model.
 
 ## What the owner does himself
 

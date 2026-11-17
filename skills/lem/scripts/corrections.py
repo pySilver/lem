@@ -16,16 +16,14 @@ should learn a lesson from. The retro, a big model, decides about each.
 It is an optional part, and it is the owner's choice twice. The hook sends the owner's message
 and the agent message it answers to the Jev decision model, through `jev.py` beside this file, so
 it runs only in a repository whose settings say `corrections.collect = true`: the tracked file, so the
-yes is the repository's and everybody sees it. The hook comes with Lem installed as a plugin
-(`hooks/hooks.json` of the clone). For the link form the owner registers it in one place:
-`scripts/setup.py --corrections on --project DIR` writes it into that checkout's
-`.claude/settings.local.json`, and without `--project` into the home's `~/.claude/settings.json`.
-The setup refuses a second place where the plugin or the other scope has the hook already, and
-the machine check (`doctor.py`) names a hook registered in two places. One person keeps their own
+yes is the repository's and everybody sees it. The hook comes with Lem's plugin
+(`hooks/hooks.json`), and nobody registers it. A settings file may still hold the hook an install
+of Lem before the plugin wrote there; the machine check (`doctor.py`) names such a file with the
+entry to delete from it by hand. One person keeps their own
 messages out with `collect = false` under `[corrections]` in `.lem/project.local.toml`. In every
 other repository the hook exits at once.
 
-A hook registered in two places still judges each message once. Claude Code starts one copy for
+A hook that starts twice for one message (the plugin's, and an older install's in a settings file) still judges each message once. Claude Code starts one copy for
 each place, at the same moment. The first copy claims the message (the session and the words,
 for CLAIM_SECONDS) with an atomic create in `corrections-claims/` beside the queue, and a later
 copy of the same message exits with no call and no entry. A claim that cannot be made costs a
@@ -73,7 +71,7 @@ WAIT_SECONDS = 2
 # How long a claim of one message holds. The copies of a hook registered twice start for the same
 # event: Claude Code runs an event's hooks in parallel, each under its own timeout from its own start
 # (code.claude.com/docs/en/hooks, read 2026-11-17), and that timeout is 10 seconds in
-# `hooks/hooks.json` and in what `scripts/setup.py` writes. A copy claims before that timeout ends it,
+# `hooks/hooks.json`, as it was in the entry an older install wrote into a settings file. A copy claims before that timeout ends it,
 # so two claims of one event are less than 10 seconds apart. Twice that is a guess at the margin, for
 # copies that start late on a loaded machine. The same words typed again in one session inside it
 # count as one message.

@@ -84,9 +84,8 @@ so the card's recommendation is not the asking agent's view alone. In shadow mod
 picks which card is made; the question still reaches the user either way, and the card never shows
 the verdict. Any other question still goes out as a card in the panel's format (the question in
 user terms, the options, the recommendation and what it costs, the strongest dissent, "wrong if",
-the undo cost), and gets the same framing check through `jev`, the spec in `lem-panel`'s
-`references/messages.md`; when `jev` is not on PATH (a trial linked into one repository has none),
-run Lem's own copy, `python3 ${CLAUDE_SKILL_DIR}/../lem/scripts/jev.py`, with the same arguments.
+the undo cost), and gets the same framing check through `lem-jev`, the command Lem's plugin
+puts on PATH, with the spec in `lem-panel`'s `references/messages.md`.
 
 ### 4. Ask the user
 

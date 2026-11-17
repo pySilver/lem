@@ -20,7 +20,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -30,7 +29,7 @@ from pathlib import Path
 
 # Where each agent keeps a user's skills; the agterm skill is looked for in all of them.
 SKILL_HOMES = (".claude/skills", ".agents/skills", ".codex/skills", ".config/opencode/skills")
-# Where Claude Code keeps a user's agent definitions. The setup links Lem's builder there.
+# Where a project keeps its own agent definitions: a `lem-builder` there takes the place of the plugin's.
 BUILDER = Path(".claude") / "agents" / "lem-builder.md"
 # Where Claude Code keeps what it installed as plugins: its own list, and the folders themselves.
 PLUGINS = Path(".claude") / "plugins"
@@ -50,8 +49,8 @@ COOKBOOK = "https://github.com/umputun/agterm/tree/master/cookbook/"
 
 def checkout_roots() -> list[Path]:
     """This checkout's root, then its main checkout's when this is a task's worktree, by their real
-    paths; empty outside a repository or with no git. A trial's links (`setup.py --project`) are in
-    the main checkout and git does not track them, so a worktree has no copy of them."""
+    paths; empty outside a repository or with no git. A file of the project's own that git does not
+    track is in the main checkout only, so a worktree has no copy of it."""
     found: list[Path] = []
     for args in (["--show-toplevel"], ["--path-format=absolute", "--git-common-dir"]):
         try:
@@ -142,7 +141,8 @@ def lem_plugin(home: Path, root: Path | None) -> str | None:
     return None
 
 
-# The correction hook in a settings file, in any form: the setup's of any clone, or one added by hand.
+# The correction hook in a settings file, in any form: the one an install of Lem before the plugin
+# wrote (`python3 /PATH/corrections.py hook`, with a timeout of 10), or one added by hand.
 HOOK_FORM = re.compile(r"corrections\.py['\"]?\s+hook\b")
 
 
@@ -155,31 +155,23 @@ def hook_entries(file: Path) -> list[dict]:
     return [hook for hook in entries if isinstance(hook, dict) and isinstance(hook.get("command"), str) and HOOK_FORM.search(hook["command"])]
 
 
-def removal(hook: dict, file: Path, scope: str, root: Path | None) -> str:
-    """How one entry of the hook comes out of `file`. The setup writes the home's settings (`scope`
-    "home") and a repository's local ones ("local"), and its `--corrections off` takes out only the
-    entry it writes, so an entry of that form gets the command of the clone it names. Any other
-    entry, and any in the repository's shared settings ("shared"), comes out by hand."""
-    try:
-        words = shlex.split(hook["command"])
-    except ValueError:
-        words = []
-    script = next((Path(word) for word in words if word.endswith("corrections.py")), None)
-    if scope != "shared" and script is not None and len(script.parents) > 3:
-        setup = script.parents[3] / "scripts" / "setup.py"
-        if setup.is_file() and hook == {"type": "command", "command": f"python3 {shlex.quote(str(script))} hook", "timeout": 10}:
-            return f"python3 {shlex.quote(str(setup))} --corrections off" + (f" --project {shlex.quote(str(root))}" if scope == "local" else "")
-    return f"take the entry out of {file} by hand" + (", and commit that" if scope == "shared" else "")
+def removal(hook: dict, file: Path, shared: bool) -> str:
+    """How one entry of the hook comes out of `file`: by hand, since no command of Lem's writes a
+    settings file. The guide names the entry as the file holds it, so that the owner deletes that
+    object from the file's `UserPromptSubmit` hooks and nothing else; an entry in the repository's
+    shared settings is a change to commit too."""
+    entry = json.dumps(hook, ensure_ascii=False)
+    return f"delete the entry {entry} from the UserPromptSubmit hooks of {file} by hand" + (", and commit that" if shared else "")
 
 
 def hook_places(home: Path, root: Path | None) -> list[dict]:
     """Each place that registers the correction hook for the repository `root` (None: outside one),
     as its name and how it comes out: the home's settings, the repository's local and shared ones,
     and Lem's plugin, which needs no removal."""
-    files = [(home / ".claude" / "settings.json", "home")]
+    files = [(home / ".claude" / "settings.json", False)]
     if root is not None:
-        files += [(root / ".claude" / "settings.local.json", "local"), (root / ".claude" / "settings.json", "shared")]
-    places = [{"where": str(file), "remove": removal(hook, file, scope, root)} for file, scope in files for hook in hook_entries(file)]
+        files += [(root / ".claude" / "settings.local.json", False), (root / ".claude" / "settings.json", True)]
+    places = [{"where": str(file), "remove": removal(hook, file, shared)} for file, shared in files for hook in hook_entries(file)]
     plugin = lem_plugin(home, root)
     return places + ([{"where": plugin, "remove": None}] if plugin else [])
 
@@ -187,9 +179,12 @@ def hook_places(home: Path, root: Path | None) -> list[dict]:
 def correction_hook() -> list[dict]:
     """A row when the correction hook is registered in more than one place for this repository; no row otherwise.
 
-    Its need is `project`, as the personas' row: it is about what this repository gets, and it
-    never fails the machine check. The hook judges each message once however often it starts, so
-    the row is about telling the truth, not about a wrong queue.
+    The hook comes with Lem's plugin. A second place is a settings file that still holds the hook
+    an install of Lem before the plugin wrote there, and no command of Lem's takes it out: the
+    guide names each entry to delete by hand. Its need is `project`, as the personas' row: it is
+    about what this repository gets, and it never fails the machine check. The hook judges each
+    message once however often it starts, so the row is about telling the truth, not about a
+    wrong queue.
     """
     roots = checkout_roots()
     places = hook_places(Path.home(), roots[0] if roots else None)
@@ -199,7 +194,8 @@ def correction_hook() -> list[dict]:
     if len(extra) < len(places):
         fix = "The plugin brings the hook, so remove each other place: " + "; ".join(f"{place['where']}: {place['remove']}" for place in extra)
     else:
-        fix = "Keep one of them, and remove the others: " + "; ".join(f"{place['where']}: {place['remove']}" for place in extra)
+        # no plugin among them: the settings files are all an older install's, and the plugin is what brings the hook now
+        fix = "The hook comes with Lem's plugin: install it, and remove each of these: " + "; ".join(f"{place['where']}: {place['remove']}" for place in extra)
     return [{
         "name": "correction hook", "need": "project", "found": False,
         "detail": f"registered {len(places)} times for this repository: " + ", ".join(place["where"] for place in places),
@@ -263,20 +259,18 @@ def agterm() -> list[dict]:
 def claude() -> list[dict]:
     row = tool("claude", "required", "the agent that runs `/lem`, and a reviewer of the same family",
                "nothing runs `/lem`: Claude Code is the one agent Lem has a harness file for", "claude", ["--version"])
-    # The user's definition, or the one of the repository this runs in: Claude Code takes the
-    # project's before the user's, and a trial links Lem into one repository only, its main
-    # checkout. With no git on this machine its own row says so, and this one looks in the home only.
-    places = [root / BUILDER for root in checkout_roots()]
-    file = next((place for place in [*places, Path.home() / BUILDER] if place.is_file()), None)
-    # Lem installed as a plugin brings the agent under the plugin's name, with no file in an agents folder.
+    # Lem's plugin brings the agent under the plugin's name, `lem:lem-builder`. A project may keep
+    # its own `lem-builder` in its `.claude/agents/`, which Claude Code takes first: this checkout's,
+    # or the main checkout's when git does not track it.
+    file = next((place for place in (root / BUILDER for root in checkout_roots()) if place.is_file()), None)
     plugin = plugin_named("lem")
     builder = {
         "name": "lem-builder agent", "need": "required", "found": bool(file or plugin),
         "detail": str(file) if file else f"lem:lem-builder, from {plugin}" if plugin else None,
         "used_for": "the builder Lem starts for each task of a plan in Claude Code",
-        "without_it": f"Claude Code has no agent of that name and Lem starts no builder; link agents/lem-builder.md of Lem's clone to ~/{BUILDER} "
-                      "with Lem's setup (`scripts/setup.py`), or into this repository alone with `scripts/setup.py --project DIR`, "
-                      "or install Lem as a plugin. A plugin loaded for one session by a flag is not seen by this check",
+        "without_it": "Claude Code has no agent of that name and Lem starts no builder; install Lem's plugin in this repository: "
+                      "`claude plugin marketplace add pySilver/lem --scope project`, then `claude plugin install lem@lem --scope project`. "
+                      "A plugin loaded for one session by a flag is not seen by this check",
     }
     # Only a machine with Claude Code needs Claude Code's form of the builder.
     return [row, builder] if row["found"] else [row]
@@ -378,9 +372,6 @@ def main() -> None:
                 "no stage needs it", "plannotator-tui", ["--version"]), "guide": COOKBOOK + "annotate-in-plannotator-tui"},
         tool("plannotator", "optional", "another way to mark up a plan or a draft, for an owner who names it in tools.annotate",
              "nothing is lost: webrev is the default of tools.annotate", "plannotator", ["--version"]),
-        tool("jev", "optional", "backlog items sorted by who can act next, and the framing check of a question's card",
-             "nothing is lost: the backlog's sorting, a card's framing check and the correction hook run Lem's own copy, "
-             "skills/lem/scripts/jev.py, by its path; Lem's setup links that copy as `jev` for a home", "jev"),
         {
             "name": "OpenRouter key", "need": "optional", "found": bool(os.environ.get("OPENROUTER_API_KEY")), "detail": None,
             "used_for": "the Jev decision model, which the correction queue, the backlog's sorting and a card's framing check ask",

@@ -76,4 +76,4 @@ jobs:
         run: bash tests/test-ask-expert.sh
       - name: The scripts left no __pycache__
         if: ${{ !cancelled() }}
-        run: "! find skills scripts bin -name __pycache__ -type d | grep ."
+        run: "! find skills bin -name __pycache__ -type d | grep ."

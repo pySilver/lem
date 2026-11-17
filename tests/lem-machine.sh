@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The machine check, the correction queue and its hook, the plugin form and the setup script, each
+# The machine check, the correction queue and its hook, and the plugin's files, each
 # in a home and a repository of its own, and the personas' row of the machine check.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
@@ -79,14 +79,15 @@ if [ "$(status_of doctor)" = 1 ] && [ "$(row 'lem-builder agent' found <<<"$out"
 else
   fail "doctor with claude, no builder: $out"
 fi
-# A trial's builder is linked into the main checkout and git does not track it: the check run in a task's worktree finds it there.
+# A project's own builder that git does not track is in the main checkout only: the check run in a task's worktree finds it there.
 commit "$MACHINE" start && git -C "$MACHINE" worktree add -q "$WORK/machine-wt" -b a-task
 mkdir -p "$MACHINE/.claude/agents" && ln -s "$PWD/agents/lem-builder.md" "$MACHINE/.claude/agents/lem-builder.md"
 in_tree=$( (cd "$WORK/machine-wt" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | row 'lem-builder agent' detail)
 rm -r "$MACHINE/.claude" && git -C "$MACHINE" worktree remove --force "$WORK/machine-wt"
-if [ "$in_tree" = "$MACHINE/.claude/agents/lem-builder.md" ] && grep -qF "scripts/setup.py --project DIR" <<<"$(row 'lem-builder agent' without_it <<<"$out")" \
+if [ "$in_tree" = "$MACHINE/.claude/agents/lem-builder.md" ] && grep -qF "\`claude plugin marketplace add pySilver/lem --scope project\`, then \`claude plugin install lem@lem --scope project\`" <<<"$(row 'lem-builder agent' without_it <<<"$out")" \
+  && ! grep -q "setup" <<<"$(row 'lem-builder agent' without_it <<<"$out")" \
   && [ "$(row agterm without_it <<<"$out")" = "\`/lem\` stops at once: Lem runs inside agterm only" ] && ! grep -q coordinator <<<"$(row mailbox-chat used_for <<<"$out")"; then
-  pass "in a task's worktree the check finds the builder a trial linked into the main checkout, and the builder's row names the trial's setup"
+  pass "in a task's worktree the check finds a project's own builder in the main checkout, and the builder's row names the plugin's install and no setup"
 else
   fail "the builder of a trial from a worktree: $in_tree / $(row 'lem-builder agent' without_it <<<"$out")"
 fi
@@ -105,17 +106,21 @@ if [ "$elsewhere" = "FalseFalse" ] && [ "$here" = "lem:lem-builder, from the plu
 else
   fail "doctor with Lem as a plugin: $elsewhere / $here / $user"
 fi
+# A builder file in the home is no builder of Lem's: the plugin brings it. From here on the plugin is installed for the user.
 mkdir -p "$FAKEHOME/.claude/agents"
 ln -s "$PWD/agents/lem-builder.md" "$FAKEHOME/.claude/agents/lem-builder.md"
+home_only=$(doctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"])' || true)
+rm -r "$FAKEHOME/.claude/agents"
+printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 out=$(doctor)
-if [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "$FAKEHOME/.claude/agents/lem-builder.md" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
+if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(field '[t["name"] for t in d["tools"] if "jev" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
   && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ] && [ "$(row codex found <<<"$out")" = "False" ] \
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
   && [ "$(row plannotator without_it <<<"$out" | grep -c 'webrev is the default')" = 1 ] \
   && [ "$(field '[(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["need"] == "recommended"]' <<<"$out")" \
     = "[('webrev skill', False, 'annotate-document'), ('agdoc skill', False, 'html-doc-overlay'), ('plannotator-tui', False, 'annotate-in-plannotator-tui')]" ] \
   && [ ! -e "$PWD/skills/lem-webrev" ]; then
-  pass "with git, the review tool, agterm, the mailbox, their skills, Claude Code and the linked builder the check passes; absent optional tools only change their rows, and each recommended tool, none of them a part of Lem, has a row with its guide"
+  pass "a builder file in the home is not Lem's; with git, the review tool, agterm, the mailbox, their skills, Claude Code and Lem's plugin the check passes; absent optional tools only change their rows, each recommended tool, none of them a part of Lem, has a row with its guide, and no row speaks of a jev command"
 else
   fail "doctor with the required set: $out"
 fi
@@ -236,13 +241,13 @@ if [ -n "$old" ]; then
   # The other scripts under that python3: a row or one line that says what is needed, and no traceback.
   rows=$(cd "$MACHINE" && "$old" -B "$DOCTOR" 2>&1 || true)
   said=""
-  for script in "$PWD/scripts/setup.py" "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/stories.py" "$PWD/skills/lem/scripts/board.py"; do
+  for script in "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/stories.py" "$PWD/skills/lem/scripts/board.py"; do
     said="$said$("$old" -B "$script" --help 2>&1 || true)"$'\n'
   done
   # the queue's own commands, which the retro runs: only the hook and its detached half stay silent there
   said="$said$("$old" -B "$CORR" --repo "$CQ" list 2>&1 || true)"$'\n'
-  if [ "$(field '(d["ok"], d["tools"][0]["name"], d["tools"][0]["found"])' <<<"$rows")" = "(False, 'python3', False)" ] && [ "$(grep -c "Lem needs Python 3.11 or newer, and this python3 is" <<<"$said")" = 6 ] \
-    && ! grep -q Traceback <<<"$rows$said" && [ "$(status_of "$old" -B "$PWD/scripts/setup.py" --check)" = 1 ] && [ "$(status_of "$old" -B "$CORR" --repo "$CQ" list)" = 1 ]; then
+  if [ "$(field '(d["ok"], d["tools"][0]["name"], d["tools"][0]["found"])' <<<"$rows")" = "(False, 'python3', False)" ] && [ "$(grep -c "Lem needs Python 3.11 or newer, and this python3 is" <<<"$said")" = 5 ] \
+    && ! grep -q Traceback <<<"$rows$said" && [ "$(status_of "$old" -B "$CORR" --repo "$CQ" list)" = 1 ]; then
     pass "under a python3 before 3.11 the machine check gives its rows with python3 as absent, and every other script says in one line what it needs"
   else
     fail "the scripts under $old: $rows / $said"
@@ -274,7 +279,7 @@ sleep 1
 out=$(corr list)
 if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) for g in d["groups"]], d["failures"]["count"])' <<<"$out")" = "(3, [(2, 2, 0.9), (1, 1, None)], 3)" ] \
   && grep -q "no key" "$CQ/.git/lem/corrections.log" && grep -q "jev did not run" "$CQ/.git/lem/corrections.log" \
-  && grep -q "jev gave no answer: jev: OPENROUTER_API_KEY is not set" "$CQ/.git/lem/corrections.log"; then
+  && grep -q "jev gave no answer: lem-jev: OPENROUTER_API_KEY is not set" "$CQ/.git/lem/corrections.log"; then
   pass "one sentence from two sessions is one group; a low score, a command and injected text queue nothing; a message too long for Jev is queued unjudged; each failure is in the log and counted; with no other jev named, the worker runs the copy beside it"
 else
   fail "the queue: $out / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
@@ -357,10 +362,10 @@ soon_code=$(env -u OPENROUTER_API_KEY JEV_TIMEOUT=soon "$PY" -B "$JEVPY" check "
 latin_file=$(env -u OPENROUTER_API_KEY "$PY" -B "$JEVPY" check "$WORK/jev-latin.json" 2>&1 || true)
 latin_stdin=$(env -u OPENROUTER_API_KEY "$PY" -B "$JEVPY" check - < "$WORK/jev-latin.json" 2>&1 || true)
 checked=$(env -u OPENROUTER_API_KEY JEV_TIMEOUT=30 "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" | field 'd["ok"]' 2>&1 || true)
-if [ "$soon_code" = 1 ] && grep -qF "jev: JEV_TIMEOUT='soon' is not a number of seconds above 0" <<<"$soon_timeout" \
-  && grep -qF "jev: the spec ($WORK/jev-latin.json) is not UTF-8 text" <<<"$latin_file" && grep -qF "jev: the spec (stdin) is not UTF-8 text" <<<"$latin_stdin" \
+if [ "$soon_code" = 1 ] && grep -qF "lem-jev: JEV_TIMEOUT='soon' is not a number of seconds above 0" <<<"$soon_timeout" \
+  && grep -qF "lem-jev: the spec ($WORK/jev-latin.json) is not UTF-8 text" <<<"$latin_file" && grep -qF "lem-jev: the spec (stdin) is not UTF-8 text" <<<"$latin_stdin" \
   && [ "$checked" = True ] && ! grep -q Traceback <<<"$soon_timeout$latin_file$latin_stdin"; then
-  pass "jev names a JEV_TIMEOUT that is no number and a spec that is not UTF-8, from a file or from its input, and exits 1"
+  pass "lem-jev names a JEV_TIMEOUT that is no number and a spec that is not UTF-8, from a file or from its input, and exits 1"
 else
   fail "jev's refusals: $soon_timeout / $latin_file / $latin_stdin / $checked"
 fi
@@ -436,332 +441,21 @@ if "$PY" -c 'import json, os, sys
 root = sys.argv[1]
 manifest = json.load(open(f"{root}/.claude-plugin/plugin.json"))
 market = json.load(open(f"{root}/.claude-plugin/marketplace.json"))
-links = {name: os.path.realpath(f"{root}/bin/{name}") for name in ("lem-ask", "jev")}
+links = {name: os.path.realpath(f"{root}/bin/{name}") for name in ("lem-ask", "lem-jev")}
 ok = (manifest["name"] == "lem" and "version" not in manifest
       and [(p["name"], p["source"]) for p in market["plugins"]] == [("lem", "./")]
-      and links == {"lem-ask": os.path.realpath(f"{root}/skills/lem-ask/bin/lem-ask"), "jev": os.path.realpath(f"{root}/skills/lem/scripts/jev.py")}
+      and links == {"lem-ask": os.path.realpath(f"{root}/skills/lem-ask/bin/lem-ask"), "lem-jev": os.path.realpath(f"{root}/skills/lem/scripts/jev.py")}
+      and sorted(os.listdir(f"{root}/bin")) == ["lem-ask", "lem-jev"] and not os.path.exists(f"{root}/scripts/setup.py")
       and all(os.access(path, os.X_OK) for path in links.values())
       and not os.path.isabs(os.readlink(f"{root}/bin/lem-ask")))
 hooks = json.load(open(f"{root}/hooks/hooks.json"))["hooks"]
 commands = [h["command"] for group in hooks["UserPromptSubmit"] for h in group["hooks"]]
 ok = ok and list(hooks) == ["UserPromptSubmit"] and commands == ["python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook"]
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds relative links to the two commands; and the one hook that comes with the plugin is the correction hook, by the plugin's own path"
+  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds relative links to the two commands, lem-ask and lem-jev, and no plain jev; there is no setup script; and the one hook that comes with the plugin is the correction hook, by the plugin's own path"
 else
   fail "the plugin files in .claude-plugin and bin"
 fi
-# The setup script: links from the clone into a home, never over something else, and the machine check after them.
-SETUP=$PWD/scripts/setup.py
-SETHOME=$WORK/sethome
-machine_home() { for name in agterm mailbox-chat revmux; do mkdir -p "$1/.agents/skills/$name" && touch "$1/.agents/skills/$name/SKILL.md"; done; }
-machine_home "$SETHOME"
-setup() { env -i PATH="$BIN" HOME="$SETHOME" "$PY" -B "$SETUP" --home "$SETHOME" "$@"; }
-out=$(setup --check 2>/dev/null || true)
-if [ "$(status_of setup --check)" = 1 ] && [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['absent']" ] && [ ! -e "$SETHOME/.claude" ]; then
-  pass "setup --check reports every link as absent, exits 1 and makes nothing"
-else
-  fail "setup --check on an empty home: $out"
-fi
-mkdir -p "$SETHOME/.claude/skills/lem-backlog"
-err=$(setup 2>&1 >/dev/null || true)
-if [ "$(status_of setup)" = 1 ] && grep -q "1 place(s) hold something else, and nothing was linked" <<<"$err" && [ ! -e "$SETHOME/.claude/skills/lem" ]; then
-  pass "one place that holds something else stops the setup before any link is made"
-else
-  fail "setup over a taken place: $err"
-fi
-rmdir "$SETHOME/.claude/skills/lem-backlog" && ln -s "$WORK" "$SETHOME/.claude/skills/lem-backlog"
-if [ "$(status_of setup)" = 1 ] && [ ! -e "$SETHOME/.claude/skills/lem" ]; then pass "a link that points somewhere else is in the way too"; else fail "setup over another link"; fi
-rm "$SETHOME/.claude/skills/lem-backlog"
-out=$(setup)
-if [ "$(field '(d["linked"], d["machine_ok"], len(d["links"]), [a["name"] for a in d["absent"] if a["need"] == "required"])' <<<"$out")" = "(True, True, $(( $(find "$PWD/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | grep -c '') + 3 )), [])" ] \
-  && [ "$(readlink "$SETHOME/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$SETHOME/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
-  && [ -x "$SETHOME/.local/bin/lem-ask" ] && [ "$(readlink "$SETHOME/.local/bin/jev")" = "$PWD/skills/lem/scripts/jev.py" ] && [ -x "$SETHOME/.local/bin/jev" ] \
-  && [ "$(field 'd["corrections_hook"]["state"]' <<<"$out")" = "not registered" ] && [ ! -e "$SETHOME/.claude/settings.json" ] \
-  && [ "$(field 'next(a["guide"] for a in d["absent"] if a["name"] == "webrev skill")' <<<"$out")" = "https://github.com/umputun/agterm/tree/master/cookbook/annotate-document" ] \
-  && [ "$(status_of setup)" = 0 ] && [ "$(status_of setup --check)" = 0 ]; then
-  pass "setup links every skill, the builder agent and the lem-ask and jev commands, registers no hook, names each absent recommended tool with its guide and installs none, the machine check then passes, and a second run changes nothing"
-else
-  fail "setup: $out"
-fi
-# A skill of the clone that got a new name: its old link has nothing at its end, and the next run takes it away.
-ln -s "$PWD/skills/lem-old-name" "$SETHOME/.claude/skills/lem-old-name" && ln -s "$PWD/skills/lem-ask/bin/old-name" "$SETHOME/.local/bin/old-name"
-ln -s "$WORK/elsewhere" "$SETHOME/.claude/skills/not-lems"
-# the owner's own links into the clone, which still end somewhere: an alias for a skill, a command for a script
-ln -s "$PWD/skills/lem-ask" "$SETHOME/.claude/skills/my-ask" && ln -s "$PWD/skills/lem/scripts/project.py" "$SETHOME/.local/bin/lem-project"
-check=$(setup --check 2>/dev/null || true)
-code=$(status_of setup --check)
-if [ -L "$SETHOME/.claude/skills/lem-old-name" ]; then code="$code still-there"; fi
-out=$(setup)
-if [ "$code" = "1 still-there" ] && [ "$(field '(d["linked"], sorted(l["state"] for l in d["leftovers"]))' <<<"$check")" = "(False, ['leftover', 'leftover'])" ] \
-  && [ "$(field '(d["linked"], sorted(l["state"] for l in d["leftovers"]))' <<<"$out")" = "(True, ['removed', 'removed'])" ] \
-  && [ ! -L "$SETHOME/.claude/skills/lem-old-name" ] && [ ! -L "$SETHOME/.local/bin/old-name" ] && [ -L "$SETHOME/.claude/skills/not-lems" ] \
-  && [ -L "$SETHOME/.claude/skills/my-ask" ] && [ -L "$SETHOME/.local/bin/lem-project" ] && [ "$(status_of setup --check)" = 0 ]; then
-  pass "a link into the clone with nothing at its end is named by --check and removed by the next run; a link to another place and the owner's own live links into the clone stay"
-else
-  fail "setup with leftover links: $check / $out"
-fi
-rm "$SETHOME/.claude/skills/not-lems" "$SETHOME/.claude/skills/my-ask" "$SETHOME/.local/bin/lem-project"
-# A link that only ends at the same file by another route is the owner's: a small stand-in clone whose
-# agent file is itself a link shows it, and --remove leaves the owner's link alone.
-TWIN=$WORK/twin
-mkdir -p "$TWIN/scripts" "$TWIN/skills/lem/scripts" "$TWIN/skills/lem-ask/bin" "$TWIN/agents" "$WORK/twinhome/.claude/agents"
-cp "$SETUP" "$TWIN/scripts/setup.py" && cp "$DOCTOR" "$TWIN/skills/lem/scripts/doctor.py"
-touch "$TWIN/skills/lem/SKILL.md" "$TWIN/skills/lem-ask/SKILL.md" "$TWIN/skills/lem-ask/bin/lem-ask" "$WORK/shared-agent.md"
-ln -s "$WORK/shared-agent.md" "$TWIN/agents/lem-builder.md"
-ln -s "$WORK/shared-agent.md" "$WORK/twinhome/.claude/agents/lem-builder.md"
-twin() { env -i PATH="$BIN" HOME="$WORK/twinhome" "$PY" -B "$TWIN/scripts/setup.py" --home "$WORK/twinhome" "$@"; }
-out=$(twin --remove)
-if [ "$(field 'next(l["state"] for l in d["links"] if l["place"].endswith("lem-builder.md"))' <<<"$out")" = "other link" ] && [ -L "$WORK/twinhome/.claude/agents/lem-builder.md" ] \
-  && [ "$(status_of twin)" = 1 ] && [ ! -e "$WORK/twinhome/.claude/skills" ]; then
-  pass "a link of the owner's that ends at the same file by another route is not this clone's: setup stops on it and --remove leaves it"
-else
-  fail "setup with a shared target: $out"
-fi
-# A link that cannot be made after others were: the folder for agents is read-only.
-rm "$WORK/twinhome/.claude/agents/lem-builder.md" && chmod a-w "$WORK/twinhome/.claude/agents"
-out=$(twin 2>"$WORK/twin.err" || true)
-chmod u+w "$WORK/twinhome/.claude/agents"
-if grep -q "the 2 link(s) this run made are removed again" "$WORK/twin.err" && [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['absent']" ] \
-  && [ -z "$(find "$WORK/twinhome" -type l)" ]; then
-  pass "when one link cannot be made, the links of that run are taken away again and the report shows every place as absent"
-else
-  fail "setup with a link that fails: $out / $(cat "$WORK/twin.err")"
-fi
-mkdir -p "$WORK/filehome/.claude" && touch "$WORK/filehome/.claude/agents"
-out=$(env -i PATH="$BIN" HOME="$WORK/filehome" "$PY" -B "$SETUP" --home "$WORK/filehome" 2>/dev/null || true)
-if [ "$(field 'next(l["state"] for l in d["links"] if l["place"].endswith("lem-builder.md")).startswith("blocked by")' <<<"$out")" = True ] && [ ! -e "$WORK/filehome/.claude/skills" ]; then
-  pass "a file where a folder has to be is found before any link is made"
-else
-  fail "setup with a file in the place of a folder: $out"
-fi
-# A link that cannot be removed: the others go, the report names the one that stays, and the exit is 1.
-chmod a-w "$SETHOME/.claude/agents"
-out=$(setup --remove 2>"$WORK/remove.err" || true)
-chmod u+w "$SETHOME/.claude/agents"
-if grep -q "1 link(s) could not be removed and are still there: $SETHOME/.claude/agents/lem-builder.md" "$WORK/remove.err" \
-  && [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['linked', 'removed']" ] && [ -L "$SETHOME/.claude/agents/lem-builder.md" ] && [ ! -e "$SETHOME/.claude/skills/lem" ]; then
-  pass "a link that cannot be removed is reported with the ones that went, and the exit is 1"
-else
-  fail "setup --remove with a link that stays: $out / $(cat "$WORK/remove.err")"
-fi
-setup >/dev/null
-# For a trial, Lem is linked into one repository only: no other repository sees it, and that tree stays clean.
-TRIAL=$WORK/trial
-git init -q -b main "$TRIAL" && commit "$TRIAL" start
-trial() { env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$TRIAL" "$@"; }
-machine_home "$WORK/trialhome"
-out=$(trial)
-if [ "$(field '(d["linked"], d["machine_ok"], d["scope"], d["commands"].startswith("lem-ask and jev are not linked"))' <<<"$out")" = "(True, True, '$TRIAL', True)" ] \
-  && [ "$(readlink "$TRIAL/.claude/skills/lem")" = "$PWD/skills/lem" ] && [ "$(readlink "$TRIAL/.claude/agents/lem-builder.md")" = "$PWD/agents/lem-builder.md" ] \
-  && [ ! -e "$WORK/trialhome/.claude" ] && [ ! -e "$WORK/trialhome/.local" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
-  pass "setup --project links Lem into one repository, nothing into the home, the machine check finds that repository's builder, and git sees no new file"
-else
-  fail "setup --project: $out / $(git -C "$TRIAL" status --porcelain)"
-fi
-# The ignore files are this checkout's own: a worktree's own file stays visible to git there, and
-# another clone's --remove takes away neither a link nor an ignore file.
-git -C "$TRIAL" worktree add -q "$WORK/trial-wt" -b feat/trial
-mkdir -p "$WORK/trial-wt/.claude/skills/lem" && echo own > "$WORK/trial-wt/.claude/skills/lem/OWN.md"
-out=$(env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$TWIN/scripts/setup.py" --home "$WORK/trialhome" --project "$TRIAL" --remove)
-# the worktree's own file must still show in its status, and the shared exclude file must not name Lem
-if git -C "$WORK/trial-wt" status --porcelain | grep -q '.claude/' && ! grep -qs lem "$TRIAL/.git/info/exclude"; then shared=clean; else shared=touched; fi
-if [ "$shared" = clean ] && [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['other link']" ] && [ -L "$TRIAL/.claude/skills/lem" ] \
-  && [ -f "$TRIAL/.claude/skills/.gitignore" ] && [ -f "$TRIAL/.claude/agents/.gitignore" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
-  pass "a trial writes nothing that another worktree shares, and another clone's --remove leaves its links and its ignore files"
-else
-  fail "the reach of a trial: $out / wt: $(git -C "$WORK/trial-wt" status --porcelain) / main: $(git -C "$TRIAL" status --porcelain)"
-fi
-# A second repository whose .claude is a link to this one's: its --remove changes nothing here.
-git init -q -b main "$WORK/trial-b" && ln -s "$TRIAL/.claude" "$WORK/trial-b/.claude"
-out=$(env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$WORK/trial-b" --remove)
-if [ "$(field 'all(l["state"].startswith("blocked") for l in d["links"])' <<<"$out")" = True ] && [ -L "$TRIAL/.claude/skills/lem" ] \
-  && [ -f "$TRIAL/.claude/skills/.gitignore" ] && [ -f "$TRIAL/.claude/agents/.gitignore" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
-  pass "--remove through a .claude that is a link into another repository takes away nothing there, not a link and not an ignore file"
-else
-  fail "setup --project --remove through a linked .claude: $out / $(git -C "$TRIAL" status --porcelain)"
-fi
-out=$(trial --remove)
-if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$TRIAL/.claude" ] && [ "$(field '[f.rsplit("/", 2)[-2:] for f in d["folders_removed"]]' <<<"$out")" = "[['trial', '.claude'], ['.claude', 'agents'], ['.claude', 'skills']]" ] \
-  && [ "$(status_of env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --project "$WORK")" = 1 ]; then
-  pass "setup --project --remove takes its links, its ignore files and the folders they leave empty away, and a folder that is no repository is refused"
-else
-  fail "setup --project --remove: $out / $(find "$TRIAL/.claude")"
-fi
-# A folder that has an ignore file of its own keeps it, and the result says that git sees the links there.
-mkdir -p "$TRIAL/.claude/skills" && echo '# kept by the project' > "$TRIAL/.claude/skills/.gitignore"
-out=$(trial)
-if [ "$(cat "$TRIAL/.claude/skills/.gitignore")" = "# kept by the project" ] && [ "$(field 'd["git_sees_the_links_in"]' <<<"$out")" = "['$TRIAL/.claude/skills']" ]; then
-  pass "an ignore file of the project's own is left as it is, and the result names the folder where git sees the links"
-else
-  fail "setup --project beside the project's own ignore file: $out"
-fi
-echo '*' > "$TRIAL/.claude/skills/.gitignore"
-out=$(trial)
-if [ "$(cat "$TRIAL/.claude/skills/.gitignore")" = "*" ] && [ "$(field 'd["git_sees_the_links_in"]' <<<"$out")" = "[]" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
-  pass "an ignore file of the project's own that already hides the links is left as it is, and no folder is reported"
-else
-  fail "setup --project beside an ignore file that hides the links: $out / $(git -C "$TRIAL" status --porcelain)"
-fi
-# No git on PATH: the script cannot ask, so it reports the folder, gives its whole account and leaves the rest to the machine check.
-out=$(env -i PATH="$WORK/nogit-setup" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$TRIAL" 2>"$WORK/nogit.err" || true)
-hook=$(env -i PATH="$WORK/nogit-setup" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --project "$TRIAL" --corrections on | field 'd["corrections_hook"]["git_sees_the_file"]')
-trial --corrections off >/dev/null
-if [ "$(field '(d["linked"], d["machine_ok"], d["git_sees_the_links_in"], [a["name"] for a in d["absent"] if a["name"] == "git"])' <<<"$out")" = "(True, False, ['$TRIAL/.claude/skills'], ['git'])" ] \
-  && ! grep -q Traceback "$WORK/nogit.err" && [ "$hook" = "True" ]; then
-  pass "with no git on PATH the setup still gives its whole account: the folder it could not ask about is reported, and the machine check names git"
-else
-  fail "setup --project with no git: $out / $(cat "$WORK/nogit.err")"
-fi
-trial --remove >/dev/null
-rm -r "$TRIAL/.claude" && mkdir -p "$WORK/shared-claude" && ln -s "$WORK/shared-claude" "$TRIAL/.claude"
-out=$(trial 2>/dev/null || true)
-if [ "$(status_of trial)" = 1 ] && [ "$(field 'all(l["state"].startswith("blocked by a link that leaves the repository") for l in d["links"])' <<<"$out")" = True ] \
-  && [ -z "$(ls -A "$WORK/shared-claude")" ]; then
-  pass "a .claude folder that is a link out of the repository is refused, and nothing is made where it points"
-else
-  fail "setup --project through a linked .claude: $out / $(ls -A "$WORK/shared-claude")"
-fi
-rm "$TRIAL/.claude"
-touch "$SETHOME/.claude/skills/mine"
-out=$(setup --remove)
-if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/lem-ask" ] && [ ! -e "$SETHOME/.local/bin/jev" ] \
-  && [ ! -e "$SETHOME/.claude/agents" ] && [ ! -e "$SETHOME/.local" ] && [ -d "$SETHOME/.agents/skills/agterm" ]; then
-  pass "setup --remove takes away the links it made and the folders they leave empty, and nothing else"
-else
-  fail "setup --remove: $out"
-fi
-# The hook of the correction queue: one command in the agent's settings, the owner's step, and nothing else in the file changes.
-HOOKHOME=$WORK/hookhome
-mkdir -p "$HOOKHOME"
-# outside any repository: a hook for the home looks at the repository it runs in, and this checkout is not one to read
-hooksetup() { (cd "$HOOKHOME" && env -i PATH="$BIN" HOME="$HOOKHOME" "$PY" -B "$SETUP" --home "$HOOKHOME" "$@"); }
-want=$("$PY" -c 'import shlex, sys; print("python3 " + shlex.quote(sys.argv[1]) + " hook")' "$PWD/skills/lem/scripts/corrections.py")
-out=$(hooksetup --corrections on)
-first=$(cat "$HOOKHOME/.claude/settings.json")
-again=$(hooksetup --corrections on)
-if [ "$(field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"], d["corrections_hook"]["command"])' <<<"$out")" = "('registered', True, '$want')" ] \
-  && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])))' "$HOOKHOME/.claude/settings.json")" = "{'hooks': {'UserPromptSubmit': [{'hooks': [{'type': 'command', 'command': '$want', 'timeout': 10}]}]}}" ] \
-  && [ "$(field 'd["corrections_hook"]["changed"]' <<<"$again")" = "False" ] && [ "$(cat "$HOOKHOME/.claude/settings.json")" = "$first" ] && [ ! -e "$HOOKHOME/.claude/skills" ] \
-  && [ "$(hooksetup --check 2>/dev/null | field 'd["corrections_hook"]["state"]')" = "registered" ]; then
-  pass "setup --corrections on writes one hook command with the clone's real path, makes no link, a second run changes nothing, and --check reports it"
-else
-  fail "setup --corrections on: $out / $(cat "$HOOKHOME/.claude/settings.json" 2>&1)"
-fi
-out=$(hooksetup --corrections off)
-if [ "$(field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"], d["corrections_hook"]["file_removed"])' <<<"$out")" = "('not registered', True, True)" ] && [ ! -e "$HOOKHOME/.claude/settings.json" ] \
-  && [ ! -e "$HOOKHOME/.claude" ] && [ "$(hooksetup --corrections off | field 'd["corrections_hook"]["changed"]')" = "False" ]; then
-  pass "setup --corrections off takes the hook out, removes a settings file that then holds nothing and the .claude folder that then holds nothing, and a second run changes nothing"
-else
-  fail "setup --corrections off: $out / $(ls -A "$HOOKHOME")"
-fi
-# The owner's own settings stay: another key, another hook of the same event, a group that was empty before.
-mkdir -p "$WORK/dotfiles" "$HOOKHOME/.claude"
-printf '%s\n' '{"model": "opus", "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "true"}]}], "UserPromptSubmit": [{"hooks": []}, {"matcher": "", "hooks": [{"type": "command", "command": "echo mine"}]}]}}' > "$WORK/dotfiles/settings.json"
-ln -s "$WORK/dotfiles/settings.json" "$HOOKHOME/.claude/settings.json"
-before=$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])))' "$HOOKHOME/.claude/settings.json")
-hooksetup --corrections on >/dev/null
-with=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(d["model"], len(d["hooks"]["Stop"]), [len(g["hooks"]) for g in d["hooks"]["UserPromptSubmit"]], d["hooks"]["UserPromptSubmit"][2]["hooks"][0]["command"])' "$HOOKHOME/.claude/settings.json")
-hooksetup --corrections off >/dev/null
-if [ "$with" = "opus 1 [0, 1, 1] $want" ] && [ -L "$HOOKHOME/.claude/settings.json" ] \
-  && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])))' "$HOOKHOME/.claude/settings.json")" = "$before" ]; then
-  pass "the hook goes in beside the owner's settings and comes out again with nothing else changed, and a settings file that is a link stays one"
-else
-  fail "setup --corrections beside other settings: $with / $(cat "$HOOKHOME/.claude/settings.json")"
-fi
-# A form of the hook that is there already (added by hand, or another clone's) is not doubled, and a file that is not JSON is left alone.
-rm "$HOOKHOME/.claude/settings.json"
-printf '%s\n' '{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook", "timeout": 10}]}]}}' > "$HOOKHOME/.claude/settings.json"
-kept=$(cat "$HOOKHOME/.claude/settings.json")
-err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
-state=$( (hooksetup --check 2>/dev/null || true) | field 'd["corrections_hook"]["state"]')
-off=$(hooksetup --corrections off | field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"])')
-if [ "$(status_of hooksetup --corrections on)" = 1 ] && grep -q 'already holds the correction hook in another form: {"type": "command", "command": "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook", "timeout": 10}. Take that entry out' <<<"$err" \
-  && [ "$state" = "another form" ] && [ "$off" = "('another form', False)" ] && [ "$(cat "$HOOKHOME/.claude/settings.json")" = "$kept" ]; then
-  pass "another form of the hook stops --corrections on, is named, and is not taken out by --corrections off"
-else
-  fail "setup --corrections over another form: $err / $state / $off"
-fi
-# This clone's own command with another timeout is another form too: it is not what the script wrote.
-"$PY" -c 'import json, sys; print(json.dumps({"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": sys.argv[1], "timeout": 1}]}]}}))' "$want" > "$HOOKHOME/.claude/settings.json"
-kept=$(cat "$HOOKHOME/.claude/settings.json")
-off=$(hooksetup --corrections off | field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"])')
-if [ "$(status_of hooksetup --corrections on)" = 1 ] && [ "$off" = "('another form', False)" ] && [ "$(cat "$HOOKHOME/.claude/settings.json")" = "$kept" ]; then
-  pass "the clone's own command with another timeout is not taken for the script's entry: on refuses it and off leaves it"
-else
-  fail "setup --corrections over the same command with another timeout: $off / $(cat "$HOOKHOME/.claude/settings.json")"
-fi
-# A hooks list that Claude Code would not read is the owner's to correct: nothing is written beside it.
-shapes=ok
-for shape in '{"hooks": {"UserPromptSubmit": [{"matcher": ""}]}}' '{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command"}]}]}}' '{"hooks": {"UserPromptSubmit": [{"hooks": ["echo"]}]}}' '{"hooks": []}' '[]'; do
-  printf '%s\n' "$shape" > "$HOOKHOME/.claude/settings.json"
-  if [ "$(status_of hooksetup --corrections on)" != 1 ] || [ "$(status_of hooksetup --corrections off)" != 1 ] || [ "$(cat "$HOOKHOME/.claude/settings.json")" != "$shape" ]; then shapes="$shape"; fi
-done
-err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
-if [ "$shapes" = ok ] && grep -q "does not have the shape of Claude Code's settings" <<<"$err" && grep -q "correct the file, then run this again" <<<"$err"; then
-  pass "a settings file whose hooks do not have the shape the agent reads is refused with the fix and left as it is"
-else
-  fail "setup --corrections over a wrong shape: $shapes / $err"
-fi
-# A write that fails leaves the file as it was and no draft with the owner's settings beside it.
-printf '%s\n' '{"model": "opus"}' > "$HOOKHOME/.claude/settings.json"
-chmod a-w "$HOOKHOME/.claude"
-err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
-code=$(status_of hooksetup --corrections on)
-chmod u+w "$HOOKHOME/.claude"
-if [ "$code" = 1 ] && grep -q "could not be written" <<<"$err" && grep -q "is as it was; make it writable, then run this again" <<<"$err" && ! grep -q Traceback <<<"$err" \
-  && [ "$(cat "$HOOKHOME/.claude/settings.json")" = '{"model": "opus"}' ] && [ "$(find "$HOOKHOME/.claude" -name 'settings.json.lem-*' | grep -c '')" = 0 ]; then
-  pass "a settings file that cannot be written is left as it was, with no draft beside it and the fix in the message"
-else
-  fail "setup --corrections with a write that fails: $err / $(ls -A "$HOOKHOME/.claude")"
-fi
-printf '%s\n' '{"hooks": // mine' > "$HOOKHOME/.claude/settings.json"
-err=$(hooksetup --corrections on 2>&1 >/dev/null || true)
-if [ "$(status_of hooksetup --corrections on)" = 1 ] && [ "$(status_of hooksetup --corrections off)" = 1 ] && grep -q "does not read as JSON" <<<"$err" && grep -q "correct the file, then run this again" <<<"$err" \
-  && [ "$(cat "$HOOKHOME/.claude/settings.json")" = '{"hooks": // mine' ] && [ "$(hooksetup --check 2>/dev/null | field 'd["corrections_hook"]["state"]')" = "unreadable" ] \
-  && [ "$(status_of hooksetup --corrections on --check)" = 1 ]; then
-  pass "a settings file that is not JSON is refused with the fix and left as it is, and --corrections goes with no other action"
-else
-  fail "setup --corrections over a file that is not JSON: $err"
-fi
-# For one repository the hook goes into that checkout's own settings, and the home is not touched.
-out=$(trial --corrections on)
-if [ "$(field '(d["corrections_hook"]["state"], d["corrections_hook"]["file"], d["corrections_hook"]["git_sees_the_file"], d["scope"])' <<<"$out")" = "('registered', '$TRIAL/.claude/settings.local.json', True, '$TRIAL')" ] \
-  && [ ! -e "$WORK/trialhome/.claude" ] && trial --corrections off >/dev/null && [ ! -e "$TRIAL/.claude/settings.local.json" ] && [ ! -e "$TRIAL/.claude" ] \
-  && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
-  pass "setup --project --corrections on writes the hook into that checkout's local settings, says that git sees the file, and off removes it with the .claude folder it made"
-else
-  fail "setup --project --corrections: $out / $(git -C "$TRIAL" status --porcelain)"
-fi
-ln -s "$WORK/shared-claude" "$TRIAL/.claude"
-err=$(trial --corrections on 2>&1 >/dev/null || true)
-code=$(status_of trial --corrections on)
-rm "$TRIAL/.claude" && mkdir "$TRIAL/.claude"
-# the folder is the repository's own, and the file in it is a link to a shared one: once to a file that is there, once to none
-printf '%s\n' '{"model": "opus"}' > "$WORK/shared-claude/shared.json" && ln -s "$WORK/shared-claude/shared.json" "$TRIAL/.claude/settings.local.json"
-code="$code $(status_of trial --corrections on)"
-ln -sf "$WORK/shared-claude/none.json" "$TRIAL/.claude/settings.local.json"
-code="$code $(status_of trial --corrections on) $(status_of trial --corrections off)"
-if [ "$code" = "1 1 1 1" ] && grep -q "is behind a link that leaves the repository" <<<"$err" && [ ! -e "$WORK/shared-claude/settings.local.json" ] \
-  && [ "$(cat "$WORK/shared-claude/shared.json")" = '{"model": "opus"}' ] && [ ! -e "$WORK/shared-claude/none.json" ]; then
-  pass "the hook of one repository is not written through a .claude folder or a settings file that is a link out of it"
-else
-  fail "setup --project --corrections through a link out of the repository: $code / $err"
-fi
-rm -r "$TRIAL/.claude"
-# A relative --home names a folder from where the setup starts: the machine check, which runs in the repository of
-# --project, gets it whole, so that a tool that writes into its home (`codex --version` makes ~/.codex/tmp) writes
-# there and never into the repository.
-cp -R "$BIN" "$WORK/homebin"
-# shellcheck disable=SC2016  # the fake tool's own $HOME, read when it runs
-printf '%s\n' '#!/bin/sh' '/bin/mkdir -p "$HOME/.codex/tmp"' 'echo "codex-cli 9.9"' > "$WORK/homebin/codex" && chmod +x "$WORK/homebin/codex"
-machine_home "$WORK/relhome"
-relative=$(cd "$WORK" && env -i PATH="$WORK/homebin" HOME="$WORK/elsewhere-home" "$PY" -B "$SETUP" --home relhome --project "$TRIAL" --check 2>&1 || true)
-if [ ! -e "$TRIAL/relhome" ] && [ -d "$WORK/relhome/.codex/tmp" ] && [ -z "$(git -C "$TRIAL" status --porcelain --untracked-files=all)" ]; then
-  pass "a relative --home is resolved from where the setup starts: the machine check's tools write into that home and nothing into the repository"
-else
-  fail "setup with a relative --home: $(git -C "$TRIAL" status --porcelain --untracked-files=all) / $relative"
-fi
-rm -rf "$WORK/homebin" "$WORK/relhome"
 # A machine with Claude Code and no git still gets its rows, not a traceback.
 mkdir -p "$WORK/nogit" && cp "$BIN/claude" "$WORK/nogit/claude"
 out=$(cd "$WORK" && env -i PATH="$WORK/nogit" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" 2>&1 || true)
@@ -778,87 +472,57 @@ if [ "$(row cronn found <<<"$out")" = "True" ] && [ "$(row cronn running <<<"$ou
 else
   fail "doctor with cronn: $out"
 fi
-# The correction hook registered in two places for one repository: the machine check names each place and the
-# command that takes the extra one out, never says to remove the plugin, and never fails the machine for it.
+# The correction hook comes with Lem's plugin. A settings file that still holds the hook an older install of Lem
+# wrote is a second place: the machine check names each file with the entry to delete from it by hand, never says
+# to remove the plugin, and never fails the machine for it.
+want=$("$PY" -c 'import shlex, sys; print("python3 " + shlex.quote(sys.argv[1]) + " hook")' "$PWD/skills/lem/scripts/corrections.py")
 with_hook() { "$PY" -c 'import json, sys; json.dump({"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": sys.argv[2], "timeout": 10}]}]}, **json.loads(sys.argv[3])}, open(sys.argv[1], "w"))' "$@"; }
+entry_of() { "$PY" -c 'import json, sys; print(json.dumps({"type": "command", "command": sys.argv[1], "timeout": 10}))' "$1"; }
 hookrow() { doctor | field '[(t["need"], t["found"], t["detail"], t["without_it"], d["ok"]) for t in d["tools"] if t["name"] == "correction hook"]'; }
 hookfield() { doctor | field "next(t for t in d[\"tools\"] if t[\"name\"] == \"correction hook\")[\"$1\"]"; }
 mkdir -p "$FAKEHOME/.claude" "$MACHINE/.claude"
+alone=$(hookrow)
 with_hook "$MACHINE/.claude/settings.local.json" "$want" '{}'
-one=$(hookrow)
-with_hook "$FAKEHOME/.claude/settings.json" "$want" '{}'
-home_detail=$(hookfield detail || true)
-home_fix=$(hookfield without_it || true)
-home_need=$(doctor | field '[(t["need"], t["found"], d["ok"]) for t in d["tools"] if t["name"] == "correction hook"]' || true)
-if [ "$one" = "[]" ] && [ "$home_detail" = "registered 2 times for this repository: $FAKEHOME/.claude/settings.json, $MACHINE/.claude/settings.local.json" ] \
-  && grep -qF "Keep one of them, and remove the others: $FAKEHOME/.claude/settings.json: python3 $PWD/scripts/setup.py --corrections off; $MACHINE/.claude/settings.local.json: python3 $PWD/scripts/setup.py --corrections off --project $MACHINE." <<<"$home_fix" \
-  && grep -qF "it is still judged once" <<<"$home_fix" && [ "$home_need" = "[('project', False, True)]" ]; then
-  pass "the hook in the home's settings and in the repository's is named in one row with the command that removes each, and that row never fails the machine; one place gets no row"
-else
-  fail "doctor with the hook in two settings files: $one / $home_detail / $home_fix / $home_need"
-fi
-rm "$FAKEHOME/.claude/settings.json"
-printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$MACHINE\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 plugin_detail=$(hookfield detail || true)
 plugin_fix=$(hookfield without_it || true)
-# switched off in the repository's local settings, the plugin brings no hook; and the plugin alone is one place
+plugin_need=$(doctor | field '[(t["need"], t["found"], d["ok"]) for t in d["tools"] if t["name"] == "correction hook"]' || true)
+with_hook "$FAKEHOME/.claude/settings.json" "$want" '{}'
+three=$(hookfield detail || true)
+rm "$FAKEHOME/.claude/settings.json"
+# switched off in the repository's local settings, the plugin brings no hook, and the file's entry is the one place
 with_hook "$MACHINE/.claude/settings.local.json" "$want" '{"enabledPlugins": {"lem@lem": false}}'
 off=$(hookrow)
 rm "$MACHINE/.claude/settings.local.json"
-alone=$(hookrow)
 # a form added by hand to the repository's shared settings comes out by hand, and the file is committed
 with_hook "$MACHINE/.claude/settings.json" "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook" '{}'
 shared_fix=$(hookfield without_it || true)
-rm -r "$MACHINE/.claude" "$FAKEHOME/.claude/plugins/installed_plugins.json"
-if [ "$plugin_detail" = "registered 2 times for this repository: $MACHINE/.claude/settings.local.json, the plugin lem@lem" ] \
-  && grep -qF "The plugin brings the hook, so remove each other place: $MACHINE/.claude/settings.local.json: python3 $PWD/scripts/setup.py --corrections off --project $MACHINE." <<<"$plugin_fix" \
-  && ! grep -qi "uninstall" <<<"$plugin_fix" && grep -qF "it does not see managed settings, a session's --settings, or a plugin loaded for one session by a flag" <<<"$plugin_fix" \
-  && [ "$off" = "[]" ] && [ "$alone" = "[]" ] \
-  && grep -qF "$MACHINE/.claude/settings.json: take the entry out of $MACHINE/.claude/settings.json by hand, and commit that." <<<"$shared_fix"; then
-  pass "the hook in a settings file beside Lem's plugin is named with the command that removes the file's entry and never the plugin; a plugin switched off there, or alone, gets no row; an entry the setup did not write comes out by hand"
+rm -r "$MACHINE/.claude"
+if [ "$alone" = "[]" ] && [ "$plugin_detail" = "registered 2 times for this repository: $MACHINE/.claude/settings.local.json, the plugin lem@lem" ] \
+  && grep -qF "The plugin brings the hook, so remove each other place: $MACHINE/.claude/settings.local.json: delete the entry $(entry_of "$want") from the UserPromptSubmit hooks of $MACHINE/.claude/settings.local.json by hand." <<<"$plugin_fix" \
+  && grep -qF "it is still judged once" <<<"$plugin_fix" && ! grep -qi "uninstall\|setup" <<<"$plugin_fix" \
+  && grep -qF "it does not see managed settings, a session's --settings, or a plugin loaded for one session by a flag" <<<"$plugin_fix" \
+  && [ "$plugin_need" = "[('project', False, True)]" ] \
+  && [ "$three" = "registered 3 times for this repository: $FAKEHOME/.claude/settings.json, $MACHINE/.claude/settings.local.json, the plugin lem@lem" ] && [ "$off" = "[]" ] \
+  && grep -qF "$MACHINE/.claude/settings.json: delete the entry $(entry_of "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook") from the UserPromptSubmit hooks of $MACHINE/.claude/settings.json by hand, and commit that." <<<"$shared_fix"; then
+  pass "a settings file that still holds the hook beside Lem's plugin is named with the entry to delete from it by hand, never the plugin, and never fails the machine; the plugin alone, or switched off there, gets no row; an entry in the shared settings is a change to commit"
 else
-  fail "doctor with the hook beside the plugin: $plugin_detail / $plugin_fix / $off / $alone / $shared_fix"
+  fail "doctor with the hook beside the plugin: $alone / $plugin_detail / $plugin_fix / $plugin_need / $three / $off / $shared_fix"
 fi
-# The setup registers no second place: not beside the plugin, for one repository or for the home, and not
-# for one scope when the other has the hook. Each refusal names the fix, and --corrections off is as before.
-homesetup() { (cd "$1" && env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --corrections on); }
-mkdir -p "$WORK/trialhome/.claude/plugins"
-printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$TRIAL\"}]}}" > "$WORK/trialhome/.claude/plugins/installed_plugins.json"
-err_project=$(trial --corrections on 2>&1 >/dev/null || true)
-codes="$(status_of trial --corrections on)"
-err_home=$(homesetup "$WORK" 2>&1 >/dev/null || true)
-codes="$codes $(status_of homesetup "$WORK")"
-printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$WORK/trialhome/.claude/plugins/installed_plugins.json"
-err_user=$(homesetup "$WORK" 2>&1 >/dev/null || true)
-# the move from the links to the plugin: the hook the links registered comes out as before
-mkdir -p "$TRIAL/.claude" && with_hook "$TRIAL/.claude/settings.local.json" "$want" '{}'
-moved=$(trial --corrections off | field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"])')
-rm "$WORK/trialhome/.claude/plugins/installed_plugins.json"
-if [ "$codes" = "1 1" ] && grep -qF "setup.py: the plugin lem@lem is installed for $TRIAL, and nothing was registered. The plugin brings the hook; to turn the queue on, set \`collect = true\` under \`[corrections]\` in the repository's \`.lem/project.toml\` and commit it" <<<"$err_project" \
-  && grep -qF "the plugin lem@lem is installed for $TRIAL, where a hook in the home starts too, and nothing was registered" <<<"$err_home" \
-  && grep -qF "the plugin lem@lem is installed for the user, where a hook in the home starts too" <<<"$err_user" \
-  && [ ! -e "$WORK/trialhome/.claude/settings.json" ] && [ "$moved" = "('not registered', True)" ] && [ ! -e "$TRIAL/.claude" ]; then
-  pass "setup --corrections on registers nothing where Lem's plugin brings the hook, for one repository or for the home, and says that the tracked yes turns the queue on; --corrections off still takes out what the links registered"
+# With no plugin, two settings files that hold the hook are both an older install's: the row says that the hook comes with the plugin.
+mv "$FAKEHOME/.claude/plugins/installed_plugins.json" "$WORK/installed.kept"
+mkdir -p "$MACHINE/.claude"
+with_hook "$MACHINE/.claude/settings.local.json" "$want" '{}'
+with_hook "$FAKEHOME/.claude/settings.json" "$want" '{}'
+no_plugin=$(hookfield without_it || true)
+no_plugin_need=$(doctor | field '[(t["need"], t["found"]) for t in d["tools"] if t["name"] == "correction hook"]' || true)
+rm -r "$MACHINE/.claude" "$FAKEHOME/.claude/settings.json"
+mv "$WORK/installed.kept" "$FAKEHOME/.claude/plugins/installed_plugins.json"
+if grep -qF "The hook comes with Lem's plugin: install it, and remove each of these: $FAKEHOME/.claude/settings.json: delete the entry" <<<"$no_plugin" \
+  && [ "$no_plugin_need" = "[('project', False)]" ]; then
+  pass "with no plugin, the hook in two settings files is named with the plugin that brings it now and the entry to delete from each"
 else
-  fail "setup --corrections on beside the plugin: $codes / $err_project / $err_home / $err_user / $moved"
+  fail "doctor with the hook in two settings files and no plugin: $no_plugin / $no_plugin_need"
 fi
-with_hook "$WORK/trialhome/.claude/settings.json" "$want" '{}'
-err_home_has=$(trial --corrections on 2>&1 >/dev/null || true)
-codes="$(status_of trial --corrections on) $([ -e "$TRIAL/.claude" ] && echo made || echo none)"
-rm "$WORK/trialhome/.claude/settings.json"
-trial --corrections on >/dev/null
-err_repo_has=$(homesetup "$TRIAL" 2>&1 >/dev/null || true)
-codes="$codes $(status_of homesetup "$TRIAL") $([ -e "$WORK/trialhome/.claude/settings.json" ] && echo made || echo none)"
-trial --corrections off >/dev/null
-if [ "$codes" = "1 none 1 none" ] \
-  && grep -qF "setup.py: $WORK/trialhome/.claude/settings.json registers the correction hook already, and a hook in the home starts in every repository, $TRIAL too; nothing was registered. Keep that one, or take it out first with \`python3 $PWD/scripts/setup.py --corrections off\`, then run this again" <<<"$err_home_has" \
-  && grep -qF "setup.py: $TRIAL/.claude/settings.local.json registers the correction hook for $TRIAL already, and a hook in the home would start there a second time; nothing was registered. Take that one out first with \`python3 $PWD/scripts/setup.py --corrections off --project $TRIAL\`" <<<"$err_repo_has" \
-  && [ ! -e "$TRIAL/.claude" ]; then
-  pass "setup --corrections on for one repository when the home has the hook, and for the home in a repository that has it, registers nothing and names the place that has it with the command that removes it"
-else
-  fail "setup --corrections on beside the other scope: $codes / $err_home_has / $err_repo_has"
-fi
-rm -r "$WORK/trialhome/.claude"
 # Every project of Lem has personas: the machine check, run in a repository that has settings, says when
 # there are none or one, through the panel's own check, and that row never fails the machine.
 PPL=$WORK/people-repo

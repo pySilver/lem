@@ -697,6 +697,13 @@ shellcheck tests/*.sh
 A change to a script comes with its test. A change to a stage file has no test: its test is a
 real task, so say in the commit which task showed the need.
 
+To run a clone of Lem in one session, without the plugin's install, load its folder as the plugin
+(Claude Code 2.1.325, 2026-11-17: the session listed every `lem:` skill and `lem:lem-builder`):
+
+```bash
+claude --plugin-dir /path/to/lem   # the plugin from this folder, for this session only, with its skills, agent, commands and hook
+```
+
 ## Layout
 
 - `skills/lem/SKILL.md`: the entry point and what holds in every stage.
@@ -709,7 +716,7 @@ real task, so say in the commit which task showed the need.
   machine checks, the review's floor and its record, the pull request, the merge),
   `corrections.py` (the optional queue of the owner's corrections: its hook, which claims each
   message so that a hook registered in two places judges it once, and what a retro reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
-  the setup links as the `jev` command), `stories.py` (a task's stories, read from the top of
+  the plugin puts on the Bash tool's `PATH` as the `lem-jev` command), `stories.py` (a task's stories, read from the top of
   its plan, or for a small change from `stories.md` in its task directory, and the check that
   each one's tests pass on the branch and fail on the base commit),
   `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, and
@@ -739,16 +746,10 @@ real task, so say in the commit which task showed the need.
   profile for this repository.
 - `tests/`: the suites of the Checks above; `all.sh` runs them all, `lib.sh` is what each
   `lem-*.sh` block sources. `.github/workflows/ci.yml` runs them when someone starts it by hand.
-- `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `lem-ask`
-  and `jev` commands from this clone into a home directory, never over something else, and runs
-  the machine check. `--corrections on|off` registers the hook of the correction queue in the
-  agent's settings or takes it out, and is the owner's to run; `on` registers nothing where
-  Lem's plugin or the other scope already starts the hook, and names the fix. With `--project DIR` it links into one repository only. Use that for a trial: links in
-  the home directory show Lem to every repository on the machine, also to one where an older
-  flow still runs.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
-  plugin `lem`: the manifest, a marketplace file that lists the one plugin, links to the two
-  commands, which a plugin's `bin/` puts on the Bash tool's `PATH`, and the correction hook.
+  plugin `lem`, the one way Lem installs: the manifest, a marketplace file that lists the one
+  plugin, links to the two commands `lem-ask` and `lem-jev`, which a plugin's `bin/` puts on the
+  Bash tool's `PATH`, and the correction hook.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the
   builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
 - `skills/lem/references/`: the catalog of published style guides.
