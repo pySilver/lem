@@ -20,6 +20,11 @@ whether that still resolves, whether git has it committed, and who can act on it
 the tab opens and on a key, and it says when the file was written. A run with `--no-open` writes
 it again without touching agterm, and keeps the session the board already names: the tab's one
 action types an ask into that session, so only a run that opens the board says which one it is.
+
+The third tab, Dreams, is there only when a nap is: `naps.js`, which this script writes at every
+run, holds the newest naps of `naps/` in the state folder (the dream, the thing made from it, the
+waking note), each as text. In a folder of example tasks (`--demo`) it holds example naps too, from
+`assets/demo-naps/`, copied beside the page and marked as examples.
 The page and the stylesheet it links (`assets/lem.css`, the look every page of Lem shares) are
 copied into the state folder at every open, so an older checkout gets the current ones.
 A copy named `task-SLUG.html` opens on that task.
@@ -173,6 +178,85 @@ def backlog(settings: dict, state: Path) -> dict:
     return feed
 
 
+# The naps, for the board's third tab, Dreams (`stages/nap.md`). The tab shows the newest ones; the
+# folder keeps the rest until `project.py may-nap` removes them. A made thing is shown on the page
+# when it is text or a picture, and is a link otherwise: a page the nap made is the reader's to open.
+NAPS_SHOWN = 20
+NAP_NAME = re.compile(r"(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})(?:-.+)?")
+PICTURES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
+TEXTS = (".md", ".txt", "")
+# past this many characters a text file is a link: a page for reading, not a dump
+TEXT_SHOWN = 20000
+# The example naps that `--demo` shows, beside the example tasks. Each is the folder of a real nap,
+# from a trial run in a throwaway repository whose tasks were examples too.
+DEMO_NAPS = SCRIPTS.parent / "assets" / "demo-naps"
+
+
+def nap_text(file: Path) -> str | None:
+    """A text file of a nap without its first heading, or None when it is not there or not text."""
+    try:
+        text = file.read_text(encoding="utf-8") if file.is_file() and not file.is_symlink() else None
+    except (OSError, UnicodeDecodeError):
+        return None
+    if text is None:
+        return None
+    return re.sub(r"\A\s*#[^\n]*\n", "", text, count=1).strip()
+
+
+def same_words(one: str, other: str) -> bool:
+    return re.findall(r"[a-z0-9]+", one.lower()) == re.findall(r"[a-z0-9]+", other.lower())
+
+
+def dreams(folder: Path, relative: str, example: bool) -> list[dict]:
+    """The naps of one folder, newest first. Each is read as text and nothing in it is run; a link or
+    a folder in a nap is not followed."""
+    found = []
+    for nap in sorted((d for d in folder.iterdir() if d.is_dir() and not d.is_symlink() and NAP_NAME.fullmatch(d.name)), reverse=True) if folder.is_dir() else ():
+        year, month, day, hour, minute = NAP_NAME.fullmatch(nap.name).groups()
+        dream = nap / "dream.md"
+        heading = re.match(r"\s*#\s+([^\n]+)", dream.read_text(encoding="utf-8", errors="replace")) if dream.is_file() and not dream.is_symlink() else None
+        words = nap.name[len("YYYY-MM-DD-HHMM-"):].replace("-", " ").strip()
+        made = []
+        for file in sorted(nap.iterdir()):
+            if file.name in ("dream.md", "waking.md") or file.name.startswith(".") or file.is_symlink() or not file.is_file():
+                continue
+            suffix = file.suffix.lower()
+            try:
+                text = file.read_text(encoding="utf-8").rstrip() if suffix in TEXTS else None
+            except (OSError, UnicodeDecodeError):
+                text = None
+            if suffix in PICTURES:
+                made.append({"file": file.name, "kind": "picture"})
+            elif text is not None and len(text) <= TEXT_SHOWN:
+                # the made thing keeps its own lines and its first line: a ticket or a poem is drawn as it was written
+                made.append({"file": file.name, "kind": "text", "text": text})
+            else:
+                made.append({"file": file.name, "kind": "file"})
+        found.append({
+            "name": nap.name, "folder": f"{relative}/{nap.name}", "example": example,
+            "time": f"{year}-{month}-{day}T{hour}:{minute}:00Z",
+            # The words of its folder's name, which the nap chose for its dream; in the letters of the
+            # dream's heading when that says the same words ("# Dream" over a folder of other words does not).
+            "title": heading.group(1).strip() if heading and same_words(heading.group(1), words) else (words[:1].upper() + words[1:]) or "A nap",
+            "dream": nap_text(dream), "waking": nap_text(nap / "waking.md"), "made": made,
+        })
+    return found
+
+
+def naps_feed(state: Path) -> dict:
+    """What the Dreams tab shows: the newest naps of the state folder, and in a folder of example
+    tasks (`--demo`) the example naps too, copied beside the page so that its links reach them."""
+    found = dreams(state / "naps", "naps", False)
+    if (state / "demo").is_file() and DEMO_NAPS.is_dir():
+        shutil.copytree(DEMO_NAPS, state / "demo-naps", dirs_exist_ok=True)
+        found = sorted(found + dreams(state / "demo-naps", "demo-naps", True), key=lambda nap: nap["name"], reverse=True)
+    return {
+        "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "naps": found[:NAPS_SHOWN], "more": max(0, len(found) - NAPS_SHOWN),
+        "examples": any(nap["example"] for nap in found[:NAPS_SHOWN]),
+    }
+
+
 def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_session: bool = False) -> tuple[Path, str]:
     """Write the page and meta.js into the state folder, and return the page's path and the repository's name."""
     if not ASSET.is_file():
@@ -215,6 +299,9 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
     # `</` is split so that no item's text can end the script tag the page loads this file with
     items = json.dumps(backlog(settings, state), ensure_ascii=False).replace("</", "<\\/")
     (state / "backlog.js").write_text(f"lemBacklog({items});\n", encoding="utf-8")
+    # the same split of `</` for the naps' text, which an agent wrote and nobody reviewed
+    dreamt = json.dumps(naps_feed(state), ensure_ascii=False).replace("</", "<\\/")
+    (state / "naps.js").write_text(f"lemNaps({dreamt});\n", encoding="utf-8")
     page = state / (f"task-{slug}.html" if slug else "board.html")
     shutil.copyfile(ASSET, page)
     shutil.copyfile(STYLE, state / STYLE.name)

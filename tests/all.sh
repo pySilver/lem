@@ -9,6 +9,7 @@ cd -P "$(dirname "$0")/.." || exit 1
 
 suites=(lem-settings lem-machine lem-state lem-old-tasks lem-decisions lem-land-shop lem-land-local lem-land-backlog lem-land-github lem-land-guards lem-land-small
   test-board test-gate-panel test-ask test-ask-expert shellcheck)
+suites+=(lem-naps)
 if [ -n "${LEM_TEST_LOGS:-}" ]; then
   LOGS=$LEM_TEST_LOGS
   mkdir -p "$LOGS" || exit 1
