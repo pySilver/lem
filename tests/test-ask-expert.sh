@@ -298,7 +298,7 @@ printf '%s\n' 'pick: Redis' 'why: A key with an expiry is what a session is.' > 
 whole=$(experts record --folder "$folder" --expert astra | field '(d["agree"], d["waiting"], sorted(d["answers"]), "all picked" in d["next"])' || true)
 kept=$(field '(d["question"], d["options"], sorted(d["answers"]))' < "$QS/$folder/record.json" || true)
 if [ "$(dirname "$QS/$folder")" = "$QS" ] && [ "$holds" = yes ] && [ -z "$(git -C "$EX" status --porcelain --untracked-files=all)" ] \
-  && [ "$shape" = "(True, [('fable', 'claude/fable:high', 'claude', 'fable', 'high'), ('astra', 'codex/gpt-6-astra:high', 'codex', 'gpt-6-astra', 'high')], ['fable', 'astra'], '$EX', True)" ] \
+  && [ "$shape" = "(True, [('fable', 'claude/fable', 'claude', 'fable', None), ('astra', 'codex/gpt-6-astra:high', 'codex', 'gpt-6-astra', 'high')], ['fable', 'astra'], '$EX', True)" ] \
   && grep -qF "'Memcached' is none of them" <<<"$noption" && grep -qF "is not an answer in the brief's form" <<<"$badform" \
   && grep -qF -- "--expert opus is none of this question's experts (fable, astra)" <<<"$stranger" && grep -qF "fable answered question $folder already" <<<"$twice" \
   && [ "$half" = "('Redis', ['astra'], None, True)" ] && [ "$whole" = "('Redis', [], ['astra', 'fable'], True)" ] \

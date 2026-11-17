@@ -76,10 +76,12 @@ sys.path.insert(0, str(SCRIPTS))
 from decisions import EXPERTS as CHOICE_NAMES  # noqa: E402
 
 # Who the experts are when the settings name none: what the harness of Claude Code runs (`ask-experts`).
-DEFAULT_SEATS = ("claude/fable:high", "codex/gpt-6-astra:high")
+DEFAULT_SEATS = ("claude/fable", "codex/gpt-6-astra:high")
 # The agents whose way to start an expert the harness gives.
 AGENTS = ("claude", "codex")
-SEAT = re.compile(r"\A(?P<agent>[a-z]+)/(?P<model>[A-Za-z0-9][A-Za-z0-9._-]*):(?P<effort>[a-z]+)\Z")
+# An expert's seat names its model, since its name comes from it; the effort may be left out, and
+# is then that agent's own default.
+SEAT = re.compile(r"\A(?P<agent>[a-z]+)/(?P<model>[A-Za-z0-9][A-Za-z0-9._-]*)(?::(?P<effort>[a-z]+))?\Z")
 # How long the folder of a question in words is kept after its last write. A guess, not a
 # measurement: long enough for the owner to look back at an answer in the same piece of work.
 KEEP_DAYS = 30
@@ -116,7 +118,8 @@ def name_of(model: str) -> str:
 
 def parse_seat(given: object, where: str) -> dict:
     if isinstance(given, dict):
-        given = f"{given.get('agent')}/{given.get('model')}:{given.get('effort')}"
+        # `project.py show` gives a seat parsed, with the seat as the settings wrote it
+        given = given.get("seat") or f"{given.get('agent')}/{given.get('model')}" + (f":{given['effort']}" if given.get("effort") else "")
     found = SEAT.match(given) if isinstance(given, str) else None
     if found is None:
         raise ExpertError(f"{where} {given!r} is no seat: write it as agent/model:effort, for example {DEFAULT_SEATS[1]}")
