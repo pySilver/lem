@@ -361,13 +361,26 @@ row is there only when a settings file still holds the hook that an install of L
 plugin wrote, beside the plugin: say each file and the entry its `without_it` says to delete by
 hand, in one line, and ask nothing. Each message is still judged once, so it waits for no answer.
 
-Before you say it, find out what merged. The owner merges a pull request on the forge, and
-nothing tells Lem: for each `open` task whose `proposal` in `project.py tasks` has a
-`pull_request`, run `python3 SKILL_DIR/scripts/land.py merged SLUG`. One that is merged becomes
-`landed`; take step 8 of `stages/land.md` for it (the ticket, `clean`), then the queue, as
-`stages/new.md` ends, since a task queued `after:` it may start now. "Not merged yet" is no news.
-Do the same at each of your turns where you read `decisions.py pending` (`stages/new.md`, "When a
-choice waits for the owner").
+Before you say it, find out what merged. The owner merges and closes pull requests on the forge,
+and the forge tells Lem nothing by itself: for each `open` task whose `proposal` in `project.py
+tasks` has a `pull_request`, run `python3 SKILL_DIR/scripts/land.py merged SLUG`. One that is
+merged becomes `landed`, and one he closed with no merge becomes `dropped`; take step 9 of
+`stages/land.md` for them (the ticket, `clean`, the other open tasks onto the new base), then the
+queue, as `stages/new.md` ends, since a task queued `after:` one may start now. "Not merged yet" is
+no news. Do the same at each of your turns where you read `decisions.py pending` (`stages/new.md`,
+"When a choice waits for the owner").
+
+While a task is `open` with a pull request, keep one watch of the forge in the background, never
+two: `run-in-background` with `python3 SKILL_DIR/scripts/land.py watch`. It looks once every
+`flow.watch_seconds` (60 unless the project says otherwise) with one call for all the pull
+requests, and ends when the owner merged or closed one; its end wakes you, and you take step 9 of
+`stages/land.md`, which starts it again while a task is still open. Start it after a proposal
+(`stages/land.md`, step 6), and when a session of yours starts while a task is open with a pull
+request: a watch that an earlier session started wakes that session, not you. A watch that ends
+with exit 1 says why: nothing open to watch, `gh` missing or not signed in (tell the owner that
+line once, as it is), no forge in this project, or it was stopped. Start no other one until that
+reason is gone. The board says when the forge was last looked at, and that nobody watches when
+the watch's last look is older than three of its intervals.
 
 Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists every task
 directory with the first line of its `task.md`, its status and the newest block of its

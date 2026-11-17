@@ -20,7 +20,7 @@ they are owed:
 
 - a task that is `open` with a pull request, or `landing` again with one: `land.py merged SLUG`
   asks the forge. When the owner merged it there, the step writes `landed`, and you go on at
-  step 8. `clean` then removes the branch only when its tip is the commit the forge merged: a
+  step 8, then step 9. `clean` then removes the branch only when its tip is the commit the forge merged: a
   commit a builder added after that is work nobody merged, and the branch stays. When he closed it without
   a merge, the step writes `dropped` with the line "the pull request was closed on the forge":
   tell him in one line, and `clean` removes its worktree. Its branch keeps its commits, and
@@ -230,7 +230,10 @@ one finds what the run before it finished.
    owner reads either way. The state becomes `open`, and the landing line is free.
    Tell the owner once, in two lines at most: the pull request's address (or that the branch is
    ready to land), and green, or not green with the reasons as the step printed them. The text
-   is the report; do not say it again in your own words.
+   is the report; do not say it again in your own words. Then, when it opened or updated a pull
+   request and no watch of yours runs, start one (`run-in-background`, `python3
+   SKILL_DIR/scripts/land.py watch`): the forge tells nobody when the owner merges or closes it,
+   and `SKILL.md` says under Status how the watch runs.
 7. **The merge.** A person merges by default.
    - `land.py land SLUG --by agent` is yours to try right after step 6. The step refuses unless
      the settings' `branch.land` is `agent`, and then still for a careful request, for one that
@@ -269,6 +272,34 @@ one finds what the run before it finished.
    files of its own: those are someone's work until the owner says otherwise. Do what the
    project's `AGENTS.md` adds for a removed worktree (a test database, a container), and close
    the plan talk's companion when one is still open.
+
+9. **After a merge on the forge.** The watch ended, or `merged` found a merge or a close at a
+   turn of yours. The watch's JSON names each such task under `ended`, with `merged` or `closed`.
+   For each: `land.py merged SLUG`, which writes `landed` (then step 8) or `dropped` (the top of
+   this stage). Then bring every task that is still `open` with a pull request onto the new base,
+   without a word from the owner: `branch.propose = "pull-request"` is his standing word for this
+   push too, and so a pull request that waits for him is never one he cannot merge, and its green
+   is green on the base as it is now. One at a time, before any `ready` task takes the line: the
+   ones the watch's `open` calls `CONFLICTING` first, then the others in its order, the oldest
+   state first. For each:
+   - `land.py start SLUG --after MERGED`, with the slug of the task that merged, then `base`. A
+     conflict is step 2: a builder resolves it, with the job "the repair of a conflict with the
+     base", and `base` runs again. It finds the builder's rebase, and the polish pass by its
+     commits' new names, so the pass is not run again.
+   - `gate`: the checks run again on the new base, and a red one is step 4.
+   - `land.py read SLUG`. After a rebase with no conflict it says `none`: the review that saw the
+     change stands, also when the base changed a file of the change in other lines. After a
+     builder's resolution it asks for one read of what the resolution changed (`resolution` in
+     `read.json`), or for the full set when the request is careful; start it as step 5 says. That
+     read is no round, and a must-fix in it goes to a builder as step 5 says.
+   - `propose`, with the title of the last proposal (`title` in `landing.json`) and `notes.md`:
+     it pushes with a lease and keeps the pull request, whose text now opens with what happened.
+     Its `synced` is your one line to the owner, as it is: "rebased on main after #3 merged; one
+     conflict in shop/dates.py, resolved by a builder; the checks passed again". Then step 7.
+
+   A step that cannot go on takes the way it takes in any landing: a red check goes to a builder,
+   a conflict whose two outcomes cannot both hold is a decision for the owner, and the task's
+   state says which. Last, start the watch again while a task is `open` with a pull request.
 
 Every way out of this stage writes a state other than `landing`: `open`, `landed`, `dropped` for a
 pull request the owner closed, or `blocked`, or `held` for a small change that step 4 found to be a

@@ -16,6 +16,7 @@ new agent is one new file here and no edit to a stage.
 | `second-opinion` | send a plan to talk through to the reviewer: a second agent in the other pane of the session that asks, the agent the settings' `seats.reviewer` names, with its model and its `plan_effort` when they are set, read-only and started fresh for each talk |
 | `fan-out` | run several fresh agents over independent inputs at once |
 | `ask-experts` | start two experts of two model families (`fable` and `astra`) at one moment, in the background and read-only, each on the same brief file; you are told when each ends, and each one's last message becomes its answer file word for word |
+| `run-in-background` | run one command in the background and go on with other work; you are told when it ends, with its exit status and what it printed, and that end wakes you, also while you wait between two of the owner's messages. A stage that names such a command says when one at most may run |
 | `show-page` | show the owner something to read (a report, a diff, a table) without asking a question |
 
 And three roles a stage names instead of a skill id, because the id differs per agent:

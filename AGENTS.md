@@ -717,7 +717,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `project.py` (a repository's settings, task state and the event log),
   `doctor.py` (the machine, and a row when more than one place registers the correction hook),
   `board.py` (opens the board), `land.py` (the landing, one refusable step at a time: the
-  machine checks, the review's floor and its record, the pull request, the merge),
+  machine checks, the review's floor and its record, the pull request, the merge, and the watch
+  of the open pull requests on the forge),
   `corrections.py` (the optional queue of the owner's corrections: its hook, which claims each
   message so that a hook registered in two places judges it once, and what a retro reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
   the plugin puts on the Bash tool's `PATH` as the `lem-jev` command), `criteria.py` (a task's acceptance criteria, read from the top of

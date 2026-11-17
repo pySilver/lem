@@ -521,7 +521,8 @@ wait counts from the ask. A line can be lost (a pane that restarted, a brief wit
 wake an idle Lem, so also run `python3 SKILL_DIR/scripts/decisions.py pending` at each of your
 turns: its `waiting` list is what needs his answer. At the same turns, run `land.py merged SLUG`
 for each `open` task with a pull request, as `SKILL.md` says under Status: a merge he made on
-the forge frees the queue. A task that was dropped or landed while a choice waited is under `ended`, and
+the forge frees the queue and brings the other open tasks onto the new base (`stages/land.md`,
+step 9). A task that was dropped or landed while a choice waited is under `ended`, and
 its choices need no answer.
 
 1. **Ask him at once**, through `ask-owner`, which shows it as the settings' `tools.ask` says.
@@ -638,7 +639,8 @@ Act on the status:
   ask (`/lem new`), with a slug of its own.
 
 After any of these, look at what is owed and at the queue. A task that ended with a
-`ticket_owed` in `project.py tasks` gets those steps from the tracker now. A `blocked` task whose
+`ticket_owed` in `project.py tasks` gets those steps from the tracker now. While a task is `open`
+with a pull request and no watch of yours runs, start one, as `SKILL.md` says under Status. A `blocked` task whose
 state has `the base is red` and an `after:` task that is `landed` gets the state `ready` again,
 with the line `the base is green again`, and joins the landing line. Take the `queued` tasks in
 the order of their state's time, leave out each one whose `after:` task is not `landed`,

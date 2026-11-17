@@ -374,6 +374,22 @@ was started from a subagent, the way a builder that leads starts them; not run y
 `lem-builder` or from a task's session. One run of a toy choice: a real choice, with a plan and
 more files to read, takes longer, and that time comes out of the owner's wait.
 
+## run-in-background
+
+The `Bash` tool with `run_in_background`, on the command as the stage gives it, `python3
+SKILL_DIR/scripts/land.py watch` for the watch of the open pull requests. The tool names the
+background task and tells you when the command exits; then read the output file it named, which
+holds the command's JSON on exit 0, or its last line, `land.py: ...`, on exit 1. One watch at a
+time: keep the name of the task you started, and while it runs start no other. A watch that an
+earlier session started is not yours, and its end wakes that session only. To stop yours, when
+the owner says so, the `TaskStop` tool with that name; the watch then ends with exit 1 and says
+that it was stopped.
+
+Seen: the end of a background command reaches the session that started it as a message, during
+the session's turn (the experts' check above, 2026-11-16). Not run yet: a watch whose end comes
+while Lem's session waits between two of the owner's messages. Until that is seen, the status's
+own `land.py merged` at each turn of Lem's finds a merge the watch's end did not bring.
+
 ## A session's name
 
 `agtermctl session rename "Lem init · REPO" --target "$AGTERM_SESSION_ID" --socket "$AGTERM_SOCKET"`

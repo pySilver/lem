@@ -20,6 +20,13 @@ review that knows why the builder thought it was right finds less.
    code, as you would any claim. Each question there marked "raised, not argued" came after the
    reviewer's first list closed, so nobody argued it: check its mechanism at its place in the
    diff, as a claim, and a finding it leads to counts like any other.
+   When `resolution` in `read.json` is not null, the review that is due is of a builder's
+   resolution of a conflict with the base, after a review saw the change and left no must-fix.
+   Read what the resolution changed and nothing else of the diff: run `resolution.range_diff` in
+   `worktree`, the task's commits before the rebase beside the same commits after it, in the
+   files `resolution.files` names. The earlier review stands for the rest. Check that both sides
+   hold: the criteria of the plan, and what the base brought into those files. Its record is
+   `kind: read`, unless `floor` is `full`; the careful call of step 2 is still of the whole diff.
 2. **The careful call.** `topics` in your inputs are the project's sentences of what must never go
    wrong, as the main checkout's settings hold them. Read the diff against each one: does a line
    of it change how that thing behaves, or could a defect in it reach it? Follow a changed
