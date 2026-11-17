@@ -8,7 +8,12 @@ once per repository and stops before any task. The audit of 2026-11-16 counted a
 questions and several offers before the first task, each a page, and 20 to 40 minutes to it (an
 unmeasured estimate).
 
-Keep the onboarding's notes in its own task directory: `project.py task-dir onboarding`.
+Keep the onboarding's notes in its own task directory: `project.py task-dir onboarding --ask
+"Set up Lem in this repository"`. Write its state as any task's, so that the status and the
+board show it and never a directory with no state: `held` with the line `the onboarding's
+drafts wait for you` when the hand-over page is shown, and at the end `landed` or `dropped`, as
+the three replies below say. The first onboarding in Lem's own repository wrote none, and
+every later status listed a task whose state nobody wrote (2026-11-17).
 
 On a repository that already has `.lem/project.toml`, `/lem init` finishes an onboarding: it
 changes no setting that is there. Run step 1, skip the command of step 4 (it refuses a settings
@@ -251,7 +256,9 @@ The page and your last message end with the three replies you take, in these wor
   go through `stages/land.md`, which reads settings the base branch does not have yet. When the
   settings name gate commands, run them on the branch first and do not land on a red result; a
   new project names none, and its onboarding lands without them. Never hand him git commands to
-  type. Open your answer with what you did ("Landed: `main` is at ..."). On the first onboarding
+  type. Then write the state `landed` with that line (`project.py state onboarding landed
+  "main is at COMMIT: Lem's settings and drafts"`). Open your answer with what you did
+  ("Landed: `main` is at ..."). On the first onboarding
   the answer to "land it" opened with "It is not a Lem task, so /lem land does not apply", and
   the owner took it for a refusal of a landing that then happened (2026-11-15).
 - **change** and what: you edit, commit, and show the file again.
