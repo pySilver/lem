@@ -435,6 +435,19 @@ else
   fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events"
 fi
 
+# Green has one wording: the board's sentence is the first line of a green pull request, land.py's GREEN.
+if greens=$("$PY" -I -c 'import re, sys
+board = re.search(r"^const GREEN = (.+);$", open(sys.argv[1]).read(), re.M)
+land = re.search(r"^GREEN = (.+)$", open(sys.argv[2]).read(), re.M)
+said = eval(board.group(1)) if board else None
+meant = eval(land.group(1)).removeprefix("**Green.** ").removesuffix(".") if land else None
+print(f"{said!r} / {meant!r}")
+sys.exit(0 if said and said == meant else 1)' skills/lem/assets/board.html "$SCRIPTS/land.py"); then
+  pass "the board says what green means in the words of a green pull request's first line"
+else
+  fail "two wordings of green: $greens"
+fi
+
 # An item whose place is a file nobody can read is shown with that problem, and the board of the
 # other items is still written.
 if board --no-open > "$WORK/board.json" 2> "$WORK/board.err" \

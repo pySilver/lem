@@ -1063,8 +1063,8 @@ function tags(t, card = false) {
   return out;
 }
 
-// What green means, in the words of land.py's reasons for not green.
-const GREEN = 'The checks passed with no test skipped, removed or weakened, a review left no must-fix, no story changed during the build, and no choice was taken by a timeout or by the experts';
+// What green means, in the words of the first line of a green pull request (`GREEN` in land.py).
+const GREEN = 'The checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts';
 
 // How Lem puts a question to the owner: the project's `tools.ask` (`project.py show`), which board.py
 // writes into meta.js. Lem's own page, the conversation in Lem's session, or the developer's own
