@@ -89,7 +89,7 @@ Then set up the repository:
 2. Type `/lem init`.
 3. Answer three questions: what the product is, who a change affects, and what must never go wrong.
 4. Read the page that Lem shows. To correct an assumption, type `change` and the correction.
-5. Type `land`.
+5. Type `land`. That word puts the settings on your base branch, and the setup is done.
 
 Now type `/lem` and a small request.
 
@@ -143,7 +143,8 @@ Lem starts `/lem land` when a task is ready. Scheduled jobs can start `/lem retr
 - **The checks**: your test commands, the test of each criterion, and the check of the bar.
 - **The bar**: how strict your tests and linters are. Each of these lowers it: a new suppression,
   a skipped or deleted test, fewer assertions, or a weaker test setting.
-- **Review**: an agent that did not build the change reads it.
+- **Review**: an agent that did not build the change reads it. "One read" is the smallest
+  review: one agent reads the change one time.
 - **Green**: a pull request that you can merge without a read.
 - **Nap**: an optional short run in the background. An agent reads the recent tasks, writes a
   dream, and leaves a note for the retro.

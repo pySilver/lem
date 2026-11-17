@@ -420,21 +420,12 @@ him, and they are not his rulings until he says so:
   question.
 - **`/lem build` takes a plan file too, and lists the waiting plans when it gets no name**,
   after "why not `/lem build <path to plan>` instead?".
-- **The correction hook is registered for one repository first**, after "should we place a hook
-  per project or globally?": the yes is one project's, and a hook in the home settings starts on
-  every message in every repository. The session that carried his notes decided it and told
-  him; the home form stays for an owner with many repositories that use Lem.
-
-- **Lem can load as a Claude Code plugin, beside the links**, after "can we make it more self
-  contained? lem is aimed to be per-project companion" and his "I agree" to a test first. The
-  test ran on 2026-11-15, and the session that carries his words decided the first step, which
-  only adds files: `.claude-plugin/plugin.json` with no version (so each commit is an update),
+- **Lem is a Claude Code plugin**, after "can we make it more self contained? lem is aimed to be
+  per-project companion" and his "I agree" to a test first. The test ran on 2026-11-15; on
+  2026-11-17 he ruled that the plugin is the only form (above). The plugin's files are
+  `.claude-plugin/plugin.json` with no version (so each commit is an update),
   `.claude-plugin/marketplace.json`, `bin/` with `lem`, `lem-ask` and `lem-jev`, and
-  `hooks/hooks.json` after his ruling on the hook. The links of the setup work as before, and
-  removing the four undoes it. As a plugin the builder is `lem:lem-builder`, so the harness file
-  and the machine check know two names. Which form the README shows first he ruled on
-  2026-11-17 (above: the plugin first). No task has run in the plugin form yet; the README and
-  `docs/install.md` each say so in one line, which the first such task replaces with its result.
+  `hooks/hooks.json`. The builder is `lem:lem-builder`.
 - **One person can say no to the correction queue, and nobody is switched on by a file git does
   not show**: `[corrections] collect = false` in `.lem/project.local.toml`, and never `true`
   there. A design of the session that carries his words, for the half of him that leaned to

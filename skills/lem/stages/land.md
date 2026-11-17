@@ -274,7 +274,7 @@ one finds what the run before it finished.
 
    When its `left_behind` is not null, the checkout that holds the base branch could not follow
    the landing, and nothing in it was changed; give the owner that line as it is, with git's own
-   reason. The next task's worktree starts from that checkout's base branch, so say that too.
+   reason. A new task's worktree still starts from origin's base branch: only that checkout is behind.
 8. **After the merge.** For a task that came from a ticket (`ticket` in `lem project tasks`), the
    tracker comments the landing on the ticket and moves it as the settings say (`load-skill` the
    tracker, its "land"). Then **`clean`** removes the task's worktree and its branch, and the
