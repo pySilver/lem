@@ -288,11 +288,7 @@ one finds what the run before it finished.
    whose pull request the forge calls conflicting and did not at the look before, with `why`: a
    commit on the base that is no task's merge (a push of the owner's, another tool's merge) met
    its change. For each task under `ended`: `lem land merged SLUG`, which writes `landed` (then
-   step 8) or `dropped` (the top of this stage). When its `base_check` says `needed`, the forge
-   merged onto a base that moved after the checks, so the base holds a tree no check ran on: run
-   `lem land base-checks SLUG` once, before any other task takes the line. Green, go on. Red is the
-   base's: tell the owner at once in one line with the failing command, and open the task that
-   repairs it (`/lem new`), as for a base that is red (step 4); the other tasks wait for it. With only `conflicting`, no task merged: bring
+   step 8) or `dropped` (the top of this stage). With only `conflicting`, no task merged: bring
    each task it names onto the base the same way as below, with `lem land start SLUG
    --conflicting` in place of `--after`, and tell the owner the `why` in one line first. Then bring every task that is still `open` with a pull request onto the new base,
    without a word from the owner: `branch.propose = "pull-request"` is his standing word for this
@@ -307,18 +303,12 @@ one finds what the run before it finished.
      commits' new names, so the pass is not run again.
    - `checks`: the checks run again on the new base, and a red one is step 4.
    - `lem land read SLUG`. After a rebase with no conflict it says `none`: the review that saw the
-     change stands, also when the base changed a file of the change in other lines. A careful
-     request is the exception: when the base changed one of its files, it asks for one read of
-     the change against what the base brought there (`rebase` in `read.json`), not a round; start
-     it as step 5 says. After a
+     change stands, also when the base changed a file of the change in other lines. After a
      builder's resolution it asks for one read of what the resolution changed (`resolution` in
      `read.json`), or for the full set when the request is careful; start it as step 5 says. That
      read is no round, and a must-fix in it goes to a builder as step 5 says.
    - `propose`, with the title of the last proposal (`title` in `landing.json`) and `notes.md`:
      it pushes with a lease and keeps the pull request, whose text now opens with what happened.
-     Until then, `merged` wrote into each such task's state and the first line of its pull
-     request that the base moved and Lem checks it again (`waiting` in its output), so that the
-     owner does not merge a green of the older base.
      Its `synced` is your one line to the owner, as it is: "rebased on main after #3 merged; one
      conflict in shop/dates.py, resolved by a builder; the checks passed again". Then step 7.
 

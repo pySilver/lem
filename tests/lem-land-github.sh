@@ -300,45 +300,6 @@ else
   fail "a new task's worktree: $fresh / $second / $upstream / $local_tree"
 fi
 
-# After a merge on the forge the base is checked once only when the forge merged a tree the checks did not pass on, and a
-# red base is named with its command. The checks here fail when the base holds broken.txt.
-git -C "$GHS" fetch -q origin && git -C "$GHS" merge -q --ff-only origin/main
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["test ! -f broken.txt"]' > "$GHS/.lem/project.toml"
-settled "$GHS" && git -C "$GHS" push -q origin main
-pr_of() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["pr"]["number"])' "$GHS/.lem/state/tasks/$1/landing.json"; }
-# forge_merged SLUG: the owner merges the task's pull request on the forge: a fast-forward, or a merge commit when main moved
-forge_merged() {
-  local number head commit
-  number=$(pr_of "$1")
-  head=$(git -C "$GHO" rev-parse "refs/heads/fix/$1")
-  commit=$head
-  if ! git -C "$GHO" merge-base --is-ancestor main "$head"; then
-    commit=$(git -C "$GHO" -c user.name=forge -c user.email=forge@example.com commit-tree -p main -p "$head" -m "Merge pull request #$number" "$(git -C "$GHO" merge-tree --write-tree main "$head")")
-  fi
-  git -C "$GHO" update-ref refs/heads/main "$commit"
-  gh_set "d['prs']['$number'].update(state='MERGED', merge='$commit')"
-}
-# mate_pushes FILE: a teammate's commit on origin's main that adds FILE
-mate_pushes() { git -C "$mate" fetch -q origin && git -C "$mate" merge -q --ff-only origin/main && echo x > "$mate/$1" && git -C "$mate" add -A && git -C "$mate" commit -q -m "feat: $1" && git -C "$mate" push -q origin main; }
-for slug in base-same base-moved base-red; do
-  small_task_in "$GHS" "$slug" "$slug.txt" "$slug"
-  gh_checked "$slug" && gh_land read "$slug" --record "$(clean 1)" >/dev/null && gh_land propose "$slug" --title "fix: $slug" --notes "$NOTES" >/dev/null
-  case $slug in base-moved) mate_pushes other.txt ;; base-red) mate_pushes broken.txt ;; esac
-  forge_merged "$slug"
-  printf '%s\n' "$(gh_land merged "$slug" 2>&1 || true)" > "$WORK/$slug.merged"
-  printf '%s\n' "$(gh_land base-checks "$slug" 2>&1 || true)" > "$WORK/$slug.checked"
-done
-if [ "$(field '(d["base_check"]["needed"], d["base_check"]["why"])' < "$WORK/base-same.merged" 2>&1)" = "(False, 'the forge merged the tree the checks passed on')" ] \
-  && grep -qF "no check of the base is due for base-same: the forge merged the tree the checks passed on" "$WORK/base-same.checked" \
-  && [ "$(field 'd["base_check"]["needed"]' < "$WORK/base-moved.merged" 2>&1)" = True ] && grep -qF "a tree no check ran on" "$WORK/base-moved.merged" \
-  && [ "$(field '(d["green"], [(c["command"], c["exit"]) for c in d["commands"]])' < "$WORK/base-moved.checked" 2>&1)" = "(True, [('test ! -f broken.txt', 0)])" ] \
-  && grep -qF "the base is red after the merge of base-red: \`test ! -f broken.txt\` exits 1" "$WORK/base-red.checked" \
-  && ! git -C "$GHS" worktree list | grep -q "base-check" && [ "$(grep -c '"event": "base.checks"' "$GHS/.lem/state/events.jsonl")" = 2 ]; then
-  pass "after a merge on the forge the base is checked once only when the merged tree is not the one the checks passed on: the same tree runs nothing, another runs the checks on the merged commit in a worktree that goes after, and a red base is named with its command"
-else
-  fail "the check of the base after a merge on the forge: $(cat "$WORK"/base-*.merged "$WORK"/base-*.checked)"
-fi
-
 # A GitHub remote, and a developer who wants no pull requests (`branch.propose = "merge"`): the task
 # lands on the remote's base branch as a ready branch does, so the next task starts from it, and the
 # forge is never asked. The stand-in `gh` here only writes down that it was called.
@@ -474,10 +435,7 @@ else
 fi
 # After the merge the other open task is brought onto the new base: the same file in other lines, a rebase with no
 # conflict, so the review stands; the checks run again, and the proposal keeps its pull request.
-merged_one=$(gw_land merged w-one 2>&1 || true)
-# until w-two is brought onto the new base, its pull request's green is of the older one: its state and its text say so
-waits_state=$(sed -n 1,2p "$GWS/.lem/state/tasks/w-two/state.md" | sed 's/^[0-9TZ:-]* //')
-waits_body=$(gw_state 'd["prs"]["8"]["body"].splitlines()[0]')
+gw_land merged w-one >/dev/null
 started=$(gw_land start w-two --after w-one 2>&1 || true)
 based=$(gw_land base w-two 2>&1 || true)
 polished=$(gw_land polish w-two 2>&1 || true)
@@ -492,21 +450,11 @@ if [ "$(status_in "$GWS" w-one)" = landed ] && [ "$(field 'd["task"]' <<<"$start
   && [ "$(field '(d["pull_request"]["number"], d["green"], d["synced"])' <<<"$again" 2>&1)" = "(8, True, 'rebased on main after #7 merged; the checks passed again')" ] \
   && [ "$(status_in "$GWS" w-two)" = open ] && [ "$(git -C "$GWO" rev-parse refs/heads/fix/w-two)" = "$(git -C "$tree" rev-parse HEAD)" ] \
   && git -C "$tree" merge-base --is-ancestor "$(git -C "$GWO" rev-parse main)" HEAD \
-  && [ "$(gw_state '(sum(c[:2] == ["pr", "create"] for c in d["calls"]), [c[2] for c in d["calls"] if c[:2] == ["pr", "edit"]], "Rebased on main after #7 merged; the checks passed again." in d["prs"]["8"]["body"])')" = "(2, ['8', '8'], True)" ] \
+  && [ "$(gw_state '(sum(c[:2] == ["pr", "create"] for c in d["calls"]), [c[2] for c in d["calls"] if c[:2] == ["pr", "edit"]], "Rebased on main after #7 merged; the checks passed again." in d["prs"]["8"]["body"])')" = "(2, ['8'], True)" ] \
   && sed -n 3p "$text" | grep -qxF "Rebased on main after #7 merged; the checks passed again." && grep -qxF "rebased on main after #7 merged; the checks passed again" "$GWS/.lem/state/tasks/w-two/state.md"; then
   pass "after a merge an open task is brought onto the new base: start --after names the merge, base rebases it, the polish pass and the review it had stand through a rebase with no conflict, the checks run again, and propose pushes it and keeps its pull request, whose text and state say what happened in one line"
 else
   fail "an open task after a merge: $started / $based / $polished / $due_after / $again"
-fi
-waits_line="the base moved: #7 merged after this was checked; Lem brings it onto main and checks it again"
-if [ "$(field '[(e["task"], e["pr"], e["edited"]) for e in d["waiting"]]' <<<"$merged_one" 2>&1)" = "[('w-two', 8, True)]" ] \
-  && [ "$waits_state" = "$(printf '%s\n' "open: pull request https://github.com/acme/shop/pull/8" "$waits_line")" ] \
-  && [ "$waits_body" = "**The base moved.** #7 merged after this was checked: Lem brings it onto main and checks it again, and the green below is of the older base." ] \
-  && [ "$(gw_state 'd["prs"]["8"]["body"].splitlines()[0]')" = "**Green.** The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision was taken by timeout or by the experts." ] \
-  && [ "$(field 'd["base_check"]["needed"]' <<<"$merged_one" 2>&1)" = False ]; then
-  pass "after a merge each other open pull request says in its state and its first line that the base moved and Lem checks it again, until its proposal writes both again; a merge of the tree the checks passed on asks for no check of the base"
-else
-  fail "a pull request that waits for its rebase: $merged_one / $waits_state / $waits_body / $(gw_state 'd["prs"]["8"]["body"].splitlines()[0]')"
 fi
 # A conflict: the owner merges #9, which changed the line #10 changes too. The watch names #10 as conflicting, base stops,
 # a builder (here the test) rebases and keeps both, and the resolution gets one read of its own.
@@ -617,8 +565,8 @@ else
   fail "a pull request that became conflicting: code=$wcode $newly / $again_alive / $first / $both / $stopped / $synced"
 fi
 
-# A careful change keeps its review through a rebase with no conflict only while the new base left its files alone: when
-# the base changed one of them, the change gets one read against what the base brought into it, not a round.
+# A careful change keeps its review through a rebase with no conflict, onto a base that left its files alone and onto
+# one that changed one of them in other lines.
 line_task w-care small 7 care
 printf '%s\n' 'slug: w-care' 'careful: the owner says so' > "$GWS/.lem/state/tasks/w-care/brief.md"
 full_read='{"kind": "full", "ran": [{"name": "default", "why": "the owner calls it careful"}], "answered": ["codex"]}'
@@ -627,22 +575,16 @@ gw_land read w-care --record "$(record 1 "$full_read")" >/dev/null && gw_land pr
 git -C "$pusher" fetch -q origin && git -C "$pusher" merge -q --ff-only origin/main
 echo other > "$pusher/other.txt" && git -C "$pusher" add -A && git -C "$pusher" commit -q -m "docs: another file" && git -C "$pusher" push -q origin main
 gw_land start w-care >/dev/null && gw_land base w-care >/dev/null && gw_land checks w-care >/dev/null
-care_alone=$(gw_land read w-care | field '(d["due"], d["rebase"])' 2>&1 || true)
+care_alone=$(gw_land read w-care | field 'd["due"]' 2>&1 || true)
 "$PY" -I -c 'import sys; p = sys.argv[1]; lines = open(p).read().splitlines(); lines[0] = lines[0] + " first"; open(p, "w").write("\n".join(lines) + "\n")' "$pusher/shop.txt"
 git -C "$pusher" commit -q -am "fix: the first line" && git -C "$pusher" push -q origin main
 gw_land start w-care >/dev/null && gw_land base w-care >/dev/null && gw_land checks w-care >/dev/null
-care_meet=$(gw_land read w-care 2>&1 || true)
-care_recorded=$(gw_land read w-care --record "$(clean 2)" 2>&1 || true)
-care_after=$(gw_land read w-care | field 'd["due"]' 2>&1 || true)
+care_meet=$(gw_land read w-care | field '(d["due"], d["why"])' 2>&1 || true)
 gw_land propose w-care --title "fix: w-care" --notes "$MIG" >/dev/null 2>&1 || true
-if [ "$care_alone" = "('none', None)" ] \
-  && [ "$(field '(d["due"], d["floor"], d["rebase"]["files"], d["rebase"]["base_diff"].startswith("git diff "))' <<<"$care_meet" 2>&1)" = "('review', 'read', ['shop.txt'], True)" ] \
-  && grep -qF "the new base changed shop.txt under it: one read of the change against those changes" <<<"$care_meet" \
-  && [ "$(field '(d["recorded"]["of"], d["next"])' <<<"$care_recorded" 2>&1)" = "('rebase', 'none')" ] && [ "$care_after" = none ] \
-  && grep -qxF -- "- the read of the base's changes under the careful change (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit" "$GWS/.lem/state/tasks/w-care/pr.md"; then
-  pass "a careful change keeps its review through a rebase onto a base that left its files alone; when the base changed one of them, one read of the change against those changes is due, not a round, and the pull request names it"
+if [ "$care_alone" = none ] && [ "$care_meet" = "('none', 'round 1 reviewed this change and left no must-fix')" ]; then
+  pass "a careful change keeps its review through a rebase with no conflict, onto a base that left its files alone and onto one that changed one of them in other lines"
 else
-  fail "a careful change on a base that changed its files: $care_alone / $care_meet / $care_recorded / $care_after"
+  fail "a careful change after a rebase with no conflict: $care_alone / $care_meet"
 fi
 
 # A watch that is stopped ends the forge's calls, says so, and leaves the board's file saying that nobody watches.

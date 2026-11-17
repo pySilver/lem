@@ -313,18 +313,12 @@ branch moved after the checks, the checks run again first.
   needs the GitHub CLI `gh`, signed in. Each time you type `/lem`, Lem also asks GitHub first.
 - **A merged pull request ends its task.** Lem marks the task `landed`, removes its worktree and
   branch, and moves its ticket. A task that waited for it can start.
-- **A merge onto a base that moved gets the checks once.** If GitHub merged a tree that the checks
-  did not see, Lem runs the checks one time on the new base. If they fail, Lem tells you at once
-  and opens a task that repairs the base.
 - **A pull request closed with no merge drops its task.** The branch keeps its commits, and Lem
   tells you how to delete it. If you open the pull request again, the task does not come back. A
   new request starts new work.
-- **The other pull requests say that the base moved.** Until Lem checks one again, its first line
-  says "the base moved", so you do not merge a green of the old base.
 - **Each other open task comes onto the new base**, the ones with a conflict first. Lem rebases the
   branch, and a builder resolves a conflict. The checks run again. The review stands after a
-  rebase with no conflict. After a conflict, one read checks the resolution. A careful change also
-  gets one read when the base changed one of its files. Then Lem updates the pull request, and it
+  rebase with no conflict. After a conflict, one read checks the resolution. Then Lem updates the pull request, and it
   tells you in one line: "rebased on main after #3 merged; one conflict in shop/dates.py, resolved
   by a builder; the checks passed again".
 - **A new conflict also ends the watch.** GitHub can mark an open pull request as in conflict

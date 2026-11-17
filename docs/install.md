@@ -104,10 +104,9 @@ what a builder meets in that mode.
 
 ## GitHub
 
-With a remote on GitHub, Lem pushes the branch of each task and opens its pull request. A merge
-on GitHub onto a base that moved gets the checks once more from Lem, after the merge. To stop such
-a merge before it happens, turn on the branch rule "Require branches to be up to date before
-merging" for the base branch. GitHub then refuses a merge of a pull request on an old base.
+With a remote on GitHub, Lem pushes the branch of each task and opens its pull request. Turn on
+the branch rule "Require branches to be up to date before merging" for the base branch, and
+GitHub refuses a merge of a pull request on an old base.
 
 ## The correction queue
 
