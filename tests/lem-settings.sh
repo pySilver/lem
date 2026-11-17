@@ -1479,7 +1479,7 @@ if [ -n "$chrome" ]; then
     printf 'SKIP the board pages: %s printed no page\n' "$chrome"
   elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 waits for you, 1 builds, 1 in checks and review" "Report dates stay whole" \
     "Owner lands it" "Tell Lem in its session to land it." "!Demo data" "Keep report dates whole." \
-    "Building: task 2 of 3" "Second task" "Ready for its checks: the gate was cut off" "1 of 4" "1 waits for the merge" "1 not green" "tasks land on master" "!Review queue"); then
+    "Task 2 of 3" "Second task" "Ready for its checks: the gate was cut off" "1 of 4" "1 proposed · 1 not green" "tasks land on master" "!Review queue"); then
     pass "the board draws each task in its lane from the events, with what waits for the merge and whether it is green"
   else
     fail "the board: missing $why"
