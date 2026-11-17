@@ -32,6 +32,9 @@ may-land` about the settings' base branch, so a protected branch is never reache
                            merge the pull request, or put a ready branch on the base branch
     land.py merged SLUG    the owner merged the pull request on the forge: finish the bookkeeping;
                            or he closed it with no merge: the task is dropped
+    land.py base-checks SLUG
+                           after a merge whose tree is not the tree the checks passed on: the
+                           checks once on the merged commit; a red one is the base's
     land.py clean SLUG     remove the task's worktree and its branch after the merge
     land.py watch          look at the forge for the pull requests of the open tasks, and end when
                            one of them is merged or closed, or newly conflicting
@@ -102,7 +105,9 @@ whether a review covered the change then; the builder that resolves it rebases t
 and the next `base` finds the rewritten commits by that tip, gives the polish pass's commits their
 new names, and keeps the resolution. A review that saw the change and left no must-fix stands
 through a rebase that git made with no conflict, also when the base changed a file of the change in
-other lines: `base` carries it onto the new base. A builder's resolution gets one read of what it
+other lines: `base` carries it onto the new base. A careful request is the exception: when the new
+base changed a file of the change, the review stands for the rest, and one read looks at the change
+against what the base brought into those files (`rebase` in what `read` prints), not a round. A builder's resolution gets one read of what it
 changed (`git range-diff` of the commits before and after the rebase), or the project's full set
 for a careful request; that read is no round, and anything committed after the resolution is
 reviewed as a change like any other.
@@ -288,7 +293,14 @@ like any other, no task branch is pushed, and `merged` is refused. GitLab is not
 checked its command.
 
 `merged` asks the forge about a pull request the owner may have merged or closed there. A merged one
-finishes as a landing does. A closed one with no merge ends the task: its state becomes `dropped`
+finishes as a landing does. It compares the tree of the commit the forge merged with the tree the
+checks passed on (`base_check`): the same tree, after a squash or a merge of a branch that was up
+to date, was proved by the checks, and nothing runs; another tree, a merge onto a base that moved
+after the checks, is a tree no check ran on, and `base-checks` runs the checks once on that commit,
+in a worktree of its own that it removes after, red or green. And each other `open` task whose pull
+request was checked on the older base gets a state line and a first line of its text that say so
+("the base moved: #7 merged after this was checked; Lem brings it onto main and checks it again"),
+until its `propose` writes both again (`waiting` in the output). A closed one with no merge ends the task: its state becomes `dropped`
 with the line "the pull request was closed on the forge", so nothing of it waits and nobody cleans
 it by hand; `clean` then removes the worktree, and the branch keeps its commits, with how to delete
 it. A task that goes on after all is a new request.
@@ -804,12 +816,16 @@ def cmd_base(task: Task) -> dict:
     # A conflict this landing met before: a builder rebased the branch since and resolved it, or
     # left it as it was. Its record keeps the tip before any rebase and whether a review covered it.
     pending = kept.get("conflict")
+    # a careful change that an earlier rebase gave a read of the base's changes under it, not read yet
+    prior = kept.get("rebased") if (kept.get("rebased") or {}).get("read") is None else None
     if pending:
         covered = pending["covered"]
     else:
         # covered: the newest review that answered saw this change and left nothing to fix in it
         answered = [read for read in kept.get("reads", []) if read["answered"]]
-        covered = bool(answered) and not answered[-1]["must_fix"] and covers(task, answered[-1], change(task))
+        was = change(task)
+        covered = bool(answered) and not answered[-1]["must_fix"] and (covers(task, answered[-1], was) or bool(prior and prior["patch"] == was["patch"]))
+    before_base = git(task.worktree, "merge-base", before, onto)
     rebased = run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False)
     if rebased.returncode != 0:
         conflicts = git(task.worktree, "diff", "--name-only", "--diff-filter=U", check=False).splitlines()
@@ -850,6 +866,13 @@ def cmd_base(task: Task) -> dict:
             "files": pending["files"], "before": origin, "after": tip, "base": pending["base"], "onto": onto,
             "covered": covered, "patch": now["patch"], "read": None,
         }
+    elif tip != origin and covered and (meet := under_careful(task, now, prior["base"] if prior else before_base, onto)):
+        # A careful change whose files the new base changed too: the review of the change stands, and
+        # one read looks at the change against what the base brought into those files (`due`).
+        updates["rebased"] = {
+            "files": meet, "before": prior["before"] if prior else origin, "after": tip, "base": prior["base"] if prior else before_base,
+            "onto": onto, "patch": now["patch"], "read": None,
+        }
     elif tip != origin and covered:
         # A rebase that git made with no conflict keeps the review of the change: the newest review
         # that answered covers the change on the new base too.
@@ -862,6 +885,15 @@ def cmd_base(task: Task) -> dict:
     # a new base or a new tip means the last result of the checks is about another tree
     task.keep(**updates)
     return {"task": task.slug, "onto": task.onto, "base": onto, "tip": tip, "moved": tip != before, "ahead": ahead, "resolved": pending["files"] if resolved else None}
+
+
+def under_careful(task: Task, now: dict, old: str, onto: str) -> list[str]:
+    """For a careful request, the files of the change that the base changed too between the base it
+    was reviewed on and the new one; none for a request that is not careful, whose review a rebase
+    with no conflict carries over whole."""
+    if old == onto or not careful(task, now):
+        return []
+    return sorted(set(changed(task, old, onto)) & set(now["files"]))
 
 
 def holds_commit(task: Task, commit: str | None, tip: str) -> bool:
@@ -1574,11 +1606,11 @@ def due(task: Task) -> dict:
     reads = kept.get("reads", [])
     answered = [read for read in reads if read["answered"]]
     # The read of a conflict's resolution is no round: the two rounds are of the change itself.
-    rounds = [read for read in answered if read.get("of") != "resolution"]
+    rounds = [read for read in answered if read.get("of") not in ("resolution", "rebase")]
     why_careful = careful(task, now)
     # a small change has no plan, and is the one task of its builder
     tasks = 1 if found["small"] else tasks_of(Path(found["plan"]).read_text(encoding="utf-8"))
-    facts = {"round": len(rounds) + 1, "careful": why_careful, "tasks": tasks, "small": found["small"], "lines": now["lines"], "in_parts": now["lines"] > READ_AT, "resolution": None, **now}
+    facts = {"round": len(rounds) + 1, "careful": why_careful, "tasks": tasks, "small": found["small"], "lines": now["lines"], "in_parts": now["lines"] > READ_AT, "resolution": None, "rebase": None, **now}
     silent = len(reads) - max((index for index, read in enumerate(reads) if read["answered"]), default=-1) - 1
     resolution = kept.get("resolution")
     if resolution and resolution["covered"] and resolution["read"] is None and resolution["patch"] == now["patch"]:
@@ -1598,6 +1630,20 @@ def due(task: Task) -> dict:
             f"a builder resolved a conflict with the base in {files}: one read of what the resolution changed, and the earlier review stands for the rest"
         )
         return {"due": "review", "why": why, **facts}
+    rebased = kept.get("rebased")
+    if rebased and rebased["read"] is None and rebased["patch"] == now["patch"] and why_careful:
+        # A careful change that a rebase with no conflict brought onto a base that changed its files:
+        # the review stands, and one read looks at the change against the base's changes to them.
+        files = ", ".join(rebased["files"])
+        facts.update(
+            floor="read", attempt=len(reads) + 1, round=max(len(rounds), 1),
+            rebase={**{key: rebased[key] for key in ("files", "before", "after", "base", "onto")},
+                    "base_diff": f"git diff {rebased['base'][:12]} {rebased['onto'][:12]} -- {' '.join(rebased['files'])}",
+                    "range_diff": f"git range-diff {rebased['base'][:12]}..{rebased['before'][:12]} {rebased['onto'][:12]}..{rebased['after'][:12]}"},
+        )
+        if silent >= 2:
+            return {"due": "owner", "why": f"not reviewed: the read of the base's changes to {files} was started twice and no source answered", **facts}
+        return {"due": "review", "why": f"the request is careful ({why_careful[0]}) and the new base changed {files} under it: one read of the change against those changes, and the earlier review stands for the rest", **facts}
     # The floor is what no judgment goes under. Which profiles fit a change is read from the diff
     # and from what each profile is for, by an agent: no code and no list of words decides that.
     if why_careful:
@@ -1618,10 +1664,12 @@ def due(task: Task) -> dict:
         if not covers(task, last, now):
             unmet.append("nobody reviewed what changed after it")
         # the read of a resolution is as large as the resolution; the change itself was reviewed by the round before it
-        sized = rounds[-1] if last.get("of") == "resolution" and rounds else last
+        sized = rounds[-1] if last.get("of") in ("resolution", "rebase") and rounds else last
         if KINDS.index(sized["kind"]) < KINDS.index(floor):
             unmet.append(f"it was {KIND_SAYS[sized['kind']]}, and this change gets {KIND_SAYS[floor]} at the least ({why})")
     if last and not unmet:
+        if last.get("of") == "rebase":
+            return {"due": "none", "why": f"round {last['round']} reviewed this change, one read of the base's changes under it read what the base brought, and neither left a must-fix", **facts}
         if last.get("of") == "resolution":
             return {"due": "none", "why": f"round {last['round']} reviewed this change, one read of the conflict's resolution read what changed after it, and neither left a must-fix", **facts}
         return {"due": "none", "why": f"round {last['round']} reviewed this change and left no must-fix", **facts}
@@ -1985,6 +2033,9 @@ def cmd_read(task: Task, record: str | None) -> dict:
             # a builder's resolution of a conflict with the base, when the review due is the read of it: what it changed is
             # what `range_diff` shows, the branch's commits before the rebase beside the same commits after it
             "resolution": state["resolution"],
+            # a careful change brought onto a base that changed its files, when the review due is the read of those changes:
+            # `base_diff` shows what the base brought into them, `range_diff` the change before and after the rebase
+            "rebase": state["rebase"],
             "reads": [{key: value for key, value in read.items() if key not in ("contents", "carried")} for read in reads],
             # what a reviewer gets, and nothing of the builder's reasoning
             "inputs": {
@@ -2061,13 +2112,15 @@ def cmd_read(task: Task, record: str | None) -> dict:
         "careful": call, "careful_why": call_why.strip(),
         "date": date.today().isoformat(), "verdict": "not reviewed" if not answered else "must-fix" if counts["must_fix"] else "clean", "tip": state["tip"][:9], "patch": state["patch"],
         # the read of a builder's resolution of a conflict, which is no round of the change
-        **({"of": "resolution"} if state["resolution"] else {}),
+        **({"of": "resolution"} if state["resolution"] else {"of": "rebase"} if state["rebase"] else {}),
     }
     # The event first: a run that is cut off between the two writes the review down at its next
     # run, and the second event has the same attempt, by which a reader of the log knows it.
     script("project.py", task.worktree, "log", task.slug, "review", *(f"{key}:={json.dumps(value)}" for key, value in entry.items()))
     # The contents of the change stay out of the log: only `covers` reads them, from the kept record.
     task.keep(reads=[*reads, {**entry, "contents": state["contents"]}])
+    if state["rebase"] and answered:
+        task.keep(rebased={**task.kept()["rebased"], "read": state["attempt"]})
     if state["resolution"] and answered:
         # the resolution is read: from here the rules of the change hold again
         task.keep(resolution={**task.kept()["resolution"], "read": state["attempt"]})
@@ -2266,10 +2319,11 @@ def edited_line(bar: dict) -> list[str]:
 
 
 def resolution_line(read: dict) -> str:
-    """The read of a conflict's resolution as one line of the pull request's checks."""
+    """The read of a conflict's resolution, or of the base's changes under a careful change, as one line of the pull request's checks."""
     who = f"answered: {', '.join(read['answered'])}" if read["answered"] else "no source answered"
     said = f"{read['verdict']}, {read['must_fix']} must-fix, {read['should']} should, {read['nit']} nit" if read["answered"] else "not reviewed"
-    return f"- the read of the conflict's resolution ({KIND_SAYS[read['kind']]}; {who}): {said}"
+    of = "the base's changes under the careful change" if read.get("of") == "rebase" else "the conflict's resolution"
+    return f"- the read of {of} ({KIND_SAYS[read['kind']]}; {who}): {said}"
 
 
 def small_text(task: Task, notes: str, state: dict) -> str:
@@ -2307,7 +2361,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     out.append("- the bar: no mark of a lowered bar found" if not lowered else "- the bar is lowered: " + "; ".join(f"`{entry['file']}` ({entry['what']})" for entry in lowered))
     out += edited_line(checks.get("bar") or {})
     for read in kept.get("reads", []):
-        if read.get("of") == "resolution":
+        if read.get("of") in ("resolution", "rebase"):
             out.append(resolution_line(read))
             continue
         who = f"answered: {', '.join(read['answered'])}" if read["answered"] else "no source answered"
@@ -2382,7 +2436,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     size = checks.get("size") or {}
     out.append(f"- size: {size.get('files', '?')} files, {size.get('lines', '?')} changed lines")
     for read in kept.get("reads", []):
-        if read.get("of") == "resolution":
+        if read.get("of") in ("resolution", "rebase"):
             out.append(resolution_line(read))
             continue
         who = f"answered: {', '.join(read['answered'])}" if read["answered"] else "no source answered"
@@ -2568,7 +2622,8 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
     moved = synced(task)
     if task.forge == "github":
-        task.keep(pr=pr, proposed=tip, title=title, not_green=reasons)
+        # the text and the state say again what holds: the base it waits for is the one it is on now
+        task.keep(pr=pr, proposed=tip, title=title, not_green=reasons, waits=None)
         task.state("open", f"pull request {pr['url']}", says, *([moved] if moved else []))
     else:
         task.keep(proposed=tip, title=title, not_green=reasons)
@@ -2624,9 +2679,123 @@ def forge_done(task: Task, view: dict) -> dict:
     merged = (view.get("mergeCommit") or {}).get("oid")
     # the commit of the branch that the forge merged: `clean` removes the branch only when it holds nothing after it
     task.keep(merged=merged or True, merged_head=view["headRefOid"])
+    checked = base_checked(task, merged)
+    task.keep(base_check=checked)
     left_behind = follow(task)
     task.state("landed", f"{task.base}: pull request {pr['url']} is merged")
-    return {"task": task.slug, "base": task.base, "pull_request": pr, "merged": merged, "left_behind": left_behind}
+    waiting = mark_waiting(task, pr)
+    return {"task": task.slug, "base": task.base, "pull_request": pr, "merged": merged, "left_behind": left_behind, "base_check": checked, "waiting": waiting}
+
+
+def base_checked(task: Task, merged: str | None) -> dict:
+    """Whether the commit the forge merged is a tree the checks passed on. A squash, or a merge of a
+    branch that was up to date with the base, gives the same tree, and the checks proved it; a merge
+    onto a base that moved since gives another, which no check ran on (`base-checks` runs them)."""
+    checked = task.kept().get("tree")
+    tree = git(task.main, "rev-parse", "--verify", "--quiet", f"{merged}^{{tree}}", check=False) if merged else ""
+    if checked and tree == checked:
+        return {"needed": False, "commit": merged, "why": "the forge merged the tree the checks passed on"}
+    why = (f"the base holds {merged[:9]}, a tree no check ran on: the forge merged the pull request onto a base that moved after its checks"
+           if merged and tree else "the forge named no merge commit that this checkout has, so nothing shows that the checks ran on what the base holds")
+    return {"needed": True, "commit": merged if tree else None, "why": why, "ran": None}
+
+
+def mark_waiting(task: Task, merged_pr: dict) -> list[dict]:
+    """After a merge, each other open task's pull request is green on an older base until Lem brings
+    it onto the new one and proposes it again: its state and the first line of its text say so, and
+    `propose` writes both again. A pull request the forge does not take the text of is named, and the
+    merge stands."""
+    tasks = json.loads(script("project.py", task.main, "tasks").stdout)
+    onto = git(task.main, "rev-parse", task.onto, check=False)
+    marked = []
+    for other in tasks:
+        if other["slug"] == task.slug or other["status"] != "open":
+            continue
+        kept_file = task.directory.parent / other["slug"] / "landing.json"
+        try:
+            kept = json.loads(kept_file.read_text(encoding="utf-8")) if kept_file.is_file() else {}
+        except ValueError:
+            continue
+        pr, text = kept.get("pr"), task.directory.parent / other["slug"] / "pr.md"
+        if not pr or not kept.get("proposed") or kept.get("base") == onto:
+            continue
+        line = f"the base moved: #{merged_pr['number']} merged after this was checked; Lem brings it onto {task.base} and checks it again"
+        script("project.py", task.main, "state", other["slug"], "open", f"pull request {pr['url']}", line)
+        entry = {"task": other["slug"], "pr": pr["number"], "line": line, "edited": False}
+        if text.is_file():
+            body = text.read_text(encoding="utf-8")
+            if not body.startswith("**The base moved.**"):
+                write_whole(text, f"**The base moved.** #{merged_pr['number']} merged after this was checked: Lem brings it onto {task.base} and checks it again, and the green below is of the older base.\n\n{body}")
+            edited = gh_in(task.main, "pr", "edit", str(pr["number"]), "--body-file", str(text), check=False)
+            entry["edited"] = edited.returncode == 0
+            if not entry["edited"]:
+                said = (edited.stderr or edited.stdout).strip().splitlines()
+                entry["why"] = said[-1] if said else "gh pr edit failed"
+        write_whole(kept_file, json.dumps({**kept, "waits": {"after": task.slug, "pr": merged_pr["number"]}}, indent=2) + "\n")
+        marked.append(entry)
+    return marked
+
+
+def cmd_base_checks(task: Task) -> dict:
+    """The checks once on the commit the forge merged, when `merged` found that its tree is not the
+    tree the checks passed on: in a worktree of that commit made for this run and removed after it,
+    with `checks.setup` first, then `checks.commands`, then `checks.alone` under its lock. A red
+    command is the base's, not the task's: the step says which and exits 1, and Lem opens the task
+    that repairs the base."""
+    if task.record["status"] != "landed":
+        raise LandError(f"the task is {task.record['status']!r}: the checks of the base after a merge are for a task the forge merged, after `land.py merged {task.slug}`")
+    needed = task.kept().get("base_check") or {}
+    if not needed.get("needed"):
+        raise LandError(f"no check of the base is due for {task.slug}: " + (needed.get("why") or "`land.py merged` found none to run"))
+    commit = needed.get("commit")
+    if not commit:
+        raise LandError(f"{needed['why']}: run the checks on {task.onto} by hand, or `git fetch` and `land.py merged {task.slug}` again")
+    commands = task.settings["checks"]["commands"]
+    if not commands:
+        raise LandError(f"{NO_GATE}: nothing would show that the base is green")
+    place = task.main / Path(task.settings["paths"]["worktrees"]["path"]).relative_to(Path(task.settings["root"]).resolve()) / f"{task.slug}.base-check"
+    logs = task.directory / "base-check"
+    logs.mkdir(exist_ok=True)
+    run(["git", "-C", str(task.main), "worktree", "remove", "--force", "--force", str(place)], check=False)
+    git(task.main, "worktree", "add", "-q", "--detach", str(place), commit)
+    results: list[dict] = []
+    running: list[subprocess.Popen] = []
+    try:
+        steps = [*((command, "setup") for command in task.settings["checks"]["setup"]), *((command, "check") for command in commands),
+                 *((command, "alone") for command in task.settings["checks"]["alone"])]
+        for number, (command, kind) in enumerate(steps, start=1):
+            if kind == "alone" and any(result["exit"] != 0 for result in results):
+                break
+            line: str | list[str] = command
+            if kind == "alone":
+                line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "alone", "--", command]
+            output = logs / f"{number:02d}.log"
+            with output.open("w", encoding="utf-8") as handle:
+                proc = subprocess.Popen(line, shell=kind != "alone", cwd=place, stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
+                running.append(proc)
+                code = proc.wait()
+                end_group(running)
+            said = [text for text in output.read_text(encoding="utf-8", errors="replace").splitlines() if text.strip()]
+            results.append({"command": command, "kind": kind, "exit": code, "last": said[-1].strip() if said else "", "output": str(output)})
+            if kind == "setup" and code != 0:
+                break
+    finally:
+        end_group(running)
+        run(["git", "-C", str(task.main), "worktree", "remove", "--force", "--force", str(place)], check=False)
+        run(["git", "-C", str(task.main), "worktree", "prune"], check=False)
+    red = [result for result in results if result["exit"] != 0]
+    task.keep(base_check={**needed, "needed": bool(red), "ran": {"commit": commit, "green": not red, "commands": results}})
+    script("project.py", task.main, "log", task.slug, "base.checks", f"commit={commit[:9]}", f"green:={json.dumps(not red)}",
+           f"red:={json.dumps([result['command'] for result in red])}")
+    result = {"task": task.slug, "commit": commit, "green": not red, "commands": results}
+    if red:
+        print(json.dumps(result, indent=2))
+        first = red[0]
+        raise LandError(
+            f"the base is red after the merge of {task.slug}: `{first['command']}` exits {first['exit']} on {commit[:9]} ({first['last'] or 'no output'}; {first['output']}). "
+            "The base is no task's to carry: tell the owner in one line, and open the task that repairs it (`/lem new`), as for a base that is red (`stages/land.md`, step 4)",
+        )
+    return result
 
 
 def viewed(task: Task, pr: dict | None = None) -> dict:
@@ -2968,6 +3137,7 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("base", "checks", "merged", "clean"):
         commands.add_parser(name).add_argument("slug")
+    commands.add_parser("base-checks", help="after a merge on the forge onto a base that moved: the checks once on the merged commit").add_argument("slug")
     # the step's older name, refused with the name of now: a session that read an older stage text may still type it
     commands.add_parser("gate", help="the older name of `checks`, refused with it").add_argument("slug")
     start = commands.add_parser("start")
@@ -3018,6 +3188,8 @@ def main() -> None:
             result = cmd_land(task, args.by, args.message)
         elif args.command == "merged":
             result = cmd_merged(task)
+        elif args.command == "base-checks":
+            result = cmd_base_checks(task)
         else:
             result = cmd_clean(task)
     except LandError as error:
