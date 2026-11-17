@@ -40,6 +40,19 @@ else
   fail "the naps' settings: $shown / $template"
 fi
 
+# The naps' table is the base branch's, as [flow] is: a task's branch that switches them on, or keeps them longer, changes
+# nothing that its worktree reads, since a nap spends the tokens of whoever works on the machine.
+git -C "$NP" worktree add -q "$WORK/nap-tree" -b feat/naps-on main
+"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^keep_days = 30$", "keep_days = 2", re.sub(r"(?m)^on = false$", "on = true", s, count=1), count=1))' "$WORK/nap-tree/.lem/project.toml"
+git -C "$WORK/nap-tree" -c user.name=t -c user.email=t@t commit -q -am "chore: the naps on"
+from_branch=$(project --repo "$WORK/nap-tree" show | field '(d["naps"]["on"], d["naps"]["keep_days"], d["settings_from"].startswith("this worktree'"'"'s branch, with [flow] and [naps] from main@"))')
+git -C "$NP" worktree remove --force "$WORK/nap-tree" && git -C "$NP" branch -q -D feat/naps-on
+if [ "$from_branch" = "(False, 30, True)" ]; then
+  pass "in a task's worktree the naps' table is the base branch's: a branch that switches the naps on or keeps them longer changes nothing, and show says where both tables come from"
+else
+  fail "the naps' table of a worktree: $from_branch"
+fi
+
 # Off, Lem's own call says no and writes nothing down; the owner's word starts one, and a second call finds it running.
 off=$(nap); off_code=$(status_of nap)
 asked=$(nap --asked)

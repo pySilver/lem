@@ -144,7 +144,8 @@ goes stale as the code moves, misses new code, and a branch can edit the list th
 from the base branch's settings, also in a task's worktree, as the checks are read by the
 landing: a branch that empties its topics or shortens the owner's wait lifts nothing, since every
 lead, reviewer and landing reads the table as the base branch has it. The table the branch writes
-is still checked, so that its error shows before it lands.
+is still checked, so that its error shows before it lands. `[naps]` is read the same way: a nap
+spends the tokens of whoever works on the machine, and a branch does not switch them on.
 
 The base branch's settings are `.lem/project.toml` as the base branch's newest commit holds it
 (`git show BASE:.lem/project.toml`), never as the main checkout has it checked out: a colleague's
@@ -1062,7 +1063,11 @@ def load(root: Path) -> dict:
         if given["moves"] == "tracker" and named:
             raise SettingsError(f'{SETTINGS}: with tracker.moves = "tracker" Lem moves no ticket, so {" and ".join(named)} say nothing: remove them')
         tracker = {key: given.get(key) for key in TABLES["tracker"]}
+    # The naps spend the tokens of whoever works on this machine, so their switch is the base
+    # branch's too: a task's branch that switches them on has not been agreed to yet.
     naps = naps_of(raw, SETTINGS)
+    if main.resolve() != root.resolve():
+        naps = naps_of(base_raw(), base_file)
     if local_naps_off(local):
         if naps["on"]:
             overridden.append("naps.on")
@@ -1074,7 +1079,7 @@ def load(root: Path) -> dict:
         "settings": str(file) if file.is_file() or committed else None,
         # where the settings were read: the base branch's commit, or the working tree before the base holds them
         "settings_from": (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the working tree")
-        if main.resolve() == root.resolve() else "this worktree's branch, with [flow] from " + (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the main checkout"),
+        if main.resolve() == root.resolve() else "this worktree's branch, with [flow] and [naps] from " + (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the main checkout"),
         "paths": paths,
         "branch": {"base": base, "land": land, "history": history, "propose": propose, "protected": protected},
         "checks": {
