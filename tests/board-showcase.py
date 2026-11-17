@@ -71,6 +71,16 @@ class Shop:
     def stories(self, *args: str) -> str:
         return run(sys.executable, "-B", str(SCRIPTS / "stories.py"), "--repo", str(self.repo), *args)
 
+    def commit_in(self, tree: Path, message: str, files: dict[str, str]) -> None:
+        for name, text in files.items():
+            (tree / name).parent.mkdir(parents=True, exist_ok=True)
+            (tree / name).write_text(text)
+        run("git", "-C", str(tree), "add", "-A")
+        run("git", "-C", str(tree), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", message)
+
+    def head(self, tree: Path) -> str:
+        return run("git", "-C", str(tree), "rev-parse", "--short=9", "HEAD").strip()
+
     def at(self, slug: str, minutes: float) -> None:
         """The event just written ran MINUTES before NOW."""
         self.times.setdefault(slug, []).append(minutes)
@@ -208,24 +218,48 @@ def afternoon(shop: Shop) -> None:
     s.read(t, 314, date, 0)
     s.state(t, 314, "held", "the stories wait for the owner")
     s.approve(t, 309, date)
+    # Its worktree and its branch, with the plan, the commits of the build and of the polish pass: the
+    # state blocks carry the newest commit, and stories.py checks the story's test on the branch and on
+    # the base commit, as a real build does.
+    tree = Path(s.project("worktree-dir", t).strip())
+    s.git("worktree", "add", "-q", "-b", f"feat/{t}", str(tree), "main")
+    s.commit_in(tree, "docs(plans): the order date on the invoice", {"docs/plans/20261117-order-date-on-invoice.md": "\n".join([
+        "# The order date on the invoice", "", "## Stories", "", "Kind: feature, because the invoice gets a new line.", "",
+        '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.',
+        "   - test: `sh tests/order-date.sh` in `tests/order-date.sh`", "", "## Tasks", "",
+        "1. The date under the order's number.", "2. The date in the shop's language.", ""])})
     s.state(t, 308, "building", "lead: builder")
     s.state(t, 296, "building", "plan committed, 2 tasks")
+    s.stories("record", t)
+    s.at(t, 295.5)
     s.state(t, 295, "building", "task 1 of 2")
     s.log(t, 294.5, "builder.start", "job=task 1 of 2")
+    s.commit_in(tree, "feat(invoice): the order date under the order's number", {
+        "invoice/date.py": 'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n',
+        "tests/order-date.sh": "#!/bin/sh\ngrep -q 'Ordered {order.placed' invoice/date.py\n"})
     s.state(t, 268, "building", "task 2 of 2")
     s.log(t, 267.5, "builder.start", "job=task 2 of 2")
+    s.commit_in(tree, "feat(invoice): the order date in the shop's language", {
+        "invoice/date.py": 'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'})
+    s.stories("red", t)
+    s.at(t, 247)
     s.state(t, 246, "ready", "the report is written")
     s.state(t, 245, "landing", "the checks start")
-    s.log(t, 244, "polish.start", "before=9e8d7c6b5")
-    s.log(t, 236, "polish", "before=9e8d7c6", "after=a1b2c3d", "commits:=1", "filed:=[]")
-    s.log(t, 235.5, "gate.start", "tip=a1b2c3d4e", "commands:=2")
-    s.log(t, 232, "gate", "command=make test", "exit:=0", "last=214 passed", "tip=a1b2c3d")
-    s.log(t, 231, "gate", "command=make lint", "exit:=0", "last=All checks passed", "tip=a1b2c3d")
-    s.log(t, 230.5, "task.red", "ok:=true", "digest=000000000000", "base=0a1b2c3d4", "tip=a1b2c3d4e", "tests:=[]", "without_a_test:=[]", "run_without:=[]")
+    before = s.head(tree)
+    s.log(t, 244, "polish.start", f"before={before}")
+    s.commit_in(tree, "style(invoice): one name for the date's format", {
+        "invoice/date.py": 'DATE = "%-d %B %Y"\n\n\ndef ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'})
+    tip = s.head(tree)
+    s.log(t, 236, "polish", f"before={before[:7]}", f"after={tip[:7]}", "commits:=1", "filed:=[]")
+    s.log(t, 235.5, "gate.start", f"tip={tip}", "commands:=2")
+    s.log(t, 232, "gate", "command=make test", "exit:=0", "last=214 passed", f"tip={tip[:7]}")
+    s.log(t, 231, "gate", "command=make lint", "exit:=0", "last=All checks passed", f"tip={tip[:7]}")
+    s.stories("red", t)
+    s.at(t, 230.5)
     s.log(t, 230, "review.start", "attempt:=1", "floor=round")
     s.log(t, 219, "review", "attempt:=1", "round:=1", "kind=round", "verdict=clean", "must_fix:=0", "should:=1", "nit:=2", 'answered:=["codex", "claude"]',
-          "silent:=[]", 'ran:=[{"name": "correctness", "why": "the invoice changes"}]', 'left_out:=[{"name": "security", "why": "no input is read"}]', "tip=a1b2c3d")
-    s.log(t, 218, "proposed", "green:=true", "not_green:=[]", "tip=a1b2c3d")
+          "silent:=[]", 'ran:=[{"name": "correctness", "why": "the invoice changes"}]', 'left_out:=[{"name": "security", "why": "no input is read"}]', f"tip={tip[:7]}")
+    s.log(t, 218, "proposed", "green:=true", "not_green:=[]", f"tip={tip[:7]}")
     s.state(t, 218, "open", "pull request https://github.com/acme/shop/pull/38", "green")
     s.state(t, 160, "landed", "main: pull request https://github.com/acme/shop/pull/38 is merged")
 
@@ -259,7 +293,10 @@ setTimeout(() => {
   // the tallest card of each lane over its shortest
   const ratio = [...document.querySelectorAll('#lanes .lane')].map(l => [...l.querySelectorAll('.tcard')].map(c => c.offsetHeight)).filter(hs => hs.length)
     .map(hs => Math.round((100 * Math.max(...hs)) / Math.min(...hs)) / 100);
-  const out = {lanes: lanes && !lanes.hidden ? top(lanes) : null, first_cards_end: firsts.length ? Math.max(...firsts.map(bottom)) : null,
+  // the empty band of the large card: from the end of what it says to its last line
+  const now = document.querySelector('#now .now-in'), next = document.querySelector('#now .now-next');
+  const out = {now_card: document.getElementById('now').offsetHeight, now_empty: now && next ? Math.round(next.getBoundingClientRect().top - now.getBoundingClientRect().bottom) : null,
+    lanes: lanes && !lanes.hidden ? top(lanes) : null, first_cards_end: firsts.length ? Math.max(...firsts.map(bottom)) : null,
     card_height_ratio: ratio, page: bottom(document.getElementById('page'))};
   const pre = document.createElement('pre'); pre.id = 'measured'; pre.textContent = JSON.stringify(out); document.body.append(pre);
 }, 2500);
@@ -326,7 +363,8 @@ def main() -> None:
         feed.write_text(re.sub(r'"read": "[^"]*"', f'"read": "{NOW.strftime("%Y-%m-%dT%H:%M:%SZ")}"', feed.read_text(), count=1))
         profile = work / "chrome"
         if "--measure" in sys.argv:
-            print(json.dumps({f"{w}x900": measure(binary, profile, shop.dir, "board", w, 900) for w in (900, 1400, 1800)}, indent=2))
+            print(json.dumps({f"{w}x900": measure(binary, profile, shop.dir, "board", w, 900) for w in (900, 1400, 1800)}
+                             | {"task 1400x900": measure(binary, profile, shop.dir, "task-order-date-on-invoice", 1400, 900)}, indent=2))
         shots = {"board": ("board", ""), "task": ("task-order-date-on-invoice", ""), "backlog": ("board", "#backlog")}
         for name, (page, hash_) in shots.items():
             for theme in ("light", "dark"):
