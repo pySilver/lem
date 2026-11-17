@@ -23,7 +23,8 @@ directory above this file's. This file and your standing rules are all you read 
    its end, leave the worktree clean, write the state `held` with the line `the stories wait for
    the owner: the small change is a feature` and a line that says why, and reply with the report's
    path. Lem takes the feature path from there.
-6. **Commit** on the task's branch with a semantic message. Never push, merge or land.
+6. **Commit** on the task's branch with a semantic message. Never push, merge or land. Then
+   `git status --short` is empty: remove what your runs left untracked, such as a `__pycache__`.
 7. **File what you saw outside the change.** A small change has no polish pass, so a defect in
    code outside your change, one the base commit has too, is yours to file and never to fix: one
    item for each in the backlog folder (`paths.backlog` in `project.py --repo WORKTREE show`), in

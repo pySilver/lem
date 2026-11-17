@@ -74,6 +74,12 @@ What holds for every builder, unless your job says otherwise as above:
    nothing else. When the write of the report file is refused to you, do not go around the
    refusal by another tool: your reply is then the whole report, and the one who started you
    keeps the file.
+10. **Leave no file of your own runs.** Before you report and write the state that ends your
+    work, `git status --short` in your worktree is empty, in every job. What your own commands
+    left untracked (a
+    `__pycache__`, a test's output, a scratch file) you remove; what you meant to add you commit.
+    The landing refuses a worktree with a file nobody committed, and in a repository with no
+    ignore rule for bytecode one test run is enough to leave one.
 
 In a worktree, Claude Code refuses a shell command whose shape it cannot verify. Write plain
 commands: no shell variables, no `$(...)`, no loops, and a file instead of a heredoc when the

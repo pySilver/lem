@@ -67,6 +67,9 @@ yes, with `<the test's command>` (commit <short hash>), failing with: <the exact
 A number is a command's output, and a sentence about the code is one you read in the code. Say
 what you did not verify.
 
+Before you write the report, `git status --short` in the worktree is empty: remove what your own
+runs left untracked, such as a `__pycache__`; the test you meant to keep is in its commit.
+
 Your reply is the report's path and nothing else. When the write of the report is refused to you,
 do not go around the refusal by another tool: your reply is then the whole report, and Lem keeps
 the file.

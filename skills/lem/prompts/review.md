@@ -97,5 +97,8 @@ review that knows why the builder thought it was right finds less.
      The landing refuses a record with no careful call, and a careful one whose kind is not
      `full`.
 
+Before you reply, `git status --short` in the worktree is empty: a test or an input you ran
+there leaves no file, so remove what your own commands left untracked, such as a `__pycache__`.
+
 Your reply is the two paths and one line: the kind, who answered, the three counts, and your
 careful call.
