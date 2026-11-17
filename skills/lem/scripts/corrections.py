@@ -125,9 +125,10 @@ def collects(cwd: str) -> bool:
     if file is None or not file.is_file():
         return False
     try:
-        if tomllib.loads(file.read_text()).get("corrections", {}).get("collect") is not True:
+        if tomllib.loads(file.read_text(encoding="utf-8")).get("corrections", {}).get("collect") is not True:
             return False
-    except (tomllib.TOMLDecodeError, OSError):
+    # ValueError: a file that is not TOML, or not UTF-8 text
+    except (ValueError, OSError):
         return False
     # One person's no, in the file of this machine that git does not track. It is in the main
     # checkout, the first one git lists, as project.py reads it: a worktree has no copy of it.
@@ -140,8 +141,8 @@ def collects(cwd: str) -> bool:
     if not own.is_file():
         return True
     try:
-        table = tomllib.loads(own.read_text()).get("corrections")
-    except (tomllib.TOMLDecodeError, OSError):
+        table = tomllib.loads(own.read_text(encoding="utf-8")).get("corrections")
+    except (ValueError, OSError):
         return False
     # a table that says nothing about the queue leaves the project's yes; any other shape is a no
     return table is None or (isinstance(table, dict) and "collect" not in table)
@@ -154,7 +155,23 @@ def append(path: Path, record: dict) -> None:
 
 
 def read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.is_file() else []
+    """Every record of one of the queue's files. A line that does not read (cut off by a full disk,
+    edited by hand) is named with its file and number: the rest of the file is not guessed at."""
+    if not path.is_file():
+        return []
+    records = []
+    for number, raw in enumerate(path.read_bytes().splitlines(), 1):
+        try:
+            line = raw.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise QueueError(f"{path}:{number} is not UTF-8 text (byte {error.start} does not read); this script writes the file, so correct or remove that line") from error
+        if not line.strip():
+            continue
+        try:
+            records.append(json.loads(line))
+        except ValueError as error:
+            raise QueueError(f"{path}:{number} does not read as JSON ({error}); this script writes the file, so correct or remove that line") from error
+    return records
 
 
 # ---- the hook ----
@@ -379,6 +396,14 @@ def main() -> None:
     if args.command == "worker":
         cmd_worker(args.payload)
         return
+    # The hook and its detached half stay silent under any python3; what the retro runs says what it needs.
+    if sys.version_info < (3, 11):
+        sys.exit(f"corrections.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
+    for arg in sys.argv[1:]:
+        try:
+            arg.encode("utf-8")
+        except UnicodeEncodeError:
+            sys.exit(f"corrections.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
     where = folder(args.repo)
     if where is None:
         sys.exit(f"corrections.py: {args.repo} is not inside a git checkout")

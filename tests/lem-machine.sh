@@ -227,8 +227,10 @@ if [ -n "$old" ]; then
   for script in "$PWD/scripts/setup.py" "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/stories.py" "$PWD/skills/lem/scripts/board.py"; do
     said="$said$("$old" -B "$script" --help 2>&1 || true)"$'\n'
   done
-  if [ "$(field '(d["ok"], d["tools"][0]["name"], d["tools"][0]["found"])' <<<"$rows")" = "(False, 'python3', False)" ] && [ "$(grep -c "Lem needs Python 3.11 or newer, and this python3 is" <<<"$said")" = 5 ] \
-    && ! grep -q Traceback <<<"$rows$said" && [ "$(status_of "$old" -B "$PWD/scripts/setup.py" --check)" = 1 ]; then
+  # the queue's own commands, which the retro runs: only the hook and its detached half stay silent there
+  said="$said$("$old" -B "$CORR" --repo "$CQ" list 2>&1 || true)"$'\n'
+  if [ "$(field '(d["ok"], d["tools"][0]["name"], d["tools"][0]["found"])' <<<"$rows")" = "(False, 'python3', False)" ] && [ "$(grep -c "Lem needs Python 3.11 or newer, and this python3 is" <<<"$said")" = 6 ] \
+    && ! grep -q Traceback <<<"$rows$said" && [ "$(status_of "$old" -B "$PWD/scripts/setup.py" --check)" = 1 ] && [ "$(status_of "$old" -B "$CORR" --repo "$CQ" list)" = 1 ]; then
     pass "under a python3 before 3.11 the machine check gives its rows with python3 as absent, and every other script says in one line what it needs"
   else
     fail "the scripts under $old: $rows / $said"
@@ -314,6 +316,25 @@ if [ "$(corr list | field 'sorted(g["owner"] for g in d["groups"])')" = "['a ver
   pass "two messages of one second in one session are two entries, and a record of one leaves the other in the list"
 else
   fail "same second, same session: $(corr list)"
+fi
+# A queue line that was cut off, and a review file that holds a byte that is not UTF-8: named with the file and the line, no traceback.
+cp "$CQ/.git/lem/corrections.jsonl" "$WORK/queue.kept"
+printf '{"ts": "2026-01-01T00:00:00Z", "sess' >> "$CQ/.git/lem/corrections.jsonl"
+cut_line=$(corr list 2>&1 || true)
+cut_code=$(status_of corr list)
+cp "$WORK/queue.kept" "$CQ/.git/lem/corrections.jsonl"
+cp "$CQ/.git/lem/corrections-reviews.jsonl" "$WORK/reviews.kept" && printf 'caf\351\n' >> "$CQ/.git/lem/corrections-reviews.jsonl"
+latin_line=$(corr lessons 2>&1 || true)
+cp "$WORK/reviews.kept" "$CQ/.git/lem/corrections-reviews.jsonl"
+cp "$CQ/.lem/project.toml" "$WORK/corr-settings.kept" && printf '# caf\351\n' >> "$CQ/.lem/project.toml"
+latin_settings=$(corr list | field 'd["collect"]' 2>&1 || true)
+cp "$WORK/corr-settings.kept" "$CQ/.lem/project.toml"
+lines=$(grep -c '' "$CQ/.git/lem/corrections.jsonl")
+if [ "$cut_code" = 1 ] && grep -qF "corrections.jsonl:$((lines + 1)) does not read as JSON" <<<"$cut_line" && grep -qF "corrections-reviews.jsonl:" <<<"$latin_line" \
+  && grep -qF "is not UTF-8 text" <<<"$latin_line" && [ "$latin_settings" = False ] && ! grep -q Traceback <<<"$cut_line$latin_line$latin_settings"; then
+  pass "a queue line that was cut off and a line that is not UTF-8 are named with their file and line, and settings that do not read are a no"
+else
+  fail "a queue that does not read: $cut_line / $latin_line / $latin_settings"
 fi
 settings_file=$CQ/.lem/project.toml
 sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settings_file.bak"
