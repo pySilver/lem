@@ -8,7 +8,7 @@ description: "Lem coordinates the work of coding agents in one repository: `/lem
 One command carries a unit of work from the ask to a pull request that says whether it is green,
 the same way in every repository. What differs between repositories is in the repository: its settings file names
 the style guide, the personas, the review configuration, the lessons, the checks that gate a
-landing and the paths that need more care. This skill holds the flow and knows no project.
+landing and what must never go wrong. This skill holds the flow and knows no project.
 
 The owner is a developer whose attention is short, and the size of a change decides its path.
 A small change is one plain change: one story in his own sentence, nothing careful and no
@@ -112,7 +112,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `status`, bare `/lem` | the board of all tasks, and in words: every open task, what is proposed and what waits for the owner | below |
 | `status <task>` | the board of one task | below |
 | `reviewer AGENT [MODEL [PLAN_EFFORT]]`, `reviewer default` | who sits in the reviewer's pane on this machine for now, and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate` and `panel` load the same way, and Lem's stages use those by themselves. See below for a line that only starts with such a word | that skill |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
