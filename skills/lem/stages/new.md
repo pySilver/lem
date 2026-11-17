@@ -344,9 +344,8 @@ flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` h
    `building` and the lines `small change: one builder` and the kind line of step 1. There is no
    lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
    builder for each task has it.
-3. **When it stops**, its reply is the path of its report, of five lines at most; when its agent
-   refused it the write, the reply is the report itself, and you write `report.md` from it word
-   for word. Its state says what follows:
+3. **When it stops**, its reply is its report, of five lines at most, and you write `report.md`
+   in the task directory from it word for word. Its state says what follows:
    - `ready`: the landing, `stages/land.md`, with the small change's steps there, up to its pull
      request with no question on the way: the push and the pull request of `land.py propose`
      are the owner's standing word in `branch.propose`, not a step to ask about;
@@ -568,7 +567,8 @@ its choices need no answer.
 
 ## When a lead stops
 
-A builder's reply is the path of its report. The defender of a plan talk sends one message
+A builder's reply is the path of its report, and a small change's builder replies with the
+report itself, which you write into `report.md`. The defender of a plan talk sends one message
 that starts with `lem:` and names the task. Either is only a wake-up. The fact is the task's
 newest state block: `project.py tasks`, then read the task's `report.md`.
 

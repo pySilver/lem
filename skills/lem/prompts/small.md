@@ -19,10 +19,10 @@ directory above this file's. This file and your standing rules are all you read 
    what must never go wrong here. Stop when the change could reach one (in doubt, it could), needs
    a second rule or a decision the story does not settle, would lower the bar (a new suppression, a
    skipped or deleted test, fewer assertions), or grew beyond one plain change. Commit nothing more:
-   write `report.md` in the task directory with what you found on top and your uncommitted diff at
-   its end, leave the worktree clean, write the state `held` with the line `the stories wait for
-   the owner: the small change is a feature` and a line that says why, and reply with the report's
-   path. Lem takes the feature path from there.
+   keep the text of your uncommitted diff, leave the worktree clean, write the state `held` with
+   the line `the stories wait for the owner: the small change is a feature` and a line that says
+   why, and reply with what you found on top and that diff at the end. Lem takes the feature path
+   from there.
 6. **Commit** on the task's branch with a semantic message. Never push, merge or land. Then
    `git status --short` is empty: remove what your runs left untracked, such as a `__pycache__`.
 7. **File what you saw outside the change.** A small change has no polish pass, so a defect in
@@ -39,7 +39,7 @@ directory above this file's. This file and your standing rules are all you read 
    `FILE``, each file the test needs in its own backticks, or the `- no test:` line of step 3. Then
    `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE record SLUG`, which refuses a line of
    another form. The landing runs the test on the branch and on the base, once.
-9. **Report** in `report.md` in the task directory, in five lines at most, one for each of these:
+9. **Your reply is the report**, in five lines at most, one for each of these:
    - what changed and where, with the commit subject;
    - the test and that it failed before the change, or the `no test:` line;
    - the checks you ran, each with the exact last line of its output;
@@ -48,7 +48,8 @@ directory above this file's. This file and your standing rules are all you read 
 
    No proof of the state and record commands: their scripts refuse what is wrong, and Lem reads
    the state. The first real small change's report ran to twenty lines, most of them that proof
-   (a scratch repository, 2026-11-17). Then `python3 SKILL_DIR/scripts/project.py --repo WORKTREE
-   state SLUG ready "the small change is built"`, and reply with the report's path only. When
-   the write of `report.md` is refused to you, your reply is the report's five lines instead, and
-   Lem writes the file from it.
+   (a scratch repository, 2026-11-17). Write the state first, `python3
+   SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG ready "the small change is built"`,
+   and then reply. You write no report file: Lem writes `report.md` from your reply. The agent
+   refused that write to all three builders of the first small changes, one lost call each (the
+   same repository and day).

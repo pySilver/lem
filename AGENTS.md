@@ -557,7 +557,9 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
 - **A small change never gets a polish pass** (R1, the first run). Its builder reported one
   defect outside the change, and Lem started a polish builder (73 s) only to file one backlog
   item. The small change's own builder files such an item, in a commit of its own, and never
-  fixes it; the pull request lists it.
+  fixes it; the pull request lists it. Its report is its reply, five lines, and Lem writes
+  `report.md` from it: Claude Code refused the write of that file to all three builders of the
+  first small changes, as the retro of that repository counted (2026-11-17).
 - **The push and the pull request of `propose` need no question** (R4, the first run). Lem
   stopped before `land.py propose` and asked whether it may push two branches and open their pull
   requests, where the flow promises a task that runs to its pull request without the owner.
