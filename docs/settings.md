@@ -127,7 +127,8 @@ experts = ["claude/fable", "codex/gpt-6-astra:high"]
 ```
 
 A seat can leave out the effort (`codex/gpt-6.1-sol`), or the model and the effort (`codex`). The
-agent then uses its own default for that part. An empty seat, or a seat with a space, is an error.
+agent then uses its own default for that part. An empty seat, a seat with a space, or a seat with
+more than one `:` is an error.
 The review before a pull request does not use the reviewer of this seat: it is a new agent with
 the review tool.
 

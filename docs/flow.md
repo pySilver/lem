@@ -343,6 +343,8 @@ moved after the checks, the checks run again first.
   resolves the conflict, the checks run again, and one read checks the resolution. Then Lem
   updates the pull request and tells you in one line: "rebased on main after the forge called it
   conflicting; one conflict in shop/dates.py, resolved by a builder; the checks passed again".
+  `/lem` and `/lem status` also ask GitHub. If a pull request has a conflict, Lem says so beside
+  its checks ("#4 is green by its checks, and conflicts with main") and rebases it at once.
 - **Lem leaves every other open task as it is.** GitHub can merge it as it is. When you type
   `/lem land <task>` and the base moved, Lem rebases it and runs the checks again first. After a
   rebase with no conflict, the review stays valid.
