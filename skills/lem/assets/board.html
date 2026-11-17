@@ -6,6 +6,8 @@
 <title>Lem board</title>
 <link rel="stylesheet" href="lem.css">
 <style>
+  /* a little tighter than a page to read, so that the lanes start in the upper third of a window */
+  .page { gap: 12px; padding-top: 16px; }
   .top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
   .pill { display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 550; border: 1px solid var(--line); background: var(--card); color: var(--ink); white-space: nowrap; }
   .pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
@@ -20,15 +22,13 @@
   .jump .ic { width: 13px; height: 13px; }
   .jump.back .ic { transform: rotate(180deg); }
 
-  .banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; border: 1px solid; font-weight: 550; }
+  .banner { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 12px; border: 1px solid; font-weight: 550; }
   .banner .ic { width: 16px; height: 16px; }
   .banner.attention { color: color-mix(in srgb, var(--you) 58%, var(--fg)); border-color: color-mix(in srgb, var(--you) 60%, transparent); background: color-mix(in srgb, var(--you) 14%, transparent); }
   .banner.problem { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); border-color: color-mix(in srgb, var(--bad) 65%, transparent); background: color-mix(in srgb, var(--bad) 14%, transparent); }
   .banner span { color: var(--fg); flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .banner .sub { color: var(--dim); font-weight: 400; }
-  .banner .where { display: block; }
-  .banner.demo { color: var(--fg); border-style: dashed; border-color: var(--line-strong); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--fg) 7%, transparent) 0 12px, transparent 12px 24px); }
-  .tc-where { font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
+  .banner.demo { padding-block: 6px; color: var(--fg); border-style: dashed; border-color: var(--line-strong); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--fg) 7%, transparent) 0 12px, transparent 12px 24px); }
   .banners { display: flex; flex-direction: column; gap: 8px; }
   .banners:empty { display: none; }
   /* past three banners the rest fold under one line that counts them */
@@ -51,7 +51,7 @@
   .cols { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
   .stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   /* the board of all tasks has only the activity here: it takes the whole width */
-  .cols.one { grid-template-columns: minmax(0, 1fr); }
+  .cols.one, .hero.one { grid-template-columns: minmax(0, 1fr); }
   @media (max-width: 1080px) { .hero, .cols { grid-template-columns: minmax(0, 1fr); } }
 
   /* now */
@@ -84,6 +84,17 @@
   .now-next .lbl { font-size: 10.5px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
   .now-next .right { margin-left: auto; }
   .now-spacer { height: 16px; }
+  /* the board of all tasks: the large card is one band, its count-down and its button at the right */
+  .now.brief { padding: 8px 16px; }
+  .now.brief .now-in { align-items: center; }
+  .now.brief .avatar { width: 44px; height: 44px; border-radius: 13px; }
+  .now.brief .avatar .ic { width: 21px; height: 21px; }
+  .now.brief .now-head { font-size: 17px; }
+  .now-what { font-weight: 600; color: var(--ink); }
+  .now-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
+  .now.brief .timer-row { margin-top: 0; gap: 10px; justify-content: flex-end; }
+  .now.brief .timer { font-size: 30px; }
+  @media (max-width: 760px) { .now.brief .now-in { flex-wrap: wrap; } .now-side { flex-direction: row; align-items: center; width: 100%; justify-content: space-between; } }
 
   /* progress */
   .prog { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 20px; align-items: center; }
@@ -178,8 +189,9 @@
   .tc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
   .tc-title { font-weight: 640; font-size: 13.5px; line-height: 1.35; overflow-wrap: anywhere; min-width: 0; }
   .tc-time { flex: none; font: 12px var(--mono); color: var(--dim); white-space: nowrap; padding-top: 1px; }
-  .tc-ask { color: var(--dim); font-size: 12px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-  .tc-text { font-size: 12.5px; color: var(--ink); font-weight: 560; overflow-wrap: anywhere; }
+  .tc-ask { color: var(--dim); font-size: 12px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tc-text { font-size: 12.5px; line-height: 1.4; color: var(--ink); font-weight: 560; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tc-row:empty { display: none; }
   .tc-row { display: flex; flex-wrap: wrap; gap: 5px; }
   .tag {
     --c: var(--quiet);
@@ -225,7 +237,7 @@
   .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); padding: 0 2px; }
   .tab {
     appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px 8px; font-size: 13px; font-weight: 600; color: var(--dim);
+    display: inline-flex; align-items: center; gap: 7px; padding: 2px 12px 7px; font-size: 13px; font-weight: 600; color: var(--dim);
   }
   .tab:hover { color: var(--fg); }
   .tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--you); }
@@ -379,7 +391,7 @@
     <div class="foot"><span><kbd>/</kbd> filter · <kbd>J</kbd> <kbd>K</kbd> move · <kbd>Enter</kbd> open or close · <kbd>S</kbd> start a task · <kbd>R</kbd> read again · <kbd>T</kbd> the tasks</span></div>
   </section>
 
-  <section class="hero" data-tasks>
+  <section id="hero" class="hero" data-tasks>
     <div id="now" class="card now"></div>
     <div id="progress" class="card"></div>
   </section>
@@ -441,11 +453,12 @@
 // record, and the board says that its wait is over and what its timeout will take.
 //
 // "Where the time went" on the board of one task draws only what an event shows: a state block
-// starts a span and the next one ends it, a check's or a review's event ends its span inside a
-// landing, a choice runs from its question to its outcome, and the stories wait for the owner from
-// the personas' read to his approval, and a plan talk from its start to its record. What writes no
-// event (the interview, the scout) is not drawn, and what logs only its end (the personas' read, a
-// plan talk with no start in the log) is a mark where it ended.
+// starts a span and the next one ends it, a stage whose start is logged (the interview, the scout,
+// the personas' read, the investigation, a builder, the polish pass, the checks, the review: SKILL.md)
+// runs from its start to the event that ends it, a choice runs from its question to its outcome, the
+// stories wait for the owner from the personas' read to his approval, and a plan talk runs from its
+// start to its record. A log written before the stages logged their starts draws what logged only
+// its end (the personas' read, a plan talk) as a mark where it ended.
 //
 // The board of all tasks has a second tab, the backlog, from backlog.js (board.py: the items of the
 // backlog folder). Items change rarely, so that file is read when the tab opens and on a key, not
@@ -485,12 +498,16 @@ const STATUS = {
 // The states a task does not leave (project.py ENDED): nobody acts, and nothing of it waits.
 const ENDED = ['landed', 'dropped', 'answered'];
 // The kind of a request, from its state line `kind: KIND, because WHY` (stages/new.md), in the card's words.
-const KINDS = {bug: 'a bug', feature: 'a feature', correction: 'a correction', investigation: 'an investigation', chore: 'a chore', docs: 'documentation'};
+// `correction` is the scripts' word for the size the stages call a small change when they speak to
+// the developer (stages/new.md, step 1): the page says "a small change".
+const KINDS = {bug: 'a bug', feature: 'a feature', correction: 'a small change', investigation: 'an investigation', chore: 'a chore', docs: 'documentation'};
+// The kind of a set of stories (`Kind:` of stories.py), feature or correction, in the page's words.
+const storyKind = kind => (kind === 'correction' ? 'small change' : kind);
 // What the investigation of a bug or a question found (project.py `log investigation`), as the
 // head of its line, the card's word before it, and the sentence of the task's own board: the call
 // says which path the task took after it.
 const CALLS = {
-  correction: {head: 'The investigation found a plain cause: one rule fixes it', card: 'The cause', now: 'A plain cause, which one rule fixes: the task goes on as a correction'},
+  correction: {head: 'The investigation found a plain cause: one rule fixes it', card: 'The cause', now: 'A plain cause, which one rule fixes: the task goes on as a small change'},
   usual: {head: 'The investigation found a plain cause: a larger change', card: 'The cause', now: 'A plain cause, and a larger change: the interview starts from it'},
   'not-a-bug': {head: 'The investigation found no bug', card: 'No bug', now: 'No bug: the code does what it should'},
   'not-reproduced': {head: 'The investigation did not reproduce the bug', card: 'Not reproduced', now: 'Not reproduced: Lem asks you for one more fact'},
@@ -506,6 +523,8 @@ const LANES = [
 ];
 // 'Proposed' is the pull request, or a branch ready to land where the remote is not GitHub.
 const PHASES = ['Stories', 'Plan', 'Build', 'Checks', 'Review', 'Proposed', 'Landed'];
+// A small change has no stories to wait in and no plan: one builder makes it, then the landing.
+const SMALL_PHASES = ['Change', 'Checks', 'Review', 'Proposed', 'Landed'];
 // What waits for the owner, the most pressing first: a choice whose wait runs out, a held task,
 // then what only waits for his word.
 const OWNER_ORDER = ['choice', 'held', 'planned', 'drafted', 'open'];
@@ -514,16 +533,19 @@ const BY_WHOM = {lead: 'the agent', personas: 'the personas', owner: 'you', lem:
 // Who works on a task, from its state lines, in words a developer needs no glossary for: the page
 // never says "lead" or "defender". `lead: session` is the companion Lem opens for a careful or large
 // plan's talk, which builds nothing; `lead: builder` after a plan talk is the agent that builds the
-// talked plan.
+// talked plan; `small change: one builder` is a small change's one builder, which is no lead.
+// `chip` is the tag a card shows: "one agent" is what most tasks have, so it says nothing there.
 const LEAD = {
-  session: {tag: 'plan talk', title: 'A companion session talks the plan through, with the reviewer in its other pane; an agent builds it after the talk',
+  session: {tag: 'plan talk', chip: 'plan talk', title: 'A companion session talks the plan through, with the reviewer in its other pane; an agent builds it after the talk',
     head: 'Its companion talks the plan through', stat: 'a companion talks the plan through, with the reviewer in its other pane'},
-  talked: {tag: 'one agent', title: 'One agent builds it, after the plan talk in its companion',
+  talked: {tag: 'one agent', chip: null, title: 'One agent builds it, after the plan talk in its companion',
     head: 'An agent builds it', stat: 'one agent builds the plan its companion talked through'},
-  builder: {tag: 'one agent', title: 'One agent plans this task, and a fresh builder builds each task of its plan', head: 'An agent plans and builds it',
+  builder: {tag: 'one agent', chip: null, title: 'One agent plans this task, and a fresh builder builds each task of its plan', head: 'An agent plans and builds it',
     stat: 'one agent plans it, and a fresh builder builds each task of the plan'},
+  small: {tag: 'one builder', chip: 'small change', title: 'A small change: one builder makes it, with no lead and no plan, and the landing checks it',
+    head: 'One builder makes the change', stat: 'one builder makes the change, with no lead and no plan'},
 };
-const leadOf = t => (t.lead === 'session' ? 'session' : t.talks.length ? 'talked' : 'builder');
+const leadOf = t => (t.lead === 'session' ? 'session' : t.lead === 'small' ? 'small' : t.talks.length ? 'talked' : 'builder');
 // The two experts of the lem-ask-expert skill, by the names decisions.py keeps their advice under.
 const EXPERTS = {fable: 'Fable', astra: 'Astra'};
 const expertName = key => EXPERTS[key] ?? key;
@@ -562,7 +584,6 @@ const ROWS = [
   {key: 'lem', label: 'Lem', fill: 'var(--lem)'},
   {key: 'lead', label: 'The agent', fill: 'var(--lead)'},
   {key: 'builders', label: 'The builders', fill: 'color-mix(in srgb, var(--lead) 55%, var(--fg))'},
-  {key: 'scout', label: 'The scout', fill: 'color-mix(in srgb, var(--lem) 55%, var(--fg))'},
   {key: 'personas', label: 'The personas', fill: 'var(--quiet)'},
   {key: 'checks', label: 'The checks', fill: 'var(--gate)'},
   {key: 'review', label: 'The review', fill: 'color-mix(in srgb, var(--gate) 55%, var(--fg))'},
@@ -692,6 +713,7 @@ const titleOf = slug => { const words = String(slug).replace(/-+/g, ' ').trim();
 function words(line, talked = false) {
   const s = String(line);
   if (/^lead: builder\b/.test(s)) return talked ? 'an agent builds the plan its companion talked through' : 'an agent plans and builds it';
+  if (/^small change: one builder$/.test(s)) return 'one builder makes the change';
   if (/^lead: session\b/.test(s)) return 'its companion talks the plan through';
   if (/^session: \S+$/.test(s) || /^investigation: (bug|question)$/.test(s)) return null;
   const kind = s.match(/^kind: ([a-z]+), because (.+)$/);
@@ -703,8 +725,13 @@ function words(line, talked = false) {
   if (after) return `it starts after “${titleOf(after[1])}” ends`;
   const report = s.match(/^report: (\S+)$/);
   if (report) return null;
-  return s;
+  return yours(s);
 }
+// The stages write what waits for the developer in the third person ("the stories wait for the
+// owner", "choice 1 waits for the owner", "the trust prompt waits for the owner's yes"); the page
+// speaks to him. Only that fixed form is rewritten: any other sentence of an agent stays as written.
+const yours = s => s.replace(/\b(waits?|waiting) for the owner['’]s\b/g, '$1 for your').replace(/\b(waits?|waiting) for the owner\b/g, '$1 for you');
+const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
 // A state block's lines as the page says them; `talked` when a plan talk ended before it.
 const saidOf = (b, talked = false) => [b.text, ...(b.lines ?? [])].map(line => words(line, talked)).filter(Boolean);
 const talkedBefore = (t, ms) => t.talks.some(x => x.ts <= ms);
@@ -777,7 +804,7 @@ function derive(now) {
     if (!t) tasks.set(e.task, t = {
       slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], reviews: [], proposal: null, stories: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null,
       events: [], decisions: new Map(), orphans: [], changes: [], approvals: [], reads: [], talks: [], talkStart: null, filed: [], missed: null, polish: null,
-      kind: null, investigation: null,
+      kind: null, investigation: null, landingStep: null,
     });
     // every event of the task, in the order of the log: "Where the time went" reads them all
     t.events.push(e);
@@ -801,6 +828,9 @@ function derive(now) {
       t.talkStart = null;
       continue;
     }
+    // the newest step of the landing that started and has not ended yet, for the line of what runs now
+    if (LANDING_STARTS.includes(e.event)) t.landingStep = e;
+    else if (e.event !== 'task.state' && t.landingStep && !String(e.event).startsWith('decision.')) t.landingStep = null;
     if (e.event === 'review.filed') { t.filed.push({ts: at(e), items: e.items ?? [], tip: e.tip}); continue; }
     // the review read the diff against the topics and called it careful, which the plan's own call did not
     if (e.event === 'careful.missed') { t.missed = {ts: at(e), round: e.round, why: e.why}; continue; }
@@ -826,6 +856,7 @@ function derive(now) {
     if (e.event === 'review') { t.reviews = t.reviews.filter(r => r.attempt == null || r.attempt !== e.attempt); t.reviews.push({ts: at(e), attempt: e.attempt, round: e.round, kind: e.kind, verdict: e.verdict, must_fix: e.must_fix, should: e.should, nit: e.nit, answered: e.answered ?? [], silent: e.silent ?? [], ran: e.ran ?? [], left_out: e.left_out ?? [], tip: e.tip}); continue; }
     if (e.event === 'proposed') { t.proposal = {ts: at(e), green: e.green === true, reasons: e.not_green ?? [], tip: e.tip}; continue; }
     if (e.event !== 'task.state') continue;
+    t.landingStep = null;
     const ts = at(e);
     const lines = [e.text, ...(e.lines ?? [])].map(String);
     // A landing that starts is a new run of the gate; the results of an earlier one are history.
@@ -839,6 +870,7 @@ function derive(now) {
     for (const line of lines) {
       const lead = line.match(/^lead: (builder|session)\b/);
       if (lead) { t.lead = lead[1]; if (lead[1] === 'builder') t.session = null; }
+      if (/^small change: one builder$/.test(line)) { t.lead = 'small'; t.session = null; }
       const session = line.match(/^session: (\S+)/);
       if (session) t.session = session[1];
       const progress = e.status === 'building' && line.match(/\btask (\d+) of (\d+)\b/);
@@ -978,17 +1010,22 @@ function statusPill(t) {
   return h('span', {class: `pill a-${t.info.actor}${t.info.live ? ' live' : ''}`}, h('i'), t.info.label, ' ', h('span', {}, live(t.since)));
 }
 
-function tags(t) {
+// The tags of a task: each one says something a developer acts on. On a lane card (`card`) the line
+// above the tags already names the first choice that waits and the task of the plan, and the task's
+// own board has its newest commit, so the card leaves those out.
+function tags(t, card = false) {
   const out = [];
   if (t.kind) out.push(h('span', {class: 'tag', title: `The kind of the request, as Lem took it from the ask: ${t.kind.kind}, because ${t.kind.why}`}, icon('flag'), h('span', {}, KINDS[t.kind.kind])));
-  for (const c of t.waiting) out.push(h('span', {class: `tag c-you${t.asks.includes(c) ? ' live' : ''}`, title: `${c.what}\nrecommended: ${c.recommended}`}, icon('help'),
+  for (const c of t.waiting.filter(x => !(card && x === t.asks[0]))) out.push(h('span', {class: `tag c-you${t.asks.includes(c) ? ' live' : ''}`, title: `${c.what}\nrecommended: ${c.recommended}`}, icon('help'),
     h('span', {}, `choice ${c.id}: `, c.irreversible ? 'no end' : t.asks.includes(c) ? until(c.deadline) : 'wait over')));
-  if (t.lead) out.push(h('span', {class: `tag c-lead${t.status === 'building' ? ' live' : ''}`, title: LEAD[leadOf(t)].title},
-    icon(t.lead === 'session' ? 'split' : 'code'), h('span', {}, LEAD[leadOf(t)].tag)));
-  if (t.progress && t.status === 'building') out.push(h('span', {class: 'tag', title: 'The task of the plan that is built now'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
-  if (t.commit) out.push(h('span', {class: 'tag mono', title: `${t.commit.head} ${t.commit.subject}${t.branch ? ` · ${t.branch}` : ''}`}, icon('commit'), h('span', {}, `${t.commit.head} ${t.commit.subject}`)));
+  const lead = t.lead ? LEAD[leadOf(t)] : null;
+  if (lead?.chip) out.push(h('span', {class: `tag c-lead${t.status === 'building' ? ' live' : ''}`, title: lead.title},
+    icon(t.lead === 'session' ? 'split' : 'code'), h('span', {}, lead.chip)));
+  if (t.progress && t.status === 'building' && !(card && !t.asks.length && taskLine({status: t.status, text: t.text, lines: []})))
+    out.push(h('span', {class: 'tag', title: 'The task of the plan that is built now'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
+  if (t.commit && !card) out.push(h('span', {class: 'tag mono', title: `${t.commit.head} ${t.commit.subject}${t.branch ? ` · ${t.branch}` : ''}`}, icon('commit'), h('span', {}, `${t.commit.head} ${t.commit.subject}`)));
   if (t.stories) out.push(h('span', {class: 'tag', title: t.stories.list.map(st => `${st.n}. ${st.text}`).join('\n')}, icon('file'),
-    h('span', {}, t.stories.kind === 'correction' ? 'a correction: 1 story' : plural(t.stories.list.length, 'story').replace('storys', 'stories'))));
+    h('span', {}, t.stories.kind === 'correction' ? 'a small change: 1 story' : plural(t.stories.list.length, 'story').replace('storys', 'stories'))));
   if (t.gates.length) out.push(h('span', {class: `tag ${t.gateBad ? 'c-bad' : 'c-ok'}`, title: t.gates.map(g => `${g.exit === 0 ? 'green' : `exit ${g.exit}`}  ${g.command}  ${g.last ?? ''}`).join('\n')},
     icon(t.gateBad ? 'alert' : 'check'), h('span', {}, t.gateBad ? `checks red: ${t.gateBad} of ${t.gates.length}` : `checks green: ${t.gates.length}`)));
   const r = t.reviews.at(-1);
@@ -1040,22 +1077,25 @@ function buildBanners(m) {
   if (meta.demo) out.push(keyed('demo', h('div', {class: 'banner demo'}, icon('alert'),
     h('span', {}, h('b', {}, 'Demo data. '), 'These tasks are examples and not real work. Nothing on this page waits for you.'))));
   // A banner is for what stops work or runs out: a choice whose wait runs, a held task and a
-  // blocked task. A draft waits in its lane. Past the first three they fold under one line.
+  // blocked task. A draft waits in its lane. The large card above the lanes has the most pressing
+  // one, with where you answer, so its banner would say it a second time: the banners are the waits
+  // after it, one line each. Past the first three they fold under one line.
+  const focus = view ? null : focusOf(m);
+  const inCard = focus ? (focus.t.asks.length ? `choice:${focus.t.slug}:${focus.t.asks[0].id}` : `task:${focus.t.slug}`) : '';
   const waits = [];
   for (const t of view ? [] : m.forOwner.filter(x => x.asks.length)) {
-    for (const c of t.asks) {
+    for (const c of t.asks.filter(x => `choice:${t.slug}:${x.id}` !== inCard)) {
       waits.push(keyed(`choice:${t.slug}:${c.id}:${c.irreversible ? 'forever' : 'runs'}`, h('div', {class: 'banner attention'}, icon('help'),
         h('span', {}, h('b', {}, `Choice ${c.id} waits for you: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${c.what} · `,
-          c.irreversible ? 'no end: no timeout takes it' : until(c.deadline)),
-        h('span', {class: 'sub where'}, answerOf(t, c))), toLem())));
+          c.irreversible ? 'no end: no timeout takes it' : [until(c.deadline), `; then the build goes on with ${sharedPick(c) != null ? 'the experts’ shared pick' : 'the recommended action'}.`])),
+        toLem())));
     }
   }
-  for (const t of view ? [] : m.forOwner.filter(x => x.status === 'held' && !x.asks.length)) {
+  for (const t of view ? [] : m.forOwner.filter(x => x.status === 'held' && !x.asks.length && `task:${x.slug}` !== inCard)) {
     waits.push(keyed(`you:${t.slug}:${t.status}`, h('div', {class: 'banner attention'}, icon('user'),
-      h('span', {}, h('b', {}, `${t.info.label}: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.shown} · `, live(t.since)),
-        h('span', {class: 'sub where'}, answerOf(t))), toLem())));
+      h('span', {}, h('b', {}, `${t.info.label}: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.shown} · `, live(t.since))), toLem())));
   }
-  for (const t of view ? [] : m.blocked) {
+  for (const t of view ? [] : m.blocked.filter(x => `task:${x.slug}` !== inCard)) {
     waits.push(keyed(`blocked:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
       h('span', {}, h('b', {}, 'Blocked: '), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.shown} · `, live(t.since))))));
   }
@@ -1140,13 +1180,21 @@ const tickLabel = (ms, whole, now) => (whole < 6 * 60000 ? hms(ms, now) : stamp(
 const taskLine = b => b.status === 'building' && [b.text, ...b.lines].join(' ').match(/\btask (\d+) of (\d+)\b/);
 // A builder investigates a bug or a question before any lead: the block's line `investigation: bug` or `investigation: question` (stages/new.md).
 const investigates = b => b.status === 'building' && [b.text, ...b.lines].some(line => /^investigation:/.test(line));
+// A small change's one builder makes it: the block's line `small change: one builder` (stages/new.md).
+const smallBlock = b => b.status === 'building' && [b.text, ...b.lines].some(line => /^small change: one builder$/.test(line));
 // The events that cut a landing. `polish` is the end of the polish pass (land.py polish --done),
 // which logs no start: its span runs from the event before it.
 const CHECKS = ['polish', 'gate', 'task.red', 'review', 'review.filed', 'proposed'];
+// The starts of the steps of a landing (land.py logs the first three, and a builder of the landing
+// the fourth): each ends at the next step's event (SKILL.md).
+const LANDING_STARTS = ['polish.start', 'gate.start', 'review.start', 'builder.start'];
 // A landing starts with the rebase onto the base and, for a task that is no correction, the polish
 // pass; no event says which runs until the pass ends. A pass of an earlier landing still counts.
 const kindOf = t => t.stories?.kind ?? t.approvals.at(-1)?.kind ?? null;
-const startsLanding = t => t.status === 'landing' && !t.gates.length && !t.polish && kindOf(t) !== 'correction';
+const startsLanding = t => t.status === 'landing' && !t.gates.length && !t.polish && !t.landingStep && kindOf(t) !== 'correction';
+// What runs in a landing whose newest step started and has not ended.
+const STEP_RUNS = {'polish.start': 'The polish pass runs', 'gate.start': 'The checks run', 'review.start': 'The review runs'};
+const stepRuns = e => STEP_RUNS[e.event] ?? `A builder makes ${e.job ?? 'its job'}`;
 
 // The spans of one task, each on the row of who held the work, the marks of what logged only its
 // end, and the bands of the stages behind them. `end` is where the drawing stops: the last event of
@@ -1162,29 +1210,87 @@ function timeOf(t, end) {
   let current = -1;
   for (const e of t.events) { if (e.event === 'task.state') current++; else blockOf.set(e, current); }
 
-  // the landing, cut by the events of its checks and its review: each piece belongs to the event that ends it
+  // The span of each stage whose start is logged (SKILL.md), outside a landing: from its start to the
+  // event that ends it, on the row of who held the work. One with no end yet runs while the task is
+  // open; one with no end in a closed task is a dot where it started. A state block's own span leaves
+  // their time out, so no time is drawn twice on one row.
+  const after = (i, test) => t.events.slice(i + 1).find(test) ?? null;
+  const explicit = [], startedReads = new Set();
+  const readSub = r => `${r.answered} of ${r.asked} answered, ${FAMILIES[(r.families ?? []).length] ?? `${(r.families ?? []).length} model families`} · ${r.flagged ? `${r.flagged} flagged` : 'nobody confused'}${r.split ? ' · the families split' : ''}`;
+  const pair = (i, e, row, head, sub, ends) => {
+    const stop = after(i, ends);
+    if (stop) explicit.push({row, from: at(e), to: at(stop), head, sub: typeof sub === 'function' ? sub(stop) : sub, live: false});
+    else if (!t.closed) explicit.push({row, from: at(e), to: end, head, sub: typeof sub === 'function' ? 'it runs' : sub, live: true});
+    else marks.push({row, at: at(e), head: `${head}: its start`, sub: 'no event of its end is logged'});
+    return stop;
+  };
+  t.events.forEach((e, i) => {
+    if (e.event === 'interview.start') pair(i, e, 'you', 'The interview', 'Lem asks you one question at a time', x => x.event === 'stories.read.start' || x.event === 'stories.approved');
+    else if (e.event === 'scout.start') pair(i, e, 'builders', 'The scout reads the code', 'for the facts the stories need', x => x.event === 'scout');
+    else if (e.event === 'stories.read.start') { const r = pair(i, e, 'personas', 'The personas’ read of the stories', readSub, x => x.event === 'stories.read'); if (r) startedReads.add(r); }
+    else if (e.event === 'investigation.start') pair(i, e, 'builders', 'The investigation', e.kind === 'bug' ? 'a builder reproduces the bug and finds its cause' : 'a builder finds the answer', x => x.event === 'investigation');
+    else if (e.event === 'builder.start' && t.blocks[blockOf.get(e)]?.status !== 'landing') {
+      pair(i, e, 'builders', cap(String(e.job ?? 'a job')), 'a fresh builder; its span ends at the next state block', x => x.event === 'task.state' || LANDING_STARTS.includes(x.event) || CHECKS.includes(x.event));
+    }
+  });
+  spans.push(...explicit);
+  // A state block's span with the time of the stages above left out. When the block is a builder's
+  // work and a builder's start is logged in it, the rest of it is the coordinator's (`coord`: the
+  // agent of the task, or Lem): the brief before the builder starts, the report after it ends.
+  const addBlock = (row, from, to, head, sub, open, coord = null) => {
+    const cover = explicit.filter(x => x.from < to && x.to > from).map(x => [Math.max(from, x.from), Math.min(to, x.to)]).sort((p, q) => p[0] - q[0]);
+    if (!cover.length) return add(row, from, to, head, sub, open);
+    let cur = from;
+    const pieces = [];
+    for (const [a0, b0] of cover) { if (a0 > cur) pieces.push([cur, a0]); cur = Math.max(cur, b0); }
+    if (cur < to) pieces.push([cur, to]);
+    const own = coord && explicit.some(x => x.row === 'builders' && x.from >= from && x.from < to);
+    for (const [a0, b0] of pieces) {
+      if (!own) add(row, a0, b0, head, sub, open && b0 === to);
+      else add(coord, a0, b0, a0 < cover[0][0] ? (coord === 'lead' ? 'It briefs the builder' : 'Lem starts the builder') : (coord === 'lead' ? 'It reads the builder’s report' : 'Lem reads the report'), sub, open && b0 === to);
+    }
+  };
+
+  // the landing, cut by the events of its checks and its review: each piece belongs to the event that
+  // ends it. A step whose start is logged (polish.start, gate.start, review.start, a builder's
+  // builder.start) starts its piece there, and the time before it is Lem's: the rebase onto the base
+  // before the first step, and Lem between two steps after it.
   function landing(k, from, to, open) {
-    const inside = t.events.filter(e => CHECKS.includes(e.event) && blockOf.get(e) === k);
+    const inside = t.events.filter(e => (CHECKS.includes(e.event) || LANDING_STARTS.includes(e.event)) && blockOf.get(e) === k);
+    const stepped = inside.some(e => LANDING_STARTS.includes(e.event));
     // One run of the gate is its commands on one tip, in order: land.py runs every command before it
     // judges the run, so a failed command is followed by the next one, not by a repair. The run is
     // complete when it has as many results as the settings have commands (meta.js `gates`). A repair
-    // shows only as a run on another tip after a failed run, a failed stories' check or a must-fix.
+    // shows only as a run on another tip after a failed run, a failed stories' check or a must-fix,
+    // or as a builder's own start.
     const gates = Number.isInteger(meta.gates) && meta.gates > 0 ? meta.gates : null;
     const sameTip = (a, b) => Boolean(a && b) && (String(a).startsWith(b) || String(b).startsWith(a));
-    let run = null, owed = false, prev = from, before = null;
+    let run = null, owed = false, prev = from, before = null, opened = null;
+    const job = e => cap(String(e.job ?? 'a job'));
     for (const e of inside) {
       const x = at(e);
+      if (LANDING_STARTS.includes(e.event)) {
+        if (opened?.event === 'builder.start') add('builders', prev, x, job(opened), 'a builder of the landing; its span ends at the next step');
+        else if (!before) add('lem', prev, x, 'The rebase onto the base', 'Lem rebases the branch before the first step of the landing');
+        else add('lem', prev, x, 'Lem, between two steps of the landing');
+        opened = e; prev = x; before = e;
+        continue;
+      }
+      // a builder of the landing ends at the next step: its piece runs to this event
+      if (opened?.event === 'builder.start') { add('builders', prev, x, job(opened), 'a builder of the landing; its span ends at the next step'); prev = x; }
+      const started = LANDING_STARTS.includes(before?.event);
       let repairing = false;
       if (e.event === 'polish') {
-        // The pass's builder worked from the event before it; the rebase of `base` is in that span
-        // too. The checks after it start on a new tip, with nothing owed.
-        add('builders', prev, x, 'The polish pass', 'from the event before it: its start is not logged, so the rebase onto the base is in it');
-        run = null; owed = false; prev = x; before = e;
+        // With its start logged, the pass is the builders' from it; else from the event before it,
+        // and then the rebase onto the base is in it too. The checks after it start on a new tip.
+        if (opened?.event === 'polish.start') add('builders', prev, x, 'The polish pass', `${e.before ?? '?'} → ${e.after ?? '?'} · ${plural(e.commits ?? 0, 'commit')}`);
+        else add('builders', prev, x, 'The polish pass', 'from the event before it: its start is not logged, so the rebase onto the base is in it');
+        run = null; owed = false; prev = x; before = e; opened = null;
         continue;
       }
       if (e.event === 'gate') {
         if (!run || run.done || !sameTip(run.tip, e.tip)) {
-          repairing = Boolean(run) && !sameTip(run.tip, e.tip) && (run.failed || owed);
+          repairing = !started && Boolean(run) && !sameTip(run.tip, e.tip) && (run.failed || owed);
           if (!run || !sameTip(run.tip, e.tip)) owed = false;
           run = {tip: e.tip, count: 0, failed: false, done: false};
         }
@@ -1192,7 +1298,7 @@ function timeOf(t, end) {
         run.failed ||= e.exit !== 0;
         run.done = gates != null && run.count >= gates;
       } else if (e.event === 'task.red') {
-        repairing = (owed || run?.failed) && Boolean(run) && !sameTip(run.tip, e.tip);
+        repairing = !started && (owed || run?.failed) && Boolean(run) && !sameTip(run.tip, e.tip);
         if (!e.ok) owed = true;
       } else if (e.event === 'review' && e.verdict === 'must-fix') owed = true;
       if (repairing) add('builders', prev, x, 'A repair, and the checks again', 'no event tells the repair from the checks');
@@ -1201,21 +1307,27 @@ function timeOf(t, end) {
       else if (e.event === 'review') add('review', prev, x, `Review round ${e.round ?? '?'}: ${KIND[e.kind] ?? e.kind}`, `${e.verdict}${(e.answered ?? []).length ? ` · answered: ${e.answered.join(', ')}` : ''}`);
       else if (e.event === 'review.filed') add('lem', prev, x, 'Lem files the defects outside the change', plural((e.items ?? []).length, 'item'));
       else add('lem', prev, x, 'Lem writes the pull request', e.green ? 'green' : 'not green');
-      prev = x; before = e;
+      prev = x; before = e; opened = null;
     }
     const last = before?.event;
     if (open) {
       // After a failed run nothing says yet whether a builder repairs or the task stops: the time is Lem's, as the landing's owner.
       const afterFailure = ['lem', 'After a failed check: a repair or a stop, and no event says which yet'];
-      const [row, head] = !last ? (startsLanding(t) ? ['lem', 'The landing starts: the rebase onto the base, then the polish pass, and no event says which runs yet'] : ['checks', 'The checks run'])
-        : last === 'polish' ? ['checks', 'The checks run']
+      const between = ['lem', 'Lem, between two steps of the landing'];
+      const [row, head] = last === 'builder.start' ? ['builders', job(before)]
+        : last === 'polish.start' ? ['builders', 'The polish pass runs']
+        : last === 'gate.start' ? ['checks', gates ? `The checks run: 0 of ${gates} commands done` : 'The checks run']
+        : last === 'review.start' ? ['review', `The review runs: ${KIND[before.floor] ?? before.floor ?? 'its floor'}`]
+        : !last ? (startsLanding(t) ? ['lem', 'The landing starts: the rebase onto the base, then the polish pass, and no event says which runs yet'] : ['checks', 'The checks run'])
+        : last === 'polish' ? (stepped ? between : ['checks', 'The checks run'])
         : last === 'gate' ? (run.failed && run.done ? afterFailure
           : run.failed && gates == null ? ['lem', 'A command of this run failed: the next command, a repair or a stop, and no event says which yet']
             : run.done ? ['checks', 'The stories’ tests run'] : ['checks', gates ? `The checks run: ${run.count} of ${gates} commands done${run.failed ? ', one failed' : ''}` : 'The checks run'])
-        : last === 'task.red' ? (before.ok ? ['review', 'The review runs; its event comes when it is written down'] : afterFailure)
+        : last === 'task.red' ? (before.ok ? (stepped ? between : ['review', 'The review runs; its event comes when it is written down']) : afterFailure)
           : last === 'review' && before.verdict === 'must-fix' ? ['builders', 'A repair after the review’s must-fix'] : ['lem', 'Lem files and proposes'];
       add(row, prev, end, head, '', true);
-    } else add('lem', prev, to, last ? 'Lem, after the checks and the review' : 'The landing, with no check on record');
+    } else if (opened?.event === 'builder.start') add('builders', prev, to, job(opened), 'a builder of the landing; its span ends at the next state block');
+    else add('lem', prev, to, last ? 'Lem, after the checks and the review' : 'The landing, with no check on record');
   }
 
   let sawTask = false, stage = null;
@@ -1223,6 +1335,7 @@ function timeOf(t, end) {
     const task = taskLine(b);
     if (task) { sawTask = true; return {key: `task-${task[1]}`, label: `Task ${task[1]}`, short: `T${task[1]}`, sub: `of ${task[2]}`}; }
     if (investigates(b)) return {key: 'investigation', label: 'Investigation', short: 'Inv.'};
+    if (smallBlock(b)) return {key: 'change', label: 'The change', short: 'Change'};
     if (b.status === 'building') return sawTask ? {key: 'build', label: 'Build', short: 'Build'} : {key: 'plan', label: 'Plan', short: 'Plan'};
     if (b.status === 'planned' || b.status === 'drafted') return {key: 'plan', label: 'Plan', short: 'Plan'};
     if (b.status === 'queued') return {key: 'queued', label: 'Queued', short: 'Queued'};
@@ -1244,18 +1357,19 @@ function timeOf(t, end) {
     const task = taskLine(b);
     const what = saidOf(b, talkedBefore(t, b.ts)).join(' · ');
     if (!ENDED.includes(b.status) && STATUS[b.status]) { stage = stageOf(b); band(stage, from, to, open); }
-    if (b.status === 'queued') add('lem', from, to, 'Queued: it waits for a free place', what, open);
-    else if (b.status === 'building' && task) add('builders', from, to, `Task ${task[1]} of ${task[2]}`, what, open);
-    else if (investigates(b)) add('builders', from, to, 'The investigation', what, open);
-    else if (b.status === 'building') add('lead', from, to, 'It plans the task', what, open);
-    else if (b.status === 'planned') add(/\bowner\b/.test(b.text) ? 'you' : 'lem', from, to, /\bowner\b/.test(b.text) ? 'The plan waits for you'
+    if (b.status === 'queued') addBlock('lem', from, to, 'Queued: it waits for a free place', what, open);
+    else if (b.status === 'building' && task) addBlock('builders', from, to, `Task ${task[1]} of ${task[2]}`, what, open, 'lead');
+    else if (investigates(b)) addBlock('builders', from, to, 'The investigation', what, open, 'lem');
+    else if (smallBlock(b)) addBlock('builders', from, to, 'One builder makes the change', what, open, 'lem');
+    else if (b.status === 'building') addBlock('lead', from, to, 'It plans the task', what, open);
+    else if (b.status === 'planned') addBlock(/\bowner\b/.test(b.text) ? 'you' : 'lem', from, to, /\bowner\b/.test(b.text) ? 'The plan waits for you'
       : t.talks.some(x => x.ts <= b.ts) ? 'The plan talk is done: the plan waits for the agent that builds it' : 'The plan waits for its talk companion', what, open);
-    else if (b.status === 'held') add('you', from, to, /\bstories wait\b/.test(what) ? 'The stories wait for your yes' : 'It waits for you', what, open);
-    else if (b.status === 'blocked') add('lem', from, to, 'Blocked: Lem has to settle it', what, open);
-    else if (b.status === 'drafted') add('you', from, to, 'A night draft waits for your word', what, open);
-    else if (b.status === 'ready') add('lem', from, to, 'Ready: it waits for its checks', what, open);
+    else if (b.status === 'held') addBlock('you', from, to, /\bstories wait\b/.test(what) ? 'The stories wait for your yes' : 'It waits for you', what, open);
+    else if (b.status === 'blocked') addBlock('lem', from, to, 'Blocked: Lem has to settle it', what, open);
+    else if (b.status === 'drafted') addBlock('you', from, to, 'A night draft waits for your word', what, open);
+    else if (b.status === 'ready') addBlock('lem', from, to, 'Ready: it waits for its checks', what, open);
     else if (b.status === 'landing') landing(k, from, to, open);
-    else if (b.status === 'open') add('you', from, to, 'It waits for your merge', what, open);
+    else if (b.status === 'open') addBlock('you', from, to, 'It waits for your merge', what, open);
   });
 
   // The stories wait for his yes from the personas' read to his approval after it. A yes he gave
@@ -1283,8 +1397,9 @@ function timeOf(t, end) {
           : c.irreversible ? 'it waits for your word, with no end' : running ? 'it waits for you' : `its wait ended at ${hhmm(limit)}${c.state === 'waits' ? ', and no timeout is written' : ''}`;
     add('you', c.ts, stop, `Choice ${c.id}: ${c.what}`, how, running);
   }
-  for (const r of t.reads) {
-    // a read in which nobody answered is written down too, and started once more
+  for (const r of t.reads.filter(x => !startedReads.has(t.events[x.order - 1]))) {
+    // a read in which nobody answered is written down too, and started once more; a read whose
+    // start is logged is a span above
     marks.push({row: 'personas', at: r.ts, head: 'The personas’ read of the stories ended', sub: !r.answered ? `nobody of ${r.asked} answered · its start is not logged`
       : `${r.answered} of ${r.asked} answered, ${FAMILIES[r.families.length] ?? `${r.families.length} model families`} · ${r.flagged ? `${r.flagged} flagged` : 'nobody confused'}${r.split ? ' · the families split' : ''} · its start is not logged`});
   }
@@ -1385,11 +1500,11 @@ const investigationSub = x => [x.where, x.kind === 'bug' && x.reproduced != null
 
 // What each event of the scripts says, in the feed's words; an event not named here is shown as its fields.
 const SAYS = {
-  'task.stories': e => ({info: {actor: 'lead', icon: 'file'}, head: 'Stories recorded', text: `${e.kind}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
+  'task.stories': e => ({info: {actor: 'lead', icon: 'file'}, head: 'Stories recorded', text: `${storyKind(e.kind)}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
   'task.red': e => ({info: {actor: e.ok ? 'done' : 'bad', icon: e.ok ? 'check' : 'alert'}, head: e.ok ? 'The stories’ tests hold' : 'A test does not hold its story', text: `on ${e.tip ?? '?'}, against ${e.base ?? 'the base'}`}),
   'stories.approved': e => ({info: {actor: e.by === 'owner' ? 'you' : 'lem', icon: 'check'},
-    head: {owner: 'You approved the stories', correction: 'Taken as a correction in your name', read: 'The personas’ read froze the stories'}[e.by] ?? `Stories approved by ${e.by}`,
-    text: `${e.number ? `approval ${e.number} · ` : ''}${e.kind}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
+    head: {owner: 'You approved the stories', correction: 'Taken as a small change in your name', read: 'The personas’ read froze the stories'}[e.by] ?? `Stories approved by ${e.by}`,
+    text: `${e.number ? `approval ${e.number} · ` : ''}${storyKind(e.kind)}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
   'stories.read': e => !e.answered ? {info: {actor: 'bad', icon: 'users'}, head: 'Nobody answered the personas’ read of the stories', text: `0 of ${e.asked} answered`}
     : {info: {actor: e.split || e.flagged ? 'you' : 'done', icon: 'users'}, head: 'The personas read the stories',
       text: `${e.split ? 'the families split · ' : ''}${e.flagged ? `${e.flagged} flagged` : 'nobody confused'} · ${e.answered} of ${e.asked} answered`},
@@ -1404,6 +1519,16 @@ const SAYS = {
   'polish': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass',
     text: `${plural(e.commits ?? 0, 'commit')}, ${(e.filed ?? []).length ? plural(e.filed.length, 'item') : 'no item'} filed in the backlog`,
     sub: [`${e.before ?? '?'} → ${e.after ?? '?'}`, ...(e.filed ?? [])].join(' · ')}),
+  // the start of a stage (SKILL.md): the time card draws it to the event that ends it
+  'interview.start': () => ({info: {actor: 'you', icon: 'user'}, head: 'The interview started', text: 'Lem asks you one question at a time'}),
+  'scout.start': () => ({info: {actor: 'lead', icon: 'eye'}, head: 'The scout started', text: 'it reads the code for the facts the stories need'}),
+  'scout': () => ({info: {actor: 'lead', icon: 'file'}, head: 'The scout’s report is in', text: ''}),
+  'stories.read.start': e => ({info: {actor: 'quiet', icon: 'users'}, head: 'The personas’ read of the stories started', text: `run by ${e.by === 'lead' ? 'the agent' : 'Lem'}`}),
+  'investigation.start': e => ({info: {actor: 'lead', icon: 'eye'}, head: 'The investigation started', text: e.kind === 'bug' ? 'a builder reproduces the bug and finds its cause' : 'a builder finds the answer'}),
+  'builder.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'A builder started', text: e.job}),
+  'polish.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass started', text: `on ${e.before ?? '?'}`}),
+  'gate.start': e => ({info: {actor: 'gate', icon: 'play'}, head: 'The checks started', text: `${plural(e.commands ?? 0, 'command')} on ${e.tip ?? '?'}`}),
+  'review.start': e => ({info: {actor: 'gate', icon: 'eye'}, head: 'The review started', text: `attempt ${e.attempt ?? '?'} · ${KIND[e.floor] ?? e.floor}`}),
   'decision.taken': e => ({info: {actor: 'done', icon: 'check'}, head: `Decision ${e.id}, by ${BY_WHOM[e.by] ?? e.by}`, text: `${e.what} → ${e.chose}`}),
   'decision.asked': e => ({info: {actor: 'you', icon: 'help'}, head: `Choice ${e.id} asked`, text: e.what, sub: e.irreversible ? 'it waits for your answer, with no end' : `its wait ends at ${hhmm(new Date(e.deadline).getTime())}`}),
   'decision.answered': e => ({info: {actor: 'you', icon: 'user'}, head: `You answered choice ${e.id}`, text: e.chose}),
@@ -1477,6 +1602,9 @@ function focusOf(m) {
   return {t, others};
 }
 
+// The large card of the board of all tasks: the one most pressing thing, and for a wait of yours
+// where you answer it. It is one band high, so that the lanes start in the upper third of a window
+// (on a 1400 x 900 window they started at 621 px before, measured with tests/board-showcase.py).
 function buildBoardNow(m) {
   const f = focusOf(m);
   if (!f) {
@@ -1494,15 +1622,13 @@ function buildBoardNow(m) {
       h('div', {class: 'avatar'}, icon(c ? 'help' : t.info.icon)),
       h('div', {class: 'now-body'},
         h('div', {class: 'now-eyebrow'}, c ? `You · choice ${c.id} of the task` : `${t.info.who} · ${t.info.label}`),
-        h('div', {class: 'now-head'}, t.title),
-        h('div', {class: 'now-status'}, c ? c.what : t.shown),
-        c ? h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t, c)) : t.ask ? h('div', {class: 'now-ctx'}, t.ask) : '',
+        h('div', {class: 'now-head'}, t.title, h('span', {class: 'now-what'}, ` · ${c ? c.what : cap(t.shown)}`)),
+        t.forOwner ? h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t, c)) : t.ask ? h('div', {class: 'now-ctx'}, t.ask) : ''),
+      h('div', {class: 'now-side'},
         h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, c && !c.irreversible ? until(c.deadline, 'clock') : live(c ? c.ts : t.since, 'clock')),
-          h('span', {class: 'note'}, c ? (c.irreversible ? 'since it was asked; it waits with no end' : `left of the wait, until ${hhmm(c.deadline)}`) : 'in this state',
-            others > 0 ? ` · ${plural(others, 'more task')} like it` : '')))),
-    h('div', {class: 'now-spacer'}),
-    h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last update'), h('span', {}, h('span', {'data-ago': t.lastTs})),
-      h('span', {class: 'right'}, h('button', {class: 'jump', type: 'button', 'data-open': t.slug}, 'Open the task', ' ', icon('arrow'))))));
+          h('span', {class: 'note'}, c ? (c.irreversible ? 'since it was asked; no end' : `left, until ${hhmm(c.deadline)}`) : 'in this state',
+            others > 0 ? ` · ${plural(others, 'more task')} like it` : '')),
+        h('button', {class: 'jump', type: 'button', 'data-open': t.slug}, 'Open the task', ' ', icon('arrow'))))));
 }
 
 function ring(done, current, total, big, small) {
@@ -1514,39 +1640,31 @@ function ring(done, current, total, big, small) {
 }
 const stat = (label, value, sub, cls = '') => h('div', {class: `stat ${cls}`, title: sub ?? ''}, h('div', {class: 'sk'}, label), h('div', {class: 'sv'}, value), h('div', {class: 'ss'}, sub ?? ''));
 
-function buildBoardProgress(m) {
-  const limit = m.limit ?? '?';
-  const n = m.places;
-  const notGreen = m.proposed.filter(t => t.proposal && !t.proposal.green).length;
-  return keyed(`prog:${n}:${m.building.length}:${limit}:${m.queued.length}:${m.ready.length}:${m.landing.length}:${m.forOwner.length}:${m.landedToday.length}:${m.proposed.length}:${notGreen}:${m.blocked.length}`,
-    h('div', {class: 'prog'},
-      ring(0, n, typeof limit === 'number' ? limit : Math.max(n, 1), `${n}/${limit}`, 'places'),
-      h('div', {},
-        h('div', {class: 'now-head'}, n ? `${plural(n, 'place')} taken` : 'No place is taken'),
-        h('div', {class: 'dim'}, n ? `${m.building.length} build${m.building.length === 1 ? 's' : ''}, ${m.landing.length} land${m.landing.length === 1 ? 's' : ''}. ` : '',
-          typeof limit === 'number' ? `The project lets ${plural(limit, 'task')} build or land at one time (flow.max_tasks).` : 'The limit comes with the first task.')),
-      h('div', {class: 'stats'},
-        stat('Waits for you', m.forOwner.length, m.forOwner.length ? 'a choice, the stories, a step of yours, a plan, a draft or a merge' : 'nothing', m.forOwner.length ? 'you' : ''),
-        stat('Queued', m.queued.length, 'asks that wait for a place'),
-        stat('Checks and review', m.ready.length + m.landing.length, m.landing.length ? 'the checks or the review run on one' : 'one branch is checked at a time'),
-        stat('Landed today', m.landedToday.length, 'on the base branch', m.landedToday.length ? 'ok' : ''),
-        stat('Proposed', m.proposed.length, m.proposed.length ? (notGreen ? `${notGreen} not green` : 'all green') : 'none waits for the merge', notGreen ? 'you' : ''),
-        stat('Blocked', m.blocked.length, 'Lem has to settle these', m.blocked.length ? 'bad' : ''))));
+// The one line of a card, in words: the first choice that waits for you with its count-down, the
+// answer of an answered task, or what the newest state block says. The lane's title is not said
+// again: in "Building" a card says "Task 2 of 3", not "Building: task 2 of 3".
+function cardLine(t, lane) {
+  const c = t.asks[0];
+  if (c) return [`Choice ${c.id} waits for you: ${c.what} · `, c.irreversible ? 'no end' : until(c.deadline)];
+  if (t.status === 'answered' && t.investigation) return `${CALLS[t.investigation.call]?.card ?? t.investigation.call}: ${t.investigation.line}`;
+  const label = t.info.label === lane.title ? '' : t.info.label;
+  if (!t.shown) return t.info.label;
+  // a pull request is its number here; the task's own board has its whole address
+  const said = t.shown.replace(/\bhttps?:\/\/\S+\/pull\/(\d+)\b/g, '#$1');
+  return label ? `${label}: ${said}` : cap(said);
 }
 
-function taskCard(t) {
+// A card is short: the task's name, its ask in one line, one line of where it is, and the tags.
+// Where you answer is on the large card for the most pressing wait and on the task's own board.
+function taskCard(t, lane) {
   const pane = paneOf(t.session);
   return keyed(`c:${t.slug}`, h('button', {class: `tcard s-${t.status} a-${t.info.actor}`, type: 'button', 'data-open': t.slug, title: 'Open the board of this task'},
     h('div', {class: 'tc-top'}, h('div', {class: 'tc-title'}, t.title), h('div', {class: 'tc-time'}, t.closed ? '' : live(t.since))),
-    t.ask ? h('div', {class: 'tc-ask'}, t.ask) : '',
-    h('div', {class: 'tc-text'}, t.shown ? `${t.info.label}: ${t.shown}` : t.info.label),
-    t.status === 'answered' && t.investigation ? h('div', {class: 'tc-text'}, `${CALLS[t.investigation.call]?.card ?? t.investigation.call}: ${t.investigation.line}`) : '',
-    t.waiting.map(c => h('div', {class: 'tc-text'}, t.asks.includes(c) ? `Choice ${c.id} waits for you: ${c.what} · ` : `Choice ${c.id}, its wait is over: ${c.what}`,
-      c.irreversible ? 'no end' : t.asks.includes(c) ? until(c.deadline) : '')),
-    t.forOwner ? h('div', {class: 'tc-where'}, answerOf(t)) : '',
+    t.ask ? h('div', {class: 'tc-ask', title: t.ask}, t.ask) : '',
+    h('div', {class: 'tc-text'}, cardLine(t, lane)),
     t.progress && t.status === 'building' ? h('div', {class: 'mini'}, h('span', {style: `width:${(100 * (t.progress.n - 1)) / t.progress.of}%`}),
       h('span', {class: 'cur', style: `left:${(100 * (t.progress.n - 1)) / t.progress.of}%;width:${100 / t.progress.of}%`})) : '',
-    h('div', {class: 'tc-row'}, tags(t), pane?.status ? h('span', {class: 'tag', title: 'The agent status agterm shows for the task’s session'}, icon('cpu'), h('span', {}, `session ${pane.status}`)) : '')));
+    h('div', {class: 'tc-row'}, tags(t, true), pane?.status ? h('span', {class: 'tag', title: 'The agent status agterm shows for the task’s session'}, icon('cpu'), h('span', {}, `session ${pane.status}`)) : '')));
 }
 
 function buildLanes(m) {
@@ -1560,7 +1678,7 @@ function buildLanes(m) {
     if (hidden) tasks = tasks.slice(0, DONE_SHOWN);
     return keyed(`lane:${lane.key}`, h('div', {class: `lane a-${lane.actor}`},
       h('div', {class: 'lane-head'}, h('i'), lane.title, h('em', {}, tasks.length + hidden)),
-      tasks.length ? tasks.map(taskCard).map(c => { phase(c); return c; }) : h('div', {class: 'lane-empty'}, lane.empty),
+      tasks.length ? tasks.map(t => taskCard(t, lane)).map(c => { phase(c); return c; }) : h('div', {class: 'lane-empty'}, lane.empty),
       hidden ? h('div', {class: 'more'}, `and ${plural(hidden, 'older task')}`) : ''));
   });
 }
@@ -1596,7 +1714,7 @@ function buildTaskNow(t) {
     queued: 'Waits for a free place', building: t.investigating ? 'Its investigator examines it, before any story' : LEAD[leadOf(t)].head,
     planned: t.forOwner ? 'The plan waits for you' : t.talks.length ? 'The plan talk is done: the plan waits for the agent that builds it' : 'The plan waits for its talk companion',
     held: t.storiesWait ? 'The stories wait for your yes' : 'Waits for you', blocked: 'The agent stopped; Lem has to settle it', ready: 'Waits for its checks',
-    landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
+    landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : t.landingStep ? stepRuns(t.landingStep) : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
     answered: 'Answered: it ended with a report and nothing to merge',
   }[t.status] ?? `Status "${t.status}"`;
   // What the investigation found, on every task that had one: the answer of an answered task, the cause of a fix.
@@ -1627,6 +1745,8 @@ function phaseIndex(t) {
   const reached = t.reached;
   // an answered task ended with a report before any step of the flow that leads to a merge
   if (reached === 'answered') return -1;
+  // a small change has no stories to wait in and no plan: its phases start at the change
+  if (t.lead === 'small') return reached === 'landed' ? SMALL_PHASES.length : Math.max(0, phaseIndex({...t, lead: null}) - 2);
   if (reached === 'landed') return PHASES.length;
   if (reached === 'open') return 5;
   if (reached === 'landing') return t.reviews.length ? 4 : 3;
@@ -1642,7 +1762,9 @@ function buildTaskProgress(t) {
   // An answered task ended with its report: its phases are the investigation and the answer, both done.
   const lead = t.investigated ? 1 : 0;
   const answered = t.status === 'answered';
-  const phases = answered ? [...(lead ? ['Investigation'] : []), 'Answered'] : t.investigated ? ['Investigation', ...PHASES] : PHASES;
+  const small = t.lead === 'small';
+  const base = small ? SMALL_PHASES : PHASES;
+  const phases = answered ? [...(lead ? ['Investigation'] : []), 'Answered'] : t.investigated ? ['Investigation', ...base] : base;
   const step = t.investigating ? 0 : answered ? -1 : phaseIndex(t) + lead;
   const past = t.investigating ? 0 : answered ? phases.length : step;
   const at_ = step;
@@ -1650,7 +1772,8 @@ function buildTaskProgress(t) {
   const done = ['landed', 'ready', 'landing', 'open'].includes(t.reached);
   const total = p?.of ?? 0, finished = done ? total : Math.max(0, (p?.n ?? 1) - 1), current = !done && p && t.status === 'building' ? 1 : 0;
   const review = t.reviews.at(-1);
-  const sub = k => (k < lead ? (t.investigation ? CALLS[t.investigation.call]?.card ?? '' : '') : phaseSub(k - lead));
+  // a small change's phases are the full flow's from Build on: the change stands where the build does
+  const sub = k => (k < lead ? (t.investigation ? CALLS[t.investigation.call]?.card ?? '' : '') : phaseSub(k - lead + (small ? 2 : 0)));
   const phaseSub = k => (k === 2 && p ? `task ${done ? p.of : p.n} of ${p.of}` : k === 3 && t.gates.length ? (t.gateBad ? `${t.gateBad} red` : `${t.gates.length} green`)
     : k === 4 && review ? review.verdict : k === 5 && t.proposal ? (t.proposal.green ? 'green' : 'not green') : '');
   // A choice the timeout or the experts took keeps the request from green; the two are counted apart.
@@ -1767,7 +1890,7 @@ function storiesHead(t, now) {
       h('span', {class: 'rtime'}, stamp(r.ts, now)))));
   } else if (kind === 'correction') {
     rows.push(keyed('read:none:correction', h('div', {class: 'row a-quiet'}, h('span', {class: 'fi'}, icon('users')),
-      h('div', {class: 'rtext'}, 'The personas do not read a correction’s one story.'), h('span', {class: 'rtime'}, ''))));
+      h('div', {class: 'rtext'}, 'The personas do not read the one story of a small change.'), h('span', {class: 'rtime'}, ''))));
   } else if (kind) {
     rows.push(keyed('read:none', h('div', {class: 'row a-quiet'}, h('span', {class: 'fi'}, icon('users')),
       h('div', {class: 'rtext'}, 'The personas have not read these stories yet.'), h('span', {class: 'rtime'}, ''))));
@@ -1775,7 +1898,7 @@ function storiesHead(t, now) {
   if (a) {
     // Who froze the stories: he did; Lem in his name, for a correction; or the personas' read on
     // the rare path, which found nobody confused and never counts as his yes.
-    const head = {owner: 'Approved by you', correction: 'Taken as a correction: Lem approved its one story in your name', read: 'Frozen by the personas’ read, with no wait for you'}[a.by] ?? `Approved by ${a.by}`;
+    const head = {owner: 'Approved by you', correction: 'Taken as a small change: Lem approved its one story in your name', read: 'Frozen by the personas’ read, with no wait for you'}[a.by] ?? `Approved by ${a.by}`;
     rows.push(keyed(`approved:${a.ts}:${a.by}:${a.number}`, h('div', {class: `row a-${a.by === 'owner' ? 'done' : 'quiet'}`},
       h('span', {class: 'fi'}, icon(a.by === 'owner' ? 'check' : a.by === 'read' ? 'users' : 'user')),
       h('div', {class: 'rtext'}, h('b', {}, head),
@@ -2098,7 +2221,7 @@ function render() {
     patch($('progress'), t ? [buildTaskProgress(t)] : []);
     patch($('stories'), t ? buildStories(t, now) : []);
     const approved = t?.approvals.at(-1);
-    $('stories-sum').textContent = t?.stories && !(approved && approved.order > t.stories.order) ? `${t.stories.kind}, because ${t.stories.why}` : approved ? `${approved.kind}, because ${approved.why}` : '';
+    $('stories-sum').textContent = t?.stories && !(approved && approved.order > t.stories.order) ? `${storyKind(t.stories.kind)}, because ${t.stories.why}` : approved ? `${storyKind(approved.kind)}, because ${approved.why}` : '';
     patch($('decisions'), t ? buildDecisions(t, now) : []);
     const overs = t ? t.waiting.length - t.asks.length : 0;
     $('decisions-sum').textContent = t?.choices.length ? [t.asks.length && `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''} for you`,
@@ -2115,18 +2238,28 @@ function render() {
       inBuild('planned') && `${inBuild('planned')} wait for their plan talk`, inBuild('blocked') && `${inBuild('blocked')} blocked`].filter(Boolean);
     $('title').textContent = parts.length ? parts.join(', ') : m.list.length ? 'Nothing runs' : 'Waiting for the first task';
     $('ask').textContent = '';
+    // Each number once: the title counts the lanes, each lane counts its cards, and a chip says only
+    // what no other place says: the places, how many proposed requests are not green, what landed today.
+    const full = typeof m.limit === 'number' && m.places >= m.limit;
+    // green by the proposal's record, or by the line `green` its state block carries (stages/land.md)
+    const green = x => (x.proposal ? x.proposal.green : x.blocks.at(-1).lines.some(line => line === 'green'));
+    const notGreen = m.proposed.filter(x => !green(x)).length;
     patch($('meta'), [
       meta.base ? chip('base', 'branch', '', 'tasks land on ', h('b', {}, meta.base)) : null,
-      chip(`limit:${m.places}`, 'layers', '', h('b', {}, `${m.places} of ${m.limit ?? '?'}`), ' places taken'),
-      m.proposed.length ? chip(`proposed:${m.proposed.length}`, 'branch', 'you', h('b', {}, m.proposed.length), m.proposed.length === 1 ? ' waits for the merge' : ' wait for the merge') : null,
-      m.blocked.length ? chip('blocked', 'alert', 'bad', h('b', {}, m.blocked.length), ' blocked') : null,
+      keyed(`limit:${m.places}:${m.limit}`, h('span', {class: `chip${full ? ' you' : ''}`, title: `How many tasks build or land at one time, of the ${m.limit ?? '?'} the project lets (flow.max_tasks)${full ? ': the limit is reached, and a new task is queued' : ''}`},
+        icon('layers'), h('b', {}, `${m.places} of ${m.limit ?? '?'}`), ' places')),
+      m.proposed.length ? chip(`proposed:${m.proposed.length}:${notGreen}`, 'branch', notGreen ? 'you' : '', h('b', {}, m.proposed.length), ' proposed', notGreen ? ` · ${notGreen} not green` : ', green') : null,
+      m.landedToday.length ? chip(`today:${m.landedToday.length}`, 'check', 'ok', h('b', {}, m.landedToday.length), ' landed today') : null,
     ]);
-    $('now').className = `card now a-${focusOf(m)?.t.info.actor ?? 'done'}`;
+    $('now').className = `card now brief a-${focusOf(m)?.t.info.actor ?? 'done'}`;
     patch($('now'), [buildBoardNow(m)]);
-    patch($('progress'), [buildBoardProgress(m)]);
+    patch($('progress'), []);
     patch($('lanes'), buildLanes(m));
   }
   $('lanes-section').hidden = Boolean(view) || tab === 'backlog';
+  // the board of all tasks has no progress card: its numbers are in the title, the chips and the lanes
+  $('progress').hidden = !view;
+  $('hero').classList.toggle('one', !view);
   // The board of all tasks has only the activity in this row, across the page. A card of a task
   // that ended with nothing in it is not drawn: an answered task has no stories, checks or review.
   $('cols').classList.toggle('one', !view);
@@ -2141,14 +2274,17 @@ function render() {
     const {card, model, rows} = buildTimeCard(m, t, $('tl-wrap').clientWidth);
     patch($('legend'), buildTimeLegend(model, rows));
     patch($('timeline'), [card]);
-    $('tl-note').textContent = 'Each row is who held the work; a band is a stage, and inside the build a task of the plan. '
-      + 'Rows overlap where the build goes on while a choice waits for you, so the shares need not add up to 100. '
-      + 'The interview and the first read of the code write no event, so they are not drawn; the personas’ read logs only its end, which is a dot, and the plan talk is drawn from its start to its record.';
+    // one short line under the card; the rest is the hover of the legend
+    $('tl-note').textContent = 'Each row is who held the work; a band is a stage. Hover the legend for how the shares add up.';
+    $('legend').title = 'Rows overlap where the build goes on while a choice waits for you, so the shares need not add up to 100. '
+      + 'Each stage runs from its logged start to the event that ends it. In a log written before the stages logged their starts, '
+      + 'the personas’ read and a plan talk with no start are a dot where they ended, and a polish pass runs from the event before it.';
   } else {
     const shown = view ? [] : m.list.filter(x => !x.closed || dayKey(x.since) === dayKey(now)).sort((a, b) => a.first - b.first);
     patch($('legend'), buildLegend(m, shown));
     patch($('timeline'), [buildTimeline(m, shown, $('tl-wrap').clientWidth)]);
     $('tl-note').textContent = '';
+    $('legend').removeAttribute('title');
   }
 
   patch($('review'), view && t ? buildReview(t, now) : []);
