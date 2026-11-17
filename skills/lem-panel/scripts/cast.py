@@ -29,16 +29,22 @@ edited it, and the default branch has moved on) reads the default branch's too; 
 its cast keeps its own. Its panel reads the default branch's cast, never a generic one, so
 a session running in that worktree keeps the project's people without a rebase. Of the local and
 remote default branch, the newer one is read: work can land on either side first. The files
-are written once per commit under the repository's git directory (personas-cast/<sha>/), which is
-never committed and is shared by every worktree; `source` names the branch and commit.
+are written once per commit in Lem's state folder (`.lem/state/personas-cast/<sha>/` of the main
+checkout, as `lem_state.py` names it), which git never shows and every worktree shares; `source`
+names the branch and commit.
 
 The profile, at the settings' profile path (.lem/profile.md unless they say otherwise), says
 what the project is: the product, its scale, its rules and
 the teams it compares itself with. Every persona, the practice scout and the moderator read it first.
 It has one layer, the project's: a profile is about one project, so no user or built-in profile
-stands in for it. A checkout without one reads the default branch's, as for the cast, written under
-the git directory (personas-profile/<blob id>.md, one file per version of the profile); with
+stands in for it. A checkout without one reads the default branch's, as for the cast, written in
+the state folder (personas-profile/<blob id>.md, one file per version of the profile); with
 neither, `profile` is null.
+
+An older cast.py wrote both folders into the git directory, which Codex's sandbox keeps read-only.
+The first run that finds one there moves it to the state folder, once, and says so on stderr; when
+the state folder has it already, the copy in the git directory goes, since both hold the same files
+of the same commits.
 
 `init` copies a starting cast, the user's or else the built-in one, into the project's personas
 folder so the project has its own people to rewrite. It refuses a checkout whose personas folder already holds any file, and one whose default branch
@@ -66,6 +72,11 @@ import shutil
 import subprocess
 import tomllib
 from pathlib import Path
+
+# Lem's scripts, beside this skill in the same plugin: `lem_state` is the one place that says where the state is.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lem" / "scripts"))
+import lem_state  # noqa: E402
 
 # Where a project keeps its personas, its profile and its panels' files, relative to the checkout.
 # These are Lem's own layout; configure() replaces them with what the project's
@@ -102,6 +113,27 @@ def configure(root: Path) -> None:
 def git(cwd: Path, *args: str) -> str:
     done = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True)
     return done.stdout.strip() if done.returncode == 0 else ""
+
+
+def cache(root: Path, folder: str) -> Path:
+    """The folder `folder` of the panel's copies in Lem's state folder, with the one an older
+    cast.py kept in the git directory moved there first."""
+    try:
+        new = lem_state.folder(root) / folder
+        common = Path(git(root, "rev-parse", "--git-common-dir"))
+        old = (common if common.is_absolute() else root / common).resolve() / folder
+        if old.is_dir() and not old.is_symlink():
+            if new.exists():
+                shutil.rmtree(old, ignore_errors=True)
+                lem_state.say_on_stderr(f"removed {old}: the state folder holds the same copies in {new}")
+            else:
+                how = lem_state.move(old, new)
+                if how:
+                    lem_state.say_on_stderr(f"moved the panel's copies from {old} to {new} ({how}); nothing reads {old} any more")
+    except lem_state.StateError as error:
+        fail(str(error))
+        raise AssertionError from error
+    return new
 
 
 def checkout_root(start: Path) -> Path:
@@ -168,7 +200,7 @@ def path_at(root: Path, sha: str, name: str, fallback: Path) -> Path:
 
 
 def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
-    """The default branch's cast, written out under the git directory, with the ref it came from, or None when it has none."""
+    """The default branch's cast, written out in the state folder, with the ref it came from, or None when it has none."""
     for ref in default_refs(root):
         sha = commit_of(root, ref)
         label = ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
@@ -176,8 +208,7 @@ def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
         names = [n for n in listed.splitlines() if n.endswith(".md")]
         if not any(is_persona(n) for n in names):
             continue
-        common = Path(git(root, "rev-parse", "--git-common-dir"))
-        target = (common if common.is_absolute() else root / common).resolve() / "personas-cast" / sha
+        target = cache(root, "personas-cast") / sha
         if not target.is_dir():
             # Two sessions may resolve the same commit at once: each stages under its own name and
             # the first rename wins; the loser's copy is identical, so it is dropped.
@@ -215,14 +246,13 @@ def follows_default(root: Path, ref: str, path: str) -> bool:
     return git(root, "rev-parse", f"HEAD:{path}") != git(root, "rev-parse", f"{ref}:{path}")
 
 
-def git_dir_file(root: Path, folder: str, name: str, body: bytes) -> Path:
-    """Write body once to <git common dir>/<folder>/<name> and return the path.
+def state_file(root: Path, folder: str, name: str, body: bytes) -> Path:
+    """Write body once to <state folder>/<folder>/<name> and return the path.
 
     Two sessions may write the same commit's file at once: each stages under its own name and the
     first rename wins; the copies are identical, so the loser's is dropped.
     """
-    common = Path(git(root, "rev-parse", "--git-common-dir"))
-    target = (common if common.is_absolute() else root / common).resolve() / folder / name
+    target = cache(root, folder) / name
     if not target.is_file():
         target.parent.mkdir(parents=True, exist_ok=True)
         staging = target.with_name(f"{name}.{os.getpid()}.partial")
@@ -259,7 +289,7 @@ def profile(root: Path) -> dict[str, str] | None:
         # Named by the file's own blob id, so every commit that leaves the profile unchanged reuses
         # one copy instead of adding another.
         blob = git(root, "rev-parse", f"{sha}:{there}")
-        path = git_dir_file(root, "personas-profile", f"{blob}.md", body.stdout)
+        path = state_file(root, "personas-profile", f"{blob}.md", body.stdout)
         return {"source": f"{label} at {sha[:9]}", "path": str(path)}
     if local.is_file():
         return {"source": "checkout", "path": str(local)}

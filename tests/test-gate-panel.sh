@@ -176,8 +176,13 @@ if [ "$(source_of "$PANEL/old")" = "project origin/trunk 2" ] && grep -q 'edited
 else
   fail "local behind remote: $(source_of "$PANEL/old"), $(head -1 "$shopper")"
 fi
-copies=$(find "$REPO/.git/personas-profile" -name '*.md' | wc -l | tr -d ' ')
-if [ "$copies" = 1 ]; then pass "commits that leave the profile unchanged share one copy of it"; else fail "profile copies: $copies"; fi
+copies=$(find "$REPO/.lem/state/personas-profile" -name '*.md' 2>/dev/null | wc -l | tr -d ' ' || true)
+ingit=$(find "$REPO/.git" -maxdepth 1 -name 'personas-*' | wc -l | tr -d ' ')
+if [ "$copies" = 1 ] && [ "$ingit" = 0 ] && [ -d "$REPO/.lem/state/personas-cast" ]; then
+  pass "commits that leave the profile unchanged share one copy of it, and the copies are in Lem's state folder, none in the git directory"
+else
+  fail "profile copies: $copies, in the git directory: $ingit"
+fi
 refusal=$(cast init --repo "$PANEL/old" 2>&1 || true)
 if [ "$(status_of cast init --repo "$PANEL/old")" = 1 ] && grep -q 'rebase onto it' <<<"$refusal"; then
   pass "init refuses a worktree whose default branch already has a cast"
@@ -205,6 +210,31 @@ if [ "$(profile_of "$PANEL/newer")" = "origin/trunk" ] && grep -q 'with versions
   pass "an edit to the profile on the default branch reaches a worktree without a merge, and leaves it clean"
 else
   fail "newer profile: $(profile_of "$PANEL/newer")"
+fi
+
+# What an older cast.py left in the git directory moves to the state folder at the first run that
+# needs it, once, and a copy there that the state folder holds already goes.
+MOVE=$PANEL/move
+git init -q -b main "$MOVE" && commit "$MOVE" "start" && git -C "$MOVE" branch before
+mkdir -p "$MOVE/.lem/personas" && printf '# Shopper\n' > "$MOVE/.lem/personas/shopper.md" && printf '# Profile\n' > "$MOVE/.lem/profile.md"
+git -C "$MOVE" add -A && commit "$MOVE" "the cast"
+git -C "$MOVE" worktree add -q "$PANEL/move-old" before
+mkdir -p "$MOVE/.git/personas-cast/0000kept" "$MOVE/.git/personas-profile"
+printf '# Old\n' > "$MOVE/.git/personas-cast/0000kept/old.md" && printf '# Old profile\n' > "$MOVE/.git/personas-profile/kept.md"
+moved=$(cast --repo "$PANEL/move-old" 2>&1 >/dev/null || true)
+movedcast=$(cast --repo "$PANEL/move-old" 2>/dev/null | "$PY" -c 'import json, sys; c = json.load(sys.stdin); print(c["source"].split(" at ")[0], c["dir"].rsplit("/", 1)[0], c["profile"]["path"].rsplit("/", 1)[0])' || true)
+again=$(cast --repo "$PANEL/move-old" 2>&1 >/dev/null || true)
+mkdir -p "$MOVE/.git/personas-cast/0000again"
+both=$(cast --repo "$PANEL/move-old" 2>&1 >/dev/null || true)
+if [ "$(grep -c "moved the panel's copies from $MOVE/.git/personas-" <<<"$moved")" = 2 ] && [ -z "$again" ] \
+  && [ ! -e "$MOVE/.git/personas-cast" ] && [ ! -e "$MOVE/.git/personas-profile" ] \
+  && [ -f "$MOVE/.lem/state/personas-cast/0000kept/old.md" ] && [ -f "$MOVE/.lem/state/personas-profile/kept.md" ] \
+  && [ "$movedcast" = "main $MOVE/.lem/state/personas-cast $MOVE/.lem/state/personas-profile" ] \
+  && grep -qF "removed $MOVE/.git/personas-cast: the state folder holds the same copies" <<<"$both" \
+  && [ -z "$(git -C "$MOVE" status --porcelain --untracked-files=all)" ] && [ -z "$(git -C "$PANEL/move-old" status --porcelain --untracked-files=all)" ]; then
+  pass "the panel's copies that an older cast.py kept in the git directory move to Lem's state folder once, with a line on stderr; a copy left there beside the state folder's is removed; git shows nothing"
+else
+  fail "the move of the panel's copies: $moved / $again / $movedcast / $both / $(find "$MOVE/.git" "$MOVE/.lem/state" -maxdepth 1 -name 'personas-*' 2>&1 | tr '\n' ' ')"
 fi
 
 if [ "$(status_of cast --repo "$PANEL/no-such-dir")" = 1 ]; then pass "a --repo that does not exist is refused"; else fail "a missing --repo was accepted"; fi
