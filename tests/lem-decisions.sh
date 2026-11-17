@@ -310,4 +310,55 @@ else
   fail "the wait of a choice asked from a worktree: $branch_wait"
 fi
 
+
+# A lead that finds at its plan that its task needs the result of a task that has not landed queues its own task
+# behind it: the state guard takes `queued` with an `after:` line from a task that builds, and refuses it over one
+# with its landing; may-start keeps the task in the queue until the other one has ended, and starts it then.
+WQ=$WORK/waiting-repo
+git init -q -b main "$WQ" && ident "$WQ" && commit "$WQ" start && project --repo "$WQ" init --base main >/dev/null
+for slug in caches-the-list shows-the-list in-landing; do project --repo "$WQ" task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
+project --repo "$WQ" state caches-the-list building "lead: builder" >/dev/null
+project --repo "$WQ" state shows-the-list building "lead: builder" >/dev/null
+queued=$(project --repo "$WQ" state shows-the-list queued "it needs the cache of the product list that caches-the-list adds" "after: caches-the-list" | field 'd["status"]' 2>&1 || true)
+held_back=$(project --repo "$WQ" may-start shows-the-list 2>&1 || true)
+held_code=$(status_of project --repo "$WQ" may-start shows-the-list)
+project --repo "$WQ" state in-landing landing "the checks start" >/dev/null
+over_landing=$(project --repo "$WQ" state in-landing queued "it needs the cache" "after: caches-the-list" 2>&1 || true)
+project --repo "$WQ" state caches-the-list landed "main 1234567..89abcde" >/dev/null
+freed=$(project --repo "$WQ" may-start shows-the-list 2>&1 | field 'd["limit"]' 2>&1 || true)
+project --repo "$WQ" state in-landing dropped "the test is over" >/dev/null
+if [ "$queued" = queued ] && [ "$held_code" = 1 ] \
+  && grep -qF "the task 'shows-the-list' is queued after 'caches-the-list', which is building: it starts when caches-the-list is landed, answered or dropped" <<<"$held_back" \
+  && grep -qF "it is with its landing" <<<"$over_landing" && [ "$(status_in "$WQ" in-landing)" = dropped ] && [ "$freed" = 4 ]; then
+  pass "a lead whose task needs another task's result writes its own task queued after that task; may-start keeps it queued until the other one ended and starts it then, and a task with its landing is never queued"
+else
+  fail "a lead that queues its task: $queued / $held_back / $over_landing / $freed"
+fi
+
+# The one list of what waits for the owner: a choice, criteria that wait for his yes, a step of his, a pull
+# request with green or not, a plan drafted at night, and a retro's proposals.
+wq() { project --repo "$WQ" "$@"; }
+for slug in a-choice his-criteria his-step proposed-one drafted-one; do wq task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
+"$PY" -B "$DECISIONS" --repo "$WQ" ask a-choice "${CASE[@]}" --what "Where the note goes" --option "the last column" --option "after the price" --recommended "the last column" --why w --said s >/dev/null
+wq state his-criteria held "the criteria wait for the owner" "type: feat, because the export gets a column" >/dev/null
+wq state his-step held "the reviewer's pane waits for the owner's trust of the folder" >/dev/null
+wq state proposed-one open "pull request https://github.com/acme/shop/pull/7" "not green: the bar is lower" >/dev/null
+printf '%s\n' '{"proposed": "abc1234", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["the bar is lower"]}' > "$WQ/.lem/state/tasks/proposed-one/landing.json"
+dtree=$(wq worktree-dir drafted-one)
+git -C "$WQ" worktree add -q "$dtree" -b plan/drafted-one main
+mkdir -p "$dtree/docs/plans" && touch "$dtree/docs/plans/2026-11-17-drafted-one.md"
+wq state drafted-one drafted "the plan waits for the owner's word" >/dev/null
+mkdir -p "$WQ/.lem/state/retros"
+printf '%s\n' '{"title": "The retro of 2026-11-17", "questions": [{"id": "p1", "prompt": "Move the rule?", "options": ["approve", "reject", "later"]}, {"id": "p2", "prompt": "Drop the step?", "options": ["approve", "reject", "later"]}]}' > "$WQ/.lem/state/retros/2026-11-17.json"
+printf '%s\n' 'not json' > "$WQ/.lem/state/retros/2026-11-18.json"
+listed=$(wq waiting)
+shape=$(field '([(c["task"], c["id"]) for c in d["choices"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"]) for t in d["pull_requests"]], [(t["task"], t["plan"]) for t in d["drafts"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
+if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'])], [('drafted-one', '$dtree/docs/plans/2026-11-17-drafted-one.md')], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 8)" ] \
+  && [ "$(field 'sorted(d["choices"][0])' <<<"$listed" | grep -c seconds_left)" = 1 ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ]; then
+  pass "waiting lists in one JSON what waits for the owner: each choice as decisions.py pending gives it, the criteria and the steps that hold a task, each pull request with green or not, each night's draft with its plan, and each retro's proposals, with a file that does not read named as such"
+else
+  fail "waiting: $shape / $listed"
+fi
+git -C "$WQ" worktree remove --force "$dtree"
+
 finish

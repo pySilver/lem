@@ -588,6 +588,9 @@ when this happens.
 
 Act on the status:
 
+- **`queued`** with an `after:` line: the lead found at its plan that the task needs what that
+  task changes, and the line before it says what. Nothing is owed now: the queue starts it when
+  that task ends. Tell the owner in one line, with both tasks' asks.
 - **`ready`**: the task joins the landing line. Run `stages/land.md` when no task is in
   `landing`; a `ready` task waits there in the order of its state's time.
 - **`planned`**: the report says why the lead stopped at the plan.

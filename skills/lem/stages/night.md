@@ -50,6 +50,8 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    or a large plan), say so in the night report: the draft stands, and `/lem build` opens the
    plan talk's companion at once (`stages/new.md`), then a builder leads the build.
 
-In the morning `/lem status` opens with the night report, while it is of that night or the one
-before and names a draft that is still `drafted`. The owner starts a draft with `/lem build
-<task>`, or says hold or drop.
+In the morning a bare `/lem` lists each draft that is still `drafted` among what waits for the
+owner (`project.py waiting`), with the night report while it is of that night or the one before.
+He answers each with approve, reject or later, on one page with any retro's proposals (`SKILL.md`,
+Status): approve builds it as `/lem build <task>` does, reject drops it, and later leaves it
+`drafted`, where the brake of step 1 counts it.

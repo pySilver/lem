@@ -6,6 +6,20 @@ by line before the build. Only a careful or large plan is talked through with th
 a list of questions that closes with the reviewer's first turn, by its defender and not by you
 (`stages/talk.md`).
 
+Before the plan, look at the other tasks (`project.py tasks`). When the code you read shows that
+this task builds on what another task changes and that task is not landed (its plan names the
+function, the table or the file this task needs, and the base does not have it yet), the plan
+would be written against code that does not exist. Then write no plan: stop with the state
+
+```bash
+python3 SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG queued "WHAT THIS TASK NEEDS FROM THE OTHER, IN ONE LINE" "after: OTHER-SLUG"
+```
+
+and the report and your reply as `stages/build.md` ends. `project.py may-start` keeps the task in
+the queue until that task is landed, answered or dropped, and Lem starts a lead for it then; the
+lead finds the base with the other task's change in it. Two tasks that only touch the same file
+each go on: the later pull request is brought onto the base when the first one merges.
+
 1. **Write the plan** as one file at the path `python3 SKILL_DIR/scripts/project.py --repo WORKTREE plan-file SLUG`
    prints (`path`; its name is the settings' `paths.plan_file`, `YYYY-MM-DD-<slug>.md` unless they say otherwise), and
    commit it as your first commit: after a bug, the investigator's test comes before it. It opens with the acceptance criteria, because they are the

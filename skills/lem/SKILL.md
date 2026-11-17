@@ -113,7 +113,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
-| `status`, bare `/lem` | the board of all tasks, and in words: every open task, what is proposed and what waits for the owner | below |
+| bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, each plan drafted at night, each retro's proposals; and the board of all tasks, with what builds. A proposal or a draft he answers with approve, reject or later, all on one page | below |
 | `status <task>` | the board of one task | below |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
 | a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
@@ -387,19 +387,47 @@ line once, as it is), no forge in this project, or it was stopped. Start no othe
 reason is gone. The board says when the forge was last looked at, and that nobody watches when
 the watch's last look is older than three of its intervals.
 
-Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists every task
-directory with the first line of its `task.md`, its status and the newest block of its
-`state.md`. Say, in plain names and never in task codes: what builds and what each other task
-waits on, what landed today, what was answered today with its answer in one line, and what
-waits for the owner. That includes each `open` task: its pull request's address, or that its
-branch is ready to land, and green or the reasons it is not, as the newest state block has
-them. It includes each choice of a build that waits for him, as `python3
-SKILL_DIR/scripts/decisions.py pending` lists them under `waiting`: the task, the choice, and the
-minutes its wait has left, or that it waits for his word. A dropped, landed or answered task has
-no choice that waits. A task whose status is null has a state nobody wrote through the script: say
-so. A task with a `ticket_owed` ended, and its ticket in the tracker does not say so yet: say
-that too. Open with the night report of today or of the night before, `night/YYYY-MM-DD.md` in
-the folder `project.py state-dir` prints, when it names a draft whose task is still `drafted`:
-that is what waits for him from the night, and the files hold no record of a status shown. The
-status changes what already happened and nothing else: a merge on the forge is written down, with
-the steps that follow a merge and the queue that it frees.
+Then say what waits for him, as one list in one order, the same at every bare `/lem`:
+
+```bash
+python3 SKILL_DIR/scripts/project.py waiting
+```
+
+It gives each kind under its key, in this order, and you say them so, in plain names and never in
+task codes, one line each, and leave out a kind that has none:
+
+1. `choices`: each choice of a task that waits for him, as `decisions.py pending` gives it: the
+   task, the choice, and the minutes its wait has left, or that it waits for his word;
+2. `criteria`: each task whose acceptance criteria wait for his yes;
+3. `held`: each task that waits for a step of his or one more fact, with that step;
+4. `pull_requests`: each open pull request, its address (or that its branch is ready to land),
+   and green or each reason it is not;
+5. `drafts`: each plan drafted at night, with its plan's path;
+6. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
+   named with it.
+
+When `count` is 0, say "nothing waits for you" in one line. Then, after the list, what builds and
+what each other task waits on, what landed today, and what was answered today with its answer in
+one line, from `project.py tasks`.
+
+A draft and a retro's proposals are his to answer, and they wait until he says so: on his word
+("open them", "the drafts"), `ask-owner` with one page that holds each of them as a question of
+its own, each with the three answers approve, reject and later. A retro's proposal shows the
+move it would make, with the file, the change and the case that asks for it, as the retro wrote
+it. A draft shows its plan's acceptance criteria and the night report's verdict on it. Then, for
+each answer:
+
+- a draft: approve builds it (`/lem build` with its task), reject drops it (`project.py state
+  SLUG dropped "the owner rejected the night's draft"`, with its worktree and branch removed as
+  `clean` does), later leaves it `drafted`;
+- a retro's proposal: approve makes the move as `stages/learn.md` says, reject records it as
+  rejected there, later keeps it. Rewrite the retro's file with the proposals answered later
+  only, and remove it when none is left, so that the list names what still waits.
+
+A dropped, landed or answered task has no choice that waits. A task whose status is null has a
+state nobody wrote through the script: say so. A task with a `ticket_owed` ended, and its ticket in
+the tracker does not say so yet: say that too. With a draft in the list, the night report of
+today or of the night before, `night/YYYY-MM-DD.md` in the folder `project.py state-dir` prints,
+gives its verdict and what the owner gets; the files hold no record of a status shown. The status
+changes what already happened and nothing else: a merge on the forge is written down, with the
+steps that follow a merge and the queue that it frees.

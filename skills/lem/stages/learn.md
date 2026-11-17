@@ -76,7 +76,14 @@ for what came back:
   it, with the turns that show the cost.
 
 The owner sees only moves and removals, in one question through `ask-owner`, each with the case
-in their own words. First-time lessons are recorded without a question. The retro's closing report still names every
+in their own words. A retro that a scheduled job started, with nobody at the terminal, opens no
+page: a page would wait in a session nobody sees (on 2026-11-17 one did). It writes the moves and
+removals into one file, `retros/YYYY-MM-DD.json` in the folder `project.py state-dir` prints, in
+the form Lem's question page takes: one question for each proposal, its prompt the move in one
+line, its body the file, the change and the case, and the options approve, reject and later. Then
+it ends, with its closing report. `project.py waiting` lists the file, and a bare `/lem` says "the
+retro of DATE proposes N changes"; on the owner's word Lem opens the proposals on one page, as
+`SKILL.md` says under Status, and makes each move he approved. First-time lessons are recorded without a question. The retro's closing report still names every
 file it changed, a first-time record included, with what changed and why.
 
 ## The correction queue

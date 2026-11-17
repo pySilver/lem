@@ -34,11 +34,16 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py may-start SLUG       exit 1 when as many other tasks build or land as flow.max_tasks
                                     allows; the task SLUG, whose lead starts, is not counted. Also
                                     exit 1 for a task in `landing`, `open` or an ended state, which
-                                    gets no lead
+                                    gets no lead, and for a task `queued` with an `after: OTHER`
+                                    line while OTHER has not ended
     project.py state-dir            the folder that holds every task, the event log and the night reports
     project.py alone -- COMMAND ...
                                     run one command that needs the machine to itself, under the
                                     repository's one lock for such commands
+    project.py waiting              everything that waits for the owner, as JSON: each choice of a task,
+                                    each task whose criteria or a step of his hold it, each pull
+                                    request with green or not, each plan drafted at night, each
+                                    retro's proposals
     project.py plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON
@@ -155,6 +160,14 @@ with the line to write in their place.
 A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
 `<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it; a plan named `YYYYMMDD-<slug>.md`, as an older Lem
 named it, is found too: `lem_plans` is the one place that builds and finds the name, and `plan-file` prints both.
+
+`waiting` is the one list of what waits for the owner, which a bare `/lem` says: the choices of
+`decisions.py pending` (`choices`), the tasks `held` with the line `the criteria wait for the
+owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
+task with its proposal (`pull_requests`), each `drafted` task with its plan (`drafts`), and each
+file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
+with nobody at the terminal writes in the form Lem's question page takes, one question for each
+proposal. `count` adds them up. It reads and writes nothing else.
 
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
@@ -1821,6 +1834,18 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
             f"the task {slug!r} is {status}: its build is done, and it gets no lead. Its landing goes on with `land.py` "
             f"(`stages/land.md`; an open task takes the line again with `land.py start {slug}`), and a change the owner asks for now is a new ask",
         )
+    # A task queued behind another (`after: OTHER`, which Lem writes for an ask that needs another's
+    # result, and a lead for a plan that does) starts when that task has ended, so that it builds on
+    # what the other one changed.
+    mine = next((task for task in tasks if task["slug"] == slug), None)
+    after = next((line.split(":", 1)[1].strip() for line in (mine["state"] or "").splitlines()[1:] if line.startswith("after:")), None) if mine and status == "queued" else None
+    if after:
+        other = next((task["status"] for task in tasks if task["slug"] == after), None)
+        if other not in ENDED:
+            raise SettingsError(
+                f"the task {slug!r} is queued after {after!r}, which is {other or 'no task'}: it starts when {after} is landed, answered or dropped, "
+                f"so that it builds on what {after} changes; when it no longer needs that, write its state `queued` again without the `after:` line",
+            )
     running = [task["slug"] for task in tasks if task["status"] in RUNNING and task["slug"] != slug]
     if len(running) >= limit:
         raise SettingsError(
@@ -1829,6 +1854,68 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
             f"only the owner raises the limit, in {SETTINGS}",
         )
     print(json.dumps({"running": running, "limit": limit}))
+
+
+# The state line of a task whose criteria wait for the owner's yes, and the one an older Lem wrote.
+CRITERIA_WAIT = ("the criteria wait for the owner", "the stories wait for the owner")
+# Where a retro started with nobody at the terminal keeps its proposals: one file a retro, in the
+# state folder, named by its day.
+RETROS = "retros"
+
+
+def retro_proposals(file: Path) -> dict:
+    """One retro's file of proposals, as the list of what waits says it: its day, its path and how
+    many proposals still wait (the questions of the page's spec). A file that does not read says why."""
+    entry: dict = {"date": file.stem, "file": str(file)}
+    try:
+        spec = json.loads(text_of(file))
+    except (ValueError, SettingsError) as error:
+        return {**entry, "proposals": None, "problem": f"it does not read as JSON ({error}); the retro writes it again"}
+    questions = spec.get("questions") if isinstance(spec, dict) else None
+    if isinstance(questions, list):
+        return {**entry, "proposals": len(questions)}
+    if isinstance(spec, dict) and "prompt" in spec:
+        return {**entry, "proposals": 1}
+    return {**entry, "proposals": None, "problem": "it holds no question in the form of the question page (`questions`, or one `prompt`)"}
+
+
+def cmd_waiting(root: Path) -> dict:
+    """Everything that waits for the owner, from the files that hold it: nothing here decides or writes."""
+    settings = load(root)
+    tasks = read_tasks(root)
+    asked = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "pending"],
+                           capture_output=True, text=True, check=False)
+    if asked.returncode != 0:
+        raise SettingsError(asked.stderr.strip().removeprefix("decisions.py: ") or "decisions.py pending failed")
+    main = main_checkout(root)
+    worktrees = main / Path(settings["paths"]["worktrees"]["path"]).relative_to(root.resolve())
+    plans = Path(settings["paths"]["plans"]["path"]).relative_to(root.resolve())
+
+    def line(task: dict) -> str:
+        return STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]
+
+    def brief(task: dict) -> dict:
+        return {"task": task["slug"], "ask": task["ask"], "since": task["since"]}
+
+    held = [task for task in tasks if task["status"] == "held"]
+    found = {
+        "choices": json.loads(asked.stdout)["waiting"],
+        "criteria": [{**brief(task), "line": line(task)} for task in held if line(task).startswith(CRITERIA_WAIT)],
+        "held": [{**brief(task), "line": line(task)} for task in held if not line(task).startswith(CRITERIA_WAIT)],
+        "pull_requests": [
+            {**brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"]}
+            for task in tasks if task["status"] == "open" and task["proposal"]
+        ],
+        "drafts": [
+            {**brief(task), "plan": str(plan) if (plan := lem_plans.found(worktrees / task["slug"] / plans, settings["paths"]["plan_file"]["pattern"], task["slug"])) else None}
+            for task in tasks if task["status"] == "drafted"
+        ],
+        "retros": [retro_proposals(file) for file in sorted((state_root(root) / RETROS).glob("*.json"))],
+    }
+    found["count"] = sum(len(found[key]) for key in ("choices", "criteria", "held", "pull_requests", "drafts")) + sum(
+        entry["proposals"] or 1 for entry in found["retros"]
+    )
+    return found
 
 
 def cmd_alone(root: Path, words: list[str]) -> int:
@@ -1930,6 +2017,7 @@ def main() -> None:
     log.add_argument("fields", nargs="*", metavar="key=value")
     commands.add_parser("may-start").add_argument("slug")
     commands.add_parser("state-dir")
+    commands.add_parser("waiting", help="everything that waits for the owner, as JSON")
     alone = commands.add_parser("alone", help="run one command that needs the machine to itself, under the repository's one lock")
     alone.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     args = parser.parse_args()
@@ -1963,6 +2051,9 @@ def main() -> None:
             return
         if args.command == "state-dir":
             print(state_root(root))
+            return
+        if args.command == "waiting":
+            print(json.dumps(cmd_waiting(root), indent=2))
             return
         if args.command == "alone":
             sys.exit(cmd_alone(root, args.words))
