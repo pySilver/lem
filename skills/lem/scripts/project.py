@@ -160,8 +160,7 @@ read on that one. Before any commit of the base holds the file (an onboarding, o
 the working tree is read. `show` says which in `settings_from`.
 
 `[checks]` holds the machine checks of a landing: `commands`, the whole suite, `setup`, `ignores`
-and `bar`. A file that still has the table under its older name, `[gate]`, is refused with the
-lines to write in its place. `checks.alone` names the commands that need the machine to themselves: an end-to-end suite that
+and `bar`. `checks.alone` names the commands that need the machine to themselves: an end-to-end suite that
 uses fixed ports, one database or a browser. `alone` runs any command under one lock for the
 repository, `alone.lock` in the state folder, apart from the landing's lock, since a builder takes
 this one too: the checks of a landing run each `checks.alone` command through it after
@@ -177,9 +176,11 @@ A seat is one string, `agent/model:effort`: `seats.reviewer`, the agent in the r
 `seats.planner`, the defender of a plan talk; and `seats.experts`, the two experts of a choice
 that waits for the owner. The effort may be left out (`codex/gpt-6.1-sol`), and so may the model
 (`codex`, `codex:high`): the part left out is that agent's own default, and Lem passes nothing for
-it. `show` gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written. The
-tables of an older Lem (`[seats.reviewer]` with `agent`, `model` and `plan_effort`) are refused
-with the line to write in their place.
+it. `show` gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written.
+
+A file with the tables of an older Lem, `[gate]` (the checks' older name), `[seats.reviewer]` (with
+`agent`, `model` and `plan_effort`) or `[seats.planner]`, is refused once, with every such table
+named and the whole text to write in their place.
 
 A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
 `<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it; a plan named `YYYYMMDD-<slug>.md`, as an older Lem
@@ -677,9 +678,10 @@ def settings_of(text: str, name: Path, tables: tuple[str, ...], branch_copy: boo
         raise SettingsError(f"{name}: {error}") from error
     if branch_copy:
         raw = now_form(raw, name)
+    older = older_form(raw, name)
+    if older:
+        raise SettingsError(older)
     for table, body in raw.items():
-        if table == "gate":
-            raise SettingsError(gate_gone(name, body))
         if table not in TABLES:
             raise SettingsError(f"{name}: unknown table [{table}]{nearest(table, tuple(TABLES))}")
         if table not in tables:
@@ -708,13 +710,39 @@ def toml_value(value: object) -> str:
     return str(value)
 
 
-def gate_gone(name: Path, body: object) -> str:
-    """The refusal of the table's older name, with the lines to write in its place. The keys are
-    the same, so the lines are the table's own; an unknown key among them is refused after the move."""
-    lines = [f"{key} = {toml_value(value)}" for key, value in body.items()] if isinstance(body, dict) else []
+def older_form(raw: dict, name: Path) -> str | None:
+    """The one refusal of a file that has tables of an older Lem: `[gate]`, `[seats.reviewer]`,
+    `[seats.planner]`. It names every one the file has and gives the whole text to write in their
+    place, ready to paste; None when the file has none. The keys of `[gate]` are those of `[checks]`,
+    so its lines are the table's own, and an unknown key among them is refused after the move."""
+    gate = raw.get("gate")
+    seats = raw.get("seats") if isinstance(raw.get("seats"), dict) else {}
+    tables = [which for which in SEATS if isinstance(seats.get(which), dict)]
+    if gate is None and not tables:
+        return None
+
+    def joined(words: list[str]) -> str:
+        return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
+
+    named, said, text = [], [], []
+    if gate is not None:
+        named.append("[gate]")
+        said.append("[gate] is called [checks] now, with the same keys (commands, setup, ignores, bar, alone)")
+        text += ["[checks]", *([f"{key} = {toml_value(value)}" for key, value in gate.items()] if isinstance(gate, dict) else [])]
+    if tables:
+        # the keys of [seats] that are lines already go into the one [seats] table with the new lines
+        plain = [f"{key} = {toml_value(value)}" for key, value in seats.items() if not isinstance(value, dict)]
+        if plain:
+            named.append("[seats]")
+        named += [f"[seats.{which}]" for which in tables]
+        said.append(
+            f"{joined([f'[seats.{which}]' for which in tables])} {'is' if len(tables) == 1 else 'are each'} one line under [seats] now, \"{SEAT_FORM}\""
+            + ("; the reviewer's effort for the review of a diff was used by no step, and has no place in the line" if "reviewer" in tables and "effort" in seats["reviewer"] else ""),
+        )
+        text += [*([""] if text else []), "[seats]", *plain, *(old_seat_line(which, seats[which]) for which in tables)]
     return (
-        f"{name}: [gate] is called [checks] now, with the same keys (commands, setup, ignores, bar, alone). "
-        "Write these lines in place of the [gate] table:\n" + "\n".join(["[checks]", *lines])
+        f"{name} has the form of an older Lem: {'; '.join(said)}. "
+        f"Write these lines in place of the {joined(named)} table{'s' if len(named) > 1 else ''}:\n" + "\n".join(text)
     )
 
 
@@ -820,12 +848,7 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     given = raw.get("seats", {}).get(which)
     if given is None:
         return None
-    if isinstance(given, dict):
-        # the table of an older Lem: refused with the one line that says the same now
-        raise SettingsError(
-            f"{name}: [seats.{which}] is one line now, \"{SEAT_FORM}\". Write `{old_seat_line(which, given)}` under [seats] in place of the [seats.{which}] table"
-            + ("; its effort for the review of a diff was used by no step, and has no place in the line" if which == "reviewer" and "effort" in given else ""),
-        )
+    # a table of an older Lem never comes here: `older_form` refused it when the file was read
     return parse_seat(given, f"{name}: seats.{which}", agents, why, example)
 
 

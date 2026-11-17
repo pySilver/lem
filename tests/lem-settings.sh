@@ -216,22 +216,41 @@ settings '[seats.planner]' 'agent = "claude"' 'model = "opus"' 'effort = "high"'
 old_planner=$(project --repo "$OLD" show 2>&1 || true)
 settings '[seats.reviewer]' 'model = "gpt"'
 old_agentless=$(project --repo "$OLD" show 2>&1 || true)
-if grep -qF "[seats.reviewer] is one line now, \"agent/model:effort\". Write \`reviewer = \"codex/gpt-6.1-sol:high\"\` under [seats] in place of the [seats.reviewer] table" <<<"$old_reviewer" \
-  && grep -qF "its effort for the review of a diff was used by no step" <<<"$old_reviewer" \
-  && grep -qF "Write \`planner = \"claude/opus:high\"\` under [seats]" <<<"$old_planner" && grep -qF "Write \`reviewer = \"AGENT/gpt\"\`" <<<"$old_agentless" \
+if grep -qF "[seats.reviewer] is one line under [seats] now, \"agent/model:effort\"; the reviewer's effort for the review of a diff was used by no step" <<<"$old_reviewer" \
+  && grep -qF "Write these lines in place of the [seats.reviewer] table:" <<<"$old_reviewer" \
+  && [ "$(printf '%s\n' "$old_reviewer" | sed -n 2,3p)" = "$(printf '%s\n' '[seats]' 'reviewer = "codex/gpt-6.1-sol:high"')" ] \
+  && grep -qxF 'planner = "claude/opus:high"' <<<"$old_planner" && ! grep -qF "[seats.reviewer]" <<<"$old_planner" && grep -qxF 'reviewer = "AGENT/gpt"' <<<"$old_agentless" \
   && [ "$(status_of project --repo "$OLD" show)" = 1 ]; then
-  pass "the seat tables of an older Lem are refused with the line to write under [seats], its effort for the plan talk as the effort"
+  pass "a seat table of an older Lem is refused alone, with the line to write under [seats], its effort for the plan talk as the effort"
 else
   fail "older seat tables: $old_reviewer / $old_planner / $old_agentless"
 fi
 # The checks: [gate] is their older name, refused with the lines to write in its place.
 settings '[gate]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]'
 gate_err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF "[gate] is called [checks] now" <<<"$gate_err" \
-  && [ "$(printf '%s\n' "$gate_err" | tail -4)" = "$(printf '%s\n' '[checks]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]')" ]; then
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF "[gate] is called [checks] now" <<<"$gate_err" && ! grep -qF "[seats" <<<"$gate_err" \
+  && grep -qF "Write these lines in place of the [gate] table:" <<<"$gate_err" && [ "$(printf '%s\n' "$gate_err" | sed -n 2,5p)" = "$(printf '%s\n' '[checks]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]')" ]; then
   pass "a settings file with the older [gate] table is refused with the [checks] lines to write in its place, its own values in them"
 else
   fail "the older [gate] table: $gate_err"
+fi
+# All three older tables at once: one refusal names each, and gives the whole text to paste in their place.
+settings '[gate]' 'commands = ["make test"]' '[seats]' 'experts = ["claude/fable", "codex/gpt-6-astra:high"]' \
+  '[seats.reviewer]' 'agent = "codex"' 'model = "gpt-6.1-sol"' 'plan_effort = "high"' '[seats.planner]' 'agent = "claude"' 'model = "opus"' 'effort = "high"'
+all_err=$(project --repo "$OLD" show 2>&1 || true)
+pasted=$(printf '%s\n' "$all_err" | sed -n '2,/^planner = /p')
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(grep -c "has the form of an older Lem" <<<"$all_err")" = 1 ] \
+  && grep -qF "Write these lines in place of the [gate], [seats], [seats.reviewer] and [seats.planner] tables:" <<<"$all_err" \
+  && grep -qF "[gate] is called [checks] now" <<<"$all_err" && grep -qF "[seats.reviewer] and [seats.planner] are each one line under [seats] now" <<<"$all_err" \
+  && [ "$pasted" = "$(printf '%s\n' '[checks]' 'commands = ["make test"]' '' '[seats]' 'experts = ["claude/fable", "codex/gpt-6-astra:high"]' 'reviewer = "codex/gpt-6.1-sol:high"' 'planner = "claude/opus:high"')" ]; then
+  printf '%s\n' "$pasted" > "$OLD/.lem/project.toml"
+  if [ "$(project --repo "$OLD" show | field '(d["checks"]["commands"], d["seats"]["reviewer"]["seat"], d["seats"]["planner"]["seat"], len(d["seats"]["experts"]))')" = "(['make test'], 'codex/gpt-6.1-sol:high', 'claude/opus:high', 2)" ]; then
+    pass "a file with [gate], [seats.reviewer] and [seats.planner] is refused once, naming all three, with the whole text to write in their place, and that text pasted reads"
+  else
+    fail "the pasted text of the older tables does not read: $pasted"
+  fi
+else
+  fail "the three older tables at once: $all_err"
 fi
 # A plan's file name: paths.plan_file, YYYY-MM-DD-<slug>.md by default; a plan of the older name YYYYMMDD-<slug>.md is found too.
 settings '[branch]' 'base = "master"'
@@ -544,7 +563,7 @@ words=$(project --repo "$OLD" reviewer codex gpt-6.1-sol high 2>&1 || true)
 gemini=$(project --repo "$OLD" reviewer gemini/pro 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && grep -qF "reviewer takes one seat, \"agent/model:effort\", as \`reviewer codex/gpt-6.1-sol:high\`" <<<"$words" \
   && grep -qF "the agent 'gemini' must be claude or codex" <<<"$gemini" && [ "$(status_of project --repo "$OLD" reviewer codex/)" = 1 ] && [ ! -e "$OLD/.lem/project.local.toml" ] \
-  && grep -qF "Write \`reviewer = \"codex\"\` under [seats] in place of the [seats.reviewer] table" <<<"$old_local"; then
+  && grep -qF "Write these lines in place of the [seats.reviewer] table:" <<<"$old_local" && grep -qxF 'reviewer = "codex"' <<<"$old_local"; then
   pass "reviewer refuses an agent that cannot review, the older three words and a seat that does not parse, and writes nothing then; an older seat table already in the file is refused with its line"
 else
   fail "reviewer refusals: $words / $gemini / $old_local"
