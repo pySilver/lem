@@ -501,11 +501,12 @@ const STATUS = {
 // The states a task does not leave (project.py ENDED): nobody acts, and nothing of it waits.
 const ENDED = ['landed', 'dropped', 'answered'];
 // The kind of a request, from its state line `kind: KIND, because WHY` (stages/new.md), in the card's words.
-// `correction` is the scripts' word for the size the stages call a small change when they speak to
-// the developer (stages/new.md, step 1): the page says "a small change".
-const KINDS = {bug: 'a bug', feature: 'a feature', correction: 'a small change', investigation: 'an investigation', chore: 'a chore', docs: 'documentation'};
+// The kind `correction` is one plain rule that is wrong: the page says "a one-rule fix", never the
+// scripts' word. It says nothing of the size: a task is a small change only by its one builder (the
+// state line `small change: one builder`), and only that task has the "small change" tag.
+const KINDS = {bug: 'a bug', feature: 'a feature', correction: 'a one-rule fix', investigation: 'an investigation', chore: 'a chore', docs: 'documentation'};
 // The kind of a set of stories (`Kind:` of stories.py), feature or correction, in the page's words.
-const storyKind = kind => (kind === 'correction' ? 'small change' : kind);
+const storyKind = kind => (kind === 'correction' ? 'one-rule fix' : kind);
 // What the investigation of a bug or a question found (project.py `log investigation`), as the
 // head of its line, the card's word before it, and the sentence of the task's own board: the call
 // says which path the task took after it.
@@ -1018,7 +1019,7 @@ function statusPill(t) {
 // leaves those out. The newest commit is the task board's "Last commit", and no tag repeats it.
 function tags(t, card = false) {
   const out = [];
-  if (t.kind) out.push(h('span', {class: 'tag', title: `The kind of the request, as Lem took it from the ask: ${t.kind.kind}, because ${t.kind.why}`}, icon('flag'), h('span', {}, KINDS[t.kind.kind])));
+  if (t.kind) out.push(h('span', {class: 'tag', title: `The kind of the request, as Lem took it from the ask: ${KINDS[t.kind.kind] ?? t.kind.kind}, because ${t.kind.why}`}, icon('flag'), h('span', {}, KINDS[t.kind.kind] ?? t.kind.kind)));
   for (const c of t.waiting.filter(x => !(card && x === t.asks[0]))) out.push(h('span', {class: `tag c-you${t.asks.includes(c) ? ' live' : ''}`, title: `${c.what}\nrecommended: ${c.recommended}`}, icon('help'),
     h('span', {}, `choice ${c.id}: `, c.irreversible ? 'no end' : t.asks.includes(c) ? until(c.deadline) : 'wait over')));
   const lead = t.lead ? LEAD[leadOf(t)] : null;
@@ -1027,7 +1028,7 @@ function tags(t, card = false) {
   if (t.progress && t.status === 'building' && !(card && !t.asks.length && taskLine({status: t.status, text: t.text, lines: []})))
     out.push(h('span', {class: 'tag', title: 'The task of the plan that is built now'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
   if (t.stories) out.push(h('span', {class: 'tag', title: t.stories.list.map(st => `${st.n}. ${st.text}`).join('\n')}, icon('file'),
-    h('span', {}, t.stories.kind === 'correction' ? 'a small change: 1 story' : plural(t.stories.list.length, 'story').replace('storys', 'stories'))));
+    h('span', {}, plural(t.stories.list.length, 'story').replace('storys', 'stories'))));
   if (t.gates.length) out.push(h('span', {class: `tag ${t.gateBad ? 'c-bad' : 'c-ok'}`, title: t.gates.map(g => `${g.exit === 0 ? 'green' : `exit ${g.exit}`}  ${g.command}  ${g.last ?? ''}`).join('\n')},
     icon(t.gateBad ? 'alert' : 'check'), h('span', {}, t.gateBad ? `checks red: ${t.gateBad} of ${t.gates.length}` : `checks green: ${t.gates.length}`)));
   const r = t.reviews.at(-1);

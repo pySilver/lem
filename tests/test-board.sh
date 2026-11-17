@@ -170,7 +170,8 @@ project state plan-for-you planned "the plan waits for the owner to read it" >/d
 task night-draft "Split the settings page"
 project state night-draft drafted "a plan written at night" >/dev/null
 task building-one "Cache the product list"
-project state building-one building "task 1 of 2" >/dev/null
+# the kind `correction` on a task with a plan: a one-rule fix, and no small change
+project state building-one building "task 1 of 2" "kind: correction, because one rule of the cache is wrong" >/dev/null
 task queued-one "Add a dark theme"
 project state queued-one queued "waits for a free place" >/dev/null
 task blocked-one "Upgrade the database driver"
@@ -755,9 +756,9 @@ sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 stori
   draw task-correction-one
   # shellcheck disable=SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-correction-one.dom" "Taken as a small change: Lem approved its one story in your name" \
-    'You may still say “this is a feature”' "The personas do not read the one story of a small change." "small change, because the request is one sentence." \
-    "One builder makes the change" "!a correction" "!correction, because"); then
-    pass "a small change's Stories card says that Lem approved its one story in your name, that you may call it a feature, and that the personas do not read it, in the words the stages use"
+    'You may still say “this is a feature”' "The personas do not read the one story of a small change." "one-rule fix, because the request is one sentence." \
+    "One builder makes the change" "!a correction" "!correction, because" "!small change, because"); then
+    pass "a small change's Stories card says that Lem approved its one story in your name, that you may call it a feature, and that the personas do not read it; its stories' kind is a one-rule fix, and only the one builder says it is a small change"
   else
     fail "a small change's Stories card: $why"
   fi
@@ -1161,6 +1162,64 @@ sys.exit(not ok)' "$WORK/board.dom"); then
     pass "no page shows a fixed line of a state block or a stage's start as it is written, says the owner in the third person, or names a careful path: who works on a task, its plan, its kind, its investigation and what it waits for are said in words to you"
   else
     fail "a fixed line of a state block: ${raw[*]:-} ${why:-}"
+  fi
+  # LOOK CHECK DOM...: what a reader sees of one part of a page, read from the elements themselves.
+  #   cards DOM 'TITLE|TEXT|!TEXT'...  a lane card, by its title, holds each TEXT and not each !TEXT
+  LOOK=$(cat <<'PY'
+import html, re, sys
+from html.parser import HTMLParser
+VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+class Node:
+    def __init__(self, tag, attrs, up):
+        self.tag, self.attrs, self.up, self.kids = tag, dict(attrs), up, []
+    def cls(self):
+        return (self.attrs.get("class") or "").split()
+    def text(self):
+        return " ".join(" ".join(k if isinstance(k, str) else k.text() for k in self.kids).split())
+    def all(self):
+        for k in self.kids:
+            if not isinstance(k, str):
+                yield k
+                yield from k.all()
+class P(HTMLParser):
+    def __init__(self):
+        super().__init__(); self.root = Node("root", [], None); self.at = self.root; self.texts = []
+    def handle_starttag(self, tag, attrs):
+        n = Node(tag, attrs, self.at); self.at.kids.append(n)
+        if tag not in VOID: self.at = n
+    def handle_endtag(self, tag):
+        n = self.at
+        while n is not self.root and n.tag != tag: n = n.up
+        if n is not self.root: self.at = n.up
+    def handle_data(self, data):
+        self.at.kids.append(data); self.texts.append((data, self.at))
+def read(path):
+    p = P(); p.feed(open(path, encoding="utf-8").read()); return p
+check, *args = sys.argv[1:]
+wrong = []
+if check == "cards":
+    p = read(args[0])
+    cards = {}
+    for n in p.root.all():
+        if n.tag == "button" and "tcard" in n.cls():
+            title = next((k.text() for k in n.all() if "tc-title" in k.cls()), "")
+            cards[title] = n.text()
+    for want in args[1:]:
+        title, *needs = want.split("|")
+        if title not in cards: wrong.append(f"no card {title!r}"); continue
+        for need in needs:
+            if (need[1:] in cards[title]) if need.startswith("!") else (need not in cards[title]):
+                wrong.append(f"the card {title!r} {'holds' if need.startswith('!') else 'does not hold'} {need.lstrip('!')!r}: {cards[title]!r}")
+print("; ".join(dict.fromkeys(wrong)))
+sys.exit(bool(wrong))
+PY
+)
+  # The kind `correction` is said as a one-rule fix, on a task of any size, and only the one builder of
+  # a small change makes a task a small change.
+  if why=$("$PY" -I -B -c "$LOOK" cards "$WORK/board.dom" "Building one|a one-rule fix|!small change" "Correction one|One builder makes the change|small change|!a one-rule fix"); then
+    pass "the kind correction shows as a one-rule fix, also on a task with a plan, and the size shows only as the small change chip of a task with one builder"
+  else
+    fail "the kind correction and the size: $why"
   fi
   # The project's own asker: the page says where the owner answers, by the settings' tools.ask: on the
   # large card of the board, and on the task's own board.
