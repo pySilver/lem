@@ -185,9 +185,10 @@ settings '[seats.reviewer]' 'model = "some-model"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a reviewer's model with no agent is refused"; else fail "model without agent"; fi
 settings '[seats.reviewer]' 'agent = "codex"' 'modle = "some-model"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "an unknown key of the reviewer's seat is refused"; else fail "unknown seat key"; fi
+# `effort` was the reviewer's effort for the review of a diff, which no step used: a file that still has it is read, and the key is not given
 settings '[seats.reviewer]' 'agent = "claude"' 'model = "some-model"' 'effort = "high"' 'plan_effort = "xhigh"'
-if [ "$(project --repo "$OLD" show | field 'd["seats"]["reviewer"]')" = "{'agent': 'claude', 'model': 'some-model', 'effort': 'high', 'plan_effort': 'xhigh'}" ]; then
-  pass "the reviewer's seat names the agent, which may be the builder's family, and what its pane starts with"
+if [ "$(project --repo "$OLD" show | field 'd["seats"]["reviewer"]')" = "{'agent': 'claude', 'model': 'some-model', 'plan_effort': 'xhigh'}" ]; then
+  pass "the reviewer's seat names the agent, which may be the builder's family, its model and its effort for the plan talk; a file that still names an effort for the review of a diff is read, and that key is not used"
 else
   fail "reviewer seat: $(project --repo "$OLD" show | field 'd["seats"]')"
 fi
@@ -434,7 +435,7 @@ fi
 # This machine's own settings: read from the main checkout in a worktree too, only seats and tools.
 settings '[branch]' 'base = "master"' '[seats.reviewer]' 'agent = "codex"' 'model = "the-usual" ' 'effort = "high"'
 out=$(project --repo "$WORK/wt" reviewer claude a-claude-model high)
-if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'effort': 'high', 'plan_effort': None}, ['seats.reviewer'])" ] \
+if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'plan_effort': 'high'}, ['seats.reviewer'])" ] \
   && [ -f "$OLD/.lem/project.local.toml" ] && [ ! -e "$WORK/wt/.lem/project.local.toml" ] \
   && [ "$(project --repo "$OLD" show | field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"], d["local"]["file"])')" = "('claude', 'a-claude-model', '$OLD/.lem/project.local.toml')" ]; then
   pass "reviewer, run in a worktree, writes this machine's seat in the main checkout; it replaces the project's seat whole and show says so"
@@ -488,8 +489,9 @@ else
   fail "a number as the local annotate tool: $err"
 fi
 rm "$OLD/.lem/project.local.toml"
-if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer codex a b c d)" = 1 ] && [ ! -e "$OLD/.lem/project.local.toml" ]; then
-  pass "reviewer refuses an agent that cannot review and a fifth word, and writes nothing then"
+four=$(project --repo "$OLD" reviewer codex a b c 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && grep -qF "reviewer takes AGENT [MODEL [PLAN_EFFORT]]" <<<"$four" && [ ! -e "$OLD/.lem/project.local.toml" ]; then
+  pass "reviewer refuses an agent that cannot review and a fourth word, and writes nothing then"
 else
   fail "reviewer refusals"
 fi

@@ -15,7 +15,7 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py existing             the folders an older tool already reads here, as JSON
     project.py init [--base NAME] [--existing link|new] [--reviewer claude|codex]
                                     write .lem/project.toml
-    project.py reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]
+    project.py reviewer AGENT [MODEL [PLAN_EFFORT]]
                                     who reviews on this machine, until `reviewer default`
     project.py reviewer default     the project's own reviewer again
     project.py rules [FILE ...] [--range BASE..TIP]
@@ -160,8 +160,12 @@ PROPOSE = ("pull-request", "merge")
 REVIEWERS = ("claude", "codex")
 # The reviewer's seat: the agent, and what its pane is started with. A model and an effort are
 # not checked against a list: their names change with each release of an agent's command, and
-# that command refuses a wrong one loudly when the pane starts.
-SEAT = ("agent", "model", "effort", "plan_effort")
+# that command refuses a wrong one loudly when the pane starts. The reviewer's pane opens for the
+# plan talk only, so its one effort is `plan_effort`.
+SEAT = ("agent", "model", "plan_effort")
+# `effort` was the reviewer's effort for the review of a diff, which no step used (audit W7,
+# 2026-11-16). A settings file that still has it is read as before, and the key is not used.
+UNUSED_SEAT_KEYS = {"reviewer": ("effort",)}
 # The defender's seat: the agent Lem starts in the companion of a plan talk, which defends the
 # plan against the reviewer. Only Claude Code, because the harness was checked in no other agent.
 PLANNERS = ("claude",)
@@ -294,7 +298,6 @@ decision_wait = {decision_wait}
 {reviewer}
 # What its pane starts with. Leave one out and the agent's own default holds.
 # model = ""
-# effort = ""        # for the review of a diff
 # plan_effort = ""   # for the talk over a plan
 
 [seats.planner]
@@ -489,7 +492,7 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     if not isinstance(given, dict):
         raise SettingsError(f'{name}: seats.{which} is a table: write [seats.{which}] and under it agent = "{agents[-1]}"')
     for key, value in given.items():
-        if key not in keys:
+        if key not in keys and key not in UNUSED_SEAT_KEYS.get(which, ()):
             raise SettingsError(f"{name}: unknown key seats.{which}.{key}{nearest(key, keys)}")
         if not isinstance(value, str) or not value.strip():
             raise SettingsError(f"{name}: seats.{which}.{key} must be a word, not {value!r}; leave the line out for the agent's own default")
@@ -763,7 +766,7 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
         local.get("seats", {}).pop("reviewer", None)
     else:
         if len(words) > len(SEAT):
-            raise SettingsError(f"reviewer takes AGENT [MODEL [EFFORT [PLAN_EFFORT]]], not {len(words)} words")
+            raise SettingsError(f"reviewer takes AGENT [MODEL [PLAN_EFFORT]], not {len(words)} words: the reviewer's pane opens for the plan talk only, and PLAN_EFFORT is its effort there")
         local.setdefault("seats", {})["reviewer"] = dict(zip(SEAT, words))
         seat(local, LOCAL)
     lines = ["# This machine's own settings for Lem. Not committed; `project.py reviewer` writes the seat."]

@@ -325,7 +325,10 @@ him, and they are not his rulings until he says so:
   each person's own yes.
 
 - **The reviewer's seat is a table**, after "should we or can we specify model and effort level
-  of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `effort`, `plan_effort`.
+  of the reviewer?": `[seats.reviewer]` with `agent`, `model`, `plan_effort`. Its `effort` for
+  the review of a diff went on 2026-11-17 (the maintaining session's, from audit W7): the pane
+  opens for the plan talk only, and no step used it. A file that still has the key is read and
+  the key is not used.
 - **Lem brings its own builder agent**, after "it feels like we need to bring our own lem-worker
   agent which product may override? ... someone elses setup may have none": `agents/lem-builder.md`
   (his `lem-worker`; named for the role every Lem text uses), on Opus at high effort, overridden
@@ -487,6 +490,20 @@ is the session's, and open to him.
   already happened and nothing else. The night report rule read "newer than the last status
   shown", which no file records; it is now a report of that night or the one before that names a
   draft still `drafted`, which a fresh session can read from the files.
+- **Onboarding asks three questions** (2026-11-17). The audit counted about ten questions and
+  several offers before the first task, each a page, and 20 to 40 minutes to it (F10, an
+  unmeasured estimate). `/lem init` asks only what only the developer knows: what the product is
+  and who it is for, the people a change affects (two or more, his ruling), and what must never
+  go wrong, each with Lem's proposal from the code. Every other setting is read from the
+  repository or defaulted and shown on the hand-over page as an assumption he corrects with
+  "change ...": who lands (`owner`), a pull request where the remote is GitHub, what lands, the
+  closed branches, the tracker (none, or Linear when the repository shows it, after the
+  tracker's check), the reviewer and the defender with their models, and the folders already
+  there, linked: shown on the page with the word that changes it, so the choice is the owner's and
+  no default is silent. The offers (the correction queue, with what he agrees to, the
+  recommended tools, cronn and the scheduled jobs) are one short list at the end of the page,
+  never a question each. The reviewer seat's `effort` for a diff and the diff half of
+  `prompts/reviewer.md` are gone (W7).
 
 ## Checks
 

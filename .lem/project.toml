@@ -81,7 +81,6 @@ decision_wait = 15
 agent = "codex"
 # What its pane starts with. Leave one out and the agent's own default holds.
 # model = ""
-# effort = ""        # for the review of a diff
 # plan_effort = ""   # for the talk over a plan
 
 [seats.planner]

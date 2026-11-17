@@ -1,8 +1,12 @@
 # init: onboarding a repository
 
 `/lem init` takes a repository from nothing to a first task: it checks the machine, examines the
-project, interviews the owner about what the code cannot say, and writes the project's settings
-and profiles as drafts the owner adjusts. It runs once per repository and stops before any task.
+project, asks the owner three questions about what only he knows, and writes the project's
+settings and profiles as drafts he adjusts. Everything else is read from the repository or
+defaulted, and the hand-over page shows it as an assumption he corrects with one word. It runs
+once per repository and stops before any task. The audit of 2026-11-16 counted about ten
+questions and several offers before the first task, each a page, and 20 to 40 minutes to it (an
+unmeasured estimate).
 
 Keep the onboarding's notes in its own task directory: `project.py task-dir onboarding`.
 
@@ -25,33 +29,9 @@ python3 SKILL_DIR/scripts/doctor.py
 ```
 
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
-installed, and end. For each optional tool that is absent, tell the owner in one line what the
-skill does without it (the row's `without_it`), and go on. A recommended tool that is absent
-(`need: recommended`) gets one line too: what it gives and its guide (the row's `guide`). Lem
-brings none of them. Offer to install one by its guide, and do it only on the owner's yes; a
-guide copies a skill into the owner's own skills folder, so where your agent refuses you the
-step, give him the guide's commands. Three things need a sentence of their
-own: cronn that is installed and not running, cronn that is absent, and the correction queue.
-Recommend the queue and turn it on only when the owner agrees: with it, the project keeps a
-queue of the owner's corrections for the retro; without it, a correction is learned in the
-session it was given in and nowhere else. Tell the owner what he agrees to, in these words or
-closer ones: each message he types in this repository, other than a command that starts with
-`/`, goes with the agent message it answers to the Jev decision model through OpenRouter, under
-the key of whoever typed it, and the ones that may hold a lesson are kept in a file that is
-never committed. The yes is a line in the tracked settings, so it holds for everybody who works
-in this repository with the hook, and one person can say no for themselves (the harness file
-says how). The check's "OpenRouter key" row says whether
-this session has a key; without one the queue stays empty and its log fills, so say that too. On
-his yes, set `corrections.collect = true` in step 4. What else is needed depends on how Lem
-reached this session, and the harness file says which: with Lem as a plugin the hook is there
-already and nothing is registered; with Lem linked by the setup, name the one command that
-registers the hook, which he runs himself, today or on any later day. Give him no settings
-lines to paste, and never name that command to an owner who has Lem as a plugin: it would add
-the hook a second time. For an absent cronn, offer to install
-it through the `cronn` skill when that skill is there: its installer adds a Homebrew formula and
-an agent that starts at login, so it runs only on the owner's yes. The owner may have to run it
-himself: the harness file says which steps an agent is refused, and then you give him the
-command.
+installed, and end. Every other row is no question now: an optional tool that is absent is one
+line of the hand-over page (the row's `without_it`), and a recommended tool that is absent, cronn
+and the correction queue are offers in the short list at the end of that page (step 6).
 
 ## 2. Examine the project
 
@@ -64,7 +44,10 @@ onboarding directory, every line with the path it was read from:
 - how it is checked: the test configuration, the CI files, the commit hooks, a `Makefile` or task
   runner. These become the gate commands;
 - how work lands: the default branch, the branches the last fifty merges went into, whether
-  commits are squashed, the form of the commit subjects;
+  commits are squashed, the form of the commit subjects, whether the remote is GitHub, and any
+  branch nothing lands on (a release branch frozen for a rewrite);
+- where the work is kept: a tracker the repository shows (Linear issue keys in branch names or
+  commit subjects, a link to linear.app in its documents), with the team key it shows;
 - where a defect costs most: migrations, money, authentication, anything that writes data which
   cannot be rebuilt, private data, the checks themselves. Most products have most of these, so
   look for each. They become the proposals of what must never go wrong: each one sentence in
@@ -82,16 +65,15 @@ In a large repository, `fan-out` one reader per area and merge what they return.
 what it read and where; it proposes nothing.
 
 A repository with no code yet (`git ls-files` lists nothing beyond a README, a license or an
-ignore file) has nothing to examine. Write that one line in `examined.md` and go to step 3, where
-the interview is about what the owner plans to build.
+ignore file) has nothing to examine. Write that one line in `examined.md` and go to step 3, whose
+first question is then about what the owner plans to build.
 
-## 3. Interview the owner
+## 3. Three questions
 
-Hold the interview by the rules of the `lem-interview-me` skill (`load-skill`): open with a
-one-sentence hypothesis and how sure you are, ask one question at a time through `ask-owner`, each
-with your own guess so the owner corrects a draft instead of composing one, restate what you
-heard at the end, and take only an explicit yes. Ask only what the examination could not answer;
-what it answered is stated as an assumption in step 6, never asked.
+Ask only what only the owner knows, one question at a time in the conversation, each with your
+own proposal from `examined.md` so that he corrects a draft instead of composing one, by the
+method of the `lem-interview-me` skill (`load-skill`). Three questions, and no fourth: what the
+examination answered, and every setting with a default, is an assumption of the hand-over page.
 
 An interview question goes straight to the owner. It does not pass the question gate or the
 persona panel, its card gets no framing check, and its answer is not tested for a ruling: it
@@ -102,74 +84,28 @@ owner's first answer and the second question, and three ruling files repeated th
 settings (a scratch repository, 2026-11-15; the time is that session's status line as another
 session read it).
 
-**A new project** has a different interview, because there is no code to guess from:
+1. **What the product is, and who it is for**: what it is judged against and how big it is meant
+   to get. The code shows what exists; only the owner knows the rest. A new project, with no
+   code to guess from, answers here what he plans to build, the first thing its person should be
+   able to do with it (the first task after onboarding), and the stack he wants or "choose for
+   me"; then propose one with its reason and what it costs to change later.
+2. **The people a change affects**: a customer, an operator, a partner, the engineer on call.
+   Each becomes a persona, and every project of Lem has them: before a hard question reaches the
+   owner, an agent answers it as each person the decision affects. Propose two or more from what
+   you examined, because a panel of one has nobody to disagree: the people the product serves,
+   and, where there is no second kind of user, the people who run it or build the next change on
+   it. Two people are worth it only when they would notice different things about the same
+   change. The first onboarding wrote one persona, "a shop employee who reads report headings",
+   and its own page said that this person could not tell the options of a question apart (a
+   scratch repository, 2026-11-15).
+3. **What must never go wrong here?** Your proposals from the code, each a sentence of what a
+   person would see go wrong, with the code each came from beside it. Ask what is wrong or
+   missing. No path is proposed or asked: a sentence still holds after the code moves, and an
+   agent reads every ask, plan and diff against it. In a repository with no code, propose them
+   from his description of the product.
 
-- **What the owner plans to build**: the product, who it is for, and the first thing such a
-  person should be able to do with it. That first thing becomes the first task after onboarding.
-- **How big it is meant to get**, and what would make it a failure.
-- **The stack**: what the owner wants, or "choose for me"; then propose one with its reason and
-  what it costs to change later.
-- **The people** a decision here will affect, and **what must never break** once it exists.
-- **A starting style guide**: when another of the owner's repositories uses the same stack and
-  has a style guide, offer to start from a copy of it, marked as copied and from where.
-
-For a repository that has code:
-
-- **The product in the owner's words**: what it is for, who it is for, how big it is meant to
-  get. The code shows what exists; only the owner knows what it is judged against.
-- **The people**: who is affected when a decision here goes one way or the other (a customer, an
-  operator, a partner, the engineer on call). Each becomes a persona, and every project of Lem
-  has them: before a hard question reaches the owner, an agent answers it as each person the
-  decision affects. The onboarding ends with two or more, because a panel of one has nobody to
-  disagree: the people the product serves, and, where there is no second kind of user, the
-  people who run it or build the next change on it. Two people are worth it only when they would
-  notice different things about the same change. Propose them from what you examined and let the
-  owner correct the list. The first onboarding wrote one persona, "a shop employee who reads
-  report headings", and its own page said that this person could not tell the options of a
-  question apart (a scratch repository, 2026-11-15).
-- **What must never go wrong here?** One question, with your proposals from the code, each a
-  sentence, and the code each came from beside it. Ask what is wrong or missing. No path is
-  proposed or asked: a sentence still holds after the code moves, and an agent reads every ask,
-  plan and diff against it. In a repository with no code, propose them from the owner's
-  description of the product. This is the one setting that is the owner's to choose.
-- **Who lands**: the owner, or the agent once the gate is green; and the branch tasks land on.
-  Where the remote is GitHub, in the same question: a pull request on the forge, or a merge into
-  the base branch with no pull request (`branch.propose = "merge"`).
-- **What lands**: a task's own commits, or one commit for the whole task. Guess from the last
-  fifty merges in `examined.md`.
-- **Which branches are closed**: branches nothing may land on or be pushed to, such as a
-  release branch during a rewrite that lands on a branch of its own. They go into
-  `branch.protected`.
-- **Where the work is kept**: when the project keeps its work in a tracker Lem has a skill for
-  (Linear), the name of its server in the agent, the key of the one team, and who moves a
-  ticket's status: Lem, or the tracker's own automation, as with a pull-request integration that
-  moves a ticket when a pull request opens and merges. When Lem moves it, the two status names
-  as the team spells them, for "work started" and for "landed"; and the workspace, as its address
-  has it. Then run the tracker's "check" with these values before you write the table: it takes
-  them from you at this one moment, so a wrong workspace or a status that does not exist shows
-  now.
-- **Who reviews**: the agent in the reviewer's pane, Codex or a second Claude. Guess Codex when
-  step 1 found it, since two model families disagree more usefully than one family twice, and a
-  reviewer on another provider's quota does not spend the builders'. Then, only when the owner
-  has a preference: the reviewer's model, its effort for the review of a diff and its effort for
-  the talk over a careful or large plan. No answer means the agent's own default. Ask the same
-  of the plan's defender in that talk, the other side of it: its model and its effort, on Claude.
-- **The folders already here**, when `project.py existing` listed any: link them, so the older
-  tools and this skill read one copy and nothing moves; or generate new profiles under
-  `.lem/`, and leave the old folders for the owner to remove. Linking is what a project that
-  works today does. That choice is about the cast and the profile only. The rules an agent
-  already loads by itself are not asked about: they stay in their folder, the settings name it
-  as the style guide whatever `--existing` says, and Lem gives the ones that cover a change to
-  every builder and reviewer (`project.py rules`). When `.lem/styleguide` holds rules too,
-  `project.py rules` reads both folders, the one the settings name first, and nothing is
-  refused or moved; a file linked into both is read once, and two files of one name, one in
-  each folder, are two files, and both are read. A move of those rules is the owner's
-  decision on another day, and no step here proposes it. A cast and a profile that are linked
-  can move under `.lem` later by hand, with a `git mv` and their two lines in the settings.
-
-Stop when you could predict the owner's answer to the next question. An answer of "whatever you
-think" is not an answer to what must never go wrong or to who lands: say what you will assume and ask
-for a yes.
+An answer of "whatever you think" is not an answer to the third: say what you will assume and ask
+for a yes. Stop after the third.
 
 ## 4. Write the settings
 
@@ -177,14 +113,33 @@ for a yes.
 python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --existing link    # or: --existing new
 ```
 
-Leave `--existing` out when `project.py existing` listed nothing, or the style guide alone: a rules folder needs no choice, and every other folder it lists does. Then edit `.lem/project.toml`: the
-gate commands from `examined.md`, the sentences of what must never go wrong (`flow.topics`) the owner confirmed, `land`, `history`, `propose`,
-the protected branches, the `[tracker]` table when the project has one, the reviewer's `model`,
-`effort` and `plan_effort` when the owner named them, `[seats.planner]` (`agent = "claude"`, the
-defender's `model` and `effort`) when he named those, and `tools.annotate` or `tools.ask` when the owner marks up plans or takes questions with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
-only means the gate runs again whenever the base moves.
+Leave `--existing` out when `project.py existing` listed nothing, or the style guide alone: a
+rules folder needs no choice, and every other folder it lists does. That choice is no question
+either: link what is there, so the older tools and Lem read one copy and nothing moves, and say
+so on the page, where "change folders new" generates new profiles under `.lem/` instead. The rules
+an agent already loads by itself stay in their folder whatever `--existing` says, and the
+settings name it as the style guide. Then edit `.lem/project.toml` with the three answers and
+the assumptions of step 6:
+
+- the gate commands from `examined.md`, and the sentences of what must never go wrong
+  (`flow.topics`) the owner confirmed;
+- `branch.land = "owner"`: a person merges, until he says otherwise;
+- `branch.propose`: a pull request where the remote is GitHub;
+- `branch.history`: `keep` or `squash`, as the last fifty merges in `examined.md` did;
+- `branch.protected`: the branches nothing lands on that `examined.md` found, or none;
+- `[tracker]`: none, unless the repository shows one. When it shows Linear, propose it with the
+  team key it shows and Lem moving the tickets, and run the tracker's "check" with those values
+  before you write the table: a wrong workspace or a status that does not exist shows now, and a
+  check that fails leaves the table out and says why on the page;
+- the reviewer: Codex when step 1 found it, since two model families disagree more usefully than
+  one family twice and a reviewer on another provider's quota does not spend the builders';
+  otherwise a second Claude. Its model and its `plan_effort`, and the defender's seat
+  (`[seats.planner]`), stay the agents' own defaults;
+- `tools.annotate` and `tools.ask` keep Lem's defaults.
+
+Leave `gate.ignores` empty: an empty list only means the gate runs again whenever the base moves.
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
-and say so in the handover.
+and say so on the page.
 
 ## 5. Generate what is absent
 
@@ -192,9 +147,9 @@ For each path `project.py show` marks as not existing, write a draft. A linked f
 it is, with one exception: a cast of fewer than two personas is completed wherever its folder
 is, and no persona file that is there is overwritten.
 
-- **The profile**, from `templates/profile.md`: the interview's answers and the examined facts,
+- **The profile**, from `templates/profile.md`: the three answers and the examined facts,
   one page.
-- **The personas**, two or more: one file per person from the interview, from
+- **The personas**, two or more: one file per person of the second question, from
   `templates/persona.md`, and a `README.md` that lists them with one line each. A persona you
   could fill only by guessing (the owner named the role and nothing more, or you proposed it and
   he only nodded) says so in its first line, as the template shows, and its line in the
@@ -207,8 +162,8 @@ is, and no persona file that is there is overwritten.
   file without that covers every path; each rule has its reason and the file it was read from. Write only conventions `examined.md` shows the code
   already keeps, and say at the top of each file that it is a draft read from the code. A rule
   nobody has yet needed is not written: the style guide grows when a review finding or a
-  correction repeats (`stages/learn.md`). A new project gets the copy the owner accepted in the
-  interview, or no style guide yet.
+  correction repeats (`stages/learn.md`). A new project gets the copy the owner took from the
+  offers of step 6, or no style guide yet.
   A draft never cites a file of this skill by the path you read it from. That path is one
   setup's link and does not exist in the next checkout. Name what the owner can use instead:
   `/lem learn`, "the published guides Lem lists for this stack". The first onboarding wrote
@@ -244,19 +199,51 @@ onboarding's page was written by hand, and the owner found it "a bit old school"
 Its title names the repository and its first line is the
 root as an absolute path: every other path on the page is relative to it, and a page without it
 cannot be checked against any folder. Then what the machine has and lacks, what was linked and
-what was generated, each assumption taken from the code with its source, and the settings file.
-The machine's part lists the tools the check lists and no part of Lem itself: the question page
-comes with Lem. Say there that the project may bring a builder of its own,
-and how (the harness file, `spawn-builder`). When the owner said yes to the correction queue and Lem is linked by the setup, the page names the command he
-runs for its hook, in the form for this one repository, and nothing he has to edit; with Lem as
-a plugin the page says that the hook came with the install, and names no command.
+what was generated, and the settings file. The machine's part lists the tools the check lists and
+no part of Lem itself: the question page comes with Lem. Say there that the project may bring a
+builder of its own, and how (the harness file, `spawn-builder`).
+
+**The assumptions**, each one line with its value, where it came from, and the words that change
+it: who lands (`owner`; "change land agent"), a pull request or a merge, what lands, the closed
+branches, the tracker, the reviewer and the defender with their models, the folders already here
+(linked or new), and each gate command. He corrects one with "change" and what; nothing on the
+list waits for an answer.
 
 A list of file names is not a hand-over. Every generated file is a draft, and three are read
 first: what must never go wrong, the gate, the personas. Name each persona that is a thin guess, as the
 one the owner should correct first. Offer to open each in the annotate tool
 (`show-page`; `tools.annotate` in the settings), one after the other, and take the owner's notes
-as corrections: edit, commit on the same branch, say for each file what changed. The page and
-your last message end with the three replies you take, in these words:
+as corrections: edit, commit on the same branch, say for each file what changed.
+
+**The offers**, last, as one short list, never a question each; he takes one by its name:
+
+- **the correction queue**, recommended: with it, the project keeps a queue of the owner's
+  corrections for the retro; without it, a correction is learned in the session it was given in
+  and nowhere else. What he agrees to, in these words or closer ones: each message he types in
+  this repository, other than a command that starts with `/`, goes with the agent message it
+  answers to the Jev decision model through OpenRouter, under the key of whoever typed it, and
+  the ones that may hold a lesson are kept in a file that is never committed. The yes is a line
+  in the tracked settings, so it holds for everybody who works in this repository with the hook,
+  and one person can say no for themselves (the harness file says how). The check's
+  "OpenRouter key" row says whether this session has a key; without one the queue stays empty
+  and its log fills, so say that too. On his yes, set `corrections.collect = true` on the
+  onboarding's branch. With Lem as a plugin the hook is there already and nothing is
+  registered; with Lem linked by the setup, name the one command that registers the hook, in the
+  form for this one repository, which he runs himself, today or on any later day. Give him no
+  settings lines to paste, and never name that command to an owner who has Lem as a plugin: it
+  would add the hook a second time;
+- **each recommended tool that is absent**: what it gives and its guide (the row's `guide`). Lem
+  brings none of them, and installs one only on his yes; a guide copies a skill into the owner's
+  own skills folder, so where your agent refuses you the step, give him the guide's commands;
+- **cronn**, when it is absent or not running: through the `cronn` skill when that skill is
+  there; its installer adds a Homebrew formula and an agent that starts at login, so it runs
+  only on his yes, and the harness file says which steps he has to run himself;
+- **the scheduled jobs** of step 7, when cronn runs;
+- **a paragraph for the project's agent document** (step 5);
+- **a starting style guide** for a new project, copied from another of his repositories that
+  uses the same stack, marked as copied and from where.
+
+The page and your last message end with the three replies you take, in these words:
 
 - **land**: you bring the branch onto the base branch yourself, by a fast-forward, after a rebase
   when the base moved, and leave the checkout on the base branch. That holds whatever
@@ -278,8 +265,8 @@ what repo it belongs to" (2026-11-15).
 
 ## 7. Scheduled work for this repository
 
-Only when step 1 showed cronn running. Offer two jobs that belong to this repository, each a
-session started in it with nobody at the terminal:
+Only when step 1 showed cronn running, as an item of the offers of step 6. Two jobs that belong
+to this repository, each a session started in it with nobody at the terminal:
 
 - a retro each morning (`/lem retro`), so a correction that came back is moved before the next
   day's work;

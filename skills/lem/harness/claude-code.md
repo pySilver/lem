@@ -265,11 +265,13 @@ transcript of Lem's session).
 The reviewer is a second agent in the split pane of the session that asks (the companion of a plan
 talk, for a careful or large plan); the owner reads both panes. `project.py show` gives the seat as
 `seats.reviewer`: its `agent` (`claude` or `codex`) and, when the project or this machine set them,
-its `model`, its `effort` for the review of a diff and its `plan_effort` for the talk over a plan.
+its `model` and its `plan_effort`, the effort of its pane for the plan talk, which is the one
+thing this pane opens for. A settings file that still names an `effort` for the review of a diff
+is read, and that key is not used: no step reviews a diff in this pane.
 When `agent` is null, ask the owner once and write the answer into `.lem/project.toml`.
 
 The seat may be this machine's own for a while: the usual reviewer is down, or out of tokens.
-`/lem reviewer AGENT [MODEL [EFFORT [PLAN_EFFORT]]]` runs `project.py reviewer` with those words,
+`/lem reviewer AGENT [MODEL [PLAN_EFFORT]]` runs `project.py reviewer` with those words,
 which writes the seat into `.lem/project.local.toml`, a file git does not track; `/lem reviewer
 default` removes it. Never change the seat by yourself. When the reviewer does not answer, or
 says it is out of tokens, ask the owner once whether the other agent reviews for now, and write
@@ -289,9 +291,8 @@ every report says that the reviewer is this machine's choice, and "same family" 
        prompt; with an effort, `-c model_reasoning_effort=EFFORT`.
      - Claude Code: `claude --append-system-prompt "$(cat PATH/prompts/reviewer.md)" "You are the reviewer. Wait for the first message."`
        With a model, add `--model MODEL`; with an effort, `--effort EFFORT`.
-     The effort is `plan_effort` when the pane is for a plan talk, and `effort` otherwise.
-     Leave a flag out when the seat does not name its value: the agent's own default holds then.
-     The reviewer's pane is new for each review, so a plan talk simply starts with its own effort.
+     The effort is the seat's `plan_effort`. Leave a flag out when the seat does not name its
+     value: the agent's own default holds then.
    - read the model and the effort back from the pane's status line, and name those in the
      report, never the ones you asked for. In one repository seven or more tasks were reviewed on
      another model than the run's log said (mybaze, 2026-11-07, from that project's
@@ -304,13 +305,13 @@ every report says that the reviewer is this machine's choice, and "same family" 
      says `codex` once the pane listens.
    Under agterm's Live sessions mode, `agtermctl session restart --pane-id ID --command LINE` starts
    the same line without typing; in the other restore modes it is refused.
-3. **Send the request** through the `mailbox-chat` skill: what to review (the plan's path, or the
-   range of commits), the directory to work in, the task it belongs to and the style guide files
+3. **Send the request** through the `mailbox-chat` skill: the plan's path, the directory to work
+   in, the task it belongs to and the style guide files
    that cover it (`project.py rules`, with the plan's files or `--range`). A message that names git goes from a file, never a heredoc.
 4. **The reply arrives in this pane by itself.** Never poll for it, and check every claim it makes
    about the code with your own read before you act on it.
-   A reply that may not be whole ("so far", a numbered point with no end, no closing `Changed:`
-   line for a diff) is answered in the same turn: accept or dispute its points and ask whether
+   A reply that may not be whole ("so far", a numbered point with no end) is answered in the same
+   turn: accept or dispute its points and ask whether
    more follows. End the turn to wait only when the reviewer said that more follows. In one run a
    reply that ended "Source inspection only so far" was taken as partial, both panes waited 137
    minutes, and the reviewer answered in about 90 seconds once asked (mybaze, 2026-09-29, from
