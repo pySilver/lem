@@ -26,7 +26,8 @@ may-land` about the settings' base branch, so a protected branch is never reache
                            GitHub or `branch.propose` is `merge`: the state becomes `open`
     land.py land SLUG --by owner|agent [--message SUBJECT]
                            merge the pull request, or put a ready branch on the base branch
-    land.py merged SLUG    the owner merged the pull request on the forge: finish the bookkeeping
+    land.py merged SLUG    the owner merged the pull request on the forge: finish the bookkeeping;
+                           or he closed it with no merge: the task is dropped
     land.py clean SLUG     remove the task's worktree and its branch after the merge
 
 What each step keeps for the next is in `landing.json` in the task's directory: the task's
@@ -248,6 +249,12 @@ remote, or none, the branch is marked ready. So it is with a GitHub remote when 
 `branch.propose` is `merge`, for a developer who wants no pull requests: the remote is then one
 like any other, no task branch is pushed, and `merged` is refused. GitLab is not built: nobody
 checked its command.
+
+`merged` asks the forge about a pull request the owner may have merged or closed there. A merged one
+finishes as a landing does. A closed one with no merge ends the task: its state becomes `dropped`
+with the line "the pull request was closed on the forge", so nothing of it waits and nobody cleans
+it by hand; `clean` then removes the worktree, and the branch keeps its commits, with how to delete
+it. A task that goes on after all is a new request.
 
 `land --by owner` is the owner's word. `land --by agent` is refused unless the settings'
 `branch.land` is `agent`, and then still for a careful request, for one that is not green (one
@@ -2154,7 +2161,8 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             pr = {"number": there[0]["number"], "url": there[0]["url"]} if there else None
         elif (state_now := viewed(task, pr)["state"]) != "OPEN":
             raise LandError(
-                f"the pull request {pr['url']} is {state_now.lower()}: " + ("`land.py merged` finishes the task" if state_now == "MERGED" else "whether the task is dropped or goes on is the owner's call"),
+                f"the pull request {pr['url']} is {state_now.lower()}: `land.py merged {task.slug}` "
+                + ("finishes the task" if state_now == "MERGED" else "writes the task dropped, and its branch keeps its commits"),
             )
         # with lease: after a rebase the remote branch is behind, and nobody else pushes to a task's branch
         git(task.worktree, "push", "--force-with-lease", "origin", f"HEAD:refs/heads/{branch}")
@@ -2249,7 +2257,13 @@ def cmd_merged(task: Task) -> dict:
     if view["state"] == "MERGED":
         return forge_done(task, view)
     if view["state"] == "CLOSED":
-        raise LandError("the pull request was closed without a merge: whether the task is dropped or goes on is the owner's call")
+        # The owner closed it on the forge: the task ends, and nothing of it waits. Its branch keeps
+        # its commits (`clean` removes the worktree and names how to delete the branch), and a task
+        # that goes on after all is a new request.
+        pr = task.kept()["pr"]
+        task.keep(closed=True)
+        task.state("dropped", "the pull request was closed on the forge", f"pull request {pr['url']} is closed with no merge; the branch keeps its commits")
+        return {"task": task.slug, "pull_request": pr, "closed": True, "state": "dropped"}
     raise LandError("the pull request is not merged yet")
 
 
@@ -2285,7 +2299,7 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
     if view:
         # A pull request is merged by the forge, under the forge's own rules, and only at the commit that was proposed.
         if view["state"] != "OPEN":
-            raise LandError("the pull request was closed without a merge: whether the task is dropped or goes on is the owner's call")
+            raise LandError(f"the pull request was closed without a merge: `land.py merged {task.slug}` writes the task dropped, and its branch keeps its commits")
         tip = git(task.worktree, "rev-parse", "HEAD")
         if view["headRefOid"] != tip or kept.get("proposed") != tip:
             raise LandError(f"the pull request's head is not the tip that was proposed; {AGAIN}")

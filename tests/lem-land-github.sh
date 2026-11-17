@@ -52,6 +52,8 @@ PY
 printf '%s\n' '#!/bin/sh' "exec '$PY' -I '$WORK/gh.py' \"\$@\"" > "$WORK/bin/gh" && chmod +x "$WORK/bin/gh"
 gh_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gh.json" GH_ORIGIN="$GHO" "$PY" -B "$LAND" --repo "$GHS" "$@"; }
 gh_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$WORK/gh.json" "$1"; }
+# gh_set PYTHON [FILE]: change the stand-in's pull requests as the forge would, written whole, since a watch may read them at that moment
+gh_set() { "$PY" -c 'import json, os, sys; d = json.load(open(sys.argv[2])); exec(sys.argv[1]); json.dump(d, open(sys.argv[2] + ".set", "w")); os.replace(sys.argv[2] + ".set", sys.argv[2])' "$1" "${2:-$WORK/gh.json}"; }
 gh_checked() { gh_land start "$1" >/dev/null && gh_land base "$1" >/dev/null && gh_land gate "$1" >/dev/null; }
 small_task_in "$GHS" pr-change p.txt nine
 out=$(gh_land start pr-change)
@@ -106,7 +108,7 @@ early=$(gh_land merged pr-squashed 2>&1 || true)
 gh_land start pr-squashed >/dev/null
 git -C "$gh_other" merge -q --squash origin/fix/pr-squashed && git -C "$gh_other" commit -q -m "fix: ten (#8)" && git -C "$gh_other" push -q origin main
 oid=$(git -C "$gh_other" rev-parse HEAD)
-"$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"]["8"].update(state="MERGED", merge=sys.argv[2]); json.dump(d, open(sys.argv[1], "w"))' "$WORK/gh.json" "$oid"
+gh_set "d['prs']['8'].update(state='MERGED', merge='$oid')"
 out=$(gh_land merged pr-squashed)
 if grep -q "origin/main moved after the checks ran, by files the gate reads (late.txt)" <<<"$err" && grep -q "the pull request is not merged yet" <<<"$early" \
   && [ "$(gh_state 'sum(c[:3] == ["pr", "merge", "8"] for c in d["calls"])')" = 0 ] \
@@ -165,23 +167,32 @@ if grep -qF "the remote is GitHub and the \`gh\` command is not on PATH: install
 else
   fail "a proposal the forge refused: $no_gh / $down / $unproposed / $unopened"
 fi
-# The forge's head moved after the proposal, then the pull request was closed: land merges neither, and merged says closed.
+# The forge's head moved after the proposal, then the pull request was closed: land merges neither.
 tip=$(git -C "$GHS/.lem/worktrees/pr-guards" rev-parse HEAD)
 pushed=$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p "$tip" -m "fix: pushed by someone else" "$tip^{tree}")
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$pushed"
 moved_head=$(gh_land land pr-guards --by agent 2>&1 || true)
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$tip"
-"$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"][sys.argv[2]]["state"] = "CLOSED"; json.dump(d, open(sys.argv[1], "w"))' "$WORK/gh.json" "$number"
+gh_set "d['prs']['$number']['state'] = 'CLOSED'"
 closed_land=$(gh_land land pr-guards --by agent 2>&1 || true)
-closed_merged=$(gh_land merged pr-guards 2>&1 || true)
 if grep -qF "the pull request's head is not the tip that was proposed; run \`land.py start\`, \`land.py base\`, \`land.py gate\` and \`land.py propose\` again" <<<"$moved_head" \
-  && grep -qF "the pull request was closed without a merge" <<<"$closed_land" && grep -qF "the pull request was closed without a merge" <<<"$closed_merged" \
+  && grep -qF "the pull request was closed without a merge: \`land.py merged pr-guards\` writes the task dropped" <<<"$closed_land" \
   && [ "$(gh_state "sum(c[:3] == ['pr', 'merge', '$number'] for c in d['calls'])")" = 0 ] && [ "$(status_in "$GHS" pr-guards)" = open ]; then
-  pass "land merges no pull request whose head on the forge is not the proposed tip, nor a closed one, and merged says that it was closed without a merge"
+  pass "land merges no pull request whose head on the forge is not the proposed tip, nor a closed one, and names the step for a closed one"
 else
-  fail "a moved head and a closed pull request: $moved_head / $closed_land / $closed_merged"
+  fail "a moved head and a closed pull request: $moved_head / $closed_land"
 fi
-project --repo "$GHS" state pr-guards dropped "the test is over" >/dev/null
+# A pull request the owner closed on the forge ends its task as dropped, with nothing to clean by hand: the worktree goes, and the branch keeps its commits.
+closed_merged=$(gh_land merged pr-guards 2>&1 || true)
+closed_clean=$(gh_land clean pr-guards 2>&1 || true)
+if [ "$(field '(d["closed"], d["state"], d["pull_request"]["number"])' <<<"$closed_merged" 2>&1)" = "(True, 'dropped', $number)" ] && [ "$(status_in "$GHS" pr-guards)" = dropped ] \
+  && grep -qF "the pull request was closed on the forge" "$GHS/.lem/state/tasks/pr-guards/state.md" \
+  && [ "$(field '(d["worktree"], d["branch"])' <<<"$closed_clean" 2>&1)" = "(True, None)" ] && grep -qF "fix/pr-guards holds the dropped task's commits" <<<"$closed_clean" \
+  && git -C "$GHS" rev-parse -q --verify fix/pr-guards >/dev/null && [ ! -e "$GHS/.lem/worktrees/pr-guards" ]; then
+  pass "a pull request closed on the forge with no merge ends its task: merged writes it dropped with the line that says so, and clean removes the worktree and keeps the branch with its commits"
+else
+  fail "a closed pull request: $closed_merged / $closed_clean / $(status_in "$GHS" pr-guards)"
+fi
 
 # A GitHub remote, and a developer who wants no pull requests (`branch.propose = "merge"`): the task
 # lands on the remote's base branch as a ready branch does, so the next task starts from it, and the

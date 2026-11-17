@@ -22,7 +22,9 @@ they are owed:
   asks the forge. When the owner merged it there, the step writes `landed`, and you go on at
   step 8. `clean` then removes the branch only when its tip is the commit the forge merged: a
   commit a builder added after that is work nobody merged, and the branch stays. When he closed it without
-  a merge, ask him whether the task is dropped;
+  a merge, the step writes `dropped` with the line "the pull request was closed on the forge":
+  tell him in one line, and `clean` removes its worktree. Its branch keeps its commits, and
+  `clean` says how to delete it; a task that goes on after all is a new request;
 - a task that ended and whose ticket still waits: `project.py tasks` shows it as `ticket_owed`,
   and the tracker does the steps that are missing (its "land" for a `landed` task, its "drop"
   for a `dropped` one, its "answer" for an `answered` one). A session can be cut off between a task's last state and its ticket.
@@ -268,8 +270,9 @@ one finds what the run before it finished.
    project's `AGENTS.md` adds for a removed worktree (a test database, a container), and close
    the plan talk's companion when one is still open.
 
-Every way out of this stage writes a state other than `landing`: `open`, `landed` or `blocked`,
-or `held` for a small change that step 4 found to be a full change, whose interview starts with it.
+Every way out of this stage writes a state other than `landing`: `open`, `landed`, `dropped` for a
+pull request the owner closed, or `blocked`, or `held` for a small change that step 4 found to be a
+full change, whose interview starts with it.
 
 The brief for each builder of this stage is these lines and nothing more. Its standing text is
 `prompts/landing.md`, so that you do not say a step again in your own words:
