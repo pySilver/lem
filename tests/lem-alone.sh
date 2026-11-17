@@ -26,11 +26,16 @@ fi
 
 # Two runs at one moment take turns: the second waits, says so on stderr, and starts when the first ended.
 : > "$WORK/turns"
-alone -- sh -c "echo start-a >> '$WORK/turns'; sleep 2; echo end-a >> '$WORK/turns'" 2> "$WORK/a.err" &
+# The first holds the machine until the second says that it waits, so a loaded machine cannot start the second late.
+alone -- sh -c "echo start-a >> '$WORK/turns'; until [ -e '$WORK/turns-release' ]; do sleep 0.1; done; echo end-a >> '$WORK/turns'" 2> "$WORK/a.err" &
 first=$!
 soon test -s "$WORK/turns"
-alone -- sh -c "echo start-b >> '$WORK/turns'; echo end-b >> '$WORK/turns'" 2> "$WORK/b.err"
+alone -- sh -c "echo start-b >> '$WORK/turns'; echo end-b >> '$WORK/turns'" 2> "$WORK/b.err" &
+second=$!
+soon grep -qF "this one waits" "$WORK/b.err"
+touch "$WORK/turns-release"
 wait "$first"
+wait "$second"
 if [ "$(tr '\n' ' ' < "$WORK/turns")" = "start-a end-a start-b end-b " ] && grep -qF "the machine is held by a command that needs it alone" "$WORK/b.err" \
   && grep -qF "start-a" "$WORK/b.err" && grep -qF "this one waits" "$WORK/b.err" && [ ! -s "$WORK/a.err" ]; then
   pass "two runs at one moment take turns: the second waits for the first, and says on stderr who holds the machine"
@@ -83,12 +88,18 @@ printf '%s\n' "grep -q 'sh e2e.sh' '$LOCK' && echo 'e2e: 2 passed, alone' || { e
 git -C "$tree" add -A && git -C "$tree" commit -q -m "test: the e2e suite"
 git -C "$tree" rebase -q main
 land --repo "$AL" start alone-change >/dev/null && land --repo "$AL" base alone-change >/dev/null
-# a builder holds the machine for a moment: the gate's alone command waits for it
-alone -- sleep 6 &
+# a builder holds the machine until the gate's alone command waits for it, and then lets go: no fixed time,
+# which a loaded machine outlasts before the checks reach that command
+alone -- sh -c "until [ -e '$WORK/release' ]; do sleep 0.1; done" &
 holder=$!
 soon test -s "$LOCK"
-gated=$(land --repo "$AL" checks alone-change 2>&1 || true)
+land --repo "$AL" checks alone-change > "$WORK/gated.out" 2>&1 &
+checking=$!
+soon grep -qsF "the machine is held by a command that needs it alone" "$AL/.lem/state/tasks/alone-change/gate/02.log"
+touch "$WORK/release"
 wait "$holder"
+set +e; wait "$checking"; set -e
+gated=$(cat "$WORK/gated.out")
 if [ "$(field '[(c["command"], c["exit"], c["last"], c.get("alone", False)) for c in d["commands"]]' <<<"$gated" 2>&1)" = "[('echo 3 passed', 0, '3 passed', False), ('sh e2e.sh', 0, 'e2e: 2 passed, alone', True)]" ] \
   && grep -qF "the machine is held by a command that needs it alone" "$AL/.lem/state/tasks/alone-change/gate/02.log" \
   && [ "$(grep -c '"event": "gate", "task": "alone-change"' "$AL/.lem/state/events.jsonl")" = 2 ] && grep -q '"event": "gate.start", "task": "alone-change", "tip": "[0-9a-f]*", "commands": 2' "$AL/.lem/state/events.jsonl"; then
