@@ -18,6 +18,7 @@ ships gets a row that says so, not a traceback.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -446,6 +447,8 @@ def cronn() -> dict:
 
 
 def main() -> None:
+    # no arguments: `--help` prints the usage, and any other word is a usage error (exit 2), before the check runs
+    argparse.ArgumentParser(prog="lem doctor", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter).parse_args()
     tools = [
         python(),
         tool("git", "required", "worktrees, branches and the task state directory", "nothing runs", "git", ["--version"]),

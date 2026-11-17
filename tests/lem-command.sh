@@ -50,14 +50,13 @@ else
 fi
 
 # each name of the real plugin names a script that is there, and the real script answers through
-# lem; doctor and cast take no --help (the one checks the machine, the other reads this checkout's
-# settings first), and the release tools no flag
+# lem; cast takes no --help (it reads this checkout's settings first), and the release tools no flag
 real=yes
 for name in $names; do
   file=$("$PY" -I -c 'import runpy, sys; print(runpy.run_path(sys.argv[1])["COMMANDS"][sys.argv[2]][0])' "$LEM" "$name")
   [ -f "$PWD/$file" ] || { real="no: $name names $file"; break; }
   case "$name" in
-    doctor | cast | release-*) ;;
+    cast | release-*) ;;
     *) said=$("$LEM" "$name" --help 2>&1 || true)
        grep -qF "usage: lem $name" <<<"$said" || { real="no: lem $name --help shows no usage of lem $name: $(head -n 1 <<<"$said")"; break; } ;;
   esac

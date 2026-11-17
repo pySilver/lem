@@ -18,6 +18,15 @@ ln -s "$(command -v git)" "$BIN/git"
 fake() { printf '#!/bin/sh\necho "%s"\n' "$2" > "$BIN/$1"; chmod +x "$BIN/$1"; }
 doctor() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR"); }
 row() { field "next(t for t in d[\"tools\"] if t[\"name\"] == \"$1\")[\"$2\"]"; }
+# --help prints the usage and exits 0 with no check run; an unknown argument is a usage error, exit 2, with the usage.
+helped=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" --help 2>&1; echo "exit $?")
+wrong=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" --all 2>&1; echo "exit $?")
+if [ "$(head -n 1 <<<"$helped")" = "usage: lem doctor [-h]" ] && [ "$(tail -n 1 <<<"$helped")" = "exit 0" ] && ! grep -qF '"tools"' <<<"$helped" \
+  && grep -qxF "usage: lem doctor [-h]" <<<"$wrong" && grep -qF "lem doctor: error: unrecognized arguments: --all" <<<"$wrong" && [ "$(tail -n 1 <<<"$wrong")" = "exit 2" ] && ! grep -qF '"tools"' <<<"$wrong"; then
+  pass "doctor --help prints its usage and exits 0 with no check run, and an unknown argument exits 2 with the usage"
+else
+  fail "doctor's arguments: $helped / $wrong"
+fi
 out=$(doctor || true)
 if [ "$(status_of doctor)" = 1 ] && [ "$(field 'd["ok"]' <<<"$out")" = "False" ] && [ "$(row revmux found <<<"$out")" = "False" ] && [ "$(row git found <<<"$out")" = "True" ] \
   && [ "$(row python3 found <<<"$out")" = "True" ] && [ "$(row python3 need <<<"$out")" = "required" ] && [ "$(row claude found <<<"$out")" = "False" ] && [ "$(row claude need <<<"$out")" = "required" ] \
