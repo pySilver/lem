@@ -87,8 +87,10 @@ beside this one, and the step that chooses the path names it.
 4. **Which path.** Choose one:
    - *the investigation first*, for a fix whose cause the ask does not show and for a question:
      a fresh builder reproduces the bug and finds its cause, or answers the question, before
-     anyone writes a criterion: after step 5, read `stages/investigate.md` and follow it. For a
-     fix, its report then takes one of the paths below; a question ends with its answer.
+     anyone writes a criterion: after step 7, read `stages/investigate.md` and follow it. It
+     starts an investigator where step 8 starts a lead; the board of step 8 opens all the same.
+     For a fix, its report then takes one of the paths below; a question ends
+     with its answer.
    - *a small change*: one builder, the checks, one read and the pull request, with no lead, no
      plan and no wait for him, as "A small change" below says.
    - *a full change from a complete request*: the whole context and a defined outcome are
