@@ -998,11 +998,12 @@ hooked=$(status_of stories red export-has-the-gift-note)
 # a hook that leaves a process behind: the check goes on, and that process is ended. The process
 # is `sleep` by a name of this run's own, so that a second run of the suite beside this one counts
 # none of its own processes here.
-NAP=$WORK/nap
-ln -s "$(command -v sleep)" "$NAP"
-printf '%s\n' '#!/bin/sh' "'$NAP' 32.9 &" 'exit 0' > "$ST/.git/hooks/post-checkout"
+# A sleep of a length of this run's own (its process id is in the decimals): a name of our own for
+# `sleep` does not start where one binary holds every core tool and reads its own name (Ubuntu).
+NAP1="32.9$$"; NAP2="31.7$$"
+printf '%s\n' '#!/bin/sh' "sleep $NAP1 &" 'exit 0' > "$ST/.git/hooks/post-checkout"
 watched=$(stories red export-has-the-gift-note | field 'd["ok"]')
-watched="$watched $(pgrep -f "$NAP 32\.9" | grep -c '' || true)"
+watched="$watched $(pgrep -f "sleep ${NAP1/./\\.}" | grep -c '' || true)"
 rm "$ST/.git/hooks/post-checkout"
 after_hook=$(git -C "$ST" worktree list | grep -c '')
 sed -i.bak 's|^setup = .*$|setup = ["git worktree lock ."]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
@@ -1022,14 +1023,14 @@ soon test -s "$WORK/lock.out"
 second=$(stories red export-has-the-gift-note 2>&1 || true)
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 # A check that is stopped ends the command it runs, and leaves no worktree.
-sed -i.bak "s|^setup = .*\$|setup = [\"$NAP 31.7\"]|" "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak "s|^setup = .*\$|setup = [\"sleep $NAP2\"]|" "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 "$PY" -B "$STORIES" --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
 check=$!
-napping() { pgrep -f "$NAP 31\.7" >/dev/null 2>&1; }
+napping() { pgrep -f "sleep ${NAP2/./\\.}" >/dev/null 2>&1; }
 soon napping
-started=$(pgrep -f "$NAP 31\.7" | grep -c '' || true)
+started=$(pgrep -f "sleep ${NAP2/./\\.}" | grep -c '' || true)
 kill -TERM "$check" 2>/dev/null || true; wait "$check" 2>/dev/null || true
-left=$(pgrep -f "$NAP 31\.7" | grep -c '' || true)
+left=$(pgrep -f "sleep ${NAP2/./\\.}" | grep -c '' || true)
 after_stop="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
 sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 # shellcheck disable=SC2016
