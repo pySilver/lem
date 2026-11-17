@@ -243,7 +243,9 @@ one finds what the run before it finished.
    request and no watch of yours runs, start one (`run-in-background`, `lem
    land watch`): the forge tells nobody when the owner merges or closes it,
    and `SKILL.md` says under Status how the watch runs.
-7. **The merge.** A person merges by default.
+7. **The merge.** A person merges by default. With `branch.propose = "pull-request"` every merge,
+   on the owner's word or an agent's, goes through the forge (`gh pr merge`), so its own rules
+   hold; with `"merge"`, or a remote that is not GitHub, the step lands the branch directly.
    - `lem land land SLUG --by agent` is yours to try right after step 6. The step refuses unless
      the settings' `branch.land` is `agent`, and then still for a careful request, for one that
      is not green, and for one whose newest review made no careful call: an agent merges only on

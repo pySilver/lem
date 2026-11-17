@@ -745,9 +745,7 @@ def main() -> None:
                 first_contract(task, "read")
                 result = cmd_approve(task, task.criteria()["plan"], "read", plan=True)
             elif args.file is None and args.small:
-                # Lem's approval in his name has one place, the task directory's criteria.md, and no
-                # --file: so the owner's own approval, the one form with --file, can take an `ask`
-                # rule of the agent's permissions that this one does not match
+                # Lem's approval in his name has one place, the task directory's criteria.md
                 result = cmd_approve(task, str(task.small_file), "lem")
             elif args.file is None:
                 raise CriteriaError("approve needs --file: the criteria the owner approved, in the form `lem criteria --help` shows, with no test lines")

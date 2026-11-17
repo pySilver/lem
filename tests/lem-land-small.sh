@@ -37,8 +37,7 @@ reds() { grep -c "\"event\": \"task.red\", \"task\": \"$1\"" "$SMALL/.lem/state/
 SHORT=$WORK/short-notes.md
 printf '%s\n' 'none' > "$SHORT"
 
-# Lem's approval in the owner's name takes no --file: its file is the task directory's criteria.md, so the owner's own
-# approval is the one form with --file, which the allow list that onboarding proposes asks the owner about.
+# Lem's approval in the owner's name takes no --file: its file is the task directory's criteria.md.
 small_in by-name small >/dev/null
 by_name=$(criteria approved by-name | field '(d["approved"]["by"], d["approved"]["size"], d["approved"]["criteria"][0]["n"])' 2>&1 || true)
 no_file=$(criteria approve by-name 2>&1 || true)

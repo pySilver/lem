@@ -90,16 +90,10 @@ Under `permissions.allow`:
 - one rule for each command of `checks.commands`, `checks.alone` and `checks.setup`. A command
   with `&&` gets one rule for each part.
 
-Under `permissions.ask`, the commands that carry your word:
-
-- `Bash(lem land land *owner*)`: a merge on your word;
-- `Bash(lem decisions answer *)` and `Bash(lem decisions log *--by owner*)`: your answer to a
-  choice, and a decision that Lem logs as yours;
-- `Bash(lem criteria approve * --file *)`: your approval of the acceptance criteria.
-
-A rule under `permissions.ask` shows you a prompt also when `Bash(lem *)` allows the command. So a merge on your word
-and an approval always show you a prompt. The rules allow no `git push` and no command of the
-project other than its checks. A push of a task branch goes only through `lem land`. The machine check reads `permissions.defaultMode` and tells you
+The rules allow no `git push` and no command of the project other than its checks. No rule asks
+you at a merge. With a pull request on GitHub, each merge goes through it, so the rules of
+GitHub for the base branch apply. With `branch.propose = "merge"`, Lem puts the branch on the
+base branch directly. A push of a task branch goes only through `lem land`. The machine check reads `permissions.defaultMode` and tells you
 what a builder meets in that mode.
 
 ## GitHub

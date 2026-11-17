@@ -94,13 +94,18 @@ gh_checked pr-change
 again=$(kept_in "$GHS" pr-change pr)/$(kept_in "$GHS" pr-change reads)
 gh_land read pr-change --record "$(clean 1)" >/dev/null && gh_land propose pr-change --title "fix: nine, again" --notes "$NOTES" >/dev/null
 "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d.pop("pr"); json.dump(d, open(sys.argv[1], "w"))' "$GHS/.lem/state/tasks/pr-change/landing.json"
+# with the record of the pull request lost, a merge does not go past the forge
+main_before=$(git -C "$GHO" rev-parse main)
+no_pr=$(gh_land land pr-change --by owner 2>&1 || true)
+main_after=$(git -C "$GHO" rev-parse main)
 gh_checked pr-change && gh_land propose pr-change --title "fix: nine, a third time" --notes "$NOTES" >/dev/null
 if [ "$(gh_state '(len(d["prs"]), d["prs"]["7"]["title"], sum(c[:2] == ["pr", "create"] for c in d["calls"]), sum(c[:2] == ["pr", "edit"] for c in d["calls"]))')" = "(1, 'fix: nine, a third time', 1, 2)" ] \
   && [ "$(kept_in "$GHS" pr-change pr)" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}" ] \
-  && [ "$again" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}/None" ]; then
-  pass "a task whose landing starts over starts its reviews over and keeps its pull request; a second proposal changes the one that is there, also when the record of it was lost: the forge is asked, and no second one is opened"
+  && [ "$again" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}/None" ] \
+  && grep -qF "the project lands through pull requests and pr-change has none on record" <<<"$no_pr" && [ "$main_after" = "$main_before" ]; then
+  pass "a task whose landing starts over starts its reviews over and keeps its pull request; a second proposal changes the one that is there, also when the record of it was lost: the forge is asked, and no second one is opened; a merge with no pull request on record is refused, and nothing reaches the base past the forge"
 else
-  fail "a second proposal: $(cat "$WORK/gh.json")"
+  fail "a second proposal: $no_pr / $(cat "$WORK/gh.json")"
 fi
 out=$(gh_land land pr-change --by agent)
 if [ "$(field '(d["merged"], d["pull_request"]["number"], d["left_behind"])' <<<"$out")" = "('$tip', 7, None)" ] && [ "$(status_in "$GHS" pr-change)" = landed ] \

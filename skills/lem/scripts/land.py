@@ -2766,6 +2766,9 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
             task.keep(intent=None, landed_before=[*kept.get("landed_before", []), intent["range"]])
             raise LandError(f"{intent['range']} is on {task.onto} from a landing that was cut off, and the branch has more work since: {AGAIN} for it")
     view = viewed(task) if kept.get("pr") else None
+    if task.forge == "github" and not view:
+        # with pull requests every merge goes through the forge: a branch is never pushed onto the base past it
+        raise LandError(f"the project lands through pull requests and {task.slug} has none on record; `lem land propose {task.slug}` opens it or finds it, and the merge goes through it")
     if view and view["state"] == "MERGED":
         # the forge already holds the merge, whoever made it: only the bookkeeping is left
         return forge_done(task, view)
