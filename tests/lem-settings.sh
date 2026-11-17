@@ -411,7 +411,18 @@ if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["propo
 else
   fail "the proposal in tasks: $(project --repo "$OLD" tasks)"
 fi
+# A landing record that is not JSON stops `tasks` for every task, so the message names the way out land.py takes too.
+printf '{"proposed": "01' > "$dir/landing.json"
+cut_record=$(project --repo "$OLD" tasks 2>&1 || true)
+echo '[]' > "$dir/landing.json"
+list_record=$(project --repo "$OLD" tasks 2>&1 || true)
 rm "$dir/landing.json"
+if grep -qF "$dir/landing.json does not read as JSON" <<<"$cut_record" && grep -qF "Move it aside, then \`project.py state report-dates-stay-whole ready \"WHY\"\` and \`land.py start report-dates-stay-whole\`" <<<"$cut_record" \
+  && grep -qF "$dir/landing.json is not an object" <<<"$list_record" && grep -qF "Move it aside" <<<"$list_record" && ! grep -q Traceback <<<"$cut_record$list_record"; then
+  pass "a landing record that is not JSON, or not an object, is named with the way out: move it aside, the state ready, and land.py start"
+else
+  fail "a broken landing record in tasks: $cut_record / $list_record"
+fi
 other=$(project --repo "$OLD" task-dir written-by-hand)
 printf '%s\n' '2026-01-02 build: task 2 of 3 running' > "$other/state.md"
 out=$(project --repo "$OLD" tasks)

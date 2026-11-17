@@ -1323,10 +1323,17 @@ def proposal(directory: Path) -> dict | None:
     kept_file = directory / "landing.json"
     if not kept_file.is_file():
         return None
+    # every task's record is read here, so one that does not read stops `tasks` for all: the message says how to start that landing over
+    way_out = (
+        f"land.py writes it whole, so something else wrote it. Move it aside, then `project.py state {directory.name} ready \"WHY\"` "
+        f"and `land.py start {directory.name}` start the landing over: its checks and its review run again"
+    )
     try:
-        kept = json.loads(text_of(kept_file))
+        kept = json.loads(kept_file.read_bytes().decode("utf-8"))
     except ValueError as error:
-        raise SettingsError(f"{kept_file} does not read as JSON ({error}); it is the landing's own record, written by land.py") from error
+        raise SettingsError(f"{kept_file} does not read as JSON ({error}); {way_out}") from error
+    if not isinstance(kept, dict):
+        raise SettingsError(f"{kept_file} is not an object, as the landing's record is; {way_out}")
     if not kept.get("proposed"):
         return None
     reasons = kept.get("not_green", [])
