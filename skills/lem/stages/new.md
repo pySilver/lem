@@ -464,9 +464,10 @@ that is started again after it stopped.
 
 1. **A place.** `project.py may-start SLUG`, with the slug of the task whose lead starts: a task
    that builds already (its investigator called the path, its lead stopped) holds its place, and
-   that place is not counted against it. On exit 1 the task waits: write its state as `queued`,
-   unless it is `queued` already, tell the owner in one line which tasks hold the places, and
-   stop here.
+   that place is not counted against it. On exit 1 for want of a place the task waits: write its
+   state as `queued`, unless it is `queued` already, tell the owner in one line which tasks hold
+   the places, and stop here. A task in `landing`, `open`, `landed`, `answered` or `dropped` gets
+   no lead at all, and the step says so: it is no task to queue.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
    brief: from the task's branch when that branch exists (a night draft, a task whose worktree
    was removed), otherwise from the settings' base branch. Use the project's own worktree script
@@ -617,9 +618,15 @@ Act on the status:
   `stages/build.md` says: add one line to the brief, `do not repeat:` and what the report says
   the two tries assumed. When only the owner can settle it, it is a step that is his to do:
   write the state `held` with that step, and tell him where he does it.
-- **anything else**, or no new state block: the lead ended without its last step. Start a lead;
+- **`building`**, or no new state block: the lead ended without its last step. Start a lead;
   it reads the state and the report and goes on. After a second such stop, write `blocked` and
   tell the owner what the reply or the session's screen shows.
+- **`landing`, `open`, `landed`, `answered` or `dropped`**: the task went on, or ended, without
+  this lead, and the reply is a stale wake-up (a lead that finished after a later step, a
+  message that came late). Do nothing for it: no state, no lead. An ended task stays ended,
+  `project.py state` refuses a move out of `landed`, `answered` or `dropped`, and `may-start`
+  refuses a lead for a task in `landing`, `open` or an ended state. New work for it is a new
+  ask (`/lem new`), with a slug of its own.
 
 After any of these, look at what is owed and at the queue. A task that ended with a
 `ticket_owed` in `project.py tasks` gets those steps from the tracker now. A `blocked` task whose

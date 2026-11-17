@@ -32,11 +32,17 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
     project.py may-start SLUG       exit 1 when as many other tasks build or land as flow.max_tasks
-                                    allows; the task SLUG, whose lead starts, is not counted
+                                    allows; the task SLUG, whose lead starts, is not counted. Also
+                                    exit 1 for a task in `landing`, `open` or an ended state, which
+                                    gets no lead
     project.py state-dir            the folder that holds every task, the event log and the night reports
 
 Task state is kept inside the git directory every worktree shares: it is never committed, a
 worktree's removal does not take it, and a session that replaces another finds it.
+
+An ended task stays ended. `state` refuses a move out of `landed`, `answered` or `dropped` (the
+same status again is taken), so that a stale wake-up, a lead that finished after a later step,
+cannot reopen it: new work for it is a new ask, with a slug of its own.
 
 Every state block is also an event. `events.jsonl` in the state folder is the record, one JSON
 object per line: `ts` (UTC to the second), `event`, `task`, then the event's fields. The same
@@ -1109,6 +1115,15 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
         raise SettingsError("each LINE of a state block is one line of text, and none is empty")
     for line in lines:
         kind_line(line)
+    # the status the newest block gives, read from this task's file alone
+    written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
+    first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
+    now = first["status"] if first else None
+    if now in ENDED and status != now:
+        raise SettingsError(
+            f"the task {slug!r} is {now}, and an ended task stays ended: new work for it is a new ask (`/lem new`), "
+            f"whose task takes a slug of its own. A reply or a message about {slug} that comes now is a stale wake-up, and nothing is done for it",
+        )
     if status == "answered":
         answered_form(root, directory, slug)
     # the time is the clock's, never a writer's estimate
@@ -1482,10 +1497,20 @@ def read_tasks(root: Path) -> list[dict]:
 def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     """Exit 1 when as many other tasks build or land as the project allows at one time. The task
     whose lead starts is not counted: when it builds already (its investigator called the path, or
-    its lead stopped and starts again), the place it holds is the one its next lead takes."""
+    its lead stopped and starts again), the place it holds is the one its next lead takes. A task in
+    the landing, proposed or ended gets no lead at all: a stale wake-up must not start one."""
     task_directory(root, slug)
     limit = settings["flow"]["max_tasks"]
-    running = [task["slug"] for task in read_tasks(root) if task["status"] in RUNNING and task["slug"] != slug]
+    tasks = read_tasks(root)
+    status = next((task["status"] for task in tasks if task["slug"] == slug), None)
+    if status in ENDED:
+        raise SettingsError(f"the task {slug!r} is {status}: an ended task gets no lead, and new work for it is a new ask (`/lem new`) with a slug of its own")
+    if status in ("landing", "open"):
+        raise SettingsError(
+            f"the task {slug!r} is {status}: its build is done, and it gets no lead. Its landing goes on with `land.py` "
+            f"(`stages/land.md`; an open task takes the line again with `land.py start {slug}`), and a change the owner asks for now is a new ask",
+        )
+    running = [task["slug"] for task in tasks if task["status"] in RUNNING and task["slug"] != slug]
     if len(running) >= limit:
         raise SettingsError(
             f"{len(running)} tasks build or land ({', '.join(running)}) and flow.max_tasks is {limit}: "

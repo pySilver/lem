@@ -50,8 +50,11 @@ one finds what the run before it finished.
    so that the owner reads the checks once. A branch that changes a gate the main checkout has
    is gated by the main checkout's, as every task is.
    `landing` holds a place, so it is written when the checks will run and never before a stop.
-   An `open` task takes the line again when a later step says so (the base moved, the owner
-   asked for a change): its reviews and its pull request stay its own.
+   An `open` task takes the line again when a later step says so (the base moved, a commit hook
+   changed the one commit): its reviews and its pull request stay its own. That is the one way
+   back for it: `project.py may-start` refuses a lead for a task in `landing` or `open`, and a
+   change the owner asks for after the build is a new ask (`stages/new.md`, "When a choice waits
+   for the owner", step 3).
 2. **`base`.** The base branch is brought in by a rebase. A conflict is where two tasks on the
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the

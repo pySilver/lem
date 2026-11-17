@@ -659,6 +659,33 @@ else
   fail "may-start during a landing: $err"
 fi
 project --repo "$OLD" state second-task ready "the gate was cut off" >/dev/null
+# An ended task stays ended: a stale wake-up writes no state over it and starts no lead for it, and a task in the
+# landing or proposed gets no lead either. The same ended state again is taken; new work is a new ask.
+ENDS=$WORK/ends
+git init -q -b main "$ENDS" && project --repo "$ENDS" init --base main >/dev/null
+ends() { project --repo "$ENDS" "$@"; }
+ends task-dir ended-task >/dev/null && ends state ended-task landing "the gate runs" >/dev/null
+in_landing=$(ends may-start ended-task 2>&1 || true)
+ends state ended-task open "ready to land on main at abc1234" >/dev/null
+in_open=$(ends may-start ended-task 2>&1 || true)
+ends state ended-task landed "main abc1234" >/dev/null
+landed_again=$(status_of ends state ended-task landed "main abc1234")
+reopened=$(ends state ended-task building "the lead goes on" 2>&1 || true)
+readied=$(status_of ends state ended-task ready "the report is written")
+dropped_over=$(status_of ends state ended-task dropped "nobody wants it")
+landed_start=$(ends may-start ended-task 2>&1 || true)
+ends task-dir dropped-task >/dev/null && ends state dropped-task dropped "the owner dropped it" >/dev/null
+dropped_again=$(status_of ends state dropped-task building "a late lead")
+dropped_start=$(status_of ends may-start dropped-task)
+if grep -qF "the task 'ended-task' is landing: its build is done, and it gets no lead" <<<"$in_landing" && grep -qF "land.py start ended-task" <<<"$in_open" \
+  && grep -qF "the task 'ended-task' is open" <<<"$in_open" && [ "$landed_again" = 0 ] \
+  && grep -qF "the task 'ended-task' is landed, and an ended task stays ended: new work for it is a new ask" <<<"$reopened" \
+  && [ "$readied" = 1 ] && [ "$dropped_over" = 1 ] && grep -qF "the task 'ended-task' is landed: an ended task gets no lead" <<<"$landed_start" \
+  && [ "$dropped_again" = 1 ] && [ "$dropped_start" = 1 ] && [ "$(status_in "$ENDS" ended-task)" = landed ] && [ "$(status_in "$ENDS" dropped-task)" = dropped ]; then
+  pass "an ended task stays ended: no state moves it out of landed or dropped, and may-start gives no lead to it, nor to a task in the landing or proposed; the same ended state again is taken"
+else
+  fail "an ended task reopened: $in_landing / $in_open / $landed_again / $reopened / $readied / $dropped_over / $landed_start / $dropped_again / $dropped_start"
+fi
 accepted=""
 for bad in 0 true '"four"' 2.5; do
   settings '[flow]' "max_tasks = $bad"
