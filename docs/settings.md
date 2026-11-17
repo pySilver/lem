@@ -5,8 +5,10 @@
 
 - An unknown table or key, a wrong type, and a path outside the repository are errors. Lem names
   the error and the fix, and it stops.
-- Lem reads `[flow]` from the main checkout, also in the worktree of a task. The landing reads
-  each setting from the main checkout. Thus a branch cannot change the rules that guard it.
+- Lem reads the settings as the newest commit of the base branch has them, not from the files in
+  your main checkout. An edit counts after you commit it on the base branch. If the main checkout
+  holds another branch or an edit that is not committed, Lem tells you so in one line.
+- Thus a branch cannot change the rules that guard it: the topics, the checks, who merges.
 - A change that edits `.lem/project.toml` is careful, and a person merges it.
 
 ## `[paths]`
@@ -111,19 +113,21 @@ A seat is one string, `agent/model:effort`.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `seats.reviewer` | `codex` when the machine check finds Codex, otherwise `claude`, with the model and the effort of the agent | the reviewer of the plan talk: `claude` or `codex` |
-| `seats.planner` | `claude`, with the model and the effort of the agent | the defender of the plan talk: only `claude` |
-| `seats.experts` | `["claude/fable:high", "codex/gpt-6-astra:high"]` | the two experts that answer a choice of yours, of two model families |
+| `seats.reviewer` | none. `/lem init` writes `codex` when the machine check finds Codex, otherwise `claude`. With no seat, Lem asks you once | the reviewer of the plan talk: `claude` or `codex` |
+| `seats.planner` | none: `claude`, with the model and the effort of the agent | the defender of the plan talk: only `claude` |
+| `seats.experts` | `["claude/fable", "codex/gpt-6-astra:high"]` | the two experts that answer a question or a choice of yours, of two model families |
 
 ```toml
 [seats]
 reviewer = "codex/gpt-6.1-sol:high"
 planner = "claude/opus:high"
-experts = ["claude/fable:high", "codex/gpt-6-astra:high"]
+experts = ["claude/fable", "codex/gpt-6-astra:high"]
 ```
 
-A seat with no `/model` or no `:effort` uses the default of the agent. The review before a pull
-request is a new agent with the review tool, not the reviewer of this seat.
+A seat can leave out the effort (`codex/gpt-6.1-sol`), or the model and the effort (`codex`). The
+agent then uses its own default for that part. An empty seat, or a seat with a space, is an error.
+The review before a pull request is a new agent with the review tool, not the reviewer of this
+seat.
 
 ## `[tools]`
 
@@ -174,10 +178,16 @@ With `moves = "tracker"`, Lem moves no ticket, and `started` and `landed` must b
 This file is for one computer. Git does not track it, and Lem reads it from the main checkout. A
 change that puts this file into git is careful, and a person merges it.
 
-- It can hold `[seats]`, `[tools]` and `[corrections]`, and no other table.
-- A seat here replaces the seat of the project on this computer, in the same form:
-  `reviewer = "codex/gpt-6.1-sol:high"`. `/lem reviewer` writes the reviewer seat, and
-  `/lem reviewer default` removes it.
-- `[corrections]` can say `collect = false`. Then the hook sends no message from this computer.
-  The file cannot say `collect = true`.
-- `lem project show` lists each setting that this file changes, under `local`.
+It can hold these tables, and no other:
+
+| Table | What it can say |
+| --- | --- |
+| `[seats]` | a seat that replaces the seat of the project on this computer, in the same form: `reviewer = "codex/gpt-6.1-sol:high"`. `/lem reviewer` writes the reviewer seat, and `/lem reviewer default` removes it |
+| `[tools]` | `annotate` and `ask`, as in `.lem/project.toml` |
+| `[corrections]` | only `collect = false`. Then the hook sends no message from this computer |
+| `[naps]` | only `on = false`. Then Lem takes no nap by itself on this computer. `/lem nap` still works |
+| `[flow]` | only `max_tasks`: the limit of tasks for this computer |
+
+The file can switch the correction queue and the naps off, and never on. The topics, the checks,
+the protected branches and who merges are rules of the project, so this file cannot change them.
+`lem project show` lists each setting that this file changes, under `local`.

@@ -65,10 +65,21 @@ The stage files tell each role what to do: `skills/lem/stages/new.md`, `plan.md`
 capability, for example `spawn-builder` or `ask-owner`. `skills/lem/harness/claude-code.md` says
 what each capability is in Claude Code.
 
-The scripts of Lem are one command, `lem`, which the plugin puts on the `PATH` of the agent:
-`lem project`, `lem land`, `lem criteria`, `lem decisions`, `lem board`, `lem doctor`,
-`lem corrections` and `lem experts`. The question page is `lem-ask`, and the client of the Jev
-decision model is `lem-jev`.
+## The command `lem`
+
+The scripts of Lem are one command, `lem`, which the plugin puts on the `PATH` of the agent. The
+agents run it, and you do not type it. Because it is one command, the permission rule
+`Bash(lem *)` covers all scripts, also after an update of the plugin.
+
+- `lem NAME ARGS...` runs one script, for example `lem land start SLUG` or `lem project show`.
+- `lem NAME --help` gives the help of that script.
+- `lem help` lists the names: `project`, `land`, `criteria`, `decisions`, `board`, `doctor`,
+  `corrections`, `experts`, `cast`, `gate-log`, `triage`, `release-platform`, `release-version`
+  and `release-notes`.
+- `lem version` prints the folder of the plugin, and its commit when that folder is a git clone.
+
+The question page is a command of its own, `lem-ask`, and so is the client of the Jev decision
+model, `lem-jev`.
 
 ## Where things are
 
@@ -107,16 +118,18 @@ worktree writes there. Git does not track the folder, and it stays after Lem rem
 - `events.jsonl` and `events.js`: the event log, and the same log for the board;
 - `watch.js`: the last look of the watch at the open pull requests;
 - `landing.lock`: the lock of the one task in the landing;
+- `alone.lock`: the lock of the commands under `checks.alone`;
 - `decide-gate.jsonl`: the log of the question gate;
 - `backlog-triage.json` and `backlog.js`: the sort of the backlog, and the backlog for the board;
 - `corrections.jsonl`, `corrections-reviews.jsonl`, `corrections.log` and `corrections-claims/`:
   the correction queue;
 - `night/`: the night reports;
+- `retros/`: the proposals of a retro that ran with nobody there;
+- `experts/`: one folder for each question that you gave to the experts with `/lem ask-expert`;
+- `personas-cast/` and `personas-profile/`: the copies of the personas and of the profile that a
+  persona panel read;
 - `naps/`: one folder for each nap;
 - the page of the board and its data files.
-
-A repository with an older `.git/lem/` folder and no `.lem/state/` gets its state moved once. The
-first script of Lem that runs moves it, and it prints one line about the move.
 
 ## The files of a task
 
@@ -197,17 +210,18 @@ Lem.
 - Each task is in a lane of who acts next. A card shows the status, the lead, the newest commit,
   the result of the checks and the newest review. A task that Lem proposed shows green or not
   green.
-- The board says when Lem last checked the open pull requests. When no watch runs, it says
-  "nobody watches" and tells you to type `/lem`. A page cannot ask the forge itself.
+- The board says when Lem last checked the open pull requests, for example "checked 40s ago".
+  When the last look is older than three intervals of the watch, or the watch ended, it says
+  "nobody watches the pull requests" and tells you to type `/lem`. A page cannot ask GitHub
+  itself.
 - The board of one task adds its acceptance criteria with the result of their tests, and its state
   blocks. It also shows each check, each review with who answered, and where the time went.
 - A line that waits for you says where you answer.
-- The board shows the newest dreams of the naps.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/task-dark.png">
-    <img src="../assets/screens/task-light.png" alt="The board of one task that landed: its phases, where the time went for you, the builders and the personas, its acceptance criteria, its decisions and its checks" width="900">
+    <img src="../assets/screens/task-light.png" alt="The board of one task that landed: its phases, where the time went for you, the builders and the personas, its acceptance criteria, its checks and its review" width="900">
   </picture>
 </p>
 
@@ -235,14 +249,28 @@ Lem.
 ## Naps
 
 Naps are an optional part of Lem. `naps.on = true` turns them on ([settings.md](settings.md#naps)).
+A nap costs one short agent session, and nobody has shown that naps help.
 
-- Lem takes a nap when it ends a task or waits for you, and the last nap is `naps.gap_hours` old.
+- Lem takes a nap when a task ended or when only your word is left, and the last nap is
+  `naps.gap_hours` old. Nothing waits for the nap.
+- `/lem nap` starts a nap on your word, also when the naps are off.
 - A nap is a new agent in the background. It reads the records of the recent tasks, dreams, makes
   one thing, and writes a waking note.
-- All of it stays in `.lem/state/naps/`, one folder for each nap. Lem removes a folder that is
-  older than `naps.keep_days`.
-- `/lem nap` starts a nap by hand.
+- The nap runs no command. It reads and writes only in the state folder, and it changes nothing in
+  the repository.
+- Each nap has a folder `.lem/state/naps/TIME-WORDS/` with `dream.md`, the thing it made, and
+  `waking.md`. Lem removes a folder that is older than `naps.keep_days`.
+- The board gets a third tab, Dreams, when a nap exists. It shows the newest naps.
 - The retro reads the waking notes since the last retro. A note is only a candidate for a lesson.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/dreams-dark.png">
+    <img src="../assets/screens/dreams-light.png" alt="The Dreams tab of the board: the newest naps, each with its dream, the thing it made and its waking note" width="900">
+  </picture>
+</p>
+
+*The Dreams tab of the board, with demo data. The nap is an example.*
 
 ## The skills that Lem uses by itself
 
