@@ -787,7 +787,10 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-ask-expert/`: the
   skills Lem names and ships. `lem-ask-expert` is Lem's own, written under the rules above, with
-  `scripts/experts.py` (the experts' brief, and their answers into the record).
+  `scripts/experts.py` (the experts' brief and their answers: for a choice of a task into its
+  record, and for a question in words into a folder of its own in `.lem/state/experts/`).
+  `lem-panel`'s `scripts/cast.py` keeps the copies of the cast and the profile a panel read in
+  Lem's state folder, `.lem/state/personas-cast/` and `personas-profile/`.
   `NOTICE` says where each came from.
 
 ## The shipped skills are copies, not yet under the rules above

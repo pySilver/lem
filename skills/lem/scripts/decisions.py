@@ -96,8 +96,9 @@ outside the repository, beyond what the settings already allow, such as the trac
 `person` (it sends something to a person), `money` (it spends money). The lead says which; no
 code can tell.
 
-The experts are two agents of two model families, `fable` and `astra`, that the lem-ask-expert
-skill gives the same brief when the wait starts; the owner asked for them as the way out when
+The experts are two agents of two model families, the settings' `seats.experts`, that the
+lem-ask-expert skill gives the same brief when the wait starts, and the record keeps their advice
+in two places, `fable` for the first seat and `astra` for the second, whatever model sits there; the owner asked for them as the way out when
 the owner is not there to answer (2026-11-16). Their advice goes on the owner's card while the
 owner decides. At the end of the wait their shared pick is taken (`by: experts`, with both
 reasons), and the recommended option when they split or one is missing (`by: timeout`); when the
@@ -137,7 +138,9 @@ SCRIPTS = Path(__file__).resolve().parent
 BY = ("lead", "personas", "owner", "lem")
 # The task states in which nothing of a task waits any more, as project.py's ENDED.
 ENDED = ("dropped", "landed", "answered")
-# The two experts of the lem-ask-expert skill, by the names the record keeps their advice under.
+# The two places in which the record keeps the experts' advice, as project.py's EXPERT_PLACES: the
+# first seat of the settings' `seats.experts` answers in `fable`, the second in `astra`, whatever
+# model sits there, so a record written under any seats reads the same.
 EXPERTS = ("fable", "astra")
 # How the case of a choice is known: the lead ran it, or read it out of the code.
 CASE_WAS = ("reproduced", "derived")

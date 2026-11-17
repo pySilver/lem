@@ -1,6 +1,6 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, checks, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `nap`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, checks, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
@@ -127,7 +127,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
 when the name stands alone or is followed by what that skill takes: a slug, a path, a number, a
-statement to argue. `/lem release notes are wrong on the site` and `/lem backlog is slow to open`
+statement to argue, a question in words. `/lem release notes are wrong on the site` and `/lem backlog is slow to open`
 are sentences about the project, so each is an ask and opens a task. `/lem ask` takes a question
 the owner wants put to himself as a page ("`/lem ask` which of the two layouts"), and `/lem ask`
 alone puts the last open question an agent asked in this conversation on a page, with what he
@@ -219,7 +219,8 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   a planning or debugging skill loaded beside a stage has Lem read code and plans by itself, which
   is a lead's work (the compatibility audit, 2026-11-17).
 - **Capabilities, not tools.** A stage says `spawn-builder`, `open-task-session`,
-  `tell-coordinator`, `second-opinion`, `ask-owner`, `fan-out`, `show-page` or `load-skill`, and
+  `tell-coordinator`, `second-opinion`, `ask-owner`, `ask-experts`, `fan-out`, `run-in-background`,
+  `start-nap` (for a nap), `show-page` or `load-skill`, and
   names the question gate, the persona panel and the review tool by role. Read, once per session, the file in this skill's `harness/` folder named
   after the agent you run in (`harness/claude-code.md`); it says what each means there. When
   there is no file for your agent, say so and stop: the contract was not checked in it.

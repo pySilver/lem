@@ -17,7 +17,8 @@ beside it.
    become the test of the task's acceptance criterion. When no test can show the bug (it needs a
    service the project has no stand-in for, or a person's eye), reproduce it another way, write down
    how, and commit nothing.
-2. **Find the cause** with the method of the `lem-root-cause` skill (`load-skill`): ask why until
+2. **Find the cause** with the method of the `lem-root-cause` skill: read
+   `SKILL_DIR/../lem-root-cause/SKILL.md` and follow its method: ask why until
    the answer is a file and a symbol that is wrong, not a symptom. Read the history of that place
    (`git log -L` or `git blame`) before you say when or why it became wrong.
 3. **Look how far the same cause reaches**: the other callers of that symbol, the other inputs

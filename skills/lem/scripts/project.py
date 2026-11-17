@@ -112,13 +112,16 @@ type its kind maps to (bug and correction a fix, feature a feat, investigation a
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
-a plan talk runs, which tool marks up a plan and which one puts a question to the owner, and a no to the correction queue for that one person. It
+a plan talk runs, which tool marks up a plan and which one puts a question to the owner, a no to the correction queue for that one person, a no
+to the naps, which spend that person's tokens, and how many tasks build or land at one time on that machine. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]` and
-`[tools]`, and `[corrections]` with `collect = false`, and nothing else: the checks, what must
+`[tools]`, `[corrections]` with `collect = false`, `[naps]` with `on = false` and `[flow]` with
+`max_tasks`, which is one machine's limit and no guard, and nothing else: the checks, what must
 never go wrong, the protected branches and who lands are the project's rules, and a file nobody reviews
-must not open them. For the same reason it can switch the correction queue off for its person
-and never on: nobody's messages are sent because of a file that git does not show. `show` names each setting that
+must not open them. For the same reason it can switch the correction queue and the naps off
+for its person and never on: nobody's messages are sent, and nobody's tokens spent, because of a
+file that git does not show. `show` names each setting that
 came from it.
 
 The style guide is a folder of markdown files, in an adopted project the one an agent already
@@ -221,8 +224,9 @@ import lem_state  # noqa: E402
 TOOLS = {"annotate": "webrev", "ask": "lem-ask"}
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
-# the tables one machine may set for itself
-LOCAL_TABLES = ("seats", "tools", "corrections")
+# the tables one machine may set for itself; of [flow] only max_tasks, of [naps] only `on = false`,
+# and of [corrections] only `collect = false`
+LOCAL_TABLES = ("seats", "tools", "corrections", "flow", "naps")
 # name -> (where the skill's own layout keeps it, where an older tool keeps it)
 PATHS: dict[str, tuple[str, str | None]] = {
     "profile": (".lem/profile.md", ".personas/profile.md"),
@@ -805,6 +809,35 @@ def local_off(local: dict) -> bool:
     return True
 
 
+def local_naps_off(local: dict) -> bool:
+    """Whether this machine's own file says no to the naps: a nap spends this person's tokens. It
+    can say nothing else about them."""
+    naps = local.get("naps", {})
+    for key in naps:
+        if key != "on":
+            raise SettingsError(f"{LOCAL}: naps.{key} is the project's and belongs in {SETTINGS}; this file may hold only `on = false` under [naps]")
+    if "on" not in naps:
+        return False
+    if naps["on"] is not False:
+        raise SettingsError(
+            f"{LOCAL}: naps.on = {naps['on']!r} is not for this file. It may say `on = false`, which keeps Lem from napping by itself "
+            f"on this machine; only {SETTINGS}, which everybody reads in git, switches the naps on",
+        )
+    return True
+
+
+def local_max_tasks(local: dict) -> int | None:
+    """The limit of tasks that build or land at one time on this machine, when its own file names
+    one: a machine's load, and no guard of the project's."""
+    flow = local.get("flow", {})
+    for key in flow:
+        if key != "max_tasks":
+            raise SettingsError(
+                f"{LOCAL}: flow.{key} is the project's rule and belongs in {SETTINGS}; this file may hold only max_tasks under [flow], one machine's limit",
+            )
+    return flow_of(local, LOCAL)["max_tasks"] if "max_tasks" in flow else None
+
+
 def tool_of(raw: dict, name: Path, role: str) -> str | None:
     """The tool one file names for a role, checked; None when the file names none."""
     if role not in raw.get("tools", {}):
@@ -843,6 +876,11 @@ def load(root: Path) -> dict:
     flow = flow_of(raw, SETTINGS)
     if main.resolve() != root.resolve():
         flow = flow_of(read_settings(main / SETTINGS, main / SETTINGS, tuple(TABLES)), main / SETTINGS)
+    overridden = []
+    machine_limit = local_max_tasks(local)
+    if machine_limit is not None:
+        flow["max_tasks"] = machine_limit
+        overridden.append("flow.max_tasks")
 
     paths = {}
     for name, (default, _older) in PATHS.items():
@@ -876,7 +914,6 @@ def load(root: Path) -> dict:
     protected =strings(branch.get("protected", []), "branch.protected")
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
-    overridden = []
     tools = {}
     for role, own in TOOLS.items():
         tools[role] = tool_of(raw, SETTINGS, role) or own
@@ -931,6 +968,11 @@ def load(root: Path) -> dict:
         if given["moves"] == "tracker" and named:
             raise SettingsError(f'{SETTINGS}: with tracker.moves = "tracker" Lem moves no ticket, so {" and ".join(named)} say nothing: remove them')
         tracker = {key: given.get(key) for key in TABLES["tracker"]}
+    naps = naps_of(raw, SETTINGS)
+    if local_naps_off(local):
+        if naps["on"]:
+            overridden.append("naps.on")
+        naps["on"] = False
     return {
         "root": str(root),
         # the checkout every worktree hangs off; it is `root` unless this ran in a task's worktree
@@ -951,7 +993,7 @@ def load(root: Path) -> dict:
         "tools": tools,
         "corrections": {"collect": collect},
         "tracker": tracker,
-        "naps": naps_of(raw, SETTINGS),
+        "naps": naps,
         # what this machine set for itself, so a report can say that the reviewer is not the project's
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
     }
@@ -1100,6 +1142,8 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     for role in TOOLS:
         tool_of(local, LOCAL, role)
     local_off(local)
+    local_naps_off(local)
+    local_max_tasks(local)
     seat(local, LOCAL, "reviewer")
     seat(local, LOCAL, "planner")
     experts_of(local, LOCAL)
@@ -1117,7 +1161,8 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     for table in LOCAL_TABLES:
         body = local.get(table) or {}
         if body:
-            # a value here is a word in quotes, a list of them, or the one `false` the corrections table may hold
+            # a value here is a word in quotes, a list of them, the one `false` the corrections and the
+            # naps tables may hold, or the number of max_tasks
             lines += ["", f"[{table}]", *(f"{key} = {toml_value(value)}" for key, value in body.items())]
     if len(lines) == 1:
         file.unlink(missing_ok=True)
@@ -2054,7 +2099,8 @@ def hours(seconds: float) -> str:
 def cmd_may_nap(root: Path, asked: bool) -> None:
     """Whether a nap may start now, from the settings and the naps folder. A yes writes the nap
     down as started; every call removes the naps older than `naps.keep_days`."""
-    naps = load(root)["naps"]
+    settings = load(root)
+    naps = settings["naps"]
     folder = state_root(root) / "naps"
     folder.mkdir(exist_ok=True)
     now = datetime.now(timezone.utc)
@@ -2086,7 +2132,8 @@ def cmd_may_nap(root: Path, asked: bool) -> None:
     if asleep is not None and not woke and (now - since).total_seconds() < ASLEEP_MINUTES * 60:
         answer["why"] = f"a nap runs since {asleep['since']}: it ends when naps/{started}-... holds waking.md, or {ASLEEP_MINUTES} minutes after its start"
     elif not asked and not naps["on"]:
-        answer["why"] = "the naps are off (naps.on = false in .lem/project.toml)"
+        answer["why"] = (f"the naps are off on this machine (naps.on = false in {LOCAL})" if "naps.on" in settings["local"]["overrides"]
+                         else f"the naps are off (naps.on = false in {SETTINGS})")
     else:
         last = max([when for when, _nap in kept] + ([since] if asleep is not None else []), default=None)
         age = (now - last).total_seconds() if last else None

@@ -16,9 +16,11 @@ then provide context directly in command `/lem ask-expert what would be the best
 kind of problem` or just type the `/lem ask-expert` and assume the skill knows what to ask from the
 context", 2026-11-17).
 
-Who they are is the settings' `seats.experts`, a list of seats `agent/model:effort`; with none
-there, `claude/fable:high` and `codex/gpt-6-astra:high`. An expert's name is the last word of its
-model (`fable`, `astra`), and the script prints each one with its seat.
+Who they are is the settings' `seats.experts`, two seats `agent/model:effort`, which `lem project
+show` prints with Lem's default where the project and this machine name none. For a question in
+words an expert's name is the last word of its model; for a choice of a task it is its place in
+the record, below. The script prints each one with its name, its seat, its agent, its model and
+its effort.
 
 `SKILL_DIR` is this skill's directory. `CHECKOUT` is the checkout the question is about: the
 task's worktree when it belongs to a task, else the one this session works in.
@@ -97,8 +99,8 @@ beside the personas'. Their advice decides nothing by itself; the record does th
   never decided by the experts: it waits for his word.
 
 `WORKTREE` is the task's worktree, or any directory of the checkout. A task's record keeps the
-advice of `fable` and `astra`, the names `decisions.py` knows, so a choice of a task goes to the
-experts of those names.
+advice in two places, `fable` and `astra`, the names `lem decisions` knows: the first seat of
+`seats.experts` answers as `fable` and the second as `astra`, whatever model sits there.
 
 1. **The brief.** Start it before anything else: the wait started with the ask, and the experts
    take part of it.

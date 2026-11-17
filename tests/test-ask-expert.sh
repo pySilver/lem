@@ -331,17 +331,17 @@ seated=$(experts brief --question "Which store?" --seat claude/opus:high --seat 
 noform=$(experts brief --question "Which store?" --seat claude-opus 2>&1 || true)
 noagent=$(experts brief --question "Which store?" --seat gemini/pro:high --seat claude/fable:high 2>&1 || true)
 same=$(experts brief --question "Which store?" --seat claude/fable:high --seat claude/fable:max 2>&1 || true)
-nochoice=$(experts brief "$SLUG" "$c18" --seat claude/opus:high --seat codex/gpt-6-astra:high 2>&1 || true)
+nochoice=$(experts brief "$SLUG" "$c18" --seat claude/opus:high 2>&1 || true)
 neither=$(experts brief 2>&1 || true)
 both=$(experts brief "$SLUG" "$c18" --question "Which store?" 2>&1 || true)
 alone=$(experts brief --question "Which store?" --option "Redis" 2>&1 || true)
 mixed=$(experts brief "$SLUG" "$c18" --option "Redis" --option "a table" 2>&1 || true)
 if [ "$seated" = "[('opus', 'opus', 'high'), ('sol', 'gpt-6.1-sol', 'xhigh')]" ] && grep -qF "'claude-opus' is no seat: write it as agent/model:effort" <<<"$noform" \
   && grep -qF "names the agent 'gemini': an expert is started by claude or codex" <<<"$noagent" && grep -qF "two experts are named fable" <<<"$same" \
-  && grep -qF "a task's record keeps the advice of fable and astra only (decisions.py), and claude/opus:high is neither" <<<"$nochoice" \
+  && grep -qF "a choice of a task has 2 experts, and its record keeps their advice as fable and astra: give --seat 2 times" <<<"$nochoice" \
   && grep -qF "brief takes a task's SLUG N or --question TEXT, one of the two" <<<"$neither" && grep -qF "one of the two" <<<"$both" \
   && grep -qF "one --option is no choice" <<<"$alone" && grep -qF -- "--context and --option belong to a question in words" <<<"$mixed"; then
-  pass "--seat names the experts for one call, by the last word of each model; a seat not written agent/model:effort, an agent the harness does not know, two experts of one name, other experts for a task's choice and a brief with no question or two are refused"
+  pass "--seat names the experts for one call, by the last word of each model; a seat not written agent/model:effort, an agent the harness does not know, two experts of one name, one --seat for a task's choice and a brief with no question or two are refused"
 else
   fail "the experts' seats: $seated / $noform / $noagent / $same / $nochoice / $neither / $both / $alone / $mixed"
 fi
@@ -359,6 +359,34 @@ if [ "$pruned" = "['$folder']" ] && [ ! -e "$QS/$folder" ] && [ -d "$QS/$ofolder
 else
   fail "the old folders: $pruned / $(ls "$QS")"
 fi
+# who the experts are: the settings' seats.experts, which experts.py reads through project.py show, the project's and
+# this machine's own; a choice of a task names each by its place in the record, whatever model sits there
+seats_in() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^# experts = .*$", "experts = " + sys.argv[2], s, count=1))' "$EX/.lem/project.toml" "$1"; }
+cp "$EX/.lem/project.toml" "$WORK/project.toml"
+seats_in '["claude/opus:high", "codex/gpt-6.1-sol"]'
+tracked=$(experts brief --question "Which store, by the project's seats?" | field '[(e["name"], e["agent"], e["model"], e["effort"], e["place"]) for e in d["experts"]]' || true)
+cS=$(ask "Where the note goes, by the project's seats")
+forchoice=$(experts brief "$SLUG" "$cS" | field '([(e["name"], e["seat"], e["model"], e["effort"], e["answer"].rsplit("/", 1)[1]) for e in d["experts"]], d["ask"])' || true)
+printf '%s\n' 'pick: the last column' 'why: An import reads the columns by place.' > "$TASKDIR/experts/choice-$cS.fable.md"
+recorded=$(experts record "$SLUG" "$cS" --expert fable | field 'd["advised"]' || true)
+printf '%s\n' '[seats]' 'experts = ["claude", "codex:xhigh"]' > "$EX/.lem/project.local.toml"
+nomodel=$(experts brief "$SLUG" "$cS" | field '([(e["name"], e["agent"], e["model"], e["effort"]) for e in d["experts"]], d["ask"])' || true)
+nomodelq=$(experts brief --question "Which store, by this machine's seats?" | field '[e["name"] for e in d["experts"]]' || true)
+rm "$EX/.lem/project.local.toml"
+givenchoice=$(experts brief "$SLUG" "$cS" --seat claude/opus:high --seat codex/gpt-6-astra | field '[(e["name"], e["model"]) for e in d["experts"]]' || true)
+# one model in both places is two experts still: a choice names them by place, so no name is taken twice
+oneboth=$(experts brief "$SLUG" "$cS" --seat claude/fable:high --seat codex/fable | field '[e["name"] for e in d["experts"]]' || true)
+cp "$WORK/project.toml" "$EX/.lem/project.toml"
+places=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import decisions, project; print(decisions.EXPERTS == project.EXPERT_PLACES, project.EXPERT_PLACES)' "$PWD/skills/lem/scripts")
+if [ "$tracked" = "[('opus', 'claude', 'opus', 'high', 'fable'), ('sol', 'codex', 'gpt-6.1-sol', None, 'astra')]" ] \
+  && [ "$forchoice" = "([('fable', 'claude/opus:high', 'opus', 'high', 'choice-$cS.fable.md'), ('astra', 'codex/gpt-6.1-sol', 'gpt-6.1-sol', None, 'choice-$cS.astra.md')], ['fable', 'astra'])" ] \
+  && [ "$recorded" = "['fable']" ] && [ "$nomodel" = "([('fable', 'claude', None, None), ('astra', 'codex', None, 'xhigh')], ['astra'])" ] \
+  && [ "$nomodelq" = "['fable', 'astra']" ] && [ "$givenchoice" = "[('fable', 'opus'), ('astra', 'gpt-6-astra')]" ] && [ "$oneboth" = "['fable', 'astra']" ] && [ "$places" = "True ('fable', 'astra')" ]; then
+  pass "the experts are the settings' seats.experts, the project's or this machine's, each with its agent, model and effort; a choice of a task names the first fable and the second astra whatever model sits there, records the advice under that place, and takes a seat with no model; a question in words names each by its model"
+else
+  fail "the experts from the settings: $tracked / $forchoice / $recorded / $nomodel / $nomodelq / $givenchoice / $oneboth / $places"
+fi
+
 if [ -d "$PWD/skills/lem/scripts/__pycache__" ] || [ -d "$(dirname "$EXPERTS")/__pycache__" ]; then fail "experts.py left a __pycache__"; else pass "experts.py left no __pycache__, also of the decisions.py it imports"; fi
 
 if [ "$fails" -gt 0 ]; then

@@ -570,6 +570,39 @@ else
   fail "the defender's seat in the local file: $local_seat / $both / $kept / $err"
 fi
 rm "$OLD/.lem/project.local.toml"
+# One person may say no to the naps, which spend their tokens, and name how many tasks build or land at one
+# time on their machine, which is a machine's load and no guard; never yes to the naps there, and no other key.
+settings '[branch]' 'base = "master"' '[flow]' 'max_tasks = 4' '[naps]' 'on = true'
+printf '%s\n' '[flow]' 'max_tasks = 2' '[naps]' 'on = false' > "$OLD/.lem/project.local.toml"
+machine=$(project --repo "$OLD" show 2>&1 | field '(d["flow"]["max_tasks"], d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
+in_tree=$(project --repo "$WORK/wt" show 2>&1 | field '(d["flow"]["max_tasks"], "flow.max_tasks" in d["local"]["overrides"])' 2>&1 || true)
+asleep=$(project --repo "$OLD" may-nap 2>&1 | field '(d["may"], d["why"])' 2>&1 || true)
+project --repo "$OLD" reviewer claude >/dev/null 2>&1 && project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
+rewritten=$(cat "$OLD/.lem/project.local.toml")
+printf '%s\n' '[naps]' 'on = true' > "$OLD/.lem/project.local.toml"
+naps_yes=$(project --repo "$OLD" show 2>&1 || true)
+naps_yes_code=$(status_of project --repo "$OLD" reviewer claude)
+printf '%s\n' '[naps]' 'keep_days = 3' > "$OLD/.lem/project.local.toml"
+naps_key=$(project --repo "$OLD" show 2>&1 || true)
+printf '%s\n' '[flow]' 'decision_wait = 1' > "$OLD/.lem/project.local.toml"
+flow_key=$(project --repo "$OLD" show 2>&1 || true)
+flow_key_code=$(status_of project --repo "$OLD" reviewer claude)
+printf '%s\n' '[flow]' 'max_tasks = 0' > "$OLD/.lem/project.local.toml"
+flow_bad=$(project --repo "$OLD" show 2>&1 || true)
+rm "$OLD/.lem/project.local.toml"
+alone=$(project --repo "$OLD" show 2>&1 | field '(d["flow"]["max_tasks"], d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
+if [ "$machine" = "(2, False, ['flow.max_tasks', 'naps.on'])" ] && [ "$in_tree" = "(2, True)" ] && [ "$asleep" = "(False, 'the naps are off on this machine (naps.on = false in .lem/project.local.toml)')" ] \
+  && [ "$rewritten" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[flow]' 'max_tasks = 2' '' '[naps]' 'on = false')" ] \
+  && grep -qF ".lem/project.local.toml: naps.on = True is not for this file. It may say \`on = false\`" <<<"$naps_yes" \
+  && grep -qF "only .lem/project.toml, which everybody reads in git, switches the naps on" <<<"$naps_yes" && [ "$naps_yes_code" = 1 ] \
+  && grep -qF ".lem/project.local.toml: naps.keep_days is the project's and belongs in .lem/project.toml" <<<"$naps_key" \
+  && grep -qF ".lem/project.local.toml: flow.decision_wait is the project's rule and belongs in .lem/project.toml; this file may hold only max_tasks under [flow]" <<<"$flow_key" \
+  && [ "$flow_key_code" = 1 ] && grep -qF ".lem/project.local.toml: flow.max_tasks = 0 must be a whole number, 1 or more" <<<"$flow_bad" \
+  && [ "$alone" = "(4, True, [])" ]; then
+  pass "the machine's own file may say no to the naps and name its own flow.max_tasks, also for a task's worktree, show and may-nap say that the value is the machine's, and a rewrite keeps both; a yes to the naps, another key of [naps] or [flow] and a wrong limit there are refused with the reason"
+else
+  fail "the naps and the limit in the local file: $machine / $in_tree / $asleep / $rewritten / $naps_yes / $naps_key / $flow_key / $flow_bad / $alone"
+fi
 settings '[branch]' 'base = "master"'
 # A checkout whose folder name holds a line break is still one path.
 ODD="$WORK/odd

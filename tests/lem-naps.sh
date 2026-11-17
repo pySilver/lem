@@ -139,6 +139,24 @@ else
   fail "the naps' feed: $plain"
 fi
 
+# One person says no to the naps on their machine, since a nap spends their tokens: Lem's own call is refused
+# with that reason, and the owner's word still starts one; the machine's file can never switch them on.
+printf '%s\n' '[naps]' 'on = false' > "$NP/.lem/project.local.toml"
+off_here=$(project --repo "$NP" show 2>&1 | field '(d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
+own_call=$(nap 2>&1 | field '(d["may"], d["why"])' 2>&1 || true)
+rm -rf "$NAPS/.asleep"
+asked_here=$(nap --asked 2>&1 | field 'd["may"]' 2>&1 || true)
+rm -f "$NAPS/.asleep"
+printf '%s\n' '[naps]' 'on = true' > "$NP/.lem/project.local.toml"
+on_here=$(status_of project --repo "$NP" may-nap)
+rm "$NP/.lem/project.local.toml"
+if grep -qx 'on = true' "$NP/.lem/project.toml" && [ "$off_here" = "(False, ['naps.on'])" ] && [ "$own_call" = "(False, 'the naps are off on this machine (naps.on = false in .lem/project.local.toml)')" ] \
+  && [ "$asked_here" = True ] && [ "$on_here" = 1 ]; then
+  pass "the machine's own file says no to the naps for its person: Lem's own call is refused with that reason, the owner's word still starts one, and a yes there is refused"
+else
+  fail "the naps off on one machine: $off_here / $own_call / $asked_here / $on_here"
+fi
+
 # the settings file is the one this block edited by hand
 if git -C "$NP" status --porcelain --untracked-files=all -- . ':!.lem/project.toml' | grep -q .; then
   fail "a nap changes nothing git sees: $(git -C "$NP" status --porcelain --untracked-files=all)"

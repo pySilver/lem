@@ -377,24 +377,22 @@ Several `Agent` calls in one message. The `Workflow` tool only when the owner as
 Both in one message, so that they start at one moment; `BRIEF`, `WORKTREE` and each answer file
 are the paths `lem experts brief` printed.
 
-The two experts are the settings' `seats.experts` (`lem project show`): two seats, each with its
-`agent`, `model` and `effort` parsed from its line, `claude/fable` and `codex/gpt-6-astra:high`
-unless the project or this machine names others, and each with its `place` in the choice's
-record, `fable` for the first and `astra` for the second, whatever model sits there: the place is
-the `--expert` word of `lem experts record` and the name of its answer file. Start each by its
-agent:
+Each entry of the `experts` list that `lem experts brief` printed is one expert to start, from the
+settings' `seats.experts`: its `name`, which is the `--expert` word of `lem experts record`, its
+`agent`, `model` and `effort`, each null when the seat leaves it out, and its `answer` file.
+Start each by its agent, and never with a model or an effort the entry does not name:
 
-- an expert whose `agent` is `claude` (the first by default, in the place `fable`): the `Agent`
-  tool with `subagent_type: "Plan"`, `model` the seat's `model` (left out when it is null), `effort`
-  the seat's `effort` only when it names one, and the prompt
+- an entry whose `agent` is `claude`: the `Agent`
+  tool with `subagent_type: "Plan"`, `model` the entry's `model` (left out when it is null), `effort`
+  the entry's `effort` only when it names one, and the prompt
   `Read BRIEF and follow it. Your reply is your answer, in the form the brief's last section
   gives, and nothing else.` The `Plan` agent has no edit or write tool, so it reads; it has Bash,
   so the brief's "change no file" is what keeps it from a write there. It runs in the
   background, and its reply reaches you as its message: write that reply into its answer file
   word for word, without the indent Claude Code puts before each line of a subagent's report,
   then run `lem experts record`.
-- an expert whose `agent` is `codex` (the second by default, in the place `astra`): the `Bash`
-  tool with `run_in_background`, on this line, with `-m MODEL` only when the seat names a model
+- an entry whose `agent` is `codex`: the `Bash`
+  tool with `run_in_background`, on this line, with `-m MODEL` only when the entry names a model
   and `-c model_reasoning_effort=EFFORT` only when it names an effort:
 
   ```bash
@@ -460,7 +458,7 @@ read as it is, and take the notes in the conversation. Do not install it unasked
 
 ## start-nap
 
-The `Bash` tool with `run_in_background`, on this line, where `STATE` is the folder `lem project
+`run-in-background`, on this line, where `STATE` is the folder `lem project
 state-dir` printed, `TIME` the `time` that `lem project may-nap` gave, and `SKILL_DIR` this skill's
 directory:
 
@@ -489,8 +487,12 @@ repository with three ended tasks: the line above with the time `2026-11-17-1347
 (`date -u` read 13:47:20 before it and 13:47:52 after), exited 0, and left `dream.md`, a made
 thing and `waking.md` in `naps/2026-11-17-1347-white-paper-in-february/` and nothing anywhere
 else. In a probe before it, with the same flags, the nap could not read a file of the home
-directory ("outside the working directory"), had no Bash tool, and saw no `CLAUDE.md`. Not run
-yet: the line from Lem's own session with `run_in_background`.
+directory ("outside the working directory"), had no Bash tool, and saw no `CLAUDE.md`. Run
+again the same day with `run_in_background`, from a subagent, after `lem project may-nap
+--asked` in a throwaway repository with no task: the nap started at 16:16:52Z (the `since` of its
+record) and its end reached the session before 16:17:51Z (`date -u`), with exit 0, `dream.md`, a
+made thing and `waking.md` in its folder, and nothing git sees. Not run yet: the line from Lem's
+own session.
 
 ## The correction hook
 
