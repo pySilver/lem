@@ -67,7 +67,9 @@ and in one line of the last command's output file, and goes on. What the gate ke
 ran on and that tip's tree.
 
 `start` refuses a worktree on no branch: `propose` pushes the task's branch and `clean` deletes
-it. With no gate command it writes the task's state `blocked`, and a later `start` takes that task
+it. Two `start`s at one moment take turns: each reads the tasks' states and writes `landing` under a
+lock of the state folder (`landing.lock`), so the second finds the first in `landing` and is
+refused. With no gate command it writes the task's state `blocked`, and a later `start` takes that task
 back once the commands are there. A task in `landing` holds the line for every other; each
 refusal on the way names the step out, also when its worktree is gone.
 
@@ -278,6 +280,7 @@ if sys.version_info < (3, 11):
     sys.exit(f"land.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
+import fcntl
 import fnmatch
 import hashlib
 import json
@@ -428,10 +431,8 @@ class Task:
         # Refused here, before anything else: a protected branch, a missing base, a wrong target.
         script("project.py", repo, "may-land", str(self.base))
         tasks = json.loads(script("project.py", repo, "tasks").stdout)
-        self.record = next((task for task in tasks if task["slug"] == slug), None)
-        if self.record is None:
-            raise LandError(f"no task {slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
-        self.others_landing = [task["slug"] for task in tasks if task["status"] == "landing" and task["slug"] != slug]
+        self.repo = repo
+        self.read_states(tasks)
         self.directory = Path(script("project.py", repo, "state-dir").stdout.strip()) / "tasks" / slug
         # -z: a NUL ends each field and an empty field ends each worktree, so a path with a line break stays whole
         listed = run(["git", "-C", str(repo), "worktree", "list", "--porcelain", "-z"]).stdout
@@ -457,6 +458,14 @@ class Task:
         github = re.match(r"(https://|ssh://git@|git@)github\.com[:/]", url)
         self.merges = self.settings["branch"]["propose"] == "merge"
         self.forge = "github" if github and not self.merges else None
+
+    def read_states(self, tasks: list[dict] | None = None) -> None:
+        """This task's record and the other tasks in `landing`, as the state files say now."""
+        tasks = tasks if tasks is not None else json.loads(script("project.py", self.repo, "tasks").stdout)
+        self.record = next((task for task in tasks if task["slug"] == self.slug), None)
+        if self.record is None:
+            raise LandError(f"no task {self.slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
+        self.others_landing = [task["slug"] for task in tasks if task["status"] == "landing" and task["slug"] != self.slug]
 
     def need_worktree(self) -> None:
         if not (self.worktree / ".git").exists():
@@ -531,6 +540,16 @@ class Task:
 
 
 def cmd_start(task: Task) -> dict:
+    # One start at a time: the check of who holds the line and the write of `landing` are one step
+    # under the lock of the state folder, so two starts at one moment never both take the line. The
+    # lock is the kernel's, and it goes with the process, however that ends.
+    with (task.directory.parent.parent / "landing.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        task.read_states()
+        return start_locked(task)
+
+
+def start_locked(task: Task) -> dict:
     if task.others_landing:
         other = task.others_landing[0]
         raise LandError(

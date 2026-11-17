@@ -247,6 +247,19 @@ else
 fi
 project --repo "$GRD" state bar-moves dropped "the test is over" >/dev/null
 
+# One start at a time: three starts at one moment, and one of them takes the landing line while the others are refused.
+for slug in race-one race-two race-three; do small_task_in "$GRD" "$slug" "$slug.txt" r; done
+for slug in race-one race-two race-three; do "$PY" -B "$LAND" --repo "$GRD" start "$slug" > "$WORK/$slug.start" 2>&1 & done
+wait
+raced=$(project --repo "$GRD" tasks | field 'sorted(t["status"] for t in d if t["slug"].startswith("race-"))')
+refused=$(grep -l "is in \`landing\`: one branch lands at a time" "$WORK"/race-*.start | grep -c '' || true)
+if [ "$raced" = "['landing', 'ready', 'ready']" ] && [ "$refused" = 2 ]; then
+  pass "two starts at one moment take turns under a lock: one task takes the landing line, and each other start finds it there and is refused"
+else
+  fail "starts at one moment: $raced, $refused refused / $(cat "$WORK"/race-*.start)"
+fi
+for slug in race-one race-two race-three; do project --repo "$GRD" state "$slug" dropped "the test is over" >/dev/null; done
+
 # A branch with nothing of its own: base says so with the step that ends the task, and clean deletes the branch
 # of a dropped task that holds no commit of its own, while one with commits stays.
 project --repo "$GRD" task-dir empty-branch --ask "Nothing." >/dev/null
