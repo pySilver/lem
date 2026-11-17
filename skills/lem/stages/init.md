@@ -224,7 +224,10 @@ builder of its own, and how (the harness file, `spawn-builder`).
 it: who lands (`owner`; "change land agent"), a pull request or a merge, what lands, the closed
 branches, the tracker, the reviewer and the defender with their models, the folders already here
 (linked or new), and each gate command. He corrects one with "change" and what; nothing on the
-list waits for an answer.
+list waits for an answer. With `branch.propose = "pull-request"` one line of it says, in these
+words, what his "land" approves: "Lem pushes each task's branch and opens its pull request
+without asking" (`branch.propose`; "change propose merge"). That line makes the settings his
+standing word for the push, so that no task stops before its pull request to ask for it.
 
 A list of file names is not a hand-over. Every generated file is a draft, and three are read
 first: what must never go wrong, the gate, the personas. Name each persona that is a thin guess, as the

@@ -52,7 +52,7 @@ files for a change. Each builder and each reviewer gets them.
 | `branch.base` | the default branch of `origin`, which `/lem init` writes; `--base NAME` without one | the branch that tasks start from and land on |
 | `branch.land` | `owner` | who merges: `owner`, or `agent`, which merges only a request that is green and that the review called not careful |
 | `branch.history` | `keep` | what lands: the commits of the branch (`keep`), or one commit (`squash`) |
-| `branch.propose` | `pull-request` | how a task ends with a remote on GitHub: a pull request (`pull-request`), or a merge into the base branch with no pull request (`merge`). With a different remote, or none, it is always the merge |
+| `branch.propose` | `pull-request` | how a task ends with a remote on GitHub: a pull request (`pull-request`), or a merge into the base branch with no pull request (`merge`). With a different remote, or none, it is always the merge. With `pull-request`, Lem pushes the branch of each task and opens its pull request, and it does not ask you first: this value is your approval |
 | `branch.protected` | `[]` | the branches that nothing lands on and nothing is pushed to |
 
 The base branch must not be in `branch.protected`.

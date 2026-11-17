@@ -336,7 +336,9 @@ flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` h
 3. **When it stops**, its reply is the path of its report, of five lines at most; when its agent
    refused it the write, the reply is the report itself, and you write `report.md` from it word
    for word. Its state says what follows:
-   - `ready`: the landing, `stages/land.md`, with the small change's steps there;
+   - `ready`: the landing, `stages/land.md`, with the small change's steps there, up to its pull
+     request with no question on the way: the push and the pull request of `land.py propose`
+     are the owner's standing word in `branch.propose`, not a step to ask about;
    - `held` with `the stories wait for the owner: the small change is a feature`: its builder
      found a topic in reach, a second rule, a decision the story does not settle, a lowered bar,
      or more than one plain change. Tell him in one line that it is a feature and why, from the

@@ -214,7 +214,10 @@ one finds what the run before it finished.
    stories", step 5). After a second read with no answer the request is proposed, not green,
    with "the stories were not read" first.
    With a GitHub remote the step pushes the task's branch and opens the pull request, or
-   updates the one that is there. With any other remote, or none, it marks the branch ready, and
+   updates the one that is there. Run it without a question: `branch.propose = "pull-request"`,
+   in the settings the owner approved at onboarding, is his standing word for this push and this
+   pull request, and asking here stops the task one step before its end (`SKILL.md`, "The pull
+   request is no step to ask about"). With any other remote, or none, it marks the branch ready, and
    so it does with a GitHub remote when the settings' `branch.propose` is `merge`: the project
    wants no pull requests, and the task branch is not pushed. The text in `pr.md` is what the
    owner reads either way. The state becomes `open`, and the landing line is free.

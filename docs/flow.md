@@ -277,7 +277,8 @@ landing that stopped runs again from where it stopped.
    builder writes the backlog items for the defects outside the change.
 4. **`gate`.** These are the machine checks, with no model in them.
 5. **The review.** An agent that did not build the change reads the diff.
-6. **`propose`.** Lem opens the pull request, or marks the branch as ready.
+6. **`propose`.** Lem opens the pull request, or marks the branch as ready. Lem does not ask
+   you before it pushes the branch of the task. You approved that at onboarding.
 7. **The merge.** You merge, or Lem merges if the settings permit it.
 8. **`clean`.** Lem removes the worktree and the branch of the task.
 
@@ -359,7 +360,10 @@ A pull request is green when all of these are true:
 
 A green pull request needs no read from you. Not green tells you what to read.
 
-With a remote on GitHub, Lem pushes the branch and opens the pull request. With a different
+With a remote on GitHub, Lem pushes the branch and opens the pull request. It does not ask you
+first: `branch.propose = "pull-request"` is your approval of this push, and you gave it when you
+approved the settings at onboarding. Other steps that leave the machine wait for your word: a
+push to another branch, a merge by `land --by owner`, and a message to a person. With a different
 remote, or with none, Lem marks the branch as ready. A pull request on GitLab is not built yet.
 With `branch.propose = "merge"`, Lem marks the branch as ready also with a remote on GitHub.
 

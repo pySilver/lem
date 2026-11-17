@@ -262,6 +262,8 @@ land = "owner"
 history = "keep"
 # How a task ends where the remote is GitHub: "pull-request" opens one there, "merge" lands the
 # branch on the remote's base branch with none. With any other remote, or none, it is the merge.
+# With "pull-request", Lem pushes each task's branch and opens its pull request without asking:
+# this line is the owner's word for exactly that.
 propose = "pull-request"
 # Branches nothing lands on and nothing is pushed to through this skill, whoever asks.
 protected = []

@@ -182,6 +182,8 @@
          and the ignore lines for what the gate commands left untracked -->
     <ul>
       <li>THE ASSUMPTION AND ITS VALUE <span class="dim">(<code>WHERE IT WAS READ</code>, OR THE DEFAULT)</span>: <code>change WORDS</code></li>
+      <!-- with branch.propose = "pull-request", this line word for word: "land" approves it -->
+      <li>Lem pushes each task's branch and opens its pull request without asking <span class="dim">(<code>branch.propose = "pull-request"</code>)</span>: <code>change propose merge</code></li>
       <li>ignore what the gate leaves: <code>__pycache__/</code> in <code>.gitignore</code> <span class="dim">(the gate's run of <code>COMMAND</code> left it)</span>: <code>change ignore none</code></li>
     </ul>
   </section>

@@ -155,6 +155,14 @@ lead whose choice waits for the owner.
 - **A destructive or outward step is never yours.** Dropping data, rewriting shared history,
   touching production, bending a gate, pushing to a branch the settings do not name: stop and
   ask, with the evidence.
+- **The pull request is no step to ask about.** `land.py propose` pushes the task's own branch
+  and opens or updates its pull request, and you run it without a question. The owner approved
+  it when he approved the settings at onboarding: `branch.propose = "pull-request"` is his
+  standing word for exactly this. The pull request is the first place he wants to look, and a
+  question here stops every task one step before its end. In the first real request through
+  this flow Lem asked "Do I push ... and open two pull requests? (y/n)" and both tasks waited (a
+  scratch repository, 2026-11-17). Nothing else leaves the machine without his word: a push to
+  another branch, a merge by `land --by owner`, a message to a person.
 - **What must not go wrong takes the careful flow.** The project names it as topics,
   sentences in the owner's words of what must never go wrong (`flow.topics`), and no list of
   paths: a list goes stale as the code moves, misses new code, and a branch can edit the list
