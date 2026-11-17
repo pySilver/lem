@@ -333,7 +333,9 @@ flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` h
    `building` and the lines `small change: one builder` and the kind line of step 1. There is no
    lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
    builder for each task has it.
-3. **When it stops**, its reply is the path of its report, and its state says what follows:
+3. **When it stops**, its reply is the path of its report, of five lines at most; when its agent
+   refused it the write, the reply is the report itself, and you write `report.md` from it word
+   for word. Its state says what follows:
    - `ready`: the landing, `stages/land.md`, with the small change's steps there;
    - `held` with `the stories wait for the owner: the small change is a feature`: its builder
      found a topic in reach, a second rule, a decision the story does not settle, a lowered bar,

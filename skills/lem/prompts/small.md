@@ -38,7 +38,16 @@ directory above this file's. This file and your standing rules are all you read 
    `FILE``, each file the test needs in its own backticks, or the `- no test:` line of step 3. Then
    `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE record SLUG`, which refuses a line of
    another form. The landing runs the test on the branch and on the base, once.
-9. **Report** in `report.md` in the task directory, in a few lines: what you changed; each command
-   you ran with the exact last line of its output; the commit subject; each item you filed, by its
-   path. Then `python3 SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG ready "the small
-   change is built"`, and reply with the report's path only.
+9. **Report** in `report.md` in the task directory, in five lines at most, one for each of these:
+   - what changed and where, with the commit subject;
+   - the test and that it failed before the change, or the `no test:` line;
+   - the checks you ran, each with the exact last line of its output;
+   - the items you filed, by their paths, or `none`;
+   - whether the change is still small, and why in a few words.
+
+   No proof of the state and record commands: their scripts refuse what is wrong, and Lem reads
+   the state. The first real small change's report ran to twenty lines, most of them that proof
+   (a scratch repository, 2026-11-17). Then `python3 SKILL_DIR/scripts/project.py --repo WORKTREE
+   state SLUG ready "the small change is built"`, and reply with the report's path only. When
+   the write of `report.md` is refused to you, your reply is the report's five lines instead, and
+   Lem writes the file from it.
