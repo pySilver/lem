@@ -142,6 +142,18 @@ the assumptions of step 6:
   (`[seats.planner]`), stay the agents' own defaults;
 - `tools.annotate` and `tools.ask` keep Lem's defaults.
 
+Run each gate command once, at the root, for the last line the hand-over page shows. Then look at
+what they left that git neither tracks nor ignores (`git status --porcelain --untracked-files=all`):
+a cache of Python's bytecode, a coverage file, a build folder. Propose an ignore line for each kind
+in the repository's ignore file, `.gitignore` when it has none, in the onboarding's commit, and
+list them on the hand-over page among the assumptions ("change ignore none" leaves them out). The
+gate removes such files after every run anyway (`stages/land.md`, step 4), so the lines keep the
+developer's own checkout tidy and nothing waits on them. Then remove what the commands left, the
+way it came: the files they wrote, never a file that was there before. In a Python module with
+no `.gitignore`, the gate's `python3 -m unittest` left two `__pycache__` folders, the gate of that
+day refused the tree, and the first small change ended in a second task for the ignore rule (a
+scratch repository, 2026-11-17).
+
 Leave `gate.ignores` empty: an empty list only means the gate runs again whenever the base moves.
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
 and say so on the page.

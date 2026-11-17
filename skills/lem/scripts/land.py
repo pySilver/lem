@@ -55,8 +55,13 @@ file that is not a document. A changed file of another language gets no such che
 result says which (`not_covered`). The size of the change is counted, for the reviewer.
 
 A gate with no command to run is refused, since a gate that ran nothing shows nothing; so is one
-whose command left a file in the worktree or made a commit on the branch, since its result is then
-about another tree. What the gate keeps is the tip it ran on and that tip's tree.
+whose command changed a tracked file or made a commit on the branch, since its result is then
+about another tree. A file its commands wrote that git neither tracks nor ignores (Python's bytecode
+in a repository with no rule for it) is the run's output, and nothing of it lands: the gate notes
+what git does not know before its first command, removes after its last each such file that was
+not there before and each folder that leaves empty, names them in its output (`removed_untracked`)
+and in one line of the last command's output file, and goes on. What the gate keeps is the tip it
+ran on and that tip's tree.
 
 `start` refuses a worktree on no branch: `propose` pushes the task's branch and `clean` deletes
 it. With no gate command it writes the task's state `blocked`, and a later `start` takes that task
@@ -1011,6 +1016,10 @@ def cmd_gate(task: Task) -> dict:
         )
     logs = task.directory / "gate"
     logs.mkdir(exist_ok=True)
+    # What git does not know before the first command. `need_worktree` refused any such file, so
+    # this is empty unless something wrote one since; it is taken all the same, so that the
+    # removal after the run can never reach a file that was there before it.
+    there = untracked(task)
     # the start of the checks: the board draws them from here to their last result
     script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands)}")
     results = []
@@ -1023,13 +1032,23 @@ def cmd_gate(task: Task) -> dict:
         results.append({"command": command, "exit": code, "last": last, "output": str(output)})
         script("project.py", task.worktree, "log", task.slug, "gate", f"command={command}", f"exit:={code}", f"last={last}", f"tip={tip[:9]}")
     green = all(result["exit"] == 0 for result in results)
-    # A gate command that left a file behind, or made a commit, changed the tree it just judged.
+    # A file the commands wrote that git neither tracks nor ignores (Python's bytecode in a
+    # repository with no rule for it) is the run's output, and nothing of it lands: it goes, with
+    # the folders it leaves empty, red or green, so that the next step finds the worktree clean.
+    # The worktree is the task's own, made by Lem.
+    removed = sorted(set(untracked(task)) - set(there))
+    for path in removed:
+        remove_left(task, path)
+    if removed:
+        with output.open("a", encoding="utf-8") as handle:
+            handle.write(f"land.py removed what the gate's commands left untracked: {', '.join(removed)}\n")
+    # A gate command that changed a tracked file, or made a commit, changed the tree it just judged.
     dirty = git(task.worktree, "status", "--porcelain")
     if green and dirty:
         task.keep(gated=None, tree=None)
         raise LandError(
-            f"the gate left changes in the worktree, so its result is about another tree:\n{dirty}\n"
-            "remove them, make the gate command clean up after itself or have the project ignore what it writes, then run this again",
+            f"a gate command changed what git tracks, so its result is about another tree:\n{dirty}\n"
+            f"put the files back (`git -C {task.worktree} checkout -- FILE`) and make the gate command change no tracked file, then run this again",
         )
     moved = git(task.worktree, "rev-parse", "HEAD")
     if green and moved != tip:
@@ -1038,7 +1057,7 @@ def cmd_gate(task: Task) -> dict:
             f"a gate command made a commit on the branch ({tip[:9]}..{moved[:9]}), so its result is about another tree: "
             f"make the gate command commit nothing, put the branch back with `git -C {task.worktree} reset --hard {tip}`, then run this again",
         )
-    result = {"task": task.slug, "tip": tip, "green": green, "commands": results, "polish": task.kept().get("polish")}
+    result = {"task": task.slug, "tip": tip, "green": green, "commands": results, "removed_untracked": removed, "polish": task.kept().get("polish")}
     if not green:
         task.keep(gated=None, tree=None)
         print(json.dumps(result, indent=2))
@@ -1075,6 +1094,31 @@ def cmd_gate(task: Task) -> dict:
         )
     task.keep(gated=tip, tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"), checks={"commands": results, "stories": result["stories"], "bar": result["bar"], "size": result["size"]})
     return result
+
+
+def untracked(task: Task) -> list[str]:
+    """Each file of the worktree that git neither tracks nor ignores, one by one, a file in a new folder too."""
+    listed = run(["git", "-C", str(task.worktree), "status", "--porcelain", "--untracked-files=all", "-z"]).stdout.split("\0")
+    return [entry[3:] for entry in listed if entry.startswith("?? ")]
+
+
+def remove_left(task: Task, path: str) -> None:
+    """Remove one file a gate command left untracked, and each folder above it that it leaves
+    empty, up to the worktree's root. A link is removed as a link, never followed."""
+    root = task.worktree.resolve()
+    file = root / path
+    # git lists no file under a linked folder, so the folder that holds it is inside the worktree
+    if not file.parent.resolve().is_relative_to(root):
+        return
+    file.unlink(missing_ok=True)
+    folder = file.parent
+    while folder != root and folder.is_relative_to(root):
+        try:
+            folder.rmdir()
+        except OSError:
+            # not empty: it holds something else, tracked or not
+            break
+        folder = folder.parent
 
 
 def ignored(task: Task, files: list[str]) -> bool:

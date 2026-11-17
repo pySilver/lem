@@ -106,16 +106,47 @@ else
 fi
 project --repo "$GRD" state broken-record dropped "the test is over" >/dev/null
 
-# The gate judges one tree: a command that leaves a file or makes a commit changed it, and a story's
-# test that passes on the base commit too holds nothing. Each refusal records no green tip.
+# What a gate command writes that git does not know, a cache of Python's bytecode in a repository
+# with no ignore rule for it, is the run's output and not the tree it judged: the gate passes, removes
+# those files and the folders they emptied, names them, and keeps a folder that holds a tracked file.
+task_in "$GRD" gate-caches c.txt c
+tree=$(wt gate-caches)
+g start gate-caches >/dev/null && g base gate-caches >/dev/null
+grd_settings '"mkdir -p shop/__pycache__ tests/__pycache__ && touch shop/__pycache__/c.pyc tests/__pycache__/t.pyc left.txt"'
+cached=$(g gate gate-caches 2>&1 || true)
+grd_settings '"true"'
+if [ "$(field '(d["green"], d["removed_untracked"])' <<<"$cached" 2>/dev/null)" = "(True, ['left.txt', 'shop/__pycache__/c.pyc', 'tests/__pycache__/t.pyc'])" ] \
+  && [ ! -e "$tree/shop" ] && [ ! -e "$tree/tests/__pycache__" ] && [ ! -e "$tree/left.txt" ] && [ -f "$tree/tests/gate-caches.sh" ] \
+  && [ -z "$(git -C "$tree" status --porcelain --untracked-files=all)" ] && [ "$(kept_in "$GRD" gate-caches gated)" = "$(git -C "$tree" rev-parse HEAD)" ] \
+  && [ "$(tail -n 1 "$GRD/.git/lem/tasks/gate-caches/gate/01.log")" = "land.py removed what the gate's commands left untracked: left.txt, shop/__pycache__/c.pyc, tests/__pycache__/t.pyc" ]; then
+  pass "a gate command that writes a cache folder and a file git does not know passes: the gate removes them and the folders they emptied, keeps the tracked folder, names them in its output and in one line of its log, and records the tip"
+else
+  fail "a gate that leaves caches: $cached / $(git -C "$tree" status --porcelain --untracked-files=all)"
+fi
+# A file that was there before the run is someone's: the gate removes none, it refuses, and so does start.
+echo mine > "$tree/mine.txt"
+before_gate=$(g gate gate-caches 2>&1 || true)
+project --repo "$GRD" state gate-caches ready "the landing starts over" >/dev/null
+before_start=$(g start gate-caches 2>&1 || true)
+if grep -qF "the worktree has changes nobody committed" <<<"$before_gate" && grep -qF "mine.txt" <<<"$before_gate" \
+  && grep -qF "the worktree has changes nobody committed" <<<"$before_start" && [ "$(cat "$tree/mine.txt")" = mine ]; then
+  pass "a file that was untracked before the gate is not removed: the gate refuses the worktree, and start refuses it as before"
+else
+  fail "an untracked file before the gate: $before_gate / $before_start"
+fi
+rm -f "$tree/mine.txt"
+project --repo "$GRD" state gate-caches dropped "the test is over" >/dev/null
+
+# The gate judges one tree: a command that changes a tracked file or makes a commit changed it, and a
+# story's test that passes on the base commit too holds nothing. Each refusal records no green tip.
 task_in "$GRD" gate-writes x.txt x
 tree=$(wt gate-writes)
 g start gate-writes >/dev/null && g base gate-writes >/dev/null
 tip=$(git -C "$tree" rev-parse HEAD)
-grd_settings '"touch left.txt"'
+grd_settings '"echo y >> x.txt && touch left.txt"'
 left=$(g gate gate-writes 2>&1 || true)
 left_gated=$(kept_in "$GRD" gate-writes gated)
-rm -f "$tree/left.txt"
+git -C "$tree" checkout -q -- x.txt
 grd_settings '"echo x > made.txt && git add made.txt && git -c user.name=t -c user.email=t@t commit -q -m made"'
 made=$(g gate gate-writes 2>&1 || true)
 made_gated=$(kept_in "$GRD" gate-writes gated)
@@ -126,11 +157,12 @@ weak=$(g gate gate-writes 2>&1 || true)
 weak_gated=$(kept_in "$GRD" gate-writes gated)
 git -C "$tree" reset -q --hard "$tip"
 green=$(g gate gate-writes | field '(d["green"], d["tip"])')
-if grep -qF "the gate left changes in the worktree" <<<"$left" && grep -qF "left.txt" <<<"$left" && [ "$left_gated" = None ] \
+if grep -qF "a gate command changed what git tracks, so its result is about another tree" <<<"$left" && grep -qx "M x.txt" <<<"$left" && ! grep -qF "?? left.txt" <<<"$left" \
+  && [ ! -e "$tree/left.txt" ] && [ "$left_gated" = None ] \
   && grep -qF "a gate command made a commit on the branch" <<<"$made" && grep -qF "git -C $tree reset --hard $tip" <<<"$made" && [ "$made_gated" = None ] \
   && grep -qF "passes on the base commit too" <<<"$weak" && [ "$weak_gated" = None ] \
   && [ "$green" = "(True, '$tip')" ] && [ "$(kept_in "$GRD" gate-writes tree)" = "$(git -C "$tree" rev-parse "$tip^{tree}")" ]; then
-  pass "the gate refuses a command that leaves a file, one that makes a commit, and a story's test that passes on the base commit, and records no green tip for any; a green gate records the tip and that tip's tree"
+  pass "the gate refuses a command that edits a tracked file, one that makes a commit, and a story's test that passes on the base commit, and records no green tip for any; a green gate records the tip and that tip's tree"
 else
   fail "what the gate judges: $left / $made / $weak / $green"
 fi

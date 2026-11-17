@@ -295,6 +295,10 @@ repairs a finding later gets the same list. No second pass comes after it.
 ### The machine checks
 
 - Each command of `gate.commands` runs in the worktree of the task.
+- A command can write files that git does not track or ignore, for example `__pycache__` in a
+  repository with no ignore rule for it. Lem removes these files after the run and names them.
+  They do not stop the gate. A command that changes a tracked file or makes a commit stops the
+  gate.
 - The test of each story must pass on the branch and fail on the base commit. The check uses a
   worktree of its own. The board of a task shows the result.
 - The bar must not go down. A new lint or type suppression, a skipped or deleted test, and fewer

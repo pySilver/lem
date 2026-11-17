@@ -90,6 +90,11 @@ one finds what the run before it finished.
    - Every command of the settings' `gate.commands` runs at the root of the task's worktree,
      each with its output in a file of the task directory. The step keeps the exact last line of
      each and logs each result for the board. Do not read the output files.
+   - What the commands wrote that git neither tracks nor ignores (a `__pycache__` in a
+     repository with no rule for it) is their output, not the tree they judged: the step removes
+     each such file that was not there before the run, and the folders it empties, and names them
+     in `removed_untracked`. That is no failure and no task for an ignore rule. A command that
+     changed a tracked file or made a commit is refused, since its result is about another tree.
    - Each story's tests pass on the branch and fail on the base commit (`stories.py red`).
    - The change did not lower the bar: no new lint or type suppression, no skipped or deleted
      test, no fewer assertions in a test file. A lowered bar passes only with a reason for that

@@ -178,9 +178,11 @@
   <section class="box">
     <h2>Assumptions: say <code>change</code> and what</h2>
     <!-- each setting nobody asked about: who lands, a pull request or a merge, what lands, the
-         closed branches, the tracker, the reviewer and the defender, the folders already here -->
+         closed branches, the tracker, the reviewer and the defender, the folders already here,
+         and the ignore lines for what the gate commands left untracked -->
     <ul>
       <li>THE ASSUMPTION AND ITS VALUE <span class="dim">(<code>WHERE IT WAS READ</code>, OR THE DEFAULT)</span>: <code>change WORDS</code></li>
+      <li>ignore what the gate leaves: <code>__pycache__/</code> in <code>.gitignore</code> <span class="dim">(the gate's run of <code>COMMAND</code> left it)</span>: <code>change ignore none</code></li>
     </ul>
   </section>
 
