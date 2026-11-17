@@ -84,6 +84,9 @@
   .now-next .lbl { font-size: 10.5px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
   .now-next .right { margin-left: auto; }
   .now-spacer { height: 16px; }
+  /* a task that ended: its large card is as tall as what it says, and the card beside it is the row's height */
+  .hero.closed { align-items: start; }
+  .hero.closed .now-spacer { height: 12px; }
   /* the board of all tasks: the large card is one band, its count-down and its button at the right */
   .now.brief { padding: 8px 16px; }
   .now.brief .now-in { align-items: center; }
@@ -1011,8 +1014,8 @@ function statusPill(t) {
 }
 
 // The tags of a task: each one says something a developer acts on. On a lane card (`card`) the line
-// above the tags already names the first choice that waits and the task of the plan, and the task's
-// own board has its newest commit, so the card leaves those out.
+// above the tags already names the first choice that waits and the task of the plan, so the card
+// leaves those out. The newest commit is the task board's "Last commit", and no tag repeats it.
 function tags(t, card = false) {
   const out = [];
   if (t.kind) out.push(h('span', {class: 'tag', title: `The kind of the request, as Lem took it from the ask: ${t.kind.kind}, because ${t.kind.why}`}, icon('flag'), h('span', {}, KINDS[t.kind.kind])));
@@ -1023,7 +1026,6 @@ function tags(t, card = false) {
     icon(t.lead === 'session' ? 'split' : 'code'), h('span', {}, lead.chip)));
   if (t.progress && t.status === 'building' && !(card && !t.asks.length && taskLine({status: t.status, text: t.text, lines: []})))
     out.push(h('span', {class: 'tag', title: 'The task of the plan that is built now'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
-  if (t.commit && !card) out.push(h('span', {class: 'tag mono', title: `${t.commit.head} ${t.commit.subject}${t.branch ? ` · ${t.branch}` : ''}`}, icon('commit'), h('span', {}, `${t.commit.head} ${t.commit.subject}`)));
   if (t.stories) out.push(h('span', {class: 'tag', title: t.stories.list.map(st => `${st.n}. ${st.text}`).join('\n')}, icon('file'),
     h('span', {}, t.stories.kind === 'correction' ? 'a small change: 1 story' : plural(t.stories.list.length, 'story').replace('storys', 'stories'))));
   if (t.gates.length) out.push(h('span', {class: `tag ${t.gateBad ? 'c-bad' : 'c-ok'}`, title: t.gates.map(g => `${g.exit === 0 ? 'green' : `exit ${g.exit}`}  ${g.command}  ${g.last ?? ''}`).join('\n')},
@@ -1559,11 +1561,15 @@ function describe(e, m) {
   return {info: {actor: 'quiet', icon: 'dot'}, head: e.event, text: rest, sub: '', title};
 }
 
+// The activity is in time order, the newest first. A log is written in time order, but one whose
+// events were moved (a fixture) or written by two clocks need not be: the time sorts, and the order
+// of the log breaks a tie, the later first. The newest 200 are shown.
 function buildFeed(m, list) {
   if (!list.length) return [keyed('empty', h('div', {class: 'empty'}, 'No events yet'))];
-  return list.slice(-200).reverse().map((e, i) => {
+  const newest = list.map((e, i) => ({e, i, ms: at(e)})).sort((a, b) => b.ms - a.ms || b.i - a.i).slice(0, 200);
+  return newest.map(({e, i}) => {
     const d = describe(e, m);
-    return keyed(`f:${e.ts}:${e.task}:${list.length - i}`, h('div', {class: `row a-${d.info.actor}`},
+    return keyed(`f:${e.ts}:${e.task}:${i}`, h('div', {class: `row a-${d.info.actor}`, 'data-at': at(e)},
       h('span', {class: 'fi'}, icon(d.info.icon)),
       h('div', {class: 'rtext'}, view ? '' : [open(e.task, d.title), ' · '], h('b', {}, d.head), d.text ? ' · ' : '', h('span', {class: d.mono ? 'cmd' : ''}, d.text),
         d.sub ? h('span', {class: 'sub'}, d.sub) : ''),
@@ -1784,13 +1790,13 @@ function buildTaskProgress(t) {
       ring(finished, current, total || 1, total ? `${finished}/${total}` : '–', 'plan tasks'),
       h('div', {class: `phases a-${t.info.actor}`}, phases.map((name, k) => h('div', {class: `phase ${k < past ? 'past' : k === at_ ? 'cur' : ''}`}, h('i'), name, h('small', {}, sub(k))))),
       h('div', {class: 'stats'},
-        stat('Who works on it', t.lead ? LEAD[leadOf(t)].tag : t.investigated ? 'investigator' : '–', t.lead ? LEAD[leadOf(t)].stat : t.investigated ? 'a builder examined the bug or the question first' : 'no agent was started yet'),
-        stat('Last commit', t.commit?.head ?? '–', t.commit ? t.commit.subject : 'no commit on its branch yet'),
+        stat('Who works on it', t.lead ? LEAD[leadOf(t)].tag : t.investigated ? 'investigator' : '–', t.lead ? LEAD[leadOf(t)].stat : t.investigated ? 'a builder examined the bug or the question first' : t.closed ? 'no agent was started' : 'no agent was started yet'),
+        stat('Last commit', t.commit?.head ?? '–', t.commit ? t.commit.subject : t.closed ? 'no commit of its branch is on record' : 'no commit on its branch yet'),
         stat('Open for', t.closed ? span(t.since - t.first) : live(t.first), `opened ${stamp(t.first, Date.now())}`),
         stat('Checks', t.gates.length ? (t.gateBad ? 'red' : 'green') : '–', t.gates.length ? `${plural(t.gates.length, 'command')} in the last run` : t.status === 'answered' ? 'none: it ended with a report' : 'they run before the pull request', t.gates.length ? (t.gateBad ? 'bad' : 'ok') : ''),
         stat('Review', review ? review.verdict : '–', review ? `round ${review.round}, ${KIND[review.kind] ?? review.kind}` : t.status === 'answered' ? 'none: it ended with a report' : 'after the checks, before the proposal', review ? (review.verdict === 'clean' ? 'ok' : 'bad') : ''),
         stat('Decisions', t.asks.length ? `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''}` : taken,
-          t.choices.length ? `${taken} taken${timeouts ? `, ${timeouts} by the timeout` : ''}${experts ? `, ${experts} by the experts` : ''}` : 'none yet',
+          t.choices.length ? `${taken} taken${timeouts ? `, ${timeouts} by the timeout` : ''}${experts ? `, ${experts} by the experts` : ''}` : t.closed ? 'none' : 'none yet',
           t.asks.length ? 'you' : timeouts || experts ? 'bad' : ''))));
 }
 
@@ -1842,7 +1848,8 @@ function buildStories(t, now) {
   // Stories approved after the lead recorded the plan's (or before it wrote any) are the contract
   // now: the plan's older stories and their tests' results no longer stand for them.
   if (current && (!t.stories || current.approval.order > t.stories.order)) {
-    const note = t.stories ? 'approved after the plan’s stories were recorded: the agent records them again, with their tests' : 'no test yet: the agent adds its tests in the plan';
+    const note = t.stories ? (t.closed ? 'approved after the plan’s stories were recorded, which were not recorded again' : 'approved after the plan’s stories were recorded: the agent records them again, with their tests')
+      : t.closed ? 'no test of it is on record: the plan’s stories were never recorded' : 'no test yet: the agent adds its tests in the plan';
     return [...head, ...current.texts.map((text, i) => keyed(`story:${i + 1}:approved:${current.approval.number}:${text.length}`, h('div', {class: 'row a-quiet'},
       h('span', {class: 'fi'}, icon('file')),
       h('div', {class: 'rtext'}, h('b', {}, `${i + 1}. `), text, h('span', {class: 'sub'}, note)),
@@ -1893,7 +1900,7 @@ function storiesHead(t, now) {
       h('div', {class: 'rtext'}, 'The personas do not read the one story of a small change.'), h('span', {class: 'rtime'}, ''))));
   } else if (kind) {
     rows.push(keyed('read:none', h('div', {class: 'row a-quiet'}, h('span', {class: 'fi'}, icon('users')),
-      h('div', {class: 'rtext'}, 'The personas have not read these stories yet.'), h('span', {class: 'rtime'}, ''))));
+      h('div', {class: 'rtext'}, t.closed ? 'The personas did not read these stories.' : 'The personas have not read these stories yet.'), h('span', {class: 'rtime'}, ''))));
   }
   if (a) {
     // Who froze the stories: he did; Lem in his name, for a correction; or the personas' read on
@@ -1996,9 +2003,9 @@ function storyRows(t) {
       h('span', {class: 'fi'}, icon(bad ? 'alert' : held ? 'check' : 'file')),
       h('div', {class: 'rtext'}, h('b', {}, `${st.n}. `), st.text,
         (st.tests ?? []).map((test, k) => h('span', {class: 'sub cmd'}, test.command, ' · ',
-          checked[k]?.problem ?? (checked[k] ? `passes on the branch, fails on the base commit${t.red.tip ? ` (checked on ${t.red.tip})` : ''}` : 'not checked yet'))),
+          checked[k]?.problem ?? (checked[k] ? `passes on the branch, fails on the base commit${t.red.tip ? ` (checked on ${t.red.tip})` : ''}` : t.closed ? 'no check of it is on record' : 'not checked yet'))),
         st.no_test ? h('span', {class: 'sub'}, `no test: ${st.no_test}`) : '',
-        !(st.tests ?? []).length && !st.no_test ? h('span', {class: 'sub'}, 'no test yet') : ''),
+        !(st.tests ?? []).length && !st.no_test ? h('span', {class: 'sub'}, t.closed ? 'no test' : 'no test yet') : ''),
       h('span', {class: 'rtime'}, bad ? 'not held' : held ? 'held by its tests' : '')));
   });
 }
@@ -2260,6 +2267,7 @@ function render() {
   // the board of all tasks has no progress card: its numbers are in the title, the chips and the lanes
   $('progress').hidden = !view;
   $('hero').classList.toggle('one', !view);
+  $('hero').classList.toggle('closed', Boolean(view && t?.closed));
   // The board of all tasks has only the activity in this row, across the page. A card of a task
   // that ended with nothing in it is not drawn: an answered task has no stories, checks or review.
   $('cols').classList.toggle('one', !view);

@@ -1091,6 +1091,37 @@ sys.exit(not ok)' "$WORK/task-cart-total-wrong.dom"); then
   else
     fail "a read nobody answered, or a task queued after another: $why"
   fi
+  # The activity is in time order, the newest first, also where the log is not: the investigation of
+  # "Cart total wrong" was written a minute before NOW and before the checks of "Gate runs", which
+  # the fixture moved to five minutes before NOW. Two events of one second keep the log's order, the
+  # later first: the careful call of "Polished" after its polish pass.
+  if why=$("$PY" -I -c 'import re, sys
+wrong = []
+for path in sys.argv[1:]:
+    dom = open(path, encoding="utf-8").read()
+    feed = dom[dom.index("id=\"feed\""):]
+    times = [int(x) for x in re.findall(r"<div class=\"row [^\"]*\" data-at=\"(\d+)\"", feed)]
+    if not times or times != sorted(times, reverse=True): wrong.append(path.rsplit("/", 1)[-1] + f": {len(times)} rows, not newest first")
+board = open(sys.argv[1], encoding="utf-8").read()
+board = board[board.index("id=\"feed\""):]
+first, second = board.find("Cart total wrong</button> · <b>The investigation started"), board.find("Gate runs</button> · <b>The checks started")
+if not 0 <= first < second: wrong.append(f"the investigation of Cart total wrong is at {first}, the checks of Gate runs at {second}")
+polished = open(sys.argv[2], encoding="utf-8").read()
+polished = polished[polished.index("id=\"feed\""):]
+if not 0 <= polished.find("Careful by the review") < polished.find("The polish pass"): wrong.append("the two events of one second of Polished are not the later first")
+print("; ".join(wrong))
+sys.exit(bool(wrong))' "$WORK/board.dom" "$WORK/task-$P.dom" "$WORK/task-$S.dom" "$WORK/task-$L.dom"); then
+    pass "the activity is in time order, the newest first, on the board of all tasks and on a task's own, also where the log's order is not the time's; two events of one second keep the log's order, the later first"
+  else
+    fail "the order of the activity: $why"
+  fi
+  # A task that ended says no "yet": nothing more comes for it.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$S.dom" "!yet" "none" "no commit of its branch is on record" "no test of it is on record: the plan’s stories were never recorded") \
+    && grep -q 'id="hero" class="hero closed"' "$WORK/task-$S.dom" && ! grep -q 'id="hero" class="hero closed"' "$WORK/task-$G.dom"; then
+    pass "the board of a task that ended says no \"yet\" (no decision, no commit, no test on record) and its large card is as tall as what it says"
+  else
+    fail "a task that ended: ${why:-the large card}"
+  fi
   # The board of all tasks: its activity takes the whole width, and its legend has one entry for each
   # look of a bar, so three statuses drawn in one color are one entry.
   if grep -q 'id="cols" class="cols one"' "$WORK/board.dom" && grep -Eq 'id="stack" class="stack" hidden' "$WORK/board.dom" \
