@@ -183,8 +183,9 @@ Some asks have all of their context. Then there is no interview. These asks are:
 - **No review comes after each task.** The review before the pull request reads the whole
   change.
 - **Only some tasks build at one time.** The limit is `flow.max_tasks`. A task over the limit
-  waits in a queue, and it starts when a place is free. Two asks that name the same thing run one
-  after the other.
+  waits in a queue, and it starts when a place is free. An ask that needs the result of an earlier
+  task waits for that task. Two asks that only name the same file or screen each start at once,
+  and you order their pull requests.
 - **A failure that nobody can explain after two tries** goes to the `lem-root-cause` method. An
   approach that failed two times gets a new approach, not a third patch.
 - **The lead writes a report**, and the state becomes `ready`. Then the landing starts.

@@ -91,7 +91,8 @@ flowchart TD
 - The state of a task is in the git directory, in `.git/lem/`. Git does not commit it, and it
   stays after Lem removes the worktree.
 - `profile.md` says what the project is. `styleguide/` holds the rules for the code. `lessons.md`
-  holds the corrections that have no better place.
+  holds the corrections that have no better place. A correction of a stage of Lem goes there too.
+  Lem reads the file before each command, and no project changes the files of Lem.
 - `personas/` has one file for each person that a change affects, for example a customer. Each
   project of Lem has two personas or more. `/lem init` writes them from your answers.
 - A repository that already has `.claude/rules` keeps that folder. It is the style guide, and the

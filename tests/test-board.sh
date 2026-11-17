@@ -411,7 +411,7 @@ project log silent-read stories.read by=lem asked:=2 answered:=0 'families:=[]' 
   'silent:=[{"name": "Merchant, opus", "why": "the model timed out"}, {"name": "Accountant, sol", "why": "the model was at capacity"}]' \
   stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
 project state silent-read held "the stories wait for the owner" >/dev/null
-# A task queued behind another one that names the same thing (stages/new.md, step 6).
+# A task queued behind another one whose result it needs (stages/new.md, step 7).
 task queued-after "Cache the product images"
 project state queued-after queued "waits for the task that caches the product list" "after: building-one" >/dev/null
 

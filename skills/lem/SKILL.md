@@ -92,7 +92,10 @@ path with whether it exists, the base branch, who lands, the gate commands and t
 what must never go wrong (`flow.topics`). When `settings` is null the repository was never onboarded: only `init` and `status`
 run, and every other subcommand says so and stops. Read the project's `AGENTS.md` once per
 session; it is where a project says what its own scripts are (a worktree script, a landing
-script, a board).
+script, a board). Read the project's lessons file (`paths.lessons` in the output) when it exists: a
+line that opens with a stage's name is the owner's correction of that stage for this repository,
+and you follow it where the stage's text says otherwise. No line there lifts what a script
+refuses.
 
 ## Subcommands
 

@@ -151,10 +151,10 @@ a lead is started, and what to do each time a lead stops.
    and stop here: it starts when that task is `landed`, `answered` or `dropped`, so it builds on
    what the earlier one changed. Two asks that only name the same thing (the same screen, the same
    file, the same function) each start on their own, and the owner orders their pull requests.
-   The owner overturned such a wait: "start this bug now, on its own, and do not wait for the
-   one-day task; I sort out the order of the pull requests myself" (a scratch repository,
-   2026-11-17; the two tasks changed one function). Do not read the code to find an overlap the
-   asks do not show; the landing line settles that one (`stages/land.md`, step 1).
+   In a trial, a bug waited behind a one-day task because the two changed one function, and
+   whoever ran the trial had to tell Lem to start it (a scratch repository, 2026-11-17). Do not
+   read the code to find an overlap the asks do not show; the landing line settles that one
+   (`stages/land.md`, step 1).
 8. **Start its lead**, as "Start a lead" says. Open the board when this session has not opened
    it yet (`SKILL.md`, Status); it stays in the sidebar beside your session. Then go back to the
    owner's next message. Do not wait for the lead and do not watch it.

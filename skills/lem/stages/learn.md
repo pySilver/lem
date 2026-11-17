@@ -14,8 +14,15 @@ it:
 
 1. **Say the lesson in one sentence** an agent could follow next time.
 2. **Find the file that owns the step**, the first that fits:
-   - a stage of a skill (a page it builds, a message it sends, a command it runs): that skill's
-     file, in the clone the skills are linked from;
+   - a step of a skill (a page it builds, a message it sends, a command it runs). A skill the
+     repository holds itself: that skill's file, a project file like any other. Lem, or another
+     skill installed from outside the repository: one line in the project's lessons file
+     (`project.py path lessons`) that opens with the stage's or the skill's name (`new: ...`),
+     which Lem reads before each subcommand. Never the installed skill's own file, whether it is
+     a link to a clone or a plugin's copy: that file is the same for every repository that uses
+     it, an edit there is live in all of them at once with no review, and a plugin's next update
+     drops it. Your report says that the line is a lesson about Lem itself, so the owner can
+     bring it to whoever maintains Lem;
    - how code is written here: the style guide file whose scope covers it
      (`project.py path styleguide`);
    - what a person of the project wants or notices: that persona's file
@@ -34,7 +41,10 @@ it:
    changes goes unnamed, whichever folder holds it.
 4. A lead commits a project file on the task's branch with the work. Lem has no task's branch:
    there the edit of a project file is a task of its own (`/lem new`), so it lands through the
-   gate like any change. Skill files are committed in their clone and never pushed from here.
+   gate like any change. No session commits in another repository: a retro started in one
+   repository once committed an edit of a stage on the checked-out base branch of the clone the
+   skill was linked from, with nobody's review, and the next push from that clone published it
+   (2026-11-17).
 
 A lesson about one project never goes into a skill, and the lessons file never holds what a style
 guide file, a persona or a lens could hold: it is the last target, and it stays short enough to be
