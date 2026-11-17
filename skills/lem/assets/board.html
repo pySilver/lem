@@ -731,6 +731,8 @@ function words(line, talked = false) {
 const yours = s => s.replace(/\b(waits?|waiting) for the owner['’]s\b/g, '$1 for your').replace(/\b(waits?|waiting) for the owner\b/g, '$1 for you');
 const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
 // A state block's lines as the page says them; `talked` when a plan talk ended before it.
+// A state block that names the task it starts after (`after: SLUG`, stages/new.md); the line itself says which.
+const needsTask = b => [b.text, ...b.lines].some(line => /^after: [a-z0-9-]+$/.test(line));
 const saidOf = (b, talked = false) => [b.text, ...(b.lines ?? [])].map(line => words(line, talked)).filter(Boolean);
 const talkedBefore = (t, ms) => t.talks.some(x => x.ts <= ms);
 
@@ -943,6 +945,8 @@ function derive(now) {
     t.asks = t.waiting.filter(d => !over(d));
     // stages/new.md and stages/plan.md write this line for stories that wait for his yes
     t.storiesWait = t.status === 'held' && /\bstories wait\b/.test([last.text, ...last.lines].join(' '));
+    // a queued task waits for a free place, and one with an `after:` line for the task it needs too
+    t.waitsAfter = t.status === 'queued' && needsTask(last);
     // A planned task waits for the owner only when its lead said the owner reads the plan.
     // A proposed task waits for the owner's merge, and a task with a choice for him waits for him
     // while the rest of its plan goes on.
@@ -1384,7 +1388,7 @@ function timeOf(t, end) {
     const task = taskLine(b);
     const what = saidOf(b, talkedBefore(t, b.ts)).join(' · ');
     if (!ENDED.includes(b.status) && STATUS[b.status]) { stage = stageOf(b); band(stage, from, to, open); }
-    if (b.status === 'queued') addBlock('lem', from, to, 'Queued: it waits for a free place', what, open);
+    if (b.status === 'queued') addBlock('lem', from, to, needsTask(b) ? 'Queued: it waits for the task it needs and a free place' : 'Queued: it waits for a free place', what, open);
     else if (b.status === 'building' && task) addBlock('builders', from, to, `Task ${task[1]} of ${task[2]}`, what, open, 'lead');
     else if (investigates(b)) addBlock('builders', from, to, 'The investigation', what, open, 'lem');
     else if (smallBlock(b)) addBlock('builders', from, to, 'One builder makes the change', what, open, 'lem');
@@ -1753,7 +1757,7 @@ function buildTaskNow(t) {
         pane ? h('span', {class: 'right'}, jump(pane.id, 'Go to the session')) : '')));
   }
   const head = {
-    queued: 'Waits for a free place', building: t.investigating ? 'Its investigator examines it, before any story' : LEAD[leadOf(t)].head,
+    queued: t.waitsAfter ? 'Waits for the task it needs and a free place' : 'Waits for a free place', building: t.investigating ? 'Its investigator examines it, before any story' : LEAD[leadOf(t)].head,
     planned: t.forOwner ? 'The plan waits for you' : t.talks.length ? 'The plan talk is done: the plan waits for the agent that builds it' : 'The plan waits for its talk companion',
     held: t.storiesWait ? 'The stories wait for your yes' : 'Waits for you', blocked: 'The agent stopped; Lem has to settle it', ready: 'Waits for its checks',
     landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : t.landingStep ? stepRuns(t.landingStep) : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',

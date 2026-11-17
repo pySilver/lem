@@ -461,7 +461,7 @@ sys.exit(problems != want)' "$STATE/backlog.js"); then
 else
   fail "a backlog item with an unreadable place: ${why:-$(tail -1 "$WORK/board.err")}"
 fi
-for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts "$K" talk-runs "$M" "$A" cart-total-wrong silent-read queued-after \
+for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts "$K" talk-runs "$M" "$A" cart-total-wrong silent-read queued-after queued-one \
   "$S" gate-runs held-choice held-question trust-prompt stories-wait plan-for-you night-draft open-pr ready-to-land; do board --no-open --task "$slug" >/dev/null; done
 
 SHOWN=$(cat <<'PY'
@@ -654,6 +654,8 @@ if mark not in text:
 open(page, "w", encoding="utf-8").write(text)
 PY
 )
+# shown_text PAGE TEXT: how many times the drawn page holds TEXT outside its scripts, whose source holds every wording
+shown_text() { "$PY" -I -c 'import re, sys; print(re.sub(r"(?s)<script\b.*?</script>", "", open(sys.argv[1], encoding="utf-8").read()).count(sys.argv[2]))' "$WORK/$1.dom" "$2"; }
 draw() {
   "$PY" -I -c "$STOP" "$STATE/$1.html" "$NOW"
   headless --virtual-time-budget=5000 --dump-dom "file://$STATE/$1.html${2:+#$2}" > "$WORK/$1${2:+-$2}.dom"
@@ -1102,11 +1104,15 @@ sys.exit(not ok)' "$WORK/task-cart-total-wrong.dom"); then
     fail "the whole time, or the experts' empty advice: ${why:-no whole time on the card}"
   fi
   # A read in which nobody answered says so, in the bad color, with each persona that was silent.
-  draw task-silent-read && draw task-queued-after
+  draw task-silent-read && draw task-queued-after && draw task-queued-one
   # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-silent-read.dom" stories "Nobody answered the personas’ read|(0 of 2)|@a-bad|no answer from Merchant, opus (the model timed out)|no answer from Accountant, sol|!Nobody confused|!read by 0") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-after.dom" now "Waits for a free place|it starts after “Building one” ends"); then
-    pass "a read of the stories that no persona answered is shown as no read, with who was silent and why, and a task queued behind another names it"
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-after.dom" now "Waits for the task it needs and a free place|it starts after “Building one” ends") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-one.dom" now "Waits for a free place|!task it needs") \
+    && why="no block of the queued time names the task it needs" && [ "$(shown_text task-queued-after "Queued: it waits for the task it needs and a free place")" -gt 0 ] \
+    && why="the page of a task with no after: line names a task it needs" && [ "$(shown_text task-queued-one "task it needs")" = 0 ] \
+    && [ "$(shown_text task-queued-one "Queued: it waits for a free place")" -gt 0 ]; then
+    pass "a read of the stories that no persona answered is shown as no read, with who was silent and why; a queued task says it waits for a free place, and one queued behind another for the task it needs too, which it names once"
   else
     fail "a read nobody answered, or a task queued after another: $why"
   fi
