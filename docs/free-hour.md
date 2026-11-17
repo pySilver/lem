@@ -1,16 +1,20 @@
 # The free hour and Lem
 
+This page is for a session that maintains Lem, in the repository of Lem. It is not for a user of
+Lem.
+
 An agent's free hour is a scheduled session with nobody at the terminal. It may improve Lem. The
 owner's ruling is short: the free hour may edit Lem's skills on a branch of the clone, and it never
-pushes; the owner or a session merges. This page is how. It is for a session that starts in Lem's
-own repository: a session of another repository never edits Lem (`skills/lem/stages/learn.md`).
+pushes; the owner or a session merges. This page is how. A session of another repository never
+edits Lem (`skills/lem/stages/learn.md`).
 
 ## Why a branch in a worktree, and never the main checkout
 
-A setup links Lem from the main checkout of this clone (`scripts/setup.py`). So a file edited
-there is the file the next session reads, in every repository that uses Lem, the moment it is
-saved: before any test ran and before anybody read it. A branch alone does not help either,
-because a checkout of that branch in the main checkout swaps the running Lem for all of them.
+Every repository installs Lem as a plugin from `main` of this repository, and each update of the
+plugin takes the newest commit there. A commit on `main` reaches every project at its next update,
+before any test ran and before anybody read it. A session that loads this clone with
+`claude --plugin-dir` reads the files of the main checkout as they are saved. So a change of a
+branch in the main checkout changes the running Lem of that session too.
 
 So the work happens in a worktree of the clone, on a branch named after the run:
 
