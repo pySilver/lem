@@ -103,7 +103,6 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   with specific project. Just like revmux" (2026-11-15; (1) was each person's own yes in the
   untracked file). So `hooks/hooks.json` is a part of the plugin, and the tracked
   `corrections.collect = true` is the consent of everybody who works in the repository.
-  `setup.py --corrections` stays for the link form while that form exists.
 - **The logo is the owner's pick** ("The Line in the Field"). Change it only on his word. The
   night palette of its dark-theme version is his pick too.
 - **Each task of a plan gets a fresh builder** ("I usually start fresh executor for every task..
@@ -437,8 +436,9 @@ him, and they are not his rulings until he says so:
   by a project's own file of the same name.
 - **One machine may name its own reviewer for a while**, after "I may want to have a session
   based reviewer ... Codex is down or I run out of tokens there": `.lem/project.local.toml`,
-  untracked, read from the main checkout, limited to `[seats]` and `[tools]`, written by
-  `/lem reviewer`. Lem never changes the seat by itself.
+  untracked, read from the main checkout, limited to `[seats]`, `[tools]` and the few keys one
+  machine may set for itself (`LOCAL_TABLES` in `project.py`), its seat written by `/lem reviewer`.
+  Lem never changes the seat by itself.
 
 His notes of 2026-11-16 on the page of the new flow, as the design session carried them to the
 session that builds. `docs/plans/2026-11-15-three-touches/amendment-2026-11-16.md` has each in
@@ -537,10 +537,11 @@ is the session's, and open to him.
   branch), the owner's word in the brief or the newest answered review says so, and an agent
   merges only a green request whose newest review said not careful. `careful.missed` is the
   event for a careful call of the review that the plan did not make. The topics cannot be lifted
-  by the branch they guard: `project.py` reads `[flow]` from the main checkout's settings, also
-  in a task's worktree, so the landing, the lead, `decisions.py` with `flow.decision_wait`
-  (audit findings S1 and W2) and the review read the main checkout's table, and `land.py` reads
-  every setting from the main checkout wherever it runs. A change whose diff edits
+  by the branch they guard: `project.py` reads the settings as the base branch's newest commit
+  holds them (`committed_settings`), and in a task's worktree it takes `[flow]` and `[naps]` from
+  there too, so the landing, the lead, `decisions.py` with `flow.decision_wait` (audit findings S1
+  and W2) and the review read the base branch's table, and `land.py` reads every setting from
+  that commit wherever it runs. A change whose diff edits
   `.lem/project.toml`, in any table, is careful by the script: the one rule that is a match and
   not a judgment, because the file is Lem's own. The same holds for a diff that puts the
   machine's own `.lem/project.local.toml` into git (the second audit, N5). And a task in
@@ -561,15 +562,15 @@ is the session's, and open to him.
   commits no plan; its criterion is `criteria.md` in the task directory, approved in his name, with
   its test line, and `criteria.py` and `land.py` read it there when the branch has no plan file,
   for a small change only. A change that keeps behavior has `no test` and its builder runs the
-  whole gate suite. Before it commits, the builder reads its change against the topics and stops
+  whole suite of the checks. Before it commits, the builder reads its change against the topics and stops
   with `the criteria wait for the owner: the small change is a full change` when it reaches one, needs
-  a second rule or a decision, lowers the bar or grew. Its landing is `start`, `base`, `gate`
+  a second rule or a decision, lowers the bar or grew. Its landing is `start`, `base`, `checks`
   (with `criteria.py red` once), one read by the review agent itself, and `propose` with a short
   text; no polish pass at all, and its builder files what it sees outside the change. A small
   change that is
   careful after all (by the review's call or its edit of the settings) is not green and a person
   merges it, since it skipped the interview, the read and the plan; one that lowers the bar is
-  refused at the gate. Lem says the type and the size, the branch, the criterion, what happens and what he must do
+  refused by the checks. Lem says the type and the size, the branch, the criterion, what happens and what he must do
   in one line before anything runs, and nothing repeats it. Counted from the text after the
   change, a typo, a rename and a one-rule fix each start two agents (the builder and the review
   agent), and the builder reads `prompts/small.md` and `agents/lem-builder.md`, 1,954 words
@@ -633,12 +634,12 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   criterion in the task directory, approved by Lem with `--small`. `criteria.py` and `land.py` refuse a
   plan file that says `Size: small` (or `Kind: correction`, the line of an older Lem), and a night that meets an item that is one plain change drafts no plan and
   names it in the night report as ready to start as a small change.
-- **The gate removes what its own commands leave** (R3, the first run). `python3 -m unittest`
+- **The checks remove what their own commands leave** (R3, the first run). `python3 -m unittest`
   left two `__pycache__` folders in a repository with no `.gitignore`, the gate refused the tree,
   and the first small change ended in a second task for the ignore rule. The guard serves
   "nothing lands that the checks did not pass on", which is about the committed tree. So the
-  gate notes the untracked files before it runs, removes the ones its commands created, names
-  them, and refuses only a changed tracked file; onboarding proposes the ignore lines for what
+  checks note the untracked files before they run, remove the ones their commands created, name
+  them, and refuse only a changed tracked file; onboarding proposes the ignore lines for what
   the commands leave, in its own commit. In the second run the same gate passed.
 - **A small change never gets a polish pass** (R1, the first run). Its builder reported one
   defect outside the change, and Lem started a polish builder (73 s) only to file one backlog
@@ -703,7 +704,9 @@ bash tests/lem-land-shop.sh    # one block of them, alone (each block sources te
 bash tests/lem-old-tasks.sh    # tasks the scripts of an older commit took to open, read, landed and cleaned by the scripts of now
 bash tests/lem-land-local.sh   # the landing with no remote, in two blocks of about equal time: decisions, criteria and the read here,
 bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and what makes a request careful here
-bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path
+bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path or wraps a call
+bash tests/lem-alone.sh        # the commands that need the machine to themselves (checks.alone): lem project alone, its one lock, and the checks that use it
+bash tests/lem-naps.sh         # the naps: the [naps] settings, lem project may-nap, and the feed of the board's Dreams tab
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs
@@ -770,10 +773,13 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `install.md` (what Lem needs, each form of install, what Lem writes and how to remove it) and
   `examples.md` (the real runs with their dates, and illustrations). Beside them `free-hour.md`
   (how an unattended session may change Lem), `linear.md` (how a project connects Linear),
+  `compatibility.md` (where a developer's own skills, hooks, rules, permissions and models meet Lem),
   `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem: each finished one
   opens with a status line that names its commits and where later decisions changed it.
 - `.lem/`: Lem's own settings, profile, cast and lessons, from its onboarding, which `/lem` reads
-  when Lem runs in this repository. `.revmux/`: the review tool's profiles, lenses and project
+  when Lem runs in this repository. Its `state/` folder, which git ignores, is the state of a
+  repository's Lem: the tasks, the event log, the night reports, the naps, the experts' folders
+  and the copies a panel read; `lem_state.py` names it. `.revmux/`: the review tool's profiles, lenses and project
   profile for this repository.
 - `tests/`: the suites of the Checks above; `all.sh` runs them all, `lib.sh` is what each
   `lem-*.sh` block sources. `.github/workflows/ci.yml` runs them when someone starts it by hand.
