@@ -1469,9 +1469,13 @@ chrome=""
 for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
   if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then chrome=$c; break; fi
 done
+# Chrome's temporary folders go into the work folder, which the run removes: each run of Chrome left a
+# com.google.Chrome.* folder in the user's temporary folder. On macOS Chrome reads MAC_CHROMIUM_TMPDIR,
+# not TMPDIR (measured on 2026-11-17); elsewhere it reads TMPDIR.
+chrome_run() { mkdir -p "$WORK/chrome-tmp" && TMPDIR="$WORK/chrome-tmp" MAC_CHROMIUM_TMPDIR="$WORK/chrome-tmp" "$chrome" "$@"; }
 if [ -n "$chrome" ]; then
   draw() {
-    "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+    chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
       --virtual-time-budget=5000 --dump-dom "file://$OLD/.git/lem/$1.html" > "$WORK/$1.dom" 2>/dev/null || true
   }
   draw board
@@ -1509,7 +1513,7 @@ rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
 mine = [r for r in rows if r["task"] == "with-a-worktree"]
 for i, r in enumerate(mine): r["ts"] = "2026-01-10T12:00:%02dZ" % i
 open(sys.argv[2], "w").write("".join("lemEvent(%s);\n" % json.dumps(r) for r in mine))' "$OLD/.git/lem/events.jsonl" "$WORK/aged/events.js"
-  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
     --virtual-time-budget=5000 --dump-dom "file://$WORK/aged/task-with-a-worktree.html" > "$WORK/aged.dom" 2>/dev/null || true
   if [ -s "$WORK/aged.dom" ] && "$PY" -c 'import re, sys
 dom = open(sys.argv[1], encoding="utf-8").read()
@@ -1531,7 +1535,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
   board --repo "$OLD" --no-open >/dev/null
   # The board of one task shows its stories, each with its tests and what the last check gave.
   "$PY" -B "$BOARD" --repo "$ST" --task export-has-the-gift-note --no-open >/dev/null
-  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
     --virtual-time-budget=5000 --dump-dom "file://$ST/.git/lem/task-export-has-the-gift-note.html" > "$WORK/stories.dom" 2>/dev/null || true
   if [ ! -s "$WORK/stories.dom" ]; then
     printf 'SKIP the stories on the board: %s printed no page\n' "$chrome"
@@ -1545,7 +1549,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
   # A story that changed after the check has no check: the old result is not shown for it.
   "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("has that text in its row.", "has that text in the third cell of its row."))' "$stw/docs/plans/20261115-export-has-the-gift-note.md"
   stories record export-has-the-gift-note >/dev/null && git -C "$stw" checkout -q -- docs
-  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
     --virtual-time-budget=5000 --dump-dom "file://$ST/.git/lem/task-export-has-the-gift-note.html" > "$WORK/stories-changed.dom" 2>/dev/null || true
   if [ -s "$WORK/stories-changed.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories-changed.dom" "in the third cell of its row" "not checked yet" "!held by its tests"); then
     pass "after a story changed, the board shows no result of the older check for any story"
@@ -1553,7 +1557,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     fail "the stories on the board after a change: missing $why"
   fi
   # The backlog tab: drawn from backlog.js, and its one action types the item into Lem's session.
-  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
+  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
     --virtual-time-budget=5000 --dump-dom "file://$BKB/.git/lem/board.html#backlog" > "$WORK/backlog.dom" 2>/dev/null || true
   if [ ! -s "$WORK/backlog.dom" ]; then
     printf 'SKIP the backlog tab: %s printed no page\n' "$chrome"
@@ -1607,7 +1611,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 </script>
 PROBE
   "$PY" -c 'import json, re, sys; s = open(sys.argv[1]).read(); d = json.loads(re.fullmatch(r"lemMeta\((.*)\);\n", s, re.S).group(1)); d["session"] = "LEM1"; open(sys.argv[1], "w").write("lemMeta(%s);\n" % json.dumps(d))' "$BKB/.git/lem/meta.js"
-  "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" --allow-file-access-from-files \
+  chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" --allow-file-access-from-files \
     --virtual-time-budget=40000 --dump-dom "file://$BKB/.git/lem/probe.html" > "$WORK/probe.dom" 2>/dev/null || true
   rm -f "$BKB/.git/lem/probe.html"
   acted=$("$PY" -c 'import html, json, re, sys

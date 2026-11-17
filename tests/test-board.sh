@@ -622,8 +622,12 @@ chrome=""
 for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
   if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then chrome=$c; break; fi
 done
-# Every clock time on the pages is in UTC, so a check of one reads the same on every machine.
-headless() { TZ=UTC "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" "$@" 2>/dev/null || true; }
+# Every clock time on the pages is in UTC, so a check of one reads the same on every machine. Chrome's
+# temporary folders go into the work folder, which the run removes: each run of Chrome left a
+# com.google.Chrome.* folder in the user's temporary folder. On macOS Chrome reads MAC_CHROMIUM_TMPDIR,
+# not TMPDIR (measured on 2026-11-17); elsewhere it reads TMPDIR.
+mkdir -p "$WORK/chrome-tmp"
+headless() { TZ=UTC TMPDIR="$WORK/chrome-tmp" MAC_CHROMIUM_TMPDIR="$WORK/chrome-tmp" "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" "$@" 2>/dev/null || true; }
 # draw PAGE [TAB]: the page as Chrome leaves it, into PAGE.dom (PAGE-TAB.dom for a tab), with its clock
 # stopped at NOW: a script before the page's own makes Date.now() give NOW. board.py writes the page
 # again at every run, so each draw puts the script in once more.

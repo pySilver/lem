@@ -17,8 +17,10 @@ PY=$(python3 -I -c 'import sys; print(sys.executable)')
 # puts it there. lem-ask checks the bundle's sha256 at every read, so a copy is as good as a download.
 MERMAID_CACHE=$HOME/.cache/lem-ask
 # A private HOME keeps any personal defaults out of the run; agterm is unset so nothing can reach a
-# real session.
-export HOME="$WORK/home" TMPDIR="$WORK/tmp"
+# real session. The temporary folder is the run's too, also Chrome's, which on macOS reads
+# MAC_CHROMIUM_TMPDIR and not TMPDIR (measured on 2026-11-17): each run of Chrome left a
+# com.google.Chrome.* folder in the user's temporary folder.
+export HOME="$WORK/home" TMPDIR="$WORK/tmp" MAC_CHROMIUM_TMPDIR="$WORK/tmp"
 unset AGTERM_ENABLED AGTERM_SESSION_ID AGTERM_SOCKET CLAUDE_CODE_SESSION_ATTENDED
 mkdir -p "$HOME/.cache/lem-ask" "$TMPDIR"
 for f in "$MERMAID_CACHE"/mermaid-*.min.js; do

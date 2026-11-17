@@ -329,8 +329,14 @@ def page_copy(state: Path, page: str, dark: bool, probe: bool) -> Path:
 
 
 def headless(binary: str, profile: Path, *args: str) -> str:
+    # Chrome's temporary folders go into the run's own folder, which is removed with it: a picture left a
+    # com.google.Chrome.* folder in the user's temporary folder at every run. On macOS Chrome reads
+    # MAC_CHROMIUM_TMPDIR, not TMPDIR (measured with Chrome on 2026-11-17); elsewhere it reads TMPDIR.
+    tmp = profile.parent / "chrome-tmp"
+    tmp.mkdir(exist_ok=True)
     ran = subprocess.run([binary, "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run", "--use-mock-keychain",
-                          f"--user-data-dir={profile}", "--hide-scrollbars", *args], capture_output=True, text=True, env={**os.environ, "TZ": "UTC"})
+                          f"--user-data-dir={profile}", "--hide-scrollbars", *args], capture_output=True, text=True,
+                         env={**os.environ, "TZ": "UTC", "TMPDIR": str(tmp), "MAC_CHROMIUM_TMPDIR": str(tmp)})
     return ran.stdout
 
 
