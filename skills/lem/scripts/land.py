@@ -352,11 +352,12 @@ DOCS = (".md", ".rst", ".adoc")
 # The marks by which a change lowers the bar, for the languages whose tools read them. Chosen by
 # the session that built this check (2026-11-15) from those tools' own syntax, and the focus marks
 # of JavaScript's runners (`.only`, `fit`, `fdescribe`), which run one test alone and so leave the
-# others out, after an audit of the bar (2026-11-17); not measured.
+# others out, after an audit of the bar (2026-11-17); not measured. A mark that a call's "(" follows
+# is looked for with that "(" and named without it, so a refusal says `it.only`, never `it.only(`.
 BAR = {
-    (".py",): (r"#\s*noqa", r"#\s*type:\s*ignore", r"#\s*pyright:\s*ignore", r"#\s*pylint:\s*disable", r"#\s*nosec", r"\bpytest\.mark\.(skip|xfail)", r"\bunittest\.skip", r"\bpytest\.skip\("),
-    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\b(it|test|describe)\.(skip|todo|only)\(", r"\bx(it|test|describe)\(", r"\bf(it|describe)\("),
-    (".go",): (r"//\s*nolint", r"\bt\.Skip(f|Now)?\("),
+    (".py",): (r"#\s*noqa", r"#\s*type:\s*ignore", r"#\s*pyright:\s*ignore", r"#\s*pylint:\s*disable", r"#\s*nosec", r"\bpytest\.mark\.(skip|xfail)", r"\bunittest\.skip", r"\bpytest\.skip(?=\()"),
+    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\b(it|test|describe)\.(skip|todo|only)(?=\()", r"\bx(it|test|describe)(?=\()", r"\bf(it|describe)(?=\()"),
+    (".go",): (r"//\s*nolint", r"\bt\.Skip(f|Now)?(?=\()"),
     (".rs",): (r"#!?\[allow\(", r"#\[ignore\b"),
     (".java", ".kt"): (r"@Disabled", r"@Ignore", r"@SuppressWarnings"),
     (".sh", ".bash"): (r"#\s*shellcheck\s+disable",),
