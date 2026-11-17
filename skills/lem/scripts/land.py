@@ -121,7 +121,8 @@ branch: a later commit does not take the yes back), when the newest review that 
 or when the change edits `.lem/project.toml` at all. The last is the one rule this script matches
 by itself, because the file is Lem's own and a task rarely edits it: its tables say, for every
 later task, what is careful, what the gate runs, who merges and where a task lands, and the reason
-names each table whose values the change edits, or that only its text changed. The review is the look at the diff itself, by
+names each table whose values the change edits, that only its text changed, or that the file is
+gone. The review is the look at the diff itself, by
 an agent that did not build it: its record makes the call, and a careful call takes the full set.
 
 The record of a review is a JSON file:
@@ -945,6 +946,10 @@ def settings_edit(task: Task, now: dict) -> str | None:
     only the file's text does. None when the change leaves the file alone."""
     if SETTINGS_FILE not in now["files"]:
         return None
+    guards = "Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+    if not in_commit(task, now["tip"], SETTINGS_FILE):
+        # removed, or moved away: no table of it is edited, the whole file is gone
+        return f"the change removes {SETTINGS_FILE}, {guards}"
 
     def tables(commit: str) -> dict:
         shown = run(["git", "-C", str(task.worktree), "show", f"{commit}:{SETTINGS_FILE}"], check=False)
@@ -956,7 +961,13 @@ def settings_edit(task: Task, now: dict) -> str | None:
         return f"the change leaves {SETTINGS_FILE} in a form that does not read as TOML, so what it says is careful cannot be told"
     edited = sorted(name for name in {*before, *after} if before.get(name) != after.get(name))
     what = f"{' and '.join(f'[{name}]' for name in edited)} of {SETTINGS_FILE}" if edited else f"the text of {SETTINGS_FILE}, and no value in it"
-    return f"the change edits {what}, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+    return f"the change edits {what}, {guards}"
+
+
+def in_commit(task: Task, commit: str, path: str) -> bool:
+    """Whether the commit holds the file."""
+    return run(["git", "-C", str(task.worktree), "cat-file", "-e", f"{commit}:{path}"], check=False).returncode == 0
+
 
 
 def review_call(task: Task) -> dict | None:

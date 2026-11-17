@@ -788,4 +788,18 @@ else
   fail "an edit of the settings beyond flow and gate: $branch_floor / $branch_agent / $note_floor / $(grep careful "$LOCAL/.git/lem/tasks/lands-alone/pr.md" 2>/dev/null)"
 fi
 
+# A branch that removes Lem's own settings is careful, and the reason says it removes the file, not which tables it edits.
+task_in "$LOCAL" settings-gone twelve.txt twelve
+tree=$(project --repo "$LOCAL" worktree-dir settings-gone)
+git -C "$tree" rm -q .lem/project.toml && git -C "$tree" commit -q -m "chore: no settings"
+local_land start settings-gone >/dev/null && local_land base settings-gone >/dev/null && polish_in "$LOCAL" settings-gone && local_land gate settings-gone >/dev/null
+gone_floor=$(local_land read settings-gone | field '(d["floor"], d["why"])')
+project --repo "$LOCAL" state settings-gone dropped "the test is over" >/dev/null
+gone_why="the change removes .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+if [ "$gone_floor" = "('full', \"the request is careful: $gone_why\")" ]; then
+  pass "a branch that removes Lem's own settings is careful by the script, and the reason says that it removes the file"
+else
+  fail "a branch that removes the settings: $gone_floor"
+fi
+
 finish
