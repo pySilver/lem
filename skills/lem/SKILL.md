@@ -180,8 +180,9 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   at the least. The lead writes its call and the one sentence of why into the plan, its state and
   its report, and the owner may overrule a "no" at any time before the landing. The `[flow]`
   table is read from the main checkout's settings, also in a task's worktree, so a branch
-  cannot lift what guards it, and a change that edits the `[flow]` or `[gate]` table of
-  `.lem/project.toml` is careful by the landing's own rule.
+  cannot lift what guards it, and a change that edits `.lem/project.toml` at all is careful by
+  the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
+  as what is careful and what the gate runs, and a task rarely edits it.
 - **Only so many tasks build or land at one time.** `project.py may-start SLUG` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
   the gate runs and a builder may repair what it showed, and not the task SLUG whose lead starts. Four to five tasks ran well on one Mac, and six gave a load average of 12 to

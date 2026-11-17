@@ -140,7 +140,7 @@ a list of questions that closes with the reviewer's first turn, by its defender 
    into the plan as `## Plan talk` and into the event log as `plan.talk`. You do not read that
    file: you stopped at step 3 before the talk, or the talk is done and its record is in the
    plan. A task that becomes careful after its plan, by the owner's word, by the review's call or
-   by an edit of the settings' `[flow]` or `[gate]`, gets no talk afterwards: the landing's full
+   by an edit of `.lem/project.toml`, gets no talk afterwards: the landing's full
    review reads the code that exists.
 5. **A decision that is the owner's is asked, and the work goes on.** For each decision of the
    plan: a ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and

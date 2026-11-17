@@ -31,7 +31,7 @@ review that knows why the builder thought it was right finds less.
    reaches it ("billing/invoice.py:total sets what a customer pays: a customer is charged the
    wrong amount"), or what you checked to say that it reaches none. `careful` in `read.json`
    lists what already makes the request careful (the owner's word, the plan's call, an edit of
-   the settings' `[flow]` or `[gate]`); your call stands beside those and takes none back. An
+   `.lem/project.toml`); your call stands beside those and takes none back. An
    agent merges a request only on your `false`, so a call you did not make keeps the merge a
    person's.
 3. **Route.** A small change (`small` in `read.json`: one story, no plan, its story file is

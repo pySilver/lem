@@ -206,8 +206,8 @@ one finds what the run before it finished.
    event log holds no `plan.talk`: its lead skipped the talk (`stages/talk.md`). Lem opens the plan
    talk's companion, whose defender argues the plan with the reviewer, as for `needs a session`
    (`stages/new.md`). A request that
-   became careful after its plan, by the owner's word, by the review's call or by its edit of the
-   settings' `[flow]` or `[gate]`, had no talk due; it gets the full set and a person's merge, and
+   became careful after its plan, by the owner's word, by the review's call or by its edit of
+   `.lem/project.toml`, had no talk due; it gets the full set and a person's merge, and
    its text says that it had no talk and why. A careful request says so in the line after green
    or not green, with each reason, and its checks hold the careful call with the review's reason.
    It refuses a request whose newest read of its stories had no answer and was the first such

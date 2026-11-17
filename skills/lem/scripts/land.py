@@ -112,9 +112,10 @@ what must never go wrong, read from the main checkout's settings like every sett
 of paths decides it. A request is careful when the owner says so (that word in the task's brief),
 when the plan says so (its `careful: yes` under its title, in its text now or in any commit of the
 branch: a later commit does not take the yes back), when the newest review that answered says so,
-or when the change edits the `[flow]` or the `[gate]` table of `.lem/project.toml`. The last is the
-one rule this script matches by itself, because the file is Lem's own: those tables say, for every
-later task, what is careful and what the gate runs. The review is the look at the diff itself, by
+or when the change edits `.lem/project.toml` at all. The last is the one rule this script matches
+by itself, because the file is Lem's own and a task rarely edits it: its tables say, for every
+later task, what is careful, what the gate runs, who merges and where a task lands, and the reason
+names each table whose values the change edits, or that only its text changed. The review is the look at the diff itself, by
 an agent that did not build it: its record makes the call, and a careful call takes the full set.
 
 The record of a review is a JSON file:
@@ -299,10 +300,11 @@ LARGE_AFTER = 3
 # one line under the plan's title, before its first `##` heading. A line further down is no call:
 # the plan talk's record or a fenced block may quote one.
 PLAN_CALL = re.compile(r"(?mi)^careful:\s*(yes|no)\b")
-# Lem's own settings, whose `[flow]` says what must never go wrong and whose `[gate]` says what the
-# gate runs. A change to either is careful by this script, not by a judgment: the file is Lem's.
+# Lem's own settings: what must never go wrong, what the gate runs, who merges, where a task lands.
+# Any edit of the file is careful by this script, not by a judgment: the file is Lem's, a task
+# rarely edits it, and every table of it guards something for every later task (audit A1,
+# 2026-11-17: a branch that set `branch.land` to "agent" got one read and a green pull request).
 SETTINGS_FILE = ".lem/project.toml"
-GUARDED = ("flow", "gate")
 # What a decision of the build did to its story, as a line of the pull request says it.
 STORY_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}
 # The form of the one event that records the personas' read of a task's stories.
@@ -887,9 +889,10 @@ def plan_careful(task: Task) -> bool:
 
 
 def settings_edit(task: Task, now: dict) -> str | None:
-    """Why the change is careful by its edit of Lem's own settings: it changes their `[flow]` or
-    their `[gate]`, which the landing reads from the main checkout and which, once landed, say for
-    every later task what is careful and what the gate runs. None when it changes neither."""
+    """Why the change is careful by its edit of Lem's own settings: any edit of `.lem/project.toml`,
+    whose tables, once landed, say for every later task what is careful, what the gate runs, who
+    merges and where a task lands. The reason names each table whose values change, or says that
+    only the file's text does. None when the change leaves the file alone."""
     if SETTINGS_FILE not in now["files"]:
         return None
 
@@ -901,10 +904,9 @@ def settings_edit(task: Task, now: dict) -> str | None:
     except tomllib.TOMLDecodeError:
         # in doubt, careful: what it says cannot be told
         return f"the change leaves {SETTINGS_FILE} in a form that does not read as TOML, so what it says is careful cannot be told"
-    edited = [name for name in GUARDED if before.get(name) != after.get(name)]
-    if not edited:
-        return None
-    return f"the change edits {' and '.join(f'[{name}]' for name in edited)} of {SETTINGS_FILE}, the settings that say what is careful and what the gate runs"
+    edited = sorted(name for name in {*before, *after} if before.get(name) != after.get(name))
+    what = f"{' and '.join(f'[{name}]' for name in edited)} of {SETTINGS_FILE}" if edited else f"the text of {SETTINGS_FILE}, and no value in it"
+    return f"the change edits {what}, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
 
 
 def review_call(task: Task) -> dict | None:

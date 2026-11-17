@@ -592,13 +592,13 @@ kept_gate=$(land --repo "$FG2" start other-checks >/dev/null 2>&1 && land --repo
 kept_floor=$(land --repo "$FG2" read other-checks | field '(d["floor"], d["why"])' 2>&1 || true)
 land --repo "$FG2" read other-checks --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks change"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
 land --repo "$FG2" propose other-checks --title "chore: other checks" --notes "$MIG" >/dev/null 2>&1 || true
-gate_why="the change edits [gate] of .lem/project.toml, the settings that say what is careful and what the gate runs"
+gate_why="the change edits [gate] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
 if [ "$(status_in "$FG" set-up-checks)" = open ] && ! grep -q "no gate command" <<<"$brought_start" \
   && [ "$(field '[(c["command"], c["last"]) for c in d["commands"]]' <<<"$brought_gate" 2>/dev/null)" = "[('echo 3 passed', '3 passed')]" ] \
   && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = "- the gate came with this change: the main checkout's settings name no gate command, and the branch's .lem/project.toml brings \`echo 3 passed\`. Read the checks once: every later task is gated on them" ] \
   && grep -qF "a careful request is merged by a person, whatever the settings say ($gate_why)" <<<"$brought_agent" \
-  && [ "$brought_floor" = "('full', 'the request is careful: $gate_why')" ] && [ "$kept_floor" = "('full', 'the request is careful: $gate_why')" ] \
+  && [ "$brought_floor" = "('full', \"the request is careful: $gate_why\")" ] && [ "$kept_floor" = "('full', \"the request is careful: $gate_why\")" ] \
   && [ "$(field '[(c["command"], c["last"]) for c in d["commands"]]' <<<"$kept_gate" 2>/dev/null)" = "[('echo main passed', 'main passed')]" ] \
   && [ "$(sed -n 1p "$FG2/.git/lem/tasks/other-checks/pr.md" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && grep -qxF -- "- careful: yes, $gate_why; the review says no: $NOT_CAREFUL" "$FG2/.git/lem/tasks/other-checks/pr.md"; then

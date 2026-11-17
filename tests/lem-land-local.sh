@@ -745,8 +745,9 @@ local_land read lift-topics --record "$(record 1 '{"kind": "full", "ran": [{"nam
 local_land propose lift-topics --title "chore: no topics" --notes "$MIG" >/dev/null
 agent=$(local_land land lift-topics --by agent 2>&1 || true)
 text=$LOCAL/.git/lem/tasks/lift-topics/pr.md
-settings_why="the change edits [flow] of .lem/project.toml, the settings that say what is careful and what the gate runs"
-if [ "$lifted" = "('full', 'the request is careful: $settings_why', ['a customer is charged the wrong price'])" ] \
+settings_why="the change edits [flow] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+# the reason holds an apostrophe, so Python's repr of it is in double quotes
+if [ "$lifted" = "('full', \"the request is careful: $settings_why\", ['a customer is charged the wrong price'])" ] \
   && [ "$from_tree" = "('full', ['a customer is charged the wrong price'])" ] \
   && grep -qxF -- "- careful: yes, $settings_why; the review says no: $NOT_CAREFUL" "$text" \
   && grep -qF "a careful request is merged by a person, whatever the settings say ($settings_why)" <<<"$agent" && [ "$(status_in "$LOCAL" lift-topics)" = open ]; then
@@ -755,5 +756,36 @@ else
   fail "a branch that lifts its own topics: $lifted / $from_tree / $agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state lift-topics dropped "the test is over" >/dev/null
+
+# Every edit of Lem's own settings is careful by the script, not only one of [flow] or [gate]: a branch that
+# changes how its tasks land, and one that changes no value and only the file's text, each get the full set,
+# with the tables named, and a person's merge.
+task_in "$LOCAL" lands-alone ten.txt ten
+read_in "$LOCAL" lands-alone
+tree=$(project --repo "$LOCAL" worktree-dir lands-alone)
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("land = \"agent\"", "land = \"agent\"\nhistory = \"squash\""))' "$tree/.lem/project.toml"
+git -C "$tree" commit -q -am "chore: one commit for each task"
+local_land start lands-alone >/dev/null && local_land base lands-alone >/dev/null && polish_in "$LOCAL" lands-alone && local_land gate lands-alone >/dev/null
+branch_floor=$(local_land read lands-alone | field '(d["floor"], d["why"])')
+local_land read lands-alone --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
+local_land propose lands-alone --title "chore: squash" --notes "$MIG" >/dev/null
+branch_agent=$(local_land land lands-alone --by agent 2>&1 || true)
+project --repo "$LOCAL" state lands-alone dropped "the test is over" >/dev/null
+task_in "$LOCAL" settings-note eleven.txt eleven
+tree=$(project --repo "$LOCAL" worktree-dir settings-note)
+printf '%s\n' '# the owner keeps the topics short' >> "$tree/.lem/project.toml"
+git -C "$tree" commit -q -am "docs: a note in the settings"
+local_land start settings-note >/dev/null && local_land base settings-note >/dev/null && polish_in "$LOCAL" settings-note && local_land gate settings-note >/dev/null
+note_floor=$(local_land read settings-note | field '(d["floor"], d["why"])')
+project --repo "$LOCAL" state settings-note dropped "the test is over" >/dev/null
+branch_why="the change edits [branch] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+note_why="the change edits the text of .lem/project.toml, and no value in it, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
+if [ "$branch_floor" = "('full', \"the request is careful: $branch_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($branch_why)" <<<"$branch_agent" \
+  && grep -qxF -- "- careful: yes, $branch_why; the review says no: $NOT_CAREFUL" "$LOCAL/.git/lem/tasks/lands-alone/pr.md" \
+  && [ "$note_floor" = "('full', \"the request is careful: $note_why\")" ]; then
+  pass "every edit of Lem's own settings is careful by the script: one of [branch] gets the full set, a line of the pull request with the table named and a person's merge, and one of the file's text alone is careful too"
+else
+  fail "an edit of the settings beyond flow and gate: $branch_floor / $branch_agent / $note_floor / $(grep careful "$LOCAL/.git/lem/tasks/lands-alone/pr.md" 2>/dev/null)"
+fi
 
 finish
