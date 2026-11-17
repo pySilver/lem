@@ -481,8 +481,10 @@ that is started again after it stopped.
    brief: from the task's branch when that branch exists (a night draft, a task whose worktree
    was removed), otherwise from the settings' base branch. Use the project's own worktree script
    when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test database, an
-   environment); otherwise `git worktree add -b BRANCH PATH BASE` for a new branch, and
-   `git worktree add PATH BRANCH` for a branch that exists. `project.py worktree-dir` already made the folder for worktrees one that
+   environment), and give it the base as origin has it after `git fetch origin BASE`; otherwise
+   `python3 SKILL_DIR/scripts/project.py worktree SLUG BRANCH`, which takes a branch that exists as
+   it is and starts a new one from origin's base branch after a fetch, never from the local base
+   branch, which may be days old. `project.py worktree-dir` already made the folder for worktrees one that
    git ignores. The worktree is in the checkout, not in the task's
    state directory, which is in the main checkout's state folder (`.lem/state/`): the state has
    to outlive the worktree.

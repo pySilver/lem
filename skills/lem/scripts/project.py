@@ -28,6 +28,9 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py ticket-step SLUG started|commented|landed|dropped|answered
                                     write down what Lem did to the task's ticket, once
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
+    project.py worktree SLUG BRANCH make the task's worktree there, on BRANCH: a branch that exists
+                                    as it is, a new one from origin's base branch after a fetch
+                                    (from the local base branch with no remote), with no upstream
     project.py state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
     project.py tasks                every task's ask, status and newest state block, as JSON
@@ -1422,6 +1425,59 @@ def cmd_worktree_dir(settings: dict, slug: str) -> None:
     print(parent / slug)
 
 
+def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
+    """Make the task's worktree where `worktree-dir` says, on BRANCH. A new branch starts from the
+    base branch as origin has it now, after a fetch: the local base branch may be days old. It gets
+    no upstream, so that no `git push` of a builder's reaches the base. With no remote it starts
+    from the local base branch."""
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", "-C", str(main), *args], capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL)
+
+    def said(ran: subprocess.CompletedProcess) -> str:
+        lines = [line.strip() for line in (ran.stderr or ran.stdout).splitlines() if line.strip()]
+        return lines[-1] if lines else f"exit {ran.returncode}"
+
+    main = main_checkout(root)
+    if not SLUG.fullmatch(slug):
+        raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
+    if git("check-ref-format", "--branch", branch).returncode != 0:
+        raise SettingsError(f"{branch!r} is not a name git takes for a branch")
+    base = settings["branch"]["base"]
+    if base is None:
+        raise SettingsError(f"{SETTINGS} names no branch.base, so a new task has nothing to start from")
+    if branch == base or branch in settings["branch"]["protected"]:
+        raise SettingsError(f"{branch!r} is the base branch or a protected one; a task works on a branch of its own")
+    parent = Path(settings["paths"]["worktrees"]["path"])
+    place = main / parent.relative_to(root.resolve()) / slug
+    if (place / ".git").exists():
+        on = subprocess.run(["git", "-C", str(place), "branch", "--show-current"], capture_output=True, text=True, check=False).stdout.strip()
+        if on != branch:
+            raise SettingsError(f"{place} is a worktree on {on or 'no branch'}, not on {branch}: the task's worktree is the one on its branch")
+        print(json.dumps({"task": slug, "worktree": str(place), "branch": branch, "made": False, "from": None}, indent=2))
+        return
+    place.parent.mkdir(parents=True, exist_ok=True)
+    if not (place.parent / ".gitignore").is_file():
+        (place.parent / ".gitignore").write_text("*\n", encoding="utf-8")
+    if git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch}").returncode == 0:
+        # a branch the task has already (a night draft, a task whose worktree was removed): as it is
+        made, start = git("worktree", "add", str(place), branch), branch
+    else:
+        start = base
+        if git("remote", "get-url", "origin").returncode == 0:
+            fetched = git("fetch", "-q", "origin", base)
+            if fetched.returncode != 0:
+                raise SettingsError(
+                    f"origin did not answer ({said(fetched)}), and a new task starts from {base} as origin has it: run this again when it answers. "
+                    f"To start from the local {base} instead, as it is now, `git -C {main} worktree add -b {branch} {place} {base}` makes the worktree",
+                )
+            start = f"origin/{base}"
+        made = git("worktree", "add", "--no-track", "-b", branch, str(place), start)
+    if made.returncode != 0:
+        raise SettingsError(f"git could not make the worktree {place} on {branch}: {said(made)}")
+    commit = subprocess.run(["git", "-C", str(place), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip()
+    print(json.dumps({"task": slug, "worktree": str(place), "branch": branch, "made": True, "from": start, "commit": commit}, indent=2))
+
+
 def task_directory(root: Path, slug: str) -> Path:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
@@ -2138,6 +2194,9 @@ def main() -> None:
     commands.add_parser("path").add_argument("name")
     commands.add_parser("may-land").add_argument("branch")
     commands.add_parser("worktree-dir").add_argument("slug")
+    worktree = commands.add_parser("worktree", help="make a task's worktree, a new branch from origin's base branch")
+    worktree.add_argument("slug")
+    worktree.add_argument("branch")
     init = commands.add_parser("init")
     init.add_argument("--base")
     init.add_argument("--existing", choices=("link", "new"))
@@ -2224,6 +2283,8 @@ def main() -> None:
             cmd_path(settings, args.name)
         elif args.command == "worktree-dir":
             cmd_worktree_dir(settings, args.slug)
+        elif args.command == "worktree":
+            cmd_worktree(root, settings, args.slug, args.branch)
         elif args.command == "plan-file":
             cmd_plan_file(settings, args.slug, args.date)
         elif args.command == "may-land":

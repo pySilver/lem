@@ -279,6 +279,27 @@ if grep -qF "origin has the branch feat/taken-name" <<<"$taken" && grep -qF "add
 else
   fail "a slug on the remote: $taken / $named_branch / $free"
 fi
+# A new task's worktree starts from origin's base branch after a fetch, never from the local base branch that may be days
+# old, and with no upstream; a second call finds it; with no remote it starts from the local base branch.
+git -C "$mate" fetch -q origin && git -C "$mate" switch -q main && git -C "$mate" merge -q --ff-only origin/main
+echo newer > "$mate/newer.txt" && git -C "$mate" add -A && git -C "$mate" commit -q -m "feat: newer on origin" && git -C "$mate" push -q origin main
+fresh=$(project --repo "$GHS" worktree free-name feat/free-name 2>&1 || true)
+fresh_tree=$GHS/.lem/worktrees/free-name
+second=$(project --repo "$GHS" worktree free-name feat/free-name 2>&1 || true)
+upstream=$(status_of git -C "$fresh_tree" rev-parse --abbrev-ref '@{upstream}')
+NR=$WORK/no-remote
+git init -q -b main "$NR" && ident "$NR" && commit "$NR" "chore: start"
+project --repo "$NR" init --base main >/dev/null && project --repo "$NR" task-dir local-one --ask "One." >/dev/null
+local_tree=$(project --repo "$NR" worktree local-one fix/local-one 2>&1 || true)
+if [ "$(field '(d["made"], d["from"], d["commit"])' <<<"$fresh" 2>&1)" = "(True, 'origin/main', '$(git -C "$mate" rev-parse HEAD)')" ] \
+  && [ "$(git -C "$fresh_tree" rev-parse HEAD)" = "$(git -C "$mate" rev-parse HEAD)" ] && [ "$(git -C "$GHS" rev-parse main)" != "$(git -C "$mate" rev-parse HEAD)" ] \
+  && [ "$upstream" != 0 ] && [ "$(field '(d["made"], d["worktree"])' <<<"$second" 2>&1)" = "(False, '$fresh_tree')" ] \
+  && [ "$(field '(d["made"], d["from"], d["commit"])' <<<"$local_tree" 2>&1)" = "(True, 'main', '$(git -C "$NR" rev-parse main)')" ]; then
+  pass "a new task's worktree starts from origin's base branch after a fetch, with no upstream, while the local base branch is older; a second call finds it; with no remote it starts from the local base branch"
+else
+  fail "a new task's worktree: $fresh / $second / $upstream / $local_tree"
+fi
+
 
 # A GitHub remote, and a developer who wants no pull requests (`branch.propose = "merge"`): the task
 # lands on the remote's base branch as a ready branch does, so the next task starts from it, and the
