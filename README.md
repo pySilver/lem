@@ -60,7 +60,8 @@ flowchart LR
     full --> pr
 ```
 
-A careful change also gets a plan talk, the full review and your merge.
+A careful change gets the full review and your merge. If it is careful at its plan, it also gets a
+plan talk.
 [docs/flow.md](docs/flow.md) gives each step.
 
 ## What Lem promises

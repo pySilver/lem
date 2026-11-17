@@ -181,8 +181,8 @@ overall pick), `mode` (`single` default · `multi` · `text`; `tune` is implied 
 `{label, placeholder, required, multiline, value}`).
 
 Any other key, at any of these levels, is an error that names the nearest valid one, since the page would
-drop it without a word. A key starting with `_` is yours (data for a `script`) and passes. So is a value
-of another type than the page reads, which it would show wrong: a text field (`prompt`, `label`,
+drop it without a word. A key starting with `_` is yours (data for a `script`) and passes. A value of
+another type than the page reads is an error too, since the page would show it wrong: a text field (`prompt`, `label`,
 `header`, `subtitle`…) that is not a string, a flag that is not `true` or `false`, a `mode`, `layout`,
 `width`, `style` or control `type` the page does not know, and `tags`, `pros` or `cons` that are not a
 list of strings.

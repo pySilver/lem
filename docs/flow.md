@@ -346,7 +346,8 @@ The text is also in `pr.md` in the task directory.
 
 The checks of the pull request tell you who read the stories. One line gives how many personas
 answered, the model families, who did not answer, the stories that they flagged, and the date of
-your approval. For a small change, the line says that the personas did not read it. If you
+your approval. For a small change, the text says below the story that the personas did not read
+it. If you
 stopped the read, the line gives the date of your word. If you changed the stories after the
 read, a second line says so. The checks also say that the facts of the scout shaped the stories.
 

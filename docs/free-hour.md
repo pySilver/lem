@@ -2,7 +2,8 @@
 
 An agent's free hour is a scheduled session with nobody at the terminal. It may improve Lem. The
 owner's ruling is short: the free hour may edit Lem's skills on a branch of the clone, and it never
-pushes; the owner or a session merges. This page is how.
+pushes; the owner or a session merges. This page is how. It is for a session that starts in Lem's
+own repository: a session of another repository never edits Lem (`skills/lem/stages/learn.md`).
 
 ## Why a branch in a worktree, and never the main checkout
 

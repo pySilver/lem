@@ -486,8 +486,8 @@ is the session's, and open to him.
   refused at the gate. Lem says the size, the branch, the story, what happens and what he must do
   in one line before anything runs, and nothing repeats it. Counted from the text after the
   change, a typo, a rename and a one-rule fix each start two agents (the builder and the review
-  agent), and the builder reads `prompts/small.md` and `agents/lem-builder.md`, 1,924 words
-  (`wc -w`: 772 and 1,152, at the final round of 2026-11-17).
+  agent), and the builder reads `prompts/small.md` and `agents/lem-builder.md`, 1,954 words
+  (`wc -w`: 775 and 1,179, at 15d5697, 2026-11-17).
 - **A feature has one approval and no ceremony that nobody asked for** (2026-11-17), from the same
   audit's findings: the interview's restate and explicit yes were a second approval of what the
   stories say (F3), so the interview's questions come from the `lem-interview-me` method and its

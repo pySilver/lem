@@ -31,8 +31,8 @@ it:
      rejected-findings list (`project.py path review`). That folder is the review tool's own:
      Lem never moves, links or reshapes it, and a lesson still writes a line into a file there;
    - a decision about the product that outlives the task: a ruling (`project.py path rulings`);
-   - a command shape a pattern can match: a hook or a commit check that refuses it and names the
-     replacement;
+   - a command shape a pattern can match: a hook or a commit check of the repository that refuses
+     it and names the replacement;
    - none of these: one line in the project's lessons file (`project.py path lessons`), which the
      plan and build stages read.
 3. **When the owner asked for the change, make it** and say, for each file you changed, its path,
@@ -41,10 +41,11 @@ it:
    changes goes unnamed, whichever folder holds it.
 4. A lead commits a project file on the task's branch with the work. Lem has no task's branch:
    there the edit of a project file is a task of its own (`/lem new`), so it lands through the
-   gate like any change. No session commits in another repository: a retro started in one
-   repository once committed an edit of a stage on the checked-out base branch of the clone the
-   skill was linked from, with nobody's review, and the next push from that clone published it
-   (2026-11-17).
+   gate like any change. Every file a lesson changes is in this repository, the review tool's
+   folder included: never a file in the home directory, and no session commits in another
+   repository. A retro started in one repository once committed an edit of a stage on the
+   checked-out base branch of the clone the skill was linked from, with nobody's review, and the
+   next push from that clone published it (2026-11-17).
 
 A lesson about one project never goes into a skill, and the lessons file never holds what a style
 guide file, a persona or a lens could hold: it is the last target, and it stays short enough to be

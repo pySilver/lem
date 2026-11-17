@@ -132,7 +132,7 @@ A file that a later step needs goes into the task folder too, never into `/tmp`.
 
 | State | Means | Who acts |
 | --- | --- | --- |
-| `queued` | no lead runs, because the limit of tasks was reached | Lem, when a place is free |
+| `queued` | no lead runs: the limit of tasks was reached, or the task needs the result of an earlier task | Lem, when a place is free or the earlier task ends |
 | `building` | a lead plans or builds, or a builder examines a bug or a question | the lead, or the investigator |
 | `planned` | the plan is committed, and nothing builds it | Lem opens the plan talk, or you read the plan |
 | `held` | it waits for you: the stories, one more fact, a step that is yours, or a step that nobody can undo | you, through Lem |
