@@ -123,7 +123,9 @@ A skill's name at the start of a line does not make the line a call of that skil
 when the name stands alone or is followed by what that skill takes: a slug, a path, a number, a
 statement to argue. `/lem release notes are wrong on the site` and `/lem backlog is slow to open`
 are sentences about the project, so each is an ask and opens a task. `/lem ask` takes a question
-the owner wants put to himself as a page ("`/lem ask` which of the two layouts"); "`/lem` ask
+the owner wants put to himself as a page ("`/lem ask` which of the two layouts"), and `/lem ask`
+alone puts the last open question an agent asked in this conversation on a page, with what he
+needs to answer it there (the `lem-ask` skill says how); "`/lem` ask
 the payment provider for a sandbox key" is a task. When you cannot tell which
 of the two a line is, ask the owner once in the terminal, in one line, before anything runs: a
 skill such as `lem-release` changes files.

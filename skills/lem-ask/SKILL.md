@@ -31,6 +31,23 @@ Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then exits 
   its question to whoever started it. In an unattended run (`claude -p`, where Claude Code sets
   `CLAUDE_CODE_SESSION_ATTENDED=0`) `lem-ask` refuses with exit 3 and opens nothing.
 
+## `/lem ask` with no question
+
+The owner types `/lem ask` alone when an agent asked him something in the terminal and he wants it
+as a page with its context. Take the last question an agent asked in this conversation that has no
+answer yet (yours, or one a lead's or a builder's message put before him), and put it on a page
+from which he can answer it without the terminal:
+
+- the question as a short `prompt`, and what it decides and why it came up in `context`;
+- each option labeled by what it says, with what it changes and what it costs (`subtitle`,
+  `pros`, `cons`); an open question with no options is a `text` question;
+- the code or the numbers it rests on, from their files (`{"file": …}`), never pasted;
+- the recommendation with its reason (`recommended` with a string), when the agent gave one.
+
+Two questions asked in one message go on one page (`questions`). His answer on the page is his
+answer to that question: go on as his answer in the terminal would have made you. When no question
+is open in this conversation, say so in one line and open nothing.
+
 ## Fastest: one line
 
 ```bash
