@@ -47,6 +47,9 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON
+    project.py may-nap [--asked]    whether a nap may start now, as JSON, and when it may, the nap is
+                                    written down as started; it also removes the naps older than
+                                    naps.keep_days. --asked: the owner asked for this one
 
 Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py` names for
 every script: every worktree writes there, git never tracks it, a worktree's removal does not take
@@ -169,6 +172,18 @@ file of a retro's proposals in `retros/` of the state folder (`retros`), which a
 with nobody at the terminal writes in the form Lem's question page takes, one question for each
 proposal. `count` adds them up. It reads and writes nothing else.
 
+A nap is an optional part (`[naps]`, off unless the owner says yes): a fresh agent that reads the
+recent tasks, dreams, and writes the dream down in a folder of its own, `naps/TIME-WORDS/` in the
+state folder, where TIME is the clock's UTC time when the nap started, as `YYYY-MM-DD-HHMM`.
+`may-nap` is the one place that says whether one may start: the naps are on (or the owner asked
+for this one), no nap runs, and the newest one started `naps.gap_hours` ago or more, or there is
+none. A nap runs from its start until its folder holds `waking.md`, the last file it writes, and
+for an hour at most (`ASLEEP_MINUTES`). Its answer is JSON with exit 0 whether it says yes or
+no, because a no is the usual answer and nothing is wrong; a broken settings file is exit 1. A
+yes writes `naps/.asleep` with the start, so a second call finds the nap that runs. Each call
+removes the nap folders whose time is older than `naps.keep_days` days, and names them in
+`removed`; a folder whose name has no such time is never removed.
+
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
 """
@@ -188,6 +203,7 @@ import json
 import os
 import re
 import signal
+import shutil
 import subprocess
 import tomllib
 from datetime import datetime, timezone
@@ -334,6 +350,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "tools": tuple(TOOLS),
     "corrections": ("collect",),
     "tracker": ("kind", "server", "workspace", "team", "moves", "started", "landed"),
+    "naps": ("on", "keep_days", "gap_hours"),
 }
 # The trackers Lem has a skill for, and who may move a ticket's status: Lem, or the tracker's own
 # automation (a pull-request integration that moves a ticket by itself).
@@ -351,6 +368,17 @@ TICKET = re.compile(r"[A-Za-z][A-Za-z0-9]*-[0-9]+")
 TICKET_STEPS = ("started", "commented", "landed", "dropped", "answered")
 # The ended states that give a task's ticket back: a new task may take it. A landed task keeps it.
 RETURNED = ("dropped", "answered")
+# The naps (`may-nap`). Both numbers are guesses, not measurements: the owner said "a week or a
+# month (?)" of history is worth keeping, and his own nap routine runs three times a day.
+NAPS_KEEP_DAYS = 30
+NAPS_GAP_HOURS = 6
+# How long a nap that wrote no `waking.md` counts as running. A guess: the owner's own routine
+# leaves a nap "about twenty minutes", and an hour is three of those.
+ASLEEP_MINUTES = 60
+# a nap's folder: the clock's time when it started, then a few words of the dream
+NAP_NAME = re.compile(r"(?P<time>\d{4}-\d{2}-\d{2}-\d{4})(?:-.+)?")
+NAP_TIME = "%Y-%m-%d-%H%M"
+ASLEEP = ".asleep"
 
 TEMPLATE = """\
 # What Lem reads in this repository. `project.py show` prints it resolved.
@@ -458,6 +486,21 @@ annotate = "{annotate}"
 # Lem and shows a page with the options side by side. "terminal" asks in the conversation, as a
 # numbered list. Or name a skill or a command of your own.
 ask = "{ask}"
+"""
+# The naps' table, the last of the file. Its numbers are written in here, so it holds no `{}` for
+# the `format` of `init`.
+TEMPLATE += f"""
+[naps]
+# Now and then, when a task has ended or Lem waits for the owner, Lem takes a nap: a fresh agent
+# reads the recent tasks, dreams, and writes the dream down in .lem/state/naps/, which the board's
+# Dreams tab shows and the retro reads. It costs an agent's session of some minutes, a few times a
+# day while Lem works, and nobody has shown that it helps. `/lem nap` starts one at any time.
+on = false
+# How many days a nap is kept. A guess, from the owner's "a week or a month (?)".
+keep_days = {NAPS_KEEP_DAYS}
+# How many hours at least between two naps that Lem starts by itself. A guess, from "three times a
+# day" in the routine the naps follow.
+gap_hours = {NAPS_GAP_HOURS}
 """
 
 
@@ -772,6 +815,22 @@ def tool_of(raw: dict, name: Path, role: str) -> str | None:
     return tool
 
 
+def naps_of(raw: dict, name: Path) -> dict:
+    """The `[naps]` table of one settings file, checked."""
+    naps = raw.get("naps", {})
+    on = naps.get("on", False)
+    if not isinstance(on, bool):
+        raise SettingsError(f"{name}: naps.on = {on!r} must be true or false")
+    numbers = {}
+    for key, default, unit in (("keep_days", NAPS_KEEP_DAYS, "days"), ("gap_hours", NAPS_GAP_HOURS, "hours")):
+        value = naps.get(key, default)
+        # a bool is an int in Python, and `keep_days = true` is a mistake, not the number 1
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise SettingsError(f"{name}: naps.{key} = {value!r} must be a whole number of {unit}, 1 or more")
+        numbers[key] = value
+    return {"on": on, **numbers}
+
+
 def load(root: Path) -> dict:
     file = root / SETTINGS
     main = main_checkout(root)
@@ -892,6 +951,7 @@ def load(root: Path) -> dict:
         "tools": tools,
         "corrections": {"collect": collect},
         "tracker": tracker,
+        "naps": naps_of(raw, SETTINGS),
         # what this machine set for itself, so a report can say that the reviewer is not the project's
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
     }
@@ -1976,6 +2036,72 @@ def cmd_alone(root: Path, words: list[str]) -> int:
             handle.seek(0)
             handle.truncate()
     return code if code >= 0 else 128 - code
+def nap_time(name: str) -> datetime | None:
+    """When the nap of a folder started, from its name; None for a name that holds no such time."""
+    found = NAP_NAME.fullmatch(name)
+    if not found:
+        return None
+    try:
+        return datetime.strptime(found["time"], NAP_TIME).replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def hours(seconds: float) -> str:
+    return f"{seconds / 3600:.1f} hours"
+
+
+def cmd_may_nap(root: Path, asked: bool) -> None:
+    """Whether a nap may start now, from the settings and the naps folder. A yes writes the nap
+    down as started; every call removes the naps older than `naps.keep_days`."""
+    naps = load(root)["naps"]
+    folder = state_root(root) / "naps"
+    folder.mkdir(exist_ok=True)
+    now = datetime.now(timezone.utc)
+    removed, kept = [], []
+    for entry in sorted(folder.iterdir()):
+        when = nap_time(entry.name)
+        if when is None or entry.is_symlink() or not entry.is_dir():
+            continue
+        if (now - when).total_seconds() > naps["keep_days"] * 86400:
+            shutil.rmtree(entry)
+            removed.append(entry.name)
+        else:
+            kept.append((when, entry))
+    marker = folder / ASLEEP
+    asleep = None
+    if marker.is_file():
+        try:
+            asleep = json.loads(text_of(marker))
+            since = datetime.strptime(asleep["since"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            started = asleep["time"]
+            if not isinstance(started, str) or not NAP_NAME.fullmatch(started):
+                raise ValueError(f"time = {started!r}")
+        except (ValueError, KeyError, TypeError) as error:
+            raise SettingsError(f"{marker} is not the record may-nap writes ({error}); remove the file, and the next call writes it again") from error
+    answer = {"may": False, "why": "", "asked": asked, "folder": str(folder), "time": None, "removed": removed,
+              "newest": max(kept)[1].name if kept else None}
+    # a nap runs until its folder holds waking.md, the last file it writes, and for an hour at most
+    woke = asleep is not None and any((nap / "waking.md").is_file() for _when, nap in kept if nap.name.startswith(started))
+    if asleep is not None and not woke and (now - since).total_seconds() < ASLEEP_MINUTES * 60:
+        answer["why"] = f"a nap runs since {asleep['since']}: it ends when naps/{started}-... holds waking.md, or {ASLEEP_MINUTES} minutes after its start"
+    elif not asked and not naps["on"]:
+        answer["why"] = "the naps are off (naps.on = false in .lem/project.toml)"
+    else:
+        last = max([when for when, _nap in kept] + ([since] if asleep is not None else []), default=None)
+        age = (now - last).total_seconds() if last else None
+        if not asked and age is not None and age < naps["gap_hours"] * 3600:
+            answer["why"] = f"the newest nap started {hours(age)} ago, and naps.gap_hours is {naps['gap_hours']}"
+        else:
+            answer["may"] = True
+            answer["why"] = "the owner asked for it" if asked else "there is no nap yet" if age is None else f"the newest nap started {hours(age)} ago"
+            answer["time"] = now.strftime(NAP_TIME)
+            record = {"since": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "time": answer["time"], "asked": asked}
+            # written whole under another name first, so that a reader never finds half of it
+            staging = folder / f"{ASLEEP}.{os.getpid()}"
+            staging.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            os.replace(staging, marker)
+    print(json.dumps(answer, indent=2))
 
 
 def main() -> None:
@@ -2020,6 +2146,7 @@ def main() -> None:
     commands.add_parser("waiting", help="everything that waits for the owner, as JSON")
     alone = commands.add_parser("alone", help="run one command that needs the machine to itself, under the repository's one lock")
     alone.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
+    commands.add_parser("may-nap").add_argument("--asked", action="store_true", help="the owner asked for this nap (/lem nap): the naps' switch and their gap do not hold")
     args = parser.parse_args()
     if problem := unreadable_argument(sys.argv[1:]):
         sys.exit(f"project.py: {problem}")
@@ -2057,6 +2184,9 @@ def main() -> None:
             return
         if args.command == "alone":
             sys.exit(cmd_alone(root, args.words))
+        if args.command == "may-nap":
+            cmd_may_nap(root, args.asked)
+            return
         settings = load(root)
         if args.command == "rules":
             cmd_rules(settings, args.files, args.commits)

@@ -650,3 +650,9 @@ with the line `the base is green again`, and joins the landing line. Take the `q
 the order of their state's time, leave out each one whose `after:` task is not `landed`,
 `answered` or `dropped`, and start a lead, or the investigator of a bug or a question, for
 the first that is left. Step 1 of "Start a lead" decides whether there is a place.
+
+Last, a nap. When a task ended in this turn (`landed`, `answered` or `dropped`), or nothing is left
+for you but the owner's word, and `naps.on` is true in `project.py show`, run `python3
+SKILL_DIR/scripts/project.py may-nap`. When its `may` is true, read `stages/nap.md` and start the
+nap as it says; when it is false, say nothing of it. A nap never comes before what is owed, the
+queue or a question.

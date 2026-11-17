@@ -18,6 +18,7 @@ new agent is one new file here and no edit to a stage.
 | `ask-experts` | start the two experts the settings' `seats.experts` names, of two model families, at one moment, in the background and read-only, each on the same brief file; you are told when each ends, and each one's last message becomes its answer file word for word |
 | `run-in-background` | run one command in the background and go on with other work; you are told when it ends, with its exit status and what it printed, and that end wakes you, also while you wait between two of the owner's messages. A stage that names such a command says when one at most may run |
 | `show-page` | show the owner something to read (a report, a diff, a table) without asking a question |
+| `start-nap` | start a nap (`stages/nap.md`): a fresh agent of your own kind, in the background and with no context of yours, in the state folder it is given, with `prompts/nap.md` as its brief and the nap's time beside it; it can read and write files in that folder and nowhere else, and run no command. You are told when it ends, and nothing of what it prints is for you |
 
 And three roles a stage names instead of a skill id, because the id differs per agent:
 
