@@ -76,8 +76,8 @@ err=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" 
 out=$(land --repo "$SHOP" read first-change)
 base=$(git -C "$SHOP" rev-parse origin/main)
 if grep -q "a review is due before anything is proposed, one read at the least" <<<"$err" && [ "$(status first-change)" = landing ] \
-  && [ "$(field '(d["due"], d["floor"], d["round"], d["in_parts"], sorted(d["inputs"]), d["inputs"]["range"], [r.split("/.lem/")[-1] for r in d["inputs"]["rules"]])' <<<"$out")" \
-  = "('review', 'read', 1, False, ['bar', 'plan', 'range', 'review', 'rules', 'topics', 'words', 'worktree'], '$base..$tip', ['styleguide/tests.md'])" ] \
+  && [ "$(field '(d["due"], d["floor"], d["round"], d["in_parts"], sorted(d["inputs"]), d["inputs"]["range"], [r.split("/.lem/")[-1] for r in d["inputs"]["rules"]], d["inputs"]["filed"])' <<<"$out")" \
+  = "('review', 'read', 1, False, ['bar', 'filed', 'plan', 'range', 'review', 'rules', 'topics', 'words', 'worktree'], '$base..$tip', ['styleguide/tests.md'], [])" ] \
   && [ "$(cat "$(field 'd["inputs"]["words"]' <<<"$out")")" = "Put yes into ok.txt." ] && [ -f "$(field 'd["inputs"]["plan"]' <<<"$out")" ] \
   && [ "$(field 'd["inputs"]["review"]' <<<"$out")" = "$SHOP/.revmux" ]; then
   pass "nothing is proposed before its review; for a usual request the floor is one read, and a reviewer gets the owner's words, the plan, the range, the rule files of the changed files, the project's topics and the folder of the review tool"

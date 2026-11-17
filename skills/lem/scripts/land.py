@@ -19,7 +19,8 @@ may-land` about the settings' base branch, so a protected branch is never reache
                            write down what the review was and what it found
     land.py file SLUG [--again]
                            file each defect a review saw outside the change as an item of the
-                           backlog, and commit the items on the task's branch
+                           backlog, and commit the items on the task's branch; a defect whose
+                           place an item of the branch already names is that item
     land.py propose SLUG --title SUBJECT --notes FILE
                            open the pull request, or mark the branch ready where the remote is not
                            GitHub or `branch.propose` is `merge`: the state becomes `open`
@@ -165,7 +166,14 @@ gone from the tip; the owner's "not wanted" is `worth: no` in the item, never it
 The file name is the slug of the title. A file of that name that holds the same defect (the same
 `where` and title, and its run word for word as paragraphs of the body, whatever else the body
 says, such as the owner's reason for `worth: no`) is its item, and nothing is written twice; a
-file that holds another takes the next name, with a suffix from the `where`, then a number. One defect that two rounds
+file that holds another takes the next name, with a suffix from the `where`, then a number. A
+defect whose `where` is, word for word, the `where` of an item the branch adds to the backlog
+folder that `file` did not write (the small change's builder or the polish pass filed it before
+the review) is that item too: it is named in the output (`named`), and nothing is written for it.
+Only the `where` is compared, because the builder and the review describe one defect in their own
+words; two defects of one place that a builder filed as one are one item, the price of the
+review's not filing the same defect twice. `read` gives the reviewer those items (`filed`), so
+that a defect the branch filed already is not reported again. One defect that two rounds
 describe in other words gets two items: an extra item costs a merge in the backlog's sorting, and
 a lost one costs the defect. The review is asked to repeat an earlier round's words for a defect
 it sees again.
@@ -829,14 +837,13 @@ def names_for(defect: dict):
         number += 1
 
 
-def holds(file: Path, defect: dict) -> bool:
-    """Whether an item file is this defect: the same `where`, the same title, and the defect's run
-    as paragraphs of the body, word for word. Any other text of the body, the owner's reason for a
-    `worth: no` or a later note, leaves it the same defect."""
+def item_of(file: Path) -> tuple[dict[str, str], list[str]] | None:
+    """An item of the backlog as the item format has it: its front matter, and its lines after it, of
+    which the first is its title (`# TITLE`). None for a file that is no such item."""
     try:
         text = file.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
-        return False
+        return None
     front: dict[str, str] = {}
     head = re.match(r"---\n(.*?)\n---\n", text, re.S)
     if head:
@@ -846,7 +853,18 @@ def holds(file: Path, defect: dict) -> bool:
         text = text[head.end():]
     lines = text.strip().splitlines()
     if not lines or not lines[0].startswith("# "):
+        return None
+    return front, lines
+
+
+def holds(file: Path, defect: dict) -> bool:
+    """Whether an item file is this defect: the same `where`, the same title, and the defect's run
+    as paragraphs of the body, word for word. Any other text of the body, the owner's reason for a
+    `worth: no` or a later note, leaves it the same defect."""
+    item = item_of(file)
+    if item is None:
         return False
+    front, lines = item
     if front.get("where") != defect["where"] or lines[0][2:].strip() != defect["title"]:
         return False
     # Paragraphs as `file` writes them: `what` stripped, a blank line between two paragraphs.
@@ -1424,6 +1442,23 @@ def gate_holds(task: Task, tip: str) -> bool:
     return True
 
 
+def branch_items(task: Task) -> list[dict]:
+    """Each item the branch adds to the backlog folder that `file` did not write for a review: what
+    the small change's builder or the polish pass filed, with its `where` and its title."""
+    folder = backlog_of(task)
+    base = git(task.worktree, "merge-base", "HEAD", task.onto)
+    written = {defect["item"] for read in task.kept().get("reads", []) for defect in outside_of(read) if defect.get("item") and not defect.get("named")}
+    rows = [row.split("\t", 1) for row in git(task.worktree, "diff", "--name-status", "--no-renames", "--diff-filter=A", base, "HEAD").splitlines()]
+    found = []
+    for _, path in rows:
+        if not path.startswith(folder + "/") or path in written:
+            continue
+        item = item_of(task.worktree / path)
+        front, lines = item if item else ({}, [])
+        found.append({"item": path, "where": front.get("where"), "title": lines[0][2:].strip() if lines else None})
+    return found
+
+
 def cmd_file(task: Task, again: bool) -> dict:
     """File each defect a review saw outside the change as an item of the backlog, and commit the items."""
     task.need_landing()
@@ -1432,7 +1467,9 @@ def cmd_file(task: Task, again: bool) -> dict:
     tip = git(task.worktree, "rev-parse", "HEAD")
     folder = backlog_of(task)
     today = date.today().isoformat()
-    filed, same, gone, written = [], [], [], {}
+    # what the branch filed itself, before the review: a defect at the same place is that item
+    on_branch = branch_items(task)
+    filed, same, named, gone, written = [], [], [], [], {}
     for read in reads:
         if not read["answered"]:
             continue
@@ -1443,6 +1480,11 @@ def cmd_file(task: Task, again: bool) -> dict:
                 if not again:
                     gone.append({"round": read["round"], "title": defect["title"], "item": defect["item"]})
                     continue
+            match = next((item for item in on_branch if item["where"] == defect["where"]), None)
+            if match and not defect.get("item"):
+                defect["item"], defect["named"] = match["item"], True
+                named.append({"round": read["round"], "title": defect["title"], "item": match["item"], "where": defect["where"], "its_title": match["title"]})
+                continue
             # The first name that holds this very defect is its item; the first that is free gets it.
             # A name that holds another defect is passed: an extra item is the price, never a lost one.
             for name in names_for(defect):
@@ -1467,12 +1509,12 @@ def cmd_file(task: Task, again: bool) -> dict:
         git(task.worktree, "add", "--", *paths)
         git(task.worktree, "commit", "-q", "-m", f"docs(backlog): what review round {number} saw outside {task.slug}", "--", *paths)
     tip = git(task.worktree, "rev-parse", "HEAD")
-    if filed or same:
-        items = [{**entry, "new": True} for entry in filed] + [{**entry, "new": False} for entry in same]
+    if filed or same or named:
+        items = [{**entry, "new": True} for entry in filed] + [{**entry, "new": False} for entry in [*same, *named]]
         script("project.py", task.worktree, "log", task.slug, "review.filed", f"items:={json.dumps(items)}", f"tip={tip[:9]}")
     # A run cut off after its commit finds each item again by its defect, so this write comes last.
     task.keep(reads=reads)
-    return {"task": task.slug, "filed": filed, "same": same, "gone": gone, "tip": tip}
+    return {"task": task.slug, "filed": filed, "same": same, "named": named, "gone": gone, "tip": tip}
 
 
 def cmd_read(task: Task, record: str | None) -> dict:
@@ -1506,6 +1548,8 @@ def cmd_read(task: Task, record: str | None) -> dict:
                 "worktree": str(task.worktree), "rules": [rule["file"] for rule in rules], "bar": task.kept().get("checks", {}).get("bar"),
                 # what must never go wrong, from the main checkout's settings: the review reads the diff against each
                 "topics": task.settings["flow"]["topics"],
+                # what the branch filed in the backlog before the review: a defect named there is not reported again
+                "filed": branch_items(task),
                 # where the project's review tool keeps each profile and lens, with what each is for
                 "review": task.settings["paths"]["review"]["path"],
             },
@@ -1718,11 +1762,7 @@ def decided(decision: dict) -> str:
 def builder_filed(task: Task) -> list[str]:
     """The items a small change's builder filed: each file the branch adds to the backlog folder,
     other than those `file` wrote for a review, which the review's own line names."""
-    folder = backlog_of(task)
-    base = git(task.worktree, "merge-base", "HEAD", task.onto)
-    reviews = {defect["item"] for read in task.kept().get("reads", []) for defect in outside_of(read) if defect.get("item")}
-    rows = [row.split("\t", 1) for row in git(task.worktree, "diff", "--name-status", "--no-renames", "--diff-filter=A", base, "HEAD").splitlines()]
-    return [path for _, path in rows if path.startswith(folder + "/") and path not in reviews]
+    return [item["item"] for item in branch_items(task)]
 
 
 def small_text(task: Task, notes: str, state: dict) -> str:

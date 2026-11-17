@@ -6,8 +6,8 @@ change, the reviews before this one, your inputs, and `attempt`, the number N th
 and your two files carry. `SKILL_DIR` is the directory above this file's.
 
 You get the owner's words, the stories at the top of the plan, the range of commits, the rule
-files that cover the changed files, the project's topics, and the folder of the project's review
-tool. You do not get
+files that cover the changed files, the project's topics, the items the branch adds to the
+backlog, and the folder of the project's review tool. You do not get
 the builder's reasoning: do not read `report.md`, `decisions.jsonl` or the builder's messages. A
 review that knows why the builder thought it was right finds less.
 
@@ -79,7 +79,11 @@ review that knows why the builder thought it was right finds less.
    that shows it: what happens, with the input. The record's `outside` names the same defects
    in the same words; Lem files each one in the backlog. A defect that an earlier round of this
    task named (the `reads` of `read.json` hold them) and that you see again keeps that round's
-   `where`, `title` and `what` word for word, so that it finds the item already filed.
+   `where`, `title` and `what` word for word, so that it finds the item already filed. A defect
+   that an item this branch adds to the backlog already names (`filed` in your inputs: each such
+   item with its `where` and its title, filed by the task's builder or its polish pass) is filed
+   already: it is no finding and no line under "Outside this change". Read the item when you are
+   not sure it is the same defect; one of another place or another run is a defect of its own.
 6. **Who answered.** A source of the round that died (a usage limit, a model at capacity) is
    named with what stopped it; the round still counts, and you do not run it again for that.
    When no source answered, say so and stop: Lem starts the review once more.

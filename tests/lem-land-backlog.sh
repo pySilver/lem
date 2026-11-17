@@ -184,6 +184,32 @@ else
 fi
 project --repo "$BLG" state owner-says-no dropped "the test is over" >/dev/null
 
+# A defect whose place an item of the branch already names, one its builder or the polish pass filed before the
+# review, is that item: the review is told of the items, `file` writes nothing for it and says what matched, and the
+# pull request names the item once. A defect of another place gets an item of its own.
+blg_task builder-filed
+tree=$(project --repo "$BLG" worktree-dir builder-filed)
+own=docs/backlog/the-parser-fails-on-an-empty-input.md
+printf '%s\n' '---' 'worth: later' 'where: src/json.py:parse' 'added: 2026-11-17' '---' '# The parser fails on an empty input' '' 'parse("") raises IndexError, on the base commit too.' > "$tree/$own"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): what the builder saw outside the change"
+checked_in "$BLG" builder-filed
+told=$(land --repo "$BLG" read builder-filed | field '[(i["item"], i["where"], i["title"]) for i in d["inputs"]["filed"]]')
+land --repo "$BLG" read builder-filed --record "$(record 1 "$a_read, $(outside "$A" "$B")")" >/dev/null
+before_file=$(git -C "$tree" rev-parse HEAD)
+filing=$(land --repo "$BLG" file builder-filed | field '([f["item"] for f in d["filed"]], [(n["item"], n["where"]) for n in d["named"]])')
+land --repo "$BLG" gate builder-filed >/dev/null
+green=$(land --repo "$BLG" propose builder-filed --title "fix: builder-filed" --notes "$NOTES" | field 'd["green"]')
+text=$BLG/.git/lem/tasks/builder-filed/pr.md
+if [ "$told" = "[('$own', 'src/json.py:parse', 'The parser fails on an empty input')]" ] \
+  && [ "$filing" = "(['docs/backlog/a-quoted-comma-splits-the-field.md'], [('$own', 'src/json.py:parse')])" ] \
+  && [ ! -e "$tree/docs/backlog/empty-input-crashes-the-parser.md" ] && [ "$(git -C "$tree" rev-list --count "$before_file..HEAD")" = 1 ] && [ "$green" = True ] \
+  && grep -qF "it saw 2 defects outside the change, filed as \`$own\`, \`docs/backlog/a-quoted-comma-splits-the-field.md\`" "$text"; then
+  pass "a defect whose place an item of the branch names is that item: the review is told of the branch's items, file writes nothing for it and names the match, and a defect of another place gets its own item"
+else
+  fail "a defect the branch filed already: $told / $filing / $green / $(grep 'the review, round' "$text" 2>/dev/null)"
+fi
+project --repo "$BLG" state builder-filed dropped "the test is over" >/dev/null
+
 # The items `file` commits hold no code and no test, so they ask for no gate again: the request is
 # proposed and lands on the gate's result. An item written by hand after the gate is a commit like
 # any other, and asks for the gate. Last in this block: the landed item is on the base from here on.
