@@ -259,11 +259,15 @@ MAX_TASKS = 4
 # How many minutes a choice of the build waits for the owner before the recommended action is
 # taken. The owner's own number: "if there is decision taken in 15 min" (2026-11-16).
 DECISION_WAIT = 15
+# How many seconds the watch of the open pull requests (`land.py watch`) waits between two looks at
+# the forge. A guess (2026-11-17), not a measurement: a merge shows on the board within a minute,
+# and one call of the forge a minute stays far under its limits.
+WATCH_SECONDS = 60
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
     "branch": ("base", "land", "history", "propose", "protected"),
     "gate": ("commands", "ignores", "setup", "bar"),
-    "flow": ("topics", "max_tasks", "decision_wait"),
+    "flow": ("topics", "max_tasks", "decision_wait", "watch_seconds"),
     "seats": ("reviewer", "planner"),
     "tools": tuple(TOOLS),
     "corrections": ("collect",),
@@ -336,6 +340,9 @@ max_tasks = {max_tasks}
 # How many minutes a choice of the build waits for the owner before the lead takes the recommended
 # option, and the pull request is not green for it. The owner's own number (2026-11-16).
 decision_wait = {decision_wait}
+# How many seconds Lem's watch of the open pull requests waits between two looks at the forge, for
+# a merge or a close the owner made there. A guess, not a measurement.
+watch_seconds = {watch_seconds}
 
 [seats.reviewer]
 # The agent in the reviewer's pane: "claude" or "codex". Lem's builders build; this one talks
@@ -525,7 +532,10 @@ def flow_of(raw: dict, name: Path) -> dict:
     decision_wait = flow.get("decision_wait", DECISION_WAIT)
     if isinstance(decision_wait, bool) or not isinstance(decision_wait, int) or decision_wait < 1:
         raise SettingsError(f"{name}: flow.decision_wait = {decision_wait!r} must be a whole number of minutes, 1 or more")
-    return {"topics": strings(flow.get("topics", []), "flow.topics"), "max_tasks": max_tasks, "decision_wait": decision_wait}
+    watch_seconds = flow.get("watch_seconds", WATCH_SECONDS)
+    if isinstance(watch_seconds, bool) or not isinstance(watch_seconds, int) or watch_seconds < 1:
+        raise SettingsError(f"{name}: flow.watch_seconds = {watch_seconds!r} must be a whole number of seconds, 1 or more")
+    return {"topics": strings(flow.get("topics", []), "flow.topics"), "max_tasks": max_tasks, "decision_wait": decision_wait, "watch_seconds": watch_seconds}
 
 
 def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
@@ -788,7 +798,7 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
         lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
     agent = f'agent = "{reviewer}"' if reviewer else '# agent = "codex"'
-    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, **TOOLS), encoding="utf-8")
+    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, watch_seconds=WATCH_SECONDS, **TOOLS), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
     # too, for a repository whose ignore file is older than it)
     ignore = file.parent / ".gitignore"

@@ -599,7 +599,7 @@ else
   fail "max_tasks default"
 fi
 settings '[branch]' 'base = "master"' '[flow]' 'topics = ["a price a customer pays", "data that cannot be rebuilt"]'
-if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], sorted(d["flow"]))')" = "(['a price a customer pays', 'data that cannot be rebuilt'], ['decision_wait', 'max_tasks', 'topics'])" ] \
+if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], sorted(d["flow"]))')" = "(['a price a customer pays', 'data that cannot be rebuilt'], ['decision_wait', 'max_tasks', 'topics', 'watch_seconds'])" ] \
   && ! grep -q '^careful' "$NEW/.lem/project.toml" && grep -q '^topics = \[\]$' "$NEW/.lem/project.toml"; then
   pass "a project names what must never go wrong as sentences in the owner's words, and init writes no list of paths beside them"
 else
@@ -738,6 +738,20 @@ for bad in 0 true '"four"' 2.5; do
   if [ "$(status_of project --repo "$OLD" show)" != 1 ]; then accepted="$accepted $bad"; fi
 done
 if [ -z "$accepted" ]; then pass "a limit that is not a whole number of 1 or more is refused"; else fail "max_tasks accepted:$accepted"; fi
+# The watch of the open pull requests looks once a minute unless the settings say otherwise, and init writes the line.
+accepted=""
+for bad in 0 true '"60"' 2.5; do
+  settings '[flow]' "watch_seconds = $bad"
+  if [ "$(status_of project --repo "$OLD" show)" != 1 ]; then accepted="$accepted $bad"; fi
+done
+settings '[flow]' 'watch_seconds = 1'
+short=$(project --repo "$OLD" show | field 'd["flow"]["watch_seconds"]')
+settings '[branch]' 'base = "master"'
+if [ -z "$accepted" ] && [ "$short" = 1 ] && [ "$(project --repo "$OLD" show | field 'd["flow"]["watch_seconds"]')" = 60 ] && grep -q '^watch_seconds = 60$' "$NEW/.lem/project.toml"; then
+  pass "the watch's interval is flow.watch_seconds, 60 unless the settings say otherwise, which init writes; a value that is not a whole number of 1 or more is refused"
+else
+  fail "flow.watch_seconds accepted:$accepted short:$short"
+fi
 settings '[branch]' 'base = "master"'
 
 # The type of a request, and a task that ends with a report and nothing to merge: `answered`.
