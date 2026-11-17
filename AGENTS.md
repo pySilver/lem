@@ -761,7 +761,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   large plan, which only its defender reads. The parts of `new.md` that only one path reads are
   files beside it: `interview.md` (the interview and the acceptance criteria), `investigate.md`
   (a bug and a question), `start.md` (the start of a lead, `/lem build` and the queue),
-  `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner).
+  `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner); and the
+  polish pass, step 3 of `land.md`, is `polish.md`, which only a full change reads.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `lem_state.py` (the one place that names a repository's state folder,
   `.lem/state/` of the main checkout, and moves the `.git/lem/` of an older Lem there once; every

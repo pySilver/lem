@@ -68,6 +68,8 @@ of its own, and Lem reads it only on that path:
 - `start.md`: the start of a lead or a builder, `/lem build`, and the queue.
 - `stopped.md`: what Lem does when a lead stops.
 - `choice.md`: a choice that waits for the owner.
+- `polish.md`: the polish pass of a full change, step 3 of `land.md`. A small change has no polish
+  pass, so Lem does not read this file for it.
 
 `skills/lem/harness/README.md` is the contract between the stages and an agent. A stage names a
 capability, for example `spawn-builder` or `ask-owner`. `skills/lem/harness/claude-code.md` says
