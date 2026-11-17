@@ -65,6 +65,39 @@ lands first. Proof: one real small change and one real full change in the scratc
 Proof: `tests/lem-command.sh` and `tests/lem-machine.sh`; a search of every text for a name that
 is gone.
 
+### 1b. Fewer settings
+
+The owner doubts that every section of the settings should stay. Today the settings page lists
+40 keys (the maintaining session's count of `docs/settings.md`). After this task it lists 25, and
+a new project writes two of them by hand: the test command and what must never go wrong.
+
+| Section | Today | After | What goes, and where the value lives then |
+| --- | --- | --- | --- |
+| `[paths]` | 10 | 2 | Only `plans` and `plan_file` stay. Lem's own files have one place: `.lem/profile.md`, `.lem/personas`, `.lem/lessons.md`, `.lem/worktrees`. The rules for the code are the harness's folder, `.claude/rules`. The review tool's folder is `.revmux`. The backlog is `docs/backlog`, as the cookbook's recipe has it. The rulings are `docs/rulings`. |
+| `[checks]` | 5 | 3 | `commands`, `setup` and `alone` stay. `ignores` and `bar` go. |
+| `[flow]` | 4 | 3 | `watch_seconds` goes: the watch looks each 60 seconds. |
+| `[tools]` | 2 | 0 | The whole table goes: Lem asks with its page and opens a text with webrev. |
+| `[naps]` | 3 | 1 | Only `on` stays. A nap's folder is kept 30 days, and 6 hours pass between two naps. |
+| `[branch]`, `[seats]`, `[corrections]`, `[tracker]` | 16 | 16 | No change. |
+
+- **The rules for the code are not Lem's.** Claude Code loads `.claude/rules` by itself. Lem only
+  names the matching rule files to the agents that load nothing by themselves: Codex, and the
+  agents of the review tool. `/lem init` writes no style guide, and the catalog of published
+  style guides leaves.
+- **`[checks]` stays, because "green" must be a fact.** A linter and a type checker are a git
+  hook's job, and the page says so. A test suite is not: a hook must be fast. Lem's script runs
+  the test command itself, so "green" is what a script saw, not what an agent says.
+- **Three words that sound alike get one line each on the settings page.** Rules: how code is
+  written here (`.claude/rules`). Lessons: how the agents work here (`.lem/lessons.md`).
+  Rulings: what the owner decided about the product (`docs/rulings`).
+- A settings file that still has a key that is gone is refused once, with every line to delete,
+  as the tables of an older Lem are today. A task that is open keeps reading its own copy.
+- `/lem init` no longer offers to link a folder that another tool keeps. A project that has its
+  personas or its profile in another place moves them into `.lem/`.
+
+Proof: `tests/lem-settings.sh`; `docs/settings.md` one to one with `lem project show` and the
+template; the scratch repository's own settings file goes through the refusal.
+
 ### 1a. Tests that are useful and fast
 
 The owner: "Please make all kind test actually useful and not painfully slow."
@@ -166,7 +199,8 @@ the owner types to switch the mode.
 
 ## Order
 
-0, then 1, then 1a, so that every later builder has the fast tests. Then 2 and 3 as one chain,
+0, then 1, then 1b, then 1a, so that every later builder has the fast tests and the fast tests
+are not written for settings that go. Then 2 and 3 as one chain,
 because they change the same files. Then 4, 5, 6. One builder at a time in a file set. A builder
 runs only the test blocks it touches. The maintaining session runs the full suite once before
 each move of `main`.
@@ -184,7 +218,7 @@ the report, and with the correction queue off for that computer):
 3. The same kind of change with "go alone" said after the interview. The two pages.
 4. One night.
 
-`main` moves after 0, 1 and 1a, and again after the rest.
+`main` moves after 0, 1, 1b and 1a, and again after the rest.
 
 ## Not in this plan
 
