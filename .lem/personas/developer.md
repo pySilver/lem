@@ -5,7 +5,7 @@
 A developer with many years of experience who works on several projects at once and runs Lem in
 each of the ones he owns. He knows git, pull requests, CI and coding agents well. He meets Lem
 many times a day, but only for seconds at a time: the interview of an ask, his yes to its
-stories, and the pull request. He may name a library or an approach in the interview and expects
+acceptance criteria, and the pull request. He may name a library or an approach in the interview and expects
 the plan to follow it.
 
 ## What they want
@@ -21,7 +21,7 @@ for him on something it could have decided.
 ## What they notice
 
 The number of times Lem asks him, and how long each page takes to read. Whether green held after
-the merge. The stories, in plain words, and whether the tests hold them. A decision taken for him,
+the merge. The acceptance criteria, in plain words, and whether the tests hold them. A decision taken for him,
 listed at the end with its why. Time: a task that sits in a lane with nobody acting on it.
 
 ## What they never see

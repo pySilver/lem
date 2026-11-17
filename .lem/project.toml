@@ -34,7 +34,7 @@ commands = ["bash tests/all.sh"]
 # only, the result stands; any other file means the gate runs again. A `*` crosses directories.
 ignores = []
 # What a fresh worktree of this project needs before its tests can start: install the packages,
-# copy an environment file. The check that each story's tests fail on the base commit runs in a
+# copy an environment file. The check that each criterion's tests fail on the base commit runs in a
 # worktree of its own and runs these there first. Leave it empty when the tests start as they are.
 setup = []
 
@@ -45,19 +45,18 @@ setup = []
 # takes the careful flow: its plan is talked through with the reviewer before any code, the
 # landing gives it the project's full review set, and a person merges it. This table is read from
 # the main checkout, so a branch cannot lift what guards it.
-# The sentences from "The landing lets through" on stand for the paths this project listed as
-# careful before the list went (2026-11-17), each written by the maintaining session for what
-# its files guard: land.py, stories.py, decisions.py, project.py, the correction hook with
+# The sentences from "The landing lets through" on are the maintaining session's, each for what
+# some files guard: land.py, criteria.py, decisions.py, project.py, the correction hook with
 # corrections.py and jev.py, the plugin's manifest, and the builder's agent file.
 topics = [
-  "A pull request says green when it should not: a check failed, a review found a must-fix, a story changed, or the bar went lower.",
+  "A pull request says green when it should not: a check failed, a review found a must-fix, an acceptance criterion changed, or the bar went lower.",
   "Lem changes a developer's repository without his word: a push, a merge, a removed worktree or branch, a protected branch touched.",
   "A developer's typed messages leave the machine without his yes: the correction hook sends them to the Jev model through OpenRouter.",
-  "The setup changes a developer's home over something that was there: the links in ~/.claude, the hook in settings.json.",
-  "A task's record is lost or wrong: its state, its decisions and its approved stories, which nothing rebuilds and the pull request reads.",
+  "Lem writes over something of the developer's: a file in his home or his repository that was there, his settings, his own command or skill of the same name.",
+  "A task's record is lost or wrong: its state, its decisions and its approved criteria, which nothing rebuilds and the pull request reads.",
   "A change bends a ruling of the owner: a ruling in AGENTS.md is reopened only by asking him.",
   "The landing lets through a change that should not land: one the checks or the review did not pass, one a person should merge, or one aimed at a protected branch.",
-  "A story's test is taken as its proof when it is not: it passes on the base commit too, or it holds another story than its own.",
+  "A criterion's test is taken as its proof when it is not: it passes on the base commit too, or it holds another criterion than its own.",
   "A decision that is the owner's is taken without him, or one taken for him is missing from the pull request he reads.",
   "Lem reads a project's settings wrong: what must never go wrong, the gate or who lands taken from a file the branch changed, or a default nobody chose taken for the owner's word.",
   "The correction hook breaks the developer's session: it fails, hangs or slows every message he types.",

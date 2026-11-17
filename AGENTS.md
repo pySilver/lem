@@ -30,24 +30,21 @@ works, and this file says how to change it.
 - **A change is measured by what it costs a developer on a small task** (the touches it asks of
   him, the waits, the agents it starts) as well as by what it guards.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously".
-- **A session with nobody at the terminal reads `docs/free-hour.md` first.** A setup links Lem
-  from this clone's main checkout, so an edit there is live at once in every repository that
-  uses Lem. Such a session works in a worktree, on a branch, and never pushes.
-- **A change to what a landing reads after its merge keeps reading the form before it, for one
-  landing.** A setup links Lem from this clone's main checkout, so a landing of a change to Lem
-  changes the files of the landing that runs. `land.py land` and `merged` put the change on the
-  base branch and fast-forward the checkout that holds it (`follow`, or the merge itself where
-  there is no remote), and from that moment every step runs the new files: the same run writes
-  the state `landed` through the new `project.py state`; then `land.py clean`, a second run of a
-  cut-off `land` or `merged`, the tracker's "land", `project.py tasks` and `may-start` for the
-  queue, and the stage text Lem reads again (`stages/land.md` step 8, the end of
-  `stages/new.md`). Each of them reads what the code before the change wrote. So a change to the
-  keys of `landing.json` that those steps read (`branch`, `merged`, `merged_head` for `clean`;
-  `intent`, `pr`, `proposed`, `gated`, `base`, `tree` and `landed_before` for a second run of
-  `land`), to the state names, to the form of a state block that `project.py tasks` reads, or to
-  the arguments of `project.py state`, `tasks` and `may-land`, reads the old form too. A later
-  change may drop it, once no landing that wrote the old form is open. Nothing runs a landing
-  from a copy of the scripts, and no step is added for it.
+- **A session with nobody at the terminal reads `docs/free-hour.md` first.** It works in a
+  worktree of this clone, on a branch, and never pushes: `main` of this repository is what every
+  project's next update of the plugin installs.
+- **A change to what an open task's record holds keeps reading the form before it.** A
+  repository updates the plugin while its tasks are open, so the new scripts meet records the
+  scripts before them wrote: a task that is `open` with its pull request, one whose landing was
+  cut off, one that waits in the queue. `land.py merged`, `land` and `clean`, `project.py tasks`
+  and `may-start`, the board, and the stage text Lem reads again each read what the code before
+  the change wrote. So a change to the keys of `landing.json`, to the state names, to the form of
+  a state block, an event or an approval, to a file's name in a task directory, or to the
+  arguments of `project.py state`, `tasks` and `may-land`, reads the old form too, with a comment
+  at the place that says so and a test that takes a task of the older scripts to its end
+  (`tests/lem-old-tasks.sh`, `tests/lem-state.sh`). A settings key that changes is refused with
+  the line to write in its place, never read silently. A later change may drop an old form, once
+  no task that wrote it is open.
 
 ## The owner's rulings
 

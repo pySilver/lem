@@ -28,5 +28,5 @@ filed under their area. A force push or a rewritten branch.
 
 ## What they never see
 
-The owner's interview, the stories' approval page, the board, the plan talk. They see what git and
+The owner's interview, the criteria's approval page, the board, the plan talk. They see what git and
 the forge show.
