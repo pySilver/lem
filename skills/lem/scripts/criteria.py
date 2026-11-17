@@ -34,12 +34,14 @@ the criteria are:
 
        - no test: the change is one paragraph of the README.
 
-    criteria.py approve SLUG --file FILE [--small]
+    criteria.py approve SLUG --file FILE
+    criteria.py approve SLUG --small [--file FILE]
     criteria.py approve SLUG --read
                               keep the criteria the owner approved, as FILE has them: the same
                               section with no test lines, which the lead adds. --small: Lem
                               approves a small change's one criterion in the owner's name, as the task's
-                              first contract only, and the owner may still say "full". --read: the lead of a full change from a complete request freezes
+                              first contract only, and the owner may still say "full"; its file is
+                              `criteria.md` in the task directory unless --file names another. --read: the lead of a full change from a complete request freezes
                               the plan's criteria, which a read found nobody confused by, as the
                               task's first contract; refused when the task has any approval, and
                               after one read in which nobody answered, until a second such read
@@ -742,6 +744,11 @@ def main() -> None:
                 # refused before the plan is read, and again under the lock: a task with a contract keeps it
                 first_contract(task, "read")
                 result = cmd_approve(task, task.criteria()["plan"], "read", plan=True)
+            elif args.file is None and args.small:
+                # Lem's approval in his name has one place, the task directory's criteria.md, and no
+                # --file: so the owner's own approval, the one form with --file, can take an `ask`
+                # rule of the agent's permissions that this one does not match
+                result = cmd_approve(task, str(task.small_file), "lem")
             elif args.file is None:
                 raise CriteriaError("approve needs --file: the criteria the owner approved, in the form `criteria.py --help` shows, with no test lines")
             else:

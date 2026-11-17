@@ -202,6 +202,11 @@
           <li>Bash(COMMAND), one for each command of checks.commands, checks.alone and checks.setup</li>
         </ul>
       </li>
+      <li>a merge and an approval always show you a prompt: 4 rules in <code>permissions.ask</code> catch the commands that carry your word <span class="dim">(<code>permissions.ask</code>)</span>
+        <ul class="dim mono">
+          <li>Bash(lem land land *owner*), Bash(lem decisions answer *), Bash(lem decisions log *--by owner*), Bash(lem criteria approve * --file *)</li>
+        </ul>
+      </li>
       <!-- with git hooks that run at a commit: the checks have only the test commands -->
       <li>the checks run the tests only: the git hooks run the rest at each commit of a builder <span class="dim">(<code>HOOK FILE</code>)</span>: <code>change checks add COMMAND</code></li>
       <li>ignore what the checks leave: <code>__pycache__/</code> in <code>.gitignore</code> <span class="dim">(the checks' run of <code>COMMAND</code> left it)</span>: <code>change ignore none</code></li>

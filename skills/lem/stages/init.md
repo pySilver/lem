@@ -180,8 +180,22 @@ one out or change another key of the file:
   as written: `Bash(COMMAND)`. A command joined with `&&` needs each of its parts allowed, so
   write one rule for each part.
 
+Then these rules to `permissions.ask`, each one that is not there yet. They are the commands that
+carry the owner's word, and nothing in the scripts tells his word from an agent's; an `ask` rule
+prompts him even where `Bash(lem *)` allows the command ("a matching ask rule prompts even when a
+more specific allow rule also matches the same call", Claude Code's permissions page, read on
+2026-11-17):
+
+- `Bash(lem land land *owner*)`, the merge on his word; `land --by agent` stays allowed;
+- `Bash(lem decisions answer *)` and `Bash(lem decisions log *--by owner*)`, his answer and his
+  word that nobody asked for;
+- `Bash(lem criteria approve * --file *)`, his approval of the criteria. Lem's approval of a small
+  change in his name (`--small`) and the lead's freeze of a read (`--read`) take no `--file`, so
+  they do not prompt.
+
 The rules are the owner's to change on the page like any assumption ("change allow none" takes
-them all out again). They allow no push, no merge and no command of the project beyond its checks.
+them all out again, the `ask` rules with them). They allow no push, no merge and no command of the
+project beyond its checks, and a merge or an approval always shows the owner a prompt.
 
 Run each command of the checks once, at the root, for the last line the hand-over page shows, and each
 `checks.alone` command through `python3 SKILL_DIR/scripts/project.py alone -- COMMAND`. Then look at

@@ -331,9 +331,11 @@ flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` h
    --help` shows, with `Size: small, because ...` and the one criterion, and approve it in his name:
 
    ```bash
-   python3 SKILL_DIR/scripts/criteria.py approve SLUG --file TASK_DIRECTORY/criteria.md --small
+   python3 SKILL_DIR/scripts/criteria.py approve SLUG --small
    ```
 
+   With `--small` the file is that `criteria.md`, and the command takes no `--file`: the owner's own
+   approval is the one form with `--file`, which his permissions ask him about (`stages/init.md`).
    It stays there and is never committed: a small change has no plan, and its builder adds the
    test line under the criterion in that file. An approval in his name is only ever a task's first
    contract: the script refuses it once any approval exists. The personas do not read it; the pull

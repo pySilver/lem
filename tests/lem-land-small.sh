@@ -16,12 +16,12 @@ s() { land --repo "$SMALL" "$@"; }
 criteria() { "$PY" -B "$CRITERIA" --repo "$SMALL" "$@"; }
 dir_of() { echo "$SMALL/.lem/state/tasks/$1"; }
 # small_in SLUG SIZE: a task whose one criterion is in its task directory, approved as Lem does it for SIZE
-# (`small` in his name, `full` by him), with a worktree on its branch and no plan on it
+# (`small` in his name, with no --file, `full` by him), with a worktree on its branch and no plan on it
 small_in() {
   local tree
   project --repo "$SMALL" task-dir "$1" --ask "The date column of the report must never wrap." >/dev/null
   printf '%s\n' '## Acceptance criteria' '' "Size: $2, because the ask is one sentence." '' '1. The date column of the report never wraps: 2026-11-17 stays on one line.' > "$(dir_of "$1")/criteria.md"
-  if [ "$2" = small ]; then criteria approve "$1" --file "$(dir_of "$1")/criteria.md" --small >/dev/null; else criteria approve "$1" --file "$(dir_of "$1")/criteria.md" >/dev/null; fi
+  if [ "$2" = small ]; then criteria approve "$1" --small >/dev/null; else criteria approve "$1" --file "$(dir_of "$1")/criteria.md" >/dev/null; fi
   tree=$(project --repo "$SMALL" worktree-dir "$1")
   git -C "$SMALL" worktree add -q "$tree" -b "fix/$1" main
   echo "$tree"
@@ -36,6 +36,18 @@ built() {
 reds() { grep -c "\"event\": \"task.red\", \"task\": \"$1\"" "$SMALL/.lem/state/events.jsonl"; }
 SHORT=$WORK/short-notes.md
 printf '%s\n' 'none' > "$SHORT"
+
+# Lem's approval in the owner's name takes no --file: its file is the task directory's criteria.md, so the owner's own
+# approval is the one form with --file, which the allow list that onboarding proposes asks the owner about.
+small_in by-name small >/dev/null
+by_name=$(criteria approved by-name | field '(d["approved"]["by"], d["approved"]["size"], d["approved"]["criteria"][0]["n"])' 2>&1 || true)
+no_file=$(criteria approve by-name 2>&1 || true)
+if [ "$by_name" = "('lem', 'small', 1)" ] && grep -qF "approve needs --file" <<<"$no_file"; then
+  pass "Lem approves a small change's criterion in the owner's name with --small and no --file, from the task directory's criteria.md; the owner's approval still needs its --file"
+else
+  fail "the approval in the owner's name: $by_name / $no_file"
+fi
+project --repo "$SMALL" state by-name dropped "the test is over" >/dev/null
 
 # A small change goes from Lem's approval in his name to the merge with no plan file on the branch.
 tree=$(small_in date-nowrap small)
