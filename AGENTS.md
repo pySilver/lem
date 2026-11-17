@@ -389,6 +389,21 @@ replaces an earlier ruling, this is the ruling now.
   page, and Lem scans no ticket for an attack. A request he wrote himself runs with no touch, as
   he confirmed on 2026-11-16.
 
+- **After a merge, Lem repairs only a pull request with a conflict**: the session had built a
+  rebase and a new check of every open pull request after each merge. Asked for options on a
+  page (2026-11-17), he asked "What is the typical strategry for teams that work via GitHub?";
+  the answer was that most teams update a branch only on a conflict, and that a pull request bot
+  does the same by default (Renovate's `rebaseWhen: auto`), and to "Lem repairs only a pull
+  request with a conflict" he wrote "Great!". Every other open pull request waits for `/lem
+  land` or for his click on the forge.
+- **One way to merge in each project, and no prompt**: of a prompt at each merge by his word he
+  wrote "private, solo dev projects - thats unwanted friction. Maybe it has to be a rule? If one
+  files a PR to Github, then the only way to merge would be via api call to gh? If one does not
+  use github PRs, the merge directly?", and to the answer that `branch.propose` decides exactly
+  that he wrote "Great!". With `"pull-request"` every merge goes through the forge, whose own
+  rules guard it; with `"merge"` Lem lands directly. The permissions that onboarding proposes
+  hold no `ask` rule.
+
 The session's answers to his notes that asked a question, each open to him: `[gate]` is renamed
 `[checks]` ("I dont understand this section in settings at all"); a lead that finds at its plan
 that its task needs the result of another open task queues it behind that task ("Will Lem put
