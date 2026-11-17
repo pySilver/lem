@@ -336,6 +336,22 @@ if [ "$cut_code" = 1 ] && grep -qF "corrections.jsonl:$((lines + 1)) does not re
 else
   fail "a queue that does not read: $cut_line / $latin_line / $latin_settings"
 fi
+# Lem's client of Jev: a timeout that is no number and a spec that is not UTF-8 are named, and nothing is sent.
+JEVPY=$PWD/skills/lem/scripts/jev.py
+printf '%s\n' '{"state": "s", "questions": {"q": {"instructions": "i", "choices": {"a": "x", "b": "y"}}}}' > "$WORK/jev-spec.json"
+printf '{"state": "caf\351", "questions": {}}' > "$WORK/jev-latin.json"
+soon_timeout=$(env -u OPENROUTER_API_KEY JEV_TIMEOUT=soon "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" 2>&1 || true)
+soon_code=$(env -u OPENROUTER_API_KEY JEV_TIMEOUT=soon "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" >/dev/null 2>&1; echo $?)
+latin_file=$(env -u OPENROUTER_API_KEY "$PY" -B "$JEVPY" check "$WORK/jev-latin.json" 2>&1 || true)
+latin_stdin=$(env -u OPENROUTER_API_KEY "$PY" -B "$JEVPY" check - < "$WORK/jev-latin.json" 2>&1 || true)
+checked=$(env -u OPENROUTER_API_KEY JEV_TIMEOUT=30 "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" | field 'd["ok"]' 2>&1 || true)
+if [ "$soon_code" = 1 ] && grep -qF "jev: JEV_TIMEOUT='soon' is not a number of seconds above 0" <<<"$soon_timeout" \
+  && grep -qF "jev: the spec ($WORK/jev-latin.json) is not UTF-8 text" <<<"$latin_file" && grep -qF "jev: the spec (stdin) is not UTF-8 text" <<<"$latin_stdin" \
+  && [ "$checked" = True ] && ! grep -q Traceback <<<"$soon_timeout$latin_file$latin_stdin"; then
+  pass "jev names a JEV_TIMEOUT that is no number and a spec that is not UTF-8, from a file or from its input, and exits 1"
+else
+  fail "jev's refusals: $soon_timeout / $latin_file / $latin_stdin / $checked"
+fi
 settings_file=$CQ/.lem/project.toml
 sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settings_file.bak"
 if [ "$(status_of project --repo "$CQ" show)" = 1 ]; then pass "a collect value that is not true or false is refused"; else fail "collect type"; fi

@@ -38,7 +38,8 @@ from pathlib import Path
 URL = "https://openrouter.ai/api/alpha/decisions"
 DEFAULT_MODEL = os.environ.get("JEV_MODEL", "typesafe/jev-1.14")
 LIMIT_BYTES = 32_000
-TIMEOUT_SECONDS = float(os.environ.get("JEV_TIMEOUT", "120"))
+# the default of JEV_TIMEOUT; main() reads the variable, so a wrong value is a message, not a traceback at import
+TIMEOUT_SECONDS = 120.0
 # macOS keeps its root certificates here. A python.org interpreter that never ran its
 # "Install Certificates" step has none of its own and fails every TLS handshake without this.
 MACOS_CA_BUNDLE = Path("/etc/ssl/cert.pem")
@@ -48,8 +49,25 @@ class SpecError(Exception):
     pass
 
 
+def timeout_seconds() -> float:
+    """JEV_TIMEOUT, the seconds one request may take: a number above 0, or TIMEOUT_SECONDS when it is unset."""
+    raw = os.environ.get("JEV_TIMEOUT")
+    if raw is None:
+        return TIMEOUT_SECONDS
+    try:
+        seconds = float(raw)
+    except ValueError:
+        seconds = 0.0
+    if not 0 < seconds < float("inf"):
+        raise SpecError(f"JEV_TIMEOUT={raw!r} is not a number of seconds above 0; set it as JEV_TIMEOUT=120, or unset it for {TIMEOUT_SECONDS:g}")
+    return seconds
+
+
 def load(arg: str) -> dict:
-    text = sys.stdin.read() if arg == "-" else Path(arg).read_text(encoding="utf-8")
+    try:
+        text = (sys.stdin.buffer.read() if arg == "-" else Path(arg).read_bytes()).decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise SpecError(f"the spec ({'stdin' if arg == '-' else arg}) is not UTF-8 text (byte {error.start} does not read)") from error
     try:
         spec = json.loads(text)
     except ValueError as error:
@@ -90,7 +108,7 @@ def build(spec: dict) -> dict:
     return body
 
 
-def ask(body: dict) -> dict:
+def ask(body: dict, timeout: float) -> dict:
     key = os.environ.get("OPENROUTER_API_KEY", "")
     if not key:
         raise RuntimeError("OPENROUTER_API_KEY is not set in this process's environment")
@@ -100,7 +118,7 @@ def ask(body: dict) -> dict:
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS, context=context) as response:
+        with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
             reply = json.load(response)
     except urllib.error.HTTPError as error:
         raise RuntimeError(f"OpenRouter answered HTTP {error.code}: {error.read().decode(errors='replace')[:400]}") from error
@@ -126,11 +144,12 @@ def main(argv: list[str]) -> int:
         print(__doc__.strip().splitlines()[2], file=sys.stderr)
         return 1
     try:
+        timeout = timeout_seconds()
         body = build(load(args[0]))
         if check:
             print(json.dumps({"ok": True, "model": body["model"], "questions": sorted(body["questions"])}))
             return 0
-        print(json.dumps(ask(body)))
+        print(json.dumps(ask(body, timeout)))
         return 0
     except OverflowError as error:
         print(f"jev: {error}", file=sys.stderr)
