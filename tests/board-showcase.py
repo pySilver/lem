@@ -364,9 +364,15 @@ def main() -> None:
         env = {k: v for k, v in os.environ.items() if not k.startswith(("AGTERM_", "AGT_"))}
         for extra in (["--demo"], ["--task", "order-date-on-invoice"]):
             subprocess.run([*board, *extra], check=True, capture_output=True, env=env)
-        # the backlog was read at NOW too, where the page's clock stands
-        feed = shop.dir / "backlog.js"
-        feed.write_text(re.sub(r'"read": "[^"]*"', f'"read": "{NOW.strftime("%Y-%m-%dT%H:%M:%SZ")}"', feed.read_text(), count=1))
+        # the backlog and the naps were read at NOW too, where the page's clock stands
+        for name in ("backlog.js", "naps.js"):
+            feed = shop.dir / name
+            if feed.is_file():
+                feed.write_text(re.sub(r'"read": "[^"]*"', f'"read": "{NOW.strftime("%Y-%m-%dT%H:%M:%SZ")}"', feed.read_text(), count=1))
+        # a session of Lem watches the open pull request, as it does while one is open: its last look
+        # was 40 seconds before NOW, in the form `land.py watch` writes
+        looked = (NOW - timedelta(seconds=40)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        (shop.dir / "watch.js").write_text("lemWatch(" + json.dumps({"checked": looked, "every": 60, "looks": 4, "open": [], "ended": None}) + ");\n")
         profile = work / "chrome"
         if "--measure" in sys.argv:
             print(json.dumps({f"{w}x900": measure(binary, profile, shop.dir, "board", w, 900) for w in (900, 1400, 1800)}
