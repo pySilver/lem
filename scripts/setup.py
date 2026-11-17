@@ -62,7 +62,11 @@ one whose `UserPromptSubmit` hooks do not have the shape Claude Code reads, one 
 holds this hook in another form (added by hand, another clone's, or this command with another
 timeout), and with `--project` a settings file that is a link out of the repository.
 `--corrections off` takes out the entry this script writes and no other, and removes a settings
-file that then holds nothing. Every other run only reports whether the hook is registered.
+file that then holds nothing, and the `.claude` folder when that file was all it held. Every
+other run only reports whether the hook is registered.
+
+`--home` and `--bin` name folders from where the script starts: a relative one is made whole
+first, so that the machine check, which runs in the repository of `--project`, gets the same home.
 """
 
 from __future__ import annotations
@@ -194,6 +198,12 @@ def corrections(file: Path, turn: str) -> dict:
                 Path(os.path.realpath(file)).unlink()
             except OSError as error:
                 raise Refused(f"{file} holds nothing but the hook and could not be removed ({error}); remove the file yourself") from error
+            # and a `.claude` folder that held only that file is what `on` made: it goes too, never a folder behind a link
+            if file.parent.name == ".claude" and not file.parent.is_symlink():
+                try:
+                    file.parent.rmdir()
+                except OSError:
+                    pass
     row = {"file": str(file), "state": "another form" if others else "not registered", "changed": bool(ours), "file_removed": bool(ours) and not data}
     if others:
         row["other_forms"] = others
@@ -300,6 +310,10 @@ def main() -> None:
     parser.add_argument("--home", type=Path, default=Path.home(), help="the home directory to link into (default: yours)")
     parser.add_argument("--bin", type=Path, help="the directory on PATH for the lem-ask and jev commands (default: HOME/.local/bin)")
     args = parser.parse_args()
+    # Whole paths: the machine check runs in the repository of --project, where a relative home
+    # would name a folder inside that repository, and a tool there writes into its home.
+    args.home = args.home.absolute()
+    args.bin = args.bin.absolute() if args.bin else None
     if args.check and args.remove:
         sys.exit("setup.py: --check and --remove do not go together")
     if args.corrections and (args.check or args.remove):

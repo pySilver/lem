@@ -585,13 +585,13 @@ else
 fi
 out=$(hooksetup --corrections off)
 if [ "$(field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"], d["corrections_hook"]["file_removed"])' <<<"$out")" = "('not registered', True, True)" ] && [ ! -e "$HOOKHOME/.claude/settings.json" ] \
-  && [ "$(hooksetup --corrections off | field 'd["corrections_hook"]["changed"]')" = "False" ]; then
-  pass "setup --corrections off takes the hook out, removes a settings file that then holds nothing, and a second run changes nothing"
+  && [ ! -e "$HOOKHOME/.claude" ] && [ "$(hooksetup --corrections off | field 'd["corrections_hook"]["changed"]')" = "False" ]; then
+  pass "setup --corrections off takes the hook out, removes a settings file that then holds nothing and the .claude folder that then holds nothing, and a second run changes nothing"
 else
-  fail "setup --corrections off: $out"
+  fail "setup --corrections off: $out / $(ls -A "$HOOKHOME")"
 fi
 # The owner's own settings stay: another key, another hook of the same event, a group that was empty before.
-mkdir -p "$WORK/dotfiles"
+mkdir -p "$WORK/dotfiles" "$HOOKHOME/.claude"
 printf '%s\n' '{"model": "opus", "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "true"}]}], "UserPromptSubmit": [{"hooks": []}, {"matcher": "", "hooks": [{"type": "command", "command": "echo mine"}]}]}}' > "$WORK/dotfiles/settings.json"
 ln -s "$WORK/dotfiles/settings.json" "$HOOKHOME/.claude/settings.json"
 before=$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])))' "$HOOKHOME/.claude/settings.json")
@@ -662,12 +662,13 @@ fi
 # For one repository the hook goes into that checkout's own settings, and the home is not touched.
 out=$(trial --corrections on)
 if [ "$(field '(d["corrections_hook"]["state"], d["corrections_hook"]["file"], d["corrections_hook"]["git_sees_the_file"], d["scope"])' <<<"$out")" = "('registered', '$TRIAL/.claude/settings.local.json', True, '$TRIAL')" ] \
-  && [ ! -e "$WORK/trialhome/.claude" ] && trial --corrections off >/dev/null && [ ! -e "$TRIAL/.claude/settings.local.json" ] && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
-  pass "setup --project --corrections on writes the hook into that checkout's local settings, says that git sees the file, and off removes it"
+  && [ ! -e "$WORK/trialhome/.claude" ] && trial --corrections off >/dev/null && [ ! -e "$TRIAL/.claude/settings.local.json" ] && [ ! -e "$TRIAL/.claude" ] \
+  && [ -z "$(git -C "$TRIAL" status --porcelain)" ]; then
+  pass "setup --project --corrections on writes the hook into that checkout's local settings, says that git sees the file, and off removes it with the .claude folder it made"
 else
   fail "setup --project --corrections: $out / $(git -C "$TRIAL" status --porcelain)"
 fi
-rmdir "$TRIAL/.claude" && ln -s "$WORK/shared-claude" "$TRIAL/.claude"
+ln -s "$WORK/shared-claude" "$TRIAL/.claude"
 err=$(trial --corrections on 2>&1 >/dev/null || true)
 code=$(status_of trial --corrections on)
 rm "$TRIAL/.claude" && mkdir "$TRIAL/.claude"
@@ -683,6 +684,20 @@ else
   fail "setup --project --corrections through a link out of the repository: $code / $err"
 fi
 rm -r "$TRIAL/.claude"
+# A relative --home names a folder from where the setup starts: the machine check, which runs in the repository of
+# --project, gets it whole, so that a tool that writes into its home (`codex --version` makes ~/.codex/tmp) writes
+# there and never into the repository.
+cp -R "$BIN" "$WORK/homebin"
+# shellcheck disable=SC2016  # the fake tool's own $HOME, read when it runs
+printf '%s\n' '#!/bin/sh' '/bin/mkdir -p "$HOME/.codex/tmp"' 'echo "codex-cli 9.9"' > "$WORK/homebin/codex" && chmod +x "$WORK/homebin/codex"
+machine_home "$WORK/relhome"
+relative=$(cd "$WORK" && env -i PATH="$WORK/homebin" HOME="$WORK/elsewhere-home" "$PY" -B "$SETUP" --home relhome --project "$TRIAL" --check 2>&1 || true)
+if [ ! -e "$TRIAL/relhome" ] && [ -d "$WORK/relhome/.codex/tmp" ] && [ -z "$(git -C "$TRIAL" status --porcelain --untracked-files=all)" ]; then
+  pass "a relative --home is resolved from where the setup starts: the machine check's tools write into that home and nothing into the repository"
+else
+  fail "setup with a relative --home: $(git -C "$TRIAL" status --porcelain --untracked-files=all) / $relative"
+fi
+rm -rf "$WORK/homebin" "$WORK/relhome"
 # A machine with Claude Code and no git still gets its rows, not a traceback.
 mkdir -p "$WORK/nogit" && cp "$BIN/claude" "$WORK/nogit/claude"
 out=$(cd "$WORK" && env -i PATH="$WORK/nogit" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" 2>&1 || true)
