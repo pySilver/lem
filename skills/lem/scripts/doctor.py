@@ -44,19 +44,28 @@ def python() -> dict:
 COOKBOOK = "https://github.com/umputun/agterm/tree/master/cookbook/"
 
 
-def checkouts() -> set[str]:
-    """This checkout's root and its main checkout's, by their real paths; empty outside a repository or with no git."""
-    found = set()
+def checkout_roots() -> list[Path]:
+    """This checkout's root, then its main checkout's when this is a task's worktree, by their real
+    paths; empty outside a repository or with no git. A trial's links (`setup.py --project`) are in
+    the main checkout and git does not track them, so a worktree has no copy of them."""
+    found: list[Path] = []
     for args in (["--show-toplevel"], ["--path-format=absolute", "--git-common-dir"]):
         try:
             ran = subprocess.run(["git", "rev-parse", *args], capture_output=True, text=True, check=False)
         except OSError:
-            return set()
+            return []
         if ran.returncode == 0 and ran.stdout.strip():
             path = Path(ran.stdout.strip())
             # the common directory is `.git` of the main checkout
-            found.add(os.path.realpath(path.parent if args[-1] == "--git-common-dir" and path.name == ".git" else path))
+            real = Path(os.path.realpath(path.parent if args[-1] == "--git-common-dir" and path.name == ".git" else path))
+            if real not in found:
+                found.append(real)
     return found
+
+
+def checkouts() -> set[str]:
+    """This checkout's root and its main checkout's, by their real paths; empty outside a repository or with no git."""
+    return {str(root) for root in checkout_roots()}
 
 
 def plugin_named(name: str) -> str | None:
@@ -64,7 +73,7 @@ def plugin_named(name: str) -> str | None:
     name that this repository gets: one installed for the user, or for this repository. Else None."""
     # That file is the agent's own and may read any way: whatever is not the shape known here is no answer.
     try:
-        listed = json.loads((Path.home() / PLUGINS / "installed_plugins.json").read_text())
+        listed = json.loads((Path.home() / PLUGINS / "installed_plugins.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     plugins = listed.get("plugins") if isinstance(listed, dict) else None
@@ -87,12 +96,7 @@ def plugin_named(name: str) -> str | None:
 
 def skill(name: str, used_for: str, without_it: str, need: str = "required", guide: str | None = None) -> dict:
     """A skill an agent loads by name: in a skills folder of the home or of this repository, or installed as a plugin of Claude Code."""
-    try:
-        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
-        inside = [Path(top.stdout.strip())] if top.returncode == 0 and top.stdout.strip() else []
-    except OSError:
-        inside = []
-    places = [base / home / name for base in [*inside, Path.home()] for home in SKILL_HOMES]
+    places = [base / home / name for base in [*checkout_roots(), Path.home()] for home in SKILL_HOMES]
     found = next((str(place) for place in places if (place / "SKILL.md").is_file()), None)
     if found is None:
         # Claude Code's own list of installed plugins; where that file is absent or reads another
@@ -126,7 +130,7 @@ def tool(name: str, need: str, used_for: str, without_it: str, binary: str, prob
 def agterm() -> list[dict]:
     row = tool(
         "agterm", "required", "the reviewer's pane, pages for the owner, and the companion of a plan talk",
-        "no reviewer pane and no mailbox: the pair flow cannot run", "agtermctl", ["--version"],
+        "`/lem` stops at once: Lem runs inside agterm only", "agtermctl", ["--version"],
     )
     row["in_session"] = bool(os.environ.get("AGTERM_SESSION_ID"))
     homes = [str(Path.home() / home / "agterm") for home in SKILL_HOMES
@@ -143,14 +147,9 @@ def claude() -> list[dict]:
     row = tool("claude", "required", "the agent that runs `/lem`, and a reviewer of the same family",
                "nothing runs `/lem`: Claude Code is the one agent Lem has a harness file for", "claude", ["--version"])
     # The user's definition, or the one of the repository this runs in: Claude Code takes the
-    # project's before the user's, and a trial links Lem into one repository only.
-    try:
-        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False)
-        inside = top.stdout.strip() if top.returncode == 0 else ""
-    except OSError:
-        # no git on this machine: its own row says so, and this one looks in the home only
-        inside = ""
-    places = [Path(inside) / BUILDER] if inside else []
+    # project's before the user's, and a trial links Lem into one repository only, its main
+    # checkout. With no git on this machine its own row says so, and this one looks in the home only.
+    places = [root / BUILDER for root in checkout_roots()]
     file = next((place for place in [*places, Path.home() / BUILDER] if place.is_file()), None)
     # Lem installed as a plugin brings the agent under the plugin's name, with no file in an agents folder.
     plugin = plugin_named("lem")
@@ -159,7 +158,8 @@ def claude() -> list[dict]:
         "detail": str(file) if file else f"lem:lem-builder, from {plugin}" if plugin else None,
         "used_for": "the builder Lem starts for each task of a plan in Claude Code",
         "without_it": f"Claude Code has no agent of that name and Lem starts no builder; link agents/lem-builder.md of Lem's clone to ~/{BUILDER} "
-                      "with Lem's setup, or install Lem as a plugin. A plugin loaded for one session by a flag is not seen by this check",
+                      "with Lem's setup (`scripts/setup.py`), or into this repository alone with `scripts/setup.py --project DIR`, "
+                      "or install Lem as a plugin. A plugin loaded for one session by a flag is not seen by this check",
     }
     # Only a machine with Claude Code needs Claude Code's form of the builder.
     return [row, builder] if row["found"] else [row]
@@ -221,8 +221,13 @@ def cronn() -> dict:
     )
     env_file = Path(os.environ.get("CRONN_CONFIG_DIR") or Path.home() / ".config" / "cronn") / "cronn.env"
     port = None
-    if env_file.is_file():
-        for line in env_file.read_text().splitlines():
+    try:
+        # only the port is read; a line in another encoding is no port
+        lines = env_file.read_text(encoding="utf-8", errors="replace").splitlines() if env_file.is_file() else []
+    except OSError:
+        lines = []
+    if lines:
+        for line in lines:
             if line.startswith("CRONN_PORT="):
                 port = line.split("=", 1)[1].strip().strip("\"'")
     row["running"] = False
@@ -257,8 +262,8 @@ def main() -> None:
         tool("plannotator", "optional", "another way to mark up a plan or a draft, for an owner who names it in tools.annotate",
              "nothing is lost: webrev is the default of tools.annotate", "plannotator", ["--version"]),
         tool("jev", "optional", "backlog items sorted by who can act next, and the framing check of a question's card",
-             "the backlog is listed without verdicts and a card gets no framing check; Lem's setup links its own copy for a home. "
-             "The correction queue does not need this row: its hook runs Lem's copy by its path", "jev"),
+             "nothing is lost: the backlog's sorting, a card's framing check and the correction hook run Lem's own copy, "
+             "skills/lem/scripts/jev.py, by its path; Lem's setup links that copy as `jev` for a home", "jev"),
         {
             "name": "OpenRouter key", "need": "optional", "found": bool(os.environ.get("OPENROUTER_API_KEY")), "detail": None,
             "used_for": "the Jev decision model, which the correction queue, the backlog's sorting and a card's framing check ask",
@@ -267,7 +272,7 @@ def main() -> None:
         },
         *codex(),
         *claude(),
-        tool("mailbox-chat", "required", "messages between the coordinator and the reviewer in the other pane",
+        tool("mailbox-chat", "required", "messages between Lem and a task's lead, and between the defender and the reviewer of a plan talk",
              "the two agents cannot talk; install agterm's two-agent mailbox chat recipe from its cookbook, which puts mailbox-chat.py on PATH", "mailbox-chat.py"),
         skill("mailbox-chat", "how an agent sends to the other pane and reads what comes back",
               "an agent has the command and no instructions for it; the same recipe of agterm's cookbook installs the skill"),

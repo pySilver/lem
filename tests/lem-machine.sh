@@ -79,6 +79,17 @@ if [ "$(status_of doctor)" = 1 ] && [ "$(row 'lem-builder agent' found <<<"$out"
 else
   fail "doctor with claude, no builder: $out"
 fi
+# A trial's builder is linked into the main checkout and git does not track it: the check run in a task's worktree finds it there.
+commit "$MACHINE" start && git -C "$MACHINE" worktree add -q "$WORK/machine-wt" -b a-task
+mkdir -p "$MACHINE/.claude/agents" && ln -s "$PWD/agents/lem-builder.md" "$MACHINE/.claude/agents/lem-builder.md"
+in_tree=$( (cd "$WORK/machine-wt" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | row 'lem-builder agent' detail)
+rm -r "$MACHINE/.claude" && git -C "$MACHINE" worktree remove --force "$WORK/machine-wt"
+if [ "$in_tree" = "$MACHINE/.claude/agents/lem-builder.md" ] && grep -qF "scripts/setup.py --project DIR" <<<"$(row 'lem-builder agent' without_it <<<"$out")" \
+  && [ "$(row agterm without_it <<<"$out")" = "\`/lem\` stops at once: Lem runs inside agterm only" ] && ! grep -q coordinator <<<"$(row mailbox-chat used_for <<<"$out")"; then
+  pass "in a task's worktree the check finds the builder a trial linked into the main checkout, and the builder's row names the trial's setup"
+else
+  fail "the builder of a trial from a worktree: $in_tree / $(row 'lem-builder agent' without_it <<<"$out")"
+fi
 # Lem installed as a plugin brings the builder too, for the user or for the one repository it was installed in.
 printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$WORK/another-repository\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 elsewhere=$(doctor | field 'next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"]' || true)
