@@ -260,6 +260,36 @@ else
 fi
 for slug in race-one race-two race-three; do project --repo "$GRD" state "$slug" dropped "the test is over" >/dev/null; done
 
+# A gate command runs in a process group of its own: what it leaves running ends with it, and a gate that is
+# stopped ends the command it runs, with what that command started, and keeps no result.
+small_task_in "$GRD" gate-group g.txt g
+# gone_soon PID: wait three seconds at most for the process to end; the sleeps here last a minute, so only an end the gate made counts
+gone_soon() { local tries=15; while kill -0 "$1" 2>/dev/null && [ "$tries" -gt 0 ]; do sleep 0.2; tries=$((tries - 1)); done; }
+g start gate-group >/dev/null && g base gate-group >/dev/null
+grd_settings "\"sleep 61 > /dev/null 2>&1 & echo \$! > $WORK/left.pid\""
+g gate gate-group >/dev/null 2>&1 || true
+left=$(cat "$WORK/left.pid")
+gone_soon "$left"
+left_state=$(kill -0 "$left" 2>/dev/null && echo alive || echo ended)
+grd_settings "\"sleep 62 > /dev/null 2>&1 & echo \$! > $WORK/held.pid; wait\""
+"$PY" -B "$LAND" --repo "$GRD" gate gate-group > "$WORK/stopped.out" 2>&1 &
+gate_pid=$!
+soon test -s "$WORK/held.pid"
+kill -TERM "$gate_pid" 2>/dev/null || true
+wait "$gate_pid" || true
+held=$(cat "$WORK/held.pid")
+gone_soon "$held"
+held_state=$(kill -0 "$held" 2>/dev/null && echo alive || echo ended)
+grd_settings '"true"'
+if [ "$left_state" = ended ] && [ "$held_state" = ended ] && grep -qF "the gate was stopped, and the command that ran is ended" "$WORK/stopped.out" \
+  && [ "$(kept_in "$GRD" gate-group gated)" = None ]; then
+  pass "a gate command's process group ends with it, so a process it left behind is ended; a gate that is stopped ends the command that runs and what it started, says so, and keeps no result"
+else
+  fail "a gate command's processes: left $left_state, held $held_state / $(cat "$WORK/stopped.out")"
+fi
+kill "$left" "$held" 2>/dev/null || true
+project --repo "$GRD" state gate-group dropped "the test is over" >/dev/null
+
 # A branch with nothing of its own: base says so with the step that ends the task, and clean deletes the branch
 # of a dropped task that holds no commit of its own, while one with commits stays.
 project --repo "$GRD" task-dir empty-branch --ask "Nothing." >/dev/null

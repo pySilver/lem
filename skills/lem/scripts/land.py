@@ -57,7 +57,10 @@ TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `gate.bar` p
 file that is not a document. A changed file of another language gets no such check, and the
 result says which (`not_covered`). The size of the change is counted, for the reviewer.
 
-A gate with no command to run is refused, since a gate that ran nothing shows nothing; so is one
+Each gate command runs in a process group of its own, with no standard input; the group is ended
+when the command ends, so a server or a `sleep` it left behind does not outlive it, and when the
+gate is stopped (a signal, an interrupt) the command that runs is ended with its group and the
+gate exits 1 with no result kept. A gate with no command to run is refused, since a gate that ran nothing shows nothing; so is one
 whose command changed a tracked file or made a commit on the branch, since its result is then
 about another tree. A file its commands wrote that git neither tracks nor ignores (Python's bytecode
 in a repository with no rule for it) is the run's output, and nothing of it lands: the gate notes
@@ -284,10 +287,13 @@ import fcntl
 import fnmatch
 import hashlib
 import json
+import os
 import re
 import shutil
+import signal
 import subprocess
 import tomllib
+import time
 from datetime import date
 from pathlib import Path
 
@@ -1077,14 +1083,32 @@ def cmd_gate(task: Task) -> dict:
     # the start of the checks: the board draws them from here to their last result
     script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands)}")
     results = []
-    for number, command in enumerate(commands, start=1):
-        output = logs / f"{number:02d}.log"
-        with output.open("w", encoding="utf-8") as handle:
-            code = subprocess.run(command, shell=True, cwd=task.worktree, stdout=handle, stderr=subprocess.STDOUT, check=False).returncode
-        lines = [line for line in output.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
-        last = lines[-1].strip() if lines else ""
-        results.append({"command": command, "exit": code, "last": last, "output": str(output)})
-        script("project.py", task.worktree, "log", task.slug, "gate", f"command={command}", f"exit:={code}", f"last={last}", f"tip={tip[:9]}")
+    running: list[subprocess.Popen] = []
+
+    def stopped(*_: object) -> None:
+        raise KeyboardInterrupt
+
+    before = signal.signal(signal.SIGTERM, stopped)
+    try:
+        for number, command in enumerate(commands, start=1):
+            output = logs / f"{number:02d}.log"
+            with output.open("w", encoding="utf-8") as handle:
+                # a group of its own, as stories.py runs a test: what the command starts ends with it
+                proc = subprocess.Popen(command, shell=True, cwd=task.worktree, stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
+                running.append(proc)
+                code = proc.wait()
+                end_group(running)
+            lines = [line for line in output.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
+            last = lines[-1].strip() if lines else ""
+            results.append({"command": command, "exit": code, "last": last, "output": str(output)})
+            script("project.py", task.worktree, "log", task.slug, "gate", f"command={command}", f"exit:={code}", f"last={last}", f"tip={tip[:9]}")
+    except KeyboardInterrupt:
+        end_group(running)
+        task.keep(gated=None, tree=None)
+        raise LandError(f"the gate was stopped, and the command that ran is ended with what it started; `land.py gate {task.slug}` runs it again") from None
+    finally:
+        end_group(running)
+        signal.signal(signal.SIGTERM, before)
     green = all(result["exit"] == 0 for result in results)
     # A file the commands wrote that git neither tracks nor ignores (Python's bytecode in a
     # repository with no rule for it) is the run's output, and nothing of it lands: it goes, with
@@ -1148,6 +1172,33 @@ def cmd_gate(task: Task) -> dict:
         )
     task.keep(gated=tip, tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"), checks={"commands": results, "stories": result["stories"], "bar": result["bar"], "size": result["size"]})
     return result
+
+
+def end_group(running: list[subprocess.Popen]) -> None:
+    """End each command's process group and everything still in it: a term first, then a kill for
+    what is left a second later."""
+    for proc in running:
+        for sign in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(proc.pid, sign)
+            except (ProcessLookupError, PermissionError):
+                break
+            for _ in range(20):
+                try:
+                    os.killpg(proc.pid, 0)
+                except (ProcessLookupError, PermissionError):
+                    break
+                if proc.poll() is None:
+                    try:
+                        proc.wait(timeout=0.05)
+                    except subprocess.TimeoutExpired:
+                        pass
+                else:
+                    time.sleep(0.05)
+            else:
+                continue
+            break
+    running.clear()
 
 
 def untracked(task: Task) -> list[str]:
