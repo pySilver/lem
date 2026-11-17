@@ -57,7 +57,12 @@ one finds what the run before it finished.
    back for it: `project.py may-start` refuses a lead for a task in `landing` or `open`, and a
    change the owner asks for after the build is a new ask (`stages/new.md`, "When a choice waits
    for the owner", step 3).
-2. **`base`.** The base branch is brought in by a rebase. A conflict is where two tasks on the
+2. **`base`.** The base branch is brought in by a rebase. Before it, with a GitHub remote, the
+   step asks origin for the task's own branch: a commit there that Lem did not push (a teammate's
+   suggestion on the pull request) stops it, with each such commit named. Nothing is pushed over
+   it: the step names the `git pull --rebase` that brings it into the task's worktree, and after
+   it, run the landing again from `start`; the commit is then part of the change, with its checks
+   and a read. `propose` asks the same before its push. A conflict is where two tasks on the
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the
    base", and as its paths the branch to rebase onto and those files. Then run the step again.

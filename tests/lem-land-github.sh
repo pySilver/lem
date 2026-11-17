@@ -39,7 +39,8 @@ if args[:2] == ["auth", "status"]:
     if os.environ.get("GH_SIGNED_OUT"):
         sys.exit("You are not logged into any GitHub hosts. To log in, run: gh auth login")
 elif args[:2] == ["pr", "list"] and "--head" in args:
-    out = json.dumps([{"number": int(n), "url": pr["url"]} for n, pr in state["prs"].items() if pr["head"] == opt("--head") and pr["state"] == "OPEN"])
+    out = json.dumps([{"number": int(n), "url": pr["url"], "headRefOid": rev("refs/heads/" + pr["head"]), "author": {"login": pr.get("author", "lem-owner")}}
+                      for n, pr in state["prs"].items() if pr["head"] == opt("--head") and pr["state"] == "OPEN"])
 elif args[:2] == ["pr", "list"]:
     # the base branch's pull requests, the newest first, as many as --limit says
     found = [shown(n, pr) for n, pr in sorted(state["prs"].items(), key=lambda item: -int(item[0]))
@@ -211,6 +212,72 @@ if [ "$(field '(d["closed"], d["state"], d["pull_request"]["number"])' <<<"$clos
   pass "a pull request closed on the forge with no merge ends its task: merged writes it dropped with the line that says so, and clean removes the worktree and keeps the branch with its commits"
 else
   fail "a closed pull request: $closed_merged / $closed_clean / $(status_in "$GHS" pr-guards)"
+fi
+# A teammate's commit on a task's branch (a "Commit suggestion" on the forge) is never removed by a push of Lem's, also
+# after a plain fetch moved the remote-tracking branch to it: base refuses before its rebase and names the commit. Once
+# the worktree holds it, it is part of the change, with the checks and a read, and the push keeps it.
+small_task_in "$GHS" pr-mate t.txt thirteen
+gh_checked pr-mate && gh_land read pr-mate --record "$(clean 1)" >/dev/null
+pr_mate=$(gh_land propose pr-mate --title "fix: thirteen" --notes "$NOTES" | field 'd["pull_request"]["number"]')
+mate=$WORK/gh-mate
+git clone -q "$GHO" "$mate" && git -C "$mate" config user.name "Ania Mate" && git -C "$mate" config user.email ania@example.com
+git -C "$mate" switch -q fix/pr-mate && echo suggestion > "$mate/t2.txt" && git -C "$mate" add -A && git -C "$mate" commit -q -m "fix: a suggestion"
+git -C "$mate" push -q origin fix/pr-mate
+suggestion=$(git -C "$mate" rev-parse HEAD)
+# an editor's fetch in the background: the remote-tracking branch now names the teammate's commit
+git -C "$GHS" fetch -q origin
+gh_land start pr-mate >/dev/null
+kept_out=$(gh_land base pr-mate 2>&1 || true)
+on_forge=$(git -C "$GHO" rev-parse refs/heads/fix/pr-mate)
+tree=$GHS/.lem/worktrees/pr-mate
+git -C "$tree" pull -q --rebase origin fix/pr-mate
+gh_land base pr-mate >/dev/null && gh_land checks pr-mate >/dev/null
+due_mate=$(gh_land read pr-mate | field '(d["due"], d["why"])')
+gh_land read pr-mate --record "$(clean 2)" >/dev/null
+again=$(gh_land propose pr-mate --title "fix: thirteen" --notes "$NOTES" 2>&1 || true)
+if grep -qF "${suggestion:0:9} Ania Mate \"fix: a suggestion\"" <<<"$kept_out" && grep -qF "git -C $tree pull --rebase origin fix/pr-mate" <<<"$kept_out" \
+  && [ "$on_forge" = "$suggestion" ] && [ "$due_mate" = "('review', 'nothing asks for more than one read: the diff and what each profile is for decide')" ] \
+  && [ "$(field 'd["pull_request"]["number"]' <<<"$again" 2>&1)" = "$pr_mate" ] \
+  && [ "$(git -C "$GHO" rev-parse refs/heads/fix/pr-mate)" = "$(git -C "$tree" rev-parse HEAD)" ] && git -C "$GHO" merge-base --is-ancestor "$suggestion" refs/heads/fix/pr-mate; then
+  pass "a teammate's commit on the task's branch stops base before its rebase, also after a plain fetch, naming its commit, author and subject and the pull that takes it in; then it is part of the change: the checks and a read come again, and the push keeps it"
+else
+  fail "a teammate's commit on the task's branch: $kept_out / $on_forge / $due_mate / $again"
+fi
+# A first push onto a branch of the same name that a teammate pushed meanwhile is refused, and so is the adoption of an
+# open pull request whose head is no commit Lem pushed for this task: the teammate's commits and pull request stay his.
+small_task_in "$GHS" pr-first u.txt fourteen
+gh_checked pr-first && gh_land read pr-first --record "$(clean 1)" >/dev/null
+git -C "$mate" fetch -q origin && git -C "$mate" switch -q -c fix/pr-first origin/main
+echo his > "$mate/u2.txt" && git -C "$mate" add -A && git -C "$mate" commit -q -m "feat: his own work" && git -C "$mate" push -q origin fix/pr-first
+his=$(git -C "$mate" rev-parse HEAD)
+first=$(gh_land propose pr-first --title "fix: fourteen" --notes "$NOTES" 2>&1 || true)
+first_forge=$(git -C "$GHO" rev-parse refs/heads/fix/pr-first)
+project --repo "$GHS" state pr-first dropped "the test is over" >/dev/null
+small_task_in "$GHS" pr-foreign v.txt fifteen
+gh_checked pr-foreign && gh_land read pr-foreign --record "$(clean 1)" >/dev/null
+# his pull request from a branch of the same name, which holds nothing beyond main yet
+git -C "$GHO" update-ref refs/heads/fix/pr-foreign "$(git -C "$GHO" rev-parse refs/heads/main)"
+gh_set "d['prs']['99'] = {'url': 'https://github.com/acme/shop/pull/99', 'head': 'fix/pr-foreign', 'base': 'main', 'title': 'his title', 'body': 'his text', 'state': 'OPEN', 'merge': None, 'author': 'ania'}"
+foreign=$(gh_land propose pr-foreign --title "fix: fifteen" --notes "$NOTES" 2>&1 || true)
+if grep -qF "${his:0:9} Ania Mate \"feat: his own work\"" <<<"$first" && [ "$first_forge" = "$his" ] && [ "$(gh_state 'sum(p["head"] == "fix/pr-first" for p in d["prs"].values())')" = 0 ] \
+  && grep -qF "pull request #99 by ania is open on fix/pr-foreign" <<<"$foreign" && [ "$(gh_state '(d["prs"]["99"]["title"], d["prs"]["99"]["body"])')" = "('his title', 'his text')" ] \
+  && [ "$(git -C "$GHO" rev-parse refs/heads/fix/pr-foreign)" = "$(git -C "$GHO" rev-parse refs/heads/main)" ] && [ "$(status_in "$GHS" pr-foreign)" = landing ]; then
+  pass "a first push onto a branch a teammate pushed meanwhile is refused with his commit named, and an open pull request on the task's branch name whose head Lem did not push is not taken: its number and author are named, and its title, text and branch stay his"
+else
+  fail "a teammate's branch and pull request of the same name: $first / $first_forge / $foreign"
+fi
+project --repo "$GHS" state pr-foreign dropped "the test is over" >/dev/null
+# A slug whose branch is on the remote and is no task's here is refused at the task's opening, with its semantic type or the name given.
+git -C "$GHO" update-ref refs/heads/feat/taken-name "$(git -C "$GHO" rev-parse refs/heads/main)"
+git -C "$GHO" update-ref refs/heads/ania/mbz-12-export "$(git -C "$GHO" rev-parse refs/heads/main)"
+taken=$(project --repo "$GHS" task-dir taken-name --ask "Take the name." 2>&1 || true)
+named_branch=$(project --repo "$GHS" task-dir mbz-export --ask "The export." --branch ania/mbz-12-export 2>&1 || true)
+free=$(project --repo "$GHS" task-dir free-name --ask "A free name." --branch feat/free-name 2>&1 || true)
+if grep -qF "origin has the branch feat/taken-name" <<<"$taken" && grep -qF "add a word to the slug" <<<"$taken" && [ ! -e "$GHS/.lem/state/tasks/taken-name" ] \
+  && grep -qF "origin has the branch ania/mbz-12-export" <<<"$named_branch" && [ ! -e "$GHS/.lem/state/tasks/mbz-export" ] && [ "$free" = "$GHS/.lem/state/tasks/free-name" ]; then
+  pass "a task is not opened under a slug whose branch origin has already, by its semantic type or by the name --branch gives, and one whose branch is free opens"
+else
+  fail "a slug on the remote: $taken / $named_branch / $free"
 fi
 
 # A GitHub remote, and a developer who wants no pull requests (`branch.propose = "merge"`): the task

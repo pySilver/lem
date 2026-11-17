@@ -20,9 +20,11 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
     project.py reviewer default     the project's own reviewer again
     project.py rules [FILE ...] [--range BASE..TIP]
                                     the style guide files that cover these files, as JSON
-    project.py task-dir SLUG [--ask TEXT] [--ticket ID]
+    project.py task-dir SLUG [--ask TEXT] [--ticket ID] [--branch NAME]
                                     make and print one task's state directory; keep the owner's words
-                                    and the ticket the ask came from
+                                    and the ticket the ask came from. At a task's opening it refuses
+                                    a slug whose branch origin has already: TYPE/SLUG for every
+                                    type, or the NAME --branch gives
     project.py ticket-step SLUG started|commented|landed|dropped|answered
                                     write down what Lem did to the task's ticket, once
     project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
@@ -1321,7 +1323,29 @@ def state_root(root: Path) -> Path:
     return STATE_ROOTS[root]
 
 
-def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> None:
+def taken_on_remote(root: Path, slug: str, branch: str | None) -> None:
+    """Refuse a new task whose branch origin has already: a teammate's work, or a task of another
+    machine. The name is the one `--branch` gives, else TYPE/SLUG for every type a task takes. One
+    question to origin; a repository with no remote has nobody to collide with, and an origin that
+    does not answer is said on stderr, since the push of `land.py propose` refuses such a branch too."""
+    if subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"], capture_output=True, text=True, check=False).returncode != 0:
+        return
+    names = [branch] if branch else [f"{kind}/{slug}" for kind in TYPES]
+    asked = subprocess.run(["git", "-C", str(root), "ls-remote", "--heads", "origin", *(f"refs/heads/{name}" for name in names)],
+                           capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL)
+    if asked.returncode != 0:
+        said = [line.strip() for line in (asked.stderr or asked.stdout).splitlines() if line.strip()]
+        print(f"project.py: origin did not answer ({said[-1] if said else 'git ls-remote failed'}), so nothing checked that no branch of {slug!r} is there already", file=sys.stderr)
+        return
+    there = sorted({line.split("\t", 1)[1].removeprefix("refs/heads/") for line in asked.stdout.splitlines() if "\t" in line} & set(names))
+    if there:
+        raise SettingsError(
+            f"origin has the branch {there[0]} already, and no task here holds it: somebody's work, or a task of another machine. "
+            "A new task takes a branch of its own: add a word to the slug" + (", or give another --branch" if branch else ""),
+        )
+
+
+def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, branch: str | None = None) -> None:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     if ask is not None and not ask.strip():
@@ -1346,6 +1370,8 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> 
             # two tickets with one title would give one slug: the first task keeps its ticket
             raise SettingsError(f"the task {slug!r} already holds the ticket {mine}; give the task for {ticket} another slug")
     directory = state_root(root) / "tasks" / slug
+    if (ask is not None or ticket is not None) and not directory.is_dir():
+        taken_on_remote(root, slug, branch)
     (directory / "reports").mkdir(parents=True, exist_ok=True)
     if ask is not None:
         # The owner's words, as given. task.md is a document with headings; the board and the
@@ -2128,6 +2154,7 @@ def main() -> None:
     task_dir.add_argument("slug")
     task_dir.add_argument("--ask", help="the owner's words for this task, as given")
     task_dir.add_argument("--ticket", help="the id of the tracker's ticket the ask came from, e.g. MBZ-12")
+    task_dir.add_argument("--branch", help="the branch the task takes, when it is not TYPE/SLUG (a tracker's name, the project's own scheme)")
     state = commands.add_parser("state")
     state.add_argument("slug")
     state.add_argument("status")
@@ -2162,7 +2189,7 @@ def main() -> None:
             print(json.dumps(older_folders(root), indent=2))
             return
         if args.command == "task-dir":
-            cmd_task_dir(root, args.slug, args.ask, args.ticket)
+            cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch)
             return
         if args.command == "state":
             cmd_state(root, args.slug, args.status, args.lines, args.start_over)

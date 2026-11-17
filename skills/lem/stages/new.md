@@ -70,7 +70,9 @@ a lead is started, and what to do each time a lead stops.
    its automation find the work by that name.
 3. **The task directory.** `project.py task-dir SLUG --ask "the owner's words"` keeps the ask as
    the owner gave it, for the board and the status. For a ticket, add `--ticket ID`, and the ask
-   is the ticket's title; the command refuses a ticket another task holds. Then write `task.md`:
+   is the ticket's title; the command refuses a ticket another task holds. When the branch of step
+   2 is not `<type>/<slug>`, add `--branch BRANCH`. The command refuses a slug whose branch origin
+   has already, a teammate's: take another slug, as it says. Then write `task.md`:
    - the ask, verbatim; for a ticket, its id, its link, its title and its description as written;
    - the type, with its reason (step 1);
    - the outcome in one or two sentences, as the person it is for would see it;

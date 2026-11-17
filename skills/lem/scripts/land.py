@@ -322,8 +322,15 @@ someone else pushed first;
 then the checkout that holds the base branch is fast-forwarded when it is clean, and left alone
 with a note when it is not. With no remote, the base branch itself is fast-forwarded. The base
 branch is never force-pushed and a ref is never moved behind a checkout's back. The task's own
-branch on the forge is the one ref pushed with force, and with a lease: a rebase rewrites it,
-and a commit somebody else pushed there stops the push.
+branch on the forge is the one ref pushed with force, and with a lease that names the commit the
+push may replace: the one Lem pushed last (`pushed` in `landing.json`), or a head of origin's whose
+commits the branch took in (`taken`), or no branch at all for a first push. Origin is asked with
+`ls-remote` before `base` rebases and before `propose` pushes, never through the remote-tracking
+branch, which any plain fetch moves: a commit there that Lem did not push and the branch does not
+hold (a teammate's suggestion) stops the step with each such commit named, and the way on is to
+pull it into the task's worktree, after which it is part of the change, with its checks and a read.
+A pull request on the task's branch name is taken as the task's own only when its head is the
+commit Lem pushed; any other is somebody's, and `propose` refuses with its number and author.
 """
 
 from __future__ import annotations
@@ -616,6 +623,37 @@ class Task:
         if self.remote:
             git(self.main, "fetch", "origin", str(self.base))
 
+    def own_remote(self, branch: str) -> str:
+        """The commit origin's copy of the task's branch is at, which a push of the branch may
+        replace, or "" when origin has no such branch: the value of the push's lease. Refused when
+        that copy holds a commit that neither Lem pushed nor the branch holds, a teammate's: a push
+        would remove it. Origin is asked by `ls-remote`, never by the remote-tracking branch, which
+        any plain fetch moves to the teammate's commit."""
+        ref = f"refs/heads/{branch}"
+        listed = [line.split("\t") for line in run(["git", "-C", str(self.main), "ls-remote", "origin", ref]).stdout.splitlines()]
+        there = next((commit for commit, name in listed if name == ref), None)
+        if there is None:
+            return ""
+        kept = self.kept()
+        # what Lem pushed last, and what the remote held when the branch took its commits in; a
+        # landing an older Lem proposed kept only the commit it proposed
+        known = [commit for commit in (kept.get("pushed") or kept.get("proposed"), kept.get("taken")) if commit]
+        if there in known:
+            return there
+        git(self.main, "fetch", "-q", "origin", f"+{ref}:refs/remotes/origin/{branch}")
+        theirs = run(["git", "-C", str(self.worktree), "log", "--format=%H%x00%an%x00%s", there, "--not", "HEAD", *known, self.onto, "--"]).stdout.splitlines()
+        if not theirs:
+            # every commit of origin's copy is on the branch, the base or a push of Lem's: the branch took them in
+            self.keep(taken=there)
+            return there
+        named = "; ".join(f"{sha[:9]} {author} \"{subject}\"" for sha, author, subject in (line.split("\0", 2) for line in theirs[:10]))
+        more = f", and {len(theirs) - 10} more" if len(theirs) > 10 else ""
+        raise LandError(
+            f"origin's {branch} holds {len(theirs)} commit(s) that Lem did not push and the task's branch does not hold: {named}{more}. "
+            f"A push would remove them. Bring them into the task's worktree with `git -C {self.worktree} pull --rebase origin {branch}`, "
+            f"then run the landing again from `land.py start {self.slug}`: they are part of the change then, with its checks and a read",
+        )
+
 
 def cmd_start(task: Task, after: str | None = None, conflicting: bool = False) -> dict:
     # One start at a time: the check of who holds the line and the write of `landing` are one step
@@ -690,11 +728,16 @@ def start_locked(task: Task, after: str | None = None, conflicting: bool = False
             f"`git -C {task.worktree} switch {branch}` puts it back on it, then this step runs again",
         )
     if task.record["status"] == "ready" or again:
-        # A task that was built further starts over, with new checks and new reads. Its pull request stays its own.
-        pr = task.kept().get("pr")
+        # A task that was built further starts over, with new checks and new reads. Its pull request
+        # stays its own, and so does what Lem knows of its branch on the forge: the commit it pushed
+        # last, and the one whose commits the branch took in (`own_remote`).
+        kept = task.kept()
+        # a landing an older Lem proposed kept only the commit it proposed, which it pushed
+        forge = {key: value for key, value in {**kept, "pushed": kept.get("pushed") or (kept.get("proposed") if kept.get("pr") else None)}.items()
+                 if key in ("pr", "pushed", "taken") and value}
         task.kept_file.unlink(missing_ok=True)
-        if pr:
-            task.keep(pr=pr)
+        if forge:
+            task.keep(**forge)
     if task.record["status"] == "open":
         # An open task brought onto a base that moved: what the pull request's text says of it is
         # kept from here, and a conflict or a resolution of an earlier landing says nothing of this one.
@@ -718,6 +761,10 @@ def cmd_base(task: Task) -> dict:
     task.need_landing()
     task.need_worktree()
     task.fetch()
+    if task.forge == "github":
+        # Before the rebase rewrites the branch: a commit a teammate added to it on the forge is
+        # taken in by hand first, or the push after this rebase would remove it.
+        task.own_remote(git(task.worktree, "branch", "--show-current"))
     onto = git(task.worktree, "rev-parse", task.onto)
     before = git(task.worktree, "rev-parse", "HEAD")
     kept = task.kept()
@@ -2379,17 +2426,34 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     branch = git(task.worktree, "branch", "--show-current")
     pr = kept.get("pr")
     if task.forge == "github":
+        # What origin's copy of the branch holds may be replaced only when it is Lem's push or the
+        # branch holds it: the lease names that commit, or no branch at all for a first push.
+        lease = task.own_remote(branch)
         if not pr:
-            # a run that was cut off after the forge made the pull request wrote none down: the forge knows it
-            there = json.loads(gh(task, "pr", "list", "--head", branch, "--base", str(task.base), "--state", "open", "--json", "number,url").stdout)
-            pr = {"number": there[0]["number"], "url": there[0]["url"]} if there else None
+            # A run that was cut off after the forge made the pull request wrote none down: the
+            # forge knows it. Only a pull request whose head is the commit Lem pushed for this task
+            # is its own; any other on the same branch name is somebody's, and is not taken.
+            there = json.loads(gh(task, "pr", "list", "--head", branch, "--base", str(task.base), "--state", "open", "--json", "number,url,headRefOid,author").stdout)
+            pushed = task.kept().get("pushed")
+            mine = [found for found in there if pushed and found.get("headRefOid") == pushed]
+            others = [found for found in there if found not in mine]
+            if others:
+                other = others[0]
+                raise LandError(
+                    f"pull request #{other['number']} by {(other.get('author') or {}).get('login') or 'someone'} is open on {branch}, and its head is no commit Lem pushed for this task: "
+                    f"it is somebody else's, and Lem does not push over it or rewrite its text. Give the task a branch of its own "
+                    f"(`git -C {task.worktree} branch -m NEW-NAME`), then run this step again",
+                )
+            pr = {"number": mine[0]["number"], "url": mine[0]["url"]} if mine else None
         elif (state_now := viewed(task, pr)["state"]) != "OPEN":
             raise LandError(
                 f"the pull request {pr['url']} is {state_now.lower()}: `land.py merged {task.slug}` "
                 + ("finishes the task" if state_now == "MERGED" else "writes the task dropped, and its branch keeps its commits"),
             )
-        # with lease: after a rebase the remote branch is behind, and nobody else pushes to a task's branch
-        git(task.worktree, "push", "--force-with-lease", "origin", f"HEAD:refs/heads/{branch}")
+        # With the lease of the one commit the push may replace: a commit that came in between stops it.
+        git(task.worktree, "push", f"--force-with-lease=refs/heads/{branch}:{lease}", "origin", f"HEAD:refs/heads/{branch}")
+        # kept before the forge's step, so that a run cut off after it knows the push as its own
+        task.keep(pushed=tip)
         if pr:
             gh(task, "pr", "edit", str(pr["number"]), "--title", title, "--body-file", str(body))
         else:
