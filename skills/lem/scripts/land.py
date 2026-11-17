@@ -504,7 +504,7 @@ class Task:
         except ValueError as error:
             raise LandError(
                 f"{self.kept_file} does not read as JSON ({error}); land.py writes it whole, so something else wrote it. "
-                f"Move it aside, then `project.py state {self.slug} ready \"WHY\"` and `land.py start {self.slug}` start the landing over: "
+                f"Move it aside, then `project.py state {self.slug} ready --start-over \"WHY\"` and `land.py start {self.slug}` start the landing over: "
                 "its checks and its review run again, and `propose` finds a pull request the task has on the forge",
             ) from error
 
@@ -560,7 +560,7 @@ def start_locked(task: Task) -> dict:
         other = task.others_landing[0]
         raise LandError(
             f"{other} is in `landing`: one branch lands at a time, so finish that one first. When it cannot go on (its worktree or its work is gone), "
-            f"`project.py state {other} ready \"WHY\"` gives the line back and its landing starts over, or `project.py state {other} dropped \"WHY\"` ends it",
+            f"`project.py state {other} ready --start-over \"WHY\"` gives the line back and its landing starts over, or `project.py state {other} dropped \"WHY\"` ends it",
         )
     # a task `start` blocked for want of a gate command is taken back as a `ready` one
     again = task.blocked_by_start()

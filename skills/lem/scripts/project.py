@@ -203,6 +203,14 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "drafted", "dropped", "answered")
 # The states a task does not leave: its files stay under its slug, and nothing of it waits.
 ENDED = ("landed", "dropped", "answered")
+# The states of a task that is with its landing: the checks run on it, or it is proposed.
+WITH_LANDING = ("landing", "open")
+# The states only a lead, or the start or the queue of a task, writes. None comes over a task with its
+# landing: there it is a lead that woke late. `ready` does with `--start-over`, which only the way out
+# that land.py names gives: a landing that cannot go on, or whose record is broken, starts over.
+# `held` is not here: Lem writes it over `landing` when the gate finds a small change to be a
+# feature, and the interview of the usual path starts with it (`stages/new.md`, "A small change").
+LEADS_WRITE = ("queued", "building", "planned", "ready", "drafted")
 # The kind of a request, which Lem takes from the ask's words alone (`stages/new.md`, "Open the task").
 # A state line `kind: KIND, because WHY` says it; no code matches an ask's words against them.
 KINDS = ("bug", "feature", "correction", "investigation", "chore", "docs")
@@ -1104,12 +1112,14 @@ def task_worktree(root: Path, settings: dict, slug: str) -> dict:
     return {key: value for key, value in found.items() if value}
 
 
-def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
+def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: bool = False) -> None:
     """Put a new block at the top of the task's state.md, and the same as an event in the log."""
     directory = task_directory(root, slug)
     settings = load(root)
     if status not in STATES:
         raise SettingsError(f"status {status!r} is not one a task has{nearest(status, STATES)}")
+    if start_over and status != "ready":
+        raise SettingsError(f"--start-over gives a landing's line back, and only the state ready does that, not {status}")
     if any(not line.strip() or "\n" in line for line in lines):
         # a blank line ends a block, so one inside a block would hide the lines after it
         raise SettingsError("each LINE of a state block is one line of text, and none is empty")
@@ -1123,6 +1133,11 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
         raise SettingsError(
             f"the task {slug!r} is {now}, and an ended task stays ended: new work for it is a new ask (`/lem new`), "
             f"whose task takes a slug of its own. A reply or a message about {slug} that comes now is a stale wake-up, and nothing is done for it",
+        )
+    if now in WITH_LANDING and status in LEADS_WRITE and not (status == "ready" and start_over):
+        raise SettingsError(
+            f"the task {slug!r} is {now}: it is with its landing, and a reply or a message about {slug} that comes now is a stale wake-up, "
+            f"and no state is written for it; what the landing needs, land.py says itself",
         )
     if status == "answered":
         answered_form(root, directory, slug)
@@ -1405,7 +1420,7 @@ def proposal(directory: Path) -> dict | None:
         return None
     # every task's record is read here, so one that does not read stops `tasks` for all: the message says how to start that landing over
     way_out = (
-        f"land.py writes it whole, so something else wrote it. Move it aside, then `project.py state {directory.name} ready \"WHY\"` "
+        f"land.py writes it whole, so something else wrote it. Move it aside, then `project.py state {directory.name} ready --start-over \"WHY\"` "
         f"and `land.py start {directory.name}` start the landing over: its checks and its review run again"
     )
     try:
@@ -1545,6 +1560,7 @@ def main() -> None:
     state.add_argument("slug")
     state.add_argument("status")
     state.add_argument("lines", nargs="+", metavar="LINE")
+    state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
     commands.add_parser("tasks")
     step = commands.add_parser("ticket-step")
     step.add_argument("slug")
@@ -1573,7 +1589,7 @@ def main() -> None:
             cmd_task_dir(root, args.slug, args.ask, args.ticket)
             return
         if args.command == "state":
-            cmd_state(root, args.slug, args.status, args.lines)
+            cmd_state(root, args.slug, args.status, args.lines, args.start_over)
             return
         if args.command == "tasks":
             print(json.dumps(read_tasks(root), indent=2))

@@ -67,7 +67,7 @@ else
   fail "propose with a forge: $out / $proposed / $(cat "$WORK/gh.json" 2>/dev/null)"
 fi
 # A second proposal updates the same pull request: once from what was kept, once after the record of it was lost.
-project --repo "$GHS" state pr-change ready "the owner asked for more, and it is built" >/dev/null
+project --repo "$GHS" state pr-change ready --start-over "the landing starts over" >/dev/null
 gh_checked pr-change
 again=$(kept_in "$GHS" pr-change pr)/$(kept_in "$GHS" pr-change reads)
 gh_land read pr-change --record "$(clean 1)" >/dev/null && gh_land propose pr-change --title "fix: nine, again" --notes "$NOTES" >/dev/null
@@ -76,7 +76,7 @@ gh_checked pr-change && gh_land propose pr-change --title "fix: nine, a third ti
 if [ "$(gh_state '(len(d["prs"]), d["prs"]["7"]["title"], sum(c[:2] == ["pr", "create"] for c in d["calls"]), sum(c[:2] == ["pr", "edit"] for c in d["calls"]))')" = "(1, 'fix: nine, a third time', 1, 2)" ] \
   && [ "$(kept_in "$GHS" pr-change pr)" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}" ] \
   && [ "$again" = "{'number': 7, 'url': 'https://github.com/acme/shop/pull/7'}/None" ]; then
-  pass "a task that was built further starts its reviews over and keeps its pull request; a second proposal changes the one that is there, also when the record of it was lost: the forge is asked, and no second one is opened"
+  pass "a task whose landing starts over starts its reviews over and keeps its pull request; a second proposal changes the one that is there, also when the record of it was lost: the forge is asked, and no second one is opened"
 else
   fail "a second proposal: $(cat "$WORK/gh.json")"
 fi

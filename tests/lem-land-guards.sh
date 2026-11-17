@@ -78,9 +78,9 @@ line=$(g start waiting 2>&1 || true)
 gone=$(g base stuck 2>&1 || true)
 git -C "$GRD" worktree prune && git -C "$GRD" worktree add -q "$stuck_tree" fix/stuck
 back=$(g base stuck 2>/dev/null | field 'd["ahead"]' 2>/dev/null || true)
-project --repo "$GRD" state stuck ready "the landing starts over" >/dev/null
+project --repo "$GRD" state stuck ready --start-over "the landing starts over" >/dev/null
 g start waiting >/dev/null 2>&1 || true
-if grep -qF "stuck is in \`landing\`" <<<"$line" && grep -qF "\`project.py state stuck ready \"WHY\"\`" <<<"$line" && grep -qF "\`project.py state stuck dropped \"WHY\"\`" <<<"$line" \
+if grep -qF "stuck is in \`landing\`" <<<"$line" && grep -qF "\`project.py state stuck ready --start-over \"WHY\"\`" <<<"$line" && grep -qF "\`project.py state stuck dropped \"WHY\"\`" <<<"$line" \
   && grep -qF "the task has no worktree at $stuck_tree" <<<"$gone" && grep -qF "\`git -C $GRD worktree prune\`" <<<"$gone" \
   && grep -qF "\`git -C $GRD worktree add $stuck_tree fix/stuck\`" <<<"$gone" && [ "$back" = 1 ] && [ "$(status_in "$GRD" waiting)" = landing ]; then
   pass "a landing task whose worktree is gone holds the line: the refusal of another start names the two states that give it back, the task's own step names the git commands that put the worktree back, and each works as named"
@@ -96,7 +96,7 @@ g start broken-record >/dev/null
 printf '{"branch": "fix/broken-' > "$GRD/.git/lem/tasks/broken-record/landing.json"
 broken=$(g base broken-record 2>&1 || true)
 mv "$GRD/.git/lem/tasks/broken-record/landing.json" "$WORK/landing.json.broken"
-project --repo "$GRD" state broken-record ready "the landing starts over" >/dev/null
+project --repo "$GRD" state broken-record ready --start-over "the landing starts over" >/dev/null
 g start broken-record >/dev/null 2>&1 || true
 if grep -qF "$GRD/.git/lem/tasks/broken-record/landing.json does not read as JSON" <<<"$broken" && ! grep -q Traceback <<<"$broken" \
   && [ "$(status_in "$GRD" broken-record)" = landing ] && [ "$(kept_in "$GRD" broken-record branch)" = fix/broken-record ]; then
@@ -126,7 +126,7 @@ fi
 # A file that was there before the run is someone's: the gate removes none, it refuses, and so does start.
 echo mine > "$tree/mine.txt"
 before_gate=$(g gate gate-caches 2>&1 || true)
-project --repo "$GRD" state gate-caches ready "the landing starts over" >/dev/null
+project --repo "$GRD" state gate-caches ready --start-over "the landing starts over" >/dev/null
 before_start=$(g start gate-caches 2>&1 || true)
 if grep -qF "the worktree has changes nobody committed" <<<"$before_gate" && grep -qF "mine.txt" <<<"$before_gate" \
   && grep -qF "the worktree has changes nobody committed" <<<"$before_start" && [ "$(cat "$tree/mine.txt")" = mine ]; then

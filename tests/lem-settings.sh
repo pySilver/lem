@@ -417,7 +417,7 @@ cut_record=$(project --repo "$OLD" tasks 2>&1 || true)
 echo '[]' > "$dir/landing.json"
 list_record=$(project --repo "$OLD" tasks 2>&1 || true)
 rm "$dir/landing.json"
-if grep -qF "$dir/landing.json does not read as JSON" <<<"$cut_record" && grep -qF "Move it aside, then \`project.py state report-dates-stay-whole ready \"WHY\"\` and \`land.py start report-dates-stay-whole\`" <<<"$cut_record" \
+if grep -qF "$dir/landing.json does not read as JSON" <<<"$cut_record" && grep -qF "Move it aside, then \`project.py state report-dates-stay-whole ready --start-over \"WHY\"\` and \`land.py start report-dates-stay-whole\`" <<<"$cut_record" \
   && grep -qF "$dir/landing.json is not an object" <<<"$list_record" && grep -qF "Move it aside" <<<"$list_record" && ! grep -q Traceback <<<"$cut_record$list_record"; then
   pass "a landing record that is not JSON, or not an object, is named with the way out: move it aside, the state ready, and land.py start"
 else
@@ -658,7 +658,7 @@ if [ "$(status_of project --repo "$OLD" may-start written-by-hand)" = 1 ] && gre
 else
   fail "may-start during a landing: $err"
 fi
-project --repo "$OLD" state second-task ready "the gate was cut off" >/dev/null
+project --repo "$OLD" state second-task ready --start-over "the gate was cut off" >/dev/null
 # An ended task stays ended: a stale wake-up writes no state over it and starts no lead for it, and a task in the
 # landing or proposed gets no lead either. The same ended state again is taken; new work is a new ask.
 ENDS=$WORK/ends
@@ -685,6 +685,52 @@ if grep -qF "the task 'ended-task' is landing: its build is done, and it gets no
   pass "an ended task stays ended: no state moves it out of landed or dropped, and may-start gives no lead to it, nor to a task in the landing or proposed; the same ended state again is taken"
 else
   fail "an ended task reopened: $in_landing / $in_open / $landed_again / $reopened / $readied / $dropped_over / $landed_start / $dropped_again / $dropped_start"
+fi
+# A task with its landing (`landing` or `open`) takes no state that only a lead or the start of a task writes: a lead
+# that wakes late and writes `building` or `ready` would put the task back in the line and start its landing over.
+LATE=$WORK/late
+git init -q -b main "$LATE" && project --repo "$LATE" init --base main >/dev/null
+late() { project --repo "$LATE" "$@"; }
+late task-dir open-one >/dev/null && late state open-one landing "the checks start" >/dev/null && late state open-one open "ready to land on main at abc1234" >/dev/null
+over_open=$(late state open-one building "lead: builder" 2>&1 || true)
+ready_open=$(late state open-one ready "the report is written" 2>&1 || true)
+let_through=""
+for status in queued planned drafted; do [ "$(status_of late state open-one "$status" "a late lead")" = 1 ] || let_through="$let_through $status"; done
+open_still=$(status_in "$LATE" open-one)
+late state open-one landing "the base moved: the checks run again" >/dev/null
+over_landing=$(late state open-one ready "the report is written" 2>&1 || true)
+let_in_landing=""
+for status in building queued planned drafted; do [ "$(status_of late state open-one "$status" "a late lead")" = 1 ] || let_in_landing="$let_in_landing $status"; done
+landing_still=$(status_in "$LATE" open-one)
+if grep -qF "the task 'open-one' is open: it is with its landing, and a reply or a message about open-one that comes now is a stale wake-up" <<<"$over_open" \
+  && grep -qF "what the landing needs, land.py says itself" <<<"$over_open" && grep -qF "the task 'open-one' is open" <<<"$ready_open" \
+  && grep -qF "the task 'open-one' is landing: it is with its landing" <<<"$over_landing" && [ -z "$let_through$let_in_landing" ] \
+  && [ "$open_still" = open ] && [ "$landing_still" = landing ] && ! grep -q Traceback <<<"$over_open$ready_open$over_landing"; then
+  pass "a task in the landing or proposed takes no state of a lead or of a task's start: a late lead's building, ready, queued, planned or drafted is a stale wake-up"
+else
+  fail "a late lead moved a task with its landing: $over_open / $ready_open / $over_landing /$let_through /$let_in_landing / $open_still / $landing_still"
+fi
+# The landing's own moves stay: blocked and landing again, ready again from blocked, open, landed and dropped, and a
+# landing that has to start over gives its line back with `--start-over`, which only `ready` takes.
+late state open-one blocked "the base is red" "after: fix-base" >/dev/null && late state open-one ready "the base is green again" >/dev/null
+late state open-one landing "the checks start" >/dev/null
+over_landing_again=$(status_of late state open-one ready --start-over "the landing was cut off")
+late state open-one landing "the checks start" >/dev/null && late state open-one open "ready to land on main at abc1234" >/dev/null
+over_open_again=$(status_of late state open-one ready --start-over "landing.json was moved aside")
+other_status=$(late state open-one building --start-over "lead: builder" 2>&1 || true)
+late state open-one landing "the checks start" >/dev/null && late state open-one open "ready to land on main at abc1234" >/dev/null
+landed=$(status_of late state open-one landed "main abc1234")
+late task-dir dropped-open >/dev/null && late state dropped-open landing "the checks start" >/dev/null && late state dropped-open open "pull request https://github.com/acme/shop/pull/7" >/dev/null
+dropped=$(status_of late state dropped-open dropped "the owner closed the pull request")
+# a small change whose gate found a lowered bar is a feature: its interview starts with `held` over `landing`
+late task-dir small-one >/dev/null && late state small-one landing "the checks start" >/dev/null
+held=$(status_of late state small-one held "the interview waits for the owner" "kind: feature, because the gate found a lowered bar")
+if [ "$over_landing_again" = 0 ] && [ "$over_open_again" = 0 ] && [ "$landed" = 0 ] && [ "$dropped" = 0 ] && [ "$held" = 0 ] \
+  && grep -qF -- "--start-over gives a landing's line back, and only the state ready does that" <<<"$other_status" \
+  && [ "$(status_in "$LATE" open-one)" = landed ] && [ "$(status_in "$LATE" dropped-open)" = dropped ] && [ "$(status_in "$LATE" small-one)" = held ]; then
+  pass "the landing's own moves stay: blocked, landing again, open, landed, dropped, held for a small change that is a feature, and ready with --start-over gives the line back"
+else
+  fail "a landing's own move refused: $over_landing_again / $over_open_again / $other_status / $landed / $dropped / $held"
 fi
 accepted=""
 for bad in 0 true '"four"' 2.5; do
