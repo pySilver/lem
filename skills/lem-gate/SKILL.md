@@ -1,22 +1,7 @@
 ---
 name: lem-gate
-description: >
-  The question gate: run it before any question that asks the user to rule
-  reaches them, so the user sees fewer and better questions. A judge checks
-  whether a recorded ruling already answers it, whether a probe, a test or a
-  rule can, or whether it is cheap and reversible enough for an agent to
-  decide; a held question whose options each cost something, about users or
-  technical, goes through the persona panel first; Jev
-  checks the card's framing; after the user answers, Jev decides whether the
-  answer is a durable ruling, which is then written down. The judge starts in
-  shadow mode: it logs its verdict beside the user's answer and decides
-  nothing until the user says it may. Use whenever a stage of Lem, or any
-  session, is about to ask the user to choose, rule or approve a
-  decision (a design fork, a disagreement between agents, a size, a scope
-  call), and when the user says "gate", "should this reach me" or "has this
-  been ruled". Not for a typed value (a name, a path), a bare go-ahead on a
-  step just described, or a question of an interview, which asks what the
-  user wants.
+description: "Lem's question gate: checks whether a question must reach the owner. Lem's stages load it; the owner calls it as `/lem gate`."
+disable-model-invocation: true
 ---
 
 # The question gate

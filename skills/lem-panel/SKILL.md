@@ -1,29 +1,7 @@
 ---
 name: lem-panel
-description: >
-  Run a persona panel on a question before it reaches the user, and turn the
-  answers into a question card: what each option looks like to the people it
-  affects, a recommendation that says what it costs them and what backs it,
-  the strongest dissent, what would flip it, whether it can be undone, and
-  which of the facts it rests on a search confirmed. Each persona reads the project's profile
-  and answers twice, once as an Opus subagent and once as a Sol subagent the
-  paired Codex spawns, so a split between the two model families shows as
-  uncertainty; when an option turns on a fact a source outside the project
-  can settle (a tool's documented behavior, a published postmortem, a
-  competitor's public page), a practice scout checks it on the web, for the
-  moderator only. Use before any question
-  whose options each cost something reaches the user, about users or
-  technical (a design fork, a size, a default, a scope, a trade-off between
-  consistency and cost), whenever a stage of Lem or a
-  question gate is about to ask one, and when the user says "panel", "run the
-  personas", "ask the personas", "what would users say" or "what do other
-  teams do".
-  It also reviews any artifact as those people (a backlog item, a plan
-  section, a doc, a PR body, product copy) and synthesizes what each would
-  notice, how much it matters to them and where they split: use it when the
-  user says "personas review", "review this with the personas", "triage this
-  with the personas" or "how would users take this". Not for intent or taste,
-  which the user answers: the panel informs those, it never decides them.
+description: "Lem's persona panel: the project's personas answer one question or read one text. Lem's stages load it; the owner calls it as `/lem panel`."
+disable-model-invocation: true
 ---
 
 # Persona panel

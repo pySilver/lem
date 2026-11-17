@@ -1,6 +1,7 @@
 ---
 name: lem-root-cause
-description: Systematic root cause analysis for errors, bugs, and unexpected behaviors using 5-Why methodology. Use when user reports errors, build failures, test failures, performance issues, integration problems, or any "it's not working" scenarios. Also runs as "/lem root-cause".
+description: "Lem's root-cause method: asks why until the cause is found and a failing test holds it. Lem's investigator loads it; the owner calls it as `/lem root-cause`."
+disable-model-invocation: true
 ---
 
 # Root Cause Investigator

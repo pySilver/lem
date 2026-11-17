@@ -1,17 +1,7 @@
 ---
 name: lem-backlog
-description: >
-  Read, work, and maintain a Git repo's deferred-work items in docs/backlog/,
-  one file per item — a defect a change did not introduce, an open decision,
-  a fix whose blast radius exceeded its value, a finding decided against and
-  kept so it is not re-argued. Owns the item format and the
-  create-then-git-rm lifecycle. Use when the user says "backlog", "check
-  backlog", "what's on my backlog", "work the backlog", "address the
-  backlog", "add to backlog", "clean up backlog", "log this issue", "log an
-  issue", "park this as an issue", "register this decision", "triage this
-  item with the personas", or when a review or task produced items that are
-  real but not being fixed now.
-  Also runs as "/lem backlog".
+description: "Lem's backlog: the item format and the lifecycle of the backlog folder in a repository that uses Lem. Lem's stages load it; the owner calls it as `/lem backlog`."
+disable-model-invocation: true
 allowed-tools: Read, Edit, Write, Bash, Grep, Glob, AskUserQuestion
 ---
 

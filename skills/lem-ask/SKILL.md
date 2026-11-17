@@ -1,6 +1,8 @@
 ---
 name: lem-ask
-description: Ask the user a question as a page in an agterm HTML overlay and read the answer back as JSON. Use for every question that asks the user to choose or approve — a design fork, a sequencing call, a plan or its parts, a choice between two options — because each option then carries what it changes and what it costs; for options that are pictures (diagrams, wireframes, design samples, charts); for code or a diff the user has to read; for a value tuned by eye (sliders with a live preview); and for several related decisions at once. Also whenever the user says `/lem ask`, "ask me visually" or "show me the options". Only an answer the user types (a name, a path, a number) or a bare "go ahead?" on a step just described stays in the terminal. Needs agterm and checks for it itself, so run it without checking first. Up to 9 options with subtitles, a reasoned recommendation and pros/cons; a free-text box on every question; keyboard throughout. The agent writes a JSON spec or one `lem-ask q` line.
+description: "Lem's question page: shows one question as a page in agterm and returns the answer as JSON. Lem's stages open it for a choice that waits for the owner; the owner calls it as `/lem ask` with a question, or alone to put the agent's last question on a page."
+disable-model-invocation: true
+argument-hint: '[question]'
 allowed-tools: Bash(lem-ask *)
 ---
 
@@ -28,6 +30,23 @@ Run it with the Bash tool's `timeout: 600000`. It waits up to 570 s, then exits 
 - **Only the agent talking with the user asks.** A subagent, a plan executor or a background worker returns
   its question to whoever started it. In an unattended run (`claude -p`, where Claude Code sets
   `CLAUDE_CODE_SESSION_ATTENDED=0`) `lem-ask` refuses with exit 3 and opens nothing.
+
+## `/lem ask` with no question
+
+The owner types `/lem ask` alone when an agent asked him something in the terminal and he wants it
+as a page with its context. Take the last question an agent asked in this conversation that has no
+answer yet (yours, or one a lead's or a builder's message put before him), and put it on a page
+from which he can answer it without the terminal:
+
+- the question as a short `prompt`, and what it decides and why it came up in `context`;
+- each option labeled by what it says, with what it changes and what it costs (`subtitle`,
+  `pros`, `cons`); an open question with no options is a `text` question;
+- the code or the numbers it rests on, from their files (`{"file": …}`), never pasted;
+- the recommendation with its reason (`recommended` with a string), when the agent gave one.
+
+Two questions asked in one message go on one page (`questions`). His answer on the page is his
+answer to that question: go on as his answer in the terminal would have made you. When no question
+is open in this conversation, say so in one line and open nothing.
 
 ## Fastest: one line
 

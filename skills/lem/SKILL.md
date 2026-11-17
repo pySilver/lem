@@ -116,14 +116,16 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, each plan drafted at night, each retro's proposals; and the board of all tasks, with what builds. A proposal or a draft he answers with approve, reject or later, all on one page | below |
 | `status <task>` | the board of one task | below |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`) and gives it the rest of the line as its arguments. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments; where its text says `${CLAUDE_SKILL_DIR}`, that is the folder of that file. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
 when the name stands alone or is followed by what that skill takes: a slug, a path, a number, a
 statement to argue. `/lem release notes are wrong on the site` and `/lem backlog is slow to open`
 are sentences about the project, so each is an ask and opens a task. `/lem ask` takes a question
-the owner wants put to himself as a page ("`/lem ask` which of the two layouts"); "`/lem` ask
+the owner wants put to himself as a page ("`/lem ask` which of the two layouts"), and `/lem ask`
+alone puts the last open question an agent asked in this conversation on a page, with what he
+needs to answer it there (the `lem-ask` skill says how); "`/lem` ask
 the payment provider for a sandbox key" is a task. When you cannot tell which
 of the two a line is, ask the owner once in the terminal, in one line, before anything runs: a
 skill such as `lem-release` changes files.

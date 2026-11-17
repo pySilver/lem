@@ -4,7 +4,15 @@ You run in Claude Code. This file answers `README.md` beside it.
 
 ## load-skill
 
-The `Skill` tool. Do not load a skill whose instructions are already in context.
+A skill this repository ships, `lem-NAME`: the `Read` tool on `SKILL_DIR/../lem-NAME/SKILL.md`,
+where `SKILL_DIR` is the `lem` skill's directory, and then do what it says. In that file
+`${CLAUDE_SKILL_DIR}` is the folder of that file, and so is a `SKILL_DIR` that the file names
+as its own directory (`lem-linear` names the `lem` skill's). The `Skill` tool refuses these
+skills: each has `disable-model-invocation: true`, so that it starts only for Lem and puts no
+description in a session's list of skills. Do not try the `Skill` tool on one first: its refusal
+tells the agent not to follow the skill by other means (Claude Code 2.1.326, seen 2026-11-17),
+and the read by its path is the one way these skills are meant to start. A skill of another tool (the review tool) is the `Skill` tool.
+Do not load a skill whose instructions are already in context.
 
 - the question gate: the `lem-gate` skill of this repository.
 - the persona panel: the `lem-panel` skill of this repository. It finds the cast and the profile

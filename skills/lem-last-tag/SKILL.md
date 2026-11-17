@@ -1,6 +1,7 @@
 ---
 name: lem-last-tag
-description: Show commits since the last tag in a formatted table. Use when user asks "what changed since last release", "commits since last tag", "last-tag", "what's new", or wants to see recent unreleased changes. Also runs as "/lem last-tag".
+description: "Lem's table of the commits since the last tag. The owner calls it as `/lem last-tag`."
+disable-model-invocation: true
 allowed-tools: Bash, AskUserQuestion
 ---
 

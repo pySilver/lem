@@ -1,6 +1,7 @@
 ---
 name: lem-release
-description: Use when user asks to create a release, cut a release, or publish a version. Auto-detects GitHub vs GitLab vs Gitea, calculates semantic version, generates release notes from PRs/MRs or commits, shows preview for confirmation before publishing. Also runs as "/lem release".
+description: "Lem's release: a version, notes and a preview, then the release. The owner calls it as `/lem release`."
+disable-model-invocation: true
 allowed-tools: Bash, AskUserQuestion
 ---
 
