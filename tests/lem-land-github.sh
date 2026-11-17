@@ -392,6 +392,8 @@ recorded=$(gw_land read w-four --record "$(clean 2)" 2>&1 || true)
 due_after=$(gw_land read w-four 2>&1 || true)
 again=$(gw_land propose w-four --title "fix: w-four" --notes "$NOTES" 2>&1 || true)
 text=$GWS/.lem/state/tasks/w-four/pr.md
+# the forge works out again that the pushed head merges with no conflict
+gh_set "d['prs']['10']['mergeable'] = 'MERGEABLE'" "$GW"
 if [ "$wcode" = 0 ] && [ "$conflicted" = "([('w-three', 'merged')], [('w-four', 'CONFLICTING'), ('w-two', 'MERGEABLE')])" ] \
   && [ "$(field 'd["conflict"]' <<<"$stopped" 2>&1)" = "['shop.txt']" ] && [ "$(field '(d["resolved"], d["moved"])' <<<"$resolved" 2>&1)" = "(['shop.txt'], False)" ] \
   && [ "$(field 'd["done"]' <<<"$polished" 2>&1)" = True ] \
@@ -422,6 +424,56 @@ if [ "$wcode" = 0 ] && [ "$closed" = "[('w-five', 11, 'closed')]" ] && [ "$(fiel
 else
   fail "a watch to a close: code=$wcode $closed / $dropped / $(cat "$WORK/watch.out")"
 fi
+# A commit on the base that is no task's merge (here a push of the owner's) makes an open pull request conflicting:
+# the watch ends and names it, once for one head; a watch started again while it waits does not end for it again,
+# and a watch with no look before ends at its first look. start --conflicting brings it onto the base, and the
+# pull request's text says why in one line.
+line_task w-six small 3 six
+proposed w-six
+rm -f "$GWS/.lem/state/watch.js"
+gw_land watch > "$WORK/watch.out" 2>&1 &
+wpid=$!
+soon looked 1
+pusher=$WORK/gw-pusher
+git clone -q "$GWO" "$pusher" && ident "$pusher"
+"$PY" -I -c 'import sys; p = sys.argv[1]; lines = open(p).read().splitlines(); lines[2] = "the owner"; open(p, "w").write("\n".join(lines) + "\n")' "$pusher/shop.txt"
+git -C "$pusher" commit -q -am "docs: the owner's own line" && git -C "$pusher" push -q origin main
+gh_set "d['prs']['12']['mergeable'] = 'CONFLICTING'" "$GW"
+set +e; wait "$wpid"; wcode=$?; set -e
+newly=$(field '(d["ended"], [(e["task"], e["pr"], e["why"]) for e in d["conflicting"]], [e["task"] for e in d["open"]][0])' < "$WORK/watch.out" 2>&1)
+gw_land watch > "$WORK/watch-again.out" 2>&1 &
+wpid=$!
+soon "$PY" -c 'import json, re, sys; d = json.loads(re.fullmatch(r"lemWatch\((.*)\);\n", open(sys.argv[1]).read(), re.S).group(1)); sys.exit(not (d.get("pid") == int(sys.argv[2]) and (d.get("looks") or 0) >= 2))' "$GWS/.lem/state/watch.js" "$wpid"
+again_alive=$(kill -0 "$wpid" 2>/dev/null && echo yes || echo no)
+kill -TERM "$wpid" 2>/dev/null || true
+set +e; wait "$wpid" 2>/dev/null; set -e
+rm -f "$GWS/.lem/state/watch.js"
+first=$(gw_land watch 2>&1 | field '[(e["task"], e["why"]) for e in d["conflicting"]]' 2>&1 || true)
+both=$(gw_land start w-six --after w-one --conflicting 2>&1 || true)
+gw_land start w-six --conflicting >/dev/null
+stopped=$(gw_land base w-six 2>/dev/null || true)
+tree=$GWS/.lem/worktrees/w-six
+git -C "$tree" rebase -q origin/main >/dev/null 2>&1 || true
+"$PY" -I -c 'import sys; p = sys.argv[1]; lines = [l for l in open(p).read().splitlines() if not l.startswith(("<<<<<<<", "=======", ">>>>>>>", "six", "the owner"))]; lines.insert(2, "the owner six"); open(p, "w").write("\n".join(lines) + "\n")' "$tree/shop.txt"
+git -C "$tree" add shop.txt && GIT_EDITOR=true git -C "$tree" rebase --continue >/dev/null 2>&1
+gw_land base w-six >/dev/null 2>&1 || true
+gw_land checks w-six >/dev/null 2>&1 || true
+gw_land read w-six --record "$(clean 2)" >/dev/null 2>&1 || true
+synced=$(gw_land propose w-six --title "fix: w-six" --notes "$NOTES" 2>&1 | field '(d["pull_request"]["number"], d["synced"])' 2>&1 || true)
+gh_set "d['prs']['12']['mergeable'] = 'MERGEABLE'" "$GW"
+why12="the forge calls pull request #12 conflicting with main"
+if [ "$wcode" = 0 ] && [ "$newly" = "([], [('w-six', 12, '$why12, and it did not at the look before: a commit on the base met its change')], 'w-six')" ] \
+  && [ "$again_alive" = yes ] && [ "$first" = "[('w-six', '$why12, at the first look of the watch: a commit on the base met its change')]" ] \
+  && grep -qF -- "--after names the merge that moved the base, and --conflicting says that no merge of a task did: give one of the two" <<<"$both" \
+  && grep -qF "the forge calls the pull request conflicting with main: the branch is brought onto it again" "$GWS/.lem/state/tasks/w-six/state.md" \
+  && [ "$(field 'd["conflict"]' <<<"$stopped" 2>&1)" = "['shop.txt']" ] \
+  && [ "$synced" = "(12, 'rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again')" ] \
+  && grep -qxF "Rebased on main after the forge called it conflicting; one conflict in shop.txt, resolved by a builder; the checks passed again." "$GWS/.lem/state/tasks/w-six/pr.md"; then
+  pass "a pull request a commit on the base made conflicting ends the watch, which names it and why, once for one head: a watch started again does not end for it, one with no look before ends at its first look; start --conflicting brings it onto the base, and its text says why"
+else
+  fail "a pull request that became conflicting: code=$wcode $newly / $again_alive / $first / $both / $stopped / $synced"
+fi
+
 # A watch that is stopped ends the forge's calls, says so, and leaves the board's file saying that nobody watches.
 # The command itself in the background, not the function, so that the signal reaches it.
 rm -f "$GWS/.lem/state/watch.js"

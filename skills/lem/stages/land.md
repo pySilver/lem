@@ -277,16 +277,22 @@ one finds what the run before it finished.
    project's `AGENTS.md` adds for a removed worktree (a test database, a container), and close
    the plan talk's companion when one is still open.
 
-9. **After a merge on the forge.** The watch ended, or `merged` found a merge or a close at a
-   turn of yours. The watch's JSON names each such task under `ended`, with `merged` or `closed`.
-   For each: `land.py merged SLUG`, which writes `landed` (then step 8) or `dropped` (the top of
-   this stage). Then bring every task that is still `open` with a pull request onto the new base,
+9. **After a merge on the forge, or a pull request that became conflicting.** The watch ended, or
+   `merged` found a merge or a close at a turn of yours. The watch's JSON names each merged or
+   closed task under `ended`, with `merged` or `closed`, and under `conflicting` each open task
+   whose pull request the forge calls conflicting and did not at the look before, with `why`: a
+   commit on the base that is no task's merge (a push of the owner's, another tool's merge) met
+   its change. For each task under `ended`: `land.py merged SLUG`, which writes `landed` (then
+   step 8) or `dropped` (the top of this stage). With only `conflicting`, no task merged: bring
+   each task it names onto the base the same way as below, with `land.py start SLUG
+   --conflicting` in place of `--after`, and tell the owner the `why` in one line first. Then bring every task that is still `open` with a pull request onto the new base,
    without a word from the owner: `branch.propose = "pull-request"` is his standing word for this
    push too, and so a pull request that waits for him is never one he cannot merge, and its green
    is green on the base as it is now. One at a time, before any `ready` task takes the line: the
    ones the watch's `open` calls `CONFLICTING` first, then the others in its order, the oldest
    state first. For each:
-   - `land.py start SLUG --after MERGED`, with the slug of the task that merged, then `base`. A
+   - `land.py start SLUG --after MERGED`, with the slug of the task that merged (or `--conflicting`
+     for a task the watch named under `conflicting` with no merge to name), then `base`. A
      conflict is step 2: a builder resolves it, with the job "the repair of a conflict with the
      base", and `base` runs again. It finds the builder's rebase, and the polish pass by its
      commits' new names, so the pass is not run again.
@@ -303,7 +309,10 @@ one finds what the run before it finished.
 
    A step that cannot go on takes the way it takes in any landing: a red check goes to a builder,
    a conflict whose two outcomes cannot both hold is a decision for the owner, and the task's
-   state says which. Last, start the watch again while a task is `open` with a pull request.
+   state says which. A task that cannot take the line now (another task is in `landing`) waits:
+   the watch does not end again for the same conflict on the same head, and the next merge brings
+   it onto the base with the others. Last, start the watch again while a task is `open` with a
+   pull request.
 
 Every way out of this stage writes a state other than `landing`: `open`, `landed`, `dropped` for a
 pull request the owner closed, or `blocked`, or `held` for a small change that step 4 found to be a
