@@ -91,10 +91,9 @@ file or the plan other than it found them, and stories' tests that no longer pas
 the base commit (`stories.py red`, run when the pass committed anything). Otherwise it logs one
 `polish` event (the tip before and after, the count of commits, the items it added to the
 backlog folder). `gate` refuses a feature with no pass of this landing whose last commit the
-tip holds, and any task whose pass started and is not done. A correction of a plan, which only
-the rare path writes, skips the pass, unless its report lists a defect outside the task, which
-only the pass files there: one builder changed one rule, its own checks ran, and the review reads
-every line of it. The commits
+tip holds, and any task whose pass started and is not done. Every task with a plan is a feature:
+`stories.py` refuses a plan that says `Kind: correction`, and so does every step here that reads
+the stories. The commits
 that come after the pass, a repair, a fix of a review's findings, the items `file` writes, are
 on top of it, and a rebase by `base` gives the pass's commits their new names; any other rewrite
 of the branch asks for the pass again. The pass is one of this landing: `start` of a `ready`
@@ -202,7 +201,7 @@ neither line. The checks also hold one line on the personas' read of the stories
 newest `stories.read` event (`project.py log` gives its form): how many of the personas asked
 answered, in which model families, who did not answer and why, how many stories they flagged,
 whether the families split, and when the owner approved them (`stories.py approve`), or that the
-build started with no wait for the owner; for a correction, that the personas did not read it.
+build started with no wait for the owner.
 When the stories the read names by their digest are not the plan's (which the gate makes the expected
 ones), one more line says that they changed after the read, by a later approval of the owner's or by
 a change of the build, and that the change was not read; that line is no cause of not green. A scout's report in the task's directory is named there as a file.
@@ -695,17 +694,15 @@ def cmd_polish(task: Task, done: bool) -> dict:
 
 
 def polish_missing(task: Task, tip: str, found: dict) -> str | None:
-    """Why the gate may not run on this tip for want of the polish pass; none when it may. A feature
-    needs a pass of this landing whose last commit the tip holds. A small change never has one. A
-    correction of a plan skips the pass, and only a pass that started and is not done stops it: a
-    builder may still be at work."""
+    """Why the gate may not run on this tip for want of the polish pass; none when it may. A feature,
+    which is every task with a plan, needs a pass of this landing whose last commit the tip holds,
+    and a pass that started and is not done stops it: a builder may still be at work. A small
+    change never has one."""
     if found["small"]:
         return None
     polish = task.kept().get("polish")
     if polish and not polish.get("done"):
         return f"the polish pass started at {str(polish.get('before'))[:9]} and is not done: after its builder, `land.py polish {task.slug} --done` checks what it did"
-    if found["kind"] == "correction":
-        return None
     if not polish:
         return f"{task.slug} is a feature, and no polish pass is on record for this landing: `land.py polish {task.slug}` starts it, a builder does it, and `--done` checks it"
     if not holds_commit(task, polish.get("after"), tip):
@@ -1263,13 +1260,11 @@ def talked(talk: dict) -> str:
     )
 
 
-def polished(polish: dict | None, found: dict) -> str:
+def polished(polish: dict | None) -> str:
     """The polish pass as one line of the pull request's checks, from what `polish --done` logged."""
     if polish and polish.get("done"):
         commits, filed = polish["commits"], len(polish["filed"])
         return f"- the polish pass: {commits} commit{'' if commits == 1 else 's'}, {filed} item{'' if filed == 1 else 's'} filed in the backlog"
-    if found["kind"] == "correction":
-        return "- the polish pass: none, as a correction skips it"
     # the gate refuses a feature with no pass, so only a record from before the pass existed is here
     return "- the polish pass: none on record"
 
@@ -1356,11 +1351,8 @@ def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dic
     """The personas' read of the stories and his approval, as one line of the pull request's checks;
     `skipped` is his word to skip the read with his approval after it, as `read_skipped` gives them."""
     approval = found.get("approved")
-    approved = ""
-    if approval and approval["by"] == "owner":
-        approved = f"the owner approved them on {approval['at'][:10]}"
-    elif approval and approval["by"] == "correction":
-        approved = f"Lem approved it in the owner's name on {approval['at'][:10]}, as a correction"
+    # a plan is a feature's: its stories are the owner's approval, or the rare path's freeze by a read, which is not his
+    approved = f"the owner approved them on {approval['at'][:10]}" if approval and approval["by"] == "owner" else ""
     if read and not read["answered"]:
         # propose refuses the first such read, so this is the second in a row at the least
         return (
@@ -1378,8 +1370,6 @@ def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dic
         if approved:
             return f"{line}; {approved}"
         return line + "; the build started with no wait for the owner"
-    if found["kind"] == "correction" or (approval and approval["by"] == "correction"):
-        return "- a correction: not read by the personas" + (f"; {approved}" if approved else "")
     if skipped:
         return f"- the stories: not read by the personas, on the owner's word ({skipped['word']['at'][:10]}); the owner approved them"
     return "- the stories: no read by the personas is on record" + (f"; {approved}" if approved else "")
@@ -1814,7 +1804,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     tests = (checks.get("stories") or {}).get("tests", [])
     without = (checks.get("stories") or {}).get("without_a_test", [])
     out.append(f"- the stories' tests: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} stor{'y has' if len(without) == 1 else 'ies have'} no test" if without else ""))
-    out.append(polished(kept.get("polish"), found))
+    out.append(polished(kept.get("polish")))
     read = story_read_of(task)
     out.append(read_line(read, found, unanswered(task), read_skipped(task)[0] if read is None else None))
     if unread(read, found):
@@ -1824,7 +1814,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         out.append(f"- the scout's report, the facts of the code the stories were written from: `{scout}`")
     cause = task.record.get("investigation")
     if cause and cause.get("kind") == "bug":
-        # a correction or a feature that came from a bug names the cause its investigation found
+        # a feature that came from a bug names the cause its investigation found
         where = f" ({cause['where']})" if cause.get("where") else ""
         out.append(f"- the cause, as the investigation before the build found it: {cause['line']}{where}; its report: `{task.directory / 'investigation.md'}`")
     lowered = (checks.get("bar") or {}).get("lowered", [])
@@ -1900,7 +1890,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     # The personas read a feature's stories before the build, and a doubt of theirs reaches him:
     # a request is not proposed over stories nobody read, or over a doubt he never saw.
     found = stories_of(task)
-    if read is None and found["kind"] == "feature":
+    if read is None and not found["small"]:
         # his word to skip the read, with his approval after it and both before any lead started, is the one way past it
         skipped, why_not = read_skipped(task)
         if why_not:

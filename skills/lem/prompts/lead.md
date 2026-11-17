@@ -31,7 +31,9 @@ does not take the task to its report.
    already answers.
 3. **Follow `SKILL_DIR/stages/plan.md`, then `SKILL_DIR/stages/build.md`.** Read each when you
    reach it. You write the plan and no code: each task of the plan goes to a fresh builder, also
-   the one task of a plan that has one.
+   the one task of a plan that has one. A plan's stories are always `Kind: feature`: one plain
+   change is a small change, which has no lead and no plan, and `stories.py` and `land.py`
+   refuse a plan that says `Kind: correction`.
 4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
    another branch or touch the checkout the worktree came from.
 5. **You never ask the owner.** A decision that is the owner's, in the plan or in the build, goes

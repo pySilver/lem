@@ -22,11 +22,12 @@ mkdir -p "$SHOP/docs" "$SHOP/.lem/styleguide" && echo guide > "$SHOP/docs/guide.
 printf '%s\n' '---' 'paths:' '  - "tests/**"' '---' 'A test names what it checks.' > "$SHOP/.lem/styleguide/tests.md"
 printf '%s\n' '---' 'paths:' '  - "billing/**"' '---' 'Money is an integer.' > "$SHOP/.lem/styleguide/money.md"
 git -C "$SHOP" add -A && git -C "$SHOP" commit -q -m "chore: start" && git -C "$SHOP" push -q origin main
-open_task() { task_in "$SHOP" "$@"; }
+# open_task SLUG FILE TEXT: a feature of the shop, with the lead's read of its stories
+open_task() { task_in "$SHOP" "$@" && read_in "$SHOP" "$1"; }
 status() { status_in "$SHOP" "$1"; }
 kept() { kept_in "$SHOP" "$@"; }
-# the three machine steps, a read that found nothing, and the proposal, for the tests that are about a later step
-checked() { land --repo "$SHOP" start "$1" >/dev/null && land --repo "$SHOP" base "$1" >/dev/null && land --repo "$SHOP" gate "$1" >/dev/null; }
+# the machine steps with the polish pass, a read that found nothing, and the proposal, for the tests that are about a later step
+checked() { land --repo "$SHOP" start "$1" >/dev/null && land --repo "$SHOP" base "$1" >/dev/null && polish_in "$SHOP" "$1" && land --repo "$SHOP" gate "$1" >/dev/null; }
 read_clean() { land --repo "$SHOP" read "$1" --record "$(clean "${2:-1}")" >/dev/null; }
 propose() { land --repo "$SHOP" propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null; }
 
@@ -54,6 +55,7 @@ if [ "$(field '(d["ahead"], d["moved"], d["onto"])' <<<"$out")" = "(1, False, 'o
 else
   fail "land base: $out"
 fi
+polish_in "$SHOP" first-change
 out=$(land --repo "$SHOP" gate first-change)
 tip=$(git -C "$SHOP/.lem/worktrees/first-change" rev-parse HEAD)
 if [ "$(field '(d["green"], [c["exit"] for c in d["commands"]], d["commands"][1]["last"])' <<<"$out")" = "(True, [0, 0], '7 passed')" ] \
@@ -215,7 +217,7 @@ tree=$SHOP/.lem/worktrees/second-change
 git -C "$tree" rebase -q origin/main >/dev/null 2>&1 || true
 echo both > "$tree/app.txt" && echo 'grep -qx both app.txt' > "$tree/tests/second-change.sh" && git -C "$tree" add -A && GIT_EDITOR=true git -C "$tree" rebase --continue >/dev/null 2>&1
 git -C "$tree" rm -q ok.txt && git -C "$tree" commit -q -m "fix: lose the file the gate wants"
-land --repo "$SHOP" base second-change >/dev/null
+land --repo "$SHOP" base second-change >/dev/null && polish_in "$SHOP" second-change
 out=$(land --repo "$SHOP" gate second-change 2>/dev/null || true)
 if [ "$(status_of land --repo "$SHOP" gate second-change)" = 1 ] && [ "$(field '(d["green"], [c["exit"] for c in d["commands"]], "stories" in d)' <<<"$out")" = "(False, [1, 0], False)" ] \
   && [ "$(kept second-change gated)" = None ] && [ "$(status_of land --repo "$SHOP" read second-change)" = 1 ] && [ "$(status_of land --repo "$SHOP" propose second-change --title x --notes "$NOTES")" = 1 ]; then
@@ -565,11 +567,12 @@ project --repo "$FG" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' > "$FG/.lem/project.toml"
 git -C "$FG" add -A && git -C "$FG" commit -q -m "chore: start"
 task_in "$FG" set-up-checks c.txt checked
+read_in "$FG" set-up-checks
 tree=$(project --repo "$FG" worktree-dir set-up-checks)
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["echo 3 passed"]' > "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "chore: the checks"
 brought_start=$(land --repo "$FG" start set-up-checks 2>&1 || true)
-brought_gate=$(land --repo "$FG" base set-up-checks >/dev/null 2>&1 && land --repo "$FG" gate set-up-checks 2>&1 || true)
+brought_gate=$(land --repo "$FG" base set-up-checks >/dev/null 2>&1 && polish_in "$FG" set-up-checks && land --repo "$FG" gate set-up-checks 2>&1 || true)
 brought_floor=$(land --repo "$FG" read set-up-checks | field '(d["floor"], d["why"])' 2>&1 || true)
 land --repo "$FG" read set-up-checks --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks come with it"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
 land --repo "$FG" propose set-up-checks --title "chore: the checks" --notes "$MIG" >/dev/null 2>&1 || true
@@ -581,10 +584,11 @@ project --repo "$FG2" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["echo main passed"]' > "$FG2/.lem/project.toml"
 git -C "$FG2" add -A && git -C "$FG2" commit -q -m "chore: start"
 task_in "$FG2" other-checks k.txt kept
+read_in "$FG2" other-checks
 tree=$(project --repo "$FG2" worktree-dir other-checks)
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["false"]' > "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "chore: other checks"
-kept_gate=$(land --repo "$FG2" start other-checks >/dev/null 2>&1 && land --repo "$FG2" base other-checks >/dev/null 2>&1 && land --repo "$FG2" gate other-checks 2>&1 || true)
+kept_gate=$(land --repo "$FG2" start other-checks >/dev/null 2>&1 && land --repo "$FG2" base other-checks >/dev/null 2>&1 && polish_in "$FG2" other-checks && land --repo "$FG2" gate other-checks 2>&1 || true)
 kept_floor=$(land --repo "$FG2" read other-checks | field '(d["floor"], d["why"])' 2>&1 || true)
 land --repo "$FG2" read other-checks --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks change"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
 land --repo "$FG2" propose other-checks --title "chore: other checks" --notes "$MIG" >/dev/null 2>&1 || true

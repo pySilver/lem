@@ -83,9 +83,9 @@ the lead's own (`--by lead`) for a change that is nobody's choice, such as a typ
 A story whose rule changes, comes or goes is never the lead's alone: it takes step 2 below, the
 personas first. The stories script
 refuses the plan until its stories are the expected ones, word for word, and the pull request is
-not green for each change. The kind (`Kind:`) is the owner's only: a feature that has to become
-a correction, or the other way, waits for his yes to the stories, as `stages/plan.md` step 1
-says for a correction that is a feature, and is no choice of this section. A plan that departs from a direction
+not green for each change. A plan's kind (`Kind:`) is always `feature`, and `stories.py` refuses
+a plan that says `Kind: correction`: a build never turns a feature into a small change, which
+has no plan, and the kind is no choice of this section. A plan that departs from a direction
 (`directions.md`) is a decision of this section too, with the direction in `--what`.
 
 1. **The stories and the directions stay true**: decide it yourself, from the code, the settings

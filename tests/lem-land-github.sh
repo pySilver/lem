@@ -53,7 +53,7 @@ printf '%s\n' '#!/bin/sh' "exec '$PY' -I '$WORK/gh.py' \"\$@\"" > "$WORK/bin/gh"
 gh_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gh.json" GH_ORIGIN="$GHO" "$PY" -B "$LAND" --repo "$GHS" "$@"; }
 gh_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$WORK/gh.json" "$1"; }
 gh_checked() { gh_land start "$1" >/dev/null && gh_land base "$1" >/dev/null && gh_land gate "$1" >/dev/null; }
-task_in "$GHS" pr-change p.txt nine
+small_task_in "$GHS" pr-change p.txt nine
 out=$(gh_land start pr-change)
 gh_land base pr-change >/dev/null && gh_land gate pr-change >/dev/null && gh_land read pr-change --record "$(clean 1)" >/dev/null
 proposed=$(gh_land propose pr-change --title "fix: nine" --notes "$NOTES")
@@ -95,7 +95,7 @@ else
   fail "clean after a merged pull request: $out"
 fi
 # The base moves before the merge; then the owner merges on the forge himself, as one commit.
-task_in "$GHS" pr-squashed q.txt ten
+small_task_in "$GHS" pr-squashed q.txt ten
 gh_checked pr-squashed && gh_land read pr-squashed --record "$(clean 1)" >/dev/null && gh_land propose pr-squashed --title "fix: ten" --notes "$NOTES" >/dev/null
 gh_other=$WORK/gh-other
 git clone -q "$GHO" "$gh_other" && ident "$gh_other"
@@ -148,7 +148,7 @@ else
 fi
 # A proposal the forge's step refused is none: no `proposed` event, and the task keeps the landing line.
 # With no `gh` on PATH the refusal names the command; a forge that fails is said with what it said.
-task_in "$GHS" pr-guards r.txt twelve
+small_task_in "$GHS" pr-guards r.txt twelve
 gh_checked pr-guards && gh_land read pr-guards --record "$(clean 1)" >/dev/null
 mkdir -p "$WORK/no-gh" "$WORK/bad-bin"
 ln -s "$(command -v git)" "$WORK/no-gh/git"
@@ -198,7 +198,7 @@ git -C "$GMS" add -A && git -C "$GMS" commit -q -m "chore: start" && git -C "$GM
 mkdir -p "$WORK/gm-bin"
 printf '%s\n' '#!/bin/sh' "echo \"\$*\" >> '$WORK/gm-gh-calls'" 'exit 1' > "$WORK/gm-bin/gh" && chmod +x "$WORK/gm-bin/gh"
 gm_land() { PATH="$WORK/gm-bin:$PATH" "$PY" -B "$LAND" --repo "$GMS" "$@"; }
-task_in "$GMS" solo-change s.txt eleven
+small_task_in "$GMS" solo-change s.txt eleven
 out=$(gm_land start solo-change)
 gm_land base solo-change >/dev/null && gm_land gate solo-change >/dev/null && gm_land read solo-change --record "$(clean 1)" >/dev/null
 proposed=$(gm_land propose solo-change --title "fix: eleven" --notes "$NOTES" 2>&1 || true)

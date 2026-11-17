@@ -23,11 +23,12 @@ git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start"
 local_land() { land --repo "$LOCAL" "$@"; }
 task_in "$LOCAL" local-change x.txt x
 # A story that changed during the build is written down by the build, as a record of its own with its text before and after; the text shows it, and a person merges.
-printf '%s\n' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' '1. The file holds the word y.' > "$WORK/local-approved.md"
+printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word y.' > "$WORK/local-approved.md"
 "$PY" -B "$STORIES" --repo "$LOCAL" approve local-change --file "$WORK/local-approved.md" >/dev/null 2>&1 || true
 "$PY" -B "$DECISIONS" --repo "$LOCAL" story local-change --changed 1 --was "The file holds the word y." --now "The file holds the word the owner asked for." \
   --why "y is taken by another file." --by personas --said "Both personas picked x." >/dev/null 2>&1 || true
-local_land start local-change >/dev/null && local_land base local-change >/dev/null && local_land gate local-change >/dev/null && local_land read local-change --record "$(clean 1)" >/dev/null
+read_in "$LOCAL" local-change
+local_land start local-change >/dev/null && local_land base local-change >/dev/null && polish_in "$LOCAL" local-change && local_land gate local-change >/dev/null && local_land read local-change --record "$(clean 1)" >/dev/null
 local_land propose local-change --title "fix: x" --notes "$NOTES" >/dev/null
 err=$(local_land land local-change --by agent 2>&1 || true)
 out=$(local_land land local-change --by owner)
@@ -43,7 +44,8 @@ fi
 local_land clean local-change >/dev/null
 # A choice that waits for the owner holds the proposal; one taken by timeout is not green, and a late answer that differs is said.
 task_in "$LOCAL" waited-change w.txt w
-local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && local_land gate waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
+read_in "$LOCAL" waited-change
+local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land gate waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
 wdec() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
 wfile=$LOCAL/.git/lem/tasks/waited-change/decisions.jsonl
 wdec log waited-change --what "The name of the file" --chose w.txt --why "The other files have one letter." --by lead >/dev/null
@@ -97,7 +99,8 @@ project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/nul
 # A choice the experts took is not green, while the owner was away or at the end of his wait: its line names
 # their pick and both reasons. A timeout whose experts split takes the recommended option, as before.
 task_in "$LOCAL" expert-change e.txt e
-local_land start expert-change >/dev/null && local_land base expert-change >/dev/null && local_land gate expert-change >/dev/null && local_land read expert-change --record "$(clean 1)" >/dev/null
+read_in "$LOCAL" expert-change
+local_land start expert-change >/dev/null && local_land base expert-change >/dev/null && polish_in "$LOCAL" expert-change && local_land gate expert-change >/dev/null && local_land read expert-change --record "$(clean 1)" >/dev/null
 efile=$LOCAL/.git/lem/tasks/expert-change/decisions.jsonl
 # eask WHAT FIRST SECOND RECOMMENDED WHY: a choice for the owner that the personas left unclear
 eask() { wdec ask expert-change "${CASE[@]}" --what "$1" --option "$2" --option "$3" --recommended "$4" --why "$5" --said "The two personas split." >/dev/null; }
@@ -146,7 +149,7 @@ project --repo "$LOCAL" state expert-change dropped "the test is over" >/dev/nul
 lstories() { "$PY" -B "$STORIES" --repo "$LOCAL" "$@"; }
 ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
 # polish_local SLUG: a polish pass that finds nothing to change, as a feature's gate needs one
-polish_local() { local_land polish "$1" >/dev/null && local_land polish "$1" --done >/dev/null; }
+polish_local() { polish_in "$LOCAL" "$1"; }
 # to_open SLUG: the machine steps with a polish pass, a clean read and the proposal of a task of the local repository
 to_open() {
   local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land gate "$1" >/dev/null \
@@ -196,8 +199,6 @@ project --repo "$LOCAL" state story-departs dropped "the test is over" >/dev/nul
 # A feature is not proposed without a read of its stories, nor over a doubt of the personas that no approval of his followed.
 task_in "$LOCAL" read-doubt r.txt r
 tree=$(project --repo "$LOCAL" worktree-dir read-doubt)
-sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-read-doubt.md"
-rm "$tree/docs/plans/20261115-read-doubt.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
 printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/doubt.md"
 plan_digest=$(lstories digest read-doubt 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null && polish_local read-doubt && local_land gate read-doubt >/dev/null && local_land read read-doubt --record "$(clean 1)" >/dev/null
@@ -229,8 +230,6 @@ project --repo "$LOCAL" state read-doubt dropped "the test is over" >/dev/null
 # approval 1, the personas change its story, a clean read of the changed story, then his approval of it.
 task_in "$LOCAL" after-change a.txt a
 tree=$(project --repo "$LOCAL" worktree-dir after-change)
-sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-after-change.md"
-rm "$tree/docs/plans/20261115-after-change.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
 printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word y.' > "$WORK/first.md"
 printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/changed.md"
 lstories approve after-change --file "$WORK/first.md" >/dev/null 2>&1 || true
@@ -261,8 +260,6 @@ project --repo "$LOCAL" state after-change dropped "the test is over" >/dev/null
 # The rare path: the lead ran the read with one model family, nobody was confused, and there is no approval; a scout's report is named.
 task_in "$LOCAL" ticket-word t.txt t
 tree=$(project --repo "$LOCAL" worktree-dir ticket-word)
-sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-ticket-word.md"
-rm "$tree/docs/plans/20261115-ticket-word.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
 digest=$(lstories digest ticket-word 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 read_with() { project --repo "$LOCAL" log ticket-word stories.read "$@" 2>&1 || true; }
 bad_by=$(read_with by=owner asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest")
@@ -330,8 +327,6 @@ project --repo "$LOCAL" state ticket-word dropped "the test is over" >/dev/null
 # the freeze takes the stories, and the request is not green for it, with the reason first.
 task_in "$LOCAL" nobody-read n.txt n
 tree=$(project --repo "$LOCAL" worktree-dir nobody-read)
-sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-nobody-read.md"
-rm "$tree/docs/plans/20261115-nobody-read.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
 digest=$(lstories digest nobody-read 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 quiet='silent:=[{"name": "the buyer, opus", "why": "the model was at capacity"}, {"name": "the clerk, opus", "why": "the model was at capacity"}]'
 empty_with() { project --repo "$LOCAL" log nobody-read stories.read by=lead asked:=2 answered:=0 "$@" stories:=1 split:=false "digest=$digest" 2>&1 || true; }
@@ -363,31 +358,34 @@ else
   fail "a read nobody answered, twice: $empty_family / $empty_unnamed / $empty_flagged / $first_empty / $once / $freeze_once / $second_empty / $freeze_twice / $twice_agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state nobody-read dropped "the test is over" >/dev/null
-# A correction: Lem approves its one story in his name, and the personas do not read it.
+# A plan's kind is never correction: one plain change is a small change, whose one story is in the task directory
+# and which has no plan. A plan that says `Kind: correction`, as a lead of the rare path or of a night could write
+# it, is refused by the stories and by every step of the landing that reads them, with or without Lem's approval of
+# a correction in the owner's name, and the refusal names the small change.
 task_in "$LOCAL" one-word o.txt o
+tree=$(project --repo "$LOCAL" worktree-dir one-word)
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("Kind: feature, because the ticket names the word and the file.", "Kind: correction, because the request is one sentence."))' "$tree/docs/plans/20261115-one-word.md"
+git -C "$tree" commit -q -am "docs: the plan of a correction"
+as_plan=$(lstories show one-word 2>&1 || true)
+local_land start one-word >/dev/null && local_land base one-word >/dev/null
+as_polish=$(local_land polish one-word 2>&1 || true)
+as_gate=$(local_land gate one-word 2>&1 || true)
 printf '%s\n' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/correction.md"
 lstories approve one-word --file "$WORK/correction.md" --correction >/dev/null 2>&1 || true
-to_open one-word || true
-text=$LOCAL/.git/lem/tasks/one-word/pr.md
-if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] && [ -n "$(approved_day one-word)" ] \
-  && grep -qxF -- "- a correction: not read by the personas; Lem approved it in the owner's name on $(approved_day one-word), as a correction" "$text" \
-  && ! grep -q 'the stories were read by' "$text"; then
-  pass "a correction approved in his name is proposed with the line that the personas did not read it and when Lem approved it for him"
+approved_plan=$(lstories red one-word 2>&1 || true)
+never="20261115-one-word.md says \`Kind: correction\`, and a plan's kind is never correction"
+if grep -qF "$never" <<<"$as_plan" && grep -qF "a small change, whose one story is \`stories.md\` in the task directory" <<<"$as_plan" \
+  && grep -qF "Kind: feature, because" <<<"$as_plan" && grep -qF "$never" <<<"$as_polish" && grep -qF "$never" <<<"$as_gate" && grep -qF "$never" <<<"$approved_plan" \
+  && [ "$(kept_in "$LOCAL" one-word gated)" = None ] && [ "$(kept_in "$LOCAL" one-word polish)" = None ] \
+  && ! grep -q '"event": "gate.start", "task": "one-word"' "$LOCAL/.git/lem/events.jsonl"; then
+  pass "a plan that says Kind: correction is refused by the stories, the polish pass and the gate, also with Lem's approval of a correction in the owner's name, and the refusal names the small change, which has no plan, and the feature's Kind line"
 else
-  fail "a correction's line: $(cat "$text" 2>/dev/null)"
+  fail "a plan of a correction: $as_plan / $as_polish / $as_gate / $approved_plan"
 fi
 project --repo "$LOCAL" state one-word dropped "the test is over" >/dev/null
 # The owner's word to skip the personas' read, when every story names only the developer: the record of his word and
 # his approval after it let a feature land with no read, green, with one line that says so. Lem's word is not his;
 # a feature with no read and no such record is refused as before; and on the rare path the read always runs.
-# feature_in SLUG FILE TEXT: a task of the local repository whose plan's kind is a feature
-feature_in() {
-  local tree
-  task_in "$LOCAL" "$1" "$2" "$3"
-  tree=$(project --repo "$LOCAL" worktree-dir "$1")
-  sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the ticket names the word and the file./' "$tree/docs/plans/20261115-$1.md"
-  rm "$tree/docs/plans/20261115-$1.md.bak" && git -C "$tree" commit -q -am "docs: a feature"
-}
 # skip_read SLUG BY: the word to skip the personas' read, in the form the landing reads
 skip_read() { ldecide log "$1" --by "$2" --what "the personas' read of the stories" --chose "no read: the stories name only the developer" --why "y" 2>&1 || true; }
 # checked_local SLUG: the machine steps, a polish pass and a clean read, up to the proposal
@@ -396,7 +394,7 @@ checked_local() {
     && local_land read "$1" --record "$(clean 1)" >/dev/null
 }
 printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/mine.md"
-feature_in only-me m.txt m
+task_in "$LOCAL" only-me m.txt m
 skip_read only-me owner >/dev/null
 checked_local only-me
 unapproved=$(local_land propose only-me --title "feat: m" --notes "$NOTES" 2>&1 || true)
@@ -415,7 +413,7 @@ else
   fail "the owner's skip of the read: $unapproved / $skipped_day / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state only-me dropped "the test is over" >/dev/null
-feature_in no-word w.txt w
+task_in "$LOCAL" no-word w.txt w
 checked_local no-word
 lstories approve no-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
 no_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 || true)
@@ -430,7 +428,7 @@ else
   fail "a feature with no read and no word of his: $no_word / $lem_word"
 fi
 project --repo "$LOCAL" state no-word dropped "the test is over" >/dev/null
-feature_in rare-word r2.txt r
+task_in "$LOCAL" rare-word r2.txt r
 skip_read rare-word owner >/dev/null
 project --repo "$LOCAL" state rare-word building "the lead writes the plan" "lead: builder" >/dev/null
 lstories approve rare-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
@@ -454,8 +452,6 @@ project --repo "$LOCAL" state rare-word dropped "the test is over" >/dev/null
 task_in "$LOCAL" polish-me p.txt p
 tree=$(project --repo "$LOCAL" worktree-dir polish-me)
 pdir=$LOCAL/.git/lem/tasks/polish-me
-sed -i.bak 's/^Kind: correction, because the request is one sentence\.$/Kind: feature, because the file gets a word and a tool that writes it./' "$tree/docs/plans/20261115-polish-me.md"
-rm "$tree/docs/plans/20261115-polish-me.md.bak"
 # the lead's change leaves a false comment, a debug line and a name nothing uses
 printf '%s\n' '# writes q into p.txt' 'echo "debug: here" >&2' 'unused=1' 'echo p > p.txt' > "$tree/tool.sh"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "feat: the tool"
@@ -521,21 +517,15 @@ if [ "$gated" = "$after_tip" ] && [ "$on_top" = 0 ] && grep -qF "the tip does no
 else
   fail "the gate and the polish pass: $gated / $on_top / $rewritten / $moved"
 fi
-# The pull request's checks hold one line from the pass; a correction skips the pass, and its line says so.
+# The pull request's checks hold one line from the pass.
 digest=$(lstories digest polish-me 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log polish-me stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
 local_land read polish-me --record "$(clean 1)" >/dev/null 2>&1 && local_land propose polish-me --title "feat: p" --notes "$NOTES" >/dev/null 2>&1 || true
 project --repo "$LOCAL" state polish-me dropped "the test is over" >/dev/null
-task_in "$LOCAL" skips-polish s.txt s
-local_land start skips-polish >/dev/null && local_land base skips-polish >/dev/null
-skipped=$(local_land gate skips-polish | field 'd["polish"]')
-local_land read skips-polish --record "$(clean 1)" >/dev/null && local_land propose skips-polish --title "fix: s" --notes "$NOTES" >/dev/null
-project --repo "$LOCAL" state skips-polish dropped "the test is over" >/dev/null
-if grep -qxF -- "- the polish pass: 6 commits, 1 item filed in the backlog" "$pdir/pr.md" && [ "$skipped" = None ] \
-  && grep -qxF -- "- the polish pass: none, as a correction skips it" "$LOCAL/.git/lem/tasks/skips-polish/pr.md"; then
-  pass "the pull request's checks say how many commits the polish pass made and how many items it filed; a correction's gate runs with no pass, and its checks say that a correction skips it"
+if grep -qxF -- "- the polish pass: 6 commits, 1 item filed in the backlog" "$pdir/pr.md"; then
+  pass "the pull request's checks say how many commits the polish pass made and how many items it filed"
 else
-  fail "the polish pass in the pull request: $skipped / $(cat "$pdir/pr.md" 2>/dev/null)"
+  fail "the polish pass in the pull request: $(cat "$pdir/pr.md" 2>/dev/null)"
 fi
 
 # No path rule lets a change skip its review: documentation gets one read at the least. A review that no
@@ -546,7 +536,8 @@ git -C "$LOCAL" worktree add -q "$tree" -b docs/guide-change main
 plan_in "$tree" guide-change "no test: a sentence of the guide, which a person reads"
 echo more >> "$tree/docs/guide.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "docs: more"
 project --repo "$tree" state guide-change ready "the report is written" >/dev/null
-local_land start guide-change >/dev/null && local_land base guide-change >/dev/null
+read_in "$LOCAL" guide-change
+local_land start guide-change >/dev/null && local_land base guide-change >/dev/null && polish_in "$LOCAL" guide-change
 gate=$(local_land gate guide-change)
 out=$(local_land read guide-change)
 early=$(status_of local_land propose guide-change --title "docs: more" --notes "$NOTES")
@@ -575,7 +566,7 @@ task_in "$LOCAL" spaces s.txt word
 tree=$(project --repo "$LOCAL" worktree-dir spaces)
 echo 'value = "a b"' > "$tree/v.py" && app_py new old > "$tree/app.py"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a value"
-local_land start spaces >/dev/null && local_land base spaces >/dev/null && local_land gate spaces >/dev/null
+local_land start spaces >/dev/null && local_land base spaces >/dev/null && polish_in "$LOCAL" spaces && local_land gate spaces >/dev/null
 local_land read spaces --record "$(clean 1)" >/dev/null
 same=$(local_land read spaces | field 'd["due"]')
 # the same edit in the next function of the file: every line of the diff is the same, with its
@@ -606,12 +597,13 @@ project --repo "$LOCAL" state spaces dropped "the test is over" >/dev/null
 # that goes out of a Rust module and a deleted test file, each refused until the plan gives the
 # file's reason. A suppression that only got another space is not a new one.
 task_in "$LOCAL" bar-change calc.py one
+read_in "$LOCAL" bar-change
 tree=$(project --repo "$LOCAL" worktree-dir bar-change)
 echo 'import os  # noqa: F401' > "$tree/calc.py" && echo 'test -f calc.py' > "$tree/tests/bar-change.sh" && echo 'puts 1 # rubocop:disable Style/X' > "$tree/x.rb"
 printf '%s\n' 'import pytest' 'pytestmark = pytest.mark.skip(reason="later")' 'def test_base():' '    assert 1 + 1 == 2' > "$tree/tests/test_base.py"
 printf '%s\n' 'import plugin  # noqa: F401' 'import other  # noqa' > "$tree/plug.py" && echo 'pub fn one() -> i32 { 1 }' > "$tree/lib.rs"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: with marks"
-local_land start bar-change >/dev/null && local_land base bar-change >/dev/null
+local_land start bar-change >/dev/null && local_land base bar-change >/dev/null && polish_in "$LOCAL" bar-change
 out=$(local_land gate bar-change 2>/dev/null || true)
 err=$(local_land gate bar-change 2>&1 >/dev/null || true)
 git -C "$tree" rm -q tests/test_base.py && git -C "$tree" commit -q -m "fix: the old test goes"
@@ -684,9 +676,10 @@ project --repo "$LOCAL" state bar-change dropped "the test is over" >/dev/null
 # with less than the full set. No talk was due, the text says why it had none and why it is
 # careful, the miss of the plan's call is one event for the retro, and no agent merges it.
 task_in "$LOCAL" price-change seven.txt seven
+read_in "$LOCAL" price-change
 tree=$(project --repo "$LOCAL" worktree-dir price-change)
 mkdir -p "$tree/billing" && echo 'PRICE = 7' > "$tree/billing/price.py" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a price"
-local_land start price-change >/dev/null && local_land base price-change >/dev/null && local_land gate price-change >/dev/null
+local_land start price-change >/dev/null && local_land base price-change >/dev/null && polish_in "$LOCAL" price-change && local_land gate price-change >/dev/null
 printf '%s\n' '{"attempt": 1, "kind": "full", "ran": [{"name": "default", "why": "a price changes"}], "answered": ["codex"]}' > "$WORK/no-call.json"
 nocall=$(local_land read price-change --record "$WORK/no-call.json" 2>&1 || true)
 priced="billing/price.py:PRICE is what a customer pays, so a customer is charged the wrong price"
@@ -715,7 +708,8 @@ project --repo "$LOCAL" state price-change dropped "the test is over" >/dev/null
 # An agent merges a green request only on the newest review's "not careful": a record that holds no
 # call, as a review written down before the call was asked holds none, leaves the merge to a person.
 task_in "$LOCAL" call-kept eight.txt eight
-local_land start call-kept >/dev/null && local_land base call-kept >/dev/null && local_land gate call-kept >/dev/null && local_land read call-kept --record "$(clean 1)" >/dev/null
+read_in "$LOCAL" call-kept
+local_land start call-kept >/dev/null && local_land base call-kept >/dev/null && polish_in "$LOCAL" call-kept && local_land gate call-kept >/dev/null && local_land read call-kept --record "$(clean 1)" >/dev/null
 local_land propose call-kept --title "fix: eight" --notes "$NOTES" >/dev/null
 text=$LOCAL/.git/lem/tasks/call-kept/pr.md
 kept_file=$LOCAL/.git/lem/tasks/call-kept/landing.json
@@ -740,10 +734,11 @@ local_land clean call-kept >/dev/null
 # careful by the script, which says why, and the landing reads the topics of the main checkout's
 # settings, also when it runs from the task's worktree.
 task_in "$LOCAL" lift-topics nine.txt nine
+read_in "$LOCAL" lift-topics
 tree=$(project --repo "$LOCAL" worktree-dir lift-topics)
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("topics = [\"a customer is charged the wrong price\"]", "topics = []"))' "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "chore: no topics"
-local_land start lift-topics >/dev/null && local_land base lift-topics >/dev/null && local_land gate lift-topics >/dev/null
+local_land start lift-topics >/dev/null && local_land base lift-topics >/dev/null && polish_in "$LOCAL" lift-topics && local_land gate lift-topics >/dev/null
 lifted=$(local_land read lift-topics | field '(d["floor"], d["why"], d["inputs"]["topics"])')
 from_tree=$(land --repo "$tree" read lift-topics | field '(d["floor"], d["inputs"]["topics"])')
 local_land read lift-topics --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null

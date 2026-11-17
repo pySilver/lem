@@ -17,6 +17,11 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    a day's work. When the
    `lem-backlog` skill's triage has verdicts, take the items it gives to an agent, the surest first.
    Without verdicts, read each item and keep the ones that state a defect or a job, not a choice.
+   An item that is one plain change (one rule in a sentence, in reach of no topic, no question
+   open: a small change, as `stages/new.md` step 1 sizes an ask) gets no plan: a plan's kind is
+   never correction, and a small change has one builder and no plan. Draft nothing for it, name
+   it in the night report as ready to start as a small change, and take the next candidate; it
+   is none of the three tries of step 4, since no builder ran for it.
 3. **One item, planned.** For the first candidate, open the task as `stages/new.md` does, on a
    branch `plan/<slug>`, and start a builder with `stop after the plan: yes` and one more line in
    its brief, `night: yes`. Never ask: nobody is there. Wait for the builder; this session has
@@ -34,7 +39,9 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    most.
 5. **The night report**, `night/YYYY-MM-DD.md` in the folder `project.py state-dir` prints: for the
    draft, what the owner gets, the plan's path, why no decision was needed, and what it will not
-   verify; for each item dropped in step 4, its question; for the brake, the drafts that wait,
+   verify; for each item dropped in step 4, its question; for each item of one plain change
+   (step 2), its path and the line `ready to start as a small change: /lem new PATH`; for the
+   brake, the drafts that wait,
    each with a verdict and its reason:
    - **run now**: the code the plan names is as it was;
    - **replan**: the files the plan names changed on the base branch since the draft;

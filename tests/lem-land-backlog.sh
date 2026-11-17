@@ -15,13 +15,17 @@ backlog_repo() {
   mkdir -p "$repo/$2" && echo '# an item from before' > "$repo/$2/existing.md" && echo one > "$repo/app.txt"
   git -C "$repo" add -A && git -C "$repo" commit -q -m "chore: start"
 }
+# blg_task SLUG: a feature of the backlog repository, with the lead's read of its stories
+blg_task() { task_in "$BLG" "$1" app.txt two && read_in "$BLG" "$1"; }
+# checked_in REPO SLUG: the task takes the landing line, its base, its polish pass and its gate
+checked_in() { land --repo "$1" start "$2" >/dev/null && land --repo "$1" base "$2" >/dev/null && polish_in "$1" "$2" && land --repo "$1" gate "$2" >/dev/null; }
 # reviewed_then REPO SLUG CHANGE: a task whose change one read reviewed, then CHANGE run in its
 # worktree and committed, and the checks again; prints what is due
 reviewed_then() {
   local tree
   task_in "$1" "$2" app.txt two
   tree=$(project --repo "$1" worktree-dir "$2")
-  land --repo "$1" start "$2" >/dev/null && land --repo "$1" base "$2" >/dev/null && land --repo "$1" gate "$2" >/dev/null
+  checked_in "$1" "$2"
   land --repo "$1" read "$2" --record "$(clean 1)" >/dev/null
   (cd "$tree" && sh -c "$3")
   git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): after the review" && land --repo "$1" gate "$2" >/dev/null
@@ -49,8 +53,8 @@ fi
 
 # A review names each defect it saw outside the change, and `land.py file` files each one as an item
 # of the backlog: a count of them is no record, and is refused; 0 is no defect.
-task_in "$BLG" outside-form app.txt two
-land --repo "$BLG" start outside-form >/dev/null && land --repo "$BLG" base outside-form >/dev/null && land --repo "$BLG" gate outside-form >/dev/null
+blg_task outside-form
+checked_in "$BLG" outside-form
 counted=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 2}')" 2>&1 >/dev/null || true)
 unnamed=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": [{"where": "app.txt"}]}')" 2>&1 >/dev/null || true)
 none=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 0}')" | field '(d["recorded"]["outside"], d["to_file"])')
@@ -71,9 +75,9 @@ a_read='{"kind": "read", "answered": ["codex"]'
 read_must_fix='{"kind": "read", "answered": ["codex"], "must_fix": 1'
 a_round='{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "answered": ["codex"]'
 outside() { local IFS=,; printf '"outside": [%s]}' "$*"; }
-task_in "$BLG" two-defects app.txt two
+blg_task two-defects
 tree=$(project --repo "$BLG" worktree-dir two-defects)
-land --repo "$BLG" start two-defects >/dev/null && land --repo "$BLG" base two-defects >/dev/null && land --repo "$BLG" gate two-defects >/dev/null
+checked_in "$BLG" two-defects
 # the day before the review and after its filing: an item filed at midnight carries one of the two
 day_from=$(date +%F)
 first=$(land --repo "$BLG" read two-defects --record "$(record 1 "$read_must_fix, $(outside "$A")")" | field '(d["next"], [(f["round"], f["title"]) for f in d["to_file"]])')
@@ -113,10 +117,10 @@ project --repo "$BLG" state two-defects dropped "the test is over" >/dev/null
 
 # An item that was on the branch before the review is no proof that a defect was filed; an item that
 # was filed and then removed stops propose until it is back, and `file --again` puts it back.
-task_in "$BLG" item-goes app.txt two
+blg_task item-goes
 tree=$(project --repo "$BLG" worktree-dir item-goes)
 echo '# a slow report' > "$tree/docs/backlog/first.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): a slow report"
-land --repo "$BLG" start item-goes >/dev/null && land --repo "$BLG" base item-goes >/dev/null && land --repo "$BLG" gate item-goes >/dev/null
+checked_in "$BLG" item-goes
 land --repo "$BLG" read item-goes --record "$(record 1 "$a_read, $(outside "$A")")" >/dev/null
 before=$(land --repo "$BLG" propose item-goes --title "fix: item-goes" --notes "$NOTES" 2>&1 >/dev/null || true)
 land --repo "$BLG" file item-goes >/dev/null
@@ -139,10 +143,10 @@ project --repo "$BLG" state item-goes dropped "the test is over" >/dev/null
 # worktree with a change nobody committed is refused.
 D='{"where": "src/json.py:parse", "title": "An item from before", "what": "parse of a document with no root returns None, on the base commit too."}'
 E='{"where": "src/json.py:parse", "title": "An item from before", "what": "parse of a document of one number returns a string, on the base commit too."}'
-task_in "$BLG" same-defect app.txt two
+blg_task same-defect
 tree=$(project --repo "$BLG" worktree-dir same-defect)
 echo '# An item from before' > "$tree/docs/backlog/an-item-from-before.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): an item with no place"
-land --repo "$BLG" start same-defect >/dev/null && land --repo "$BLG" base same-defect >/dev/null && land --repo "$BLG" gate same-defect >/dev/null
+checked_in "$BLG" same-defect
 land --repo "$BLG" read same-defect --record "$(record 1 "$read_must_fix, $(outside "$D")")" >/dev/null
 once=$(land --repo "$BLG" file same-defect | field '[f["item"] for f in d["filed"]]')
 echo fixed > "$tree/notes.txt" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: the must-fix" && land --repo "$BLG" gate same-defect >/dev/null
@@ -162,9 +166,9 @@ project --repo "$BLG" state same-defect dropped "the test is over" >/dev/null
 
 # The owner's "no" is `worth: no` and his reason in the item: the same defect seen again by the next
 # round is still that item, and nothing is filed over his word.
-task_in "$BLG" owner-says-no app.txt two
+blg_task owner-says-no
 tree=$(project --repo "$BLG" worktree-dir owner-says-no)
-land --repo "$BLG" start owner-says-no >/dev/null && land --repo "$BLG" base owner-says-no >/dev/null && land --repo "$BLG" gate owner-says-no >/dev/null
+checked_in "$BLG" owner-says-no
 land --repo "$BLG" read owner-says-no --record "$(record 1 "$read_must_fix, $(outside "$A")")" >/dev/null
 land --repo "$BLG" file owner-says-no >/dev/null
 item=$tree/docs/backlog/empty-input-crashes-the-parser.md
@@ -183,16 +187,16 @@ project --repo "$BLG" state owner-says-no dropped "the test is over" >/dev/null
 # The items `file` commits hold no code and no test, so they ask for no gate again: the request is
 # proposed and lands on the gate's result. An item written by hand after the gate is a commit like
 # any other, and asks for the gate. Last in this block: the landed item is on the base from here on.
-task_in "$BLG" by-hand app.txt two
+blg_task by-hand
 tree=$(project --repo "$BLG" worktree-dir by-hand)
-land --repo "$BLG" start by-hand >/dev/null && land --repo "$BLG" base by-hand >/dev/null && land --repo "$BLG" gate by-hand >/dev/null
+checked_in "$BLG" by-hand
 land --repo "$BLG" read by-hand --record "$(clean 1)" >/dev/null
 echo '# found by hand' > "$tree/docs/backlog/found-by-hand.md" && git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): found by hand"
 hand=$(land --repo "$BLG" propose by-hand --title "fix: by-hand" --notes "$NOTES" 2>&1 || true)
 project --repo "$BLG" state by-hand dropped "the test is over" >/dev/null
-task_in "$BLG" filed-only app.txt two
+blg_task filed-only
 tree=$(project --repo "$BLG" worktree-dir filed-only)
-land --repo "$BLG" start filed-only >/dev/null && land --repo "$BLG" base filed-only >/dev/null && land --repo "$BLG" gate filed-only >/dev/null
+checked_in "$BLG" filed-only
 gated=$(git -C "$tree" rev-parse HEAD)
 land --repo "$BLG" read filed-only --record "$(record 1 "$a_read, $(outside "$A")")" >/dev/null
 land --repo "$BLG" file filed-only >/dev/null

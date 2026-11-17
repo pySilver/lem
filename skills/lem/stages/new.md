@@ -34,7 +34,9 @@ a lead is started, and what to do each time a lead stops.
    *feature* in size, whatever its kind. When you cannot tell, take the small change and ask
    nothing: its builder checks it again before it commits (`prompts/small.md`), and stops when it
    is not. "Correction" stays the word of the scripts for a small change (`Kind: correction`,
-   `stories.py approve --correction`); to the owner it is a small change.
+   `stories.py approve --correction`), and for nothing else: a plan's kind is always `feature`,
+   and `stories.py` and `land.py` refuse a plan that says `Kind: correction`. To the owner it is
+   a small change.
    In the same look, read the ask's words against each topic of `flow.topics` in `project.py
    show`, the sentences of what must never go wrong here. No code matches a topic and no file
    name settles one: the question is whether the change the ask wants could reach that thing.
@@ -88,6 +90,8 @@ a lead is started, and what to do each time a lead stops.
      options are settled, a night plan he starts, an investigation's report that settles what is
      wanted. No interview: the lead writes the stories from the code and has the personas read
      them (`stages/plan.md`, step 1). He can say "interview me", and then it is the usual path.
+     A ticket, an item or a report that asks for one plain change is a small change all the
+     same: the rare path has a lead and a plan, and a plan's kind is never correction.
    - *the usual path*, for every other ask: the interview, then the stories he approves, as
      "The interview and the stories" below says, all in one sitting while he is there.
    Write the task's first state block now, with the kind line of step 1, so that the status and

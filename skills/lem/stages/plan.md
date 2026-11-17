@@ -24,19 +24,21 @@ a list of questions that closes with the reviewer's first turn, by its defender 
      recorded change, word for word, or whose `Kind:` is not the approved kind. Stories approved
      as a correction do not reach a lead: a small change has one builder and no plan
      (`stages/new.md`, "A small change"), and one that is a feature after all comes to you with
-     his approval of its stories as a feature;
+     his approval of its stories as a feature. A plan's kind is always `feature`: `stories.py`
+     and `land.py` refuse a plan that says `Kind: correction`;
    - with no approved stories (the rare path, a night plan), write them. A story is one
      business rule of the request in plain language with one concrete example, with real names
      and values: what a person of the project would see, never how the code does it. Take them
      from the outcome and the "done when" of `task.md`, now that you have read the code. A rule
      you cannot write without guessing what the owner wants is not yours to guess: the stories
      wait for him, as for a doubt of the personas below, with the story as you would guess it
-     and each other reading beside it as a proposal. The first line of that section is your call,
-     `Kind: feature` or `Kind: correction`, with the reason after `because`. A correction is a
-     request that yields one story and is not careful (step 2): its story is the owner's own
-     sentence made exact. Everything else is a feature. The owner may overrule the call, as he
-     may the careful one;
-   - then the personas read the stories you wrote, unless they are a correction's one story. Here
+     and each other reading beside it as a proposal. The first line of that section is
+     `Kind: feature`, with the reason after `because`, also for a plan of one story: a plan's
+     kind is never correction. One plain change with nothing careful is a small change, which
+     has one builder and no plan (`stages/new.md`, "A small change"), and Lem chose this path for
+     the task before you started. When the code shows you that it is one, still write the feature,
+     and say in the report that it was a small change, for Lem's next call of a size;
+   - then the personas read the stories you wrote. Here
      the read always runs, as the only approval of this path: the owner's word to skip it belongs
      to an interview (`stages/new.md`, "The interview and the stories", step 5), and the landing
      refuses one that comes after a lead started. The read is the persona panel's "Reading stories" mode (`load-skill`), run by you while you write the

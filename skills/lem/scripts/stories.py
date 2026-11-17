@@ -21,7 +21,10 @@ that yields one story and touches nothing careful; its story is the owner's own 
 exact. Lem calls it a small change, and a small change has no plan: its story is the same section
 in `stories.md` in the task's directory, which no commit holds, and the builder adds its test line
 there. A branch's plan comes first when it has one, and only a correction is read from that file:
-a feature's stories are at the top of its plan, and a feature with no plan is refused. A story's test is a command and the files that hold the test, each in backticks. A story
+a feature's stories are at the top of its plan, and a feature with no plan is refused. A plan's
+kind is always `feature`: a plan that says `Kind: correction` is refused, with the small change
+named as the way for one plain change, since a correction in a plan would take a feature's path
+with none of what a feature gets (the owner's approval, the personas' read, the polish pass). A story's test is a command and the files that hold the test, each in backticks. A story
 that no test can hold (a sentence of a document) says so, and that is shown wherever the stories
 are:
 
@@ -303,12 +306,27 @@ class Task:
         if small and changes["approved"] is None:
             raise StoriesError(f"the small change's story in {plan} has no approval: Lem approves it in the owner's name before its builder starts, `stories.py approve {self.slug} --file {plan} --correction`")
         if changes["approved"] is None:
+            self.no_correction_plan(read, plan, small)
             return {"task": self.slug, "plan": str(plan), "small": small, **read, "stories_digest": digest, "approved": None, "approvals": [], "changes": [], "history": []}
+        # the approved kind first: a plan of another kind than the owner approved says that
         against(read, changes, plan.name, self.slug)
+        self.no_correction_plan(read, plan, small)
         return {
             "task": self.slug, "plan": str(plan), "small": small, **read, "stories_digest": digest,
             **{key: changes[key] for key in ("approved", "approvals", "changes", "history")},
         }
+
+    def no_correction_plan(self, read: dict, plan: Path, small: bool) -> None:
+        """Refuse a plan file that says `Kind: correction`: a plan's kind is never correction. One plain
+        change is a small change, with its story in the task directory and no plan; a correction in a
+        plan would land with no approval of the owner's, no read and no polish pass."""
+        if small or read["kind"] != "correction":
+            return
+        raise StoriesError(
+            f"{plan.name} says `Kind: correction`, and a plan's kind is never correction: one plain change is a small change, whose one story is "
+            f"`stories.md` in the task directory and which has no plan (`stages/new.md`, \"A small change\"). A plan's stories are a feature's: "
+            f"its lead writes `Kind: feature, because ...`, and the personas read them (`stages/plan.md`, step 1)",
+        )
 
     def changes(self) -> dict:
         """The approved stories and their recorded changes, through the one script that writes them."""

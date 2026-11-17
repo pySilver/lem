@@ -27,7 +27,7 @@ to_proposed() {
 }
 
 # A worktree on no branch: the landing needs the branch, which `clean` deletes after the merge.
-task_in "$GRD" detached d.txt d
+small_task_in "$GRD" detached d.txt d
 tree=$(wt detached)
 git -C "$tree" switch -q --detach
 no_branch=$(g start detached 2>&1 || true)
@@ -44,7 +44,7 @@ project --repo "$GRD" state detached dropped "the test is over" >/dev/null
 
 # No gate command: start blocks the task, and once the commands are there, the same start takes it back.
 grd_settings ''
-task_in "$GRD" no-gate n.txt n
+small_task_in "$GRD" no-gate n.txt n
 blocked=$(g start no-gate 2>&1 || true)
 was=$(status_in "$GRD" no-gate)
 again=$(g start no-gate 2>&1 || true)
@@ -69,11 +69,11 @@ fi
 project --repo "$GRD" state no-gate dropped "the test is over" >/dev/null
 
 # A task whose worktree was removed by hand while it held the landing line: every message on the way names the step out.
-task_in "$GRD" stuck s.txt s
+small_task_in "$GRD" stuck s.txt s
 g start stuck >/dev/null
 stuck_tree=$(wt stuck)
 rm -rf "$stuck_tree"
-task_in "$GRD" waiting w.txt w
+small_task_in "$GRD" waiting w.txt w
 line=$(g start waiting 2>&1 || true)
 gone=$(g base stuck 2>&1 || true)
 git -C "$GRD" worktree prune && git -C "$GRD" worktree add -q "$stuck_tree" fix/stuck
@@ -91,7 +91,7 @@ project --repo "$GRD" state stuck dropped "the test is over" >/dev/null
 project --repo "$GRD" state waiting dropped "the test is over" >/dev/null
 
 # A landing record that is not JSON stops every step with its path, and the way out land.py names starts the landing over.
-task_in "$GRD" broken-record b.txt b
+small_task_in "$GRD" broken-record b.txt b
 g start broken-record >/dev/null
 printf '{"branch": "fix/broken-' > "$GRD/.git/lem/tasks/broken-record/landing.json"
 broken=$(g base broken-record 2>&1 || true)
@@ -109,7 +109,7 @@ project --repo "$GRD" state broken-record dropped "the test is over" >/dev/null
 # What a gate command writes that git does not know, a cache of Python's bytecode in a repository
 # with no ignore rule for it, is the run's output and not the tree it judged: the gate passes, removes
 # those files and the folders they emptied, names them, and keeps a folder that holds a tracked file.
-task_in "$GRD" gate-caches c.txt c
+small_task_in "$GRD" gate-caches c.txt c
 tree=$(wt gate-caches)
 g start gate-caches >/dev/null && g base gate-caches >/dev/null
 grd_settings '"mkdir -p shop/__pycache__ tests/__pycache__ && touch shop/__pycache__/c.pyc tests/__pycache__/t.pyc left.txt"'
@@ -139,7 +139,7 @@ project --repo "$GRD" state gate-caches dropped "the test is over" >/dev/null
 
 # The gate judges one tree: a command that changes a tracked file or makes a commit changed it, and a
 # story's test that passes on the base commit too holds nothing. Each refusal records no green tip.
-task_in "$GRD" gate-writes x.txt x
+small_task_in "$GRD" gate-writes x.txt x
 tree=$(wt gate-writes)
 g start gate-writes >/dev/null && g base gate-writes >/dev/null
 tip=$(git -C "$tree" rev-parse HEAD)
@@ -170,7 +170,7 @@ project --repo "$GRD" state gate-writes dropped "the test is over" >/dev/null
 
 # What lands is what was proposed and gated: the record of the tip, of the gate and of its tree, each
 # checked by land. The record is edited here; a run of the steps the refusal names lands the new tip.
-task_in "$GRD" guarded y.txt y
+small_task_in "$GRD" guarded y.txt y
 tree=$(wt guarded)
 g start guarded >/dev/null && g base guarded >/dev/null && g gate guarded >/dev/null && g read guarded --record "$(clean 1)" >/dev/null
 no_notes=$(g propose guarded --title "fix: y" --notes "$WORK/no-such-notes.md" 2>&1 || true)
@@ -209,7 +209,7 @@ land --repo "$GRD" clean guarded >/dev/null 2>&1 || true
 
 # One commit for the branch, refused by a commit hook: the branch stays as it was, and the next run lands it.
 HISTORY=squash grd_settings '"true"'
-task_in "$GRD" squashed z.txt z
+small_task_in "$GRD" squashed z.txt z
 tree=$(wt squashed)
 to_proposed squashed
 before=$(git -C "$tree" rev-parse HEAD)
@@ -229,7 +229,7 @@ fi
 land --repo "$GRD" clean squashed >/dev/null 2>&1 || true
 
 # The bar: a test file moved out of the tests is one the tests lose, and a focus mark runs one test alone.
-task_in "$GRD" bar-moves m.txt m
+small_task_in "$GRD" bar-moves m.txt m
 tree=$(wt bar-moves)
 mkdir -p "$tree/attic" && git -C "$tree" mv tests/test_old.py attic/old.py
 printf '%s\n' 'it.only("runs alone", () => {});' 'fit("runs alone too", () => {});' 'fdescribe("a group alone", () => {});' \
@@ -276,7 +276,7 @@ project --repo "$GC" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' '[gate]' 'commands = ["true"]' 'ignores = ["docs/*"]' > "$GC/.lem/project.toml"
 mkdir -p "$GC/docs" && echo one > "$GC/docs/note.md"
 git -C "$GC" add -A && git -C "$GC" commit -q -m "chore: start" && git -C "$GC" push -q origin main
-task_in "$GC" docs-meet q.txt q
+small_task_in "$GC" docs-meet q.txt q
 tree=$(project --repo "$GC" worktree-dir docs-meet)
 echo branch > "$tree/docs/note.md" && git -C "$tree" commit -q -am "docs: the branch's note"
 land --repo "$GC" start docs-meet >/dev/null && land --repo "$GC" base docs-meet >/dev/null && land --repo "$GC" gate docs-meet >/dev/null \
@@ -296,7 +296,7 @@ else
 fi
 
 # The stories' check needs a change: a branch the base holds whole has no commit for a test to hold.
-task_in "$GRD" on-base o.txt o
+small_task_in "$GRD" on-base o.txt o
 git -C "$GRD" merge -q --ff-only fix/on-base
 on_base=$("$PY" -B "$STORIES" --repo "$GRD" red on-base 2>&1 || true)
 if grep -qF "the branch has no commit beyond main, so there is no change for a test to hold" <<<"$on_base"; then
