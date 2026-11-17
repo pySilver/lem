@@ -49,8 +49,13 @@ onboarding directory, every line with the path it was read from:
 - what the product is and who uses it: `README`, `AGENTS.md` or another agent document, the
   package metadata, the top of the documentation;
 - the stack and its versions: the dependency and tool-version files;
-- how it is checked: the test configuration, the CI files, the commit hooks, a `Makefile` or task
-  runner. These become the gate commands;
+- how it is checked: the test configuration, the CI files, a `Makefile` or task runner, and the
+  git hooks: a `.pre-commit-config.yaml`, a `.husky/` folder, a `lefthook.yml`, the folder that
+  `git config core.hooksPath` names, and each executable file that is no `.sample` in the hooks
+  folder of the git directory (`git rev-parse --git-path hooks`). Write which hooks run at a
+  commit and what each one runs. Note a sign of a suite that needs the machine to itself too: a
+  Playwright, Cypress or Selenium configuration, a compose file for the tests. These become the
+  gate commands;
 - how work lands: the default branch, the branches the last fifty merges went into, whether
   commits are squashed, the form of the commit subjects, whether the remote is GitHub, and any
   branch nothing lands on (a release branch frozen for a rewrite);
@@ -129,8 +134,17 @@ an agent already loads by itself stay in their folder whatever `--existing` says
 settings name it as the style guide. Then edit `.lem/project.toml` with the three answers and
 the assumptions of step 6:
 
-- the gate commands from `examined.md`, and the sentences of what must never go wrong
-  (`flow.topics`) the owner confirmed;
+- the gate commands from `examined.md`. `gate.commands` is the whole suite, which runs one time,
+  in the checks before the pull request; no builder runs it. When git hooks run at a commit,
+  propose only the test commands: the hooks run the formatter, the linter and the type check at
+  each commit of a builder, and the checks need not run them again ("test runs only", the owner,
+  2026-11-17). With no hooks, propose the linter and the type check the repository has as well;
+- `gate.alone`, only when `examined.md` shows a sign of a suite that needs the machine to itself:
+  the test command of that suite, your guess from the file the sign is in, out of
+  `gate.commands`. The checks run it after `gate.commands` pass, under one lock for the
+  repository, and a builder runs a test of it through the same lock. With no sign it stays empty
+  and nothing about it is said;
+- the sentences of what must never go wrong (`flow.topics`) the owner confirmed;
 - `branch.land = "owner"`: a person merges, until he says otherwise;
 - `branch.propose`: a pull request where the remote is GitHub;
 - `branch.history`: `keep` or `squash`, as the last fifty merges in `examined.md` did;
@@ -145,7 +159,8 @@ the assumptions of step 6:
   (`[seats.planner]`), stay the agents' own defaults;
 - `tools.annotate` and `tools.ask` keep Lem's defaults.
 
-Run each gate command once, at the root, for the last line the hand-over page shows. Then look at
+Run each gate command once, at the root, for the last line the hand-over page shows, and each
+`gate.alone` command through `python3 SKILL_DIR/scripts/project.py alone -- COMMAND`. Then look at
 what they left that git neither tracks nor ignores (`git status --porcelain --untracked-files=all`):
 a cache of Python's bytecode, a coverage file, a build folder. Propose an ignore line for each kind
 in the repository's ignore file, `.gitignore` when it has none, in the onboarding's commit, and
@@ -226,8 +241,12 @@ builder of its own, and how (the harness file, `spawn-builder`).
 **The assumptions**, each one line with its value, where it came from, and the words that change
 it: who lands (`owner`; "change land agent"), a pull request or a merge, what lands, the closed
 branches, the tracker, the reviewer and the defender with their models, the folders already here
-(linked or new), and each gate command. He corrects one with "change" and what; nothing on the
-list waits for an answer. With `branch.propose = "pull-request"` one line of it says, in these
+(linked or new), and each gate command. With git hooks, one line says, in these words, why the
+gate has only tests: "the git hooks run the rest at each commit of a builder" (the hook files;
+"change gate add COMMAND"). With a sign of a suite that needs the machine to itself, one line
+names your guess for `gate.alone` with the file the sign is in ("change alone COMMAND", "change
+alone none"): that line is the one question about it, and it waits for no answer either. He
+corrects one with "change" and what; nothing on the list waits for an answer. With `branch.propose = "pull-request"` one line of it says, in these
 words, what his "land" approves: "Lem pushes each task's branch and opens its pull request
 without asking" (`branch.propose`; "change propose merge"). That line makes the settings his
 standing word for the push, so that no task stops before its pull request to ask for it.
