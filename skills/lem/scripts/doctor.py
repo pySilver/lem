@@ -241,6 +241,24 @@ def tool(name: str, need: str, used_for: str, without_it: str, binary: str, prob
     }
 
 
+def gh() -> dict:
+    """The GitHub CLI: found or not, and signed in or not. The row is optional, since a project with
+    no GitHub remote, or with `branch.propose = "merge"`, never calls it."""
+    row = tool(
+        "gh", "optional", "the pull request of each task and the watch of the open ones, where the remote is GitHub",
+        "with a GitHub remote `lem land propose` and the watch stop and say so; install the GitHub CLI and run `gh auth login`", "gh", ["--version"],
+    )
+    row["signed_in"] = False
+    if row["found"]:
+        try:
+            row["signed_in"] = subprocess.run([shutil.which("gh") or "gh", "auth", "status"], capture_output=True, text=True, check=False, timeout=10).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        if not row["signed_in"]:
+            row["detail"] = f"{row['detail']}; not signed in: `gh auth login` signs it in"
+    return row
+
+
 def agterm() -> list[dict]:
     row = tool(
         "agterm", "required", "the reviewer's pane, pages for the owner, and the companion of a plan talk",
@@ -437,6 +455,7 @@ def main() -> None:
         skill("revmux", "how an agent runs a review round: it writes the round's context and reads the findings back",
               "an agent has the review tool and no instructions for it; install the skill that comes with revmux (its README says how)"),
         *agterm(),
+        gh(),
         # The recommended tools: none is copied into Lem, each has a guide the developer follows,
         # and Lem installs one only on the developer's yes.
         skill("webrev", "the owner marks up a plan, a draft or any document as a rendered page, and the notes come back to the agent; "

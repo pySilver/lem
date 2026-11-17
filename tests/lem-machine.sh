@@ -36,6 +36,23 @@ if [ "$(status_of doctor)" = 1 ] && [ "$(row revmux detail <<<"$out")" = "revmux
 else
   fail "doctor with revmux only: $out"
 fi
+# The GitHub CLI: not on PATH, on PATH and signed out, on PATH and signed in. Its row is optional: a project with no
+# GitHub remote never calls it.
+gh_row() { (doctor || true) | field '(lambda t: (t["need"], t["found"], t["signed_in"], t["detail"]))(next(t for t in d["tools"] if t["name"] == "gh"))'; }
+no_gh=$(gh_row)
+# shellcheck disable=SC2016  # the stand-in's own argument, read when it runs
+printf '%s\n' '#!/bin/sh' 'case "$1" in --version) echo "gh version 2.80.0" ;; auth) exit 1 ;; esac' > "$BIN/gh" && chmod +x "$BIN/gh"
+gh_out=$(gh_row)
+# shellcheck disable=SC2016  # the stand-in's own argument, read when it runs
+printf '%s\n' '#!/bin/sh' 'case "$1" in --version) echo "gh version 2.80.0" ;; auth) exit 0 ;; esac' > "$BIN/gh"
+gh_in=$(gh_row)
+rm "$BIN/gh"
+if [ "$no_gh" = "('optional', False, False, None)" ] && [ "$gh_out" = "('optional', True, False, 'gh version 2.80.0; not signed in: \`gh auth login\` signs it in')" ] \
+  && [ "$gh_in" = "('optional', True, True, 'gh version 2.80.0')" ]; then
+  pass "the machine check has a row for gh: not found, found and not signed in with the command that signs it in, or found and signed in"
+else
+  fail "the gh row: $no_gh / $gh_out / $gh_in"
+fi
 fake agtermctl "agtermctl 1.0"
 fake mailbox-chat.py "mailbox-chat"
 out=$(doctor || true)
