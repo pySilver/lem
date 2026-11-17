@@ -477,7 +477,9 @@ and a builder that leads from this session, where it runs. That line is the wake
 wait counts from the ask. A line can be lost (a pane that restarted, a brief with no
 `coordinator:` line), and the harness file says that the builder's line was not yet seen to
 wake an idle Lem, so also run `python3 SKILL_DIR/scripts/decisions.py pending` at each of your
-turns: its `waiting` list is what needs his answer. A task that was dropped or landed while a choice waited is under `ended`, and
+turns: its `waiting` list is what needs his answer. At the same turns, run `land.py merged SLUG`
+for each `open` task with a pull request, as `SKILL.md` says under Status: a merge he made on
+the forge frees the queue. A task that was dropped or landed while a choice waited is under `ended`, and
 its choices need no answer.
 
 1. **Ask him at once**, through `ask-owner`, which shows it as the settings' `tools.ask` says.

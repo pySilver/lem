@@ -326,6 +326,14 @@ branch. Look at it with the status: with none, say so and name the step, `/lem i
 asks who a decision here affects and writes them without touching the settings that exist; with
 one, say that a panel needs a second person who would notice other things.
 
+Before you say it, find out what merged. The owner merges a pull request on the forge, and
+nothing tells Lem: for each `open` task whose `proposal` in `project.py tasks` has a
+`pull_request`, run `python3 SKILL_DIR/scripts/land.py merged SLUG`. One that is merged becomes
+`landed`; take step 8 of `stages/land.md` for it (the ticket, `clean`), then the queue, as
+`stages/new.md` ends, since a task queued `after:` it may start now. "Not merged yet" is no news.
+Do the same at each of your turns where you read `decisions.py pending` (`stages/new.md`, "When a
+choice waits for the owner").
+
 Then say the same in words. `python3 SKILL_DIR/scripts/project.py tasks` lists every task
 directory with the first line of its `task.md`, its status and the newest block of its
 `state.md`. Say, in plain names and never in task codes: what builds and what each other task
@@ -337,5 +345,8 @@ SKILL_DIR/scripts/decisions.py pending` lists them under `waiting`: the task, th
 minutes its wait has left, or that it waits for his word. A dropped, landed or answered task has
 no choice that waits. A task whose status is null has a state nobody wrote through the script: say
 so. A task with a `ticket_owed` ended, and its ticket in the tracker does not say so yet: say
-that too. Open with the newest night report when one is newer than the last status shown. The status
-itself changes nothing.
+that too. Open with the night report of today or of the night before, `night/YYYY-MM-DD.md` in
+the folder `project.py state-dir` prints, when it names a draft whose task is still `drafted`:
+that is what waits for him from the night, and the files hold no record of a status shown. The
+status changes what already happened and nothing else: a merge on the forge is written down, with
+the steps that follow a merge and the queue that it frees.

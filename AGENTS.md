@@ -479,6 +479,14 @@ is the session's, and open to him.
   interview (W6). The plan talk is `stages/talk.md`, which only the defender reads: it was half of
   `plan.md`, and every lead read it (F11; a lead read about 18,500 words before it acted, `wc -w`,
   2026-11-16).
+- **The status knows what merged** (2026-11-17). The audit found that only a landing ran `land.py
+  merged`, so a pull request he merged on the forge showed as open in the morning and a task
+  queued `after:` it waited with nobody to act (F2, W3). So before a status, and at each turn of
+  Lem's where it reads `decisions.py pending`, Lem runs `land.py merged` for each `open` task with
+  a pull request, takes the steps after a merge, and looks at the queue. The status changes what
+  already happened and nothing else. The night report rule read "newer than the last status
+  shown", which no file records; it is now a report of that night or the one before that names a
+  draft still `drafted`, which a fresh session can read from the files.
 
 ## Checks
 

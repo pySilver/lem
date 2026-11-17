@@ -43,5 +43,6 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    or a large plan), say so in the night report: the draft stands, and its build starts with the
    plan talk in a companion, then a builder that leads the build.
 
-In the morning `/lem status` opens with the night report. The owner starts a draft with
-`/lem build <task>`, or says hold or drop.
+In the morning `/lem status` opens with the night report, while it is of that night or the one
+before and names a draft that is still `drafted`. The owner starts a draft with `/lem build
+<task>`, or says hold or drop.
