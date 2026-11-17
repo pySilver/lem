@@ -435,9 +435,8 @@ is the session's, and open to him.
   lead change a story a persona doubted before the owner sees it; the stages keep the story as
   written, with what the lead would change beside it as a proposal, because no agent rewrites
   his contract before he reads it. "Not green" stays for every choice the experts or the timeout
-  took, where the amendment names only the timeout. The polish pass does not run for a
-  correction, unless its report names a defect outside the task: the weight of a step follows
-  the size of the change.
+  took, where the amendment names only the timeout. The polish pass never runs for a small
+  change: the weight of a step follows the size of the change.
 - **Whether a change is careful is inferred from what the owner said must not go wrong, never
   matched from a list of paths**, after his question of 2026-11-16 in "What must not go wrong is
   named by topic". A list of paths goes stale as the code moves, misses new code, is a second
@@ -459,9 +458,9 @@ is the session's, and open to him.
   by the branch they guard: `project.py` reads `[flow]` from the main checkout's settings, also
   in a task's worktree, so the landing, the lead, `decisions.py` with `flow.decision_wait`
   (audit findings S1 and W2) and the review read the main checkout's table, and `land.py` reads
-  every setting from the main checkout wherever it runs. A change whose diff edits the `[flow]`
-  or `[gate]` table of `.lem/project.toml` is careful by the script: the one rule that is a
-  match and not a judgment, because the file is Lem's own.
+  every setting from the main checkout wherever it runs. A change whose diff edits
+  `.lem/project.toml`, in any table, is careful by the script: the one rule that is a match and
+  not a judgment, because the file is Lem's own.
 - **The size of a change decides its path** (2026-11-17), under his "Lem should not make simple
   things complicated, otherwise developers will get frustrated so often they will stop using
   Lem" and, of a polish agent with nothing to do on a typo, "That is exactly one of the cases
@@ -480,14 +479,15 @@ is the session's, and open to him.
   with `the stories wait for the owner: the small change is a feature` when it reaches one, needs
   a second rule or a decision, lowers the bar or grew. Its landing is `start`, `base`, `gate`
   (with `stories.py red` once), one read by the review agent itself, and `propose` with a short
-  text; no polish pass unless its report names a defect outside it. A small change that is
+  text; no polish pass at all, and its builder files what it sees outside the change. A small
+  change that is
   careful after all (by the review's call or its edit of the settings) is not green and a person
   merges it, since it skipped the interview, the read and the plan; one that lowers the bar is
   refused at the gate. Lem says the size, the branch, the story, what happens and what he must do
   in one line before anything runs, and nothing repeats it. Counted from the text after the
   change, a typo, a rename and a one-rule fix each start two agents (the builder and the review
-  agent), and the builder reads `prompts/small.md` and `agents/lem-builder.md`, about 1,500 words
-  (`wc -w`, 2026-11-17).
+  agent), and the builder reads `prompts/small.md` and `agents/lem-builder.md`, 1,924 words
+  (`wc -w`: 772 and 1,152, at the final round of 2026-11-17).
 - **A feature has one approval and no ceremony that nobody asked for** (2026-11-17), from the same
   audit's findings: the interview's restate and explicit yes were a second approval of what the
   stories say (F3), so the interview's questions come from the `lem-interview-me` method and its
@@ -524,6 +524,52 @@ is the session's, and open to him.
   recommended tools, cronn and the scheduled jobs) are one short list at the end of the page,
   never a question each. The reviewer seat's `effort` for a diff and the diff half of
   `prompts/reviewer.md` are gone (W7).
+
+The final round of 2026-11-17 took the decisions below, after two real runs of the plugin form in a
+scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
+
+- **Every edit of the settings file is careful** (A1). The script guarded only `[flow]` and
+  `[gate]`, so a branch that changed `branch.land` from "owner" to "agent" in its own
+  `.lem/project.toml` got one read, no careful call and a green pull request, and the same held
+  for `[branch]`, `[corrections]`, `[seats]` and `[paths]`. A list of the tables that matter is a
+  second thing to keep and misses the next one. So `land.py` calls careful any diff that touches
+  the file, with that reason: the file is Lem's own and rarely edited, so the cost is a person's
+  merge of a rare change.
+- **A task that ended stays ended** (A2). A stale wake-up wrote `building` over a landed task, and
+  in the audit's probe `landing.json` lost `merged`, `pr` and `gated`. So `project.py state`
+  refuses a move out of `landed`, `answered` or `dropped`, `may-start` refuses a task that is
+  `landing`, `open` or ended, and `stages/new.md` starts a lead only for a task that is `building`
+  or has no new state block. New work on an ended task is a new ask.
+- **No plan has the kind correction** (A3). A lead could write `Kind: correction` in a plan, on
+  the rare path or at night, and then no approval, no read of the stories and no polish pass was
+  asked: the probe's plan went through the gate, the read and `propose` green, and `land --by
+  agent` landed it. A one-rule ask is a small change, with its story in the task directory,
+  approved by Lem with `--correction`. `stories.py` and `land.py` refuse a plan file that says
+  `Kind: correction`, and a night that meets an item that is one plain change drafts no plan and
+  names it in the night report as ready to start as a small change.
+- **The gate removes what its own commands leave** (R3, the first run). `python3 -m unittest`
+  left two `__pycache__` folders in a repository with no `.gitignore`, the gate refused the tree,
+  and the first small change ended in a second task for the ignore rule. The guard serves
+  "nothing lands that the checks did not pass on", which is about the committed tree. So the
+  gate notes the untracked files before it runs, removes the ones its commands created, names
+  them, and refuses only a changed tracked file; onboarding proposes the ignore lines for what
+  the commands leave, in its own commit. In the second run the same gate passed.
+- **A small change never gets a polish pass** (R1, the first run). Its builder reported one
+  defect outside the change, and Lem started a polish builder (73 s) only to file one backlog
+  item. The small change's own builder files such an item, in a commit of its own, and never
+  fixes it; the pull request lists it.
+- **The push and the pull request of `propose` need no question** (R4, the first run). Lem
+  stopped before `land.py propose` and asked whether it may push two branches and open their pull
+  requests, where the flow promises a task that runs to its pull request without the owner.
+  `branch.propose`, in the settings he approved at onboarding, is his standing word for that
+  push, so `SKILL.md` and `stages/land.md` say that asking there is the defect, and the hand-over
+  page names it among the assumptions. Nothing else leaves the machine without a question. In
+  the second run both pull requests opened with none.
+- **The texts people read say "the owner"** (the first run). Its pull request said "Lem approved
+  it in his name". A pull request is read by the owner's teammates too, and a product does not
+  know who its user is. So every string the scripts print or write for a person, and their
+  `--help` texts, say "the owner"; comments, function docstrings and the stage files keep their
+  voice.
 
 ## Checks
 
