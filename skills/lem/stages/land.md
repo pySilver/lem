@@ -8,8 +8,9 @@ other.
 
 A small change lands by five steps and no more: `start`, `base`, `gate`, the review at its
 floor, which is one read by the review agent itself, and `propose`. It has no polish pass (step
-3), its stories' check runs once, at the gate, and its pull request is short: green or not green,
-the story, the checks and the read. Its story is `stories.md` in the task directory, which the
+3): its builder filed what it saw outside the change. Its stories' check runs once, at the gate,
+and its pull request is short: green or not green, the story, the checks with the items its
+builder filed, and the read. Its story is `stories.md` in the task directory, which the
 steps read in the place of a plan; a step's word "the plan" means that file for it.
 
 Take the task that is in `landing`, when a session before you was cut off in the middle of one;
@@ -75,11 +76,13 @@ one finds what the run before it finished.
    The pass runs once for a task, here, and never after each task of a plan; a builder of a
    later job of this landing has the same list in its brief. So when the landing comes back
    here from a later step and `land.py polish` prints `"done": true`, go on to step 4. `gate` refuses a feature with no
-   pass on the tip it checks. A small change skips the pass: one builder changed one rule, its own
-   checks ran, and the review reads every line of it. Run it for a small change all the same when
-   its `report.md` lists a defect outside the task, since only the pass files those. A rewrite
-   of the branch after the pass, other than the rebase of `base`, asks for the pass again: `gate`
-   says so.
+   pass on the tip it checks. A small change never has the pass, and `land.py polish` refuses
+   one: one builder changed one rule, its own checks ran, the review reads every line of it, and
+   its builder filed each defect it saw outside the change in a commit of its own, which the pull
+   request lists. In the first real small change, a polish pass started a second builder only
+   to file one item, and took 73 s, as long as the builder of the change itself (a scratch
+   repository, 2026-11-17). A rewrite of the branch after the pass, other than the rebase of
+   `base`, asks for the pass again: `gate` says so.
    Read `report.md` again after the pass: its builder brought it up to what it did, the
    documents it corrected, the defects it fixed and the items it filed. When its agent refused
    it the write, its reply holds the report's text instead, and you write `report.md` from it

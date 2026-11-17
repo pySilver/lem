@@ -37,10 +37,12 @@ logs `review.start` once for the attempt that is due; `polish --done`, the gate'
 `read --record` are their ends.
 
 A small change has no plan: its one story is `stories.md` in the task directory (`stories.py`
-gives `small`), which the steps read in the plan's place. It is one task, gets no polish pass
-unless its report names a defect outside it, has no reason for a lowered bar (the gate refuses
-one: a lowered bar is a feature's), and its pull request's text is short. One that is careful
-after all is not green, since it took the short path with no interview, read or plan.
+gives `small`), which the steps read in the plan's place. It is one task and never gets a polish
+pass (`polish` refuses it): its builder files each defect it saw outside the change in the backlog
+folder, in a commit of its own, and the pull request lists each file the branch adds there. It has
+no reason for a lowered bar (the gate refuses one: a lowered bar is a feature's), and its pull
+request's text is short. One that is careful after all is not green, since it took the short path
+with no interview, read or plan.
 
 The machine checks have no model in them. `gate` runs the settings' `gate.commands`, then
 `stories.py red` (each story's tests pass on the branch and fail on the base commit), then the
@@ -89,9 +91,10 @@ file or the plan other than it found them, and stories' tests that no longer pas
 the base commit (`stories.py red`, run when the pass committed anything). Otherwise it logs one
 `polish` event (the tip before and after, the count of commits, the items it added to the
 backlog folder). `gate` refuses a feature with no pass of this landing whose last commit the
-tip holds, and any task whose pass started and is not done. A correction skips the pass, unless
-its report lists a defect outside the task, which only the pass files: one builder changed one
-rule, its own checks ran, and the review reads every line of it. The commits
+tip holds, and any task whose pass started and is not done. A correction of a plan, which only
+the rare path writes, skips the pass, unless its report lists a defect outside the task, which
+only the pass files there: one builder changed one rule, its own checks ran, and the review reads
+every line of it. The commits
 that come after the pass, a repair, a fix of a review's findings, the items `file` writes, are
 on top of it, and a rebase by `base` gives the pass's commits their new names; any other rewrite
 of the branch asks for the pass again. The pass is one of this landing: `start` of a `ready`
@@ -615,11 +618,16 @@ def cmd_polish(task: Task, done: bool) -> dict:
     """The polish pass: what its builder gets, and after the builder, the check of what it did."""
     task.need_landing()
     task.need_worktree()
+    found = stories_of(task)
+    if found["small"]:
+        raise LandError(
+            f"a small change has no polish pass: its builder filed in the backlog what it saw outside the change, in a commit of its own, "
+            f"and the review reads every line of it. `land.py gate {task.slug}` is the next step",
+        )
     kept = task.kept()
     if "base" not in kept:
         raise LandError(f"`land.py base {task.slug}` comes first: the polish pass works on the branch as it will be checked")
     tip = git(task.worktree, "rev-parse", "HEAD")
-    found = stories_of(task)
     # what the pass may not change: the stories' test files and the plan that names them; a small
     # change's story file is in the task directory, which no commit holds
     frozen = [*test_files(found), *([] if found["small"] else [Path(found["plan"]).relative_to(task.worktree).as_posix()])]
@@ -688,8 +696,11 @@ def cmd_polish(task: Task, done: bool) -> dict:
 
 def polish_missing(task: Task, tip: str, found: dict) -> str | None:
     """Why the gate may not run on this tip for want of the polish pass; none when it may. A feature
-    needs a pass of this landing whose last commit the tip holds. A correction skips the pass, and
-    only a pass that started and is not done stops it: a builder may still be at work."""
+    needs a pass of this landing whose last commit the tip holds. A small change never has one. A
+    correction of a plan skips the pass, and only a pass that started and is not done stops it: a
+    builder may still be at work."""
+    if found["small"]:
+        return None
     polish = task.kept().get("polish")
     if polish and not polish.get("done"):
         return f"the polish pass started at {str(polish.get('before'))[:9]} and is not done: after its builder, `land.py polish {task.slug} --done` checks what it did"
@@ -1705,9 +1716,20 @@ def decided(decision: dict) -> str:
     return line
 
 
+def builder_filed(task: Task) -> list[str]:
+    """The items a small change's builder filed: each file the branch adds to the backlog folder,
+    other than those `file` wrote for a review, which the review's own line names."""
+    folder = backlog_of(task)
+    base = git(task.worktree, "merge-base", "HEAD", task.onto)
+    reviews = {defect["item"] for read in task.kept().get("reads", []) for defect in outside_of(read) if defect.get("item")}
+    rows = [row.split("\t", 1) for row in git(task.worktree, "diff", "--name-status", "--no-renames", "--diff-filter=A", base, "HEAD").splitlines()]
+    return [path for _, path in rows if path.startswith(folder + "/") and path not in reviews]
+
+
 def small_text(task: Task, notes: str, state: dict) -> str:
     """The text of a small change's pull request: green or not, the story, the checks, the read.
-    What a small change does not have (a plan, a personas' read, a polish pass, a talk) gets no line."""
+    What a small change does not have (a plan, a personas' read, a polish pass, a talk) gets no line;
+    what its builder filed in the backlog gets one."""
     kept = task.kept()
     checks = kept.get("checks") or {}
     found = stories_of(task)
@@ -1731,8 +1753,9 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     out += [story_line(task, change) for change in found["history"]]
     out += ["", "## Checks", ""]
     out += [f"- gate, `{command['command']}`: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
-    if (kept.get("polish") or {}).get("done"):
-        out.append(polished(kept["polish"], found))
+    own = builder_filed(task)
+    if own:
+        out.append("- filed in the backlog by the builder: " + ", ".join(f"`{path}`" for path in own))
     cause = task.record.get("investigation")
     if cause and cause.get("kind") == "bug":
         where = f" ({cause['where']})" if cause.get("where") else ""

@@ -71,6 +71,34 @@ else
   fail "the starts of the landing: $(events_of date-nowrap)"
 fi
 
+# A small change's builder files what it saw outside the change, in a commit of its own after the change's:
+# no polish pass runs or starts, the gate, the stories' check and the bar take the item as a document of
+# the change, the read covers it, and the pull request lists it.
+tree=$(small_in date-outside correction)
+built date-outside "$tree"
+item=docs/backlog/a-range-over-two-months-repeats-the-year.md
+mkdir -p "$tree/docs/backlog" && printf '%s\n' '---' 'worth: later' 'where: report.css' 'added: 2026-11-17' '---' \
+  '# a range over two months repeats the year' '' 'The range 28 Feb to 3 Mar 2026 reads "28 Feb 2026 - 3 Mar 2026"; a noqa in a note is no mark.' '' \
+  'Seen outside the change by the builder of task date-outside (2026-11-17); the base commit has it.' > "$tree/$item"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): what the builder of date-outside saw outside it"
+s start date-outside >/dev/null && s base date-outside >/dev/null
+no_polish=$(s polish date-outside 2>&1 || true)
+outside_gate=$(s gate date-outside 2>&1 | field '(d["green"], d["stories"]["ok"], d["bar"]["lowered"], d["stories"]["run_without"])' 2>&1 || true)
+s read date-outside >/dev/null 2>&1 || true
+s read date-outside --record "$(clean 1)" >/dev/null 2>&1 || true
+outside_due=$(s read date-outside 2>&1 | field '(d["due"], d["to_file"])' 2>&1 || true)
+outside_green=$(s propose date-outside --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
+text=$(dir_of date-outside)/pr.md
+if grep -qF "a small change has no polish pass" <<<"$no_polish" && grep -qF "\`land.py gate date-outside\`" <<<"$no_polish" \
+  && [ "$outside_gate" = "(True, True, [], ['date-outside.css', '$item'])" ] && [ "$outside_due" = "('none', [])" ] && [ "$outside_green" = True ] \
+  && grep -qxF -- "- filed in the backlog by the builder: \`$item\`" "$text" && ! grep -q 'polish' "$text" \
+  && ! grep -q "\"event\": \"polish.start\", \"task\": \"date-outside\"" "$SMALL/.git/lem/events.jsonl"; then
+  pass "a small change whose builder filed a defect outside it in its own commit has no polish pass, which refuses to start: the gate, the stories' check and the bar pass with the item, the read covers it, and the pull request lists it"
+else
+  fail "a small change with an item of its builder: $no_polish / $outside_gate / $outside_due / $outside_green / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$SMALL" state date-outside dropped "the test is over" >/dev/null
+
 # A feature keeps its stories at the top of its plan: with no plan file on the branch it is refused, also with a story file in the task directory.
 tree=$(small_in date-feature feature)
 built date-feature "$tree"

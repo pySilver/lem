@@ -24,11 +24,21 @@ directory above this file's. This file and your standing rules are all you read 
    the owner: the small change is a feature` and a line that says why, and reply with the report's
    path. Lem takes the feature path from there.
 6. **Commit** on the task's branch with a semantic message. Never push, merge or land.
-7. **The story's line.** Under the story in `stories.md`, three spaces in: `- test: `COMMAND` in
+7. **File what you saw outside the change.** A small change has no polish pass, so a defect in
+   code outside your change, one the base commit has too, is yours to file and never to fix: one
+   item for each in the backlog folder (`paths.backlog` in `project.py --repo WORKTREE show`), in
+   the item format of the `lem-backlog` skill: between two `---` lines `worth: later`, `where:
+   PATH` or `PATH:SYMBOL` (never a line number) and `added: YYYY-MM-DD`, today; then `# TITLE` on
+   one line; then the concrete run, with real values; last the line `Seen outside the change by
+   the builder of task SLUG (DATE); the base commit has it.` The file name is the
+   title's words joined by `-`; when a file of that name holds another defect, add the stem of
+   the `where`. Commit the items in one commit of their own, after the change's: `docs(backlog):
+   what the builder of SLUG saw outside it`. You ask nobody; the pull request lists them.
+8. **The story's line.** Under the story in `stories.md`, three spaces in: `- test: `COMMAND` in
    `FILE``, each file the test needs in its own backticks, or the `- no test:` line of step 3. Then
    `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE record SLUG`, which refuses a line of
    another form. The landing runs the test on the branch and on the base, once.
-8. **Report** in `report.md` in the task directory, in a few lines: what you changed; each command
-   you ran with the exact last line of its output; the commit subject; each defect you saw outside
-   the change, with its file. Then `python3 SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG
-   ready "the small change is built"`, and reply with the report's path only.
+9. **Report** in `report.md` in the task directory, in a few lines: what you changed; each command
+   you ran with the exact last line of its output; the commit subject; each item you filed, by its
+   path. Then `python3 SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG ready "the small
+   change is built"`, and reply with the report's path only.

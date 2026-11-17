@@ -80,12 +80,16 @@ The next thing that you see is a question of the interview, the stories, or the 
 6. If it stops, Lem tells you in one line that the ask is a feature, and why. The feature path
    continues from the interview, and the report of the builder takes the place of the scout.
 7. If it does not stop, the builder commits, and the landing starts.
+8. The builder can see a defect outside the change. It does not repair the defect. It writes one
+   backlog item for each defect, in a commit of its own after the change. Nobody asks you about
+   it.
 
 - You can say "feature" at each moment. Then the task takes the feature path, and the commits
   stay on the branch.
 - The landing has five steps: `start`, `base`, `gate`, one read by the review agent, and
-  `propose`. There is no polish pass, unless the builder reported a defect outside the change.
-- The pull request is short: green or not green, the story, the checks and the read.
+  `propose`. A small change has no polish pass.
+- The pull request is short: green or not green, the story, the checks, the backlog items of the
+  builder and the read.
 - A small change that the review calls careful is not green, and a person merges it.
 - A small change that lowers the bar is refused at the gate. It becomes a feature.
 - A small change starts two agents: the builder and the review agent. A bug with a clear cause
@@ -269,8 +273,8 @@ landing that stopped runs again from where it stopped.
    request is not green, so that you read the checks one time.
 2. **`base`.** Lem rebases the branch on the base branch. A builder repairs a conflict.
 3. **`polish`.** A new builder reads the change of a feature, before the checks and the review.
-   Thus the review reads the code as it will merge. A small change gets no pass, unless its
-   builder reported a defect outside the change.
+   Thus the review reads the code as it will merge. A small change never gets a pass. Its
+   builder writes the backlog items for the defects outside the change.
 4. **`gate`.** These are the machine checks, with no model in them.
 5. **The review.** An agent that did not build the change reads the diff.
 6. **`propose`.** Lem opens the pull request, or marks the branch as ready.

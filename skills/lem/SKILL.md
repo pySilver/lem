@@ -13,8 +13,8 @@ landing and what must never go wrong. This skill holds the flow and knows no pro
 The owner is a developer whose attention is short, and the size of a change decides its path.
 A small change is one plain change: one story in his own sentence, nothing careful and no
 question open, whatever its kind (a fix of one rule, a typo, a rename, a version bump, a line of a
-document). One builder makes it, the machine checks and one read review it, and it waits for
-nothing but his merge. Every other request is a feature, and the flow asks for his attention at
+document). One builder makes it and files in the backlog what it saw outside it, the machine
+checks and one read review it, it has no polish pass, and it waits for nothing but his merge. Every other request is a feature, and the flow asks for his attention at
 three touches: the interview, while a scout reads the code around his ask; the stories, which the
 personas read before he does and which he approves, so that they are the contract in plain
 language and become the tests; and the pull request, which he merges without a read when it is
