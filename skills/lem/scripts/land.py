@@ -122,7 +122,8 @@ or when the change edits `.lem/project.toml` at all. The last is the one rule th
 by itself, because the file is Lem's own and a task rarely edits it: its tables say, for every
 later task, what is careful, what the gate runs, who merges and where a task lands, and the reason
 names each table whose values the change edits, that only its text changed, or that the file is
-gone. The review is the look at the diff itself, by
+gone. A change that adds, changes or removes `.lem/project.local.toml` is careful by the same rule:
+that file is one machine's own and is not to be tracked. The review is the look at the diff itself, by
 an agent that did not build it: its record makes the call, and a careful call takes the full set.
 
 The record of a review is a JSON file:
@@ -327,6 +328,11 @@ PLAN_CALL = re.compile(r"(?mi)^careful:\s*(yes|no)\b")
 # rarely edits it, and every table of it guards something for every later task (audit A1,
 # 2026-11-17: a branch that set `branch.land` to "agent" got one read and a green pull request).
 SETTINGS_FILE = ".lem/project.toml"
+# One machine's own settings (`[seats]` and `[tools]`), untracked by design and read from the main
+# checkout. A branch that commits it, or changes or removes a tracked copy, is careful by this script
+# too: a green request and an agent's merge would make one machine's reviewer every machine's (audit
+# N5, 2026-11-17: a branch that committed it with `git add -f` got both).
+LOCAL_SETTINGS_FILE = ".lem/project.local.toml"
 # What a decision of the build did to its story, as a line of the pull request says it.
 STORY_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}
 # The form of the one event that records the personas' read of a task's stories.
@@ -969,6 +975,19 @@ def in_commit(task: Task, commit: str, path: str) -> bool:
     return run(["git", "-C", str(task.worktree), "cat-file", "-e", f"{commit}:{path}"], check=False).returncode == 0
 
 
+def local_settings_edit(task: Task, now: dict) -> str | None:
+    """Why the change is careful by a commit of one machine's own settings: `.lem/project.local.toml`
+    is untracked by design, and a tracked copy gives every machine that machine's seats and tools.
+    None when the change leaves the file alone."""
+    if LOCAL_SETTINGS_FILE not in now["files"]:
+        return None
+    before, after = in_commit(task, now["base"], LOCAL_SETTINGS_FILE), in_commit(task, now["tip"], LOCAL_SETTINGS_FILE)
+    how = "adds" if after and not before else "removes" if before and not after else "changes"
+    return (
+        f"the change {how} {LOCAL_SETTINGS_FILE}, one machine's own settings, which git does not track: "
+        "tracked, that machine's reviewer and tools become every machine's"
+    )
+
 
 def review_call(task: Task) -> dict | None:
     """The careful call of the newest review that answered, as its record made it: `careful` and its
@@ -982,15 +1001,15 @@ def review_call(task: Task) -> dict | None:
 def careful(task: Task, now: dict) -> list[str]:
     """Each reason for which this request is careful; none when it is not. The owner's word, the
     plan's own call and the newest review's are judgments against the project's topics; the edit of
-    Lem's own settings is the one rule this script matches by itself."""
+    Lem's own settings, or of one machine's, is the one rule this script matches by itself."""
     why = []
     if owner_says_careful(task):
         why.append("the owner says so")
     if plan_careful(task):
         why.append("the plan says so")
-    edited = settings_edit(task, now)
-    if edited:
-        why.append(edited)
+    for edited in (settings_edit(task, now), local_settings_edit(task, now)):
+        if edited:
+            why.append(edited)
     call = review_call(task)
     if call and call["careful"]:
         why.append(f"the review says so: {reason(call['why'])}")
@@ -1330,7 +1349,7 @@ def untalked(task: Task, state: dict) -> str | None:
     call = review_call(task)
     how = [
         *(["by the owner's word"] if owner_says_careful(task) else []),
-        *(["by its change to the settings"] if settings_edit(task, state) else []),
+        *(["by its change to the settings"] if settings_edit(task, state) or local_settings_edit(task, state) else []),
         *(["by its review"] if call and call["careful"] else []),
     ]
     return f"- no plan talk: the request became careful after its plan, {' and '.join(how)}"

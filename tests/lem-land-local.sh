@@ -802,4 +802,25 @@ else
   fail "a branch that removes the settings: $gone_floor"
 fi
 
+# The machine's own settings are untracked by design: a branch that commits .lem/project.local.toml, or changes or
+# removes a tracked one, is careful by the script, with a reason that says the file is one machine's own.
+task_in "$LOCAL" local-tracked thirteen.txt thirteen
+read_in "$LOCAL" local-tracked
+tree=$(project --repo "$LOCAL" worktree-dir local-tracked)
+printf '%s\n' '[tools]' 'ask = "terminal"' > "$tree/.lem/project.local.toml"
+git -C "$tree" add -f .lem/project.local.toml && git -C "$tree" commit -q -m "chore: my asker"
+local_land start local-tracked >/dev/null && local_land base local-tracked >/dev/null && polish_in "$LOCAL" local-tracked && local_land gate local-tracked >/dev/null
+local_floor=$(local_land read local-tracked | field '(d["floor"], d["why"])')
+local_land read local-tracked --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
+local_land propose local-tracked --title "chore: my asker" --notes "$MIG" >/dev/null
+local_agent=$(local_land land local-tracked --by agent 2>&1 || true)
+project --repo "$LOCAL" state local-tracked dropped "the test is over" >/dev/null
+local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's reviewer and tools become every machine's"
+if [ "$local_floor" = "('full', \"the request is careful: $local_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($local_why)" <<<"$local_agent" \
+  && grep -qxF -- "- careful: yes, $local_why; the review says no: $NOT_CAREFUL" "$LOCAL/.git/lem/tasks/local-tracked/pr.md"; then
+  pass "a branch that commits the machine's own settings file is careful by the script: the full set, a line of the pull request that says the file is one machine's own, and a person's merge"
+else
+  fail "a branch that tracks the machine's own settings: $local_floor / $local_agent / $(grep careful "$LOCAL/.git/lem/tasks/local-tracked/pr.md" 2>/dev/null)"
+fi
+
 finish
