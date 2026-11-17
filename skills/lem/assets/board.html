@@ -111,7 +111,10 @@
   .ring-center b { font: 700 25px/1 var(--mono); letter-spacing: -.03em; }
   .ring-center span { font-size: 10.5px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
   .phases { display: flex; align-items: flex-start; }
-  .phase { flex: 1; min-width: 0; position: relative; padding-top: 20px; font-size: 11.5px; color: var(--faint); }
+  /* Each phase is as wide as its words and shares the rest, and its right padding keeps two labels
+     apart: in equal columns at 1300 px "task 2 of 2" and "2 green" stood 3 px apart, and "Proposed"
+     ran into "Landed". */
+  .phase { flex: 1 1 auto; min-width: 0; position: relative; padding: 20px 10px 0 0; font-size: 11.5px; color: var(--faint); }
   .phase::before { content: ""; position: absolute; top: 6px; left: 14px; right: 0; height: 2px; background: var(--line); }
   .phase:last-child { flex: 0 0 auto; }
   .phase:last-child::before { display: none; }
@@ -419,10 +422,6 @@
         <div class="card-head"><h2>Decisions</h2><div id="decisions-sum" class="dim small"></div></div>
         <div id="decisions" class="rows"></div>
       </section>
-      <section id="states-card" class="card">
-        <div class="card-head"><h2>History</h2><div id="states-sum" class="dim small"></div></div>
-        <div id="states" class="rows"></div>
-      </section>
       <section id="gate-card" class="card">
         <div class="card-head"><h2>Checks</h2><div id="gate-sum" class="dim small"></div></div>
         <div id="gate" class="rows"></div>
@@ -677,11 +676,6 @@ function span(ms) {
   const hours = Math.floor(m / 60);
   return hours < 48 ? `${hours}h ${String(m % 60).padStart(2, '0')}m` : `${Math.floor(hours / 24)}d ${hours % 24}h`;
 }
-function clock(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  return (hours ? `${hours}:` : '') + `${String(m).padStart(hours ? 2 : 1, '0')}:${String(sec).padStart(2, '0')}`;
-}
 const ago = ms => (ms < 5000 ? 'just now' : `${span(ms)} ago`);
 const at = e => new Date(e.ts).getTime();
 const hhmm = ms => new Date(ms).toLocaleTimeString([], {hourCycle: 'h23', hour: '2-digit', minute: '2-digit'});
@@ -770,17 +764,46 @@ function icon(name, cls = 'ic') {
   return t.content.firstElementChild;
 }
 // A text node tick() rewrites every second, so the block around it keeps the same markup.
-const live = (since, fmt = 'span') => h('span', {'data-since': since, 'data-fmt': fmt});
-// The same for a count-down to the end of a wait: "12m left", or a clock.
+const live = since => h('span', {'data-since': since});
+// The same for a count-down to the end of a wait: "12m left", or with `span` only "12m", for a
+// large timer whose note says "left". A timer always says its unit: a bare "31:00" read as a clock time.
 const until = (end, fmt = 'left') => h('span', {'data-until': end, 'data-fmt': fmt});
 const keyed = (key, node) => { node.dataset.key = key; return node; };
+
+// Lem's own words, which a developer meets on the page with no other place that says what they are:
+// wherever one stands, a hover of one line says it (the final audit of 2026-11-17).
+const TERMS = [
+  [/\bfree place\b|\bplaces\b/i, 'A place: room for one task that builds or lands at one time. The project allows flow.max_tasks places, and a task past them waits in the queue.'],
+  [/\bcompanion\b/i, 'The companion: a second session that Lem opens for the plan talk of a careful or large plan. It builds nothing.'],
+  [/\bplan talk\b/i, 'The plan talk: before a careful or large plan is built, the agent of its companion argues the plan with the reviewer, one question at a time, and repairs it.'],
+  [/\btrust prompt\b/i, 'A trust prompt: the question an agent asks before it works in a folder that is new to it. Only you answer it, in the pane of that agent.'],
+];
+// The hover goes on the element around the word, or on its tag, chip or stat, which has a hover of its
+// own: the nearest title is the one a browser shows.
+function define(node) {
+  const walk = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  for (let text = walk.nextNode(); text; text = walk.nextNode()) {
+    const up = text.parentElement;
+    // a task's name is its name: "Trust prompt" as a title is no word of Lem's
+    if (!up || up instanceof SVGElement || up.closest('.tc-title, .rlink')) continue;
+    const say = TERMS.filter(([word]) => word.test(text.data)).map(([, meaning]) => meaning);
+    if (!say.length) continue;
+    const target = up.closest('.tag, .chip, .stat') ?? up;
+    const had = target.getAttribute('title') ?? '';
+    const add = say.filter(meaning => !had.includes(meaning));
+    if (add.length) target.setAttribute('title', [had, ...add].filter(Boolean).join(' '));
+  }
+}
 
 // A block whose markup has not changed keeps its node, so a running animation, a text selection and
 // a hover survive the once-a-second render; only the blocks that did change are swapped.
 const SIGNATURE = new WeakMap();
 function patch(parent, nodes) {
   const old = new Map([...parent.children].map(c => [c.dataset.key, c]));
+  // the backlog's items are the developer's own words, where "place" means a file and a line
+  const glossary = !parent.closest('#backlog');
   const next = nodes.filter(Boolean).map(n => {
+    if (glossary) define(n);
     const signature = n.outerHTML;
     const kept = old.get(n.dataset.key);
     if (kept && SIGNATURE.get(kept) === signature) { old.delete(n.dataset.key); return kept; }
@@ -1010,8 +1033,9 @@ function paneOf(id) {
   return sessions.find(x => x.id.toUpperCase() === id.toUpperCase() || x.id.toUpperCase().startsWith(id.toUpperCase()) || x.name === id) ?? null;
 }
 
+// The status and how long it has held; for a task that ended, how long ago it ended.
 function statusPill(t) {
-  return h('span', {class: `pill a-${t.info.actor}${t.info.live ? ' live' : ''}`}, h('i'), t.info.label, ' ', h('span', {}, live(t.since)));
+  return h('span', {class: `pill a-${t.info.actor}${t.info.live ? ' live' : ''}`}, h('i'), t.info.label, ' ', h('span', {}, live(t.since), t.closed ? ' ago' : ''));
 }
 
 // The tags of a task: each one says something a developer acts on. On a lane card (`card`) the line
@@ -1473,10 +1497,17 @@ function buildTimeCard(m, t, width) {
 // Each row's total and its share of the task's time. A choice that waits for the owner runs while
 // the build goes on, so rows overlap and the shares need not add up to 100.
 function buildTimeLegend(model, rows) {
+  const held = rows.filter(r => model.totals[r.key] > 0);
+  const share = r => Math.round((100 * model.totals[r.key]) / model.whole);
+  // Where rows overlap the shares add up past 100, and the line says so in its own words: the sum of
+  // the shares as shown, so that a reader's sum is the same.
+  const raw = held.reduce((sum, r) => sum + model.totals[r.key], 0), shown = held.reduce((sum, r) => sum + share(r), 0);
+  const over = raw > model.whole * 1.005 && shown > 100;
   // the whole first: each share below is of it
-  return [keyed(`lt:whole:${Math.round(model.whole / 1000)}`, h('span', {class: 'whole'}, `${span(model.whole)} in all`)), ...rows.filter(r => model.totals[r.key] > 0).map(r => keyed(`lt:${r.key}:${Math.round(model.totals[r.key] / 1000)}:${Math.round(model.whole / 1000)}`,
+  return [keyed(`lt:whole:${Math.round(model.whole / 1000)}`, h('span', {class: 'whole'}, `${span(model.whole)} in all`)), ...held.map(r => keyed(`lt:${r.key}:${Math.round(model.totals[r.key] / 1000)}:${Math.round(model.whole / 1000)}`,
     h('span', {title: `${r.label} held the work for ${span(model.totals[r.key])} of the task’s ${span(model.whole)}`}, h('i', {style: `background:${r.fill}`}), r.label,
-      h('em', {}, `${span(model.totals[r.key])} · ${Math.round((100 * model.totals[r.key]) / model.whole)}%`))))];
+      h('em', {}, `${span(model.totals[r.key])} · ${share(r)}%`)))),
+    over ? keyed(`lt:over:${shown}`, h('span', {class: 'over'}, `the shares add up to ${shown}%, as two rows can hold the same minutes`)) : null];
 }
 
 // The hover of a band, a span or a mark: what it is, how long it took and its two clock times.
@@ -1568,8 +1599,11 @@ function describe(e, m) {
 function buildFeed(m, list) {
   if (!list.length) return [keyed('empty', h('div', {class: 'empty'}, 'No events yet'))];
   const newest = list.map((e, i) => ({e, i, ms: at(e)})).sort((a, b) => b.ms - a.ms || b.i - a.i).slice(0, 200);
+  // On a task's own board the activity is its history: every state block with its time. The newest
+  // block's words are the large card's, so its row here names only the status and says them once.
+  const current = view ? list.findLastIndex(e => e.event === 'task.state') : -1;
   return newest.map(({e, i}) => {
-    const d = describe(e, m);
+    const d = i === current ? {...describe(e, m), text: '', sub: ''} : describe(e, m);
     return keyed(`f:${e.ts}:${e.task}:${i}`, h('div', {class: `row a-${d.info.actor}`, 'data-at': at(e)},
       h('span', {class: 'fi'}, icon(d.info.icon)),
       h('div', {class: 'rtext'}, view ? '' : [open(e.task, d.title), ' · '], h('b', {}, d.head), d.text ? ' · ' : '', h('span', {class: d.mono ? 'cmd' : ''}, d.text),
@@ -1605,7 +1639,8 @@ function buildReview(t, now) {
 function focusOf(m) {
   const t = m.forOwner[0] ?? m.blocked[0] ?? m.landing[0] ?? m.building[0] ?? m.ready[0] ?? m.queued[0] ?? null;
   if (!t) return null;
-  const others = (m.forOwner.includes(t) ? m.forOwner : m[t.status] ?? []).length - 1;
+  // "like it": a wait of the same kind (a choice, a held task, a plan, a draft, a pull request), or the same status
+  const others = (m.forOwner.includes(t) ? m.forOwner.filter(x => x.ownerRank === t.ownerRank) : m[t.status] ?? []).length - 1;
   return {t, others};
 }
 
@@ -1632,7 +1667,7 @@ function buildBoardNow(m) {
         h('div', {class: 'now-head'}, t.title, h('span', {class: 'now-what'}, ` · ${c ? c.what : cap(t.shown)}`)),
         t.forOwner ? h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t, c)) : t.ask ? h('div', {class: 'now-ctx'}, t.ask) : ''),
       h('div', {class: 'now-side'},
-        h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, c && !c.irreversible ? until(c.deadline, 'clock') : live(c ? c.ts : t.since, 'clock')),
+        h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, c && !c.irreversible ? until(c.deadline, 'span') : live(c ? c.ts : t.since)),
           h('span', {class: 'note'}, c ? (c.irreversible ? 'since it was asked; no end' : `left, until ${hhmm(c.deadline)}`) : 'in this state',
             others > 0 ? ` · ${plural(others, 'more task')} like it` : '')),
         h('button', {class: 'jump', type: 'button', 'data-open': t.slug}, 'Open the task', ' ', icon('arrow'))))));
@@ -1709,7 +1744,7 @@ function buildTaskNow(t) {
           Object.keys(c.advice).length ? h('div', {class: 'now-ctx'}, `the experts: ${Object.keys(EXPERTS).filter(key => c.advice[key])
             .map(key => `${expertName(key)} ${c.advice[key].pick != null ? `“${c.advice[key].pick}”` : 'none fits'}`).join(' · ')}`) : '',
           h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t)),
-          h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, c.irreversible ? live(c.ts, 'clock') : until(c.deadline, 'clock')),
+          h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, c.irreversible ? live(c.ts) : until(c.deadline, 'span')),
             h('span', {class: 'note'}, c.irreversible ? `since it was asked · it waits for your answer, with no end: ${IRREVERSIBLE[c.irreversible] ?? c.irreversible}`
               : `left of the wait, until ${hhmm(c.deadline)}; then the build goes on with ${sharedPick(c) != null ? 'the experts’ shared pick' : 'the recommended action'}`)))),
       h('div', {class: 'now-spacer'}),
@@ -1738,7 +1773,7 @@ function buildTaskNow(t) {
         t.more.length ? h('div', {class: 'now-ctx'}, t.more.join(' · ')) : '',
         ...found,
         t.forOwner ? h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t)) : '',
-        h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, t.closed ? stamp(t.since, Date.now()) : live(t.since, 'clock')),
+        h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, t.closed ? stamp(t.since, Date.now()) : live(t.since)),
           h('span', {class: 'note'}, t.closed ? `after ${span(t.since - t.first)}` : 'in this state')))),
     h('div', {class: 'now-spacer'}),
     h('div', {class: 'now-next'}, h('span', {class: 'lbl'}, 'Last update'), h('span', {}, h('span', {'data-ago': t.lastTs})),
@@ -1799,17 +1834,6 @@ function buildTaskProgress(t) {
         stat('Decisions', t.asks.length ? `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''}` : taken,
           t.choices.length ? `${taken} taken${timeouts ? `, ${timeouts} by the timeout` : ''}${experts ? `, ${experts} by the experts` : ''}` : t.closed ? 'none' : 'none yet',
           t.asks.length ? 'you' : timeouts || experts ? 'bad' : ''))));
-}
-
-function buildStates(t, now) {
-  return t.blocks.map((b, k) => ({b, k})).reverse().map(({b, k}) => {
-    const info = STATUS[b.status] ?? UNKNOWN;
-    const next = t.blocks[k + 1]?.ts;
-    return keyed(`s:${k}:${next ?? 'open'}`, h('div', {class: `row a-${info.actor}`},
-      h('span', {class: 'fi'}, icon(info.icon)),
-      h('div', {class: 'rtext', title: [b.text, ...b.lines].join('\n')}, h('b', {}, info.label), ...(lines => [lines[0] ? ` · ${lines[0]}` : '', lines.length > 1 ? h('span', {class: 'sub'}, lines.slice(1).join(' · ')) : ''])(saidOf(b, talkedBefore(t, b.ts)))),
-      h('span', {class: 'rtime'}, stamp(b.ts, now), h('br'), next ? span(next - b.ts) : t.closed ? '' : live(b.ts))));
-  });
 }
 
 function buildGate(t, now) {
@@ -2234,8 +2258,6 @@ function render() {
     const overs = t ? t.waiting.length - t.asks.length : 0;
     $('decisions-sum').textContent = t?.choices.length ? [t.asks.length && `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''} for you`,
       overs && `${overs} with the wait over`, `${t.choices.filter(d => d.state !== 'waits').length} taken`].filter(Boolean).join(' · ') : '';
-    patch($('states'), t ? buildStates(t, now) : []);
-    $('states-sum').textContent = t ? plural(t.blocks.length, 'update') : '';
     patch($('gate'), t ? buildGate(t, now) : []);
     $('gate-sum').textContent = t?.gates.length ? (t.gateBad ? `${t.gateBad} of ${t.gates.length} red` : `${plural(t.gates.length, 'command')} green`) : '';
   } else {
@@ -2264,6 +2286,9 @@ function render() {
     patch($('progress'), []);
     patch($('lanes'), buildLanes(m));
   }
+  // the head of a task's board is its name and its ask; the head of the board of all tasks counts them
+  $('title').removeAttribute('title');
+  if (!view) define($('title'));
   $('lanes-section').hidden = Boolean(view) || tab === 'backlog';
   // the board of all tasks has no progress card: its numbers are in the title, the chips and the lanes
   $('progress').hidden = !view;
@@ -2275,7 +2300,6 @@ function render() {
   $('stack').hidden = !view;
   const empty = id => t?.closed && [...$(id).children].every(n => n.dataset.key === 'empty');
   for (const id of ['stories', 'decisions', 'gate']) { const none = empty(id); if (none) patch($(id), []); $(`${id}-card`).hidden = !view || none; }
-  $('states-card').hidden = !view;
 
   // On the board the timeline holds the tasks that are open and the ones that closed today, a row
   // for each by its state; the board of one task has a row for each actor that held its work.
@@ -2317,12 +2341,13 @@ function render() {
 function tick(now) {
   for (const n of document.querySelectorAll('[data-since]')) {
     const ms = now - Number(n.dataset.since);
-    n.textContent = n.dataset.fmt === 'clock' ? clock(ms) : span(ms);
+    n.textContent = span(ms);
   }
   for (const n of document.querySelectorAll('[data-ago]')) n.textContent = Number(n.dataset.ago) ? ago(now - Number(n.dataset.ago)) : 'never';
   for (const n of document.querySelectorAll('[data-until]')) {
     const left = Number(n.dataset.until) - now;
-    n.textContent = n.dataset.fmt === 'clock' ? clock(Math.max(0, left)) : left > 0 ? `${span(left)} left` : 'the wait is over';
+    // a large timer says only the time, and the note beside it says "left"
+    n.textContent = n.dataset.fmt === 'span' ? span(Math.max(0, left)) : left > 0 ? `${span(left)} left` : 'the wait is over';
   }
 }
 

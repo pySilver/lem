@@ -557,7 +557,8 @@ for part in re.split(r'<div class="lane a-', dom)[1:]:
     cards = {}
     for card in re.split(r'<button class="tcard ', part)[1:]:
         name = text(re.search(r'<div class="tc-title">(.*?)</div>', card, re.S).group(1))
-        said = [text(x) for x in re.findall(r'<div class="tc-text">(.*?)</div>', card, re.S)]
+        # a card's line may carry a hover, so its tag may have attributes
+        said = [text(x) for x in re.findall(r'<div class="tc-text"[^>]*>(.*?)</div>', card, re.S)]
         cards[name] = said[0] if said else ""
         lines[name] = (len(said), 'class="tc-where"' in card)
     lanes[title] = cards
@@ -706,7 +707,7 @@ elif [ -n "$chrome" ]; then
     "^Waits for you: Stories wait · the stories wait for you · [0-9][0-9ms ]*$" "!^Choice 7" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
     "!Lem puts" "!Lem shows you" "!Answer it there" "!^Choice [123] waits for you: Expert advice") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" now \
-      "You · choice 7 of the task|Gift note export|The note of a cancelled order|10:00|Where you answer: Lem puts choice 7 to you as a page in its session. Answer it there before its wait ends; then the build goes on with the recommended action.") \
+      "You · choice 7 of the task|Gift note export|The note of a cancelled order|10m left, until|Where you answer: Lem puts choice 7 to you as a page in its session. Answer it there before its wait ends; then the build goes on with the recommended action.") \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "=1:Lem puts choice 7 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the stories" "!Demo data"); then
     pass "the large card has the most pressing wait with where you answer, said once on the page; the banners are the waits after it, one line each with its count-down, or no end for an irreversible step, and none whose wait is over"
   else
@@ -1009,7 +1010,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   fi
   # The talk's companion is shown as a companion of the talk, and the builder lead after it.
   draw "task-$M"
-  if grep -q 'title="A companion session talks the plan through, with the reviewer in its other pane; an agent builds it after the talk"' "$WORK/task-talk-runs.dom" \
+  if grep -q 'title="A companion session talks the plan through, with the reviewer in its other pane; an agent builds it after the talk' "$WORK/task-talk-runs.dom" \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-talk-runs.dom" "Its companion talks the plan through" "plan talk" "a companion talks the plan through, with the reviewer in its other pane" "!Its session builds it" "!defend") \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$M.dom" "one agent builds the plan its companion talked through" "An agent builds it" "!builder lead") \
     && grep -q 'data-head="Lem · The plan talk is done: the plan waits for the agent that builds it"' "$WORK/task-$M.dom" \
@@ -1027,7 +1028,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" now \
       "Answered: it ended with a report and nothing to merge|Closed|No bug: the code does what it should:|a refund is a credit note, and the invoice shows what is left to pay|billing/invoice.py:total|reproduced|investigation.md in the task directory") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" feed \
-      "The investigation found no bug|a refund is a credit note, and the invoice shows what is left to pay|billing/invoice.py:total · reproduced" "Answered|not a bug: the invoice shows what is left to pay") \
+      "The investigation found no bug|a refund is a credit note, and the invoice shows what is left to pay|billing/invoice.py:total · reproduced" "Answered|!not a bug: the invoice shows what is left to pay") \
     && ! grep -q 'class="phase cur"' "$WORK/task-$A.dom" \
     && grep -q 'data-head="The builders · The investigation" data-sub="a builder reproduces the bug and finds its cause · a bug, because the ask says the total is wrong today"' "$WORK/task-$A.dom" \
     && grep -q 'data-head="Investigation"' "$WORK/task-$A.dom" && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$A.dom" "Inv." "!Waits for you"); then
@@ -1165,6 +1166,11 @@ sys.exit(not ok)' "$WORK/board.dom"); then
   fi
   # LOOK CHECK DOM...: what a reader sees of one part of a page, read from the elements themselves.
   #   cards DOM 'TITLE|TEXT|!TEXT'...  a lane card, by its title, holds each TEXT and not each !TEXT
+  #   likeit DOM                       the large card counts the other tasks with a wait of its kind
+  #   timer DOM...                     each large timer says its unit
+  #   shares DOM WANT                  the legend says the shares' sum when they add up past 100 (WANT
+  #                                    "sum"), or says nothing of it ("none")
+  #   terms DOM...                     every place a word of Lem's own stands has its meaning on hover
   LOOK=$(cat <<'PY'
 import html, re, sys
 from html.parser import HTMLParser
@@ -1210,6 +1216,44 @@ if check == "cards":
         for need in needs:
             if (need[1:] in cards[title]) if need.startswith("!") else (need not in cards[title]):
                 wrong.append(f"the card {title!r} {'holds' if need.startswith('!') else 'does not hold'} {need.lstrip('!')!r}: {cards[title]!r}")
+elif check == "likeit":
+    p = read(args[0])
+    lane = next(n for n in p.root.all() if "lane" in n.cls() and any("lane-head" in k.cls() and k.text().startswith("Waits for you") for k in n.kids if not isinstance(k, str)))
+    choices = [k for k in lane.all() if "tc-text" in k.cls() and k.text().startswith("Choice ")]
+    others = len(choices) - 1
+    now = next(n for n in p.root.all() if n.attrs.get("id") == "now").text()
+    said = re.search(r"(\d+) more tasks? like it", now)
+    if others > 0 and (not said or int(said.group(1)) != others):
+        wrong.append(f"{len(choices)} tasks have a choice that waits, and the large card says {said.group(0) if said else 'no count'!r}")
+elif check == "timer":
+    for path in args:
+        for n in read(path).root.all():
+            if "timer" in n.cls() and not re.search(r"\d+\s*[hms]\b", n.text()):
+                wrong.append(f"{path.rsplit('/', 1)[-1]}: the timer {n.text()!r} has no unit")
+elif check == "shares":
+    p = read(args[0])
+    legend = next(n for n in p.root.all() if n.attrs.get("id") == "legend")
+    total = sum(int(x) for x in re.findall(r"· (\d+)%", " ".join(k.text() for k in legend.all() if k.tag == "em")))
+    said = re.search(r"the shares add up to (\d+)%", legend.text())
+    if args[1] == "sum" and (total <= 100 or not said or int(said.group(1)) != total):
+        wrong.append(f"the shares add up to {total}%, and the legend says {said.group(0) if said else 'nothing of it'!r}")
+    if args[1] == "none" and said:
+        wrong.append(f"the shares add up to {total}%, and the legend says {said.group(0)!r}")
+elif check == "terms":
+    TERMS = {r"\bfree place\b|\bplaces\b": "A place:", r"\bcompanion\b": "The companion:", r"\bplan talk\b": "The plan talk:", r"\btrust prompt\b": "A trust prompt:"}
+    found = {t: 0 for t in TERMS}
+    for path in args:
+        for data, at in read(path).texts:
+            for term, meaning in TERMS.items():
+                if not re.search(term, data, re.I): continue
+                if {"tc-title", "rlink"} & set(at.cls()) or (at.tag == "h1" and path.rsplit("/", 1)[-1].startswith("task-")): continue  # a task's name
+                n = at
+                while n is not None and n.tag not in ("svg", "script", "style", "title") and "title" not in n.attrs: n = n.up
+                if n is not None and n.tag in ("svg", "script", "style", "title"): continue
+                found[term] += 1
+                if n is None or meaning not in n.attrs["title"]:
+                    wrong.append(f"{path.rsplit('/', 1)[-1]}: {data.strip()!r} has no hover with {meaning!r}")
+    wrong += [f"no page holds {term!r}" for term, n in found.items() if not n]
 print("; ".join(dict.fromkeys(wrong)))
 sys.exit(bool(wrong))
 PY
@@ -1220,6 +1264,72 @@ PY
     pass "the kind correction shows as a one-rule fix, also on a task with a plan, and the size shows only as the small change chip of a task with one builder"
   else
     fail "the kind correction and the size: $why"
+  fi
+  # A12: each small thing of the look a reader stumbled on.
+  if why=$("$PY" -I -B -c "$LOOK" likeit "$WORK/board.dom"); then
+    pass "the large card's \"more tasks like it\" counts only the tasks whose wait is of the same kind"
+  else
+    fail "the count of the tasks like it: $why"
+  fi
+  if why=$("$PY" -I -B -c "$LOOK" timer "$WORK/board.dom" "$WORK/task-$G.dom" "$WORK/task-talk-runs.dom" "$WORK/task-held-choice.dom"); then
+    pass "a timer of a wait says its unit, as 10m or 4m 05s, never a bare 31:00"
+  else
+    fail "the timer's unit: $why"
+  fi
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$L.dom" meta "Landed|~^Landed [0-9][0-9a-z ]* ago$") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$G.dom" meta "Building|!ago"); then
+    pass "the status of a task that ended says how long ago it ended, and the status of an open task how long it has been in it"
+  else
+    fail "the status's time: $why"
+  fi
+  if why=$("$PY" -I -B -c "$LOOK" shares "$WORK/task-$K.dom" sum) && why=$("$PY" -I -B -c "$LOOK" shares "$WORK/task-red-gate.dom" none); then
+    pass "where the rows overlap, the legend of the time card says in its own line what the shares add up to, and where they do not it says nothing of it"
+  else
+    fail "the shares' sum: $why"
+  fi
+  # The board of one task says its newest state once, in the large card: the activity has every state
+  # block with its time, and no History card repeats it.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$L.dom" "=1:is merged" "!History") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$L.dom" feed "Ready for its checks|the report is written" "Waits for the merge|pull request https://github.com/acme/shop/pull/7|green"); then
+    pass "the board of one task says the merged line once, in its large card, and its activity holds every earlier state block, with no History card to repeat them"
+  else
+    fail "the merged line and the History card: $why"
+  fi
+  if why=$("$PY" -I -B -c "$LOOK" terms "$WORK/board.dom" "$WORK/task-talk-runs.dom" "$WORK/task-trust-prompt.dom" "$WORK/task-queued-after.dom" "$WORK/task-$M.dom"); then
+    pass "where the page says places, the companion, the plan talk or a trust prompt, a hover says in one line what it is"
+  else
+    fail "the hovers of Lem's own words: $why"
+  fi
+  # At 1300 px the phases' labels keep a gap: "task 2 of 2" under Build and "2 green" under Checks
+  # stood 3 px apart and read as "task 2 of 22 green" (the final audit, 2026-11-17).
+  cat > "$STATE/probe.html" <<PROBE
+<!doctype html><meta charset="utf-8"><iframe id="f" src="task-$L.html" style="width:1300px;height:900px;border:0"></iframe><pre id="out"></pre>
+<script>
+setTimeout(() => {
+  const d = document.getElementById('f').contentDocument, gaps = [];
+  // where the words of a phase stand: the boxes of its text, not of its elements, which fill the column
+  const box = node => {
+    const walk = d.createTreeWalker(node, NodeFilter.SHOW_TEXT), all = [];
+    for (let t = walk.nextNode(); t; t = walk.nextNode()) if (t.data.trim()) { const r = d.createRange(); r.selectNodeContents(t); all.push(...r.getClientRects()); }
+    return [Math.min(...all.map(x => x.left)), Math.max(...all.map(x => x.right))];
+  };
+  const phases = [...d.querySelectorAll('.phase')].map(box);
+  for (let i = 1; i < phases.length; i++) gaps.push(Math.round(phases[i][0] - phases[i - 1][1]));
+  document.getElementById('out').textContent = JSON.stringify({gaps, labels: [...d.querySelectorAll('.phase small')].map(n => n.textContent)});
+}, 2500);
+</script>
+PROBE
+  headless --allow-file-access-from-files --virtual-time-budget=6000 --dump-dom "file://$STATE/probe.html" > "$WORK/phases.dom"
+  rm -f "$STATE/probe.html"
+  if why=$("$PY" -I -c 'import html, json, re, sys
+found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"gaps": [], "labels": []}
+ok = len(d["gaps"]) >= 6 and min(d["gaps"]) >= 8 and "task 2 of 2" in d["labels"] and "2 green" in d["labels"]
+print("" if ok else f"the gaps between the phases are {d}")
+sys.exit(not ok)' "$WORK/phases.dom"); then
+    pass "at 1300 px each phase's label keeps 8 px or more from the next, so \"task 2 of 2\" and \"2 green\" read as two"
+  else
+    fail "the phases at 1300 px: $why"
   fi
   # The project's own asker: the page says where the owner answers, by the settings' tools.ask: on the
   # large card of the board, and on the task's own board.
