@@ -20,6 +20,14 @@ else
 fi
 if [ "$(status_of project --repo "$NEW" init)" = 1 ]; then pass "init refuses a checkout whose base branch it cannot tell"; else fail "init without a base"; fi
 project --repo "$NEW" init --base main --reviewer codex >/dev/null
+# The template names every key show prints under [checks], each with its line in the file init writes.
+shown_keys=$(project --repo "$NEW" show | field 'sorted(d["checks"])')
+template_keys=$("$PY" -I -c 'import sys, tomllib; print(sorted(tomllib.load(open(sys.argv[1], "rb"))["checks"]))' "$NEW/.lem/project.toml")
+if [ "$shown_keys" = "$template_keys" ] && grep -qxF 'bar = []' "$NEW/.lem/project.toml"; then
+  pass "the settings init writes name every key show prints under [checks], bar among them"
+else
+  fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
+fi
 out=$(project --repo "$NEW" show)
 if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["paths"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
   && [ "$(field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"])' <<<"$out")" = "('codex', None)" ] \

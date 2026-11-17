@@ -446,6 +446,10 @@ setup = []
 # repository, and a builder runs a test of such a suite through `project.py alone`. `commands` is
 # the whole suite without them, which runs one time, before the pull request.
 alone = []
+# Extra regular expressions that find a mark of a lowered bar (a new suppression, a skipped test)
+# in a language Lem has no marks of its own for. Lem has its own for Python, JavaScript,
+# TypeScript, Go, Rust, Java, Kotlin and shell.
+bar = []
 
 [flow]
 # What must never go wrong in this project, each as one sentence in the owner's words: "a
