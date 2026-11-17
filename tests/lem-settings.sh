@@ -473,8 +473,8 @@ rm -r "$OLD/.lem/state/tasks/from-a-ticket" "$OLD/.lem/state/tasks/the-same-tick
 rm -rf "$OLD/.lem/state/tasks/after-the-answer"
 none=$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')
 echo '{"proposed": "0123", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["criterion 1 changed during the build: y is taken."]}' > "$dir/landing.json"
-if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['criterion 1 changed during the build: y is taken.']}]" ]; then
-  pass "tasks says what a landing proposed: the pull request's address, and green or each reason it is not"
+if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['criterion 1 changed during the build: y is taken.'], 'conflict': None}]" ]; then
+  pass "tasks says what a landing proposed: the pull request's address, green or each reason it is not, and no conflict while nothing asked the forge"
 else
   fail "the proposal in tasks: $(project --repo "$OLD" tasks)"
 fi
