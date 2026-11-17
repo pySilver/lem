@@ -34,9 +34,9 @@ the criteria are:
 
        - no test: the change is one paragraph of the README.
 
-    criteria.py approve SLUG --file FILE
-    criteria.py approve SLUG --small [--file FILE]
-    criteria.py approve SLUG --read
+    lem criteria approve SLUG --file FILE
+    lem criteria approve SLUG --small [--file FILE]
+    lem criteria approve SLUG --read
                               keep the criteria the owner approved, as FILE has them: the same
                               section with no test lines, which the lead adds. --small: Lem
                               approves a small change's one criterion in the owner's name, as the task's
@@ -48,14 +48,14 @@ the criteria are:
                               in a row lets the build go on. It
                               counts for the plan's check and for `lem decisions criterion`, and never
                               as the owner's yes
-    criteria.py approved SLUG the approved criteria of the task, or null when it has none
-    criteria.py digest SLUG [--file FILE]
+    lem criteria approved SLUG the approved criteria of the task, or null when it has none
+    lem criteria digest SLUG [--file FILE]
                               the digest of the size and the texts of the criteria, without tests: of FILE,
                               or of the task's plan
-    criteria.py show SLUG     the criteria of the task's plan, or of a small change's `criteria.md`, as
+    lem criteria show SLUG    the criteria of the task's plan, or of a small change's `criteria.md`, as
                               JSON; `small` says which, and `plan` names the file
-    criteria.py record SLUG   the same, and one event for the board
-    criteria.py red SLUG      each criterion's tests pass on the branch and fail on the base commit
+    lem criteria record SLUG  the same, and one event for the board
+    lem criteria red SLUG     each criterion's tests pass on the branch and fail on the base commit
 
 Approved criteria are frozen as written. `approve` keeps them in `criteria.json` in the task's
 directory, with their text, a digest and a number of their own (approval 1, 2, ...), the earlier
@@ -721,7 +721,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="lem criteria", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the repository (default: the current one)")
     parser.add_argument("step", choices=("approve", "approved", "digest", "show", "record", "red"))
     parser.add_argument("slug")

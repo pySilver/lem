@@ -7,36 +7,36 @@ Each step here is one command, prints JSON, and refuses with exit 1 and the reas
 may not run; nothing is retried and nothing is forced. Every step first asks `lem project
 may-land` about the settings' base branch, so a protected branch is never reached, whoever asks.
 
-    land.py start SLUG [--after LANDED | --conflicting]
+    lem land start SLUG [--after LANDED | --conflicting]
                            the task takes the landing line: its state becomes `landing`; an `open`
                            task that a merge brings onto the new base names that merge with --after,
                            and one the forge called conflicting with no merge to name says so with
                            --conflicting
-    land.py base SLUG      bring the base branch in by a rebase; a conflict is reported, not resolved
-    land.py polish SLUG    the polish pass starts: what its builder gets, and the tip it starts at
-    land.py polish SLUG --done
+    lem land base SLUG     bring the base branch in by a rebase; a conflict is reported, not resolved
+    lem land polish SLUG   the polish pass starts: what its builder gets, and the tip it starts at
+    lem land polish SLUG --done
                            after the polish builder: what it committed is checked, and logged
-    land.py checks SLUG    the machine checks on the tip: every command of the checks, each
+    lem land checks SLUG   the machine checks on the tip: every command of the checks, each
                            criterion's tests, the bar, the size
-    land.py read SLUG      whether a review is due, the least it may be, and what a reviewer gets
-    land.py read SLUG --record FILE
+    lem land read SLUG     whether a review is due, the least it may be, and what a reviewer gets
+    lem land read SLUG --record FILE
                            write down what the review was and what it found
-    land.py file SLUG [--again]
+    lem land file SLUG [--again]
                            file each defect a review saw outside the change as an item of the
                            backlog, and commit the items on the task's branch; a defect whose
                            place an item of the branch already names is that item
-    land.py propose SLUG --title SUBJECT --notes FILE
+    lem land propose SLUG --title SUBJECT --notes FILE
                            open the pull request, or mark the branch ready where the remote is not
                            GitHub or `branch.propose` is `merge`: the state becomes `open`
-    land.py land SLUG --by owner|agent [--message SUBJECT]
+    lem land land SLUG --by owner|agent [--message SUBJECT]
                            merge the pull request, or put a ready branch on the base branch
-    land.py merged SLUG    the owner merged the pull request on the forge: finish the bookkeeping;
+    lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
                            or he closed it with no merge: the task is dropped
-    land.py base-checks SLUG
+    lem land base-checks SLUG
                            after a merge whose tree is not the tree the checks passed on: the
                            checks once on the merged commit; a red one is the base's
-    land.py clean SLUG     remove the task's worktree and its branch after the merge
-    land.py watch          look at the forge for the pull requests of the open tasks, and end when
+    lem land clean SLUG    remove the task's worktree and its branch after the merge
+    lem land watch         look at the forge for the pull requests of the open tasks, and end when
                            one of them is merged or closed, or newly conflicting
 
 What each step keeps for the next is in `landing.json` in the task's directory: the task's
@@ -3157,7 +3157,7 @@ def cmd_clean(task: Task) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="lem land", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("base", "checks", "merged", "clean"):

@@ -10,7 +10,7 @@ are about the repository it runs in and never fail the check: its personas, the 
 when more than one place registers it there, the permission mode a builder in the background
 meets there, and Lem's plugin when it is installed for the user and so loads in every repository.
 
-    doctor.py
+    lem doctor
 
 It loads under an old `python3` too, so that a machine whose first `python3` is the one its system
 ships gets a row that says so, not a traceback.

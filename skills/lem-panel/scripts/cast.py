@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Find a persona panel's cast, copy it into a project, and make the folder a panel writes in.
 
-Usage: cast.py [--repo DIR]
-       cast.py init [--repo DIR]
-       cast.py run-dir SLUG [--repo DIR]
+Usage: lem cast [--repo DIR]
+       lem cast init [--repo DIR]
+       lem cast run-dir SLUG [--repo DIR]
 
 With no command it prints the cast as JSON: the layer it came from, where in that layer (`source`),
 its directory, its index (README.md, or null), each persona's stem and path, and the project's

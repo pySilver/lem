@@ -1,6 +1,6 @@
 #!/bin/bash
 # calculate new semantic version from last tag
-# usage: calc-version.sh <release_type>
+# usage: lem release-version <release_type>
 # release_type: major, minor, hotfix
 # outputs: new version (e.g., v1.2.3)
 

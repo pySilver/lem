@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Open Lem's board in agterm: every task of the repository, or one task.
 
-    board.py [--repo DIR] [--follow]               the board of all tasks
-    board.py [--repo DIR] [--follow] --task SLUG   the board of one task
-    board.py [--repo DIR] [--task SLUG] --no-open  write the page's files and print where; open nothing
-    board.py ... --demo                            mark the state folder's tasks as examples, for good
+    lem board [--repo DIR] [--follow]               the board of all tasks
+    lem board [--repo DIR] [--follow] --task SLUG   the board of one task
+    lem board [--repo DIR] [--task SLUG] --no-open  write the page's files and print where; open nothing
+    lem board ... --demo                            mark the state folder's tasks as examples, for good
 
 The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`,
 which `project.py` appends to, and `meta.js`, which this script writes (the repository's name,
@@ -362,7 +362,7 @@ def show(page: Path, name: str, session: str, socket: str, window: str, follow: 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="lem board", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=env("AGT_SESSION_PWD") or ".", help="a directory inside the checkout (default: the current one)")
     parser.add_argument("--task", metavar="SLUG", help="open the board of this task instead of the board of all tasks")
     parser.add_argument("--follow", action="store_true", help="switch to the board after it opens")

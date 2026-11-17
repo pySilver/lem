@@ -6,11 +6,11 @@ sessions that got the correction do not record it reliably, so a hook records it
 asks a small decision model about each message the owner types, and queues the ones an agent
 should learn a lesson from. The retro, a big model, decides about each.
 
-    corrections.py hook                 the hook an agent runs on each message of the owner
-    corrections.py list                 unreviewed groups as JSON, most sessions first
-    corrections.py show ID              every entry of one group in full
-    corrections.py lessons              the lessons earlier retros recorded, with their targets
-    corrections.py record ID --decision lesson|not_lesson --verdict VERDICT [--target PATH] [--lesson TEXT]
+    lem corrections hook                the hook an agent runs on each message of the owner
+    lem corrections list                unreviewed groups as JSON, most sessions first
+    lem corrections show ID             every entry of one group in full
+    lem corrections lessons             the lessons earlier retros recorded, with their targets
+    lem corrections record ID --decision lesson|not_lesson --verdict VERDICT [--target PATH] [--lesson TEXT]
                                         write down what was decided about a group
 
 It is an optional part, and it is the owner's choice twice. The hook sends the owner's message
@@ -492,7 +492,7 @@ def cmd_record(where: Path, gid: str, decision: str, verdict: str, target: str |
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="lem corrections", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("hook", "list", "lessons"):

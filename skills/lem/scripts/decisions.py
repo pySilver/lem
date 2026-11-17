@@ -11,7 +11,7 @@ path. One kind of step never goes that way: a step that a later "no" cannot reve
 owner's word however long that takes. And a plan written at night asks none: nobody is there to
 answer.
 
-    decisions.py log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas|owner|lem
+    lem decisions log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas|owner|lem
                  [--said TEXT] [--undo TEXT]
                             a decision that was taken; --said is what the personas answered.
                             `owner` is a word of the owner's that nobody asked for (the task is
@@ -19,17 +19,17 @@ answer.
                             that name only the developer, in the form `land.py` reads
                             (`READ_SKIP`); `lem` one that Lem took before the task had a lead
                             (out of scope)
-    decisions.py criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT
+    lem decisions criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT
                  | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
                             a change of a criterion the owner approved, with its text before and
                             after: N is its number in the criteria as they stand after every
                             earlier change. --choice names the choice of the build that led to
                             it, answered or taken by timeout; without one, the lead's own change
                             or the personas' clear pick
-    decisions.py changes SLUG
+    lem decisions changes SLUG
                             the approved criteria, each recorded change of them in order, and the
                             criteria they give, which the plan's criteria must be
-    decisions.py ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT
+    lem decisions ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT
                  --option TEXT --option TEXT [...] --recommended TEXT --why TEXT --said TEXT
                  [--irreversible data|system|person|money]
                             a choice for the owner, of the plan or of the build: it gets a number
@@ -38,35 +38,35 @@ answer.
                             became possible and how far that reaches: the owner's card tells one
                             run.
                             Refused for a task whose brief says `night: yes`
-    decisions.py pending [SLUG]
+    lem decisions pending [SLUG]
                             the choices that wait, of one task or of every task, each with the
                             seconds its wait has left (`waiting`). A task that is dropped,
                             landed or answered has none: its choices that never got an answer are named
                             under `ended`, with the task's status, and need no answer
-    decisions.py wait SLUG ID [--seconds N]
+    lem decisions wait SLUG ID [--seconds N]
                             return when the choice is answered, when its wait ends, or after N
                             seconds, and say which
-    decisions.py answer SLUG ID --chose OPTION [--words TEXT] [--why TEXT]
+    lem decisions answer SLUG ID --chose OPTION [--words TEXT] [--why TEXT]
                             the owner's answer: the option it takes, word for word, the owner's
                             own words when they are not that text, and the reason when one was
                             given.
                             Lem writes it down. Text that is no option is refused here
-    decisions.py answer SLUG ID --instead TEXT [--words TEXT] [--why TEXT]
+    lem decisions answer SLUG ID --instead TEXT [--words TEXT] [--why TEXT]
                             the owner decided what none of the options says: TEXT settles the
                             choice, an irreversible one too
-    decisions.py advise SLUG ID --expert fable|astra (--pick OPTION | --none) --why TEXT
+    lem decisions advise SLUG ID --expert fable|astra (--pick OPTION | --none) --why TEXT
                             one expert's advice on a choice that waits: the option it picks, word
                             for word, or none of them, with its reasons. One advice of each expert,
                             given before the wait ends; an irreversible step takes advice too
-    decisions.py timeout SLUG ID
+    lem decisions timeout SLUG ID
                             the wait ended with no answer: the experts' shared pick is taken when
                             both picked the same option, the recommended action otherwise.
                             Refused while the wait runs, and always for an irreversible step
-    decisions.py settle SLUG ID --away
+    lem decisions settle SLUG ID --away
                             the owner is away: the experts' shared pick is taken now, before the
                             wait ends. Refused unless both picked the same option, and always for
                             an irreversible step; when they split, the choice waits its time
-    decisions.py list SLUG  every decision of the task, each as it stands now
+    lem decisions list SLUG  every decision of the task, each as it stands now
 
 The record is `decisions.jsonl` in the task's directory, one line for each thing that happened;
 a decision is the lines with its number. Each line is also an event in the log the board draws.
@@ -695,7 +695,7 @@ def cmd_settle(task: Task, number: int) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="lem decisions", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
     log = commands.add_parser("log")

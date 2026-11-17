@@ -9,50 +9,51 @@ nothing, or start the skill's own layout beside them (`init --existing new`). Wh
 the owner's choice, so `init` refuses to guess it. The rules an agent already loads by itself
 (`.claude/rules`) are no choice: they are the style guide, where they are.
 
-    project.py show                 everything, resolved, as JSON
-    project.py path NAME            one path, absolute
-    project.py may-land BRANCH      exit 1 unless tasks of this project may land on BRANCH
-    project.py existing             the folders an older tool already reads here, as JSON
-    project.py init [--base NAME] [--existing link|new] [--reviewer claude|codex]
+    lem project show                everything, resolved, as JSON
+    lem project path NAME           one path, absolute
+    lem project may-land BRANCH     exit 1 unless tasks of this project may land on BRANCH
+    lem project existing            the folders an older tool already reads here, as JSON
+    lem project init [--base NAME] [--existing link|new] [--reviewer claude|codex]
                                     write .lem/project.toml
-    project.py reviewer AGENT[/MODEL[:EFFORT]]
+    lem project reviewer AGENT[/MODEL[:EFFORT]]
                                     who reviews on this machine, until `reviewer default`
-    project.py reviewer default     the project's own reviewer again
-    project.py rules [FILE ...] [--range BASE..TIP]
+    lem project reviewer default    the project's own reviewer again
+    lem project rules [FILE ...] [--range BASE..TIP]
                                     the style guide files that cover these files, as JSON
-    project.py task-dir SLUG [--ask TEXT] [--ticket ID] [--branch NAME]
+    lem project task-dir SLUG [--ask TEXT] [--ticket ID] [--branch NAME]
                                     make and print one task's state directory; keep the owner's words
                                     and the ticket the ask came from. At a task's opening it refuses
                                     a slug whose branch origin has already: TYPE/SLUG for every
                                     type, or the NAME --branch gives
-    project.py ticket-step SLUG started|commented|landed|dropped|answered
+    lem project ticket-step SLUG started|commented|landed|dropped|answered
                                     write down what Lem did to the task's ticket, once
-    project.py worktree-dir SLUG    print where the task's worktree goes, inside a folder git ignores
-    project.py worktree SLUG BRANCH make the task's worktree there, on BRANCH: a branch that exists
+    lem project worktree-dir SLUG   print where the task's worktree goes, inside a folder git ignores
+    lem project worktree SLUG BRANCH
+                                    make the task's worktree there, on BRANCH: a branch that exists
                                     as it is, a new one from origin's base branch after a fetch
                                     (from the local base branch with no remote), with no upstream
-    project.py state SLUG STATUS LINE...
+    lem project state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
-    project.py tasks                every task's ask, status and newest state block, as JSON
-    project.py log SLUG EVENT [key=value ...] [key:=json ...]
+    lem project tasks               every task's ask, status and newest state block, as JSON
+    lem project log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
-    project.py may-start SLUG       exit 1 when as many other tasks build or land as flow.max_tasks
+    lem project may-start SLUG      exit 1 when as many other tasks build or land as flow.max_tasks
                                     allows; the task SLUG, whose lead starts, is not counted. Also
                                     exit 1 for a task in `landing`, `open` or an ended state, which
                                     gets no lead, and for a task `queued` with an `after: OTHER`
                                     line while OTHER has not ended
-    project.py state-dir            the folder that holds every task, the event log and the night reports
-    project.py alone -- COMMAND ...
+    lem project state-dir           the folder that holds every task, the event log and the night reports
+    lem project alone -- COMMAND ...
                                     run one command that needs the machine to itself, under the
                                     repository's one lock for such commands
-    project.py waiting              everything that waits for the owner, as JSON: each choice of a task,
+    lem project waiting             everything that waits for the owner, as JSON: each choice of a task,
                                     each task whose criteria or a step of his hold it, each pull
                                     request with green or not, each plan drafted at night, each
                                     retro's proposals
-    project.py plan-file SLUG [--date YYYY-MM-DD]
+    lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON
-    project.py may-nap [--asked]    whether a nap may start now, as JSON, and when it may, the nap is
+    lem project may-nap [--asked]   whether a nap may start now, as JSON, and when it may, the nap is
                                     written down as started; it also removes the naps older than
                                     naps.keep_days. --asked: the owner asked for this one
 
@@ -2331,7 +2332,7 @@ def cmd_may_nap(root: Path, asked: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="lem project", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("show")

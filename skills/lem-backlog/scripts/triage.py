@@ -4,9 +4,9 @@
 The items are the .md files of `docs/backlog/`, or of the folder a project's settings name for
 its backlog (`paths.backlog` in `.lem/project.toml`).
 
-Usage: triage.py refresh [--all] [--repo DIR]   judge what changed (--all: everything), then print the groups
-       triage.py report [--repo DIR] [--json]
-       triage.py item SLUG [--repo DIR]   judge one item now, whatever its record says
+Usage: lem triage refresh [--all] [--repo DIR]  judge what changed (--all: everything), then print the groups
+       lem triage report [--repo DIR] [--json]
+       lem triage item SLUG [--repo DIR]  judge one item now, whatever its record says
 
 Each item gets one of three verdicts:
 
@@ -249,7 +249,7 @@ def report(store: Store, as_json: bool) -> None:
 
 def main(argv: list[str]) -> None:
     if not argv or argv[0] not in {"refresh", "report", "item"}:
-        fail("usage: triage.py refresh|report [--json]|item SLUG [--repo DIR]")
+        fail("usage: lem triage refresh|report [--json]|item SLUG [--repo DIR]")
     command, rest = argv[0], argv[1:]
     repo = Path.cwd()
     if "--repo" in rest:
@@ -260,7 +260,7 @@ def main(argv: list[str]) -> None:
     store = Store(repo)
     if command == "item":
         if len(rest) != 1:
-            fail("usage: triage.py item SLUG")
+            fail("usage: lem triage item SLUG")
         refresh(repo, store, only=rest[0])
         report(store, as_json=False)
     elif command == "refresh":

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """The question gate's shadow log: the judge's verdict on each question beside the user's answer.
 
-Usage: gate-log.py ask --id ID --question TEXT --verdict VERDICT --cite TEXT [--why TEXT] [--repo DIR]
-       gate-log.py answer --id ID --answer TEXT [--ruling SLUG] [--repo DIR]
-       gate-log.py report [--json] [--repo DIR]
-       gate-log.py dir [--repo DIR]
+Usage: lem gate-log ask --id ID --question TEXT --verdict VERDICT --cite TEXT [--why TEXT] [--repo DIR]
+       lem gate-log answer --id ID --answer TEXT [--ruling SLUG] [--repo DIR]
+       lem gate-log report [--json] [--repo DIR]
+       lem gate-log dir [--repo DIR]
 
 `ask` records the judge's verdict when a question is about to reach the user; `answer` records what
 the user said, and the ruling file it produced when the durable check said so. `report` lists every
@@ -124,7 +124,7 @@ def report(entries: list[dict], as_json: bool) -> None:
 
 def main(argv: list[str]) -> None:
     if not argv or argv[0] not in {"ask", "answer", "report", "dir"}:
-        fail("usage: gate-log.py ask|answer|report|dir ...")
+        fail("usage: lem gate-log ask|answer|report|dir ...")
     command, rest = argv[0], argv[1:]
     for arg in rest:
         try:

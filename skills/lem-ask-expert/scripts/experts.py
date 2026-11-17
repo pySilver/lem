@@ -13,13 +13,13 @@ reads each answer back; starting the agents is the harness's (`ask-experts`).
 A question in words, which the owner asks (`/lem ask-expert ...`), has a folder of its own in Lem's
 state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer and `record.json`:
 
-    experts.py brief --question TEXT [--context TEXT] [--option TEXT ...] [--file PATH ...]
+    lem experts brief --question TEXT [--context TEXT] [--option TEXT ...] [--file PATH ...]
                      make the folder and write `brief.md` in it: the question, what is being
                      decided (`--context`), the options word for word when there are any, the
                      files that matter, and the form of an answer. Prints the folder's name, the
                      brief's path, each expert with its seat and its answer file, and the checkout
                      the experts read. Folders older than KEEP_DAYS are removed first
-    experts.py record --folder NAME --expert NAME
+    lem experts record --folder NAME --expert NAME
                      read the expert's answer file, its last message, and write it into the
                      folder's `record.json`. Refused when the answer is not in the brief's form,
                      picks a text that is no option, or the expert answered already. Prints the
@@ -29,13 +29,13 @@ state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer a
 A choice of a task that waits for the owner, which Lem's stages give the experts right after
 `lem decisions ask`, keeps its brief in the task's directory and its advice in the choice's record:
 
-    experts.py brief SLUG N [--file PATH ...]
+    lem experts brief SLUG N [--file PATH ...]
                      write `experts/choice-N.brief.md` in the task's directory: the choice (what,
                      the options word for word, the recommended one and why, what the personas
                      said), the task's acceptance criteria and its plan, the files the choice is
                      about, and the form of an answer. Refused for a choice that does not wait, and
                      when every expert advised already
-    experts.py record SLUG N --expert NAME
+    lem experts record SLUG N --expert NAME
                      read `experts/choice-N.NAME.md` and write it into the record with
                      `lem decisions advise`, under the same refusals as above
 
@@ -473,7 +473,7 @@ def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="lem experts", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
     brief = commands.add_parser("brief")

@@ -1,6 +1,6 @@
 #!/bin/bash
 # generate release notes from PRs/MRs and commits
-# usage: get-notes.sh <platform>
+# usage: lem release-notes <platform>
 # platform: github, gitlab, or gitea
 # outputs: release notes grouped by type (features, improvements, fixes)
 

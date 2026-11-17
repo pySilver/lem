@@ -59,15 +59,21 @@ for name in $names; do
   case "$name" in
     doctor | cast | release-*) ;;
     *) said=$("$LEM" "$name" --help 2>&1 || true)
-       grep -qF "usage: $(basename "$file")" <<<"$said" || { real="no: lem $name --help shows no usage of $file"; break; } ;;
+       grep -qF "usage: lem $name" <<<"$said" || { real="no: lem $name --help shows no usage of lem $name: $(head -n 1 <<<"$said")"; break; } ;;
   esac
 done
+# a usage error speaks the name the developer types, and so does the usage in the script's own text
+wrong=$("$LEM" land start 2>&1 || true)
+own=$("$LEM" land --help 2>&1 || true)
+if ! grep -qF "lem land start: error: the following arguments are required: slug" <<<"$wrong" || ! grep -qxF "    lem land start SLUG [--after LANDED | --conflicting]" <<<"$own"; then
+  real="no: a usage error or the usage text of lem land names another command: $wrong"
+fi
 set +e
 "$LEM" release-version >/dev/null 2>"$WORK/release"
 release_code=$?
 set -e
 if [ "$real" = yes ] && [ "$release_code" = 1 ] && grep -qF "release type required" "$WORK/release"; then
-  pass "each name of lem names a script of this checkout, each Python one with an --help answers with its own usage, and a release tool runs with bash"
+  pass "each name of lem names a script of this checkout, each Python one with an --help answers with its own usage in the name the developer types, as does a usage error, and a release tool runs with bash"
 else
   fail "lem's scripts: $real / $release_code / $(cat "$WORK/release")"
 fi
