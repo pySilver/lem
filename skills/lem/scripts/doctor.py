@@ -265,13 +265,19 @@ def claude() -> list[dict]:
     # or the main checkout's when git does not track it.
     file = next((place for place in (root / BUILDER for root in checkout_roots()) if place.is_file()), None)
     plugin = plugin_named("lem")
+    # A plugin loaded for one session by a flag (`claude --plugin-dir DIR`) is in no list of
+    # installs; the session tells its commands the plugin's folder in CLAUDE_PLUGIN_ROOT.
+    session = os.environ.get("CLAUDE_PLUGIN_ROOT", "").strip()
+    loaded = Path(session) if session and (Path(session) / "agents" / "lem-builder.md").is_file() else None
     builder = {
-        "name": "lem-builder agent", "need": "required", "found": bool(file or plugin),
-        "detail": str(file) if file else f"lem:lem-builder, from {plugin}" if plugin else None,
+        "name": "lem-builder agent", "need": "required", "found": bool(file or plugin or loaded),
+        "detail": str(file) if file else f"lem:lem-builder, from {plugin}" if plugin
+        else f"lem:lem-builder, from the plugin loaded for this session ({loaded})" if loaded else None,
         "used_for": "the builder Lem starts for each task of a plan in Claude Code",
         "without_it": "Claude Code has no agent of that name and Lem starts no builder; install Lem's plugin in this repository: "
                       "`claude plugin marketplace add pySilver/lem --scope project`, then `claude plugin install lem@lem --scope project`. "
-                      "A plugin loaded for one session by a flag is not seen by this check",
+                      "A session that loaded the plugin by a flag (`claude --plugin-dir DIR`) has the builder as lem:lem-builder all the same: "
+                      "this check finds such a plugin only through CLAUDE_PLUGIN_ROOT, and this command did not get it",
     }
     # Only a machine with Claude Code needs Claude Code's form of the builder.
     return [row, builder] if row["found"] else [row]

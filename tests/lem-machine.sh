@@ -106,6 +106,18 @@ if [ "$elsewhere" = "FalseFalse" ] && [ "$here" = "lem:lem-builder, from the plu
 else
   fail "doctor with Lem as a plugin: $elsewhere / $here / $user"
 fi
+# A plugin loaded for one session by a flag is in no list of installs: the session's CLAUDE_PLUGIN_ROOT finds it, when that
+# folder holds the builder; a folder without one finds nothing, and the row says what such a session has all the same.
+flagged() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" CLAUDE_PLUGIN_ROOT="$1" "$PY" -B "$DOCTOR" || true) | field 'next((t["found"], t["detail"]) for t in d["tools"] if t["name"] == "lem-builder agent")'; }
+by_flag=$(flagged "$PWD")
+other_plugin=$(flagged "$WORK")
+said=$(doctor | row 'lem-builder agent' without_it || true)
+if [ "$by_flag" = "(True, 'lem:lem-builder, from the plugin loaded for this session ($PWD)')" ] && [ "$other_plugin" = "(False, None)" ] \
+  && grep -qF "A session that loaded the plugin by a flag (\`claude --plugin-dir DIR\`) has the builder as lem:lem-builder all the same: this check finds such a plugin only through CLAUDE_PLUGIN_ROOT" <<<"$said"; then
+  pass "a plugin loaded for one session by a flag satisfies the builder row through CLAUDE_PLUGIN_ROOT when its folder holds the builder, and the row says so; another plugin's folder does not, and the row's words name that case"
+else
+  fail "doctor with the plugin loaded by a flag: $by_flag / $other_plugin / $said"
+fi
 # A builder file in the home is no builder of Lem's: the plugin brings it. From here on the plugin is installed for the user.
 mkdir -p "$FAKEHOME/.claude/agents"
 ln -s "$PWD/agents/lem-builder.md" "$FAKEHOME/.claude/agents/lem-builder.md"
