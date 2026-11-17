@@ -215,7 +215,7 @@ Lem.
   green or not green.
 - The board says when Lem last checked the open pull requests, for example "checked 40s ago".
   When the last look is older than three watch intervals, or the watch ended, it says
-  "nobody watches the pull requests" and tells you to type `/lem`. A page cannot ask GitHub
+  "nobody watches the pull request" (or "the 2 pull requests") and tells you to type `/lem`. A page cannot ask GitHub
   itself.
 - The board of one task adds its acceptance criteria with the result of their tests, and its state
   blocks. It also shows each check, each review with who answered, and where the time went.

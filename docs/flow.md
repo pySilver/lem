@@ -76,7 +76,8 @@ charged. feat, full: ...". A request that can affect a topic is never a small ch
 4. The builder runs the tests of the files that it changed. It also runs the formatter, the linter
    and the type checker that the project's `AGENTS.md` names.
 5. Before it commits, the builder reads its change against each topic. It stops if the change can
-   affect a topic, needs a second rule or a decision, lowers the bar, or grew. Lem then tells you
+   affect a topic, needs a second rule or a decision, lowers the bar, or is more than one plain
+   change. Lem then tells you
    in one line that the request is a full change, and why. Then the interview starts, and the
    commits stay on the branch.
 6. A defect that the builder saw outside the change becomes one backlog item, in a commit of its
@@ -138,7 +139,7 @@ from the code, and the personas read them. If you wrote the request yourself and
 confused, the build starts at once. The task waits for your yes in three cases:
 
 - a persona has a doubt;
-- a rule needs a guess;
+- the ticket does not say a rule that the lead needs, so the lead must guess it;
 - another person wrote the ticket or the backlog item. Then one page shows you what Lem will
   build, before it builds it.
 
@@ -202,7 +203,8 @@ The builder that wrote the plan stops, and Lem opens a companion session in agte
 defender, argues the plan with the reviewer in the other pane, through the mailbox chat. You can
 read both panes.
 
-- **The reviewer gives all of its questions in its first turn**, the most expensive first.
+- **The reviewer gives all of its questions in its first turn.** The first one is the one that
+  costs the most if nobody answers it.
 - **Each question gets one repair of the plan**, or a reply that disproves the question with a
   source. The reviewer answers each question by its number: `closed` or `holds`.
 - **A question that holds two times becomes a design choice**, and Lem asks it as a decision.
@@ -345,7 +347,7 @@ moved after the checks, the checks run again first.
   `/lem land <task>` and the base moved, Lem rebases it and runs the checks again first. After a
   rebase with no conflict, the review stays valid.
 - **The board shows when Lem last checked the pull requests.** When no watch runs, it says
-  "nobody watches". Type `/lem` to look again.
+  "nobody watches the pull request". Type `/lem` to look again.
 
 ## The queue
 
@@ -353,7 +355,7 @@ moved after the checks, the checks run again first.
   waits, and it starts when a place is free.
 - **A task waits for another task only when it needs its result.** Its state is `queued`, with the
   line `after:` and the name of that task.
-- **Two requests that only name the same file both start at once.** The landing resolves any
+- **Two requests that only mention the same file both start at once.** The landing resolves any
   overlap.
 
 ## A bug and a question

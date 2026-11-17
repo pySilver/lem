@@ -95,8 +95,8 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   into another tool's folder, and the owner registers the hook with Lem's setup: "I guess this
   should not be a cc-tools behaviour but Lem code instead … and it should be possible to setup
   during installation of the skill if needed or any time later" (2026-11-15). The form built from
-  it is the session's design: `skills/lem/scripts/jev.py`, linked as the `jev` command, and
-  `setup.py --corrections on|off`, which the owner runs and no agent does.
+  it is the session's design: `skills/lem/scripts/jev.py`, on the `PATH` as the `lem-jev`
+  command, and the hook that the plugin brings, which the tracked `corrections.collect` turns on.
 - **As a plugin, the correction hook comes with the install, and the repository says yes for
   all**: he picked "With the plugin; the repository says yes for all" and wrote "I'm divided
   between (1) and (2); I believe Lem will not be a personal preference but rather a way to work
@@ -414,7 +414,7 @@ him, and they are not his rulings until he says so:
   contained? lem is aimed to be per-project companion" and his "I agree" to a test first. The
   test ran on 2026-11-15, and the session that carries his words decided the first step, which
   only adds files: `.claude-plugin/plugin.json` with no version (so each commit is an update),
-  `.claude-plugin/marketplace.json`, `bin/` with links to `lem-ask` and `jev`, and
+  `.claude-plugin/marketplace.json`, `bin/` with `lem`, `lem-ask` and `lem-jev`, and
   `hooks/hooks.json` after his ruling on the hook. The links of the setup work as before, and
   removing the four undoes it. As a plugin the builder is `lem:lem-builder`, so the harness file
   and the machine check know two names. Which form the README shows first he ruled on
@@ -562,8 +562,8 @@ is the session's, and open to him.
   lead: `prompts/small.md`, a brief complete in itself, and the builder's standing rules. It
   commits no plan; its criterion is `criteria.md` in the task directory, approved in his name, with
   its test line, and `criteria.py` and `land.py` read it there when the branch has no plan file,
-  for a small change only. A change that keeps behavior has `no test` and its builder runs the
-  whole suite of the checks. Before it commits, the builder reads its change against the topics and stops
+  for a small change only. A change that keeps behavior has `no test`; its builder runs the tests of the files it
+  changed and of their direct callers, and the checks run the whole suite one time. Before it commits, the builder reads its change against the topics and stops
   with `the criteria wait for the owner: the small change is a full change` when it reaches one, needs
   a second rule or a decision, lowers the bar or grew. Its landing is `start`, `base`, `checks`
   (with `criteria.py red` once), one read by the review agent itself, and `propose` with a short
@@ -582,8 +582,8 @@ is the session's, and open to him.
   restate and yes are the criteria and his yes to them; each question is one line in the
   conversation with Lem's guess, and no page opens for it. A criterion whose change keeps behavior (a
   rename, a bump, a refactor) is held by the suite, `- no test: the change keeps behavior; the
-  suite holds it`, and its builder runs the whole suite, where a contrived failing test was asked
-  before (F4). "A new kind of test" no longer makes a plan careful: a pattern is product code
+  suite holds it`, and the checks run that suite one time, where a contrived failing test was
+  asked before (F4). "A new kind of test" no longer makes a plan careful: a pattern is product code
   that other code will copy (F5), since a one-line fix could become a plan talk and the full
   review by it. A task has a state block from the moment it opens, `held` with `the interview
   waits for the owner` and the type line, so the status and the board show it during the

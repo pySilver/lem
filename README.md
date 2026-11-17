@@ -65,7 +65,8 @@ review, and a person merges it. [docs/flow.md](docs/flow.md) describes each step
 - The first line of each pull request says green or not green. Each reason comes on the next lines.
 - A green pull request needs no read from you.
 - A full change builds only after you say yes to its acceptance criteria. The one exception is a
-  complete ticket that you wrote yourself: it builds when no persona has a doubt.
+  complete request that you wrote yourself, for example a ticket: it builds when no persona has a
+  doubt.
 - A step that nobody can undo waits for your approval.
 - After a merge, Lem rebases each open pull request that has a conflict with the new base.
 - Lem never overwrites a commit that it did not push.

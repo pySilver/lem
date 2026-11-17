@@ -91,9 +91,9 @@ Under `permissions.allow`:
 - one rule for each command of `checks.commands`, `checks.alone` and `checks.setup`. A command
   with `&&` gets one rule for each part.
 
-The rules allow no `git push` and no command of the project other than its checks. No rule asks
-you at a merge. With a pull request on GitHub, each merge goes through it, so the rules of
-GitHub for the base branch apply. With `branch.propose = "merge"`, Lem puts the branch on the
+The rules allow no `git push` and no command of the project other than its checks. Claude Code
+shows no prompt when Lem merges. In a project with pull requests, Lem merges each one through
+GitHub, so GitHub's rules for the base branch apply. With `branch.propose = "merge"`, Lem puts the branch on the
 base branch directly. A push of a task branch goes only through `lem land`. The machine check
 reads `permissions.defaultMode` and tells you what happens to a builder in that mode.
 
