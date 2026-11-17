@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # gate's shadow log, offline: gate-log.py records the judge's verdict and the user's answer
-# in the git directory (never the work tree), refuses an unknown verdict and an answer to a
+# in Lem's state folder (which git never shows), refuses an unknown verdict and an answer to a
 # question it never logged, and reports both side by side. Then panel's cast.py: the cast
 # comes from the project alone (none there means no panel; the user's and the built-in cast only start one), a checkout older than its default
 # branch's cast reads that cast, the project's profile comes from the checkout or the default branch
@@ -26,19 +26,19 @@ printf '%s\n' '{"kind": "ask", "ts": "2026-11-01T00:00:00Z", "id": "000-old", "q
 gate ask --id 001-size --question "Which size?" --verdict held --cite "no ruling covers it"
 gate ask --id 002-gmc --question "May an approved promotion be edited?" --verdict decided --cite "promotions-follow-merchant-center.md"
 gate answer --id 002-gmc --answer "only the end time"
-if [ -f "$WORK/.git/lem/decide-gate.jsonl" ] && [ ! -e "$WORK/.git/decide-gate.jsonl" ] && grep -q '"000-old"' "$WORK/.git/lem/decide-gate.jsonl" \
+if [ -f "$WORK/.lem/state/decide-gate.jsonl" ] && [ ! -e "$WORK/.git/decide-gate.jsonl" ] && grep -q '"000-old"' "$WORK/.lem/state/decide-gate.jsonl" \
   && [ -z "$(git -C "$WORK" status --porcelain --untracked-files=all)" ]; then
-  pass "the log lives in Lem's folder of the git directory, not the work tree, and a log in the old place is moved there with its questions"
+  pass "the log lives in Lem's state folder, which git does not show, and a log in the oldest place is moved there with its questions"
 else
-  fail "the log lives in the git directory, not the work tree: $(ls -A "$WORK/.git" "$WORK/.git/lem" 2>&1)"
+  fail "the log lives in the state folder: $(ls -A "$WORK/.git" "$WORK/.lem/state" 2>&1)"
 fi
 # Text that is not UTF-8, in an argument or in the log, and a line that was cut off: named, no traceback.
 latin_arg=$(gate ask --id 003-latin --question $'caf\xe9?' --verdict held --cite x 2>&1 || true)
-cp "$WORK/.git/lem/decide-gate.jsonl" "$WORK/.git/gate.kept" && printf '{"kind": "ask", "id": "cut' >> "$WORK/.git/lem/decide-gate.jsonl"
+cp "$WORK/.lem/state/decide-gate.jsonl" "$WORK/.git/gate.kept" && printf '{"kind": "ask", "id": "cut' >> "$WORK/.lem/state/decide-gate.jsonl"
 cut_line=$(gate report 2>&1 || true)
-mv "$WORK/.git/gate.kept" "$WORK/.git/lem/decide-gate.jsonl"
+mv "$WORK/.git/gate.kept" "$WORK/.lem/state/decide-gate.jsonl"
 if grep -qF "the argument b'caf\\xe9?' is not UTF-8 text" <<<"$latin_arg" && grep -qF "decide-gate.jsonl:5 does not read as JSON" <<<"$cut_line" \
-  && ! grep -q Traceback <<<"$latin_arg$cut_line" && [ "$(grep -c '' "$WORK/.git/lem/decide-gate.jsonl")" = 4 ]; then
+  && ! grep -q Traceback <<<"$latin_arg$cut_line" && [ "$(grep -c '' "$WORK/.lem/state/decide-gate.jsonl")" = 4 ]; then
   pass "an argument that is not UTF-8 and a line of the log that does not read are named, and nothing is written"
 else
   fail "the gate log and text that does not read: $latin_arg / $cut_line"
@@ -52,8 +52,8 @@ else
   fail "the report puts each verdict beside its answer: $out"
 fi
 dir=$(gate dir)
-if [ "$dir" = "$WORK/.git/lem/questions" ] && [ -d "$dir" ] && [ "$(gate dir)" = "$dir" ] && [ -z "$(git -C "$WORK" status --porcelain --untracked-files=all)" ]; then
-  pass "the folder for the question files is in the git directory, and the work tree stays clean"
+if [ "$dir" = "$WORK/.lem/state/questions" ] && [ -d "$dir" ] && [ "$(gate dir)" = "$dir" ] && [ -z "$(git -C "$WORK" status --porcelain --untracked-files=all)" ]; then
+  pass "the folder for the question files is in the state folder, and git shows nothing of it"
 else
   fail "the folder for the question files: $dir"
 fi

@@ -710,7 +710,10 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
 - `skills/lem/stages/`: one file per subcommand, and `talk.md`, the plan talk of a careful or
   large plan, which only its defender reads.
 - `skills/lem/harness/`: the capability contract and one file per agent.
-- `skills/lem/scripts/`: `project.py` (a repository's settings, task state and the event log),
+- `skills/lem/scripts/`: `lem_state.py` (the one place that names a repository's state folder,
+  `.lem/state/` of the main checkout, and moves the `.git/lem/` of an older Lem there once; every
+  script that touches the state asks it, directly or through `project.py state-dir`),
+  `project.py` (a repository's settings, task state and the event log),
   `doctor.py` (the machine, and a row when more than one place registers the correction hook),
   `board.py` (opens the board), `land.py` (the landing, one refusable step at a time: the
   machine checks, the review's floor and its record, the pull request, the merge),

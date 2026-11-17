@@ -75,6 +75,9 @@ def project(repo: str, *args: str) -> str:
     )
     if ran.returncode != 0:
         raise BoardError(ran.stderr.strip().removeprefix("project.py: ") or f"project.py {args[0]} failed")
+    # a line project.py writes on stderr when it succeeds (the move of an older state folder) is this script's to say too
+    if ran.returncode == 0 and ran.stderr:
+        sys.stderr.write(ran.stderr)
     return ran.stdout.strip()
 
 
@@ -102,7 +105,7 @@ def where_problem(root: Path, where: str) -> str:
     return f"not in the file: {'.'.join(missing)}" if missing else ""
 
 
-def backlog(settings: dict) -> dict:
+def backlog(settings: dict, state: Path) -> dict:
     """The items of the backlog folder, as the board's second tab shows them. It reads and changes nothing."""
     main = Path(settings["main"])
     # the main checkout's copy: a task's worktree has the backlog as its branch left it
@@ -124,8 +127,7 @@ def backlog(settings: dict) -> dict:
             code = entry[:2]
             changed[entry[3:]] = "new" if code == "??" or "A" in code else "edited"
     # who can act next, as the backlog skill's sorting last judged it; that file is read, never written here
-    common = Path(git("rev-parse", "--git-common-dir").strip() or ".git")
-    verdicts_file = (common if common.is_absolute() else main / common) / "lem" / "backlog-triage.json"
+    verdicts_file = state / "backlog-triage.json"
     try:
         verdicts = json.loads(verdicts_file.read_text(encoding="utf-8")) if verdicts_file.is_file() else {}
     except ValueError:
@@ -211,7 +213,7 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
         meta["demo"] = True
     (state / "meta.js").write_text(f"lemMeta({json.dumps(meta, ensure_ascii=False)});\n", encoding="utf-8")
     # `</` is split so that no item's text can end the script tag the page loads this file with
-    items = json.dumps(backlog(settings), ensure_ascii=False).replace("</", "<\\/")
+    items = json.dumps(backlog(settings, state), ensure_ascii=False).replace("</", "<\\/")
     (state / "backlog.js").write_text(f"lemBacklog({items});\n", encoding="utf-8")
     page = state / (f"task-{slug}.html" if slug else "board.html")
     shutil.copyfile(ASSET, page)

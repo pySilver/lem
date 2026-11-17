@@ -216,8 +216,10 @@ reads its own change against them before it commits (`prompts/small.md`). The le
 python3 SKILL_DIR/scripts/project.py task-dir SLUG
 ```
 
-It makes and prints the task's directory inside the repository's git directory, shared by every
-worktree, never committed and not removed with a worktree. It holds:
+It makes and prints the task's directory in Lem's state folder, `.lem/state/` of the main checkout,
+shared by every worktree, never committed and not removed with a worktree. In a repository where
+Lem kept its state in the git directory before (`.git/lem/`), the first script that reads the state
+moves it there and says so in one line on stderr: tell the owner that line once, as it is. It holds:
 
 - `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome. Lem writes
   them. `ticket.txt` holds the id of the tracker's ticket, for a task that came from one, and

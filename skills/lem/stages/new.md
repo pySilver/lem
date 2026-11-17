@@ -474,7 +474,7 @@ that is started again after it stopped.
    environment); otherwise `git worktree add -b BRANCH PATH BASE` for a new branch, and
    `git worktree add PATH BRANCH` for a branch that exists. `project.py worktree-dir` already made the folder for worktrees one that
    git ignores. The worktree is in the checkout, not in the task's
-   state directory: an agent's sandbox may not write inside the git directory, and the state has
+   state directory, which is in the main checkout's state folder (`.lem/state/`): the state has
    to outlive the worktree.
 3. **The lead.** Write a lead's `coordinator:` and `socket:` lines again with your own
    values when they are not yours (a brief written by a Lem before you, or one with no such

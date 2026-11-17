@@ -181,7 +181,7 @@ fi
 event "never push without asking" s1 | hook hook
 worker "never push without asking" s1
 sleep 1
-if [ ! -e "$CQ/.git/lem/corrections.jsonl" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/payload.json" ] \
+if [ ! -e "$CQ/.lem/state/corrections.jsonl" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/payload.json" ] \
   && [ "$(corr list | field '(d["collect"], d["entries"])')" = "(False, 0)" ]; then
   pass "without the project's yes neither the hook nor its detached half, run alone, sends a message anywhere"
 else
@@ -197,22 +197,22 @@ sys.argv = [script, "hook"]
 sys.executable = "/no/such/python"   # the hook starts its copy with this
 runpy.run_path(script, run_name="__main__")' "$CORR" 2>&1; echo "exit=$?")
 # only the hook's own files count: git may keep a cache of its own in the temp folder
-if [ "$out" = "exit=0" ] && [ -z "$(find "$WORK/hooktmp" -name 'lem-correction-*')" ] && grep -q "/no/such/python" "$CQ/.git/lem/corrections.log"; then
+if [ "$out" = "exit=0" ] && [ -z "$(find "$WORK/hooktmp" -name 'lem-correction-*')" ] && grep -q "/no/such/python" "$CQ/.lem/state/corrections.log"; then
   pass "when the detached half cannot start, the hook removes the file with the owner's words and logs the failure"
 else
-  fail "the hook with a failed hand-over: $out / $(find "$WORK/hooktmp" -name 'lem-correction-*') / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
+  fail "the hook with a failed hand-over: $out / $(find "$WORK/hooktmp" -name 'lem-correction-*') / $(cat "$CQ/.lem/state/corrections.log" 2>&1)"
 fi
-rm -f "$CQ/.git/lem/corrections.log"
+rm -f "$CQ/.lem/state/corrections.log"
 # The hook's own directory is gone, as a removed worktree's is: the event still names its repository.
 mkdir "$WORK/gone"
 out=$(cd "$WORK/gone" && rmdir "$WORK/gone" && event "typed in a directory that is gone" s9 | hook hook 2>&1; echo "exit=$?")
-soon grep -qs "that is gone" "$CQ/.git/lem/corrections.jsonl"
-if [ "$out" = "exit=0" ] && grep -q "that is gone" "$CQ/.git/lem/corrections.jsonl"; then
+soon grep -qs "that is gone" "$CQ/.lem/state/corrections.jsonl"
+if [ "$out" = "exit=0" ] && grep -q "that is gone" "$CQ/.lem/state/corrections.jsonl"; then
   pass "a hook whose own directory was removed still exits 0 with no output, and queues the message for the event's repository"
 else
   fail "the hook in a removed directory: $out"
 fi
-rm -f "$CQ/.git/lem/corrections.jsonl" "$WORK/jev-called"
+rm -f "$CQ/.lem/state/corrections.jsonl" "$WORK/jev-called"
 sed -i.bak 's/^collect = true$/collect = false/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 # An input that stays open, and an old python3: the hook returns, with exit 0 and not a word. The
 # input stays open 15 seconds, and the hook returns in 10 at most, on a loaded machine too.
@@ -232,12 +232,12 @@ if [ -n "$old" ]; then
   # log, and the one the hook ran in gets none
   git init -q -b main "$WORK/elsewhere"
   out=$(cd "$WORK/elsewhere" && event "under an old python" s0 | "$old" -B "$CORR" hook 2>&1; echo "exit=$?")
-  if [ "$out" = "exit=0" ] && grep -q "tomllib" "$CQ/.git/lem/corrections.log" && [ ! -e "$WORK/elsewhere/.git/lem/corrections.log" ]; then
+  if [ "$out" = "exit=0" ] && grep -q "tomllib" "$CQ/.lem/state/corrections.log" && [ ! -e "$WORK/elsewhere/.lem/state/corrections.log" ]; then
     pass "under a python3 before 3.11 the hook exits 0, prints nothing, and logs the failure in the repository of the message"
   else
-    fail "the hook under $old: $out / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
+    fail "the hook under $old: $out / $(cat "$CQ/.lem/state/corrections.log" 2>&1)"
   fi
-  rm -f "$CQ/.git/lem/corrections.log"
+  rm -f "$CQ/.lem/state/corrections.log"
   # The other scripts under that python3: a row or one line that says what is needed, and no traceback.
   rows=$(cd "$MACHINE" && "$old" -B "$DOCTOR" 2>&1 || true)
   said=""
@@ -257,11 +257,11 @@ else
 fi
 sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")
-soon test -s "$CQ/.git/lem/corrections.jsonl"
-if [ "$out" = "exit=0" ] && [ "$("$PY" -c 'import json, sys; e = json.loads(open(sys.argv[1]).readline()); print(e["owner"], "|", e["previous"], "|", e["p_lesson"], "|", e["session"])' "$CQ/.git/lem/corrections.jsonl")" = "never push without asking | I pushed it. | 0.9 | s1" ]; then
+soon test -s "$CQ/.lem/state/corrections.jsonl"
+if [ "$out" = "exit=0" ] && [ "$("$PY" -c 'import json, sys; e = json.loads(open(sys.argv[1]).readline()); print(e["owner"], "|", e["previous"], "|", e["p_lesson"], "|", e["session"])' "$CQ/.lem/state/corrections.jsonl")" = "never push without asking | I pushed it. | 0.9 | s1" ]; then
   pass "with the project's yes the hook prints nothing, and its detached half queues the owner's words with the agent message they answer"
 else
-  fail "the hook: $out / $(cat "$CQ/.git/lem/corrections.jsonl" 2>&1)"
+  fail "the hook: $out / $(cat "$CQ/.lem/state/corrections.jsonl" 2>&1)"
 fi
 worker "never  push without asking" s2
 JEV_P=0.1 worker "ok go on" s3
@@ -278,14 +278,14 @@ env -u LEM_JEV -u OPENROUTER_API_KEY PATH="$BIN" "$PY" -B "$CORR" worker "$WORK/
 sleep 1
 out=$(corr list)
 if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) for g in d["groups"]], d["failures"]["count"])' <<<"$out")" = "(3, [(2, 2, 0.9), (1, 1, None)], 3)" ] \
-  && grep -q "no key" "$CQ/.git/lem/corrections.log" && grep -q "jev did not run" "$CQ/.git/lem/corrections.log" \
-  && grep -q "jev gave no answer: lem-jev: OPENROUTER_API_KEY is not set" "$CQ/.git/lem/corrections.log"; then
+  && grep -q "no key" "$CQ/.lem/state/corrections.log" && grep -q "jev did not run" "$CQ/.lem/state/corrections.log" \
+  && grep -q "jev gave no answer: lem-jev: OPENROUTER_API_KEY is not set" "$CQ/.lem/state/corrections.log"; then
   pass "one sentence from two sessions is one group; a low score, a command and injected text queue nothing; a message too long for Jev is queued unjudged; each failure is in the log and counted; with no other jev named, the worker runs the copy beside it"
 else
-  fail "the queue: $out / $(cat "$CQ/.git/lem/corrections.log" 2>&1)"
+  fail "the queue: $out / $(cat "$CQ/.lem/state/corrections.log" 2>&1)"
 fi
 # One person's no, in the main checkout's untracked file: the hook queues nothing, from a worktree too.
-before=$(wc -l < "$CQ/.git/lem/corrections.jsonl")
+before=$(wc -l < "$CQ/.lem/state/corrections.jsonl")
 printf '%s\n' '[corrections]' 'collect = false' > "$CQ/.lem/project.local.toml"
 shown=$(project --repo "$CQ" show | field '(d["corrections"]["collect"], d["local"]["overrides"])')
 rm -f "$WORK/jev-called"
@@ -303,11 +303,11 @@ git clone -q --bare "$CQ" "$WORK/corr-bare.git" && git -C "$WORK/corr-bare.git" 
 mkdir -p "$WORK/corr-bare.git/.lem" && printf '%s\n' '[corrections]' 'collect = false' > "$WORK/corr-bare.git/.lem/project.local.toml"
 printf '{"prompt": "from the worktree of a bare repository", "cwd": "%s", "session": "s14", "transcript": ""}' "$WORK/corr-bare-wt" > "$WORK/payload.json"
 hook worker "$WORK/payload.json"
-bare_log=$( (cat "$WORK/corr-bare.git/lem/corrections.log" "$WORK/corr-bare.git/lem/corrections.jsonl" 2>/dev/null || true) | wc -l | tr -d ' ')
-if [ "$shown" = "(False, ['corrections.collect'])" ] && [ "$(wc -l < "$CQ/.git/lem/corrections.jsonl")" = "$before" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/corr-wt/.lem/project.local.toml" ] && [ "$bare_log" = 0 ]; then
+bare_log=$( (cat "$WORK/corr-bare.lem/state/corrections.log" "$WORK/corr-bare.lem/state/corrections.jsonl" 2>/dev/null || true) | wc -l | tr -d ' ')
+if [ "$shown" = "(False, ['corrections.collect'])" ] && [ "$(wc -l < "$CQ/.lem/state/corrections.jsonl")" = "$before" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/corr-wt/.lem/project.local.toml" ] && [ "$bare_log" = 0 ]; then
   pass "one person's no in the machine's own file stops the hook before anything is sent, from a worktree and from the worktree of a bare repository too; a file there that does not read, or has another shape, is a no"
 else
-  fail "the hook with a local no: $shown / $(wc -l < "$CQ/.git/lem/corrections.jsonl") lines, before $before"
+  fail "the hook with a local no: $shown / $(wc -l < "$CQ/.lem/state/corrections.jsonl") lines, before $before"
 fi
 git -C "$CQ" worktree remove --force "$WORK/corr-wt"
 gid=$(field 'd["groups"][0]["id"]' <<<"$out")
@@ -326,7 +326,7 @@ else
 fi
 # Two different messages of one second in one session are two entries: a record of one leaves the other.
 printf '%s\n' '{"ts": "2026-01-01T00:00:00Z", "session": "same", "cwd": "x", "owner": "first words", "previous": "", "p_lesson": 0.5}' \
-  '{"ts": "2026-01-01T00:00:00Z", "session": "same", "cwd": "x", "owner": "other words", "previous": "", "p_lesson": 0.6}' >> "$CQ/.git/lem/corrections.jsonl"
+  '{"ts": "2026-01-01T00:00:00Z", "session": "same", "cwd": "x", "owner": "other words", "previous": "", "p_lesson": 0.6}' >> "$CQ/.lem/state/corrections.jsonl"
 gid=$(corr list | field 'next(g["id"] for g in d["groups"] if g["owner"] == "first words")')
 corr record "$gid" --decision not_lesson --verdict unasked >/dev/null
 if [ "$(corr list | field 'sorted(g["owner"] for g in d["groups"])')" = "['a very long message', 'other words']" ]; then
@@ -335,18 +335,18 @@ else
   fail "same second, same session: $(corr list)"
 fi
 # A queue line that was cut off, and a review file that holds a byte that is not UTF-8: named with the file and the line, no traceback.
-cp "$CQ/.git/lem/corrections.jsonl" "$WORK/queue.kept"
-printf '{"ts": "2026-01-01T00:00:00Z", "sess' >> "$CQ/.git/lem/corrections.jsonl"
+cp "$CQ/.lem/state/corrections.jsonl" "$WORK/queue.kept"
+printf '{"ts": "2026-01-01T00:00:00Z", "sess' >> "$CQ/.lem/state/corrections.jsonl"
 cut_line=$(corr list 2>&1 || true)
 cut_code=$(status_of corr list)
-cp "$WORK/queue.kept" "$CQ/.git/lem/corrections.jsonl"
-cp "$CQ/.git/lem/corrections-reviews.jsonl" "$WORK/reviews.kept" && printf 'caf\351\n' >> "$CQ/.git/lem/corrections-reviews.jsonl"
+cp "$WORK/queue.kept" "$CQ/.lem/state/corrections.jsonl"
+cp "$CQ/.lem/state/corrections-reviews.jsonl" "$WORK/reviews.kept" && printf 'caf\351\n' >> "$CQ/.lem/state/corrections-reviews.jsonl"
 latin_line=$(corr lessons 2>&1 || true)
-cp "$WORK/reviews.kept" "$CQ/.git/lem/corrections-reviews.jsonl"
+cp "$WORK/reviews.kept" "$CQ/.lem/state/corrections-reviews.jsonl"
 cp "$CQ/.lem/project.toml" "$WORK/corr-settings.kept" && printf '# caf\351\n' >> "$CQ/.lem/project.toml"
 latin_settings=$(corr list | field 'd["collect"]' 2>&1 || true)
 cp "$WORK/corr-settings.kept" "$CQ/.lem/project.toml"
-lines=$(grep -c '' "$CQ/.git/lem/corrections.jsonl")
+lines=$(grep -c '' "$CQ/.lem/state/corrections.jsonl")
 if [ "$cut_code" = 1 ] && grep -qF "corrections.jsonl:$((lines + 1)) does not read as JSON" <<<"$cut_line" && grep -qF "corrections-reviews.jsonl:" <<<"$latin_line" \
   && grep -qF "is not UTF-8 text" <<<"$latin_line" && [ "$latin_settings" = False ] && ! grep -q Traceback <<<"$cut_line$latin_line$latin_settings"; then
   pass "a queue line that was cut off and a line that is not UTF-8 are named with their file and line, and settings that do not read are a no"
@@ -375,12 +375,12 @@ CL=$WORK/claim
 git init -q -b main "$CL" && commit "$CL" start
 project --repo "$CL" init --base main >/dev/null
 sed -i.bak 's/^collect = false$/collect = true/' "$CL/.lem/project.toml" && rm "$CL/.lem/project.toml.bak"
-CLAIMS=$CL/.git/lem/corrections-claims
+CLAIMS=$CL/.lem/state/corrections-claims
 CALLS=$WORK/claim-calls
 claim_event() { printf '{"prompt": "%s", "cwd": "%s", "session_id": "%s", "transcript_path": ""}' "$1" "$CL" "$2"; }
 claim_hook() { env LEM_JEV="$WORK/jevbin/jev" JEV_P=0.9 JEV_CALLED="$CALLS" "$PY" -B "$CORR" hook; }
 lines_of() { if [ -f "$1" ]; then wc -l < "$1" | tr -d ' '; else echo 0; fi; }
-queued() { lines_of "$CL/.git/lem/corrections.jsonl"; }
+queued() { lines_of "$CL/.lem/state/corrections.jsonl"; }
 queued_at_least() { [ "$(queued)" -ge "$1" ]; }
 claim_files() { if [ -d "$CLAIMS" ]; then find "$CLAIMS" -type f | grep -c '' || true; else echo 0; fi; }
 for _ in 1 2 3; do claim_event "do not push without asking" c1 | claim_hook & done
@@ -424,11 +424,11 @@ rm -rf "$CLAIMS" && touch "$CLAIMS"
 out=$(claim_event "a claim that cannot be made" c4 | claim_hook 2>&1; echo "exit=$?")
 soon queued_at_least 8
 claim_failures=$(cd "$CL" && "$PY" -B "$CORR" list | field 'd["failures"]["count"]')
-if [ "$out" = "exit=0" ] && [ "$(queued)" = 8 ] && grep -q "could not claim the message" "$CL/.git/lem/corrections.log" && ! grep -q Traceback "$CL/.git/lem/corrections.log" \
+if [ "$out" = "exit=0" ] && [ "$(queued)" = 8 ] && grep -q "could not claim the message" "$CL/.lem/state/corrections.log" && ! grep -q Traceback "$CL/.lem/state/corrections.log" \
   && [ "$claim_failures" = 0 ]; then
   pass "a claim folder that cannot be made still queues the message, with no output, and the log says the message was judged unclaimed, as a note that list does not count as a failure"
 else
-  fail "a claim that cannot be made: $out / $(queued) entries / $claim_failures failures / $(cat "$CL/.git/lem/corrections.log" 2>&1)"
+  fail "a claim that cannot be made: $out / $(queued) entries / $claim_failures failures / $(cat "$CL/.lem/state/corrections.log" 2>&1)"
 fi
 rm "$CLAIMS"
 settings_file=$CQ/.lem/project.toml

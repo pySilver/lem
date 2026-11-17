@@ -97,7 +97,7 @@ polish_in() {
   if [ "$(field 'd["done"]' <<<"$started")" = False ]; then land --repo "$1" polish "$2" --done >/dev/null; fi
 }
 status_in() { project --repo "$1" tasks | field "next(t[\"status\"] for t in d if t[\"slug\"] == \"$2\")"; }
-kept_in() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2]))' "$1/.git/lem/tasks/$2/landing.json" "$3"; }
+kept_in() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2]))' "$1/.lem/state/tasks/$2/landing.json" "$3"; }
 # record N JSON: the file that says what a review was and what it found, as the Nth start of the task's review;
 # its careful call is "not careful" with one sentence of why, unless JSON makes its own
 NOT_CAREFUL="the diff reaches no topic of the settings"

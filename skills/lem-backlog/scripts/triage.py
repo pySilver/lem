@@ -18,9 +18,9 @@ Each item gets one of three verdicts:
 refresh judges an item when it has no verdict or its text changed since the last one, and
 re-checks a "waiting" item when the default branch has moved since its last check, giving Jev
 the subjects of the commits that landed in between: that is when most triggers fire. Nothing is
-judged on a timer. The verdicts live in Lem's folder of the repository's git directory,
-`.git/lem/backlog-triage.json`, so they are never committed, every worktree shares them, and
-Lem's removal takes them; a record whose item is gone is dropped. A file an older copy of this
+judged on a timer. The verdicts live in Lem's state folder, `.lem/state/backlog-triage.json` of
+the main checkout (`lem_state.py` names it), so they are never committed, every worktree shares
+them, and Lem's removal takes them; a record whose item is gone is dropped. A file an older copy of this
 script kept in the git directory itself is moved there on the first run.
 
 Jev is called through JEV_BIN when it names a command, else through Lem's own `jev.py` beside this
@@ -42,6 +42,11 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+# Lem's scripts, beside this skill in the same plugin: `lem_state` is the one place that says where the state is.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lem" / "scripts"))
+import lem_state  # noqa: E402
 
 VERDICTS = {
     "owner": (
@@ -110,7 +115,10 @@ class Store:
     def __init__(self, repo: Path) -> None:
         common = Path(git(repo, "rev-parse", "--git-common-dir"))
         git_dir = (common if common.is_absolute() else (repo / common)).resolve()
-        self.path = git_dir / "lem" / "backlog-triage.json"
+        try:
+            self.path = lem_state.folder(repo) / "backlog-triage.json"
+        except lem_state.StateError as error:
+            fail(str(error))
         old = git_dir / "backlog-triage.json"
         if old.is_file() and not self.path.exists():
             # where an older copy kept it, outside the folder Lem's removal deletes: moved once, whole

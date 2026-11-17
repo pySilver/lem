@@ -19,7 +19,7 @@ wt() { project --repo "$GRD" worktree-dir "$1"; }
 # set_kept SLUG KEY JSON: one value of the landing's record, as a hand or a bug of another tool would write it
 set_kept() {
   "$PY" -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)); d[sys.argv[2]] = json.loads(sys.argv[3]); json.dump(d, open(p, "w"))' \
-    "$GRD/.git/lem/tasks/$1/landing.json" "$2" "$3"
+    "$GRD/.lem/state/tasks/$1/landing.json" "$2" "$3"
 }
 to_proposed() {
   g start "$1" >/dev/null && g base "$1" >/dev/null && g gate "$1" >/dev/null && g read "$1" --record "$(clean 1)" >/dev/null \
@@ -61,7 +61,7 @@ g base no-gate >/dev/null 2>&1 || true
 grd_settings ''
 empty=$(g gate no-gate 2>&1 || true)
 grd_settings '"true"'
-if grep -qF "the gate has no command to run" <<<"$empty" && [ "$(kept_in "$GRD" no-gate gated)" = None ] && ! grep -q '"event": "task.red", "task": "no-gate"' "$GRD/.git/lem/events.jsonl"; then
+if grep -qF "the gate has no command to run" <<<"$empty" && [ "$(kept_in "$GRD" no-gate gated)" = None ] && ! grep -q '"event": "task.red", "task": "no-gate"' "$GRD/.lem/state/events.jsonl"; then
   pass "a gate with no command to run refuses, and records no green tip"
 else
   fail "a gate of no command: $empty / $(kept_in "$GRD" no-gate gated)"
@@ -93,12 +93,12 @@ project --repo "$GRD" state waiting dropped "the test is over" >/dev/null
 # A landing record that is not JSON stops every step with its path, and the way out land.py names starts the landing over.
 small_task_in "$GRD" broken-record b.txt b
 g start broken-record >/dev/null
-printf '{"branch": "fix/broken-' > "$GRD/.git/lem/tasks/broken-record/landing.json"
+printf '{"branch": "fix/broken-' > "$GRD/.lem/state/tasks/broken-record/landing.json"
 broken=$(g base broken-record 2>&1 || true)
-mv "$GRD/.git/lem/tasks/broken-record/landing.json" "$WORK/landing.json.broken"
+mv "$GRD/.lem/state/tasks/broken-record/landing.json" "$WORK/landing.json.broken"
 project --repo "$GRD" state broken-record ready --start-over "the landing starts over" >/dev/null
 g start broken-record >/dev/null 2>&1 || true
-if grep -qF "$GRD/.git/lem/tasks/broken-record/landing.json does not read as JSON" <<<"$broken" && ! grep -q Traceback <<<"$broken" \
+if grep -qF "$GRD/.lem/state/tasks/broken-record/landing.json does not read as JSON" <<<"$broken" && ! grep -q Traceback <<<"$broken" \
   && [ "$(status_in "$GRD" broken-record)" = landing ] && [ "$(kept_in "$GRD" broken-record branch)" = fix/broken-record ]; then
   pass "a landing record that is not JSON stops a step with its path and no traceback, and moving it aside, the state ready and start begin the landing again"
 else
@@ -118,7 +118,7 @@ grd_settings '"true"'
 if [ "$(field '(d["green"], d["removed_untracked"])' <<<"$cached" 2>/dev/null)" = "(True, ['left.txt', 'shop/__pycache__/c.pyc', 'tests/__pycache__/t.pyc'])" ] \
   && [ ! -e "$tree/shop" ] && [ ! -e "$tree/tests/__pycache__" ] && [ ! -e "$tree/left.txt" ] && [ -f "$tree/tests/gate-caches.sh" ] \
   && [ -z "$(git -C "$tree" status --porcelain --untracked-files=all)" ] && [ "$(kept_in "$GRD" gate-caches gated)" = "$(git -C "$tree" rev-parse HEAD)" ] \
-  && [ "$(tail -n 1 "$GRD/.git/lem/tasks/gate-caches/gate/01.log")" = "land.py removed what the gate's commands left untracked: left.txt, shop/__pycache__/c.pyc, tests/__pycache__/t.pyc" ]; then
+  && [ "$(tail -n 1 "$GRD/.lem/state/tasks/gate-caches/gate/01.log")" = "land.py removed what the gate's commands left untracked: left.txt, shop/__pycache__/c.pyc, tests/__pycache__/t.pyc" ]; then
   pass "a gate command that writes a cache folder and a file git does not know passes: the gate removes them and the folders they emptied, keeps the tracked folder, names them in its output and in one line of its log, and records the tip"
 else
   fail "a gate that leaves caches: $cached / $(git -C "$tree" status --porcelain --untracked-files=all)"
@@ -175,7 +175,7 @@ tree=$(wt guarded)
 g start guarded >/dev/null && g base guarded >/dev/null && g gate guarded >/dev/null && g read guarded --record "$(clean 1)" >/dev/null
 no_notes=$(g propose guarded --title "fix: y" --notes "$WORK/no-such-notes.md" 2>&1 || true)
 two_lines=$(g propose guarded --title $'fix: y\nand more' --notes "$NOTES" 2>&1 || true)
-unwritten=$([ -e "$GRD/.git/lem/tasks/guarded/pr.md" ] && echo written || echo none)
+unwritten=$([ -e "$GRD/.lem/state/tasks/guarded/pr.md" ] && echo written || echo none)
 g propose guarded --title "fix: y" --notes "$NOTES" >/dev/null
 gated_was=$(kept_in "$GRD" guarded gated)
 tree_was=$(kept_in "$GRD" guarded tree)
@@ -263,7 +263,7 @@ for slug in race-one race-two race-three; do project --repo "$GRD" state "$slug"
 # A landing lock that cannot be opened, a file nobody may write or a folder of that name, stops start with its path
 # and the way out, not a traceback, and the task stays where it was.
 small_task_in "$GRD" lock-shut l.txt l
-lock=$GRD/.git/lem/landing.lock
+lock=$GRD/.lem/state/landing.lock
 rm -f "$lock" && mkdir "$lock"
 as_folder=$(g start lock-shut 2>&1 || true)
 folder_code=$(status_of g start lock-shut)

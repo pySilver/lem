@@ -94,9 +94,9 @@ rerun=$(land --repo "$BLG" file two-defects | field '(d["filed"], d["same"])')
 land --repo "$BLG" gate two-defects >/dev/null
 after=$(land --repo "$BLG" read two-defects | field '(d["due"], d["to_file"])')
 green=$(land --repo "$BLG" propose two-defects --title "fix: two-defects" --notes "$NOTES" | field 'd["green"]')
-text=$BLG/.git/lem/tasks/two-defects/pr.md
+text=$BLG/.lem/state/tasks/two-defects/pr.md
 item="$tree/docs/backlog/empty-input-crashes-the-parser.md"
-logged=$("$PY" -c 'import json, sys; print([[i["item"] for i in e["items"]] for e in map(json.loads, open(sys.argv[1])) if e["event"] == "review.filed" and e["task"] == "two-defects"])' "$BLG/.git/lem/events.jsonl")
+logged=$("$PY" -c 'import json, sys; print([[i["item"] for i in e["items"]] for e in map(json.loads, open(sys.argv[1])) if e["event"] == "review.filed" and e["task"] == "two-defects"])' "$BLG/.lem/state/events.jsonl")
 if [ "$first" = "('review', [(1, 'Empty input crashes the parser')])" ] && [ "$filed_a" = "([(1, 'docs/backlog/empty-input-crashes-the-parser.md')], [])" ] \
   && [ "$second" = "('none', [(2, 'A quoted comma splits the field')])" ] && grep -q "A quoted comma splits the field" <<<"$unfiled" && grep -q "land.py file two-defects" <<<"$unfiled" \
   && [ "$filed_b" = "[(2, 'docs/backlog/a-quoted-comma-splits-the-field.md')]" ] \
@@ -199,7 +199,7 @@ before_file=$(git -C "$tree" rev-parse HEAD)
 filing=$(land --repo "$BLG" file builder-filed | field '([f["item"] for f in d["filed"]], [(n["item"], n["where"]) for n in d["named"]])')
 land --repo "$BLG" gate builder-filed >/dev/null
 green=$(land --repo "$BLG" propose builder-filed --title "fix: builder-filed" --notes "$NOTES" | field 'd["green"]')
-text=$BLG/.git/lem/tasks/builder-filed/pr.md
+text=$BLG/.lem/state/tasks/builder-filed/pr.md
 if [ "$told" = "[('$own', 'src/json.py:parse', 'The parser fails on an empty input')]" ] \
   && [ "$filing" = "(['docs/backlog/a-quoted-comma-splits-the-field.md'], [('$own', 'src/json.py:parse')])" ] \
   && [ ! -e "$tree/docs/backlog/empty-input-crashes-the-parser.md" ] && [ "$(git -C "$tree" rev-list --count "$before_file..HEAD")" = 1 ] && [ "$green" = True ] \
@@ -233,7 +233,7 @@ if grep -qF "no green check is on record for this tip; \`land.py gate by-hand\` 
   && [ "$filed_tip" != "$gated" ] && [ "$(field '(d["green"], d["tip"])' <<<"$carried" 2>/dev/null)" = "(True, '$filed_tip')" ] \
   && [ "$(field 'd["tip"]' <<<"$landed" 2>/dev/null)" = "$filed_tip" ] && [ "$(status_in "$BLG" filed-only)" = landed ] \
   && [ "$(git -C "$BLG" show main:docs/backlog/empty-input-crashes-the-parser.md | sed -n 6p)" = "# Empty input crashes the parser" ] \
-  && [ "$(grep -c '"event": "gate", "task": "filed-only"' "$BLG/.git/lem/events.jsonl")" = 1 ]; then
+  && [ "$(grep -c '"event": "gate", "task": "filed-only"' "$BLG/.lem/state/events.jsonl")" = 1 ]; then
   pass "the items land.py file commits after the gate ask for no gate again: the request is proposed and lands with them on the gate's one run; an item written by hand after the gate asks for the gate"
 else
   fail "the gate's result over the filed items: $hand / $carried / $landed"

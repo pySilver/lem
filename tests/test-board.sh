@@ -23,7 +23,7 @@ fails=0
 pass() { printf 'ok   %s\n' "$1"; }
 fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
 R=$WORK/shop
-STATE=$R/.git/lem
+STATE=$R/.lem/state
 project() { "$PY" -B "$SCRIPTS/project.py" --repo "$R" "$@"; }
 decide() { "$PY" -B "$SCRIPTS/decisions.py" --repo "$R" "$@"; }
 # CASE: the run that ends badly, which every choice for the owner carries above his card

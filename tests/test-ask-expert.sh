@@ -36,7 +36,7 @@ printf '%s\n' '# The export has the gift note' '' '## Stories' '' 'Kind: feature
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
   '2. An order with no gift note has an empty cell, not the word "None".' '' '## Tasks' '' '1. The column.' > "$tree/docs/plans/20261116-$SLUG.md"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "docs: the plan"
-TASKDIR=$EX/.git/lem/tasks/$SLUG
+TASKDIR=$EX/.lem/state/tasks/$SLUG
 RECORD=$TASKDIR/decisions.jsonl
 
 decide() { "$PY" -B "$DECISIONS" --repo "$EX" "$@"; }
@@ -70,7 +70,7 @@ fable=$(decide advise "$SLUG" "$c1" --expert fable --pick "after the price" --wh
 again=$(decide advise "$SLUG" "$c1" --expert fable --pick "the last column" --why "w" 2>&1 || true)
 astra=$(decide advise "$SLUG" "$c1" --expert astra --none --why "Both options break an import. A new file is safer." | field '(d["none"], "pick" in d, d["advised"], d["experts_pick"])' || true)
 pending=$(decide pending "$SLUG" | field '[(c["id"], c["advice"]["fable"]["pick"], c["advice"]["astra"].get("none"), c["experts_pick"]) for c in d["waiting"]]' || true)
-events=$(grep -c '"event": "decision.advised", "task": "gift-note"' "$EX/.git/lem/events.jsonl" || true)
+events=$(grep -c '"event": "decision.advised", "task": "gift-note"' "$EX/.lem/state/events.jsonl" || true)
 if grep -qF "the pick of an expert is one of the options of choice $c1, word for word: the last column; after the price" <<<"$wrong" \
   && [ "$wrongcode" = 1 ] && [ "$both" = 1 ] && [ "$neither" = 1 ] && [ "$nothing" = 0 ] \
   && [ "$fable" = "('advised', 'fable', 'after the price', ['fable'], None)" ] \

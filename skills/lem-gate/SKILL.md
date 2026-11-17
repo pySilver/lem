@@ -47,8 +47,8 @@ verdict before they answer, or the answer stops being an independent check.
 One file, `QUESTION_FILE`: the question in one sentence, the options, the context an outsider
 needs, and where it came from (the plan, task and exchange). It goes in the folder
 `python3 ${CLAUDE_SKILL_DIR}/scripts/gate-log.py dir` makes and prints, as `<NNN>-<slug>.md`, and
-its card goes beside it. That folder is in the git directory, so a question leaves no file in the
-working tree. Pick an `ID`: the file's stem.
+its card goes beside it. That folder is in Lem's state folder, which git does not show, so a question
+leaves no file git sees. Pick an `ID`: the file's stem.
 
 ### 2. The judge
 

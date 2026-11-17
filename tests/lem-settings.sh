@@ -23,8 +23,8 @@ project --repo "$NEW" init --base main --reviewer codex >/dev/null
 out=$(project --repo "$NEW" show)
 if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["paths"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
   && [ "$(field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"])' <<<"$out")" = "('codex', None)" ] \
-  && [ "$(cat "$NEW/.lem/.gitignore")" = "project.local.toml" ] && [ "$(field 'd["local"]' <<<"$out")" = "{'file': None, 'overrides': []}" ]; then
-  pass "init in a new project writes the skill's own layout, the given base, the reviewer's agent, and an ignore rule for the machine's own settings"
+  && [ "$(cat "$NEW/.lem/.gitignore")" = "$(printf 'project.local.toml\nstate/')" ] && [ "$(field 'd["local"]' <<<"$out")" = "{'file': None, 'overrides': []}" ]; then
+  pass "init in a new project writes the skill's own layout, the given base, the reviewer's agent, and ignore rules for the machine's own settings and for Lem's state"
 else
   fail "init in a new project: $out"
 fi
@@ -270,12 +270,12 @@ else
 fi
 if [ "$(status_of project --repo "$WORK" show)" = 1 ]; then pass "a directory outside any checkout is refused"; else fail "outside a checkout"; fi
 
-# Task state: one directory per task inside the git directory, seen from every worktree.
+# Task state: one directory per task in the main checkout's state folder, seen from every worktree.
 commit "$OLD" start
 git -C "$OLD" worktree add -q "$WORK/wt" -b feat/x
 dir=$(project --repo "$WORK/wt" task-dir report-dates-stay-whole)
-if [ "$dir" = "$OLD/.git/lem/tasks/report-dates-stay-whole" ] && [ -d "$dir/reports" ] && [ -z "$(git -C "$WORK/wt" status --porcelain)" ]; then
-  pass "task-dir, run in a worktree, makes the task's directory in the shared git directory"
+if [ "$dir" = "$OLD/.lem/state/tasks/report-dates-stay-whole" ] && [ -d "$dir/reports" ] && [ -z "$(git -C "$WORK/wt" status --porcelain)" ]; then
+  pass "task-dir, run in a worktree, makes the task's directory in the main checkout's state folder"
 else
   fail "task-dir: $dir"
 fi
@@ -286,7 +286,7 @@ if [ "$where" = "$OLD/.lem/worktrees/report-dates-stay-whole" ] && [ ! -e "$wher
 else
   fail "worktree-dir: $where / $(git -C "$OLD" status --porcelain -- .lem/worktrees)"
 fi
-if [ "$(project --repo "$WORK/wt" state-dir)" = "$OLD/.git/lem" ]; then pass "state-dir prints the one folder every worktree shares"; else fail "state-dir"; fi
+if [ "$(project --repo "$WORK/wt" state-dir)" = "$OLD/.lem/state" ]; then pass "state-dir prints the one folder every worktree shares"; else fail "state-dir"; fi
 if [ "$(status_of project --repo "$OLD" task-dir "Report Dates")" = 1 ]; then pass "a slug that is not hyphenated lower-case words is refused"; else fail "slug form"; fi
 printf '%s\n' 'Keep report dates whole.' '' 'more' > "$dir/task.md"
 project --repo "$OLD" state report-dates-stay-whole queued "waits for a free place" >/dev/null
@@ -322,10 +322,10 @@ if [ "$(field '{t["slug"]: t["ask"] for t in d if t["slug"] in ("asked-in-words"
 else
   fail "the ask of a task: $out"
 fi
-if [ -e "$OLD/.git/lem/tasks/empty-ask" ]; then fail "a refused task-dir made its directory"; fi
+if [ -e "$OLD/.lem/state/tasks/empty-ask" ]; then fail "a refused task-dir made its directory"; fi
 rm -r "$titled" "$plain"
 # Text that is not UTF-8, in a file Lem reads or in an argument it writes down, is refused with its place, never a traceback.
-events_before=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+events_before=$(grep -c '' "$OLD/.lem/state/events.jsonl")
 bad_ask=$(project --repo "$OLD" task-dir bad-bytes --ask $'caf\xe9 au lait' 2>&1 || true)
 bad_line=$(project --repo "$OLD" state report-dates-stay-whole building $'task 3 of 3 \xff' 2>&1 || true)
 bad_field=$(project --repo "$OLD" log report-dates-stay-whole gate $'last=\xff' 2>&1 || true)
@@ -333,13 +333,13 @@ bad_field="$bad_field $(project --repo "$OLD" log report-dates-stay-whole gate '
 cp "$OLD/.lem/project.toml" "$WORK/settings.kept" && printf '[branch]\nbase = "caf\351"\n' > "$OLD/.lem/project.toml"
 bad_settings=$(project --repo "$OLD" show 2>&1 || true)
 cp "$WORK/settings.kept" "$OLD/.lem/project.toml"
-mkdir -p "$OLD/.git/lem/tasks/latin-state" && printf '2026-01-01T00:00Z building: caf\351\n' > "$OLD/.git/lem/tasks/latin-state/state.md"
+mkdir -p "$OLD/.lem/state/tasks/latin-state" && printf '2026-01-01T00:00Z building: caf\351\n' > "$OLD/.lem/state/tasks/latin-state/state.md"
 bad_state=$(project --repo "$OLD" tasks 2>&1 || true)
-rm -r "$OLD/.git/lem/tasks/latin-state"
-if grep -qF "the argument b'caf\\xe9 au lait' is not UTF-8 text" <<<"$bad_ask" && [ ! -e "$OLD/.git/lem/tasks/bad-bytes" ] \
+rm -r "$OLD/.lem/state/tasks/latin-state"
+if grep -qF "the argument b'caf\\xe9 au lait' is not UTF-8 text" <<<"$bad_ask" && [ ! -e "$OLD/.lem/state/tasks/bad-bytes" ] \
   && grep -qF "is not UTF-8 text" <<<"$bad_line" && grep -qF "is not UTF-8 text; give it in UTF-8" <<<"$bad_field" && grep -qF "a field of the event is not UTF-8 text" <<<"$bad_field" \
   && grep -qF "$OLD/.lem/project.toml is not UTF-8 text" <<<"$bad_settings" && grep -qF "latin-state/state.md is not UTF-8 text" <<<"$bad_state" \
-  && [ "$(grep -c '' "$OLD/.git/lem/events.jsonl")" = "$events_before" ] && ! grep -q Traceback <<<"$bad_ask$bad_line$bad_field$bad_settings$bad_state"; then
+  && [ "$(grep -c '' "$OLD/.lem/state/events.jsonl")" = "$events_before" ] && ! grep -q Traceback <<<"$bad_ask$bad_line$bad_field$bad_settings$bad_state"; then
   pass "an argument or a file of text that is not UTF-8 is refused with the argument or the file named, and nothing is written"
 else
   fail "text that is not UTF-8: $bad_ask / $bad_line / $bad_field / $bad_settings / $bad_state"
@@ -348,9 +348,9 @@ fi
 project --repo "$OLD" task-dir from-a-ticket --ticket mbz-12 --ask "Report dates are cut" >/dev/null
 err=$(project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 2>&1 || true)
 if [ "$(project --repo "$OLD" tasks | field '{t["slug"]: t["ticket"] for t in d}')" = "{'from-a-ticket': 'MBZ-12', 'report-dates-stay-whole': None}" ] \
-  && grep -q "the task 'from-a-ticket' already holds the ticket MBZ-12" <<<"$err" && [ ! -e "$OLD/.git/lem/tasks/the-same-ticket" ] \
-  && [ "$(status_of project --repo "$OLD" task-dir bad-ticket --ticket "not a ticket")" = 1 ] && [ ! -e "$OLD/.git/lem/tasks/bad-ticket" ] \
-  && [ "$(status_of project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-13)" = 1 ] && [ "$(cat "$OLD/.git/lem/tasks/from-a-ticket/ticket.txt")" = MBZ-12 ] \
+  && grep -q "the task 'from-a-ticket' already holds the ticket MBZ-12" <<<"$err" && [ ! -e "$OLD/.lem/state/tasks/the-same-ticket" ] \
+  && [ "$(status_of project --repo "$OLD" task-dir bad-ticket --ticket "not a ticket")" = 1 ] && [ ! -e "$OLD/.lem/state/tasks/bad-ticket" ] \
+  && [ "$(status_of project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-13)" = 1 ] && [ "$(cat "$OLD/.lem/state/tasks/from-a-ticket/ticket.txt")" = MBZ-12 ] \
   && project --repo "$OLD" task-dir from-a-ticket --ticket MBZ-12 >/dev/null; then
   pass "a task keeps the ticket its ask came from: a second task for that ticket, another ticket for that task and a word that is no ticket are refused"
 else
@@ -370,11 +370,11 @@ fi
 # by hand in the script's own form, so that the event log the next checks count stays as it is.
 settings '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "MBZ"' 'moves = "lem"' 'started = "In Progress"' 'landed = "Done"'
 owed() { project --repo "$OLD" tasks | field 'next(t["ticket_owed"] for t in d if t["slug"] == "from-a-ticket")'; }
-printf '%s\n' '2026-01-01T00:00Z building: task 1 of 1' > "$OLD/.git/lem/tasks/from-a-ticket/state.md"
+printf '%s\n' '2026-01-01T00:00Z building: task 1 of 1' > "$OLD/.lem/state/tasks/from-a-ticket/state.md"
 building=$(owed)
-printf '%s\n' '2026-01-01T00:00Z landed: master a..b' > "$OLD/.git/lem/tasks/from-a-ticket/state.md"
+printf '%s\n' '2026-01-01T00:00Z landed: master a..b' > "$OLD/.lem/state/tasks/from-a-ticket/state.md"
 landed=$(owed)
-printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it' > "$OLD/.git/lem/tasks/from-a-ticket/state.md"
+printf '%s\n' '2026-01-01T00:00Z dropped: the owner dropped it' > "$OLD/.lem/state/tasks/from-a-ticket/state.md"
 dropped=$(owed)
 if [ "$building" = "[]" ] && [ "$landed" = "['landed']" ] && [ "$dropped" = "['dropped']" ]; then
   pass "a landed task owes its ticket the steps that are not written down, a dropped task its drop comment, and a task that still runs owes nothing"
@@ -391,7 +391,7 @@ fi
 # A task that ended with an answer gives its ticket back too, and the ticket is owed the answer's
 # comment until that step is written down.
 owed_by() { project --repo "$OLD" tasks | field "next(t[\"ticket_owed\"] for t in d if t[\"slug\"] == \"$1\")"; }
-printf '%s\n' '2026-01-01T00:00Z answered: not a bug: the report cuts no date' > "$OLD/.git/lem/tasks/the-same-ticket/state.md"
+printf '%s\n' '2026-01-01T00:00Z answered: not a bug: the report cuts no date' > "$OLD/.lem/state/tasks/the-same-ticket/state.md"
 answered=$(owed_by the-same-ticket)
 again=$(project --repo "$OLD" task-dir after-the-answer --ticket MBZ-12 2>&1 || true)
 project --repo "$OLD" ticket-step the-same-ticket answered >/dev/null 2>&1 || true
@@ -402,8 +402,8 @@ else
   fail "the ticket of an answered task: $answered / $again / $(owed_by the-same-ticket)"
 fi
 settings '[branch]' 'base = "master"'
-rm -r "$OLD/.git/lem/tasks/from-a-ticket" "$OLD/.git/lem/tasks/the-same-ticket"
-rm -rf "$OLD/.git/lem/tasks/after-the-answer"
+rm -r "$OLD/.lem/state/tasks/from-a-ticket" "$OLD/.lem/state/tasks/the-same-ticket"
+rm -rf "$OLD/.lem/state/tasks/after-the-answer"
 none=$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')
 echo '{"proposed": "0123", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["story 1 changed during the build: y is taken."]}' > "$dir/landing.json"
 if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['story 1 changed during the build: y is taken.']}]" ]; then
@@ -532,13 +532,13 @@ else
 fi
 
 # The event log: every state block is an event the board can load, with the worktree's newest commit.
-events() { "$PY" -c 'import json, sys; d = [json.loads(line) for line in open(sys.argv[1])]; print(eval(sys.argv[2], {"d": d}))' "$OLD/.git/lem/events.jsonl" "$1"; }
+events() { "$PY" -c 'import json, sys; d = [json.loads(line) for line in open(sys.argv[1])]; print(eval(sys.argv[2], {"d": d}))' "$OLD/.lem/state/events.jsonl" "$1"; }
 if [ "$(events '[(e["event"], e["task"], e["status"], e["text"], e["lines"]) for e in d[:2]]')" = "[('task.state', 'report-dates-stay-whole', 'queued', 'waits for a free place', []), ('task.state', 'report-dates-stay-whole', 'building', 'task 2 of 3', ['next: the report'])]" ] \
   && [ "$(events 'len(d)')" = 2 ] && [ "$(events 'd[1]["ask"], d[1]["limit"], "head" in d[1]')" = "('Keep report dates whole.', 4, False)" ] \
-  && [ "$(sed -n 2p "$OLD/.git/lem/events.js")" = "lemEvent($(sed -n 2p "$OLD/.git/lem/events.jsonl"));" ]; then
+  && [ "$(sed -n 2p "$OLD/.lem/state/events.js")" = "lemEvent($(sed -n 2p "$OLD/.lem/state/events.jsonl"));" ]; then
   pass "each state block is one event with the ask and the limit, a refused one is none, and the board's copy holds the same record"
 else
-  fail "events: $(cat "$OLD/.git/lem/events.jsonl")"
+  fail "events: $(cat "$OLD/.lem/state/events.jsonl")"
 fi
 tree=$(project --repo "$OLD" worktree-dir with-a-worktree)
 git -C "$OLD" worktree add -q "$tree" -b fix/with-a-worktree
@@ -558,10 +558,10 @@ if [ "$(field '(d["event"], d["task"], d["exit"], d["tip"], d["last"])' <<<"$out
 else
   fail "log: $out"
 fi
-before=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+before=$(grep -c '' "$OLD/.lem/state/events.jsonl")
 if [ "$(status_of project --repo "$OLD" log with-a-worktree task.state status=landed)" = 1 ] && [ "$(status_of project --repo "$OLD" log no-such-task gate exit:=0)" = 1 ] \
   && [ "$(status_of project --repo "$OLD" log with-a-worktree gate exit:=zero)" = 1 ] && [ "$(status_of project --repo "$OLD" log with-a-worktree gate task=other)" = 1 ] \
-  && [ "$(status_of project --repo "$OLD" log with-a-worktree gate exit)" = 1 ] && [ "$(grep -c '' "$OLD/.git/lem/events.jsonl")" = "$before" ]; then
+  && [ "$(status_of project --repo "$OLD" log with-a-worktree gate exit)" = 1 ] && [ "$(grep -c '' "$OLD/.lem/state/events.jsonl")" = "$before" ]; then
   pass "log refuses a state event, an unknown task, a value that is not JSON, a field the log sets and a bare word, and appends nothing then"
 else
   fail "log refusals"
@@ -570,12 +570,12 @@ fi
 # the decisions two questions named; `tasks` gives each task its newest talk, which Lem and a
 # builder read before the build of a careful or large plan.
 talk() { project --repo "$OLD" log with-a-worktree plan.talk reviewer=codex turns:=6 questions:=3 settled:=2 open:=1 design:=1 unargued:=0 "$@" 2>&1 || true; }
-before=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+before=$(grep -c '' "$OLD/.lem/state/events.jsonl")
 untold=$(talk repaired:=2)
 layered=$(talk repaired:=2 root:=1 layer:=2 shared:=0)
 typed=$(talk repaired:=2 root:=1 layer=1 shared:=0)
 none_yet=$(project --repo "$OLD" tasks | field '[t["talk"] for t in d if t["slug"] == "with-a-worktree"]' 2>&1 || true)
-after_refusals=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+after_refusals=$(grep -c '' "$OLD/.lem/state/events.jsonl")
 # more decisions two questions named than design choices breaks a rule of the talk, not a count: the record is taken
 unshared=$(talk repaired:=2 root:=1 layer:=1 shared:=2)
 talk repaired:=1 root:=0 layer:=1 shared:=0 >/dev/null
@@ -746,10 +746,10 @@ git init -q -b main "$ANS"
 project --repo "$ANS" init --base main --reviewer codex >/dev/null
 "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^max_tasks = 4$", "max_tasks = 1", s, count=1))' "$ANS/.lem/project.toml"
 ans_dir=$(project --repo "$ANS" task-dir zero-after-refund --ask "invoices show 0 after a refund")
-before=$(grep -c '' "$ANS/.git/lem/events.jsonl" 2>/dev/null || echo 0)
+before=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
 unknown=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: defect, because the total is wrong" 2>&1 || true)
 unsaid=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug" 2>&1 || true)
-after_refusals=$(grep -c '' "$ANS/.git/lem/events.jsonl" 2>/dev/null || echo 0)
+after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
 project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the ask says the total is wrong today" >/dev/null
 project --repo "$ANS" state zero-after-refund building "the test that reproduces the bug is committed" "investigation: bug" >/dev/null
 kind=$(project --repo "$ANS" tasks | field 'next(t["kind"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
@@ -761,13 +761,13 @@ else
 fi
 # The investigation's record: a bug's call, whether it was reproduced and where the cause is; a question's answer.
 inv() { project --repo "$ANS" log zero-after-refund investigation "$@" 2>&1 || true; }
-before=$(grep -c '' "$ANS/.git/lem/events.jsonl")
+before=$(grep -c '' "$ANS/.lem/state/events.jsonl")
 asked_back=$(inv kind=investigation call=answer "line=the refund writes a credit note" reproduced:=true)
 nowhere=$(inv kind=bug call=correction "line=the total skips credit notes" reproduced:=true)
 not_so=$(inv kind=bug call=not-reproduced "line=a refund of 10 gave 90" reproduced:=true)
 odd_call=$(inv kind=bug call=maybe "line=x" reproduced:=false)
 untyped=$(inv kind=bug call=usual "line=x" where=a.py:f reproduced=true)
-after_refusals=$(grep -c '' "$ANS/.git/lem/events.jsonl")
+after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl")
 none_yet=$(project --repo "$ANS" tasks | field 'next(t["investigation"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
 inv kind=bug call=usual "line=the invoice total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
 found=$(project --repo "$ANS" tasks | field 'next((t["investigation"]["call"], t["investigation"]["where"], t["investigation"]["reproduced"]) for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
@@ -780,11 +780,11 @@ else
 fi
 # The start of each stage an agent runs has one form, so that the board draws its span from it to the event that ends it.
 starts() { project --repo "$ANS" log zero-after-refund "$@" 2>&1 || true; }
-before=$(grep -c '' "$ANS/.git/lem/events.jsonl")
+before=$(grep -c '' "$ANS/.lem/state/events.jsonl")
 good=$(for form in "interview.start" "scout.start" "scout" "stories.read.start by=lem" "stories.read.start by=lead" "investigation.start kind=bug" "investigation.start kind=investigation" \
   "builder.start job=task 2 of 3" "builder.start job=the small change" "builder.start job=the repair of a conflict with the base" "builder.start job=the repair of a failed check" "builder.start job=the fix of a review's findings"; do
   read -r -a words <<<"${form%% *}"; if [ "$form" = "${form%% *}" ]; then starts "${words[0]}" | field 'd["event"]'; else starts "${words[0]}" "${form#* }" | field 'd["event"]'; fi; done | sort -u | tr '\n' ' ')
-added=$(( $(grep -c '' "$ANS/.git/lem/events.jsonl") - before ))
+added=$(( $(grep -c '' "$ANS/.lem/state/events.jsonl") - before ))
 with_field=$(starts interview.start by=lem)
 no_by=$(starts stories.read.start)
 odd_by=$(starts stories.read.start by=owner)
@@ -796,7 +796,7 @@ if [ "$good" = "builder.start interview.start investigation.start scout scout.st
   && grep -qF "interview.start takes nothing" <<<"$with_field" && grep -qF "stories.read.start takes by=lem|lead, and nothing else" <<<"$no_by" && grep -qF "by is 'owner'" <<<"$odd_by" \
   && grep -qF "investigation.start takes kind=bug|investigation" <<<"$odd_kind" && grep -qF "builder.start takes job=" <<<"$odd_job" && grep -qF "the polish pass logs its own start" <<<"$odd_job" \
   && grep -qF "builder.start takes job=" <<<"$task_zero" && grep -qF "gate.start takes tip=TIP commands:=N" <<<"$script_start" \
-  && [ "$(grep -c '' "$ANS/.git/lem/events.jsonl")" = $((before + 12)) ]; then
+  && [ "$(grep -c '' "$ANS/.lem/state/events.jsonl")" = $((before + 12)) ]; then
   pass "the start of the interview, the scout, the personas' read, an investigation and a builder's job each has one form, the scout's end too; a start with a wrong field, a job no builder has or a script's start in another form writes nothing"
 else
   fail "the forms of the starts: $good / $added / $with_field / $no_by / $odd_by / $odd_kind / $odd_job / $task_zero / $script_start"
@@ -834,7 +834,7 @@ ended=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" pending | 
 again=$("$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ANS" ask zero-after-refund "${CASE[@]}" --what "Keep the test" --option "keep it" --option "drop it" --recommended "keep it" \
   --why "it pins the behavior" --said "The two personas split." 2>&1 || true)
 if [ "$ended" = "([], [('zero-after-refund', 'answered')])" ] && grep -qF "zero-after-refund is answered" <<<"$again" \
-  && [ "$(grep -c '' "$ANS/.git/lem/tasks/zero-after-refund/decisions.jsonl")" = 1 ]; then
+  && [ "$(grep -c '' "$ANS/.lem/state/tasks/zero-after-refund/decisions.jsonl")" = 1 ]; then
   pass "an answered task has no choice that waits: pending puts it with the tasks that ended, and a new choice of it is refused"
 else
   fail "the choices of an answered task: $ended / $again"
@@ -978,7 +978,7 @@ stories record export-has-the-gift-note >/dev/null
 if [ "$(field '(d["kind"], d["why"], [(s["n"], s["text"].split(" of an order")[0].split(",")[0], [t["command"] for t in s["tests"]], [t["files"] for t in s["tests"]]) for s in d["stories"]])' <<<"$shown")" \
   = "('feature', 'the export gets a new column and an empty cell.', [(1, 'A CSV export holds the gift note', ['sh tests/gift.sh'], [['tests/gift.sh']]), (2, 'An order with no gift note has an empty cell', ['sh tests/none.sh'], [['tests/none.sh', 'tests/helper.sh']])])" ] \
   && [ "$(field 'd["stories"][0]["text"].endswith("has that text in its row.")' <<<"$shown")" = True ] \
-  && [ "$(grep -c '"event": "task.stories"' "$ST/.git/lem/events.jsonl")" = 1 ] && grep -q '"kind": "feature"' "$ST/.git/lem/events.js"; then
+  && [ "$(grep -c '"event": "task.stories"' "$ST/.lem/state/events.jsonl")" = 1 ] && grep -q '"kind": "feature"' "$ST/.lem/state/events.js"; then
   pass "the stories are read from the top of the task's plan, each with its text over two lines and its tests, and record puts them into the event log for the board"
 else
   fail "stories show and record: $shown"
@@ -989,7 +989,7 @@ out=$(stories red export-has-the-gift-note)
 if [ "$(field '(d["ok"], [(t["story"], t["on_branch"], t["on_base"] != 0, t["problem"]) for t in d["tests"]], d["without_a_test"])' <<<"$out")" = "(True, [(1, 0, True, None), (2, 0, True, None)], [])" ] \
   && [ "$(git -C "$stw" branch --show-current)" = "feat/export-has-the-gift-note" ] && [ "$(git -C "$stw" rev-parse HEAD)" = "$before" ] && [ -z "$(git -C "$stw" status --porcelain)" ] \
   && [ "$(cat "$stw/local.conf")" = 'kept: mine' ] && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ] \
-  && [ "$(git -C "$ST" worktree list | grep -c '')" = 2 ] && grep -q '"event": "task.red"' "$ST/.git/lem/events.jsonl"; then
+  && [ "$(git -C "$ST" worktree list | grep -c '')" = 2 ] && grep -q '"event": "task.red"' "$ST/.lem/state/events.jsonl"; then
   pass "red runs each story's tests in a worktree of its own, on the branch and with only the test files laid over the base commit: both fail there; the task's worktree is not touched, a file git ignores in it too, and the check's worktree is gone"
 else
   fail "stories red: $out / $(git -C "$stw" status --porcelain) / $(git -C "$ST" worktree list)"
@@ -1090,7 +1090,7 @@ sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/
 stories red export-has-the-gift-note >/dev/null
 after_stuck="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
 # One check of a task at a time: while another process holds the task's lock, a second check is refused.
-"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$ST/.git/lem/tasks/export-has-the-gift-note/red.lock" > "$WORK/lock.out" &
+"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$ST/.lem/state/tasks/export-has-the-gift-note/red.lock" > "$WORK/lock.out" &
 holder=$!
 soon test -s "$WORK/lock.out"
 second=$(stories red export-has-the-gift-note 2>&1 || true)
@@ -1146,7 +1146,7 @@ project --repo "$ST" task-dir approved-note >/dev/null
 printf '%s\n' '## Stories' '' 'Kind: feature, because the note gets a file and an empty case.' '' '1. The note file holds the gift note of order 1042: "for Ania".' \
   '2. An order with no gift note has the line "1043," and no word' '   after the comma.' > "$WORK/approved.md"
 approved=$(stories approve approved-note --file "$WORK/approved.md" 2>&1 || true)
-kept_stories=$ST/.git/lem/tasks/approved-note/stories.json
+kept_stories=$ST/.lem/state/tasks/approved-note/stories.json
 # shellcheck disable=SC2016
 printf '%s\n' '## Stories' '' 'Kind: feature, because of a test.' '' '1. A story.' '   - test: `sh t.sh` in `t.sh`' > "$WORK/tested.md"
 tested=$(stories approve approved-note --file "$WORK/tested.md" 2>&1 || true)
@@ -1156,11 +1156,11 @@ kept_now=$(stories approved approved-note 2>/dev/null | field '(d["approved"]["b
 if [ "$(field '(d["by"], d["kind"], len(d["digest"]), [s["n"] for s in d["stories"]], d["stories"][1]["text"])' <<<"$approved" 2>/dev/null)" \
   = "('owner', 'feature', 12, [1, 2], 'An order with no gift note has the line \"1043,\" and no word after the comma.')" ] \
   && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["text"] == open(sys.argv[2]).read())' "$kept_stories" "$WORK/approved.md" 2>/dev/null)" = True ] \
-  && [ "$(grep -c '"event": "stories.approved", "task": "approved-note", "by": "owner"' "$ST/.git/lem/events.jsonl")" = 1 ] \
+  && [ "$(grep -c '"event": "stories.approved", "task": "approved-note", "by": "owner"' "$ST/.lem/state/events.jsonl")" = 1 ] \
   && [ "$kept_now" = "('owner', '$(field 'd["digest"]' <<<"$approved" 2>/dev/null)', ['The note file holds the gift note of order 1042: \"for Ania\".', 'An order with no gift note has the line \"1043,\" and no word after the comma.'])" ] \
   && grep -q "story 1 of tested.md has a test line: the stories the owner approves have none, and the lead adds them in the plan" <<<"$tested" \
   && grep -q "says .Kind: feature.: a feature waits for the owner's own yes" <<<"$not_one" && grep -q "approve needs --file" <<<"$no_file" \
-  && [ "$(grep -c '"event": "stories.approved"' "$ST/.git/lem/events.jsonl")" = 1 ]; then
+  && [ "$(grep -c '"event": "stories.approved"' "$ST/.lem/state/events.jsonl")" = 1 ]; then
   pass "approve keeps the stories the owner approved, before the task has a worktree: their text as written, a digest and who approved them, with one event for the board; a file with a test line, a feature as a correction and no file are refused"
 else
   fail "stories approve: $approved / $tested / $not_one / $no_file / $kept_now"
@@ -1245,7 +1245,7 @@ added_was=$(adecide story approved-note --added 2 --now "x" --was "y" --why "w" 
 nochoice=$(adecide story approved-note --added 2 --now "x" --why "w" --choice 9 2>&1 || true)
 not_approved=$(adecide story export-has-the-gift-note --changed 1 --was "x" --now "y" --why "w" --by lead 2>&1 || true)
 log_story=$(status_of adecide log approved-note --what x --chose y --why z --by lead --story 1 --was "$t1")
-records=$(grep -c '"kind": "story"' "$ST/.git/lem/tasks/approved-note/decisions.jsonl" || true)
+records=$(grep -c '"kind": "story"' "$ST/.lem/state/tasks/approved-note/decisions.jsonl" || true)
 plain=$(stories show export-has-the-gift-note 2>/dev/null | field '(d["approved"], d["changes"])' 2>&1 || true)
 if grep -qF "story 1 of 20261116-approved-note.md says '$c1', and the expected story 1 is '$t1'" <<<"$reworded" \
   && grep -qF 'decisions.py story approved-note --changed N --was TEXT --now TEXT' <<<"$reworded" \
@@ -1298,7 +1298,7 @@ just_approved=$(stories show approved-note 2>&1 | field '(d["approved"]["number"
 stories approve approved-note --file "$WORK/approved.md" >/dev/null 2>&1 || true
 stories approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
 back_again=$(adecide changes approved-note 2>/dev/null | field '(d["approved"]["number"], len(d["changes"]), [(c["approval"], c["taken_over_by"]) for c in d["history"]][-1], [a["number"] for a in d["approvals"]])' 2>&1 || true)
-numbered=$(grep '"event": "stories.approved", "task": "approved-note"' "$ST/.git/lem/events.jsonl" | "$PY" -c 'import json, sys; print([json.loads(line).get("number") for line in sys.stdin])')
+numbered=$(grep '"event": "stories.approved", "task": "approved-note"' "$ST/.lem/state/events.jsonl" | "$PY" -c 'import json, sys; print([json.loads(line).get("number") for line in sys.stdin])')
 if [ "$same_text" = "(3, 0, '$code1')" ] && [ "$just_approved" = "(3, [])" ] && [ "$back_again" = "(5, 0, (2, 3), [1, 2, 3, 4, 5])" ] \
   && [ "$numbered" = "[1, 2, 3, 4, 5]" ]; then
   pass "an approval has a number of its own: his approval of a text approved before starts with no change after it, the plan that holds what he just approved passes, and the changes of an earlier approval do not come back with its text; each change stays in the history with the approval that took it over"
@@ -1319,13 +1319,13 @@ fi
 # freeze, which comes too late, is refused.
 project --repo "$ST" task-dir locked-note >/dev/null
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(20)' \
-  "$ST/.git/lem/tasks/locked-note/stories.lock" > "$WORK/stories-lock.out" &
+  "$ST/.lem/state/tasks/locked-note/stories.lock" > "$WORK/stories-lock.out" &
 holder=$!
 soon test -s "$WORK/stories-lock.out"
 "$PY" -B "$STORIES" --repo "$ST" approve locked-note --file "$WORK/reapproved.md" > "$WORK/his-approval.out" 2>&1 &
 his=$!
 sleep 0.5
-while_held=$([ -e "$ST/.git/lem/tasks/locked-note/stories.json" ] && echo written || echo waits)
+while_held=$([ -e "$ST/.lem/state/tasks/locked-note/stories.json" ] && echo written || echo waits)
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 wait "$his" || true
 late_freeze=$(stories approve locked-note --read 2>&1 || true)
@@ -1357,10 +1357,10 @@ if grep -q '"slow-report"' <<<"$out" && ! grep -q '"other"' <<<"$out" && grep -q
 else
   fail "the backlog's folder: $out / $err"
 fi
-if [ "$(field '[e["slug"] for e in d["owner"]]' <<<"$out")" = "['slow-report']" ] && [ -f "$BKL/.git/lem/backlog-triage.json" ] && [ ! -e "$BKL/.git/backlog-triage.json" ]; then
-  pass "the verdicts live in Lem's folder of the git directory, where its removal deletes them, and a file in the old place is moved there with its records"
+if [ "$(field '[e["slug"] for e in d["owner"]]' <<<"$out")" = "['slow-report']" ] && [ -f "$BKL/.lem/state/backlog-triage.json" ] && [ ! -e "$BKL/.git/backlog-triage.json" ]; then
+  pass "the verdicts live in Lem's state folder, where its removal deletes them, and a file in the oldest place is moved there with its records"
 else
-  fail "the place of the verdicts: $out / $(ls -A "$BKL/.git" "$BKL/.git/lem" 2>&1)"
+  fail "the place of the verdicts: $out / $(ls -A "$BKL/.git" "$BKL/.lem/state" 2>&1)"
 fi
 # With no JEV_BIN, Lem's own jev.py runs by its path, also beside a developer's own `jev` on PATH, which it never
 # takes for Lem's: with no key it says so, and sends nothing.
@@ -1395,16 +1395,16 @@ project --repo "$BKB" init --base main >/dev/null
 # one task with a state, so that the page has an event log to read
 project --repo "$BKB" task-dir a-first-task >/dev/null && project --repo "$BKB" state a-first-task building 'lead: builder' >/dev/null
 "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
-feed() { "$PY" -c 'import json, re, sys; d = json.loads(re.fullmatch(r"lemBacklog\((.*)\);\n", open(sys.argv[1], encoding="utf-8").read().replace("<\\/", "</"), re.S).group(1)); print(eval(sys.argv[2], {"d": d, "by": {i["slug"]: i for i in d["items"]}}))' "$BKB/.git/lem/backlog.js" "$1"; }
+feed() { "$PY" -c 'import json, re, sys; d = json.loads(re.fullmatch(r"lemBacklog\((.*)\);\n", open(sys.argv[1], encoding="utf-8").read().replace("<\\/", "</"), re.S).group(1)); print(eval(sys.argv[2], {"d": d, "by": {i["slug"]: i for i in d["items"]}}))' "$BKB/.lem/state/backlog.js" "$1"; }
 if [ "$(feed '(d["folder"], d["judged"], sorted(by))')" = "('docs/backlog', False, ['a b;c', 'broken-link', 'dark-theme', 'export-drops-columns', 'folder-item', 'new-from-a-landing', 'slow-report', 'which-currency'])" ] \
   && [ "$(feed '(by["export-drops-columns"]["title"], by["export-drops-columns"]["worth"], by["export-drops-columns"]["where_problem"], by["export-drops-columns"]["state"], by["export-drops-columns"]["path"])')" = "('The export drops custom columns', 'yes', '', '', 'docs/backlog/export-drops-columns.md')" ] \
   && [ "$(feed '(by["slow-report"]["where_problem"], by["which-currency"]["where_problem"], by["dark-theme"]["worth"], by["dark-theme"]["where"])')" = "('the file is not there', 'not in the file: no_such_name', 'no', '')" ] \
   && [ "$(feed '(by["new-from-a-landing"]["worth"], by["new-from-a-landing"]["state"], by["a b;c"]["title"])')" = "('unset', 'new', 'a b;c')" ] \
   && [ "$(feed '(by["broken-link"]["state"], by["folder-item"]["state"], "cannot be read" in by["broken-link"]["body"])')" = "('unreadable', 'unreadable', True)" ] \
-  && ! grep -q '</script>' "$BKB/.git/lem/backlog.js" && [ "$(feed '"</script><b>not markup</b>" in by["export-drops-columns"]["body"]')" = True ]; then
+  && ! grep -q '</script>' "$BKB/.lem/state/backlog.js" && [ "$(feed '"</script><b>not markup</b>" in by["export-drops-columns"]["body"]')" = True ]; then
   pass "the board's backlog file has each item with its verdict, whether its place in the code is still there and whether git has it; an item that cannot be read is listed as such; and no text of an item can end the script that carries it"
 else
-  fail "backlog.js: $(head -c 600 "$BKB/.git/lem/backlog.js")"
+  fail "backlog.js: $(head -c 600 "$BKB/.lem/state/backlog.js")"
 fi
 # A backlog folder that git does not know yet: its first item is new, though git names only the folder.
 FIRST=$WORK/backlog-first
@@ -1414,19 +1414,19 @@ printf '%s\n' '# The first item' '' 'No frontmatter at all.' > "$FIRST/docs/back
 env AGTERM_SESSION_ID=LEM-SESSION AGTERM_SOCKET=/nowhere "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$FIRST" --no-open >/dev/null
 env AGTERM_SESSION_ID=A-LEAD-SESSION AGTERM_SOCKET=/nowhere "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$FIRST" --no-open >/dev/null
 env -u AGTERM_SESSION_ID -u AGT_SESSION_ID "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$FIRST" --no-open >/dev/null
-if grep -q '"state": "new"' "$FIRST/.git/lem/backlog.js" && grep -q '"title": "The first item"' "$FIRST/.git/lem/backlog.js" && grep -q '"session": "LEM-SESSION"' "$FIRST/.git/lem/meta.js"; then
+if grep -q '"state": "new"' "$FIRST/.lem/state/backlog.js" && grep -q '"title": "The first item"' "$FIRST/.lem/state/backlog.js" && grep -q '"session": "LEM-SESSION"' "$FIRST/.lem/state/meta.js"; then
   pass "the first item of a backlog folder that git does not know yet is new, and a run that opens nothing keeps the session the board named before"
 else
-  fail "a first backlog item, and the session after --no-open: $(cat "$FIRST/.git/lem/backlog.js" "$FIRST/.git/lem/meta.js" | head -c 500)"
+  fail "a first backlog item, and the session after --no-open: $(cat "$FIRST/.lem/state/backlog.js" "$FIRST/.lem/state/meta.js" | head -c 500)"
 fi
-printf '%s\n' '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}, "which-currency": {"verdict": "owner", "confidence": 0.58}, "slow-report": {"verdict": "nonsense"}, "gone-item": {"verdict": "agent"}}' > "$BKB/.git/lem/backlog-triage.json"
+printf '%s\n' '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}, "which-currency": {"verdict": "owner", "confidence": 0.58}, "slow-report": {"verdict": "nonsense"}, "gone-item": {"verdict": "agent"}}' > "$BKB/.lem/state/backlog-triage.json"
 "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
-kept=$(cat "$BKB/.git/lem/backlog-triage.json")
+kept=$(cat "$BKB/.lem/state/backlog-triage.json")
 if [ "$(feed '(d["judged"], by["export-drops-columns"]["who"], by["export-drops-columns"]["confidence"], by["which-currency"]["who"], by["slow-report"]["who"])')" = "(True, 'agent', 0.86, 'owner', '')" ] \
-  && [ "$kept" = "$(cat "$BKB/.git/lem/backlog-triage.json")" ] && [ -z "$(git -C "$BKB" status --porcelain -- app)" ]; then
+  && [ "$kept" = "$(cat "$BKB/.lem/state/backlog-triage.json")" ] && [ -z "$(git -C "$BKB" status --porcelain -- app)" ]; then
   pass "with verdicts of the backlog's sorting the file says who can act on each item, an unknown verdict is none, and the board reads that record without a change to it"
 else
-  fail "backlog.js with verdicts: $(head -c 400 "$BKB/.git/lem/backlog.js")"
+  fail "backlog.js with verdicts: $(head -c 400 "$BKB/.lem/state/backlog.js")"
 fi
 
 # The board: board.py writes the page and what it reads beside the events, and the page draws them.
@@ -1435,20 +1435,20 @@ board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOC
 # The test's settings file is not committed, so a worktree has none: the worktree run shows where
 # the page goes and whose name it carries, the run in the main checkout shows the base.
 out=$(board --repo "$WORK/wt" --no-open)
-named=$(cat "$OLD/.git/lem/meta.js")
+named=$(cat "$OLD/.lem/state/meta.js")
 board --repo "$OLD" --no-open >/dev/null
-if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.git/lem/board.html" ] && cmp -s "$OLD/.git/lem/board.html" "$PWD/skills/lem/assets/board.html" \
-  && cmp -s "$OLD/.git/lem/lem.css" "$PWD/skills/lem/assets/lem.css" \
+if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.lem/state/board.html" ] && cmp -s "$OLD/.lem/state/board.html" "$PWD/skills/lem/assets/board.html" \
+  && cmp -s "$OLD/.lem/state/lem.css" "$PWD/skills/lem/assets/lem.css" \
   && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "ask": "lem-ask", "gates": 0});' ] \
-  && [ "$(cat "$OLD/.git/lem/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "ask": "lem-ask", "gates": 0});' ]; then
+  && [ "$(cat "$OLD/.lem/state/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "ask": "lem-ask", "gates": 0});' ]; then
   pass "board --no-open writes the page and the stylesheet it links into the shared state folder, from a worktree too, with the repository's name and its base"
 else
-  fail "board --no-open: $out / $named / $(cat "$OLD/.git/lem/meta.js" 2>&1)"
+  fail "board --no-open: $out / $named / $(cat "$OLD/.lem/state/meta.js" 2>&1)"
 fi
 out=$(board --repo "$OLD" --no-open --task with-a-worktree)
 err=$(board --repo "$OLD" --no-open --task no-such-task 2>&1 || true)
-if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.git/lem/task-with-a-worktree.html" ] && [ "$(field 'd["name"]' <<<"$out")" = "with-a-worktree board" ] \
-  && [ "$(status_of board --repo "$OLD" --no-open --task no-such-task)" = 1 ] && grep -q "the tasks are: .*second-task" <<<"$err" && [ ! -e "$OLD/.git/lem/task-no-such-task.html" ]; then
+if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.lem/state/task-with-a-worktree.html" ] && [ "$(field 'd["name"]' <<<"$out")" = "with-a-worktree board" ] \
+  && [ "$(status_of board --repo "$OLD" --no-open --task no-such-task)" = 1 ] && grep -q "the tasks are: .*second-task" <<<"$err" && [ ! -e "$OLD/.lem/state/task-no-such-task.html" ]; then
   pass "a task's board is a copy named after the task, and an unknown task is refused with the names of the known ones"
 else
   fail "board --task: $out / $err"
@@ -1456,12 +1456,12 @@ fi
 if [ "$(status_of board --repo "$OLD")" = 1 ]; then pass "outside an agterm session board opens nothing and says so"; else fail "board outside agterm"; fi
 board --repo "$OLD" --no-open --demo >/dev/null
 board --repo "$OLD" --no-open --task with-a-worktree >/dev/null
-if grep -q '"demo": true' "$OLD/.git/lem/meta.js" && [ -f "$OLD/.git/lem/demo" ]; then
+if grep -q '"demo": true' "$OLD/.lem/state/meta.js" && [ -f "$OLD/.lem/state/demo" ]; then
   pass "board --demo marks the state folder's tasks as examples, and a later open with no flag keeps the mark"
 else
-  fail "board --demo: $(cat "$OLD/.git/lem/meta.js")"
+  fail "board --demo: $(cat "$OLD/.lem/state/meta.js")"
 fi
-rm "$OLD/.git/lem/demo"
+rm "$OLD/.lem/state/demo"
 board --repo "$OLD" --no-open >/dev/null
 
 # A board is known by the file it shows. Two repositories' Lems may be companions of one top session
@@ -1475,9 +1475,9 @@ printf '%s\n' '#!/bin/sh' 'echo "$*" >> "$AGT_CALLS"' 'case "$1" in tree) cat "$
 chmod +x "$FAKE/agtermctl"
 printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [' \
   '{"id": "AAA", "name": "lem a"}, {"id": "BBB", "name": "lem b"}, {"id": "CCC", "name": "lem c"},' \
-  '{"id": "PX", "name": "Lem board", "content": "page", "parent": "AAA", "htmlOverlays": [{"file": "/elsewhere/.git/lem/board.html"}]},' \
-  "{\"id\": \"PA\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"AAA\", \"htmlOverlays\": [{\"file\": \"$OLD/.git/lem/board.html\"}]}," \
-  "{\"id\": \"PB\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"BBB\", \"htmlOverlays\": [{\"file\": \"$OLD/.git/lem/board.html\"}]}]}]}}}" > "$WORK/tree.json"
+  '{"id": "PX", "name": "Lem board", "content": "page", "parent": "AAA", "htmlOverlays": [{"file": "/elsewhere/.lem/state/board.html"}]},' \
+  "{\"id\": \"PA\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"AAA\", \"htmlOverlays\": [{\"file\": \"$OLD/.lem/state/board.html\"}]}," \
+  "{\"id\": \"PB\", \"name\": \"Lem board\", \"content\": \"page\", \"parent\": \"BBB\", \"htmlOverlays\": [{\"file\": \"$OLD/.lem/state/board.html\"}]}]}]}}}" > "$WORK/tree.json"
 opened() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID="$1" AGTERM_SOCKET=/none "$PY" -B "$BOARD" --repo "$OLD"; }
 out=$(opened AAA)
 if [ "$(field '(d["companion"], d["reloaded"], d["name"])' <<<"$out")" = "('PA', True, 'Lem board · old')" ] && grep -q "session overlay reload --target PA" "$WORK/calls" \
@@ -1487,7 +1487,7 @@ else
   fail "board reload: $out / $(cat "$WORK/calls")"
 fi
 out=$(opened CCC)
-if [ "$(field '(d["companion"], d["reloaded"], d["parent"])' <<<"$out")" = "('NEW', False, 'CCC')" ] && grep -q "session overlay open --html $OLD/.git/lem/board.html .* --companion --target CCC" "$WORK/calls" \
+if [ "$(field '(d["companion"], d["reloaded"], d["parent"])' <<<"$out")" = "('NEW', False, 'CCC')" ] && grep -q "session overlay open --html $OLD/.lem/state/board.html .* --companion --target CCC" "$WORK/calls" \
   && ! grep -q "session close" "$WORK/calls"; then
   pass "a session with no board opens one as its own page companion and closes nobody's"
 else
@@ -1551,7 +1551,7 @@ chrome_run() { mkdir -p "$WORK/chrome-tmp" && TMPDIR="$WORK/chrome-tmp" MAC_CHRO
 if [ -n "$chrome" ]; then
   draw() {
     chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-      --virtual-time-budget=5000 --dump-dom "file://$OLD/.git/lem/$1.html" > "$WORK/$1.dom" 2>/dev/null || true
+      --virtual-time-budget=5000 --dump-dom "file://$OLD/.lem/state/$1.html" > "$WORK/$1.dom" 2>/dev/null || true
   }
   draw board
   if [ ! -s "$WORK/board.dom" ]; then
@@ -1582,12 +1582,12 @@ if [ -n "$chrome" ]; then
     fail "a task that waits for the merge: missing $why"
   fi
   # A closed task looked at much later: its time axis ends at its last block and has no line for now.
-  mkdir -p "$WORK/aged" && cp "$OLD/.git/lem/task-with-a-worktree.html" "$OLD/.git/lem/meta.js" "$WORK/aged/"
+  mkdir -p "$WORK/aged" && cp "$OLD/.lem/state/task-with-a-worktree.html" "$OLD/.lem/state/meta.js" "$WORK/aged/"
   "$PY" -c 'import json, sys
 rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
 mine = [r for r in rows if r["task"] == "with-a-worktree"]
 for i, r in enumerate(mine): r["ts"] = "2026-01-10T12:00:%02dZ" % i
-open(sys.argv[2], "w").write("".join("lemEvent(%s);\n" % json.dumps(r) for r in mine))' "$OLD/.git/lem/events.jsonl" "$WORK/aged/events.js"
+open(sys.argv[2], "w").write("".join("lemEvent(%s);\n" % json.dumps(r) for r in mine))' "$OLD/.lem/state/events.jsonl" "$WORK/aged/events.js"
   chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
     --virtual-time-budget=5000 --dump-dom "file://$WORK/aged/task-with-a-worktree.html" > "$WORK/aged.dom" 2>/dev/null || true
   if [ -s "$WORK/aged.dom" ] && "$PY" -c 'import re, sys
@@ -1600,7 +1600,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     fail "a closed task's time axis: $(grep -o '<text class="axis"[^>]*>[^<]*' "$WORK/aged.dom" | sed 's/.*>//' | tr '\n' '|') nowline: $(grep -c 'class="nowline"' "$WORK/aged.dom")"
   fi
   # A file that does not parse is a problem on the page, never a quiet default.
-  printf 'lemMeta({"repo": \n' > "$OLD/.git/lem/meta.js"
+  printf 'lemMeta({"repo": \n' > "$OLD/.lem/state/meta.js"
   draw board
   if [ -s "$WORK/board.dom" ] && grep -q "<title>PROBLEM" "$WORK/board.dom" && grep -q "meta.js does not parse" "$WORK/board.dom"; then
     pass "a meta.js that does not parse is shown as a problem"
@@ -1611,7 +1611,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
   # The board of one task shows its stories, each with its tests and what the last check gave.
   "$PY" -B "$BOARD" --repo "$ST" --task export-has-the-gift-note --no-open >/dev/null
   chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-    --virtual-time-budget=5000 --dump-dom "file://$ST/.git/lem/task-export-has-the-gift-note.html" > "$WORK/stories.dom" 2>/dev/null || true
+    --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/stories.dom" 2>/dev/null || true
   if [ ! -s "$WORK/stories.dom" ]; then
     printf 'SKIP the stories on the board: %s printed no page\n' "$chrome"
   elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories.dom" "Stories" "feature, because the export gets a new column and an empty cell." \
@@ -1625,7 +1625,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
   "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("has that text in its row.", "has that text in the third cell of its row."))' "$stw/docs/plans/20261115-export-has-the-gift-note.md"
   stories record export-has-the-gift-note >/dev/null && git -C "$stw" checkout -q -- docs
   chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-    --virtual-time-budget=5000 --dump-dom "file://$ST/.git/lem/task-export-has-the-gift-note.html" > "$WORK/stories-changed.dom" 2>/dev/null || true
+    --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/stories-changed.dom" 2>/dev/null || true
   if [ -s "$WORK/stories-changed.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories-changed.dom" "in the third cell of its row" "not checked yet" "!held by its tests"); then
     pass "after a story changed, the board shows no result of the older check for any story"
   elif [ -s "$WORK/stories-changed.dom" ]; then
@@ -1633,7 +1633,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
   fi
   # The backlog tab: drawn from backlog.js, and its one action types the item into Lem's session.
   chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-    --virtual-time-budget=5000 --dump-dom "file://$BKB/.git/lem/board.html#backlog" > "$WORK/backlog.dom" 2>/dev/null || true
+    --virtual-time-budget=5000 --dump-dom "file://$BKB/.lem/state/board.html#backlog" > "$WORK/backlog.dom" 2>/dev/null || true
   if [ ! -s "$WORK/backlog.dom" ]; then
     printf 'SKIP the backlog tab: %s printed no page\n' "$chrome"
   elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/backlog.dom" "Backlog · backlog-board" "8 items in docs/backlog" "2 items name a place that is gone or cannot be read" "2 cannot be read" "sorted by who can act" \
@@ -1643,7 +1643,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
   else
     fail "the backlog tab: missing $why"
   fi
-  cat > "$BKB/.git/lem/probe.html" <<'PROBE'
+  cat > "$BKB/.lem/state/probe.html" <<'PROBE'
 <!doctype html><meta charset="utf-8"><iframe id="f" src="board.html#backlog" style="width:1280px;height:900px;border:0"></iframe><pre id="out"></pre>
 <script>
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -1685,10 +1685,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 })().catch(e => { document.getElementById('out').textContent = JSON.stringify({error: String(e)}); });
 </script>
 PROBE
-  "$PY" -c 'import json, re, sys; s = open(sys.argv[1]).read(); d = json.loads(re.fullmatch(r"lemMeta\((.*)\);\n", s, re.S).group(1)); d["session"] = "LEM1"; open(sys.argv[1], "w").write("lemMeta(%s);\n" % json.dumps(d))' "$BKB/.git/lem/meta.js"
+  "$PY" -c 'import json, re, sys; s = open(sys.argv[1]).read(); d = json.loads(re.fullmatch(r"lemMeta\((.*)\);\n", s, re.S).group(1)); d["session"] = "LEM1"; open(sys.argv[1], "w").write("lemMeta(%s);\n" % json.dumps(d))' "$BKB/.lem/state/meta.js"
   chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" --allow-file-access-from-files \
-    --virtual-time-budget=40000 --dump-dom "file://$BKB/.git/lem/probe.html" > "$WORK/probe.dom" 2>/dev/null || true
-  rm -f "$BKB/.git/lem/probe.html"
+    --virtual-time-budget=40000 --dump-dom "file://$BKB/.lem/state/probe.html" > "$WORK/probe.dom" 2>/dev/null || true
+  rm -f "$BKB/.lem/state/probe.html"
   acted=$("$PY" -c 'import html, json, re, sys
 found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S)
 d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}

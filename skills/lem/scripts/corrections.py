@@ -36,8 +36,10 @@ message to the queue when Jev's probability of "lesson" is at least FLAG_AT. Jev
 at 0.3, on 150 replies their owner had labeled, it caught 22 of 27 lessons and flagged 63 replies
 that were none (mybaze, 2026-11-07, tuned on that same sample, so the true rate is lower).
 
-The queue is one file for one project: `corrections.jsonl` in Lem's folder of the git directory,
-shared by every worktree and never committed. What a retro decided is in
+The queue is one file for one project: `corrections.jsonl` in Lem's state folder (`.lem/state/` of
+the main checkout, as `lem_state.py` names it), shared by every worktree and never committed. The
+hook says nothing, so when it is the script that moves an older state folder from the git
+directory, the line that tells of the move goes to `corrections.log`. What a retro decided is in
 `corrections-reviews.jsonl` beside it. A failure (no key, a failed request) goes to
 `corrections.log` there and never to the conversation, and `list` reports it first: a message
 the hook failed on was never judged.
@@ -63,6 +65,11 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+
+# The one place that says where the state is; it loads under an old python3 too.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lem_state  # noqa: E402
 
 FLAG_AT = 0.3
 # How long the hook waits for the event on its input, and for git, before it gives up without a
@@ -125,10 +132,28 @@ def git(cwd: str, *args: str) -> str | None:
     return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
 
 
-def folder(cwd: str) -> Path | None:
-    """Lem's folder in the git directory every worktree shares; None outside a checkout."""
-    common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    return Path(common) / "lem" if common else None
+def folder(cwd: str, quiet: bool = False) -> Path | None:
+    """Lem's state folder, which every worktree shares; None outside a checkout. A quiet caller (the
+    hook and its detached half) writes the line of a move into the log instead of stderr. Two state
+    folders are an error for the retro's commands, and no folder at all for the quiet ones."""
+    moved: list[str] = []
+    try:
+        where = lem_state.folder(Path(cwd), say=moved.append if quiet else lem_state.say_on_stderr, timeout=WAIT_SECONDS)
+    except lem_state.StateError as error:
+        if quiet:
+            return None
+        raise QueueError(str(error)) from error
+    for line in moved:
+        append(where / "corrections.log", {"ts": now(), "note": f"corrections.py: {line}"})
+    return where
+
+
+def uses_lem(cwd: str) -> bool:
+    """Whether the main checkout of this repository has Lem's settings; no answer from git is a no."""
+    try:
+        return (lem_state.main_checkout(Path(cwd), timeout=WAIT_SECONDS) / ".lem" / "project.toml").is_file()
+    except lem_state.StateError:
+        return False
 
 
 def collects(cwd: str) -> bool:
@@ -304,7 +329,7 @@ def cmd_hook() -> None:
         # this message from the same words of another session: it is judged with no claim.
         session = event.get("session_id")
         if isinstance(session, str) and session:
-            where = folder(cwd)
+            where = folder(cwd, quiet=True)
             try:
                 if where is None:
                     raise OSError("git names no directory of the repository")
@@ -339,8 +364,10 @@ def cmd_hook() -> None:
             if claimed is not None:
                 # this copy cannot judge the message, so it does not keep another from judging it
                 claimed.unlink(missing_ok=True)
-            # the log of the repository the message was typed in, which is the one that lost it
-            where = where or folder(cwd or os.getcwd())
+            # the log of the repository the message was typed in, which is the one that lost it; a
+            # repository that does not use Lem gets no state folder for it
+            if where is None and uses_lem(cwd or os.getcwd()):
+                where = folder(cwd or os.getcwd(), quiet=True)
             if where is not None:
                 append(where / "corrections.log", {"ts": now(), "error": f"the hook failed before it could judge a message: {error}"})
         except Exception:  # noqa: BLE001
@@ -355,7 +382,7 @@ def cmd_worker(path: str) -> None:
     file = Path(path)
     payload = json.loads(file.read_text(encoding="utf-8"))
     file.unlink(missing_ok=True)
-    where = folder(payload["cwd"])
+    where = folder(payload["cwd"], quiet=True)
     # The project's yes is checked here again, at the last moment before anything is sent: the
     # owner may have turned the queue off since the hook looked, and this half can be run alone.
     if where is None or not collects(payload["cwd"]):
@@ -493,10 +520,10 @@ def main() -> None:
             arg.encode("utf-8")
         except UnicodeEncodeError:
             sys.exit(f"corrections.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
-    where = folder(args.repo)
-    if where is None:
+    if git(args.repo, "rev-parse", "--git-dir") is None:
         sys.exit(f"corrections.py: {args.repo} is not inside a git checkout")
     try:
+        where = folder(args.repo)
         if args.command == "list":
             cmd_list(where, args.repo)
         elif args.command == "show":

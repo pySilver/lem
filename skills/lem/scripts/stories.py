@@ -151,6 +151,9 @@ def script(name: str, repo: Path, *args: str) -> str:
     ran = subprocess.run([sys.executable, "-B", str(SCRIPTS / name), "--repo", str(repo), *args], capture_output=True, text=True, check=False)
     if ran.returncode != 0:
         raise StoriesError(ran.stderr.strip().removeprefix(f"{name}: ") or f"{name} {args[0]} failed")
+    # a line project.py writes on stderr when it succeeds (the move of an older state folder) is this script's to say too
+    if ran.returncode == 0 and ran.stderr:
+        sys.stderr.write(ran.stderr)
     return ran.stdout
 
 

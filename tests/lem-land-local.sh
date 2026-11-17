@@ -33,9 +33,9 @@ local_land propose local-change --title "fix: x" --notes "$NOTES" >/dev/null
 err=$(local_land land local-change --by agent 2>&1 || true)
 out=$(local_land land local-change --by owner)
 if grep -q "the request is not green (story 1 changed during the build: y is taken by another file.), so a person merges it" <<<"$err" \
-  && [ "$(sed -n 1p "$LOCAL/.git/lem/tasks/local-change/pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "$LOCAL/.git/lem/tasks/local-change/pr.md")" = '- story 1 changed during the build: y is taken by another file.' ] \
-  && grep -qxF -- '- story 1: was "The file holds the word y.", now "The file holds the word the owner asked for.". y is taken by another file. By the personas: Both personas picked x.' "$LOCAL/.git/lem/tasks/local-change/pr.md" \
-  && [ ! -e "$LOCAL/.git/lem/tasks/local-change/story-changes.jsonl" ] \
+  && [ "$(sed -n 1p "$LOCAL/.lem/state/tasks/local-change/pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "$LOCAL/.lem/state/tasks/local-change/pr.md")" = '- story 1 changed during the build: y is taken by another file.' ] \
+  && grep -qxF -- '- story 1: was "The file holds the word y.", now "The file holds the word the owner asked for.". y is taken by another file. By the personas: Both personas picked x.' "$LOCAL/.lem/state/tasks/local-change/pr.md" \
+  && [ ! -e "$LOCAL/.lem/state/tasks/local-change/story-changes.jsonl" ] \
   && [ "$(field 'd["pushed"]' <<<"$out")" = False ] && [ -f "$LOCAL/x.txt" ] && [ "$(git -C "$LOCAL" log -1 --format=%s main)" = "fix: local-change" ] && [ "$(status_in "$LOCAL" local-change)" = landed ]; then
   pass "a request with a changed story is not green: its text says so first and shows the change, with what the story was and is, and a person merges it whatever the settings say; with no remote the base branch is fast-forwarded in the checkout that holds it"
 else
@@ -47,7 +47,7 @@ task_in "$LOCAL" waited-change w.txt w
 read_in "$LOCAL" waited-change
 local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land gate waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
 wdec() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
-wfile=$LOCAL/.git/lem/tasks/waited-change/decisions.jsonl
+wfile=$LOCAL/.lem/state/tasks/waited-change/decisions.jsonl
 wdec log waited-change --what "The name of the file" --chose w.txt --why "The other files have one letter." --by lead >/dev/null
 wdec ask waited-change "${CASE[@]}" --what "Where the word goes" --option "the first line" --option "the last line" --recommended "the first line" --why "A reader sees it at once." --said "The two personas split." >/dev/null
 waiting=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
@@ -71,7 +71,7 @@ wdec ask waited-change "${CASE[@]}" --what "The word's line ending" --option "a 
 wdec answer waited-change 7 --instead "A line break, and a second line with the date." >/dev/null
 instead_pending=$(wdec pending waited-change | field '[c["id"] for c in d["waiting"]]')
 local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
-text=$LOCAL/.git/lem/tasks/waited-change/pr.md
+text=$LOCAL/.lem/state/tasks/waited-change/pr.md
 agent=$(local_land land waited-change --by agent 2>&1 || true)
 if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes): a request is never proposed over an open question of the owner's" <<<"$waiting" \
   && grep -qF "decisions.py answer waited-change 2 --chose OPTION --words TEXT" <<<"$waiting" && grep -qF "decisions.py timeout waited-change 2" <<<"$waiting" \
@@ -101,7 +101,7 @@ project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/nul
 task_in "$LOCAL" expert-change e.txt e
 read_in "$LOCAL" expert-change
 local_land start expert-change >/dev/null && local_land base expert-change >/dev/null && polish_in "$LOCAL" expert-change && local_land gate expert-change >/dev/null && local_land read expert-change --record "$(clean 1)" >/dev/null
-efile=$LOCAL/.git/lem/tasks/expert-change/decisions.jsonl
+efile=$LOCAL/.lem/state/tasks/expert-change/decisions.jsonl
 # eask WHAT FIRST SECOND RECOMMENDED WHY: a choice for the owner that the personas left unclear
 eask() { wdec ask expert-change "${CASE[@]}" --what "$1" --option "$2" --option "$3" --recommended "$4" --why "$5" --said "The two personas split." >/dev/null; }
 # eadvise ID FABLE_PICK FABLE_WHY ASTRA_PICK ASTRA_WHY: both experts' advice on choice ID
@@ -123,7 +123,7 @@ eask "The name of the file" "e.txt" "word.txt" "word.txt" "A name says what the 
 eadvise 4 "word.txt" "A name says what the file holds." "word.txt" "Nobody guesses what e.txt holds."
 wdec settle expert-change 4 --away >/dev/null
 local_land propose expert-change --title "fix: e" --notes "$NOTES" >/dev/null
-text=$LOCAL/.git/lem/tasks/expert-change/pr.md
+text=$LOCAL/.lem/state/tasks/expert-change/pr.md
 agent=$(local_land land expert-change --by agent 2>&1 || true)
 if grep -qF "choice 1 of expert-change waits for the owner (Where the word goes)" <<<"$held" \
   && grep -qF "\`decisions.py timeout expert-change 1\` takes the experts' shared pick, or the recommended option when they split" <<<"$held" \
@@ -155,7 +155,7 @@ to_open() {
   local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land gate "$1" >/dev/null \
     && local_land read "$1" --record "$(clean 1)" >/dev/null && local_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
-approved_day() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["at"][:10])' "$LOCAL/.git/lem/tasks/$1/stories.json" 2>/dev/null || true; }
+approved_day() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["at"][:10])' "$LOCAL/.lem/state/tasks/$1/stories.json" 2>/dev/null || true; }
 task_in "$LOCAL" story-departs d.txt d
 tree=$(project --repo "$LOCAL" worktree-dir story-departs)
 printf '%s\n' '## Stories' '' 'Kind: feature, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' '2. The file has one line.' > "$WORK/approved.md"
@@ -178,7 +178,7 @@ ldecide story story-departs --removed 2 --was "The file has one line." --why "A 
 ldecide story story-departs --added 2 --now "The file ends with a line break." --why "The importer reads whole lines only." --by lead >/dev/null 2>&1 || true
 polish_local story-departs 2>/dev/null && local_land gate story-departs >/dev/null 2>&1 && local_land read story-departs --record "$(clean 1)" >/dev/null 2>&1 \
   && local_land propose story-departs --title "fix: story-departs" --notes "$NOTES" >/dev/null 2>&1 || true
-text=$LOCAL/.git/lem/tasks/story-departs/pr.md
+text=$LOCAL/.lem/state/tasks/story-departs/pr.md
 agent=$(local_land land story-departs --by agent 2>&1 || true)
 if grep -qF "story 2 of 20261115-story-departs.md says 'The file ends with a line break.', and the expected story 2 is 'The file has one line.'" <<<"$unrecorded" \
   && grep -qF "choice 1 is waits: a story changes after a choice that was answered or taken by timeout" <<<"$early" \
@@ -213,7 +213,7 @@ project --repo "$LOCAL" log read-doubt stories.read by=lem asked:=3 answered:=2 
   'silent:=[{"name": "the accountant, sol", "why": "the model was at capacity"}]' stories:=1 flagged:=1 split:=true "digest=$read_digest" >/dev/null 2>&1 || true
 lstories approve read-doubt --file "$WORK/doubt.md" >/dev/null 2>&1 || true
 local_land propose read-doubt --title "fix: r" --notes "$NOTES" >/dev/null 2>&1 || true
-text=$LOCAL/.git/lem/tasks/read-doubt/pr.md
+text=$LOCAL/.lem/state/tasks/read-doubt/pr.md
 if grep -qF "read-doubt is a feature, and the event log has no \`stories.read\`" <<<"$unread_feature" && grep -qF 'stages/new.md' <<<"$unread_feature" \
   && grep -qF "the newest read of read-doubt's stories found a split between the two families, and no approval of the owner's came after it" <<<"$split_unseen" \
   && grep -qF "found 1 flagged story, and no approval of the owner's came after it" <<<"$flag_unseen" && grep -qF "stories.py approve read-doubt --file FILE" <<<"$flag_unseen" \
@@ -238,7 +238,7 @@ ldecide story after-change --changed 1 --was "The file holds the word y." --now 
 digest=$(lstories digest after-change 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log after-change stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
 to_open after-change || true
-text=$LOCAL/.git/lem/tasks/after-change/pr.md
+text=$LOCAL/.lem/state/tasks/after-change/pr.md
 cp "$text" "$WORK/first-pr.md" 2>/dev/null || : > "$WORK/first-pr.md"
 # he approves the changed story; the proposal is made again
 project --repo "$LOCAL" state after-change landing "he approved the changed story" >/dev/null
@@ -277,11 +277,11 @@ project --repo "$LOCAL" log ticket-word stories.read by=lead asked:=2 answered:=
 printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds another word.' > "$WORK/other.md"
 freeze_other=$(lstories approve ticket-word --file "$WORK/other.md" --read 2>&1 || true)
 lstories approve ticket-word --read >/dev/null 2>&1 || true
-frozen=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["by"], d["number"]))' "$LOCAL/.git/lem/tasks/ticket-word/stories.json" 2>&1 || true)
+frozen=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["by"], d["number"]))' "$LOCAL/.lem/state/tasks/ticket-word/stories.json" 2>&1 || true)
 recorded=$(ldecide story ticket-word --changed 1 --was "Not the story." --now "x" --why "w" --by lead 2>&1 || true)
-echo '1. t.txt does not exist on the base branch (git ls-files).' > "$LOCAL/.git/lem/tasks/ticket-word/scout.md"
+echo '1. t.txt does not exist on the base branch (git ls-files).' > "$LOCAL/.lem/state/tasks/ticket-word/scout.md"
 to_open ticket-word || true
-text=$LOCAL/.git/lem/tasks/ticket-word/pr.md
+text=$LOCAL/.lem/state/tasks/ticket-word/pr.md
 if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && grep -qxF -- "- the stories were read by 2 of 2 personas asked, one model family (opus); nobody confused; the build started with no wait for the owner" "$text" \
   && ! grep -q "after the personas' read" "$text" \
@@ -292,7 +292,7 @@ if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && grep -q "families is the list of the model families that answered" <<<"$bad_families" && grep -q "no more stories flagged than it read" <<<"$bad_flagged" \
   && grep -q "a split is between two model families, and families names one" <<<"$bad_split" && grep -q "digest is the twelve characters" <<<"$bad_digest" \
   && grep -q "stories.read takes by=lem|lead asked:=N answered:=N" <<<"$bad_missing" \
-  && [ "$(grep -c '"event": "stories.read", "task": "ticket-word"' "$LOCAL/.git/lem/events.jsonl")" = 1 ] \
+  && [ "$(grep -c '"event": "stories.read", "task": "ticket-word"' "$LOCAL/.lem/state/events.jsonl")" = 1 ] \
   && grep -qF -- "--read freezes the plan's own stories, the ones the read named: it takes no --file" <<<"$freeze_other" \
   && [ "$frozen" = "('read', 1)" ] && grep -qF "story 1 is 'The file holds the word the owner asked for.' after every earlier change" <<<"$recorded"; then
   pass "a read by the lead with one model family in which nobody was confused is one line of the checks, which says the build did not wait for him, and the scout's facts are named with no path of this machine; a read's event without its form, with fewer than two personas asked, with nobody or more than were asked answering, or with a missing source unnamed is refused, and nothing is written for it; the lead freezes the plan's stories the read named, with no file of other stories, and from then on a change of them has its record, while the line still says the build did not wait for him"
@@ -311,7 +311,7 @@ project --repo "$LOCAL" log after-change stories.read by=lead asked:=2 answered:
 over_his=$(lstories approve after-change --read 2>&1 || true)
 over_his_file=$(lstories approve after-change --read --file "$WORK/as-correction.md" 2>&1 || true)
 kept_contracts=$("$PY" -c 'import json, sys; print([(json.load(open(f))["number"], json.load(open(f))["by"], json.load(open(f))["kind"]) for f in sys.argv[1:]])' \
-  "$LOCAL/.git/lem/tasks/ticket-word/stories.json" "$LOCAL/.git/lem/tasks/after-change/stories.json" 2>&1 || true)
+  "$LOCAL/.lem/state/tasks/ticket-word/stories.json" "$LOCAL/.lem/state/tasks/after-change/stories.json" 2>&1 || true)
 if grep -qF "ticket-word has approval 1 of its stories already (by read): a read freezes only the first contract" <<<"$refreeze" \
   && grep -qF "A story changes through its record, \`decisions.py story ticket-word ...\`, and the kind only through the owner's own approval" <<<"$refreeze" \
   && grep -qF "after-change has approval 2 of its stories already (by owner): a read freezes only the first contract" <<<"$over_his" \
@@ -341,7 +341,7 @@ freeze_once=$(lstories approve nobody-read --read 2>&1 || true)
 second_empty=$(empty_with 'families:=[]' "$quiet" flagged:=0)
 freeze_twice=$(lstories approve nobody-read --read 2>&1 || true)
 local_land propose nobody-read --title "fix: n" --notes "$NOTES" >/dev/null 2>&1 || true
-text=$LOCAL/.git/lem/tasks/nobody-read/pr.md
+text=$LOCAL/.lem/state/tasks/nobody-read/pr.md
 twice_agent=$(local_land land nobody-read --by agent 2>&1 || true)
 if grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_family" && grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_unnamed" \
   && grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_flagged" \
@@ -377,7 +377,7 @@ never="20261115-one-word.md says \`Kind: correction\`, and a plan's kind is neve
 if grep -qF "$never" <<<"$as_plan" && grep -qF "a small change, whose one story is \`stories.md\` in the task directory" <<<"$as_plan" \
   && grep -qF "Kind: feature, because" <<<"$as_plan" && grep -qF "$never" <<<"$as_polish" && grep -qF "$never" <<<"$as_gate" && grep -qF "$never" <<<"$approved_plan" \
   && [ "$(kept_in "$LOCAL" one-word gated)" = None ] && [ "$(kept_in "$LOCAL" one-word polish)" = None ] \
-  && ! grep -q '"event": "gate.start", "task": "one-word"' "$LOCAL/.git/lem/events.jsonl"; then
+  && ! grep -q '"event": "gate.start", "task": "one-word"' "$LOCAL/.lem/state/events.jsonl"; then
   pass "a plan that says Kind: correction is refused by the stories, the polish pass and the gate, also with Lem's approval of a correction in the owner's name, and the refusal names the small change, which has no plan, and the feature's Kind line"
 else
   fail "a plan of a correction: $as_plan / $as_polish / $as_gate / $approved_plan"
@@ -400,14 +400,14 @@ checked_local only-me
 unapproved=$(local_land propose only-me --title "feat: m" --notes "$NOTES" 2>&1 || true)
 lstories approve only-me --file "$WORK/mine.md" >/dev/null 2>&1 || true
 local_land propose only-me --title "feat: m" --notes "$NOTES" >/dev/null 2>&1 || true
-text=$LOCAL/.git/lem/tasks/only-me/pr.md
-skipped_day=$("$PY" -c 'import json, sys; print(json.loads(open(sys.argv[1]).readline())["at"][:10])' "$LOCAL/.git/lem/tasks/only-me/decisions.jsonl" 2>/dev/null || true)
+text=$LOCAL/.lem/state/tasks/only-me/pr.md
+skipped_day=$("$PY" -c 'import json, sys; print(json.loads(open(sys.argv[1]).readline())["at"][:10])' "$LOCAL/.lem/state/tasks/only-me/decisions.jsonl" 2>/dev/null || true)
 if grep -qF "the owner's word to skip the personas' read of only-me's stories is on record, and no approval of the owner's came after it" <<<"$unapproved" \
   && grep -qF "stories.py approve only-me --file FILE" <<<"$unapproved" \
   && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] && [ -n "$skipped_day" ] \
   && grep -qxF -- "- the stories: not read by the personas, on the owner's word ($skipped_day); the owner approved them" "$text" \
   && ! grep -q 'the stories were read by\|no read by the personas is on record' "$text" \
-  && grep -q '"event": "proposed", "task": "only-me".*"green": true' "$LOCAL/.git/lem/events.jsonl"; then
+  && grep -q '"event": "proposed", "task": "only-me".*"green": true' "$LOCAL/.lem/state/events.jsonl"; then
   pass "a feature whose stories name only the developer lands with no read on his recorded word and his approval after it: green, with the line that the personas did not read them on his word and that he approved them; his word with no approval after it is refused"
 else
   fail "the owner's skip of the read: $unapproved / $skipped_day / $(cat "$text" 2>/dev/null)"
@@ -422,7 +422,7 @@ lem_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 ||
 if grep -qF "no-word is a feature, and the event log has no \`stories.read\`" <<<"$no_word" \
   && grep -qF "decisions.py log no-word --by owner --what \"the personas' read of the stories\" --chose \"no read: the stories name only the developer\"" <<<"$no_word" \
   && grep -qF "no-word is a feature, and the event log has no \`stories.read\`" <<<"$lem_word" \
-  && [ ! -e "$LOCAL/.git/lem/tasks/no-word/pr.md" ]; then
+  && [ ! -e "$LOCAL/.lem/state/tasks/no-word/pr.md" ]; then
   pass "a feature with his approval and no read is refused when no word of his to skip the read is on record, and a word of Lem's in the same form is no such word"
 else
   fail "a feature with no read and no word of his: $no_word / $lem_word"
@@ -441,7 +441,7 @@ said_late=$(local_land propose rare-word --title "feat: r" --notes "$NOTES" 2>&1
 if grep -qF "a lead of rare-word started before the owner's approval that came after the word to skip the personas' read" <<<"$approved_late" \
   && grep -qF "on the rare path the read always runs" <<<"$approved_late" && grep -qF "stages/plan.md" <<<"$approved_late" \
   && grep -qF "a lead of rare-word started before the owner's word to skip the personas' read" <<<"$said_late" \
-  && [ ! -e "$LOCAL/.git/lem/tasks/rare-word/pr.md" ]; then
+  && [ ! -e "$LOCAL/.lem/state/tasks/rare-word/pr.md" ]; then
   pass "on the rare path his word to skip the read is refused: a lead that started before his word, or before his approval after it, wrote the stories, and the personas read them"
 else
   fail "a skip of the read on the rare path: $approved_late / $said_late"
@@ -451,7 +451,7 @@ project --repo "$LOCAL" state rare-word dropped "the test is over" >/dev/null
 # what the change left behind, and the script checks what it committed. Here the test is the builder.
 task_in "$LOCAL" polish-me p.txt p
 tree=$(project --repo "$LOCAL" worktree-dir polish-me)
-pdir=$LOCAL/.git/lem/tasks/polish-me
+pdir=$LOCAL/.lem/state/tasks/polish-me
 # the lead's change leaves a false comment, a debug line and a name nothing uses
 printf '%s\n' '# writes q into p.txt' 'echo "debug: here" >&2' 'unused=1' 'echo p > p.txt' > "$tree/tool.sh"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "feat: the tool"
@@ -474,10 +474,10 @@ if grep -qF "polish-me is a feature, and no polish pass is on record for this la
 else
   fail "polish: $no_pass / $first / $again"
 fi
-if [ "$(grep '"event": "polish.start", "task": "polish-me"' "$LOCAL/.git/lem/events.jsonl" | field 'd["before"]' 2>&1)" = "${lead_tip:0:9}" ]; then
+if [ "$(grep '"event": "polish.start", "task": "polish-me"' "$LOCAL/.lem/state/events.jsonl" | field 'd["before"]' 2>&1)" = "${lead_tip:0:9}" ]; then
   pass "polish logs polish.start once, with the tip the pass starts at, and not again when it is started a second time before --done"
 else
-  fail "polish.start: $(grep '"polish.start"' "$LOCAL/.git/lem/events.jsonl")"
+  fail "polish.start: $(grep '"polish.start"' "$LOCAL/.lem/state/events.jsonl")"
 fi
 # What --done refuses: a worktree with changes, a story's test changed, stories' tests that no longer hold.
 echo '# and a note' >> "$tree/tests/polish-me.sh" && git -C "$tree" commit -q -am "test: a note"
@@ -495,7 +495,7 @@ if grep -qF "the worktree has changes nobody committed" <<<"$dirty" && grep -qF 
   && grep -qF "the polish pass changed what it may not: tests/polish-me.sh (by " <<<"$frozen" \
   && grep -qF "after the polish pass the stories' tests do not hold" <<<"$broken" \
   && [ "$(field '(d["before"], d["after"], len(d["commits"]), d["filed"], d["stories"]["ok"])' <<<"$done_out")" = "('$lead_tip', '$after_tip', 6, ['docs/backlog/the-guide-says-nothing-of-p-txt.md'], True)" ] \
-  && grep -qF '"event": "polish", "task": "polish-me", "before": "'"${lead_tip:0:9}"'", "after": "'"${after_tip:0:9}"'", "commits": 6, "filed": ["docs/backlog/the-guide-says-nothing-of-p-txt.md"]' "$LOCAL/.git/lem/events.jsonl" \
+  && grep -qF '"event": "polish", "task": "polish-me", "before": "'"${lead_tip:0:9}"'", "after": "'"${after_tip:0:9}"'", "commits": 6, "filed": ["docs/backlog/the-guide-says-nothing-of-p-txt.md"]' "$LOCAL/.lem/state/events.jsonl" \
   && grep -qF "the polish pass of this landing is done already" <<<"$twice" && [ "$(head -1 "$tree/tool.sh")" = '# writes p into p.txt' ]; then
   pass "polish --done refuses a worktree with changes, a pass that changed a story's test file, and one after which the stories' tests no longer hold; otherwise it runs them, logs one polish event with the tips, the commits and the items filed, and a pass is done once"
 else
@@ -545,7 +545,7 @@ quiet='{"kind": "read", "answered": [], "silent": [{"name": "codex", "why": "the
 once=$(local_land read guide-change --record "$(record 1 "$quiet")" | field '(d["recorded"]["verdict"], d["next"])')
 twice=$(local_land read guide-change --record "$(record 2 "$quiet")" | field 'd["next"]')
 local_land propose guide-change --title "docs: more" --notes "$NOTES" >/dev/null
-text=$LOCAL/.git/lem/tasks/guide-change/pr.md
+text=$LOCAL/.lem/state/tasks/guide-change/pr.md
 agent=$(local_land land guide-change --by agent 2>&1 || true)
 if [ "$(field '(d["stories"]["ok"], [w["story"] for w in d["stories"]["without_a_test"]])' <<<"$gate")" = "(True, [1])" ] \
   && [ "$(field '(d["due"], d["floor"])' <<<"$out")" = "('review', 'read')" ] && [ "$early" = 1 ] && [ "$once" = "('not reviewed', 'review')" ] && [ "$twice" = owner ] \
@@ -628,7 +628,7 @@ unsaid=$(local_land read bar-change --record "$(clean 1)" 2>&1 || true)
 local_land read bar-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}, {"name": "x.rb", "why": "the cop is wrong here."}, {"name": "tests/test_base.py", "why": "the sum and its test are in the other module."}, {"name": "lib.rs", "why": "tests/one.rs is not in this change."}, {"name": "plug.py", "why": "name the two codes."}]}')" >/dev/null
 proposed=$(local_land propose bar-change --title "fix: marks" --notes "$NOTES")
 agent=$(local_land land bar-change --by agent 2>&1 || true)
-text=$LOCAL/.git/lem/tasks/bar-change/pr.md
+text=$LOCAL/.lem/state/tasks/bar-change/pr.md
 # shellcheck disable=SC2016
 if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "['E402 and F401 both hold for that import.', 'one() has its test in tests/one.rs now.', 'the cop reads this line wrong.', 'the import registers a plugin.', 'the sum moved to another module with its test.']" ] \
   && [ "$small" = read ] && grep -q "the change lowers the bar in calc.py, lib.rs, plug.py, tests/test_base.py, x.rb and the record says nothing of it" <<<"$unsaid" \
@@ -637,7 +637,7 @@ if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "
   && grep -q '^- the bar is lowered, with these reasons:$' "$text" && grep -q '^  - `calc.py` (# noqa): the import registers a plugin\.$' "$text" \
   && grep -q "^- the bar has no marks of its own for files of these kinds: .rb (the project's 1 pattern(s) in gate.bar were looked for)$" "$text" \
   && grep -q "the request is not green (the bar is lower in" <<<"$agent" \
-  && [ "$(grep -c '"event": "proposed", "task": "bar-change", "green": false' "$LOCAL/.git/lem/events.jsonl")" = 1 ]; then
+  && [ "$(grep -c '"event": "proposed", "task": "bar-change", "green": false' "$LOCAL/.lem/state/events.jsonl")" = 1 ]; then
   pass "with a reason for each file in the plan the gate passes, and the request is still not green: the review says what it thinks of each reason, the text opens with each lowered bar, its reason and the review's word, the event log counts it, and no agent merges it"
 else
   fail "the bar with reasons: $out / $unsaid / $proposed / $agent / $(cat "$text" 2>/dev/null)"
@@ -688,20 +688,20 @@ called() { printf '{"kind": "%s", "ran": [{"name": "default", "why": "a price ch
 less=$(local_land read price-change --record "$(record 1 "$(called round)")" 2>&1 || true)
 local_land read price-change --record "$(record 1 "$(called full)")" >/dev/null
 local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
-text=$LOCAL/.git/lem/tasks/price-change/pr.md
-first=$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.git/lem/events.jsonl" || true)
+text=$LOCAL/.lem/state/tasks/price-change/pr.md
+first=$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.lem/state/events.jsonl" || true)
 agent=$(local_land land price-change --by agent 2>&1 || true)
 local_land start price-change >/dev/null && local_land base price-change >/dev/null && local_land gate price-change >/dev/null && local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
 if grep -qF "the record makes the careful call" <<<"$nocall" && grep -qF '"careful": true or false' <<<"$nocall" && grep -qF '"careful_why"' <<<"$nocall" \
   && grep -qF "a change the review calls careful gets the project's full set" <<<"$less" \
   && grep -q '^- no plan talk: the request became careful after its plan, by its review$' "$text" && grep -qxF -- "- careful: yes, the review says so: $priced" "$text" \
   && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && [ "$(sed -n 3p "$text")" = "**Careful**, so a person merges it: the review says so: $priced." ] && [ "$first" = 1 ] \
-  && [ "$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.git/lem/events.jsonl")" = 1 ] \
-  && grep -qF "\"event\": \"careful.missed\", \"task\": \"price-change\", \"round\": 1, \"why\": \"$priced\"" "$LOCAL/.git/lem/events.jsonl" \
+  && [ "$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.lem/state/events.jsonl")" = 1 ] \
+  && grep -qF "\"event\": \"careful.missed\", \"task\": \"price-change\", \"round\": 1, \"why\": \"$priced\"" "$LOCAL/.lem/state/events.jsonl" \
   && grep -qF "a careful request is merged by a person, whatever the settings say (the review says so: $priced)" <<<"$agent" && [ "$(status_in "$LOCAL" price-change)" = open ]; then
   pass "a request the review calls careful and its plan did not gets the full set, its text says first that a person merges it and why, says in its checks that it had no plan talk and why, the plan's miss is one event with the review's reason, and no agent merges it; a record with no careful call is refused"
 else
-  fail "a request careful by its review: $nocall / $less / first $first / $agent / $(grep careful.missed "$LOCAL/.git/lem/events.jsonl") / $(cat "$text" 2>/dev/null)"
+  fail "a request careful by its review: $nocall / $less / first $first / $agent / $(grep careful.missed "$LOCAL/.lem/state/events.jsonl") / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state price-change dropped "the test is over" >/dev/null
 
@@ -711,8 +711,8 @@ task_in "$LOCAL" call-kept eight.txt eight
 read_in "$LOCAL" call-kept
 local_land start call-kept >/dev/null && local_land base call-kept >/dev/null && polish_in "$LOCAL" call-kept && local_land gate call-kept >/dev/null && local_land read call-kept --record "$(clean 1)" >/dev/null
 local_land propose call-kept --title "fix: eight" --notes "$NOTES" >/dev/null
-text=$LOCAL/.git/lem/tasks/call-kept/pr.md
-kept_file=$LOCAL/.git/lem/tasks/call-kept/landing.json
+text=$LOCAL/.lem/state/tasks/call-kept/pr.md
+kept_file=$LOCAL/.lem/state/tasks/call-kept/landing.json
 cp "$kept_file" "$WORK/call-kept.json"
 "$PY" -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p))
 for read in d["reads"]:
@@ -744,7 +744,7 @@ from_tree=$(land --repo "$tree" read lift-topics | field '(d["floor"], d["inputs
 local_land read lift-topics --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
 local_land propose lift-topics --title "chore: no topics" --notes "$MIG" >/dev/null
 agent=$(local_land land lift-topics --by agent 2>&1 || true)
-text=$LOCAL/.git/lem/tasks/lift-topics/pr.md
+text=$LOCAL/.lem/state/tasks/lift-topics/pr.md
 settings_why="the change edits [flow] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
 # the reason holds an apostrophe, so Python's repr of it is in double quotes
 if [ "$lifted" = "('full', \"the request is careful: $settings_why\", ['a customer is charged the wrong price'])" ] \
@@ -781,11 +781,11 @@ project --repo "$LOCAL" state settings-note dropped "the test is over" >/dev/nul
 branch_why="the change edits [branch] of .lem/project.toml, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
 note_why="the change edits the text of .lem/project.toml, and no value in it, Lem's own settings, which say for every later task what is careful, what the gate runs, who merges and where a task lands"
 if [ "$branch_floor" = "('full', \"the request is careful: $branch_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($branch_why)" <<<"$branch_agent" \
-  && grep -qxF -- "- careful: yes, $branch_why; the review says no: $NOT_CAREFUL" "$LOCAL/.git/lem/tasks/lands-alone/pr.md" \
+  && grep -qxF -- "- careful: yes, $branch_why; the review says no: $NOT_CAREFUL" "$LOCAL/.lem/state/tasks/lands-alone/pr.md" \
   && [ "$note_floor" = "('full', \"the request is careful: $note_why\")" ]; then
   pass "every edit of Lem's own settings is careful by the script: one of [branch] gets the full set, a line of the pull request with the table named and a person's merge, and one of the file's text alone is careful too"
 else
-  fail "an edit of the settings beyond flow and gate: $branch_floor / $branch_agent / $note_floor / $(grep careful "$LOCAL/.git/lem/tasks/lands-alone/pr.md" 2>/dev/null)"
+  fail "an edit of the settings beyond flow and gate: $branch_floor / $branch_agent / $note_floor / $(grep careful "$LOCAL/.lem/state/tasks/lands-alone/pr.md" 2>/dev/null)"
 fi
 
 # A branch that removes Lem's own settings is careful, and the reason says it removes the file, not which tables it edits.
@@ -817,10 +817,10 @@ local_agent=$(local_land land local-tracked --by agent 2>&1 || true)
 project --repo "$LOCAL" state local-tracked dropped "the test is over" >/dev/null
 local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's seats, tools and corrections become every machine's"
 if [ "$local_floor" = "('full', \"the request is careful: $local_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($local_why)" <<<"$local_agent" \
-  && grep -qxF -- "- careful: yes, $local_why; the review says no: $NOT_CAREFUL" "$LOCAL/.git/lem/tasks/local-tracked/pr.md"; then
+  && grep -qxF -- "- careful: yes, $local_why; the review says no: $NOT_CAREFUL" "$LOCAL/.lem/state/tasks/local-tracked/pr.md"; then
   pass "a branch that commits the machine's own settings file is careful by the script: the full set, a line of the pull request that says the file is one machine's own, and a person's merge"
 else
-  fail "a branch that tracks the machine's own settings: $local_floor / $local_agent / $(grep careful "$LOCAL/.git/lem/tasks/local-tracked/pr.md" 2>/dev/null)"
+  fail "a branch that tracks the machine's own settings: $local_floor / $local_agent / $(grep careful "$LOCAL/.lem/state/tasks/local-tracked/pr.md" 2>/dev/null)"
 fi
 
 finish

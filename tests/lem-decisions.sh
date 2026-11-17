@@ -11,7 +11,7 @@ project --repo "$DC" task-dir gift-note >/dev/null && project --repo "$DC" task-
 project --repo "$DC" task-dir dropped-task >/dev/null && project --repo "$DC" task-dir landed-task >/dev/null && project --repo "$DC" task-dir cancel-task >/dev/null
 decide() { "$PY" -B "$DECISIONS" --repo "$DC" "$@"; }
 dlist() { decide list gift-note | field "$1"; }
-dfile=$DC/.git/lem/tasks/gift-note/decisions.jsonl
+dfile=$DC/.lem/state/tasks/gift-note/decisions.jsonl
 lead=$(decide log gift-note --what "The name of the new column" --chose gift_note --why "the other columns of the export are in snake case" --by lead --undo "rename the column" | field '(d["id"], d["kind"], d["by"], d["undo"])')
 nosaid=$(decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by personas 2>&1 || true)
 nostory=$(status_of decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by lead --story 2 --was "the old text")
@@ -20,7 +20,7 @@ personas=$(decide log gift-note --what "Two notes on one order" --chose "both no
 if [ "$lead" = "(1, 'taken', 'lead', 'rename the column')" ] \
   && [ "$personas" = "(2, 'personas', False, 'The merchant and the accountant both picked the semicolon.')" ] \
   && grep -qF -- "--by personas needs --said: who answered and what each picked" <<<"$nosaid" && [ "$nostory" = 2 ] \
-  && [ "$(grep -c '' "$dfile")" = 2 ] && [ "$(grep -c '"event": "decision.taken", "task": "gift-note"' "$DC/.git/lem/events.jsonl")" = 2 ]; then
+  && [ "$(grep -c '' "$dfile")" = 2 ] && [ "$(grep -c '"event": "decision.taken", "task": "gift-note"' "$DC/.lem/state/events.jsonl")" = 2 ]; then
   pass "a decision of the lead or of the personas is written down with its number, and each is an event too; the personas' one needs what they said, and a decision carries no story: a story's change has a record of its own"
 else
   fail "decisions.py log: $lead / $personas / $nosaid / $nostory / $(cat "$dfile")"
@@ -41,7 +41,7 @@ if grep -q "a choice has two options or more" <<<"$one" && grep -qF -- "--recomm
   && [ "$(field '(d["id"], d["wait_minutes"], "tell Lem that choice 3 of gift-note waits" in d["next"])' <<<"$asked")" = "(3, 15, True)" ] \
   && [ "$(field '(d["id"], d["irreversible"], "no timeout takes it" in d["next"], "tell Lem that choice 4 of gift-note waits" in d["next"], d["deadline"])' <<<"$forever")" = "(4, 'person', True, True, None)" ] \
   && [ "$(field '[(c["id"], c["state"], 900 - '"$((asked_to - asked_from))"' <= c["seconds_left"] <= 900 if c["seconds_left"] is not None else None) for c in d["waiting"]]' <<<"$waits")" = "[(3, 'waits', True), (4, 'waits', None)]" ] \
-  && [ "$everywhere" = "([('gift-note', 3), ('gift-note', 4)], [])" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.git/lem/events.jsonl")" = 2 ]; then
+  && [ "$everywhere" = "([('gift-note', 3), ('gift-note', 4)], [])" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.lem/state/events.jsonl")" = 2 ]; then
   pass "a choice for the owner has two options or more and recommends one of them; it waits the settings' 15 minutes, and pending lists each choice that waits with the seconds it has left, and none for a step no timeout takes"
 else
   fail "decisions.py ask and pending: $one / $notone / $asked / $forever / $waits / $everywhere"
@@ -55,14 +55,14 @@ unknown=$(decide ask gift-note --what "Which note wins" --case $'1. a\n2. b' --c
 nocause=$(decide ask gift-note --what "Which note wins" --case $'1. a\n2. b' --case-was derived "${two_options[@]}" 2>&1 || true)
 choice3() { decide pending gift-note | "$PY" -c 'import json, sys; print(next(c for c in json.load(sys.stdin)["waiting"] if c["id"] == 3)[sys.argv[1]])' "$1"; }
 project --repo "$DC" task-dir night-task >/dev/null
-printf '%s\n' 'Read SKILL_DIR/prompts/lead.md and follow it.' 'task: night-task' 'stop after the plan: yes' 'night: yes' > "$DC/.git/lem/tasks/night-task/brief.md"
+printf '%s\n' 'Read SKILL_DIR/prompts/lead.md and follow it.' 'task: night-task' 'stop after the plan: yes' 'night: yes' > "$DC/.lem/state/tasks/night-task/brief.md"
 at_night=$(decide ask night-task "${CASE[@]}" --what "Which note wins" "${two_options[@]}" 2>&1 || true)
 if grep -qF -- "--case is one concrete case that ends badly, in numbered steps, one to a line" <<<"$nocase" && grep -qF "this one has 0 numbered steps" <<<"$nocase" \
   && grep -qF "this one has 1 numbered step" <<<"$onestep" && grep -qF -- "--case-was says how the case is known: reproduced or derived" <<<"$unknown" \
   && grep -qF -- "--cause needs its text" <<<"$nocause" \
   && [ "$(choice3 case)" = "${CASE[1]}" ] && [ "$(choice3 case_was)" = derived ] && [ "$(choice3 cause)" = "${CASE[5]}" ] \
   && grep -qF "the brief of night-task says \`night: yes\`: nobody is there to answer at night" <<<"$at_night" && grep -qF "report.md under \"for the owner\"" <<<"$at_night" \
-  && [ ! -e "$DC/.git/lem/tasks/night-task/decisions.jsonl" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.git/lem/events.jsonl")" = 2 ]; then
+  && [ ! -e "$DC/.lem/state/tasks/night-task/decisions.jsonl" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.lem/state/events.jsonl")" = 2 ]; then
   pass "a choice for the owner carries one run above his card: its case in two numbered steps or more, kept line by line, whether it was reproduced or derived, and its cause; a choice without them is refused, and a night plan asks none, since nobody is there and no wait or expert takes a decision of his at night"
 else
   fail "the run of a choice and the night: $nocase / $onestep / $unknown / $nocause / $(choice3 case) / $at_night"
@@ -192,26 +192,26 @@ else
   fail "the choices of an ended task: $all_open / $one_ended / $waited / $took / $kept"
 fi
 # Nothing more is decided in a task that ended: a decision, a choice, an answer and the end of a wait are refused, with its state, and write nothing.
-ended_lines=$(cat "$DC/.git/lem/tasks/dropped-task/decisions.jsonl" "$DC/.git/lem/tasks/landed-task/decisions.jsonl" | grep -c '')
+ended_lines=$(cat "$DC/.lem/state/tasks/dropped-task/decisions.jsonl" "$DC/.lem/state/tasks/landed-task/decisions.jsonl" | grep -c '')
 late_log=$(decide log dropped-task --what "The name of the column" --chose gift_note --why "snake case" --by lead 2>&1 || true)
 late_ask=$(decide ask landed-task "${CASE[@]}" --what "The footer" --option "a footer" --option "none" --recommended "none" --why w --said s 2>&1 || true)
 late_answer=$(decide answer dropped-task 1 --chose "email nobody" 2>&1 || true)
-past "$DC/.git/lem/tasks/landed-task/decisions.jsonl" 1
+past "$DC/.lem/state/tasks/landed-task/decisions.jsonl" 1
 late_timeout=$(decide timeout landed-task 1 2>&1 || true)
 if grep -qF "dropped-task is dropped" <<<"$late_log" && grep -qF "landed-task is landed" <<<"$late_ask" && grep -qF "dropped-task is dropped" <<<"$late_answer" \
   && grep -qF "landed-task is landed" <<<"$late_timeout" && [ "$(status_of decide log dropped-task --what w --chose c --why y --by lead)" = 1 ] \
-  && [ "$(cat "$DC/.git/lem/tasks/dropped-task/decisions.jsonl" "$DC/.git/lem/tasks/landed-task/decisions.jsonl" | grep -c '')" = "$ended_lines" ]; then
+  && [ "$(cat "$DC/.lem/state/tasks/dropped-task/decisions.jsonl" "$DC/.lem/state/tasks/landed-task/decisions.jsonl" | grep -c '')" = "$ended_lines" ]; then
   pass "a dropped or landed task takes no new decision, choice, answer or timeout: each is refused with the task's state and writes nothing"
 else
   fail "a write to an ended task: $late_log / $late_ask / $late_answer / $late_timeout"
 fi
 # Text that is not UTF-8 is refused before anything is written: in an argument, and in the record itself.
-lines_before=$(grep -c '' "$DC/.git/lem/tasks/other-task/decisions.jsonl" 2>/dev/null || echo 0)
+lines_before=$(grep -c '' "$DC/.lem/state/tasks/other-task/decisions.jsonl" 2>/dev/null || echo 0)
 latin=$(decide log other-task --what $'caf\xe9' --chose a --why b --by lead 2>&1 || true)
 cp "$dfile" "$WORK/gift-record.kept" && printf 'caf\351\n' >> "$dfile"
 latin_record=$(decide list gift-note 2>&1 || true)
 cp "$WORK/gift-record.kept" "$dfile"
-if grep -qF "the argument b'caf\\xe9' is not UTF-8 text" <<<"$latin" && [ "$(grep -c '' "$DC/.git/lem/tasks/other-task/decisions.jsonl" 2>/dev/null || echo 0)" = "$lines_before" ] \
+if grep -qF "the argument b'caf\\xe9' is not UTF-8 text" <<<"$latin" && [ "$(grep -c '' "$DC/.lem/state/tasks/other-task/decisions.jsonl" 2>/dev/null || echo 0)" = "$lines_before" ] \
   && grep -qF "gift-note/decisions.jsonl is not UTF-8 text" <<<"$latin_record" && ! grep -q Traceback <<<"$latin$latin_record"; then
   pass "an argument that is not UTF-8 text is refused before it is written, and a record that holds such bytes is named"
 else
@@ -243,10 +243,10 @@ else
   fail "the owner's answer in the lead's brief and the stages: $(grep -n 'by owner' "$SKILLTEXT"/stages/*.md "$SKILLTEXT"/prompts/*.md)"
 fi
 # An answer and a timeout at one time: each reads the state inside the lock, so the record holds one outcome.
-rfile=$DC/.git/lem/tasks/race-task/decisions.jsonl
+rfile=$DC/.lem/state/tasks/race-task/decisions.jsonl
 decide ask race-task "${CASE[@]}" --what "The order of the rows" --option "by number" --option "by date" --recommended "by number" --why "It is the order of today." --said "The two personas split." >/dev/null
 past "$rfile" 1
-"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.git/lem/tasks/race-task/decisions.lock" > "$WORK/rlock.out" &
+"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.lem/state/tasks/race-task/decisions.lock" > "$WORK/rlock.out" &
 holder=$!
 soon test -s "$WORK/rlock.out"
 "$PY" -B "$DECISIONS" --repo "$DC" answer race-task 1 --chose "by date" > "$WORK/race-answer.out" 2>&1 &
@@ -263,7 +263,7 @@ else
   fail "an answer and a timeout at one time: $raced / $(cat "$rfile" "$WORK/race-answer.out" "$WORK/race-timeout.out")"
 fi
 # Two writers never take one number: while another process holds the lock, two writes wait, and then each gets its own.
-"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.git/lem/tasks/other-task/decisions.lock" > "$WORK/dlock.out" &
+"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$DC/.lem/state/tasks/other-task/decisions.lock" > "$WORK/dlock.out" &
 holder=$!
 soon test -s "$WORK/dlock.out"
 "$PY" -B "$DECISIONS" --repo "$DC" log other-task --what "first" --chose a --why b --by lead > "$WORK/dw1.out" 2>&1 &
@@ -271,7 +271,7 @@ w1=$!
 "$PY" -B "$DECISIONS" --repo "$DC" log other-task --what "second" --chose a --why b --by lead > "$WORK/dw2.out" 2>&1 &
 w2=$!
 sleep 2
-held=$(grep -c '' "$DC/.git/lem/tasks/other-task/decisions.jsonl" 2>/dev/null || true)
+held=$(grep -c '' "$DC/.lem/state/tasks/other-task/decisions.jsonl" 2>/dev/null || true)
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 wait "$w1" || true; wait "$w2" || true
 numbers=$(decide list other-task | field 'sorted(c["id"] for c in d)')

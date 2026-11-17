@@ -15,13 +15,13 @@ Verdicts: decided (a recorded ruling answers it; cite the file and heading), che
 test or a rule answers it; cite which), cheap (reversible and cheap, so an agent may decide; cite
 why), held (only the user can answer).
 
-The log is `decide-gate.jsonl` in Lem's folder of the repository's git directory (`.git/lem/`):
-never committed, shared by every worktree, and kept when a worktree and its run records are
-removed, so a week of comparisons outlives the plans that produced them. A log an older copy of
-this script kept in the git directory itself is moved there on the first call.
+The log is `decide-gate.jsonl` in Lem's state folder (`.lem/state/` of the main checkout, as
+`lem_state.py` names it): never committed, shared by every worktree, and kept when a worktree and
+its run records are removed, so a week of comparisons outlives the plans that produced them. A log
+an older copy of this script kept in the git directory itself is moved there on the first call.
 
 `dir` makes the folder for the question files and their cards and prints its path: `questions/`
-in Lem's folder of the git directory, so a question leaves no file in the working tree.
+in Lem's state folder, which git does not see, so a question leaves no file git shows.
 """
 
 # The macOS system python3 (3.9) may run this; it needs this for `str | None`.
@@ -33,6 +33,11 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+# Lem's scripts, beside this skill in the same plugin: `lem_state` is the one place that says where the state is.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lem" / "scripts"))
+import lem_state  # noqa: E402
 
 VERDICTS = ("decided", "checkable", "cheap", "held")
 
@@ -48,7 +53,10 @@ def log_path(repo: Path) -> Path:
         fail(f"{repo} is not inside a git repository")
     common = Path(done.stdout.strip())
     git_dir = (common if common.is_absolute() else repo / common).resolve()
-    path = git_dir / "lem" / "decide-gate.jsonl"
+    try:
+        path = lem_state.folder(repo) / "decide-gate.jsonl"
+    except lem_state.StateError as error:
+        fail(str(error))
     old = git_dir / "decide-gate.jsonl"
     if old.is_file() and not path.exists():
         # where an older copy kept it, outside the folder Lem's removal deletes: moved once, whole

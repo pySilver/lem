@@ -203,7 +203,7 @@ command `JEV_BIN` names; it reads `OPENROUTER_API_KEY`:
 - **waiting**: it waits on an outside event the item names;
 - **decided**: `worth: no`; never sent to Jev.
 
-The verdicts live in Lem's folder of the repository's git directory (`.git/lem/backlog-triage.json`),
+The verdicts live in Lem's state folder (`.lem/state/backlog-triage.json` of the main checkout),
 so they are never committed and every worktree shares them. Nothing runs on a timer:
 
 - After creating or editing an item, run `python3 ${CLAUDE_SKILL_DIR}/scripts/triage.py item <slug>`

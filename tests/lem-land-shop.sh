@@ -59,14 +59,14 @@ polish_in "$SHOP" first-change
 out=$(land --repo "$SHOP" gate first-change)
 tip=$(git -C "$SHOP/.lem/worktrees/first-change" rev-parse HEAD)
 if [ "$(field '(d["green"], [c["exit"] for c in d["commands"]], d["commands"][1]["last"])' <<<"$out")" = "(True, [0, 0], '7 passed')" ] \
-  && [ "$(kept first-change gated)" = "$tip" ] && [ "$(cat "$SHOP/.git/lem/tasks/first-change/gate/02.log")" = "7 passed" ] \
-  && [ "$(grep -c '"event": "gate", "task": "first-change"' "$SHOP/.git/lem/events.jsonl")" = 2 ]; then
+  && [ "$(kept first-change gated)" = "$tip" ] && [ "$(cat "$SHOP/.lem/state/tasks/first-change/gate/02.log")" = "7 passed" ] \
+  && [ "$(grep -c '"event": "gate", "task": "first-change"' "$SHOP/.lem/state/events.jsonl")" = 2 ]; then
   pass "gate runs every command with its output in a file, keeps the last line, logs each result and records the green tip"
 else
   fail "land gate: $out"
 fi
 if [ "$(field '(d["stories"]["ok"], [(t["story"], t["problem"]) for t in d["stories"]["tests"]], d["bar"], d["size"]["files"], d["size"]["in_parts"])' <<<"$out")" \
-  = "(True, [(1, None)], {'lowered': [], 'not_covered': [], 'own_patterns': 0}, 3, False)" ] && grep -q '"event": "task.red", "task": "first-change"' "$SHOP/.git/lem/events.jsonl"; then
+  = "(True, [(1, None)], {'lowered': [], 'not_covered': [], 'own_patterns': 0}, 3, False)" ] && grep -q '"event": "task.red", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
   pass "after the commands the gate proves each story's test on the branch and on the base commit, looks for a lowered bar and counts the size"
 else
   fail "the machine checks after the gate's commands: $out"
@@ -91,7 +91,7 @@ out=$(land --repo "$SHOP" read first-change --record "$(record 1 '{"kind": "read
 if grep -q "findings and no source that answered" <<<"$err" && grep -q ".kind. is one of read, round, full" <<<"$shape" \
   && grep -q "the record says attempt 2, and the next review of this task is attempt 1" <<<"$late" \
   && [ "$(field '(d["recorded"]["round"], d["recorded"]["kind"], d["recorded"]["verdict"], d["recorded"]["should"], d["next"])' <<<"$out")" = "(1, 'read', 'clean', 1, 'none')" ] \
-  && [ "$(grep -c '"event": "review", "task": "first-change"' "$SHOP/.git/lem/events.jsonl")" = 1 ] && [ "$(status_of land --repo "$SHOP" read first-change --record "$(clean 2)")" = 1 ]; then
+  && [ "$(grep -c '"event": "review", "task": "first-change"' "$SHOP/.lem/state/events.jsonl")" = 1 ] && [ "$(status_of land --repo "$SHOP" read first-change --record "$(clean 2)")" = 1 ]; then
   pass "a review is written down from a file, with its round, its kind, who answered and its counts; a record that does not have the form or the number of this review is refused, and a change that was reviewed clean is not reviewed again"
 else
   fail "recording a read: $err / $out"
@@ -99,16 +99,16 @@ fi
 printf '%s\n' '## Decisions' '' 'none' > "$WORK/thin.md"
 err=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" --notes "$WORK/thin.md" 2>&1 || true)
 out=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" --notes "$NOTES")
-text=$SHOP/.git/lem/tasks/first-change/pr.md
+text=$SHOP/.lem/state/tasks/first-change/pr.md
 if grep -q "the notes lack ## Left open, ## Worth a look, ## Filed in the backlog, ## Not done" <<<"$err" && [ "$(field '(d["pull_request"], d["green"], d["not_green"], d["branch"])' <<<"$out")" = "(None, True, [], 'fix/first-change')" ] \
-  && [ "$(status first-change)" = open ] && [ "$(kept first-change proposed)" = "$tip" ] && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -q '^green$' "$SHOP/.git/lem/tasks/first-change/state.md" \
+  && [ "$(status first-change)" = open ] && [ "$(kept first-change proposed)" = "$tip" ] && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -q '^green$' "$SHOP/.lem/state/tasks/first-change/state.md" \
   && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Stories|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
   && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | sed -n 3p)" = none ] && [ "$(head -1 "$text")" = '**Green.** The checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts.' ] \
   && grep -q '^> Put yes into ok.txt\.$' "$text" && grep -q '^1\. The file holds the word the owner asked for\.$' "$text" \
   && grep -q 'sh tests/first-change.sh.: passes on the branch, fails on the base commit' "$text" && grep -q '^- gate, .echo 7 passed.: 7 passed$' "$text" \
   && grep -q "^- the stories' tests: 1 pass on the branch and fail on the base commit$" "$text" && grep -q '^- the bar: not lowered$' "$text" \
   && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 1 should, 0 nit$' "$text" && grep -qxF -- "- careful: no; the review says no: $NOT_CAREFUL" "$text" && grep -q '^- the one line of the file\.$' "$text" \
-  && ! grep -q 'plan talk' "$text" && ! grep -q '"event": "plan.talk", "task": "first-change"' "$SHOP/.git/lem/events.jsonl"; then
+  && ! grep -q 'plan talk' "$text" && ! grep -q '"event": "plan.talk", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
   pass "with no forge the branch is marked ready: the task is open, and the text for the owner says green first, then holds his words, the stories with their tests, each check with what it returned, the decisions of the record (none here), then the notes; a plain request of one task needs no plan talk, and its text has no line of one"
 else
   fail "propose: $err / $out / $(cat "$text" 2>/dev/null)"
@@ -164,7 +164,7 @@ fi
 git -C "$SHOP" worktree remove "$SHOP/.lem/worktrees/first-change"
 out=$(land --repo "$SHOP" clean first-change)
 if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(False, 'fix/first-change')" ] && [ -z "$(git -C "$SHOP" branch --list fix/first-change)" ] \
-  && [ -d "$SHOP/.git/lem/tasks/first-change" ] && [ "$(field '(d["worktree"], d["branch"])' <<<"$(land --repo "$SHOP" clean first-change)")" = "(False, None)" ]; then
+  && [ -d "$SHOP/.lem/state/tasks/first-change" ] && [ "$(field '(d["worktree"], d["branch"])' <<<"$(land --repo "$SHOP" clean first-change)")" = "(False, None)" ]; then
   pass "clean removes the landed task's branch when its worktree is already gone, keeps the task's state, and a third run finds nothing left"
 else
   fail "land clean after the worktree went: $out"
@@ -255,10 +255,10 @@ fi
 err=$(land --repo "$SHOP" propose second-change --title "fix(app): both lines stay" --notes "$NOTES" 2>&1 || true)
 printf '%s\n' '' '## Migration' '' 'none' >> "$NOTES"
 land --repo "$SHOP" propose second-change --title "fix(app): both lines stay" --notes "$NOTES" >/dev/null
-text=$SHOP/.git/lem/tasks/second-change/pr.md
+text=$SHOP/.lem/state/tasks/second-change/pr.md
 if grep -q "^- no plan talk: the request became careful after its plan, by the owner's word$" "$text" \
   && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c 'plan talk')" = 1 ] && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] \
-  && ! grep -q '"event": "careful.missed", "task": "second-change"' "$SHOP/.git/lem/events.jsonl"; then
+  && ! grep -q '"event": "careful.missed", "task": "second-change"' "$SHOP/.lem/state/events.jsonl"; then
   pass "a request the owner called careful after its plan is proposed with no plan talk, its checks say in words that it had none and why, and that is no cause of not green"
 else
   fail "a request careful by the owner's later word: $(cat "$text" 2>/dev/null)"
@@ -316,8 +316,8 @@ if grep -q "the plan has 4 tasks, more than three, so its defender and the revie
   && grep -q "the event log has no .plan.talk. of four-tasks" <<<"$talkless" && [ "$(status four-tasks)" = landing ] \
   && grep -q "each N is a whole number, written with :=" <<<"$typed" && grep -q "and nothing else; this one has design, layer, questions, repaired, reviewer, root, settled, shared, turns, unargued" <<<"$missing" \
   && grep -qF "and nothing else; this one has bound, design," <<<"$self_bound" \
-  && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl" \
-  && [ "$(grep -c '"event": "plan.talk", "task": "second-change", "reviewer": "codex", "turns": 4' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
+  && ! grep -q '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.lem/state/events.jsonl" \
+  && [ "$(grep -c '"event": "plan.talk", "task": "second-change", "reviewer": "codex", "turns": 4' "$SHOP/.lem/state/events.jsonl")" = 1 ]; then
   pass "a plan of four tasks with no plan talk is not proposed, though another task's talk is in the log; a talk's event without its form is refused, the bound among its fields too, which the log adds itself, and nothing is written for it"
 else
   fail "a large request with no plan talk: $talkless / $typed / $missing / $self_bound"
@@ -349,8 +349,8 @@ if grep -qF "settled and open add up to questions" <<<"$lost" && grep -qF "desig
   && [ "$(field 'd["turns"], d["questions"], d["settled"], d["open"], d["bound"]' <<<"$quiet")" = "(2, 0, 0, 0, 2)" ] \
   && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$startless" && grep -qF "plan.talk.start takes reviewer=AGENT, and nothing else" <<<"$overstarted" \
   && [ "$(field 'd["event"], d["reviewer"]' <<<"$started")" = "('plan.talk.start', 'codex')" ] \
-  && [ "$(grep -c '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 5 ] \
-  && [ "$(grep -c '"event": "plan.talk.start", "task": "four-tasks"' "$SHOP/.git/lem/events.jsonl")" = 1 ]; then
+  && [ "$(grep -c '"event": "plan.talk", "task": "four-tasks"' "$SHOP/.lem/state/events.jsonl")" = 5 ] \
+  && [ "$(grep -c '"event": "plan.talk.start", "task": "four-tasks"' "$SHOP/.lem/state/events.jsonl")" = 1 ]; then
   pass "a talk's counts agree: each question of the list ends settled or open, a design choice is an open one, and a question gets one repair at most; a talk over its bound of 4 × questions + 2 turns, or with more decisions two questions named than design choices, is written as it ran, with the bound the log adds; a talk of no question and two turns has nothing raised after its list; the start of a talk names its reviewer and nothing else, and a refused record writes nothing"
 else
   fail "the counts of a plan talk: $lost / $undesigned / $overrepaired / $endless / $unshared / $bounded / $lone / $quiet_raised / $raised_late / $quiet / $startless / $overstarted / $started"
@@ -358,9 +358,9 @@ fi
 project --repo "$SHOP" log four-tasks plan.talk reviewer=claude turns:=3 questions:=1 settled:=1 open:=0 repaired:=0 design:=0 unargued:=0 root:=0 layer:=0 shared:=0 >/dev/null
 project --repo "$SHOP" log four-tasks plan.talk reviewer=codex turns:=23 questions:=5 settled:=4 open:=1 repaired:=3 design:=1 unargued:=2 root:=2 layer:=1 shared:=0 >/dev/null
 # the same event with one count more, which Lem has no words for: a count added to the event later needs no change of the landing
-"$PY" -c 'import json, sys; p = sys.argv[1]; talk = json.loads(open(p).read().splitlines()[-1]); talk["rounds"] = 2; open(p, "a").write(json.dumps(talk) + "\n")' "$SHOP/.git/lem/events.jsonl"
+"$PY" -c 'import json, sys; p = sys.argv[1]; talk = json.loads(open(p).read().splitlines()[-1]); talk["rounds"] = 2; open(p, "a").write(json.dumps(talk) + "\n")' "$SHOP/.lem/state/events.jsonl"
 out=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES")
-text=$SHOP/.git/lem/tasks/four-tasks/pr.md
+text=$SHOP/.lem/state/tasks/four-tasks/pr.md
 if [ "$(field 'd["green"]' <<<"$out")" = True ] && [ "$(status four-tasks)" = open ] \
   && grep -qxF -- "- the plan talk: codex argued the plan with its defender, 23 turns, over the bound of 22 for its 5 questions; 4 positions settled by the two, 1 left open; 5 questions in the reviewer's first list, 3 repaired by the defender, 1 of the open ones a design choice, 2 raised after the list and not argued, 2 repaired at the cause, 1 layer over a cited decision, 0 decisions two questions named, rounds: 2" "$text" \
   && [ "$(grep -c 'plan talk' "$text")" = 1 ] && grep -qxF -- "- careful: no; the review says no: $NOT_CAREFUL" "$text"; then
@@ -382,15 +382,15 @@ if grep -q "the plan says that the request is careful, so its defender and the r
   && grep -q "the event log has no .plan.talk. of careful-plan. The defender writes it after the talk" <<<"$talkless" \
   && grep -qF "project.py log careful-plan plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N\`" <<<"$talkless" \
   && grep -qF "for a plan that had no talk, Lem opens the companion first, as for \`needs a session\`" <<<"$talkless" \
-  && [ ! -f "$SHOP/.git/lem/tasks/careful-plan/pr.md" ] && [ "$(status careful-plan)" = landing ]; then
+  && [ ! -f "$SHOP/.lem/state/tasks/careful-plan/pr.md" ] && [ "$(status careful-plan)" = landing ]; then
   pass "a request whose plan says careful is not proposed while its event log has no plan talk, and the refusal names the plan stage's step, the companion Lem opens for the talk, and the event its defender writes in the form project.py takes"
 else
   fail "a careful plan with no plan talk: $talkless"
 fi
 # an event of the older form, with no counts but the turns and the positions, as a log written before the counts holds it
-printf '%s\n' '{"ts": "2026-11-15T10:00:00Z", "event": "plan.talk", "task": "careful-plan", "reviewer": "codex", "turns": 6, "settled": 2, "open": 1}' >> "$SHOP/.git/lem/events.jsonl"
+printf '%s\n' '{"ts": "2026-11-15T10:00:00Z", "event": "plan.talk", "task": "careful-plan", "reviewer": "codex", "turns": 6, "settled": 2, "open": 1}' >> "$SHOP/.lem/state/events.jsonl"
 land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" >/dev/null
-text=$SHOP/.git/lem/tasks/careful-plan/pr.md
+text=$SHOP/.lem/state/tasks/careful-plan/pr.md
 if [ "$(grep 'plan talk' "$text" || true)" = "- the plan talk: codex argued the plan with its defender, 6 turns; 2 positions settled by the two, 1 left open" ] \
   && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c 'plan talk')" = 1 ] && grep -qxF -- "- careful: yes, the plan says so; the review says no: $NOT_CAREFUL" "$text" \
   && [ "$(status careful-plan)" = open ]; then
@@ -408,15 +408,15 @@ checked bug-cause && read_clean bug-cause && propose bug-cause
 open_task question-cause eight.txt eight
 project --repo "$SHOP" log question-cause investigation kind=investigation call=answer "line=the export reads the totals of the night before" >/dev/null
 checked question-cause && read_clean question-cause && propose question-cause
-text=$SHOP/.git/lem/tasks/bug-cause/pr.md
+text=$SHOP/.lem/state/tasks/bug-cause/pr.md
 if grep -qxF -- "- the cause, as the investigation before the build found it: the total adds the refund as a payment (billing/invoice.py:total)" "$text" \
   && ! grep -qF "$SHOP" "$text" \
   && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c '^- the cause, as the investigation')" = 1 ] \
-  && ! grep -q 'the cause, as the investigation' "$SHOP/.git/lem/tasks/question-cause/pr.md" \
-  && ! grep -q 'the cause, as the investigation' "$SHOP/.git/lem/tasks/careful-plan/pr.md"; then
+  && ! grep -q 'the cause, as the investigation' "$SHOP/.lem/state/tasks/question-cause/pr.md" \
+  && ! grep -q 'the cause, as the investigation' "$SHOP/.lem/state/tasks/careful-plan/pr.md"; then
   pass "a request that came from a bug names in its checks the cause its investigation found, with its place and no path of this machine; one after a question's answer, or with no investigation, has no such line"
 else
-  fail "the cause of a bug in the text: $(cat "$text" 2>/dev/null) / $(grep 'cause' "$SHOP/.git/lem/tasks/question-cause/pr.md" 2>/dev/null)"
+  fail "the cause of a bug in the text: $(cat "$text" 2>/dev/null) / $(grep 'cause' "$SHOP/.lem/state/tasks/question-cause/pr.md" 2>/dev/null)"
 fi
 project --repo "$SHOP" state bug-cause dropped "the test is over" >/dev/null
 project --repo "$SHOP" state question-cause dropped "the test is over" >/dev/null
@@ -530,14 +530,14 @@ land --repo "$SHOP" gate not-clean >/dev/null
 third=$(land --repo "$SHOP" read not-clean)
 fourth=$(land --repo "$SHOP" read not-clean --record "$(record 3 '{"kind": "round", "ran": [{"name": "correctness", "why": "a file of the app changes"}], "answered": ["codex"]}')" 2>&1 || true)
 proposed=$(land --repo "$SHOP" propose not-clean --title "fix: not-clean" --notes "$NOTES")
-text=$SHOP/.git/lem/tasks/not-clean/pr.md
+text=$SHOP/.lem/state/tasks/not-clean/pr.md
 agent=$(land --repo "$SHOP" land not-clean --by agent 2>&1 || true)
 why="two rounds reviewed it: the last one left 1 must-fix, and nobody reviewed what changed after it"
 if [ "$(field '(d["due"], d["floor"], d["why"])' <<<"$out")" = "('review', 'round', 'an earlier review found a must-fix: after its fix a round reviews the change')" ] && grep -q "this change gets a review round with the profiles that fit at the least" <<<"$again" \
   && [ "$(field '(d["due"], d["why"])' <<<"$third")" = "('owner', '$why')" ] && grep -q "no review is due: two rounds reviewed it" <<<"$fourth" \
   && [ "$(field '(d["green"], d["not_green"])' <<<"$proposed")" = "(False, ['$why'])" ] && [ "$(kept not-clean title)" = "fix: not-clean" ] \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] && [ "$(sed -n 3p "$text")" = "- $why" ] && grep -q '^  - left out security: no input from outside is read$' "$text" \
-  && grep -q "^not green: $why$" "$SHOP/.git/lem/tasks/not-clean/state.md" \
+  && grep -q "^not green: $why$" "$SHOP/.lem/state/tasks/not-clean/state.md" \
   && grep -q "the request is not green ($why), so a person merges it" <<<"$agent"; then
   pass "a usual request with a must-fix gets a round after its fix, with each profile it ran or left out and why; after two rounds no third is taken, the request is proposed as not green, which its first lines say with the reason, and no agent merges it"
 else
@@ -578,7 +578,7 @@ brought_floor=$(land --repo "$FG" read set-up-checks | field '(d["floor"], d["wh
 land --repo "$FG" read set-up-checks --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks come with it"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
 land --repo "$FG" propose set-up-checks --title "chore: the checks" --notes "$MIG" >/dev/null 2>&1 || true
 brought_agent=$(land --repo "$FG" land set-up-checks --by agent 2>&1 || true)
-text=$FG/.git/lem/tasks/set-up-checks/pr.md
+text=$FG/.lem/state/tasks/set-up-checks/pr.md
 FG2=$WORK/kept-gate
 git init -q -b main "$FG2" && ident "$FG2"
 project --repo "$FG2" init --base main >/dev/null
@@ -601,8 +601,8 @@ if [ "$(status_in "$FG" set-up-checks)" = open ] && ! grep -q "no gate command" 
   && grep -qF "a careful request is merged by a person, whatever the settings say ($gate_why)" <<<"$brought_agent" \
   && [ "$brought_floor" = "('full', \"the request is careful: $gate_why\")" ] && [ "$kept_floor" = "('full', \"the request is careful: $gate_why\")" ] \
   && [ "$(field '[(c["command"], c["last"]) for c in d["commands"]]' <<<"$kept_gate" 2>/dev/null)" = "[('echo main passed', 'main passed')]" ] \
-  && [ "$(sed -n 1p "$FG2/.git/lem/tasks/other-checks/pr.md" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
-  && grep -qxF -- "- careful: yes, $gate_why; the review says no: $NOT_CAREFUL" "$FG2/.git/lem/tasks/other-checks/pr.md"; then
+  && [ "$(sed -n 1p "$FG2/.lem/state/tasks/other-checks/pr.md" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
+  && grep -qxF -- "- careful: yes, $gate_why; the review says no: $NOT_CAREFUL" "$FG2/.lem/state/tasks/other-checks/pr.md"; then
   pass "a first task that brings the gate on its own branch, while the main checkout's settings have none, is gated by it and is not green for it; a branch that changes a gate the main checkout has is gated by the main checkout's; either is careful by the script, which says why, so it gets the full set and a person merges it"
 else
   fail "a gate that comes with the change: $brought_start / $brought_gate / $brought_floor / $brought_agent / $kept_gate / $kept_floor / $(cat "$text" 2>/dev/null)"

@@ -37,8 +37,11 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
                                     gets no lead
     project.py state-dir            the folder that holds every task, the event log and the night reports
 
-Task state is kept inside the git directory every worktree shares: it is never committed, a
-worktree's removal does not take it, and a session that replaces another finds it.
+Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py` names for
+every script: every worktree writes there, git never tracks it, a worktree's removal does not take
+it, and a session that replaces another finds it. A state folder an older Lem kept in the git
+directory (`.git/lem/`) is moved there by the first script that reads it, which says so in one
+line on stderr.
 
 An ended task stays ended. `state` refuses a move out of `landed`, `answered` or `dropped` (the
 same status again is taken), so that a stale wake-up, a lead that finished after a later step,
@@ -137,6 +140,11 @@ import subprocess
 import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
+
+# The one place that says where the state is, shared with the scripts that cannot import this file.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lem_state  # noqa: E402
 
 # A role a developer may give to a tool of their own -> the tool Lem uses for it unless the
 # settings say otherwise. The one place that names each. `lem-ask` comes with Lem; `webrev` is a
@@ -762,11 +770,13 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
     file.parent.mkdir(exist_ok=True)
     agent = f'agent = "{reviewer}"' if reviewer else '# agent = "codex"'
     file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, **TOOLS), encoding="utf-8")
-    # one machine's own settings are never committed
+    # one machine's own settings and Lem's state are never committed (the state folder hides itself
+    # too, for a repository whose ignore file is older than it)
     ignore = file.parent / ".gitignore"
     known = text_of(ignore).splitlines() if ignore.is_file() else []
-    if LOCAL.name not in known:
-        ignore.write_text("\n".join([*known, LOCAL.name]) + "\n", encoding="utf-8")
+    missing = [line for line in (LOCAL.name, f"{lem_state.STATE.name}/") if line not in known]
+    if missing:
+        ignore.write_text("\n".join([*known, *missing]) + "\n", encoding="utf-8")
     print(file)
 
 
@@ -986,12 +996,17 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
     print(json.dumps({"styleguide": str(folder), "exists": folder.is_dir(), "folders": [str(one) for one in folders], "files": changed, "rules": rules}, indent=2))
 
 
+STATE_ROOTS: dict[Path, Path] = {}
+
+
 def state_root(root: Path) -> Path:
-    """The folder task state lives in: inside the git directory every worktree shares."""
-    common = subprocess.run(
-        ["git", "-C", str(root), "rev-parse", "--git-common-dir"], capture_output=True, text=True, check=True,
-    ).stdout.strip()
-    return (root / common).resolve() / "lem"
+    """The folder task state lives in, `.lem/state/` of the main checkout, as `lem_state` says; asked once a run."""
+    if root not in STATE_ROOTS:
+        try:
+            STATE_ROOTS[root] = lem_state.folder(root)
+        except lem_state.StateError as error:
+            raise SettingsError(str(error)) from error
+    return STATE_ROOTS[root]
 
 
 def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> None:
@@ -1600,7 +1615,6 @@ def main() -> None:
             cmd_ticket_step(root, args.slug, args.step)
             return
         if args.command == "state-dir":
-            state_root(root).mkdir(exist_ok=True)
             print(state_root(root))
             return
         settings = load(root)

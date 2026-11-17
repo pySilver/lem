@@ -14,7 +14,7 @@ printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = [
 git -C "$SMALL" add -A && git -C "$SMALL" commit -q -m "chore: start"
 s() { land --repo "$SMALL" "$@"; }
 stories() { "$PY" -B "$STORIES" --repo "$SMALL" "$@"; }
-dir_of() { echo "$SMALL/.git/lem/tasks/$1"; }
+dir_of() { echo "$SMALL/.lem/state/tasks/$1"; }
 # small_in SLUG KIND: a task whose one story is in its task directory, approved as Lem does it for KIND
 # (`correction` in his name, `feature` by him), with a worktree on its branch and no plan on it
 small_in() {
@@ -33,7 +33,7 @@ built() {
   printf '%s\n' "   - test: \`sh tests/$1.sh\` in \`tests/$1.sh\`" >> "$(dir_of "$1")/stories.md"
   project --repo "$2" state "$1" ready "the small change is built" >/dev/null
 }
-reds() { grep -c "\"event\": \"task.red\", \"task\": \"$1\"" "$SMALL/.git/lem/events.jsonl"; }
+reds() { grep -c "\"event\": \"task.red\", \"task\": \"$1\"" "$SMALL/.lem/state/events.jsonl"; }
 SHORT=$WORK/short-notes.md
 printf '%s\n' 'none' > "$SHORT"
 
@@ -65,7 +65,7 @@ else
 fi
 
 # The landing logs the start of the checks and of the review itself, so that each has a span: the review's once for its attempt, however often read is asked.
-events_of() { "$PY" -c 'import json, sys; print([(e["event"], {k: v for k, v in e.items() if k in ("tip", "commands", "attempt", "floor")}) for e in map(json.loads, open(sys.argv[1])) if e["task"] == sys.argv[2] and e["event"] in ("gate.start", "gate", "review.start", "review")])' "$SMALL/.git/lem/events.jsonl" "$1"; }
+events_of() { "$PY" -c 'import json, sys; print([(e["event"], {k: v for k, v in e.items() if k in ("tip", "commands", "attempt", "floor")}) for e in map(json.loads, open(sys.argv[1])) if e["task"] == sys.argv[2] and e["event"] in ("gate.start", "gate", "review.start", "review")])' "$SMALL/.lem/state/events.jsonl" "$1"; }
 tip=$(git -C "$SMALL" rev-parse --short=9 main)
 if [ "$(events_of date-nowrap)" = "[('gate.start', {'tip': '$tip', 'commands': 1}), ('gate', {'tip': '$tip'}), ('review.start', {'attempt': 1, 'floor': 'read'}), ('review', {'attempt': 1, 'tip': '$tip'})]" ]; then
   pass "gate logs gate.start with the tip and the count of its commands before the first runs, and read logs review.start once for the attempt that is due, before the review's record"
@@ -94,7 +94,7 @@ text=$(dir_of date-outside)/pr.md
 if grep -qF "a small change has no polish pass" <<<"$no_polish" && grep -qF "\`land.py gate date-outside\`" <<<"$no_polish" \
   && [ "$outside_gate" = "(True, True, [], ['date-outside.css', '$item'])" ] && [ "$outside_due" = "('none', [])" ] && [ "$outside_green" = True ] \
   && grep -qxF -- "- filed in the backlog by the builder: \`$item\`" "$text" && ! grep -q 'polish' "$text" \
-  && ! grep -q "\"event\": \"polish.start\", \"task\": \"date-outside\"" "$SMALL/.git/lem/events.jsonl"; then
+  && ! grep -q "\"event\": \"polish.start\", \"task\": \"date-outside\"" "$SMALL/.lem/state/events.jsonl"; then
   pass "a small change whose builder filed a defect outside it in its own commit has no polish pass, which refuses to start: the gate, the stories' check and the bar pass with the item, the read covers it, and the pull request lists it"
 else
   fail "a small change with an item of its builder: $no_polish / $outside_gate / $outside_due / $outside_green / $(cat "$text" 2>/dev/null)"

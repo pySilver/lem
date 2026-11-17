@@ -419,14 +419,14 @@ from it by hand. Say that in one line, and do not edit the file: it is the owner
 
 - It needs Python 3.11 or newer as `python3`. Under an older one it judges nothing, and says so
   in its log. It finds `python3` and `git` on the hook's `PATH`, as any hook does; with no `git`
-  there it queues nothing and has nowhere to say so, since its log is in the git directory. The
+  there it queues nothing and has nowhere to say so, since git names its state folder. The
   model's client is Lem's own `jev.py`, run by its path. It needs `OPENROUTER_API_KEY` in the
   environment Claude Code starts with.
 - It prints nothing and does not wait for the model: a detached copy asks it. The hook's own two
   waits, for its input and for each of its git calls, end after two seconds each, a bound chosen by guess
   on 2026-11-15. The `timeout` of 10 seconds in `hooks/hooks.json` is the value its source ran with in one
   repository since 2026-11-07; it is not a measurement.
-- What fails goes to `corrections.log` in Lem's folder of the git directory, and
+- What fails goes to `corrections.log` in Lem's state folder (`.lem/state/`), and
   `corrections.py list` counts it.
 - The yes is a line of the tracked settings, which a task's branch and the owner's review carry
   like any other change. A hook that sends the owner's messages to an outside service is his to
