@@ -137,6 +137,7 @@ With `moves = "tracker"`, Lem moves no ticket, and `started` and `landed` must b
 ## `.lem/project.local.toml`
 
 This file is for one computer. Git does not track it, and Lem reads it from the main checkout.
+A change that puts this file into git is careful, and a person merges it.
 
 - It can hold `[seats]`, `[tools]` and `[corrections]`, and no other table.
 - A seat here replaces the seat of the project for this computer. `/lem reviewer` writes the

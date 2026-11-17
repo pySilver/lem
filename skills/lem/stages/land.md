@@ -267,7 +267,8 @@ one finds what the run before it finished.
    project's `AGENTS.md` adds for a removed worktree (a test database, a container), and close
    the plan talk's companion when one is still open.
 
-Every way out of this stage writes a state other than `landing`: `open`, `landed` or `blocked`.
+Every way out of this stage writes a state other than `landing`: `open`, `landed` or `blocked`,
+or `held` for a small change that step 4 found to be a feature, whose interview starts with it.
 
 The brief for each builder of this stage is these lines and nothing more. Its standing text is
 `prompts/landing.md`, so that you do not say a step again in your own words:

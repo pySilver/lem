@@ -23,7 +23,7 @@ does not take the task to its report.
    `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE approved
    SLUG` gives the stories he approved: they are the plan's stories word for word, and only a
    change with its own record changes one (`decisions.py story`, `stages/build.md`, "A choice
-   in the build"). When the status is `ready`, `landing`,
+   in the build"). When the status is `ready`, `landing`, `open`,
    `landed`, `answered` or `dropped`, say so and stop: there is nothing to lead. When the task directory holds
    a `report.md`, a `decisions.jsonl` or a longer `state.md`, a lead before you stopped: read the
    report, the state, `python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE list SLUG` and the

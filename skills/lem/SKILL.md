@@ -183,8 +183,8 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   at the least. The lead writes its call and the one sentence of why into the plan, its state and
   its report, and the owner may overrule a "no" at any time before the landing. The `[flow]`
   table is read from the main checkout's settings, also in a task's worktree, so a branch
-  cannot lift what guards it, and a change that edits `.lem/project.toml` at all is careful by
-  the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
+  cannot lift what guards it, and a change that edits `.lem/project.toml` at all, or puts the
+  machine's own `.lem/project.local.toml` into git, is careful by the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
   as what is careful and what the gate runs, and a task rarely edits it.
 - **Only so many tasks build or land at one time.** `project.py may-start SLUG` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
@@ -273,7 +273,10 @@ python3 SKILL_DIR/scripts/project.py state SLUG STATUS "one line" ["a further li
 ```
 
 It puts a block at the top of `state.md` with the clock's time. Write one at every stage boundary
-and before you stop. The status says who acts next:
+and before you stop. It refuses a move out of an ended state, and a lead's state (`queued`,
+`building`, `planned`, `ready`, `drafted`) over a task in `landing` or `open`: such a write is a
+lead that woke late. A landing that must start over is the one case, and `land.py` gives its
+command when it is one. The status says who acts next:
 
 | Status | Means | Who acts |
 | --- | --- | --- |

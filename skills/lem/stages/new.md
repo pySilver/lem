@@ -624,7 +624,8 @@ Act on the status:
 - **`landing`, `open`, `landed`, `answered` or `dropped`**: the task went on, or ended, without
   this lead, and the reply is a stale wake-up (a lead that finished after a later step, a
   message that came late). Do nothing for it: no state, no lead. An ended task stays ended,
-  `project.py state` refuses a move out of `landed`, `answered` or `dropped`, and `may-start`
+  `project.py state` refuses a move out of `landed`, `answered` or `dropped` and a lead's state
+  over a task in `landing` or `open`, and `may-start`
   refuses a lead for a task in `landing`, `open` or an ended state. New work for it is a new
   ask (`/lem new`), with a slug of its own.
 

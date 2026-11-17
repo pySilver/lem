@@ -460,7 +460,11 @@ is the session's, and open to him.
   (audit findings S1 and W2) and the review read the main checkout's table, and `land.py` reads
   every setting from the main checkout wherever it runs. A change whose diff edits
   `.lem/project.toml`, in any table, is careful by the script: the one rule that is a match and
-  not a judgment, because the file is Lem's own.
+  not a judgment, because the file is Lem's own. The same holds for a diff that puts the
+  machine's own `.lem/project.local.toml` into git (the second audit, N5). And a task in
+  `landing` or `open` takes no state of a lead (`queued`, `building`, `planned`, `ready`,
+  `drafted`): a lead that woke late wrote `ready` over an open task and its landing ran again
+  (N1). `ready --start-over` is the one way back, and only `land.py`'s messages name it.
 - **The size of a change decides its path** (2026-11-17), under his "Lem should not make simple
   things complicated, otherwise developers will get frustrated so often they will stop using
   Lem" and, of a polish agent with nothing to do on a typo, "That is exactly one of the cases

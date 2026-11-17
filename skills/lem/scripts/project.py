@@ -187,7 +187,7 @@ SEATS = {
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 # What a task's newest state block may say, and who acts next:
-#   queued    the ask is written and no lead runs yet: the limit was reached
+#   queued    the ask is written and no lead runs yet: the limit was reached, or its `after:` line names the task it needs
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
 #   held      it waits for the owner on what is no decision with options: the stories, one more fact, a
