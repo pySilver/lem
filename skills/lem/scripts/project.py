@@ -784,8 +784,8 @@ def flow_of(raw: dict, name: Path) -> dict:
 
 def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str) -> dict:
     """One seat, `agent/model:effort`, as its parts: the agent, the model and the effort, each None
-    when the line leaves it out, and the line as written. The effort is what follows the last `:`
-    after the model, or after the agent when the line names no model."""
+    when the line leaves it out, and the line as written. The effort is what follows the one `:`
+    after the model, or after the agent when the line names no model; a second `:` is refused."""
     form = f'one string, "{SEAT_FORM}", as "{example}"; the effort, or the model and the effort, may be left out'
     if not isinstance(text, str):
         raise SettingsError(f"{where} = {text!r} must be {form}")
@@ -793,9 +793,11 @@ def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, exam
         raise SettingsError(f"{where} is empty: it is {form}. Leave the line out for Lem's default")
     if any(char.isspace() for char in text):
         raise SettingsError(f"{where} = {text!r} holds a space: it is {form}, with no space in it")
+    if text.count(":") > 1:
+        raise SettingsError(f"{where} = {text!r} holds {text.count(':')} `:`, and a seat has one at most, before the effort: it is {form}")
     agent, slash, rest = text.partition("/")
     if slash:
-        model, colon, effort = rest.rpartition(":") if ":" in rest else (rest, "", "")
+        model, colon, effort = rest.partition(":")
     else:
         agent, colon, effort = agent.partition(":")
         model = None

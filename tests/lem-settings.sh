@@ -209,6 +209,19 @@ if [ -z "$refused" ] && grep -qF "names no effort after the \`:\`" <<<"$no_effor
 else
   fail "seat refusals:$refused / $no_effort / $planner_codex"
 fi
+# A seat has one `:` at most: a second one is refused, by the reviewer command and in a settings file, and nothing is written.
+settings '[branch]' 'base = "master"'
+two_colons=$(project --repo "$OLD" reviewer claude/opus:high:max 2>&1 || true)
+two_code=$(status_of project --repo "$OLD" reviewer claude/opus:high:max)
+settings '[seats]' 'reviewer = "codex:high:max"'
+two_in_file=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$two_code" = 1 ] && grep -qF "the reviewer = 'claude/opus:high:max' holds 2 \`:\`, and a seat has one at most, before the effort" <<<"$two_colons" \
+  && ! grep -qsF "opus:high" "$OLD/.lem/project.local.toml" && [ "$(status_of project --repo "$OLD" show)" = 1 ] \
+  && grep -qF "seats.reviewer = 'codex:high:max' holds 2 \`:\`, and a seat has one at most" <<<"$two_in_file"; then
+  pass "a seat with two colons is refused, by reviewer and in a settings file, naming the colons, and reviewer writes nothing"
+else
+  fail "a seat with two colons: $two_colons / $two_in_file"
+fi
 # The tables of an older Lem are refused with the one line that says the same now.
 settings '[seats.reviewer]' 'agent = "codex"' 'model = "gpt-6.1-sol"' 'effort = "xhigh"' 'plan_effort = "high"'
 old_reviewer=$(project --repo "$OLD" show 2>&1 || true)
