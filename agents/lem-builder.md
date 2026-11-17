@@ -20,8 +20,7 @@ Your brief gives you one of seven jobs:
 - **It names `prompts/small.md`: you make one small change**, the one task of a request that has
   no plan. Read that file and follow it: it gives the test, the check of the whole suite, the
   filing of each defect outside the change and the report in place of rules 3, 4, 6 and 9 below,
-  and the check before you commit that sends the request to the feature path when it is not
-  small.
+  and the check before you commit that makes the request a full change when it is not small.
 - **It names `prompts/review.md`: you review one task's change** and change nothing. Read that
   file and follow it; rules 3 to 6 below are about a builder that edits, which you are not here.
 - **It names `prompts/scout.md`: you read the code around a request** while Lem interviews the

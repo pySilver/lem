@@ -78,8 +78,8 @@ one finds what the run before it finished.
    the pull request's checks say how many commits it made and how many items it filed.
    The pass runs once for a task, here, and never after each task of a plan; a builder of a
    later job of this landing has the same list in its brief. So when the landing comes back
-   here from a later step and `land.py polish` prints `"done": true`, go on to step 4. `gate` refuses a feature with no
-   pass on the tip it checks. A small change never has the pass, and `land.py polish` refuses
+   here from a later step and `land.py polish` prints `"done": true`, go on to step 4. `gate` refuses a full change with
+   no pass on the tip it checks. A small change never has the pass, and `land.py polish` refuses
    one: one builder changed one rule, its own checks ran, the review reads every line of it, and
    its builder filed each defect it saw outside the change in a commit of its own, which the pull
    request lists. In the first real small change, a polish pass started a second builder only
@@ -91,7 +91,7 @@ one finds what the run before it finished.
    it the write, its reply holds the report's text instead, and you write `report.md` from it
    word for word.
 4. **`gate`: the machine checks**, with no model in them, on the tip that will be proposed.
-   - The polish pass is on that tip (step 3): the step refuses a feature without one before any
+   - The polish pass is on that tip (step 3): the step refuses a full change without one before any
      command runs.
    - Every command of the settings' `gate.commands` runs at the root of the task's worktree,
      each with its output in a file of the task directory. The step keeps the exact last line of
@@ -106,8 +106,9 @@ one finds what the run before it finished.
      test, no fewer assertions in a test file. A lowered bar passes only with a reason for that
      file in the plan, under `## The bar`, as `- PATH: REASON`; and then the request is not
      green (step 6), because the owner reads that line himself. A small change has no plan for
-     the reason, and the step refuses its lowered bar: it is a feature, and you tell the owner so
-     in one line and take the feature path, as `stages/new.md` says for "A small change", step 3.
+     the reason, and the step refuses its lowered bar: it is a full change, and you tell the
+     owner so in one line and go on with an interview, as `stages/new.md` says for "A small
+     change", step 3.
    - The size of the change is counted, for the review.
 
    A check that fails is work, and a builder's: `spawn-builder` with the brief below, the job
@@ -268,7 +269,7 @@ one finds what the run before it finished.
    the plan talk's companion when one is still open.
 
 Every way out of this stage writes a state other than `landing`: `open`, `landed` or `blocked`,
-or `held` for a small change that step 4 found to be a feature, whose interview starts with it.
+or `held` for a small change that step 4 found to be a full change, whose interview starts with it.
 
 The brief for each builder of this stage is these lines and nothing more. Its standing text is
 `prompts/landing.md`, so that you do not say a step again in your own words:

@@ -237,7 +237,16 @@ if git cat-file -e "ccba3bd^{commit}" 2>/dev/null; then
   git -C "$GXS" add -A && git -C "$GXS" commit -q -m "chore: start" && git -C "$GXS" push -q origin main
   (
     PROJECT=$OLDLEM/skills/lem/scripts/project.py STORIES=$OLDLEM/skills/lem/scripts/stories.py
-    small_task_in "$GXS" old-pr o.txt twelve
+    # the small change as the scripts of that commit wrote it: `Kind: correction` and --correction
+    directory=$(project --repo "$GXS" task-dir old-pr --ask "Put twelve into o.txt.")
+    printf '%s\n' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$directory/stories.md"
+    "$PY" -B "$STORIES" --repo "$GXS" approve old-pr --file "$directory/stories.md" --correction >/dev/null
+    printf '%s\n' "   - test: \`sh tests/old-pr.sh\` in \`tests/old-pr.sh\`" >> "$directory/stories.md"
+    tree=$(project --repo "$GXS" worktree-dir old-pr)
+    git -C "$GXS" worktree add -q "$tree" -b fix/old-pr main
+    mkdir -p "$tree/tests" && printf '%s\n' twelve > "$tree/o.txt" && echo "grep -qx twelve o.txt" > "$tree/tests/old-pr.sh"
+    git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: old-pr"
+    project --repo "$tree" state old-pr ready "the small change is built" >/dev/null
     ox() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gx.json" GH_ORIGIN="$GXO" "$PY" -B "$OLDLEM/skills/lem/scripts/land.py" --repo "$GXS" "$@"; }
     ox start old-pr >/dev/null && ox base old-pr >/dev/null && ox gate old-pr >/dev/null && ox read old-pr --record "$(clean 1)" >/dev/null
     ox propose old-pr --title "fix: twelve" --notes "$NOTES" >/dev/null

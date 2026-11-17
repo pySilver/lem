@@ -23,7 +23,7 @@ git -C "$LOCAL" add -A && git -C "$LOCAL" commit -q -m "chore: start"
 local_land() { land --repo "$LOCAL" "$@"; }
 task_in "$LOCAL" local-change x.txt x
 # A story that changed during the build is written down by the build, as a record of its own with its text before and after; the text shows it, and a person merges.
-printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word y.' > "$WORK/local-approved.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word y.' > "$WORK/local-approved.md"
 "$PY" -B "$STORIES" --repo "$LOCAL" approve local-change --file "$WORK/local-approved.md" >/dev/null 2>&1 || true
 "$PY" -B "$DECISIONS" --repo "$LOCAL" story local-change --changed 1 --was "The file holds the word y." --now "The file holds the word the owner asked for." \
   --why "y is taken by another file." --by personas --said "Both personas picked x." >/dev/null 2>&1 || true
@@ -148,7 +148,7 @@ project --repo "$LOCAL" state expert-change dropped "the test is over" >/dev/nul
 # checks hold one line on the personas' read of the stories, from its event, with his approval.
 lstories() { "$PY" -B "$STORIES" --repo "$LOCAL" "$@"; }
 ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
-# polish_local SLUG: a polish pass that finds nothing to change, as a feature's gate needs one
+# polish_local SLUG: a polish pass that finds nothing to change, as a full change's gate needs one
 polish_local() { polish_in "$LOCAL" "$1"; }
 # to_open SLUG: the machine steps with a polish pass, a clean read and the proposal of a task of the local repository
 to_open() {
@@ -158,13 +158,13 @@ to_open() {
 approved_day() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["at"][:10])' "$LOCAL/.lem/state/tasks/$1/stories.json" 2>/dev/null || true; }
 task_in "$LOCAL" story-departs d.txt d
 tree=$(project --repo "$LOCAL" worktree-dir story-departs)
-printf '%s\n' '## Stories' '' 'Kind: feature, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' '2. The file has one line.' > "$WORK/approved.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' '2. The file has one line.' > "$WORK/approved.md"
 # the read comes first, of the stories file that he then approves
 read_digest=$(lstories digest story-departs --file "$WORK/approved.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log story-departs stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=2 flagged:=0 split:=false "digest=$read_digest" >/dev/null 2>&1 || true
 lstories approve story-departs --file "$WORK/approved.md" >/dev/null 2>&1 || true
 # shellcheck disable=SC2016
-printf '%s\n' '# story-departs' '' '## Stories' '' 'Kind: feature, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' \
+printf '%s\n' '# story-departs' '' '## Stories' '' 'Size: full, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' \
   '   - test: `sh tests/story-departs.sh` in `tests/story-departs.sh`' '2. The file ends with a line break.' '   - no test: printf ends every line so.' '' '## Tasks' '' '1. The change.' \
   > "$tree/docs/plans/20261115-story-departs.md"
 git -C "$tree" commit -q -am "docs: the stories as they are built"
@@ -199,7 +199,7 @@ project --repo "$LOCAL" state story-departs dropped "the test is over" >/dev/nul
 # A feature is not proposed without a read of its stories, nor over a doubt of the personas that no approval of his followed.
 task_in "$LOCAL" read-doubt r.txt r
 tree=$(project --repo "$LOCAL" worktree-dir read-doubt)
-printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/doubt.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/doubt.md"
 plan_digest=$(lstories digest read-doubt 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 local_land start read-doubt >/dev/null && local_land base read-doubt >/dev/null && polish_local read-doubt && local_land gate read-doubt >/dev/null && local_land read read-doubt --record "$(clean 1)" >/dev/null
 unread_feature=$(local_land propose read-doubt --title "fix: r" --notes "$NOTES" 2>&1 || true)
@@ -214,7 +214,7 @@ project --repo "$LOCAL" log read-doubt stories.read by=lem asked:=3 answered:=2 
 lstories approve read-doubt --file "$WORK/doubt.md" >/dev/null 2>&1 || true
 local_land propose read-doubt --title "fix: r" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.lem/state/tasks/read-doubt/pr.md
-if grep -qF "read-doubt is a feature, and the event log has no \`stories.read\`" <<<"$unread_feature" && grep -qF 'stages/new.md' <<<"$unread_feature" \
+if grep -qF "read-doubt is a full change, and the event log has no \`stories.read\`" <<<"$unread_feature" && grep -qF 'stages/new.md' <<<"$unread_feature" \
   && grep -qF "the newest read of read-doubt's stories found a split between the two families, and no approval of the owner's came after it" <<<"$split_unseen" \
   && grep -qF "found 1 flagged story, and no approval of the owner's came after it" <<<"$flag_unseen" && grep -qF "stories.py approve read-doubt --file FILE" <<<"$flag_unseen" \
   && grep -qF "the newest read of read-doubt's stories found a split between the families: the stories wait for the owner, and only the owner's approval freezes them" <<<"$freeze_split" \
@@ -230,8 +230,8 @@ project --repo "$LOCAL" state read-doubt dropped "the test is over" >/dev/null
 # approval 1, the personas change its story, a clean read of the changed story, then his approval of it.
 task_in "$LOCAL" after-change a.txt a
 tree=$(project --repo "$LOCAL" worktree-dir after-change)
-printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word y.' > "$WORK/first.md"
-printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/changed.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word y.' > "$WORK/first.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/changed.md"
 lstories approve after-change --file "$WORK/first.md" >/dev/null 2>&1 || true
 ldecide story after-change --changed 1 --was "The file holds the word y." --now "The file holds the word the owner asked for." --why "y is taken by another file." \
   --by personas --said "Both personas picked the owner's word." >/dev/null 2>&1 || true
@@ -274,7 +274,7 @@ bad_digest=$(read_with by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent
 bad_missing=$(read_with by=lead asked:=2 answered:=2 'families:=["opus"]' stories:=1 flagged:=0 split:=false "digest=$digest")
 project --repo "$LOCAL" log ticket-word stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
 # the lead freezes what the personas read: another text is refused, the plan's own stories are kept with `by: read`
-printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds another word.' > "$WORK/other.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds another word.' > "$WORK/other.md"
 freeze_other=$(lstories approve ticket-word --file "$WORK/other.md" --read 2>&1 || true)
 lstories approve ticket-word --read >/dev/null 2>&1 || true
 frozen=$("$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print((d["by"], d["number"]))' "$LOCAL/.lem/state/tasks/ticket-word/stories.json" 2>&1 || true)
@@ -300,24 +300,24 @@ else
   fail "the read of the rare path: $freeze_other / $frozen / $recorded / $bad_by / $bad_one / $bad_none / $bad_more / $bad_quiet / $bad_families / $bad_flagged / $bad_split / $bad_digest / $bad_missing / $(cat "$text" 2>/dev/null)"
 fi
 # A read freezes only the first contract of a task: a second clean read of other stories does not replace the frozen
-# ones, and a read does not replace his own approval, whose kind is his.
+# ones, and a read does not replace his own approval, whose size is his.
 other_digest=$(lstories digest ticket-word --file "$WORK/other.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log ticket-word stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$other_digest" >/dev/null 2>&1 || true
 refile=$(lstories approve ticket-word --read --file "$WORK/other.md" 2>&1 || true)
 refreeze=$(lstories approve ticket-word --read 2>&1 || true)
-printf '%s\n' '## Stories' '' 'Kind: correction, because it is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/as-correction.md"
+printf '%s\n' '## Stories' '' 'Size: small, because it is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/as-correction.md"
 correction_digest=$(lstories digest after-change --file "$WORK/as-correction.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log after-change stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$correction_digest" >/dev/null 2>&1 || true
 over_his=$(lstories approve after-change --read 2>&1 || true)
 over_his_file=$(lstories approve after-change --read --file "$WORK/as-correction.md" 2>&1 || true)
-kept_contracts=$("$PY" -c 'import json, sys; print([(json.load(open(f))["number"], json.load(open(f))["by"], json.load(open(f))["kind"]) for f in sys.argv[1:]])' \
+kept_contracts=$("$PY" -c 'import json, sys; print([(json.load(open(f))["number"], json.load(open(f))["by"], json.load(open(f))["size"]) for f in sys.argv[1:]])' \
   "$LOCAL/.lem/state/tasks/ticket-word/stories.json" "$LOCAL/.lem/state/tasks/after-change/stories.json" 2>&1 || true)
 if grep -qF "ticket-word has approval 1 of its stories already (by read): a read freezes only the first contract" <<<"$refreeze" \
-  && grep -qF "A story changes through its record, \`decisions.py story ticket-word ...\`, and the kind only through the owner's own approval" <<<"$refreeze" \
+  && grep -qF "A story changes through its record, \`decisions.py story ticket-word ...\`, and the size only through the owner's own approval" <<<"$refreeze" \
   && grep -qF "after-change has approval 2 of its stories already (by owner): a read freezes only the first contract" <<<"$over_his" \
   && grep -qF "it takes no --file" <<<"$over_his_file" && grep -qF "it takes no --file" <<<"$refile" \
-  && [ "$kept_contracts" = "[(1, 'read', 'feature'), (2, 'owner', 'feature')]" ]; then
-  pass "a read freezes only the first contract of a task: a second clean read of other stories freezes nothing over a read's contract, and a read never replaces his approval or its kind"
+  && [ "$kept_contracts" = "[(1, 'read', 'full'), (2, 'owner', 'full')]" ]; then
+  pass "a read freezes only the first contract of a task: a second clean read of other stories freezes nothing over a read's contract, and a read never replaces his approval or its size"
 else
   fail "a second freeze by a read: $refile / $refreeze / $over_his / $over_his_file / $kept_contracts"
 fi
@@ -358,29 +358,34 @@ else
   fail "a read nobody answered, twice: $empty_family / $empty_unnamed / $empty_flagged / $first_empty / $once / $freeze_once / $second_empty / $freeze_twice / $twice_agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state nobody-read dropped "the test is over" >/dev/null
-# A plan's kind is never correction: one plain change is a small change, whose one story is in the task directory
-# and which has no plan. A plan that says `Kind: correction`, as a lead of the rare path or of a night could write
-# it, is refused by the stories and by every step of the landing that reads them, with or without Lem's approval of
-# a correction in the owner's name, and the refusal names the small change.
+# A plan never makes a change small: one plain change is a small change, whose one story is in the task directory
+# and which has no plan. A plan that says `Size: small`, as a lead of a full change from a complete request or of a
+# night could write it, is refused by the stories and by every step of the landing that reads them, with or without
+# Lem's approval of a small change in the owner's name, and the refusal names the small change. So is a plan that
+# says `Kind: correction`, the form of an older Lem.
 task_in "$LOCAL" one-word o.txt o
 tree=$(project --repo "$LOCAL" worktree-dir one-word)
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("Kind: feature, because the ticket names the word and the file.", "Kind: correction, because the request is one sentence."))' "$tree/docs/plans/20261115-one-word.md"
-git -C "$tree" commit -q -am "docs: the plan of a correction"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("Size: full, because the ticket names the word and the file.", "Size: small, because the request is one sentence."))' "$tree/docs/plans/20261115-one-word.md"
+git -C "$tree" commit -q -am "docs: the plan of a small change"
 as_plan=$(lstories show one-word 2>&1 || true)
 local_land start one-word >/dev/null && local_land base one-word >/dev/null
 as_polish=$(local_land polish one-word 2>&1 || true)
 as_gate=$(local_land gate one-word 2>&1 || true)
-printf '%s\n' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/correction.md"
-lstories approve one-word --file "$WORK/correction.md" --correction >/dev/null 2>&1 || true
+printf '%s\n' '## Stories' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/correction.md"
+lstories approve one-word --file "$WORK/correction.md" --small >/dev/null 2>&1 || true
 approved_plan=$(lstories red one-word 2>&1 || true)
-never="20261115-one-word.md says \`Kind: correction\`, and a plan's kind is never correction"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("Size: small, because", "Kind: correction, because"))' "$tree/docs/plans/20261115-one-word.md"
+old_plan=$(lstories show one-word 2>&1 || true)
+git -C "$tree" checkout -q -- docs
+never="20261115-one-word.md says \`Size: small\`, and a plan never makes a change small"
 if grep -qF "$never" <<<"$as_plan" && grep -qF "a small change, whose one story is \`stories.md\` in the task directory" <<<"$as_plan" \
-  && grep -qF "Kind: feature, because" <<<"$as_plan" && grep -qF "$never" <<<"$as_polish" && grep -qF "$never" <<<"$as_gate" && grep -qF "$never" <<<"$approved_plan" \
+  && grep -qF "Size: full, because" <<<"$as_plan" && grep -qF "$never" <<<"$as_polish" && grep -qF "$never" <<<"$as_gate" && grep -qF "$never" <<<"$approved_plan" \
+  && grep -qF "20261115-one-word.md says \`Kind: correction\`, and a plan never makes a change small" <<<"$old_plan" \
   && [ "$(kept_in "$LOCAL" one-word gated)" = None ] && [ "$(kept_in "$LOCAL" one-word polish)" = None ] \
   && ! grep -q '"event": "gate.start", "task": "one-word"' "$LOCAL/.lem/state/events.jsonl"; then
-  pass "a plan that says Kind: correction is refused by the stories, the polish pass and the gate, also with Lem's approval of a correction in the owner's name, and the refusal names the small change, which has no plan, and the feature's Kind line"
+  pass "a plan that says Size: small is refused by the stories, the polish pass and the gate, also with Lem's approval of a small change in the owner's name, and so is one that says Kind: correction; the refusal names the small change, which has no plan, and the full change's Size line"
 else
-  fail "a plan of a correction: $as_plan / $as_polish / $as_gate / $approved_plan"
+  fail "a plan of a small change: $as_plan / $as_polish / $as_gate / $approved_plan / $old_plan"
 fi
 project --repo "$LOCAL" state one-word dropped "the test is over" >/dev/null
 # The owner's word to skip the personas' read, when every story names only the developer: the record of his word and
@@ -393,7 +398,7 @@ checked_local() {
   local_land start "$1" >/dev/null && local_land base "$1" >/dev/null && polish_local "$1" && local_land gate "$1" >/dev/null \
     && local_land read "$1" --record "$(clean 1)" >/dev/null
 }
-printf '%s\n' '## Stories' '' 'Kind: feature, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/mine.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/mine.md"
 task_in "$LOCAL" only-me m.txt m
 skip_read only-me owner >/dev/null
 checked_local only-me
@@ -419,9 +424,9 @@ lstories approve no-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
 no_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 || true)
 skip_read no-word lem >/dev/null
 lem_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 || true)
-if grep -qF "no-word is a feature, and the event log has no \`stories.read\`" <<<"$no_word" \
+if grep -qF "no-word is a full change, and the event log has no \`stories.read\`" <<<"$no_word" \
   && grep -qF "decisions.py log no-word --by owner --what \"the personas' read of the stories\" --chose \"no read: the stories name only the developer\"" <<<"$no_word" \
-  && grep -qF "no-word is a feature, and the event log has no \`stories.read\`" <<<"$lem_word" \
+  && grep -qF "no-word is a full change, and the event log has no \`stories.read\`" <<<"$lem_word" \
   && [ ! -e "$LOCAL/.lem/state/tasks/no-word/pr.md" ]; then
   pass "a feature with his approval and no read is refused when no word of his to skip the read is on record, and a word of Lem's in the same form is no such word"
 else
@@ -439,7 +444,7 @@ skip_read rare-word owner >/dev/null
 lstories approve rare-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
 said_late=$(local_land propose rare-word --title "feat: r" --notes "$NOTES" 2>&1 || true)
 if grep -qF "a lead of rare-word started before the owner's approval that came after the word to skip the personas' read" <<<"$approved_late" \
-  && grep -qF "on the rare path the read always runs" <<<"$approved_late" && grep -qF "stages/plan.md" <<<"$approved_late" \
+  && grep -qF "for a full change from a complete request the read always runs" <<<"$approved_late" && grep -qF "stages/plan.md" <<<"$approved_late" \
   && grep -qF "a lead of rare-word started before the owner's word to skip the personas' read" <<<"$said_late" \
   && [ ! -e "$LOCAL/.lem/state/tasks/rare-word/pr.md" ]; then
   pass "on the rare path his word to skip the read is refused: a lead that started before his word, or before his approval after it, wrote the stories, and the personas read them"
@@ -466,9 +471,9 @@ dirty=$(local_land polish polish-me --done 2>&1 || true)
 echo 'echo p > p.txt' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "refactor: the tool says what it writes, and nothing else"
 started=$(local_land gate polish-me 2>&1 || true)
 again=$(local_land polish polish-me)
-if grep -qF "polish-me is a feature, and no polish pass is on record for this landing: \`land.py polish polish-me\` starts it" <<<"$no_pass" \
-  && [ "$(field '(d["kind"], d["done"], d["before"], d["range"].split("..")[1], d["commits"], d["plan"].endswith("docs/plans/20261115-polish-me.md"), d["report"], d["outside"], d["backlog"], d["frozen"])' <<<"$first")" \
-  = "('feature', False, '$lead_tip', '$lead_tip', ['$(git -C "$tree" rev-parse --short "$lead_tip") feat: the tool', '$(git -C "$tree" log -1 --format='%h %s' "$lead_tip~1")'], True, '$pdir/report.md', '$pdir/outside.md', 'docs/backlog', ['tests/polish-me.sh', 'docs/plans/20261115-polish-me.md'])" ] \
+if grep -qF "polish-me is a full change, and no polish pass is on record for this landing: \`land.py polish polish-me\` starts it" <<<"$no_pass" \
+  && [ "$(field '(d["size"], d["done"], d["before"], d["range"].split("..")[1], d["commits"], d["plan"].endswith("docs/plans/20261115-polish-me.md"), d["report"], d["outside"], d["backlog"], d["frozen"])' <<<"$first")" \
+  = "('full', False, '$lead_tip', '$lead_tip', ['$(git -C "$tree" rev-parse --short "$lead_tip") feat: the tool', '$(git -C "$tree" log -1 --format='%h %s' "$lead_tip~1")'], True, '$pdir/report.md', '$pdir/outside.md', 'docs/backlog', ['tests/polish-me.sh', 'docs/plans/20261115-polish-me.md'])" ] \
   && [ "$(field '(d["before"], d["range"])' <<<"$again")" = "$(field '(d["before"], d["range"])' <<<"$first")" ] && [ "$(kept_in "$LOCAL" polish-me polish)" = "{'before': '$lead_tip', 'done': False}" ]; then
   pass "a feature's gate waits for the polish pass; polish prints the range of the task's own commits from the base, the plan, the report, the interview's outside.md, the backlog folder and the files the pass may not change, and keeps the tip it starts at, also when it is started again after the builder's first commit"
 else

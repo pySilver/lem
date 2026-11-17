@@ -80,7 +80,7 @@ def worktree(repo: Path, slug: str) -> Path:
 def brief_text(slug: str, number: int, found: dict, stories: dict, place: Path, files: list[Path]) -> str:
     options = "\n".join(f"{n}. {option}" for n, option in enumerate(found["options"], start=1))
     told = "\n".join(f"{story['n']}. {story['text']}" for story in stories["stories"]) or "none: the plan has no stories"
-    kind = f"\n\nKind: {stories['kind']}" + (f", because {stories['why']}" if stories.get("why") else "") if stories.get("kind") else ""
+    kind = f"\n\nSize: {stories['size']}" + (f", because {stories['why']}" if stories.get("why") else "") if stories.get("size") else ""
     irreversible = (
         f"\nThis step cannot be undone by a later \"no\" ({found['irreversible']}). Your advice goes to the owner; "
         "it never decides this choice, which waits for the owner's word.\n"

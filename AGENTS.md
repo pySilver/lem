@@ -126,14 +126,15 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   names only the developer, Lem asks one fixed question in the terminal, "The stories name only
   you. Skip the persona read? (y/n)". Lem never skips the read by its own judgment: it wrote the
   stories, and the author of a wrong reading sees it as clear. On his yes Lem logs his words and
-  he approves the stories, and the pull request stays green, because the decision was his. The
-  usual path only: the rare path's read is the only approval there and always runs. The form is
+  he approves the stories, and the pull request stays green, because the decision was his. A full
+  change with an interview only: for a full change from a complete request the read is the only
+  approval and always runs. The form is
   the session's design: his word is the decision `decisions.py log SLUG --by owner --what "the
   personas' read of the stories" --chose "no read: the stories name only the developer"`, with his
-  answer in `--why`; `land.py` (`READ_SKIP`) takes a feature with no `stories.read` only when an
+  answer in `--why`; `land.py` (`READ_SKIP`) takes a full change with no `stories.read` only when an
   approval of his follows that decision and both come before the first state that names a lead
-  (`lead: builder` or `lead: session`), which is how the script tells the usual path from the
-  rare one, and its checks then say "the stories: not read by the personas, on his word (DATE); he
+  (`lead: builder` or `lead: session`), which is how the script tells an interview from a
+  complete request, and its checks then say "the stories: not read by the personas, on his word (DATE); he
   approved them".
 - **Every project of Lem has personas, and a panel asks the project's own**: "every project has
   personas, I don't see why we can have none when Lem is installed for a project" (2026-11-15).
@@ -281,7 +282,7 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   issue the reviewer finds in a changed decision is a hold of the same question, so such a
   question closes as a design choice, and the card compares the kept decision and its mechanisms
   with the reversed one, its tasks, its stories and each issue raised against it.
-- **Lem tells the kind of a request, asks when it is unclear, and a bug is investigated
+- **Lem tells the type of a request, asks when it is unclear, and a bug is investigated
   first**: of a small fix taken as a correction with no scout, "Well typically the
   root-cause-investigation is needed to unerstand what triggers the bug that we aim to correct,
   isn't it?"; of the ask "invoices show 0 after a refund", "From such input its kinda hard to
@@ -289,14 +290,15 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   try to understand from the requestwhat kind of request it is and ask for clarification when
   confused? We may want to list few keywords for different types of work" (2026-11-16). The form
   is the session's design, to which he wrote "I have no objections for other stuff (work kind,
-  merge strategies)": six kinds (bug, feature, correction, investigation, chore, docs) taken from
-  the ask's words alone, with example words in `stages/new.md` as hints and no code that matches
-  them; the first question of the interview when the words do not settle it; the kind in
-  `task.md` and in a state line `kind: KIND, because WHY`, and the branch's type from it; a bug
-  investigated before any story by a fresh builder (`prompts/investigator.md`) that commits a
-  failing test and finds the cause with the `lem-root-cause` method, whose report takes the
-  correction path, the usual path, or ends the task; an investigation that ends with its answer;
-  and the state `answered`, a task that ended with a report and nothing to merge.
+  merge strategies)": since his note of 2026-11-17 (below) the type is a Conventional Commits type
+  or `question`, taken from the ask's words alone, with example words in `stages/new.md` as hints
+  and no code that matches them; the first question of the interview when the words do not settle
+  it; the type in `task.md` and in a state line `type: TYPE, because WHY`, and the branch's type
+  from it; a bug whose cause the ask does not show investigated before any story by a fresh
+  builder (`prompts/investigator.md`) that commits a failing test and finds the cause with the
+  `lem-root-cause` method, whose report makes it a small fix, a full fix, or ends the task; a
+  question that ends with its answer; and the state `answered`, a task that ended with a report
+  and nothing to merge.
 - **The time card gets exact start times**: asked in his Inbox on 2026-11-17 whether the board's
   time card should get exact start times now, he picked "Build it now: each stage logs its start,
   and the card becomes exact". The form is the maintaining session's: one `NAME.start` event for
@@ -485,7 +487,7 @@ is the session's, and open to him.
   `flow.decision_wait` while the rest goes on, and then the experts' shared pick or the
   recommended option, not green. The question gate (`lem-gate`) sits at Lem's card. A decision
   of the plan no longer holds the task: it was the one place where his wait had no end. `held`
-  keeps what has no options: the stories that wait for his yes (a kind only he may change among
+  keeps what has no options: the stories that wait for his yes (a type only he may change among
   them), one more fact for an investigation, a step that is his to do, and an irreversible
   choice that every task left needs. A night plan asks no such decision, since nobody is there
   and every wait would end without him: its brief says `night: yes`, `decisions.py ask` refuses
@@ -515,7 +517,7 @@ is the session's, and open to him.
   words, proposed at onboarding by one question, "what must never go wrong here?". Three agents
   judge a change against them, and in doubt they say careful: Lem at the ask, from its words and
   the scout's facts, in the first line it says to the developer, and an ask in reach of a topic
-  is never a correction; the lead at the plan, by a topic or a pattern other code will copy; and
+  is never a small change; the lead at the plan, by a topic or a pattern other code will copy; and
   the fresh agent that reviews the diff before the pull request, whose record holds `careful`
   and `careful_why` and which runs the full set when it calls careful what the plan did not. The
   last is the look that takes the place of the path list's floor: its judge did not build the
@@ -543,13 +545,13 @@ is the session's, and open to him.
   for a correction in the first flow, and a lead read about 18,500 words before it acted (the
   times are unmeasured estimates built on the skill files' measurements; the words are `wc -w`
   of the files a lead reads). So a small change, one plain change with one story in his own
-  sentence, no topic in reach and no question open, whatever its kind, has one builder and no
+  sentence, no topic in reach and no question open, whatever its type, has one builder and no
   lead: `prompts/small.md`, a brief complete in itself, and the builder's standing rules. It
   commits no plan; its story is `stories.md` in the task directory, approved in his name, with
   its test line, and `stories.py` and `land.py` read it there when the branch has no plan file,
-  for a correction only. A change that keeps behavior has `no test` and its builder runs the
+  for a small change only. A change that keeps behavior has `no test` and its builder runs the
   whole gate suite. Before it commits, the builder reads its change against the topics and stops
-  with `the stories wait for the owner: the small change is a feature` when it reaches one, needs
+  with `the stories wait for the owner: the small change is a full change` when it reaches one, needs
   a second rule or a decision, lowers the bar or grew. Its landing is `start`, `base`, `gate`
   (with `stories.py red` once), one read by the review agent itself, and `propose` with a short
   text; no polish pass at all, and its builder files what it sees outside the change. A small
@@ -561,7 +563,7 @@ is the session's, and open to him.
   change, a typo, a rename and a one-rule fix each start two agents (the builder and the review
   agent), and the builder reads `prompts/small.md` and `agents/lem-builder.md`, 1,954 words
   (`wc -w`: 775 and 1,179, at 15d5697, 2026-11-17).
-- **A feature has one approval and no ceremony that nobody asked for** (2026-11-17), from the same
+- **A full change has one approval and no ceremony that nobody asked for** (2026-11-17), from the same
   audit's findings: the interview's restate and explicit yes were a second approval of what the
   stories say (F3), so the interview's questions come from the `lem-interview-me` method and its
   restate and yes are the stories and his yes to them; each question is one line in the
@@ -571,7 +573,7 @@ is the session's, and open to him.
   before (F4). "A new kind of test" no longer makes a plan careful: a pattern is product code
   that other code will copy (F5), since a one-line fix could become a plan talk and the full
   review by it. A task has a state block from the moment it opens, `held` with `the interview
-  waits for the owner` and the kind line, so the status and the board show it during the
+  waits for the owner` and the type line, so the status and the board show it during the
   interview (W6). The plan talk is `stages/talk.md`, which only the defender reads: it was half of
   `plan.md`, and every lead read it (F11; a lead read about 18,500 words before it acted, `wc -w`,
   2026-11-16).
@@ -613,12 +615,12 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   refuses a move out of `landed`, `answered` or `dropped`, `may-start` refuses a task that is
   `landing`, `open` or ended, and `stages/new.md` starts a lead only for a task that is `building`
   or has no new state block. New work on an ended task is a new ask.
-- **No plan has the kind correction** (A3). A lead could write `Kind: correction` in a plan, on
-  the rare path or at night, and then no approval, no read of the stories and no polish pass was
-  asked: the probe's plan went through the gate, the read and `propose` green, and `land --by
-  agent` landed it. A one-rule ask is a small change, with its story in the task directory,
-  approved by Lem with `--correction`. `stories.py` and `land.py` refuse a plan file that says
-  `Kind: correction`, and a night that meets an item that is one plain change drafts no plan and
+- **A plan never makes a change small** (A3). A lead could write a small change's size line in a
+  plan, for a full change from a complete request or at night, and then no approval, no read of
+  the stories and no polish pass was asked: the probe's plan went through the gate, the read and
+  `propose` green, and `land --by agent` landed it. A one-rule ask is a small change, with its
+  story in the task directory, approved by Lem with `--small`. `stories.py` and `land.py` refuse a
+  plan file that says `Size: small` (or `Kind: correction`, the line of an older Lem), and a night that meets an item that is one plain change drafts no plan and
   names it in the night report as ready to start as a small change.
 - **The gate removes what its own commands leave** (R3, the first run). `python3 -m unittest`
   left two `__pycache__` folders in a repository with no `.gitignore`, the gate refused the tree,
@@ -687,6 +689,7 @@ One suite alone:
 ```bash
 bash tests/test-lem.sh         # Lem's scripts, in throwaway repositories: the blocks tests/lem-*.sh at the same time; loads the board in headless Chrome when one is installed
 bash tests/lem-land-shop.sh    # one block of them, alone (each block sources tests/lib.sh)
+bash tests/lem-old-tasks.sh    # tasks the scripts of an older commit took to open, read, landed and cleaned by the scripts of now
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs

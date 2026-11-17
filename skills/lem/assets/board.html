@@ -499,19 +499,39 @@ const STATUS = {
 };
 // The states a task does not leave (project.py ENDED): nobody acts, and nothing of it waits.
 const ENDED = ['landed', 'dropped', 'answered'];
-// The kind of a request, from its state line `kind: KIND, because WHY` (stages/new.md), in the card's words.
-// The kind `correction` is one plain rule that is wrong: the page says "a one-rule fix", never the
-// scripts' word. It says nothing of the size: a task is a small change only by its one builder (the
-// state line `small change: one builder`), and only that task has the "small change" tag.
-const KINDS = {bug: 'a bug', feature: 'a feature', correction: 'a one-rule fix', investigation: 'an investigation', chore: 'a chore', docs: 'documentation'};
-// The kind of a set of stories (`Kind:` of stories.py), feature or correction, in the page's words.
-const storyKind = kind => (kind === 'correction' ? 'one-rule fix' : kind);
-// What the investigation of a bug or a question found (project.py `log investigation`), as the
+// The type of a request, from its state line `type: TYPE, because WHY` (stages/new.md): a
+// Conventional Commits type, or `question`, shown as the developer writes it in a commit. It says
+// nothing of the size: a task is a small change only by its one builder (the state line `small
+// change: one builder`), and only that task has the "small change" tag.
+const TYPES = ['feat', 'fix', 'docs', 'refactor', 'perf', 'test', 'chore', 'question'];
+// The kind line an older Lem wrote, `kind: KIND, because WHY`, and the type each kind reads as
+// (project.py OLD_KINDS). A later change may drop it once no task whose log holds such a line is open.
+const OLD_KINDS = {bug: 'fix', feature: 'feat', correction: 'fix', investigation: 'question', chore: 'chore', docs: 'docs'};
+// The type a state line names, with its reason; an older Lem's kind line reads as its type.
+function typeLine(line) {
+  const now = line.match(/^type: ([a-z]+), because (.+)$/);
+  if (now && TYPES.includes(now[1])) return {type: now[1], why: now[2]};
+  const old = line.match(/^kind: ([a-z]+), because (.+)$/);
+  return old && OLD_KINDS[old[1]] ? {type: OLD_KINDS[old[1]], why: old[2]} : null;
+}
+// The size of a set of stories (`Size:` of stories.py), in the page's words. An older Lem logged a
+// kind instead (feature, correction), which reads as its size; a later change may drop that.
+const OLD_SIZES = {feature: 'full', correction: 'small'};
+const sizeOf = e => e?.size ?? OLD_SIZES[e?.kind] ?? null;
+const sizeWords = size => (size ? `${size} change` : 'stories');
+// Who approved a set of stories: Lem approves a small change's one story in the owner's name (`lem`;
+// an older Lem logged `correction`).
+const approver = by => (by === 'correction' ? 'lem' : by);
+// What the investigation of a fix or a question found (project.py `log investigation`), as the
 // head of its line, the card's word before it, and the sentence of the task's own board: the call
-// says which path the task took after it.
+// says which path the task took after it. An older Lem logged `kind=bug|investigation` and the
+// calls `correction` and `usual` (OLD_CALLS); a later change may drop those.
+const OLD_CALLS = {correction: 'small', usual: 'full'};
+const callOf = e => OLD_CALLS[e.call] ?? e.call;
+const investigatedType = e => e.type ?? ({bug: 'fix', investigation: 'question'})[e.kind] ?? null;
 const CALLS = {
-  correction: {head: 'The investigation found a plain cause: one rule fixes it', card: 'The cause', now: 'A plain cause, which one rule fixes: the task goes on as a small change'},
-  usual: {head: 'The investigation found a plain cause: a larger change', card: 'The cause', now: 'A plain cause, and a larger change: the interview starts from it'},
+  small: {head: 'The investigation found a plain cause: a small change fixes it', card: 'The cause', now: 'A plain cause, which one rule fixes: the task goes on as a small change'},
+  full: {head: 'The investigation found a plain cause: a full change', card: 'The cause', now: 'A plain cause, and a full change: the interview starts from it'},
   'not-a-bug': {head: 'The investigation found no bug', card: 'No bug', now: 'No bug: the code does what it should'},
   'not-reproduced': {head: 'The investigation did not reproduce the bug', card: 'Not reproduced', now: 'Not reproduced: Lem asks you for one more fact'},
   answer: {head: 'The investigation answered the question', card: 'The answer', now: 'The answer to the question'},
@@ -714,8 +734,8 @@ function words(line, talked = false) {
   if (/^small change: one builder$/.test(s)) return 'one builder makes the change';
   if (/^lead: session\b/.test(s)) return 'its companion talks the plan through';
   if (/^session: \S+$/.test(s) || /^investigation: (bug|question)$/.test(s)) return null;
-  const kind = s.match(/^kind: ([a-z]+), because (.+)$/);
-  if (kind) return `${KINDS[kind[1]] ?? kind[1]}, because ${kind[2]}`;
+  const typed = typeLine(s);
+  if (typed) return `${typed.type}, because ${typed.why}`;
   const plan = /^plan committed\b/.test(s) && s.match(/\b(\d+) tasks?\b/);
   if (plan) return `the plan is committed, with ${plural(Number(plan[1]), 'task')}`;
   if (/^plan committed\b/.test(s)) return 'the plan is committed';
@@ -833,15 +853,15 @@ function derive(now) {
     if (!t) tasks.set(e.task, t = {
       slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], reviews: [], proposal: null, stories: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null,
       events: [], decisions: new Map(), orphans: [], changes: [], approvals: [], reads: [], talks: [], talkStart: null, filed: [], missed: null, polish: null,
-      kind: null, investigation: null, landingStep: null,
+      type: null, investigation: null, landingStep: null,
     });
     // every event of the task, in the order of the log: "Where the time went" reads them all
     t.events.push(e);
     if (String(e.event).startsWith('decision.')) { decisionEvent(t, e); continue; }
-    // The stories the owner approved, or Lem in his name for a correction, and each read of them by the personas.
+    // The stories the owner approved, or Lem in his name for a small change, and each read of them by the personas.
     // An approval has a number of its own (stories.py); a log written before numbers counts them in order.
     if (e.event === 'stories.approved') {
-      t.approvals.push({ts: at(e), order: t.events.length, number: e.number ?? t.approvals.length + 1, by: e.by, kind: e.kind, why: e.why, digest: e.digest, stories: e.stories ?? [], replaces: e.replaces ?? null});
+      t.approvals.push({ts: at(e), order: t.events.length, number: e.number ?? t.approvals.length + 1, by: approver(e.by), size: sizeOf(e), why: e.why, digest: e.digest, stories: e.stories ?? [], replaces: e.replaces ?? null});
       continue;
     }
     if (e.event === 'stories.read') {
@@ -866,10 +886,10 @@ function derive(now) {
     // the polish pass of the landing, as land.py polish --done logged it; it has no start event
     if (e.event === 'polish') { t.polish = {ts: at(e), before: e.before, after: e.after, commits: e.commits, filed: e.filed ?? []}; continue; }
     // what the investigation of a bug or a question found, as Lem logged it after the report; the newest stands
-    if (e.event === 'investigation') { t.investigation = {ts: at(e), kind: e.kind, call: e.call, line: e.line, where: e.where ?? null, reproduced: e.reproduced ?? null}; continue; }
+    if (e.event === 'investigation') { t.investigation = {ts: at(e), type: investigatedType(e), call: callOf(e), line: e.line, where: e.where ?? null, reproduced: e.reproduced ?? null}; continue; }
     // The stories of the task's plan, as the lead last recorded them, and the newest check that
     // each one's tests pass on the branch and fail on the base commit.
-    if (e.event === 'task.stories') { t.stories = {order: t.events.length, kind: e.kind, why: e.why, digest: e.digest, list: e.stories ?? [], ts: at(e)}; continue; }
+    if (e.event === 'task.stories') { t.stories = {order: t.events.length, size: sizeOf(e), why: e.why, digest: e.digest, list: e.stories ?? [], ts: at(e)}; continue; }
     if (e.event === 'task.red') { t.red = {ok: e.ok, digest: e.digest, tests: e.tests ?? [], without: e.without_a_test ?? [], tip: e.tip, ts: at(e)}; continue; }
     if (e.event === 'gate') {
       // A repaired failure runs the gate again inside one landing: a result on another tip starts
@@ -904,9 +924,9 @@ function derive(now) {
       if (session) t.session = session[1];
       const progress = e.status === 'building' && line.match(/\btask (\d+) of (\d+)\b/);
       if (progress) t.progress = {n: Number(progress[1]), of: Number(progress[2])};
-      // project.py state writes this line only in its form, with a kind of KINDS
-      const kind = line.match(/^kind: ([a-z]+), because (.+)$/);
-      if (kind && KINDS[kind[1]]) t.kind = {kind: kind[1], why: kind[2]};
+      // project.py state writes this line only in its form, with a type of TYPES
+      const typed = typeLine(line);
+      if (typed) t.type = typed;
     }
     // The block that says the plan is committed also says how many tasks it has; the lead is then on the first.
     const planned = e.status === 'building' && /\bplan committed\b/.test(lines.join(' ')) && lines.join(' ').match(/\b(\d+) tasks?\b/);
@@ -987,7 +1007,7 @@ function derive(now) {
     places: list.filter(t => t.status === 'building' || t.status === 'landing').length,
     unknown: list.filter(t => !STATUS[t.status]),
     // Only a task with a state block has a status to draw: one whose stories were read before its
-    // first block (the usual path) has its events in the feed and no board yet.
+    // first block (an interview) has its events in the feed and no board yet.
     task: view ? list.find(x => x.slug === view) ?? null : null,
     // the board's lanes: each task is in one, so these numbers add up to the cards
     lane: Object.fromEntries(LANES.map(lane => [lane.key, list.filter(t => t.lane === lane.key)])),
@@ -1047,7 +1067,7 @@ function statusPill(t) {
 // leaves those out. The newest commit is the task board's "Last commit", and no tag repeats it.
 function tags(t, card = false) {
   const out = [];
-  if (t.kind) out.push(h('span', {class: 'tag', title: `The kind of the request, as Lem took it from the ask: ${KINDS[t.kind.kind] ?? t.kind.kind}, because ${t.kind.why}`}, icon('flag'), h('span', {}, KINDS[t.kind.kind] ?? t.kind.kind)));
+  if (t.type) out.push(h('span', {class: 'tag', title: `The type of the request, as Lem took it from the request: ${t.type.type}, because ${t.type.why}`}, icon('flag'), h('span', {}, t.type.type)));
   for (const c of t.waiting.filter(x => !(card && x === t.asks[0]))) out.push(h('span', {class: `tag c-you${t.asks.includes(c) ? ' live' : ''}`, title: `${c.what}\nrecommended: ${c.recommended}`}, icon('help'),
     h('span', {}, `choice ${c.id}: `, c.irreversible ? 'no end' : t.asks.includes(c) ? until(c.deadline) : 'wait over')));
   const lead = t.lead ? LEAD[leadOf(t)] : null;
@@ -1219,10 +1239,10 @@ const CHECKS = ['polish', 'gate', 'task.red', 'review', 'review.filed', 'propose
 // The starts of the steps of a landing (land.py logs the first three, and a builder of the landing
 // the fourth): each ends at the next step's event (SKILL.md).
 const LANDING_STARTS = ['polish.start', 'gate.start', 'review.start', 'builder.start'];
-// A landing starts with the rebase onto the base and, for a task that is no correction, the polish
+// A landing starts with the rebase onto the base and, for a task that is no small change, the polish
 // pass; no event says which runs until the pass ends. A pass of an earlier landing still counts.
-const kindOf = t => t.stories?.kind ?? t.approvals.at(-1)?.kind ?? null;
-const startsLanding = t => t.status === 'landing' && !t.gates.length && !t.polish && !t.landingStep && kindOf(t) !== 'correction';
+const storiesSize = t => t.stories?.size ?? t.approvals.at(-1)?.size ?? null;
+const startsLanding = t => t.status === 'landing' && !t.gates.length && !t.polish && !t.landingStep && storiesSize(t) !== 'small';
 // What runs in a landing whose newest step started and has not ended.
 const STEP_RUNS = {'polish.start': 'The polish pass runs', 'gate.start': 'The checks run', 'review.start': 'The review runs'};
 const stepRuns = e => STEP_RUNS[e.event] ?? `A builder makes ${e.job ?? 'its job'}`;
@@ -1259,7 +1279,7 @@ function timeOf(t, end) {
     if (e.event === 'interview.start') pair(i, e, 'you', 'The interview', 'Lem asks you one question at a time', x => x.event === 'stories.read.start' || x.event === 'stories.approved');
     else if (e.event === 'scout.start') pair(i, e, 'builders', 'The scout reads the code', 'for the facts the stories need', x => x.event === 'scout');
     else if (e.event === 'stories.read.start') { const r = pair(i, e, 'personas', 'The personas’ read of the stories', readSub, x => x.event === 'stories.read'); if (r) startedReads.add(r); }
-    else if (e.event === 'investigation.start') pair(i, e, 'builders', 'The investigation', e.kind === 'bug' ? 'a builder reproduces the bug and finds its cause' : 'a builder finds the answer', x => x.event === 'investigation');
+    else if (e.event === 'investigation.start') pair(i, e, 'builders', 'The investigation', investigatedType(e) === 'fix' ? 'a builder reproduces the bug and finds its cause' : 'a builder finds the answer', x => x.event === 'investigation');
     else if (e.event === 'builder.start' && t.blocks[blockOf.get(e)]?.status !== 'landing') {
       pair(i, e, 'builders', cap(String(e.job ?? 'a job')), 'a fresh builder; its span ends at the next state block', x => x.event === 'task.state' || LANDING_STARTS.includes(x.event) || CHECKS.includes(x.event));
     }
@@ -1404,7 +1424,7 @@ function timeOf(t, end) {
   });
 
   // The stories wait for his yes from the personas' read to his approval after it. A yes he gave
-  // before the read was in, and a correction Lem approved in his name, cost him no wait.
+  // before the read was in, and a small change Lem approved in his name, cost him no wait.
   let since = -Infinity;
   for (const a of t.approvals) {
     const read = t.reads.filter(r => r.order > since && r.order < a.order).at(-1);
@@ -1534,15 +1554,15 @@ function showTip(ev) {
 }
 
 // The place of an investigation's cause, and for a bug whether it was reproduced.
-const investigationSub = x => [x.where, x.kind === 'bug' && x.reproduced != null ? (x.reproduced ? 'reproduced' : 'not reproduced') : ''].filter(Boolean).join(' · ');
+const investigationSub = x => [x.where, x.type === 'fix' && x.reproduced != null ? (x.reproduced ? 'reproduced' : 'not reproduced') : ''].filter(Boolean).join(' · ');
 
 // What each event of the scripts says, in the feed's words; an event not named here is shown as its fields.
 const SAYS = {
-  'task.stories': e => ({info: {actor: 'lead', icon: 'file'}, head: 'Stories recorded', text: `${storyKind(e.kind)}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
+  'task.stories': e => ({info: {actor: 'lead', icon: 'file'}, head: 'Stories recorded', text: `${sizeWords(sizeOf(e))}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
   'task.red': e => ({info: {actor: e.ok ? 'done' : 'bad', icon: e.ok ? 'check' : 'alert'}, head: e.ok ? 'The stories’ tests hold' : 'A test does not hold its story', text: `on ${e.tip ?? '?'}, against ${e.base ?? 'the base'}`}),
   'stories.approved': e => ({info: {actor: e.by === 'owner' ? 'you' : 'lem', icon: 'check'},
-    head: {owner: 'You approved the stories', correction: 'Taken as a small change in your name', read: 'The personas’ read froze the stories'}[e.by] ?? `Stories approved by ${e.by}`,
-    text: `${e.number ? `approval ${e.number} · ` : ''}${storyKind(e.kind)}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
+    head: {owner: 'You approved the stories', lem: 'Taken as a small change in your name', read: 'The personas’ read froze the stories'}[approver(e.by)] ?? `Stories approved by ${e.by}`,
+    text: `${e.number ? `approval ${e.number} · ` : ''}${sizeWords(sizeOf(e))}: ${plural((e.stories ?? []).length, 'story').replace('storys', 'stories')}`}),
   'stories.read': e => !e.answered ? {info: {actor: 'bad', icon: 'users'}, head: 'Nobody answered the personas’ read of the stories', text: `0 of ${e.asked} answered`}
     : {info: {actor: e.split || e.flagged ? 'you' : 'done', icon: 'users'}, head: 'The personas read the stories',
       text: `${e.split ? 'the families split · ' : ''}${e.flagged ? `${e.flagged} flagged` : 'nobody confused'} · ${e.answered} of ${e.asked} answered`},
@@ -1552,8 +1572,8 @@ const SAYS = {
   'plan.talk.start': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk started', text: `with ${e.reviewer}`}),
   'plan.talk': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk ended', text: `with ${e.reviewer}: ${talkCounts(e)}`}),
   'careful.missed': e => ({info: {actor: 'bad', icon: 'alert'}, head: 'Careful by the review, not by the plan', text: e.why != null ? `round ${e.round ?? '?'}: ${e.why}` : `${e.path} (${e.pattern})`}),  // an older event named a path and its pattern
-  'investigation': e => ({info: {actor: e.call === 'not-reproduced' ? 'you' : 'done', icon: 'eye'}, head: CALLS[e.call]?.head ?? `The investigation: ${e.call}`,
-    text: e.line, sub: investigationSub(e)}),
+  'investigation': e => ({info: {actor: e.call === 'not-reproduced' ? 'you' : 'done', icon: 'eye'}, head: CALLS[callOf(e)]?.head ?? `The investigation: ${e.call}`,
+    text: e.line, sub: investigationSub({...e, type: investigatedType(e)})}),
   'polish': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass',
     text: `${plural(e.commits ?? 0, 'commit')}, ${(e.filed ?? []).length ? plural(e.filed.length, 'item') : 'no item'} filed in the backlog`,
     sub: [`${e.before ?? '?'} → ${e.after ?? '?'}`, ...(e.filed ?? [])].join(' · ')}),
@@ -1562,7 +1582,7 @@ const SAYS = {
   'scout.start': () => ({info: {actor: 'lead', icon: 'eye'}, head: 'The scout started', text: 'it reads the code for the facts the stories need'}),
   'scout': () => ({info: {actor: 'lead', icon: 'file'}, head: 'The scout’s report is in', text: ''}),
   'stories.read.start': e => ({info: {actor: 'quiet', icon: 'users'}, head: 'The personas’ read of the stories started', text: `run by ${e.by === 'lead' ? 'the agent' : 'Lem'}`}),
-  'investigation.start': e => ({info: {actor: 'lead', icon: 'eye'}, head: 'The investigation started', text: e.kind === 'bug' ? 'a builder reproduces the bug and finds its cause' : 'a builder finds the answer'}),
+  'investigation.start': e => ({info: {actor: 'lead', icon: 'eye'}, head: 'The investigation started', text: investigatedType(e) === 'fix' ? 'a builder reproduces the bug and finds its cause' : 'a builder finds the answer'}),
   'builder.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'A builder started', text: e.job}),
   'polish.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass started', text: `on ${e.before ?? '?'}`}),
   'gate.start': e => ({info: {actor: 'gate', icon: 'play'}, head: 'The checks started', text: `${plural(e.commands ?? 0, 'command')} on ${e.tip ?? '?'}`}),
@@ -1866,7 +1886,7 @@ function standing(t) {
   }
   // The digest stories.py gives these texts, when an approval holds the same ones: a set of texts no
   // approval holds has none the page can name, since the page does not hash.
-  const same = x => x.kind === a.kind && x.stories.length === texts.length && x.stories.every((st, i) => flat(st.text) === flat(texts[i]));
+  const same = x => x.size === a.size && x.stories.length === texts.length && x.stories.every((st, i) => flat(st.text) === flat(texts[i]));
   const digest = changes.length ? t.approvals.findLast(same)?.digest ?? null : a.digest;
   return {approval: a, texts, changes, digest};
 }
@@ -1889,12 +1909,12 @@ function buildStories(t, now) {
 }
 
 // What happened to the stories before the build: his approval, or Lem's in his name for a
-// correction, and the personas' read, with a split between the model families said first. Then
+// small change, and the personas' read, with a split between the model families said first. Then
 // each change of an approved story during the build, from its own record.
 function storiesHead(t, now) {
   const rows = [];
   const a = t.approvals.at(-1), r = t.reads.at(-1);
-  const kind = t.stories?.kind ?? a?.kind;
+  const size = t.stories?.size ?? a?.size;
   // An approval of his after a change of the build made that change his (decisions.py
   // `taken_over_by`): it is no cause of not green.
   const takenOver = c => t.approvals.find(x => x.number > c.approval && x.by === 'owner')?.number ?? null;
@@ -1924,22 +1944,22 @@ function storiesHead(t, now) {
         r.silent.map(x => h('span', {class: 'sub'}, `no answer from ${x.name} (${x.why})`)),
         stale ? h('span', {class: 'sub'}, stale) : ''),
       h('span', {class: 'rtime'}, stamp(r.ts, now)))));
-  } else if (kind === 'correction') {
-    rows.push(keyed('read:none:correction', h('div', {class: 'row a-quiet'}, h('span', {class: 'fi'}, icon('users')),
+  } else if (size === 'small') {
+    rows.push(keyed('read:none:small', h('div', {class: 'row a-quiet'}, h('span', {class: 'fi'}, icon('users')),
       h('div', {class: 'rtext'}, 'The personas do not read the one story of a small change.'), h('span', {class: 'rtime'}, ''))));
-  } else if (kind) {
+  } else if (size) {
     rows.push(keyed('read:none', h('div', {class: 'row a-quiet'}, h('span', {class: 'fi'}, icon('users')),
       h('div', {class: 'rtext'}, t.closed ? 'The personas did not read these stories.' : 'The personas have not read these stories yet.'), h('span', {class: 'rtime'}, ''))));
   }
   if (a) {
-    // Who froze the stories: he did; Lem in his name, for a correction; or the personas' read on
-    // the rare path, which found nobody confused and never counts as his yes.
-    const head = {owner: 'Approved by you', correction: 'Taken as a small change: Lem approved its one story in your name', read: 'Frozen by the personas’ read, with no wait for you'}[a.by] ?? `Approved by ${a.by}`;
+    // Who froze the stories: he did; Lem in his name, for a small change; or the personas' read of
+    // a full change from a complete request, which found nobody confused and never counts as his yes.
+    const head = {owner: 'Approved by you', lem: 'Taken as a small change: Lem approved its one story in your name', read: 'Frozen by the personas’ read, with no wait for you'}[a.by] ?? `Approved by ${a.by}`;
     rows.push(keyed(`approved:${a.ts}:${a.by}:${a.number}`, h('div', {class: `row a-${a.by === 'owner' ? 'done' : 'quiet'}`},
       h('span', {class: 'fi'}, icon(a.by === 'owner' ? 'check' : a.by === 'read' ? 'users' : 'user')),
       h('div', {class: 'rtext'}, h('b', {}, head),
         r && a.by === 'owner' ? (r.order < a.order ? ' after the personas’ read' : ' before the personas’ read was in') : '',
-        a.by === 'correction' ? h('span', {class: 'sub'}, 'You may still say “this is a feature”: then the personas read it, and your approval replaces this one.') : '',
+        a.by === 'lem' ? h('span', {class: 'sub'}, 'You may still say “full”: then the personas read it, and your approval replaces this one.') : '',
         a.by === 'read' ? h('span', {class: 'sub'}, 'The whole request was written, and nobody was confused: the build started, and you can still stop it or change a story.') : '',
         a.number > 1 || a.replaces != null ? h('span', {class: 'sub'}, `approval ${a.number}${typeof a.replaces === 'number' ? `; it replaces approval ${a.replaces}` : a.replaces ? '; it replaces an earlier approval' : ''}`) : ''),
       h('span', {class: 'rtime'}, stamp(a.ts, now)))));
@@ -2257,7 +2277,7 @@ function render() {
     patch($('progress'), t ? [buildTaskProgress(t)] : []);
     patch($('stories'), t ? buildStories(t, now) : []);
     const approved = t?.approvals.at(-1);
-    $('stories-sum').textContent = t?.stories && !(approved && approved.order > t.stories.order) ? `${storyKind(t.stories.kind)}, because ${t.stories.why}` : approved ? `${storyKind(approved.kind)}, because ${approved.why}` : '';
+    $('stories-sum').textContent = t?.stories && !(approved && approved.order > t.stories.order) ? `${sizeWords(t.stories.size)}, because ${t.stories.why}` : approved ? `${sizeWords(approved.size)}, because ${approved.why}` : '';
     patch($('decisions'), t ? buildDecisions(t, now) : []);
     const overs = t ? t.waiting.length - t.asks.length : 0;
     $('decisions-sum').textContent = t?.choices.length ? [t.asks.length && `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''} for you`,

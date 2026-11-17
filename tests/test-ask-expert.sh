@@ -32,7 +32,7 @@ tree=$(project --repo "$EX" worktree-dir "$SLUG")
 git -C "$EX" worktree add -q -b "feat/$SLUG" "$tree" main
 project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
 mkdir -p "$tree/docs/plans"
-printf '%s\n' '# The export has the gift note' '' '## Stories' '' 'Kind: feature, because the export gets a new column.' '' \
+printf '%s\n' '# The export has the gift note' '' '## Stories' '' 'Size: full, because the export gets a new column.' '' \
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
   '2. An order with no gift note has an empty cell, not the word "None".' '' '## Tasks' '' '1. The column.' > "$tree/docs/plans/20261116-$SLUG.md"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "docs: the plan"
@@ -224,7 +224,7 @@ for want in "# Choice $c16 of $SLUG: the experts' brief" "Where the note goes in
   "The run that ends badly, as the lead derived it:" "1. An importer reads the export's columns by place (\`import.py:read_row\`)." \
   '3. The importer reads the note "for Ania" as the total of order 1042, and stops.' \
   "Why it can happen: The importer reads columns by place, and so does every reader that copies it." \
-  "Kind: feature, because the export gets a new column." \
+  "Size: full, because the export gets a new column." \
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
   '2. An order with no gift note has an empty cell, not the word "None".' \
   "\`$tree/docs/plans/20261116-$SLUG.md\`" "- $tree/export.sh" "Read only. Change no file" "    pick: ONE OPTION" "    none fits"; do

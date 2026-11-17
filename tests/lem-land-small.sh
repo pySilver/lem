@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # A small change: one story in the task directory, no plan on the branch, one builder, the checks
 # with the stories' check once, one read, and a short pull request. And what keeps the short path
-# safe: a feature with no plan is refused, a careful small change is not green and no agent merges
+# safe: a full change with no plan is refused, a careful small change is not green and no agent merges
 # it, and a small change does not lower the bar.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
@@ -15,13 +15,13 @@ git -C "$SMALL" add -A && git -C "$SMALL" commit -q -m "chore: start"
 s() { land --repo "$SMALL" "$@"; }
 stories() { "$PY" -B "$STORIES" --repo "$SMALL" "$@"; }
 dir_of() { echo "$SMALL/.lem/state/tasks/$1"; }
-# small_in SLUG KIND: a task whose one story is in its task directory, approved as Lem does it for KIND
-# (`correction` in his name, `feature` by him), with a worktree on its branch and no plan on it
+# small_in SLUG SIZE: a task whose one story is in its task directory, approved as Lem does it for SIZE
+# (`small` in his name, `full` by him), with a worktree on its branch and no plan on it
 small_in() {
   local tree
   project --repo "$SMALL" task-dir "$1" --ask "The date column of the report must never wrap." >/dev/null
-  printf '%s\n' '## Stories' '' "Kind: $2, because the ask is one sentence." '' '1. The date column of the report never wraps: 2026-11-17 stays on one line.' > "$(dir_of "$1")/stories.md"
-  if [ "$2" = correction ]; then stories approve "$1" --file "$(dir_of "$1")/stories.md" --correction >/dev/null; else stories approve "$1" --file "$(dir_of "$1")/stories.md" >/dev/null; fi
+  printf '%s\n' '## Stories' '' "Size: $2, because the ask is one sentence." '' '1. The date column of the report never wraps: 2026-11-17 stays on one line.' > "$(dir_of "$1")/stories.md"
+  if [ "$2" = small ]; then stories approve "$1" --file "$(dir_of "$1")/stories.md" --small >/dev/null; else stories approve "$1" --file "$(dir_of "$1")/stories.md" >/dev/null; fi
   tree=$(project --repo "$SMALL" worktree-dir "$1")
   git -C "$SMALL" worktree add -q "$tree" -b "fix/$1" main
   echo "$tree"
@@ -38,9 +38,9 @@ SHORT=$WORK/short-notes.md
 printf '%s\n' 'none' > "$SHORT"
 
 # A small change goes from Lem's approval in his name to the merge with no plan file on the branch.
-tree=$(small_in date-nowrap correction)
+tree=$(small_in date-nowrap small)
 built date-nowrap "$tree"
-shown=$(stories show date-nowrap 2>&1 | field '(d["small"], d["kind"], d["plan"].endswith("tasks/date-nowrap/stories.md"))' 2>&1 || true)
+shown=$(stories show date-nowrap 2>&1 | field '(d["small"], d["size"], d["plan"].endswith("tasks/date-nowrap/stories.md"))' 2>&1 || true)
 s start date-nowrap >/dev/null && s base date-nowrap >/dev/null
 gated=$(s gate date-nowrap 2>&1 | field '(d["green"], d["polish"], d["stories"]["ok"])' 2>&1 || true)
 due=$(s read date-nowrap 2>&1 | field '(d["due"], d["floor"], d["small"], d["tasks"])' 2>&1 || true)
@@ -49,7 +49,7 @@ s read date-nowrap --record "$(clean 1)" >/dev/null 2>&1 || true
 proposed=$(s propose date-nowrap --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
 merged=$(s land date-nowrap --by agent 2>&1 | field 'd["pushed"]' 2>&1 || true)
 text=$(dir_of date-nowrap)/pr.md
-if [ "$shown" = "(True, 'correction', True)" ] && [ "$gated" = "(True, None, True)" ] && [ "$due" = "('review', 'read', True, 1)" ] \
+if [ "$shown" = "(True, 'small', True)" ] && [ "$gated" = "(True, None, True)" ] && [ "$due" = "('review', 'read', True, 1)" ] \
   && [ "$proposed" = True ] && [ "$merged" = False ] && [ "$(status_in "$SMALL" date-nowrap)" = landed ] && [ "$(reds date-nowrap)" = 1 ] \
   && [ -z "$(git -C "$SMALL" ls-tree -r --name-only main -- docs/plans)" ] \
   && [ "$(sed -n 1p "$text")" = '**Green.** The checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts.' ] \
@@ -76,7 +76,7 @@ fi
 # A small change's builder files what it saw outside the change, in a commit of its own after the change's:
 # no polish pass runs or starts, the gate, the stories' check and the bar take the item as a document of
 # the change, the read covers it, and the pull request lists it.
-tree=$(small_in date-outside correction)
+tree=$(small_in date-outside small)
 built date-outside "$tree"
 item=docs/backlog/a-range-over-two-months-repeats-the-year.md
 mkdir -p "$tree/docs/backlog" && printf '%s\n' '---' 'worth: later' 'where: report.css' 'added: 2026-11-17' '---' \
@@ -101,22 +101,22 @@ else
 fi
 project --repo "$SMALL" state date-outside dropped "the test is over" >/dev/null
 
-# A feature keeps its stories at the top of its plan: with no plan file on the branch it is refused, also with a story file in the task directory.
-tree=$(small_in date-feature feature)
+# A full change keeps its stories at the top of its plan: with no plan file on the branch it is refused, also with a story file in the task directory.
+tree=$(small_in date-feature full)
 built date-feature "$tree"
 feature=$(stories show date-feature 2>&1 || true)
 s start date-feature >/dev/null && s base date-feature >/dev/null
 feature_gate=$(s gate date-feature 2>&1 || true)
-if grep -qF "stories.md says \`Kind: feature\`: only a small change (\`Kind: correction\`) keeps its story in the task directory" <<<"$feature" \
-  && grep -qF "A feature's stories are at the top of its plan" <<<"$feature_gate" && [ "$(kept_in "$SMALL" date-feature gated)" = None ]; then
-  pass "a feature with no plan file on the branch is refused by the stories and by the gate, also with a story file in its task directory"
+if grep -qF "stories.md says \`Size: full\`: only a small change (\`Size: small\`) keeps its story in the task directory" <<<"$feature" \
+  && grep -qF "A full change's stories are at the top of its plan" <<<"$feature_gate" && [ "$(kept_in "$SMALL" date-feature gated)" = None ]; then
+  pass "a full change with no plan file on the branch is refused by the stories and by the gate, also with a story file in its task directory"
 else
-  fail "a feature with no plan: $feature / $feature_gate"
+  fail "a full change with no plan: $feature / $feature_gate"
 fi
 project --repo "$SMALL" state date-feature dropped "the test is over" >/dev/null
 
 # A small change whose diff reaches what guards the project is careful: the full set, not green, and a person merges it.
-tree=$(small_in gate-edit correction)
+tree=$(small_in gate-edit small)
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true", "true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$tree/.lem/project.toml"
 built gate-edit "$tree"
 s start gate-edit >/dev/null && s base gate-edit >/dev/null && { s gate gate-edit > "$WORK/gate-edit.out" 2>&1 || true; }
@@ -135,14 +135,14 @@ else
 fi
 project --repo "$SMALL" state gate-edit dropped "the test is over" >/dev/null
 
-# A small change does not lower the bar: there is no plan for the reason, and a lowered bar takes the feature path.
-tree=$(small_in skips-test correction)
+# A small change does not lower the bar: there is no plan for the reason, and a lowered bar takes the full change's path.
+tree=$(small_in skips-test small)
 printf '%s\n' 'import pytest' '' '@pytest.mark.skip' 'def test_old():' '    assert True' > "$tree/tests/test_old.py"
 built skips-test "$tree"
 s start skips-test >/dev/null && s base skips-test >/dev/null
 lowered=$(s gate skips-test 2>&1 || true)
-if grep -qF "a small change does not lower the bar: tests/test_old.py" <<<"$lowered" && grep -qF "it is a feature" <<<"$lowered" && [ "$(kept_in "$SMALL" skips-test gated)" = None ]; then
-  pass "a small change that lowers the bar is refused at the gate, with the feature path named, since a small change has no plan to give the reason in"
+if grep -qF "a small change does not lower the bar: tests/test_old.py" <<<"$lowered" && grep -qF "it is a full change" <<<"$lowered" && [ "$(kept_in "$SMALL" skips-test gated)" = None ]; then
+  pass "a small change that lowers the bar is refused at the gate, with the full change's path named, since a small change has no plan to give the reason in"
 else
   fail "a small change that lowers the bar: $(grep -v "^ \|^[{}]" <<<"$lowered")"
 fi

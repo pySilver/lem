@@ -1,6 +1,6 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each feature to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
@@ -12,18 +12,19 @@ landing and what must never go wrong. This skill holds the flow and knows no pro
 
 The owner is a developer whose attention is short, and the size of a change decides its path.
 A small change is one plain change: one story in his own sentence, nothing careful and no
-question open, whatever its kind (a fix of one rule, a typo, a rename, a version bump, a line of a
+question open, whatever its type (a fix of one rule, a typo, a rename, a version bump, a line of a
 document). One builder makes it and files in the backlog what it saw outside it, the machine
-checks and one read review it, it has no polish pass, and it waits for nothing but his merge. Every other request is a feature, and the flow asks for his attention at
+checks and one read review it, it has no polish pass, and it waits for nothing but his merge. Every other request is a full change, and the flow asks for his attention at
 three touches: the interview, while a scout reads the code around his ask; the stories, which the
 personas read before he does and which he approves, so that they are the contract in plain
 language and become the tests; and the pull request, which he merges without a read when it is
-green. A feature whose whole context is written (a ticket, a settled backlog item) has no
-interview, and its stories wait for him only when a persona doubts them. Lem names the kind of
-each request from its words (a bug, a feature, a correction, an investigation, a chore, docs),
-and its size, and says both in one line before anything runs. A bug is investigated
+green. A full change from a complete request (a ticket that says what is wanted, a settled
+backlog item) has no interview, and its stories wait for him only when a persona doubts them.
+Lem names the type of each request from its words, a Conventional Commits type (`feat`, `fix`,
+`docs`, `refactor`, `perf`, `test`, `chore`) or `question`, and its size, and says both in one
+line before anything runs. A bug whose cause the request does not show is investigated
 before any story: a fresh builder reproduces it as a failing test and finds its cause, and its
-report sets the path. An investigation is the same work for a question, and ends `answered`, with
+report sets the path. A question is the same work, and ends `answered`, with
 a report and nothing to merge. Between the touches a task builds without him. A plan whose change makes a document
 false ends with a documentation task. After the last task a fresh builder makes the polish pass, a
 short fixed list of what a build leaves behind (a comment made false, a leftover, code that reads
@@ -54,7 +55,7 @@ task. When it fills with one task's code, it loses the others.
 its plan to its report. It writes the plan, starts one fresh builder for each task of it, also
 for a plan of one task, reads their reports and writes no code. A small change has no lead and no
 plan: Lem starts its one builder with `prompts/small.md`, a brief complete in itself, and the
-builder's own check of the change against the topics sends it to the feature path when it is not
+builder's own check of the change against the topics makes it a full change when it is not
 small after all.
 
 **A plan talk's defender** is the agent of a companion session that Lem opens for a careful or
@@ -65,9 +66,9 @@ closes the companion, and a fresh builder leads the build of the talked plan lik
 owner asked for it so: "a pair setup ... two agents of specific models and efforts have a chat
 about the plan under some rules that disallow endless discussion" (2026-11-16).
 
-Each task of a plan gets a builder with a context of its own. Every feature starts with a builder
-as its lead, also one the owner calls careful in the ask: there is no talk before there is a
-plan. The plan says whether it is careful or large (`stages/plan.md`), because only the plan
+Each task of a plan gets a builder with a context of its own. Every full change starts with a
+builder as its lead, also one the owner calls careful in the ask: there is no talk before there
+is a plan. The plan says whether it is careful or large (`stages/plan.md`), because only the plan
 names the files and the tasks. A lead and a defender answer to Lem and never ask the owner, so
 the owner has one place to answer.
 
@@ -103,11 +104,11 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 
 | Subcommand | Does | Read |
 | --- | --- | --- |
-| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and says its size in one line. A small change goes to one builder and the landing, and waits for nothing. A feature: interviews the owner while a scout reads the code, has the personas read the stories and takes his yes to them, and starts its lead; a ticket or an item whose whole context is written skips the interview. A bug is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
-| `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read. A plan is a feature's, so the ask is a feature whatever its size, and Lem's line says so | `stages/new.md` |
+| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and says its size in one line. A small change goes to one builder and the landing, and waits for nothing. A full change: interviews the owner while a scout reads the code, has the personas read the stories and takes his yes to them, and starts its lead; a ticket or an item whose whole context is written skips the interview. A bug whose cause the ask does not show is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
+| `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read. A plan is a full change's, so the ask is a full change whatever its size, and Lem's line says so | `stages/new.md` |
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
-| a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report: act on it as "A bug and an investigation" says | `stages/new.md` |
-| `land` | the oldest ready task: the polish pass for a feature (a small change has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
+| a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report: act on it as "A bug and a question" says | `stages/new.md` |
+| `land` | the oldest ready task: the polish pass for a full change (a small change has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `annotate <file>` | opens a plan, a draft or any text file for the owner to mark up, with what the settings' `tools.annotate` names, and takes his notes as corrections | the harness file, `show-page` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
@@ -238,13 +239,13 @@ moves it there and says so in one line on stderr: tell the owner that line once,
 - `outside.md`: the defects outside the request that the interview found, one line each with its
   place. Lem writes it; the landing's polish pass fixes or files each one.
 - `stories.json`: the stories the owner approved, word for word, with a digest, who approved them
-  and when, and the number of the approval, with the earlier approvals under `history`. On the
-  rare path the lead's read freezes them there too (`by: read`), which is never his yes. Only `stories.py approve` writes it; `stories.py approved SLUG` prints it, and the
+  and when, and the number of the approval, with the earlier approvals under `history`. For a
+  full change from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `stories.py approve` writes it; `stories.py approved SLUG` prints it, and the
   plan's stories must be those, with the test lines added.
 - `stories.md`: the stories as Lem writes them for his yes. For a small change it is the one
   story, approved in his name, with the test line its builder adds under it, and it stands in
   for a plan: a small change commits no plan, and `stories.py` and `land.py` read the story here
-  when the branch has no plan file. A feature's stories are read only from its plan.
+  when the branch has no plan file. A full change's stories are read only from its plan.
 - `brief.md`: the lead's brief, or the small change's builder's. Lem writes it.
 - `state.md`: newest block first. Lem and the lead write it, and only through the script.
 - `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that
@@ -263,7 +264,7 @@ moves it there and says so in one line on stderr: tell the owner that line once,
   command, what each review was given and what it found, Lem's notes for the pull request, and
   the text of the pull request.
 
-A feature's plan itself is a file in the repository, in the settings' `plans` path.
+A full change's plan itself is a file in the repository, in the settings' `plans` path.
 
 A file that a later step needs (the inputs of a measurement, a probe's output, a benchmark's
 kit) goes in the task directory too, never in `/tmp` or a session's scratch folder. One run's
@@ -300,8 +301,8 @@ task's worktree, so the board needs no second command from anyone. Seven lines h
 because the board reads them: `lead: builder` or `lead: session` (the plan talk's companion),
 `small change: one builder` (a small change's one builder, which is no lead), `session: ID`,
 `plan committed` with `N tasks`, `task N of M`, `investigation: bug` or `investigation: question`
-(a builder investigates before any lead), and `kind: KIND, because WHY`, which `state` refuses in
-another form.
+(a builder investigates before any lead), and `type: TYPE, because WHY`, which `state` refuses in
+another form, a `kind:` line among them.
 
 A stage's start is an event too, so that the board's time card has a start and an end for each
 span (the owner's pick of 2026-11-17). Each has a fixed form that `project.py log` checks, and
@@ -309,7 +310,7 @@ the event that already ends the stage ends it. Logged by the agent that runs the
 stage text says: `interview.start` (Lem, before the first question; it ends at the first
 `stories.read.start` or `stories.approved` after it), `scout.start` and `scout` (Lem, as the
 scout starts and when its report is written), `stories.read.start by=lem|lead` (it ends at
-`stories.read`), `investigation.start kind=bug|investigation` (it ends at `investigation`), and
+`stories.read`), `investigation.start type=fix|question` (it ends at `investigation`), and
 `builder.start job=JOB` for a builder's job, `task N of M`, `the small change`, `the repair of a
 conflict with the base`, `the repair of a failed check` or `the fix of a review's findings` (it
 ends at the next state block or step of the landing). Logged by `land.py` itself:

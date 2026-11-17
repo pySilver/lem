@@ -722,13 +722,13 @@ late state open-one landing "the checks start" >/dev/null && late state open-one
 landed=$(status_of late state open-one landed "main abc1234")
 late task-dir dropped-open >/dev/null && late state dropped-open landing "the checks start" >/dev/null && late state dropped-open open "pull request https://github.com/acme/shop/pull/7" >/dev/null
 dropped=$(status_of late state dropped-open dropped "the owner closed the pull request")
-# a small change whose gate found a lowered bar is a feature: its interview starts with `held` over `landing`
+# a small change whose gate found a lowered bar is a full change: its interview starts with `held` over `landing`
 late task-dir small-one >/dev/null && late state small-one landing "the checks start" >/dev/null
-held=$(status_of late state small-one held "the interview waits for the owner" "kind: feature, because the gate found a lowered bar")
+held=$(status_of late state small-one held "the interview waits for the owner" "type: feat, because the gate found a lowered bar")
 if [ "$over_landing_again" = 0 ] && [ "$over_open_again" = 0 ] && [ "$landed" = 0 ] && [ "$dropped" = 0 ] && [ "$held" = 0 ] \
   && grep -qF -- "--start-over gives a landing's line back, and only the state ready does that" <<<"$other_status" \
   && [ "$(status_in "$LATE" open-one)" = landed ] && [ "$(status_in "$LATE" dropped-open)" = dropped ] && [ "$(status_in "$LATE" small-one)" = held ]; then
-  pass "the landing's own moves stay: blocked, landing again, open, landed, dropped, held for a small change that is a feature, and ready with --start-over gives the line back"
+  pass "the landing's own moves stay: blocked, landing again, open, landed, dropped, held for a small change that is a full change, and ready with --start-over gives the line back"
 else
   fail "a landing's own move refused: $over_landing_again / $over_open_again / $other_status / $landed / $dropped / $held"
 fi
@@ -740,48 +740,53 @@ done
 if [ -z "$accepted" ]; then pass "a limit that is not a whole number of 1 or more is refused"; else fail "max_tasks accepted:$accepted"; fi
 settings '[branch]' 'base = "master"'
 
-# The kind of a request, and a task that ends with a report and nothing to merge: `answered`.
+# The type of a request, and a task that ends with a report and nothing to merge: `answered`.
 ANS=$WORK/answered
 git init -q -b main "$ANS"
 project --repo "$ANS" init --base main --reviewer codex >/dev/null
 "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^max_tasks = 4$", "max_tasks = 1", s, count=1))' "$ANS/.lem/project.toml"
 ans_dir=$(project --repo "$ANS" task-dir zero-after-refund --ask "invoices show 0 after a refund")
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
-unknown=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: defect, because the total is wrong" 2>&1 || true)
-unsaid=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug" 2>&1 || true)
+unknown=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: defect, because the total is wrong" 2>&1 || true)
+unsaid=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix" 2>&1 || true)
+old_line=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the total is wrong" 2>&1 || true)
 after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
-project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the ask says the total is wrong today" >/dev/null
+project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
 project --repo "$ANS" state zero-after-refund building "the test that reproduces the bug is committed" "investigation: bug" >/dev/null
-kind=$(project --repo "$ANS" tasks | field 'next(t["kind"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
-if grep -qF "'defect' is not a kind of request" <<<"$unknown" && grep -qF "kind: bug, because" <<<"$unsaid" && [ "$after_refusals" = "$before" ] \
-  && [ "$kind" = "{'kind': 'bug', 'why': 'the ask says the total is wrong today'}" ]; then
-  pass "a state line that names the kind of a request names one of the six with its reason, and tasks gives the newest kind also when a later block says nothing of it"
+kind=$(project --repo "$ANS" tasks | field 'next(t["type"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
+if grep -qF "'defect' is not a type of request" <<<"$unknown" && grep -qF "feat, fix, docs, refactor, perf, test, chore, question" <<<"$unknown" \
+  && grep -qF "write it as \`type: fix, because ...\`" <<<"$unsaid" && grep -qF "write it as \`type: fix, because the total is wrong\`" <<<"$old_line" \
+  && grep -qF "the kind line of an older Lem" <<<"$old_line" && [ "$after_refusals" = "$before" ] \
+  && [ "$kind" = "{'type': 'fix', 'why': 'the ask says the total is wrong today'}" ]; then
+  pass "a state line that names the type of a request names one of the eight with its reason, a kind line of an older Lem is refused with the type line to write, and tasks gives the newest type also when a later block says nothing of it"
 else
-  fail "the kind of a request: $unknown / $unsaid / $before $after_refusals / $kind"
+  fail "the type of a request: $unknown / $unsaid / $old_line / $before $after_refusals / $kind"
 fi
-# The investigation's record: a bug's call, whether it was reproduced and where the cause is; a question's answer.
+# The investigation's record: a fix's call, whether the bug was reproduced and where the cause is; a question's answer.
 inv() { project --repo "$ANS" log zero-after-refund investigation "$@" 2>&1 || true; }
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl")
-asked_back=$(inv kind=investigation call=answer "line=the refund writes a credit note" reproduced:=true)
-nowhere=$(inv kind=bug call=correction "line=the total skips credit notes" reproduced:=true)
-not_so=$(inv kind=bug call=not-reproduced "line=a refund of 10 gave 90" reproduced:=true)
-odd_call=$(inv kind=bug call=maybe "line=x" reproduced:=false)
-untyped=$(inv kind=bug call=usual "line=x" where=a.py:f reproduced=true)
+asked_back=$(inv type=question call=answer "line=the refund writes a credit note" reproduced:=true)
+nowhere=$(inv type=fix call=small "line=the total skips credit notes" reproduced:=true)
+not_so=$(inv type=fix call=not-reproduced "line=a refund of 10 gave 90" reproduced:=true)
+odd_call=$(inv type=fix call=maybe "line=x" reproduced:=false)
+untyped=$(inv type=fix call=full "line=x" where=a.py:f reproduced=true)
+old_form=$(inv kind=bug call=correction "line=x" where=a.py:f reproduced:=true)
 after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl")
 none_yet=$(project --repo "$ANS" tasks | field 'next(t["investigation"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
-inv kind=bug call=usual "line=the invoice total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
+inv type=fix call=full "line=the invoice total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
 found=$(project --repo "$ANS" tasks | field 'next((t["investigation"]["call"], t["investigation"]["where"], t["investigation"]["reproduced"]) for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
-if grep -qF "reproduced is a bug's" <<<"$asked_back" && grep -qF "where names the cause" <<<"$nowhere" && grep -qF "not-reproduced is a bug that was not reproduced" <<<"$not_so" \
-  && grep -qF "call is correction, usual, not-a-bug or not-reproduced for a bug" <<<"$odd_call" && grep -qF "written with :=" <<<"$untyped" \
-  && [ "$after_refusals" = "$before" ] && [ "$none_yet" = "None" ] && [ "$found" = "('usual', 'billing/invoice.py:total', True)" ]; then
-  pass "an investigation's record names its kind, its call and its one line, a bug's whether it was reproduced and a cause's place; a wrong one writes nothing, and tasks gives the newest"
+if grep -qF "reproduced is a fix's" <<<"$asked_back" && grep -qF "where names the cause" <<<"$nowhere" && grep -qF "not-reproduced is a bug that was not reproduced" <<<"$not_so" \
+  && grep -qF "call is small, full, not-a-bug or not-reproduced for a fix" <<<"$odd_call" && grep -qF "written with :=" <<<"$untyped" \
+  && grep -qF "kind=bug|investigation is the form of an older Lem; write type=fix call=small" <<<"$old_form" \
+  && [ "$after_refusals" = "$before" ] && [ "$none_yet" = "None" ] && [ "$found" = "('full', 'billing/invoice.py:total', True)" ]; then
+  pass "an investigation's record names its type, its call and its one line, a fix's whether the bug was reproduced and a cause's place; a wrong one or one of an older Lem's form writes nothing, and tasks gives the newest"
 else
-  fail "the investigation's record: $asked_back / $nowhere / $not_so / $odd_call / $untyped / $before $after_refusals / $none_yet / $found"
+  fail "the investigation's record: $asked_back / $nowhere / $not_so / $odd_call / $untyped / $old_form / $before $after_refusals / $none_yet / $found"
 fi
 # The start of each stage an agent runs has one form, so that the board draws its span from it to the event that ends it.
 starts() { project --repo "$ANS" log zero-after-refund "$@" 2>&1 || true; }
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl")
-good=$(for form in "interview.start" "scout.start" "scout" "stories.read.start by=lem" "stories.read.start by=lead" "investigation.start kind=bug" "investigation.start kind=investigation" \
+good=$(for form in "interview.start" "scout.start" "scout" "stories.read.start by=lem" "stories.read.start by=lead" "investigation.start type=fix" "investigation.start type=question" \
   "builder.start job=task 2 of 3" "builder.start job=the small change" "builder.start job=the repair of a conflict with the base" "builder.start job=the repair of a failed check" "builder.start job=the fix of a review's findings"; do
   read -r -a words <<<"${form%% *}"; if [ "$form" = "${form%% *}" ]; then starts "${words[0]}" | field 'd["event"]'; else starts "${words[0]}" "${form#* }" | field 'd["event"]'; fi; done | sort -u | tr '\n' ' ')
 added=$(( $(grep -c '' "$ANS/.lem/state/events.jsonl") - before ))
@@ -794,7 +799,7 @@ task_zero=$(starts builder.start "job=task 0 of 3")
 script_start=$(starts gate.start tip=abc123456)
 if [ "$good" = "builder.start interview.start investigation.start scout scout.start stories.read.start " ] && [ "$added" = 12 ] \
   && grep -qF "interview.start takes nothing" <<<"$with_field" && grep -qF "stories.read.start takes by=lem|lead, and nothing else" <<<"$no_by" && grep -qF "by is 'owner'" <<<"$odd_by" \
-  && grep -qF "investigation.start takes kind=bug|investigation" <<<"$odd_kind" && grep -qF "builder.start takes job=" <<<"$odd_job" && grep -qF "the polish pass logs its own start" <<<"$odd_job" \
+  && grep -qF "investigation.start takes type=fix|question" <<<"$odd_kind" && grep -qF "builder.start takes job=" <<<"$odd_job" && grep -qF "the polish pass logs its own start" <<<"$odd_job" \
   && grep -qF "builder.start takes job=" <<<"$task_zero" && grep -qF "gate.start takes tip=TIP commands:=N" <<<"$script_start" \
   && [ "$(grep -c '' "$ANS/.lem/state/events.jsonl")" = $((before + 12)) ]; then
   pass "the start of the interview, the scout, the personas' read, an investigation and a builder's job each has one form, the scout's end too; a start with a wrong field, a job no builder has or a script's start in another form writes nothing"
@@ -808,14 +813,14 @@ fi
 no_report=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
 printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$ans_dir/investigation.md"
 goes_on=$(project --repo "$ANS" state zero-after-refund answered "not a bug: a refund is a credit note" 2>&1 || true)
-inv kind=bug call=not-a-bug "line=a refund is a credit note, and the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
+inv type=fix call=not-a-bug "line=a refund is a credit note, and the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
 project --repo "$ANS" state zero-after-refund answered "not a bug: the invoice shows what is left to pay" "report: investigation.md" >/dev/null 2>&1 || true
 answered=$(project --repo "$ANS" tasks | field 'next((t["status"], t["investigation"]["call"]) for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
 project --repo "$ANS" task-dir other-task >/dev/null
-project --repo "$ANS" state other-task building "lead: builder" "kind: feature, because the ask wants a new column" >/dev/null
+project --repo "$ANS" state other-task building "lead: builder" "type: feat, because the ask wants a new column" >/dev/null
 project --repo "$ANS" task-dir waits-for-a-place >/dev/null
 places=$(project --repo "$ANS" may-start waits-for-a-place 2>&1 || true)
-# with one place, the task that holds it starts its next lead: the investigator's call was a correction
+# with one place, the task that holds it starts its next lead: the investigator's call was a small change
 itself=$(project --repo "$ANS" may-start other-task 2>&1 | field 'd["running"]' 2>&1 || true)
 project --repo "$ANS" state other-task answered "the question is answered" >/dev/null 2>&1 || true
 unreported=$(project --repo "$ANS" tasks | field 'next(t["status"] for t in d if t["slug"] == "other-task")')
@@ -966,7 +971,7 @@ project --repo "$ST" state export-has-the-gift-note building 'lead: builder' >/d
 mkdir -p "$stw/docs/plans" "$stw/tests"
 plan=$stw/docs/plans/20261115-export-has-the-gift-note.md
 # shellcheck disable=SC2016  # the backticks are the plan's own marks around a command and a file
-printf '%s\n' '# The export has the gift note' '' '## Stories' '' 'Kind: feature, because the export gets a new column and an empty cell.' '' \
+printf '%s\n' '# The export has the gift note' '' '## Stories' '' 'Size: full, because the export gets a new column and an empty cell.' '' \
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania"' '   has that text in its row.' \
   '   - test: `sh tests/gift.sh` in `tests/gift.sh`' '2. An order with no gift note has an empty cell, not the word "None".' \
   '   - test: `sh tests/none.sh` in `tests/none.sh`, `tests/helper.sh`' '' '## Tasks' '' '1. The column.' > "$plan"
@@ -975,10 +980,10 @@ echo 'sh export.sh | grep -q "1042,for Ania"' > "$stw/tests/gift.sh" && echo '. 
 git -C "$stw" add -A && git -C "$stw" commit -q -m "feat: the gift note"
 shown=$(stories show export-has-the-gift-note)
 stories record export-has-the-gift-note >/dev/null
-if [ "$(field '(d["kind"], d["why"], [(s["n"], s["text"].split(" of an order")[0].split(",")[0], [t["command"] for t in s["tests"]], [t["files"] for t in s["tests"]]) for s in d["stories"]])' <<<"$shown")" \
-  = "('feature', 'the export gets a new column and an empty cell.', [(1, 'A CSV export holds the gift note', ['sh tests/gift.sh'], [['tests/gift.sh']]), (2, 'An order with no gift note has an empty cell', ['sh tests/none.sh'], [['tests/none.sh', 'tests/helper.sh']])])" ] \
+if [ "$(field '(d["size"], d["why"], [(s["n"], s["text"].split(" of an order")[0].split(",")[0], [t["command"] for t in s["tests"]], [t["files"] for t in s["tests"]]) for s in d["stories"]])' <<<"$shown")" \
+  = "('full', 'the export gets a new column and an empty cell.', [(1, 'A CSV export holds the gift note', ['sh tests/gift.sh'], [['tests/gift.sh']]), (2, 'An order with no gift note has an empty cell', ['sh tests/none.sh'], [['tests/none.sh', 'tests/helper.sh']])])" ] \
   && [ "$(field 'd["stories"][0]["text"].endswith("has that text in its row.")' <<<"$shown")" = True ] \
-  && [ "$(grep -c '"event": "task.stories"' "$ST/.lem/state/events.jsonl")" = 1 ] && grep -q '"kind": "feature"' "$ST/.lem/state/events.js"; then
+  && [ "$(grep -c '"event": "task.stories"' "$ST/.lem/state/events.jsonl")" = 1 ] && grep -q '"size": "full"' "$ST/.lem/state/events.js"; then
   pass "the stories are read from the top of the task's plan, each with its text over two lines and its tests, and record puts them into the event log for the board"
 else
   fail "stories show and record: $shown"
@@ -1120,48 +1125,52 @@ fi
 form() { printf '%s\n' "$@" > "$plan"; stories show export-has-the-gift-note 2>&1 || true; }
 no_section=$(form '# A plan' '' '## Tasks')
 no_kind=$(form '## Stories' '' '1. A story.')
-two=$(form '## Stories' '' 'Kind: correction, because it is one sentence.' '' '1. One.' '2. Two.')
-order=$(form '## Stories' '' 'Kind: feature, because of two things.' '' '1. One.' '3. Three.')
+two=$(form '## Stories' '' 'Size: small, because it is one sentence.' '' '1. One.' '2. Two.')
+order=$(form '## Stories' '' 'Size: full, because of two things.' '' '1. One.' '3. Three.')
+# The section an older Lem wrote, with `Kind: feature` or `Kind: correction`, reads as its size; another word there does not.
+old_kind=$(form '## Stories' '' 'Kind: feature, because an older Lem wrote it.' '' '1. One.' | field '(d["size"], d["mark"])' 2>&1 || true)
+odd_size=$(form '## Stories' '' 'Size: medium, because it is between.' '' '1. One.')
 # An example of the form in a code fence is not the section, and a plan of another task whose name ends the same way is not this task's.
 # shellcheck disable=SC2016
-fenced=$(form '# A plan' '' '````markdown' 'An example in an example:' '```' '## Stories' '' 'Kind: correction, because it is an example.' '' '1. An example.' '```' '````' '' '## Stories' '' 'Kind: feature, because it is the real one.' '' '1. The real story.' | field '(d["kind"], d["stories"][0]["text"])')
+fenced=$(form '# A plan' '' '````markdown' 'An example in an example:' '```' '## Stories' '' 'Size: small, because it is an example.' '' '1. An example.' '```' '````' '' '## Stories' '' 'Size: full, because it is the real one.' '' '1. The real story.' | field '(d["size"], d["stories"][0]["text"])')
 git -C "$stw" checkout -q -- docs
-printf '%s\n' '## Stories' '' 'Kind: correction, because it is another task.' '' '1. Not this task.' > "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
-other=$(stories show export-has-the-gift-note | field '(d["kind"], d["plan"].rsplit("/", 1)[1])')
+printf '%s\n' '## Stories' '' 'Size: small, because it is another task.' '' '1. Not this task.' > "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
+other=$(stories show export-has-the-gift-note | field '(d["size"], d["plan"].rsplit("/", 1)[1])')
 rm "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
 stories record export-has-the-gift-note >/dev/null && stories red export-has-the-gift-note >/dev/null
 # shellcheck disable=SC2016
-if [ "$fenced" = "('feature', 'The real story.')" ] && [ "$other" = "('feature', '20261115-export-has-the-gift-note.md')" ] \
+if [ "$fenced" = "('full', 'The real story.')" ] && [ "$other" = "('full', '20261115-export-has-the-gift-note.md')" ] \
+  && [ "$old_kind" = "('full', 'feature')" ] && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with \`Size: full, because ...\`" <<<"$odd_size" \
   && grep -q 'has no `## Stories` section' <<<"$no_section" && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with" <<<"$no_kind" \
-  && grep -q "a correction has one story, and this plan has 2: it is a feature" <<<"$two" && grep -q ":6: the stories are numbered 1, 2, 3 in order" <<<"$order" \
+  && grep -q "a small change has one story, and this one has 2: it is a full change" <<<"$two" && grep -q ":6: the stories are numbered 1, 2, 3 in order" <<<"$order" \
   && [ "$(status_of stories show no-such-task)" = 1 ]; then
-  pass "a plan with no stories section, no kind, a correction of two stories or a gap in the numbers is refused with the place and the fix; a fenced example is not the section, and a plan of another task is not read"
+  pass "a plan with no stories section, no size, a small change of two stories, an unknown size or a gap in the numbers is refused with the place and the fix; the Kind line of an older Lem reads as its size; a fenced example is not the section, and a plan of another task is not read"
 else
-  fail "the form of the stories: $no_section / $no_kind / $two / $order"
+  fail "the form of the stories: $no_section / $no_kind / $two / $order / $old_kind / $odd_size"
 fi
 
 # Approved stories are frozen as written: the plan's stories are those, word for word, with only test lines added.
 # They are approved at the interview, before the task has a worktree.
 project --repo "$ST" task-dir approved-note >/dev/null
-printf '%s\n' '## Stories' '' 'Kind: feature, because the note gets a file and an empty case.' '' '1. The note file holds the gift note of order 1042: "for Ania".' \
+printf '%s\n' '## Stories' '' 'Size: full, because the note gets a file and an empty case.' '' '1. The note file holds the gift note of order 1042: "for Ania".' \
   '2. An order with no gift note has the line "1043," and no word' '   after the comma.' > "$WORK/approved.md"
 approved=$(stories approve approved-note --file "$WORK/approved.md" 2>&1 || true)
 kept_stories=$ST/.lem/state/tasks/approved-note/stories.json
 # shellcheck disable=SC2016
-printf '%s\n' '## Stories' '' 'Kind: feature, because of a test.' '' '1. A story.' '   - test: `sh t.sh` in `t.sh`' > "$WORK/tested.md"
+printf '%s\n' '## Stories' '' 'Size: full, because of a test.' '' '1. A story.' '   - test: `sh t.sh` in `t.sh`' > "$WORK/tested.md"
 tested=$(stories approve approved-note --file "$WORK/tested.md" 2>&1 || true)
-not_one=$(stories approve approved-note --file "$WORK/approved.md" --correction 2>&1 || true)
+not_one=$(stories approve approved-note --file "$WORK/approved.md" --small 2>&1 || true)
 no_file=$(stories approve approved-note 2>&1 || true)
 kept_now=$(stories approved approved-note 2>/dev/null | field '(d["approved"]["by"], d["approved"]["digest"], [s["text"] for s in d["approved"]["stories"]])' 2>&1 || true)
-if [ "$(field '(d["by"], d["kind"], len(d["digest"]), [s["n"] for s in d["stories"]], d["stories"][1]["text"])' <<<"$approved" 2>/dev/null)" \
-  = "('owner', 'feature', 12, [1, 2], 'An order with no gift note has the line \"1043,\" and no word after the comma.')" ] \
+if [ "$(field '(d["by"], d["size"], len(d["digest"]), [s["n"] for s in d["stories"]], d["stories"][1]["text"])' <<<"$approved" 2>/dev/null)" \
+  = "('owner', 'full', 12, [1, 2], 'An order with no gift note has the line \"1043,\" and no word after the comma.')" ] \
   && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["text"] == open(sys.argv[2]).read())' "$kept_stories" "$WORK/approved.md" 2>/dev/null)" = True ] \
   && [ "$(grep -c '"event": "stories.approved", "task": "approved-note", "by": "owner"' "$ST/.lem/state/events.jsonl")" = 1 ] \
   && [ "$kept_now" = "('owner', '$(field 'd["digest"]' <<<"$approved" 2>/dev/null)', ['The note file holds the gift note of order 1042: \"for Ania\".', 'An order with no gift note has the line \"1043,\" and no word after the comma.'])" ] \
   && grep -q "story 1 of tested.md has a test line: the stories the owner approves have none, and the lead adds them in the plan" <<<"$tested" \
-  && grep -q "says .Kind: feature.: a feature waits for the owner's own yes" <<<"$not_one" && grep -q "approve needs --file" <<<"$no_file" \
+  && grep -q "says .Size: full.: a full change waits for the owner's own yes" <<<"$not_one" && grep -q "approve needs --file" <<<"$no_file" \
   && [ "$(grep -c '"event": "stories.approved"' "$ST/.lem/state/events.jsonl")" = 1 ]; then
-  pass "approve keeps the stories the owner approved, before the task has a worktree: their text as written, a digest and who approved them, with one event for the board; a file with a test line, a feature as a correction and no file are refused"
+  pass "approve keeps the stories the owner approved, before the task has a worktree: their text as written, a digest and who approved them, with one event for the board; a file with a test line, a full change as a small change and no file are refused"
 else
   fail "stories approve: $approved / $tested / $not_one / $no_file / $kept_now"
 fi
@@ -1173,7 +1182,7 @@ mkdir -p "$atw/docs/plans" "$atw/tests"
 aplan=$atw/docs/plans/20261116-approved-note.md
 # aplan_with LINE...: the plan of approved-note, with these lines as its stories, and its commit
 aplan_with() {
-  printf '%s\n' '# The note' '' 'careful: no, it touches one new file.' '' '## Stories' '' 'Kind: feature, because the note gets a file and an empty case.' '' "$@" '' '## Tasks' '' '1. The note.' > "$aplan"
+  printf '%s\n' '# The note' '' 'careful: no, it touches one new file.' '' '## Stories' '' 'Size: full, because the note gets a file and an empty case.' '' "$@" '' '## Tasks' '' '1. The note.' > "$aplan"
   git -C "$atw" add -A && git -C "$atw" commit -q -m "docs: the plan"
 }
 printf '%s\n' 'for Ania' '1043,' > "$atw/note.txt"
@@ -1267,26 +1276,26 @@ else
   fail "story changes against the approved stories: $reworded / $red_reworded / $changed_now / $again / $stale / $chained / $added_now / $gone_again / $dropped / $wrong_was / $removed_now / $expected / $neither / $both / $nosaid / $twoways / $added_was / $nochoice / $not_approved / $log_story / $records / $plain"
 fi
 # His next approval starts the changes again. A change keeps its texts as typed, and two spaces of a literal value match;
-# a plan of another kind than the approved one is refused, since the kind is his.
+# a plan of another size than the approved one is refused, since the size is his.
 # shellcheck disable=SC2016
 code1='The note file holds the code `A  B` for order 1042.'
 # shellcheck disable=SC2016
 code2='The note file holds the code `A  B` for orders 1042 and 1044.'
-printf '%s\n' '## Stories' '' 'Kind: feature, because the note gets a code.' '' "1. $code1" '2. Order 1043 has no note line.' > "$WORK/reapproved.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the note gets a code.' '' "1. $code1" '2. Order 1043 has no note line.' > "$WORK/reapproved.md"
 stories approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
 reset=$(adecide changes approved-note 2>/dev/null | field '(len(d["changes"]), d["expected"])' 2>&1 || true)
 spaced=$(adecide story approved-note --changed 1 --was "$code1" --now "$code2" --why "Order 1044 has the note too." --by lead 2>/dev/null | field '(d["was"], d["now"])' 2>&1 || true)
-printf '%s\n' '# The note' '' '## Stories' '' 'Kind: correction, because it is one sentence.' '' "1. $code2" '' '## Tasks' '' '1. The note.' > "$aplan"
+printf '%s\n' '# The note' '' '## Stories' '' 'Size: small, because it is one sentence.' '' "1. $code2" '' '## Tasks' '' '1. The note.' > "$aplan"
 kind=$(stories show approved-note 2>&1 || true)
 # shellcheck disable=SC2016
 aplan_with '1. The note file holds the code `A  B` for' '   orders 1042 and 1044.' '2. Order 1043 has no note line.'
 kept_spaces=$(stories show approved-note 2>/dev/null | field '(len(d["changes"]), d["stories"][0]["text"])' 2>&1 || true)
 if [ "$reset" = "(0, ['$code1', 'Order 1043 has no note line.'])" ] && [ "$spaced" = "('$code1', '$code2')" ] \
-  && grep -qF "20261116-approved-note.md says \`Kind: correction\`, and the owner approved its stories as a feature: a change of the kind is the owner's only" <<<"$kind" \
+  && grep -qF "20261116-approved-note.md says \`Size: small\`, and the owner approved its stories as a full change: a change of the size is the owner's only" <<<"$kind" \
   && [ "$kept_spaces" = "(1, '$code2')" ]; then
-  pass "his next approval starts the story changes again; a change keeps its texts as typed, two spaces of a literal value match, and a story broken over two lines is the same story; a plan of another kind than the approved one is refused"
+  pass "his next approval starts the story changes again; a change keeps its texts as typed, two spaces of a literal value match, and a story broken over two lines is the same story; a plan of another size than the approved one is refused"
 else
-  fail "a new approval, spaces and the kind: $reset / $spaced / $kind / $kept_spaces"
+  fail "a new approval, spaces and the size: $reset / $spaced / $kind / $kept_spaces"
 fi
 # An approval is known by its number, not by its text: his approval of a text approved before is a new one, with no
 # change after it, and the changes of an earlier approval do not come back when its text does.
@@ -1305,15 +1314,15 @@ if [ "$same_text" = "(3, 0, '$code1')" ] && [ "$just_approved" = "(3, [])" ] && 
 else
   fail "approvals by number: $same_text / $just_approved / $back_again / $numbered"
 fi
-# An automatic approval is only ever the first contract: Lem's approval of a correction in his name does not replace his feature.
-printf '%s\n' '## Stories' '' 'Kind: correction, because it is one sentence.' '' '1. The note file omits the code for order 1042.' > "$WORK/omits.md"
-over_feature=$(stories approve approved-note --file "$WORK/omits.md" --correction 2>&1 || true)
-contract=$(stories approved approved-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"], d["approved"]["kind"], d["approved"]["stories"][0]["text"])' 2>&1 || true)
-if grep -qF "approved-note has approval 5 of its stories already (by owner): Lem approves a correction in the owner's name only as the first contract" <<<"$over_feature" \
-  && grep -qF "the kind only through the owner's own approval" <<<"$over_feature" && [ "$contract" = "(5, 'owner', 'feature', '$code1')" ]; then
-  pass "Lem's approval of a correction in his name is only a task's first contract: over his approved feature it is refused, and his stories and their kind stay"
+# An automatic approval is only ever the first contract: Lem's approval of a small change in his name does not replace his full change.
+printf '%s\n' '## Stories' '' 'Size: small, because it is one sentence.' '' '1. The note file omits the code for order 1042.' > "$WORK/omits.md"
+over_feature=$(stories approve approved-note --file "$WORK/omits.md" --small 2>&1 || true)
+contract=$(stories approved approved-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"], d["approved"]["size"], d["approved"]["stories"][0]["text"])' 2>&1 || true)
+if grep -qF "approved-note has approval 5 of its stories already (by owner): Lem approves a small change in the owner's name only as the first contract" <<<"$over_feature" \
+  && grep -qF "the size only through the owner's own approval" <<<"$over_feature" && [ "$contract" = "(5, 'owner', 'full', '$code1')" ]; then
+  pass "Lem's approval of a small change in his name is only a task's first contract: over his approved full change it is refused, and his stories and their size stay"
 else
-  fail "a correction over his feature: $over_feature / $contract"
+  fail "a small change over his full change: $over_feature / $contract"
 fi
 # Every approval takes the task's lock for its check and its write: while a freeze holds it, his approval waits, and then the
 # freeze, which comes too late, is refused.
@@ -1614,7 +1623,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/stories.dom" 2>/dev/null || true
   if [ ! -s "$WORK/stories.dom" ]; then
     printf 'SKIP the stories on the board: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories.dom" "Stories" "feature, because the export gets a new column and an empty cell." \
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories.dom" "Stories" "full change, because the export gets a new column and an empty cell." \
     'A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' "sh tests/gift.sh" \
     "passes on the branch, fails on the base commit (checked on " "held by its tests" "An order with no gift note has an empty cell"); then
     pass "the board of one task shows its stories as the plan has them, each with its tests and the result of the last check"

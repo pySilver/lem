@@ -67,9 +67,9 @@ Every decision goes into the task's record through one script, which also puts i
 python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT]
 ```
 
-A story the owner approved, or the rare path's read froze (`stories.py approved SLUG`), changes
-in the plan only with its own record, written before the commit that changes it, with its text
-before and after:
+A story the owner approved, or that the lead's read froze for a full change from a complete
+request (`stories.py approved SLUG`), changes in the plan only with its own record, written
+before the commit that changes it, with its text before and after:
 
 ```bash
 python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE story SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
@@ -83,9 +83,9 @@ the lead's own (`--by lead`) for a change that is nobody's choice, such as a typ
 A story whose rule changes, comes or goes is never the lead's alone: it takes step 2 below, the
 personas first. The stories script
 refuses the plan until its stories are the expected ones, word for word, and the pull request is
-not green for each change. A plan's kind (`Kind:`) is always `feature`, and `stories.py` refuses
-a plan that says `Kind: correction`: a build never turns a feature into a small change, which
-has no plan, and the kind is no choice of this section. A plan that departs from a direction
+not green for each change. A plan's size (`Size:`) is always `full`, and `stories.py` refuses
+a plan that says `Size: small`: a build never turns a full change into a small change, which
+has no plan, and the size is no choice of this section. A plan that departs from a direction
 (`directions.md`) is a decision of this section too, with the direction in `--what`.
 
 1. **The stories and the directions stay true**: decide it yourself, from the code, the settings

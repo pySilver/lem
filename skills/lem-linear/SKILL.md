@@ -162,8 +162,8 @@ When a task that came from a ticket is dropped (`stages/new.md`, "When a task is
 ## answer
 
 When a task that came from a ticket ends as `answered`: its investigation found that the bug is
-not one, or answered the question, and nothing is merged (`stages/new.md`, "A bug and an
-investigation"). A drop's comment would tell the people who read the ticket that the work was
+not one, or answered the question, and nothing is merged (`stages/new.md`, "A bug and a
+question"). A drop's comment would tell the people who read the ticket that the work was
 not wanted, while the task has a finding for them; so an answer has its own comment.
 
 1. The workspace test, and the connection's `access` allows a write.

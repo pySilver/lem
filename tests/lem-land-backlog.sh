@@ -15,7 +15,7 @@ backlog_repo() {
   mkdir -p "$repo/$2" && echo '# an item from before' > "$repo/$2/existing.md" && echo one > "$repo/app.txt"
   git -C "$repo" add -A && git -C "$repo" commit -q -m "chore: start"
 }
-# blg_task SLUG: a feature of the backlog repository, with the lead's read of its stories
+# blg_task SLUG: a full change of the backlog repository, with the lead's read of its stories
 blg_task() { task_in "$BLG" "$1" app.txt two && read_in "$BLG" "$1"; }
 # checked_in REPO SLUG: the task takes the landing line, its base, its polish pass and its gate
 checked_in() { land --repo "$1" start "$2" >/dev/null && land --repo "$1" base "$2" >/dev/null && polish_in "$1" "$2" && land --repo "$1" gate "$2" >/dev/null; }

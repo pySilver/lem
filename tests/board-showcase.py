@@ -96,9 +96,9 @@ class Shop:
         self.project("log", slug, event, *fields)
         self.at(slug, minutes)
 
-    def story_file(self, slug: str, kind: str, why: str, *stories: str) -> Path:
+    def story_file(self, slug: str, size: str, why: str, *stories: str) -> Path:
         path = self.work / f"{slug}.md"
-        path.write_text("\n".join(["## Stories", "", f"Kind: {kind}, because {why}", "", *(f"{n}. {text}" for n, text in enumerate(stories, 1))]) + "\n")
+        path.write_text("\n".join(["## Stories", "", f"Size: {size}, because {why}", "", *(f"{n}. {text}" for n, text in enumerate(stories, 1))]) + "\n")
         return path
 
     def read(self, slug: str, minutes: float, file: Path, flagged: int) -> None:
@@ -136,8 +136,8 @@ def afternoon(shop: Shop) -> None:
     # A small change, built, checked, read once and proposed green: it waits for the merge.
     t = "footer-terms-typo"
     s.task(t, 'The footer says "Terms and condtions"')
-    s.approve(t, 52, s.story_file(t, "correction", "the request is one sentence.", 'The footer says "Terms and conditions".'), "--correction")
-    s.state(t, 52, "building", "small change: one builder", "kind: bug, because the footer shows a typo today")
+    s.approve(t, 52, s.story_file(t, "small", "the request is one sentence.", 'The footer says "Terms and conditions".'), "--small")
+    s.state(t, 52, "building", "small change: one builder", "type: fix, because the footer shows a typo today")
     s.log(t, 51.5, "builder.start", "job=the small change")
     s.state(t, 44, "ready", "the report is written")
     s.state(t, 43.5, "landing", "the checks start")
@@ -151,14 +151,14 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 34, "proposed", "green:=true", "not_green:=[]", "tip=4c1d2e3")
     s.state(t, 34, "open", "pull request https://github.com/acme/shop/pull/41", "green")
 
-    # A feature on its second task of three.
+    # A full change on its second task of three.
     t = "gift-note-in-export"
     s.task(t, "Add the gift note to the CSV export")
-    s.state(t, 150, "held", "the interview waits for the owner", "kind: feature, because the export gets a new column")
+    s.state(t, 150, "held", "the interview waits for the owner", "type: feat, because the export gets a new column")
     s.log(t, 149.5, "scout.start")
     s.log(t, 149, "interview.start")
     s.log(t, 147, "scout")
-    gift = s.story_file(t, "feature", "the export gets a new column and two readers of it.",
+    gift = s.story_file(t, "full", "the export gets a new column and two readers of it.",
                         'An order with the gift note "for Ania" has that text in the last column of its row.',
                         "An order with no gift note has an empty cell, not the word None.")
     s.log(t, 138, "stories.read.start", "by=lem")
@@ -175,11 +175,11 @@ def afternoon(shop: Shop) -> None:
     # Stories the personas read, with one flagged, which wait for his yes.
     t = "stock-on-product-page"
     s.task(t, "Show how many are left on the product page")
-    s.state(t, 31, "held", "the interview waits for the owner", "kind: feature, because the product page gets a new line")
+    s.state(t, 31, "held", "the interview waits for the owner", "type: feat, because the product page gets a new line")
     s.log(t, 30.5, "scout.start")
     s.log(t, 30, "interview.start")
     s.log(t, 28, "scout")
-    stock = s.story_file(t, "feature", "the product page gets a new line.",
+    stock = s.story_file(t, "full", "the product page gets a new line.",
                          'A product with 3 in stock says "3 left" under its price.',
                          'A product with none in stock says "Sold out" and no number.')
     s.log(t, 19, "stories.read.start", "by=lem")
@@ -189,9 +189,9 @@ def afternoon(shop: Shop) -> None:
     # A careful change: its plan is talked through with the reviewer before anything is built.
     t = "refund-rounding"
     s.task(t, "Round refunds the way the payment provider does")
-    s.state(t, 95, "held", "the interview waits for the owner", "kind: feature, because refunds get a new rule")
+    s.state(t, 95, "held", "the interview waits for the owner", "type: feat, because refunds get a new rule")
     s.log(t, 94.5, "interview.start")
-    refund = s.story_file(t, "feature", "refunds get a new rule.", "A refund of 10.005 EUR pays back 10.01 EUR, as the provider rounds it.")
+    refund = s.story_file(t, "full", "refunds get a new rule.", "A refund of 10.005 EUR pays back 10.01 EUR, as the provider rounds it.")
     s.log(t, 82, "stories.read.start", "by=lem")
     s.read(t, 78, refund, 0)
     s.state(t, 78, "held", "the stories wait for the owner")
@@ -203,17 +203,17 @@ def afternoon(shop: Shop) -> None:
     t = "cart-total-after-coupon"
     s.task(t, "The cart total is wrong after a coupon since yesterday")
     s.state(t, 12, "building", "a builder reproduces the bug and finds its cause", "investigation: bug",
-            "kind: bug, because the ask says the total is wrong since yesterday")
-    s.log(t, 11.5, "investigation.start", "kind=bug")
+            "type: fix, because the ask says the total is wrong since yesterday")
+    s.log(t, 11.5, "investigation.start", "type=fix")
 
-    # A feature that landed today, from its interview to the merge.
+    # A full change that landed today, from its interview to the merge.
     t = "order-date-on-invoice"
     s.task(t, "Print the order date on the invoice")
-    s.state(t, 330, "held", "the interview waits for the owner", "kind: feature, because the invoice gets a new line")
+    s.state(t, 330, "held", "the interview waits for the owner", "type: feat, because the invoice gets a new line")
     s.log(t, 329.5, "scout.start")
     s.log(t, 329, "interview.start")
     s.log(t, 327, "scout")
-    date = s.story_file(t, "feature", "the invoice gets a new line.", 'The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.')
+    date = s.story_file(t, "full", "the invoice gets a new line.", 'The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.')
     s.log(t, 318, "stories.read.start", "by=lem")
     s.read(t, 314, date, 0)
     s.state(t, 314, "held", "the stories wait for the owner")
@@ -224,7 +224,7 @@ def afternoon(shop: Shop) -> None:
     tree = Path(s.project("worktree-dir", t).strip())
     s.git("worktree", "add", "-q", "-b", f"feat/{t}", str(tree), "main")
     s.commit_in(tree, "docs(plans): the order date on the invoice", {"docs/plans/20261117-order-date-on-invoice.md": "\n".join([
-        "# The order date on the invoice", "", "## Stories", "", "Kind: feature, because the invoice gets a new line.", "",
+        "# The order date on the invoice", "", "## Stories", "", "Size: full, because the invoice gets a new line.", "",
         '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.',
         "   - test: `sh tests/order-date.sh` in `tests/order-date.sh`", "", "## Tasks", "",
         "1. The date under the order's number.", "2. The date in the shop's language.", ""])})
@@ -266,10 +266,10 @@ def afternoon(shop: Shop) -> None:
     # A question, answered by its investigation.
     t = "why-export-is-slow"
     s.task(t, "Why does the monthly export take a minute?")
-    s.state(t, 205, "building", "a builder finds the answer", "investigation: question", "kind: investigation, because the ask asks why")
-    s.log(t, 204.5, "investigation.start", "kind=investigation")
+    s.state(t, 205, "building", "a builder finds the answer", "investigation: question", "type: question, because the ask asks why")
+    s.log(t, 204.5, "investigation.start", "type=question")
     (s.dir / "tasks" / t / "investigation.md").write_text("# Investigation\n\nThe export reads every order of the month one query at a time.\n")
-    s.log(t, 186, "investigation", "kind=investigation", "call=answer", "line=the export reads each order of the month with its own query", "where=reports/export.py:monthly")
+    s.log(t, 186, "investigation", "type=question", "call=answer", "line=the export reads each order of the month with its own query", "where=reports/export.py:monthly")
     s.state(t, 185, "answered", "the answer: one query for each order", "report: investigation.md")
 
     # Two items of the backlog.

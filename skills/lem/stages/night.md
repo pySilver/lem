@@ -18,8 +18,8 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    `lem-backlog` skill's triage has verdicts, take the items it gives to an agent, the surest first.
    Without verdicts, read each item and keep the ones that state a defect or a job, not a choice.
    An item that is one plain change (one rule in a sentence, in reach of no topic, no question
-   open: a small change, as `stages/new.md` step 1 sizes an ask) gets no plan: a plan's kind is
-   never correction, and a small change has one builder and no plan. Draft nothing for it, name
+   open: a small change, as `stages/new.md` step 1 sizes an ask) gets no plan: a plan never
+   makes a change small, and a small change has one builder and no plan. Draft nothing for it, name
    it in the night report as ready to start as a small change, and take the next candidate; it
    is none of the three tries of step 4, since no builder ran for it.
 3. **One item, planned.** For the first candidate, open the task as `stages/new.md` does, on a

@@ -18,7 +18,7 @@ does not take the task to its report.
 2. **Read where the task stands**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE tasks`
    for its status, then `task.md` in the task directory, with `directions.md`, `scout.md` and
    `investigation.md` when it has them: what the owner named in his interview, which the plan
-   follows, the facts a scout read in the code then, and for a bug the investigator's cause, what
+   follows, the facts a scout read in the code then, and for a fix the investigator's cause, what
    else it reaches and the commit of the test that reproduces it, which the plan builds on.
    `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE approved
    SLUG` gives the stories he approved: they are the plan's stories word for word, and only a
@@ -31,9 +31,9 @@ does not take the task to its report.
    already answers.
 3. **Follow `SKILL_DIR/stages/plan.md`, then `SKILL_DIR/stages/build.md`.** Read each when you
    reach it. You write the plan and no code: each task of the plan goes to a fresh builder, also
-   the one task of a plan that has one. A plan's stories are always `Kind: feature`: one plain
+   the one task of a plan that has one. A plan's stories are always `Size: full`: one plain
    change is a small change, which has no lead and no plan, and `stories.py` and `land.py`
-   refuse a plan that says `Kind: correction`.
+   refuse a plan that says `Size: small`.
 4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
    another branch or touch the checkout the worktree came from.
 5. **You never ask the owner.** A decision that is the owner's, in the plan or in the build, goes

@@ -8,7 +8,7 @@ the text of the pull request cannot drift apart:
 
     ## Stories
 
-    Kind: feature, because the export gets a new column and two readers of it.
+    Size: full, because the export gets a new column and two readers of it.
 
     1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has
        that text in its row.
@@ -16,26 +16,28 @@ the text of the pull request cannot drift apart:
     2. An order with no gift note has an empty cell, not the word "None".
        - test: `python3 -m unittest tests.test_export.NoNote` in `tests/test_export.py`
 
-`Kind` is `feature` or `correction`, with the reason after `because`. A correction is a request
-that yields one story and touches nothing careful; its story is the owner's own sentence made
-exact. Lem calls it a small change, and a small change has no plan: its story is the same section
-in `stories.md` in the task's directory, which no commit holds, and the builder adds its test line
-there. A branch's plan comes first when it has one, and only a correction is read from that file:
-a feature's stories are at the top of its plan, and a feature with no plan is refused. A plan's
-kind is always `feature`: a plan that says `Kind: correction` is refused, with the small change
-named as the way for one plain change, since a correction in a plan would take a feature's path
-with none of what a feature gets (the owner's approval, the personas' read, the polish pass). A story's test is a command and the files that hold the test, each in backticks. A story
+`Size` is `full` or `small`, with the reason after `because`. A small change is a request that
+yields one story and touches nothing careful; its story is the owner's own sentence made exact,
+and it has no plan: its story is the same section in `stories.md` in the task's directory, which
+no commit holds, and the builder adds its test line there. A branch's plan comes first when it has
+one, and only a small change is read from that file: a full change's stories are at the top of its
+plan, and a full change with no plan is refused. A plan never makes a change small: a plan that
+says `Size: small` is refused, with the small change named as the way for one plain change, since
+a small change in a plan would take a full change's path with none of what a full change gets (the
+owner's approval, the personas' read, the polish pass). The section of an older Lem, whose first
+line is `Kind: feature` or `Kind: correction`, reads as `Size: full` or `Size: small`, and its
+digests stay the ones that Lem wrote. A story's test is a command and the files that hold the test, each in backticks. A story
 that no test can hold (a sentence of a document) says so, and that is shown wherever the stories
 are:
 
        - no test: the change is one paragraph of the README.
 
-    stories.py approve SLUG --file FILE [--correction]
+    stories.py approve SLUG --file FILE [--small]
     stories.py approve SLUG --read
                               keep the stories the owner approved, as FILE has them: the same
-                              section with no test lines, which the lead adds. --correction: Lem
-                              approves a correction's one story in the owner's name, as the task's
-                              first contract only, and the owner may still say "this is a feature". --read: the lead of the rare path freezes
+                              section with no test lines, which the lead adds. --small: Lem
+                              approves a small change's one story in the owner's name, as the task's
+                              first contract only, and the owner may still say "full". --read: the lead of a full change from a complete request freezes
                               the plan's stories, which a read found nobody confused by, as the
                               task's first contract; refused when the task has any approval, and
                               after one read in which nobody answered, until a second such read
@@ -44,7 +46,7 @@ are:
                               as the owner's yes
     stories.py approved SLUG  the approved stories of the task, or null when it has none
     stories.py digest SLUG [--file FILE]
-                              the digest of the stories' kind and texts, without tests: of FILE,
+                              the digest of the stories' size and texts, without tests: of FILE,
                               or of the task's plan
     stories.py show SLUG      the stories of the task's plan, or of a small change's `stories.md`, as
                               JSON; `small` says which, and `plan` names the file
@@ -58,12 +60,12 @@ before is still a new approval, with no change after it. From then on the
 plan's stories are the expected ones: the newest approval's stories with each change of them that
 `decisions.py story` recorded after it applied in the order of the record (`decisions.py changes
 SLUG` gives them). They are compared text for text and in order, with each run of spaces as one, so
-how a story is broken into lines does not count; the plan's `Kind:` is the approved kind, which
+how a story is broken into lines does not count; the plan's `Size:` is the approved size, which
 only the owner's next approval changes. `show`, `record` and `red` refuse a plan that differs, and name
 the first story that does. So the lead can neither reword, drop nor add a story without the
 record saying so, and the pull request is not green for each such change. A task with no
-approved stories (a plan written before this rule, a night plan, a request whose whole context
-was written) has the plan's stories as their one source.
+approved stories (a plan written before this rule, a night plan, a full change from a complete
+request) has the plan's stories as their one source.
 
 `digest` gives the digest of a set of stories without their tests: a file's, or the plan's. It
 is what an approval keeps and what the record of the personas' read names, so that a read of
@@ -121,9 +123,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
-KINDS = ("feature", "correction")
+# The size of a change: a full change, with its plan and lead, or a small change of one builder.
+SIZES = ("full", "small")
 HEADING = re.compile(r"^##\s+Stories\s*$")
-KIND = re.compile(r"^Kind:\s*(\w+)\s*(?:,\s*because|:|—|-)\s*(.+)$", re.IGNORECASE)
+SIZE = re.compile(r"^(Size|Kind):\s*(\w+)\s*(?:,\s*because|:|—|-)\s*(.+)$", re.IGNORECASE)
+# The first line of a section an older Lem wrote, `Kind: feature|correction, because ...`, and the
+# size each kind reads as. A digest is of the word as the file has it, so a digest an older Lem
+# wrote of such a section still matches it. A later change may drop it once no task whose stories
+# say `Kind:` is open.
+OLD_SIZES = {"feature": "full", "correction": "small"}
 STORY = re.compile(r"^(\d+)\.\s+(.+)$")
 TEST = re.compile(r"^\s+-\s+test:\s+`([^`]+)`\s+in\s+(.+)$")
 NO_TEST = re.compile(r"^\s+-\s+no test:\s+(.+)$")
@@ -180,17 +188,19 @@ def parse(text: str, name: str) -> dict:
         raise StoriesError(f"{name} has no `## Stories` section; the plan opens with it, as `stories.py --help` shows")
     end = next((i for i in range(start + 1, len(lines)) if i not in fenced and lines[i].startswith("## ")), len(lines))
     lines = [("" if i in fenced else line) for i, line in enumerate(lines)]
-    kind = why = None
+    size = mark = why = None
     stories: list[dict] = []
     for number, line in enumerate(lines[start + 1:end], start + 2):
         where = f"{name}:{number}"
         if not line.strip():
             continue
-        if kind is None:
-            found = KIND.match(line.strip())
-            if not found or found.group(1).lower() not in KINDS or not found.group(2).strip():
-                raise StoriesError(f"{where}: the section starts with `Kind: feature, because ...` or `Kind: correction, because ...`, and this line is {line.strip()!r}")
-            kind, why = found.group(1).lower(), found.group(2).strip()
+        if size is None:
+            found = SIZE.match(line.strip())
+            label, word = (found.group(1).lower(), found.group(2).lower()) if found else (None, None)
+            known = (label == "size" and word in SIZES) or (label == "kind" and word in OLD_SIZES)
+            if not found or not known or not found.group(3).strip():
+                raise StoriesError(f"{where}: the section starts with `Size: full, because ...` or `Size: small, because ...`, and this line is {line.strip()!r}")
+            size, mark, why = (word if label == "size" else OLD_SIZES[word]), word, found.group(3).strip()
             continue
         story = STORY.match(line)
         if story:
@@ -214,35 +224,43 @@ def parse(text: str, name: str) -> dict:
             raise StoriesError(f"{where}: the text of a story comes before its tests; this line comes after them: {line.strip()!r}")
         else:
             stories[-1]["text"] += " " + line.strip()
-    if kind is None or not stories:
-        raise StoriesError(f"{name}: the `## Stories` section holds no {'story' if kind else 'Kind line'}")
-    if kind == "correction" and len(stories) != 1:
-        raise StoriesError(f"{name}: a correction has one story, and this plan has {len(stories)}: it is a feature")
+    if size is None or not stories:
+        raise StoriesError(f"{name}: the `## Stories` section holds no {'story' if size else 'Size line'}")
+    if size == "small" and len(stories) != 1:
+        raise StoriesError(f"{name}: a small change has one story, and this one has {len(stories)}: it is a full change")
     both = [s["n"] for s in stories if s["tests"] and s["no_test"]]
     if both:
         raise StoriesError(f"{name}: story {both[0]} names a test and says that it has none; keep one of the two")
     # one mark for this exact set of stories and tests: a result of the check belongs to the set it ran on
-    digest = hashlib.sha256(json.dumps([kind, stories], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
-    return {"kind": kind, "why": why, "digest": digest, "stories": stories}
+    digest = hashlib.sha256(json.dumps([mark, stories], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
+    return {"size": size, "why": why, "digest": digest, "stories": stories, "mark": mark}
 
 
-def text_digest(kind: str, texts: list[str]) -> str:
-    """One mark for a set of stories without their tests: their kind and their texts, with each run
-    of spaces as one. An approval keeps it, and the record of the personas' read names it."""
-    return hashlib.sha256(json.dumps([kind, [" ".join(text.split()) for text in texts]], ensure_ascii=False).encode()).hexdigest()[:12]
+def text_digest(mark: str, texts: list[str]) -> str:
+    """One mark for a set of stories without their tests: the word of their size line as the file
+    has it and their texts, with each run of spaces as one. An approval keeps it, and the record of
+    the personas' read names it."""
+    return hashlib.sha256(json.dumps([mark, [" ".join(text.split()) for text in texts]], ensure_ascii=False).encode()).hexdigest()[:12]
+
+
+def size_of(approval: dict) -> str | None:
+    """The size an approval holds; one that an older Lem kept names its kind instead. A later change
+    may drop the old form once no task whose approval names a kind is open."""
+    return approval.get("size") or OLD_SIZES.get(approval.get("kind"))
 
 
 def against(read: dict, changes: dict, name: str, slug: str) -> None:
     """Refuse a plan whose stories are not the expected ones: the approved stories with every
-    recorded change applied, text for text and in order, and of the approved kind."""
+    recorded change applied, text for text and in order, and of the approved size."""
     fix = (
         f"The plan's stories are the approved ones with each recorded change (`decisions.py changes {slug}` gives them), word for word, "
         f"with only the test lines added. A story the build changes, adds or removes is recorded first: `decisions.py story {slug} "
         "--changed N --was TEXT --now TEXT`, `--added N --now TEXT` or `--removed N --was TEXT`, with --why and --choice ID or --by lead|personas"
     )
-    if read["kind"] != changes["approved"]["kind"]:
+    approved = size_of(changes["approved"])
+    if read["size"] != approved:
         raise StoriesError(
-            f"{name} says `Kind: {read['kind']}`, and the owner approved its stories as a {changes['approved']['kind']}: a change of the kind is the owner's only, "
+            f"{name} says `Size: {read['size']}`, and the owner approved its stories as a {approved} change: a change of the size is the owner's only, "
             f"by the owner's approval of the stories again (`stories.py approve {slug} --file FILE`)",
         )
     expected = changes["expected"]
@@ -299,36 +317,38 @@ class Task:
             raise StoriesError(f"no plan of this task in {self.plans}: its name is YYYYMMDD-{self.slug}.md; only a small change keeps its story in the task directory instead, in {self.small_file}")
         plan = self.small_file if small else found[-1]
         read = parse(plan.read_text(encoding="utf-8"), plan.name)
-        if small and read["kind"] != "correction":
+        if small and read["size"] != "small":
             raise StoriesError(
-                f"{plan} says `Kind: {read['kind']}`: only a small change (`Kind: correction`) keeps its story in the task directory. "
-                f"A feature's stories are at the top of its plan, and the branch has none in {self.plans}: its lead writes YYYYMMDD-{self.slug}.md",
+                f"{plan} says `Size: {read['size']}`: only a small change (`Size: small`) keeps its story in the task directory. "
+                f"A full change's stories are at the top of its plan, and the branch has none in {self.plans}: its lead writes YYYYMMDD-{self.slug}.md",
             )
         changes = self.changes()
-        digest = text_digest(read["kind"], [story["text"] for story in read["stories"]])
+        digest = text_digest(read["mark"], [story["text"] for story in read["stories"]])
         if small and changes["approved"] is None:
-            raise StoriesError(f"the small change's story in {plan} has no approval: Lem approves it in the owner's name before its builder starts, `stories.py approve {self.slug} --file {plan} --correction`")
+            raise StoriesError(f"the small change's story in {plan} has no approval: Lem approves it in the owner's name before its builder starts, `stories.py approve {self.slug} --file {plan} --small`")
         if changes["approved"] is None:
-            self.no_correction_plan(read, plan, small)
+            self.no_small_plan(read, plan, small)
             return {"task": self.slug, "plan": str(plan), "small": small, **read, "stories_digest": digest, "approved": None, "approvals": [], "changes": [], "history": []}
-        # the approved kind first: a plan of another kind than the owner approved says that
+        # the approved size first: a plan of another size than the owner approved says that
         against(read, changes, plan.name, self.slug)
-        self.no_correction_plan(read, plan, small)
+        self.no_small_plan(read, plan, small)
         return {
             "task": self.slug, "plan": str(plan), "small": small, **read, "stories_digest": digest,
             **{key: changes[key] for key in ("approved", "approvals", "changes", "history")},
         }
 
-    def no_correction_plan(self, read: dict, plan: Path, small: bool) -> None:
-        """Refuse a plan file that says `Kind: correction`: a plan's kind is never correction. One plain
-        change is a small change, with its story in the task directory and no plan; a correction in a
-        plan would land with no approval of the owner's, no read and no polish pass."""
-        if small or read["kind"] != "correction":
+    def no_small_plan(self, read: dict, plan: Path, small: bool) -> None:
+        """Refuse a plan file that says `Size: small` (or `Kind: correction`, as an older Lem wrote it):
+        a plan never makes a change small. One plain change is a small change, with its story in the
+        task directory and no plan; a small change in a plan would land with no approval of the
+        owner's, no read and no polish pass."""
+        if small or read["size"] != "small":
             return
+        said = "Kind: correction" if read["mark"] == "correction" else "Size: small"
         raise StoriesError(
-            f"{plan.name} says `Kind: correction`, and a plan's kind is never correction: one plain change is a small change, whose one story is "
-            f"`stories.md` in the task directory and which has no plan (`stages/new.md`, \"A small change\"). A plan's stories are a feature's: "
-            f"its lead writes `Kind: feature, because ...`, and the personas read them (`stages/plan.md`, step 1)",
+            f"{plan.name} says `{said}`, and a plan never makes a change small: one plain change is a small change, whose one story is "
+            f"`stories.md` in the task directory and which has no plan (`stages/new.md`, \"A small change\"). A plan's stories are a full change's: "
+            f"its lead writes `Size: full, because ...`, and the personas read them (`stages/plan.md`, step 1)",
         )
 
     def changes(self) -> dict:
@@ -541,21 +561,22 @@ def reads_of(task: Task) -> list[dict]:
     return found
 
 
-# The automatic approvals, which no word of his gave in the moment: the rare path's read, and Lem's
-# approval of a correction in his name. Each is a task's first contract only.
-AUTOMATIC = {"read": "a read freezes only the first contract", "correction": "Lem approves a correction in the owner's name only as the first contract"}
+# The automatic approvals, which no word of his gave in the moment: the read of a full change from a
+# complete request, and Lem's approval of a small change in his name (`by: lem`; an older Lem kept it
+# as `by: correction`). Each is a task's first contract only.
+AUTOMATIC = {"read": "a read freezes only the first contract", "lem": "Lem approves a small change in the owner's name only as the first contract"}
 
 
 def first_contract(task: Task, by: str) -> None:
     """An automatic approval is only the first contract of a task: once stories are approved, by
-    him, as a correction or by a read, a story changes only through its record and the kind only
+    him, by Lem for a small change or by a read, a story changes only through its record and the size only
     through his own approval, which is always allowed and always makes a new number."""
     kept = task.approved()
     if kept is not None:
         number = kept.get("number") or 1 + len(kept.get("history", []))
         raise StoriesError(
             f"{task.slug} has approval {number} of its stories already (by {kept['by']}): {AUTOMATIC[by]}. "
-            f"A story changes through its record, `decisions.py story {task.slug} ...`, and the kind only through the owner's own approval, "
+            f"A story changes through its record, `decisions.py story {task.slug} ...`, and the size only through the owner's own approval, "
             f"`stories.py approve {task.slug} --file FILE`",
         )
 
@@ -574,18 +595,18 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
     # the plan's own stories carry the lead's test lines, which are no part of a story's text
     if tested and not plan:
         raise StoriesError(f"story {tested[0]} of {source.name} has a test line: the stories the owner approves have none, and the lead adds them in the plan")
-    if by == "correction" and read["kind"] != "correction":
-        raise StoriesError(f"--correction approves a correction's one story in the owner's name, and {source.name} says `Kind: {read['kind']}`: a feature waits for the owner's own yes")
+    if by == "lem" and read["size"] != "small":
+        raise StoriesError(f"--small approves a small change's one story in the owner's name, and {source.name} says `Size: {read['size']}`: a full change waits for the owner's own yes")
     stories = [{"n": story["n"], "text": story["text"]} for story in read["stories"]]
     # one mark for this exact set of approved texts; the approval itself is known by its number
-    digest = text_digest(read["kind"], [story["text"] for story in stories])
+    digest = text_digest(read["mark"], [story["text"] for story in stories])
     task.directory.mkdir(parents=True, exist_ok=True)
     with (task.directory / "stories.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if by in AUTOMATIC:
             first_contract(task, by)
         if by == "read":
-            # the rare path: the lead freezes the stories the personas read, and only when nobody was confused
+            # a full change from a complete request: the lead freezes the stories the personas read, and only when nobody was confused
             reads = reads_of(task)
             last = reads[-1] if reads else None
             if last is None or last.get("digest") != digest:
@@ -609,13 +630,13 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         history = [*before.get("history", []), {key: value for key, value in before.items() if key not in ("history", "task", "text")}] if before else []
         record = {
             "task": task.slug, "number": len(history) + 1, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            # who approved: the owner; Lem in his name, for a correction that does not wait; or the
-            # lead's read of the rare path, which counts for the plan's check and never as his yes
-            "by": by, "kind": read["kind"], "why": read["why"], "digest": digest, "stories": stories, "text": text,
+            # who approved: the owner; Lem in his name, for a small change that does not wait; or the
+            # lead's read of a full change from a complete request, which counts for the plan's check and never as his yes
+            "by": by, "size": read["size"], "why": read["why"], "digest": digest, "stories": stories, "text": text,
             **({"replaces": before["number"]} if before else {}), "history": history,
         }
         task.approved_file.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        task.log("stories.approved", by=by, number=record["number"], kind=record["kind"], why=record["why"], digest=digest, stories=stories, **({"replaces": before["number"]} if before else {}))
+        task.log("stories.approved", by=by, number=record["number"], size=record["size"], why=record["why"], digest=digest, stories=stories, **({"replaces": before["number"]} if before else {}))
     return {**record, "file": str(task.approved_file)}
 
 
@@ -625,16 +646,16 @@ def main() -> None:
     parser.add_argument("step", choices=("approve", "approved", "digest", "show", "record", "red"))
     parser.add_argument("slug")
     parser.add_argument("--file", help="with approve: the stories the owner approved, in the form above and with no test lines; with digest: the stories to mark")
-    parser.add_argument("--correction", action="store_true", help="with approve: Lem approves a correction's one story in the owner's name")
-    parser.add_argument("--read", action="store_true", help="with approve: the lead of the rare path freezes the stories a read in which nobody was confused read")
+    parser.add_argument("--small", action="store_true", help="with approve: Lem approves a small change's one story in the owner's name")
+    parser.add_argument("--read", action="store_true", help="with approve: the lead of a full change from a complete request freezes the stories a read in which nobody was confused read")
     args = parser.parse_args()
     try:
         if args.file is not None and args.step not in ("approve", "digest"):
             raise StoriesError("--file goes with `approve` and `digest`")
-        if (args.correction or args.read) and args.step != "approve":
-            raise StoriesError("--correction and --read go with `approve`")
-        if args.correction and args.read:
-            raise StoriesError("an approval is Lem's for a correction or the read's on the rare path, not both: --correction or --read")
+        if (args.small or args.read) and args.step != "approve":
+            raise StoriesError("--small and --read go with `approve`")
+        if args.small and args.read:
+            raise StoriesError("an approval is Lem's for a small change or the read's of a full change from a complete request, not both: --small or --read")
         task = Task(Path(args.repo).resolve(), args.slug)
         if args.step == "approve":
             if args.read:
@@ -646,7 +667,7 @@ def main() -> None:
             elif args.file is None:
                 raise StoriesError("approve needs --file: the stories the owner approved, in the form `stories.py --help` shows, with no test lines")
             else:
-                result = cmd_approve(task, args.file, "correction" if args.correction else "owner")
+                result = cmd_approve(task, args.file, "lem" if args.small else "owner")
         elif args.step == "approved":
             kept = task.approved()
             result = {"task": task.slug, "approved": kept} if kept else {
@@ -660,13 +681,13 @@ def main() -> None:
                 if not Path(args.file).is_file():
                     raise StoriesError(f"{args.file} is not a file; --file names the stories to mark, in the form `stories.py --help` shows")
                 read = parse(Path(args.file).read_text(encoding="utf-8"), Path(args.file).name)
-                result = {"task": task.slug, "of": args.file, "digest": text_digest(read["kind"], [story["text"] for story in read["stories"]])}
+                result = {"task": task.slug, "of": args.file, "digest": text_digest(read["mark"], [story["text"] for story in read["stories"]])}
         elif args.step == "red":
             result = cmd_red(task)
         else:
             result = task.stories()
             if args.step == "record":
-                task.log("task.stories", kind=result["kind"], why=result["why"], digest=result["digest"], stories=result["stories"])
+                task.log("task.stories", size=result["size"], why=result["why"], digest=result["digest"], stories=result["stories"])
     except StoriesError as error:
         sys.exit(f"stories.py: {error}")
     print(json.dumps(result, indent=2, ensure_ascii=False))

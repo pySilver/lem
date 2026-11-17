@@ -22,7 +22,7 @@ mkdir -p "$SHOP/docs" "$SHOP/.lem/styleguide" && echo guide > "$SHOP/docs/guide.
 printf '%s\n' '---' 'paths:' '  - "tests/**"' '---' 'A test names what it checks.' > "$SHOP/.lem/styleguide/tests.md"
 printf '%s\n' '---' 'paths:' '  - "billing/**"' '---' 'Money is an integer.' > "$SHOP/.lem/styleguide/money.md"
 git -C "$SHOP" add -A && git -C "$SHOP" commit -q -m "chore: start" && git -C "$SHOP" push -q origin main
-# open_task SLUG FILE TEXT: a feature of the shop, with the lead's read of its stories
+# open_task SLUG FILE TEXT: a full change of the shop, with the lead's read of its stories
 open_task() { task_in "$SHOP" "$@" && read_in "$SHOP" "$1"; }
 status() { status_in "$SHOP" "$1"; }
 kept() { kept_in "$SHOP" "$@"; }
@@ -80,7 +80,7 @@ if grep -q "a review is due before anything is proposed, one read at the least" 
   = "('review', 'read', 1, False, ['bar', 'filed', 'plan', 'range', 'review', 'rules', 'topics', 'words', 'worktree'], '$base..$tip', ['styleguide/tests.md'], [])" ] \
   && [ "$(cat "$(field 'd["inputs"]["words"]' <<<"$out")")" = "Put yes into ok.txt." ] && [ -f "$(field 'd["inputs"]["plan"]' <<<"$out")" ] \
   && [ "$(field 'd["inputs"]["review"]' <<<"$out")" = "$SHOP/.revmux" ]; then
-  pass "nothing is proposed before its review; for a usual request the floor is one read, and a reviewer gets the owner's words, the plan, the range, the rule files of the changed files, the project's topics and the folder of the review tool"
+  pass "nothing is proposed before its review; for a request that is not careful the floor is one read, and a reviewer gets the owner's words, the plan, the range, the rule files of the changed files, the project's topics and the folder of the review tool"
 else
   fail "the read that is due: $err / $out"
 fi
@@ -185,9 +185,9 @@ git -C "$AC" worktree add -q -b fix/refund-shows-zero "$act" main
 # shellcheck disable=SC2016 # the test file's own text, with its quotes
 mkdir -p "$act/tests" && echo 'test "$(cat total)" = 0' > "$act/tests/refund.sh"
 git -C "$act" add -A && git -C "$act" commit -q -m "test: an invoice after a refund shows what is left to pay"
-project --repo "$AC" state refund-shows-zero building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the ask says the total is wrong today" >/dev/null
+project --repo "$AC" state refund-shows-zero building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
 printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$acd/investigation.md"
-project --repo "$AC" log refund-shows-zero investigation kind=bug call=not-a-bug "line=the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
+project --repo "$AC" log refund-shows-zero investigation type=fix call=not-a-bug "line=the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
 project --repo "$AC" state refund-shows-zero answered "not a bug: the invoice shows what is left to pay" >/dev/null
 out=$(land --repo "$AC" clean refund-shows-zero 2>&1 || true)
 if [ "$(field '(d["worktree"], d["branch"])' <<<"$out" 2>&1 || true)" = "(True, None)" ] && [ ! -e "$act" ] \
@@ -403,10 +403,10 @@ project --repo "$SHOP" state careful-plan dropped "the test is over" >/dev/null
 # A request that came from a bug names, in its checks, the cause the investigation
 # before the build found and where; a question's answer, or no investigation, gives no such line.
 open_task bug-cause seven.txt seven
-project --repo "$SHOP" log bug-cause investigation kind=bug call=correction "line=the total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
+project --repo "$SHOP" log bug-cause investigation type=fix call=full "line=the total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
 checked bug-cause && read_clean bug-cause && propose bug-cause
 open_task question-cause eight.txt eight
-project --repo "$SHOP" log question-cause investigation kind=investigation call=answer "line=the export reads the totals of the night before" >/dev/null
+project --repo "$SHOP" log question-cause investigation type=question call=answer "line=the export reads the totals of the night before" >/dev/null
 checked question-cause && read_clean question-cause && propose question-cause
 text=$SHOP/.lem/state/tasks/bug-cause/pr.md
 if grep -qxF -- "- the cause, as the investigation before the build found it: the total adds the refund as a payment (billing/invoice.py:total)" "$text" \
@@ -497,7 +497,7 @@ else
 fi
 land --repo "$SHOP" clean more-work >/dev/null
 
-# Two rounds at most. A usual request whose read found a must-fix gets a round after the fix, and one
+# Two rounds at most. A request that is not careful and whose read found a must-fix gets a round after the fix, and one
 # that is not clean after the second round goes to the owner as not green.
 open_task not-clean nc.txt seven
 checked not-clean
@@ -539,7 +539,7 @@ if [ "$(field '(d["due"], d["floor"], d["why"])' <<<"$out")" = "('review', 'roun
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] && [ "$(sed -n 3p "$text")" = "- $why" ] && grep -q '^  - left out security: no input from outside is read$' "$text" \
   && grep -q "^not green: $why$" "$SHOP/.lem/state/tasks/not-clean/state.md" \
   && grep -q "the request is not green ($why), so a person merges it" <<<"$agent"; then
-  pass "a usual request with a must-fix gets a round after its fix, with each profile it ran or left out and why; after two rounds no third is taken, the request is proposed as not green, which its first lines say with the reason, and no agent merges it"
+  pass "a request that is not careful with a must-fix gets a round after its fix, with each profile it ran or left out and why; after two rounds no third is taken, the request is proposed as not green, which its first lines say with the reason, and no agent merges it"
 else
   fail "two rounds at most: $out / $again / $third / $fourth / $proposed / $agent / $(sed -n 1,4p "$text" 2>/dev/null)"
 fi

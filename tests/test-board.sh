@@ -83,12 +83,12 @@ lines = [json.loads(line) for line in open(path)]
 for line in lines:
     if line["kind"] == "asked" and str(line["id"]) in sys.argv[2:]: line["deadline"] = "2026-01-01T00:00:00Z"
 open(path, "w").write("".join(json.dumps(line) + "\n" for line in lines))' "$STATE/tasks/$1/decisions.jsonl" "${@:2}"; }
-# story_file FILE KIND: the stories the owner approves, in the form `stories.py --help` gives
+# story_file FILE SIZE: the stories the owner approves, in the form `stories.py --help` gives
 story_file() {
-  if [ "$2" = correction ]; then
-    printf '%s\n' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' '1. The footer says "Terms", not "Terms and condtions".' > "$1"
+  if [ "$2" = small ]; then
+    printf '%s\n' '## Stories' '' 'Size: small, because the request is one sentence.' '' '1. The footer says "Terms", not "Terms and condtions".' > "$1"
   else
-    printf '%s\n' '## Stories' '' 'Kind: feature, because the export gets a new column and two readers of it.' '' \
+    printf '%s\n' '## Stories' '' 'Size: full, because the export gets a new column and two readers of it.' '' \
       '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
       '2. An order with no gift note has an empty cell, not the word "None".' > "$1"
   fi
@@ -97,7 +97,7 @@ story_file() {
 # The task with the decisions: stories read and approved, a build with a choice of each kind.
 G=gift-note-export
 task "$G" "Add the gift note to the CSV export"
-story_file "$WORK/gift.md" feature
+story_file "$WORK/gift.md" full
 digest=$(stories digest "$G" --file "$WORK/gift.md" | field 'd["digest"]')
 project log "$G" stories.read by=lem asked:=3 answered:=2 'families:=["opus", "sol"]' 'silent:=[{"name": "Accountant, sol", "why": "the model was at capacity"}]' \
   stories:=2 flagged:=1 split:=true "digest=$digest" >/dev/null
@@ -125,7 +125,7 @@ retime "$G" now -60 -52 -51 -45 -44 -40 -35 -34 -31 -30 -27 -26 -25 -10 -5
 # The task whose time the card draws: it ran from its stories to a merged pull request, on 10 November.
 L=landed-one
 task "$L" "Show the order's currency on the invoice"
-story_file "$WORK/landed.md" feature
+story_file "$WORK/landed.md" full
 digest=$(stories digest "$L" --file "$WORK/landed.md" | field 'd["digest"]')
 project log "$L" stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=2 flagged:=1 split:=false "digest=$digest" >/dev/null
 stories approve "$L" --file "$WORK/landed.md" >/dev/null
@@ -170,8 +170,8 @@ project state plan-for-you planned "the plan waits for the owner to read it" >/d
 task night-draft "Split the settings page"
 project state night-draft drafted "a plan written at night" >/dev/null
 task building-one "Cache the product list"
-# the kind `correction` on a task with a plan: a one-rule fix, and no small change
-project state building-one building "task 1 of 2" "kind: correction, because one rule of the cache is wrong" >/dev/null
+# the type fix on a task with a plan: the tag fix, and no small change
+project state building-one building "task 1 of 2" "type: fix, because one rule of the cache is wrong" >/dev/null
 task queued-one "Add a dark theme"
 project state queued-one queued "waits for a free place" >/dev/null
 task blocked-one "Upgrade the database driver"
@@ -183,8 +183,8 @@ project state in-checks ready "the report is written" >/dev/null
 project state in-checks landing "the checks start" >/dev/null
 project log in-checks gate "command=make test" exit:=0 "last=9 passed" tip=def5678 >/dev/null
 task correction-one "The footer says Terms and condtions"
-story_file "$WORK/correction.md" correction
-stories approve correction-one --file "$WORK/correction.md" --correction >/dev/null
+story_file "$WORK/correction.md" small
+stories approve correction-one --file "$WORK/correction.md" --small >/dev/null
 # a small change has no lead: one builder makes it (stages/new.md, "A small change")
 project state correction-one building "small change: one builder" >/dev/null
 project log correction-one builder.start "job=the small change" >/dev/null
@@ -216,7 +216,7 @@ retime red-gate now -40 -30 -25 -20
 
 # Stories that nobody was confused by, which still wait for the owner's yes: he left before he gave it.
 task clear-read-held "Show the stock on the product page"
-printf '%s\n' '## Stories' '' 'Kind: feature, because the page gets a new line.' '' '1. A product with 3 in stock says "3 left".' > "$WORK/stock.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the page gets a new line.' '' '1. A product with 3 in stock says "3 left".' > "$WORK/stock.md"
 digest=$(stories digest clear-read-held --file "$WORK/stock.md" | field 'd["digest"]')
 project log clear-read-held stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
 project state clear-read-held held "the stories wait for the owner" >/dev/null
@@ -224,20 +224,20 @@ project state clear-read-held held "the stories wait for the owner" >/dev/null
 # A story change of the build that the owner's next approval took over, and one after that approval.
 C=changed-then-approved
 task "$C" "Name the export file by its date"
-printf '%s\n' '## Stories' '' 'Kind: feature, because the file name changes.' '' '1. The export of 3 May is named export-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-1.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the file name changes.' '' '1. The export of 3 May is named export-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-1.md"
 stories approve "$C" --file "$WORK/name-1.md" >/dev/null
 project state "$C" building "lead: builder" >/dev/null
 decide story "$C" --changed 1 --was "The export of 3 May is named export-05-03.csv." --now "The export of 3 May is named export-2026-05-03.csv." --why "a year keeps the names apart" --by lead >/dev/null
-printf '%s\n' '## Stories' '' 'Kind: feature, because the file name changes.' '' '1. The export of 3 May is named export-2026-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-2.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the file name changes.' '' '1. The export of 3 May is named export-2026-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-2.md"
 stories approve "$C" --file "$WORK/name-2.md" >/dev/null
 decide story "$C" --changed 2 --was "A second export that day gets -2." --now "A second export that day gets -2, a third -3." --why "the counter goes on" --by lead >/dev/null
 
-# The rare path: the lead's read found nobody confused, and froze the plan's stories.
+# A full change from a complete request: the lead's read found nobody confused, and froze the plan's stories.
 task rare-path "Show the VAT number on the invoice"
 rw=$(project worktree-dir rare-path)
 git -C "$R" worktree add -q -b feat/rare-path "$rw" main
 mkdir -p "$rw/docs/plans"
-printf '%s\n' '# Rare path' '' '## Stories' '' 'Kind: feature, because the invoice gets a new line.' '' '1. An invoice to a company shows its VAT number under its name.' '' '## Tasks' '' '1. The line.' > "$rw/docs/plans/20261116-rare-path.md"
+printf '%s\n' '# A complete request' '' '## Stories' '' 'Size: full, because the invoice gets a new line.' '' '1. An invoice to a company shows its VAT number under its name.' '' '## Tasks' '' '1. The line.' > "$rw/docs/plans/20261116-rare-path.md"
 project state rare-path building "lead: builder" >/dev/null
 digest=$(stories digest rare-path | field 'd["digest"]')
 project log rare-path stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
@@ -248,19 +248,19 @@ task trust-prompt "Move the review to Codex"
 project state trust-prompt building "lead: session" >/dev/null
 project state trust-prompt held "the reviewer's trust prompt waits for the owner's yes" >/dev/null
 
-# The usual path writes the personas' read before the task's first state block.
+# A full change with an interview writes the personas' read before the task's first state block.
 task read-first "Show the order's weight on the label"
-printf '%s\n' '## Stories' '' 'Kind: feature, because the label gets a new line.' '' '1. A parcel of 2.5 kg says "2.5 kg" on its label.' > "$WORK/weight.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the label gets a new line.' '' '1. A parcel of 2.5 kg says "2.5 kg" on its label.' > "$WORK/weight.md"
 digest=$(stories digest read-first --file "$WORK/weight.md" | field 'd["digest"]')
 project log read-first stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
 
 # The plan's stories and their tests' result, and then a new approval of other stories.
 task approved-again "Print the packing slip in German"
-printf '%s\n' '## Stories' '' 'Kind: feature, because the slip gets a language.' '' '1. A slip for Berlin is in German.' > "$WORK/slip-1.md"
-printf '%s\n' '## Stories' '' 'Kind: feature, because the slip gets a language.' '' '1. A slip for Berlin or Vienna is in German.' > "$WORK/slip-2.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the slip gets a language.' '' '1. A slip for Berlin is in German.' > "$WORK/slip-1.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the slip gets a language.' '' '1. A slip for Berlin or Vienna is in German.' > "$WORK/slip-2.md"
 stories approve approved-again --file "$WORK/slip-1.md" >/dev/null
 project state approved-again building "task 1 of 1" >/dev/null
-project log approved-again task.stories kind=feature "why=the slip gets a language." digest=0123456789ab \
+project log approved-again task.stories size=full "why=the slip gets a language." digest=0123456789ab \
   'stories:=[{"n": 1, "text": "A slip for Berlin is in German.", "tests": [{"command": "sh tests/slip.sh", "files": ["tests/slip.sh"]}], "no_test": null}]' >/dev/null
 project log approved-again task.red ok:=true digest=0123456789ab base=0a1b2c3d4 tip=abc123456 \
   'tests:=[{"story": 1, "command": "sh tests/slip.sh", "files": ["tests/slip.sh"], "on_branch": 0, "on_base": 1, "problem": null}]' 'without_a_test:=[]' 'run_without:=[]' >/dev/null
@@ -270,7 +270,7 @@ stories approve approved-again --file "$WORK/slip-2.md" >/dev/null
 # Beside it the same without the second approval: the change was not read.
 for slug in restored-read unread-change; do
   task "$slug" "Name the carrier on the slip"
-  printf '%s\n' '## Stories' '' 'Kind: feature, because the slip gets a line.' '' '1. A DHL parcel says "DHL" on its slip.' > "$WORK/$slug.md"
+  printf '%s\n' '## Stories' '' 'Size: full, because the slip gets a line.' '' '1. A DHL parcel says "DHL" on its slip.' > "$WORK/$slug.md"
   digest=$(stories digest "$slug" --file "$WORK/$slug.md" | field 'd["digest"]')
   project log "$slug" stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
   stories approve "$slug" --file "$WORK/$slug.md" >/dev/null
@@ -352,23 +352,23 @@ retime "$M" now -60 -59 -58 -40 -39 -38 -37 -36
 # A bug that its investigation found to be none: the task ends answered, with its report.
 A=refund-shows-zero
 task "$A" "Invoices show 0 after a refund"
-project state "$A" building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the ask says the total is wrong today" >/dev/null
+project state "$A" building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
 printf '%s\n' '# Investigation' '' 'Reproduced: yes, with tests/refund.sh.' > "$STATE/tasks/$A/investigation.md"
-project log "$A" investigation kind=bug call=not-a-bug "line=a refund is a credit note, and the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
+project log "$A" investigation type=fix call=not-a-bug "line=a refund is a credit note, and the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
 project state "$A" answered "not a bug: the invoice shows what is left to pay" "report: investigation.md" >/dev/null
 retime "$A" now -30 -12 -11
 # A bug whose investigation runs.
 task cart-total-wrong "The cart total is wrong since yesterday"
-project state cart-total-wrong building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the ask says the total is wrong since yesterday" >/dev/null
-project log cart-total-wrong investigation.start kind=bug >/dev/null
+project state cart-total-wrong building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong since yesterday" >/dev/null
+project log cart-total-wrong investigation.start type=fix >/dev/null
 
-# A feature whose every stage logged its start (SKILL.md), from the interview to the merge, on 13
+# A full change whose every stage logged its start (SKILL.md), from the interview to the merge, on 13
 # November: the time card draws each span from its start to the event that ends it.
 S=started-stages
 task "$S" "Print the order date on the invoice"
-printf '%s\n' '## Stories' '' 'Kind: feature, because the invoice gets a line.' '' '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May".' > "$WORK/started.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the invoice gets a line.' '' '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May".' > "$WORK/started.md"
 digest=$(stories digest "$S" --file "$WORK/started.md" | field 'd["digest"]')
-project state "$S" held "the interview waits for the owner" "kind: feature, because the invoice gets a line" >/dev/null
+project state "$S" held "the interview waits for the owner" "type: feat, because the invoice gets a line" >/dev/null
 project log "$S" scout.start >/dev/null
 project log "$S" interview.start >/dev/null
 project log "$S" scout >/dev/null
@@ -405,7 +405,7 @@ retime gate-runs now -20 -10 -5
 
 # A read of the stories in which no persona answered, and the stories still wait for the owner.
 task silent-read "Show the delivery date on the order page"
-printf '%s\n' '## Stories' '' 'Kind: feature, because the page gets a new line.' '' '1. An order shipped on 3 May says "arrives 5 May".' > "$WORK/delivery.md"
+printf '%s\n' '## Stories' '' 'Size: full, because the page gets a new line.' '' '1. An order shipped on 3 May says "arrives 5 May".' > "$WORK/delivery.md"
 digest=$(stories digest silent-read --file "$WORK/delivery.md" | field 'd["digest"]')
 project log silent-read stories.read by=lem asked:=2 answered:=0 'families:=[]' \
   'silent:=[{"name": "Merchant, opus", "why": "the model timed out"}, {"name": "Accountant, sol", "why": "the model was at capacity"}]' \
@@ -776,9 +776,9 @@ sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 stori
   draw task-correction-one
   # shellcheck disable=SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-correction-one.dom" "Taken as a small change: Lem approved its one story in your name" \
-    'You may still say “this is a feature”' "The personas do not read the one story of a small change." "one-rule fix, because the request is one sentence." \
-    "One builder makes the change" "!a correction" "!correction, because" "!small change, because"); then
-    pass "a small change's Stories card says that Lem approved its one story in your name, that you may call it a feature, and that the personas do not read it; its stories' kind is a one-rule fix, and only the one builder says it is a small change"
+    'You may still say “full”' "The personas do not read the one story of a small change." "small change, because the request is one sentence." \
+    "One builder makes the change" "!a correction" "!correction, because" "!one-rule"); then
+    pass "a small change's Stories card says that Lem approved its one story in your name, that you may call it full, and that the personas do not read it; its stories' size is a small change, and no text says correction"
   else
     fail "a small change's Stories card: $why"
   fi
@@ -923,7 +923,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   draw task-approved-again
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-approved-again.dom" "1. A slip for Berlin or Vienna is in German." \
     "approved after the plan’s stories were recorded: the agent records them again, with their tests" "approval 2; it replaces approval 1" \
-    "!held by its tests" "!A slip for Berlin is in German." "feature, because the slip gets a language."); then
+    "!held by its tests" "!A slip for Berlin is in German." "full change, because the slip gets a language."); then
     pass "after a new approval the Stories card shows the approved stories, not the plan's older ones and their tests' result"
   else
     fail "stories approved after the plan's: $why"
@@ -951,8 +951,8 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     fail "story changes and approvals: $why"
   fi
   draw task-rare-path
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-rare-path.dom" "Frozen by the personas’ read, with no wait for you" "!Taken as a correction" "!Approved by you"); then
-    pass "stories the personas' read froze on the rare path are shown as such, never as a correction or as the owner's yes"
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-rare-path.dom" "Frozen by the personas’ read, with no wait for you" "!Taken as a small change" "!Approved by you"); then
+    pass "stories the personas' read froze for a full change from a complete request are shown as such, never as a small change or as the owner's yes"
   else
     fail "the read's approval: $why"
   fi
@@ -1043,21 +1043,21 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   draw "task-$A"
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "Done=Refund shows zero|") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes \
-      "Refund shows zero|No bug: a refund is a credit note, and the invoice shows what is left to pay|a bug|!Waits for you|!Answered: not a bug") \
+      "Refund shows zero|No bug: a refund is a credit note, and the invoice shows what is left to pay|fix|!Waits for you|!Answered: not a bug") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" now \
       "Answered: it ended with a report and nothing to merge|Closed|No bug: the code does what it should:|a refund is a credit note, and the invoice shows what is left to pay|billing/invoice.py:total|reproduced|investigation.md in the task directory") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" feed \
       "The investigation found no bug|a refund is a credit note, and the invoice shows what is left to pay|billing/invoice.py:total · reproduced" "Answered|!not a bug: the invoice shows what is left to pay") \
     && ! grep -q 'class="phase cur"' "$WORK/task-$A.dom" \
-    && grep -q 'data-head="The builders · The investigation" data-sub="a builder reproduces the bug and finds its cause · a bug, because the ask says the total is wrong today"' "$WORK/task-$A.dom" \
+    && grep -q 'data-head="The builders · The investigation" data-sub="a builder reproduces the bug and finds its cause · fix, because the ask says the total is wrong today"' "$WORK/task-$A.dom" \
     && grep -q 'data-head="Investigation"' "$WORK/task-$A.dom" && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$A.dom" "Inv." "!Waits for you"); then
-    pass "an answered task is in the lane of what ended with its kind and its investigation's answer; its own board says it ended with a report, names the call, the cause's place and the report, and draws the investigation as the builders' span"
+    pass "an answered task is in the lane of what ended with its type and its investigation's answer; its own board says it ended with a report, names the call, the cause's place and the report, and draws the investigation as the builders' span"
   else
     fail "an answered task: ${why:-the span of the investigation, or a phase marked as current}"
   fi
   draw task-cart-total-wrong
-  if why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Cart total wrong|Investigating: a builder reproduces the bug and finds its cause|a bug") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any story|a bug, because the ask says the total is wrong since yesterday|!lead"); then
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Cart total wrong|Investigating: a builder reproduces the bug and finds its cause|fix") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any story|fix, because the ask says the total is wrong since yesterday|!lead"); then
     pass "a task whose investigation runs says so on its card and on its own board, and names the investigator, not a lead"
   else
     fail "a task whose investigation runs: $why"
@@ -1177,7 +1177,7 @@ sys.exit(not ok)' "$WORK/board.dom"); then
   raw=()
   for dom in "$WORK/board.dom" "$WORK"/task-*.dom; do
     [ -e "$dom" ] || continue
-    why=$("$PY" -I -B -c "$SHOWN" "$dom" "!lead: builder" "!lead: session" "!session: C0FFEE" "!plan committed" "!investigation: bug" "!kind: bug" "!after: building-one" "!report: investigation.md" \
+    why=$("$PY" -I -B -c "$SHOWN" "$dom" "!lead: builder" "!lead: session" "!session: C0FFEE" "!plan committed" "!investigation: bug" "!type: fix" "!kind: bug" "!after: building-one" "!report: investigation.md" \
       "!small change: one builder" "!the owner" "!careful path" "!interview.start" "!scout.start" "!stories.read.start" "!investigation.start" "!builder.start" "!polish.start" "!gate.start" "!review.start") \
       || raw+=("$(basename "$dom"): $why")
   done
@@ -1281,12 +1281,12 @@ print("; ".join(dict.fromkeys(wrong)))
 sys.exit(bool(wrong))
 PY
 )
-  # The kind `correction` is said as a one-rule fix, on a task of any size, and only the one builder of
-  # a small change makes a task a small change.
-  if why=$("$PY" -I -B -c "$LOOK" cards "$WORK/board.dom" "Building one|a one-rule fix|!small change" "Correction one|One builder makes the change|small change|!a one-rule fix"); then
-    pass "the kind correction shows as a one-rule fix, also on a task with a plan, and the size shows only as the small change chip of a task with one builder"
+  # The type is shown as Lem wrote it, on a task of any size, and only the one builder of a small change
+  # makes a task a small change.
+  if why=$("$PY" -I -B -c "$LOOK" cards "$WORK/board.dom" "Building one|fix|!small change|!one-rule" "Correction one|One builder makes the change|small change|!one-rule"); then
+    pass "the type fix shows as fix, also on a task with a plan, and the size shows only as the small change chip of a task with one builder"
   else
-    fail "the kind correction and the size: $why"
+    fail "the type and the size: $why"
   fi
   # A12: each small thing of the look a reader stumbled on.
   if why=$("$PY" -I -B -c "$LOOK" likeit "$WORK/board.dom"); then

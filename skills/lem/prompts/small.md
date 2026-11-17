@@ -20,9 +20,9 @@ directory above this file's. This file and your standing rules are all you read 
    a second rule or a decision the story does not settle, would lower the bar (a new suppression, a
    skipped or deleted test, fewer assertions), or grew beyond one plain change. Commit nothing more:
    keep the text of your uncommitted diff, leave the worktree clean, write the state `held` with
-   the line `the stories wait for the owner: the small change is a feature` and a line that says
-   why, and reply with what you found on top and that diff at the end. Lem takes the feature path
-   from there.
+   the line `the stories wait for the owner: the small change is a full change` and a line that
+   says why, and reply with what you found on top and that diff at the end. Lem makes it a full
+   change from there.
 6. **Commit** on the task's branch with a semantic message. Never push, merge or land. Then
    `git status --short` is empty: remove what your runs left untracked, such as a `__pycache__`.
 7. **File what you saw outside the change.** A small change has no polish pass, so a defect in

@@ -80,16 +80,19 @@ and why (a partial read counts), how many stories were read and how many an answ
 whether the families split, and the digest `stories.py digest` gives for the stories read. A
 read in which nobody answered is written too, with `answered:=0`, no family and each source that
 was asked in `silent`; the landing counts two of those in a row as stories that went on unread.
-`investigation`, which Lem writes after it reads the investigator's report of a bug or a
-question, as `kind=bug|investigation call=CALL line=TEXT [where=PATH:SYMBOL]
-[reproduced:=true|false]`: a bug's call is correction, usual, not-a-bug or not-reproduced, and it
-says whether the bug was reproduced; a plain cause names its place; an investigation's call is
-answer. `tasks` gives each task its newest as `investigation`, and `state SLUG answered` refuses
-a task with no `investigation.md` and no record whose call is not-a-bug or answer.
+`investigation`, which Lem writes after it reads the investigator's report of a fix or a
+question, as `type=fix|question call=CALL line=TEXT [where=PATH:SYMBOL]
+[reproduced:=true|false]`: a fix's call is small, full, not-a-bug or not-reproduced, and it says
+whether the bug was reproduced; a plain cause names its place; a question's call is answer.
+`tasks` gives each task its newest as `investigation`, and `state SLUG answered` refuses a task
+with no `investigation.md` and no record whose call is not-a-bug or answer. A record an older Lem
+wrote (`kind=bug|investigation`, the calls correction and usual) is given in the form of now.
 
-A state line that starts with `kind:` names the kind of the request with its reason, as `kind:
-bug, because the total is wrong today`, one of bug, feature, correction, investigation, chore and
-docs; `state` refuses any other, and `tasks` gives the newest as `kind`.
+A state line that starts with `type:` names the type of the request with its reason, as `type:
+fix, because the total is wrong today`, one of feat, fix, docs, refactor, perf, test, chore and
+question; `state` refuses any other, and `tasks` gives the newest as `type`. A `kind:` line, which
+an older Lem wrote, is refused by `state` with the type line to write, and read by `tasks` as the
+type its kind maps to (bug and correction a fix, feature a feat, investigation a question).
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
@@ -216,18 +219,32 @@ WITH_LANDING = ("landing", "open")
 # The states only a lead, or the start or the queue of a task, writes. None comes over a task with its
 # landing: there it is a lead that woke late. `ready` does with `--start-over`, which only the way out
 # that land.py names gives: a landing that cannot go on, or whose record is broken, starts over.
-# `held` is not here: Lem writes it over `landing` when the gate finds a small change to be a
-# feature, and the interview of the usual path starts with it (`stages/new.md`, "A small change").
+# `held` is not here: Lem writes it over `landing` when the gate finds a small change to be a full
+# change, and the interview of a full change starts with it (`stages/new.md`, "A small change").
 LEADS_WRITE = ("queued", "building", "planned", "ready", "drafted")
-# The kind of a request, which Lem takes from the ask's words alone (`stages/new.md`, "Open the task").
-# A state line `kind: KIND, because WHY` says it; no code matches an ask's words against them.
-KINDS = ("bug", "feature", "correction", "investigation", "chore", "docs")
-KIND_LINE = re.compile(r"kind:\s*(?P<kind>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+))?")
-# What the investigation of a bug or of a question found, as `log investigation` takes it: the call
-# that sets the task's next path (`stages/new.md`, "A bug and an investigation"). Two of them end the
-# task with its report, as `answered`.
-CALLS = {"bug": ("correction", "usual", "not-a-bug", "not-reproduced"), "investigation": ("answer",)}
+# The type of a request, which Lem takes from the request's words alone (`stages/new.md`, "Open the
+# task"): a Conventional Commits type, and `question` for a task that ends with an answer and commits
+# nothing. A state line `type: TYPE, because WHY` says it; no code matches a request's words against
+# them. The size of a request (a small change or a full change) is no type: a small change has the
+# state line `small change: one builder`.
+TYPES = ("feat", "fix", "docs", "refactor", "perf", "test", "chore", "question")
+TYPE_LINE = re.compile(r"type:\s*(?P<type>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+))?")
+# The line an older Lem wrote for the same, `kind: KIND, because WHY`, and the type each of its kinds
+# reads as. `tasks` still reads it in a state.md that an older Lem wrote, and `state` refuses it with
+# the type line to write. A later change may drop it once no task whose state holds such a line is open.
+OLD_KIND_LINE = re.compile(r"kind:\s*(?P<kind>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+))?")
+OLD_KINDS = {"bug": "fix", "feature": "feat", "correction": "fix", "investigation": "question", "chore": "chore", "docs": "docs"}
+# What the investigation of a fix or of a question found, as `log investigation` takes it: the call
+# that sets the task's next path (`stages/new.md`, "A bug and a question"). A fix goes on as a small
+# change or a full change, or it is no bug; two of the calls end the task with its report, as `answered`.
+CALLS = {"fix": ("small", "full", "not-a-bug", "not-reproduced"), "question": ("answer",)}
 ANSWERING = ("not-a-bug", "answer")
+# The record an older Lem wrote for an investigation: `kind=bug|investigation`, and the calls
+# `correction` and `usual` for what are now `small` and `full`. `tasks` gives such a record in the
+# form of now, and `log` refuses the old form with the new one. A later change may drop it once no
+# task with such a record is open.
+OLD_INVESTIGATION_KINDS = {"bug": "fix", "investigation": "question"}
+OLD_CALLS = {"correction": "small", "usual": "full"}
 # The states in which the task loads the machine: a lead builds, or the gate runs and a builder may
 # repair a conflict or a red gate.
 RUNNING = ("building", "landing")
@@ -1138,7 +1155,7 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
         # a blank line ends a block, so one inside a block would hide the lines after it
         raise SettingsError("each LINE of a state block is one line of text, and none is empty")
     for line in lines:
-        kind_line(line)
+        type_line(line)
     # the status the newest block gives, read from this task's file alone
     written = text_of(directory / "state.md").strip() if (directory / "state.md").is_file() else ""
     first = STATE_LINE.fullmatch(written.split("\n\n")[0].splitlines()[0]) if written else None
@@ -1171,18 +1188,48 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     print(json.dumps({"slug": slug, "status": status, "since": since}))
 
 
-def kind_line(line: str) -> dict | None:
-    """The kind of the request, when the line names one: `kind: bug, because the total is wrong
-    today`. The status and the board read it, so a line that starts with `kind:` has this form."""
-    if not line.strip().startswith("kind:"):
+def type_line(line: str) -> dict | None:
+    """The type of the request, when the line names one: `type: fix, because the total is wrong
+    today`. The status and the board read it, so a line that starts with `type:` has this form. A
+    `kind:` line, the form an older Lem wrote, is refused with the type line to write."""
+    text = line.strip()
+    if text.startswith("kind:"):
+        old = OLD_KIND_LINE.fullmatch(text)
+        named = OLD_KINDS.get(old["kind"]) if old else None
+        raise SettingsError(
+            f"the line {text!r} is the kind line of an older Lem: a task has a type now, one of {', '.join(TYPES)}; write it as "
+            f"`type: {named or 'TYPE'}, because {old['why'].strip() if old and old['why'] else '...'}`",
+        )
+    if not text.startswith("type:"):
         return None
-    found = KIND_LINE.fullmatch(line.strip())
-    kind = found["kind"] if found else line.strip().removeprefix("kind:").strip()
-    if kind not in KINDS:
-        raise SettingsError(f"{kind!r} is not a kind of request{nearest(kind, KINDS)}; a kind line reads `kind: KIND, because WHY`")
+    found = TYPE_LINE.fullmatch(text)
+    kind = found["type"] if found else text.removeprefix("type:").strip()
+    if kind not in TYPES:
+        raise SettingsError(f"{kind!r} is not a type of request{nearest(kind, TYPES)}; a type line reads `type: TYPE, because WHY`, with TYPE one of {', '.join(TYPES)}")
     if not found or not found["why"]:
-        raise SettingsError(f"the line {line.strip()!r} names the kind without its reason: write it as `kind: {kind}, because ...`")
-    return {"kind": kind, "why": found["why"].strip()}
+        raise SettingsError(f"the line {text!r} names the type without its reason: write it as `type: {kind}, because ...`")
+    return {"type": kind, "why": found["why"].strip()}
+
+
+def old_kind_line(line: str) -> dict | None:
+    """The type a `kind:` line of an older Lem reads as, with its reason; none for any other line.
+    A later change may drop it once no task whose state holds such a line is open."""
+    found = OLD_KIND_LINE.fullmatch(line.strip())
+    if not found or found["kind"] not in OLD_KINDS or not found["why"]:
+        return None
+    return {"type": OLD_KINDS[found["kind"]], "why": found["why"].strip()}
+
+
+def investigation_now(record: dict | None) -> dict | None:
+    """An investigation's record in the form of now: one an older Lem wrote (`kind=bug|investigation`,
+    the calls `correction` and `usual`) reads as `type=fix|question` and `small` and `full`. A later
+    change may drop the old form once no task with such a record is open."""
+    if record is None or "kind" not in record or "type" in record:
+        return record
+    out = {key: value for key, value in record.items() if key != "kind"}
+    out["type"] = OLD_INVESTIGATION_KINDS.get(record["kind"], record["kind"])
+    out["call"] = OLD_CALLS.get(record.get("call"), record.get("call"))
+    return out
 
 
 def answered_form(root: Path, directory: Path, slug: str) -> None:
@@ -1202,28 +1249,33 @@ def answered_form(root: Path, directory: Path, slug: str) -> None:
 
 
 def investigation_form(fields: dict) -> None:
-    """What the investigation of a bug or of a question found, which Lem writes after it reads the
-    report: the kind, the call that sets the next path, one line (the cause, the answer, or what was
-    tried), the cause's place, and for a bug whether it was reproduced."""
-    form = "investigation takes kind=bug|investigation call=CALL line=TEXT [where=PATH:SYMBOL] [reproduced:=true|false, for a bug]"
-    allowed = {"kind", "call", "line", "where", "reproduced"}
-    if not {"kind", "call", "line"} <= set(fields) <= allowed:
+    """What the investigation of a fix or of a question found, which Lem writes after it reads the
+    report: the type, the call that sets the next path, one line (the cause, the answer, or what was
+    tried), the cause's place, and for a fix whether the bug was reproduced."""
+    form = "investigation takes type=fix|question call=CALL line=TEXT [where=PATH:SYMBOL] [reproduced:=true|false, for a fix]"
+    if "kind" in fields:
+        # the form of an older Lem: its kind and two of its calls have the names of now
+        kind = OLD_INVESTIGATION_KINDS.get(fields["kind"], "fix|question")
+        call = OLD_CALLS.get(fields.get("call"), fields.get("call"))
+        raise SettingsError(f"{form}: kind=bug|investigation is the form of an older Lem; write type={kind}" + (f" call={call}" if call else ""))
+    allowed = {"type", "call", "line", "where", "reproduced"}
+    if not {"type", "call", "line"} <= set(fields) <= allowed:
         raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
-    kind, call = fields["kind"], fields["call"]
+    kind, call = fields["type"], fields["call"]
     if kind not in CALLS:
-        raise SettingsError(f"{form}: kind is bug or investigation, not {kind!r}")
+        raise SettingsError(f"{form}: type is fix or question, not {kind!r}")
     if call not in CALLS[kind]:
-        raise SettingsError(f"{form}: call is correction, usual, not-a-bug or not-reproduced for a bug, and answer for an investigation; this one is {call!r} for a {kind}")
+        raise SettingsError(f"{form}: call is small, full, not-a-bug or not-reproduced for a fix, and answer for a question; this one is {call!r} for a {kind}")
     if not isinstance(fields["line"], str) or not fields["line"].strip() or "\n" in fields["line"]:
         raise SettingsError(f"{form}: line is one line of text: the cause, the answer, or what was tried")
     if "where" in fields and (not isinstance(fields["where"], str) or not fields["where"].strip()):
         raise SettingsError(f"{form}: where is the cause's file and symbol, as path:symbol")
-    if kind == "investigation" and "reproduced" in fields:
-        raise SettingsError(f"{form}: reproduced is a bug's; an investigation answers a question and reproduces nothing")
-    if kind == "bug":
+    if kind == "question" and "reproduced" in fields:
+        raise SettingsError(f"{form}: reproduced is a fix's; the investigation of a question answers it and reproduces nothing")
+    if kind == "fix":
         if not isinstance(fields.get("reproduced"), bool):
-            raise SettingsError(f"{form}: a bug's record says whether it was reproduced, as reproduced:=true or reproduced:=false, written with :=")
-        if call in ("correction", "usual") and not fields.get("where"):
+            raise SettingsError(f"{form}: a fix's record says whether the bug was reproduced, as reproduced:=true or reproduced:=false, written with :=")
+        if call in ("small", "full") and not fields.get("where"):
             raise SettingsError(f"{form}: a plain cause has a place: where names the cause's file and symbol")
         if call == "not-reproduced" and fields["reproduced"]:
             raise SettingsError(f"{form}: not-reproduced is a bug that was not reproduced, and this record says it was")
@@ -1326,7 +1378,7 @@ STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
     "scout.start": ("scout.start takes nothing", {}),
     "scout": ("scout, the end of the scout's read, takes nothing", {}),
     "stories.read.start": ("stories.read.start takes by=lem|lead, and nothing else", {"by": ("lem", "lead")}),
-    "investigation.start": ("investigation.start takes kind=bug|investigation, and nothing else", {"kind": ("bug", "investigation")}),
+    "investigation.start": ("investigation.start takes type=fix|question, and nothing else", {"type": ("fix", "question")}),
     "builder.start": (
         f"builder.start takes job=JOB, and nothing else: `task N of M`, or one of {', '.join(BUILDER_JOBS)}; the polish pass logs its own start (`land.py polish`)",
         {"job": None},
@@ -1468,14 +1520,16 @@ def newest_events(root: Path, event: str) -> dict[str, dict]:
     return found
 
 
-def kind_of(text: str) -> dict | None:
-    """The newest kind of the request that a block of state.md names (newest block first)."""
+def type_of(text: str) -> dict | None:
+    """The newest type of the request that a block of state.md names (newest block first). A `kind:`
+    line that an older Lem wrote reads as the type its kind maps to."""
     for line in text.splitlines():
         try:
-            found = kind_line(line)
+            found = type_line(line)
         except SettingsError:
-            # state wrote every kind line in its form; a line written by hand that is not is no kind
-            continue
+            # state wrote every type line in its form; a line written by hand that is not is no type,
+            # and a kind line of an older Lem is read as its type
+            found = old_kind_line(line)
         if found:
             return found
     return None
@@ -1509,10 +1563,10 @@ def read_tasks(root: Path) -> list[dict]:
             "proposal": proposal(directory),
             # the newest record of its plan talk, as `log plan.talk` wrote it, or null when it had none
             "talk": talks.get(directory.name),
-            # the kind of the request with its reason, from the newest block that names it, or null
-            "kind": kind_of(written),
-            # what the investigation of a bug or a question found, as `log investigation` wrote it last, or null
-            "investigation": investigations.get(directory.name),
+            # the type of the request with its reason, from the newest block that names it, or null
+            "type": type_of(written),
+            # what the investigation of a fix or a question found, as `log investigation` wrote it last, or null
+            "investigation": investigation_now(investigations.get(directory.name)),
         })
     if any(task["ticket"] for task in tasks):
         # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly

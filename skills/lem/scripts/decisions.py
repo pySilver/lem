@@ -237,14 +237,18 @@ class Task:
         return [found[key] for key in sorted(found)]
 
     def approved(self) -> dict | None:
-        """The stories the owner approved, as `stories.py approve` kept them; none for a task without."""
+        """The stories the owner approved, as `stories.py approve` kept them; none for a task without.
+        An approval an older Lem kept names its kind (`feature`, `correction`) and not its size, and
+        Lem's own approval of a small change as `by: correction`: each reads in the form of now. A
+        later change may drop the old form once no task with such an approval is open."""
         kept = self.directory / "stories.json"
         if not kept.is_file():
             return None
         try:
-            return json.loads(kept.read_text(encoding="utf-8"))
+            record = json.loads(kept.read_text(encoding="utf-8"))
         except ValueError as error:
             raise DecisionError(f"{kept} does not read as JSON ({error}); it is written by `stories.py approve` only") from error
+        return {**now_form(record), "history": [now_form(old) for old in record.get("history", [])]}
 
     def changes(self, lines: list[dict] | None = None) -> dict:
         """The approvals, the recorded changes of the stories in order, and the stories they give.
@@ -257,7 +261,7 @@ class Task:
         approved = self.approved()
         if approved is None:
             return {"task": self.slug, "approved": None, "approvals": [], "changes": [], "history": [], "expected": None}
-        keys = ("number", "at", "by", "kind", "digest")
+        keys = ("number", "at", "by", "size", "digest")
         approvals = [{key: old.get(key) for key in keys} for old in approved.get("history", [])] + [{key: approved.get(key) for key in keys}]
         # a file an approve before numbered approvals wrote has one approval, the first
         approvals[-1]["number"] = approvals[-1]["number"] or len(approvals)
@@ -305,6 +309,22 @@ class Task:
         for line in lines:
             script("project.py", self.repo, "log", self.slug, f"decision.{line['kind']}", *(f"{key}:={json.dumps(value)}" for key, value in line.items() if key != "kind"))
         return lines
+
+
+# The kinds an older Lem gave an approval of stories, by the size each is now, and who approved for
+# its `by: correction`. A later change may drop them once no task with such an approval is open.
+OLD_SIZES = {"feature": "full", "correction": "small"}
+OLD_BY = {"correction": "lem"}
+
+
+def now_form(approval: dict) -> dict:
+    """One approval of stories in the form of now: its size, and Lem as who approved a small change."""
+    out = {key: value for key, value in approval.items() if key not in ("kind", "history")}
+    if "size" not in out and "kind" in approval:
+        out["size"] = OLD_SIZES.get(approval["kind"], approval["kind"])
+    if out.get("by") in OLD_BY:
+        out["by"] = OLD_BY[out["by"]]
+    return out
 
 
 def left(decision: dict) -> int:
