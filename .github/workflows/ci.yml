@@ -47,9 +47,12 @@ jobs:
       - name: Lem's scripts, the landing with a remote
         if: ${{ !cancelled() }}
         run: bash tests/lem-land-shop.sh
-      - name: Lem's scripts, the landing with no remote
+      - name: Lem's scripts, the landing with no remote, decisions and criteria
         if: ${{ !cancelled() }}
         run: bash tests/lem-land-local.sh
+      - name: Lem's scripts, the landing with no remote, the polish pass, the review and the bar
+        if: ${{ !cancelled() }}
+        run: bash tests/lem-land-review.sh
       - name: Lem's scripts, the landing's backlog
         if: ${{ !cancelled() }}
         run: bash tests/lem-land-backlog.sh

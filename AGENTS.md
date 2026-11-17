@@ -688,6 +688,8 @@ One suite alone:
 bash tests/test-lem.sh         # Lem's scripts, in throwaway repositories: the blocks tests/lem-*.sh at the same time; loads the board in headless Chrome when one is installed
 bash tests/lem-land-shop.sh    # one block of them, alone (each block sources tests/lib.sh)
 bash tests/lem-old-tasks.sh    # tasks the scripts of an older commit took to open, read, landed and cleaned by the scripts of now
+bash tests/lem-land-local.sh   # the landing with no remote, in two blocks of about equal time: decisions, criteria and the read here,
+bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and what makes a request careful here
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs

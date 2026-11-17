@@ -6,7 +6,7 @@
 set -uo pipefail
 cd -P "$(dirname "$0")/.." || exit 1
 
-blocks=(lem-settings lem-machine lem-state lem-old-tasks lem-decisions lem-land-shop lem-land-local lem-land-backlog lem-land-github lem-land-guards lem-land-small lem-alone)
+blocks=(lem-settings lem-machine lem-state lem-old-tasks lem-decisions lem-land-shop lem-land-local lem-land-review lem-land-backlog lem-land-github lem-land-guards lem-land-small lem-alone)
 LOGS=$(mktemp -d)
 pids=()
 # A run that is stopped stops its blocks, and each block removes its own folder on the way out.
