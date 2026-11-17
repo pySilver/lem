@@ -1,6 +1,8 @@
 ---
 name: lem-ask
-description: Ask the user a question as a page in an agterm HTML overlay and read the answer back as JSON. Use for every question that asks the user to choose or approve — a design fork, a sequencing call, a plan or its parts, a choice between two options — because each option then carries what it changes and what it costs; for options that are pictures (diagrams, wireframes, design samples, charts); for code or a diff the user has to read; for a value tuned by eye (sliders with a live preview); and for several related decisions at once. Also whenever the user says `/lem ask`, "ask me visually" or "show me the options". Only an answer the user types (a name, a path, a number) or a bare "go ahead?" on a step just described stays in the terminal. Needs agterm and checks for it itself, so run it without checking first. Up to 9 options with subtitles, a reasoned recommendation and pros/cons; a free-text box on every question; keyboard throughout. The agent writes a JSON spec or one `lem-ask q` line.
+description: "Lem's question page: shows one question as a page in agterm and returns the answer as JSON. Lem's stages open it for a choice that waits for the owner; the owner calls it as `/lem ask` with a question, or alone to put the agent's last question on a page."
+disable-model-invocation: true
+argument-hint: '[question]'
 allowed-tools: Bash(lem-ask *)
 ---
 

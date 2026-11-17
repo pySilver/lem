@@ -1,6 +1,7 @@
 ---
 name: lem-pr-review
-description: Comprehensive PR/issue review - analyzes architecture, tests, identifies unrelated changes mixed in, drafts review comment or issue comment. Use when user asks to review a PR, check a PR, look at PR changes, or comment on an issue. Also runs as "/lem pr-review".
+description: "Lem's review of one pull request or issue of another person. The owner calls it as `/lem pr-review`."
+disable-model-invocation: true
 argument-hint: '<pr-or-issue-number>'
 allowed-tools: Bash, Read, Grep, Glob, Write, Skill, AskUserQuestion, Task
 ---

@@ -1,17 +1,7 @@
 ---
 name: lem-interview-me
-description: >
-  Extracts what the user actually wants instead of what they think they
-  should want, through a one-question-at-a-time interview until ~95%
-  confidence about the underlying intent. Each question carries the agent's
-  own guess, so the user reacts instead of composing from scratch. Use when
-  an ask is underspecified ("build me X" with no "for whom" or "why now"),
-  when two reasonable values are in tension and the user has not said which
-  one wins, or when you catch yourself silently filling in ambiguous
-  requirements before any plan, spec, ADR, or code exists. Activates on
-  "interview me", "grill me", "before we start, are we sure?", or
-  "stress-test my thinking".
-  Also runs as "/lem interview-me".
+description: "Lem's interview method: one question at a time, each with a guess. Lem's stages load it; the owner calls it as `/lem interview-me`."
+disable-model-invocation: true
 ---
 
 # Interview Me

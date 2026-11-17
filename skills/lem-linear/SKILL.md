@@ -1,6 +1,7 @@
 ---
 name: lem-linear
-description: "Lem's tracker skill for Linear: read a ticket into a task, move it when its work starts and when it lands, and comment the landing, through Linear's MCP server and as the project's `[tracker]` settings say. Lem's stages load it, and its check of the connection runs at onboarding and with the first read of a ticket, never as a command of the owner's; an owner may type \"/lem linear MBZ-12\" to read one ticket. Use when a `/lem` ask is a Linear ticket (an id such as MBZ-12 or a linear.app URL), when a task that came from a ticket starts or lands, and when the user says \"read the ticket\" or asks in words whether Linear is connected."
+description: "Lem's tracker skill for Linear: reads a ticket into a task, moves it and comments the landing. Lem's stages load it; the owner calls it as `/lem linear`."
+disable-model-invocation: true
 ---
 
 # Linear, as Lem's tracker

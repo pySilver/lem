@@ -258,5 +258,31 @@ printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/project.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
 if [ -d "$(dirname "$CAST")/__pycache__" ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
 
+# Every skill Lem ships starts only for Lem: the flag keeps it out of every session's list of
+# skills, and its description is short and names Lem. The `lem` skill itself keeps its own.
+shipped=$("$PY" -c '
+import json, pathlib, sys
+wrong = []
+for path in sorted(pathlib.Path("skills").glob("*/SKILL.md")):
+    head = path.read_text(encoding="utf-8").split("\n---\n", 1)[0].splitlines()[1:]
+    flag = "disable-model-invocation: true" in head
+    line = next((l for l in head if l.startswith("description:")), "description: ")
+    text = line[len("description:"):].strip()
+    text = json.loads(text) if text.startswith("\"") else text
+    name = path.parent.name
+    if name == "lem":
+        if flag: wrong.append("lem has the flag")
+        continue
+    if not flag: wrong.append(f"{name} has no flag")
+    if len(text) >= 300 or text in (">", "|"): wrong.append(f"{name} has a description of {len(text)} characters")
+    if "Lem" not in text: wrong.append(f"{name} names no Lem")
+print("; ".join(wrong) or "yes")
+')
+if [ "$shipped" = yes ]; then
+  pass "every shipped skill has disable-model-invocation and a description under 300 characters that names Lem, and the lem skill has no flag"
+else
+  fail "the shipped skills' frontmatter: $shipped"
+fi
+
 [ "$fails" -eq 0 ] || { printf '%d failure(s)\n' "$fails"; exit 1; }
 printf 'all passed\n'
