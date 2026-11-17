@@ -353,7 +353,11 @@ finished. The machine check (`python3 SKILL_DIR/scripts/doctor.py`), run in the 
 a `project personas` row that says how many the panel finds, from the checkout or the default
 branch. Look at it with the status: with none, say so and name the step, `/lem init`, which
 asks who a decision here affects and writes them without touching the settings that exist; with
-one, say that a panel needs a second person who would notice other things.
+one, say that a panel needs a second person who would notice other things. A `correction hook`
+row is there only when the correction hook is registered in more than one place for this
+repository (a settings file beside the plugin, or the home's and the repository's): say its places
+and the command its `without_it` gives in one line, and ask nothing. Each message is still judged
+once, so it waits for no answer.
 
 Before you say it, find out what merged. The owner merges a pull request on the forge, and
 nothing tells Lem: for each `open` task whose `proposal` in `project.py tasks` has a

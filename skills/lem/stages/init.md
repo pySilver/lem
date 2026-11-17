@@ -36,7 +36,10 @@ python3 SKILL_DIR/scripts/doctor.py
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
 installed, and end. Every other row is no question now: an optional tool that is absent is one
 line of the hand-over page (the row's `without_it`), and a recommended tool that is absent, cronn
-and the correction queue are offers in the short list at the end of that page (step 6).
+and the correction queue are offers in the short list at the end of that page (step 6). A
+`correction hook` row (the hook registered in two places, as when links registered it before the
+plugin came) is one line of that page too, with the places and the command it names; and the
+offer of the correction queue then says that the hook is there already.
 
 ## 2. Examine the project
 

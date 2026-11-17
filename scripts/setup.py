@@ -61,7 +61,13 @@ again as JSON with two spaces. Refused with exit 1, and left as it is: a file th
 one whose `UserPromptSubmit` hooks do not have the shape Claude Code reads, one that already
 holds this hook in another form (added by hand, another clone's, or this command with another
 timeout), and with `--project` a settings file that is a link out of the repository.
-`--corrections off` takes out the entry this script writes and no other, and removes a settings
+`--corrections on` registers nothing either, and exits 1 with the fix, where another place would
+start the hook for the same message: Lem installed as a plugin that this scope reaches (for the
+user, or for the repository of `--project`; for the home, also for any repository), which brings
+the hook itself; with `--project`, a hook in the home's settings; for the home, a hook in the local
+settings of the repository the script runs in, the one repository it can see. The hook judges a
+message once however often it starts, so this is about a true account of where the hook is; the
+machine check names a hook registered twice that it finds. `--corrections off` takes out the entry this script writes and no other, and removes a settings
 file that then holds nothing, and the `.claude` folder when that file was all it held. Every
 other run only reports whether the hook is registered.
 
@@ -210,6 +216,51 @@ def corrections(file: Path, turn: str) -> dict:
     return row
 
 
+def machine_check():
+    """The machine check as a module, for what it knows of the hook's other places. No bytecode is
+    written: the clone and a plugin's copy stay as git has them."""
+    import importlib.util
+
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location("lem_doctor", CLONE / "skills" / "lem" / "scripts" / "doctor.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def registered_elsewhere(home: Path, project: Path | None) -> str | None:
+    """Why the hook of this scope would start a second time for one message, with the fix; None
+    when no other place this script can see has it. The hook judges a message once however often it
+    starts, so this is about a true account of where the hook is, not about a wrong queue."""
+    doctor = machine_check()
+    # the plugin brings the hook, and the repository's tracked yes is what turns the queue on
+    on = "nothing was registered. The plugin brings the hook; to turn the queue on, set `collect = true` under `[corrections]` in the repository's `.lem/project.toml` and commit it"
+    home_file = home / ".claude" / "settings.json"
+    if project is not None:
+        plugin = doctor.lem_plugin(home, project)
+        if plugin:
+            return f"{plugin} is installed for {project}, and {on}"
+        if doctor.hook_entries(home_file):
+            return (f"{home_file} registers the correction hook already, and a hook in the home starts in every repository, {project} "
+                    f"too; nothing was registered. Keep that one, or take it out first with `python3 {shlex.quote(str(CLONE / 'scripts' / 'setup.py'))} "
+                    "--corrections off`, then run this again")
+        return None
+    # A hook in the home starts in every repository: also in each one that got Lem as a plugin.
+    for key, where in doctor.plugin_installs("lem", home):
+        root = Path(where) if where else None
+        if (root is None or root.is_dir()) and doctor.enabled(key, home, root):
+            return f"the plugin {key} is installed for {'the user' if root is None else root}, where a hook in the home starts too, and {on}"
+    # The repositories that registered the hook for themselves are not listed anywhere; the one
+    # this runs in is the one this script can see.
+    roots = doctor.checkout_roots()
+    local = roots[0] / ".claude" / "settings.local.json" if roots else None
+    if local is not None and doctor.hook_entries(local):
+        return (f"{local} registers the correction hook for {roots[0]} already, and a hook in the home would start there a second time; "
+                f"nothing was registered. Take that one out first with `python3 {shlex.quote(str(CLONE / 'scripts' / 'setup.py'))} --corrections off "
+                f"--project {shlex.quote(str(roots[0]))}`, then run this again")
+    return None
+
+
 MARK = f"# links of a Lem trial from {CLONE} (scripts/setup.py --project); --remove takes this file away"
 
 
@@ -327,6 +378,10 @@ def main() -> None:
         # shared one would register the hook for every checkout that reads the shared file.
         if project is not None and not Path(os.path.realpath(settings)).is_relative_to(project):
             sys.exit(f"setup.py: {settings} is behind a link that leaves the repository (to {os.path.realpath(settings)}); the hook of one repository is not written there")
+        if args.corrections == "on":
+            other = registered_elsewhere(args.home, project)
+            if other:
+                sys.exit(f"setup.py: {other}")
         try:
             row = corrections(settings, args.corrections)
         except Refused as error:

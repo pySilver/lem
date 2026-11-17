@@ -437,7 +437,10 @@ line. Print no JSON for him to paste. The command adds one
 `UserPromptSubmit` hook to Claude Code's settings (`~/.claude/settings.json`, or the checkout's
 `.claude/settings.local.json`), keeps the rest of the file, and refuses a file it cannot read,
 one that holds the hook in another form, and for one repository a settings file that is a link
-out of it. `setup.py --check` says whether it is registered.
+out of it. It also refuses, and registers nothing, where Lem's plugin or the other form already
+starts the hook for the same message; its message names the place and the fix. `setup.py
+--check` says whether it is registered. A hook registered twice still judges each message once
+(the first copy claims it), and the machine check's `correction hook` row names the places.
 
 - It needs Python 3.11 or newer as `python3`. Under an older one it judges nothing, and says so
   in its log. It finds `python3` and `git` on the hook's `PATH`, as any hook does; with no `git`

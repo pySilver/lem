@@ -20,7 +20,8 @@ yes is the repository's and everybody sees it. The hook comes with Lem installed
 (`hooks/hooks.json` of the clone). For the link form the owner registers it in one place:
 `scripts/setup.py --corrections on --project DIR` writes it into that checkout's
 `.claude/settings.local.json`, and without `--project` into the home's `~/.claude/settings.json`.
-One person keeps their own
+The setup refuses a second place where the plugin or the other scope has the hook already, and
+the machine check (`doctor.py`) names a hook registered in two places. One person keeps their own
 messages out with `collect = false` under `[corrections]` in `.lem/project.local.toml`. In every
 other repository the hook exits at once.
 

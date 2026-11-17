@@ -5,7 +5,9 @@ Onboarding runs it first, so a repository is never set up for a flow its machine
 prints one row per tool as JSON and exits 1 when a required one is absent. An optional tool that
 is absent is not an error: its row says what the skill does without it, and onboarding tells the
 owner that. A recommended tool is one Lem does not bring and a developer is better off with: its
-row has the guide to install it by, and Lem installs it only on the developer's yes.
+row has the guide to install it by, and Lem installs it only on the developer's yes. Two rows
+are about the repository it runs in and never fail the check: its personas, and the correction
+hook when more than one place registers it there.
 
     doctor.py
 
@@ -17,6 +19,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -68,18 +72,18 @@ def checkouts() -> set[str]:
     return {str(root) for root in checkout_roots()}
 
 
-def plugin_named(name: str) -> str | None:
-    """`the plugin NAME@MARKETPLACE` when Claude Code's list of installed plugins has one of that
-    name that this repository gets: one installed for the user, or for this repository. Else None."""
+def plugin_installs(name: str, home: Path) -> list[tuple[str, str | None]]:
+    """Each install of the plugin NAME that Claude Code's list in `home` has, as (NAME@MARKETPLACE,
+    the real path of its project, or None for an install for the user)."""
     # That file is the agent's own and may read any way: whatever is not the shape known here is no answer.
     try:
-        listed = json.loads((Path.home() / PLUGINS / "installed_plugins.json").read_text(encoding="utf-8"))
+        listed = json.loads((home / PLUGINS / "installed_plugins.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return None
+        return []
     plugins = listed.get("plugins") if isinstance(listed, dict) else None
     if not isinstance(plugins, dict):
-        return None
-    here = checkouts()
+        return []
+    found: list[tuple[str, str | None]] = []
     for key, installs in plugins.items():
         if not isinstance(key, str) or key.split("@")[0] != name:
             continue
@@ -89,9 +93,122 @@ def plugin_named(name: str) -> str | None:
             if not isinstance(entry, dict):
                 continue
             where = entry.get("projectPath")
-            if entry.get("scope") in ("user", "managed") or (isinstance(where, str) and os.path.realpath(where) in here):
-                return f"the plugin {key}"
+            if entry.get("scope") in ("user", "managed"):
+                found.append((key, None))
+            elif isinstance(where, str):
+                found.append((key, os.path.realpath(where)))
+    return found
+
+
+def plugin_named(name: str) -> str | None:
+    """`the plugin NAME@MARKETPLACE` when Claude Code's list of installed plugins has one of that
+    name that this repository gets: one installed for the user, or for this repository. Else None."""
+    here = checkouts()
+    for key, where in plugin_installs(name, Path.home()):
+        if where is None or where in here:
+            return f"the plugin {key}"
     return None
+
+
+def settings(file: Path) -> dict:
+    """A settings file of Claude Code; empty when it is absent or reads another way."""
+    try:
+        data = json.loads(file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def enabled(key: str, home: Path, root: Path | None) -> bool:
+    """Whether Claude Code turns the plugin `key` on in the repository `root` (None: outside one).
+    The repository's local settings say it first, then its shared ones, then the user's
+    (code.claude.com/docs/en/settings-reference, `enabledPlugins`, read 2026-11-17). With no word
+    the plugin follows its manifest's `defaultEnabled`; Lem's sets none, and an install writes the word."""
+    files = [root / ".claude" / "settings.local.json", root / ".claude" / "settings.json"] if root else []
+    for file in [*files, home / ".claude" / "settings.json"]:
+        words = settings(file).get("enabledPlugins")
+        if isinstance(words, dict) and isinstance(words.get(key), bool):
+            return words[key]
+    return True
+
+
+def lem_plugin(home: Path, root: Path | None) -> str | None:
+    """`the plugin lem@MARKETPLACE` when Lem is installed as a plugin for the user or for the
+    repository `root`, and the settings leave it on there. Else None."""
+    real = os.path.realpath(root) if root else None
+    for key, where in plugin_installs("lem", home):
+        if (where is None or where == real) and enabled(key, home, root):
+            return f"the plugin {key}"
+    return None
+
+
+# The correction hook in a settings file, in any form: the setup's of any clone, or one added by hand.
+HOOK_FORM = re.compile(r"corrections\.py['\"]?\s+hook\b")
+
+
+def hook_entries(file: Path) -> list[dict]:
+    """Each entry of the correction hook among the `UserPromptSubmit` hooks of a settings file."""
+    hooks = settings(file).get("hooks")
+    groups = hooks.get("UserPromptSubmit") if isinstance(hooks, dict) else None
+    entries = [hook for group in groups if isinstance(group, dict) and isinstance(group.get("hooks"), list)
+               for hook in group["hooks"]] if isinstance(groups, list) else []
+    return [hook for hook in entries if isinstance(hook, dict) and isinstance(hook.get("command"), str) and HOOK_FORM.search(hook["command"])]
+
+
+def removal(hook: dict, file: Path, scope: str, root: Path | None) -> str:
+    """How one entry of the hook comes out of `file`. The setup writes the home's settings (`scope`
+    "home") and a repository's local ones ("local"), and its `--corrections off` takes out only the
+    entry it writes, so an entry of that form gets the command of the clone it names. Any other
+    entry, and any in the repository's shared settings ("shared"), comes out by hand."""
+    try:
+        words = shlex.split(hook["command"])
+    except ValueError:
+        words = []
+    script = next((Path(word) for word in words if word.endswith("corrections.py")), None)
+    if scope != "shared" and script is not None and len(script.parents) > 3:
+        setup = script.parents[3] / "scripts" / "setup.py"
+        if setup.is_file() and hook == {"type": "command", "command": f"python3 {shlex.quote(str(script))} hook", "timeout": 10}:
+            return f"python3 {shlex.quote(str(setup))} --corrections off" + (f" --project {shlex.quote(str(root))}" if scope == "local" else "")
+    return f"take the entry out of {file} by hand" + (", and commit that" if scope == "shared" else "")
+
+
+def hook_places(home: Path, root: Path | None) -> list[dict]:
+    """Each place that registers the correction hook for the repository `root` (None: outside one),
+    as its name and how it comes out: the home's settings, the repository's local and shared ones,
+    and Lem's plugin, which needs no removal."""
+    files = [(home / ".claude" / "settings.json", "home")]
+    if root is not None:
+        files += [(root / ".claude" / "settings.local.json", "local"), (root / ".claude" / "settings.json", "shared")]
+    places = [{"where": str(file), "remove": removal(hook, file, scope, root)} for file, scope in files for hook in hook_entries(file)]
+    plugin = lem_plugin(home, root)
+    return places + ([{"where": plugin, "remove": None}] if plugin else [])
+
+
+def correction_hook() -> list[dict]:
+    """A row when the correction hook is registered in more than one place for this repository; no row otherwise.
+
+    Its need is `project`, as the personas' row: it is about what this repository gets, and it
+    never fails the machine check. The hook judges each message once however often it starts, so
+    the row is about telling the truth, not about a wrong queue.
+    """
+    roots = checkout_roots()
+    places = hook_places(Path.home(), roots[0] if roots else None)
+    if len(places) < 2:
+        return []
+    extra = [place for place in places if place["remove"] is not None]
+    if len(extra) < len(places):
+        fix = "The plugin brings the hook, so remove each other place: " + "; ".join(f"{place['where']}: {place['remove']}" for place in extra)
+    else:
+        fix = "Keep one of them, and remove the others: " + "; ".join(f"{place['where']}: {place['remove']}" for place in extra)
+    return [{
+        "name": "correction hook", "need": "project", "found": False,
+        "detail": f"registered {len(places)} times for this repository: " + ", ".join(place["where"] for place in places),
+        "used_for": "the correction queue: one call of the Jev model and at most one entry for each message of the owner",
+        "without_it": "Claude Code starts the hook once for each place. The first copy claims the message, so it is still judged "
+                      f"once, and each other copy starts for nothing. {fix}. The check reads the settings files of the home and of "
+                      "this repository and Claude Code's list of plugins; it does not see managed settings, a session's --settings, "
+                      "or a plugin loaded for one session by a flag",
+    }]
 
 
 def skill(name: str, used_for: str, without_it: str, need: str = "required", guide: str | None = None) -> dict:
@@ -278,6 +395,7 @@ def main() -> None:
               "an agent has the command and no instructions for it; the same recipe of agterm's cookbook installs the skill"),
         cronn(),
         *project(),
+        *correction_hook(),
     ]
     ok = all(row["found"] for row in tools if row["need"] == "required")
     print(json.dumps({"ok": ok, "tools": tools}, indent=2))

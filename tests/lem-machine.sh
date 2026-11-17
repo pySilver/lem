@@ -631,7 +631,8 @@ fi
 # The hook of the correction queue: one command in the agent's settings, the owner's step, and nothing else in the file changes.
 HOOKHOME=$WORK/hookhome
 mkdir -p "$HOOKHOME"
-hooksetup() { env -i PATH="$BIN" HOME="$HOOKHOME" "$PY" -B "$SETUP" --home "$HOOKHOME" "$@"; }
+# outside any repository: a hook for the home looks at the repository it runs in, and this checkout is not one to read
+hooksetup() { (cd "$HOOKHOME" && env -i PATH="$BIN" HOME="$HOOKHOME" "$PY" -B "$SETUP" --home "$HOOKHOME" "$@"); }
 want=$("$PY" -c 'import shlex, sys; print("python3 " + shlex.quote(sys.argv[1]) + " hook")' "$PWD/skills/lem/scripts/corrections.py")
 out=$(hooksetup --corrections on)
 first=$(cat "$HOOKHOME/.claude/settings.json")
@@ -775,6 +776,87 @@ if [ "$(row cronn found <<<"$out")" = "True" ] && [ "$(row cronn running <<<"$ou
 else
   fail "doctor with cronn: $out"
 fi
+# The correction hook registered in two places for one repository: the machine check names each place and the
+# command that takes the extra one out, never says to remove the plugin, and never fails the machine for it.
+with_hook() { "$PY" -c 'import json, sys; json.dump({"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": sys.argv[2], "timeout": 10}]}]}, **json.loads(sys.argv[3])}, open(sys.argv[1], "w"))' "$@"; }
+hookrow() { doctor | field '[(t["need"], t["found"], t["detail"], t["without_it"], d["ok"]) for t in d["tools"] if t["name"] == "correction hook"]'; }
+hookfield() { doctor | field "next(t for t in d[\"tools\"] if t[\"name\"] == \"correction hook\")[\"$1\"]"; }
+mkdir -p "$FAKEHOME/.claude" "$MACHINE/.claude"
+with_hook "$MACHINE/.claude/settings.local.json" "$want" '{}'
+one=$(hookrow)
+with_hook "$FAKEHOME/.claude/settings.json" "$want" '{}'
+home_detail=$(hookfield detail || true)
+home_fix=$(hookfield without_it || true)
+home_need=$(doctor | field '[(t["need"], t["found"], d["ok"]) for t in d["tools"] if t["name"] == "correction hook"]' || true)
+if [ "$one" = "[]" ] && [ "$home_detail" = "registered 2 times for this repository: $FAKEHOME/.claude/settings.json, $MACHINE/.claude/settings.local.json" ] \
+  && grep -qF "Keep one of them, and remove the others: $FAKEHOME/.claude/settings.json: python3 $PWD/scripts/setup.py --corrections off; $MACHINE/.claude/settings.local.json: python3 $PWD/scripts/setup.py --corrections off --project $MACHINE." <<<"$home_fix" \
+  && grep -qF "it is still judged once" <<<"$home_fix" && [ "$home_need" = "[('project', False, True)]" ]; then
+  pass "the hook in the home's settings and in the repository's is named in one row with the command that removes each, and that row never fails the machine; one place gets no row"
+else
+  fail "doctor with the hook in two settings files: $one / $home_detail / $home_fix / $home_need"
+fi
+rm "$FAKEHOME/.claude/settings.json"
+printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$MACHINE\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+plugin_detail=$(hookfield detail || true)
+plugin_fix=$(hookfield without_it || true)
+# switched off in the repository's local settings, the plugin brings no hook; and the plugin alone is one place
+with_hook "$MACHINE/.claude/settings.local.json" "$want" '{"enabledPlugins": {"lem@lem": false}}'
+off=$(hookrow)
+rm "$MACHINE/.claude/settings.local.json"
+alone=$(hookrow)
+# a form added by hand to the repository's shared settings comes out by hand, and the file is committed
+with_hook "$MACHINE/.claude/settings.json" "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook" '{}'
+shared_fix=$(hookfield without_it || true)
+rm -r "$MACHINE/.claude" "$FAKEHOME/.claude/plugins/installed_plugins.json"
+if [ "$plugin_detail" = "registered 2 times for this repository: $MACHINE/.claude/settings.local.json, the plugin lem@lem" ] \
+  && grep -qF "The plugin brings the hook, so remove each other place: $MACHINE/.claude/settings.local.json: python3 $PWD/scripts/setup.py --corrections off --project $MACHINE." <<<"$plugin_fix" \
+  && ! grep -qi "uninstall" <<<"$plugin_fix" && grep -qF "it does not see managed settings, a session's --settings, or a plugin loaded for one session by a flag" <<<"$plugin_fix" \
+  && [ "$off" = "[]" ] && [ "$alone" = "[]" ] \
+  && grep -qF "$MACHINE/.claude/settings.json: take the entry out of $MACHINE/.claude/settings.json by hand, and commit that." <<<"$shared_fix"; then
+  pass "the hook in a settings file beside Lem's plugin is named with the command that removes the file's entry and never the plugin; a plugin switched off there, or alone, gets no row; an entry the setup did not write comes out by hand"
+else
+  fail "doctor with the hook beside the plugin: $plugin_detail / $plugin_fix / $off / $alone / $shared_fix"
+fi
+# The setup registers no second place: not beside the plugin, for one repository or for the home, and not
+# for one scope when the other has the hook. Each refusal names the fix, and --corrections off is as before.
+homesetup() { (cd "$1" && env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --home "$WORK/trialhome" --corrections on); }
+mkdir -p "$WORK/trialhome/.claude/plugins"
+printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$TRIAL\"}]}}" > "$WORK/trialhome/.claude/plugins/installed_plugins.json"
+err_project=$(trial --corrections on 2>&1 >/dev/null || true)
+codes="$(status_of trial --corrections on)"
+err_home=$(homesetup "$WORK" 2>&1 >/dev/null || true)
+codes="$codes $(status_of homesetup "$WORK")"
+printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$WORK/trialhome/.claude/plugins/installed_plugins.json"
+err_user=$(homesetup "$WORK" 2>&1 >/dev/null || true)
+# the move from the links to the plugin: the hook the links registered comes out as before
+mkdir -p "$TRIAL/.claude" && with_hook "$TRIAL/.claude/settings.local.json" "$want" '{}'
+moved=$(trial --corrections off | field '(d["corrections_hook"]["state"], d["corrections_hook"]["changed"])')
+rm "$WORK/trialhome/.claude/plugins/installed_plugins.json"
+if [ "$codes" = "1 1" ] && grep -qF "setup.py: the plugin lem@lem is installed for $TRIAL, and nothing was registered. The plugin brings the hook; to turn the queue on, set \`collect = true\` under \`[corrections]\` in the repository's \`.lem/project.toml\` and commit it" <<<"$err_project" \
+  && grep -qF "the plugin lem@lem is installed for $TRIAL, where a hook in the home starts too, and nothing was registered" <<<"$err_home" \
+  && grep -qF "the plugin lem@lem is installed for the user, where a hook in the home starts too" <<<"$err_user" \
+  && [ ! -e "$WORK/trialhome/.claude/settings.json" ] && [ "$moved" = "('not registered', True)" ] && [ ! -e "$TRIAL/.claude" ]; then
+  pass "setup --corrections on registers nothing where Lem's plugin brings the hook, for one repository or for the home, and says that the tracked yes turns the queue on; --corrections off still takes out what the links registered"
+else
+  fail "setup --corrections on beside the plugin: $codes / $err_project / $err_home / $err_user / $moved"
+fi
+with_hook "$WORK/trialhome/.claude/settings.json" "$want" '{}'
+err_home_has=$(trial --corrections on 2>&1 >/dev/null || true)
+codes="$(status_of trial --corrections on) $([ -e "$TRIAL/.claude" ] && echo made || echo none)"
+rm "$WORK/trialhome/.claude/settings.json"
+trial --corrections on >/dev/null
+err_repo_has=$(homesetup "$TRIAL" 2>&1 >/dev/null || true)
+codes="$codes $(status_of homesetup "$TRIAL") $([ -e "$WORK/trialhome/.claude/settings.json" ] && echo made || echo none)"
+trial --corrections off >/dev/null
+if [ "$codes" = "1 none 1 none" ] \
+  && grep -qF "setup.py: $WORK/trialhome/.claude/settings.json registers the correction hook already, and a hook in the home starts in every repository, $TRIAL too; nothing was registered. Keep that one, or take it out first with \`python3 $PWD/scripts/setup.py --corrections off\`, then run this again" <<<"$err_home_has" \
+  && grep -qF "setup.py: $TRIAL/.claude/settings.local.json registers the correction hook for $TRIAL already, and a hook in the home would start there a second time; nothing was registered. Take that one out first with \`python3 $PWD/scripts/setup.py --corrections off --project $TRIAL\`" <<<"$err_repo_has" \
+  && [ ! -e "$TRIAL/.claude" ]; then
+  pass "setup --corrections on for one repository when the home has the hook, and for the home in a repository that has it, registers nothing and names the place that has it with the command that removes it"
+else
+  fail "setup --corrections on beside the other scope: $codes / $err_home_has / $err_repo_has"
+fi
+rm -r "$WORK/trialhome/.claude"
 # Every project of Lem has personas: the machine check, run in a repository that has settings, says when
 # there are none or one, through the panel's own check, and that row never fails the machine.
 PPL=$WORK/people-repo
