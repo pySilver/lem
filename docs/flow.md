@@ -136,7 +136,7 @@ This is the usual path. You are there for it, and it ends with stories that you 
 - **Approved stories do not change silently.** The plan holds them word for word. A change of a
   story has a record with the text before and after, and the pull request is then not green. If
   you approve the changed stories later, that change does not make it not green. The pull
-  request still shows it, with "approved by you afterwards".
+  request still shows it, with "approved by the owner afterwards": your teammates read it too.
 - **Only you can change the kind** of the stories, a feature or a correction.
 
 ### The rare path

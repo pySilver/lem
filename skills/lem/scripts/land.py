@@ -1650,7 +1650,7 @@ def story_line(task: Task, change: dict) -> str:
         "removed": f"removed, was \"{change.get('was')}\"",
     }[change["how"]]
     who = "" if "choice" in change else " By the lead." if change["by"] == "lead" else f" By the personas: {change['said']}"
-    later = f" Approved by you afterwards (approval {change['taken_over_by']})." if change.get("taken_over_by") else ""
+    later = f" Approved by the owner afterwards (approval {change['taken_over_by']})." if change.get("taken_over_by") else ""
     return f"- story {change['story']}: {said}. {reason(story_why(task, change))}.{who}{later}"
 
 

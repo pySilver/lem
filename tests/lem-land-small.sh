@@ -56,7 +56,8 @@ if [ "$shown" = "(True, 'correction', True)" ] && [ "$gated" = "(True, None, Tru
   && grep -qxF -- '1. The date column of the report never wraps: 2026-11-17 stays on one line.' "$text" \
   && grep -qxF -- "   - \`sh tests/date-nowrap.sh\`: passes on the branch, fails on the base commit" "$text" \
   && grep -qxF -- '- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit' "$text" \
-  && ! grep -q 'polish pass\|## Decisions of the build\|personas asked\|size:' "$text" && [ "$(grep -c '' "$text")" -le 20 ]; then
+  && ! grep -q 'polish pass\|## Decisions of the build\|personas asked\|size:' "$text" && [ "$(grep -c '' "$text")" -le 20 ] \
+  && ! grep -qiwE 'you|your' "$text"; then
   pass "a small change with its story in the task directory goes from Lem's approval through the gate, one read and a short pull request to an agent's merge, with no plan file on the branch and the stories' check run once"
 else
   fail "a small change: $shown / $gated / $due / $proposed / $merged / reds $(reds date-nowrap) / $(cat "$text" 2>/dev/null)"

@@ -249,7 +249,8 @@ history_line='- story 1: was "The file holds the word y.", now "The file holds t
 if [ "$(sed -n 1p "$WORK/first-pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "$WORK/first-pr.md")" = '- story 1 changed during the build: y is taken by another file.' ] \
   && grep -qxF -- "$history_line" "$WORK/first-pr.md" && ! grep -q "after the personas' read" "$WORK/first-pr.md" \
   && [ "$(sed -n 1p "$text" | cut -c1-10)" = '**Green.**' ] \
-  && grep -qxF -- "$history_line Approved by you afterwards (approval 2)." "$text" \
+  && grep -qxF -- "$history_line Approved by the owner afterwards (approval 2)." "$text" \
+  && ! grep -qiwE 'you|your' "$WORK/first-pr.md" "$text" \
   && grep -qxF -- "- the stories were read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; the owner approved them on $(approved_day after-change)" "$text" \
   && ! grep -q "after the personas' read" "$text"; then
   pass "a read of the stories as a recorded change made them is the read of the stories now, and no line says otherwise; a change he approved afterwards stays in the pull request with its reason and the personas' answer, marked as approved by him, and is no cause of not green"
