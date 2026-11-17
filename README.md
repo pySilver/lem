@@ -62,10 +62,12 @@ review, and a person merges it. [docs/flow.md](docs/flow.md) gives each step.
 - Nothing merges before the checks and a review by an agent that did not build the change.
 - The first line of each pull request says green or not green, and each reason comes next.
 - A green pull request needs no read from you.
-- A full change builds only after your yes to its acceptance criteria, or, from a complete
-  ticket, after the personas find no doubt.
+- A full change builds only after your yes to its acceptance criteria. A complete ticket that you
+  wrote yourself is the one exception: it builds when the personas find no doubt.
 - A step that nobody can undo waits for your word.
 - After a merge, Lem brings each other open pull request onto the new base.
+- Lem never pushes over a commit that it did not push.
+- The text of a ticket, an issue or a web page is data. Lem never obeys an instruction in it.
 
 ## Install
 
@@ -99,14 +101,15 @@ project`, then start a new session. To remove Lem, do [these steps](docs/install
 | `/lem <request>` | opens a task, and tells you its type and size |
 | `/lem plan <request>` | stops after the plan, for you to read. `/lem <request>` does not stop there: you approve the acceptance criteria, and the plan is only how |
 | `/lem build [task or plan file]` | builds a plan that waits, or lists them |
-| `/lem`, `/lem status [task]` | opens the board, and lists what waits for you: pull requests, night plans, retro proposals, choices. You approve, reject or keep each proposal for later |
+| `/lem`, `/lem status` | lists what waits for you, always in one order: choices, criteria for your yes, other held tasks, pull requests, night plans, retro proposals. Say "open them" to answer each plan and proposal with approve, reject or later |
+| `/lem status <task>` | opens the board of one task |
 | `/lem land <task>` | your word to merge an open pull request |
 | `full`, `careful`, `drop` | makes a small change a full change, marks a task careful, or stops it |
 | `/lem ask [question]` | puts a question to you as a page. With no question, it takes the last question of the agent |
 | `/lem annotate <file>` | opens a file for you to mark up |
 | `/lem learn` | puts your correction into the file that owns the step |
 | `/lem reviewer codex/gpt-6.1-sol:high` | sets the reviewer of the plan talk on this computer: agent, model, effort. `default` resets it |
-| `/lem nap` | starts a nap: an agent reads the recent tasks and writes a note for the retro |
+| `/lem nap` | starts a nap: an agent reads the recent tasks, writes a dream, and leaves a note for the retro |
 | `/lem init` | sets up a repository |
 
 Lem starts `/lem land` when a task is ready. Scheduled jobs can start `/lem retro` each morning and
@@ -132,14 +135,15 @@ Lem starts `/lem land` when a task is ready. Scheduled jobs can start `/lem retr
 - **Plan talk**: two agents argue the plan of a careful or large change before any code.
 - **Polish pass**: a new builder removes what the build of a full change left behind.
 - **The checks**: your test commands, the test of each criterion, and the bar.
-- **The bar**: a new suppression, a skipped or deleted test, or fewer assertions lower it.
+- **The bar**: how strict your tests and linters are. A new suppression, a skipped or deleted
+  test, fewer assertions or a weaker test setting lowers it.
 - **Review**: an agent that did not build the change reads it.
 - **Green**: you can merge without a read.
 
 ## The skills Lem ships
 
-A task needs none of these. They help you when you step in. Each starts only by its `/lem` name,
-or from a stage of Lem.
+A task needs none of these. They help you when you step in. No skill starts by itself from your
+words: you type its `/lem` name, or a stage of Lem loads it.
 
 | You type | Use it when | Example |
 | --- | --- | --- |

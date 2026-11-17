@@ -20,7 +20,7 @@ So the work happens in a worktree of the clone, on a branch named after the run:
 
 ```bash
 stamp=$(date -u +%Y-%m-%d-%H%M)
-where=$(python3 skills/lem/scripts/project.py worktree-dir "free-hour-$stamp")
+where=$(bin/lem project worktree-dir "free-hour-$stamp")
 git worktree add -b "free-hour/$stamp" "$where" main
 ```
 

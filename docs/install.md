@@ -11,19 +11,19 @@ Lem runs on macOS only, because agterm is a terminal for macOS.
 | --- | --- | --- |
 | Python 3.11 or newer, as `python3` | required | each script of Lem. The `python3` that macOS brings can be older |
 | git | required | worktrees and branches |
-| Claude Code | required | the agent that runs `/lem` |
+| [Claude Code](https://code.claude.com/docs) | required | the agent that runs `/lem` |
 | [agterm](https://agterm.com) and the agterm skill | required | the pages, the panes and the companion session of a plan talk. The Help menu of agterm installs the skill |
 | the [mailbox chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat) and its skill | required | the messages between Lem and a lead, and between the defender and the reviewer. The recipe puts `mailbox-chat.py` on your `PATH` |
 | [revmux](https://github.com/umputun/revmux) and the revmux skill | required | the review rounds before a pull request |
-| the GitHub CLI `gh`, signed in | required with a remote on GitHub | the pull requests, and the watch of the open pull requests |
+| the [GitHub CLI](https://cli.github.com) `gh`, signed in | required with a remote on GitHub | the pull requests, and the watch of the open pull requests |
 | [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document) | recommended | you mark up a plan or a document as a page. `/lem annotate` uses it by default |
 | [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) | recommended | a page about the issue, the plan or the change of the session |
 | [plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui) | recommended | you mark up the output of a pane, or the newest reply of an agent |
-| Codex | optional | a reviewer of a second model family, the second expert, and half of each persona panel |
+| [Codex](https://github.com/openai/codex) | optional | a reviewer of a second model family, the second expert, and half of each persona panel |
 | the Codex persona agent | optional | the second model family of a persona panel, in `~/.codex/agents/persona.toml` |
-| cronn | optional | the scheduled retro and night plan |
-| plannotator | optional | another tool to mark up a plan, if you name it in `tools.annotate` |
-| an `OPENROUTER_API_KEY` | optional | the Jev decision model, for the correction queue, the sort of the backlog, and the check of a question card |
+| [cronn](https://cronn.umputun.dev) | optional | the scheduled retro and night plan |
+| [plannotator](https://github.com/backnotprop/plannotator) | optional | another tool to mark up a plan, if you name it in `tools.annotate` |
+| an [OpenRouter](https://openrouter.ai) key, `OPENROUTER_API_KEY` | optional | the Jev decision model, for the correction queue, the sort of the backlog, and the check of a question card |
 
 Lem brings no recommended tool. `/lem init` installs one only after your yes. Without webrev, you
 read a file as it is and give your notes in the conversation. Without agdoc or plannotator-tui, no
@@ -67,24 +67,47 @@ claude plugin marketplace update lem
 claude plugin update lem@lem --scope project
 ```
 
+To see which copy of Lem runs, ask the agent to run `lem version`. It prints the folder of the
+plugin, and the commit when that folder is a git clone.
+
 ## The permissions that `/lem init` proposes
 
 A builder runs in the background. In the `default` or the `acceptEdits` permission mode, a
 command that needs a permission stops the builder. The question comes up in the session of Lem.
-At night nobody answers it. So `/lem init` proposes an allow list for the tracked
-`.claude/settings.json`. The hand-over page shows it as an assumption that you can change.
+At night nobody answers it. So `/lem init` proposes rules for the tracked `.claude/settings.json`.
+The hand-over page shows them as an assumption that you can change ("change allow none" removes
+them all).
+
+Under `permissions.allow`:
 
 - `Bash(lem *)`, `Bash(lem-ask *)` and `Bash(lem-jev *)`;
 - `Bash(git worktree add *)`, `Bash(git add *)`, `Bash(git commit *)`, `Bash(git rm *)` and
   `Bash(git mv *)`;
 - the `agtermctl` calls that Lem uses, for example `Bash(agtermctl msg send *)`;
 - `Bash(mailbox-chat.py *)` and `Bash(revmux *)`;
-- the `codex exec` command of the second expert;
-- `Edit(/.lem/worktrees/**)`;
-- one rule for each command of `checks.commands`, `checks.alone` and `checks.setup`.
+- `Bash(codex exec *)`, for the experts;
+- `Edit(/.lem/worktrees/**)`, with the folder of `paths.worktrees`;
+- one rule for each command of `checks.commands`, `checks.alone` and `checks.setup`. A command
+  with `&&` gets one rule for each part.
 
-A compound command needs a rule for each part. The machine check reads `permissions.defaultMode`
-and tells you what a builder meets in that mode.
+Under `permissions.ask`, the commands that carry your word:
+
+- `Bash(lem land land *owner*)`: a merge on your word;
+- `Bash(lem decisions answer *)` and `Bash(lem decisions log *--by owner*)`: your answer to a
+  choice, and a decision that Lem logs as yours;
+- `Bash(lem criteria approve * --file *)`: your approval of the acceptance criteria.
+
+A rule under `permissions.ask` shows you a prompt also when `Bash(lem *)` allows the command. So a merge on your word
+and an approval always show you a prompt. The rules allow no `git push` and no command of the
+project other than its checks. A push of a task branch goes only through `lem land`. The machine check reads `permissions.defaultMode` and tells you
+what a builder meets in that mode.
+
+## GitHub
+
+With a remote on GitHub, Lem pushes the branch of each task and opens its pull request. A merge
+on GitHub onto a base that moved gets the checks once more from Lem, after the merge. To stop such
+a merge before it happens, turn on the branch rule "Require branches to be up to date before
+merging" for the base branch. GitHub then refuses a merge of a pull request on an old base.
 
 ## The correction queue
 
@@ -129,8 +152,6 @@ times or more.
   name the files. They never remove a file that was there before the run.
 - A task that you drop, or that Lem answers, loses its worktree. Its branch goes too, if it has no
   commit of its own. A branch with commits stays, and Lem tells you how to delete it.
-- A repository with an older `.git/lem/` folder gets that folder moved to `.lem/state/` once, by
-  the first script of Lem that runs.
 
 ## Remove Lem from a repository
 

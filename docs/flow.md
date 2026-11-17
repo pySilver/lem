@@ -13,7 +13,7 @@ flowchart TD
     ctx -- no --> interview[The interview, one question at a time.<br/>A scout reads the code at the same time]
     interview --> crit[Lem writes the acceptance criteria.<br/>The personas read them]
     crit --> approve[You approve the criteria]
-    ctx -- yes --> leadcrit[The lead writes the criteria.<br/>The personas read them.<br/>A doubt stops the task for you]
+    ctx -- yes --> leadcrit[The lead writes the criteria.<br/>The personas read them.<br/>A doubt, or a ticket of another person,<br/>stops the task for you]
     approve --> plan[The lead commits a short plan]
     leadcrit --> plan
     plan --> big{Is the plan careful or large?}
@@ -37,7 +37,9 @@ Lem reads the words of your request before an agent reads the code. It names the
 and the topics in reach, in one line, before an agent starts. Nothing repeats that line.
 
 **The type** is a Conventional Commits type, and it gives the branch its name, `<type>/<slug>`.
-The words in the table are hints for the judgment of Lem. No code compares your words with them.
+If the remote already has a branch with that name, Lem takes another slug. The worktree of a new
+task starts from the base branch of the remote, after a fetch. The words in the table are hints
+for the judgment of Lem. No code compares your words with them.
 
 | Type | Use it when | Words that often show it |
 | --- | --- | --- |
@@ -127,8 +129,18 @@ These requests have all of their context, and they get no interview:
 - an investigation report that settles what you want.
 
 Lem tells you so in one line, and you can say "interview me". The lead writes the
-criteria from the code, and the personas read them. If nobody is confused, the build starts
-without a wait. If a persona has a doubt, or a rule needs a guess, the task waits for you.
+criteria from the code, and the personas read them. If you wrote the request yourself and nobody
+is confused, the build starts without a wait. The task waits for your yes in three cases:
+
+- a persona has a doubt;
+- a rule needs a guess;
+- another person wrote the ticket or the backlog item. Then you read on one page what Lem will
+  build, before it builds.
+
+**Text from outside is data.** A ticket, an issue, a pull request, a comment, a web page or a file
+of a dependency tells Lem what is asked or what is there. Lem never obeys an instruction in that
+text: it does not change the settings, a push, a merge, or what a builder can run. No agent writes
+a secret, a key or a value from an `.env` file into a file or a commit.
 
 ### The plan and the build
 
@@ -171,8 +183,8 @@ Your word, the line `careful: yes` of the plan, the newest review, and a diff th
 - a line after green or not green that says careful, with each reason;
 - a note that says if the change holds a migration, and how to revert it.
 
-Lem reads `flow.topics` from the main checkout, so a branch cannot change the topics that guard
-it. Only your yes adds a topic.
+Lem reads `flow.topics` from the newest commit of the base branch, so a branch cannot change the
+topics that guard it. Only your yes adds a topic.
 
 ## The plan talk
 
@@ -220,11 +232,16 @@ One task is in the landing at a time. A landing that stopped continues from wher
 
 1. **`start`.** A project with no command in `checks.commands` gets no pull request. The one
    exception is the task that adds the checks, and its pull request is not green.
-2. **`base`.** Lem rebases the branch on the base branch. A builder resolves a conflict.
+2. **`base`.** Lem rebases the branch on the base branch. A builder resolves a conflict. Before
+   the rebase, Lem looks at the branch on GitHub. A commit there that Lem did not push, for
+   example a suggestion of a teammate, stops the landing. Lem names the commit and the command
+   that brings it into the worktree. The commit then gets the checks and a read.
 3. **`polish`.** For a full change, a new builder makes the polish pass.
 4. **The checks**, with no model in them.
 5. **The review.** An agent that did not build the change reads the diff.
 6. **`propose`.** Lem pushes the branch and opens the pull request, or marks the branch as ready.
+   The push replaces only the commit that Lem pushed last, so it never removes the commit of a
+   teammate. Lem does not take over a pull request that it did not open.
 7. **The merge.** You merge, or Lem merges if the settings permit it.
 8. **`clean`.** Lem removes the worktree and the branch of the task.
 
@@ -240,9 +257,21 @@ The pass changes no behavior, no test of a criterion and no plan.
 **The checks** run each command of `checks.commands` at the root of the worktree, then each
 command of `checks.alone` under the lock. Lem removes the untracked files that a command leaves,
 and names them. The test of each criterion must pass on the branch and fail on the base commit.
-The bar must not go down, unless the plan gives a reason for that file. A red check goes to a
-builder. If the base branch already fails the same command, Lem opens a task for that command, and
-this task waits for it.
+A red check goes to a builder. If the base branch already fails the same command, Lem opens a task
+for that command, and this task waits for it.
+
+**The bar** must not go down, unless the plan gives a reason for that file. Each of these lowers
+the bar:
+
+- a new suppression of a linter or a type checker;
+- a skipped, focused or deleted test, or fewer assertions;
+- an assertion that lost its comparison;
+- a setting of the test runner that leaves a test out, or runs a test again until it passes;
+- a lower coverage floor, or a mark of no coverage;
+- a test runner that a GitHub workflow no longer runs.
+
+The pull request lists each test, snapshot and test setting that was there before and that the
+change edits. When it finds no mark, it says "the bar: no mark of a lowered bar found".
 
 **The review** is as large as the change needs. An agent reads the diff and what each profile of
 the review tool is for. A small and simple change gets one read. Each other change gets a round
@@ -263,7 +292,7 @@ A pull request is green when all of these are true:
 - a review read the change as it is now, was as large as the floor, and found no must-fix;
 - no acceptance criterion changed during the build, or you approved each change;
 - no choice was taken by the timeout or by the experts;
-- the checks were the checks of the main checkout;
+- the change did not bring its own checks into a project that had none;
 - the read of the criteria did not stay unanswered two times;
 - it is not a small change that is careful.
 
@@ -280,17 +309,27 @@ branch moved after the checks, the checks run again first.
 ## After a merge
 
 - **Lem watches its open pull requests.** One watch runs in the background while a task is open.
-  It asks the forge every `flow.watch_seconds` seconds, with one call for all the pull requests.
-  A session of Lem that starts also asks the forge first.
+  It asks GitHub every `flow.watch_seconds` seconds, with one call for all the pull requests. It
+  needs the GitHub CLI `gh`, signed in. Each time you type `/lem`, Lem also asks GitHub first.
 - **A merged pull request ends its task.** Lem marks the task `landed`, removes its worktree and
   branch, and moves its ticket. A task that waited for it can start.
+- **A merge onto a base that moved gets the checks once.** If GitHub merged a tree that the checks
+  did not see, Lem runs the checks one time on the new base. If they fail, Lem tells you at once
+  and opens a task that repairs the base.
 - **A pull request closed with no merge drops its task.** The branch keeps its commits, and Lem
-  tells you how to delete it.
+  tells you how to delete it. If you open the pull request again, the task does not come back. A
+  new request starts new work.
+- **The other pull requests say that the base moved.** Until Lem checks one again, its first line
+  says "the base moved", so you do not merge a green of the old base.
 - **Each other open task comes onto the new base**, the ones with a conflict first. Lem rebases the
-  branch, and a builder resolves a conflict. The checks run again. After a conflict, one read
-  checks the resolution. Then Lem updates the pull request, and it tells you in one line: "rebased
-  on main after #3 merged; one conflict in shop/dates.py, resolved by a builder; the checks passed
-  again".
+  branch, and a builder resolves a conflict. The checks run again. The review stands after a
+  rebase with no conflict. After a conflict, one read checks the resolution. A careful change also
+  gets one read when the base changed one of its files. Then Lem updates the pull request, and it
+  tells you in one line: "rebased on main after #3 merged; one conflict in shop/dates.py, resolved
+  by a builder; the checks passed again".
+- **A new conflict also ends the watch.** GitHub can mark an open pull request as in conflict
+  after a push to the base that is no merge of a task. Lem tells you why in one line, and brings the task onto the base
+  the same way.
 - **The board shows when Lem last checked the pull requests.** When no watch runs, it says
   "nobody watches". Type `/lem` to look again.
 
@@ -342,6 +381,26 @@ flowchart TD
   outside system, sends something to a person, or spends money.
 - **A night plan asks you nothing.** A plan that meets a decision of yours stops, and the night
   report gives you the question.
+
+## What waits for you
+
+Type `/lem` with nothing after it, or `/lem status`. Lem first asks GitHub what merged, and then
+lists what waits for you, always in this order:
+
+1. the choices of a task, each with the minutes that are left;
+2. the tasks whose acceptance criteria wait for your yes;
+3. the other tasks that wait for you: a step that is yours, or one more fact;
+4. the open pull requests, each with green, or the reasons for not green;
+5. the plans that `/lem night` wrote;
+6. the proposals of a retro.
+
+If nothing waits, Lem says "nothing waits for you". Then it says what builds, and what landed or
+was answered today. Say "open them", and one page shows each night plan and each retro proposal.
+You answer each one with approve, reject or later. A night plan that you approve builds, and one
+that you reject is dropped. A retro proposal that you approve becomes an edit. Later keeps the item
+in the list.
+
+`/lem status <task>` opens the board of one task.
 
 ## What you can say at any time
 
