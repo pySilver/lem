@@ -16,7 +16,7 @@ real project uses it yet ([what ran](docs/examples.md#what-ran-and-what-did-not)
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/screens/board-dark.png">
-    <img src="assets/screens/board-light.png" alt="The board of all tasks: the tasks in lanes by who acts next, with the places in use" width="900">
+    <img src="assets/screens/board-light.png" alt="The board of all tasks: what waits for you on top, then the tasks in lanes by who acts next, and where the time went" width="900">
   </picture>
 </p>
 

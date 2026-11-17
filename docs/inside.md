@@ -206,7 +206,7 @@ page of Lem.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/task-dark.png">
-    <img src="../assets/screens/task-light.png" alt="The board of one task: who acts now, the phases, the stories, the state blocks and the result of each gate command" width="900">
+    <img src="../assets/screens/task-light.png" alt="The board of one task that landed: its phases, where the time went for you, the builders and the personas, its stories, its decisions and its checks" width="900">
   </picture>
 </p>
 
