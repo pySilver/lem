@@ -1,240 +1,79 @@
 # Examples
 
-This page gives the real runs of Lem, each with its date, and illustrations of the flow of today.
-An illustration is not a run: its names and answers are examples.
+Four tasks, from the request to the end. Each example is an illustration: the repository, the
+names and the answers are examples. The lines of Lem have the form that Lem uses.
 
-## What ran, and what did not
+## A small fix
 
-This list is as of 2026-11-17.
+1. You type `/lem the date column must never wrap`.
+2. Lem says: `fix, small: "the date column never wraps". Branch fix/date-column-nowrap. One
+   builder, the checks, one read, then the pull request. Nothing waits for you; say "full" to give
+   it acceptance criteria.`
+3. One builder adds the rule to the stylesheet, and a test that fails on the base branch. It runs
+   the tests of the files that it changed, and it commits.
+4. The builder saw that the amount column wraps too. It files that as a backlog item, in a commit
+   of its own.
+5. The checks run the whole suite. The test of the criterion passes on the branch and fails on the
+   base commit.
+6. The review agent reads the diff itself: one read. It finds nothing that must change.
+7. Lem opens a pull request. Its first line is "Green." It lists the backlog item.
+8. You merge it on GitHub. The watch of Lem sees the merge, and Lem removes the worktree and the
+   branch.
 
-- On 2026-11-15, three small tasks went through Lem, in a scratch repository. Two of them were
-  careful tasks, and one came from a Linear ticket. Each plan had one task. They used the flow of
-  that day, which is gone.
-- On 2026-11-16, the steps of the landing ran against GitHub in a scratch repository. They opened
-  pull request 1 with the `gh` command, and changed its text with a second proposal. Then they
-  merged it, and removed its branch in the clone and on GitHub.
-- On 2026-11-15, Claude Code loaded Lem as a plugin from a folder and from the settings of a
-  project.
-- On 2026-11-17, Lem was installed from GitHub as a plugin, with the two commands of the README,
-  and updated with its two update commands. In that form, three small changes ran in a scratch
-  repository, each to a green pull request. One of them was a bug, with its investigation first.
-  See "Real runs of 2026-11-17" below.
-- On 2026-11-17, the correction hook of the plugin queued one message of that run.
+## A full feat, with an interview
 
-Not run yet:
+1. You type `/lem let an export hold the gift note`.
+2. Lem says: `feat, full: "an export holds the gift note". Branch feat/gift-note-in-export. An
+   interview now, then acceptance criteria for your yes; after that it runs to the pull request
+   without you.`
+3. A scout reads the export code. At the same time, Lem asks its first question: "The gift note
+   goes into a new last column, `gift_note`. Is that right?" You answer "yes".
+4. The scout reports that the export already writes an empty cell for a value that is not there. Lem asks:
+   "An order with no note gets an empty cell, the same as other empty values. Keep that?" You
+   answer "yes".
+5. Lem shows two acceptance criteria, and the personas read them:
+   1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that
+      text in its row.
+   2. An order with no gift note has an empty cell, not the word "None".
+6. Nobody is confused, and you type "yes".
+7. A lead commits a plan with two tasks. The plan is not careful and not large, so it gets no plan
+   talk.
+8. One new builder makes each task. Each runs the tests of the files that it changed.
+9. A new builder makes the polish pass. It removes one debug line.
+10. The checks pass. The review agent calls the change not careful, and runs a round with the
+    profiles that fit. It finds nothing that must change.
+11. Lem opens a pull request. Its first line is "Green."
 
-- a feature with an interview, in the flow of 2026-11-16 or later;
-- a plan with more than one task;
-- a careful change with a plan talk, and its companion session;
-- a merge by `land --by owner`;
-- a reviewer that is a second Claude;
-- a restart of agterm while a task is open;
-- the correction hook in the session of a real project.
+## A bug that is no bug
 
-Not built: a pull request on GitLab. Lem marks the branch as ready there.
+1. You type `/lem the invoice total skips credit notes`.
+2. Lem says: `fix: "the total skips credit notes". Branch fix/total-skips-credit-notes. A builder
+   finds the cause first, and I tell you what it found: then it is a small fix, a full fix, or no
+   bug.`
+3. The investigator makes an invoice with one credit note, and reads the total. The total is
+   correct: the credit note is a line of its own, under the total, as the invoice template wants.
+4. Lem tells you what the code does, in numbered steps, with where each step was read. The task is
+   answered.
+5. The investigator committed nothing, so Lem removes the worktree and the branch. The board shows
+   the task in the "Done" lane, with the answer.
 
-## Real runs of 2026-11-17
+## A careful change
 
-These runs used the plugin form, in the scratch repository `pySilver/lem-scratch`: a small Python
-module with one test file and no `.gitignore`. The plugin was installed from GitHub at 03:56. The
-times are in UTC. Each time of a step comes from the event log of the run; the times of the
-install and the update come from the plugin record of Claude Code. In that repository
-`branch.land` is `owner`, so Lem merged nothing. The operator of the run gave the answers in the
-session.
+The project has the topic "a customer is charged the wrong amount".
 
-### The first run: two small changes
-
-1. The ask: "a range inside one day must read as one day, 3 Mar 2026, and not 3-3 Mar 2026".
-2. 03:57:05. Lem took it as a small change, and approved its one story in the owner's name.
-3. 03:57:09 to 03:57:50. One builder made the change, in 41 seconds.
-4. 03:58:26 to 03:59:39. A polish pass ran for 73 seconds. Its only work was one backlog item:
-   the builder saw that a range across two months drops the month of its start. A small change
-   now has no polish pass. Its builder files such an item itself.
-5. 03:59:41. The gate command ended with `OK`, but the landing refused the tree: the test run
-   left `shop/__pycache__` and `tests/__pycache__`, which git did not ignore. Lem stopped the
-   task, and it opened a second small change for an ignore rule. The gate now removes the files
-   that its own commands leave, and the onboarding proposes the ignore lines.
-6. 04:00:33 to 04:01:40. The builder of the second task, a chore, took 67 seconds.
-7. 04:02:03 to 04:02:05. The gate and the check of the story took about one second each.
-8. 04:02:09 to 04:03:21. One read took 72 seconds. From the start of the builder to the record of
-   the read, the task took 2 minutes 48 seconds.
-9. Then Lem stopped, and it asked the operator if it could push the two branches and open pull
-   requests. The answer came at 04:16:03, and pull request #2 opened at 04:16:09. Now Lem does
-   not ask: `branch.propose` in the settings is your approval of this push.
-
-### The second run: an update, and a bug
-
-1. 05:32:12. The two update commands took the plugin to the commit `636b24c` of Lem.
-2. The ask, a bug: "the heading of a report from 28 Feb to 3 Mar reads 28-3 Mar 2026".
-3. 05:32:56. Lem put the task in the queue after the one-day task, because the two asks name the
-   same heading. At 05:33:46 the operator undid that decision, and the task started.
-4. 05:33:54 to 05:35:12. The investigator reproduced the bug and found its cause in
-   `shop/dates.py:format_range`, in 78 seconds. Its call: one rule removes the cause.
-5. 05:35:30 to 05:36:32. One builder made the small change, in 62 seconds.
-6. 05:36:32 to 05:37:43. For about 71 seconds the task waited, because the other task was in
-   the landing. One task is in the landing at a time.
-7. 05:37:49 to 05:37:50. The gate and the check of the story took about one second each.
-8. 05:37:55 to 05:38:57. One read took 62 seconds.
-9. 05:39:07. Pull request #4 opened, green, with no question. From the word of the operator to
-   the pull request, the task took 5 minutes 21 seconds.
-
-At the same time, the one-day task of the first run went to its landing again (05:34:11). The gate
-passed this time, because it removed the cache folders. One read took 2 minutes 30 seconds, and
-pull request #3 opened green at 05:37:31, 3 minutes 20 seconds after the start of the landing.
-
-Two things did not go as they should:
-
-- The read of the one-day task reported the month defect as a defect outside the change. Lem
-  filed a second backlog item for it, but the branch already held an item from the polish pass.
-- The correction hook queued the message of the operator at 05:33:29 two times. The scratch
-  repository also had the hook of the link form. [install.md](install.md#the-correction-hook)
-  says to add the hook one time only.
-
-Each of the three pull requests was proposed green. After the runs, `gh pr list` showed #2, #3
-and #4 of `pySilver/lem-scratch` as open (2026-11-17).
-
-## Real runs of 2026-11-15
-
-These three runs used the flow of 2026-11-15: Lem landed a branch first, and a review item came
-after. That flow is gone. Now a review comes before a pull request.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/real-task-dark.png">
-    <img src="../assets/screens/real-task-light.png" alt="The board of the first real task after its landing: the phases, the time of each state, the state blocks and the gate result" width="900">
-  </picture>
-</p>
-
-*The board of the first real task, after its landing, on 2026-11-15. This picture shows real data
-from the first run below, on the board of that day. The board shows local time, and the example
-gives the same run in UTC.*
-
-### Start from an idea
-
-This is the first task that went through Lem. The times are in UTC, from the event log of the
-task. In that repository, `branch.land` was `agent`.
-
-1. The ask: `/lem a range of dates that crosses a month must show both months, like 28 Mar-3 Apr 2026`.
-2. 00:24. Lem wrote the ask, the outcome and three "done when" lines. It put one adjacent
-   question out of scope: how a range shows two years.
-3. Lem made the branch `fix/range-shows-both-months` with its worktree, and started one builder.
-4. 00:24. The builder committed a plan with one task.
-5. 00:25. The builder changed `shop/dates.py` and `tests/test_dates.py`. It set the state to
-   `ready`.
-6. 00:26. Lem started the landing. The base branch did not move.
-7. A second builder did the pass at the end, which that flow had. It removed three compiled files from git. It also
-   proposed one backlog item: a range across a year shows only one year.
-8. 00:28. The gate command ended with `OK`. Lem landed three commits on `main`.
-9. Lem added review item 1 with the risk `normal`, and removed the worktree and the branch.
-10. Lem reported to the owner: the result, how to see it, the decisions that it took, and what
-    nobody verified.
-
-One step did not go as the text said at that time. Claude Code refused the builder's write of its
-report file. The builder sent the report in its reply, and Lem wrote the file from the reply. The
-stage files now say this.
-
-### A careful task
-
-This is the second task, in the same scratch repository on the same day. At that time, a project
-named careful paths, and the package `shop/` was one. Lem now reads a change against topics, not
-paths.
-
-1. The ask: `/lem a range of dates that crosses a year must show both years, like 28 Dec 2026-3 Jan 2027`.
-2. 02:08. Lem started one builder.
-3. 02:09. The builder committed the plan and stopped, because the plan touched `shop/dates.py`.
-4. 02:11. Lem opened a session for the task. Its lead opened the pane of the reviewer.
-5. 02:13. The reviewer, Codex, asked for the trust of the folder. Only the owner can give that
-   answer. The lead set the state to `held`, and Lem told the owner.
-6. 02:17. The owner answered. Codex read the plan, and at 02:18 it agreed.
-7. 02:21. A builder built the task. A new Codex read the diff and answered `LGTM`. The lead set
-   the state to `ready`.
-8. 02:23. The gate command ended with `OK`. Lem landed two commits on `main`.
-9. Lem added review item 2 with the risk `high`, and started a review round at once.
-10. 02:27. The review round had no finding. Lem closed the item as `clean`.
-
-### A ticket from Linear
-
-This is the third task, in the same scratch repository. Its ask was a ticket in a real Linear
-workspace.
-
-1. The ask: `/lem new MBZ-1`. The ticket said: a range of one day must show one date.
-2. 12:05. Lem did a check of the workspace, read the ticket, and opened the task. The branch got
-   the name that Linear gives for the ticket.
-3. Lem changed the ticket to "In Progress".
-4. The task was careful. A session led it, and Codex read the plan and the diff, as in the
-   example above.
-5. 12:13. The gate command ended with `OK`. At 12:14 Lem landed two commits on `main`.
-6. Lem wrote one comment on the ticket: the result, the landed range, the gate result and the
-   decisions that it took.
-7. Lem changed the ticket to "Done".
-
-Lem wrote the comment through the connection of the owner. Thus Linear shows the owner as its
-author, and the last line of the comment says that it is from Lem.
-
-## Illustrations of the flow of today
-
-### Set up a repository
-
-1. You type `/lem init`.
-2. Lem tells you the path of the repository, and it puts the name of the repository on the
-   session.
-3. Lem does a check of the computer. If a required tool is absent, Lem names it and stops.
-4. Lem reads the repository: the README, the dependencies, the tests, the CI files and the last
-   merges.
-5. Lem asks you three questions, one at a time, each with its own proposal:
-   - "This is a shop back end for small merchants. Is that correct?"
-   - "A change here affects a merchant and the engineer on call. Who else?"
-   - "What must never go wrong here? I propose: a customer is charged the wrong price. What is
-     wrong or missing?"
-6. Lem writes `.lem/project.toml`, the profile, two personas or more, a lessons file, and the
-   starter set of the review tool in `.revmux/`. It writes a style guide only if the repository
-   has no `.claude/rules` folder.
-7. Lem commits all of this on the branch `chore/lem-onboarding`, in your checkout.
-8. Lem shows you one page. Its first line is the path of the repository. Then it lists what the
-   computer has, and what Lem wrote. Each assumption has its source and the words that change it,
-   for example "change land agent".
-9. Three drafts come first: what must never go wrong, the gate, and the personas. Lem names each
-   persona that is a weak guess, and it can open each draft for you to mark.
-10. At the end, the page lists the offers: the correction queue, the recommended tools, cronn and
-    the scheduled jobs. You take one by its name.
-11. You answer with one of three words: "land", "change" or "drop".
-12. On "land", Lem puts the branch on the base branch. Your word is the approval, whatever
-    `branch.land` says.
-
-### A small change
-
-1. You type `/lem the README says "recieve"`.
-2. Lem says: `Small change, docs/readme-typo: "the README spells receive right". One builder, the
-   checks, one read, then the pull request. Nothing waits for you; say "feature" to give it
-   stories.`
-3. One builder corrects the word. The change keeps behavior, so the story gets `no test`, and the
-   builder runs all the gate commands. It commits.
-4. Lem runs the checks. The review agent reads the diff itself, one read.
-5. Lem opens a pull request. Its first line is "Green."
-6. You merge it.
-
-### Do an item from the backlog
-
-1. You type `/lem new docs/backlog/export-drops-custom-columns.md`.
-2. The options of the item are settled. Thus Lem takes the rare path, and it tells you so in one
-   line.
-3. Lem opens the task `export-keeps-its-columns` and starts a builder as the lead.
-4. The lead reads the code and writes the stories. One model family of personas reads them.
-   Nobody is confused, so the lead freezes the stories, and the build starts without a wait.
-5. The lead writes a plan with one task, and it gives that task to a new builder.
-6. The lead writes the report: what you get, the proof for each "done when" line, and what it did
-   not verify.
-7. Lem rebases the branch. A new builder does the polish pass, and it removes one debug line.
-8. Lem runs the checks. They are green.
-9. A new agent reads the diff. It calls the change not careful, and it chooses one read, because
-   the change is small. It finds nothing that must change.
-10. Lem opens a pull request. Its first line is "Green."
-11. You merge it. In this example `branch.land` is `owner`.
-12. Lem removes the worktree and the branch.
-
-### A ticket from Linear
-
-A ticket can be the ask: `/lem new MBZ-12`. Lem reads the ticket and opens the task. A ticket
-that says what you want and how to see that it is done takes the rare path. Lem moves the ticket
-when the work starts, and it comments on the ticket when the task lands.
-[linear.md](linear.md) says how a project connects Linear.
+1. You type `/lem round each line of an invoice before the sum`.
+2. Lem says: `Careful: this changes how a customer is charged. fix, full: "each line is rounded
+   before the sum". Branch fix/round-lines-before-sum. An interview now, then acceptance criteria
+   for your yes; after that it runs to the pull request without you.`
+3. The interview and the criteria go as in the full feat above.
+4. The lead commits a plan, with `careful: yes` and the reason under its title, and stops.
+5. Lem opens a companion session for the plan talk. The reviewer gives three questions in its
+   first turn. The defender repairs the plan for two of them. The third holds two times, and it
+   becomes a design choice.
+6. The personas do not agree on the choice, so it comes to you as a card, with the answers of the
+   two experts. You pick an option.
+7. The companion closes. A new builder leads the build, with one builder for each task.
+8. The polish pass and the checks run. The review agent runs the full review set of the project.
+9. Lem opens a pull request. Its first lines say green, then careful, with the reason. Its notes
+   say that the change holds no migration.
+10. A person merges it, whatever `branch.land` says.
