@@ -70,7 +70,10 @@ each go on: the later pull request is brought onto the base when the first one m
      answered is written down too, in the form `stages/new.md` gives for it, and started once more;
      after a second one in a row, freeze the criteria as below, write the state line `the criteria
      were not read: nobody answered twice`, and build: the pull request is not green for it. Nobody
-     confused: freeze the criteria they read, `lem criteria --repo WORKTREE
+     confused, and your brief says `request by: someone else`: the criteria wait for his yes all
+     the same, since nobody at the terminal read that request; stop as for a doubt, below, with
+     the line `the criteria wait for the owner` and `nobody confused` beside it. Nobody
+     confused otherwise: freeze the criteria they read, `lem criteria --repo WORKTREE
      approve SLUG --read`, which takes the plan's criteria and refuses any other text than the one
      the read names. It freezes the task's first contract only, and is refused once the task has any
      approval: from then on a criterion the build changes has its record (`lem decisions criterion`),

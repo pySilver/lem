@@ -362,8 +362,11 @@ fi
 # who the experts are: the settings' seats.experts, which experts.py reads through project.py show, the project's and
 # this machine's own; a choice of a task names each by its place in the record, whatever model sits there
 seats_in() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^# experts = .*$", "experts = " + sys.argv[2], s, count=1))' "$EX/.lem/project.toml" "$1"; }
+# Lem reads the settings as the base branch's commit has them, so an edit counts once it is committed
+settings_committed() { git -C "$EX" add .lem/project.toml && git -C "$EX" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "chore: the settings" -- .lem/project.toml; }
 cp "$EX/.lem/project.toml" "$WORK/project.toml"
 seats_in '["claude/opus:high", "codex/gpt-6.1-sol"]'
+settings_committed
 tracked=$(experts brief --question "Which store, by the project's seats?" | field '[(e["name"], e["agent"], e["model"], e["effort"], e["place"]) for e in d["experts"]]' || true)
 cS=$(ask "Where the note goes, by the project's seats")
 forchoice=$(experts brief "$SLUG" "$cS" | field '([(e["name"], e["seat"], e["model"], e["effort"], e["answer"].rsplit("/", 1)[1]) for e in d["experts"]], d["ask"])' || true)
@@ -377,6 +380,7 @@ givenchoice=$(experts brief "$SLUG" "$cS" --seat claude/opus:high --seat codex/g
 # one model in both places is two experts still: a choice names them by place, so no name is taken twice
 oneboth=$(experts brief "$SLUG" "$cS" --seat claude/fable:high --seat codex/fable | field '[e["name"] for e in d["experts"]]' || true)
 cp "$WORK/project.toml" "$EX/.lem/project.toml"
+settings_committed
 places=$("$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import decisions, project; print(decisions.EXPERTS == project.EXPERT_PLACES, project.EXPERT_PLACES)' "$PWD/skills/lem/scripts")
 if [ "$tracked" = "[('opus', 'claude', 'opus', 'high', 'fable'), ('sol', 'codex', 'gpt-6.1-sol', None, 'astra')]" ] \
   && [ "$forchoice" = "([('fable', 'claude/opus:high', 'opus', 'high', 'choice-$cS.fable.md'), ('astra', 'codex/gpt-6.1-sol', 'gpt-6.1-sol', None, 'choice-$cS.astra.md')], ['fable', 'astra'])" ] \

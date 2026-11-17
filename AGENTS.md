@@ -171,8 +171,12 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   is the session's design: `project.py rules`, the one match of a change against the files'
   `paths:` scopes, whose answer goes to a builder's brief, the reviewer's message and a review
   round; one format, Claude Code's, until a project needs another.
-- **Linear only, and the local backlog stays local**: Lem supports Linear and no other tracker
-  now, built so that another can be added. A backlog item is never mirrored to Linear, never
+- **Linear and GitHub Issues, and the local backlog stays local**: he first ruled Linear only,
+  "built so that another can be added", and on 2026-11-17 picked "GitHub Issues as a second
+  tracker" on a page: "Thats a real gap. Github is most used by typical developers. We cannot
+  expect adoption without GitHub support". So `[tracker] kind` is `linear` or `github`, and a
+  GitHub issue is read, marked as started and commented on the landing as a Linear ticket is.
+  A backlog item is never mirrored to a tracker, never
   needs a ticket, and Lem creates no ticket from one unless he asks. Status names are carried by
   name in the settings ("Linear allows me to configure that", about the branch name: Lem takes
   what the tracker gives and assumes no shape).
@@ -376,6 +380,15 @@ replaces an earlier ruling, this is the ruling now.
 - **Lem's docs do not speak for another tool**: of `.revmux/` in the removal steps, "its not our
   tool".
 - **Codex in each role is wanted**, as `docs/backlog/codex-in-each-role.md`.
+
+- **A complete ticket that someone else wrote needs his yes to its criteria, and no interview**:
+  an audit found that nobody at the terminal reads such a ticket before Lem builds it. On a page
+  of 2026-11-17 he picked "Your yes to the criteria, no interview", and wrote: "I believe
+  `security` profile of the revmux run will catch it. On the other hand Lem does not expect
+  hackers being inside the team. it would be a wrong tool to make a prefilter of the incoming
+  tickets." So the lead of such a request stops after the personas' read for his yes on one
+  page, and Lem scans no ticket for an attack. A request he wrote himself runs with no touch, as
+  he confirmed on 2026-11-16.
 
 The session's answers to his notes that asked a question, each open to him: `[gate]` is renamed
 `[checks]` ("I dont understand this section in settings at all"); a lead that finds at its plan

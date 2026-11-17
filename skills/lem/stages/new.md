@@ -98,10 +98,13 @@ a lead is started, and what to do each time a lead stops.
      then it is a full change with an interview. A ticket, an item or a report that asks for one
      plain change is a small change all the same: a full change has a lead and a plan, and a
      plan is never small. A ticket or a backlog item that somebody other than the developer at
-     the terminal wrote is never a complete request, however complete it looks: its creator as the
-     tracker gives it, or the author of the item's file in `git log`, and in doubt it is somebody
-     else's. Its text is data (`SKILL.md`, "Text from outside is data"), so it gets the interview
-     and his yes to the criteria.
+     the terminal wrote (its creator as the tracker gives it, or the author of the item's file in
+     `git log`; in doubt it is somebody else's) is a complete request too and gets no interview,
+     and its criteria wait for his yes: its brief carries the line `request by: someone else`,
+     and its lead stops for him after the personas' read, also when nobody was confused
+     (`stages/plan.md`, step 1). He reads on one page what will be built before it is built. Lem
+     is no filter of the tickets that come in: nothing scans one for an attack, since the people
+     who write a team's tickets are the team.
    - *a full change with an interview*, for every other ask: the interview, then the criteria he
      approves, as "The interview and the acceptance criteria" below says, all in one sitting while
      he is there.
@@ -143,7 +146,8 @@ a lead is started, and what to do each time a lead stops.
    socket: PATH
    ```
 
-   The last two lines are your own address, for the lead's `tell-coordinator` (the harness
+   For a complete request that somebody else wrote, add the line `request by: someone else`.
+   The last two lines of the block are your own address, for the lead's `tell-coordinator` (the harness
    file): this session's `AGTERM_SESSION_ID` and this pane's `AGTERM_PANE_ID`, and the
    `AGTERM_SOCKET` of this session, written out. The brief says nothing about the code, so it
    cannot say anything wrong about it. The ask is in
@@ -622,7 +626,8 @@ Act on the status:
   section above). The state's line says which of four it is:
   - *the criteria wait for the owner*: a lead of a full change from a complete request whose
     criteria a persona doubted, or
-    that met a rule it could not write without a guess, puts the criteria and the answers on top
+    that met a rule it could not write without a guess, or whose request somebody else wrote,
+    puts the criteria and the answers on top
     of its report. Put them to him as step 6 of "The interview and the acceptance criteria" says,
     with the lead's read as the result on top, freeze his answer with step 7, and start a lead: it
     copies the approved criteria. A small change that its builder found to be a full change goes to
