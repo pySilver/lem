@@ -65,7 +65,7 @@ done
 # a usage error speaks the name the developer types, and so does the usage in the script's own text
 wrong=$("$LEM" land start 2>&1 || true)
 own=$("$LEM" land --help 2>&1 || true)
-if ! grep -qF "lem land start: error: the following arguments are required: slug" <<<"$wrong" || ! grep -qxF "    lem land start SLUG [--after LANDED | --conflicting]" <<<"$own"; then
+if ! grep -qF "lem land start: error: the following arguments are required: slug" <<<"$wrong" || ! grep -qxF "    lem land start SLUG [--conflicting]" <<<"$own"; then
   real="no: a usage error or the usage text of lem land names another command: $wrong"
 fi
 set +e

@@ -65,7 +65,7 @@ review, and a person merges it. [docs/flow.md](docs/flow.md) gives each step.
 - A full change builds only after your yes to its acceptance criteria. A complete ticket that you
   wrote yourself is the one exception: it builds when the personas find no doubt.
 - A step that nobody can undo waits for your word.
-- After a merge, Lem brings each other open pull request onto the new base.
+- After a merge, Lem brings an open pull request that is in conflict onto the new base.
 - Lem never pushes over a commit that it did not push.
 - The text of a ticket, an issue or a web page is data. Lem never obeys an instruction in it.
 

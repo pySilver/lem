@@ -393,7 +393,7 @@ Before you say it, find out what merged. The owner merges and closes pull reques
 and the forge tells Lem nothing by itself: for each `open` task whose `proposal` in `lem project
 tasks` has a `pull_request`, run `lem land merged SLUG`. One that is
 merged becomes `landed`, and one he closed with no merge becomes `dropped`; take step 9 of
-`stages/land.md` for them (the ticket, `clean`, the other open tasks onto the new base), then the
+`stages/land.md` for them (the ticket, `clean`, a conflicting pull request onto the new base), then the
 queue, as `stages/new.md` ends, since a task queued `after:` one may start now. "Not merged yet" is
 no news. Do the same at each of your turns where you read `lem decisions pending` (`stages/new.md`,
 "When a choice waits for the owner").

@@ -28,7 +28,7 @@ flowchart TD
     review -- a must-fix finding --> fix[A builder fixes it] --> checks
     review -- no must-fix, or two rounds done --> pr[A pull request:<br/>green or not green in its first line]
     pr --> merge[You merge it. Lem merges a green one that is not careful,<br/>if the settings permit it]
-    merge --> after[Lem brings each other open task onto the new base]
+    merge --> after[Lem brings an open task in conflict onto the new base]
 ```
 
 ## The first look
@@ -314,14 +314,14 @@ branch moved after the checks, the checks run again first.
 - **A pull request closed with no merge drops its task.** The branch keeps its commits, and Lem
   tells you how to delete it. If you open the pull request again, the task does not come back. A
   new request starts new work.
-- **Each other open task comes onto the new base**, the ones with a conflict first. Lem rebases the
-  branch, and a builder resolves a conflict. The checks run again. The review stands after a
-  rebase with no conflict. After a conflict, one read checks the resolution. Then Lem updates the pull request, and it
-  tells you in one line: "rebased on main after #3 merged; one conflict in shop/dates.py, resolved
-  by a builder; the checks passed again".
-- **A new conflict also ends the watch.** GitHub can mark an open pull request as in conflict
-  after a push to the base that is no merge of a task. Lem tells you why in one line, and brings the task onto the base
-  the same way.
+- **An open task in conflict comes onto the new base.** When GitHub marks an open pull request
+  as in conflict, the watch ends, and Lem tells you why in one line. Lem rebases the branch, a
+  builder resolves the conflict, the checks run again, and one read checks the resolution. Then
+  Lem updates the pull request and tells you in one line: "rebased on main after the forge called
+  it conflicting; one conflict in shop/dates.py, resolved by a builder; the checks passed again".
+- **Each other open task stays as it is.** GitHub can merge it as it is. When you type
+  `/lem land <task>` and the base moved, Lem rebases it and runs the checks again first. The
+  review stands after a rebase with no conflict.
 - **The board shows when Lem last checked the pull requests.** When no watch runs, it says
   "nobody watches". Type `/lem` to look again.
 

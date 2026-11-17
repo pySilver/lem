@@ -7,11 +7,9 @@ Each step here is one command, prints JSON, and refuses with exit 1 and the reas
 may not run; nothing is retried and nothing is forced. Every step first asks `lem project
 may-land` about the settings' base branch, so a protected branch is never reached, whoever asks.
 
-    lem land start SLUG [--after LANDED | --conflicting]
+    lem land start SLUG [--conflicting]
                            the task takes the landing line: its state becomes `landing`; an `open`
-                           task that a merge brings onto the new base names that merge with --after,
-                           and one the forge called conflicting with no merge to name says so with
-                           --conflicting
+                           task the forge calls conflicting says so with --conflicting
     lem land base SLUG     bring the base branch in by a rebase; a conflict is reported, not resolved
     lem land polish SLUG   the polish pass starts: what its builder gets, and the tip it starts at
     lem land polish SLUG --done
@@ -88,14 +86,12 @@ not there before and each folder that leaves empty, names them in its output (`r
 and in one line of the last command's output file, and goes on. What the checks keep is the tip they
 ran on and that tip's tree.
 
-An `open` task takes the line again when its base moved: after a merge of another task, Lem takes
-each task that is still `open` through `start --after LANDED`, `base`, the checks, the review that
-is due and `propose`, which keeps its pull request. `start --after` names the landed task whose merge
-moved the base; `start --conflicting` says instead that the forge called the pull request
-conflicting with a base that no task's merge moved (a push of the owner's, another tool's merge).
-The pull request's text and the state say in one line what happened ("rebased
-on main after #3 merged; one conflict in shop/dates.py, resolved by a builder; the checks passed
-again"). A conflict that `base` meets is kept in `landing.json` with the tip before the rebase and
+An `open` task takes the line again when its base moved: after a merge, Lem takes each task whose
+pull request the forge calls conflicting through `start --conflicting`, `base`, the checks, the
+review that is due and `propose`, which keeps its pull request; every other open task waits as it
+is, and `land` refuses it on a base that moved by files the checks read. The pull request's text
+and the state say in one line what happened ("rebased on main after the forge called it
+conflicting; one conflict in shop/dates.py, resolved by a builder; the checks passed again"). A conflict that `base` meets is kept in `landing.json` with the tip before the rebase and
 whether a review covered the change then; the builder that resolves it rebases the branch itself,
 and the next `base` finds the rewritten commits by that tip, gives the polish pass's commits their
 new names, and keeps the resolution. A review that saw the change and left no must-fix stands
@@ -683,7 +679,7 @@ class Task:
         )
 
 
-def cmd_start(task: Task, after: str | None = None, conflicting: bool = False) -> dict:
+def cmd_start(task: Task, conflicting: bool = False) -> dict:
     # One start at a time: the check of who holds the line and the write of `landing` are one step
     # under the lock of the state folder, so two starts at one moment never both take the line. The
     # lock is the kernel's, and it goes with the process, however that ends.
@@ -699,28 +695,10 @@ def cmd_start(task: Task, after: str | None = None, conflicting: bool = False) -
     with lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         task.read_states()
-        return start_locked(task, after, conflicting)
+        return start_locked(task, conflicting)
 
 
-def merged_before(task: Task, after: str) -> dict:
-    """The landed task whose merge moved the base, as the pull request's text names it: its slug and
-    its pull request's number, when it had one."""
-    tasks = json.loads(script("project.py", task.repo, "tasks").stdout)
-    other = next((entry for entry in tasks if entry["slug"] == after), None)
-    if other is None or other["status"] != "landed":
-        raise LandError(
-            f"--after names the landed task whose merge moved the base, and {after!r} is "
-            + (f"{other['status']!r}" if other else "no task") + f"; `lem land merged {after}` writes a merge on the forge down first",
-        )
-    kept_file = task.directory.parent / after / "landing.json"
-    try:
-        pr = json.loads(kept_file.read_text(encoding="utf-8")).get("pr") if kept_file.is_file() else None
-    except ValueError:
-        pr = None
-    return {"after": after, "pr": pr["number"] if pr else None}
-
-
-def start_locked(task: Task, after: str | None = None, conflicting: bool = False) -> dict:
+def start_locked(task: Task, conflicting: bool = False) -> dict:
     if task.others_landing:
         other = task.others_landing[0]
         raise LandError(
@@ -731,13 +709,8 @@ def start_locked(task: Task, after: str | None = None, conflicting: bool = False
     again = task.blocked_by_start()
     if task.record["status"] not in ("ready", "landing", "open") and not again:
         raise LandError(f"the task is {task.record['status']!r}; only a `ready` task, or an `open` one whose base moved, takes the landing line")
-    if after is not None and conflicting:
-        raise LandError("--after names the merge that moved the base, and --conflicting says that no merge of a task did: give one of the two")
-    if after is not None and task.record["status"] != "open":
-        raise LandError(f"--after is for an `open` task that a merge brings onto the new base, and {task.slug} is {task.record['status']!r}")
     if conflicting and task.record["status"] != "open":
         raise LandError(f"--conflicting is for an `open` task whose pull request the forge calls conflicting, and {task.slug} is {task.record['status']!r}")
-    moved_by = merged_before(task, after) if after is not None else None
     if not task.gate()[0]:
         if not again:
             task.state("blocked", NO_GATE)
@@ -769,15 +742,12 @@ def start_locked(task: Task, after: str | None = None, conflicting: bool = False
     if task.record["status"] == "open":
         # An open task brought onto a base that moved: what the pull request's text says of it is
         # kept from here, and a conflict or a resolution of an earlier landing says nothing of this one.
-        task.keep(sync={"after": moved_by["after"] if moved_by else None, "pr": moved_by["pr"] if moved_by else None, "conflicting": conflicting,
-                        "onto": None, "moved": None, "conflict": None, "resolved": False},
+        task.keep(sync={"conflicting": conflicting, "onto": None, "moved": None, "conflict": None, "resolved": False},
                   conflict=None, resolution=None)
     if task.record["status"] != "landing":
         # kept here because `clean` needs the branch after the worktree, which names it, is gone
         task.keep(branch=git(task.worktree, "branch", "--show-current"))
-        if task.record["status"] == "open" and moved_by:
-            moved = f"{'#' + str(moved_by['pr']) if moved_by['pr'] else moved_by['after']} merged: the branch is brought onto {task.base} again"
-        elif conflicting:
+        if conflicting:
             moved = f"the forge calls the pull request conflicting with {task.base}: the branch is brought onto it again"
         else:
             moved = "the base moved: the checks run again"
@@ -2214,13 +2184,12 @@ def builder_filed(task: Task) -> list[str]:
 
 def synced(task: Task) -> str | None:
     """What bringing an open task onto a base that moved did, in one line for the pull request and
-    for Lem's line to the owner: after which merge, the rebase, a conflict and who resolved it. None
-    for a landing that did not start from `open`, or before its `base`."""
+    for Lem's line to the owner: why, the rebase, a conflict and who resolved it. None for a landing
+    that did not start from `open`, or before its `base`."""
     sync = task.kept().get("sync")
     if not sync or not sync.get("onto"):
         return None
-    after = (f" after #{sync['pr']} merged" if sync.get("pr") else f" after {sync['after']} landed" if sync.get("after")
-             else " after the forge called it conflicting" if sync.get("conflicting") else "")
+    after = " after the forge called it conflicting" if sync.get("conflicting") else ""
     line = f"rebased on {task.base}{after}" if sync.get("moved") else f"checked again on {task.base}{after}, with no rebase needed"
     files = sync.get("conflict") or []
     if files and sync.get("resolved"):
@@ -2955,7 +2924,6 @@ def main() -> None:
     commands.add_parser("gate", help="the older name of `checks`, refused with it").add_argument("slug")
     start = commands.add_parser("start")
     start.add_argument("slug")
-    start.add_argument("--after", metavar="SLUG", help="for an open task: the landed task whose merge moved the base, which the pull request's text names")
     start.add_argument("--conflicting", action="store_true", help="for an open task the forge calls conflicting, with no merge of a task to name")
     commands.add_parser("watch", help="look at the forge for the open tasks' pull requests until one is merged or closed")
     polish = commands.add_parser("polish")
@@ -2984,7 +2952,7 @@ def main() -> None:
             raise LandError(f"`lem land gate` is `lem land checks` now, with the same steps: run `lem land checks {args.slug}`")
         task = Task(Path(args.repo), args.slug)
         if args.command == "start":
-            result = cmd_start(task, args.after, args.conflicting)
+            result = cmd_start(task, args.conflicting)
         elif args.command == "base":
             result = cmd_base(task)
         elif args.command == "polish":

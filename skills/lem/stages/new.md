@@ -536,8 +536,8 @@ wait counts from the ask. A line can be lost (a pane that restarted, a brief wit
 wake an idle Lem, so also run `lem decisions pending` at each of your
 turns: its `waiting` list is what needs his answer. At the same turns, run `lem land merged SLUG`
 for each `open` task with a pull request, as `SKILL.md` says under Status: a merge he made on
-the forge frees the queue and brings the other open tasks onto the new base (`stages/land.md`,
-step 9). A task that was dropped or landed while a choice waited is under `ended`, and
+the forge frees the queue and brings a pull request it made conflicting onto the new base
+(`stages/land.md`, step 9). A task that was dropped or landed while a choice waited is under `ended`, and
 its choices need no answer.
 
 1. **Ask him at once**, through `ask-owner`, which shows it as the settings' `tools.ask` says.

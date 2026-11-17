@@ -2463,7 +2463,7 @@ function watchChip(m, now) {
   const checked = watch?.checked ? Date.parse(watch.checked) : 0;
   const what = `${pulls.length === 1 ? 'the pull request' : `the ${pulls.length} pull requests`}`;
   if (checked && every && !watch.ended && now - checked <= STALE_LOOKS * every * 1000)
-    return keyed('watch:on', h('span', {class: 'chip', title: `Lem looks at the forge every ${every}s for a merge or a close of ${what}, and brings the others onto the new base after a merge`},
+    return keyed('watch:on', h('span', {class: 'chip', title: `Lem looks at the forge every ${every}s for a merge or a close of ${what}, and brings one it calls conflicting onto the new base`},
       icon('eye'), 'checked ', h('span', {'data-ago': checked}, ago(now - checked))));
   const since = checked ? ` since ${stamp(checked, now)}` : '';
   const why = watch?.ended && watch.why ? ` The watch ended: ${watch.why}.` : '';

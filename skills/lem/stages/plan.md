@@ -18,7 +18,8 @@ lem project --repo WORKTREE state SLUG queued "WHAT THIS TASK NEEDS FROM THE OTH
 and the report and your reply as `stages/build.md` ends. `lem project may-start` keeps the task in
 the queue until that task is landed, answered or dropped, and Lem starts a lead for it then; the
 lead finds the base with the other task's change in it. Two tasks that only touch the same file
-each go on: the later pull request is brought onto the base when the first one merges.
+each go on: when the first one merges, the later pull request is brought onto the base if the
+forge calls it conflicting.
 
 1. **Write the plan** as one file at the path `lem project --repo WORKTREE plan-file SLUG`
    prints (`path`; its name is the settings' `paths.plan_file`, `YYYY-MM-DD-<slug>.md` unless they say otherwise), and
