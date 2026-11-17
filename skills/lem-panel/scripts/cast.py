@@ -50,15 +50,21 @@ already has a cast, which a rebase brings in instead.
 two panels never write into one.
 """
 
-# The macOS system python3 (3.9) may run this; it needs this for `str | None`.
 from __future__ import annotations
+
+import sys
+
+if sys.version_info < (3, 11):
+    # an old python3 must still load this file, so that it can say what it needs and not a traceback;
+    # the project's settings, which every command reads first, need tomllib
+    sys.exit(f"cast.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import datetime
 import json
 import os
 import shutil
 import subprocess
-import sys
+import tomllib
 from pathlib import Path
 
 # Where a project keeps its personas, its profile and its panels' files, relative to the checkout.
@@ -154,11 +160,6 @@ def path_at(root: Path, sha: str, name: str, fallback: Path) -> Path:
     if body.returncode != 0:
         return fallback
     try:
-        import tomllib
-    except ImportError:
-        fail(f"the default branch keeps settings, and this python3 ({sys.version.split()[0]}) cannot read them; run this with Python 3.11 or newer")
-        raise AssertionError
-    try:
         named = tomllib.loads(body.stdout).get("paths", {}).get(name)
     except (tomllib.TOMLDecodeError, AttributeError) as error:
         fail(f".lem/project.toml at {sha[:9]} does not read ({error}); correct it on the default branch")
@@ -166,8 +167,8 @@ def path_at(root: Path, sha: str, name: str, fallback: Path) -> Path:
     return Path(named.rstrip("/")) if isinstance(named, str) and named.strip() else LAYOUT[name]
 
 
-def default_branch_cast(root: Path) -> tuple[str, Path] | None:
-    """The default branch's cast, written out under the git directory, or None when it has none."""
+def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
+    """The default branch's cast, written out under the git directory, with the ref it came from, or None when it has none."""
     for ref in default_refs(root):
         sha = commit_of(root, ref)
         label = ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
