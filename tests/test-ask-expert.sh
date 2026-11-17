@@ -273,6 +273,94 @@ else
   fail "record: $absent / $badform / $noption / $fabled / $astrad"
 fi
 
+# a question in words: a folder of its own in the state folder, with the brief, the answers and a short record
+QS=$EX/.lem/state/experts
+asked=$(experts brief --question "Which store for the sessions?" --context "Sessions live in process memory, so every deploy logs everyone out." \
+  --option "Redis" --option "a Postgres table" --file export.sh || true)
+folder=$(field 'd["folder"]' <<<"$asked" 2>/dev/null || true)
+# made by brief; made here only so that a brief that failed shows as a FAIL line and does not stop the suite
+mkdir -p "$QS/$folder"
+shape=$(field '(d["dir"] == d["brief"].rsplit("/", 1)[0], [(e["name"], e["seat"], e["agent"], e["model"], e["effort"]) for e in d["experts"]], d["ask"], d["worktree"], d["answers"]["astra"].endswith("/astra.md"))' <<<"$asked" 2>/dev/null || true)
+holds=yes
+for want in "# A question for the experts" "Which store for the sessions?" "## What is being decided" "Sessions live in process memory, so every deploy logs everyone out." \
+  "1. Redis" "2. a Postgres table" "- $EX/export.sh" "Read only. Change no file" "    pick: ONE OPTION, COPIED WORD FOR WORD FROM THE OPTIONS ABOVE" "    none fits"; do
+  grep -qF -- "$want" "$QS/$folder/brief.md" 2>/dev/null || { holds="no: $want"; break; }
+done
+printf '%s\n' 'pick: Memcached' 'why: It is fast.' > "$QS/$folder/fable.md"
+noption=$(experts record --folder "$folder" --expert fable 2>&1 || true)
+printf '%s\n' 'answer: Redis' 'why: It runs already.' > "$QS/$folder/fable.md"
+badform=$(experts record --folder "$folder" --expert fable 2>&1 || true)
+stranger=$(experts record --folder "$folder" --expert opus 2>&1 || true)
+printf '%s\n' 'pick: Redis' 'why: It runs already for the job queue.' > "$QS/$folder/fable.md"
+half=$(experts record --folder "$folder" --expert fable | field '(d["answers"]["fable"]["pick"], d["waiting"], d["agree"], "astra" in d["next"])' || true)
+twice=$(experts record --folder "$folder" --expert fable 2>&1 || true)
+printf '%s\n' 'pick: Redis' 'why: A key with an expiry is what a session is.' > "$QS/$folder/astra.md"
+whole=$(experts record --folder "$folder" --expert astra | field '(d["agree"], d["waiting"], sorted(d["answers"]), "all picked" in d["next"])' || true)
+kept=$(field '(d["question"], d["options"], sorted(d["answers"]))' < "$QS/$folder/record.json" || true)
+if [ "$(dirname "$QS/$folder")" = "$QS" ] && [ "$holds" = yes ] && [ -z "$(git -C "$EX" status --porcelain --untracked-files=all)" ] \
+  && [ "$shape" = "(True, [('fable', 'claude/fable:high', 'claude', 'fable', 'high'), ('astra', 'codex/gpt-6-astra:high', 'codex', 'gpt-6-astra', 'high')], ['fable', 'astra'], '$EX', True)" ] \
+  && grep -qF "'Memcached' is none of them" <<<"$noption" && grep -qF "is not an answer in the brief's form" <<<"$badform" \
+  && grep -qF -- "--expert opus is none of this question's experts (fable, astra)" <<<"$stranger" && grep -qF "fable answered question $folder already" <<<"$twice" \
+  && [ "$half" = "('Redis', ['astra'], None, True)" ] && [ "$whole" = "('Redis', [], ['astra', 'fable'], True)" ] \
+  && [ "$kept" = "('Which store for the sessions?', ['Redis', 'a Postgres table'], ['astra', 'fable'])" ]; then
+  pass "a question in words gets a folder of its own in the state folder, which git does not show: the brief holds the question, what is decided, the options and the files; the default experts are fable and astra by their seats; record takes each answer once, refuses a pick that is no option, a wrong form and a stranger, and says when all share a pick"
+else
+  fail "a question in words: $folder / $holds / $shape / $noption / $badform / $stranger / $half / $twice / $whole / $kept"
+fi
+
+# an open question has no options: the answer is in words, and two answers that differ are no split the script can see
+open=$(experts brief --question "What would be the best solution for sessions that die at each deploy?" || true)
+ofolder=$(field 'd["folder"]' <<<"$open" 2>/dev/null || true)
+mkdir -p "$QS/$ofolder"
+oform=$(grep -c "    answer: one to three sentences" "$QS/$ofolder/brief.md" 2>/dev/null || true)
+printf '%s\n' 'pick: Redis' 'why: It runs already.' > "$QS/$ofolder/fable.md"
+opick=$(experts record --folder "$ofolder" --expert fable 2>&1 || true)
+printf '%s\n' 'answer: Keep sessions in Redis,' '  with an expiry on each key.' 'why: It runs already.' > "$QS/$ofolder/fable.md"
+printf '%s\n' 'answer: A signed cookie.' 'why: No store to run.' > "$QS/$ofolder/astra.md"
+experts record --folder "$ofolder" --expert fable >/dev/null || true
+oboth=$(experts record --folder "$ofolder" --expert astra | field '(d["answers"]["fable"]["answer"], d["answers"]["astra"]["answer"], d["agree"], d["waiting"], "where they agree and where they split" in d["next"])' || true)
+if [ "$oform" = 1 ] && grep -qF "is not an answer in the brief's form (\`answer: ...\`, then \`why: ...\`)" <<<"$opick" \
+  && [ "$oboth" = "('Keep sessions in Redis, with an expiry on each key.', 'A signed cookie.', None, [], True)" ] && [[ "$ofolder" == *-what-would-be-the-best-solution ]]; then
+  pass "an open question asks for an answer in words, refuses a pick, and leaves the comparison of two answers to the skill"
+else
+  fail "an open question: $ofolder / $oform / $opick / $oboth"
+fi
+
+# who the experts are: --seat names them for one call, and a seat that does not read is refused
+seated=$(experts brief --question "Which store?" --seat claude/opus:high --seat codex/gpt-6.1-sol:xhigh | field '[(e["name"], e["model"], e["effort"]) for e in d["experts"]]' || true)
+noform=$(experts brief --question "Which store?" --seat claude-opus 2>&1 || true)
+noagent=$(experts brief --question "Which store?" --seat gemini/pro:high --seat claude/fable:high 2>&1 || true)
+same=$(experts brief --question "Which store?" --seat claude/fable:high --seat claude/fable:max 2>&1 || true)
+nochoice=$(experts brief "$SLUG" "$c18" --seat claude/opus:high --seat codex/gpt-6-astra:high 2>&1 || true)
+neither=$(experts brief 2>&1 || true)
+both=$(experts brief "$SLUG" "$c18" --question "Which store?" 2>&1 || true)
+alone=$(experts brief --question "Which store?" --option "Redis" 2>&1 || true)
+mixed=$(experts brief "$SLUG" "$c18" --option "Redis" --option "a table" 2>&1 || true)
+if [ "$seated" = "[('opus', 'opus', 'high'), ('sol', 'gpt-6.1-sol', 'xhigh')]" ] && grep -qF "'claude-opus' is no seat: write it as agent/model:effort" <<<"$noform" \
+  && grep -qF "names the agent 'gemini': an expert is started by claude or codex" <<<"$noagent" && grep -qF "two experts are named fable" <<<"$same" \
+  && grep -qF "a task's record keeps the advice of fable and astra only (decisions.py), and claude/opus:high is neither" <<<"$nochoice" \
+  && grep -qF "brief takes a task's SLUG N or --question TEXT, one of the two" <<<"$neither" && grep -qF "one of the two" <<<"$both" \
+  && grep -qF "one --option is no choice" <<<"$alone" && grep -qF -- "--context and --option belong to a question in words" <<<"$mixed"; then
+  pass "--seat names the experts for one call, by the last word of each model; a seat not written agent/model:effort, an agent the harness does not know, two experts of one name, other experts for a task's choice and a brief with no question or two are refused"
+else
+  fail "the experts' seats: $seated / $noform / $noagent / $same / $nochoice / $neither / $both / $alone / $mixed"
+fi
+
+# the folders of questions in words go after 30 days without a write, at the next brief; other files in the folder stay
+"$PY" -c 'import os, sys, time
+old = time.time() - 31 * 86400
+for root, dirs, files in os.walk(sys.argv[1]):
+    for name in files: os.utime(os.path.join(root, name), (old, old))
+os.utime(sys.argv[1], (old, old))' "$QS/$folder"
+mkdir -p "$QS/notes" && "$PY" -c 'import os, sys, time; old = time.time() - 40 * 86400; os.utime(sys.argv[1], (old, old))' "$QS/notes"
+pruned=$(experts brief --question "Which store, once more?" | field 'd["removed"]' || true)
+if [ "$pruned" = "['$folder']" ] && [ ! -e "$QS/$folder" ] && [ -d "$QS/$ofolder" ] && [ -d "$QS/notes" ]; then
+  pass "a question's folder is removed at the next brief once 30 days passed since its last write, and a newer one and a folder of another name stay"
+else
+  fail "the old folders: $pruned / $(ls "$QS")"
+fi
+if [ -d "$PWD/skills/lem/scripts/__pycache__" ] || [ -d "$(dirname "$EXPERTS")/__pycache__" ]; then fail "experts.py left a __pycache__"; else pass "experts.py left no __pycache__, also of the decisions.py it imports"; fi
+
 if [ "$fails" -gt 0 ]; then
   echo "$fails failed"
   exit 1
