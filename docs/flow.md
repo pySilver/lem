@@ -8,7 +8,7 @@ This page gives the flow of Lem, as the stage files give it on 2026-11-17. The f
 ```mermaid
 flowchart TD
     ask([You: /lem and your ask]) --> look{Lem names the kind and the size.<br/>It reads your words against each topic}
-    look -- a bug or a question --> inv[An investigator examines it first.<br/>See "A bug and a question"]
+    look -- a bug or a question --> inv[An investigator examines it first.<br/>See the section A bug and a question]
     look -- a small change --> small[One builder makes the change.<br/>No lead, no plan, no wait for you]
     look -- a feature --> path{Is all of the context<br/>written already?<br/>For example, a complete ticket}
     path -- no --> interview[The interview, one question at a time.<br/>A scout reads the code at the same time]

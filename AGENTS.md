@@ -305,16 +305,85 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   polish pass, the checks and a review that is due; the stage texts give the line for the
   interview, the scout (with `scout`, its end, which had no event), the personas' read, an
   investigation and each builder's job. `SKILL.md` lists them with their ends.
-- **The README shows the plugin first, and the clone is for people who change Lem**: asked in his
-  Inbox on 2026-11-17 (thread "Lem production pass") which install the README shows first, he
-  picked "The plugin first; the clone for people who change Lem". So the README's install is the
-  two `claude plugin` commands with `--scope project` and then `/lem init`, and the clone with
-  `setup.py --project DIR` and the home links follow in a few lines with a link to
-  `docs/install.md`. One repository still uses one way, the plugin or the links.
-- **The repository is private now, and public later**: asked in the same thread whether the
-  repository stays private, he picked "Private now, public later". So the README says that an
-  install of the plugin needs read access to `pySilver/lem`; that line goes when he makes it
-  public.
+His review of the README and the docs on 2026-11-17, 27 notes; a quote is his words. Where a note
+replaces an earlier ruling, this is the ruling now.
+
+- **Lem is a plugin, and nothing else**: "I see no value in offering Lem as clone ... It should be
+  always installed as a CC/Codex plugin. If one needs to customize - they can always clone the
+  repo and make their own Lem. I don't want to support both ways here." So there is no setup
+  script, no link and no `--corrections`; the correction hook comes with the plugin, and the
+  repository's tracked `corrections.collect = true` turns the queue on. This replaces "the
+  plugin first; the clone for people who change Lem" (his Inbox answer of the same day).
+- **The texts assume a public repository**: "lets assume it's public. I mean its private now,
+  because we didn't polish it enough to my standards." The README says nothing about access.
+  When the repository becomes public is his.
+- **The README and the docs do not report what ran**: "I'm not sure we should keep informing
+  audience what we run / what we did not run yet. Our goal is to ship working tool, not a
+  promise half-ready tool. So it's our job to run it in real projects, like mybaze and prove it
+  works", and of a "What is proven" list: such logs "are confusing for readers". No "proven",
+  no "not run yet", no date of a run in a text for a reader. Lem runs in mybaze after this pass,
+  with a task he picks (his answer on a page the same day).
+- **No history and no reasons in a text for a reader**: "no need to list historical changes and
+  reasoning (in any md file) - nobody cares". `README.md` and `docs/` say what is, and never what
+  was or why it changed. This file keeps the rulings with their dates and words, because the
+  agents that change Lem read them: that reading is the session's, and open to him.
+- **The README is easy for a reader who is not a native speaker**: "is has to be easy to read,
+  especiall for non-native English speakers ... this first sentence sounds weird `Lem gives your
+  ask to the agents that write code in one repository.` ... Employ some subagent specialized in
+  American English so it will be easy to understand for everyone, especially technical
+  non-english speakers." The STE rules stay; a word that only Lem uses as a noun ("ask") goes.
+- **A task has a type and a size, and they are two words**: he found that a bug that "continues
+  as a feature" reads wrong ("`feature` path sounds wrong for bug fix"), named Conventional
+  Commits ("I am a big fan of Semantic Commits ... maybe our path should be somehow related to
+  that schema"), and picked "Type and size apart: small or full" on a page. The type is a
+  Conventional Commits type, `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `chore`, and
+  `question` for a task that commits nothing. The size is a small change or a full change, and
+  careful is a mark on top. Lem's first line says both ("fix, small"). The kind `correction` is
+  gone: small is a size, never a type.
+- **One approved line of a task is an acceptance criterion**: "should we use `User Story` or
+  `Usecase` to avoid confusions? Stories are sometimes taken as "epic task"", and on the page he
+  picked "Acceptance criterion". Every text a person reads, and the names of the script, the
+  files and the events, say criterion and criteria; none says story.
+- **A seat is written `agent/model:effort`**: "People typically use `provider/model:effort` or
+  `provider/model@effort` ... I personally prefer `codex/gpt-6.1-sol:high`". The settings, `/lem
+  reviewer` and the experts use that one form.
+- **`/lem ask-expert` takes a question in words, or none**: "during discussion or interview I
+  would like to get an expert opinion, I may then provide context directly in command `/lem
+  ask-expert what would be the best solution for this kind of problem` or just type the `/lem
+  ask-expert` and assume the skill knows what to ask from the context"; `/lem ask-expert
+  gift-note 3` "looks totally weird". Who the experts are and at what effort is in the settings.
+- **`/lem ask` with no question takes the agent's last question**: "Can we use `/lem ask
+  <question>` whithout question in a situations when Agent gave us a question in terminal and
+  our intent is to have a rich contextual question instead?"
+- **A plan's file is `YYYY-MM-DD-<slug>.md`**, and the settings can change the form: "I'd rather
+  use `docs/plans/YYYY-MM-DD-<slug>.md` (let the user configure in settings)".
+- **The state of Lem is not in the git directory**: "Is that a best practice to keep things in
+  `.git/lem/`? It smells to me. Maybe it's better to keep those in untracked `.lem/something`
+  dir?" The session checked one more reason: Codex's sandbox keeps `.git` read-only
+  (`codex-rs/protocol/src/permissions.rs`, read 2026-11-17).
+- **What waits for the owner is one list, with a decision for each item**: "maybe we need some
+  morning digest command for that? Something that will allow human easily review the proposals
+  ... and take a decision: approve, reject, postpone (keep undecided)". The session's form: the
+  bare `/lem` is that list, and no new command. The free hour is the maintainer's and is no page
+  of the user docs.
+- **Lem naps**: "Should we introduce short nap times for Lem? It's extremelly fun to see Agent's
+  dreams and things that bothers Lem can be used in `retro` from the latest naps", with his own
+  nap brief as the model, and "Its not worthy to keep more than a week or a month (?) naps
+  history. Idk - I cant prove its valuable at all but its cool and may improve Lem." An optional
+  part.
+- **No CI on a push for now**: "No need to run CI for now at Github. We can limit runs to local
+  suits for now." The workflow starts by hand.
+- **Lem's docs do not speak for another tool**: of `.revmux/` in the removal steps, "its not our
+  tool".
+- **Codex in each role is wanted**, as `docs/backlog/codex-in-each-role.md`.
+
+The session's answers to his notes that asked a question, each open to him: `[gate]` is renamed
+`[checks]` ("I dont understand this section in settings at all"); a lead that finds at its plan
+that its task needs the result of another open task queues it behind that task ("Will Lem put
+new plan on queue instead of running it?"); a shipped skill starts only by its `/lem` name and
+from Lem's stages, and the plugin's commands carry Lem's name, so that they do not meet a
+developer's own skills and commands ("What are the critical points in Lem that may conflict with
+existing Claude Code setup of the Developer?").
 
 Designs taken on 2026-11-14 and 2026-11-15 after a question of the owner's. They are open to
 him, and they are not his rulings until he says so:
@@ -669,7 +738,7 @@ real task, so say in the commit which task showed the need.
   when Lem runs in this repository. `.revmux/`: the review tool's profiles, lenses and project
   profile for this repository.
 - `tests/`: the suites of the Checks above; `all.sh` runs them all, `lib.sh` is what each
-  `lem-*.sh` block sources. `.github/workflows/ci.yml` runs them on a push.
+  `lem-*.sh` block sources. `.github/workflows/ci.yml` runs them when someone starts it by hand.
 - `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `lem-ask`
   and `jev` commands from this clone into a home directory, never over something else, and runs
   the machine check. `--corrections on|off` registers the hook of the correction queue in the

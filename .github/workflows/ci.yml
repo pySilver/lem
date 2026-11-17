@@ -1,9 +1,9 @@
 name: CI
 
+# Started by hand only (the Actions tab, or `gh workflow run CI`): the local suites, `bash tests/all.sh`,
+# are the check for now.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
