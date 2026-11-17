@@ -195,10 +195,11 @@ one finds what the run before it finished.
    says green or not green, and each reason it is not green stands before everything else; then
    the request in the owner's words, the stories with their tests, each check with what it
    returned, each decision of the record (`decisions.py list SLUG`) with who took it and why,
-   and your notes. Green means that the checks passed with the bar where it was, a review with
-   at least one source left no must-fix, no story changed during the build, no choice was
-   taken by timeout or by the experts, the gate was the main checkout's own, and no read of the
-   stories went unanswered twice. A green request needs no read from the owner. The step refuses while a
+   and your notes. Green means seven things, the seven the step checks: the checks passed with
+   the bar where it was; a review with at least one source left no must-fix and saw the change
+   as it is; no story changed during the build; no choice was taken by timeout or by the
+   experts; the gate was the main checkout's own; no read of the stories went unanswered twice;
+   and a small change is not careful. A green request needs no read from the owner. The step refuses while a
    choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
    the owner"), and run it again after his answer or after the timeout. It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
