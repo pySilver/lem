@@ -97,6 +97,12 @@ if "$PY" -I -B "$B" render "$WORK/carried.json" -o "$WORK/carried.html" >/dev/nu
 # A question's own context is shown on the page (checked in the browser below).
 printf '{"questions": [{"id": "a", "prompt": "First?", "context": "QCTX-MARKER-ONE", "options": ["Yes", "No"]}, {"id": "b", "prompt": "Second?", "body": "QCTX-MARKER-TWO", "options": ["Yes", "No"]}]}' > "$WORK/qctx.json"
 "$PY" -I -B "$B" render "$WORK/qctx.json" -o "$WORK/qctx.html" >/dev/null
+# The same with one question: a `questions` list of one keeps that question's context, and a spec that
+# is one question shows its context once and its body.
+printf '{"questions": [{"id": "a", "prompt": "Only?", "context": "QCTX-MARKER-SOLO", "options": ["Yes", "No"]}]}' > "$WORK/qctx-one.json"
+"$PY" -I -B "$B" render "$WORK/qctx-one.json" -o "$WORK/qctx-one.html" >/dev/null
+printf '{"prompt": "Only?", "context": "QCTX-MARKER-TOP", "body": "QCTX-MARKER-BODY", "options": ["Yes", "No"]}' > "$WORK/qctx-flat.json"
+"$PY" -I -B "$B" render "$WORK/qctx-flat.json" -o "$WORK/qctx-flat.html" >/dev/null
 
 # Markdown an agent writes by habit, each case a page of its own (checked in the browser below). md-owner
 # is the table of /lem init's last page on 2026-11-16, which showed as raw "| | |" and "|---|---|" lines.
@@ -417,6 +423,33 @@ shown = " ".join(p.text)
 sys.exit(not ("QCTX-MARKER-ONE" in shown and "QCTX-MARKER-TWO" in shown))
 PY
   then pass "a question's own context and body are shown"; else fail "a question's own context and body are shown"; fi
+  # VISIBLE DOM MARKER=COUNT...: each marker stands that many times in the page's visible text.
+  VISIBLE=$(cat <<'PY'
+import sys
+from html.parser import HTMLParser
+class P(HTMLParser):
+    def __init__(self):
+        super().__init__(); self.script = 0; self.text = []
+    def handle_starttag(self, tag, attrs):
+        self.script += tag == "script"
+    def handle_endtag(self, tag):
+        self.script -= tag == "script"
+    def handle_data(self, data):
+        if not self.script:
+            self.text.append(data)
+p = P(); p.feed(open(sys.argv[1], encoding="utf-8").read())
+shown = " ".join(p.text)
+wrong = [f"{m} stands {shown.count(m)} times, not {n}" for m, _, n in (w.partition("=") for w in sys.argv[2:]) if shown.count(m) != int(n)]
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  if why=$("$PY" -I -B -c "$VISIBLE" "$WORK/qctx-one.dom" "QCTX-MARKER-SOLO=1") \
+    && why=$("$PY" -I -B -c "$VISIBLE" "$WORK/qctx-flat.dom" "QCTX-MARKER-TOP=1" "QCTX-MARKER-BODY=1"); then
+    pass "a page of one question shows that question's context: in a questions list of one, and once in a spec that is the question"
+  else
+    fail "the context of a page of one question: $why"
+  fi
   MDCHECK=$(cat <<'PY'
 import sys
 from html.parser import HTMLParser

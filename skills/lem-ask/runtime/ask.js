@@ -349,7 +349,9 @@
     const hint = s.hint || (q.mode === "multi" ? `Choose ${s.min ? "at least " + s.min : "any"}${s.max ? ", up to " + s.max : ""}` : "");
     if (hint) el.appendChild($("div", "hd-hint", inline(hint)));
     if (SPEC.context != null && qs.length === 1) el.appendChild(blocks(SPEC.context));
-    if (qs.length > 1 && s.context != null) el.appendChild(blocks(s.context)); // a question's own evidence, like body
+    // A question's own evidence, like body, however many questions the list holds. A spec with no
+    // `questions` is its one question, and its context is the line above.
+    if (s !== SPEC && s.context != null) el.appendChild(blocks(s.context));
     if (s.body != null) el.appendChild(blocks(s.body));
     if (q.mode === "tune") el.appendChild(buildTune(q));
     if (s.recommendation) el.appendChild($("div", "hd-recsum", `<b class="lab">★ Recommendation</b>${inline(s.recommendation)}`));
