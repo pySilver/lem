@@ -16,15 +16,23 @@ should learn a lesson from. The retro, a big model, decides about each.
 It is an optional part, and it is the owner's choice twice. The hook sends the owner's message
 and the agent message it answers to the Jev decision model, through `jev.py` beside this file, so
 it runs only in a repository whose settings say `corrections.collect = true`: the tracked file, so the
-yes is the repository's and everybody sees it. The hook is there where Lem is installed as a
-plugin (`hooks/hooks.json` of the clone) or where the owner registered it for the link form
-(`scripts/setup.py --corrections on`). One person keeps their own messages out with
-`collect = false` under `[corrections]` in `.lem/project.local.toml`. In every other
-repository the hook exits at once.
+yes is the repository's and everybody sees it. The hook comes with Lem installed as a plugin
+(`hooks/hooks.json` of the clone). For the link form the owner registers it in one place:
+`scripts/setup.py --corrections on --project DIR` writes it into that checkout's
+`.claude/settings.local.json`, and without `--project` into the home's `~/.claude/settings.json`.
+One person keeps their own
+messages out with `collect = false` under `[corrections]` in `.lem/project.local.toml`. In every
+other repository the hook exits at once.
+
+A hook registered in two places still judges each message once. Claude Code starts one copy for
+each place, at the same moment. The first copy claims the message (the session and the words,
+for CLAIM_SECONDS) with an atomic create in `corrections-claims/` beside the queue, and a later
+copy of the same message exits with no call and no entry. A claim that cannot be made costs a
+double judgment and a line in the log, never the message.
 
 The hook does not wait for Jev: it hands the message to a detached copy of itself and exits 0
 with no output. Its own waits are bounded: it gives up the read of the event and each of its git
-calls (two in a repository that says yes) after WAIT_SECONDS each. The copy checks the project's yes again, asks Jev, and appends the
+calls (three in a repository that says yes) after WAIT_SECONDS each. The copy checks the project's yes again, asks Jev, and appends the
 message to the queue when Jev's probability of "lesson" is at least FLAG_AT. Jev is a pre-filter, and a loose one on purpose. With this question
 at 0.3, on 150 replies their owner had labeled, it caught 22 of 27 lessons and flagged 63 replies
 that were none (mybaze, 2026-11-07, tuned on that same sample, so the true rate is lower).
@@ -61,6 +69,14 @@ FLAG_AT = 0.3
 # How long the hook waits for the event on its input, and for git, before it gives up without a
 # word. A guess (2026-11-15), not a measurement: long for a local git call, short for a person.
 WAIT_SECONDS = 2
+# How long a claim of one message holds. The copies of a hook registered twice start for the same
+# event: Claude Code runs an event's hooks in parallel, each under its own timeout from its own start
+# (code.claude.com/docs/en/hooks, read 2026-11-17), and that timeout is 10 seconds in
+# `hooks/hooks.json` and in what `scripts/setup.py` writes. A copy claims before that timeout ends it,
+# so two claims of one event are less than 10 seconds apart. Twice that is a guess at the margin, for
+# copies that start late on a loaded machine. The same words typed again in one session inside it
+# count as one message.
+CLAIM_SECONDS = 20
 JEV = Path(__file__).resolve().with_name("jev.py")
 DECISIONS = ("lesson", "not_lesson")
 # accepted, changed, rejected: the owner's answer to a move the retro put to him. missed: the owner
@@ -225,10 +241,58 @@ def read_event() -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def set_aside_if_stale(path: Path) -> bool:
+    """Remove a claim older than CLAIM_SECONDS: True when it is gone, False when it is a fresh one.
+    It is moved aside before its age is read, so that a claim another copy made at that moment is
+    never removed by a look at the one before it: a fresh claim moved aside goes back."""
+    aside = path.with_name(f"{path.name}.aside-{os.getpid()}-{time.monotonic_ns()}")
+    try:
+        os.rename(path, aside)
+    except FileNotFoundError:
+        return True
+    if time.time() - aside.stat().st_mtime < CLAIM_SECONDS:
+        os.rename(aside, path)
+        return False
+    aside.unlink(missing_ok=True)
+    return True
+
+
+def claim(where: Path, session: str, prompt: str) -> Path | None:
+    """Claim one message for this copy of the hook: the claim's file, or None when another copy
+    claimed the same words of the same session less than CLAIM_SECONDS ago. The claim is an atomic
+    create, so of two copies that look at the same moment one wins. Raises OSError when no claim can
+    be made. Each run removes the stale claims it sees, so the folder holds a few files at most."""
+    claims = where / "corrections-claims"
+    claims.mkdir(parents=True, exist_ok=True)
+    for entry in claims.iterdir():
+        try:
+            stale = time.time() - entry.stat().st_mtime >= CLAIM_SECONDS
+        except FileNotFoundError:
+            continue
+        if stale:
+            set_aside_if_stale(entry)
+    path = claims / hashlib.sha256(f"{session}\0{prompt}".encode("utf-8", "surrogatepass")).hexdigest()
+    # a stale claim of the same words is replaced; three tries are for copies that replace it together
+    for _ in range(3):
+        try:
+            os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+            return path
+        except FileExistsError:
+            try:
+                fresh = time.time() - path.stat().st_mtime < CLAIM_SECONDS
+            except FileNotFoundError:
+                continue
+            if fresh or not set_aside_if_stale(path):
+                return None
+    return None
+
+
 def cmd_hook() -> None:
     """Return at once. Whatever goes wrong here must not reach the owner's prompt."""
     cwd = None
     path = None
+    claimed = None
+    where = None
     try:
         event = read_event()
         prompt = (event.get("prompt") or "").strip()
@@ -236,7 +300,28 @@ def cmd_hook() -> None:
         cwd = event.get("cwd") or os.getcwd()
         if not prompt or prompt.startswith(INJECTED) or prompt.startswith("/") or not collects(cwd):
             return
-        payload = {"prompt": prompt, "cwd": cwd, "session": event.get("session_id"), "transcript": event.get("transcript_path", "")}
+        # One message, one judgment, however many places registered the hook. The event names no
+        # message, so the claim is of the session and the words. With no session id nothing tells
+        # this message from the same words of another session: it is judged with no claim.
+        session = event.get("session_id")
+        if isinstance(session, str) and session:
+            where = folder(cwd)
+            try:
+                if where is None:
+                    raise OSError("git names no directory of the repository")
+                claimed = claim(where, session, prompt)
+            except Exception as error:  # noqa: BLE001 - a claim that fails costs a double judgment, never the message
+                if where is not None:
+                    try:
+                        append(where / "corrections.log", {"ts": now(), "session": session, "error": (
+                            f"the hook could not claim the message ({error}); it was judged as usual, and a second "
+                            "registration of the hook may queue it twice")})
+                    except Exception:  # noqa: BLE001
+                        pass
+            else:
+                if claimed is None:
+                    return
+        payload = {"prompt": prompt, "cwd": cwd, "session": session, "transcript": event.get("transcript_path", "")}
         # Through a file only the owner can read, not a pipe: a long message would fill a pipe
         # and hold this hook until the copy reads it.
         handle, path = tempfile.mkstemp(prefix="lem-correction-", suffix=".json")
@@ -251,8 +336,11 @@ def cmd_hook() -> None:
             if path is not None:
                 # no copy will read it: the owner's words do not stay in a file nobody removes
                 Path(path).unlink(missing_ok=True)
+            if claimed is not None:
+                # this copy cannot judge the message, so it does not keep another from judging it
+                claimed.unlink(missing_ok=True)
             # the log of the repository the message was typed in, which is the one that lost it
-            where = folder(cwd or os.getcwd())
+            where = where or folder(cwd or os.getcwd())
             if where is not None:
                 append(where / "corrections.log", {"ts": now(), "error": f"the hook failed before it could judge a message: {error}"})
         except Exception:  # noqa: BLE001

@@ -153,9 +153,10 @@ else
   fail "the tools of a new settings file: $(grep -n -A8 '^\[tools\]' "$CQ/.lem/project.toml")"
 fi
 mkdir -p "$WORK/jevbin"
-# a stand-in for jev: it answers with the probability in JEV_P, or fails as JEV_EXIT says
+# a stand-in for jev: it answers with the probability in JEV_P, or fails as JEV_EXIT says, and adds
+# a line to the file JEV_CALLED names for each call
 # shellcheck disable=SC2016  # the stand-in's own variables, expanded when it runs
-printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'if [ -n "$JEV_CALLED" ]; then touch "$JEV_CALLED"; fi' 'if [ -n "$JEV_EXIT" ]; then echo "no key" >&2; exit "$JEV_EXIT"; fi' \
+printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'if [ -n "$JEV_CALLED" ]; then echo called >> "$JEV_CALLED"; fi' 'if [ -n "$JEV_EXIT" ]; then echo "no key" >&2; exit "$JEV_EXIT"; fi' \
   'printf "{\"answers\": {\"lesson\": {\"probabilities\": {\"lesson\": %s}}}}" "$JEV_P"' > "$WORK/jevbin/jev"
 chmod +x "$WORK/jevbin/jev"
 printf '%s\n' '{"type": "user", "message": {"content": "hi"}}' '{"type": "assistant", "message": {"content": [{"type": "text", "text": "I pushed it."}]}}' > "$WORK/transcript.jsonl"
@@ -363,6 +364,66 @@ if [ "$soon_code" = 1 ] && grep -qF "jev: JEV_TIMEOUT='soon' is not a number of 
 else
   fail "jev's refusals: $soon_timeout / $latin_file / $latin_stdin / $checked"
 fi
+# One message, one judgment: a hook registered in two or three places (the home's settings, the
+# repository's, the plugin) starts once for each, at the same moment, and the first copy claims the message.
+CL=$WORK/claim
+git init -q -b main "$CL" && commit "$CL" start
+project --repo "$CL" init --base main >/dev/null
+sed -i.bak 's/^collect = false$/collect = true/' "$CL/.lem/project.toml" && rm "$CL/.lem/project.toml.bak"
+CLAIMS=$CL/.git/lem/corrections-claims
+CALLS=$WORK/claim-calls
+claim_event() { printf '{"prompt": "%s", "cwd": "%s", "session_id": "%s", "transcript_path": ""}' "$1" "$CL" "$2"; }
+claim_hook() { env LEM_JEV="$WORK/jevbin/jev" JEV_P=0.9 JEV_CALLED="$CALLS" "$PY" -B "$CORR" hook; }
+lines_of() { if [ -f "$1" ]; then wc -l < "$1" | tr -d ' '; else echo 0; fi; }
+queued() { lines_of "$CL/.git/lem/corrections.jsonl"; }
+queued_at_least() { [ "$(queued)" -ge "$1" ]; }
+claim_files() { if [ -d "$CLAIMS" ]; then find "$CLAIMS" -type f | grep -c '' || true; else echo 0; fi; }
+for _ in 1 2 3; do claim_event "do not push without asking" c1 | claim_hook & done
+wait
+soon queued_at_least 1
+# the copies a guard would have stopped have their own second to arrive
+sleep 1
+if [ "$(queued)" = 1 ] && [ "$(lines_of "$CALLS")" = 1 ] && [ "$(claim_files)" = 1 ]; then
+  pass "three copies of the hook on one message, started at once as three registrations start them, make one call of the model and one queue entry"
+else
+  fail "three copies of one message: $(queued) entries, $(lines_of "$CALLS") calls, $(claim_files) claims"
+fi
+# The same words in the same session after the window are a new message: the stale claim is replaced, and
+# a stale claim of another message is removed, so that the folder does not grow.
+mkdir -p "$CLAIMS" && touch "$CLAIMS/a-stale-claim-of-another-message"
+find "$CLAIMS" -type f -exec touch -t 202601010000 {} +
+claim_event "do not push without asking" c1 | claim_hook
+soon queued_at_least 2
+fresh=$("$PY" -c 'import os, sys, time; print([round(time.time() - os.stat(os.path.join(sys.argv[1], f)).st_mtime) < 60 for f in os.listdir(sys.argv[1])])' "$CLAIMS" 2>&1 || true)
+if [ "$(queued)" = 2 ] && [ "$(lines_of "$CALLS")" = 2 ] && [ "$fresh" = "[True]" ]; then
+  pass "the same words in the same session after the window are judged again, the old claim is replaced, and a stale claim of another message is removed"
+else
+  fail "the same words after the window: $(queued) entries, $(lines_of "$CALLS") calls, claims $fresh"
+fi
+# Another message of the same session, and the same words in another session: each is its own message.
+# A message with no session id is judged as before, with no claim: nothing tells it from the same words of another session.
+claim_event "keep the tests green" c2 | claim_hook
+claim_event "keep the tests green, always" c2 | claim_hook
+claim_event "keep the tests green" c3 | claim_hook
+printf '{"prompt": "a message with no session", "cwd": "%s"}' "$CL" | claim_hook
+printf '{"prompt": "a message with no session", "cwd": "%s"}' "$CL" | claim_hook
+soon queued_at_least 7
+if [ "$(queued)" = 7 ] && [ "$(claim_files)" = 4 ]; then
+  pass "two messages of one session, and one sentence of two sessions, each get a claim and an entry; a message with no session id is judged with no claim"
+else
+  fail "different messages and sessions: $(queued) entries, $(claim_files) claims"
+fi
+# A claim that cannot be made (here a file stands where its folder goes) never costs the message: it is
+# judged as before, and the log says why a second copy could not be stopped.
+rm -rf "$CLAIMS" && touch "$CLAIMS"
+out=$(claim_event "a claim that cannot be made" c4 | claim_hook 2>&1; echo "exit=$?")
+soon queued_at_least 8
+if [ "$out" = "exit=0" ] && [ "$(queued)" = 8 ] && grep -q "could not claim the message" "$CL/.git/lem/corrections.log" && ! grep -q Traceback "$CL/.git/lem/corrections.log"; then
+  pass "a claim folder that cannot be made still queues the message, with no output, and the log says the message was judged unclaimed"
+else
+  fail "a claim that cannot be made: $out / $(queued) entries / $(cat "$CL/.git/lem/corrections.log" 2>&1)"
+fi
+rm "$CLAIMS"
 settings_file=$CQ/.lem/project.toml
 sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settings_file.bak"
 if [ "$(status_of project --repo "$CQ" show)" = 1 ]; then pass "a collect value that is not true or false is refused"; else fail "collect type"; fi
