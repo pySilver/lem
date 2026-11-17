@@ -802,7 +802,8 @@ function derive(now) {
       continue;
     }
     if (e.event === 'review.filed') { t.filed.push({ts: at(e), items: e.items ?? [], tip: e.tip}); continue; }
-    if (e.event === 'careful.missed') { t.missed = {ts: at(e), path: e.path, pattern: e.pattern}; continue; }
+    // the review read the diff against the topics and called it careful, which the plan's own call did not
+    if (e.event === 'careful.missed') { t.missed = {ts: at(e), round: e.round, why: e.why}; continue; }
     // the polish pass of the landing, as land.py polish --done logged it; it has no start event
     if (e.event === 'polish') { t.polish = {ts: at(e), before: e.before, after: e.after, commits: e.commits, filed: e.filed ?? []}; continue; }
     // what the investigation of a bug or a question found, as Lem logged it after the report; the newest stands
@@ -1397,7 +1398,7 @@ const SAYS = {
   'proposed': e => ({info: {actor: e.green ? 'done' : 'you', icon: e.green ? 'check' : 'alert'}, head: e.green ? 'Proposed: green' : 'Proposed: not green', text: (e.not_green ?? []).join(' · ')}),
   'plan.talk.start': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk started', text: `with ${e.reviewer}`}),
   'plan.talk': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk ended', text: `with ${e.reviewer}: ${talkCounts(e)}`}),
-  'careful.missed': e => ({info: {actor: 'bad', icon: 'alert'}, head: 'A careful path the plan missed', text: `${e.path} (${e.pattern})`}),
+  'careful.missed': e => ({info: {actor: 'bad', icon: 'alert'}, head: 'Careful by the review, not by the plan', text: e.why != null ? `round ${e.round ?? '?'}: ${e.why}` : `${e.path} (${e.pattern})`}),  // an older event named a path and its pattern
   'investigation': e => ({info: {actor: e.call === 'not-reproduced' ? 'you' : 'done', icon: 'eye'}, head: CALLS[e.call]?.head ?? `The investigation: ${e.call}`,
     text: e.line, sub: investigationSub(e)}),
   'polish': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass',

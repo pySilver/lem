@@ -297,5 +297,17 @@ if [ "$written" = 1 ] && [ "$short" = "(1, 60)" ] && [ -z "$wrong" ] && grep -q 
 else
   fail "flow.decision_wait: $written / $short / wrong:$wrong / $refused"
 fi
+# A lead asks from its worktree, and the wait is the main checkout's: a branch that shortens its own
+# flow.decision_wait does not shorten the owner's.
+ident "$DC" && git -C "$DC" add -A && git -C "$DC" commit -q -m "chore: the settings"
+git -C "$DC" worktree add -q "$WORK/dc-tree" -b feat/short-wait main
+sed -i.bak 's|^decision_wait = .*$|decision_wait = 1|' "$WORK/dc-tree/.lem/project.toml" && rm "$WORK/dc-tree/.lem/project.toml.bak"
+git -C "$WORK/dc-tree" commit -q -am "chore: a short wait"
+branch_wait=$("$PY" -B "$DECISIONS" --repo "$WORK/dc-tree" ask other-task "${CASE[@]}" --what "y" --option a --option b --recommended a --why w --said s | field 'd["wait_minutes"]')
+if [ "$branch_wait" = 15 ]; then
+  pass "a choice asked from a task's worktree waits the main checkout's flow.decision_wait, not the one the task's branch writes"
+else
+  fail "the wait of a choice asked from a worktree: $branch_wait"
+fi
 
 finish

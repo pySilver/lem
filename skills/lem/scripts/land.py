@@ -87,9 +87,18 @@ review tool's smallest profile, for a small and simple change; a round of the re
 the profiles or lenses that fit the change; the project's full set. Which one a change gets, and which profiles fit it, is the
 judgment of the agent that starts the review, from the diff and from what each profile is for:
 no code and no list of words decides it. This script holds only the floor that no judgment goes
-under: the full set for a careful request (a careful path, the plan's own `careful: yes`, or the
-owner's word in the brief), and a round at the least for a plan of more than three tasks and
-after a review that found a must-fix.
+under: the full set for a careful request, and a round at the least for a plan of more than three
+tasks and after a review that found a must-fix.
+
+Whether a change is careful is judged against the project's topics (`flow.topics`, sentences of
+what must never go wrong, read from the main checkout's settings like every setting here): no list
+of paths decides it. A request is careful when the owner says so (his word in the task's brief),
+when the plan says so (its `careful: yes` under its title, in its text now or in any commit of the
+branch: a later commit does not take the yes back), when the newest review that answered says so,
+or when the change edits the `[flow]` or the `[gate]` table of `.lem/project.toml`. The last is the
+one rule this script matches by itself, because the file is Lem's own: those tables say, for every
+later task, what is careful and what the gate runs. The review is the look at the diff itself, by
+an agent that did not build it: its record makes the call, and a careful call takes the full set.
 
 The record of a review is a JSON file:
 
@@ -101,9 +110,12 @@ The record of a review is a JSON file:
      "silent": [{"name": SOURCE, "why": WHAT STOPPED IT}],
      "bar": [{"name": FILE, "why": WHAT THE REVIEW SAYS OF THE REASON GIVEN FOR IT}],
      "must_fix": N, "should": N, "nit": N,
-     "outside": [{"where": PATH OR PATH:SYMBOL, "title": ONE LINE, "what": THE RUN THAT SHOWS IT}]}
+     "outside": [{"where": PATH OR PATH:SYMBOL, "title": ONE LINE, "what": THE RUN THAT SHOWS IT}],
+     "careful": true | false, "careful_why": ONE LINE}
 
-`attempt`, `kind` and `answered` are always there. `bar` has one entry for each file in which
+`attempt`, `kind`, `answered`, `careful` and `careful_why` are always there. `careful` is the
+review's own reading of the diff against each topic, and `careful_why` names the topic the change
+reaches, or what was checked to say that it reaches none; `careful: true` comes with `kind: full`. `bar` has one entry for each file in which
 the change lowers the bar, and is left out otherwise. `outside` names each defect the review saw
 that the base commit already has: it is no finding of the change, and it goes to the backlog.
 `what` is the concrete run: what happens, with the input. A count in its place is refused, and
@@ -162,9 +174,12 @@ request with none, and the text's checks hold one line from the newest, with who
 with its defender, the turns (with the bound of its rules, when the talk went over it), the
 positions settled and left open, and every other count the event holds, in words where Lem
 knows the count (`TALK_SAYS`) and by its name where it does not. An event of the older form,
-with no counts but those three, reads as before. A talk is a step before the build, so a request that is careful only by the owner's later word or
-by a path its diff matches gets the full set and no talk; it is not asked for one, and its checks
-say in words that it had none and why, which is no cause of not green. A usual request gets
+with no counts but those three, reads as before. A talk is a step before the build, so a request
+that is careful only by the owner's later word, by its review or by its edit of the settings gets
+the full set and no talk; it is not asked for one, and its checks say in words that it had none
+and why, which is no cause of not green. A careful request says so in the line after green or not
+green, with each reason, and its checks hold the call in one line, with the newest review's call
+and reason beside it. A usual request gets
 neither line. The checks also hold one line on the personas' read of the stories, from the
 newest `stories.read` event (`project.py log` gives its form): how many of the personas asked
 answered, in which model families, who did not answer and why, how many stories they flagged,
@@ -186,9 +201,10 @@ showed a split between the families with no approval of his at or after it; the 
 freeze of a read (`stories.py approve --read`) is no approval of his. A read in which nobody
 answered is written down too: `propose` refuses while the newest one is the first such read in a
 row, so that the read is started once more, and after the second in a row the request is not
-green, with "the stories were not read" first, and its checks say so in place of the read's line. A careful path that the diff matches and the plan's own call missed is a lesson
-about that call: `propose` writes one `careful.missed` event with the path and its pattern, the
-first time it finds the case, for the retro. With a GitHub remote `propose` pushes the task's branch
+green, with "the stories were not read" first, and its checks say so in place of the read's line. A
+change the review calls careful and the plan did not is a lesson about the plan's call: `read
+--record` writes one `careful.missed` event with the round and the review's reason, the first time
+a review finds it, for the retro. With a GitHub remote `propose` pushes the task's branch
 and opens the pull request with the `gh` command; a second run updates it. The `proposed` event
 is written after that step: a proposal that the push or the forge refused is none. With any other
 remote, or none, the branch is marked ready. So it is with a GitHub remote when the settings'
@@ -197,7 +213,9 @@ like any other, no task branch is pushed, and `merged` is refused. GitLab is not
 checked its command.
 
 `land --by owner` is the owner's word. `land --by agent` is refused unless the settings'
-`branch.land` is `agent`, and then still for a careful request and for one that is not green. A
+`branch.land` is `agent`, and then still for a careful request, for one that is not green (one
+that is not reviewed among them), and for one whose newest review that answered made no careful
+call. A
 pull request is merged through the forge, so the forge's own rules hold; `merged` is for one the
 owner merged himself. What lands is the tree the checks passed on: when the tip is another tree,
 or the base moved by more than the paths the settings' `gate.ignores` name, `land` refuses and
@@ -260,8 +278,14 @@ READ_AT = 800
 # A plan of more tasks than this is large: it gets a round at the least, and a plan talk before
 # any code. The three-touches plan's own line (2026-11-15), not a measurement.
 LARGE_AFTER = 3
-# The plan's own call that the task is careful, as `stages/plan.md` step 2 has the lead write it.
-PLAN_CAREFUL = re.compile(r"(?mi)^careful:\s*yes\b")
+# The plan's own call whether the task is careful, as `stages/plan.md` step 2 has the lead write it:
+# one line under the plan's title, before its first `##` heading. A line further down is no call:
+# the plan talk's record or a fenced block may quote one.
+PLAN_CALL = re.compile(r"(?mi)^careful:\s*(yes|no)\b")
+# Lem's own settings, whose `[flow]` says what must never go wrong and whose `[gate]` says what the
+# gate runs. A change to either is careful by this script, not by a judgment: the file is Lem's.
+SETTINGS_FILE = ".lem/project.toml"
+GUARDED = ("flow", "gate")
 # What a decision of the build did to its story, as a line of the pull request says it.
 STORY_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}
 # The form of the one event that records the personas' read of a task's stories.
@@ -359,6 +383,10 @@ class Task:
 
     def __init__(self, repo: Path, slug: str) -> None:
         self.settings = json.loads(script("project.py", repo, "show").stdout)
+        if Path(self.settings["root"]).resolve() != Path(self.settings["main"]).resolve():
+            # Run from a task's worktree, the landing still reads the main checkout's settings:
+            # the branch it lands does not get to choose its gate or what is careful.
+            self.settings = json.loads(script("project.py", Path(self.settings["main"]), "show").stdout)
         if self.settings["settings"] is None:
             raise LandError("this repository has no .lem/project.toml; `/lem init` writes it")
         self.slug = slug
@@ -386,7 +414,7 @@ class Task:
         self.kept_file = self.directory / "landing.json"
         self.recorded: list[dict] | None = None
         self.stories: dict | None = None
-        self.careful_matches: dict[tuple[str, ...], list[dict]] = {}
+        self.plan_said: bool | None = None
         self.branch_gate: list[str] | None = None
         # The address as the repository has it, before any rewrite of it: the forge is known by its host.
         # A project that wants no pull requests (`branch.propose = "merge"`) has no forge here: its
@@ -807,29 +835,74 @@ def owner_says_careful(task: Task) -> bool:
     return brief.is_file() and OVERRULED in [line.strip() for line in brief.read_text(encoding="utf-8", errors="replace").splitlines()]
 
 
-def careful_path(task: Task, files: list[str]) -> dict | None:
-    """The first changed file that a careful pattern of the settings matches, with that pattern.
-    A step asks it for the same files more than once (the review's floor, the missed call), and
-    no step writes the settings, so each answer is kept for the life of this process."""
-    if not files:
+def plan_call(text: str) -> bool:
+    """Whether one text of the plan says `careful: yes` where the call stands: under its title, before its first `##` heading."""
+    found = PLAN_CALL.search(re.split(r"(?m)^##\s", text, maxsplit=1)[0])
+    return bool(found) and found.group(1).lower() == "yes"
+
+
+def plan_careful(task: Task) -> bool:
+    """Whether the plan called the task careful, in its text now or in any commit of the branch.
+    The talk was due when the plan said yes, so a later commit that takes the yes back does not
+    take back the talk, the full set or the person's merge. A step asks it many times, and no step
+    writes the plan, so the first answer is kept for the life of this process."""
+    if task.plan_said is None:
+        plan = Path(stories_of(task)["plan"])
+        relative = plan.relative_to(task.worktree).as_posix()
+        base = git(task.worktree, "merge-base", "HEAD", task.onto)
+        texts = [plan.read_text(encoding="utf-8")]
+        for commit in git(task.worktree, "log", "--format=%H", f"{base}..HEAD", "--", relative).splitlines():
+            shown = run(["git", "-C", str(task.worktree), "show", f"{commit}:{relative}"], check=False)
+            texts.append(shown.stdout if shown.returncode == 0 else "")
+        task.plan_said = any(plan_call(text) for text in texts)
+    return task.plan_said
+
+
+def settings_edit(task: Task, now: dict) -> str | None:
+    """Why the change is careful by its edit of Lem's own settings: it changes their `[flow]` or
+    their `[gate]`, which the landing reads from the main checkout and which, once landed, say for
+    every later task what is careful and what the gate runs. None when it changes neither."""
+    if SETTINGS_FILE not in now["files"]:
         return None
-    key = tuple(files)
-    if key not in task.careful_matches:
-        task.careful_matches[key] = json.loads(script("project.py", task.worktree, "careful", *files).stdout)["careful"]
-    matched = task.careful_matches[key]
-    return matched[0] if matched else None
+
+    def tables(commit: str) -> dict:
+        shown = run(["git", "-C", str(task.worktree), "show", f"{commit}:{SETTINGS_FILE}"], check=False)
+        return tomllib.loads(shown.stdout) if shown.returncode == 0 else {}
+    try:
+        before, after = tables(now["base"]), tables(now["tip"])
+    except tomllib.TOMLDecodeError:
+        # in doubt, careful: what it says cannot be told
+        return f"the change leaves {SETTINGS_FILE} in a form that does not read as TOML, so what it says is careful cannot be told"
+    edited = [name for name in GUARDED if before.get(name) != after.get(name)]
+    if not edited:
+        return None
+    return f"the change edits {' and '.join(f'[{name}]' for name in edited)} of {SETTINGS_FILE}, the settings that say what is careful and what the gate runs"
 
 
-def careful(task: Task, files: list[str], plan: str) -> list[str]:
-    """Each reason for which this request is careful; none when it is not."""
+def review_call(task: Task) -> dict | None:
+    """The careful call of the newest review that answered, as its record made it: `careful` and its
+    `why`. None when no review answered, or when the newest record holds no call."""
+    answered = [read for read in task.kept().get("reads", []) if read["answered"]]
+    if not answered or "careful" not in answered[-1]:
+        return None
+    return {"careful": answered[-1]["careful"], "why": answered[-1]["careful_why"]}
+
+
+def careful(task: Task, now: dict) -> list[str]:
+    """Each reason for which this request is careful; none when it is not. The owner's word, the
+    plan's own call and the newest review's are judgments against the project's topics; the edit of
+    Lem's own settings is the one rule this script matches by itself."""
     why = []
     if owner_says_careful(task):
         why.append("the owner says so")
-    if PLAN_CAREFUL.search(plan):
+    if plan_careful(task):
         why.append("the plan says so")
-    matched = careful_path(task, files)
-    if matched:
-        why.append(f"{matched['file']} is a careful path ({matched['pattern']})")
+    edited = settings_edit(task, now)
+    if edited:
+        why.append(edited)
+    call = review_call(task)
+    if call and call["careful"]:
+        why.append(f"the review says so: {reason(call['why'])}")
     return why
 
 
@@ -997,7 +1070,7 @@ def due(task: Task) -> dict:
     plan = Path(stories_of(task)["plan"]).read_text(encoding="utf-8")
     reads = task.kept().get("reads", [])
     answered = [read for read in reads if read["answered"]]
-    why_careful = careful(task, now["files"], plan)
+    why_careful = careful(task, now)
     facts = {"round": len(answered) + 1, "careful": why_careful, "tasks": tasks_of(plan), "lines": now["lines"], "in_parts": now["lines"] > READ_AT, **now}
     # The floor is what no judgment goes under. Which profiles fit a change is read from the diff
     # and from what each profile is for, by an agent: no code and no list of words decides that.
@@ -1034,9 +1107,9 @@ def talk_due(task: Task, state: dict) -> str | None:
     """Why this request's plan had to be talked through before any code; none when it did not.
 
     A talk is a step before the build, so only the plan itself calls for one: its own `careful:
-    yes` line, or more than three tasks. The owner's later word, or a careful path that only the
-    diff matches, gives the full review set at the landing and no talk after the code exists."""
-    if PLAN_CAREFUL.search(Path(stories_of(task)["plan"]).read_text(encoding="utf-8")):
+    yes` line, or more than three tasks. The owner's later word, the review's call or an edit of
+    Lem's own settings gives the full review set at the landing and no talk after the code exists."""
+    if plan_careful(task):
         return "the plan says that the request is careful"
     if state["tasks"] > LARGE_AFTER:
         return f"the plan has {state['tasks']} tasks, more than three"
@@ -1065,20 +1138,29 @@ def talk_of(task: Task) -> dict | None:
     return next((record for record in reversed(events_of(task)) if record.get("event") == "plan.talk"), None)
 
 
-def missed(task: Task, state: dict) -> dict | None:
-    """The careful path the plan's own call missed: the diff matches one, and the plan does not say
-    careful. The plan-time call is the lead's, so the retro counts each such miss."""
-    if PLAN_CAREFUL.search(Path(stories_of(task)["plan"]).read_text(encoding="utf-8")):
-        return None
-    return careful_path(task, state["files"])
-
-
 def untalked(task: Task, state: dict) -> str | None:
     """Why a careful request had no plan talk, when none was due: it became careful after its plan."""
     if not state["careful"] or talk_due(task, state):
         return None
-    how = [*(["by the owner's word"] if owner_says_careful(task) else []), *(["by its diff"] if missed(task, state) else [])]
+    call = review_call(task)
+    how = [
+        *(["by the owner's word"] if owner_says_careful(task) else []),
+        *(["by its change to the settings"] if settings_edit(task, state) else []),
+        *(["by its review"] if call and call["careful"] else []),
+    ]
     return f"- no plan talk: the request became careful after its plan, {' and '.join(how)}"
+
+
+def careful_line(task: Task, state: dict) -> str:
+    """Whether the request is careful, as one line of the pull request's checks: each reason it is,
+    and the newest review's call with its reason when the review said no."""
+    call = review_call(task)
+    line = "- careful: yes, " + "; ".join(state["careful"]) if state["careful"] else "- careful: no"
+    if call is None:
+        return line + "; no review that answered made the call"
+    if not call["careful"]:
+        return line + f"; the review says no: {reason(call['why'])}"
+    return line
 
 
 def talked(talk: dict) -> str:
@@ -1337,6 +1419,8 @@ def cmd_read(task: Task, record: str | None) -> dict:
                 **{name: str(task.directory / file) for name, file in (("words", "ask.txt"), ("request", "task.md")) if (task.directory / file).is_file()},
                 "plan": stories_of(task)["plan"], "range": f"{state['base']}..{state['tip']}",
                 "worktree": str(task.worktree), "rules": [rule["file"] for rule in rules], "bar": task.kept().get("checks", {}).get("bar"),
+                # what must never go wrong, from the main checkout's settings: the review reads the diff against each
+                "topics": task.settings["flow"]["topics"],
                 # where the project's review tool keeps each profile and lens, with what each is for
                 "review": task.settings["paths"]["review"]["path"],
             },
@@ -1347,7 +1431,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
         said = json.loads(Path(record).read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         raise LandError(f"{record} does not read as JSON ({error}); --record names the file that says what the review was and what it found") from error
-    known = {"attempt", "kind", "ran", "left_out", "answered", "silent", "bar", "must_fix", "should", "nit", "outside"}
+    known = {"attempt", "kind", "ran", "left_out", "answered", "silent", "bar", "must_fix", "should", "nit", "outside", "careful", "careful_why"}
     if not isinstance(said, dict) or set(said) - known or not {"attempt", "kind", "answered"} <= set(said):
         raise LandError(f"the record is one object with `attempt`, `kind` and `answered`, and of the others what applies: {', '.join(sorted(known))}")
     # A record that is sent again, after a run that was cut off or by mistake, must not count as
@@ -1362,6 +1446,19 @@ def cmd_read(task: Task, record: str | None) -> dict:
         raise LandError(f"`kind` is one of {', '.join(KINDS)}: {'; '.join(f'{name} is {says}' for name, says in KIND_SAYS.items())}")
     if KINDS.index(kind) < KINDS.index(state["floor"]):
         raise LandError(f"this change gets {KIND_SAYS[state['floor']]} at the least ({state['why']}), and the record says {KIND_SAYS[kind]}")
+    # The careful call is the review's own reading of the diff against the project's topics, by an
+    # agent that did not build it: it is what lets an agent merge, or keeps the merge a person's.
+    call, call_why = said.get("careful"), said.get("careful_why")
+    if not isinstance(call, bool) or not isinstance(call_why, str) or not call_why.strip() or "\n" in call_why.strip():
+        raise LandError(
+            "the record makes the careful call: \"careful\": true or false, the review's own reading of the diff against each of the project's topics "
+            "(`topics` in what `land.py read` printed), and \"careful_why\": one line that names the topic the change reaches, or what was checked to say that it reaches none",
+        )
+    if call and kind != "full":
+        raise LandError(
+            f"a change the review calls careful gets the project's full set, and the record says {KIND_SAYS[kind]}: "
+            "the review runs the full set and writes its record with \"kind\": \"full\"",
+        )
     ran, left_out, silent, bar_says = (named(said.get(key, []), key) for key in ("ran", "left_out", "silent", "bar"))
     answered = said["answered"]
     if not isinstance(answered, list) or not all(isinstance(source, str) and source.strip() for source in answered):
@@ -1386,6 +1483,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
         )
     entry = {
         "attempt": state["attempt"], "round": state["round"], "kind": kind, "ran": ran, "left_out": left_out, "answered": answered, "silent": silent, "bar": bar_says, **counts, "outside": outside,
+        "careful": call, "careful_why": call_why.strip(),
         "date": date.today().isoformat(), "verdict": "not reviewed" if not answered else "must-fix" if counts["must_fix"] else "clean", "tip": state["tip"][:9], "patch": state["patch"],
     }
     # The event first: a run that is cut off between the two writes the review down at its next
@@ -1393,6 +1491,10 @@ def cmd_read(task: Task, record: str | None) -> dict:
     script("project.py", task.worktree, "log", task.slug, "review", *(f"{key}:={json.dumps(value)}" for key, value in entry.items()))
     # The contents of the change stay out of the log: only `covers` reads them, from the kept record.
     task.keep(reads=[*reads, {**entry, "contents": state["contents"]}])
+    # A change the review calls careful and the plan did not is a lesson about the plan's call: one
+    # event for the retro, the first time a review finds it.
+    if answered and call and not plan_careful(task) and not any(record.get("event") == "careful.missed" for record in events_of(task)):
+        script("project.py", task.worktree, "log", task.slug, "careful.missed", f"round:={state['round']}", f"why={call_why.strip()}")
     return {"task": task.slug, "recorded": entry, "next": due(task)["due"], "to_file": to_file(task.kept()["reads"])}
 
 
@@ -1534,6 +1636,9 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         out += ["**Not green.**", "", *(f"- {reason}" for reason in reasons), ""]
     else:
         out += ["**Green.** The machine checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts.", ""]
+    if state["careful"]:
+        # a careful request is a person's to merge, green or not, and he reads why first
+        out += [f"**Careful**, so a person merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
     out += ["## Stories", "", f"{found['kind'].capitalize()}, because {found['why']}", ""]
     for story in found["stories"]:
@@ -1591,7 +1696,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     elif untalked(task, state):
         # careful after its plan: the full set ran and a person merges, so this is no cause of not green
         out.append(untalked(task, state))
-    out.append(f"- careful: {'yes, ' + '; '.join(state['careful']) if state['careful'] else 'no'}")
+    out.append(careful_line(task, state))
     out += ["", "## Decisions of the build", "", *([decided(decision) for decision in task.decisions()] or ["none"])]
     return "\n".join(out) + "\n\n" + notes.strip() + "\n"
 
@@ -1729,11 +1834,6 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
                 raise LandError(f"gh pr create printed no pull request address: {url!r}")
             pr = {"number": int(number), "url": url}
     # The events come after the forge's step: a proposal that the forge or the push refused is none.
-    # A careful path that the plan's own call missed is a lesson about that call: one event for the
-    # retro, written the first time a proposal finds it.
-    path = missed(task, state)
-    if path and not any(record.get("event") == "careful.missed" for record in events_of(task)):
-        script("project.py", task.worktree, "log", task.slug, "careful.missed", f"path={path['file']}", f"pattern={path['pattern']}")
     # for the retro: how often a request is not green, and for which reason
     script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
     if task.forge == "github":
@@ -1781,6 +1881,10 @@ def may_merge(task: Task, by: str) -> None:
     reasons = not_green(task, state)
     if reasons:
         raise LandError(f"the request is not green ({'; '.join(reasons)}), so a person merges it, whatever the settings say; it waits as `open` for the owner's word")
+    # An agent merges only on the newest review's "not careful": a record with no call, as one
+    # written before the call was asked, is no such word.
+    if review_call(task) is None:
+        raise LandError("no review that answered made the careful call for this change, so a person merges it, whatever the settings say; it waits as `open` for the owner's word")
 
 
 def forge_done(task: Task, view: dict) -> dict:

@@ -310,7 +310,9 @@ task "$P" "Name the invoice files by order"
 project state "$P" ready "the report is written" >/dev/null
 project state "$P" landing "the checks start" >/dev/null
 project log "$P" polish before=abc1234 after=def5678 commits:=2 'filed:=["docs/backlog/invoice-footer-typo.md"]' >/dev/null
-retime "$P" now -40 -30 -12
+# the review read the diff against the topics and called it careful, which the plan did not
+project log "$P" careful.missed round:=1 "why=the file name holds the order's total, which a customer pays" >/dev/null
+retime "$P" now -40 -30 -12 -12
 task landing-starts "Print the order date on the invoice"
 project state landing-starts ready "the report is written" >/dev/null
 project state landing-starts landing "the checks start" >/dev/null
@@ -837,6 +839,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   fi
   draw "task-$P" && draw task-landing-starts
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$P.dom" feed "The polish pass|2 commits, 1 item filed in the backlog|abc1234 → def5678|docs/backlog/invoice-footer-typo.md") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$P.dom" feed "Careful by the review, not by the plan|round 1: the file name holds the order's total, which a customer pays") \
     && why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$P.dom" "You|Lem|The builders|The checks" "Lem=10m · 25%" "The builders=18m · 45%" "The checks=12m · 30%") \
     && grep -q 'data-head="The builders · The polish pass" data-sub="from the event before it: its start is not logged, so the rebase onto the base is in it"' "$WORK/task-$P.dom" \
     && grep -q 'data-head="The checks · The checks run"' "$WORK/task-$P.dom" \
@@ -844,7 +847,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-landing-starts.dom" now "It starts its landing: the rebase onto the base, then the polish pass|!The checks and the review run on it") \
     && grep -q 'data-head="Lem · The landing starts: the rebase onto the base, then the polish pass, and no event says which runs yet"' "$WORK/task-landing-starts.dom" \
     && ! grep -q 'data-head="The checks · The checks run"' "$WORK/task-landing-starts.dom"; then
-    pass "the polish pass is in the activity with its commits and the items it filed, and on the time card as the builders' span from the event before it; a landing with no polish and no check yet says that it starts, not that its checks run"
+    pass "the polish pass is in the activity with its commits and the items it filed, and on the time card as the builders' span from the event before it; a landing with no polish and no check yet says that it starts, not that its checks run; a careful call the review made and the plan missed is in the activity with the review's reason"
   else
     fail "the polish pass: ${why:-a span of the time card}"
   fi

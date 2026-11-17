@@ -2,9 +2,8 @@
 """Say where one repository keeps what Lem reads, and what its flow settings are.
 
 Every project keeps its own settings in its repository: what the project is, its style guide, its
-personas, its review configuration, its lessons, the checks that gate a landing, and the paths
-whose change takes the careful flow. `.lem/project.toml` at the root of the checkout names
-them. A project that keeps a cast or a profile where an older tool already reads them
+personas, its review configuration, its lessons, the checks that gate a landing, and what must
+never go wrong there. `.lem/project.toml` at the root of the checkout names them. A project that keeps a cast or a profile where an older tool already reads them
 (`.personas`), or its worktrees, may point at them there (`init --existing link`), so adopting the skill moves
 nothing, or start the skill's own layout beside them (`init --existing new`). Which of the two is
 the owner's choice, so `init` refuses to guess it. The rules an agent already loads by itself
@@ -12,7 +11,6 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
 
     project.py show                 everything, resolved, as JSON
     project.py path NAME            one path, absolute
-    project.py careful FILE...      which of the files take the careful flow
     project.py may-land BRANCH      exit 1 unless tasks of this project may land on BRANCH
     project.py existing             the folders an older tool already reads here, as JSON
     project.py init [--base NAME] [--existing link|new] [--reviewer claude|codex]
@@ -86,8 +84,8 @@ reviewer's pane (the usual reviewer is down, or out of tokens) and on which mode
 a plan talk runs, which tool marks up a plan and which one puts a question to the owner, and a no to the correction queue for that one person. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]` and
-`[tools]`, and `[corrections]` with `collect = false`, and nothing else: the gate, the careful
-paths, the protected branches and who lands are the project's rules, and a file nobody reviews
+`[tools]`, and `[corrections]` with `collect = false`, and nothing else: the gate, what must
+never go wrong, the protected branches and who lands are the project's rules, and a file nobody reviews
 must not open them. For the same reason it can switch the correction queue off for its person
 and never on: nobody's messages are sent because of a file that git does not show. `show` names each setting that
 came from it.
@@ -99,6 +97,15 @@ in its frontmatter, in Claude Code's form (`paths:` with a list of globs), and a
 that covers every path. `rules` is the one place that matches a change against those scopes: a
 builder's brief, the message to the reviewer and a review round all get its answer, so an agent
 that does not load the folder by itself reads the same rules as one that does.
+
+What must never go wrong is `flow.topics`: sentences in the owner's words, against which an agent
+reads an ask, a plan and a diff. No list of paths says whether a change is careful: such a list
+goes stale as the code moves, misses new code, and a branch can edit the list that guards it.
+`flow.careful` is refused, with the sentence to write in its place. The `[flow]` table is read
+from the main checkout's `.lem/project.toml`, also in a task's worktree, as the gate is read by
+the landing: a branch that empties its topics or shortens the owner's wait lifts nothing, since
+every lead, reviewer and landing reads the table as the base branch's checkout has it. The
+table the branch writes is still checked, so that its error shows before it lands.
 
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
@@ -114,7 +121,6 @@ if sys.version_info < (3, 11):
 
 import argparse
 import difflib
-import fnmatch
 import json
 import os
 import re
@@ -209,7 +215,7 @@ TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
     "branch": ("base", "land", "history", "propose", "protected"),
     "gate": ("commands", "ignores", "setup", "bar"),
-    "flow": ("careful", "topics", "max_tasks", "decision_wait"),
+    "flow": ("topics", "max_tasks", "decision_wait"),
     "seats": ("reviewer", "planner"),
     "tools": tuple(TOOLS),
     "corrections": ("collect",),
@@ -243,7 +249,7 @@ TEMPLATE = """\
 # The branch a task starts from and lands on.
 base = "{base}"
 # Who lands a finished task: "owner", or "agent", which lands only a request that is green and
-# not careful; the owner lands every other one.
+# that the review called not careful; the owner lands every other one.
 land = "owner"
 # What lands: "keep" lands the branch's own commits, "squash" lands one commit for the whole task.
 history = "keep"
@@ -265,14 +271,13 @@ ignores = []
 setup = []
 
 [flow]
-# Paths whose change takes the careful flow: its plan is talked through with the reviewer before
-# any code, in a companion session of its own, and the landing gives it the project's full
-# review set. A `*` crosses directories.
-careful = []
-# What must not go wrong in this project, each as one sentence in the owner's words: "a price a
-# customer pays", "data that cannot be rebuilt", "who may sign in". No code matches these: the
-# lead of a task reads its plan against each, and a plan that touches one takes the careful flow
-# whatever its paths.
+# What must never go wrong in this project, each as one sentence in the owner's words: "a
+# customer is charged the wrong amount", "data that cannot be rebuilt is lost", "someone signs in
+# as another user". No code matches these and no list of paths stands in for them: Lem reads the
+# ask against each, the lead its plan, and the agent that reviews the diff the change itself, and
+# a change in reach of one takes the careful flow: its plan is talked through with the reviewer
+# before any code, the landing gives it the project's full review set, and a person merges it.
+# This table is read from the main checkout, so a branch cannot lift what guards it.
 topics = []
 # How many tasks build or land at one time. Four to five ran well on one Mac; six gave a load
 # average of 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when
@@ -440,10 +445,39 @@ def read_settings(file: Path, name: Path, tables: tuple[str, ...]) -> dict:
             )
         if not isinstance(body, dict):
             raise SettingsError(f"{name}: [{table}] must be a table")
+        if table == "flow" and "careful" in body:
+            raise SettingsError(careful_gone(name, body["careful"]))
         for key in body:
             if key not in TABLES[table]:
                 raise SettingsError(f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
     return raw
+
+
+def careful_gone(name: Path, paths: object) -> str:
+    """The refusal of a list of careful paths, with the sentence to write in its place."""
+    first = paths[0] if isinstance(paths, list) and paths and isinstance(paths[0], str) else None
+    example = (
+        f'say what the paths stood for as sentences in flow.topics, as topics = ["what goes wrong for a person when {first} breaks, in your words"], '
+        if first else "say in flow.topics, as sentences, what must never go wrong here, "
+    )
+    return (
+        f"{name}: flow.careful is gone: whether a change is careful is judged against flow.topics, at the ask, at the plan and at the diff, "
+        f"and no list of paths decides it, since a list goes stale as the code moves and a branch can edit it. {example.capitalize()}"
+        "then remove the line careful = [...]"
+    )
+
+
+def flow_of(raw: dict, name: Path) -> dict:
+    """The `[flow]` table of one settings file, checked."""
+    flow = raw.get("flow", {})
+    max_tasks = flow.get("max_tasks", MAX_TASKS)
+    # a bool is an int in Python, and `max_tasks = true` is a mistake, not the number 1
+    if isinstance(max_tasks, bool) or not isinstance(max_tasks, int) or max_tasks < 1:
+        raise SettingsError(f"{name}: flow.max_tasks = {max_tasks!r} must be a whole number, 1 or more")
+    decision_wait = flow.get("decision_wait", DECISION_WAIT)
+    if isinstance(decision_wait, bool) or not isinstance(decision_wait, int) or decision_wait < 1:
+        raise SettingsError(f"{name}: flow.decision_wait = {decision_wait!r} must be a whole number of minutes, 1 or more")
+    return {"topics": strings(flow.get("topics", []), "flow.topics"), "max_tasks": max_tasks, "decision_wait": decision_wait}
 
 
 def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
@@ -491,8 +525,14 @@ def tool_of(raw: dict, name: Path, role: str) -> str | None:
 def load(root: Path) -> dict:
     file = root / SETTINGS
     raw = read_settings(file, SETTINGS, tuple(TABLES))
-    local_file = main_checkout(root) / LOCAL
+    main = main_checkout(root)
+    local_file = main / LOCAL
     local = read_settings(local_file, LOCAL, LOCAL_TABLES)
+    # What must never go wrong, and the owner's wait, are the main checkout's: the branch that a
+    # rule guards does not get to lift it. The branch's own table is still checked.
+    flow = flow_of(raw, SETTINGS)
+    if main.resolve() != root.resolve():
+        flow = flow_of(read_settings(main / SETTINGS, main / SETTINGS, tuple(TABLES)), main / SETTINGS)
 
     paths = {}
     for name, (default, _older) in PATHS.items():
@@ -574,18 +614,10 @@ def load(root: Path) -> dict:
         if given["moves"] == "tracker" and named:
             raise SettingsError(f'{SETTINGS}: with tracker.moves = "tracker" Lem moves no ticket, so {" and ".join(named)} say nothing: remove them')
         tracker = {key: given.get(key) for key in TABLES["tracker"]}
-    max_tasks = raw.get("flow", {}).get("max_tasks", MAX_TASKS)
-    # a bool is an int in Python, and `max_tasks = true` is a mistake, not the number 1
-    if isinstance(max_tasks, bool) or not isinstance(max_tasks, int) or max_tasks < 1:
-        raise SettingsError(f"{SETTINGS}: flow.max_tasks = {max_tasks!r} must be a whole number, 1 or more")
-    decision_wait = raw.get("flow", {}).get("decision_wait", DECISION_WAIT)
-    if isinstance(decision_wait, bool) or not isinstance(decision_wait, int) or decision_wait < 1:
-        raise SettingsError(f"{SETTINGS}: flow.decision_wait = {decision_wait!r} must be a whole number of minutes, 1 or more")
-
     return {
         "root": str(root),
         # the checkout every worktree hangs off; it is `root` unless this ran in a task's worktree
-        "main": str(main_checkout(root)),
+        "main": str(main),
         "settings": str(file) if file.is_file() else None,
         "paths": paths,
         "branch": {"base": base, "land": land, "history": history, "propose": propose, "protected": protected},
@@ -595,12 +627,8 @@ def load(root: Path) -> dict:
             "setup": commands(raw.get("gate", {}).get("setup", []), "gate.setup"),
             "bar": patterns(raw.get("gate", {}).get("bar", []), "gate.bar"),
         },
-        "flow": {
-            "careful": strings(raw.get("flow", {}).get("careful", []), "flow.careful"),
-            "topics": strings(raw.get("flow", {}).get("topics", []), "flow.topics"),
-            "max_tasks": max_tasks,
-            "decision_wait": decision_wait,
-        },
+        # read from the main checkout's settings, in a task's worktree too
+        "flow": flow,
         "seats": seats,
         "tools": tools,
         "corrections": {"collect": collect},
@@ -614,23 +642,6 @@ def cmd_path(settings: dict, name: str) -> None:
     if name not in settings["paths"]:
         raise SettingsError(f"no path named {name!r}{nearest(name, tuple(PATHS))}")
     print(settings["paths"][name]["path"])
-
-
-def cmd_careful(settings: dict, files: list[str]) -> None:
-    root = Path(settings["root"]).resolve()
-    careful, plain = [], []
-    for file in files:
-        relative = Path(file)
-        if relative.is_absolute():
-            if not relative.resolve().is_relative_to(root):
-                raise SettingsError(f"{file} is not inside {root}; name files of this repository")
-            relative = relative.resolve().relative_to(root)
-        match = next((p for p in settings["flow"]["careful"] if fnmatch.fnmatchcase(relative.as_posix(), p)), None)
-        if match:
-            careful.append({"file": relative.as_posix(), "pattern": match})
-        else:
-            plain.append(relative.as_posix())
-    print(json.dumps({"careful": careful, "plain": plain}, indent=2))
 
 
 def cmd_may_land(settings: dict, target: str) -> None:
@@ -1436,7 +1447,6 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("show")
     commands.add_parser("path").add_argument("name")
-    commands.add_parser("careful").add_argument("files", nargs="+")
     commands.add_parser("may-land").add_argument("branch")
     commands.add_parser("worktree-dir").add_argument("slug")
     init = commands.add_parser("init")
@@ -1511,10 +1521,8 @@ def main() -> None:
             cmd_worktree_dir(settings, args.slug)
         elif args.command == "may-land":
             cmd_may_land(settings, args.branch)
-        elif args.command == "may-start":
-            cmd_may_start(settings, root, args.slug)
         else:
-            cmd_careful(settings, args.files)
+            cmd_may_start(settings, root, args.slug)
     except SettingsError as error:
         sys.exit(f"project.py: {error}")
 

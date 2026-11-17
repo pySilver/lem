@@ -8,7 +8,7 @@
 LOCAL=$WORK/local
 git init -q -b main "$LOCAL" && ident "$LOCAL"
 project --repo "$LOCAL" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' 'bar = ["rubocop:disable"]' '[flow]' 'careful = ["billing/*"]' > "$LOCAL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' 'bar = ["rubocop:disable"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$LOCAL/.lem/project.toml"
 mkdir -p "$LOCAL/tests" "$LOCAL/docs" && printf '%s\n' 'def test_base():' '    assert 1 + 1 == 2' '    assert 2 + 2 == 4' > "$LOCAL/tests/test_base.py" && echo guide > "$LOCAL/docs/guide.md"
 printf '%s\n' 'import plugin # noqa: F401' 'import other  # noqa: E402' > "$LOCAL/plug.py"
 # app_py FIRST SECOND: two functions alike in every line but their names, each longer than the
@@ -644,47 +644,115 @@ if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "
 else
   fail "the bar with reasons: $out / $unsaid / $proposed / $agent / $(cat "$text" 2>/dev/null)"
 fi
-# What makes a request large or careful, read from its plan and its paths.
+# What makes a request large or careful, read from its plan: its own call stands under its title,
+# where `stages/plan.md` puts it, never in a line the plan quotes further down, and a later commit
+# that takes a yes back leaves the request careful, since the talk was due when the plan said it.
 local_land start bar-change >/dev/null
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("1. The change.", "1. The change.\n2. Its test.\n3. Its page.\n4. Its note."))' "$plan"
 git -C "$tree" commit -q -am "docs: four tasks" && local_land gate bar-change >/dev/null
 large=$(local_land read bar-change | field '(d["floor"], d["why"])')
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n2. Its test.\n3. Its page.\n4. Its note.", "\n\ncareful: yes, a price is rounded here."))' "$plan"
-git -C "$tree" commit -q -am "docs: one task, and careful" && local_land gate bar-change >/dev/null
+# shellcheck disable=SC2016  # the backticks are the plan's own fence
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read().replace("\n2. Its test.\n3. Its page.\n4. Its note.", "").replace("\n## Stories", "careful: no, nothing here reaches a price.\n\n## Stories", 1)
+open(p, "w").write(s + "\n## Plan talk\n\nThe reviewer asked whether the plan should open with this line:\n\n```\ncareful: yes\n```\n")' "$plan"
+git -C "$tree" commit -q -am "docs: one task, not careful, and a talk that quotes the line" && local_land gate bar-change >/dev/null
+quoted=$(local_land read bar-change | field '(d["floor"], d["careful"])')
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("careful: no, nothing here reaches a price.", "careful: yes, a price is rounded here."))' "$plan"
+git -C "$tree" commit -q -am "docs: careful" && local_land gate bar-change >/dev/null
 said=$(local_land read bar-change | field '(d["floor"], d["why"])')
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n\ncareful: yes, a price is rounded here.", ""))' "$plan"
-mkdir -p "$tree/billing" && echo 'PRICE = 100' > "$tree/billing/price.py" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a price" && local_land gate bar-change >/dev/null
-path=$(local_land read bar-change | field '(d["floor"], d["why"])')
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("careful: yes, a price is rounded here.", "careful: no, the price is not rounded after all."))' "$plan"
+git -C "$tree" commit -q -am "docs: not careful after all" && local_land gate bar-change >/dev/null
+taken_back=$(local_land read bar-change | field '(d["floor"], d["why"])')
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("## Tasks\n\n1. The change.\n", ""))' "$plan"
 git -C "$tree" commit -q -am "docs: no tasks" && local_land gate bar-change >/dev/null
 err=$(local_land read bar-change 2>&1 || true)
-if [ "$large" = "('round', 'the plan has 4 tasks, more than three')" ] && [ "$said" = "('full', 'the request is careful: the plan says so')" ] \
-  && [ "$path" = "('full', 'the request is careful: billing/price.py is a careful path (billing/*)')" ] && grep -q "has no .## Tasks. section with numbered tasks" <<<"$err"; then
-  pass "a plan of more than three tasks gets a round at the least, a plan that says careful and a careful path get the full set, and a plan with no task list is refused, not taken for a small one"
+if [ "$large" = "('round', 'the plan has 4 tasks, more than three')" ] && [ "$quoted" = "('read', [])" ] && [ "$said" = "('full', 'the request is careful: the plan says so')" ] \
+  && [ "$taken_back" = "('full', 'the request is careful: the plan says so')" ] && grep -q "has no .## Tasks. section with numbered tasks" <<<"$err"; then
+  pass "a plan of more than three tasks gets a round at the least; the plan's careful call is read under its title only, never from a line its plan talk quotes, a yes gets the full set, and a later commit that takes the yes back leaves it; a plan with no task list is refused, not taken for a small one"
 else
-  fail "large and careful: $large / $said / $path / $err"
+  fail "large and careful: $large / $quoted / $said / $taken_back / $err"
 fi
 project --repo "$LOCAL" state bar-change dropped "the test is over" >/dev/null
 
-# Careful only by its diff: a careful path the plan's own call missed. No talk was due, the text says
-# why it had none, and the miss is one event for the retro, also after a second proposal.
+# Careful by its review: the plan called the request plain, and the fresh agent that read the diff
+# against the topics calls it careful. A record with no call is refused, and so is a careful call
+# with less than the full set. No talk was due, the text says why it had none and why it is
+# careful, the miss of the plan's call is one event for the retro, and no agent merges it.
 task_in "$LOCAL" price-change seven.txt seven
 tree=$(project --repo "$LOCAL" worktree-dir price-change)
 mkdir -p "$tree/billing" && echo 'PRICE = 7' > "$tree/billing/price.py" && git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a price"
 local_land start price-change >/dev/null && local_land base price-change >/dev/null && local_land gate price-change >/dev/null
-local_land read price-change --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "a price changes"}], "answered": ["codex"]}')" >/dev/null
+printf '%s\n' '{"attempt": 1, "kind": "full", "ran": [{"name": "default", "why": "a price changes"}], "answered": ["codex"]}' > "$WORK/no-call.json"
+nocall=$(local_land read price-change --record "$WORK/no-call.json" 2>&1 || true)
+priced="billing/price.py:PRICE is what a customer pays, so a customer is charged the wrong price"
+# the review's call, as JSON: the same record as a round and as the full set
+called() { printf '{"kind": "%s", "ran": [{"name": "default", "why": "a price changes"}], "answered": ["codex"], "careful": true, "careful_why": "%s"}' "$1" "$priced"; }
+less=$(local_land read price-change --record "$(record 1 "$(called round)")" 2>&1 || true)
+local_land read price-change --record "$(record 1 "$(called full)")" >/dev/null
 local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
 text=$LOCAL/.git/lem/tasks/price-change/pr.md
 first=$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.git/lem/events.jsonl" || true)
+agent=$(local_land land price-change --by agent 2>&1 || true)
 local_land start price-change >/dev/null && local_land base price-change >/dev/null && local_land gate price-change >/dev/null && local_land propose price-change --title "fix: seven" --notes "$MIG" >/dev/null
-if grep -q '^- no plan talk: the request became careful after its plan, by its diff$' "$text" && grep -q '^- careful: yes, billing/price.py is a careful path (billing/\*)$' "$text" \
-  && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && [ "$first" = 1 ] \
+if grep -qF "the record makes the careful call" <<<"$nocall" && grep -qF '"careful": true or false' <<<"$nocall" && grep -qF '"careful_why"' <<<"$nocall" \
+  && grep -qF "a change the review calls careful gets the project's full set" <<<"$less" \
+  && grep -q '^- no plan talk: the request became careful after its plan, by its review$' "$text" && grep -qxF -- "- careful: yes, the review says so: $priced" "$text" \
+  && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && [ "$(sed -n 3p "$text")" = "**Careful**, so a person merges it: the review says so: $priced." ] && [ "$first" = 1 ] \
   && [ "$(grep -c '"event": "careful.missed", "task": "price-change"' "$LOCAL/.git/lem/events.jsonl")" = 1 ] \
-  && grep -q '"event": "careful.missed", "task": "price-change", "path": "billing/price.py", "pattern": "billing/\*"' "$LOCAL/.git/lem/events.jsonl"; then
-  pass "a request careful only by a path its diff matches is proposed with no plan talk, its checks say why it had none, and the careful call its plan missed is one event with the path and its pattern, also after a second proposal"
+  && grep -qF "\"event\": \"careful.missed\", \"task\": \"price-change\", \"round\": 1, \"why\": \"$priced\"" "$LOCAL/.git/lem/events.jsonl" \
+  && grep -qF "a careful request is merged by a person, whatever the settings say (the review says so: $priced)" <<<"$agent" && [ "$(status_in "$LOCAL" price-change)" = open ]; then
+  pass "a request the review calls careful and its plan did not gets the full set, its text says first that a person merges it and why, says in its checks that it had no plan talk and why, the plan's miss is one event with the review's reason, and no agent merges it; a record with no careful call is refused"
 else
-  fail "a request careful by its diff: first $first / $(grep careful.missed "$LOCAL/.git/lem/events.jsonl") / $(cat "$text" 2>/dev/null)"
+  fail "a request careful by its review: $nocall / $less / first $first / $agent / $(grep careful.missed "$LOCAL/.git/lem/events.jsonl") / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state price-change dropped "the test is over" >/dev/null
+
+# An agent merges a green request only on the newest review's "not careful": a record that holds no
+# call, as a review written down before the call was asked holds none, leaves the merge to a person.
+task_in "$LOCAL" call-kept eight.txt eight
+local_land start call-kept >/dev/null && local_land base call-kept >/dev/null && local_land gate call-kept >/dev/null && local_land read call-kept --record "$(clean 1)" >/dev/null
+local_land propose call-kept --title "fix: eight" --notes "$NOTES" >/dev/null
+text=$LOCAL/.git/lem/tasks/call-kept/pr.md
+kept_file=$LOCAL/.git/lem/tasks/call-kept/landing.json
+cp "$kept_file" "$WORK/call-kept.json"
+"$PY" -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p))
+for read in d["reads"]:
+    read.pop("careful"); read.pop("careful_why")
+json.dump(d, open(p, "w"))' "$kept_file"
+uncalled=$(local_land land call-kept --by agent 2>&1 || true)
+cp "$WORK/call-kept.json" "$kept_file"
+merged=$(local_land land call-kept --by agent 2>&1 || true)
+if grep -qxF -- "- careful: no; the review says no: $NOT_CAREFUL" "$text" && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && ! grep -q '^\*\*Careful\*\*' "$text" \
+  && grep -qF "no review that answered made the careful call for this change, so a person merges it" <<<"$uncalled" \
+  && [ "$(status_in "$LOCAL" call-kept)" = landed ] && [ "$(git -C "$LOCAL" show main:eight.txt)" = eight ]; then
+  pass "an agent merges a green request whose newest review says not careful, and its text says the review's call with its reason; a newest review with no call leaves the merge to a person"
+else
+  fail "the agent's merge and the review's call: $uncalled / $merged / $(cat "$text" 2>/dev/null)"
+fi
+local_land clean call-kept >/dev/null
+
+# A branch cannot lift what guards it: one that edits the flow table of its own .lem/project.toml is
+# careful by the script, which says why, and the landing reads the topics of the main checkout's
+# settings, also when it runs from the task's worktree.
+task_in "$LOCAL" lift-topics nine.txt nine
+tree=$(project --repo "$LOCAL" worktree-dir lift-topics)
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("topics = [\"a customer is charged the wrong price\"]", "topics = []"))' "$tree/.lem/project.toml"
+git -C "$tree" commit -q -am "chore: no topics"
+local_land start lift-topics >/dev/null && local_land base lift-topics >/dev/null && local_land gate lift-topics >/dev/null
+lifted=$(local_land read lift-topics | field '(d["floor"], d["why"], d["inputs"]["topics"])')
+from_tree=$(land --repo "$tree" read lift-topics | field '(d["floor"], d["inputs"]["topics"])')
+local_land read lift-topics --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the settings change"}], "answered": ["codex"]}')" >/dev/null
+local_land propose lift-topics --title "chore: no topics" --notes "$MIG" >/dev/null
+agent=$(local_land land lift-topics --by agent 2>&1 || true)
+text=$LOCAL/.git/lem/tasks/lift-topics/pr.md
+settings_why="the change edits [flow] of .lem/project.toml, the settings that say what is careful and what the gate runs"
+if [ "$lifted" = "('full', 'the request is careful: $settings_why', ['a customer is charged the wrong price'])" ] \
+  && [ "$from_tree" = "('full', ['a customer is charged the wrong price'])" ] \
+  && grep -qxF -- "- careful: yes, $settings_why; the review says no: $NOT_CAREFUL" "$text" \
+  && grep -qF "a careful request is merged by a person, whatever the settings say ($settings_why)" <<<"$agent" && [ "$(status_in "$LOCAL" lift-topics)" = open ]; then
+  pass "a branch that edits the flow table of its own settings is careful by the script, which says why, gets the full set and a person's merge, and the landing reads the main checkout's topics, also when it runs from the task's worktree"
+else
+  fail "a branch that lifts its own topics: $lifted / $from_tree / $agent / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state lift-topics dropped "the test is over" >/dev/null
 
 finish

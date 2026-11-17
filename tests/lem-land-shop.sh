@@ -75,10 +75,10 @@ out=$(land --repo "$SHOP" read first-change)
 base=$(git -C "$SHOP" rev-parse origin/main)
 if grep -q "a review is due before anything is proposed, one read at the least" <<<"$err" && [ "$(status first-change)" = landing ] \
   && [ "$(field '(d["due"], d["floor"], d["round"], d["in_parts"], sorted(d["inputs"]), d["inputs"]["range"], [r.split("/.lem/")[-1] for r in d["inputs"]["rules"]])' <<<"$out")" \
-  = "('review', 'read', 1, False, ['bar', 'plan', 'range', 'review', 'rules', 'words', 'worktree'], '$base..$tip', ['styleguide/tests.md'])" ] \
+  = "('review', 'read', 1, False, ['bar', 'plan', 'range', 'review', 'rules', 'topics', 'words', 'worktree'], '$base..$tip', ['styleguide/tests.md'])" ] \
   && [ "$(cat "$(field 'd["inputs"]["words"]' <<<"$out")")" = "Put yes into ok.txt." ] && [ -f "$(field 'd["inputs"]["plan"]' <<<"$out")" ] \
   && [ "$(field 'd["inputs"]["review"]' <<<"$out")" = "$SHOP/.revmux" ]; then
-  pass "nothing is proposed before its review; for a usual request the floor is one read, and a reviewer gets the owner's words, the plan, the range, the rule files of the changed files and the folder of the review tool"
+  pass "nothing is proposed before its review; for a usual request the floor is one read, and a reviewer gets the owner's words, the plan, the range, the rule files of the changed files, the project's topics and the folder of the review tool"
 else
   fail "the read that is due: $err / $out"
 fi
@@ -105,7 +105,7 @@ if grep -q "the notes lack ## Left open, ## Worth a look, ## Filed in the backlo
   && grep -q '^> Put yes into ok.txt\.$' "$text" && grep -q '^1\. The file holds the word the owner asked for\.$' "$text" \
   && grep -q 'sh tests/first-change.sh.: passes on the branch, fails on the base commit' "$text" && grep -q '^- gate, .echo 7 passed.: 7 passed$' "$text" \
   && grep -q "^- the stories' tests: 1 pass on the branch and fail on the base commit$" "$text" && grep -q '^- the bar: not lowered$' "$text" \
-  && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 1 should, 0 nit$' "$text" && grep -q '^- careful: no$' "$text" && grep -q '^- the one line of the file\.$' "$text" \
+  && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 1 should, 0 nit$' "$text" && grep -qxF -- "- careful: no; the review says no: $NOT_CAREFUL" "$text" && grep -q '^- the one line of the file\.$' "$text" \
   && ! grep -q 'plan talk' "$text" && ! grep -q '"event": "plan.talk", "task": "first-change"' "$SHOP/.git/lem/events.jsonl"; then
   pass "with no forge the branch is marked ready: the task is open, and the text for the owner says green first, then holds his words, the stories with their tests, each check with what it returned, the decisions of the record (none here), then the notes; a plain request of one task needs no plan talk, and its text has no line of one"
 else
@@ -262,7 +262,7 @@ else
   fail "a request careful by the owner's later word: $(cat "$text" 2>/dev/null)"
 fi
 agent=$(land --repo "$SHOP" land second-change --by agent --message "fix(app): both lines stay" 2>&1 || true)
-if grep -q "the notes lack ## Migration" <<<"$err" && grep -q '^- careful: yes, the owner says so$' "$text" && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] \
+if grep -q "the notes lack ## Migration" <<<"$err" && grep -qxF -- "- careful: yes, the owner says so; the review says no: $NOT_CAREFUL" "$text" && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] \
   && grep -q "^- the review, round 1 (the project's full set; answered: codex, claude; no answer from gemini (at capacity)): must-fix, 1 must-fix, 0 should, 0 nit$" "$text" \
   && grep -q '^  - ran default: the request is careful$' "$text" \
   && grep -q "^- the review, round 2 (the project's full set; answered: codex, claude, gemini): clean, 0 must-fix, 0 should, 2 nit$" "$text" \
@@ -361,7 +361,7 @@ out=$(land --repo "$SHOP" propose four-tasks --title "fix: five" --notes "$NOTES
 text=$SHOP/.git/lem/tasks/four-tasks/pr.md
 if [ "$(field 'd["green"]' <<<"$out")" = True ] && [ "$(status four-tasks)" = open ] \
   && grep -qxF -- "- the plan talk: codex argued the plan with its defender, 23 turns, over the bound of 22 for its 5 questions; 4 positions settled by the two, 1 left open; 5 questions in the reviewer's first list, 3 repaired by the defender, 1 of the open ones a design choice, 2 raised after the list and not argued, 2 repaired at the cause, 1 layer over a cited decision, 0 decisions two questions named, rounds: 2" "$text" \
-  && [ "$(grep -c 'plan talk' "$text")" = 1 ] && grep -q '^- careful: no$' "$text"; then
+  && [ "$(grep -c 'plan talk' "$text")" = 1 ] && grep -qxF -- "- careful: no; the review says no: $NOT_CAREFUL" "$text"; then
   pass "after its plan talk a plan of four tasks is proposed, and its text holds one line of the talk, from the newest event, with its turns over the bound when they are, each of its counts in words, and a count Lem has no words for by its name"
 else
   fail "a large request after its plan talk: $out / $(cat "$text" 2>/dev/null)"
@@ -390,7 +390,7 @@ printf '%s\n' '{"ts": "2026-11-15T10:00:00Z", "event": "plan.talk", "task": "car
 land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" >/dev/null
 text=$SHOP/.git/lem/tasks/careful-plan/pr.md
 if [ "$(grep 'plan talk' "$text" || true)" = "- the plan talk: codex argued the plan with its defender, 6 turns; 2 positions settled by the two, 1 left open" ] \
-  && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c 'plan talk')" = 1 ] && grep -q '^- careful: yes, the plan says so$' "$text" \
+  && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c 'plan talk')" = 1 ] && grep -qxF -- "- careful: yes, the plan says so; the review says no: $NOT_CAREFUL" "$text" \
   && [ "$(status careful-plan)" = open ]; then
   pass "after its plan talk a request whose plan says careful is proposed, and the checks of its text say who argued the plan with its defender, the turns, and the positions settled and left open; an event of the older form, with no other count, reads as before"
 else
@@ -570,8 +570,9 @@ printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = [
 git -C "$tree" commit -q -am "chore: the checks"
 brought_start=$(land --repo "$FG" start set-up-checks 2>&1 || true)
 brought_gate=$(land --repo "$FG" base set-up-checks >/dev/null 2>&1 && land --repo "$FG" gate set-up-checks 2>&1 || true)
-land --repo "$FG" read set-up-checks --record "$(clean 1)" >/dev/null 2>&1 || true
-land --repo "$FG" propose set-up-checks --title "chore: the checks" --notes "$NOTES" >/dev/null 2>&1 || true
+brought_floor=$(land --repo "$FG" read set-up-checks | field '(d["floor"], d["why"])' 2>&1 || true)
+land --repo "$FG" read set-up-checks --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks come with it"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
+land --repo "$FG" propose set-up-checks --title "chore: the checks" --notes "$MIG" >/dev/null 2>&1 || true
 brought_agent=$(land --repo "$FG" land set-up-checks --by agent 2>&1 || true)
 text=$FG/.git/lem/tasks/set-up-checks/pr.md
 FG2=$WORK/kept-gate
@@ -584,18 +585,22 @@ tree=$(project --repo "$FG2" worktree-dir other-checks)
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["false"]' > "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "chore: other checks"
 kept_gate=$(land --repo "$FG2" start other-checks >/dev/null 2>&1 && land --repo "$FG2" base other-checks >/dev/null 2>&1 && land --repo "$FG2" gate other-checks 2>&1 || true)
-land --repo "$FG2" read other-checks --record "$(clean 1)" >/dev/null 2>&1 || true
-land --repo "$FG2" propose other-checks --title "chore: other checks" --notes "$NOTES" >/dev/null 2>&1 || true
+kept_floor=$(land --repo "$FG2" read other-checks | field '(d["floor"], d["why"])' 2>&1 || true)
+land --repo "$FG2" read other-checks --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the checks change"}], "answered": ["codex"]}')" >/dev/null 2>&1 || true
+land --repo "$FG2" propose other-checks --title "chore: other checks" --notes "$MIG" >/dev/null 2>&1 || true
+gate_why="the change edits [gate] of .lem/project.toml, the settings that say what is careful and what the gate runs"
 if [ "$(status_in "$FG" set-up-checks)" = open ] && ! grep -q "no gate command" <<<"$brought_start" \
   && [ "$(field '[(c["command"], c["last"]) for c in d["commands"]]' <<<"$brought_gate" 2>/dev/null)" = "[('echo 3 passed', '3 passed')]" ] \
   && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = "- the gate came with this change: the main checkout's settings name no gate command, and the branch's .lem/project.toml brings \`echo 3 passed\`. Read the checks once: every later task is gated on them" ] \
-  && grep -qF "the request is not green (the gate came with this change" <<<"$brought_agent" \
+  && grep -qF "a careful request is merged by a person, whatever the settings say ($gate_why)" <<<"$brought_agent" \
+  && [ "$brought_floor" = "('full', 'the request is careful: $gate_why')" ] && [ "$kept_floor" = "('full', 'the request is careful: $gate_why')" ] \
   && [ "$(field '[(c["command"], c["last"]) for c in d["commands"]]' <<<"$kept_gate" 2>/dev/null)" = "[('echo main passed', 'main passed')]" ] \
-  && [ "$(sed -n 1p "$FG2/.git/lem/tasks/other-checks/pr.md" 2>/dev/null | cut -c1-10)" = '**Green.**' ]; then
-  pass "a first task that brings the gate on its own branch, while the main checkout's settings have none, is gated by it and is not green for it, so a person merges it; a branch that changes a gate the main checkout has is gated by the main checkout's"
+  && [ "$(sed -n 1p "$FG2/.git/lem/tasks/other-checks/pr.md" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
+  && grep -qxF -- "- careful: yes, $gate_why; the review says no: $NOT_CAREFUL" "$FG2/.git/lem/tasks/other-checks/pr.md"; then
+  pass "a first task that brings the gate on its own branch, while the main checkout's settings have none, is gated by it and is not green for it; a branch that changes a gate the main checkout has is gated by the main checkout's; either is careful by the script, which says why, so it gets the full set and a person merges it"
 else
-  fail "a gate that comes with the change: $brought_start / $brought_gate / $brought_agent / $kept_gate / $(cat "$text" 2>/dev/null)"
+  fail "a gate that comes with the change: $brought_start / $brought_gate / $brought_floor / $brought_agent / $kept_gate / $kept_floor / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$FG" state set-up-checks dropped "the test is over" >/dev/null
 project --repo "$FG2" state other-checks dropped "the test is over" >/dev/null

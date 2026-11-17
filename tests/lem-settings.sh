@@ -2,8 +2,8 @@
 # Lem's project settings, offline: project.py resolves where a repository keeps what the skill reads.
 # With no settings file it answers from the skill's own layout; init points at the folders an older
 # tool already reads instead of moving them; a settings file with an unknown key, a wrong value or a
-# path that leaves the repository is refused; careful names the files a project's careful patterns
-# match. Then the task state and the event log, the rule picker, a task's stories and the check that
+# path that leaves the repository is refused, and so is a list of careful paths; a worktree reads
+# the main checkout's flow table. Then the task state and the event log, the rule picker, a task's stories and the check that
 # each one's tests fail on the base commit, the backlog's sorting, and the board, which reads them all.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
@@ -254,19 +254,18 @@ if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "tools.ask = '' 
 settings 'not toml ['
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a settings file that does not parse is refused"; else fail "parse error"; fi
 
+# No list of paths says whether a change is careful: a settings file that still has one is refused,
+# with the sentence to write in its place, made from its first pattern, and the line to remove.
 settings '[branch]' 'base = "master"' '[flow]' 'careful = ["app/outbox/*", "*/migrations/*"]'
-out=$(project --repo "$OLD" careful app/outbox/emit/site.py app/products/migrations/0002_x.py app/products/models.py "$OLD/app/outbox/a.py")
-if [ "$(field 'sorted(c["file"] for c in d["careful"])' <<<"$out")" = "['app/outbox/a.py', 'app/outbox/emit/site.py', 'app/products/migrations/0002_x.py']" ] \
-  && [ "$(field 'd["plain"]' <<<"$out")" = "['app/products/models.py']" ]; then
-  pass "careful names the files a pattern matches, nested ones and absolute paths too"
+err=$(project --repo "$OLD" show 2>&1 || true)
+settings '[branch]' 'base = "master"' '[flow]' 'careful = []'
+empty=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.toml: flow.careful is gone" <<<"$err" \
+  && grep -qF 'topics = ["what goes wrong for a person when app/outbox/* breaks, in your words"]' <<<"$err" \
+  && grep -qF "then remove the line careful = [...]" <<<"$err" && grep -qF "flow.careful is gone" <<<"$empty" && ! grep -q Traceback <<<"$err$empty"; then
+  pass "a settings file that still names careful paths is refused, with the sentence of flow.topics to write in their place, made from the first pattern, and the line to remove"
 else
-  fail "careful: $out"
-fi
-err=$(project --repo "$OLD" careful "$WORK/elsewhere/a.py" 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" careful "$WORK/elsewhere/a.py")" = 1 ] && grep -qF "$WORK/elsewhere/a.py is not inside $OLD; name files of this repository" <<<"$err" && ! grep -q Traceback <<<"$err"; then
-  pass "careful refuses a file outside the repository and names the fix"
-else
-  fail "careful outside the repository: $err"
+  fail "flow.careful refused: $err / $empty"
 fi
 if [ "$(status_of project --repo "$WORK" show)" = 1 ]; then pass "a directory outside any checkout is refused"; else fail "outside a checkout"; fi
 
@@ -598,10 +597,27 @@ else
   fail "max_tasks default"
 fi
 settings '[branch]' 'base = "master"' '[flow]' 'topics = ["a price a customer pays", "data that cannot be rebuilt"]'
-if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], d["flow"]["careful"])')" = "(['a price a customer pays', 'data that cannot be rebuilt'], [])" ]; then
-  pass "a project names its danger topics in the owner's words, beside its careful paths"
+if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], sorted(d["flow"]))')" = "(['a price a customer pays', 'data that cannot be rebuilt'], ['decision_wait', 'max_tasks', 'topics'])" ] \
+  && ! grep -q '^careful' "$NEW/.lem/project.toml" && grep -q '^topics = \[\]$' "$NEW/.lem/project.toml"; then
+  pass "a project names what must never go wrong as sentences in the owner's words, and init writes no list of paths beside them"
 else
   fail "flow.topics: $(project --repo "$OLD" show 2>&1)"
+fi
+# The table that says what must never go wrong is the main checkout's: a task's branch that empties
+# its topics or shortens the owner's wait reads them as the main checkout has them.
+FLOW=$WORK/flow
+git init -q -b main "$FLOW" && ident "$FLOW"
+project --repo "$FLOW" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = ["a customer is charged the wrong price"]' 'decision_wait = 15' > "$FLOW/.lem/project.toml"
+git -C "$FLOW" add -A && git -C "$FLOW" commit -q -m "chore: start"
+git -C "$FLOW" worktree add -q "$WORK/flow-tree" -b feat/lift main
+printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = []' 'decision_wait = 1' > "$WORK/flow-tree/.lem/project.toml"
+git -C "$WORK/flow-tree" commit -q -am "chore: no topics"
+lifted=$(project --repo "$WORK/flow-tree" show | field '(d["flow"]["topics"], d["flow"]["decision_wait"], d["root"] == d["main"])')
+if [ "$lifted" = "(['a customer is charged the wrong price'], 15, False)" ]; then
+  pass "in a task's worktree the flow table is the main checkout's: a branch that empties its own topics or shortens the wait changes nothing a lead or the landing reads"
+else
+  fail "the flow table of a worktree: $lifted"
 fi
 settings '[flow]' 'topics = "money"'
 err=$(project --repo "$OLD" show 2>&1 || true)

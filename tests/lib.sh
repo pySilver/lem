@@ -70,9 +70,11 @@ task_in() {
 }
 status_in() { project --repo "$1" tasks | field "next(t[\"status\"] for t in d if t[\"slug\"] == \"$2\")"; }
 kept_in() { "$PY" -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2]))' "$1/.git/lem/tasks/$2/landing.json" "$3"; }
-# record N JSON: the file that says what a review was and what it found, as the Nth start of the task's review
+# record N JSON: the file that says what a review was and what it found, as the Nth start of the task's review;
+# its careful call is "not careful" with one sentence of why, unless JSON makes its own
+NOT_CAREFUL="the diff reaches no topic of the settings"
 record() {
-  "$PY" -c 'import json, sys; json.dump({"attempt": int(sys.argv[1]), **json.loads(sys.argv[2])}, open(sys.argv[3], "w"))' "$1" "$2" "$WORK/record.json"
+  "$PY" -c 'import json, sys; json.dump({"attempt": int(sys.argv[1]), "careful": False, "careful_why": sys.argv[4], **json.loads(sys.argv[2])}, open(sys.argv[3], "w"))' "$1" "$2" "$WORK/record.json" "$NOT_CAREFUL"
   echo "$WORK/record.json"
 }
 # clean N: the record of one read that found nothing

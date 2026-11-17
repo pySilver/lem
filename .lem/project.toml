@@ -39,25 +39,16 @@ ignores = []
 setup = []
 
 [flow]
-# Paths whose change takes the careful flow: its plan is talked through with the reviewer before
-# any code, in a companion session of its own, and the landing gives it the project's full
-# review set. A `*` crosses directories.
-careful = [
-  "skills/lem/scripts/land.py",
-  "skills/lem/scripts/stories.py",
-  "skills/lem/scripts/decisions.py",
-  "skills/lem/scripts/project.py",
-  "scripts/setup.py",
-  "hooks/*",
-  "skills/lem/scripts/corrections.py",
-  "skills/lem/scripts/jev.py",
-  ".claude-plugin/*",
-  "agents/lem-builder.md",
-]
-# What must not go wrong in this project, each as one sentence in the owner's words: "a price a
-# customer pays", "data that cannot be rebuilt", "who may sign in". No code matches these: the
-# lead of a task reads its plan against each, and a plan that touches one takes the careful flow
-# whatever its paths.
+# What must never go wrong in this project, each as one sentence in the owner's words. No code
+# matches these and no list of paths stands in for them: Lem reads the ask against each, the lead
+# its plan, and the agent that reviews the diff the change itself, and a change in reach of one
+# takes the careful flow: its plan is talked through with the reviewer before any code, the
+# landing gives it the project's full review set, and a person merges it. This table is read from
+# the main checkout, so a branch cannot lift what guards it.
+# The sentences from "The landing lets through" on stand for the paths this project listed as
+# careful before the list went (2026-11-17), each written by the maintaining session for what
+# its files guard: land.py, stories.py, decisions.py, project.py, the correction hook with
+# corrections.py and jev.py, the plugin's manifest, and the builder's agent file.
 topics = [
   "A pull request says green when it should not: a check failed, a review found a must-fix, a story changed, or the bar went lower.",
   "Lem changes a developer's repository without his word: a push, a merge, a removed worktree or branch, a protected branch touched.",
@@ -65,6 +56,13 @@ topics = [
   "The setup changes a developer's home over something that was there: the links in ~/.claude, the hook in settings.json.",
   "A task's record is lost or wrong: its state, its decisions and its approved stories, which nothing rebuilds and the pull request reads.",
   "A change bends a ruling of the owner: a ruling in AGENTS.md is reopened only by asking him.",
+  "The landing lets through a change that should not land: one the checks or the review did not pass, one a person should merge, or one aimed at a protected branch.",
+  "A story's test is taken as its proof when it is not: it passes on the base commit too, or it holds another story than its own.",
+  "A decision that is the owner's is taken without him, or one taken for him is missing from the pull request he reads.",
+  "Lem reads a project's settings wrong: what must never go wrong, the gate or who lands taken from a file the branch changed, or a default nobody chose taken for the owner's word.",
+  "The correction hook breaks the developer's session: it fails, hangs or slows every message he types.",
+  "Lem as a plugin does not load in a developer's Claude Code, or brings a hook or a command he did not install.",
+  "A builder or a lead works outside its brief: it edits the main checkout, another task's worktree or a branch it does not own, or it pushes.",
 ]
 # How many tasks build or land at one time. Four to five ran well on one Mac; six gave a load
 # average of 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when
