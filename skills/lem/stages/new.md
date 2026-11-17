@@ -86,7 +86,7 @@ a lead is started, and what to do each time a lead stops.
      bug and finds its cause, or answers the question, before anyone writes a story, as "A bug
      and an investigation" below says. For a bug, its report then takes one of the paths below;
      an investigation ends with its answer.
-   - *a small change*: one builder, the checks, one review and the pull request, with no lead, no
+   - *a small change*: one builder, the checks, one read and the pull request, with no lead, no
      plan and no wait for him, as "A small change" below says.
    - *the rare path*: the whole context and a defined outcome are written already: a ticket whose
      description says what is wanted and how to tell that it is done, a backlog item whose
@@ -109,7 +109,7 @@ a lead is started, and what to do each time a lead stops.
    builder starts: there is no wait between the two.
 5. **Tell the owner in one line**, and no more: the size, the branch, the story or the outcome in
    his words, what happens now, and what he must do. A small change: `Small change,
-   fix/date-column-nowrap: "the date column never wraps". One builder, the checks, one review,
+   fix/date-column-nowrap: "the date column never wraps". One builder, the checks, one read,
    then the pull request. Nothing waits for you; say "feature" to give it stories.` A feature on
    the usual path: `Feature, feat/gift-note-in-export: "an export holds the gift note". An
    interview now, then stories for your yes; after that it runs to the pull request without

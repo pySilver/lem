@@ -172,8 +172,9 @@ it sees again.
 
 `propose` writes the text of the pull request to `pr.md` in the task's directory, from what the
 steps kept, from the record of the task's decisions (`decisions.py list`) and from the notes
-file, whose headings it checks. The text opens with green or not green. Green says that the
-machine checks passed with the bar where it was, a review with at least one source left no
+file, whose headings it checks. The text opens with green or not green, in one wording for a
+small change and a feature. Green says that the
+checks passed with the bar where it was, a review with at least one source left no
 must-fix, no story changed during the build, and no decision was taken by timeout or by the
 experts. A story changed, added or removed after the newest approval is one line each, from its
 record (`decisions.py story`), with what it was, what it is and why. The text lists every story
@@ -333,6 +334,8 @@ TALK_SAYS = {
 TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open", "bound")
 # Who took a decision of the record, as the text of a pull request names them.
 TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout", "experts": "the experts"}
+# The first line of a green pull request, one wording for a small change and a feature.
+GREEN = "**Green.** The checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts."
 # What a review names of each defect it saw outside the change.
 DEFECT = ("where", "title", "what")
 # The longest file name an item of the backlog gets from its title, before `.md`. A guess
@@ -1728,7 +1731,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     ask = (task.directory / "ask.txt").read_text(encoding="utf-8").strip() if (task.directory / "ask.txt").is_file() else ""
     held = {(test["story"], test["command"]): test for test in (checks.get("stories") or {}).get("tests", [])}
     reasons = not_green(task, state)
-    out = ["**Not green.**", "", *(f"- {why}" for why in reasons), ""] if reasons else ["**Green.** The checks passed with the bar where it was, and the review left no must-fix.", ""]
+    out = ["**Not green.**", "", *(f"- {why}" for why in reasons), ""] if reasons else [GREEN, ""]
     if state["careful"]:
         out += [f"**Careful**, so a person merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
@@ -1783,7 +1786,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     if reasons:
         out += ["**Not green.**", "", *(f"- {reason}" for reason in reasons), ""]
     else:
-        out += ["**Green.** The machine checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts.", ""]
+        out += [GREEN, ""]
     if state["careful"]:
         # a careful request is a person's to merge, green or not, and he reads why first
         out += [f"**Careful**, so a person merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]

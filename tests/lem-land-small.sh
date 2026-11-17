@@ -52,7 +52,8 @@ text=$(dir_of date-nowrap)/pr.md
 if [ "$shown" = "(True, 'correction', True)" ] && [ "$gated" = "(True, None, True)" ] && [ "$due" = "('review', 'read', True, 1)" ] \
   && [ "$proposed" = True ] && [ "$merged" = False ] && [ "$(status_in "$SMALL" date-nowrap)" = landed ] && [ "$(reds date-nowrap)" = 1 ] \
   && [ -z "$(git -C "$SMALL" ls-tree -r --name-only main -- docs/plans)" ] \
-  && [ "$(sed -n 1p "$text")" = '**Green.** The checks passed with the bar where it was, and the review left no must-fix.' ] \
+  && [ "$(sed -n 1p "$text")" = '**Green.** The checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts.' ] \
+  && ! grep -qi 'correction\|machine checks' "$text" \
   && grep -qxF -- '1. The date column of the report never wraps: 2026-11-17 stays on one line.' "$text" \
   && grep -qxF -- "   - \`sh tests/date-nowrap.sh\`: passes on the branch, fails on the base commit" "$text" \
   && grep -qxF -- '- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit' "$text" \
