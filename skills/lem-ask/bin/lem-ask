@@ -118,6 +118,59 @@ KEY_PLACES = {"at the top level": TOP_KEYS, "on a question": QUESTION_KEYS, "on 
               "on a control": CONTROL_KEYS}
 
 
+# The type of each field the page shows or reads as a switch, as (what it is, test). A value of another
+# type does not fail on the page: a label of null showed as the option's id ("o1"), a prompt of 5 as
+# "5", a mode of "multiple" as options nobody can pick. Blocks (context, body, detail, preview) take
+# any block and are not listed.
+def _text(v):
+    return isinstance(v, str)
+
+
+def _flag(v):
+    return isinstance(v, bool)
+
+
+def _count(v):
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _number(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _texts(v):
+    return isinstance(v, list) and all(isinstance(x, str) for x in v)
+
+
+def _one_of(*words):
+    return (" or ".join(json.dumps(w) for w in words), lambda v: v in words)
+
+
+TEXT, FLAG, COUNT, NUMBER = ("a string", _text), ("true or false", _flag), ("a whole number", _count), ("a number", _number)
+TEXTS = ("a list of strings", _texts)
+TOP_TYPES = {"title": TEXT, "subtitle": TEXT, "source": TEXT, "submitLabel": TEXT, "chat": FLAG, "script": TEXT,
+             "width": _one_of("narrow"), "style": _one_of("refined", "minimal", "bold", "terminal"),
+             "review": ("\"auto\", \"always\", \"never\", true or false",
+                        lambda v: isinstance(v, bool) or v in ("auto", "always", "never"))}
+QUESTION_TYPES = {"header": TEXT, "prompt": TEXT, "hint": TEXT, "recommendation": TEXT,
+                  "mode": _one_of("single", "multi", "text", "tune"), "layout": _one_of("list", "grid", "compare", "inline"),
+                  "min": COUNT, "max": COUNT, "columns": COUNT, "expanded": FLAG, "optional": FLAG, "toggle": FLAG,
+                  "baseline": ("true, false or a label", lambda v: isinstance(v, (bool, str))),
+                  "text": ("false or an object", lambda v: isinstance(v, (bool, dict)))}
+OPTION_TYPES = {"label": TEXT, "subtitle": TEXT, "badge": TEXT, "tags": TEXTS, "pros": TEXTS, "cons": TEXTS,
+                "recommended": ("true, false or the reason as a string", lambda v: isinstance(v, (bool, str))),
+                "default": FLAG, "selected": FLAG, "values": ("an object", lambda v: isinstance(v, dict))}
+CONTROL_TYPES = {"id": TEXT, "label": TEXT, "unit": TEXT, "min": NUMBER, "max": NUMBER, "step": NUMBER,
+                 "options": ("a list of strings or numbers", lambda v: isinstance(v, list) and all(_text(x) or _number(x) for x in v)),
+                 "type": _one_of("range", "hue", "color", "select", "toggle")}
+
+
+def check_types(node, types, where):
+    for key, (what, test) in types.items():
+        if key in node and not test(node[key]):
+            die(f"{where}: `{key}` must be {what}, got {json.dumps(node[key])}")
+
+
 def check_keys(node, allowed, where):
     unknown = sorted(k for k in node if k not in allowed and not str(k).startswith("_"))
     if not unknown:
@@ -158,6 +211,7 @@ def check_spec(spec):
     if not isinstance(qs, list) or not qs:
         die("`questions` must be a non-empty list")
     check_keys(spec, TOP_KEYS if "questions" in spec else TOP_KEYS | QUESTION_KEYS, "spec")
+    check_types(spec, TOP_TYPES, "spec")
     if "size" in spec and (problem := size_problem(spec["size"])):
         die(f"spec: {problem}")
     ids = set()
@@ -169,6 +223,7 @@ def check_spec(spec):
         qid = q.get("id") or (f"q{i + 1}" if spec.get("questions") else "answer")
         if "questions" in spec:
             check_keys(q, QUESTION_KEYS, f"question {qid!r}")
+        check_types(q, QUESTION_TYPES, f"question {qid!r}")
         controls = q.get("controls") or []
         if not isinstance(controls, list):
             die(f"question {qid!r}: `controls` must be a list of objects, got {json.dumps(controls)}")
@@ -176,6 +231,7 @@ def check_spec(spec):
             if not isinstance(c, dict):
                 die(f"question {qid!r}: control {k + 1} must be an object with an id, a label and a value, got {json.dumps(c)}")
             check_keys(c, CONTROL_KEYS, f"question {qid!r}, control {c.get('id')!r}")
+            check_types(c, CONTROL_TYPES, f"question {qid!r}, control {k + 1}")
         if qid in ids:
             die(f"duplicate question id {qid!r}")
         ids.add(qid)
@@ -191,6 +247,7 @@ def check_spec(spec):
                 if o.get("id") is not None and not isinstance(o["id"], str):
                     die(f"question {qid!r}: option {j + 1}: `id` must be a string, got {json.dumps(o['id'])}")
                 check_keys(o, OPTION_KEYS, f"question {qid!r}, option {o.get('id') or j + 1!r}")
+                check_types(o, OPTION_TYPES, f"question {qid!r}, option {j + 1}")
             if says_nothing(o):
                 shown = o if isinstance(o, str) else o.get("label") or o.get("id")
                 die(f"question {qid!r}: option {shown!r} only counts; put what the user is choosing on the option "
