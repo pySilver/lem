@@ -680,7 +680,12 @@ def settings_of(text: str, name: Path, tables: tuple[str, ...], branch_copy: boo
         raw = now_form(raw, name)
     older = older_form(raw, name)
     if older:
-        raise SettingsError(older)
+        # The tracked file: a worktree of an open task reads its branch's own copy, which takes the
+        # fix only from the base, and a fresh worktree starts from origin's base.
+        raise SettingsError(older + (
+            "\n\nThen commit the file on the base branch and push it: that makes the fix count for the tasks that are open, whose branches take the file from the base"
+            if "checks" in tables else ""
+        ))
     for table, body in raw.items():
         if table not in TABLES:
             raise SettingsError(f"{name}: unknown table [{table}]{nearest(table, tuple(TABLES))}")
@@ -818,11 +823,11 @@ def old_seat_line(which: str, table: dict) -> str:
 
 def now_form(raw: dict, name: Path) -> dict:
     """A task branch's copy of the settings in the form an older Lem wrote, in the form of now: the
-    `[gate]` table as `[checks]`, a seat table as its one line. The branch took the file from a base
-    of before the change, and gets the file of now when it is brought onto the base; until then its
-    task goes on. The main checkout's own file, which the owner keeps, is refused instead (`gate_gone`,
-    `seat`). One line on stderr says what was read so. A later change may drop this once no task
-    whose branch holds such a file is open."""
+    `[gate]` table as `[checks]`, a seat table as its one line, so that the task goes on. The branch
+    took the file from a base that held it so, and holds it until the file of now is on the base it
+    is brought onto, which only the owner's commit and push make. The main checkout's own file,
+    which the owner keeps, is refused instead (`older_form`). One line on stderr says what was read
+    so, and why. A later change may drop this once no task whose branch holds such a file is open."""
     read = []
     if "gate" in raw and "checks" not in raw:
         raw = {("checks" if table == "gate" else table): body for table, body in raw.items()}
@@ -835,8 +840,8 @@ def now_form(raw: dict, name: Path) -> dict:
                 read.append(f"[seats.{which}] as {which} = {toml_string(seats[which])}")
     if read:
         print(
-            f"project.py: this worktree's {name} has the form of an older Lem, read as now ({'; '.join(read)}); "
-            "the branch gets the file of now when it is brought onto the base",
+            f"project.py: this worktree's {name} is the task branch's own copy, in the form of an older Lem; "
+            f"Lem reads it as now ({'; '.join(read)}), so that the task goes on",
             file=sys.stderr,
         )
     return raw

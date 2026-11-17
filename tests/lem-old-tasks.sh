@@ -151,7 +151,8 @@ refused=$(project --repo "$OT" show 2>&1 >/dev/null || true)
 landed_refused=$(nland merged old-small 2>&1 || true)
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$OT/.lem/project.toml"
 if grep -qF "[gate] is called [checks] now" <<<"$refused" && grep -qF "[gate] is called [checks] now" <<<"$landed_refused" \
-  && [ "$(printf '%s\n' "$refused" | tail -2)" = "$(printf '%s\n' '[checks]' 'commands = ["true"]')" ] && [ "$(status_in "$OT" old-small)" = open ]; then
+  && [ "$(printf '%s\n' "$refused" | sed -n 2,3p)" = "$(printf '%s\n' '[checks]' 'commands = ["true"]')" ] && grep -qF "Then commit the file on the base branch and push it" <<<"$refused" \
+  && [ "$(status_in "$OT" old-small)" = open ]; then
   pass "the settings of an older Lem, whose checks are a [gate] table, are refused with the lines to write, and nothing of a task moves before they are written"
 else
   fail "the [gate] table of an older Lem: $refused / $landed_refused"
@@ -170,7 +171,7 @@ merged_bug=$(nland land old-bug --by agent 2>>"$WORK/old.err" | field '(d["pull_
 clean_bug=$(nland clean old-bug 2>>"$WORK/old.err" | field '(d["worktree"], d["branch"], d["remote"])' 2>&1 || true)
 if [ "$merged_bug" = "(3, None)" ] && [ "$(status_in "$OT" old-bug)" = landed ] && [ "$clean_bug" = "(True, 'fix/old-bug', 'fix/old-bug')" ] \
   && [ "$(git -C "$OT" show main:bug.txt)" = word ] \
-  && grep -qF "project.py: this worktree's .lem/project.toml has the form of an older Lem, read as now ([gate] as [checks]); the branch gets the file of now when it is brought onto the base" "$WORK/old.err"; then
+  && grep -qxF "project.py: this worktree's .lem/project.toml is the task branch's own copy, in the form of an older Lem; Lem reads it as now ([gate] as [checks]), so that the task goes on" "$WORK/old.err"; then
   pass "a bug an older Lem proposed lands by an agent's merge, since the landing finds its older records green, and clean removes its worktree and both its branches; its branch's copy of the settings, with the older [gate], is read as [checks] and the scripts say so"
 else
   fail "the bug of an older Lem: $merged_bug / $clean_bug / $(status_in "$OT" old-bug) / $(cat "$WORK/old.err")"

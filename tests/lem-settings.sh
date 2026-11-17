@@ -242,10 +242,11 @@ pasted=$(printf '%s\n' "$all_err" | sed -n '2,/^planner = /p')
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(grep -c "has the form of an older Lem" <<<"$all_err")" = 1 ] \
   && grep -qF "Write these lines in place of the [gate], [seats], [seats.reviewer] and [seats.planner] tables:" <<<"$all_err" \
   && grep -qF "[gate] is called [checks] now" <<<"$all_err" && grep -qF "[seats.reviewer] and [seats.planner] are each one line under [seats] now" <<<"$all_err" \
+  && [ "$(tail -n 2 <<<"$all_err")" = "$(printf '%s\n' '' 'Then commit the file on the base branch and push it: that makes the fix count for the tasks that are open, whose branches take the file from the base')" ] \
   && [ "$pasted" = "$(printf '%s\n' '[checks]' 'commands = ["make test"]' '' '[seats]' 'experts = ["claude/fable", "codex/gpt-6-astra:high"]' 'reviewer = "codex/gpt-6.1-sol:high"' 'planner = "claude/opus:high"')" ]; then
   printf '%s\n' "$pasted" > "$OLD/.lem/project.toml"
   if [ "$(project --repo "$OLD" show | field '(d["checks"]["commands"], d["seats"]["reviewer"]["seat"], d["seats"]["planner"]["seat"], len(d["seats"]["experts"]))')" = "(['make test'], 'codex/gpt-6.1-sol:high', 'claude/opus:high', 2)" ]; then
-    pass "a file with [gate], [seats.reviewer] and [seats.planner] is refused once, naming all three, with the whole text to write in their place, and that text pasted reads"
+    pass "a file with [gate], [seats.reviewer] and [seats.planner] is refused once, naming all three, with the whole text to write in their place and, last, the commit and push that make it count for the open tasks; that text pasted reads"
   else
     fail "the pasted text of the older tables does not read: $pasted"
   fi
@@ -563,7 +564,7 @@ words=$(project --repo "$OLD" reviewer codex gpt-6.1-sol high 2>&1 || true)
 gemini=$(project --repo "$OLD" reviewer gemini/pro 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && grep -qF "reviewer takes one seat, \"agent/model:effort\", as \`reviewer codex/gpt-6.1-sol:high\`" <<<"$words" \
   && grep -qF "the agent 'gemini' must be claude or codex" <<<"$gemini" && [ "$(status_of project --repo "$OLD" reviewer codex/)" = 1 ] && [ ! -e "$OLD/.lem/project.local.toml" ] \
-  && grep -qF "Write these lines in place of the [seats.reviewer] table:" <<<"$old_local" && grep -qxF 'reviewer = "codex"' <<<"$old_local"; then
+  && grep -qF "Write these lines in place of the [seats.reviewer] table:" <<<"$old_local" && grep -qxF 'reviewer = "codex"' <<<"$old_local" && ! grep -qF "commit the file" <<<"$old_local"; then
   pass "reviewer refuses an agent that cannot review, the older three words and a seat that does not parse, and writes nothing then; an older seat table already in the file is refused with its line"
 else
   fail "reviewer refusals: $words / $gemini / $old_local"
