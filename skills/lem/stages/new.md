@@ -14,10 +14,10 @@ a lead is started, and what to do each time a lead stops.
    with this ticket that is not `dropped` or `answered`, do not open a second one: say which task
    it is and where it stands. A dropped or an answered task gives its ticket back, and
    `task-dir --ticket` refuses the ticket only while another task holds it.
-1. **The kind of the request**, from the ask's words alone, before anything reads the code. Tell
-   the owner in one line which kind and why ("a bug: the ask says the total is wrong today"). The
-   words after each kind are hints for your judgment, not a list to match; no code matches them,
-   as none routes a review:
+1. **The kind and the size of the request**, from the ask's words alone, before anything reads
+   the code. The kind names what the ask is and gives the branch its type; the size picks the
+   path (step 4). The words after each kind are hints for your judgment, not a list to match; no
+   code matches them, as none routes a review:
    - *bug*: something is wrong today ("broken", "shows 0", "since yesterday", "fails again");
    - *feature*: something that is not there ("add", "allow", "let me", "support");
    - *correction*: one rule in his own sentence, with a cause that is plain from the ask ("the
@@ -26,25 +26,32 @@ a lead is started, and what to do each time a lead stops.
    - *investigation*: the answer is a report, not a change ("why", "find out", "check if", "how
      often");
    - *chore*: work no user of the product sees ("upgrade", "rename", "move", "clean up");
-   - *docs*: a document and nothing else ("document", "explain in the README").
+   - *docs*: a document and nothing else ("document", "explain in the README"). A typo in the
+     README is docs: the kind is what the ask is about.
+   The size is one of two. A *small change* is one plain change: the ask yields one story in his
+   own sentence, is in reach of no topic below, and leaves no question open, whatever its kind (a
+   fix of one rule, a typo, a rename, a version bump, a line of a document). Every other ask is a
+   *feature* in size, whatever its kind. When you cannot tell, take the small change and ask
+   nothing: its builder checks it again before it commits (`prompts/small.md`), and stops when it
+   is not. "Correction" stays the word of the scripts for a small change (`Kind: correction`,
+   `stories.py approve --correction`); to the owner it is a small change.
    In the same look, read the ask's words against each topic of `flow.topics` in `project.py
    show`, the sentences of what must never go wrong here. No code matches a topic and no file
    name settles one: the question is whether the change the ask wants could reach that thing.
-   When it could, the line you say first names it, before the kind: "Careful: this changes how a
-   customer is charged. A feature: the ask adds a discount." In doubt, say careful. When the
-   scout's report or the investigator's comes in, read its facts against the topics again (the
-   scout lists the topics in reach, with the file and symbol that show each): a topic it finds in
-   reach that the ask's words did not show is told to the owner in one line, the same way. An ask
-   in reach of a topic is never a correction (step 4). The lead makes its own call on the plan
+   When it could, the line of step 5 names it first. In doubt, say careful. When the scout's
+   report or the investigator's comes in, read its facts against the topics again (the scout
+   lists the topics in reach, with the file and symbol that show each): a topic it finds in reach
+   that the ask's words did not show is told to the owner in one line, the same way. An ask in
+   reach of a topic is never a small change. The lead makes its own call on the plan
    (`stages/plan.md`, step 2), and the agent that reviews the diff makes the last.
-   When the words do not settle it, ask before step 2, as the first question of the interview,
-   with your guess and what each answer would mean: "Is the 0 wrong today, a bug, or do you want
-   a new rule for refunds, a feature?" (2026-11-16, his example: "From such input its kinda hard
-   to deduct if we want to investigate the bug or its a feature request.") His answer sets the
-   kind. The kind goes into `task.md` with its reason, and as the line `kind: KIND, because WHY`
-   into the first state block you write for the task; `project.py state` refuses that line in
-   any other form, and `project.py tasks` gives it as `kind`. When he changes the kind later,
-   write a state block with the new line.
+   When the words do not settle the kind between a bug and a feature, ask before step 2, as the
+   first question of the interview, with your guess and what each answer would mean: "Is the 0
+   wrong today, a bug, or do you want a new rule for refunds, a feature?" (2026-11-16, his
+   example: "From such input its kinda hard to deduct if we want to investigate the bug or its a
+   feature request.") His answer sets the kind. The kind goes into `task.md` with its reason, and
+   as the line `kind: KIND, because WHY` into the task's first state block (step 4);
+   `project.py state` refuses that line in any other form, and `project.py tasks` gives it as
+   `kind`. When he changes the kind later, write a state block with the new line.
 2. **The slug and the branch.** A slug of two to five plain words that say what the owner gets
    ("report-dates-stay-whole"), never a code. The branch is `<type>/<slug>` with a semantic type,
    unless the project's `AGENTS.md` gives its own scheme. The kind gives the type: `fix` for a bug
@@ -67,26 +74,46 @@ a lead is started, and what to do each time a lead stops.
    - out of scope, when the ask has an obvious neighbor this task leaves alone.
    Write it from the ask, the project's profile and the rulings. Do not read the code for it: a
    "done when" line that needs the code is the lead's to sharpen in its plan. A line you put out
-   of scope by yourself is a decision taken without the owner: log it, once the task directory
-   is there, with `decisions.py log SLUG --by lem`.
-4. **Which path.** Choose one, and tell the owner in one line which one and why:
+   of scope by yourself is a decision taken without the owner: log it with `decisions.py log SLUG
+   --by lem`.
+4. **Which path.** Choose one:
    - *the investigation first*, for a bug and an investigation: a fresh builder reproduces the
      bug and finds its cause, or answers the question, before anyone writes a story, as "A bug
-     and an investigation" below says. For a bug, its report then takes one of the three paths
-     below; an investigation ends with its answer.
-   - *a correction*: the kind is a correction, and the ask is in reach of no topic of
-     `flow.topics` (step 1). Write its one story and approve it in his name, as "A correction"
-     below says, then go on with step 5.
+     and an investigation" below says. For a bug, its report then takes one of the paths below;
+     an investigation ends with its answer.
+   - *a small change*: one builder, the checks, one review and the pull request, with no lead, no
+     plan and no wait for him, as "A small change" below says.
    - *the rare path*: the whole context and a defined outcome are written already: a ticket whose
      description says what is wanted and how to tell that it is done, a backlog item whose
      options are settled, a night plan he starts, an investigation's report that settles what is
      wanted. No interview: the lead writes the stories from the code and has the personas read
      them (`stages/plan.md`, step 1). He can say "interview me", and then it is the usual path.
-     Go on with step 5.
    - *the usual path*, for every other ask: the interview, then the stories he approves, as
-     "The interview and the stories" below says, all in one sitting while he is there. Then go on
-     with step 5.
-5. **The brief.** Write `brief.md` in the task directory, with this and nothing more:
+     "The interview and the stories" below says, all in one sitting while he is there.
+   Write the task's first state block now, with the kind line of step 1, so that the status and
+   the board show the task from its first moment. On the usual path it is `held` with the line
+   `the interview waits for the owner`:
+
+   ```bash
+   python3 SKILL_DIR/scripts/project.py state SLUG held "the interview waits for the owner" "kind: feature, because WHY"
+   ```
+
+   On the other paths the first block is the one the path's own first step writes, before its
+   builder starts: there is no wait between the two.
+5. **Tell the owner in one line**, and no more: the size, the branch, the story or the outcome in
+   his words, what happens now, and what he must do. A small change: `Small change,
+   fix/date-column-nowrap: "the date column never wraps". One builder, the checks, one review,
+   then the pull request. Nothing waits for you; say "feature" to give it stories.` A feature on
+   the usual path: `Feature, feat/gift-note-in-export: "an export holds the gift note". An
+   interview now, then stories for your yes; after that it runs to the pull request without
+   you.` A topic in reach goes first: `Careful: this changes how a customer is charged. Feature,
+   ...`. A bug: `Bug, fix/total-skips-credit-notes: "the total skips credit notes". A builder
+   reproduces it and finds its cause first, and I tell you what it found.` The rare path names
+   what stands in for the interview (`the ticket says what is wanted`). A decision you took for
+   him at step 3 is a second line. Nothing repeats this line later: the next thing he hears is a
+   question of the interview, the stories, or the pull request.
+6. **The brief** of a lead, on the rare and the usual path. Write `brief.md` in the task
+   directory, with this and nothing more:
 
    ```
    Read SKILL_DIR/prompts/lead.md and follow it.
@@ -111,18 +138,15 @@ a lead is started, and what to do each time a lead stops.
    and log his words, as the paragraph on his word below says. A builder still writes the plan:
    it reads that line as a yes (`stages/plan.md`, step 2) and stops for the plan talk, which
    needs a plan to talk about.
-6. **Does it wait for another task?** Two asks that name the same thing (the same screen, the
+7. **Does it wait for another task?** Two asks that name the same thing (the same screen, the
    same file, the same command) run one after the other. Write the later one's state as `queued`
    with the line `after: SLUG` of the earlier one, and stop here: it starts when that task is
    `landed`, `answered` or `dropped`, so it builds on what the earlier one changed. Do not read
    the code to find an overlap the asks do not show; the landing line settles that one
    (`stages/land.md`, step 1).
-7. **Start its lead**, as the next section says. Open the board when this session has not
-   opened it yet (`SKILL.md`, Status); it stays in the sidebar beside your session.
-8. **Tell the owner**, in a few lines: the task's plain name, the outcome and the "done when"
-   lines as you wrote them, each decision you took for him (what you put out of scope), and that
-   the report comes after the landing. Then go back to the owner's next message. Do not wait for
-   the lead and do not watch it.
+8. **Start its lead**, as "Start a lead" says. Open the board when this session has not opened
+   it yet (`SKILL.md`, Status); it stays in the sidebar beside your session. Then go back to the
+   owner's next message. Do not wait for the lead and do not watch it.
 
 `/lem build <task>` is for a task whose state is `drafted` or `planned`: change its brief to
 `stop after the plan: no`, take out a `night: yes` line, since the owner is there now, and start
@@ -145,7 +169,7 @@ and only his yes puts a topic into the settings.
 
 ## The interview and the stories
 
-The usual path, between step 3 and the brief. He is there for it, and it ends with stories he
+The usual path, between step 5 and the brief. He is there for it, and it ends with stories he
 approved, which the lead may not change without the record saying so.
 
 1. **Start the scout and the interview at once.** A bug whose investigation found its cause has
@@ -188,9 +212,7 @@ approved, which the lead may not change without the record saying so.
    shaped it, for his page.
 5. **Show them in the conversation, and start the personas' read in the same moment.** Write the
    stories as plain text, each with the scout's facts that shaped it beside it, and the
-   directions, and say that the personas read them now and that the one measured read took
-   2 min 9 s (2026-11-16: two families, two personas, two stories, from the stories shown to both
-   families' answers written; one request, one repository). No page opens before the read is in.
+   directions, and say that the personas read them now. No page opens before the read is in.
    The read is the persona panel's "Reading stories" mode (`load-skill`), here in your session
    with the paired agent of the other family, so that both families answer; without one the
    panel says that one family answered. A persona agent that does not answer leaves a partial
@@ -253,7 +275,7 @@ approved, which the lead may not change without the record saying so.
    each change of his. The stories are then kept word for word with a digest, and the plan's
    stories have to be those, with only the test lines added: a story the build changes, adds or
    drops has its own record (`decisions.py story`), and the pull request is not green for it.
-   Go on with step 5 of "Open the task". The landing refuses a feature whose stories nobody read
+   Go on with step 6 of "Open the task". The landing refuses a feature whose stories nobody read
    and whose read he did not skip (step 5), and one whose read found a doubt with no yes of his
    after it.
 
@@ -262,21 +284,52 @@ owner`, and put the page to him again the way `ask-owner` says for an owner who 
 answer goes on from step 6. A task with that line has no lead: when it is approved, write the
 brief and start one.
 
-## A correction
+## A small change
 
-One story, his own sentence made exact, and nothing careful: it is shown and it does not wait.
-Write the story file as step 4 above says, with `Kind: correction, because ...`, show it to him,
-and approve it in his name:
+One story, his own sentence made exact, nothing careful and no question open: one builder makes
+it, the landing checks it and one read reviews it, and it waits for nothing. The owner, of a
+polish agent with nothing to do on a typo: "That is exactly one of the cases that may frustrate
+the Developer" (2026-11-16). The audit of that day counted 6 to 11 agents and 15 to 32 minutes
+from a typo to its pull request, against about 4 minutes measured for a correction in the first
+flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` has the ledger).
 
-```bash
-python3 SKILL_DIR/scripts/stories.py approve SLUG --file FILE --correction
-```
+1. **The story.** Write it to `stories.md` in the task directory, in the form `stories.py --help`
+   shows, with `Kind: correction, because ...` and the one story, and approve it in his name:
 
-An approval in his name is only ever a task's first contract: the script refuses it once
-any approval exists. Tell him in the same line that you took it as a correction and that he may
-say "this is a feature". The personas do not read a correction's one story; the pull request says so. When he
-says "this is a feature", it takes steps 5 to 7 of the usual path: the personas read it, and his
-approval of the stories as a feature replaces the correction's. A change of the kind is his only.
+   ```bash
+   python3 SKILL_DIR/scripts/stories.py approve SLUG --file TASK_DIRECTORY/stories.md --correction
+   ```
+
+   It stays there and is never committed: a small change has no plan, and its builder adds the
+   test line under the story in that file. An approval in his name is only ever a task's first
+   contract: the script refuses it once any approval exists. The personas do not read it; the pull
+   request says so.
+2. **The brief**, `brief.md` in the task directory, with this and nothing more:
+
+   ```
+   Read SKILL_DIR/prompts/small.md and follow it.
+   task: SLUG
+   branch: the branch of step 2 of "Open the task"
+   worktree: the path `project.py worktree-dir SLUG` prints
+   task directory: the task directory's absolute path
+   ```
+
+   Then step 7 of "Open the task", and its builder starts as "Start a lead" says, with the state
+   `building` and the lines `small change: one builder` and the kind line of step 1. There is no
+   lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
+   builder for each task has it.
+3. **When it stops**, its reply is the path of its report, and its state says what follows:
+   - `ready`: the landing, `stages/land.md`, with the small change's steps there;
+   - `held` with `the stories wait for the owner: the small change is a feature`: its builder
+     found a topic in reach, a second rule, a decision the story does not settle, a lowered bar,
+     or more than one plain change. Tell him in one line that it is a feature and why, from the
+     report, and take the usual path from step 1 of "The interview and the stories", with its
+     report as the scout's: its commits stay on the branch for the lead. His approval of the
+     stories as a feature replaces the correction's.
+
+When he says "feature" of a small change, or "this is a feature", it takes the usual path the
+same way: the interview, the personas' read, and his approval, which replaces the correction's.
+A change of the kind is his only.
 
 ## A bug and an investigation
 
@@ -324,14 +377,14 @@ task.
    `answer` for an investigation, which has no `reproduced`. `line` is the cause, the answer, or
    what was tried, in one line. `where` is the cause's place, which a plain cause has. When you
    take another call than the report's (a one-rule fix whose cause is in reach of a topic is not
-   a correction),
+   a small change),
    log yours and tell the owner why in one line.
 4. **The path**, from the call:
-   - *correction*: the correction path, with its one story the rule that removes the cause, in
-     his words made exact, and with nothing careful: read the cause, its place and how far the
-     report says it reaches against each topic, as step 1 of "Open the task" reads an ask. The
-     reproducing test is the story's test: the lead adds its line under the story in the plan.
-     Go on with step 5 of "Open the task".
+   - *correction*: a small change, with its one story the rule that removes the cause, in his
+     words made exact, and with nothing careful: read the cause, its place and how far the report
+     says it reaches against each topic, as step 1 of "Open the task" reads an ask. The
+     reproducing test is the story's test: the small change's builder names it under the story.
+     Tell him in one line, as step 5 of "Open the task" says, and go on with "A small change".
    - *usual*: the usual path, with no scout, whose interview starts from the cause ("the total
      adds the refund as a payment, in `billing/invoice.py:total`; should the refund lower the
      total, or stand as a line of its own?"). Write the state `held` with the line `the
@@ -386,11 +439,12 @@ that is started again after it stopped.
    git ignores. The worktree is in the checkout, not in the task's
    state directory: an agent's sandbox may not write inside the git directory, and the state has
    to outlive the worktree.
-3. **The lead.** Write the brief's `coordinator:` and `socket:` lines again with your own
+3. **The lead.** Write a lead's `coordinator:` and `socket:` lines again with your own
    values when they are not yours (a brief written by a Lem before you, or one with no such
-   lines): a lead tells the session those lines name. Write the state `building` first, with
-   the line `lead: builder` or `lead: session` as the brief says, so the next `may-start`
-   counts this task. For a task that
+   lines): a lead tells the session those lines name. A small change's brief has none: its
+   builder's reply is its only word. Write the state `building` first, with the line `lead:
+   builder` or `lead: session` as the brief says, or `small change: one builder` for a brief that
+   names `prompts/small.md`, so the next `may-start` counts this task. For a task that
    came from a ticket, the tracker then marks the ticket as started (its "start"); it writes
    nothing when the project's settings say that the tracker moves its own tickets. Then, for a
    builder, `spawn-builder` with one line: `Read TASK_DIRECTORY/brief.md and follow it.` For
@@ -504,8 +558,8 @@ Act on the status:
     that met a rule it could not write without a guess, puts the stories and the answers on top
     of its report. Put them to him as step 6 of "The interview and the stories" says, with the
     lead's read as the result on top, freeze his answer with step 7, and start a lead: it copies
-    the approved stories. A correction that the lead found to be a feature goes to him as "A
-    correction" says for his "this is a feature";
+    the approved stories. A small change that its builder found to be a feature goes to him as
+    "A small change" says, step 3;
   - *one more fact*: the investigation's, as "A bug and an investigation" says;
   - *a step that is his to do*, and no decision at all: a trust prompt of the reviewer's agent, a
     command an agent is refused. Tell the owner that step as it is, with where he does it; it

@@ -18,7 +18,10 @@ the pull request cannot drift apart:
 
 `Kind` is `feature` or `correction`, with the reason after `because`. A correction is a request
 that yields one story and touches nothing careful; its story is the owner's own sentence made
-exact. A story's test is a command and the files that hold the test, each in backticks. A story
+exact. Lem calls it a small change, and a small change has no plan: its story is the same section
+in `stories.md` in the task's directory, which no commit holds, and the builder adds its test line
+there. A branch's plan comes first when it has one, and only a correction is read from that file:
+a feature's stories are at the top of its plan, and a feature with no plan is refused. A story's test is a command and the files that hold the test, each in backticks. A story
 that no test can hold (a sentence of a document) says so, and that is shown wherever the stories
 are:
 
@@ -40,7 +43,8 @@ are:
     stories.py digest SLUG [--file FILE]
                               the digest of the stories' kind and texts, without tests: of FILE,
                               or of the task's plan
-    stories.py show SLUG      the stories of the task's plan, as JSON
+    stories.py show SLUG      the stories of the task's plan, or of a small change's `stories.md`, as
+                              JSON; `small` says which, and `plan` names the file
     stories.py record SLUG    the same, and one event for the board
     stories.py red SLUG       each story's tests pass on the branch and fail on the base commit
 
@@ -262,6 +266,8 @@ class Task:
         self.directory = Path(script("project.py", repo, "state-dir").strip()) / "tasks" / slug
         self.plans = self.worktree / Path(self.settings["paths"]["plans"]["path"]).relative_to(root)
         self.approved_file = self.directory / "stories.json"
+        # a small change's one story, with its test line: it has no plan, and no commit holds this file
+        self.small_file = self.directory / "stories.md"
 
     def need_worktree(self) -> None:
         # the stories are approved before the task has a worktree; its plan is read from one
@@ -282,17 +288,25 @@ class Task:
         # the plan of this task and of no other: a date, a hyphen and the task's whole name
         named = re.compile(rf"\d{{8}}-{re.escape(self.slug)}\.md")
         found = sorted(file for file in self.plans.iterdir() if named.fullmatch(file.name)) if self.plans.is_dir() else []
-        if not found:
-            raise StoriesError(f"no plan of this task in {self.plans}: its name is YYYYMMDD-{self.slug}.md")
-        plan = found[-1]
+        small = not found and self.small_file.is_file()
+        if not found and not small:
+            raise StoriesError(f"no plan of this task in {self.plans}: its name is YYYYMMDD-{self.slug}.md; only a small change keeps its story in the task directory instead, in {self.small_file}")
+        plan = self.small_file if small else found[-1]
         read = parse(plan.read_text(encoding="utf-8"), plan.name)
+        if small and read["kind"] != "correction":
+            raise StoriesError(
+                f"{plan} says `Kind: {read['kind']}`: only a small change (`Kind: correction`) keeps its story in the task directory. "
+                f"A feature's stories are at the top of its plan, and the branch has none in {self.plans}: its lead writes YYYYMMDD-{self.slug}.md",
+            )
         changes = self.changes()
         digest = text_digest(read["kind"], [story["text"] for story in read["stories"]])
+        if small and changes["approved"] is None:
+            raise StoriesError(f"the small change's story in {plan} has no approval: Lem approves it in his name before its builder starts, `stories.py approve {self.slug} --file {plan} --correction`")
         if changes["approved"] is None:
-            return {"task": self.slug, "plan": str(plan), **read, "stories_digest": digest, "approved": None, "approvals": [], "changes": [], "history": []}
+            return {"task": self.slug, "plan": str(plan), "small": small, **read, "stories_digest": digest, "approved": None, "approvals": [], "changes": [], "history": []}
         against(read, changes, plan.name, self.slug)
         return {
-            "task": self.slug, "plan": str(plan), **read, "stories_digest": digest,
+            "task": self.slug, "plan": str(plan), "small": small, **read, "stories_digest": digest,
             **{key: changes[key] for key in ("approved", "approvals", "changes", "history")},
         }
 
@@ -356,7 +370,7 @@ def cmd_red(task: Task) -> dict:
     if untested:
         raise StoriesError(
             f"story {untested[0]} names no test: every story is held by a test at the end of a build. "
-            "Add `- test: `COMMAND` in `FILE`` under it in the plan, or `- no test: REASON` when no test can hold it",
+            f"Add `- test: `COMMAND` in `FILE`` under it in {'the small change`s stories.md' if found['small'] else 'the plan'}, or `- no test: REASON` when no test can hold it",
         )
     dirty = git(task.worktree, "status", "--porcelain")
     if dirty:

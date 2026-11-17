@@ -605,8 +605,9 @@ def cmd_polish(task: Task, done: bool) -> dict:
         raise LandError(f"`land.py base {task.slug}` comes first: the polish pass works on the branch as it will be checked")
     tip = git(task.worktree, "rev-parse", "HEAD")
     found = stories_of(task)
-    plan = Path(found["plan"]).relative_to(task.worktree).as_posix()
-    frozen = test_files(found)
+    # what the pass may not change: the stories' test files and the plan that names them; a small
+    # change's story file is in the task directory, which no commit holds
+    frozen = [*test_files(found), *([] if found["small"] else [Path(found["plan"]).relative_to(task.worktree).as_posix()])]
     polish = kept.get("polish")
     if not done:
         # A pass that started and is not done keeps the tip it started at: a run that is cut off,
@@ -623,8 +624,7 @@ def cmd_polish(task: Task, done: bool) -> dict:
             "commits": git(task.worktree, "log", "--format=%h %s", f"{base}..{polish['before']}").splitlines(),
             "plan": found["plan"], "report": str(report) if report.is_file() else None, "outside": str(outside) if outside.is_file() else None,
             "backlog": backlog_of(task),
-            # what the pass may not change: the stories' test files and the plan that names them
-            "frozen": [*frozen, plan],
+            "frozen": frozen,
         }
     if not polish:
         raise LandError(f"no polish pass started for this landing; `land.py polish {task.slug}` starts it and prints what its builder gets")
@@ -644,7 +644,7 @@ def cmd_polish(task: Task, done: bool) -> dict:
             touched.setdefault(file, []).append(commit[:9])
     # What counts is what the pass leaves: a commit that changed a story's test and one that put it back leave the contract as it was.
     differs = set(changed(task, before, tip))
-    wrong = [f"{file} (by {', '.join(touched.get(file, []))})" for file in [*frozen, plan] if file in differs]
+    wrong = [f"{file} (by {', '.join(touched.get(file, []))})" for file in frozen if file in differs]
     if wrong:
         raise LandError(
             f"the polish pass changed what it may not: {'; '.join(wrong)}. A story's test and the plan are the task's contract, and the pass changes no behavior: "
@@ -846,6 +846,9 @@ def plan_careful(task: Task) -> bool:
     The talk was due when the plan said yes, so a later commit that takes the yes back does not
     take back the talk, the full set or the person's merge. A step asks it many times, and no step
     writes the plan, so the first answer is kept for the life of this process."""
+    if task.plan_said is None and stories_of(task)["small"]:
+        # a small change has no plan: its story file is in the task directory, with no history in git
+        task.plan_said = plan_call(Path(stories_of(task)["plan"]).read_text(encoding="utf-8"))
     if task.plan_said is None:
         plan = Path(stories_of(task)["plan"])
         relative = plan.relative_to(task.worktree).as_posix()
@@ -1038,7 +1041,8 @@ def cmd_gate(task: Task) -> dict:
     if held.returncode != 0:
         print(json.dumps(result, indent=2))
         raise LandError(f"{held.stderr.strip().removeprefix('stories.py: ')}. A builder repairs the test or the plan; the check is never edited to pass")
-    plan = Path(stories_of(task)["plan"]).read_text(encoding="utf-8")
+    # A small change gives no reason for a lowered bar: it has no plan, and a lowered bar is never a small change.
+    plan = "" if found["small"] else Path(found["plan"]).read_text(encoding="utf-8")
     now = change(task)
     result["bar"] = bar(task, now["base"], tip, plan)
     result["size"] = {"files": len(now["files"]), "lines": now["lines"], "in_parts": now["lines"] > READ_AT}
@@ -1046,6 +1050,11 @@ def cmd_gate(task: Task) -> dict:
     if unexplained:
         print(json.dumps(result, indent=2))
         named = "; ".join(f"{entry['file']} ({entry['what']})" for entry in unexplained[:5])
+        if found["small"]:
+            raise LandError(
+                f"a small change does not lower the bar: {named}. Take the mark out; when the change needs it, it is a feature, "
+                f"and Lem tells the developer so and takes the feature path, whose plan gives the reason under `## The bar`",
+            )
         raise LandError(
             f"the change lowers the bar with no reason given: {named}. Take the mark out, or give the reason in the task's plan "
             "under `## The bar` as `- PATH: REASON`, where the one who reads the change sees it",
@@ -1067,11 +1076,13 @@ def changed(task: Task, old: str, new: str) -> list[str]:
 def due(task: Task) -> dict:
     """Whether a review is due now, and the least it may be. Within that, the one who starts the review chooses."""
     now = change(task)
-    plan = Path(stories_of(task)["plan"]).read_text(encoding="utf-8")
+    found = stories_of(task)
     reads = task.kept().get("reads", [])
     answered = [read for read in reads if read["answered"]]
     why_careful = careful(task, now)
-    facts = {"round": len(answered) + 1, "careful": why_careful, "tasks": tasks_of(plan), "lines": now["lines"], "in_parts": now["lines"] > READ_AT, **now}
+    # a small change has no plan, and is the one task of its builder
+    tasks = 1 if found["small"] else tasks_of(Path(found["plan"]).read_text(encoding="utf-8"))
+    facts = {"round": len(answered) + 1, "careful": why_careful, "tasks": tasks, "small": found["small"], "lines": now["lines"], "in_parts": now["lines"] > READ_AT, **now}
     # The floor is what no judgment goes under. Which profiles fit a change is read from the diff
     # and from what each profile is for, by an agent: no code and no list of words decides that.
     if why_careful:
@@ -1411,7 +1422,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
             "attempt": state["attempt"],
             # the defects outside the change that reviews saw and that have no item yet: `land.py file` files them
             "to_file": to_file(reads),
-            "careful": state["careful"], "tasks": state["tasks"], "lines": state["lines"], "in_parts": state["in_parts"],
+            "careful": state["careful"], "tasks": state["tasks"], "small": state["small"], "lines": state["lines"], "in_parts": state["in_parts"],
             "reads": [{key: value for key, value in read.items() if key != "contents"} for read in reads],
             # what a reviewer gets, and nothing of the builder's reasoning
             "inputs": {
@@ -1501,6 +1512,13 @@ def cmd_read(task: Task, record: str | None) -> dict:
 def not_green(task: Task, state: dict) -> list[str]:
     """Each reason for which this request is not green, one line each; none when it is green."""
     reasons = []
+    # A small change took the short path: no interview, no read of its story, no plan. One that is
+    # careful after all is read by a person, whatever its checks and its review say.
+    if stories_of(task)["small"] and state["careful"]:
+        reasons.append(
+            f"a small change that is careful ({reason(state['careful'][0])}): it took the short path, with no interview, "
+            "no personas' read of its story and no plan, so a person reads it",
+        )
     # the personas' read of the stories, started twice with no answer: the stories went on unread
     read = story_read_of(task)
     if read is not None and unanswered(task) >= 2:
@@ -1623,8 +1641,59 @@ def decided(decision: dict) -> str:
     return line
 
 
+def small_text(task: Task, notes: str, state: dict) -> str:
+    """The text of a small change's pull request: green or not, the story, the checks, the read.
+    What a small change does not have (a plan, a personas' read, a polish pass, a talk) gets no line."""
+    kept = task.kept()
+    checks = kept.get("checks") or {}
+    found = stories_of(task)
+    ask = (task.directory / "ask.txt").read_text(encoding="utf-8").strip() if (task.directory / "ask.txt").is_file() else ""
+    held = {(test["story"], test["command"]): test for test in (checks.get("stories") or {}).get("tests", [])}
+    reasons = not_green(task, state)
+    out = ["**Not green.**", "", *(f"- {why}" for why in reasons), ""] if reasons else ["**Green.** The checks passed with the bar where it was, and the review left no must-fix.", ""]
+    if state["careful"]:
+        out += [f"**Careful**, so a person merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
+    out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
+    approval = found.get("approved") or {}
+    by = f" Lem approved it in his name on {approval['at'][:10]}; the personas did not read it." if approval.get("by") == "correction" else ""
+    out += ["## The story", "", f"A small change, because {reason(found['why'])}.{by}", ""]
+    for story in found["stories"]:
+        out.append(f"{story['n']}. {story['text']}")
+        for test in story["tests"]:
+            proof = held.get((story["n"], test["command"]))
+            out.append(f"   - `{test['command']}`: {'passes on the branch, fails on the base commit' if proof and not proof['problem'] else 'not checked'}")
+        if story["no_test"]:
+            out.append(f"   - no test: {story['no_test']}")
+    out += [story_line(task, change) for change in found["history"]]
+    out += ["", "## Checks", ""]
+    out += [f"- gate, `{command['command']}`: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
+    if (kept.get("polish") or {}).get("done"):
+        out.append(polished(kept["polish"], found))
+    cause = task.record.get("investigation")
+    if cause and cause.get("kind") == "bug":
+        where = f" ({cause['where']})" if cause.get("where") else ""
+        out.append(f"- the cause, as the investigation found it: {cause['line']}{where}")
+    lowered = (checks.get("bar") or {}).get("lowered", [])
+    out.append("- the bar: not lowered" if not lowered else "- the bar is lowered: " + "; ".join(f"`{entry['file']}` ({entry['what']})" for entry in lowered))
+    for read in kept.get("reads", []):
+        who = f"answered: {', '.join(read['answered'])}" if read["answered"] else "no source answered"
+        said = f"{read['verdict']}, {read['must_fix']} must-fix, {read['should']} should, {read['nit']} nit" if read["answered"] else "not reviewed"
+        defects = outside_of(read)
+        if defects:
+            said += "; filed outside the change: " + ", ".join(f"`{defect['item']}`" for defect in defects)
+        out.append(f"- the review, round {read['round']} ({KIND_SAYS[read['kind']]}; {who}): {said}")
+    out.append(careful_line(task, state))
+    decisions = [decided(decision) for decision in task.decisions()]
+    if decisions:
+        out += ["", "## Decisions", "", *decisions]
+    rest = notes.strip()
+    return "\n".join(out) + ("\n\n" + rest if rest and rest.lower() != "none" else "") + "\n"
+
+
 def pr_text(task: Task, notes: str, state: dict) -> str:
     """The text of the pull request, in the order the owner reads it."""
+    if stories_of(task)["small"]:
+        return small_text(task, notes, state)
     kept = task.kept()
     checks = kept.get("checks") or {}
     found = stories_of(task)
@@ -1802,7 +1871,9 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     notes = Path(notes_file).read_text(encoding="utf-8") if Path(notes_file).is_file() else None
     if notes is None:
         raise LandError(f"{notes_file} is not a file; --notes names the notes of the pull request")
-    wanted = [*NOTES, *(["## Migration"] if state["careful"] else [])]
+    # A small change's notes are what the review left open, in a few lines, or `none`: it has no
+    # plan to decide from, no polish pass to file from, and nothing it set out of scope.
+    wanted = [*([] if stories_of(task)["small"] else NOTES), *(["## Migration"] if state["careful"] else [])]
     missing = [heading for heading in wanted if not re.search(rf"(?m)^{re.escape(heading)}\s*$", notes)]
     if missing:
         raise LandError(f"the notes lack {', '.join(missing)}: they hold {', '.join(wanted)}, each with what is true of this task or the one word `none`")

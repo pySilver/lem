@@ -34,7 +34,13 @@ review that knows why the builder thought it was right finds less.
    the settings' `[flow]` or `[gate]`); your call stands beside those and takes none back. An
    agent merges a request only on your `false`, so a call you did not make keeps the merge a
    person's.
-3. **Route.** Read what each profile and each lens of the review tool is for: its own line of
+3. **Route.** A small change (`small` in `read.json`: one story, no plan, its story file is
+   `plan` in your inputs) gets one read, and you are the reader: read the diff yourself against
+   the story and the rule files, with no round of the review tool, unless you find a reason in
+   the diff for one, which you name in your file. Its record is `kind: read`, `ran: []`, and your
+   own family in `answered`. A careful call of yours, or a floor above `read`, sends it through
+   the rest of this step like any other change. For every other change, read what each profile
+   and each lens of the review tool is for: its own line of
    description, and for a profile also which lenses its agents carry. The harness file says how
    to get both and how a round is run: it is the file named after the agent you run in, in the
    folder `harness/` beside the folder of this file. Then choose what this change gets, never

@@ -6,6 +6,12 @@ machine checks and a review by an agent that did not build it. One task is in th
 time: the checks are about one tip on one base, and two at once would each be tested without the
 other.
 
+A small change lands by five steps and no more: `start`, `base`, `gate`, the review at its
+floor, which is one read by the review agent itself, and `propose`. It has no polish pass (step
+3), its stories' check runs once, at the gate, and its pull request is short: green or not green,
+the story, the checks and the read. Its story is `stories.md` in the task directory, which the
+steps read in the place of a plan; a step's word "the plan" means that file for it.
+
 Take the task that is in `landing`, when a session before you was cut off in the middle of one;
 otherwise the `ready` task with the oldest state time. `/lem land SLUG`, typed by the owner for a
 task that is `open`, is his word to merge it: step 7, with `--by owner`. First, though, two kinds of task get what
@@ -69,8 +75,8 @@ one finds what the run before it finished.
    The pass runs once for a task, here, and never after each task of a plan; a builder of a
    later job of this landing has the same list in its brief. So when the landing comes back
    here from a later step and `land.py polish` prints `"done": true`, go on to step 4. `gate` refuses a feature with no
-   pass on the tip it checks. A correction skips the pass: one builder changed one rule, its own
-   checks ran, and the review reads every line of it. Run it for a correction all the same when
+   pass on the tip it checks. A small change skips the pass: one builder changed one rule, its own
+   checks ran, and the review reads every line of it. Run it for a small change all the same when
    its `report.md` lists a defect outside the task, since only the pass files those. A rewrite
    of the branch after the pass, other than the rebase of `base`, asks for the pass again: `gate`
    says so.
@@ -88,7 +94,9 @@ one finds what the run before it finished.
    - The change did not lower the bar: no new lint or type suppression, no skipped or deleted
      test, no fewer assertions in a test file. A lowered bar passes only with a reason for that
      file in the plan, under `## The bar`, as `- PATH: REASON`; and then the request is not
-     green (step 6), because the owner reads that line himself.
+     green (step 6), because the owner reads that line himself. A small change has no plan for
+     the reason, and the step refuses its lowered bar: it is a feature, and you tell the owner so
+     in one line and take the feature path, as `stages/new.md` says for "A small change", step 3.
    - The size of the change is counted, for the review.
 
    A check that fails is work, and a builder's: `spawn-builder` with the brief below, the job
@@ -117,7 +125,8 @@ one finds what the run before it finished.
      (`topics` in `read.json`, the main checkout's) and makes the careful call, the last of the
      three and the only one at the code itself: `careful` with one line of why in its record. Then
      it chooses what the change gets, within the floor `read.json` names: one read for a small and
-     simple change, a round with the profiles that fit for every other one, the project's full set
+     simple change, by the review agent itself for a small change (`small` in `read.json`), a
+     round with the profiles that fit for every other one, the project's full set
      for a careful request, and for one it calls careful itself. It reads the diff and what each profile
      and lens of the review tool says it is for, and it writes one reason for each one it runs
      and each one it leaves out; so a change of documentation gets no security or architecture
@@ -157,8 +166,9 @@ one finds what the run before it finished.
    not green otherwise.
 6. **`propose`**, with `--title` and `--notes`. The title is the report's commit subject. The
    notes are a file you write in the task directory, `notes.md`, from `report.md` and the last
-   review's file, with these headings, each holding what is true of this task or the one word
-   `none`:
+   review's file. A small change's notes are the should findings the review left, one line each
+   with its file, or the one word `none`, and `## Migration` when it is careful. Every other
+   request's have these headings, each holding what is true of this task or the one word `none`:
    - `## Decisions`: what the record of the task's decisions does not hold, one line each: what
      came up, what was chosen, and why in a few words. The lead's call on whether the task is
      careful, with its sentence of why, is one of them. Do not copy the record: the step puts

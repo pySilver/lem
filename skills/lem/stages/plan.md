@@ -17,12 +17,10 @@ a list of questions that closes with the reviewer's first turn (step 4).
      you cannot keep, or a story that is missing, is a decision of the build (`stages/build.md`,
      "A choice in the build") with its own record (`decisions.py story`), never a silent edit:
      `show`, `record` and `red` refuse a plan whose stories are not the approved ones with each
-     recorded change, word for word, or whose `Kind:` is not the approved kind. An approved
-     correction that step 2 finds careful, or that needs a second story, is a feature, and the
-     kind is his only, so the stories wait for his yes: write `report.md` with the story and why
-     it is a feature on top, and the line `the stories wait for the owner: the correction is a
-     feature`; write the state `held` with that line, and stop. Lem takes it to him as a
-     correction he calls a feature (`stages/new.md`, "A correction");
+     recorded change, word for word, or whose `Kind:` is not the approved kind. Stories approved
+     as a correction do not reach a lead: a small change has one builder and no plan
+     (`stages/new.md`, "A small change"), and one that is a feature after all comes to you with
+     his approval of its stories as a feature;
    - with no approved stories (the rare path, a night plan), write them. A story is one
      business rule of the request in plain language with one concrete example, with real names
      and values: what a person of the project would see, never how the code does it. Take them

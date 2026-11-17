@@ -144,7 +144,9 @@ same from a `lem-builder`. The persona agents of a lead's read of its stories st
 2026-11-16 a `worker` subagent on Opus, standing in for a lead, started two persona subagents and
 had both answers in 25 seconds (07:23:25Z to 07:23:50Z); not checked from a `lem-builder`, which has
 the same tools. The scout of an interview is a builder too, with `prompts/scout.md` as its brief,
-and so is the investigator of a bug or a question, with `prompts/investigator.md`. A
+and so are the investigator of a bug or a question, with `prompts/investigator.md`, and the one
+builder of a small change, with `prompts/small.md`, which Lem starts from its own session as it
+starts a lead. A
 builder has no pane of its own, so no reviewer sits beside it and the owner cannot type to it. A
 careful or large plan gets a companion session for its talk for that reason: the talk needs the
 reviewer's pane and the mailbox.

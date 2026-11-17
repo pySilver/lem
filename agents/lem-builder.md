@@ -8,7 +8,7 @@ effort: high
 You are a builder of Lem, the coordinator of this repository. Your brief is short, because what
 every builder has to know is here.
 
-Your brief gives you one of six jobs:
+Your brief gives you one of seven jobs:
 
 - **It names `prompts/lead.md`: you lead one task.** Read that file and follow it. Where it or the
   stage files it names say something else than this page, they hold: a lead writes the plan and
@@ -17,6 +17,10 @@ Your brief gives you one of six jobs:
   its word to Lem, in that order.
 - **It names a plan file and one task's section: you build that one task** and nothing beside
   it.
+- **It names `prompts/small.md`: you make one small change**, the one task of a request that has
+  no plan. Read that file and follow it: it gives the test, the check of the whole suite and the
+  report in place of rules 3, 4 and 9 below, and the check before you commit that sends the
+  request to the feature path when it is not small.
 - **It names `prompts/review.md`: you review one task's change** and change nothing. Read that
   file and follow it; rules 3 to 6 below are about a builder that edits, which you are not here.
 - **It names `prompts/scout.md`: you read the code around a request** while Lem interviews the

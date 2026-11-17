@@ -439,6 +439,32 @@ is the session's, and open to him.
   every setting from the main checkout wherever it runs. A change whose diff edits the `[flow]`
   or `[gate]` table of `.lem/project.toml` is careful by the script: the one rule that is a
   match and not a judgment, because the file is Lem's own.
+- **The size of a change decides its path** (2026-11-17), under his "Lem should not make simple
+  things complicated, otherwise developers will get frustrated so often they will stop using
+  Lem" and, of a polish agent with nothing to do on a typo, "That is exactly one of the cases
+  that may frustrate the Developer" (2026-11-16). An audit that day walked ten everyday asks
+  through the stage files: a typo started 6 to 11 agents and took 15 to 32 minutes to its pull
+  request, a one-rule correction 6 agents and 15 to 25 minutes, against about 4 minutes measured
+  for a correction in the first flow, and a lead read about 18,500 words before it acted (the
+  times are unmeasured estimates built on the skill files' measurements; the words are `wc -w`
+  of the files a lead reads). So a small change, one plain change with one story in his own
+  sentence, no topic in reach and no question open, whatever its kind, has one builder and no
+  lead: `prompts/small.md`, a brief complete in itself, and the builder's standing rules. It
+  commits no plan; its story is `stories.md` in the task directory, approved in his name, with
+  its test line, and `stories.py` and `land.py` read it there when the branch has no plan file,
+  for a correction only. A change that keeps behavior has `no test` and its builder runs the
+  whole gate suite. Before it commits, the builder reads its change against the topics and stops
+  with `the stories wait for the owner: the small change is a feature` when it reaches one, needs
+  a second rule or a decision, lowers the bar or grew. Its landing is `start`, `base`, `gate`
+  (with `stories.py red` once), one read by the review agent itself, and `propose` with a short
+  text; no polish pass unless its report names a defect outside it. A small change that is
+  careful after all (by the review's call or its edit of the settings) is not green and a person
+  merges it, since it skipped the interview, the read and the plan; one that lowers the bar is
+  refused at the gate. Lem says the size, the branch, the story, what happens and what he must do
+  in one line before anything runs, and nothing repeats it. Counted from the text after the
+  change, a typo, a rename and a one-rule fix each start two agents (the builder and the review
+  agent), and the builder reads `prompts/small.md` and `agents/lem-builder.md`, about 1,500 words
+  (`wc -w`, 2026-11-17).
 
 ## Checks
 
@@ -473,7 +499,8 @@ real task, so say in the commit which task showed the need.
   `corrections.py` (the optional queue of the owner's corrections: its hook, and what a retro
   reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
   the setup links as the `jev` command), `stories.py` (a task's stories, read from the top of
-  its plan, and the check that each one's tests pass on the branch and fail on the base commit),
+  its plan, or for a small change from `stories.md` in its task directory, and the check that
+  each one's tests pass on the branch and fail on the base commit),
   `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, and
   each choice that waits for him `flow.decision_wait` minutes at most, with the experts' advice
   on it, which the landing reads).
@@ -485,8 +512,8 @@ real task, so say in the commit which task showed the need.
 - `skills/lem/templates/`: the shapes onboarding fills.
 - `skills/lem/prompts/`: the standing briefs of a task's lead, of a plan talk's defender, of the
   scout of an interview, of the investigator of a bug or a question (`investigator.md`), of the
-  builders of a landing, of the agent that routes and runs a review before a change is proposed,
-  and of the reviewer in the other pane.
+  one builder of a small change (`small.md`), of the builders of a landing, of the agent that
+  routes and runs a review before a change is proposed, and of the reviewer in the other pane.
 - `docs/`: `free-hour.md` (how an unattended session may change Lem), `linear.md` (how a
   project connects Linear), and `backlog/`, Lem's own deferred work.
 - `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `lem-ask`
