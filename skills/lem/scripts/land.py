@@ -556,7 +556,16 @@ def cmd_start(task: Task) -> dict:
     # One start at a time: the check of who holds the line and the write of `landing` are one step
     # under the lock of the state folder, so two starts at one moment never both take the line. The
     # lock is the kernel's, and it goes with the process, however that ends.
-    with (task.directory.parent.parent / "landing.lock").open("w") as lock:
+    path = task.directory.parent.parent / "landing.lock"
+    try:
+        lock = path.open("w")
+    except OSError as error:
+        # a file nobody may write, or a folder of that name: the lock holds nothing, so it may go
+        raise LandError(
+            f"the landing lock {path} cannot be opened ({error.strerror}); it holds no state, so remove it "
+            f"(`rm -r {path}`) and run `land.py start {task.slug}` again",
+        ) from error
+    with lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         task.read_states()
         return start_locked(task)

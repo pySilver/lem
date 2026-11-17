@@ -260,6 +260,26 @@ else
 fi
 for slug in race-one race-two race-three; do project --repo "$GRD" state "$slug" dropped "the test is over" >/dev/null; done
 
+# A landing lock that cannot be opened, a file nobody may write or a folder of that name, stops start with its path
+# and the way out, not a traceback, and the task stays where it was.
+small_task_in "$GRD" lock-shut l.txt l
+lock=$GRD/.git/lem/landing.lock
+rm -f "$lock" && mkdir "$lock"
+as_folder=$(g start lock-shut 2>&1 || true)
+folder_code=$(status_of g start lock-shut)
+rmdir "$lock" && touch "$lock" && chmod 444 "$lock"
+read_only=$(g start lock-shut 2>&1 || true)
+read_only_code=$(status_of g start lock-shut)
+chmod 644 "$lock"
+if [ "$folder_code" = 1 ] && [ "$read_only_code" = 1 ] && ! grep -q Traceback <<<"$as_folder$read_only" \
+  && grep -qF "the landing lock $lock cannot be opened" <<<"$as_folder" && grep -qF "remove it" <<<"$as_folder" \
+  && grep -qF "the landing lock $lock cannot be opened" <<<"$read_only" && [ "$(status_in "$GRD" lock-shut)" = ready ]; then
+  pass "a landing lock that cannot be opened, read-only or a folder, stops start with its path and says to remove it, with no traceback"
+else
+  fail "a landing lock that cannot be opened: $folder_code $as_folder / $read_only_code $read_only"
+fi
+project --repo "$GRD" state lock-shut dropped "the test is over" >/dev/null
+
 # A gate command runs in a process group of its own: what it leaves running ends with it, and a gate that is
 # stopped ends the command it runs, with what that command started, and keeps no result.
 small_task_in "$GRD" gate-group g.txt g
