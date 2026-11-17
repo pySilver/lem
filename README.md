@@ -20,8 +20,8 @@ real project uses it yet ([what ran](docs/examples.md#what-ran-and-what-did-not)
   </picture>
 </p>
 
-*The board of all tasks, with demo data from `board.py --demo`. The page says that the tasks are
-examples.*
+*The board: one page with all tasks. This picture shows demo data from `board.py --demo`, and the
+page says that the tasks are examples.*
 
 ## What you type, and what happens
 
@@ -31,7 +31,7 @@ gives.
 **A small change**: `/lem the date column must never wrap`
 
 > Small change, fix/date-column-nowrap: "the date column never wraps". One builder, the checks,
-> one review, then the pull request. Nothing waits for you; say "feature" to give it stories.
+> one read, then the pull request. Nothing waits for you; say "feature" to give it stories.
 
 You get a pull request, and nothing asks for you.
 
@@ -54,7 +54,7 @@ flowchart LR
     ask([You: /lem and your ask]) --> size{Kind and size}
     size -- small change --> one[One builder] --> read[The checks, one read]
     size -- feature --> you[Interview, stories, your yes] --> build[A builder for each task] --> full[Polish, the checks, a review]
-    size -- bug or question --> inv[An investigator] -- a change --> size
+    size -- bug or question --> inv[A builder finds the cause] -- a change --> size
     inv -- no change --> ans([An answer])
     read --> pr([Pull request])
     full --> pr
@@ -65,7 +65,7 @@ A careful change also gets a plan talk, the full review and your merge.
 
 ## What Lem promises
 
-- Nothing gets to the base branch before the machine checks and a review by a different agent.
+- Nothing merges before the checks and a review.
 - The first line of a pull request says green or not green, and each reason comes next.
 - A change near what must never go wrong gets the full review, and you merge it.
 - A feature builds after your yes to its stories, or, from a complete ticket, after the personas
@@ -99,7 +99,8 @@ start a new session.
 
 - Proven: on 2026-11-15, Claude Code 2.1.325 loaded the plugin from a folder and from the
   settings of a project.
-- A task in the plugin form: not run yet.
+- Proven: on 2026-11-17, three small changes ran in the plugin form, each to a green pull request
+  ([the runs](docs/examples.md#real-runs-of-2026-11-17)).
 
 ### The clone, if you change Lem
 
@@ -112,7 +113,10 @@ python3 lem/scripts/setup.py --project ~/code/shop
 
 The setup links Lem into that repository and checks the computer. Without `--project`, the links
 go into your home directory, for each repository. [docs/install.md](docs/install.md) has the
-details and the removal steps.
+details.
+
+To remove Lem, follow [these steps](docs/install.md#remove-lem-from-a-repository). The main one is
+`claude plugin uninstall lem@lem --scope project`, or `setup.py --project DIR --remove` for the clone.
 
 ## Every day
 
@@ -136,17 +140,20 @@ morning and `/lem night` each night. You can type them, but usually you do not.
 ## The words you meet
 
 - **Task**: one ask, with its own branch and worktree.
-- **Small change**: one plain change, with one story in your words and no open question.
+- **Small change**: one plain change near no topic, with one story in your words and no open
+  question.
 - **Feature**: each other ask.
+- **Builder**: an agent that Lem starts in a new context for one job.
 - **Story**: one rule of your ask in plain words, with an example. Each story gets a test.
 - **Interview**: Lem asks one question at a time, each with its guess.
 - **Personas**: the people a change affects. An agent reads the stories as each of them.
 - **Topic**: one sentence of what must never go wrong in your project.
 - **Careful**: a change near a topic.
-- **Polish pass**: a new builder removes what the build left behind.
+- **Plan talk**: before the code of a careful or large feature, two agents argue its plan.
+- **Polish pass**: for a feature, a new builder removes what the build left behind.
 - **The checks**: your commands, the test of each story, and the bar.
 - **The bar**: a new suppression, a skipped or deleted test, or fewer assertions lower it.
-- **Review**: an agent that did not build the change reads it.
+- **Review**: an agent that did not build the change reads it. "One read" is the smallest review.
 - **Green**: you can merge without a read.
 
 [docs/inside.md](docs/inside.md) has the words of the inside of Lem.
@@ -164,10 +171,10 @@ A task needs none of them. They help you when you step in.
 | `/lem release` | you make a release | `/lem release` |
 | `/lem last-tag` | you want the commits after the last release | `/lem last-tag` |
 | `/lem pr-review` | a pull request of a different person needs an answer | `/lem pr-review 42` |
-| `/lem ask-expert` | a choice that waits has no answer from the two experts | `/lem ask-expert gift-note 3` |
+| `/lem ask-expert` | a choice waits for you, and you want the advice of two other models | `/lem ask-expert gift-note 3` |
 | `/lem linear` | you want to read one Linear ticket | `/lem linear MBZ-12` |
 | `/lem panel` | the personas must read a text | `/lem panel docs/backlog/export-drops-custom-columns.md` |
-| `/lem gate` | you want to know if one of your rulings answers a question | `/lem gate is the empty column rule ruled` |
+| `/lem gate` | you want to know if a decision that you recorded answers a question | `/lem gate is the empty column rule ruled` |
 
 ## More
 
