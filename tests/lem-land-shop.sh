@@ -72,7 +72,7 @@ else
   fail "land gate: $out"
 fi
 if [ "$(field '(d["criteria"]["ok"], [(t["criterion"], t["problem"]) for t in d["criteria"]["tests"]], d["bar"], d["size"]["files"], d["size"]["in_parts"])' <<<"$out")" \
-  = "(True, [(1, None)], {'lowered': [], 'not_covered': [], 'own_patterns': 0}, 3, False)" ] && grep -q '"event": "task.red", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
+  = "(True, [(1, None)], {'lowered': [], 'not_covered': [], 'own_patterns': 0, 'edited': []}, 3, False)" ] && grep -q '"event": "task.red", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
   pass "after the commands the gate proves each criterion's test on the branch and on the base commit, looks for a lowered bar and counts the size"
 else
   fail "the machine checks after the gate's commands: $out"
@@ -112,7 +112,7 @@ if grep -q "the notes lack ## Left open, ## Worth a look, ## Filed in the backlo
   && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | sed -n 3p)" = none ] && [ "$(head -1 "$text")" = '**Green.** The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision was taken by timeout or by the experts.' ] \
   && grep -q '^> Put yes into ok.txt\.$' "$text" && grep -q '^1\. The file holds the word the owner asked for\.$' "$text" \
   && grep -q 'sh tests/first-change.sh.: passes on the branch, fails on the base commit' "$text" && grep -q '^- check, .echo 7 passed.: 7 passed$' "$text" \
-  && grep -q "^- the tests of the criteria: 1 pass on the branch and fail on the base commit$" "$text" && grep -q '^- the bar: not lowered$' "$text" \
+  && grep -q "^- the tests of the criteria: 1 pass on the branch and fail on the base commit$" "$text" && grep -q '^- the bar: no mark of a lowered bar found$' "$text" \
   && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 1 should, 0 nit$' "$text" && grep -qxF -- "- careful: no; the review says no: $NOT_CAREFUL" "$text" && grep -q '^- the one line of the file\.$' "$text" \
   && ! grep -q 'plan talk' "$text" && ! grep -q '"event": "plan.talk", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
   pass "with no forge the branch is marked ready: the task is open, and the text for the owner says green first, then holds his words, the criteria with their tests, each check with what it returned, the decisions of the record (none here), then the notes; a plain request of one task needs no plan talk, and its text has no line of one"

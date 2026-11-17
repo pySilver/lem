@@ -60,9 +60,18 @@ suite, which runs here one time and in no builder; then, when they all passed, e
 database, a browser), each under the repository's one lock for them through `project.py alone`,
 which waits while a builder or another check holds it; then `criteria.py red` (each criterion's tests pass on the branch and fail on the base commit), then the
 bar. A change lowers the bar when it adds a lint or type suppression, a skipped test or a mark
-that runs one test alone, deletes a test file or moves it out of the tests, or leaves fewer
+that runs one test alone, a mark of no coverage or a test that runs again until it passes,
+deletes a test file or moves it out of the tests, or leaves fewer
 assertions in one (counted by the words `assert` and `expect` on the lines it adds and removes, in a test file and in every Rust file, where unit tests sit beside
-the code). A mark counts when the change leaves more of it in a file than the file had, so a
+the code), or cuts a Python `assert` before its comparison (`assert f(x) == 2` that becomes `assert f(x)`).
+In the settings of a test runner or of coverage (`pyproject.toml`, `setup.cfg`, `pytest.ini`,
+`tox.ini`, `package.json`, `.coveragerc`, `.nycrc`, `jest.config.*`, `vitest.config.*`) it lowers it
+by a new `--deselect`, `-k "not ..."`, `--ignore`, `testPathIgnorePatterns`, rerun or retry, a lint
+ignore or a coverage omit, and by a coverage threshold whose number went down or that is gone; in
+the forge's workflows, by `continue-on-error: true`, and by a runner of tests or of a linter that a
+workflow of the base ran and no workflow of the tip runs. Each existing test, snapshot and test
+configuration the change edits is listed (`edited`), and the pull request names them: what a test
+expects is read by the review, since no mark shows a changed expectation. A mark counts when the change leaves more of it in a file than the file had, so a
 line that only moved is no new mark; a mark whose own text changed is a new one. A lowered bar passes only with a reason for that file under
 `## The bar` in the task's plan, as `- PATH: REASON`. The marks looked for are those of Python, JavaScript and
 TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `checks.bar` patterns for any
@@ -445,14 +454,38 @@ DOCS = (".md", ".rst", ".adoc")
 # of JavaScript's runners (`.only`, `fit`, `fdescribe`), which run one test alone and so leave the
 # others out, after an audit of the bar (2026-11-17); not measured. A mark that a call's "(" follows
 # is looked for with that "(" and named without it, so a refusal says `it.only`, never `it.only(`.
+# The marks of no coverage and of a test that runs again until it passes came after a probe of the
+# bar passed eight ways of weakening a test unseen (audit T-F2, 2026-11-17).
 BAR = {
-    (".py",): (r"#\s*noqa", r"#\s*type:\s*ignore", r"#\s*pyright:\s*ignore", r"#\s*pylint:\s*disable", r"#\s*nosec", r"\bpytest\.mark\.(skip|xfail)", r"\bunittest\.skip", r"\bpytest\.skip(?=\()"),
-    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\b(it|test|describe)\.(skip|todo|only)(?=\()", r"\bx(it|test|describe)(?=\()", r"\bf(it|describe)(?=\()"),
+    (".py",): (r"#\s*noqa", r"#\s*type:\s*ignore", r"#\s*pyright:\s*ignore", r"#\s*pylint:\s*disable", r"#\s*nosec", r"\bpytest\.mark\.(skip|xfail)", r"\bunittest\.skip", r"\bpytest\.skip(?=\()",
+               r"#\s*pragma:\s*no\s*cover", r"\bpytest\.mark\.(flaky|retry)\b", r"^\s*@flaky\b"),
+    (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"): (r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\b(it|test|describe)\.(skip|todo|only)(?=\()", r"\bx(it|test|describe)(?=\()", r"\bf(it|describe)(?=\()",
+                                                     r"/\*\s*istanbul\s+ignore", r"\bc8\s+ignore\b", r"\bjest\.retryTimes(?=\()", r"\bthis\.retries(?=\()"),
     (".go",): (r"//\s*nolint", r"\bt\.Skip(f|Now)?(?=\()"),
     (".rs",): (r"#!?\[allow\(", r"#\[ignore\b"),
     (".java", ".kt"): (r"@Disabled", r"@Ignore", r"@SuppressWarnings"),
     (".sh", ".bash"): (r"#\s*shellcheck\s+disable",),
 }
+# The settings files of a test runner or of coverage, by name: their marks leave tests out, run a
+# failing test again until it passes, or take code out of the coverage, for the whole suite at once.
+TEST_CONFIG = re.compile(r"(^|/)(pyproject\.toml|setup\.cfg|pytest\.ini|tox\.ini|package\.json|\.coveragerc|\.nycrc(\.json|\.ya?ml)?|(jest|vitest)\.config\.[A-Za-z0-9.]+)$")
+TEST_CONFIG_MARKS = (r"--deselect\b", r"-k[\s=]+[\"']?not\b", r"--ignore(-glob)?\b", r"\btestPathIgnorePatterns\b", r"(--)?\breruns\b", r"\bretries\b", r"\bretryTimes\b", r"\bflaky\b",
+                     r"^\s*(extend-|per-file-)?ignores?\s*=", r"^\s*omit\s*=", r"^\s*exclude_lines\s*=")
+# A coverage threshold, as a runner's settings or a command line write it: its name and its number.
+# The bar is lower when a number of one name went down, or the name is gone, anywhere in those files.
+THRESHOLD = re.compile(r"(fail_under|fail-under|cov-fail-under)[\s\"']*[=:\s][\s\"']*([0-9]+(?:\.[0-9]+)?)|[\"']?\b(lines|branches|functions|statements)[\"']?\s*:\s*([0-9]+(?:\.[0-9]+)?)")
+# The forge's workflows, and the runners of tests and linters a step of one may run. A runner that a
+# workflow of the base ran and no workflow of the tip runs is a check the change took away.
+WORKFLOW = re.compile(r"(^|/)\.github/workflows/[^/]+\.ya?ml$")
+WORKFLOW_MARKS = (r"continue-on-error:\s*true",)
+RUNNERS = re.compile(
+    r"\b(pytest|tox|nox|unittest|jest|vitest|mocha|playwright|cypress|rspec|rubocop|phpunit|shellcheck|ruff|flake8|pylint|mypy|pyright|eslint|tsc|golangci-lint)\b"
+    r"|\b(npm|yarn|pnpm)\s+(run\s+)?(test|lint)\b|\bgo\s+(test|vet)\b|\bcargo\s+(test|clippy)\b|\bmake\s+(test|lint|check)\b",
+)
+# A file a test compares its output with, written once and read by the test.
+SNAPSHOT = re.compile(r"(^|/)__snapshots__/|\.snap$|\.ambr$|\.approved\.[A-Za-z0-9]+$")
+# Comparisons an assertion may lose when only its end is cut: `assert f(x) == 2` that becomes `assert f(x)`.
+COMPARED = ("==", "!=", "<=", ">=", "<", ">", "in ", "is ", "not in ")
 # Files that are neither code nor documentation: no language's marks apply, and none is missed.
 DATA = (".txt", ".json", ".toml", ".yaml", ".yml", ".lock", ".cfg", ".ini", ".csv", ".tsv", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".html", ".css", ".xml", "")
 # An assertion, as far as a line shows one: the word a test framework uses for it.
@@ -1242,6 +1275,10 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     # becomes `noqa` is a wider suppression, and a new one.
     came: dict[tuple[str, str, str], list[dict]] = {}
     went: dict[tuple[str, str, str], int] = {}
+    # each file's assertion lines that went and came, to find one that only lost its comparison
+    assert_lines: dict[str, dict[str, list[str]]] = {}
+    # each coverage threshold's numbers before and after, whatever file of a runner's settings holds it
+    thresholds: dict[str, dict[str, list[tuple[float, str]]]] = {}
     file = old = ""
     marks: list[re.Pattern] = []
     # -M: a file that moved is one file, so its tests are not counted as gone and come again
@@ -1254,35 +1291,86 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
             if Path(file).suffix.lower() in DOCS:
                 # a document may quote a mark, the plan's own reason for one too
                 file = ""
-            marks = [*extra, *(re.compile(mark) for suffixes, found in BAR.items() if Path(file).suffix.lower() in suffixes for mark in found)] if file else []
+            marks = [*extra, *(re.compile(mark) for suffixes, found in BAR.items() if Path(file).suffix.lower() in suffixes for mark in found),
+                     *(re.compile(mark) for mark in TEST_CONFIG_MARKS if TEST_CONFIG.search(file)), *(re.compile(mark) for mark in WORKFLOW_MARKS if WORKFLOW.search(file))] if file else []
         elif not file or line[:1] not in "+-":
             continue
         else:
-            hit = next((found for mark in marks if (found := mark.search(line[1:]))), None)
-            key = (file, hit.re.pattern, " ".join(line[1:][hit.start():].split())) if hit else None
-            if hit and line.startswith("+"):
-                came.setdefault(key, []).append({"file": file, "what": hit.group(0), "line": line[1:].strip()[:160]})
-            elif hit:
-                went[key] = went.get(key, 0) + 1
+            # every mark of the line counts, as a runner's settings put several on one line
+            for hit in (found for mark in marks if (found := mark.search(line[1:]))):
+                key = (file, hit.re.pattern, " ".join(line[1:][hit.start():].split()))
+                if line.startswith("+"):
+                    came.setdefault(key, []).append({"file": file, "what": hit.group(0), "line": line[1:].strip()[:160]})
+                else:
+                    went[key] = went.get(key, 0) + 1
+            if TEST_CONFIG.search(file) or WORKFLOW.search(file):
+                for found in THRESHOLD.finditer(line[1:]):
+                    name, number = (found.group(1), found.group(2)) if found.group(1) else (found.group(3), found.group(4))
+                    thresholds.setdefault(name, {"-": [], "+": []})[line[0]].append((float(number), file))
             if (TEST_FILE.search(file) or Path(file).suffix.lower() in INLINE_TESTS) and ASSERTS.search(line[1:]):
                 asserts[file] = asserts.get(file, 0) + (1 if line.startswith("-") else -1)
+                if line[1:].lstrip().startswith("assert "):
+                    assert_lines.setdefault(file, {"-": [], "+": []})[line[0]].append(line[1:].strip())
     for key, entries in came.items():
         lowered += entries[went.get(key, 0):]
     for name, fewer in sorted(asserts.items()):
         if fewer > 0:
             lowered.append({"file": name, "what": f"{fewer} assertion(s) fewer", "line": ""})
-    for row in git(task.worktree, "diff", "--name-status", "-M", base, tip).splitlines():
+    for name, lines in sorted(assert_lines.items()):
+        # the line that came is the line that went, cut before its comparison: the test no longer says what it expects
+        for kept in lines["+"]:
+            cut = next((gone for gone in lines["-"] if gone.startswith(kept) and gone[len(kept):].lstrip().startswith(COMPARED)), None)
+            if cut is not None:
+                lines["-"].remove(cut)
+                lowered.append({"file": name, "what": "an assertion lost its comparison", "line": f"{cut} -> {kept}"[:160]})
+    for name, numbers in sorted(thresholds.items()):
+        if not numbers["-"]:
+            continue
+        before, where = max(numbers["-"])
+        after = min(number for number, _ in numbers["+"]) if numbers["+"] else None
+        if after is None or after < before:
+            said = f"{name} went from {before:g} to {after:g}" if after is not None else f"{name} ({before:g}) is gone"
+            lowered.append({"file": where, "what": said, "line": ""})
+    rows = git(task.worktree, "diff", "--name-status", "-M", base, tip).splitlines()
+    edited = []
+    for row in rows:
         status, name, *moved = row.split("\t")
         # a test file that moved out of the tests is one the tests no longer run, as a deleted one
         gone = status == "D" or (status.startswith("R") and moved and not TEST_FILE.search(moved[0]))
         if gone and TEST_FILE.search(name):
             lowered = [entry for entry in lowered if entry["file"] != name]
             lowered.append({"file": name, "what": "a test file is deleted" if status == "D" else f"a test file is moved out of the tests, to {moved[0]}", "line": ""})
+        # an existing file a reviewer reads first: a test, a snapshot, a runner's or a workflow's settings the change edits
+        now = moved[0] if moved else name
+        kind = "snapshot" if SNAPSHOT.search(now) else "test configuration" if TEST_CONFIG.search(now) or WORKFLOW.search(now) else "test" if TEST_FILE.search(now) else None
+        if kind and (status == "M" or (status.startswith("R") and status != "R100")):
+            edited.append({"file": now, "kind": kind})
+    lowered += workflow_runners_lost(task, base, tip, [row.split("\t")[-1] for row in rows] + [row.split("\t")[1] for row in rows])
     for entry in lowered:
         entry["reason"] = reasons.get(entry["file"])
     covered = {suffix for suffixes in BAR for suffix in suffixes}
     not_covered = sorted({Path(name).suffix.lower() for name in changed(task, base, tip)} - covered - set(DOCS) - set(DATA))
-    return {"lowered": lowered, "not_covered": not_covered, "own_patterns": len(extra)}
+    return {"lowered": lowered, "not_covered": not_covered, "own_patterns": len(extra), "edited": sorted(edited, key=lambda entry: entry["file"])}
+
+
+def workflow_runners_lost(task: Task, base: str, tip: str, touched: list[str]) -> list[dict]:
+    """Each runner of tests or of a linter that a workflow of the forge ran on the base and no
+    workflow runs on the tip: a step or a job the change took away. All the workflows are read
+    together, so a step that moved to another workflow file is none; one renamed beyond what
+    `RUNNERS` knows is missed, and the review reads the workflow file the change edits."""
+    if not any(WORKFLOW.search(name) for name in touched):
+        return []
+
+    def runners(commit: str) -> dict[str, str]:
+        found: dict[str, str] = {}
+        for name in git(task.worktree, "ls-tree", "-r", "--name-only", commit, "--", ".github/workflows").splitlines():
+            if WORKFLOW.search(name):
+                for hit in RUNNERS.finditer(git(task.worktree, "show", f"{commit}:{name}", check=False)):
+                    found.setdefault(" ".join(hit.group(0).replace(" run ", " ").split()), name)
+        return found
+
+    after = runners(tip)
+    return [{"file": name, "what": f"{runner} no longer runs in a workflow", "line": ""} for runner, name in sorted(runners(base).items()) if runner not in after]
 
 
 def cmd_checks(task: Task) -> dict:
@@ -2166,6 +2254,17 @@ def synced(task: Task) -> str | None:
     return line + "; the checks passed again"
 
 
+def edited_line(bar: dict) -> list[str]:
+    """The existing tests, snapshots and test configurations the change edits, as one line under the
+    bar's: no mark finds a changed expectation, so a reviewer knows where to look first."""
+    edited = bar.get("edited") or []
+    if not edited:
+        return []
+    kinds = [(kind, [entry["file"] for entry in edited if entry["kind"] == kind]) for kind in ("test", "snapshot", "test configuration")]
+    said = [f"{len(files)} existing {kind if len(files) == 1 else kind + 's'} (" + ", ".join(f"`{file}`" for file in files) + ")" for kind, files in kinds if files]
+    return ["- the change edits " + (", ".join(said[:-1]) + " and " + said[-1] if len(said) > 1 else said[0])]
+
+
 def resolution_line(read: dict) -> str:
     """The read of a conflict's resolution as one line of the pull request's checks."""
     who = f"answered: {', '.join(read['answered'])}" if read["answered"] else "no source answered"
@@ -2205,7 +2304,8 @@ def small_text(task: Task, notes: str, state: dict) -> str:
         where = f" ({cause['where']})" if cause.get("where") else ""
         out.append(f"- the cause, as the investigation found it: {cause['line']}{where}")
     lowered = (checks.get("bar") or {}).get("lowered", [])
-    out.append("- the bar: not lowered" if not lowered else "- the bar is lowered: " + "; ".join(f"`{entry['file']}` ({entry['what']})" for entry in lowered))
+    out.append("- the bar: no mark of a lowered bar found" if not lowered else "- the bar is lowered: " + "; ".join(f"`{entry['file']}` ({entry['what']})" for entry in lowered))
+    out += edited_line(checks.get("bar") or {})
     for read in kept.get("reads", []):
         if read.get("of") == "resolution":
             out.append(resolution_line(read))
@@ -2273,8 +2373,9 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         where = f" ({cause['where']})" if cause.get("where") else ""
         out.append(f"- the cause, as the investigation before the build found it: {cause['line']}{where}")
     lowered = (checks.get("bar") or {}).get("lowered", [])
-    out.append("- the bar: not lowered" if not lowered else "- the bar is lowered, with these reasons:")
+    out.append("- the bar: no mark of a lowered bar found" if not lowered else "- the bar is lowered, with these reasons:")
     out += [f"  - `{entry['file']}` ({entry['what']}): {entry['reason']}" for entry in lowered]
+    out += edited_line(checks.get("bar") or {})
     if (checks.get("bar") or {}).get("not_covered"):
         own = checks["bar"].get("own_patterns", 0)
         out.append(f"- the bar has no marks of its own for files of these kinds: {', '.join(checks['bar']['not_covered'])}" + (f" (the project's {own} pattern(s) in checks.bar were looked for)" if own else ""))

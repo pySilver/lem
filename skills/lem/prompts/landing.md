@@ -76,7 +76,10 @@ exact last line of its output; the tip (`git rev-parse HEAD`); the output of
 
 The brief gives what the machine checks printed: the commands of the checks that failed with the files
 that hold their output, or the criterion whose test does not hold it, or the files in which the
-change lowers the bar. No check is ever edited to pass.
+change lowers the bar. No check is ever edited to pass, and no expectation of an existing test,
+no snapshot and no threshold is changed to make one pass: what the test expects is what the
+change must do. When you find that an existing test itself is wrong, change nothing of it: stop,
+and say in your reply which test, what it expects and why that is wrong.
 
 - *A command of the checks.* Read its output file. Run the command on the base branch too, in a way that
   leaves the worktree as it was. A command of `checks.alone` (`project.py --repo WORKTREE show`)

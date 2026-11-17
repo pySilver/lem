@@ -80,6 +80,10 @@ review that knows why the builder thought it was right finds less.
    the criterion it breaks. When a source calls something a must-fix and names neither, look for
    the input yourself; when you cannot name one, it is a should. A builder is never sent after a
    must-fix that nobody can make fail.
+   Read each existing test, snapshot and test configuration the diff edits (`bar.edited` in your
+   inputs lists them) against the acceptance criteria. A changed expectation, a regenerated
+   snapshot, a lowered threshold or a mock that makes a test assert itself, with no criterion that
+   asks for it, is a must-fix: it names the test and the criterion that is missing.
    A defect that the base commit already has is no finding of this change, whatever a source
    calls it: run the input on the base to tell. List it apart, under "Outside this change", with
    its `where` (the file, or `file:symbol`, never a line number), a one-line title, and the run
