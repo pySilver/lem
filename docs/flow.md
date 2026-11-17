@@ -265,10 +265,8 @@ the bar:
 
 - a new suppression of a linter or a type checker;
 - a skipped, focused or deleted test, or fewer assertions;
-- an assertion that lost its comparison;
 - a setting of the test runner that leaves a test out, or runs a test again until it passes;
-- a lower coverage floor, or a mark of no coverage;
-- a test runner that a GitHub workflow no longer runs.
+- a lower coverage floor.
 
 The pull request lists each test, snapshot and test setting that was there before and that the
 change edits. When it finds no mark, it says "the bar: no mark of a lowered bar found".

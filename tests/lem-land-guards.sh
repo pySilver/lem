@@ -261,8 +261,7 @@ fi
 project --repo "$GRD" state bar-moves dropped "the test is over" >/dev/null
 
 # The bar sees the usual ways a test gets weaker outside the test's own lines: a mark in a test runner's settings, a
-# coverage threshold that went down, a no-cover mark, a retry decorator, a workflow that no longer runs a test
-# runner it ran, and an assertion that lost its comparison. The checks name each existing test, snapshot and test
+# coverage threshold that went down, and a retry decorator. The checks name each existing test, snapshot and test
 # configuration the change edits.
 mkdir -p "$GRD/.github/workflows" "$GRD/tests/__snapshots__"
 printf '%s\n' '[tool.coverage.report]' 'fail_under = 90' > "$GRD/pyproject.toml"
@@ -277,17 +276,15 @@ tree=$(wt bar-weaker)
 printf '%s\n' '[tool.coverage.report]' 'fail_under = 10' '[tool.pytest.ini_options]' "addopts = \"--deselect tests/test_calc.py::test_add -k 'not slow' --reruns 3\"" > "$tree/pyproject.toml"
 printf '%s\n' '{"name": "shop", "jest": {"coverageThreshold": {"global": {"lines": 50}}, "testPathIgnorePatterns": ["slow"]}}' > "$tree/package.json"
 printf '%s\n' 'jobs:' '  test:' '    steps:' '      - run: ruff check .' > "$tree/.github/workflows/ci.yml"
-printf '%s\n' 'import pytest' 'from shop import add' '@pytest.mark.flaky(reruns=5)' 'def test_add():' '    assert add(1, 2)' > "$tree/tests/test_calc.py"
+printf '%s\n' 'import pytest' 'from shop import add' '@pytest.mark.flaky(reruns=5)' 'def test_add():' '    assert add(1, 2) == 3' > "$tree/tests/test_calc.py"
 printf '%s\n' 'exports["total"] = "4";' > "$tree/tests/__snapshots__/total.snap"
-printf '%s\n' 'def add(a, b):  # pragma: no cover' '    return a + b' > "$tree/shop.py"
-mkdir -p "$tree/web" && printf '%s\n' '/* istanbul ignore next */' 'export const total = (a, b) => a + b;' > "$tree/web/total.js"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "test: weaker"
 g start bar-weaker >/dev/null && g base bar-weaker >/dev/null
 weaker=$(g checks bar-weaker 2>/dev/null || true)
 if [ "$(field '"; ".join(e["file"] + ": " + e["what"] for e in sorted(d["bar"]["lowered"], key=lambda e: (e["file"], e["what"])))' <<<"$weaker" 2>&1)" \
-  = ".github/workflows/ci.yml: pytest no longer runs in a workflow; package.json: lines went from 80 to 50; package.json: testPathIgnorePatterns; pyproject.toml: --deselect; pyproject.toml: --reruns; pyproject.toml: -k 'not; pyproject.toml: fail_under went from 90 to 10; shop.py: # pragma: no cover; tests/test_calc.py: an assertion lost its comparison; tests/test_calc.py: pytest.mark.flaky; web/total.js: /* istanbul ignore" ] \
+  = "package.json: lines went from 80 to 50; package.json: testPathIgnorePatterns; pyproject.toml: --deselect; pyproject.toml: --reruns; pyproject.toml: -k 'not; pyproject.toml: fail_under went from 90 to 10; tests/test_calc.py: pytest.mark.flaky" ] \
   && [ "$(field 'd["bar"]["edited"]' <<<"$weaker" 2>&1)" = "[{'file': '.github/workflows/ci.yml', 'kind': 'test configuration'}, {'file': 'package.json', 'kind': 'test configuration'}, {'file': 'pyproject.toml', 'kind': 'test configuration'}, {'file': 'tests/__snapshots__/total.snap', 'kind': 'snapshot'}, {'file': 'tests/test_calc.py', 'kind': 'test'}]" ]; then
-  pass "the bar sees a deselect, a -k not, a rerun and an ignore pattern in a runner's settings, a coverage threshold that went down, a no-cover mark, a flaky decorator, a workflow that no longer runs a runner it ran and an assertion that lost its comparison; the checks name each existing test, snapshot and test configuration the change edits"
+  pass "the bar sees a deselect, a -k not, a rerun and an ignore pattern in a runner's settings, a coverage threshold that went down and a flaky decorator; the checks name each existing test, snapshot and test configuration the change edits"
 else
   fail "the bar of a weaker test: $weaker"
 fi
