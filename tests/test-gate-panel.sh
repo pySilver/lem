@@ -259,3 +259,4 @@ if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem 
 if [ -d "$(dirname "$CAST")/__pycache__" ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
 
 [ "$fails" -eq 0 ] || { printf '%d failure(s)\n' "$fails"; exit 1; }
+printf 'all passed\n'
