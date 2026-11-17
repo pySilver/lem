@@ -449,7 +449,7 @@ flowchart TD
 | `/lem ask <question>` | you | puts a question to you as a page |
 | `/lem annotate <file>` | you | opens a file for you to mark, with the tool in `tools.annotate` |
 | `/lem learn` | you | puts a correction that you gave into the file that owns the step, and tells you each change |
-| `/lem reviewer <agent> [model [plan_effort]]` | you | names the reviewer on this computer; the agent is `claude` or `codex` |
+| `/lem reviewer <agent> [model [plan_effort]]` | you | names the reviewer of a plan talk on this computer; the agent is `claude` or `codex` |
 | `/lem reviewer codex gpt-6.1-sol high` | you | an example: Codex reviews, with the model `gpt-6.1-sol` and the effort `high` for a plan talk |
 | `/lem reviewer default` | you | gives the reviewer of the project back |
 | `/lem init` | you | sets up a repository |

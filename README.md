@@ -127,7 +127,7 @@ details and the removal steps.
 | `/lem ask <question>` | puts a question to you as a page |
 | `/lem annotate <file>` | opens a file for you to mark |
 | `/lem learn` | puts your correction into the file that owns the step |
-| `/lem reviewer <agent> [model [plan_effort]]` | sets the reviewer of this computer; `default` resets it |
+| `/lem reviewer <agent> [model [plan_effort]]` | sets the reviewer of a plan talk on this computer; `default` resets it |
 | `/lem init` | sets up a repository |
 
 Lem itself starts `/lem land` when a task is ready. A scheduled job starts `/lem retro` each

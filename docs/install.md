@@ -35,10 +35,11 @@ no result, and the correction hook logs each message as a failure.
 The check of the computer gives one row for each tool, with what Lem cannot do without it:
 
 ```bash
-python3 skills/lem/scripts/doctor.py
+python3 CLONE/skills/lem/scripts/doctor.py
 ```
 
-Run it in the repository that uses Lem. `/lem init` and the setup run it for you.
+`CLONE` is the folder of Lem. Run the check in the repository that uses Lem. `/lem init` and
+the setup run it for you, so with the plugin you do not type it.
 
 ## The plugin
 
