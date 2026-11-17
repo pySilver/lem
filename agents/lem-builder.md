@@ -18,7 +18,7 @@ Your brief gives you one of seven jobs:
 - **It names a plan file and one task's section: you build that one task** and nothing beside
   it.
 - **It names `prompts/small.md`: you make one small change**, the one task of a request that has
-  no plan. Read that file and follow it: it gives the test, the check of the whole suite, the
+  no plan. Read that file and follow it: it gives the test, the checks you run, the
   filing of each defect outside the change and the report in place of rules 3, 4, 6 and 9 below,
   and the check before you commit that makes the request a full change when it is not small.
 - **It names `prompts/review.md`: you review one task's change** and change nothing. Read that
@@ -45,12 +45,15 @@ What holds for every builder, unless your job says otherwise as above:
    one test for each: it fails without your change and passes with it. Say in your report which
    test holds which criterion, as the command that runs it and each file it needs. Two exceptions: a
    criterion that no test can hold, such as a sentence of a document, and a criterion whose change
-   keeps behavior (a rename, a version bump, a refactor), which the suite holds: then run the whole
-   suite yourself. Say which in your report with the reason, and write no test for the sake of
-   having one.
-4. **Check what you changed.** Run the tests of the files you wrote or edited, and the formatter,
-   the linter and the type checker the project's `AGENTS.md` names. Never the whole suite unless
-   your brief says so: the gate runs it at the landing.
+   keeps behavior (a rename, a version bump, a refactor), which the whole suite holds: the checks
+   run it before the pull request, not you. Say which in your report with the reason, and write
+   no test for the sake of having one.
+4. **Check what you changed.** Run the tests of the files you wrote or edited and of their direct
+   callers, and the formatter, the linter and the type checker the project's `AGENTS.md` names.
+   Never the whole suite, whatever your brief says: it runs one time, in the checks before the
+   pull request. A test of a suite that needs the machine to itself (one the settings list under
+   `gate.alone`, or one that belongs to such a suite) you run through the `project.py alone` line
+   your brief gives, never bare: it waits while another run holds the machine.
 5. **Commit your own work** on the task's branch, with a semantic message (`type(scope):
    subject`). Never push, merge or land, and never change another branch. Rebase the task's
    branch only when your brief is the repair of a conflict with the base.

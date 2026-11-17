@@ -14,8 +14,9 @@ a list of questions that closes with the reviewer's first turn, by its defender 
      criteria at his interview, they are your criteria: copy the section word for word, numbered the
      same, and add only the test lines under each, at the end of the build. A criterion whose change
      keeps behavior (a rename, a version bump, a refactor) is held by the suite: its line is `- no
-     test: the change keeps behavior; the suite holds it`, and its task's brief names the whole
-     suite. You may break a criterion's
+     test: the change keeps behavior; the suite holds it`, and the checks before the pull request
+     run the whole suite, which proves it. Its builder runs the tests of the files it changes and
+     of their direct callers, as every builder does, and no builder runs the whole suite. You may break a criterion's
      text into other lines; you may not change a word of it. The plan follows the task's
      `directions.md` too, when the task directory has one. A criterion or a direction the code shows
      you cannot keep, or a criterion that is missing, is a decision of the build (`stages/build.md`,

@@ -11,10 +11,13 @@ is the directory above this file's. This file and your standing rules are all yo
 3. **Hold the criterion.** A change of behavior gets a test that fails on the base and passes with
    the change. A change that keeps behavior (a rename, a version bump, a refactor, a sentence of a
    document) gets no test of its own: its line is `- no test: the change keeps behavior; the suite
-   holds it`, and you run every command of `gate.commands` (`project.py --repo WORKTREE show`)
-   yourself, since the suite is the proof.
-4. **Check** the tests of your files, and the formatter, linter and type checker the project's
-   `AGENTS.md` names.
+   holds it`. The checks run the whole suite one time before the pull request, and that is the
+   proof; you do not run it.
+4. **Check** the tests of your files and of their direct callers, and the formatter, linter and
+   type checker the project's `AGENTS.md` names. A test that the settings' `gate.alone` lists
+   (`project.py --repo WORKTREE show`), or that belongs to such a suite, needs the machine to
+   itself: run it through `python3 SKILL_DIR/scripts/project.py --repo WORKTREE alone -- COMMAND`,
+   never bare.
 5. **Is it still small?** Read `flow.topics` in `project.py --repo WORKTREE show`, the sentences of
    what must never go wrong here. Stop when the change could reach one (in doubt, it could), needs
    a second rule or a decision the criterion does not settle, would lower the bar (a new

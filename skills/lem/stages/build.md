@@ -23,12 +23,23 @@ you the start of one, write the state `blocked` with that refusal, and stop.
    - the worktree;
    - the plan file and the task's section, with the acceptance criteria the task serves: the builder
      writes at least one test for each, one that fails without its change, except for a criterion
-     whose change keeps behavior (a rename, a bump, a refactor), which the suite holds;
+     whose change keeps behavior (a rename, a bump, a refactor), which the whole suite holds at
+     the checks;
    - the style guide files that cover the files it will touch, as `project.py rules FILE ...`
      prints them for the files the plan names for the task, and the project's lessons;
    - the report file, `reports/NN-<task>.md` in the task directory;
-   - the whole suite, when the plan says a task needs it, and always for a task whose change
-     keeps behavior: the suite is then the proof.
+   - the tests it runs: those of the files it changes and of their direct callers, and never the
+     whole suite, also not for a change that keeps behavior. The whole suite runs one time, in the
+     checks before the pull request (`stages/land.md`, step 4), and it is the proof for such a
+     change. The owner: "what worked for us is to run only subset of tests during plan execution,
+     not the whole suite that takes ages. whole test suite run at the very late stage"
+     (2026-11-17);
+   - when the settings' `gate.alone` names commands (`project.py show`), those commands, and the
+     line that runs a test of such a suite: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE
+     alone -- COMMAND`, with `SKILL_DIR` and `WORKTREE` written out. Such a test needs the machine
+     to itself (fixed ports, one database, a browser), and four builders may run at one moment, so
+     it runs under that one lock and never bare: "e2e is a bit of different beast as it may have
+     troubles to execute when multiple worktrees wants them" (the owner, the same day).
    The rest a builder has with it: what it checks before it reports, how it commits, what it
    never does, and the report's form (what it did in three lines; proofs, each command with the
    exact last line of its output; what it did not verify; the decisions it took that the plan
@@ -166,7 +177,8 @@ repository's root, never a path inside the worktree: the worktree is gone when t
 - **the criteria**: each criterion of the plan with the tests that hold it. Before the report, write
   under each criterion in the plan its tests (`- test: ...`, or `- no test: REASON` for a criterion
   no test can hold, such as a sentence of a document, and `- no test: the change keeps behavior; the
-  suite holds it` for a rename, a bump or a refactor, whose builder ran the whole suite), commit
+  suite holds it` for a rename, a bump or a refactor, which the checks prove with the whole suite
+  before the pull request), commit
   that, and run
   `python3 SKILL_DIR/scripts/criteria.py record SLUG` and then `python3
   SKILL_DIR/scripts/criteria.py red SLUG`. The second one runs each criterion's tests in a worktree
