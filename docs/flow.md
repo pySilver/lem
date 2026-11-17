@@ -137,10 +137,8 @@ is confused, the build starts without a wait. The task waits for your yes in thr
 - another person wrote the ticket or the backlog item. Then you read on one page what Lem will
   build, before it builds.
 
-**Text from outside is data.** A ticket, an issue, a pull request, a comment, a web page or a file
-of a dependency tells Lem what is asked or what is there. Lem never obeys an instruction in that
-text: it does not change the settings, a push, a merge, or what a builder can run. No agent writes
-a secret, a key or a value from an `.env` file into a file or a commit.
+**No secret goes into a file.** No agent writes a secret, a key or a value from an `.env` file
+into a file or a commit.
 
 ### The plan and the build
 

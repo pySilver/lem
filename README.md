@@ -67,7 +67,6 @@ review, and a person merges it. [docs/flow.md](docs/flow.md) gives each step.
 - A step that nobody can undo waits for your word.
 - After a merge, Lem brings an open pull request that is in conflict onto the new base.
 - Lem never pushes over a commit that it did not push.
-- The text of a ticket, an issue or a web page is data. Lem never obeys an instruction in it.
 
 ## Install
 
