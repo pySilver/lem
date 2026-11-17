@@ -322,6 +322,35 @@ else
   fail "a second freeze by a read: $refile / $refreeze / $over_his / $over_his_file / $kept_contracts"
 fi
 project --repo "$LOCAL" state ticket-word dropped "the test is over" >/dev/null
+# A complete request that someone else wrote waits for the owner's yes to its criteria, also when nobody was confused:
+# a freeze by the read is not proposed, whether the brief or a state line says whose request it is; his approval after
+# the read is, and the checks say that he approved them.
+task_in "$LOCAL" their-ticket h.txt h
+printf '%s\n' 'slug: their-ticket' 'request by: someone else' > "$LOCAL/.lem/state/tasks/their-ticket/brief.md"
+digest=$(lcriteria digest their-ticket 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log their-ticket criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null 2>&1 || true
+lcriteria approve their-ticket --read >/dev/null 2>&1 || true
+local_land start their-ticket >/dev/null && local_land base their-ticket >/dev/null && polish_local their-ticket && local_land checks their-ticket >/dev/null \
+  && local_land read their-ticket --record "$(clean 1)" >/dev/null
+by_brief=$(local_land propose their-ticket --title "fix: h" --notes "$NOTES" 2>&1 || true)
+# the same task with the line in a state block and not in the brief
+printf '%s\n' 'slug: their-ticket' > "$LOCAL/.lem/state/tasks/their-ticket/brief.md"
+project --repo "$LOCAL" state their-ticket landing "the lead's report is in" "request by: someone else" >/dev/null
+by_state=$(local_land propose their-ticket --title "fix: h" --notes "$NOTES" 2>&1 || true)
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/their.md"
+lcriteria approve their-ticket --file "$WORK/their.md" >/dev/null 2>&1 || true
+proposed_their=$(local_land propose their-ticket --title "fix: h" --notes "$NOTES" 2>&1 || true)
+text=$LOCAL/.lem/state/tasks/their-ticket/pr.md
+if grep -qF "their-ticket is a complete request that someone else wrote, and no approval of the owner's came after the newest read of its criteria" <<<"$by_brief" \
+  && grep -qF "a freeze by the read is not his yes" <<<"$by_brief" && grep -qF "lem criteria approve their-ticket --file FILE" <<<"$by_brief" \
+  && grep -qF "their-ticket is a complete request that someone else wrote" <<<"$by_state" \
+  && [ "$(status_in "$LOCAL" their-ticket)" = open ] && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
+  && grep -qxF -- "- the criteria were read by 2 of 2 personas asked, one model family (opus); nobody confused; the owner approved them on $(approved_day their-ticket)" "$text"; then
+  pass "a complete request that someone else wrote, by its brief or a state line, is not proposed with only the lead's freeze of a read in which nobody was confused; the owner's approval after the read lets it through, and the checks say that he approved the criteria"
+else
+  fail "a complete request of someone else's: $by_brief / $by_state / $proposed_their / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state their-ticket dropped "the test is over" >/dev/null
 # A read in which nobody answered is written down too, and started once more: after the first one the
 # request is not proposed and the lead's freeze is refused; after the second the build goes on,
 # the freeze takes the criteria, and the request is not green for it, with the reason first.

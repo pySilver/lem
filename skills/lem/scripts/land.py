@@ -278,7 +278,10 @@ change from a complete request, where the read always runs, and is refused. Then
 personas, on the owner's word (DATE); the owner approved them", which is no cause of not green, since the
 decision was the owner's. It also refuses one whose newest read flagged a criterion or
 showed a split between the families with no approval of the owner's at or after it; the lead's
-freeze of a read (`lem criteria approve --read`) is no approval of the owner's. A read in which nobody
+freeze of a read (`lem criteria approve --read`) is no approval of the owner's. A complete request
+that someone else wrote (the line `request by: someone else` in the task's brief or in a block of its
+state) needs that approval after the newest read even when nobody was confused, since nobody at the
+terminal read the request. A read in which nobody
 answered is written down too: `propose` refuses while the newest one is the first such read in a
 row, so that the read is started once more, and after the second in a row the request is not
 green, with "the criteria were not read" first, and its checks say so in place of the read's line. A
@@ -385,6 +388,8 @@ KINDS = ("read", "round", "full")
 KIND_SAYS = {"read": "one read", "round": "a review round with the profiles that fit", "full": "the project's full set"}
 # The line Lem writes into a task's brief when the owner says that the task is careful.
 OVERRULED = "careful: the owner says so"
+# The line of a task's brief, or of a block of its state, that says someone else wrote its complete request.
+SOMEONE_ELSE = "request by: someone else"
 # The state line `start` writes when the project has no command of its checks; a task blocked with
 # it is the one `start` takes back once the commands are there. A task an older Lem blocked has the
 # line it wrote then, which is taken back too; a later change may drop it once no such task is open.
@@ -1179,6 +1184,18 @@ def paragraphs(text: str) -> list[str]:
 
 def in_tree(task: Task, tip: str, path: str) -> bool:
     return run(["git", "-C", str(task.worktree), "cat-file", "-e", f"{tip}:{path}"], check=False).returncode == 0
+
+
+def someone_elses(task: Task) -> bool:
+    """Whether the task's brief, or a block of its state, says that someone other than the owner
+    wrote its complete request (`stages/new.md`, step 4): nobody at the terminal read it."""
+    brief = task.directory / "brief.md"
+    if brief.is_file() and SOMEONE_ELSE in [line.strip() for line in brief.read_text(encoding="utf-8", errors="replace").splitlines()]:
+        return True
+    return any(
+        record.get("event") == "task.state" and SOMEONE_ELSE in [str(line).strip() for line in [record.get("text", ""), *record.get("lines", [])]]
+        for record in events_of(task)
+    )
 
 
 def owner_says_careful(task: Task) -> bool:
@@ -2533,6 +2550,14 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             f"the newest read of {task.slug}'s criteria found {doubt}, and no approval of the owner's came after it: the criteria with the personas' answers "
             "on top go to the owner (`stages/new.md`, \"The interview and the acceptance criteria\", step 6), and the owner's yes is kept with "
             f"`lem criteria approve {task.slug} --file FILE`",
+        )
+    # A complete request that someone else wrote: nobody at the terminal read it, so its criteria wait
+    # for his yes even when nobody was confused, and the lead's freeze of the read is not that yes.
+    if read is not None and not approved_after(found, read) and someone_elses(task):
+        raise LandError(
+            f"{task.slug} is a complete request that someone else wrote, and no approval of the owner's came after the newest read of its criteria: "
+            f"nobody at the terminal read that request, so its criteria wait for his yes even when nobody was confused, and a freeze by the read is not his yes "
+            f"(`stages/plan.md`, step 1). The criteria with the personas' answers go to the owner, and his yes is kept with `lem criteria approve {task.slug} --file FILE`",
         )
     # Each defect a review saw outside the change has its item in the tip, so that none is lost: one
     # that a session never filed, and one whose item a later commit took out.
