@@ -36,6 +36,9 @@ the owner's choice, so `init` refuses to guess it. The rules an agent already lo
                                     exit 1 for a task in `landing`, `open` or an ended state, which
                                     gets no lead
     project.py state-dir            the folder that holds every task, the event log and the night reports
+    project.py alone -- COMMAND ...
+                                    run one command that needs the machine to itself, under the
+                                    repository's one lock for such commands
 
 Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py` names for
 every script: every worktree writes there, git never tracks it, a worktree's removal does not take
@@ -124,6 +127,18 @@ the landing: a branch that empties its topics or shortens the owner's wait lifts
 every lead, reviewer and landing reads the table as the base branch's checkout has it. The
 table the branch writes is still checked, so that its error shows before it lands.
 
+`gate.alone` names the commands that need the machine to themselves: an end-to-end suite that
+uses fixed ports, one database or a browser. `alone` runs any command under one lock for the
+repository, `alone.lock` in the state folder, apart from the landing's lock, since a builder takes
+this one too: the checks of a landing run each `gate.alone` command through it after
+`gate.commands` pass, `criteria.py red` runs a criterion's test of such a suite through it, and a
+builder runs such a test through it in its worktree. It waits while another run holds the lock
+and says so on stderr with the holder's line, passes the command's exit status through (128 and
+the signal's number for a command a signal ended), and ends the command's process group when it
+is stopped. The lock is the kernel's: it goes with the process that holds it, however that ends,
+so a file a dead run left blocks nothing. One word list after `--` runs as it is; one quoted line
+runs in the shell, as a gate command does.
+
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
 a stage that read half of it would run on defaults nobody chose. Needs Python 3.11 for tomllib.
 """
@@ -138,9 +153,11 @@ if sys.version_info < (3, 11):
 
 import argparse
 import difflib
+import fcntl
 import json
 import os
 import re
+import signal
 import subprocess
 import tomllib
 from datetime import datetime, timezone
@@ -250,6 +267,9 @@ OLD_CALLS = {"correction": "small", "usual": "full"}
 # The states in which the task loads the machine: a lead builds, or the gate runs and a builder may
 # repair a conflict or a red gate.
 RUNNING = ("building", "landing")
+# The lock of the commands that need the machine to themselves (`alone`), in the state folder. Not the
+# landing's `landing.lock`: a builder takes this one too, while another task holds the landing line.
+ALONE_LOCK = "alone.lock"
 # The first line of a state block: the time in UTC, the status, one line of text.
 STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
 # How many tasks build or land at one time when the settings do not say. Four to five ran well on one Mac;
@@ -266,7 +286,7 @@ WATCH_SECONDS = 60
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": tuple(PATHS),
     "branch": ("base", "land", "history", "propose", "protected"),
-    "gate": ("commands", "ignores", "setup", "bar"),
+    "gate": ("commands", "ignores", "setup", "bar", "alone"),
     "flow": ("topics", "max_tasks", "decision_wait", "watch_seconds"),
     "seats": ("reviewer", "planner"),
     "tools": tuple(TOOLS),
@@ -323,6 +343,11 @@ ignores = []
 # copy an environment file. The check that each criterion's tests fail on the base commit runs in a
 # worktree of its own and runs these there first. Leave it empty when the tests start as they are.
 setup = []
+# Commands that need the machine to themselves: an end-to-end suite that uses fixed ports, one
+# database or a browser. The checks run each after `commands` pass, under one lock for the
+# repository, and a builder runs a test of such a suite through `project.py alone`. `commands` is
+# the whole suite without them, which runs one time, before the pull request.
+alone = []
 
 [flow]
 # What must never go wrong in this project, each as one sentence in the owner's words: "a
@@ -684,6 +709,7 @@ def load(root: Path) -> dict:
             "ignores": strings(raw.get("gate", {}).get("ignores", []), "gate.ignores"),
             "setup": commands(raw.get("gate", {}).get("setup", []), "gate.setup"),
             "bar": patterns(raw.get("gate", {}).get("bar", []), "gate.bar"),
+            "alone": commands(raw.get("gate", {}).get("alone", []), "gate.alone"),
         },
         # read from the main checkout's settings, in a task's worktree too
         "flow": flow,
@@ -1621,6 +1647,66 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     print(json.dumps({"running": running, "limit": limit}))
 
 
+def cmd_alone(root: Path, words: list[str]) -> int:
+    """Run one command under the repository's lock for commands that need the machine to
+    themselves, and give its exit status back. Another run that holds the lock is waited for."""
+    words = words[1:] if words[:1] == ["--"] else words
+    if not words or not any(word.strip() for word in words):
+        raise SettingsError("alone takes the command to run: `project.py alone -- COMMAND ...`, or one quoted line for the shell")
+    shown = words[0] if len(words) == 1 else " ".join(words)
+    path = state_root(root) / ALONE_LOCK
+    try:
+        handle = path.open("a+", encoding="utf-8")
+    except OSError as error:
+        raise SettingsError(f"the lock {path} cannot be opened ({error.strerror}); it holds no state, so remove it (`rm -r {path}`) and run this again") from error
+    with handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            handle.seek(0)
+            holder = handle.read().strip() or "its holder wrote no line yet"
+            print(f"project.py: the machine is held by a command that needs it alone ({holder}); this one waits", file=sys.stderr, flush=True)
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        handle.seek(0)
+        handle.truncate()
+        handle.write(f"pid {os.getpid()}, since {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}, in {os.getcwd()}: {shown}\n")
+        handle.flush()
+        proc: subprocess.Popen | None = None
+
+        def stopped(number: int, _frame: object) -> None:
+            raise InterruptedError(number)
+
+        before = {sign: signal.signal(sign, stopped) for sign in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
+        try:
+            # a group of its own, so that what the command starts ends with it when this run is stopped
+            proc = subprocess.Popen(words[0] if len(words) == 1 else words, shell=len(words) == 1, start_new_session=True)  # noqa: S602
+            code = proc.wait()
+        except InterruptedError as stop:
+            code = 128 + stop.args[0]
+        finally:
+            if proc is not None:
+                for sign in (signal.SIGTERM, signal.SIGKILL):
+                    try:
+                        os.killpg(proc.pid, sign)
+                    except (ProcessLookupError, PermissionError):
+                        break
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        continue
+                    # the leader ended; a process it left in the group gets the next signal too
+                    try:
+                        os.killpg(proc.pid, 0)
+                    except (ProcessLookupError, PermissionError):
+                        break
+            for sign, handler in before.items():
+                signal.signal(sign, handler)
+            # the holder's line goes with the hold, so that a waiting run never names a run that ended
+            handle.seek(0)
+            handle.truncate()
+    return code if code >= 0 else 128 - code
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
@@ -1657,6 +1743,8 @@ def main() -> None:
     log.add_argument("fields", nargs="*", metavar="key=value")
     commands.add_parser("may-start").add_argument("slug")
     commands.add_parser("state-dir")
+    alone = commands.add_parser("alone", help="run one command that needs the machine to itself, under the repository's one lock")
+    alone.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     args = parser.parse_args()
     if problem := unreadable_argument(sys.argv[1:]):
         sys.exit(f"project.py: {problem}")
@@ -1689,6 +1777,8 @@ def main() -> None:
         if args.command == "state-dir":
             print(state_root(root))
             return
+        if args.command == "alone":
+            sys.exit(cmd_alone(root, args.words))
         settings = load(root)
         if args.command == "rules":
             cmd_rules(settings, args.files, args.commits)

@@ -79,8 +79,11 @@ that hold their output, or the criterion whose test does not hold it, or the fil
 change lowers the bar. No check is ever edited to pass.
 
 - *A gate command.* Read its output file. Run the command on the base branch too, in a way that
-  leaves the worktree as it was. A failure the change caused, you fix and commit. A failure the
-  base already has, you do not fix here and do not hide: say so, with the last line of the
+  leaves the worktree as it was. A command of `gate.alone` (`project.py --repo WORKTREE show`)
+  needs the machine to itself: run it, on the branch and on the base, through `python3
+  SKILL_DIR/scripts/project.py --repo WORKTREE alone -- COMMAND`, never bare (`SKILL_DIR` is
+  the directory above this file's). A failure the change caused, you fix and commit. A failure
+  the base already has, you do not fix here and do not hide: say so, with the last line of the
   command on the base and on the branch.
 - *A criterion's test* that passes on the base commit too, or does not start there, does not hold
   its criterion: it tests something the base already did. Write the test that fails without the

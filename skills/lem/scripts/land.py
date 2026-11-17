@@ -50,8 +50,11 @@ no reason for a lowered bar (the gate refuses one: a lowered bar is a full chang
 request's text is short. One that is careful after all is not green, since it took the short path
 with no interview, read or plan.
 
-The machine checks have no model in them. `gate` runs the settings' `gate.commands`, then
-`criteria.py red` (each criterion's tests pass on the branch and fail on the base commit), then the
+The machine checks have no model in them. `gate` runs the settings' `gate.commands`, the whole
+suite, which runs here one time and in no builder; then, when they all passed, each command of
+`gate.alone`, the ones that need the machine to themselves (an end-to-end suite on fixed ports, one
+database, a browser), each under the repository's one lock for them through `project.py alone`,
+which waits while a builder or another check holds it; then `criteria.py red` (each criterion's tests pass on the branch and fail on the base commit), then the
 bar. A change lowers the bar when it adds a lint or type suppression, a skipped test or a mark
 that runs one test alone, deletes a test file or moves it out of the tests, or leaves fewer
 assertions in one (counted by the words `assert` and `expect` on the lines it adds and removes, in a test file and in every Rust file, where unit tests sit beside
@@ -1243,7 +1246,10 @@ def cmd_gate(task: Task) -> dict:
     # removal after the run can never reach a file that was there before it.
     there = untracked(task)
     # the start of the checks: the board draws them from here to their last result
-    script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands)}")
+    # The commands that need the machine to themselves come after the others, each under the
+    # repository's one lock for them (`project.py alone`), and only when the others passed.
+    alone = task.settings["gate"].get("alone", [])
+    script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands) + len(alone)}")
     results = []
     running: list[subprocess.Popen] = []
 
@@ -1252,18 +1258,23 @@ def cmd_gate(task: Task) -> dict:
 
     before = signal.signal(signal.SIGTERM, stopped)
     try:
-        for number, command in enumerate(commands, start=1):
+        for number, (command, apart) in enumerate([*((command, False) for command in commands), *((command, True) for command in alone)], start=1):
+            if apart and any(result["exit"] != 0 for result in results):
+                break
             output = logs / f"{number:02d}.log"
+            line: str | list[str] = command
+            if apart:
+                line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "alone", "--", command]
             with output.open("w", encoding="utf-8") as handle:
                 # a group of its own, as criteria.py runs a test: what the command starts ends with it
-                proc = subprocess.Popen(command, shell=True, cwd=task.worktree, stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
+                proc = subprocess.Popen(line, shell=not apart, cwd=task.worktree, stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
                 running.append(proc)
                 code = proc.wait()
                 end_group(running)
             lines = [line for line in output.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
             last = lines[-1].strip() if lines else ""
-            results.append({"command": command, "exit": code, "last": last, "output": str(output)})
-            script("project.py", task.worktree, "log", task.slug, "gate", f"command={command}", f"exit:={code}", f"last={last}", f"tip={tip[:9]}")
+            results.append({"command": command, "exit": code, "last": last, "output": str(output), **({"alone": True} if apart else {})})
+            script("project.py", task.worktree, "log", task.slug, "gate", f"command={command}", f"exit:={code}", f"last={last}", f"tip={tip[:9]}", *(["alone:=true"] if apart else []))
     except KeyboardInterrupt:
         end_group(running)
         task.keep(gated=None, tree=None)
@@ -2104,7 +2115,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     out += criteria_lines(found, held)
     out += [change_line(task, change) for change in found["history"]]
     out += ["", "## Checks", ""]
-    out += [f"- gate, `{command['command']}`: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
+    out += [f"- gate, `{command['command']}`{' (alone, under the lock)' if command.get('alone') else ''}: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
     own = builder_filed(task)
     if own:
         out.append("- filed in the backlog by the builder: " + ", ".join(f"`{path}`" for path in own))
@@ -2163,7 +2174,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]
-        out.append(f"- gate, `{command['command']}`: {command['last'] or f'exit {code}'}")
+        out.append(f"- gate, `{command['command']}`{' (alone, under the lock)' if command.get('alone') else ''}: {command['last'] or f'exit {code}'}")
     tests = checked_criteria(checks)["tests"]
     without = checked_criteria(checks).get("without_a_test", [])
     out.append(f"- the tests of the criteria: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} {'criterion has' if len(without) == 1 else 'criteria have'} no test" if without else ""))

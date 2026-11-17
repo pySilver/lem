@@ -97,6 +97,12 @@ absent, and that is the proof wanted; a test whose new helper was not named fail
 and proves nothing. Only the criterion's own list of files tells the two apart, so the result names
 every file the base run lacked (`run_without`), for the one who reads the change.
 
+A test that needs the machine to itself runs under the repository's one lock for such commands,
+through `project.py alone`: a test whose command starts with the words of a command of the
+settings' `gate.alone`, whose last word may be a folder of the test's path (`npx playwright test
+e2e/export.spec.ts` under `npx playwright test`, `sh tests/e2e/b.sh` under `sh tests/e2e`), so
+that two checks of two tasks, or a check and a builder, never run such a suite at one moment.
+
 One check of a task runs at a time. The two worktrees are removed afterwards, also when a
 command fails or the check is stopped, with every process a command left behind; what a killed
 run left is removed by the next run. A worktree that cannot be removed is an error with its path.
@@ -418,6 +424,28 @@ def unstarted(command: str, where: Path) -> bool:
     return file is not None and not (where / file).is_file()
 
 
+def needs_alone(command: str, alone: list[str]) -> bool:
+    """Whether a test belongs to a suite that needs the machine to itself: its command starts with
+    the words of one of the settings' `gate.alone`, the last of which may also be a folder of the
+    test's path (`sh tests/e2e` holds `sh tests/e2e/export.sh`). Words, so that a test's own file
+    or filter after the suite's command still counts, and `npx playwright` never matches `npx play`."""
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return False
+    for line in alone:
+        try:
+            own = shlex.split(line)
+        except ValueError:
+            continue
+        if not own or len(words) < len(own) or words[:len(own) - 1] != own[:-1]:
+            continue
+        word, last = words[len(own) - 1], own[-1]
+        if word == last or word.startswith(last.rstrip("/") + "/"):
+            return True
+    return False
+
+
 def remove(task: Task, place: Path) -> str | None:
     """Remove one worktree of this check, a locked one too. Returns what is in the way when it stays."""
     def listed() -> bool:
@@ -501,9 +529,15 @@ def cmd_red(task: Task) -> dict:
                         continue
             child.clear()
 
-        def outcome(command: str, where: Path) -> int:
-            # through a shell, as the gate's commands run: a test command is a line the project would type
-            proc = subprocess.Popen(command, shell=True, cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
+        alone = task.settings["gate"].get("alone", [])
+
+        def outcome(command: str, where: Path, test: bool = False) -> int:
+            # through a shell, as the gate's commands run: a test command is a line the project would type;
+            # a test of a suite that needs the machine to itself runs under its lock, which project.py holds
+            line: str | list[str] = command
+            if test and needs_alone(command, alone):
+                line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "alone", "--", command]
+            proc = subprocess.Popen(line, shell=isinstance(line, str), cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
             child.append(proc)
             code = proc.wait()
             # a command that ended may have left a process behind (a server a test started)
@@ -544,7 +578,7 @@ def cmd_red(task: Task) -> dict:
                 if name == "base":
                     # looked for before any test runs there, which might write the file
                     absent = [unstarted(test["command"], place) for _, test in tests]
-                codes[name] = [outcome(test["command"], place) for _, test in tests]
+                codes[name] = [outcome(test["command"], place, test=True) for _, test in tests]
         except KeyboardInterrupt:
             failure = "the check was stopped, and its commands are ended"
         except CriteriaError as error:

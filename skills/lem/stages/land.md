@@ -97,7 +97,11 @@ one finds what the run before it finished.
      command runs.
    - Every command of the settings' `gate.commands` runs at the root of the task's worktree,
      each with its output in a file of the task directory. The step keeps the exact last line of
-     each and logs each result for the board. Do not read the output files.
+     each and logs each result for the board. Do not read the output files. This is the one run
+     of the whole suite: no builder runs it.
+   - Then, when they all passed, each command of `gate.alone`, the ones that need the machine to
+     themselves, under the repository's one lock for them (`project.py alone`): the step waits
+     while a builder or another task's check holds it.
    - What the commands wrote that git neither tracks nor ignores (a `__pycache__` in a
      repository with no rule for it) is their output, not the tree they judged: the step removes
      each such file that was not there before the run, and the folders it empties, and names them

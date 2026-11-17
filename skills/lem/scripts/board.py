@@ -187,10 +187,13 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
             raise BoardError(f"no task {slug!r}; the tasks are: {known}")
     # The main checkout names the repository; a worktree's folder is named after its task.
     # `ask` is how Lem puts a question to the owner (`tools.ask`), so the page says where he answers;
-    # `gates` is how many commands one run of the gate has, so the page knows when a run is complete.
+    # `gates` is how many commands one run of the gate has, so the page knows when a run is complete;
+    # `alone` how many of them are `gate.alone`, which do not run after a red command.
     meta = {
         "repo": Path(settings["main"]).name, "base": settings["branch"]["base"], "session": session,
-        "ask": settings["tools"]["ask"], "gates": len(settings["gate"]["commands"]),
+        "ask": settings["tools"]["ask"], "gates": len(settings["gate"]["commands"]) + len(settings["gate"].get("alone", [])),
+        # the commands of `gate.alone`, which run last and only when the others passed
+        "alone": len(settings["gate"].get("alone", [])),
     }
     if keep_session:
         # A run that opens nothing only writes the files again. The session the board names is the

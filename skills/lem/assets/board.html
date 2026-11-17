@@ -1333,6 +1333,8 @@ function timeOf(t, end) {
     // shows only as a run on another tip after a failed run, a failed check of the criteria or a must-fix,
     // or as a builder's own start.
     const gates = Number.isInteger(meta.gates) && meta.gates > 0 ? meta.gates : null;
+    // the commands of gate.alone come last and run only when the others passed (meta.js `alone`)
+    const aloneN = Number.isInteger(meta.alone) ? meta.alone : 0;
     const sameTip = (a, b) => Boolean(a && b) && (String(a).startsWith(b) || String(b).startsWith(a));
     let run = null, owed = false, prev = from, before = null, opened = null;
     const job = e => cap(String(e.job ?? 'a job'));
@@ -1361,11 +1363,12 @@ function timeOf(t, end) {
         if (!run || run.done || !sameTip(run.tip, e.tip)) {
           repairing = !started && Boolean(run) && !sameTip(run.tip, e.tip) && (run.failed || owed);
           if (!run || !sameTip(run.tip, e.tip)) owed = false;
-          run = {tip: e.tip, count: 0, failed: false, done: false};
+          run = {tip: e.tip, count: 0, plain: 0, failed: false, done: false};
         }
         run.count++;
+        if (!e.alone) run.plain++;
         run.failed ||= e.exit !== 0;
-        run.done = gates != null && run.count >= gates;
+        run.done = gates != null && (run.count >= gates || (run.failed && !e.alone && run.plain >= gates - aloneN));
       } else if (e.event === 'task.red') {
         repairing = !started && (owed || run?.failed) && Boolean(run) && !sameTip(run.tip, e.tip);
         if (!e.ok) owed = true;
