@@ -147,6 +147,9 @@ A file that a later step needs goes into the task folder too, never into `/tmp`.
 A decision of yours never puts a task in `held`. It waits its time while the other work
 continues.
 
+`landed`, `dropped` and `answered` are the end. A task in one of them takes no new state and no
+new lead. New work on it is a new ask.
+
 ## The event log
 
 Each state block is also an event in `.git/lem/events.jsonl`, with the newest commit of the

@@ -23,7 +23,7 @@ flowchart TD
     talk --> build
     build --> polish[The polish pass]
     small --> gate
-    polish --> gate{The machine checks}
+    polish --> gate{The checks}
     gate -- red --> repair[A builder repairs it] --> gate
     gate -- green --> review{A review, as large<br/>as the change needs}
     review -- a finding that must change --> fix[A builder corrects it] --> gate
@@ -90,11 +90,14 @@ The next thing that you see is a question of the interview, the stories, or the 
   `propose`. A small change has no polish pass.
 - The pull request is short: green or not green, the story, the checks, the backlog items of the
   builder and the read.
-- A small change that the review calls careful is not green, and a person merges it.
+- A small change that is careful after all is not green, and a person merges it. The review can
+  call it careful, and so does an edit of `.lem/project.toml`.
 - A small change that lowers the bar is refused at the gate. It becomes a feature.
 - A small change starts two agents: the builder and the review agent. A bug with a clear cause
-  adds the investigator before them. This count is from the stage text (2026-11-17). Nobody
-  measured the time yet.
+  adds the investigator before them. This count is from the stage text (2026-11-17).
+- In the runs of 2026-11-17, the builder of a small change took 41 to 67 seconds, and one read
+  took 62 to 150 seconds, from the event log of the run. A bug took 5 minutes 21 seconds from the
+  word that started it to its pull request. [examples.md](examples.md#real-runs-of-2026-11-17) gives each time.
 
 ## A feature
 
@@ -137,7 +140,8 @@ This is the usual path. You are there for it, and it ends with stories that you 
   story has a record with the text before and after, and the pull request is then not green. If
   you approve the changed stories later, that change does not make it not green. The pull
   request still shows it, with "approved by the owner afterwards": your teammates read it too.
-- **Only you can change the kind** of the stories, a feature or a correction.
+- **A plan is always a feature.** A one-rule ask is a small change, and its story is in the task
+  directory. Lem refuses a plan that says `Kind: correction`.
 
 ### The rare path
 
@@ -205,7 +209,7 @@ A request is careful when one of these says so:
 - your word, at each moment before the landing;
 - the line `careful: yes` of the plan, which a later commit cannot take back;
 - the newest review;
-- a diff that changes the `[flow]` or `[gate]` table of `.lem/project.toml`.
+- a diff that changes `.lem/project.toml`, the settings of Lem, in any table.
 
 A careful request gets these things:
 
@@ -275,7 +279,7 @@ landing that stopped runs again from where it stopped.
 3. **`polish`.** A new builder reads the change of a feature, before the checks and the review.
    Thus the review reads the code as it will merge. A small change never gets a pass. Its
    builder writes the backlog items for the defects outside the change.
-4. **`gate`.** These are the machine checks, with no model in them.
+4. **`gate`.** These are the checks, with no model in them.
 5. **The review.** An agent that did not build the change reads the diff.
 6. **`propose`.** Lem opens the pull request, or marks the branch as ready. Lem does not ask
    you before it pushes the branch of the task. You approved that at onboarding.
@@ -297,7 +301,7 @@ The pass changes no behavior. It must not change the test of a story or the plan
 pass, the test of each story runs again, and Lem refuses a pass that breaks one. A builder that
 repairs a finding later gets the same list. No second pass comes after it.
 
-### The machine checks
+### The checks
 
 - Each command of `gate.commands` runs in the worktree of the task.
 - A command can write files that git does not track or ignore, for example `__pycache__` in a
@@ -343,7 +347,7 @@ The checks of the pull request tell you who read the stories. One line gives how
 answered, the model families, who did not answer, the stories that they flagged, and the date of
 your approval. For a small change, the line says that the personas did not read it. If you
 stopped the read, the line gives the date of your word. If you changed the stories after the
-read, a second line says so. The checks also name the report of the scout.
+read, a second line says so. The checks also say that the facts of the scout shaped the stories.
 
 Lem proposes no feature whose stories nobody read, unless you stopped the read. It also proposes
 no request whose read found a doubt that you did not see.
@@ -351,12 +355,14 @@ no request whose read found a doubt that you did not see.
 A pull request is green when all of these are true:
 
 - the checks passed, and the bar did not go down;
-- a review with one source or more found nothing that must change;
+- a review with one source or more read the change as it is now, was as large as the floor, and
+  found nothing that must change;
 - no story changed during the build, or you approved each change afterwards;
 - no choice was taken by the timeout or by the experts;
 - the gate was the gate of the main checkout;
 - the read of the stories did not stay unanswered two times;
-- it is not a small change that the review called careful.
+- it is not a small change that is careful, by the call of the review, by its edit of the
+  settings, or by your word.
 
 A green pull request needs no read from you. Not green tells you what to read.
 
@@ -403,7 +409,8 @@ flowchart TD
 - **The report replaces the scout.** The interview of a bug starts from the cause.
 - **A cause near a topic is not a small change**, also when one rule removes it.
 - **An answered task has nothing to merge.** It goes to the "Done" lane of the board with its
-  answer. The branch stays, because it can hold the test of the bug.
+  answer. Its worktree goes. Its branch goes too, if it has no commit of its own. A branch with
+  the test of the bug stays, and Lem says how to delete it.
 - **You can start a task from a report.** Type `/lem new` and the path of the report.
 - **The pull request names the cause** in one line.
 
@@ -442,8 +449,12 @@ flowchart TD
 - "feature": a small change takes the feature path.
 - "careful": the task gets the careful flow.
 - "interview me": the rare path takes the interview.
-- "drop": the task stops. Its branch stays, because no other branch has its commits.
+- "drop": the task stops, and its worktree goes. A branch with commits stays, because no other
+  branch has them. A branch with no commit of its own goes.
 - "land it": your word to merge a request that is open.
+
+A task that ended (landed, answered or dropped) does not start again, and it takes no new state.
+New work on it is a new ask.
 
 ## All commands
 
@@ -466,7 +477,7 @@ flowchart TD
 | `/lem reviewer default` | you | gives the reviewer of the project back |
 | `/lem init` | you | sets up a repository |
 | `/lem retro` | a scheduled job, each morning | reads the landed tasks and the correction queue; finds a correction that you gave two times or more; proposes where it goes |
-| `/lem night` | a scheduled job, each night | writes a plan for one backlog item that needs no decision, for you to read in the morning |
+| `/lem night` | a scheduled job, each night | writes a plan for one backlog item that needs no decision, for you to read in the morning. An item that is one plain change gets no plan: the night report names it as ready to start as a small change |
 
 The scheduled jobs are jobs in cronn. `/lem init` offers them, and it adds a job only after your
 yes. [free-hour.md](free-hour.md) is about a different job, a session that changes Lem itself.

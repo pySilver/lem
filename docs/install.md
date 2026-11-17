@@ -77,8 +77,10 @@ What is proven about the plugin:
   settings of a project. The builder ran as `lem:lem-builder`, on the model of its file.
 - On 2026-11-15, the hook of the plugin started on each message, in three sessions with nobody at
   the terminal.
-- An install from GitHub, with the two commands above: not run yet.
-- A task in the plugin form: not run yet.
+- On 2026-11-17, the two commands above installed Lem from GitHub in a scratch repository. Later
+  that day, the two update commands took it to a newer commit.
+- On 2026-11-17, three small changes ran in the plugin form, each to a green pull request.
+  [examples.md](examples.md#real-runs-of-2026-11-17) gives the runs and their times.
 
 ## The clone and links
 
@@ -155,6 +157,7 @@ times or more.
 | the repository, or your home | the correction hook in `.claude/settings.local.json` of the repository, or in `~/.claude/settings.json`, only if you run `--corrections on` | `setup.py --corrections off`, with the same `--project` |
 | the repository | `.lem/` and the starter set in `.revmux/`, on the branch `chore/lem-onboarding` | before "land": answer "drop". After it: the steps below |
 | the repository | `.lem/.gitignore` and `.lem/worktrees/.gitignore`, so that git does not see the local settings and the worktrees | the steps below |
+| the repository | in the onboarding's commit: an ignore line for each kind of file that your gate commands leave, for example `__pycache__/`, in your ignore file, or in a new `.gitignore` | answer "change ignore none" before "land". After it: remove the lines |
 | the repository | one branch for each task, and its worktree in `.lem/worktrees/` | Lem removes them after the merge |
 | the repository | the plan of each feature in `docs/plans/`, and the backlog items that a task filed in `docs/backlog/`, on the task branch | `git revert` after the merge |
 | the git directory | `.git/lem/`, the state of Lem: see the list below this table | delete that folder |
@@ -177,13 +180,18 @@ times or more.
 - `night/`, the night reports;
 - the page of the board and its data files.
 
-- The scripts of Lem do not edit your `.gitignore`. They write their own ignore files.
+- The scripts of Lem do not edit your `.gitignore`. They write their own ignore files. Only the
+  onboarding adds lines to your ignore file, in its own commit, and its page lists them.
+- The gate removes each file that its own commands leave in the worktree of a task, and it names
+  them. It never removes a file that was there before the run.
 - The check of the computer runs `codex --version`. Codex can then write its own temporary folder
   in `~/.codex/tmp/`. That folder is Codex's, not Lem's.
-- A task that you drop keeps its branch, because no other branch has its commits. You delete that
-  branch.
-- The plugin rows of the home come from the record of a different plugin of the same computer
-  (revmux, 2026-11-17). Nobody installed Lem from GitHub yet.
+- A task that you drop, or that Lem answers, loses its worktree. Its branch goes too, if it has no
+  commit of its own. A branch with commits stays, because no other branch has them. Lem says how
+  to delete it.
+- The plugin rows of the home are the files that the install of 2026-11-17 wrote:
+  `~/.claude/plugins/marketplaces/lem/`, `~/.claude/plugins/cache/lem/lem/` with one folder for
+  each commit, and the entries `lem` and `lem@lem` in the two files.
 
 ## Remove Lem from a repository
 
@@ -200,7 +208,8 @@ times or more.
 10. Delete the folder `.lem/`. It still holds the local settings and the worktrees, which git
     does not track.
 11. Delete `.revmux/` too, if you do not use the review tool for other work.
-12. Delete the branch of each task that you dropped, and of each task that Lem answered.
+12. Delete the branch of each task that you dropped or that Lem answered, if the branch is still
+    there.
 
 To remove the home links, run `python3 scripts/setup.py --remove` in the clone. Then delete
 `~/.cache/lem-ask/` and `$TMPDIR/lem-ask/`.

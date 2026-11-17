@@ -15,18 +15,83 @@ This list is as of 2026-11-17.
   merged it, and removed its branch in the clone and on GitHub.
 - On 2026-11-15, Claude Code loaded Lem as a plugin from a folder and from the settings of a
   project.
+- On 2026-11-17, Lem was installed from GitHub as a plugin, with the two commands of the README,
+  and updated with its two update commands. In that form, three small changes ran in a scratch
+  repository, each to a green pull request. One of them was a bug, with its investigation first.
+  See "Real runs of 2026-11-17" below.
+- On 2026-11-17, the correction hook of the plugin queued one message of that run.
 
 Not run yet:
 
-- a task in the flow of 2026-11-16 or later, also a small change;
+- a feature with an interview, in the flow of 2026-11-16 or later;
 - a plan with more than one task;
-- a plan talk, and its companion session;
+- a careful change with a plan talk, and its companion session;
+- a merge by `land --by owner`;
 - a reviewer that is a second Claude;
 - a restart of agterm while a task is open;
-- the correction hook in a real session;
-- an install of the plugin from GitHub, and a task in the plugin form.
+- the correction hook in the session of a real project.
 
 Not built: a pull request on GitLab. Lem marks the branch as ready there.
+
+## Real runs of 2026-11-17
+
+These runs used the plugin form, in the scratch repository `pySilver/lem-scratch`: a small Python
+module with one test file and no `.gitignore`. The plugin was installed from GitHub at 03:56. The
+times are in UTC. Each time of a step comes from the event log of the run; the times of the
+install and the update come from the plugin record of Claude Code. In that repository
+`branch.land` is `owner`, so Lem merged nothing. The operator of the run gave the answers in the
+session.
+
+### The first run: two small changes
+
+1. The ask: "a range inside one day must read as one day, 3 Mar 2026, and not 3-3 Mar 2026".
+2. 03:57:05. Lem took it as a small change, and approved its one story in the owner's name.
+3. 03:57:09 to 03:57:50. One builder made the change, in 41 seconds.
+4. 03:58:26 to 03:59:39. A polish pass ran for 73 seconds. Its only work was one backlog item:
+   the builder saw that a range across two months drops the month of its start. A small change
+   now has no polish pass. Its builder files such an item itself.
+5. 03:59:41. The gate command ended with `OK`, but the landing refused the tree: the test run
+   left `shop/__pycache__` and `tests/__pycache__`, which git did not ignore. Lem stopped the
+   task, and it opened a second small change for an ignore rule. The gate now removes the files
+   that its own commands leave, and the onboarding proposes the ignore lines.
+6. 04:00:33 to 04:01:40. The builder of the second task, a chore, took 67 seconds.
+7. 04:02:03 to 04:02:05. The gate and the check of the story took about one second each.
+8. 04:02:09 to 04:03:21. One read took 72 seconds. From the start of the builder to the record of
+   the read, the task took 2 minutes 48 seconds.
+9. Then Lem stopped, and it asked the operator if it could push the two branches and open pull
+   requests. The answer came at 04:16:03, and pull request #2 opened at 04:16:09. Now Lem does
+   not ask: `branch.propose` in the settings is your approval of this push.
+
+### The second run: an update, and a bug
+
+1. 05:32:12. The two update commands took the plugin to the commit `636b24c` of Lem.
+2. The ask, a bug: "the heading of a report from 28 Feb to 3 Mar reads 28-3 Mar 2026".
+3. 05:32:56. Lem put the task in the queue after the one-day task, because the two asks name the
+   same heading. At 05:33:46 the operator undid that decision, and the task started.
+4. 05:33:54 to 05:35:12. The investigator reproduced the bug and found its cause in
+   `shop/dates.py:format_range`, in 78 seconds. Its call: one rule removes the cause.
+5. 05:35:30 to 05:36:32. One builder made the small change, in 62 seconds.
+6. 05:36:32 to 05:37:43. For about 71 seconds the task waited, because the other task was in
+   the landing. One task is in the landing at a time.
+7. 05:37:49 to 05:37:50. The gate and the check of the story took about one second each.
+8. 05:37:55 to 05:38:57. One read took 62 seconds.
+9. 05:39:07. Pull request #4 opened, green, with no question. From the word of the operator to
+   the pull request, the task took 5 minutes 21 seconds.
+
+At the same time, the one-day task of the first run went to its landing again (05:34:11). The gate
+passed this time, because it removed the cache folders. One read took 2 minutes 30 seconds, and
+pull request #3 opened green at 05:37:31, 3 minutes 20 seconds after the start of the landing.
+
+Two things did not go as they should:
+
+- The read of the one-day task reported the month defect as a defect outside the change. Lem
+  filed a second backlog item for it, but the branch already held an item from the polish pass.
+- The correction hook queued the message of the operator at 05:33:29 two times. The scratch
+  repository also had the hook of the link form. [install.md](install.md#the-correction-hook)
+  says to add the hook one time only.
+
+Each of the three pull requests was proposed green. After the runs, `gh pr list` showed #2, #3
+and #4 of `pySilver/lem-scratch` as open (2026-11-17).
 
 ## Real runs of 2026-11-15
 
@@ -140,11 +205,11 @@ author, and the last line of the comment says that it is from Lem.
 
 1. You type `/lem the README says "recieve"`.
 2. Lem says: `Small change, docs/readme-typo: "the README spells receive right". One builder, the
-   checks, one review, then the pull request. Nothing waits for you; say "feature" to give it
+   checks, one read, then the pull request. Nothing waits for you; say "feature" to give it
    stories.`
 3. One builder corrects the word. The change keeps behavior, so the story gets `no test`, and the
    builder runs all the gate commands. It commits.
-4. Lem runs the machine checks. The review agent reads the diff itself, one read.
+4. Lem runs the checks. The review agent reads the diff itself, one read.
 5. Lem opens a pull request. Its first line is "Green."
 6. You merge it.
 
@@ -160,7 +225,7 @@ author, and the last line of the comment says that it is from Lem.
 6. The lead writes the report: what you get, the proof for each "done when" line, and what it did
    not verify.
 7. Lem rebases the branch. A new builder does the polish pass, and it removes one debug line.
-8. Lem runs the machine checks. They are green.
+8. Lem runs the checks. They are green.
 9. A new agent reads the diff. It calls the change not careful, and it chooses one read, because
    the change is small. It finds nothing that must change.
 10. Lem opens a pull request. Its first line is "Green."
