@@ -12,7 +12,7 @@ may-land` about the settings' base branch, so a protected branch is never reache
     land.py polish SLUG    the polish pass starts: what its builder gets, and the tip it starts at
     land.py polish SLUG --done
                            after the polish builder: what it committed is checked, and logged
-    land.py gate SLUG      the machine checks on the tip: every gate command, each story's tests,
+    land.py gate SLUG      the machine checks on the tip: every gate command, each criterion's tests,
                            the bar, the size
     land.py read SLUG      whether a review is due, the least it may be, and what a reviewer gets
     land.py read SLUG --record FILE
@@ -37,8 +37,8 @@ second start of the same pass), `gate` logs `gate.start` before its first comman
 logs `review.start` once for the attempt that is due; `polish --done`, the gate's results and
 `read --record` are their ends.
 
-A small change has no plan: its one story is `stories.md` in the task directory (`stories.py`
-gives `small`), which the steps read in the plan's place. It is one task and never gets a polish
+A small change has no plan: its one acceptance criterion is `criteria.md` in the task directory
+(`criteria.py` gives `small`), which the steps read in the plan's place. It is one task and never gets a polish
 pass (`polish` refuses it): its builder files each defect it saw outside the change in the backlog
 folder, in a commit of its own, and the pull request lists each file the branch adds there. It has
 no reason for a lowered bar (the gate refuses one: a lowered bar is a full change's), and its pull
@@ -46,7 +46,7 @@ request's text is short. One that is careful after all is not green, since it to
 with no interview, read or plan.
 
 The machine checks have no model in them. `gate` runs the settings' `gate.commands`, then
-`stories.py red` (each story's tests pass on the branch and fail on the base commit), then the
+`criteria.py red` (each criterion's tests pass on the branch and fail on the base commit), then the
 bar. A change lowers the bar when it adds a lint or type suppression, a skipped test or a mark
 that runs one test alone, deletes a test file or moves it out of the tests, or leaves fewer
 assertions in one (counted by the words `assert` and `expect` on the lines it adds and removes, in a test file and in every Rust file, where unit tests sit beside
@@ -92,14 +92,14 @@ behavior. `polish` prints what that builder gets: the range of the task's own co
 base, the plan, the report, `outside.md` of the interview when the task has one, the backlog
 folder, and the files the pass may not change. It keeps the tip the pass starts at; a second
 start before `--done` keeps the same one. `polish --done` refuses a worktree with changes
-nobody committed, a branch that no longer holds that tip, a pass that leaves a story's test
-file or the plan other than it found them, and stories' tests that no longer pass on the branch and fail on
-the base commit (`stories.py red`, run when the pass committed anything). Otherwise it logs one
+nobody committed, a branch that no longer holds that tip, a pass that leaves a criterion's test
+file or the plan other than it found them, and tests of the criteria that no longer pass on the branch and fail on
+the base commit (`criteria.py red`, run when the pass committed anything). Otherwise it logs one
 `polish` event (the tip before and after, the count of commits, the items it added to the
 backlog folder). `gate` refuses a full change with no pass of this landing whose last commit the
 tip holds, and any task whose pass started and is not done. Every task with a plan is a full
-change: `stories.py` refuses a plan that says `Size: small`, and so does every step here that
-reads the stories. The commits
+change: `criteria.py` refuses a plan that says `Size: small`, and so does every step here that
+reads the criteria. The commits
 that come after the pass, a repair, a fix of a review's findings, the items `file` writes, are
 on top of it, and a rebase by `base` gives the pass's commits their new names; any other rewrite
 of the branch asks for the pass again. The pass is one of this landing: `start` of a `ready`
@@ -190,10 +190,10 @@ steps kept, from the record of the task's decisions (`decisions.py list`) and fr
 file, whose headings it checks. The text opens with green or not green, in one wording for a
 small change and a full change. Green says that the
 checks passed with the bar where it was, a review with at least one source left no
-must-fix, no story changed during the build, and no decision was taken by timeout or by the
-experts. A story changed, added or removed after the newest approval is one line each, from its
-record (`decisions.py story`), with what it was, what it is and why. The text lists every story
-change of the task, under every approval; one that a later approval of the owner's took over says
+must-fix, no criterion changed during the build, and no decision was taken by timeout or by the
+experts. A criterion changed, added or removed after the newest approval is one line each, from its
+record (`decisions.py criterion`), with what it was, what it is and why. The text lists every
+criterion change of the task, under every approval; one that a later approval of the owner's took over says
 so and is no cause of not green, since that approval made it the owner's. A lowered bar is not
 green with a reason either: its line holds the builder's reason and what the review said of it. A choice
 taken by timeout is a line of its own, and so is a choice the experts took (their shared pick,
@@ -214,31 +214,31 @@ the full set and no talk; it is not asked for one, and its checks say in words t
 and why, which is no cause of not green. A careful request says so in the line after green or not
 green, with each reason, and its checks hold the call in one line, with the newest review's call
 and reason beside it. A request that is not careful gets
-neither line. The checks also hold one line on the personas' read of the stories, from the
-newest `stories.read` event (`project.py log` gives its form): how many of the personas asked
-answered, in which model families, who did not answer and why, how many stories they flagged,
-whether the families split, and when the owner approved them (`stories.py approve`), or that the
+neither line. The checks also hold one line on the personas' read of the criteria, from the
+newest `criteria.read` event (`project.py log` gives its form): how many of the personas asked
+answered, in which model families, who did not answer and why, how many criteria they flagged,
+whether the families split, and when the owner approved them (`criteria.py approve`), or that the
 build started with no wait for the owner.
-When the stories the read names by their digest are not the plan's (which the gate makes the expected
+When the criteria the read names by their digest are not the plan's (which the gate makes the expected
 ones), one more line says that they changed after the read, by a later approval of the owner's or by
 a change of the build, and that the change was not read; that line is no cause of not green. A
-task whose scout read the code has one line that says the stories were written from its facts.
+task whose scout read the code has one line that says the criteria were written from its facts.
 The text names no file of the task directory: the pull request is read on the forge, where no
 path of this machine leads anywhere.
 A request of the type fix whose investigation found its cause has one more line with that cause
 and its place, from the newest `investigation` event; a question's has none.
-`propose` refuses a full change with no `stories.read`, unless the owner skipped the read: that word
-of the owner's, which Lem asks for only when every story names only the developer, is a decision
+`propose` refuses a full change with no `criteria.read`, unless the owner skipped the read: that word
+of the owner's, which Lem asks for only when every criterion names only the developer, is a decision
 of the owner's with the two texts of `READ_SKIP`, and it counts only with a later approval of
 the owner's, both before the first state that names a lead. A word or an approval after a lead started belongs to a full
-change from a complete request, where the read always runs, and is refused. Then the checks say "the stories: not read by the
+change from a complete request, where the read always runs, and is refused. Then the checks say "the criteria: not read by the
 personas, on the owner's word (DATE); the owner approved them", which is no cause of not green, since the
-decision was the owner's. It also refuses one whose newest read flagged a story or
+decision was the owner's. It also refuses one whose newest read flagged a criterion or
 showed a split between the families with no approval of the owner's at or after it; the lead's
-freeze of a read (`stories.py approve --read`) is no approval of the owner's. A read in which nobody
+freeze of a read (`criteria.py approve --read`) is no approval of the owner's. A read in which nobody
 answered is written down too: `propose` refuses while the newest one is the first such read in a
 row, so that the read is started once more, and after the second in a row the request is not
-green, with "the stories were not read" first, and its checks say so in place of the read's line. A
+green, with "the criteria were not read" first, and its checks say so in place of the read's line. A
 change the review calls careful and the plan did not is a lesson about the plan's call: `read
 --record` writes one `careful.missed` event with the round and the review's reason, the first time
 a review finds it, for the retro. With a GitHub remote `propose` pushes the task's branch
@@ -333,15 +333,23 @@ SETTINGS_FILE = ".lem/project.toml"
 # careful by this script too: a green request and an agent's merge would make one machine's choices
 # every machine's (audit N5, 2026-11-17: a branch that committed it with `git add -f` got both).
 LOCAL_SETTINGS_FILE = ".lem/project.local.toml"
-# What a decision of the build did to its story, as a line of the pull request says it.
-STORY_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}
-# The form of the one event that records the personas' read of a task's stories.
-READ_FORM = "`by=lem|lead asked:=N answered:=N families:='[...]' silent:='[...]' stories:=N flagged:=N split:=true|false digest=DIGEST`"
-# The owner's word that the personas do not read the stories, which Lem asks for only when every
-# story names only the developer (`stages/new.md`, "The interview and the stories", step 5): one
-# decision of his that `decisions.py log --by owner` writes, known by these two texts word for word.
-READ_SKIP = {"what": "the personas' read of the stories", "chose": "no read: the stories name only the developer"}
-# How many model families read the stories, in the words of the pull request.
+# What a decision of the build did to its criterion, as a line of the pull request says it.
+CHANGE_HOW = {"changed": "changed", "added": "was added", "removed": "was removed"}
+# The form of the one event that records the personas' read of a task's criteria.
+READ_FORM = "`by=lem|lead asked:=N answered:=N families:='[...]' silent:='[...]' criteria:=N flagged:=N split:=true|false digest=DIGEST`"
+# The owner's word that the personas do not read the criteria, which Lem asks for only when every
+# criterion names only the developer (`stages/new.md`, "The interview and the acceptance criteria",
+# step 5): one decision of his that `decisions.py log --by owner` writes, known by these two texts
+# word for word.
+READ_SKIP = {"what": "the personas' read of the criteria", "chose": "no read: the criteria name only the developer"}
+# The same word in the texts an older Lem wrote, which still counts for a task it took that far. A
+# later change may drop it once no such task is open.
+OLD_READ_SKIP = {"what": "the personas' read of the stories", "chose": "no read: the stories name only the developer"}
+# The events of the personas' read and of an approval, and the names an older Lem gave them, which
+# the landing still reads. A later change may drop the old names once no task with such events is open.
+READ_EVENTS = ("criteria.read", "stories.read")
+APPROVED_EVENTS = ("criteria.approved", "stories.approved")
+# How many model families read the criteria, in the words of the pull request.
 FAMILIES = {1: "one model family", 2: "two model families"}
 # The form of the one event that records a plan talk, as `talk_form` in `project.py` checks it.
 TALK_FORM = "reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N"
@@ -362,7 +370,7 @@ TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open", "bo
 # Who took a decision of the record, as the text of a pull request names them.
 TAKEN_BY = {"lead": "the lead", "personas": "the personas", "owner": "the owner", "lem": "Lem", "timeout": "the timeout", "experts": "the experts"}
 # The first line of a green pull request, one wording for a small change and a full change.
-GREEN = "**Green.** The checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts."
+GREEN = "**Green.** The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision was taken by timeout or by the experts."
 # What a review names of each defect it saw outside the change.
 DEFECT = ("where", "title", "what")
 # The longest file name an item of the backlog gets from its title, before `.md`. A guess
@@ -464,7 +472,7 @@ class Task:
         self.onto = f"origin/{self.base}" if self.remote else str(self.base)
         self.kept_file = self.directory / "landing.json"
         self.recorded: list[dict] | None = None
-        self.stories: dict | None = None
+        self.criteria: dict | None = None
         self.plan_said: bool | None = None
         self.branch_gate: list[str] | None = None
         # The address as the repository has it, before any rewrite of it: the forge is known by its host.
@@ -670,15 +678,15 @@ def through_rebase(task: Task, polish: dict, before: str, tip: str, onto: str) -
 
 
 def test_files(found: dict) -> list[str]:
-    """The files that hold a story's test, as the plan names them."""
-    return sorted({file for story in found["stories"] for test in story["tests"] for file in test["files"]})
+    """The files that hold a criterion's test, as the plan names them."""
+    return sorted({file for criterion in found["criteria"] for test in criterion["tests"] for file in test["files"]})
 
 
 def cmd_polish(task: Task, done: bool) -> dict:
     """The polish pass: what its builder gets, and after the builder, the check of what it did."""
     task.need_landing()
     task.need_worktree()
-    found = stories_of(task)
+    found = criteria_of(task)
     if found["small"]:
         raise LandError(
             f"a small change has no polish pass: its builder filed in the backlog what it saw outside the change, in a commit of its own, "
@@ -688,8 +696,8 @@ def cmd_polish(task: Task, done: bool) -> dict:
     if "base" not in kept:
         raise LandError(f"`land.py base {task.slug}` comes first: the polish pass works on the branch as it will be checked")
     tip = git(task.worktree, "rev-parse", "HEAD")
-    # what the pass may not change: the stories' test files and the plan that names them; a small
-    # change's story file is in the task directory, which no commit holds
+    # what the pass may not change: the test files of the criteria and the plan that names them; a
+    # small change's criteria file is in the task directory, which no commit holds
     frozen = [*test_files(found), *([] if found["small"] else [Path(found["plan"]).relative_to(task.worktree).as_posix()])]
     polish = kept.get("polish")
     if not done:
@@ -727,25 +735,25 @@ def cmd_polish(task: Task, done: bool) -> dict:
         commit = line.split(" ", 1)[0]
         for file in git(task.worktree, "diff-tree", "--no-commit-id", "--name-only", "--no-renames", "-r", commit).splitlines():
             touched.setdefault(file, []).append(commit[:9])
-    # What counts is what the pass leaves: a commit that changed a story's test and one that put it back leave the contract as it was.
+    # What counts is what the pass leaves: a commit that changed a criterion's test and one that put it back leave the contract as it was.
     differs = set(changed(task, before, tip))
     wrong = [f"{file} (by {', '.join(touched.get(file, []))})" for file in frozen if file in differs]
     if wrong:
         raise LandError(
-            f"the polish pass changed what it may not: {'; '.join(wrong)}. A story's test and the plan are the task's contract, and the pass changes no behavior: "
+            f"the polish pass changed what it may not: {'; '.join(wrong)}. A criterion's test and the plan are the task's contract, and the pass changes no behavior: "
             f"a builder reverts those commits (`git revert`), and this step runs again",
         )
     result: dict = {"task": task.slug, "before": before, "after": tip, "commits": [line.split(" ", 1)[1] if " " in line else "" for line in commits]}
     if commits:
-        held = script("stories.py", task.main, "red", task.slug, check=False)
+        held = script("criteria.py", task.main, "red", task.slug, check=False)
         if held.returncode != 0:
             raise LandError(
-                f"after the polish pass the stories' tests do not hold: {held.stderr.strip().removeprefix('stories.py: ')}. "
+                f"after the polish pass the tests of the criteria do not hold: {held.stderr.strip().removeprefix('criteria.py: ')}. "
                 "The pass changes no behavior: a builder finds the commit of the pass that broke it and takes it out, and this step runs again",
             )
-        result["stories"] = json.loads(held.stdout)
+        result["criteria"] = json.loads(held.stdout)
     else:
-        result["stories"] = None
+        result["criteria"] = None
     folder = backlog_of(task)
     added = [row.split("\t", 1)[1] for row in git(task.worktree, "diff", "--name-status", "--no-renames", before, tip).splitlines() if row.startswith("A\t")]
     result["filed"] = [path for path in added if path.startswith(folder + "/")]
@@ -774,13 +782,13 @@ def polish_missing(task: Task, tip: str, found: dict) -> str | None:
     return None
 
 
-def stories_of(task: Task) -> dict:
-    """The task's stories and its plan, through the one script that reads them. A step asks for
-    them many times, and no step writes the plan, the approval or a story's record, so the first
-    answer is kept for the life of this process."""
-    if task.stories is None:
-        task.stories = json.loads(script("stories.py", task.main, "show", task.slug).stdout)
-    return task.stories
+def criteria_of(task: Task) -> dict:
+    """The task's acceptance criteria and its plan, through the one script that reads them. A step
+    asks for them many times, and no step writes the plan, the approval or a criterion's record, so
+    the first answer is kept for the life of this process."""
+    if task.criteria is None:
+        task.criteria = json.loads(script("criteria.py", task.main, "show", task.slug).stdout)
+    return task.criteria
 
 
 def change(task: Task) -> dict:
@@ -942,11 +950,11 @@ def plan_careful(task: Task) -> bool:
     The talk was due when the plan said yes, so a later commit that takes the yes back does not
     take back the talk, the full set or the person's merge. A step asks it many times, and no step
     writes the plan, so the first answer is kept for the life of this process."""
-    if task.plan_said is None and stories_of(task)["small"]:
-        # a small change has no plan: its story file is in the task directory, with no history in git
-        task.plan_said = plan_call(Path(stories_of(task)["plan"]).read_text(encoding="utf-8"))
+    if task.plan_said is None and criteria_of(task)["small"]:
+        # a small change has no plan: its criteria file is in the task directory, with no history in git
+        task.plan_said = plan_call(Path(criteria_of(task)["plan"]).read_text(encoding="utf-8"))
     if task.plan_said is None:
-        plan = Path(stories_of(task)["plan"])
+        plan = Path(criteria_of(task)["plan"])
         relative = plan.relative_to(task.worktree).as_posix()
         base = git(task.worktree, "merge-base", "HEAD", task.onto)
         texts = [plan.read_text(encoding="utf-8")]
@@ -1102,7 +1110,7 @@ def cmd_gate(task: Task) -> dict:
     tip = git(task.worktree, "rev-parse", "HEAD")
     # Before any command runs: the review reads the code as it will merge, so the polish pass comes first.
     try:
-        found = stories_of(task)
+        found = criteria_of(task)
     except LandError as error:
         raise LandError(f"{error}. A builder repairs the test or the plan; the check is never edited to pass") from error
     missing = polish_missing(task, tip, found)
@@ -1135,7 +1143,7 @@ def cmd_gate(task: Task) -> dict:
         for number, command in enumerate(commands, start=1):
             output = logs / f"{number:02d}.log"
             with output.open("w", encoding="utf-8") as handle:
-                # a group of its own, as stories.py runs a test: what the command starts ends with it
+                # a group of its own, as criteria.py runs a test: what the command starts ends with it
                 proc = subprocess.Popen(command, shell=True, cwd=task.worktree, stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
                 running.append(proc)
                 code = proc.wait()
@@ -1183,17 +1191,17 @@ def cmd_gate(task: Task) -> dict:
         print(json.dumps(result, indent=2))
         red = [r["command"] for r in results if r["exit"] != 0]
         raise LandError(f"the gate is red on {len(red)} command(s): {'; '.join(red)}. A builder reads the output files; the gate is never edited to pass")
-    # The gate's commands are green. Now what no command of the project checks: that each story is
+    # The gate's commands are green. Now what no command of the project checks: that each criterion is
     # held by a test that fails without the change, and that the change did not lower the bar.
     task.keep(gated=None, tree=None)
-    held = script("stories.py", task.main, "red", task.slug, check=False)
+    held = script("criteria.py", task.main, "red", task.slug, check=False)
     try:
-        result["stories"] = json.loads(held.stdout)
+        result["criteria"] = json.loads(held.stdout)
     except ValueError:
-        result["stories"] = None
+        result["criteria"] = None
     if held.returncode != 0:
         print(json.dumps(result, indent=2))
-        raise LandError(f"{held.stderr.strip().removeprefix('stories.py: ')}. A builder repairs the test or the plan; the check is never edited to pass")
+        raise LandError(f"{held.stderr.strip().removeprefix('criteria.py: ')}. A builder repairs the test or the plan; the check is never edited to pass")
     # A small change gives no reason for a lowered bar: it has no plan, and a lowered bar is never a small change.
     plan = "" if found["small"] else Path(found["plan"]).read_text(encoding="utf-8")
     now = change(task)
@@ -1212,7 +1220,7 @@ def cmd_gate(task: Task) -> dict:
             f"the change lowers the bar with no reason given: {named}. Take the mark out, or give the reason in the task's plan "
             "under `## The bar` as `- PATH: REASON`, where the one who reads the change sees it",
         )
-    task.keep(gated=tip, tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"), checks={"commands": results, "stories": result["stories"], "bar": result["bar"], "size": result["size"]})
+    task.keep(gated=tip, tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"), checks={"commands": results, "criteria": result["criteria"], "bar": result["bar"], "size": result["size"]})
     return result
 
 
@@ -1281,7 +1289,7 @@ def changed(task: Task, old: str, new: str) -> list[str]:
 def due(task: Task) -> dict:
     """Whether a review is due now, and the least it may be. Within that, the one who starts the review chooses."""
     now = change(task)
-    found = stories_of(task)
+    found = criteria_of(task)
     reads = task.kept().get("reads", [])
     answered = [read for read in reads if read["answered"]]
     why_careful = careful(task, now)
@@ -1408,16 +1416,23 @@ def polished(polish: dict | None) -> str:
     return "- the polish pass: none on record"
 
 
-def story_read_of(task: Task) -> dict | None:
-    """The newest record of the personas' read of the task's stories in the event log."""
-    return next((record for record in reversed(events_of(task)) if record.get("event") == "stories.read"), None)
+def read_now(record: dict) -> dict:
+    """A read's record in the form of now: one an older Lem wrote counts what it read as `stories`."""
+    if "criteria" in record or "stories" not in record:
+        return record
+    return {("criteria" if key == "stories" else key): value for key, value in record.items()}
+
+
+def criteria_read_of(task: Task) -> dict | None:
+    """The newest record of the personas' read of the task's criteria in the event log."""
+    return next((read_now(record) for record in reversed(events_of(task)) if record.get("event") in READ_EVENTS), None)
 
 
 def unanswered(task: Task) -> int:
-    """How many reads of the stories in a row, the newest last, nobody answered."""
+    """How many reads of the criteria in a row, the newest last, nobody answered."""
     count = 0
     for record in reversed(events_of(task)):
-        if record.get("event") != "stories.read":
+        if record.get("event") not in READ_EVENTS:
             continue
         if record.get("answered") != 0:
             break
@@ -1426,9 +1441,9 @@ def unanswered(task: Task) -> int:
 
 
 def read_form(read: dict) -> bool:
-    """Whether a `stories.read` event has the form `project.py log` gives it; one that nobody
+    """Whether a `criteria.read` event has the form `project.py log` gives it; one that nobody
     answered names no family."""
-    counts = ("asked", "answered", "stories", "flagged")
+    counts = ("asked", "answered", "criteria", "flagged")
     families, silent = read.get("families"), read.get("silent")
     return (
         read.get("by") in ("lem", "lead")
@@ -1447,13 +1462,13 @@ def read_skip_form(slug: str) -> str:
 def read_skipped(task: Task) -> tuple[dict | None, str | None]:
     """The owner's newest word to skip the personas' read, when an approval of his follows it and both
     came before any lead of the task started; or why the word on record does not count. A lead writes
-    the stories of a full change from a complete request, where the read is the only approval and always runs, so a word or an
+    the criteria of a full change from a complete request, where the read is the only approval and always runs, so a word or an
     approval after the first state that names a lead belongs to such a full change. Neither, with no word of his."""
     events = events_of(task)
     words = [
         index for index, record in enumerate(events)
         if record.get("event") == "decision.taken" and record.get("by") == "owner"
-        and record.get("what") == READ_SKIP["what"] and record.get("chose") == READ_SKIP["chose"]
+        and any(record.get("what") == said["what"] and record.get("chose") == said["chose"] for said in (READ_SKIP, OLD_READ_SKIP))
     ]
     if not words:
         return None, None
@@ -1463,10 +1478,10 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
          if record.get("event") == "task.state" and any(line.startswith("lead:") for line in [record.get("text", ""), *record.get("lines", [])])),
         None,
     )
-    approval = next((index for index in range(word + 1, len(events)) if events[index].get("event") == "stories.approved" and events[index].get("by") == "owner"), None)
+    approval = next((index for index in range(word + 1, len(events)) if events[index].get("event") in APPROVED_EVENTS and events[index].get("by") == "owner"), None)
     complete = (
-        "the lead wrote the stories, and for a full change from a complete request the read always runs, as the only approval there "
-        f"(`stages/plan.md`, step 1): the lead runs it and writes `project.py log {task.slug} stories.read` with the form {READ_FORM}"
+        "the lead wrote the criteria, and for a full change from a complete request the read always runs, as the only approval there "
+        f"(`stages/plan.md`, step 1): the lead runs it and writes `project.py log {task.slug} criteria.read` with the form {READ_FORM}"
     )
     if lead is not None and lead < word:
         return None, f"a lead of {task.slug} started before the owner's word to skip the personas' read: {complete}"
@@ -1474,35 +1489,35 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
         return None, f"a lead of {task.slug} started before the owner's approval that came after the word to skip the personas' read: {complete}"
     if approval is None:
         return None, (
-            f"the owner's word to skip the personas' read of {task.slug}'s stories is on record, and no approval of the owner's came after it: "
-            f"the owner's yes to the stories is kept with `stories.py approve {task.slug} --file FILE` (`stages/new.md`, \"The interview and the stories\", step 7)"
+            f"the owner's word to skip the personas' read of {task.slug}'s criteria is on record, and no approval of the owner's came after it: "
+            f"the owner's yes to the criteria is kept with `criteria.py approve {task.slug} --file FILE` (`stages/new.md`, \"The interview and the acceptance criteria\", step 7)"
         )
     return {"word": events[word], "approval": events[approval]}, None
 
 
 def approved_after(found: dict, read: dict) -> bool:
-    """Whether the owner himself approved the stories at the read's time or after it. A freeze of
+    """Whether the owner himself approved the criteria at the read's time or after it. A freeze of
     a read (`by: read`) and Lem's approval of a small change are not his yes."""
     return any(approval["by"] == "owner" and approval["at"] >= read["ts"] for approval in found.get("approvals", []))
 
 
 def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dict | None = None) -> str:
-    """The personas' read of the stories and his approval, as one line of the pull request's checks;
+    """The personas' read of the criteria and his approval, as one line of the pull request's checks;
     `skipped` is his word to skip the read with his approval after it, as `read_skipped` gives them."""
     approval = found.get("approved")
-    # a plan is a full change's: its stories are the owner's approval, or the lead's freeze by a read, which is not his
+    # a plan is a full change's: its criteria are the owner's approval, or the lead's freeze by a read, which is not his
     approved = f"the owner approved them on {approval['at'][:10]}" if approval and approval["by"] == "owner" else ""
     if read and not read["answered"]:
         # propose refuses the first such read, so this is the second in a row at the least
         return (
-            f"- the stories were not read by the personas: {quiet_reads} reads in a row, and none of the {read['asked']} personas asked answered"
+            f"- the criteria were not read by the personas: {quiet_reads} reads in a row, and none of the {read['asked']} personas asked answered"
             + (f"; {approved}" if approved else "; the build started with no wait for the owner")
         )
     if read:
         count = len(read["families"])
         line = (
-            f"- the stories were read by {read['answered']} of {read['asked']} personas asked, {FAMILIES.get(count, f'{count} model families')} ({', '.join(read['families'])}); "
-            + ("nobody confused" if not read["flagged"] else f"{read['flagged']} of {read['stories']} stor{'y' if read['stories'] == 1 else 'ies'} flagged")
+            f"- the criteria were read by {read['answered']} of {read['asked']} personas asked, {FAMILIES.get(count, f'{count} model families')} ({', '.join(read['families'])}); "
+            + ("nobody confused" if not read["flagged"] else f"{read['flagged']} of {read['criteria']} {'criterion' if read['criteria'] == 1 else 'criteria'} flagged")
             + ("; the two families split" if read["split"] else "")
             + "".join(f"; no answer from {source['name']} ({source['why']})" for source in read["silent"])
         )
@@ -1510,19 +1525,19 @@ def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dic
             return f"{line}; {approved}"
         return line + "; the build started with no wait for the owner"
     if skipped:
-        return f"- the stories: not read by the personas, on the owner's word ({skipped['word']['at'][:10]}); the owner approved them"
-    return "- the stories: no read by the personas is on record" + (f"; {approved}" if approved else "")
+        return f"- the criteria: not read by the personas, on the owner's word ({skipped['word']['at'][:10]}); the owner approved them"
+    return "- the criteria: no read by the personas is on record" + (f"; {approved}" if approved else "")
 
 
 def unread(read: dict | None, found: dict) -> str | None:
-    """The line that says the stories are not the ones the personas read, and what changed them.
-    The plan's stories are the expected ones (the gate refuses any other), so they are compared."""
-    if read is None or not read["answered"] or found["stories_digest"] == read["digest"]:
+    """The line that says the criteria are not the ones the personas read, and what changed them.
+    The plan's criteria are the expected ones (the gate refuses any other), so they are compared."""
+    if read is None or not read["answered"] or found["criteria_digest"] == read["digest"]:
         return None
-    # an approval of his after the read changed the stories only when it holds other stories than the read did
+    # an approval of his after the read changed the criteria only when it holds other criteria than the read did
     his = [approval for approval in found.get("approvals", []) if approval["by"] == "owner" and approval["at"] >= read["ts"] and approval["digest"] != read["digest"]]
     what = [*([f"by the owner's approval {his[-1]['number']}"] if his else []), *(["by a change of the build"] if any(change["at"] >= read["ts"] for change in found.get("history", [])) else [])]
-    return f"- the stories changed after the personas' read{', ' + ' and '.join(what) if what else ''}, and the change was not read"
+    return f"- the criteria changed after the personas' read{', ' + ' and '.join(what) if what else ''}, and the change was not read"
 
 
 def named(value: object, where: str) -> list[dict]:
@@ -1656,7 +1671,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
             "inputs": {
                 # the owner's words as given, and the request as Lem wrote it down, where the task has them
                 **{name: str(task.directory / file) for name, file in (("words", "ask.txt"), ("request", "task.md")) if (task.directory / file).is_file()},
-                "plan": stories_of(task)["plan"], "range": f"{state['base']}..{state['tip']}",
+                "plan": criteria_of(task)["plan"], "range": f"{state['base']}..{state['tip']}",
                 "worktree": str(task.worktree), "rules": [rule["file"] for rule in rules], "bar": task.kept().get("checks", {}).get("bar"),
                 # what must never go wrong, from the main checkout's settings: the review reads the diff against each
                 "topics": task.settings["flow"]["topics"],
@@ -1742,18 +1757,18 @@ def cmd_read(task: Task, record: str | None) -> dict:
 def not_green(task: Task, state: dict) -> list[str]:
     """Each reason for which this request is not green, one line each; none when it is green."""
     reasons = []
-    # A small change took the short path: no interview, no read of its story, no plan. One that is
+    # A small change took the short path: no interview, no read of its criterion, no plan. One that is
     # careful after all is read by a person, whatever its checks and its review say.
-    if stories_of(task)["small"] and state["careful"]:
+    if criteria_of(task)["small"] and state["careful"]:
         reasons.append(
             f"a small change that is careful ({reason(state['careful'][0])}): it took the short path, with no interview, "
-            "no personas' read of its story and no plan, so a person reads it",
+            "no personas' read of its criterion and no plan, so a person reads it",
         )
-    # the personas' read of the stories, started twice with no answer: the stories went on unread
-    read = story_read_of(task)
+    # the personas' read of the criteria, started twice with no answer: the criteria went on unread
+    read = criteria_read_of(task)
     if read is not None and unanswered(task) >= 2:
         quiet = "".join(f"; no answer from {source['name']} ({source['why']})" for source in read.get("silent", []))
-        reasons.append(f"the stories were not read: the personas' read was started twice and nobody answered{quiet}")
+        reasons.append(f"the criteria were not read: the personas' read was started twice and nobody answered{quiet}")
     commands, brought = task.gate()
     if brought:
         reasons.append(
@@ -1770,8 +1785,8 @@ def not_green(task: Task, state: dict) -> list[str]:
         review = f"The review: {said[entry['file']]}" if entry["file"] in said else "No review said anything of it."
         reasons.append(f"the bar is lower in `{entry['file']}` ({entry['what']}). The builder: {entry['reason']} {review}")
     # a change that a later approval of his took over is his, and no cause of not green
-    for change in (change for change in stories_of(task)["history"] if change["taken_over_by"] is None):
-        reasons.append(f"story {change['story']} {STORY_HOW[change['how']]} during the build: {story_why(task, change)}")
+    for change in (change for change in criteria_of(task)["history"] if change["taken_over_by"] is None):
+        reasons.append(f"criterion {change['criterion']} {CHANGE_HOW[change['how']]} during the build: {change_why(task, change)}")
     for decision in task.decisions():
         # the experts' shared pick, taken while he was away (`settled`) or at the end of his wait
         if decision.get("by") == "experts":
@@ -1788,8 +1803,8 @@ def not_green(task: Task, state: dict) -> list[str]:
     return reasons
 
 
-def story_why(task: Task, change: dict) -> str:
-    """Why a story changed: the reason the record gives, and the choice that led to it, when one did."""
+def change_why(task: Task, change: dict) -> str:
+    """Why a criterion changed: the reason the record gives, and the choice that led to it, when one did."""
     if "choice" not in change:
         return change["why"]
     choice = next(decision for decision in task.decisions() if decision["id"] == change["choice"])
@@ -1797,8 +1812,8 @@ def story_why(task: Task, change: dict) -> str:
     return f"{reason(change['why'])}, after choice {choice['id']} ({choice['what']}), {how} \"{choice['chose']}\""
 
 
-def story_line(task: Task, change: dict) -> str:
-    """One recorded change of a story as one line of the pull request: what it was, what it is, why, and who."""
+def change_line(task: Task, change: dict) -> str:
+    """One recorded change of a criterion as one line of the pull request: what it was, what it is, why, and who."""
     said = {
         "changed": f"was \"{change.get('was')}\", now \"{change.get('now')}\"",
         "added": f"added, \"{change.get('now')}\"",
@@ -1806,7 +1821,7 @@ def story_line(task: Task, change: dict) -> str:
     }[change["how"]]
     who = "" if "choice" in change else " By the lead." if change["by"] == "lead" else f" By the personas: {change['said']}"
     later = f" Approved by the owner afterwards (approval {change['taken_over_by']})." if change.get("taken_over_by") else ""
-    return f"- story {change['story']}: {said}. {reason(story_why(task, change))}.{who}{later}"
+    return f"- criterion {change['criterion']}: {said}. {reason(change_why(task, change))}.{who}{later}"
 
 
 def reason(text: str) -> str:
@@ -1871,6 +1886,27 @@ def decided(decision: dict) -> str:
     return line
 
 
+def checked_criteria(checks: dict) -> dict:
+    """What the gate kept of the check of the criteria; a landing an older Lem ran kept it as
+    `stories`, with each test's criterion under `story`. A later change may drop the old form once
+    no task whose landing kept it is open."""
+    kept = checks.get("criteria") or checks.get("stories") or {}
+    return {**kept, "tests": [{"criterion": test.get("criterion", test.get("story")), **test} for test in kept.get("tests", [])]}
+
+
+def criteria_lines(found: dict, held: dict) -> list[str]:
+    """Each criterion of the text, with each of its tests and what the check gave, or its line of no test."""
+    out = []
+    for criterion in found["criteria"]:
+        out.append(f"{criterion['n']}. {criterion['text']}")
+        for test in criterion["tests"]:
+            proof = held.get((criterion["n"], test["command"]))
+            out.append(f"   - `{test['command']}`: {'passes on the branch, fails on the base commit' if proof and not proof['problem'] else 'not checked'}")
+        if criterion["no_test"]:
+            out.append(f"   - no test: {criterion['no_test']}")
+    return out
+
+
 def builder_filed(task: Task) -> list[str]:
     """The items a small change's builder filed: each file the branch adds to the backlog folder,
     other than those `file` wrote for a review, which the review's own line names."""
@@ -1878,14 +1914,14 @@ def builder_filed(task: Task) -> list[str]:
 
 
 def small_text(task: Task, notes: str, state: dict) -> str:
-    """The text of a small change's pull request: green or not, the story, the checks, the read.
+    """The text of a small change's pull request: green or not, the criterion, the checks, the read.
     What a small change does not have (a plan, a personas' read, a polish pass, a talk) gets no line;
     what its builder filed in the backlog gets one."""
     kept = task.kept()
     checks = kept.get("checks") or {}
-    found = stories_of(task)
+    found = criteria_of(task)
     ask = (task.directory / "ask.txt").read_text(encoding="utf-8").strip() if (task.directory / "ask.txt").is_file() else ""
-    held = {(test["story"], test["command"]): test for test in (checks.get("stories") or {}).get("tests", [])}
+    held = {(test["criterion"], test["command"]): test for test in checked_criteria(checks)["tests"]}
     reasons = not_green(task, state)
     out = ["**Not green.**", "", *(f"- {why}" for why in reasons), ""] if reasons else [GREEN, ""]
     if state["careful"]:
@@ -1893,15 +1929,9 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
     approval = found.get("approved") or {}
     by = f" Lem approved it in the owner's name on {approval['at'][:10]}; the personas did not read it." if approval.get("by") == "lem" else ""
-    out += ["## The story", "", f"A small change, because {reason(found['why'])}.{by}", ""]
-    for story in found["stories"]:
-        out.append(f"{story['n']}. {story['text']}")
-        for test in story["tests"]:
-            proof = held.get((story["n"], test["command"]))
-            out.append(f"   - `{test['command']}`: {'passes on the branch, fails on the base commit' if proof and not proof['problem'] else 'not checked'}")
-        if story["no_test"]:
-            out.append(f"   - no test: {story['no_test']}")
-    out += [story_line(task, change) for change in found["history"]]
+    out += ["## The acceptance criterion", "", f"A small change, because {reason(found['why'])}.{by}", ""]
+    out += criteria_lines(found, held)
+    out += [change_line(task, change) for change in found["history"]]
     out += ["", "## Checks", ""]
     out += [f"- gate, `{command['command']}`: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
     own = builder_filed(task)
@@ -1930,13 +1960,13 @@ def small_text(task: Task, notes: str, state: dict) -> str:
 
 def pr_text(task: Task, notes: str, state: dict) -> str:
     """The text of the pull request, in the order the owner reads it."""
-    if stories_of(task)["small"]:
+    if criteria_of(task)["small"]:
         return small_text(task, notes, state)
     kept = task.kept()
     checks = kept.get("checks") or {}
-    found = stories_of(task)
+    found = criteria_of(task)
     ask = (task.directory / "ask.txt").read_text(encoding="utf-8").strip() if (task.directory / "ask.txt").is_file() else ""
-    held = {(test["story"], test["command"]): test for test in (checks.get("stories") or {}).get("tests", [])}
+    held = {(test["criterion"], test["command"]): test for test in checked_criteria(checks)["tests"]}
     out: list[str] = []
     reasons = not_green(task, state)
     if reasons:
@@ -1947,32 +1977,26 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
         # a careful request is a person's to merge, green or not, and he reads why first
         out += [f"**Careful**, so a person merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
-    out += ["## Stories", "", f"A {found['size']} change, because {found['why']}", ""]
-    for story in found["stories"]:
-        out.append(f"{story['n']}. {story['text']}")
-        for test in story["tests"]:
-            proof = held.get((story["n"], test["command"]))
-            out.append(f"   - `{test['command']}`: {'passes on the branch, fails on the base commit' if proof and not proof['problem'] else 'not checked'}")
-        if story["no_test"]:
-            out.append(f"   - no test: {story['no_test']}")
+    out += ["## Acceptance criteria", "", f"A {found['size']} change, because {found['why']}", ""]
+    out += criteria_lines(found, held)
     if found["history"]:
-        out += ["", "Stories that changed during the build, in the order of the record:", ""]
-        out += [story_line(task, change) for change in found["history"]]
+        out += ["", "Criteria that changed during the build, in the order of the record:", ""]
+        out += [change_line(task, change) for change in found["history"]]
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]
         out.append(f"- gate, `{command['command']}`: {command['last'] or f'exit {code}'}")
-    tests = (checks.get("stories") or {}).get("tests", [])
-    without = (checks.get("stories") or {}).get("without_a_test", [])
-    out.append(f"- the stories' tests: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} stor{'y has' if len(without) == 1 else 'ies have'} no test" if without else ""))
+    tests = checked_criteria(checks)["tests"]
+    without = checked_criteria(checks).get("without_a_test", [])
+    out.append(f"- the tests of the criteria: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} {'criterion has' if len(without) == 1 else 'criteria have'} no test" if without else ""))
     out.append(polished(kept.get("polish")))
-    read = story_read_of(task)
+    read = criteria_read_of(task)
     out.append(read_line(read, found, unanswered(task), read_skipped(task)[0] if read is None else None))
     if unread(read, found):
         out.append(unread(read, found))
     if (task.directory / "scout.md").is_file():
         # no path: the pull request is read on the forge, where a file of this machine leads nowhere
-        out.append("- the stories were written from the scout's facts of the code, read before the interview")
+        out.append("- the criteria were written from the scout's facts of the code, read before the interview")
     cause = task.record.get("investigation")
     if cause and cause.get("type") == "fix":
         # a full change that came from a bug names the cause its investigation found
@@ -2045,12 +2069,12 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         and all(isinstance(talk.get(key), int) and not isinstance(talk.get(key), bool) for key in ("turns", "settled", "open"))
     ):
         raise LandError(f"the newest `plan.talk` of {task.slug} does not have the form `{TALK_FORM}`; its defender writes it again with `project.py log`")
-    read = story_read_of(task)
+    read = criteria_read_of(task)
     if read is not None and not read_form(read):
-        raise LandError(f"the newest `stories.read` of {task.slug} does not have the form {READ_FORM}; whoever ran the read writes it again with `project.py log`")
-    # The personas read a full change's stories before the build, and a doubt of theirs reaches him:
-    # a request is not proposed over stories nobody read, or over a doubt he never saw.
-    found = stories_of(task)
+        raise LandError(f"the newest `criteria.read` of {task.slug} does not have the form {READ_FORM}; whoever ran the read writes it again with `project.py log`")
+    # The personas read a full change's criteria before the build, and a doubt of theirs reaches him:
+    # a request is not proposed over criteria nobody read, or over a doubt he never saw.
+    found = criteria_of(task)
     if read is None and not found["small"]:
         # his word to skip the read, with his approval after it and both before any lead started, is the one way past it
         skipped, why_not = read_skipped(task)
@@ -2058,24 +2082,24 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             raise LandError(why_not)
         if skipped is None:
             raise LandError(
-                f"{task.slug} is a full change, and the event log has no `stories.read`: the personas read its stories before the build "
-                "(`stages/new.md`, \"The interview and the stories\", step 5; for a full change from a complete request `stages/plan.md`, step 1), "
-                f"and whoever ran the read writes `project.py log {task.slug} stories.read` with the form {READ_FORM}. "
-                f"Only the owner skips a read, at the interview and when every story names only the developer: Lem writes the owner's word with {read_skip_form(task.slug)}, "
-                "and the owner approves the stories after it, both before a lead starts",
+                f"{task.slug} is a full change, and the event log has no `criteria.read`: the personas read its criteria before the build "
+                "(`stages/new.md`, \"The interview and the acceptance criteria\", step 5; for a full change from a complete request `stages/plan.md`, step 1), "
+                f"and whoever ran the read writes `project.py log {task.slug} criteria.read` with the form {READ_FORM}. "
+                f"Only the owner skips a read, at the interview and when every criterion names only the developer: Lem writes the owner's word with {read_skip_form(task.slug)}, "
+                "and the owner approves the criteria after it, both before a lead starts",
             )
     if read is not None and not read["answered"] and unanswered(task) < 2:
         raise LandError(
-            f"nobody answered the newest read of {task.slug}'s stories: it is started once more, and its record written again with `project.py log {task.slug} stories.read` "
-            "(`stages/new.md`, \"The interview and the stories\", step 5; for a full change from a complete request `stages/plan.md`, step 1). "
+            f"nobody answered the newest read of {task.slug}'s criteria: it is started once more, and its record written again with `project.py log {task.slug} criteria.read` "
+            "(`stages/new.md`, \"The interview and the acceptance criteria\", step 5; for a full change from a complete request `stages/plan.md`, step 1). "
             "After a second read in a row that nobody answered, the request is proposed as not green",
         )
     if read is not None and (read["flagged"] or read["split"]) and not approved_after(found, read):
-        doubt = f"{read['flagged']} flagged stor{'y' if read['flagged'] == 1 else 'ies'}" if read["flagged"] else "a split between the two families"
+        doubt = f"{read['flagged']} flagged {'criterion' if read['flagged'] == 1 else 'criteria'}" if read["flagged"] else "a split between the two families"
         raise LandError(
-            f"the newest read of {task.slug}'s stories found {doubt}, and no approval of the owner's came after it: the stories with the personas' answers "
-            "on top go to the owner (`stages/new.md`, \"The interview and the stories\", step 6), and the owner's yes is kept with "
-            f"`stories.py approve {task.slug} --file FILE`",
+            f"the newest read of {task.slug}'s criteria found {doubt}, and no approval of the owner's came after it: the criteria with the personas' answers "
+            "on top go to the owner (`stages/new.md`, \"The interview and the acceptance criteria\", step 6), and the owner's yes is kept with "
+            f"`criteria.py approve {task.slug} --file FILE`",
         )
     # Each defect a review saw outside the change has its item in the tip, so that none is lost: one
     # that a session never filed, and one whose item a later commit took out.
@@ -2111,7 +2135,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(f"{notes_file} is not a file; --notes names the notes of the pull request")
     # A small change's notes are what the review left open, in a few lines, or `none`: it has no
     # plan to decide from, no polish pass to file from, and nothing it set out of scope.
-    wanted = [*([] if stories_of(task)["small"] else NOTES), *(["## Migration"] if state["careful"] else [])]
+    wanted = [*([] if criteria_of(task)["small"] else NOTES), *(["## Migration"] if state["careful"] else [])]
     missing = [heading for heading in wanted if not re.search(rf"(?m)^{re.escape(heading)}\s*$", notes)]
     if missing:
         raise LandError(f"the notes lack {', '.join(missing)}: they hold {', '.join(wanted)}, each with what is true of this task or the one word `none`")

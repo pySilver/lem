@@ -8,7 +8,7 @@ into the choice's record; starting the two agents is the harness's (`ask-experts
     experts.py brief SLUG N [--file PATH ...]
                      write `experts/choice-N.brief.md` in the task's directory: the choice (what,
                      the options word for word, the recommended one and why, what the personas
-                     said), the task's stories and its plan, the files the choice is about, and
+                     said), the task's acceptance criteria and its plan, the files the choice is about, and
                      the form of an answer. Refused for a choice that does not wait, and when
                      both experts advised already. Prints the brief's path, each answer's path,
                      the worktree the experts read, and the experts still to ask
@@ -71,16 +71,16 @@ def choice(repo: Path, slug: str, number: int) -> dict:
 
 
 def worktree(repo: Path, slug: str) -> Path:
-    """The task's worktree, where stories.py reads its plan: the experts read the code there."""
+    """The task's worktree, where criteria.py reads its plan: the experts read the code there."""
     settings = json.loads(script("project.py", repo, "show"))
     root = Path(settings["root"]).resolve()
     return Path(settings["main"]) / Path(settings["paths"]["worktrees"]["path"]).relative_to(root) / slug
 
 
-def brief_text(slug: str, number: int, found: dict, stories: dict, place: Path, files: list[Path]) -> str:
+def brief_text(slug: str, number: int, found: dict, criteria: dict, place: Path, files: list[Path]) -> str:
     options = "\n".join(f"{n}. {option}" for n, option in enumerate(found["options"], start=1))
-    told = "\n".join(f"{story['n']}. {story['text']}" for story in stories["stories"]) or "none: the plan has no stories"
-    kind = f"\n\nSize: {stories['size']}" + (f", because {stories['why']}" if stories.get("why") else "") if stories.get("size") else ""
+    told = "\n".join(f"{criterion['n']}. {criterion['text']}" for criterion in criteria["criteria"]) or "none: the plan has no acceptance criteria"
+    kind = f"\n\nSize: {criteria['size']}" + (f", because {criteria['why']}" if criteria.get("why") else "") if criteria.get("size") else ""
     irreversible = (
         f"\nThis step cannot be undone by a later \"no\" ({found['irreversible']}). Your advice goes to the owner; "
         "it never decides this choice, which waits for the owner's word.\n"
@@ -112,15 +112,15 @@ Recommended: {found['recommended']}. Why: {found['why'].rstrip('.')}.
 
 What the personas said: {found['said']}
 {irreversible}
-## The stories
+## The acceptance criteria
 
-The task's stories, the contract in the owner's words:{kind}
+The task's acceptance criteria, the contract in the owner's words:{kind}
 
 {told}
 
 ## The plan
 
-`{stories['plan']}`. Read it: the stories are at its top, then the tasks.
+`{criteria['plan']}`. Read it: the criteria are at its top, then the tasks.
 
 ## The files the choice is about
 
@@ -132,7 +132,7 @@ Your last message is your answer, in one of these two forms and nothing else: no
 quote marks around the option, no text before or after.
 
     pick: ONE OPTION, COPIED WORD FOR WORD FROM THE LIST ABOVE
-    why: two to four sentences: what decides it, from the stories, the plan or the code.
+    why: two to four sentences: what decides it, from the criteria, the plan or the code.
 
     none fits
     why: two to four sentences: why no option fits, and what would.
@@ -149,9 +149,9 @@ def cmd_brief(repo: Path, slug: str, number: int, names: list[str]) -> dict:
         raise ExpertError(f"choice {number} of {slug} has the advice of both experts already: `decisions.py list {slug}` shows it")
     place = worktree(repo, slug)
     try:
-        stories = json.loads(script("stories.py", repo, "show", slug))
+        criteria = json.loads(script("criteria.py", repo, "show", slug))
     except ExpertError as error:
-        raise ExpertError(f"the brief needs the task's stories and plan, and stories.py says: {error}") from error
+        raise ExpertError(f"the brief needs the task's criteria and plan, and criteria.py says: {error}") from error
     files = []
     for name in names:
         path = Path(name) if Path(name).is_absolute() else place / name
@@ -161,7 +161,7 @@ def cmd_brief(repo: Path, slug: str, number: int, names: list[str]) -> dict:
     directory = task_directory(repo, slug) / "experts"
     directory.mkdir(parents=True, exist_ok=True)
     brief = directory / f"choice-{number}.brief.md"
-    brief.write_text(brief_text(slug, number, found, stories, place, files), encoding="utf-8")
+    brief.write_text(brief_text(slug, number, found, criteria, place, files), encoding="utf-8")
     return {
         "task": slug, "choice": number, "brief": str(brief), "worktree": str(place),
         "answers": {name: str(directory / f"choice-{number}.{name}.md") for name in EXPERTS},

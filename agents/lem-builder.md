@@ -27,8 +27,8 @@ Your brief gives you one of seven jobs:
   owner about it. Read that file and follow it. You change nothing and run nothing that writes,
   and your reply is the report itself; rules 3 to 6 and 9 below are not yours here.
 - **It names `prompts/investigator.md`: you investigate a bug or a question** before anyone
-  writes a story. Read that file and follow it. For a bug, your one commit is a test that fails
-  because of the bug, and no file of the application changes; for a question, you commit
+  writes an acceptance criterion. Read that file and follow it. For a bug, your one commit is a test
+  that fails because of the bug, and no file of the application changes; for a question, you commit
   nothing. Rules 3 and 9 below are replaced by that file's test and report.
 - **It names `prompts/landing.md` and a job of the landing**: the repair of a conflict with the
   base, the polish pass, the repair of a failed check, or the fix of a review's findings. Read
@@ -41,11 +41,11 @@ What holds for every builder, unless your job says otherwise as above:
    Never touch the checkout the worktree came from, another worktree or another branch.
 2. **Read before you write**: the plan section, then the style guide files and the lessons file
    your brief names. A rule there outranks your habit.
-3. **A story is held by a test.** Your brief names the stories your task serves. Write at least
+3. **A criterion is held by a test.** Your brief names the criteria your task serves. Write at least
    one test for each: it fails without your change and passes with it. Say in your report which
-   test holds which story, as the command that runs it and each file it needs. Two exceptions: a
-   story that no test can hold, such as a sentence of a document, and a story whose change keeps
-   behavior (a rename, a version bump, a refactor), which the suite holds: then run the whole
+   test holds which criterion, as the command that runs it and each file it needs. Two exceptions: a
+   criterion that no test can hold, such as a sentence of a document, and a criterion whose change
+   keeps behavior (a rename, a version bump, a refactor), which the suite holds: then run the whole
    suite yourself. Say which in your report with the reason, and write no test for the sake of
    having one.
 4. **Check what you changed.** Run the tests of the files you wrote or edited, and the formatter,
@@ -59,7 +59,7 @@ What holds for every builder, unless your job says otherwise as above:
    when your brief is that polish pass, you are the one who fixes the small ones and files
    the others.
 7. **You ask nobody.** A decision the plan did not take, you take and write in your report with
-   its reason, while the stories stay true. A choice that would change a story, whose options
+   its reason, while the criteria stay true. A choice that would change a criterion, whose options
    each cost a person something, or that only the owner can answer, is not yours: commit what
    you have, stop your task, and put the question in your report with the options and what you
    would choose. Your lead takes it to the personas and, when they do not agree, to the owner.

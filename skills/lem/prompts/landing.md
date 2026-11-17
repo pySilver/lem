@@ -22,8 +22,8 @@ output of `git status --short`.
 
 The brief gives `polish.json`, what `land.py polish` printed: the range of the task's own
 commits from the base (`range`), the plan, `report.md`, the interview's `outside.md` when the task
-has one, the backlog folder, and the files you may not change (`frozen`: each story's test file,
-and the plan).
+has one, the backlog folder, and the files you may not change (`frozen`: each acceptance criterion's
+test file, and the plan).
 
 The task's builders are done, and each of them checked its own work. This pass looks for what
 they leave behind all the same, and it looks for a short fixed list, nothing else. It is no
@@ -46,17 +46,17 @@ it touches, and look for these in the lines the change wrote or that sit next to
    document, the style guide) and correct every sentence the change made false. When the plan
    has a documentation task, check that it missed none.
 5. **The defects outside the task** that `report.md` lists and that `outside.md` names. One that
-   is cheap and small, and changes no behavior that a story or a test of the task holds, you fix
+   is cheap and small, and changes no behavior that a criterion or a test of the task holds, you fix
    in place, in a commit of its own. Each of the others you file: one item in the backlog folder,
    in the `lem-backlog` skill's item format, committed as `docs(backlog):`. You ask nobody; the
    pull request lists what was filed.
 
 Commit each kind on its own (`docs:` for comments and documents, `refactor:` or `chore:` for the
-code), never in one commit with another kind. You change no behavior: a story's test file and the
-plan stay as they are, and when a fix would change what a test sees, it is not on the list. Run
-the stories' tests (each `- test:` command of the plan) before your first commit and after your
+code), never in one commit with another kind. You change no behavior: a criterion's test file and
+the plan stay as they are, and when a fix would change what a test sees, it is not on the list. Run
+the tests of the criteria (each `- test:` command of the plan) before your first commit and after your
 last, and the tests, the formatter and the linter of the files you touched, as the project's
-`AGENTS.md` names them. After you, `land.py polish --done` runs the stories' tests in fresh
+`AGENTS.md` names them. After you, `land.py polish --done` runs the tests of the criteria in fresh
 worktrees and refuses a pass that changed a frozen file.
 
 Last, bring `report.md` up to what you did: the documents and comments you corrected, the
@@ -66,23 +66,23 @@ line and its file. Lem copies the items into the pull request's `## Filed in the
 When your agent refuses you the write of a file, do not go around it: put the text in your reply
 and say which file it is for.
 
-Your reply: the commits you made, by subject; the stories' tests before and after, each with the
+Your reply: the commits you made, by subject; the tests of the criteria before and after, each with the
 exact last line of its output; the tip (`git rev-parse HEAD`); the output of
 `git status --short`; and that `report.md` is current, or the text for it.
 
 ## The repair of a failed check
 
 The brief gives what the machine checks printed: the gate commands that failed with the files
-that hold their output, or the story whose test does not hold it, or the files in which the
+that hold their output, or the criterion whose test does not hold it, or the files in which the
 change lowers the bar. No check is ever edited to pass.
 
 - *A gate command.* Read its output file. Run the command on the base branch too, in a way that
   leaves the worktree as it was. A failure the change caused, you fix and commit. A failure the
   base already has, you do not fix here and do not hide: say so, with the last line of the
   command on the base and on the branch.
-- *A story's test* that passes on the base commit too, or does not start there, does not hold
-  its story: it tests something the base already did. Write the test that fails without the
-  change, and name it under the story in the plan.
+- *A criterion's test* that passes on the base commit too, or does not start there, does not hold
+  its criterion: it tests something the base already did. Write the test that fails without the
+  change, and name it under the criterion in the plan.
 - *A lowered bar* (a new suppression, a skipped or deleted test, fewer assertions). Take the
   mark out and fix what it hid. Only when the mark is right do you keep it, with the reason for
   that file in the plan under `## The bar`, as `- PATH: REASON`; the owner then reads that line
@@ -95,7 +95,7 @@ Your reply: for each check, whose failure it was and what you did; the tip
 
 The brief gives the review's file (`reviews/review-N.md` in the task directory) and the task's
 plan. Each finding there was confirmed against the code, and each must-fix names the input that
-fails or the story it breaks.
+fails or the criterion it breaks.
 
 1. For each must-fix: write the test that fails on that input, then the fix. A must-fix you
    find to be wrong, you do not fix and do not drop: say why, with the lines that show it.

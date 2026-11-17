@@ -65,11 +65,11 @@ rules:
   but in a different way. And due to cap and rules it goes that way." So a repair that adds a
   guard, a job, an invalidation, a cache, a flag, a sync or a retry names a fifth thing beside
   the four: which decision of the plan made the case possible (by its line in the plan's
-  decisions), what that decision rests on (a story, a ruling, existing code, or only the
-  planner's choice), and how far it reaches. The reviewer answers such a repair with
+  decisions), what that decision rests on (an acceptance criterion, a ruling, existing code, or only
+  the planner's choice), and how far it reaches. The reviewer answers such a repair with
   `closed, at the cause` or `closed, layer over D`, or `holds, layer over D`, D being that
   decision. This is a Fable second opinion's form (2026-11-16):
-  - a layer over a decision with a cite (a story, a ruling, existing code) stays, and the
+  - a layer over a decision with a cite (a criterion, a ruling, existing code) stays, and the
     record names it;
   - a layer over a decision with no cite is not the repair: the one repair changes that
     decision instead. When you keep such a decision, the question closes at once as a design
@@ -85,7 +85,7 @@ rules:
     such change is probably not the best solution)";
   - the owner's card of such a design choice compares both sides honestly (`stages/plan.md`, step 5): the kept
     decision with each mechanism that guards it, against the reversed decision with the tasks
-    and the stories it changes and each issue the reviewer raised against it;
+    and the criteria it changes and each issue the reviewer raised against it;
   - no root-cause run: Fable advised against one here, because it examines a failure that
     happened, and it has no bound.
   Open: whether a fresh agent should read the repaired plan once more at the end. What would

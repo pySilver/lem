@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# A small change: one story in the task directory, no plan on the branch, one builder, the checks
-# with the stories' check once, one read, and a short pull request. And what keeps the short path
+# A small change: one criterion in the task directory, no plan on the branch, one builder, the checks
+# with the check of the criteria once, one read, and a short pull request. And what keeps the short path
 # safe: a full change with no plan is refused, a careful small change is not green and no agent merges
 # it, and a small change does not lower the bar.
 # shellcheck source-path=SCRIPTDIR
@@ -13,24 +13,24 @@ project --repo "$SMALL" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$SMALL/.lem/project.toml"
 git -C "$SMALL" add -A && git -C "$SMALL" commit -q -m "chore: start"
 s() { land --repo "$SMALL" "$@"; }
-stories() { "$PY" -B "$STORIES" --repo "$SMALL" "$@"; }
+criteria() { "$PY" -B "$CRITERIA" --repo "$SMALL" "$@"; }
 dir_of() { echo "$SMALL/.lem/state/tasks/$1"; }
-# small_in SLUG SIZE: a task whose one story is in its task directory, approved as Lem does it for SIZE
+# small_in SLUG SIZE: a task whose one criterion is in its task directory, approved as Lem does it for SIZE
 # (`small` in his name, `full` by him), with a worktree on its branch and no plan on it
 small_in() {
   local tree
   project --repo "$SMALL" task-dir "$1" --ask "The date column of the report must never wrap." >/dev/null
-  printf '%s\n' '## Stories' '' "Size: $2, because the ask is one sentence." '' '1. The date column of the report never wraps: 2026-11-17 stays on one line.' > "$(dir_of "$1")/stories.md"
-  if [ "$2" = small ]; then stories approve "$1" --file "$(dir_of "$1")/stories.md" --small >/dev/null; else stories approve "$1" --file "$(dir_of "$1")/stories.md" >/dev/null; fi
+  printf '%s\n' '## Acceptance criteria' '' "Size: $2, because the ask is one sentence." '' '1. The date column of the report never wraps: 2026-11-17 stays on one line.' > "$(dir_of "$1")/criteria.md"
+  if [ "$2" = small ]; then criteria approve "$1" --file "$(dir_of "$1")/criteria.md" --small >/dev/null; else criteria approve "$1" --file "$(dir_of "$1")/criteria.md" >/dev/null; fi
   tree=$(project --repo "$SMALL" worktree-dir "$1")
   git -C "$SMALL" worktree add -q "$tree" -b "fix/$1" main
   echo "$tree"
 }
-# built SLUG TREE: the builder's change, its test, the test line under the story, and the state `ready`
+# built SLUG TREE: the builder's change, its test, the test line under the criterion, and the state `ready`
 built() {
   mkdir -p "$2/tests" && printf '%s\n' 'td { white-space: nowrap; }' > "$2/$1.css" && echo "grep -q nowrap $1.css" > "$2/tests/$1.sh"
   git -C "$2" add -A && git -C "$2" commit -q -m "fix(report): the date column never wraps"
-  printf '%s\n' "   - test: \`sh tests/$1.sh\` in \`tests/$1.sh\`" >> "$(dir_of "$1")/stories.md"
+  printf '%s\n' "   - test: \`sh tests/$1.sh\` in \`tests/$1.sh\`" >> "$(dir_of "$1")/criteria.md"
   project --repo "$2" state "$1" ready "the small change is built" >/dev/null
 }
 reds() { grep -c "\"event\": \"task.red\", \"task\": \"$1\"" "$SMALL/.lem/state/events.jsonl"; }
@@ -40,9 +40,9 @@ printf '%s\n' 'none' > "$SHORT"
 # A small change goes from Lem's approval in his name to the merge with no plan file on the branch.
 tree=$(small_in date-nowrap small)
 built date-nowrap "$tree"
-shown=$(stories show date-nowrap 2>&1 | field '(d["small"], d["size"], d["plan"].endswith("tasks/date-nowrap/stories.md"))' 2>&1 || true)
+shown=$(criteria show date-nowrap 2>&1 | field '(d["small"], d["size"], d["plan"].endswith("tasks/date-nowrap/criteria.md"))' 2>&1 || true)
 s start date-nowrap >/dev/null && s base date-nowrap >/dev/null
-gated=$(s gate date-nowrap 2>&1 | field '(d["green"], d["polish"], d["stories"]["ok"])' 2>&1 || true)
+gated=$(s gate date-nowrap 2>&1 | field '(d["green"], d["polish"], d["criteria"]["ok"])' 2>&1 || true)
 due=$(s read date-nowrap 2>&1 | field '(d["due"], d["floor"], d["small"], d["tasks"])' 2>&1 || true)
 s read date-nowrap >/dev/null 2>&1 || true
 s read date-nowrap --record "$(clean 1)" >/dev/null 2>&1 || true
@@ -52,14 +52,14 @@ text=$(dir_of date-nowrap)/pr.md
 if [ "$shown" = "(True, 'small', True)" ] && [ "$gated" = "(True, None, True)" ] && [ "$due" = "('review', 'read', True, 1)" ] \
   && [ "$proposed" = True ] && [ "$merged" = False ] && [ "$(status_in "$SMALL" date-nowrap)" = landed ] && [ "$(reds date-nowrap)" = 1 ] \
   && [ -z "$(git -C "$SMALL" ls-tree -r --name-only main -- docs/plans)" ] \
-  && [ "$(sed -n 1p "$text")" = '**Green.** The checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts.' ] \
+  && [ "$(sed -n 1p "$text")" = '**Green.** The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision was taken by timeout or by the experts.' ] \
   && ! grep -qi 'correction\|machine checks' "$text" \
   && grep -qxF -- '1. The date column of the report never wraps: 2026-11-17 stays on one line.' "$text" \
   && grep -qxF -- "   - \`sh tests/date-nowrap.sh\`: passes on the branch, fails on the base commit" "$text" \
   && grep -qxF -- '- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit' "$text" \
   && ! grep -q 'polish pass\|## Decisions of the build\|personas asked\|size:' "$text" && [ "$(grep -c '' "$text")" -le 20 ] \
   && ! grep -qiwE 'you|your' "$text"; then
-  pass "a small change with its story in the task directory goes from Lem's approval through the gate, one read and a short pull request to an agent's merge, with no plan file on the branch and the stories' check run once"
+  pass "a small change with its criterion in the task directory goes from Lem's approval through the gate, one read and a short pull request to an agent's merge, with no plan file on the branch and the check of the criteria run once"
 else
   fail "a small change: $shown / $gated / $due / $proposed / $merged / reds $(reds date-nowrap) / $(cat "$text" 2>/dev/null)"
 fi
@@ -74,7 +74,7 @@ else
 fi
 
 # A small change's builder files what it saw outside the change, in a commit of its own after the change's:
-# no polish pass runs or starts, the gate, the stories' check and the bar take the item as a document of
+# no polish pass runs or starts, the gate, the check of the criteria and the bar take the item as a document of
 # the change, the read covers it, and the pull request lists it.
 tree=$(small_in date-outside small)
 built date-outside "$tree"
@@ -85,7 +85,7 @@ mkdir -p "$tree/docs/backlog" && printf '%s\n' '---' 'worth: later' 'where: repo
 git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): what the builder of date-outside saw outside it"
 s start date-outside >/dev/null && s base date-outside >/dev/null
 no_polish=$(s polish date-outside 2>&1 || true)
-outside_gate=$(s gate date-outside 2>&1 | field '(d["green"], d["stories"]["ok"], d["bar"]["lowered"], d["stories"]["run_without"])' 2>&1 || true)
+outside_gate=$(s gate date-outside 2>&1 | field '(d["green"], d["criteria"]["ok"], d["bar"]["lowered"], d["criteria"]["run_without"])' 2>&1 || true)
 s read date-outside >/dev/null 2>&1 || true
 s read date-outside --record "$(clean 1)" >/dev/null 2>&1 || true
 outside_due=$(s read date-outside 2>&1 | field '(d["due"], d["to_file"])' 2>&1 || true)
@@ -95,21 +95,21 @@ if grep -qF "a small change has no polish pass" <<<"$no_polish" && grep -qF "\`l
   && [ "$outside_gate" = "(True, True, [], ['date-outside.css', '$item'])" ] && [ "$outside_due" = "('none', [])" ] && [ "$outside_green" = True ] \
   && grep -qxF -- "- filed in the backlog by the builder: \`$item\`" "$text" && ! grep -q 'polish' "$text" \
   && ! grep -q "\"event\": \"polish.start\", \"task\": \"date-outside\"" "$SMALL/.lem/state/events.jsonl"; then
-  pass "a small change whose builder filed a defect outside it in its own commit has no polish pass, which refuses to start: the gate, the stories' check and the bar pass with the item, the read covers it, and the pull request lists it"
+  pass "a small change whose builder filed a defect outside it in its own commit has no polish pass, which refuses to start: the gate, the check of the criteria and the bar pass with the item, the read covers it, and the pull request lists it"
 else
   fail "a small change with an item of its builder: $no_polish / $outside_gate / $outside_due / $outside_green / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$SMALL" state date-outside dropped "the test is over" >/dev/null
 
-# A full change keeps its stories at the top of its plan: with no plan file on the branch it is refused, also with a story file in the task directory.
+# A full change keeps its criteria at the top of its plan: with no plan file on the branch it is refused, also with a criterion file in the task directory.
 tree=$(small_in date-feature full)
 built date-feature "$tree"
-feature=$(stories show date-feature 2>&1 || true)
+feature=$(criteria show date-feature 2>&1 || true)
 s start date-feature >/dev/null && s base date-feature >/dev/null
 feature_gate=$(s gate date-feature 2>&1 || true)
-if grep -qF "stories.md says \`Size: full\`: only a small change (\`Size: small\`) keeps its story in the task directory" <<<"$feature" \
-  && grep -qF "A full change's stories are at the top of its plan" <<<"$feature_gate" && [ "$(kept_in "$SMALL" date-feature gated)" = None ]; then
-  pass "a full change with no plan file on the branch is refused by the stories and by the gate, also with a story file in its task directory"
+if grep -qF "criteria.md says \`Size: full\`: only a small change (\`Size: small\`) keeps its criterion in the task directory" <<<"$feature" \
+  && grep -qF "A full change's criteria are at the top of its plan" <<<"$feature_gate" && [ "$(kept_in "$SMALL" date-feature gated)" = None ]; then
+  pass "a full change with no plan file on the branch is refused by the criteria and by the gate, also with a criterion file in its task directory"
 else
   fail "a full change with no plan: $feature / $feature_gate"
 fi

@@ -22,7 +22,7 @@ mkdir -p "$SHOP/docs" "$SHOP/.lem/styleguide" && echo guide > "$SHOP/docs/guide.
 printf '%s\n' '---' 'paths:' '  - "tests/**"' '---' 'A test names what it checks.' > "$SHOP/.lem/styleguide/tests.md"
 printf '%s\n' '---' 'paths:' '  - "billing/**"' '---' 'Money is an integer.' > "$SHOP/.lem/styleguide/money.md"
 git -C "$SHOP" add -A && git -C "$SHOP" commit -q -m "chore: start" && git -C "$SHOP" push -q origin main
-# open_task SLUG FILE TEXT: a full change of the shop, with the lead's read of its stories
+# open_task SLUG FILE TEXT: a full change of the shop, with the lead's read of its criteria
 open_task() { task_in "$SHOP" "$@" && read_in "$SHOP" "$1"; }
 status() { status_in "$SHOP" "$1"; }
 kept() { kept_in "$SHOP" "$@"; }
@@ -65,9 +65,9 @@ if [ "$(field '(d["green"], [c["exit"] for c in d["commands"]], d["commands"][1]
 else
   fail "land gate: $out"
 fi
-if [ "$(field '(d["stories"]["ok"], [(t["story"], t["problem"]) for t in d["stories"]["tests"]], d["bar"], d["size"]["files"], d["size"]["in_parts"])' <<<"$out")" \
+if [ "$(field '(d["criteria"]["ok"], [(t["criterion"], t["problem"]) for t in d["criteria"]["tests"]], d["bar"], d["size"]["files"], d["size"]["in_parts"])' <<<"$out")" \
   = "(True, [(1, None)], {'lowered': [], 'not_covered': [], 'own_patterns': 0}, 3, False)" ] && grep -q '"event": "task.red", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
-  pass "after the commands the gate proves each story's test on the branch and on the base commit, looks for a lowered bar and counts the size"
+  pass "after the commands the gate proves each criterion's test on the branch and on the base commit, looks for a lowered bar and counts the size"
 else
   fail "the machine checks after the gate's commands: $out"
 fi
@@ -102,14 +102,14 @@ out=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" 
 text=$SHOP/.lem/state/tasks/first-change/pr.md
 if grep -q "the notes lack ## Left open, ## Worth a look, ## Filed in the backlog, ## Not done" <<<"$err" && [ "$(field '(d["pull_request"], d["green"], d["not_green"], d["branch"])' <<<"$out")" = "(None, True, [], 'fix/first-change')" ] \
   && [ "$(status first-change)" = open ] && [ "$(kept first-change proposed)" = "$tip" ] && [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -q '^green$' "$SHOP/.lem/state/tasks/first-change/state.md" \
-  && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Stories|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
-  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | sed -n 3p)" = none ] && [ "$(head -1 "$text")" = '**Green.** The checks passed with the bar where it was, the review left no must-fix, no story changed, and no decision was taken by timeout or by the experts.' ] \
+  && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Acceptance criteria|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
+  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | sed -n 3p)" = none ] && [ "$(head -1 "$text")" = '**Green.** The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision was taken by timeout or by the experts.' ] \
   && grep -q '^> Put yes into ok.txt\.$' "$text" && grep -q '^1\. The file holds the word the owner asked for\.$' "$text" \
   && grep -q 'sh tests/first-change.sh.: passes on the branch, fails on the base commit' "$text" && grep -q '^- gate, .echo 7 passed.: 7 passed$' "$text" \
-  && grep -q "^- the stories' tests: 1 pass on the branch and fail on the base commit$" "$text" && grep -q '^- the bar: not lowered$' "$text" \
+  && grep -q "^- the tests of the criteria: 1 pass on the branch and fail on the base commit$" "$text" && grep -q '^- the bar: not lowered$' "$text" \
   && grep -q '^- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 1 should, 0 nit$' "$text" && grep -qxF -- "- careful: no; the review says no: $NOT_CAREFUL" "$text" && grep -q '^- the one line of the file\.$' "$text" \
   && ! grep -q 'plan talk' "$text" && ! grep -q '"event": "plan.talk", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
-  pass "with no forge the branch is marked ready: the task is open, and the text for the owner says green first, then holds his words, the stories with their tests, each check with what it returned, the decisions of the record (none here), then the notes; a plain request of one task needs no plan talk, and its text has no line of one"
+  pass "with no forge the branch is marked ready: the task is open, and the text for the owner says green first, then holds his words, the criteria with their tests, each check with what it returned, the decisions of the record (none here), then the notes; a plain request of one task needs no plan talk, and its text has no line of one"
 else
   fail "propose: $err / $out / $(cat "$text" 2>/dev/null)"
 fi
@@ -219,7 +219,7 @@ echo both > "$tree/app.txt" && echo 'grep -qx both app.txt' > "$tree/tests/secon
 git -C "$tree" rm -q ok.txt && git -C "$tree" commit -q -m "fix: lose the file the gate wants"
 land --repo "$SHOP" base second-change >/dev/null && polish_in "$SHOP" second-change
 out=$(land --repo "$SHOP" gate second-change 2>/dev/null || true)
-if [ "$(status_of land --repo "$SHOP" gate second-change)" = 1 ] && [ "$(field '(d["green"], [c["exit"] for c in d["commands"]], "stories" in d)' <<<"$out")" = "(False, [1, 0], False)" ] \
+if [ "$(status_of land --repo "$SHOP" gate second-change)" = 1 ] && [ "$(field '(d["green"], [c["exit"] for c in d["commands"]], "criteria" in d)' <<<"$out")" = "(False, [1, 0], False)" ] \
   && [ "$(kept second-change gated)" = None ] && [ "$(status_of land --repo "$SHOP" read second-change)" = 1 ] && [ "$(status_of land --repo "$SHOP" propose second-change --title x --notes "$NOTES")" = 1 ]; then
   pass "a red gate exits 1 with each command's result, the later checks do not run, and nothing is read or proposed on it"
 else
@@ -373,7 +373,7 @@ project --repo "$SHOP" state four-tasks dropped "the test is over" >/dev/null
 # A plan that says careful calls for a plan talk: the request is not proposed without one, and with one its text holds the talk's line.
 open_task careful-plan six.txt six
 tree=$(project --repo "$SHOP" worktree-dir careful-plan)
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n## Stories", "careful: yes, a price is rounded here.\n\n## Stories", 1))' "$tree/docs/plans/20261115-careful-plan.md"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n## Acceptance criteria", "careful: yes, a price is rounded here.\n\n## Acceptance criteria", 1))' "$tree/docs/plans/20261115-careful-plan.md"
 git -C "$tree" commit -q -am "docs: the plan is careful"
 checked careful-plan
 land --repo "$SHOP" read careful-plan --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the plan says careful"}], "answered": ["codex"]}')" >/dev/null
@@ -474,7 +474,7 @@ checked more-work && read_clean more-work && propose more-work
 "$PY" -B "$LATE/land.py" --repo "$SHOP" land more-work --by agent >/dev/null 2>&1 || true
 git -C "$SHOP" merge -q --ff-only origin/main
 tree=$SHOP/.lem/worktrees/more-work
-# the first half is on the base now, so its test no longer fails there: the story is held by a test of the second half
+# the first half is on the base now, so its test no longer fails there: the criterion is held by a test of the second half
 echo six > "$tree/n.txt" && echo 'grep -qx six n.txt' > "$tree/tests/more-work-n.sh"
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("tests/more-work.sh", "tests/more-work-n.sh"))' "$tree/docs/plans/20261115-more-work.md"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: more-work, the second half"

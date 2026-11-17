@@ -241,7 +241,7 @@ if [ -n "$old" ]; then
   # The other scripts under that python3: a row or one line that says what is needed, and no traceback.
   rows=$(cd "$MACHINE" && "$old" -B "$DOCTOR" 2>&1 || true)
   said=""
-  for script in "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/stories.py" "$PWD/skills/lem/scripts/board.py"; do
+  for script in "$PWD/skills/lem/scripts/project.py" "$PWD/skills/lem/scripts/land.py" "$PWD/skills/lem/scripts/criteria.py" "$PWD/skills/lem/scripts/board.py"; do
     said="$said$("$old" -B "$script" --help 2>&1 || true)"$'\n'
   done
   # the queue's own commands, which the retro runs: only the hook and its detached half stay silent there

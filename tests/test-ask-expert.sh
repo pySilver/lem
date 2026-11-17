@@ -3,7 +3,7 @@
 # advice under the task's lock and refuses a pick that is no option; the end of the wait takes the
 # experts' shared pick, and the recommended option when they split; settle --away takes the shared
 # pick before the wait ends, never for an irreversible step; and the lem-ask-expert skill's
-# brief file holds the choice and the stories. No expert runs here.
+# brief file holds the choice and the criteria. No expert runs here.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -32,7 +32,7 @@ tree=$(project --repo "$EX" worktree-dir "$SLUG")
 git -C "$EX" worktree add -q -b "feat/$SLUG" "$tree" main
 project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
 mkdir -p "$tree/docs/plans"
-printf '%s\n' '# The export has the gift note' '' '## Stories' '' 'Size: full, because the export gets a new column.' '' \
+printf '%s\n' '# The export has the gift note' '' '## Acceptance criteria' '' 'Size: full, because the export gets a new column.' '' \
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
   '2. An order with no gift note has an empty cell, not the word "None".' '' '## Tasks' '' '1. The column.' > "$tree/docs/plans/20261116-$SLUG.md"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "docs: the plan"
@@ -210,7 +210,7 @@ else
   fail "settle --away: $noaway / $halfway / $settled / $twice / $stood / $waitsays / $gone / $after / $splitaway / $irreversible / $irrtimeout / $overaway / $thentimeout"
 fi
 
-# the skill's brief: the choice, the stories, the plan and the files, in one file of the task's directory
+# the skill's brief: the choice, the criteria, the plan and the files, in one file of the task's directory
 c16=$(ask "Where the note goes in the second export")
 nofile=$(experts brief "$SLUG" "$c16" --file missing.sh 2>&1 || true)
 nofilecode=$(status_of experts brief "$SLUG" "$c16" --file missing.sh)
@@ -241,7 +241,7 @@ if [ "$holds" = yes ] && [ "$paths" = "('$brief', '$TASKDIR/experts/choice-$c16.
   && grep -qF -- "--file missing.sh is not in the task's worktree" <<<"$nofile" && [ "$nofilecode" = 1 ] \
   && grep -qF "choice $c16 of $SLUG does not wait: it is answered" <<<"$answered" && grep -qF "has the advice of both experts already" <<<"$alladvised" \
   && [ "$rest" = "(['astra'], ['fable'])" ] && [ "$forbrief" = 1 ]; then
-  pass "the skill's brief file holds the choice word for word, the run that ends badly with its cause, the recommended option and the personas, the task's stories and its plan, the files the choice is about and the answer's form; it names the experts still to ask, and is refused for a choice that does not wait or that both advised"
+  pass "the skill's brief file holds the choice word for word, the run that ends badly with its cause, the recommended option and the personas, the task's criteria and its plan, the files the choice is about and the answer's form; it names the experts still to ask, and is refused for a choice that does not wait or that both advised"
 else
   fail "the experts' brief: $holds / $paths / $nofile / $answered / $alladvised / $rest / $forbrief"
 fi

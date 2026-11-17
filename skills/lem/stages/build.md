@@ -21,9 +21,9 @@ you the start of one, write the state `blocked` with that refusal, and stop.
 1. **One builder per task of the plan**, through `spawn-builder`, in the task's worktree, one
    after the other unless two tasks touch no common file. Its brief names, by path:
    - the worktree;
-   - the plan file and the task's section, with the stories the task serves: the builder writes
-     at least one test for each, one that fails without its change, except for a story whose
-     change keeps behavior (a rename, a bump, a refactor), which the suite holds;
+   - the plan file and the task's section, with the acceptance criteria the task serves: the builder
+     writes at least one test for each, one that fails without its change, except for a criterion
+     whose change keeps behavior (a rename, a bump, a refactor), which the suite holds;
    - the style guide files that cover the files it will touch, as `project.py rules FILE ...`
      prints them for the files the plan names for the task, and the project's lessons;
    - the report file, `reports/NN-<task>.md` in the task directory;
@@ -42,7 +42,7 @@ you the start of one, write the state `blocked` with that refusal, and stop.
    only the newest.
 2. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
    - *a failure nobody can explain after two tries*: the `lem-root-cause` skill, before
-     a third try. A task that came from a bug had that method once already, before its stories
+     a third try. A task that came from a bug had that method once already, before its criteria
      (`prompts/investigator.md`): read its `investigation.md` first, since the failure may be
      what else the same cause reaches;
    - *an approach that failed twice*: it is not tried a third time with a patch. State the problem
@@ -67,28 +67,28 @@ Every decision goes into the task's record through one script, which also puts i
 python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT]
 ```
 
-A story the owner approved, or that the lead's read froze for a full change from a complete
-request (`stories.py approved SLUG`), changes in the plan only with its own record, written
+A criterion the owner approved, or that the lead's read froze for a full change from a complete
+request (`criteria.py approved SLUG`), changes in the plan only with its own record, written
 before the commit that changes it, with its text before and after:
 
 ```bash
-python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE story SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
+python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
 ```
 
-N is the story's number as the stories stand after every earlier change;
+N is the criterion's number as the criteria stand after every earlier change;
 `decisions.py changes SLUG` gives them, and the command refuses a `--was` that is not the text
-of story N then. `--choice ID` names the choice of step 2 that led to it, once it is answered or
+of criterion N then. `--choice ID` names the choice of step 2 that led to it, once it is answered or
 taken by timeout; without a choice it is the personas' clear pick (`--by personas --said`), or
 the lead's own (`--by lead`) for a change that is nobody's choice, such as a typo in an example.
-A story whose rule changes, comes or goes is never the lead's alone: it takes step 2 below, the
-personas first. The stories script
-refuses the plan until its stories are the expected ones, word for word, and the pull request is
-not green for each change. A plan's size (`Size:`) is always `full`, and `stories.py` refuses
+A criterion whose rule changes, comes or goes is never the lead's alone: it takes step 2 below, the
+personas first. `criteria.py`
+refuses the plan until its criteria are the expected ones, word for word, and the pull request is
+not green for each change. A plan's size (`Size:`) is always `full`, and `criteria.py` refuses
 a plan that says `Size: small`: a build never turns a full change into a small change, which
 has no plan, and the size is no choice of this section. A plan that departs from a direction
 (`directions.md`) is a decision of this section too, with the direction in `--what`.
 
-1. **The stories and the directions stay true**: decide it yourself, from the code, the settings
+1. **The criteria and the directions stay true**: decide it yourself, from the code, the settings
    and the rulings, and log it with `--by lead` and `--undo`, what it would take to undo it.
 2. **Otherwise the persona panel first**: the `lem-panel` skill (`load-skill`), with the personas
    the choice concerns, in its reviewing mode: each option as what a person would see and what it
@@ -97,9 +97,9 @@ has no plan, and the size is no choice of this section. A plan that departs from
    (`lem-gate`) comes later, at Lem, when the card goes to him (`stages/new.md`, "When a choice
    waits for the owner").
    - *A clear answer* (the personas agree, nobody in doubt): take it, log it with
-     `--by personas --said "who picked what"`, and go on. A story that the choice changes gets
-     its record, `decisions.py story ... --by personas --said "who picked what"`; change the
-     story in the plan in the same commit as the code. The pull request is not green for it.
+     `--by personas --said "who picked what"`, and go on. A criterion that the choice changes gets
+     its record, `decisions.py criterion ... --by personas --said "who picked what"`; change the
+     criterion in the plan in the same commit as the code. The pull request is not green for it.
    - *An unclear answer* (the personas split, or one is in doubt), or a question of what the owner
      meant or of taste, which the personas do not answer for him: ask him.
 
@@ -112,19 +112,19 @@ has no plan, and the size is no choice of this section. A plan that departs from
      it or derived it; `--cause` is one line on why the case became possible and how far the same
      cause reaches. They go above the owner's card, so that he decides from one run and not from
      the code. `--said` holds what the personas answered, or why they were not asked. A choice carries no
-     story. Whichever way it ends, by his answer, by a decision of his that is none of the
-     options, by the timeout or by the experts, read what was taken against each story: when one no longer
-     holds, or a story has to come or go, record it with `decisions.py story ... --choice N`,
-     and change the story in the plan in the commit that builds the option. A forgotten record
-     does not pass: the gate refuses a plan whose stories are not the expected ones. The choice waits the
-     settings' `flow.decision_wait` (15 minutes unless the project says otherwise), and it counts
-     from the ask, so two things come at once, in this order, as `decisions.py ask` prints them in
-     its `next`. First give the choice to the experts: the `lem-ask-expert` skill (`load-skill`),
-     with the slug, the choice's number and the files the choice is about; its first step writes
-     their brief and starts them in the background, which takes seconds. Two experts of two model
-     families answer it, and their advice goes on the owner's card. It also decides what the end
-     of the wait takes, so it is not skipped for an irreversible step either: there it is advice
-     and nothing more. Then tell Lem: `tell-coordinator` with the line `lem: SLUG choice N
+     criterion. Whichever way it ends, by his answer, by a decision of his that is none of the
+     options, by the timeout or by the experts, read what was taken against each criterion: when one no longer
+     holds, or a criterion has to come or go, record it with `decisions.py criterion ... --choice
+     N`, and change the criterion in the plan in the commit that builds the option. A forgotten
+     record does not pass: the gate refuses a plan whose criteria are not the expected ones. The
+     choice waits the settings' `flow.decision_wait` (15 minutes unless the project says otherwise),
+     and it counts from the ask, so two things come at once, in this order, as `decisions.py ask`
+     prints them in its `next`. First give the choice to the experts: the `lem-ask-expert` skill
+     (`load-skill`), with the slug, the choice's number and the files the choice is about; its first
+     step writes their brief and starts them in the background, which takes seconds. Two experts of
+     two model families answer it, and their advice goes on the owner's card. It also decides what
+     the end of the wait takes, so it is not skipped for an irreversible step either: there it is
+     advice and nothing more. Then tell Lem: `tell-coordinator` with the line `lem: SLUG choice N
      waits`, to the address of the brief's `coordinator:` line. Lem asks the owner when that line
      wakes it, and finds the experts' brief there, so it never starts them a second time. The
      defender of a plan talk sends it from its companion, and a builder that leads sends it from
@@ -163,27 +163,27 @@ Write `report.md` in the task directory, whole, each time. A path in it is relat
 repository's root, never a path inside the worktree: the worktree is gone when the owner reads.
 
 - **what the owner gets**, in one or two sentences, and how to see it;
-- **the stories**: each story of the plan with the tests that hold it. Before the report, write
-  under each story in the plan its tests (`- test: ...`, or `- no test: REASON` for a story no
-  test can hold, such as a sentence of a document, and `- no test: the change keeps behavior; the
+- **the criteria**: each criterion of the plan with the tests that hold it. Before the report, write
+  under each criterion in the plan its tests (`- test: ...`, or `- no test: REASON` for a criterion
+  no test can hold, such as a sentence of a document, and `- no test: the change keeps behavior; the
   suite holds it` for a rename, a bump or a refactor, whose builder ran the whole suite), commit
   that, and run
-  `python3 SKILL_DIR/scripts/stories.py record SLUG` and then `python3 SKILL_DIR/scripts/stories.py
-  red SLUG`. The second one runs each story's tests in a worktree of its own, on the branch and
-  on the base commit with only the named test files laid over it; the task's worktree has to be
-  clean and is not touched. A test that fails there on the branch, that passes on the base
-  commit too, or that does not start on the base commit does not hold its story: name every
-  file the test needs, one by one. Its `run_without` lists the files of the branch that the base
-  run lacked, which the check takes for the change: a helper of a test in that list means the
-  test's failure proved nothing, and the helper belongs among the story's files. Repair what the
-  check names before the task is `ready`, and give its last line here. A project whose tests need more than a fresh worktree has says what in the
-  settings' `gate.setup`; when that is missing, it is an outside defect for your report, not
-  yours to set;
+  `python3 SKILL_DIR/scripts/criteria.py record SLUG` and then `python3
+  SKILL_DIR/scripts/criteria.py red SLUG`. The second one runs each criterion's tests in a worktree
+  of its own, on the branch and on the base commit with only the named test files laid over it; the
+  task's worktree has to be clean and is not touched. A test that fails there on the branch, that
+  passes on the base commit too, or that does not start on the base commit does not hold its
+  criterion: name every file the test needs, one by one. Its `run_without` lists the files of the
+  branch that the base run lacked, which the check takes for the change: a helper of a test in that
+  list means the test's failure proved nothing, and the helper belongs among the criterion's files.
+  Repair what the check names before the task is `ready`, and give its last line here. A project
+  whose tests need more than a fresh worktree has says what in the settings' `gate.setup`; when that
+  is missing, it is an outside defect for your report, not yours to set;
 - **not verified**: what you could not or did not check;
 - **decisions**: each one taken without the owner, with why and what it would take to undo, by
   its number in `decisions.py list SLUG`. Each is in that record before the report: the pull
   request takes them from there;
-- **held**: what the task waits on when its state is `held`: the stories with the answers that
+- **held**: what the task waits on when its state is `held`: the criteria with the answers that
   flagged them, or the irreversible choice that every task left depends on, by its number. A
   choice that waits while the work goes on is in the record, not here. Leave the heading out when
   there is none;

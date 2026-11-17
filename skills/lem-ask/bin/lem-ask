@@ -107,9 +107,10 @@ QUESTION_KEYS = {"id", "header", "prompt", "hint", "context", "body", "recommend
 OPTION_KEYS = {"id", "label", "subtitle", "recommended", "badge", "tags", "pros", "cons", "detail", "preview",
                "default", "selected", "values"}
 CONTROL_KEYS = {"id", "label", "type", "min", "max", "step", "value", "unit", "options", "on", "off"}
-# A label that only counts ("Story 3", "Option B", "Step 2") points at text the user has to go and find.
+# A label that only counts ("Criterion 3", "Option B", "Step 2") points at text the user has to go and find.
 # A bare number or letter can be the answer itself (3 replicas, size M), so the counting word is required.
-POSITION_LABEL = re.compile(r"^\s*(?:story|option|item|task|step|choice|variant|approach|fork|finding|issue|point|"
+# The word "story" stays among them: a page an agent writes outside Lem may count its user stories so.
+POSITION_LABEL = re.compile(r"^\s*(?:criterion|story|option|item|task|step|choice|variant|approach|fork|finding|issue|point|"
                             r"case|scenario|alternative|proposal|version|question)\s*[#№]?\s*(?:\d+|[a-z])\s*[.):]?\s*$",
                             re.I)
 

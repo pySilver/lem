@@ -7,77 +7,77 @@ a list of questions that closes with the reviewer's first turn, by its defender 
 (`stages/talk.md`).
 
 1. **Write the plan** as one file in the settings' `plans` path, named `YYYYMMDD-<slug>.md`, and
-   commit it as your first commit: after a bug, the investigator's test comes before it. It opens with the stories, because they are the
+   commit it as your first commit: after a bug, the investigator's test comes before it. It opens with the acceptance criteria, because they are the
    owner's document: he reads them and not the rest of the plan, and they become the tests.
-   - `## Stories`, in the form `python3 SKILL_DIR/scripts/stories.py --help` shows. First run
-     `python3 SKILL_DIR/scripts/stories.py approved SLUG`. When the owner approved stories at
-     his interview, they are your stories: copy the section word for word, numbered the same,
-     and add only the test lines under each, at the end of the build. A story whose change keeps
-     behavior (a rename, a version bump, a refactor) is held by the suite: its line is `- no
+   - `## Acceptance criteria`, in the form `python3 SKILL_DIR/scripts/criteria.py --help` shows.
+     First run `python3 SKILL_DIR/scripts/criteria.py approved SLUG`. When the owner approved
+     criteria at his interview, they are your criteria: copy the section word for word, numbered the
+     same, and add only the test lines under each, at the end of the build. A criterion whose change
+     keeps behavior (a rename, a version bump, a refactor) is held by the suite: its line is `- no
      test: the change keeps behavior; the suite holds it`, and its task's brief names the whole
-     suite. You may break a story's
+     suite. You may break a criterion's
      text into other lines; you may not change a word of it. The plan follows the task's
-     `directions.md` too, when the task directory has one. A story or a direction the code shows
-     you cannot keep, or a story that is missing, is a decision of the build (`stages/build.md`,
-     "A choice in the build") with its own record (`decisions.py story`), never a silent edit:
-     `show`, `record` and `red` refuse a plan whose stories are not the approved ones with each
-     recorded change, word for word, or whose `Size:` is not the approved size. Stories approved
+     `directions.md` too, when the task directory has one. A criterion or a direction the code shows
+     you cannot keep, or a criterion that is missing, is a decision of the build (`stages/build.md`,
+     "A choice in the build") with its own record (`decisions.py criterion`), never a silent edit:
+     `show`, `record` and `red` refuse a plan whose criteria are not the approved ones with each
+     recorded change, word for word, or whose `Size:` is not the approved size. Criteria approved
      as a small change do not reach a lead: a small change has one builder and no plan
      (`stages/new.md`, "A small change"), and one that is a full change after all comes to you
-     with his approval of its stories as a full change. A plan's size is always `full`:
-     `stories.py` and `land.py` refuse a plan that says `Size: small`;
-   - with no approved stories (a full change from a complete request, a night plan), write them.
-     A story is one business rule of the request in plain language with one concrete example,
+     with his approval of its criteria as a full change. A plan's size is always `full`:
+     `criteria.py` and `land.py` refuse a plan that says `Size: small`;
+   - with no approved criteria (a full change from a complete request, a night plan), write them.
+     A criterion is one business rule of the request in plain language with one concrete example,
      with real names and values: what a person of the project would see, never how the code does
      it. Take them from the outcome and the "done when" of `task.md`, now that you have read the
      code. A rule you cannot write without guessing what the owner wants is not yours to guess:
-     the stories wait for him, as for a doubt of the personas below, with the story as you would
-     guess it and each other reading beside it as a proposal. The first line of that section is
-     `Size: full`, with the reason after `because`, also for a plan of one story: a plan never
-     makes a change small. One plain change with nothing careful is a small change, which
+     the criteria wait for him, as for a doubt of the personas below, with the criterion as you
+     would guess it and each other reading beside it as a proposal. The first line of that section
+     is `Size: full`, with the reason after `because`, also for a plan of one criterion: a plan
+     never makes a change small. One plain change with nothing careful is a small change, which
      has one builder and no plan (`stages/new.md`, "A small change"), and Lem chose this path for
      the task before you started. When the code shows you that it is one, still write the full
      change, and say in the report that it was a small change, for Lem's next call of a size;
-   - then the personas read the stories you wrote. Here
+   - then the personas read the criteria you wrote. Here
      the read always runs, as the only approval of this path: the owner's word to skip it belongs
-     to an interview (`stages/new.md`, "The interview and the stories", step 5), and the landing
-     refuses one that comes after a lead started. The read is the persona panel's "Reading stories" mode (`load-skill`), run by you while you write the
-     rest of the plan. You have no paired agent of the other family, so one family answers: the
-     panel's own persona agents, started the way the `lem-panel` skill starts a persona, never
-     as a builder: `lem-builder` has no persona among its jobs. Log its start as it starts,
-     `python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG stories.read.start by=lead`. Write
-     the event the landing reads, in the form `stages/new.md` gives ("The interview and the
-     stories", step 5), with `by=lead`, your one family, and the `digest` field of what
-     `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE digest SLUG` prints for the plan's stories. A persona agent that
-     did not answer is named in `silent` with why. A read in which nobody answered is written
-     down too, in the form `stages/new.md` gives for it, and started once more; after a second
-     one in a row, freeze the stories as below, write the state line `the stories were not read:
-     nobody answered twice`, and build: the pull request is not green for it. Nobody confused:
-     freeze the stories they read,
-     `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE approve SLUG --read`, which takes the
-     plan's stories and refuses any other text than the one the read names. It freezes the task's
-     first contract only, and is refused once the task has any approval: from then on a story the
-     build changes has its record (`decisions.py story`), and the size is his to change. It is
-     never his yes. The build starts with no wait, and your next
-     state block says `nobody confused, read by N personas, one model family`, where he sees it
+     to an interview (`stages/new.md`, "The interview and the acceptance criteria", step 5), and the
+     landing refuses one that comes after a lead started. The read is the persona panel's "Reading
+     acceptance criteria" mode (`load-skill`), run by you while you write the rest of the plan. You
+     have no paired agent of the other family, so one family answers: the panel's own persona
+     agents, started the way the `lem-panel` skill starts a persona, never as a builder:
+     `lem-builder` has no persona among its jobs. Log its start as it starts, `python3
+     SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG criteria.read.start by=lead`. Write the
+     event the landing reads, in the form `stages/new.md` gives ("The interview and the
+     acceptance criteria", step 5), with `by=lead`, your one family, and the `digest` field of what `python3
+     SKILL_DIR/scripts/criteria.py --repo WORKTREE digest SLUG` prints for the plan's criteria. A
+     persona agent that did not answer is named in `silent` with why. A read in which nobody
+     answered is written down too, in the form `stages/new.md` gives for it, and started once more;
+     after a second one in a row, freeze the criteria as below, write the state line `the criteria
+     were not read: nobody answered twice`, and build: the pull request is not green for it. Nobody
+     confused: freeze the criteria they read, `python3 SKILL_DIR/scripts/criteria.py --repo WORKTREE
+     approve SLUG --read`, which takes the plan's criteria and refuses any other text than the one
+     the read names. It freezes the task's first contract only, and is refused once the task has any
+     approval: from then on a criterion the build changes has its record (`decisions.py criterion`),
+     and the size is his to change. It is never his yes. The build starts with no wait, and your
+     next state block says `nobody confused, read by N personas, one model family`, where he sees it
      and can stop the task. The landing refuses a full change with no such event. A doubt: the
-     first line of code waits. Write `report.md` with the stories and the answers that flagged
-     them on top, quoted, and the line `the stories wait for the owner`; write the state `held`
-     with that line, and stop. Leave a flagged story as you wrote it: what you would change goes
+     first line of code waits. Write `report.md` with the criteria and the answers that flagged
+     them on top, quoted, and the line `the criteria wait for the owner`; write the state `held`
+     with that line, and stop. Leave a flagged criterion as you wrote it: what you would change goes
      beside it, as a proposal, and he decides;
-   - run `python3 SKILL_DIR/scripts/stories.py record SLUG`: it refuses a section that does not
-     have the form, or that departs from the approved stories, and it puts the stories where
+   - run `python3 SKILL_DIR/scripts/criteria.py record SLUG`: it refuses a section that does not
+     have the form, or that departs from the approved criteria, and it puts the criteria where
      the board and Lem's status show them;
    - `## Tasks`: a numbered list of one to seven tasks, each an outcome a reviewer can check
-     alone and one builder can finish in a context of its own, with the stories it serves and
+     alone and one builder can finish in a context of its own, with the criteria it serves and
      the files it expects to touch. The landing counts the numbered lines under that heading:
      a plan of more than three is large, gets a plan talk before any code (step 4) and a review
      round at the least, and a plan with no such list is refused there;
    - the documentation task, last, when the change makes a document false: a guide, the README,
      the agent document, the style guide, a page of help. Write it like any other task, with the
      documents it corrects by path and what in each one the change makes false; it serves no
-     story unless a story is about a document. The landing's polish pass checks that no document
-     the change made false was missed; it is the check, not the place where documents are
+     criterion unless a criterion is about a document. The landing's polish pass checks that no
+     document the change made false was missed; it is the check, not the place where documents are
      written;
    - the decisions the plan takes, each with the answer it assumes and what the answer rests on;
    - what it will not verify, and why;
@@ -105,9 +105,9 @@ a list of questions that closes with the reviewer's first turn, by its defender 
      developer's is no such pattern: a new kind of test makes no plan careful.
    A brief with the line `careful: the owner says so` is a yes too, whatever the two tests
    give: the owner called the task careful before its plan, in the ask or later.
-   Write the call into the plan as one line under its title, before `## Stories` (a line that
-   is no story is refused inside that section), `careful: yes` or `careful: no`, with the one
-   sentence of why: the topic in the owner's words and the task that reaches it, the pattern, or
+   Write the call into the plan as one line under its title, before `## Acceptance criteria` (a line
+   that is no criterion is refused inside that section), `careful: yes` or `careful: no`, with the
+   one sentence of why: the topic in the owner's words and the task that reaches it, the pattern, or
    what you checked to say that none is reached. The landing reads the call there and nowhere
    else, and a yes stays a yes: a later commit that writes `no` does not take back the talk or
    the full review. The same line goes into your next state block, where the owner reads it on
@@ -169,7 +169,7 @@ a list of questions that closes with the reviewer's first turn, by its defender 
    over a decision with no cite, a decision two questions named, or a changed decision that
    brought issues of its own) is an honest comparison of both sides: one option is the kept
    decision with each mechanism that guards it, the other the reversed decision with the tasks
-   and the stories it changes and each issue the reviewer raised against it, and `--said` holds
+   and the criteria it changes and each issue the reviewer raised against it, and `--said` holds
    both. A design choice of the talk is always asked so, never taken by the defender or the
    builder: the defender is one of the two positions that did not settle.
    A night plan is the exception: its brief has the line `night: yes`, nobody is there to answer,

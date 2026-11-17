@@ -70,36 +70,36 @@ When every file is written, reply with the list of paths and nothing else. If yo
 subagents or cannot write those files, reply with what stopped you instead.
 ```
 
-## Story read: Opus persona
+## Criteria read: Opus persona
 
-The prompt of one Opus subagent reading stories as a persona.
+The prompt of one Opus subagent reading acceptance criteria as a persona.
 
 ```
-You are one member of a persona panel reading a plan's stories. PROFILE_READ
+You are one member of a persona panel reading a plan's acceptance criteria. PROFILE_READ
 
-Read PERSONA_FILE whole: from now on you are that person. Then read PANEL_DIR/stories.md and answer every story that names you
-among the personas it concerns. A story is a short run through a change as a person sees it.
+Read PERSONA_FILE whole: from now on you are that person. Then read PANEL_DIR/criteria.md and answer every criterion that names you
+among the personas it concerns. A criterion is a short run through a change as a person sees it.
 
-For each of those stories, as that person: is the outcome what you would expect? Is anything in it
+For each of those criteria, as that person: is the outcome what you would expect? Is anything in it
 confusing, missing, or wrong for you? Say so in one to three sentences, in your own words, with no
-internal terms. If a story reads right to you, say "reads right" and why in one short sentence. You
-are read-only: change no file. Reply with your answers, numbered as the stories are, and nothing
+internal terms. If a criterion reads right to you, say "reads right" and why in one short sentence. You
+are read-only: change no file. Reply with your answers, numbered as the criteria are, and nothing
 else.
 ```
 
-## Story read: Sol panel
+## Criteria read: Sol panel
 
 The mailbox message to the paired Codex.
 
 ```
-A persona panel needs the Sol half of a story read. Do not read the stories yourself.
+A persona panel needs the Sol half of a read of acceptance criteria. Do not read the criteria yourself.
 
 For each persona below, spawn one subagent of the `persona` agent type, in batches no larger than
 your free agent slots. Give each one only this: "PROFILE_NOTEPersona file: <its path>. Panel brief:
-PANEL_DIR/stories.md. This brief holds stories, not a question: answer every story that names you,
+PANEL_DIR/criteria.md. This brief holds acceptance criteria, not a question: answer every criterion that names you,
 saying whether the outcome is what you would expect and whether anything is confusing, missing or
 wrong for you, or 'reads right' with a short reason." Write each reply verbatim to
-PANEL_DIR/answers/<stem>.stories.sol.md, then close it.
+PANEL_DIR/answers/<stem>.criteria.sol.md, then close it.
 
 PERSONAS
 

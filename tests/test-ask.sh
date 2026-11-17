@@ -72,7 +72,7 @@ bad "a missing prompt" '{"options": ["a"]}'
 bad "a missing code file" '{"prompt": "p", "context": {"code": {"file": "no/such/file.py"}}}'
 bad "a misspelled question key" '{"questions": [{"prompt": "p", "subtitel": "x", "options": ["Yes", "No"]}]}'
 bad "a misspelled option key" '{"prompt": "p", "options": [{"label": "Yes", "detial": "x"}]}'
-bad "options that only count" '{"prompt": "Approve?", "mode": "multi", "options": ["Story 1", "Story 2"]}'
+bad "options that only count" '{"prompt": "Approve?", "mode": "multi", "options": ["Criterion 1", "Criterion 2"]}'
 bad "a counting label with nothing else" '{"prompt": "p", "options": [{"id": "a", "label": "Option A"}, {"id": "b", "label": "Cache it"}]}'
 bad "lines past the end" "{\"prompt\": \"p\", \"context\": {\"code\": {\"file\": \"$PWD/$B\", \"lines\": \"9000-9001\"}}}"
 # Every field this script reads itself has its type checked: a wrong one is the error contract, never a traceback.
@@ -120,7 +120,7 @@ printf '{"size": "big"}' > "$WORK/defaults-size.json"
 expect "rejects a defaults file whose size is no percent" 1 error -- env LEM_ASK_CONFIG="$WORK/defaults-size.json" "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/plain.html"
 
 # A counting label is fine once the option carries its text, and a key starting with "_" is the author's own.
-printf '{"prompt": "Approve?", "_data": 1, "options": [{"label": "Story 1", "detail": "The operator approves by hand."}, "Yes"]}' > "$WORK/carried.json"
+printf '{"prompt": "Approve?", "_data": 1, "options": [{"label": "Criterion 1", "detail": "The operator approves by hand."}, "Yes"]}' > "$WORK/carried.json"
 if "$PY" -I -B "$B" render "$WORK/carried.json" -o "$WORK/carried.html" >/dev/null; then pass "a counting label carrying its text passes"; else fail "a counting label carrying its text passes"; fi
 # A question's own context is shown on the page (checked in the browser below).
 printf '{"questions": [{"id": "a", "prompt": "First?", "context": "QCTX-MARKER-ONE", "options": ["Yes", "No"]}, {"id": "b", "prompt": "Second?", "body": "QCTX-MARKER-TWO", "options": ["Yes", "No"]}]}' > "$WORK/qctx.json"
@@ -137,7 +137,7 @@ printf '{"prompt": "Only?", "context": "QCTX-MARKER-TOP", "body": "QCTX-MARKER-B
 MDCASES=$(cat <<'PY'
 import json, os, sys
 cases = {
-    "md-owner": "| | |\n|---|---|\n| Outcome | Lem builds Lem: each change ... |\n| Careful paths | `land.py`, `stories.py`, ... |",
+    "md-owner": "| | |\n|---|---|\n| Outcome | Lem builds Lem: each change ... |\n| Careful paths | `land.py`, `criteria.py`, ... |",
     "md-header": "| Name | Value |\n| :--- | ---: |\n| a | **b** |",
     "md-pipe-code": "| Op | Note |\n|---|---|\n| `a|b` | x \\| y |",
     "md-no-delim": "a | b | c\nd | e | f",
@@ -525,7 +525,7 @@ if case == "md-owner":
         want(t.find("th") == [], "a header row of empty cells")
         rows = t.find("tr")
         want([texts(r.find("td"))[0] for r in rows] == ["Outcome", "Careful paths"], f"rows {[texts(r.find('td')) for r in rows]}")
-        want(texts(t.find("code")) == ["land.py", "stories.py"], f"code {texts(t.find('code'))}")
+        want(texts(t.find("code")) == ["land.py", "criteria.py"], f"code {texts(t.find('code'))}")
     shown = page.text()
     want("|---" not in shown and "| |" not in shown and "| Outcome" not in shown, "raw table text on the page")
 elif case == "md-header":

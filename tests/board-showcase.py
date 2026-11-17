@@ -6,7 +6,7 @@
 
 The fixture of tests/test-board.sh is a stress case (30 tasks, more places taken than the limit, 12
 waits): right for its checks, wrong for a picture. This one is seven tasks a team could have on one
-afternoon, written by Lem's own scripts (project.py, stories.py) in a throwaway repository, with
+afternoon, written by Lem's own scripts (project.py, criteria.py) in a throwaway repository, with
 every count possible: three places of four taken, one wait for the owner, one pull request.
 The scripts write the events seconds apart, and their times are then moved to the minutes a run
 would have spaced them. The board is drawn with its clock stopped at NOW, marked as demo data
@@ -68,8 +68,8 @@ class Shop:
     def project(self, *args: str) -> str:
         return run(sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(self.repo), *args)
 
-    def stories(self, *args: str) -> str:
-        return run(sys.executable, "-B", str(SCRIPTS / "stories.py"), "--repo", str(self.repo), *args)
+    def criteria(self, *args: str) -> str:
+        return run(sys.executable, "-B", str(SCRIPTS / "criteria.py"), "--repo", str(self.repo), *args)
 
     def commit_in(self, tree: Path, message: str, files: dict[str, str]) -> None:
         for name, text in files.items():
@@ -96,19 +96,19 @@ class Shop:
         self.project("log", slug, event, *fields)
         self.at(slug, minutes)
 
-    def story_file(self, slug: str, size: str, why: str, *stories: str) -> Path:
+    def criteria_file(self, slug: str, size: str, why: str, *criteria: str) -> Path:
         path = self.work / f"{slug}.md"
-        path.write_text("\n".join(["## Stories", "", f"Size: {size}, because {why}", "", *(f"{n}. {text}" for n, text in enumerate(stories, 1))]) + "\n")
+        path.write_text("\n".join(["## Acceptance criteria", "", f"Size: {size}, because {why}", "", *(f"{n}. {text}" for n, text in enumerate(criteria, 1))]) + "\n")
         return path
 
     def read(self, slug: str, minutes: float, file: Path, flagged: int) -> None:
-        digest = json.loads(self.stories("digest", slug, "--file", str(file)))["digest"]
+        digest = json.loads(self.criteria("digest", slug, "--file", str(file)))["digest"]
         count = sum(1 for line in file.read_text().splitlines() if re.match(r"\d+\. ", line))
-        self.log(slug, minutes, "stories.read", "by=lem", "asked:=3", "answered:=3", 'families:=["opus", "sol"]', "silent:=[]",
-                 f"stories:={count}", f"flagged:={flagged}", "split:=false", f"digest={digest}")
+        self.log(slug, minutes, "criteria.read", "by=lem", "asked:=3", "answered:=3", 'families:=["opus", "sol"]', "silent:=[]",
+                 f"criteria:={count}", f"flagged:={flagged}", "split:=false", f"digest={digest}")
 
     def approve(self, slug: str, minutes: float, file: Path, *flags: str) -> None:
-        self.stories("approve", slug, "--file", str(file), *flags)
+        self.criteria("approve", slug, "--file", str(file), *flags)
         self.at(slug, minutes)
 
     def retime(self) -> None:
@@ -136,7 +136,7 @@ def afternoon(shop: Shop) -> None:
     # A small change, built, checked, read once and proposed green: it waits for the merge.
     t = "footer-terms-typo"
     s.task(t, 'The footer says "Terms and condtions"')
-    s.approve(t, 52, s.story_file(t, "small", "the request is one sentence.", 'The footer says "Terms and conditions".'), "--small")
+    s.approve(t, 52, s.criteria_file(t, "small", "the request is one sentence.", 'The footer says "Terms and conditions".'), "--small")
     s.state(t, 52, "building", "small change: one builder", "type: fix, because the footer shows a typo today")
     s.log(t, 51.5, "builder.start", "job=the small change")
     s.state(t, 44, "ready", "the report is written")
@@ -158,12 +158,12 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 149.5, "scout.start")
     s.log(t, 149, "interview.start")
     s.log(t, 147, "scout")
-    gift = s.story_file(t, "full", "the export gets a new column and two readers of it.",
+    gift = s.criteria_file(t, "full", "the export gets a new column and two readers of it.",
                         'An order with the gift note "for Ania" has that text in the last column of its row.',
                         "An order with no gift note has an empty cell, not the word None.")
-    s.log(t, 138, "stories.read.start", "by=lem")
+    s.log(t, 138, "criteria.read.start", "by=lem")
     s.read(t, 133, gift, 0)
-    s.state(t, 133, "held", "the stories wait for the owner")
+    s.state(t, 133, "held", "the criteria wait for the owner")
     s.approve(t, 128, gift)
     s.state(t, 127, "building", "lead: builder")
     s.state(t, 112, "building", "plan committed, 3 tasks")
@@ -172,29 +172,29 @@ def afternoon(shop: Shop) -> None:
     s.state(t, 74, "building", "task 2 of 3")
     s.log(t, 73.5, "builder.start", "job=task 2 of 3")
 
-    # Stories the personas read, with one flagged, which wait for his yes.
+    # Criteria the personas read, with one flagged, which wait for his yes.
     t = "stock-on-product-page"
     s.task(t, "Show how many are left on the product page")
     s.state(t, 31, "held", "the interview waits for the owner", "type: feat, because the product page gets a new line")
     s.log(t, 30.5, "scout.start")
     s.log(t, 30, "interview.start")
     s.log(t, 28, "scout")
-    stock = s.story_file(t, "full", "the product page gets a new line.",
+    stock = s.criteria_file(t, "full", "the product page gets a new line.",
                          'A product with 3 in stock says "3 left" under its price.',
                          'A product with none in stock says "Sold out" and no number.')
-    s.log(t, 19, "stories.read.start", "by=lem")
+    s.log(t, 19, "criteria.read.start", "by=lem")
     s.read(t, 14, stock, 1)
-    s.state(t, 14, "held", "the stories wait for the owner")
+    s.state(t, 14, "held", "the criteria wait for the owner")
 
     # A careful change: its plan is talked through with the reviewer before anything is built.
     t = "refund-rounding"
     s.task(t, "Round refunds the way the payment provider does")
     s.state(t, 95, "held", "the interview waits for the owner", "type: feat, because refunds get a new rule")
     s.log(t, 94.5, "interview.start")
-    refund = s.story_file(t, "full", "refunds get a new rule.", "A refund of 10.005 EUR pays back 10.01 EUR, as the provider rounds it.")
-    s.log(t, 82, "stories.read.start", "by=lem")
+    refund = s.criteria_file(t, "full", "refunds get a new rule.", "A refund of 10.005 EUR pays back 10.01 EUR, as the provider rounds it.")
+    s.log(t, 82, "criteria.read.start", "by=lem")
     s.read(t, 78, refund, 0)
-    s.state(t, 78, "held", "the stories wait for the owner")
+    s.state(t, 78, "held", "the criteria wait for the owner")
     s.approve(t, 70, refund)
     s.state(t, 69, "building", "lead: session")
     s.log(t, 55, "plan.talk.start", "reviewer=codex")
@@ -213,24 +213,24 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 329.5, "scout.start")
     s.log(t, 329, "interview.start")
     s.log(t, 327, "scout")
-    date = s.story_file(t, "full", "the invoice gets a new line.", 'The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.')
-    s.log(t, 318, "stories.read.start", "by=lem")
+    date = s.criteria_file(t, "full", "the invoice gets a new line.", 'The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.')
+    s.log(t, 318, "criteria.read.start", "by=lem")
     s.read(t, 314, date, 0)
-    s.state(t, 314, "held", "the stories wait for the owner")
+    s.state(t, 314, "held", "the criteria wait for the owner")
     s.approve(t, 309, date)
     # Its worktree and its branch, with the plan, the commits of the build and of the polish pass: the
-    # state blocks carry the newest commit, and stories.py checks the story's test on the branch and on
+    # state blocks carry the newest commit, and criteria.py checks the criterion's test on the branch and on
     # the base commit, as a real build does.
     tree = Path(s.project("worktree-dir", t).strip())
     s.git("worktree", "add", "-q", "-b", f"feat/{t}", str(tree), "main")
     s.commit_in(tree, "docs(plans): the order date on the invoice", {"docs/plans/20261117-order-date-on-invoice.md": "\n".join([
-        "# The order date on the invoice", "", "## Stories", "", "Size: full, because the invoice gets a new line.", "",
+        "# The order date on the invoice", "", "## Acceptance criteria", "", "Size: full, because the invoice gets a new line.", "",
         '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.',
         "   - test: `sh tests/order-date.sh` in `tests/order-date.sh`", "", "## Tasks", "",
         "1. The date under the order's number.", "2. The date in the shop's language.", ""])})
     s.state(t, 308, "building", "lead: builder")
     s.state(t, 296, "building", "plan committed, 2 tasks")
-    s.stories("record", t)
+    s.criteria("record", t)
     s.at(t, 295.5)
     s.state(t, 295, "building", "task 1 of 2")
     s.log(t, 294.5, "builder.start", "job=task 1 of 2")
@@ -241,7 +241,7 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 267.5, "builder.start", "job=task 2 of 2")
     s.commit_in(tree, "feat(invoice): the order date in the shop's language", {
         "invoice/date.py": 'def ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'})
-    s.stories("red", t)
+    s.criteria("red", t)
     s.at(t, 247)
     s.state(t, 246, "ready", "the report is written")
     s.state(t, 245, "landing", "the checks start")
@@ -254,7 +254,7 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 235.5, "gate.start", f"tip={tip}", "commands:=2")
     s.log(t, 232, "gate", "command=make test", "exit:=0", "last=214 passed", f"tip={tip[:7]}")
     s.log(t, 231, "gate", "command=make lint", "exit:=0", "last=All checks passed", f"tip={tip[:7]}")
-    s.stories("red", t)
+    s.criteria("red", t)
     s.at(t, 230.5)
     s.log(t, 230, "review.start", "attempt:=1", "floor=round")
     s.log(t, 219, "review", "attempt:=1", "round:=1", "kind=round", "verdict=clean", "must_fix:=0", "should:=1", "nit:=2", 'answered:=["codex", "claude"]',

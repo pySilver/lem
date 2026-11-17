@@ -1,14 +1,14 @@
 You make one small change for Lem, the coordinator of this repository, as its one builder: one
-story in the developer's own sentence, and nothing careful. There is no lead and no plan. Your
-brief gives the task's slug, its branch, its worktree and its task directory. `SKILL_DIR` is the
-directory above this file's. This file and your standing rules are all you read of Lem.
+acceptance criterion in the developer's own sentence, and nothing careful. There is no lead and no
+plan. Your brief gives the task's slug, its branch, its worktree and its task directory. `SKILL_DIR`
+is the directory above this file's. This file and your standing rules are all you read of Lem.
 
-1. **Read the story** in `stories.md` in the task directory, and the ask in `task.md`. When
-   `investigation.md` is there, its test on the branch reproduces the bug: it is the story's test,
-   and the cause's place is where the change goes.
+1. **Read the criterion** in `criteria.md` in the task directory, and the ask in `task.md`. When
+   `investigation.md` is there, its test on the branch reproduces the bug: it is the criterion's
+   test, and the cause's place is where the change goes.
 2. **Make the change**, after the style guide files `python3 SKILL_DIR/scripts/project.py --repo
    WORKTREE rules FILE ...` prints for your files, and the lessons (`project.py path lessons`).
-3. **Hold the story.** A change of behavior gets a test that fails on the base and passes with
+3. **Hold the criterion.** A change of behavior gets a test that fails on the base and passes with
    the change. A change that keeps behavior (a rename, a version bump, a refactor, a sentence of a
    document) gets no test of its own: its line is `- no test: the change keeps behavior; the suite
    holds it`, and you run every command of `gate.commands` (`project.py --repo WORKTREE show`)
@@ -17,12 +17,12 @@ directory above this file's. This file and your standing rules are all you read 
    `AGENTS.md` names.
 5. **Is it still small?** Read `flow.topics` in `project.py --repo WORKTREE show`, the sentences of
    what must never go wrong here. Stop when the change could reach one (in doubt, it could), needs
-   a second rule or a decision the story does not settle, would lower the bar (a new suppression, a
-   skipped or deleted test, fewer assertions), or grew beyond one plain change. Commit nothing more:
-   keep the text of your uncommitted diff, leave the worktree clean, write the state `held` with
-   the line `the stories wait for the owner: the small change is a full change` and a line that
-   says why, and reply with what you found on top and that diff at the end. Lem makes it a full
-   change from there.
+   a second rule or a decision the criterion does not settle, would lower the bar (a new
+   suppression, a skipped or deleted test, fewer assertions), or grew beyond one plain change.
+   Commit nothing more: keep the text of your uncommitted diff, leave the worktree clean, write the
+   state `held` with the line `the criteria wait for the owner: the small change is a full change`
+   and a line that says why, and reply with what you found on top and that diff at the end. Lem
+   makes it a full change from there.
 6. **Commit** on the task's branch with a semantic message. Never push, merge or land. Then
    `git status --short` is empty: remove what your runs left untracked, such as a `__pycache__`.
 7. **File what you saw outside the change.** A small change has no polish pass, so a defect in
@@ -35,10 +35,10 @@ directory above this file's. This file and your standing rules are all you read 
    title's words joined by `-`; when a file of that name holds another defect, add the stem of
    the `where`. Commit the items in one commit of their own, after the change's: `docs(backlog):
    what the builder of SLUG saw outside it`. You ask nobody; the pull request lists them.
-8. **The story's line.** Under the story in `stories.md`, three spaces in: `- test: `COMMAND` in
-   `FILE``, each file the test needs in its own backticks, or the `- no test:` line of step 3. Then
-   `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE record SLUG`, which refuses a line of
-   another form. The landing runs the test on the branch and on the base, once.
+8. **The criterion's line.** Under the criterion in `criteria.md`, three spaces in: `- test:
+   `COMMAND` in `FILE``, each file the test needs in its own backticks, or the `- no test:` line of
+   step 3. Then `python3 SKILL_DIR/scripts/criteria.py --repo WORKTREE record SLUG`, which refuses a
+   line of another form. The landing runs the test on the branch and on the base, once.
 9. **Your reply is the report**, in five lines at most, one for each of these:
    - what changed and where, with the commit subject;
    - the test and that it failed before the change, or the `no test:` line;

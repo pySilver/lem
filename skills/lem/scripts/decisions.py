@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The decisions of one task: each one taken without the owner, and each choice put to the owner.
 
-A build meets choices its plan did not see. Most are the lead's own: the stories stay true, so
-the lead decides and writes the decision down. A choice that changes a story, or whose options
+A build meets choices its plan did not see. Most are the lead's own: the acceptance criteria stay
+true, so the lead decides and writes the decision down. A choice that changes a criterion, or whose options
 each cost a person something, goes to the personas first; a clear answer of theirs is taken and
 written down. Only an unclear one goes to the owner, and it waits a fixed time for the owner's
 answer and no longer: after that the recommended action is taken, and the pull request is not
@@ -15,20 +15,20 @@ answer.
                  [--said TEXT] [--undo TEXT]
                             a decision that was taken; --said is what the personas answered.
                             `owner` is a word of the owner's that nobody asked for (the task is
-                            careful), or the owner's yes to skip the personas' read of stories
+                            careful), or the owner's yes to skip the personas' read of criteria
                             that name only the developer, in the form `land.py` reads
                             (`READ_SKIP`); `lem` one that Lem took before the task had a lead
                             (out of scope)
-    decisions.py story SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT
+    decisions.py criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT
                  | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
-                            a change of a story the owner approved, with its text before and
-                            after: N is its number in the stories as they stand after every
+                            a change of a criterion the owner approved, with its text before and
+                            after: N is its number in the criteria as they stand after every
                             earlier change. --choice names the choice of the build that led to
                             it, answered or taken by timeout; without one, the lead's own change
                             or the personas' clear pick
     decisions.py changes SLUG
-                            the approved stories, each recorded change of them in order, and the
-                            stories they give, which the plan's stories must be
+                            the approved criteria, each recorded change of them in order, and the
+                            criteria they give, which the plan's criteria must be
     decisions.py ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT
                  --option TEXT --option TEXT [...] --recommended TEXT --why TEXT --said TEXT
                  [--irreversible data|system|person|money]
@@ -71,17 +71,20 @@ answer.
 The record is `decisions.jsonl` in the task's directory, one line for each thing that happened;
 a decision is the lines with its number. Each line is also an event in the log the board draws.
 
-A story change is a line of the same record, with a number of its own (`change`). It applies to
-the newest approval of the stories (`stories.json`, which `stories.py approve` writes) and names
-that approval by its number, so a later approval starts from its stories again, also when its text
+A criterion change is a line of the same record, with a number of its own (`change`). It applies
+to the newest approval of the criteria (`criteria.json`, which `criteria.py approve` writes) and names
+that approval by its number, so a later approval starts from its criteria again, also when its text
 is one approved before. `changes` keeps every change in `history`: one that a later approval of
 the owner's took over is the owner's, and the pull request shows it as approved by the owner
-afterwards. `story` computes the stories as they stand after every earlier change, and refuses a change whose story N is not the
+afterwards. `criterion` computes the criteria as they stand after every earlier change, and refuses a change whose criterion N is not the
 text `--was` names: a wrong record never enters. Texts are compared with each run of spaces as
-one, as a story written over two lines reads; they are kept as typed. A choice carries no story:
-when the option taken changes one, the lead records that with `story --choice ID`, and the
-stories' check refuses the plan until it does. A task with no approved stories has no story
-changes: its plan's stories are their one source.
+one, as a criterion written over two lines reads; they are kept as typed. A choice carries no
+criterion: when the option taken changes one, the lead records that with `criterion --choice ID`,
+and the check of the criteria refuses the plan until it does. A task with no approved criteria has
+no criterion changes: its plan's criteria are their one source. A change an older Lem recorded is
+a line with `"kind": "story"` and its number under `story`, and an approval it kept is
+`stories.json`: both read as the lines and the file of now. A later change may drop the old forms
+once no task that has them is open.
 
 The wait is the settings' `flow.decision_wait`, in minutes. Its default, 15, is the owner's own
 number ("if there is decision taken in 15 min", 2026-11-16). `--said` is not optional for `ask`:
@@ -237,27 +240,30 @@ class Task:
         return [found[key] for key in sorted(found)]
 
     def approved(self) -> dict | None:
-        """The stories the owner approved, as `stories.py approve` kept them; none for a task without.
+        """The criteria the owner approved, as `criteria.py approve` kept them; none for a task without.
         An approval an older Lem kept names its kind (`feature`, `correction`) and not its size, and
         Lem's own approval of a small change as `by: correction`: each reads in the form of now. A
         later change may drop the old form once no task with such an approval is open."""
-        kept = self.directory / "stories.json"
+        kept = self.directory / "criteria.json"
+        if not kept.is_file():
+            # where an older Lem kept them
+            kept = self.directory / "stories.json"
         if not kept.is_file():
             return None
         try:
             record = json.loads(kept.read_text(encoding="utf-8"))
         except ValueError as error:
-            raise DecisionError(f"{kept} does not read as JSON ({error}); it is written by `stories.py approve` only") from error
+            raise DecisionError(f"{kept} does not read as JSON ({error}); it is written by `criteria.py approve` only") from error
         return {**now_form(record), "history": [now_form(old) for old in record.get("history", [])]}
 
     def changes(self, lines: list[dict] | None = None) -> dict:
-        """The approvals, the recorded changes of the stories in order, and the stories they give.
+        """The approvals, the recorded changes of the criteria in order, and the criteria they give.
 
         An approval is known by its number, not by its text: one of a text approved before is still
-        a new one. The expected stories are the newest approval's with the changes recorded after
+        a new one. The expected criteria are the newest approval's with the changes recorded after
         it. Every change of the task stays in `history`, each with the approval it applied to and,
         when an approval of the owner's came after it, that approval's number (`taken_over_by`): his
-        approval of the stories made the change his."""
+        approval of the criteria made the change his."""
         approved = self.approved()
         if approved is None:
             return {"task": self.slug, "approved": None, "approvals": [], "changes": [], "history": [], "expected": None}
@@ -266,13 +272,13 @@ class Task:
         # a file an approve before numbered approvals wrote has one approval, the first
         approvals[-1]["number"] = approvals[-1]["number"] or len(approvals)
         newest = approvals[-1]["number"]
-        everything = [line for line in (self.lines() if lines is None else lines) if line["kind"] == "story"]
+        everything = [changed(line) for line in (self.lines() if lines is None else lines) if line["kind"] in CHANGE_KINDS]
         history = []
         for line in everything:
             later = next((old["number"] for old in approvals if old["number"] > line.get("approval", 0) and old["by"] == "owner"), None)
             history.append({**line, "taken_over_by": later})
         changes = [line for line in everything if line.get("approval") == newest]
-        expected = [story["text"] for story in approved["stories"]]
+        expected = [criterion["text"] for criterion in approved["criteria"]]
         for change in changes:
             expected = applied(expected, change)
         return {
@@ -311,20 +317,35 @@ class Task:
         return lines
 
 
-# The kinds an older Lem gave an approval of stories, by the size each is now, and who approved for
-# its `by: correction`. A later change may drop them once no task with such an approval is open.
+# The kinds an older Lem gave an approval of its stories, by the size each is now, and who approved
+# for its `by: correction`. A later change may drop them once no task with such an approval is open.
 OLD_SIZES = {"feature": "full", "correction": "small"}
 OLD_BY = {"correction": "lem"}
 
 
 def now_form(approval: dict) -> dict:
-    """One approval of stories in the form of now: its size, and Lem as who approved a small change."""
-    out = {key: value for key, value in approval.items() if key not in ("kind", "history")}
+    """One approval of criteria in the form of now: its size, its texts under `criteria`, and Lem as who
+    approved a small change."""
+    out = {key: value for key, value in approval.items() if key not in ("kind", "history", "stories")}
+    if "criteria" not in out and "stories" in approval:
+        out["criteria"] = approval["stories"]
     if "size" not in out and "kind" in approval:
         out["size"] = OLD_SIZES.get(approval["kind"], approval["kind"])
     if out.get("by") in OLD_BY:
         out["by"] = OLD_BY[out["by"]]
     return out
+
+
+# The kind of a line that changes a criterion, and the kind an older Lem wrote for it (`story`, with
+# the number under `story`). A later change may drop the old one once no task with such a line is open.
+CHANGE_KINDS = ("criterion", "story")
+
+
+def changed(line: dict) -> dict:
+    """A line that changes a criterion, in the form of now."""
+    if line["kind"] != "story":
+        return line
+    return {("criterion" if key == "story" else key): ("criterion" if key == "kind" else value) for key, value in line.items()}
 
 
 def left(decision: dict) -> int:
@@ -355,30 +376,30 @@ def text(value: str | None, flag: str) -> str:
 
 
 def typed(value: str | None, flag: str) -> str:
-    """A story's text as typed: two spaces in a literal value stay two."""
+    """A criterion's text as typed: two spaces in a literal value stay two."""
     if value is None or not value.strip():
-        raise DecisionError(f"{flag} needs the story's text, word for word")
+        raise DecisionError(f"{flag} needs the criterion's text, word for word")
     return value.strip()
 
 
 def same(one: str, other: str) -> bool:
-    """Two texts of a story are the same when they differ only in runs of spaces, as a story
+    """Two texts of a criterion are the same when they differ only in runs of spaces, as a criterion
     written over two lines reads as one line with one space."""
     return one.split() == other.split()
 
 
-def applied(stories: list[str], change: dict) -> list[str]:
-    """The stories after one change; a change whose story N is not the text it names is refused."""
-    number, out = change["story"], list(stories)
+def applied(criteria: list[str], change: dict) -> list[str]:
+    """The criteria after one change; a change whose criterion N is not the text it names is refused."""
+    number, out = change["criterion"], list(criteria)
     if change["how"] == "added":
         if not 1 <= number <= len(out) + 1:
-            raise DecisionError(f"an added story goes at a number from 1 to {len(out) + 1}, and this one is {number}")
+            raise DecisionError(f"an added criterion goes at a number from 1 to {len(out) + 1}, and this one is {number}")
         out.insert(number - 1, change["now"])
         return out
     if not 1 <= number <= len(out):
-        raise DecisionError(f"there is no story {number}: the stories are 1 to {len(out)} after every earlier change")
+        raise DecisionError(f"there is no criterion {number}: the criteria are 1 to {len(out)} after every earlier change")
     if not same(out[number - 1], change["was"]):
-        raise DecisionError(f"story {number} is {out[number - 1]!r} after every earlier change, and --was says {change['was']!r}; `decisions.py changes SLUG` gives the stories as they stand")
+        raise DecisionError(f"criterion {number} is {out[number - 1]!r} after every earlier change, and --was says {change['was']!r}; `decisions.py changes SLUG` gives the criteria as they stand")
     if change["how"] == "changed":
         out[number - 1] = change["now"]
     else:
@@ -397,20 +418,20 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
     return task.add(lambda known: [{"id": len(known) + 1, **line}])[0]
 
 
-def cmd_story(task: Task, args: argparse.Namespace) -> dict:
-    """Record one change of an approved story, checked against the stories as they stand."""
+def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
+    """Record one change of an approved criterion, checked against the criteria as they stand."""
     how = [name for name in ("changed", "added", "removed") if getattr(args, name) is not None]
     if len(how) != 1:
-        raise DecisionError("a story change is one of --changed N, --added N or --removed N")
+        raise DecisionError("a criterion change is one of --changed N, --added N or --removed N")
     how = how[0]
     wants = {"changed": ("was", "now"), "added": ("now",), "removed": ("was",)}[how]
     for key in ("was", "now"):
         if key in wants and getattr(args, key) is None:
-            raise DecisionError(f"--{how} needs --{key}: the story's text {'before' if key == 'was' else 'after'} the change, word for word")
+            raise DecisionError(f"--{how} needs --{key}: the criterion's text {'before' if key == 'was' else 'after'} the change, word for word")
         if key not in wants and getattr(args, key) is not None:
-            raise DecisionError(f"--{how} takes no --{key}: " + ("an added story had no text before" if how == "added" else "a removed story has no text after"))
+            raise DecisionError(f"--{how} takes no --{key}: " + ("an added criterion had no text before" if how == "added" else "a removed criterion has no text after"))
     if (args.choice is None) == (args.by is None):
-        raise DecisionError("a story change names --choice ID, the choice of the build that led to it, or --by lead|personas when no choice did: one of the two")
+        raise DecisionError("a criterion change names --choice ID, the choice of the build that led to it, or --by lead|personas when no choice did: one of the two")
     if args.by == "personas" and not args.said:
         raise DecisionError("--by personas needs --said: who answered and what each picked, in one or two sentences")
     if args.said is not None and args.by != "personas":
@@ -418,10 +439,10 @@ def cmd_story(task: Task, args: argparse.Namespace) -> dict:
     approved = task.approved()
     if approved is None:
         raise DecisionError(
-            f"{task.slug} has no approved stories, so no change of them is recorded: its plan's stories are their one source. "
-            "Approved stories are kept by `stories.py approve`",
+            f"{task.slug} has no approved criteria, so no change of them is recorded: its plan's criteria are their one source. "
+            "Approved criteria are kept by `criteria.py approve`",
         )
-    line = {"at": stamp(now()), "kind": "story", "how": how, "story": getattr(args, how), "why": text(args.why, "--why"), "approval": approved.get("number") or 1 + len(approved.get("history", []))}
+    line = {"at": stamp(now()), "kind": "criterion", "how": how, "criterion": getattr(args, how), "why": text(args.why, "--why"), "approval": approved.get("number") or 1 + len(approved.get("history", []))}
     for key in wants:
         line[key] = typed(getattr(args, key), f"--{key}")
     if args.choice is not None:
@@ -435,14 +456,14 @@ def cmd_story(task: Task, args: argparse.Namespace) -> dict:
         if args.choice is not None:
             choice = task.one(args.choice, known)
             if choice["state"] not in ("answered", "timeout", "settled"):
-                raise DecisionError(f"choice {args.choice} is {choice['state']}: a story changes after a choice that was answered or taken by timeout, or that the experts settled")
+                raise DecisionError(f"choice {args.choice} is {choice['state']}: a criterion changes after a choice that was answered or taken by timeout, or that the experts settled")
         lines = task.lines()
-        # the same computation the stories' check makes, with this change last: a wrong record never enters
+        # the same computation the check of the criteria makes, with this change last: a wrong record never enters
         task.changes([*lines, line])
-        return [{"change": sum(1 for old in lines if old["kind"] == "story") + 1, **line}]
+        return [{"change": sum(1 for old in lines if old["kind"] in CHANGE_KINDS) + 1, **line}]
 
     made = task.add(make)[0]
-    return {**made, "stories": task.changes()["expected"]}
+    return {**made, "criteria": task.changes()["expected"]}
 
 
 def steps(value: str | None) -> str:
@@ -681,17 +702,17 @@ def main() -> None:
     log.add_argument("--by", required=True, choices=BY)
     log.add_argument("--said", help="what the personas answered: who, which option, in one or two sentences")
     log.add_argument("--undo", help="what it would take to undo the decision")
-    story = commands.add_parser("story")
-    story.add_argument("slug")
-    story.add_argument("--changed", type=int, metavar="N", help="story N changed: --was is its text before, --now its text after")
-    story.add_argument("--added", type=int, metavar="N", help="a story the build adds at number N, with --now its text")
-    story.add_argument("--removed", type=int, metavar="N", help="story N leaves the stories, with --was its text")
-    story.add_argument("--was", help="the story's text before the change, word for word")
-    story.add_argument("--now", help="the story's text after the change, word for word")
-    story.add_argument("--why", required=True, help="why the story changed, in one sentence")
-    story.add_argument("--choice", type=int, metavar="ID", help="the choice of the build that led to the change")
-    story.add_argument("--by", choices=("lead", "personas"), help="who changed it, when no choice did")
-    story.add_argument("--said", help="with --by personas: who answered and what each picked")
+    criterion = commands.add_parser("criterion")
+    criterion.add_argument("slug")
+    criterion.add_argument("--changed", type=int, metavar="N", help="criterion N changed: --was is its text before, --now its text after")
+    criterion.add_argument("--added", type=int, metavar="N", help="a criterion the build adds at number N, with --now its text")
+    criterion.add_argument("--removed", type=int, metavar="N", help="criterion N leaves the criteria, with --was its text")
+    criterion.add_argument("--was", help="the criterion's text before the change, word for word")
+    criterion.add_argument("--now", help="the criterion's text after the change, word for word")
+    criterion.add_argument("--why", required=True, help="why the criterion changed, in one sentence")
+    criterion.add_argument("--choice", type=int, metavar="ID", help="the choice of the build that led to the change")
+    criterion.add_argument("--by", choices=("lead", "personas"), help="who changed it, when no choice did")
+    criterion.add_argument("--said", help="with --by personas: who answered and what each picked")
     commands.add_parser("changes").add_argument("slug")
     ask = commands.add_parser("ask")
     ask.add_argument("slug")
@@ -747,8 +768,8 @@ def main() -> None:
             task = Task(repo, args.slug)
             if args.command == "log":
                 result = cmd_log(task, args)
-            elif args.command == "story":
-                result = cmd_story(task, args)
+            elif args.command == "criterion":
+                result = cmd_criterion(task, args)
             elif args.command == "changes":
                 result = task.changes()
             elif args.command == "ask":

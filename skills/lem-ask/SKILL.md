@@ -85,9 +85,9 @@ The prompt is the biggest thing on the page; everything else supports it.
 A page is worth opening only when it shows more than a numbered list would. The user answers from the page
 alone: the plan, the code and your last terminal message are not in front of them.
 
-- **What is being decided lives on the option.** Approving stories, tasks, findings or plan sections: one
+- **What is being decided lives on the option.** Approving acceptance criteria, tasks, findings or plan sections: one
   option each, labeled by what it says rather than by its number ("4 · an unplaceable brand stays pending",
-  never "Story 4"), the gist in `subtitle`, the full text in `detail` (or
+  never "Criterion 4"), the gist in `subtitle`, the full text in `detail` (or
   `{"md": {"file": "docs/plans/x.md", "lines": "40-52"}}`), and `expanded: true` so the text is open without
   a click. lem-ask refuses an option whose label only counts and that carries nothing else.
 - **What several options share goes above them**: the example from the eval, the numbers, today's flow as a

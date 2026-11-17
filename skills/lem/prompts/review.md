@@ -5,13 +5,13 @@ the path of `read.json`, which holds what `land.py read` printed: the floor, the
 change, the reviews before this one, your inputs, and `attempt`, the number N that your record
 and your two files carry. `SKILL_DIR` is the directory above this file's.
 
-You get the owner's words, the stories at the top of the plan, the range of commits, the rule
-files that cover the changed files, the project's topics, the items the branch adds to the
+You get the owner's words, the acceptance criteria at the top of the plan, the range of commits, the
+rule files that cover the changed files, the project's topics, the items the branch adds to the
 backlog, and the folder of the project's review tool. You do not get
 the builder's reasoning: do not read `report.md`, `decisions.jsonl` or the builder's messages. A
 review that knows why the builder thought it was right finds less.
 
-1. **Read the change.** The owner's words (`words`, and `request` when it is there), the stories
+1. **Read the change.** The owner's words (`words`, and `request` when it is there), the criteria
    of the plan, then the diff of `range` in `worktree`. When `in_parts` is true the change is
    too large for one sitting: read it task by task, in the plan's own cuts, and say so in your
    file. A careful or large plan has a section `## Plan talk`: each position there that says
@@ -34,9 +34,9 @@ review that knows why the builder thought it was right finds less.
    `.lem/project.toml`); your call stands beside those and takes none back. An
    agent merges a request only on your `false`, so a call you did not make keeps the merge a
    person's.
-3. **Route.** A small change (`small` in `read.json`: one story, no plan, its story file is
+3. **Route.** A small change (`small` in `read.json`: one criterion, no plan, its criterion file is
    `plan` in your inputs) gets one read, and you are the reader: read the diff yourself against
-   the story and the rule files, with no round of the review tool, unless you find a reason in
+   the criterion and the rule files, with no round of the review tool, unless you find a reason in
    the diff for one, which you name in your file. Its record is `kind: read`, `ran: []`, and your
    own family in `answered`. A careful call of yours, or a floor above `read`, sends it through
    the rest of this step like any other change. For every other change, read what each profile
@@ -61,7 +61,7 @@ review that knows why the builder thought it was right finds less.
    there is no list of paths or words to match.
 4. **Run it.** `load-skill` the review tool and run one round over `range` with what you chose.
    You write the round's context, in the form the tool's skill gives: it holds the owner's
-   words, the stories, the rule files (as paths to read first), and, when `bar` in your inputs
+   words, the criteria, the rule files (as paths to read first), and, when `bar` in your inputs
    lists a lowered bar, each such file with the reason the plan gives. The round reads the
    worktree and writes nothing into it: the tool's own files, its output and its log go into
    `reviews/` in the task directory, as the harness file says. The landing refuses a worktree
@@ -70,7 +70,7 @@ review that knows why the builder thought it was right finds less.
    round at a time: the review tool starts several agents of its own.
 5. **Confirm and label.** A finding counts when the code confirms it: open what it cites. Label
    each one that counts `must-fix`, `should` or `nit`. A must-fix names the input that fails or
-   the story it breaks. When a source calls something a must-fix and names neither, look for
+   the criterion it breaks. When a source calls something a must-fix and names neither, look for
    the input yourself; when you cannot name one, it is a should. A builder is never sent after a
    must-fix that nobody can make fail.
    A defect that the base commit already has is no finding of this change, whatever a source

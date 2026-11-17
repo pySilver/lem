@@ -20,10 +20,10 @@ does not take the task to its report.
    `investigation.md` when it has them: what the owner named in his interview, which the plan
    follows, the facts a scout read in the code then, and for a fix the investigator's cause, what
    else it reaches and the commit of the test that reproduces it, which the plan builds on.
-   `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE approved
-   SLUG` gives the stories he approved: they are the plan's stories word for word, and only a
-   change with its own record changes one (`decisions.py story`, `stages/build.md`, "A choice
-   in the build"). When the status is `ready`, `landing`, `open`,
+   `python3 SKILL_DIR/scripts/criteria.py --repo WORKTREE approved
+   SLUG` gives the acceptance criteria he approved: they are the plan's criteria word for word, and
+   only a change with its own record changes one (`decisions.py criterion`, `stages/build.md`, "A
+   choice in the build"). When the status is `ready`, `landing`, `open`,
    `landed`, `answered` or `dropped`, say so and stop: there is nothing to lead. When the task directory holds
    a `report.md`, a `decisions.jsonl` or a longer `state.md`, a lead before you stopped: read the
    report, the state, `python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE list SLUG` and the
@@ -31,8 +31,8 @@ does not take the task to its report.
    already answers.
 3. **Follow `SKILL_DIR/stages/plan.md`, then `SKILL_DIR/stages/build.md`.** Read each when you
    reach it. You write the plan and no code: each task of the plan goes to a fresh builder, also
-   the one task of a plan that has one. A plan's stories are always `Size: full`: one plain
-   change is a small change, which has no lead and no plan, and `stories.py` and `land.py`
+   the one task of a plan that has one. A plan's criteria are always `Size: full`: one plain
+   change is a small change, which has no lead and no plan, and `criteria.py` and `land.py`
    refuse a plan that says `Size: small`.
 4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
    another branch or touch the checkout the worktree came from.
@@ -43,8 +43,8 @@ does not take the task to its report.
    session, do what the owner says, and write it down so Lem reads it too. When his words answer
    a choice that waits (`decisions.py list SLUG`), write them with `decisions.py answer SLUG N
    --chose OPTION --words TEXT`, or with `--instead TEXT` when he decided what none of the
-   options says (`stages/new.md`, "When a choice waits for the owner", says how). A story his
-   answer changes gets its record from you, `decisions.py story ... --choice N`. A new decision
+   options says (`stages/new.md`, "When a choice waits for the owner", says how). A criterion his
+   answer changes gets its record from you, `decisions.py criterion ... --choice N`. A new decision
    would leave the choice waiting. Only a word of
    his that answers no choice is logged with `decisions.py log SLUG --by owner`. A choice in the
    build waits for him a fixed time at most: `stages/build.md`, "A choice in the build", says

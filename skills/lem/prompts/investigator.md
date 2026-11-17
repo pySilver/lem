@@ -14,9 +14,9 @@ beside it.
    layout and style (`AGENTS.md`, and `python3 SKILL_DIR/scripts/project.py --repo WORKTREE
    rules FILE` for the style guide files that cover it), and run it: it fails now, and it would
    pass once the bug is fixed. Commit it on the task's branch, alone, as `test(scope): ...`; it can
-   become the test of the task's story. When no test can show the bug (it needs a service the
-   project has no stand-in for, or a person's eye), reproduce it another way, write down how,
-   and commit nothing.
+   become the test of the task's acceptance criterion. When no test can show the bug (it needs a
+   service the project has no stand-in for, or a person's eye), reproduce it another way, write down
+   how, and commit nothing.
 2. **Find the cause** with the method of the `lem-root-cause` skill (`load-skill`): ask why until
    the answer is a file and a symbol that is wrong, not a symptom. Read the history of that place
    (`git log -L` or `git blame`) before you say when or why it became wrong.

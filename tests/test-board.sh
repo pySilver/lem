@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Lem's board, offline: one repository whose tasks stand in every lane, written with Lem's own
-# scripts (project.py state and log, decisions.py, stories.py), and the pages headless Chrome draws
+# scripts (project.py state and log, decisions.py, criteria.py), and the pages headless Chrome draws
 # from it: the lanes, each task for the owner with where he answers, and the board of one task with
-# its decisions, its stories' approval and read, and where its time went.
+# its decisions, the approval and read of its criteria, and where its time went.
 #
 # A real run writes its events minutes apart, and a test writes them in seconds, so the events of
 # two tasks get their times moved afterwards (`retime`), the way a run would have spaced them. The
@@ -29,7 +29,7 @@ decide() { "$PY" -B "$SCRIPTS/decisions.py" --repo "$R" "$@"; }
 # CASE: the run that ends badly, which every choice for the owner carries above his card
 CASE=(--case $'1. Order 1042 has the gift note "for Ania".\n2. The export writes the note where the choice puts it.\n3. A reader that takes the columns by place reads the note as the total.'
   --case-was derived --cause "Readers of the export take its columns by place.")
-stories() { "$PY" -B "$SCRIPTS/stories.py" --repo "$R" "$@"; }
+criteria() { "$PY" -B "$SCRIPTS/criteria.py" --repo "$R" "$@"; }
 board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$SCRIPTS/board.py" --repo "$R" "$@"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
 task() { project task-dir "$1" --ask "$2" >/dev/null; }
@@ -83,25 +83,25 @@ lines = [json.loads(line) for line in open(path)]
 for line in lines:
     if line["kind"] == "asked" and str(line["id"]) in sys.argv[2:]: line["deadline"] = "2026-01-01T00:00:00Z"
 open(path, "w").write("".join(json.dumps(line) + "\n" for line in lines))' "$STATE/tasks/$1/decisions.jsonl" "${@:2}"; }
-# story_file FILE SIZE: the stories the owner approves, in the form `stories.py --help` gives
-story_file() {
+# criteria_file FILE SIZE: the criteria the owner approves, in the form `criteria.py --help` gives
+criteria_file() {
   if [ "$2" = small ]; then
-    printf '%s\n' '## Stories' '' 'Size: small, because the request is one sentence.' '' '1. The footer says "Terms", not "Terms and condtions".' > "$1"
+    printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The footer says "Terms", not "Terms and condtions".' > "$1"
   else
-    printf '%s\n' '## Stories' '' 'Size: full, because the export gets a new column and two readers of it.' '' \
+    printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the export gets a new column and two readers of it.' '' \
       '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
       '2. An order with no gift note has an empty cell, not the word "None".' > "$1"
   fi
 }
 
-# The task with the decisions: stories read and approved, a build with a choice of each kind.
+# The task with the decisions: criteria read and approved, a build with a choice of each kind.
 G=gift-note-export
 task "$G" "Add the gift note to the CSV export"
-story_file "$WORK/gift.md" full
-digest=$(stories digest "$G" --file "$WORK/gift.md" | field 'd["digest"]')
-project log "$G" stories.read by=lem asked:=3 answered:=2 'families:=["opus", "sol"]' 'silent:=[{"name": "Accountant, sol", "why": "the model was at capacity"}]' \
-  stories:=2 flagged:=1 split:=true "digest=$digest" >/dev/null
-stories approve "$G" --file "$WORK/gift.md" >/dev/null
+criteria_file "$WORK/gift.md" full
+digest=$(criteria digest "$G" --file "$WORK/gift.md" | field 'd["digest"]')
+project log "$G" criteria.read by=lem asked:=3 answered:=2 'families:=["opus", "sol"]' 'silent:=[{"name": "Accountant, sol", "why": "the model was at capacity"}]' \
+  criteria:=2 flagged:=1 split:=true "digest=$digest" >/dev/null
+criteria approve "$G" --file "$WORK/gift.md" >/dev/null
 project state "$G" building "lead: builder" >/dev/null
 project state "$G" building "plan committed, 3 tasks" >/dev/null
 project state "$G" building "task 1 of 3" >/dev/null
@@ -122,13 +122,13 @@ decide ask "$G" "${CASE[@]}" --what "The note of a cancelled order" --option "ke
   --said "The merchant would keep it, the accountant is in doubt." >/dev/null
 retime "$G" now -60 -52 -51 -45 -44 -40 -35 -34 -31 -30 -27 -26 -25 -10 -5
 
-# The task whose time the card draws: it ran from its stories to a merged pull request, on 10 November.
+# The task whose time the card draws: it ran from its criteria to a merged pull request, on 10 November.
 L=landed-one
 task "$L" "Show the order's currency on the invoice"
-story_file "$WORK/landed.md" full
-digest=$(stories digest "$L" --file "$WORK/landed.md" | field 'd["digest"]')
-project log "$L" stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=2 flagged:=1 split:=false "digest=$digest" >/dev/null
-stories approve "$L" --file "$WORK/landed.md" >/dev/null
+criteria_file "$WORK/landed.md" full
+digest=$(criteria digest "$L" --file "$WORK/landed.md" | field 'd["digest"]')
+project log "$L" criteria.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' criteria:=2 flagged:=1 split:=false "digest=$digest" >/dev/null
+criteria approve "$L" --file "$WORK/landed.md" >/dev/null
 project state "$L" building "lead: session" >/dev/null
 # the talk's start is not in this log, as in a log written before the lead logged it
 project log "$L" plan.talk reviewer=codex turns:=19 questions:=4 settled:=3 open:=1 repaired:=2 design:=1 unargued:=1 root:=2 layer:=0 shared:=0 >/dev/null
@@ -151,8 +151,8 @@ project state "$L" landed "main: pull request https://github.com/acme/shop/pull/
 retime "$L" 2026-11-10T09:00:00Z 10 22 23 34 35 40 58 65 72 80 82 85 87 88 90 101 103 104 150
 
 # One task for each other thing a lane holds.
-task stories-wait "Round the totals of the monthly report"
-project state stories-wait held "the stories wait for the owner" >/dev/null
+task criteria-wait "Round the totals of the monthly report"
+project state criteria-wait held "the criteria wait for the owner" >/dev/null
 task held-question "Which currency rounds half up"
 project state held-question building "lead: builder" >/dev/null
 project state held-question held "the investigation waits for one more fact" >/dev/null
@@ -162,7 +162,7 @@ decide ask held-choice "${CASE[@]}" --what "Refund the 12 duplicate orders now" 
   --said "The two personas split." --irreversible money >/dev/null
 project state held-choice held "choice 1 waits for the owner" >/dev/null
 task open-pr "Sort the export by date"
-project state open-pr open "pull request https://github.com/acme/shop/pull/9" "not green: story 1 changed during the build" >/dev/null
+project state open-pr open "pull request https://github.com/acme/shop/pull/9" "not green: criterion 1 changed during the build" >/dev/null
 task ready-to-land "Fix the typo in the invoice"
 project state ready-to-land open "ready to land on main at abc1234" "green" >/dev/null
 task plan-for-you "Move the reports to a queue"
@@ -183,8 +183,8 @@ project state in-checks ready "the report is written" >/dev/null
 project state in-checks landing "the checks start" >/dev/null
 project log in-checks gate "command=make test" exit:=0 "last=9 passed" tip=def5678 >/dev/null
 task correction-one "The footer says Terms and condtions"
-story_file "$WORK/correction.md" small
-stories approve correction-one --file "$WORK/correction.md" --small >/dev/null
+criteria_file "$WORK/correction.md" small
+criteria approve correction-one --file "$WORK/correction.md" --small >/dev/null
 # a small change has no lead: one builder makes it (stages/new.md, "A small change")
 project state correction-one building "small change: one builder" >/dev/null
 project log correction-one builder.start "job=the small change" >/dev/null
@@ -214,34 +214,34 @@ project log red-gate gate "command=make test" exit:=1 "last=1 failed, 8 passed" 
 project log red-gate gate "command=make lint" exit:=0 "last=All checks passed" tip=fed4321 >/dev/null
 retime red-gate now -40 -30 -25 -20
 
-# Stories that nobody was confused by, which still wait for the owner's yes: he left before he gave it.
+# Criteria that nobody was confused by, which still wait for the owner's yes: he left before he gave it.
 task clear-read-held "Show the stock on the product page"
-printf '%s\n' '## Stories' '' 'Size: full, because the page gets a new line.' '' '1. A product with 3 in stock says "3 left".' > "$WORK/stock.md"
-digest=$(stories digest clear-read-held --file "$WORK/stock.md" | field 'd["digest"]')
-project log clear-read-held stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
-project state clear-read-held held "the stories wait for the owner" >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the page gets a new line.' '' '1. A product with 3 in stock says "3 left".' > "$WORK/stock.md"
+digest=$(criteria digest clear-read-held --file "$WORK/stock.md" | field 'd["digest"]')
+project log clear-read-held criteria.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+project state clear-read-held held "the criteria wait for the owner" >/dev/null
 
-# A story change of the build that the owner's next approval took over, and one after that approval.
+# A criterion change of the build that the owner's next approval took over, and one after that approval.
 C=changed-then-approved
 task "$C" "Name the export file by its date"
-printf '%s\n' '## Stories' '' 'Size: full, because the file name changes.' '' '1. The export of 3 May is named export-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-1.md"
-stories approve "$C" --file "$WORK/name-1.md" >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the file name changes.' '' '1. The export of 3 May is named export-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-1.md"
+criteria approve "$C" --file "$WORK/name-1.md" >/dev/null
 project state "$C" building "lead: builder" >/dev/null
-decide story "$C" --changed 1 --was "The export of 3 May is named export-05-03.csv." --now "The export of 3 May is named export-2026-05-03.csv." --why "a year keeps the names apart" --by lead >/dev/null
-printf '%s\n' '## Stories' '' 'Size: full, because the file name changes.' '' '1. The export of 3 May is named export-2026-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-2.md"
-stories approve "$C" --file "$WORK/name-2.md" >/dev/null
-decide story "$C" --changed 2 --was "A second export that day gets -2." --now "A second export that day gets -2, a third -3." --why "the counter goes on" --by lead >/dev/null
+decide criterion "$C" --changed 1 --was "The export of 3 May is named export-05-03.csv." --now "The export of 3 May is named export-2026-05-03.csv." --why "a year keeps the names apart" --by lead >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the file name changes.' '' '1. The export of 3 May is named export-2026-05-03.csv.' '2. A second export that day gets -2.' > "$WORK/name-2.md"
+criteria approve "$C" --file "$WORK/name-2.md" >/dev/null
+decide criterion "$C" --changed 2 --was "A second export that day gets -2." --now "A second export that day gets -2, a third -3." --why "the counter goes on" --by lead >/dev/null
 
-# A full change from a complete request: the lead's read found nobody confused, and froze the plan's stories.
+# A full change from a complete request: the lead's read found nobody confused, and froze the plan's criteria.
 task rare-path "Show the VAT number on the invoice"
 rw=$(project worktree-dir rare-path)
 git -C "$R" worktree add -q -b feat/rare-path "$rw" main
 mkdir -p "$rw/docs/plans"
-printf '%s\n' '# A complete request' '' '## Stories' '' 'Size: full, because the invoice gets a new line.' '' '1. An invoice to a company shows its VAT number under its name.' '' '## Tasks' '' '1. The line.' > "$rw/docs/plans/20261116-rare-path.md"
+printf '%s\n' '# A complete request' '' '## Acceptance criteria' '' 'Size: full, because the invoice gets a new line.' '' '1. An invoice to a company shows its VAT number under its name.' '' '## Tasks' '' '1. The line.' > "$rw/docs/plans/20261116-rare-path.md"
 project state rare-path building "lead: builder" >/dev/null
-digest=$(stories digest rare-path | field 'd["digest"]')
-project log rare-path stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
-stories approve rare-path --read >/dev/null
+digest=$(criteria digest rare-path | field 'd["digest"]')
+project log rare-path criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+criteria approve rare-path --read >/dev/null
 
 # A task the owner holds at the reviewer's trust prompt: a step of his, and no decision.
 task trust-prompt "Move the review to Codex"
@@ -250,34 +250,34 @@ project state trust-prompt held "the reviewer's trust prompt waits for the owner
 
 # A full change with an interview writes the personas' read before the task's first state block.
 task read-first "Show the order's weight on the label"
-printf '%s\n' '## Stories' '' 'Size: full, because the label gets a new line.' '' '1. A parcel of 2.5 kg says "2.5 kg" on its label.' > "$WORK/weight.md"
-digest=$(stories digest read-first --file "$WORK/weight.md" | field 'd["digest"]')
-project log read-first stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the label gets a new line.' '' '1. A parcel of 2.5 kg says "2.5 kg" on its label.' > "$WORK/weight.md"
+digest=$(criteria digest read-first --file "$WORK/weight.md" | field 'd["digest"]')
+project log read-first criteria.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
 
-# The plan's stories and their tests' result, and then a new approval of other stories.
+# The plan's criteria and their tests' result, and then a new approval of other criteria.
 task approved-again "Print the packing slip in German"
-printf '%s\n' '## Stories' '' 'Size: full, because the slip gets a language.' '' '1. A slip for Berlin is in German.' > "$WORK/slip-1.md"
-printf '%s\n' '## Stories' '' 'Size: full, because the slip gets a language.' '' '1. A slip for Berlin or Vienna is in German.' > "$WORK/slip-2.md"
-stories approve approved-again --file "$WORK/slip-1.md" >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the slip gets a language.' '' '1. A slip for Berlin is in German.' > "$WORK/slip-1.md"
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the slip gets a language.' '' '1. A slip for Berlin or Vienna is in German.' > "$WORK/slip-2.md"
+criteria approve approved-again --file "$WORK/slip-1.md" >/dev/null
 project state approved-again building "task 1 of 1" >/dev/null
-project log approved-again task.stories size=full "why=the slip gets a language." digest=0123456789ab \
-  'stories:=[{"n": 1, "text": "A slip for Berlin is in German.", "tests": [{"command": "sh tests/slip.sh", "files": ["tests/slip.sh"]}], "no_test": null}]' >/dev/null
+project log approved-again task.criteria size=full "why=the slip gets a language." digest=0123456789ab \
+  'criteria:=[{"n": 1, "text": "A slip for Berlin is in German.", "tests": [{"command": "sh tests/slip.sh", "files": ["tests/slip.sh"]}], "no_test": null}]' >/dev/null
 project log approved-again task.red ok:=true digest=0123456789ab base=0a1b2c3d4 tip=abc123456 \
-  'tests:=[{"story": 1, "command": "sh tests/slip.sh", "files": ["tests/slip.sh"], "on_branch": 0, "on_base": 1, "problem": null}]' 'without_a_test:=[]' 'run_without:=[]' >/dev/null
-stories approve approved-again --file "$WORK/slip-2.md" >/dev/null
+  'tests:=[{"criterion": 1, "command": "sh tests/slip.sh", "files": ["tests/slip.sh"], "on_branch": 0, "on_base": 1, "problem": null}]' 'without_a_test:=[]' 'run_without:=[]' >/dev/null
+criteria approve approved-again --file "$WORK/slip-2.md" >/dev/null
 
-# Stories read and approved, changed by the build, then approved again as they were read: nothing is unread.
+# Criteria read and approved, changed by the build, then approved again as they were read: nothing is unread.
 # Beside it the same without the second approval: the change was not read.
 for slug in restored-read unread-change; do
   task "$slug" "Name the carrier on the slip"
-  printf '%s\n' '## Stories' '' 'Size: full, because the slip gets a line.' '' '1. A DHL parcel says "DHL" on its slip.' > "$WORK/$slug.md"
-  digest=$(stories digest "$slug" --file "$WORK/$slug.md" | field 'd["digest"]')
-  project log "$slug" stories.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
-  stories approve "$slug" --file "$WORK/$slug.md" >/dev/null
+  printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the slip gets a line.' '' '1. A DHL parcel says "DHL" on its slip.' > "$WORK/$slug.md"
+  digest=$(criteria digest "$slug" --file "$WORK/$slug.md" | field 'd["digest"]')
+  project log "$slug" criteria.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+  criteria approve "$slug" --file "$WORK/$slug.md" >/dev/null
   project state "$slug" building "lead: builder" >/dev/null
-  decide story "$slug" --changed 1 --was 'A DHL parcel says "DHL" on its slip.' --now 'A DHL parcel says "DHL Express" on its slip.' --why "the carrier's own name" --by lead >/dev/null
+  decide criterion "$slug" --changed 1 --was 'A DHL parcel says "DHL" on its slip.' --now 'A DHL parcel says "DHL Express" on its slip.' --why "the carrier's own name" --by lead >/dev/null
 done
-stories approve restored-read --file "$WORK/restored-read.md" >/dev/null
+criteria approve restored-read --file "$WORK/restored-read.md" >/dev/null
 
 # The two experts' advice on five choices: one they settled while the owner was away, with his answer
 # after it, one taken at
@@ -366,16 +366,16 @@ project log cart-total-wrong investigation.start type=fix >/dev/null
 # November: the time card draws each span from its start to the event that ends it.
 S=started-stages
 task "$S" "Print the order date on the invoice"
-printf '%s\n' '## Stories' '' 'Size: full, because the invoice gets a line.' '' '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May".' > "$WORK/started.md"
-digest=$(stories digest "$S" --file "$WORK/started.md" | field 'd["digest"]')
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the invoice gets a line.' '' '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May".' > "$WORK/started.md"
+digest=$(criteria digest "$S" --file "$WORK/started.md" | field 'd["digest"]')
 project state "$S" held "the interview waits for the owner" "type: feat, because the invoice gets a line" >/dev/null
 project log "$S" scout.start >/dev/null
 project log "$S" interview.start >/dev/null
 project log "$S" scout >/dev/null
-project log "$S" stories.read.start by=lem >/dev/null
-project log "$S" stories.read by=lem asked:=3 answered:=3 'families:=["opus", "sol"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
-project state "$S" held "the stories wait for the owner" >/dev/null
-stories approve "$S" --file "$WORK/started.md" >/dev/null
+project log "$S" criteria.read.start by=lem >/dev/null
+project log "$S" criteria.read by=lem asked:=3 answered:=3 'families:=["opus", "sol"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+project state "$S" held "the criteria wait for the owner" >/dev/null
+criteria approve "$S" --file "$WORK/started.md" >/dev/null
 project state "$S" building "lead: builder" >/dev/null
 project state "$S" building "plan committed, 2 tasks" >/dev/null
 project state "$S" building "task 1 of 2" >/dev/null
@@ -403,14 +403,14 @@ project state gate-runs landing "the checks start" >/dev/null
 project log gate-runs gate.start tip=abc123456 commands:=2 >/dev/null
 retime gate-runs now -20 -10 -5
 
-# A read of the stories in which no persona answered, and the stories still wait for the owner.
+# A read of the criteria in which no persona answered, and the criteria still wait for the owner.
 task silent-read "Show the delivery date on the order page"
-printf '%s\n' '## Stories' '' 'Size: full, because the page gets a new line.' '' '1. An order shipped on 3 May says "arrives 5 May".' > "$WORK/delivery.md"
-digest=$(stories digest silent-read --file "$WORK/delivery.md" | field 'd["digest"]')
-project log silent-read stories.read by=lem asked:=2 answered:=0 'families:=[]' \
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the page gets a new line.' '' '1. An order shipped on 3 May says "arrives 5 May".' > "$WORK/delivery.md"
+digest=$(criteria digest silent-read --file "$WORK/delivery.md" | field 'd["digest"]')
+project log silent-read criteria.read by=lem asked:=2 answered:=0 'families:=[]' \
   'silent:=[{"name": "Merchant, opus", "why": "the model timed out"}, {"name": "Accountant, sol", "why": "the model was at capacity"}]' \
-  stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
-project state silent-read held "the stories wait for the owner" >/dev/null
+  criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+project state silent-read held "the criteria wait for the owner" >/dev/null
 # A task queued behind another one whose result it needs (stages/new.md, step 7).
 task queued-after "Cache the product images"
 project state queued-after queued "waits for the task that caches the product list" "after: building-one" >/dev/null
@@ -462,7 +462,7 @@ else
   fail "a backlog item with an unreadable place: ${why:-$(tail -1 "$WORK/board.err")}"
 fi
 for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts "$K" talk-runs "$M" "$A" cart-total-wrong silent-read queued-after queued-one \
-  "$S" gate-runs held-choice held-question trust-prompt stories-wait plan-for-you night-draft open-pr ready-to-land; do board --no-open --task "$slug" >/dev/null; done
+  "$S" gate-runs held-choice held-question trust-prompt criteria-wait plan-for-you night-draft open-pr ready-to-land; do board --no-open --task "$slug" >/dev/null; done
 
 SHOWN=$(cat <<'PY'
 import re, sys
@@ -677,7 +677,7 @@ elif [ -n "$chrome" ]; then
     "Waits for you=Held question|The investigation waits for one more fact" \
     "Waits for you=Trust prompt|The reviewer's trust prompt waits for your yes" \
     "Building=Approved again" "Building=Restored read" "Building=Unread change" \
-    "Waits for you=Clear read held|The stories wait for you" "Waits for you=Stories wait|The stories wait for you" "Waits for you=Silent read|The stories wait for you" \
+    "Waits for you=Clear read held|The criteria wait for you" "Waits for you=Criteria wait|The criteria wait for you" "Waits for you=Silent read|The criteria wait for you" \
     "Waits for you=Plan for you|Planned: the plan waits for you to read it" \
     "Waits for you=Night draft|Drafted at night: a plan written at night" \
     "Waits for you=Open pr|Waits for the merge: pull request #9" \
@@ -690,15 +690,15 @@ elif [ -n "$chrome" ]; then
   else
     fail "the lanes: $why"
   fi
-  # Where you answer is on the task's own board: a choice, one more fact, a step of his, the stories,
+  # Where you answer is on the task's own board: a choice, one more fact, a step of his, the criteria,
   # a plan, a draft, a pull request, a branch to land.
   wheres=()
   # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
   for want in "held-question|It waits on what its state says: “the investigation waits for one more fact”. Lem tells you in its session what to do and where." \
     "trust-prompt|It waits on what its state says: “the reviewer's trust prompt waits for your yes”. Lem tells you in its session what to do and where." \
     "held-choice|Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, with no end." \
-    "stories-wait|Lem shows you the stories, with the personas’ read on top, as a page in its session. Approve or change them there." \
-    "silent-read|Lem shows you the stories as a page in its session. No persona answered the read of them. Approve or change them there." \
+    "criteria-wait|Lem shows you the acceptance criteria, with the personas’ read on top, as a page in its session. Approve or change them there." \
+    "silent-read|Lem shows you the acceptance criteria as a page in its session. No persona answered the read of them. Approve or change them there." \
     "plan-for-you|Read the plan, then tell Lem in its session: build it or drop it." \
     "night-draft|Tell Lem in its session: /lem build night-draft, or drop it." \
     "open-pr|Merge the pull request, or tell Lem in its session to land it." \
@@ -707,7 +707,7 @@ elif [ -n "$chrome" ]; then
     why=$("$PY" -I -B -c "$ROWS" "$WORK/task-${want%%|*}.dom" now "Where you answer:|${want#*|}") || wheres+=("${want%%|*}: $why")
   done
   if [ "${#wheres[@]}" -eq 0 ]; then
-    pass "each task that waits for you says on its own board where you answer: a choice, one more fact, a step of yours, the stories, a plan, a draft, a pull request, a branch to land"
+    pass "each task that waits for you says on its own board where you answer: a choice, one more fact, a step of yours, the criteria, a plan, a draft, a pull request, a branch to land"
   else
     fail "where you answer: ${wheres[*]}"
   fi
@@ -723,11 +723,11 @@ elif [ -n "$chrome" ]; then
   if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
     "^Choice 4 waits for you: Gift note export · Email the merchants about the new column · no end: no timeout takes it$" \
     "^Choice 1 waits for you: Held choice · Refund the 12 duplicate orders now · no end: no timeout takes it$" \
-    "^Waits for you: Stories wait · the stories wait for you · [0-9][0-9ms ]*$" "!^Choice 7" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
+    "^Waits for you: Criteria wait · the criteria wait for you · [0-9][0-9ms ]*$" "!^Choice 7" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
     "!Lem puts" "!Lem shows you" "!Answer it there" "!^Choice [123] waits for you: Expert advice") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" now \
       "You · choice 7 of the task|Gift note export|The note of a cancelled order|10m left, until|Where you answer: Lem puts choice 7 to you as a page in its session. Answer it there before its wait ends; then the build goes on with the recommended action.") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "=1:Lem puts choice 7 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the stories" "!Demo data"); then
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "=1:Lem puts choice 7 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the acceptance criteria" "!Demo data"); then
     pass "the large card has the most pressing wait with where you answer, said once on the page; the banners are the waits after it, one line each with its count-down, or no end for an irreversible step, and none whose wait is over"
   else
     fail "the banners: $why"
@@ -763,27 +763,27 @@ elif [ -n "$chrome" ]; then
   else
     fail "the Decisions card: $why"
   fi
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$G.dom" "The two model families split on a story." "1 of 2 stories flagged" \
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$G.dom" "The two model families split on a criterion." "1 of 2 criteria flagged" \
     "read by 2 of 3 personas, two model families (opus, sol), run by Lem" "no answer from Accountant, sol (the model was at capacity)" "Approved by you after the personas’ read" \
     'A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' "no test yet: the agent adds its tests in the plan") \
     && "$PY" -I -c 'import re, sys
 dom = re.sub(r"<[^>]+>", " ", open(sys.argv[1], encoding="utf-8").read())
-sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 stories flagged") < dom.index("read by 2 of 3 personas"))' "$WORK/task-$G.dom"; then
-    pass "the Stories card shows the personas' read with a split between the families said first, who answered of how many, who did not and why, and the owner's approval after it"
+sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 criteria flagged") < dom.index("read by 2 of 3 personas"))' "$WORK/task-$G.dom"; then
+    pass "the Acceptance criteria card shows the personas' read with a split between the families said first, who answered of how many, who did not and why, and the owner's approval after it"
   else
-    fail "the Stories card: ${why:-the split is not said first}"
+    fail "the Acceptance criteria card: ${why:-the split is not said first}"
   fi
   draw task-correction-one
   # shellcheck disable=SC1112  # the curly quotes are the page's
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-correction-one.dom" "Taken as a small change: Lem approved its one story in your name" \
-    'You may still say “full”' "The personas do not read the one story of a small change." "small change, because the request is one sentence." \
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-correction-one.dom" "Taken as a small change: Lem approved its one criterion in your name" \
+    'You may still say “full”' "The personas do not read the one criterion of a small change." "small change, because the request is one sentence." \
     "One builder makes the change" "!a correction" "!correction, because" "!one-rule"); then
-    pass "a small change's Stories card says that Lem approved its one story in your name, that you may call it full, and that the personas do not read it; its stories' size is a small change, and no text says correction"
+    pass "a small change's Acceptance criteria card says that Lem approved its one criterion in your name, that you may call it full, and that the personas do not read it; the size of its criteria is a small change, and no text says correction"
   else
-    fail "a small change's Stories card: $why"
+    fail "a small change's Acceptance criteria card: $why"
   fi
   # A small change has one builder and no lead: the builders' row from its start, and phases with no
-  # stories to wait in and no plan.
+  # criteria to wait in and no plan.
   if grep -q 'data-head="The builders · The small change"' "$WORK/task-correction-one.dom" \
     && ! grep -q 'data-head="The agent · It plans the task"' "$WORK/task-correction-one.dom" \
     && why=$("$PY" -I -c 'import re, sys
@@ -802,7 +802,7 @@ sys.exit(not ok)' "$WORK/task-correction-one.dom"); then
   # The rows and the legend are read from the card itself, so that a name elsewhere on the page cannot stand in for a row.
   if why=$("$PY" -I -B -c "$TIMECARD" "$WORK/task-$L.dom" "You|Lem|The agent|The builders|The personas|The checks|The review" \
     "You=1h 05m · 46%" "Lem=6m 00s · 4%" "The agent=17m · 12%" "The builders=42m · 30%" "The checks=5m 00s · 4%" "The review=11m · 8%") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$L.dom" "Where the time went" "Stories" "Plan" "T1" "T2" "Checks" "PR") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$L.dom" "Where the time went" "Criteria" "Plan" "T1" "T2" "Checks" "PR") \
     && ! grep -q 'class="nowline"' "$WORK/task-$L.dom" && grep -q 'class="ring-wrap"' "$WORK/task-$L.dom"; then
     pass "the time card of a task has a row for each actor that held its work and a band for each stage and plan task, and its legend gives each actor's total and share of the task's time"
   else
@@ -823,7 +823,7 @@ sys.exit(not ok)' "$WORK/task-correction-one.dom"); then
       "You=33m · 30%" "Lem=6m 00s · 5%" "The agent=12m · 11%" "The builders=49m · 45%" "The personas=5m 00s · 5%" "The checks=5m 00s · 5%" "The review=4m 00s · 4%") \
     && grep -q 'data-head="You · The interview" data-sub="Lem asks you one question at a time"' "$WORK/task-$S.dom" \
     && grep -q 'data-head="The builders · The scout reads the code"' "$WORK/task-$S.dom" \
-    && grep -q 'data-head="The personas · The personas’ read of the stories" data-sub="3 of 3 answered, two model families · nobody confused"' "$WORK/task-$S.dom" \
+    && grep -q 'data-head="The personas · The personas’ read of the criteria" data-sub="3 of 3 answered, two model families · nobody confused"' "$WORK/task-$S.dom" \
     && ! grep -q '<circle[^>]*data-head="The personas' "$WORK/task-$S.dom" \
     && grep -q 'data-head="The builders · Task 1 of 2"' "$WORK/task-$S.dom" && grep -q 'data-head="The agent · It briefs the builder"' "$WORK/task-$S.dom" \
     && grep -q 'data-head="Lem · The rebase onto the base"' "$WORK/task-$S.dom" \
@@ -831,7 +831,7 @@ sys.exit(not ok)' "$WORK/task-correction-one.dom"); then
     && grep -q 'data-head="The checks · The checks: make test"' "$WORK/task-$S.dom" \
     && grep -q 'data-head="The review · Review round 1: one read"' "$WORK/task-$S.dom" \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$S.dom" feed "A builder started · task 1 of 2" "The checks started|2 commands on def567890" "The review started|attempt 1 · one read" \
-      "The interview started" "The scout started" "The personas’ read of the stories started|run by Lem" "The polish pass started|on abc123456"); then
+      "The interview started" "The scout started" "The personas’ read of the criteria started|run by Lem" "The polish pass started|on abc123456"); then
     pass "the interview, the scout, the personas' read, each builder, the polish pass, the checks and the review are drawn from their logged start to the event that ends each, on the row of who held the work, and the activity says each start in words"
   else
     fail "the logged starts on the time card: ${why:-a span of a stage}"
@@ -879,7 +879,7 @@ wrong = [name for name, ok in {
     "an error": "error" not in d,
     "a band: its stage, its length and its two clock times": d.get("band") == "Task 1 | of 2 | 18m · Nov 10 09:40:00 → 09:58:00",
     "a span: who, what, its length and its clock times": d.get("span", "").startswith("You · Choice 1: The symbol or the code of the currency | you answered: the code | 7m 00s · Nov 10 10:05:00 → 10:12:00"),
-    "a mark: what ended, and when": d.get("mark", "").startswith("The personas · The personas’ read of the stories ended | 2 of 2 answered") and d.get("mark", "").endswith("at Nov 10 09:10:00"),
+    "a mark: what ended, and when": d.get("mark", "").startswith("The personas · The personas’ read of the criteria ended | 2 of 2 answered") and d.get("mark", "").endswith("at Nov 10 09:10:00"),
     "the hover goes when the mouse leaves": d.get("left") is True,
 }.items() if not ok]
 print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/probe.dom" 2>&1 || true)
@@ -915,44 +915,44 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   fi
   draw task-read-first
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-read-first.dom" "No state was written yet for the task \"read-first\": its 1 event is in the activity below" \
-    "The personas read the stories" "nobody confused · 2 of 2 answered"); then
-    pass "the board of a task whose stories were read before its first state block draws its events and says that its state comes later"
+    "The personas read the criteria" "nobody confused · 2 of 2 answered"); then
+    pass "the board of a task whose criteria were read before its first state block draws its events and says that its state comes later"
   else
     fail "a task with events and no state: $why"
   fi
   draw task-approved-again
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-approved-again.dom" "1. A slip for Berlin or Vienna is in German." \
-    "approved after the plan’s stories were recorded: the agent records them again, with their tests" "approval 2; it replaces approval 1" \
+    "approved after the plan’s criteria were recorded: the agent records them again, with their tests" "approval 2; it replaces approval 1" \
     "!held by its tests" "!A slip for Berlin is in German." "full change, because the slip gets a language."); then
-    pass "after a new approval the Stories card shows the approved stories, not the plan's older ones and their tests' result"
+    pass "after a new approval the Acceptance criteria card shows the approved criteria, not the plan's older ones and their tests' result"
   else
-    fail "stories approved after the plan's: $why"
+    fail "criteria approved after the plan's: $why"
   fi
   draw task-restored-read && draw task-unread-change
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-restored-read.dom" "Story 1 changed during the build" "!the change was not read") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-unread-change.dom" "The stories changed after this read by a change of the build, and the change was not read."); then
-    pass "the Stories card says that a change was not read only while the stories as they stand are not the ones read: his approval of the read stories again clears it"
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-restored-read.dom" "Criterion 1 changed during the build" "!the change was not read") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-unread-change.dom" "The criteria changed after this read by a change of the build, and the change was not read."); then
+    pass "the Acceptance criteria card says that a change was not read only while the criteria as they stand are not the ones read: his approval of the read criteria again clears it"
   else
     fail "the unread change: $why"
   fi
   draw task-clear-read-held
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-clear-read-held.dom" "Nobody confused" "The stories wait for your yes" "!The build started with no wait for you"); then
-    pass "a read that found nobody confused does not say that the build started, while the stories wait for the owner's yes"
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-clear-read-held.dom" "Nobody confused" "The criteria wait for your yes" "!The build started with no wait for you"); then
+    pass "a read that found nobody confused does not say that the build started, while the criteria wait for the owner's yes"
   else
     fail "a clear read that waits for him: $why"
   fi
   draw "task-$C"
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$C.dom" "approval 2; it replaces approval 1" \
-    "Story 1 changed during the build" "Approved by you afterwards (approval 2): it is yours, and no cause of not green" \
-    "Story 2 changed during the build" "the counter goes on · by the agent · the pull request is not green for it" \
+    "Criterion 1 changed during the build" "Approved by you afterwards (approval 2): it is yours, and no cause of not green" \
+    "Criterion 2 changed during the build" "the counter goes on · by the agent · the pull request is not green for it" \
     "!a year keeps the names apart · by the agent · the pull request is not green for it"); then
-    pass "a story change that the owner's later approval took over is his and no cause of not green, and a change after that approval still is one"
+    pass "a criterion change that the owner's later approval took over is his and no cause of not green, and a change after that approval still is one"
   else
-    fail "story changes and approvals: $why"
+    fail "criterion changes and approvals: $why"
   fi
   draw task-rare-path
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-rare-path.dom" "Frozen by the personas’ read, with no wait for you" "!Taken as a small change" "!Approved by you"); then
-    pass "stories the personas' read froze for a full change from a complete request are shown as such, never as a small change or as the owner's yes"
+    pass "criteria the personas' read froze for a full change from a complete request are shown as such, never as a small change or as the owner's yes"
   else
     fail "the read's approval: $why"
   fi
@@ -1057,7 +1057,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   fi
   draw task-cart-total-wrong
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Cart total wrong|Investigating: a builder reproduces the bug and finds its cause|fix") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any story|fix, because the ask says the total is wrong since yesterday|!lead"); then
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any criterion|fix, because the ask says the total is wrong since yesterday|!lead"); then
     pass "a task whose investigation runs says so on its card and on its own board, and names the investigator, not a lead"
   else
     fail "a task whose investigation runs: $why"
@@ -1078,17 +1078,17 @@ sys.exit(not ok)' "$WORK/task-cart-total-wrong.dom"); then
   else
     fail "the investigation's phase or a short axis: ${why:-a phase}"
   fi
-  # An answered task lands nowhere and has no stories, decisions, checks or review: none is drawn empty.
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$A.dom" "!lands on" "!The agent writes the stories") \
-    && grep -Eq 'id="stories-card"[^>]* hidden' "$WORK/task-$A.dom" && grep -Eq 'id="decisions-card"[^>]* hidden' "$WORK/task-$A.dom" \
+  # An answered task lands nowhere and has no criteria, decisions, checks or review: none is drawn empty.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$A.dom" "!lands on" "!The agent writes the criteria") \
+    && grep -Eq 'id="criteria-card"[^>]* hidden' "$WORK/task-$A.dom" && grep -Eq 'id="decisions-card"[^>]* hidden' "$WORK/task-$A.dom" \
     && grep -Eq 'id="gate-card"[^>]* hidden' "$WORK/task-$A.dom" && grep -Eq 'id="review-card"[^>]* hidden' "$WORK/task-$A.dom" \
     && ! grep -Eq 'id="decisions-card"[^>]* hidden' "$WORK/task-$G.dom"; then
-    pass "an answered task names no branch it lands on, and draws no empty card of stories, decisions, checks or review"
+    pass "an answered task names no branch it lands on, and draws no empty card of criteria, decisions, checks or review"
   else
     fail "the empty cards of an answered task: ${why:-a card is drawn}"
   fi
   # The rest of an answered task's card: its phases end with the answer, and its checks and review say why there are none.
-  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" progress "Investigation|Answered|!Stories|!Landed|none: it ended with a report") \
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" progress "Investigation|Answered|!Criteria|!Landed|none: it ended with a report") \
     && [ "$(grep -o 'class="phase past"' "$WORK/task-$A.dom" | wc -l | tr -d ' ')" = 2 ]; then
     pass "an answered task's phases are its investigation and its answer, and its checks and review say that it ended with a report"
   else
@@ -1106,13 +1106,13 @@ sys.exit(not ok)' "$WORK/task-cart-total-wrong.dom"); then
   # A read in which nobody answered says so, in the bad color, with each persona that was silent.
   draw task-silent-read && draw task-queued-after && draw task-queued-one
   # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
-  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-silent-read.dom" stories "Nobody answered the personas’ read|(0 of 2)|@a-bad|no answer from Merchant, opus (the model timed out)|no answer from Accountant, sol|!Nobody confused|!read by 0") \
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-silent-read.dom" criteria "Nobody answered the personas’ read|(0 of 2)|@a-bad|no answer from Merchant, opus (the model timed out)|no answer from Accountant, sol|!Nobody confused|!read by 0") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-after.dom" now "Waits for the task it needs and a free place|it starts after “Building one” ends") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-one.dom" now "Waits for a free place|!task it needs") \
     && why="no block of the queued time names the task it needs" && [ "$(shown_text task-queued-after "Queued: it waits for the task it needs and a free place")" -gt 0 ] \
     && why="the page of a task with no after: line names a task it needs" && [ "$(shown_text task-queued-one "task it needs")" = 0 ] \
     && [ "$(shown_text task-queued-one "Queued: it waits for a free place")" -gt 0 ]; then
-    pass "a read of the stories that no persona answered is shown as no read, with who was silent and why; a queued task says it waits for a free place, and one queued behind another for the task it needs too, which it names once"
+    pass "a read of the criteria that no persona answered is shown as no read, with who was silent and why; a queued task says it waits for a free place, and one queued behind another for the task it needs too, which it names once"
   else
     fail "a read nobody answered, or a task queued after another: $why"
   fi
@@ -1141,7 +1141,7 @@ sys.exit(bool(wrong))' "$WORK/board.dom" "$WORK/task-$P.dom" "$WORK/task-$S.dom"
     fail "the order of the activity: $why"
   fi
   # A task that ended says no "yet": nothing more comes for it.
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$S.dom" "!yet" "none" "no commit of its branch is on record" "no test of it is on record: the plan’s stories were never recorded") \
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$S.dom" "!yet" "none" "no commit of its branch is on record" "no test of it is on record: the plan’s criteria were never recorded") \
     && grep -q 'id="hero" class="hero closed"' "$WORK/task-$S.dom" && ! grep -q 'id="hero" class="hero closed"' "$WORK/task-$G.dom"; then
     pass "the board of a task that ended says no \"yet\" (no decision, no commit, no test on record) and its large card is as tall as what it says"
   else
@@ -1178,7 +1178,7 @@ sys.exit(not ok)' "$WORK/board.dom"); then
   for dom in "$WORK/board.dom" "$WORK"/task-*.dom; do
     [ -e "$dom" ] || continue
     why=$("$PY" -I -B -c "$SHOWN" "$dom" "!lead: builder" "!lead: session" "!session: C0FFEE" "!plan committed" "!investigation: bug" "!type: fix" "!kind: bug" "!after: building-one" "!report: investigation.md" \
-      "!small change: one builder" "!the owner" "!careful path" "!interview.start" "!scout.start" "!stories.read.start" "!investigation.start" "!builder.start" "!polish.start" "!gate.start" "!review.start") \
+      "!small change: one builder" "!the owner" "!careful path" "!interview.start" "!scout.start" "!criteria.read.start" "!investigation.start" "!builder.start" "!polish.start" "!gate.start" "!review.start") \
       || raw+=("$(basename "$dom"): $why")
   done
   if [ "${#raw[@]}" -eq 0 ] \
@@ -1357,21 +1357,21 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
   # The project's own asker: the page says where the owner answers, by the settings' tools.ask: on the
   # large card of the board, and on the task's own board.
   printf '%s\n' '[tools]' 'ask = "terminal"' > "$R/.lem/project.local.toml"
-  board --no-open >/dev/null && draw board && draw task-stories-wait
-  cp "$WORK/board.dom" "$WORK/board-terminal.dom" && cp "$WORK/task-stories-wait.dom" "$WORK/stories-terminal.dom"
+  board --no-open >/dev/null && draw board && draw task-criteria-wait
+  cp "$WORK/board.dom" "$WORK/board-terminal.dom" && cp "$WORK/task-criteria-wait.dom" "$WORK/criteria-terminal.dom"
   printf '%s\n' '[tools]' 'ask = "my-asker"' > "$R/.lem/project.local.toml"
-  board --no-open >/dev/null && draw task-held-choice && draw task-stories-wait
+  board --no-open >/dev/null && draw task-held-choice && draw task-criteria-wait
   rm "$R/.lem/project.local.toml"
   board --no-open >/dev/null && draw board
   # shellcheck disable=SC1112  # the curly quote is the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/board-terminal.dom" now \
       "Gift note export|Where you answer: Lem asks you choice 7 in its session, as text in the conversation. Answer it there before its wait ends; then the build goes on with the recommended action.") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/stories-terminal.dom" now \
-      "Where you answer: Lem shows you the stories, with the personas’ read on top, in its session, as text in the conversation. Approve or change them there.") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/criteria-terminal.dom" now \
+      "Where you answer: Lem shows you the acceptance criteria, with the personas’ read on top, in its session, as text in the conversation. Approve or change them there.") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-held-choice.dom" now \
       "Where you answer: Lem asks you choice 1 with my-asker, the asker this project names. Answer it there: it waits for your word, with no end.") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-stories-wait.dom" now \
-      "Where you answer: Lem shows you the stories, with the personas’ read on top, with my-asker, the asker this project names. Approve or change them there."); then
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-criteria-wait.dom" now \
+      "Where you answer: Lem shows you the acceptance criteria, with the personas’ read on top, with my-asker, the asker this project names. Approve or change them there."); then
     pass "where the owner answers follows the project's tools.ask: Lem's page, the conversation, or the developer's own asker by its name"
   else
     fail "the project's asker: $why"

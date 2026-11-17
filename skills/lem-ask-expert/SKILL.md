@@ -47,8 +47,8 @@ checkout.
 
    `--file` names a file the choice is about, relative to the worktree, once for each. The script
    writes `experts/choice-N.brief.md` in the task's directory: the choice, its options word for
-   word, the recommended one and why, what the personas said, the task's stories and its plan,
-   the files, and the form of an answer. It prints the brief's path, each expert's answer file
+   word, the recommended one and why, what the personas said, the task's acceptance criteria and its
+   plan, the files, and the form of an answer. It prints the brief's path, each expert's answer file
    and the experts still to ask (`ask`). It refuses a choice that does not wait.
 
 2. **Start the experts named in `ask` at once, in the background**, through `ask-experts` in the

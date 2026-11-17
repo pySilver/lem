@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Tasks that an older Lem proposed, finished by the Lem of now. The scripts of the commit before a task
-# got a type and a size take three tasks to `open`, each with a pull request on a GitHub remote: a small
+# got a type and a size, and before its stories became acceptance criteria, take three tasks to `open`, each with a pull request on a GitHub remote: a small
 # change, a bug whose investigation found its cause, and a full change with its plan, its approval and
-# the personas' read. A trial repository held three such tasks when the names changed (2026-11-17). The
+# the personas' read. A trial repository held three such tasks when the names changed (2026-11-17), with
+# `stories.md`, `stories.json`, `## Stories`, `stories.read` and `kind:` lines, which stay as written. The
 # scripts of now list them with their types, land them by each way there is, clean them, propose one of
 # them again, and the board draws them. A later change may drop this file with the old forms the scripts
 # read, once no task that an older Lem proposed is open.
@@ -74,7 +75,7 @@ oproject init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' > "$OT/.lem/project.toml"
 git -C "$OT" add -A && git -C "$OT" commit -q -m "chore: start" && git -C "$OT" push -q origin main
 
-# old_small SLUG FILE: the one story of a small change in the task directory, as the older Lem wrote and approved it
+# old_small SLUG FILE: the one story of a small change in the task directory (`stories.md`), as the older Lem wrote and approved it
 old_small() {
   local directory
   directory=$OT/.lem/state/tasks/$1
@@ -180,7 +181,8 @@ text=$OT/.lem/state/tasks/old-full/pr.md
 landed_full=$(nland land old-full --by owner 2>&1 | field 'd["pull_request"]["number"]' 2>&1 || true)
 clean_full=$(nland clean old-full 2>&1 | field 'd["worktree"]' 2>&1 || true)
 if [ "$polished" = False ] && [ "$gated" = True ] && [ "$again" = "(True, 4)" ] \
-  && grep -qxF -- "1. The file full.txt holds the word the owner asked for." "$text" \
+  && grep -qxF -- "1. The file full.txt holds the word the owner asked for." "$text" && grep -qx "## Acceptance criteria" "$text" \
+  && [ -f "$OT/.lem/state/tasks/old-full/stories.json" ] && [ ! -e "$OT/.lem/state/tasks/old-full/criteria.json" ] \
   && grep -qF -- "read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; the owner approved them on" "$text" \
   && [ "$landed_full" = 4 ] && [ "$(status_in "$OT" old-full)" = landed ] && [ "$clean_full" = True ] && [ "$(git -C "$OT" show main:full.txt)" = word ]; then
   pass "a full change an older Lem proposed is checked, reviewed and proposed again by the scripts of now on its own pull request, green, from its older plan, approval and read, and lands by the owner's word"
@@ -224,11 +226,11 @@ else
   draw task-old-full old-full
   if [ ! -s "$WORK/task-old-bug.dom" ]; then
     printf 'SKIP the board of the tasks an older Lem proposed: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-old-bug.dom" "fix" "Taken as a small change: Lem approved its one story in your name" "small change, because the request is one sentence." \
-      "nothing writes the word into bug.txt" "!kind: bug" "!correction, because") \
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-old-bug.dom" "fix" "Taken as a small change: Lem approved its one criterion in your name" "small change, because the request is one sentence." \
+      "nothing writes the word into bug.txt" "!kind: bug" "!correction, because" "!stories" "!one story") \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-old-full.dom" "feat" "full change, because the file gets a word and the README a line." "Approved by you" \
-      "The file full.txt holds the word the owner asked for." "!feature, because"); then
-    pass "the board draws the tasks an older Lem proposed with their types, the small change's approval in the owner's name, its cause, and the full change's stories"
+      "The file full.txt holds the word the owner asked for." "Acceptance criteria" "read by 2 of 2 personas" "!feature, because" "!stories" "!one story"); then
+    pass "the board draws the tasks an older Lem proposed with their types, the small change's approval in the owner's name, its cause, and the full change's acceptance criteria"
   else
     fail "the board of the tasks of an older Lem: $why"
   fi

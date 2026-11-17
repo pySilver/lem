@@ -14,14 +14,14 @@ dlist() { decide list gift-note | field "$1"; }
 dfile=$DC/.lem/state/tasks/gift-note/decisions.jsonl
 lead=$(decide log gift-note --what "The name of the new column" --chose gift_note --why "the other columns of the export are in snake case" --by lead --undo "rename the column" | field '(d["id"], d["kind"], d["by"], d["undo"])')
 nosaid=$(decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by personas 2>&1 || true)
-nostory=$(status_of decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by lead --story 2 --was "the old text")
+nostory=$(status_of decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by lead --criterion 2 --was "the old text")
 personas=$(decide log gift-note --what "Two notes on one order" --chose "both notes, with a semicolon between them" --why "a merchant reads both" --by personas \
-  --said "The merchant and the accountant both picked the semicolon." | field '(d["id"], d["by"], "story" in d, d["said"])')
+  --said "The merchant and the accountant both picked the semicolon." | field '(d["id"], d["by"], "criterion" in d, d["said"])')
 if [ "$lead" = "(1, 'taken', 'lead', 'rename the column')" ] \
   && [ "$personas" = "(2, 'personas', False, 'The merchant and the accountant both picked the semicolon.')" ] \
   && grep -qF -- "--by personas needs --said: who answered and what each picked" <<<"$nosaid" && [ "$nostory" = 2 ] \
   && [ "$(grep -c '' "$dfile")" = 2 ] && [ "$(grep -c '"event": "decision.taken", "task": "gift-note"' "$DC/.lem/state/events.jsonl")" = 2 ]; then
-  pass "a decision of the lead or of the personas is written down with its number, and each is an event too; the personas' one needs what they said, and a decision carries no story: a story's change has a record of its own"
+  pass "a decision of the lead or of the personas is written down with its number, and each is an event too; the personas' one needs what they said, and a decision carries no criterion: a criterion's change has a record of its own"
 else
   fail "decisions.py log: $lead / $personas / $nosaid / $nostory / $(cat "$dfile")"
 fi
@@ -118,17 +118,17 @@ if [ "$after" = "('late', 'timeout', 'plain', True, True)" ] && grep -q "choice 
 else
   fail "an answer after the wait: $after / $gone / $kinds / $seven"
 fi
-# A choice carries no story: the options are only its own, and a story it changes gets a record of its own after it.
-carried=$(status_of decide ask gift-note "${CASE[@]}" --what w --option a --option b --recommended a --why w --said s --story 1 --was "the old text" --changes b)
+# A choice carries no criterion: the options are only its own, and a criterion it changes gets a record of its own after it.
+carried=$(status_of decide ask gift-note "${CASE[@]}" --what w --option a --option b --recommended a --why w --said s --criterion 1 --was "the old text" --changes b)
 decide ask gift-note "${CASE[@]}" --what "The note in the header" --option "no header" --option "a header" --recommended "no header" --why "The rows stay as they are." --said "The two personas split." >/dev/null
 decide ask gift-note "${CASE[@]}" --what "The note in the footer" --option "no footer" --option "a footer" --recommended "no footer" --why "The rows stay as they are." --said "The two personas split." >/dev/null
 decide answer gift-note 8 --chose "a header" >/dev/null && decide answer gift-note 9 --chose "no footer" >/dev/null
-told=$(dlist '[(c["id"], c["state"], "story" in c) for c in d if c["id"] in (8, 9)]')
+told=$(dlist '[(c["id"], c["state"], "criterion" in c) for c in d if c["id"] in (8, 9)]')
 emptyundo=$(status_of decide log gift-note --what x --chose y --why z --by lead --undo " ")
 if [ "$carried" = 2 ] && [ "$told" = "[(8, 'answered', False), (9, 'answered', False)]" ] && [ "$emptyundo" = 1 ] && [ "$(dlist 'len(d)')" = 9 ]; then
-  pass "a choice carries no story, and its answer changes none by itself; an empty --undo is refused before anything is written"
+  pass "a choice carries no criterion, and its answer changes none by itself; an empty --undo is refused before anything is written"
 else
-  fail "a choice and a story, and empty values: $carried / $told / $emptyundo"
+  fail "a choice and a criterion, and empty values: $carried / $told / $emptyundo"
 fi
 # An answer takes one of the options, word for word, and keeps the owner's own words beside it.
 decide ask gift-note "${CASE[@]}" --what "The note in the summary" --option "no summary" --option "a summary line" --recommended "no summary" --why "The rows stay as they are." --said "The two personas split." >/dev/null
@@ -144,7 +144,7 @@ if grep -qF "the answer to choice 10 is one of its options, word for word: no su
 else
   fail "an answer and the owner's words: $free / $freecode / $still / $mapped / $ten"
 fi
-# A decision of the owner's that is none of the options settles the choice with --instead; a story the choice carries is said changed or kept, never left out.
+# A decision of the owner's that is none of the options settles the choice with --instead; a criterion the choice carries is said changed or kept, never left out.
 decide ask gift-note "${CASE[@]}" --what "Email the merchants" --option "email all customers" --option "email nobody" --recommended "email nobody" --why "Nobody asked for it." --said "The two personas split." --irreversible person >/dev/null
 both=$(decide answer gift-note 11 --chose "email nobody" --instead "Email only the beta testers." 2>&1 || true)
 neither=$(decide answer gift-note 11 2>&1 || true)
@@ -153,14 +153,14 @@ settled=$(decide answer gift-note 11 --instead "Email only the beta testers." --
 eleven=$(dlist 'next((c["state"], c["chose"], c.get("instead"), c.get("owner_why")) for c in d if c["id"] == 11)')
 open_ones=$(decide pending gift-note | field '[c["id"] for c in d["waiting"]]')
 decide ask gift-note "${CASE[@]}" --what "The note in the title" --option "no title" --option "a title" --recommended "no title" --why "The rows stay as they are." --said "The two personas split." >/dev/null
-flagged_answer=$(status_of decide answer gift-note 12 --instead "A title on the first page only." --story-changed --was "old")
+flagged_answer=$(status_of decide answer gift-note 12 --instead "A title on the first page only." --criterion-changed --was "old")
 decide answer gift-note 12 --instead "A title on the first page only." >/dev/null
-twelve=$(dlist 'next((c["state"], c.get("instead"), "story" in c) for c in d if c["id"] == 12)')
+twelve=$(dlist 'next((c["state"], c.get("instead"), "criterion" in c) for c in d if c["id"] == 12)')
 if grep -qF -- "--chose names one of the options and --instead a decision of the owner's that is none of them: give one of the two" <<<"$both" && [ "$bothcode" = 1 ] \
   && grep -qF -- "give one of the two" <<<"$neither" && [ "$settled" = "('answered', 'Email only the beta testers.', True)" ] \
   && [ "$eleven" = "('answered', 'Email only the beta testers.', True, 'They asked to hear first.')" ] && [ "$open_ones" = "[4]" ] \
   && [ "$flagged_answer" = 2 ] && [ "$twelve" = "('answered', True, False)" ]; then
-  pass "a decision of the owner's that is none of the options settles the choice with --instead, an irreversible one too, so it no longer waits; it is refused together with --chose or with neither; and it carries no story"
+  pass "a decision of the owner's that is none of the options settles the choice with --instead, an irreversible one too, so it no longer waits; it is refused together with --chose or with neither; and it carries no criterion"
 else
   fail "an answer that is none of the options: $both / $neither / $settled / $eleven / $open_ones / $flagged_answer / $twelve"
 fi

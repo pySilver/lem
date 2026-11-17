@@ -24,9 +24,9 @@ Return, as short lines, each with the file and the symbol that shows it:
 5. Questions the interviewer could ask the owner that these facts raise, at most three, each one
    sentence.
 
-No design, no plan, no recommendation of how to build it: the stories Lem writes from your
-report are the owner's rules, and the plan is the lead's, who reads the code again. End with one
-line: how many files you opened.
+No design, no plan, no recommendation of how to build it: the acceptance criteria Lem writes from
+your report are the owner's rules, and the plan is the lead's, who reads the code again. End with
+one line: how many files you opened.
 
 Your reply is the report, as text, and nothing else. Lem keeps it as `scout.md` in the task
 directory. Do not write that file yourself.

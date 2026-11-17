@@ -3,7 +3,7 @@
 # With no settings file it answers from the skill's own layout; init points at the folders an older
 # tool already reads instead of moving them; a settings file with an unknown key, a wrong value or a
 # path that leaves the repository is refused, and so is a list of careful paths; a worktree reads
-# the main checkout's flow table. Then the task state and the event log, the rule picker, a task's stories and the check that
+# the main checkout's flow table. Then the task state and the event log, the rule picker, a task's criteria and the check that
 # each one's tests fail on the base commit, the backlog's sorting, and the board, which reads them all.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
@@ -405,8 +405,8 @@ settings '[branch]' 'base = "master"'
 rm -r "$OLD/.lem/state/tasks/from-a-ticket" "$OLD/.lem/state/tasks/the-same-ticket"
 rm -rf "$OLD/.lem/state/tasks/after-the-answer"
 none=$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')
-echo '{"proposed": "0123", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["story 1 changed during the build: y is taken."]}' > "$dir/landing.json"
-if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['story 1 changed during the build: y is taken.']}]" ]; then
+echo '{"proposed": "0123", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["criterion 1 changed during the build: y is taken."]}' > "$dir/landing.json"
+if [ "$none" = "[None]" ] && [ "$(project --repo "$OLD" tasks | field '[t["proposal"] for t in d]')" = "[{'pull_request': 'https://github.com/acme/shop/pull/7', 'green': False, 'not_green': ['criterion 1 changed during the build: y is taken.']}]" ]; then
   pass "tasks says what a landing proposed: the pull request's address, and green or each reason it is not"
 else
   fail "the proposal in tasks: $(project --repo "$OLD" tasks)"
@@ -786,19 +786,19 @@ fi
 # The start of each stage an agent runs has one form, so that the board draws its span from it to the event that ends it.
 starts() { project --repo "$ANS" log zero-after-refund "$@" 2>&1 || true; }
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl")
-good=$(for form in "interview.start" "scout.start" "scout" "stories.read.start by=lem" "stories.read.start by=lead" "investigation.start type=fix" "investigation.start type=question" \
+good=$(for form in "interview.start" "scout.start" "scout" "criteria.read.start by=lem" "criteria.read.start by=lead" "investigation.start type=fix" "investigation.start type=question" \
   "builder.start job=task 2 of 3" "builder.start job=the small change" "builder.start job=the repair of a conflict with the base" "builder.start job=the repair of a failed check" "builder.start job=the fix of a review's findings"; do
   read -r -a words <<<"${form%% *}"; if [ "$form" = "${form%% *}" ]; then starts "${words[0]}" | field 'd["event"]'; else starts "${words[0]}" "${form#* }" | field 'd["event"]'; fi; done | sort -u | tr '\n' ' ')
 added=$(( $(grep -c '' "$ANS/.lem/state/events.jsonl") - before ))
 with_field=$(starts interview.start by=lem)
-no_by=$(starts stories.read.start)
-odd_by=$(starts stories.read.start by=owner)
+no_by=$(starts criteria.read.start)
+odd_by=$(starts criteria.read.start by=owner)
 odd_kind=$(starts investigation.start kind=question)
 odd_job=$(starts builder.start "job=the polish pass")
 task_zero=$(starts builder.start "job=task 0 of 3")
 script_start=$(starts gate.start tip=abc123456)
-if [ "$good" = "builder.start interview.start investigation.start scout scout.start stories.read.start " ] && [ "$added" = 12 ] \
-  && grep -qF "interview.start takes nothing" <<<"$with_field" && grep -qF "stories.read.start takes by=lem|lead, and nothing else" <<<"$no_by" && grep -qF "by is 'owner'" <<<"$odd_by" \
+if [ "$good" = "builder.start criteria.read.start interview.start investigation.start scout scout.start " ] && [ "$added" = 12 ] \
+  && grep -qF "interview.start takes nothing" <<<"$with_field" && grep -qF "criteria.read.start takes by=lem|lead, and nothing else" <<<"$no_by" && grep -qF "by is 'owner'" <<<"$odd_by" \
   && grep -qF "investigation.start takes type=fix|question" <<<"$odd_kind" && grep -qF "builder.start takes job=" <<<"$odd_job" && grep -qF "the polish pass logs its own start" <<<"$odd_job" \
   && grep -qF "builder.start takes job=" <<<"$task_zero" && grep -qF "gate.start takes tip=TIP commands:=N" <<<"$script_start" \
   && [ "$(grep -c '' "$ANS/.lem/state/events.jsonl")" = $((before + 12)) ]; then
@@ -851,8 +851,8 @@ for block in 'building|plan committed, 3 tasks' 'building|task 3 of 3' 'ready|th
   project --repo "$OLD" state owner-lands-it "${block%%|*}" "${block#*|}" >/dev/null
 done
 project --repo "$OLD" log owner-lands-it review round:=1 kind=read verdict=clean must_fix:=0 should:=1 nit:=0 'answered:=["codex"]' 'silent:=[]' 'ran:=[]' 'left_out:=[]' tip=abc1234 >/dev/null
-project --repo "$OLD" log owner-lands-it proposed green:=false 'not_green:=["story 1 changed during the build: y is taken."]' tip=abc1234 >/dev/null
-project --repo "$OLD" state owner-lands-it open "ready to land on master at abc1234" "not green: story 1 changed during the build: y is taken." >/dev/null
+project --repo "$OLD" log owner-lands-it proposed green:=false 'not_green:=["criterion 1 changed during the build: y is taken."]' tip=abc1234 >/dev/null
+project --repo "$OLD" state owner-lands-it open "ready to land on master at abc1234" "not green: criterion 1 changed during the build: y is taken." >/dev/null
 
 # The rule picker: one match of a change against the scopes of the style guide files, for every reader of the rules.
 RUL=$WORK/rules-repo
@@ -958,9 +958,9 @@ else
   fail "an adopted project's rules"
 fi
 
-# The stories of a task: read from the top of its plan, and each one held by a test that fails on the base commit.
-stories() { "$PY" -B "$STORIES" --repo "$ST" "$@"; }
-ST=$WORK/stories-repo
+# The criteria of a task: read from the top of its plan, and each one held by a test that fails on the base commit.
+criteria() { "$PY" -B "$CRITERIA" --repo "$ST" "$@"; }
+ST=$WORK/criteria-repo
 git init -q -b main "$ST" && git -C "$ST" config user.name t && git -C "$ST" config user.email t@t
 mkdir -p "$ST/tests" "$ST/docs/plans" && echo 'echo "1042,None"' > "$ST/export.sh" && git -C "$ST" add -A && git -C "$ST" commit -q -m start
 project --repo "$ST" init --base main >/dev/null && git -C "$ST" add -A && git -C "$ST" commit -q -m "chore: the settings"
@@ -971,37 +971,37 @@ project --repo "$ST" state export-has-the-gift-note building 'lead: builder' >/d
 mkdir -p "$stw/docs/plans" "$stw/tests"
 plan=$stw/docs/plans/20261115-export-has-the-gift-note.md
 # shellcheck disable=SC2016  # the backticks are the plan's own marks around a command and a file
-printf '%s\n' '# The export has the gift note' '' '## Stories' '' 'Size: full, because the export gets a new column and an empty cell.' '' \
+printf '%s\n' '# The export has the gift note' '' '## Acceptance criteria' '' 'Size: full, because the export gets a new column and an empty cell.' '' \
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania"' '   has that text in its row.' \
   '   - test: `sh tests/gift.sh` in `tests/gift.sh`' '2. An order with no gift note has an empty cell, not the word "None".' \
   '   - test: `sh tests/none.sh` in `tests/none.sh`, `tests/helper.sh`' '' '## Tasks' '' '1. The column.' > "$plan"
 printf '%s\n' 'echo "1042,for Ania"' 'echo "1043,"' > "$stw/export.sh"
 echo 'sh export.sh | grep -q "1042,for Ania"' > "$stw/tests/gift.sh" && echo '. tests/helper.sh; ! sh export.sh | grep -q None' > "$stw/tests/none.sh" && echo ': a helper' > "$stw/tests/helper.sh"
 git -C "$stw" add -A && git -C "$stw" commit -q -m "feat: the gift note"
-shown=$(stories show export-has-the-gift-note)
-stories record export-has-the-gift-note >/dev/null
-if [ "$(field '(d["size"], d["why"], [(s["n"], s["text"].split(" of an order")[0].split(",")[0], [t["command"] for t in s["tests"]], [t["files"] for t in s["tests"]]) for s in d["stories"]])' <<<"$shown")" \
+shown=$(criteria show export-has-the-gift-note)
+criteria record export-has-the-gift-note >/dev/null
+if [ "$(field '(d["size"], d["why"], [(s["n"], s["text"].split(" of an order")[0].split(",")[0], [t["command"] for t in s["tests"]], [t["files"] for t in s["tests"]]) for s in d["criteria"]])' <<<"$shown")" \
   = "('full', 'the export gets a new column and an empty cell.', [(1, 'A CSV export holds the gift note', ['sh tests/gift.sh'], [['tests/gift.sh']]), (2, 'An order with no gift note has an empty cell', ['sh tests/none.sh'], [['tests/none.sh', 'tests/helper.sh']])])" ] \
-  && [ "$(field 'd["stories"][0]["text"].endswith("has that text in its row.")' <<<"$shown")" = True ] \
-  && [ "$(grep -c '"event": "task.stories"' "$ST/.lem/state/events.jsonl")" = 1 ] && grep -q '"size": "full"' "$ST/.lem/state/events.js"; then
-  pass "the stories are read from the top of the task's plan, each with its text over two lines and its tests, and record puts them into the event log for the board"
+  && [ "$(field 'd["criteria"][0]["text"].endswith("has that text in its row.")' <<<"$shown")" = True ] \
+  && [ "$(grep -c '"event": "task.criteria"' "$ST/.lem/state/events.jsonl")" = 1 ] && grep -q '"size": "full"' "$ST/.lem/state/events.js"; then
+  pass "the criteria are read from the top of the task's plan, each with its text over two lines and its tests, and record puts them into the event log for the board"
 else
-  fail "stories show and record: $shown"
+  fail "criteria show and record: $shown"
 fi
 before=$(git -C "$stw" rev-parse HEAD)
 echo 'kept: mine' > "$stw/local.conf" && echo 'local.conf' >> "$ST/.git/info/exclude"
-out=$(stories red export-has-the-gift-note)
-if [ "$(field '(d["ok"], [(t["story"], t["on_branch"], t["on_base"] != 0, t["problem"]) for t in d["tests"]], d["without_a_test"])' <<<"$out")" = "(True, [(1, 0, True, None), (2, 0, True, None)], [])" ] \
+out=$(criteria red export-has-the-gift-note)
+if [ "$(field '(d["ok"], [(t["criterion"], t["on_branch"], t["on_base"] != 0, t["problem"]) for t in d["tests"]], d["without_a_test"])' <<<"$out")" = "(True, [(1, 0, True, None), (2, 0, True, None)], [])" ] \
   && [ "$(git -C "$stw" branch --show-current)" = "feat/export-has-the-gift-note" ] && [ "$(git -C "$stw" rev-parse HEAD)" = "$before" ] && [ -z "$(git -C "$stw" status --porcelain)" ] \
   && [ "$(cat "$stw/local.conf")" = 'kept: mine' ] && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ] \
   && [ "$(git -C "$ST" worktree list | grep -c '')" = 2 ] && grep -q '"event": "task.red"' "$ST/.lem/state/events.jsonl"; then
-  pass "red runs each story's tests in a worktree of its own, on the branch and with only the test files laid over the base commit: both fail there; the task's worktree is not touched, a file git ignores in it too, and the check's worktree is gone"
+  pass "red runs each criterion's tests in a worktree of its own, on the branch and with only the test files laid over the base commit: both fail there; the task's worktree is not touched, a file git ignores in it too, and the check's worktree is gone"
 else
-  fail "stories red: $out / $(git -C "$stw" status --porcelain) / $(git -C "$ST" worktree list)"
+  fail "criteria red: $out / $(git -C "$stw" status --porcelain) / $(git -C "$ST" worktree list)"
 fi
-# What does not hold a story: a test that passes on the base commit too, one that changes a file both
-# commits have, one whose helper is not named, a folder in the place of a file. And a story with no test.
-story3() { git -C "$stw" checkout -q -- docs && "$PY" -c 'import sys; p, lines = sys.argv[1], sys.argv[2:]; s = open(p).read(); open(p, "w").write(s.replace("\n## Tasks", "\n".join(lines) + "\n\n## Tasks"))' "$plan" "$@" && git -C "$stw" commit -q -am "docs: a third story" && stories red export-has-the-gift-note 2>&1 || true; git -C "$stw" reset -q --hard "$before"; }
+# What does not hold a criterion: a test that passes on the base commit too, one that changes a file both
+# commits have, one whose helper is not named, a folder in the place of a file. And a criterion with no test.
+story3() { git -C "$stw" checkout -q -- docs && "$PY" -c 'import sys; p, lines = sys.argv[1], sys.argv[2:]; s = open(p).read(); open(p, "w").write(s.replace("\n## Tasks", "\n".join(lines) + "\n\n## Tasks"))' "$plan" "$@" && git -C "$stw" commit -q -am "docs: a third criterion" && criteria red export-has-the-gift-note 2>&1 || true; git -C "$stw" reset -q --hard "$before"; }
 # shellcheck disable=SC2016
 weak=$(story3 '3. The export still has one row for each order.' '   - test: `sh export.sh` in `tests/gift.sh`')
 # the settings file is the same on the base commit and on the branch: a test that reads it and then changes it
@@ -1025,21 +1025,21 @@ folder=$(story3 '3. The tests are there.' '   - test: `sh tests/gift.sh` in `tes
 bare=$(story3 '3. The export still has one row for each order.')
 said=$(story3 '3. The export still has one row for each order.' '   - no test: the count of rows is the export of today, which no change here touches.' | field '(d["ok"], d["without_a_test"])')
 echo stray > "$stw/stray.txt"
-dirty=$(stories red export-has-the-gift-note 2>&1 || true)
+dirty=$(criteria red export-has-the-gift-note 2>&1 || true)
 rm "$stw/stray.txt"
 # shellcheck disable=SC2016
-if grep -q 'story 3: `sh export.sh` passes on the base commit too, so it does not test the change' <<<"$weak" \
-  && grep -q 'story 3: `sh tests/config.sh` passes on the base commit too' <<<"$writes" \
-  && grep -q 'story 3: `sh tests/calls.sh` does not start on the base commit (exit 127), so its failure there proves nothing. If a file it needs is a helper of the test, name it among' <<<"$helper" \
-  && grep -q 'story 3: `sh tests/runner.sh` does not start on the base commit (exit 2), so its failure there proves nothing' <<<"$unstarted" \
-  && grep -q "story 3: 'tests' is a folder on the branch. Name each file that holds the test, one by one" <<<"$folder" \
-  && grep -q "story 3 names no test: every story is held by a test at the end of a build" <<<"$bare" \
-  && [ "$said" = "(True, [{'story': 3, 'why': 'the count of rows is the export of today, which no change here touches.'}])" ] \
+if grep -q 'criterion 3: `sh export.sh` passes on the base commit too, so it does not test the change' <<<"$weak" \
+  && grep -q 'criterion 3: `sh tests/config.sh` passes on the base commit too' <<<"$writes" \
+  && grep -q 'criterion 3: `sh tests/calls.sh` does not start on the base commit (exit 127), so its failure there proves nothing. If a file it needs is a helper of the test, name it among' <<<"$helper" \
+  && grep -q 'criterion 3: `sh tests/runner.sh` does not start on the base commit (exit 2), so its failure there proves nothing' <<<"$unstarted" \
+  && grep -q "criterion 3: 'tests' is a folder on the branch. Name each file that holds the test, one by one" <<<"$folder" \
+  && grep -q "criterion 3 names no test: every criterion is held by a test at the end of a build" <<<"$bare" \
+  && [ "$said" = "(True, [{'criterion': 3, 'why': 'the count of rows is the export of today, which no change here touches.'}])" ] \
   && grep -q "the worktree has changes nobody committed" <<<"$dirty" && [ "$(git -C "$stw" rev-parse HEAD)" = "$before" ] \
   && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ]; then
-  pass "a story is not held by a test that passes on the base commit too, that only changes a file both commits have, whose helper file is not named, or that starts a shell on a script the base commit lacks, whatever that shell's exit; a folder as a test file and a story with no test are refused, and one that says why it has none is listed"
+  pass "a criterion is not held by a test that passes on the base commit too, that only changes a file both commits have, whose helper file is not named, or that starts a shell on a script the base commit lacks, whatever that shell's exit; a folder as a test file and a criterion with no test are refused, and one that says why it has none is listed"
 else
-  fail "stories red refusals: $weak / $writes / $helper / $unstarted / $folder / $bare / $said / $dirty"
+  fail "criteria red refusals: $weak / $writes / $helper / $unstarted / $folder / $bare / $said / $dirty"
 fi
 # A test that needs what a fresh worktree lacks is named as such, and the settings' gate.setup makes it.
 echo 'test -f .made-by-setup && sh export.sh | grep -q "1042,for Ania"' > "$stw/tests/env.sh" && git -C "$stw" add -A && git -C "$stw" commit -q -m "test: one that needs a setup" && before=$(git -C "$stw" rev-parse HEAD)
@@ -1049,19 +1049,19 @@ sed -i.bak 's|^setup = \[\]$|setup = ["touch .made-by-setup"]|' "$ST/.lem/projec
 # shellcheck disable=SC2016
 made=$(story3 '3. The export has the note, in a set-up worktree.' '   - test: `sh tests/env.sh` in `tests/env.sh`' | field '(d["ok"], d["setup"], d["tests"][2]["problem"])')
 sed -i.bak 's|^setup = .*$|setup = ["exit 3"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
-broken=$(stories red export-has-the-gift-note 2>&1 || true)
+broken=$(criteria red export-has-the-gift-note 2>&1 || true)
 sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 # A worktree that a killed run of the check left behind is removed by the next run.
 git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-tip" main && git -C "$ST" worktree lock "$ST/.lem/worktrees/export-has-the-gift-note.red-tip"
 git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-999999" main
-stories red export-has-the-gift-note >/dev/null
+criteria red export-has-the-gift-note >/dev/null
 if grep -q "fails in a fresh worktree of the branch (exit 1). If it passes in the task's worktree, it needs something a fresh one lacks: put the commands that make it into gate.setup" <<<"$lacks" \
   && [ "$made" = "(True, [{'on': 'branch', 'command': 'touch .made-by-setup', 'exit': 0}, {'on': 'base', 'command': 'touch .made-by-setup', 'exit': 0}], None)" ] \
   && grep -q "of gate.setup failed in a fresh worktree of the branch (exit 3)" <<<"$broken" \
   && [ "$(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '')" = 0 ] && [ "$(git -C "$ST" worktree list | grep -c '')" = 2 ]; then
   pass "a test that needs what a fresh worktree lacks is named as such and not taken for proof; the settings' gate.setup makes it in each of the two worktrees; a setup command that fails stops the check; and a worktree that a killed run left is removed"
 else
-  fail "stories red and gate.setup: $lacks / $made / $broken / $(git -C "$ST" worktree list)"
+  fail "criteria red and gate.setup: $lacks / $made / $broken / $(git -C "$ST" worktree list)"
 fi
 # Each run has a worktree and a setup of its own, so what a test writes on the branch does not reach the base run;
 # the result names the files of the branch that the base run lacked.
@@ -1069,10 +1069,10 @@ echo 'grep -q correct .test-state || exit 1; echo corrupt > .test-state' > "$stw
 sed -i.bak 's|^setup = .*$|setup = ["echo correct > .test-state"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 # shellcheck disable=SC2016
 state=$(story3 '3. The state is read.' '   - test: `sh tests/state.sh` in `tests/state.sh`')
-lacked=$(stories red export-has-the-gift-note | field '("export.sh" in d["run_without"], "tests/gift.sh" in d["run_without"], "tests/runner.sh" in d["run_without"])')
+lacked=$(criteria red export-has-the-gift-note | field '("export.sh" in d["run_without"], "tests/gift.sh" in d["run_without"], "tests/runner.sh" in d["run_without"])')
 # A hook that fails after git made the worktree, and a setup command that locks it: neither worktree stays.
 printf '%s\n' '#!/bin/sh' 'exit 9' > "$ST/.git/hooks/post-checkout" && chmod +x "$ST/.git/hooks/post-checkout"
-hooked=$(status_of stories red export-has-the-gift-note)
+hooked=$(status_of criteria red export-has-the-gift-note)
 # a hook that leaves a process behind: the check goes on, and that process is ended. The process
 # is `sleep` by a name of this run's own, so that a second run of the suite beside this one counts
 # none of its own processes here.
@@ -1080,29 +1080,29 @@ hooked=$(status_of stories red export-has-the-gift-note)
 # `sleep` does not start where one binary holds every core tool and reads its own name (Ubuntu).
 NAP1="32.9$$"; NAP2="31.7$$"
 printf '%s\n' '#!/bin/sh' "sleep $NAP1 &" 'exit 0' > "$ST/.git/hooks/post-checkout"
-watched=$(stories red export-has-the-gift-note | field 'd["ok"]')
+watched=$(criteria red export-has-the-gift-note | field 'd["ok"]')
 watched="$watched $(pgrep -f "sleep ${NAP1/./\\.}" | grep -c '' || true)"
 rm "$ST/.git/hooks/post-checkout"
 after_hook=$(git -C "$ST" worktree list | grep -c '')
 sed -i.bak 's|^setup = .*$|setup = ["git worktree lock ."]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
-locked=$(stories red export-has-the-gift-note | field 'd["ok"]')
+locked=$(criteria red export-has-the-gift-note | field 'd["ok"]')
 after_lock="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
 # A worktree that cannot be removed is said beside the failure that came first, and the next run removes it.
 sed -i.bak 's|^setup = .*$|setup = ["chmod 500 ..; exit 3"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
-stuck=$(stories red export-has-the-gift-note 2>&1 || true)
+stuck=$(criteria red export-has-the-gift-note 2>&1 || true)
 chmod 700 "$ST/.lem/worktrees"
 sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
-stories red export-has-the-gift-note >/dev/null
+criteria red export-has-the-gift-note >/dev/null
 after_stuck="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
 # One check of a task at a time: while another process holds the task's lock, a second check is refused.
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$ST/.lem/state/tasks/export-has-the-gift-note/red.lock" > "$WORK/lock.out" &
 holder=$!
 soon test -s "$WORK/lock.out"
-second=$(stories red export-has-the-gift-note 2>&1 || true)
+second=$(criteria red export-has-the-gift-note 2>&1 || true)
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 # A check that is stopped ends the command it runs, and leaves no worktree.
 sed -i.bak "s|^setup = .*\$|setup = [\"sleep $NAP2\"]|" "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
-"$PY" -B "$STORIES" --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
+"$PY" -B "$CRITERIA" --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
 check=$!
 napping() { pgrep -f "sleep ${NAP2/./\\.}" >/dev/null 2>&1; }
 soon napping
@@ -1112,77 +1112,77 @@ left=$(pgrep -f "sleep ${NAP2/./\\.}" | grep -c '' || true)
 after_stop="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
 sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
 # shellcheck disable=SC2016
-if grep -q 'story 3: `sh tests/state.sh` passes on the base commit too' <<<"$state" && [ "$lacked" = "(True, False, True)" ] \
+if grep -q 'criterion 3: `sh tests/state.sh` passes on the base commit too' <<<"$state" && [ "$lacked" = "(True, False, True)" ] \
   && [ "$hooked" = 1 ] && [ "$watched" = "True 0" ] && [ "$after_hook" = 2 ] && [ "$locked" = True ] && [ "$after_lock" = "2 0" ] \
   && grep -q "of gate.setup failed in a fresh worktree of the branch (exit 3)" <<<"$stuck" && grep -q "red-tip could not be removed; remove it yourself: git -C" <<<"$stuck" && [ "$after_stuck" = "2 0" ] \
-  && grep -q "another check of this task's stories runs now" <<<"$second" \
+  && grep -q "another check of this task's criteria runs now" <<<"$second" \
   && [ "$started" -ge 1 ] && [ "$left" = 0 ] && [ "$after_stop" = "2 0" ] && grep -q "the check was stopped, and its commands are ended; its worktrees are removed" "$WORK/stopped.out"; then
   pass "each run of the check has a worktree and a setup of its own, and the result names what the base run lacked; a failed hook, a locked worktree and a stopped check leave no worktree and no process; and a second check of one task waits"
 else
   fail "the check's worktrees: $state / $lacked / stuck $stuck $after_stuck / hook $hooked $watched $after_hook / lock $locked $after_lock / $second / stop $started $left $after_stop $(cat "$WORK/stopped.out")"
 fi
-# A plan whose stories do not have the form is refused with the line that is wrong.
-form() { printf '%s\n' "$@" > "$plan"; stories show export-has-the-gift-note 2>&1 || true; }
+# A plan whose criteria do not have the form is refused with the line that is wrong.
+form() { printf '%s\n' "$@" > "$plan"; criteria show export-has-the-gift-note 2>&1 || true; }
 no_section=$(form '# A plan' '' '## Tasks')
-no_kind=$(form '## Stories' '' '1. A story.')
-two=$(form '## Stories' '' 'Size: small, because it is one sentence.' '' '1. One.' '2. Two.')
-order=$(form '## Stories' '' 'Size: full, because of two things.' '' '1. One.' '3. Three.')
-# The section an older Lem wrote, with `Kind: feature` or `Kind: correction`, reads as its size; another word there does not.
+no_kind=$(form '## Acceptance criteria' '' '1. A criterion.')
+two=$(form '## Acceptance criteria' '' 'Size: small, because it is one sentence.' '' '1. One.' '2. Two.')
+order=$(form '## Acceptance criteria' '' 'Size: full, because of two things.' '' '1. One.' '3. Three.')
+# The section an older Lem wrote, `## Stories` with `Kind: feature` or `Kind: correction`, reads as its size; another word there does not.
 old_kind=$(form '## Stories' '' 'Kind: feature, because an older Lem wrote it.' '' '1. One.' | field '(d["size"], d["mark"])' 2>&1 || true)
-odd_size=$(form '## Stories' '' 'Size: medium, because it is between.' '' '1. One.')
+odd_size=$(form '## Acceptance criteria' '' 'Size: medium, because it is between.' '' '1. One.')
 # An example of the form in a code fence is not the section, and a plan of another task whose name ends the same way is not this task's.
 # shellcheck disable=SC2016
-fenced=$(form '# A plan' '' '````markdown' 'An example in an example:' '```' '## Stories' '' 'Size: small, because it is an example.' '' '1. An example.' '```' '````' '' '## Stories' '' 'Size: full, because it is the real one.' '' '1. The real story.' | field '(d["size"], d["stories"][0]["text"])')
+fenced=$(form '# A plan' '' '````markdown' 'An example in an example:' '```' '## Acceptance criteria' '' 'Size: small, because it is an example.' '' '1. An example.' '```' '````' '' '## Acceptance criteria' '' 'Size: full, because it is the real one.' '' '1. The real criterion.' | field '(d["size"], d["criteria"][0]["text"])')
 git -C "$stw" checkout -q -- docs
-printf '%s\n' '## Stories' '' 'Size: small, because it is another task.' '' '1. Not this task.' > "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
-other=$(stories show export-has-the-gift-note | field '(d["size"], d["plan"].rsplit("/", 1)[1])')
+printf '%s\n' '## Acceptance criteria' '' 'Size: small, because it is another task.' '' '1. Not this task.' > "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
+other=$(criteria show export-has-the-gift-note | field '(d["size"], d["plan"].rsplit("/", 1)[1])')
 rm "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
-stories record export-has-the-gift-note >/dev/null && stories red export-has-the-gift-note >/dev/null
+criteria record export-has-the-gift-note >/dev/null && criteria red export-has-the-gift-note >/dev/null
 # shellcheck disable=SC2016
-if [ "$fenced" = "('full', 'The real story.')" ] && [ "$other" = "('full', '20261115-export-has-the-gift-note.md')" ] \
+if [ "$fenced" = "('full', 'The real criterion.')" ] && [ "$other" = "('full', '20261115-export-has-the-gift-note.md')" ] \
   && [ "$old_kind" = "('full', 'feature')" ] && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with \`Size: full, because ...\`" <<<"$odd_size" \
-  && grep -q 'has no `## Stories` section' <<<"$no_section" && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with" <<<"$no_kind" \
-  && grep -q "a small change has one story, and this one has 2: it is a full change" <<<"$two" && grep -q ":6: the stories are numbered 1, 2, 3 in order" <<<"$order" \
-  && [ "$(status_of stories show no-such-task)" = 1 ]; then
-  pass "a plan with no stories section, no size, a small change of two stories, an unknown size or a gap in the numbers is refused with the place and the fix; the Kind line of an older Lem reads as its size; a fenced example is not the section, and a plan of another task is not read"
+  && grep -q 'has no `## Acceptance criteria` section' <<<"$no_section" && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with" <<<"$no_kind" \
+  && grep -q "a small change has one criterion, and this one has 2: it is a full change" <<<"$two" && grep -q ":6: the criteria are numbered 1, 2, 3 in order" <<<"$order" \
+  && [ "$(status_of criteria show no-such-task)" = 1 ]; then
+  pass "a plan with no criteria section, no size, a small change of two criteria, an unknown size or a gap in the numbers is refused with the place and the fix; the Kind line of an older Lem reads as its size; a fenced example is not the section, and a plan of another task is not read"
 else
-  fail "the form of the stories: $no_section / $no_kind / $two / $order / $old_kind / $odd_size"
+  fail "the form of the criteria: $no_section / $no_kind / $two / $order / $old_kind / $odd_size"
 fi
 
-# Approved stories are frozen as written: the plan's stories are those, word for word, with only test lines added.
+# Approved criteria are frozen as written: the plan's criteria are those, word for word, with only test lines added.
 # They are approved at the interview, before the task has a worktree.
 project --repo "$ST" task-dir approved-note >/dev/null
-printf '%s\n' '## Stories' '' 'Size: full, because the note gets a file and an empty case.' '' '1. The note file holds the gift note of order 1042: "for Ania".' \
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the note gets a file and an empty case.' '' '1. The note file holds the gift note of order 1042: "for Ania".' \
   '2. An order with no gift note has the line "1043," and no word' '   after the comma.' > "$WORK/approved.md"
-approved=$(stories approve approved-note --file "$WORK/approved.md" 2>&1 || true)
-kept_stories=$ST/.lem/state/tasks/approved-note/stories.json
+approved=$(criteria approve approved-note --file "$WORK/approved.md" 2>&1 || true)
+kept_stories=$ST/.lem/state/tasks/approved-note/criteria.json
 # shellcheck disable=SC2016
-printf '%s\n' '## Stories' '' 'Size: full, because of a test.' '' '1. A story.' '   - test: `sh t.sh` in `t.sh`' > "$WORK/tested.md"
-tested=$(stories approve approved-note --file "$WORK/tested.md" 2>&1 || true)
-not_one=$(stories approve approved-note --file "$WORK/approved.md" --small 2>&1 || true)
-no_file=$(stories approve approved-note 2>&1 || true)
-kept_now=$(stories approved approved-note 2>/dev/null | field '(d["approved"]["by"], d["approved"]["digest"], [s["text"] for s in d["approved"]["stories"]])' 2>&1 || true)
-if [ "$(field '(d["by"], d["size"], len(d["digest"]), [s["n"] for s in d["stories"]], d["stories"][1]["text"])' <<<"$approved" 2>/dev/null)" \
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because of a test.' '' '1. A criterion.' '   - test: `sh t.sh` in `t.sh`' > "$WORK/tested.md"
+tested=$(criteria approve approved-note --file "$WORK/tested.md" 2>&1 || true)
+not_one=$(criteria approve approved-note --file "$WORK/approved.md" --small 2>&1 || true)
+no_file=$(criteria approve approved-note 2>&1 || true)
+kept_now=$(criteria approved approved-note 2>/dev/null | field '(d["approved"]["by"], d["approved"]["digest"], [s["text"] for s in d["approved"]["criteria"]])' 2>&1 || true)
+if [ "$(field '(d["by"], d["size"], len(d["digest"]), [s["n"] for s in d["criteria"]], d["criteria"][1]["text"])' <<<"$approved" 2>/dev/null)" \
   = "('owner', 'full', 12, [1, 2], 'An order with no gift note has the line \"1043,\" and no word after the comma.')" ] \
   && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["text"] == open(sys.argv[2]).read())' "$kept_stories" "$WORK/approved.md" 2>/dev/null)" = True ] \
-  && [ "$(grep -c '"event": "stories.approved", "task": "approved-note", "by": "owner"' "$ST/.lem/state/events.jsonl")" = 1 ] \
+  && [ "$(grep -c '"event": "criteria.approved", "task": "approved-note", "by": "owner"' "$ST/.lem/state/events.jsonl")" = 1 ] \
   && [ "$kept_now" = "('owner', '$(field 'd["digest"]' <<<"$approved" 2>/dev/null)', ['The note file holds the gift note of order 1042: \"for Ania\".', 'An order with no gift note has the line \"1043,\" and no word after the comma.'])" ] \
-  && grep -q "story 1 of tested.md has a test line: the stories the owner approves have none, and the lead adds them in the plan" <<<"$tested" \
+  && grep -q "criterion 1 of tested.md has a test line: the criteria the owner approves have none, and the lead adds them in the plan" <<<"$tested" \
   && grep -q "says .Size: full.: a full change waits for the owner's own yes" <<<"$not_one" && grep -q "approve needs --file" <<<"$no_file" \
-  && [ "$(grep -c '"event": "stories.approved"' "$ST/.lem/state/events.jsonl")" = 1 ]; then
-  pass "approve keeps the stories the owner approved, before the task has a worktree: their text as written, a digest and who approved them, with one event for the board; a file with a test line, a full change as a small change and no file are refused"
+  && [ "$(grep -c '"event": "criteria.approved"' "$ST/.lem/state/events.jsonl")" = 1 ]; then
+  pass "approve keeps the criteria the owner approved, before the task has a worktree: their text as written, a digest and who approved them, with one event for the board; a file with a test line, a full change as a small change and no file are refused"
 else
-  fail "stories approve: $approved / $tested / $not_one / $no_file / $kept_now"
+  fail "criteria approve: $approved / $tested / $not_one / $no_file / $kept_now"
 fi
-# The plan copies the approved stories, broken into other lines, and adds only the test lines: show and red take it.
+# The plan copies the approved criteria, broken into other lines, and adds only the test lines: show and red take it.
 atw=$(project --repo "$ST" worktree-dir approved-note)
 git -C "$ST" worktree add -q -b feat/approved-note "$atw" main
 project --repo "$ST" state approved-note building 'lead: builder' >/dev/null
 mkdir -p "$atw/docs/plans" "$atw/tests"
 aplan=$atw/docs/plans/20261116-approved-note.md
-# aplan_with LINE...: the plan of approved-note, with these lines as its stories, and its commit
+# aplan_with LINE...: the plan of approved-note, with these lines as its criteria, and its commit
 aplan_with() {
-  printf '%s\n' '# The note' '' 'careful: no, it touches one new file.' '' '## Stories' '' 'Size: full, because the note gets a file and an empty case.' '' "$@" '' '## Tasks' '' '1. The note.' > "$aplan"
+  printf '%s\n' '# The note' '' 'careful: no, it touches one new file.' '' '## Acceptance criteria' '' 'Size: full, because the note gets a file and an empty case.' '' "$@" '' '## Tasks' '' '1. The note.' > "$aplan"
   git -C "$atw" add -A && git -C "$atw" commit -q -m "docs: the plan"
 }
 printf '%s\n' 'for Ania' '1043,' > "$atw/note.txt"
@@ -1193,25 +1193,25 @@ one='   - test: `sh tests/ania.sh` in `tests/ania.sh`'
 two='   - test: `sh tests/empty.sh` in `tests/empty.sh`'
 s1='1. The note file holds the gift note of order 1042: "for Ania".'
 aplan_with "$s1" "$one" '2. An order with no gift note has the line "1043," and' '   no word after the comma.' "$two"
-copied=$(stories show approved-note 2>&1 || true)
-held=$(stories red approved-note 2>&1 || true)
-if [ "$(field '(d["approved"]["by"], d["changes"], [len(s["tests"]) for s in d["stories"]])' <<<"$copied" 2>/dev/null)" = "('owner', [], [1, 1])" ] \
+copied=$(criteria show approved-note 2>&1 || true)
+held=$(criteria red approved-note 2>&1 || true)
+if [ "$(field '(d["approved"]["by"], d["changes"], [len(s["tests"]) for s in d["criteria"]])' <<<"$copied" 2>/dev/null)" = "('owner', [], [1, 1])" ] \
   && [ "$(field 'd["approved"]["digest"]' <<<"$copied" 2>/dev/null)" = "$(field 'd["digest"]' <<<"$approved" 2>/dev/null)" ] \
-  && [ "$(field '(d["ok"], [t["story"] for t in d["tests"]])' <<<"$held" 2>/dev/null)" = "(True, [1, 2])" ]; then
-  pass "a plan whose stories are the approved ones, in other line breaks and with test lines added, passes show and red"
+  && [ "$(field '(d["ok"], [t["criterion"] for t in d["tests"]])' <<<"$held" 2>/dev/null)" = "(True, [1, 2])" ]; then
+  pass "a plan whose criteria are the approved ones, in other line breaks and with test lines added, passes show and red"
 else
-  fail "a plan of approved stories: $copied / $held"
+  fail "a plan of approved criteria: $copied / $held"
 fi
-# A story the plan adds after the approved ones, with no record of it, is refused by show and red.
+# A criterion the plan adds after the approved ones, with no record of it, is refused by show and red.
 aplan_with "$s1" "$one" '2. An order with no gift note has the line "1043," and no word after the comma.' "$two" \
   '3. The note file ends with a line break.' '   - no test: printf ends every line so.'
-extra=$(stories show approved-note 2>&1 || true)
-red_extra=$(stories red approved-note 2>&1 || true)
-if grep -qF "story 3 of 20261116-approved-note.md, 'The note file ends with a line break.', is not among the expected stories, which end at 2" <<<"$extra" \
-  && grep -qF -- "\`--added N --now TEXT\`" <<<"$extra" && grep -qF "story 3 of 20261116-approved-note.md, 'The note file ends with a line break.', is not among" <<<"$red_extra"; then
-  pass "a story the plan adds after the approved ones with no record of it is refused by show and red, with how its addition is recorded"
+extra=$(criteria show approved-note 2>&1 || true)
+red_extra=$(criteria red approved-note 2>&1 || true)
+if grep -qF "criterion 3 of 20261116-approved-note.md, 'The note file ends with a line break.', is not among the expected criteria, which end at 2" <<<"$extra" \
+  && grep -qF -- "\`--added N --now TEXT\`" <<<"$extra" && grep -qF "criterion 3 of 20261116-approved-note.md, 'The note file ends with a line break.', is not among" <<<"$red_extra"; then
+  pass "a criterion the plan adds after the approved ones with no record of it is refused by show and red, with how its addition is recorded"
 else
-  fail "an extra story at the end of the plan: $extra / $red_extra"
+  fail "an extra criterion at the end of the plan: $extra / $red_extra"
 fi
 adecide() { "$PY" -B "$PWD/skills/lem/scripts/decisions.py" --repo "$ST" "$@"; }
 t1='The note file holds the gift note of order 1042: "for Ania".'
@@ -1219,61 +1219,61 @@ t2='An order with no gift note has the line "1043," and no word after the comma.
 c1='The note file holds the gift note of order 1042, "for Ania".'
 c2='The note file holds the note "for Ania" of order 1042.'
 a3='The note file ends with a line break.'
-# A reworded story is refused by show and red until its change is recorded, with its text before and after.
+# A reworded criterion is refused by show and red until its change is recorded, with its text before and after.
 aplan_with "1. $c1" "$one" "2. $t2" "$two"
-reworded=$(stories show approved-note 2>&1 || true)
-red_reworded=$(stories red approved-note 2>&1 || true)
-adecide story approved-note --changed 1 --was "$t1" --now "$c1" --why "The importer splits on a colon." --by lead >/dev/null 2>&1 || true
-changed_now=$(stories show approved-note 2>/dev/null | field '[(c["change"], c["story"], c["how"]) for c in d["changes"]]' 2>&1 || true)
-# An earlier change lets no later one pass: the plan changes story 1 again, and a record of it names what it is now.
+reworded=$(criteria show approved-note 2>&1 || true)
+red_reworded=$(criteria red approved-note 2>&1 || true)
+adecide criterion approved-note --changed 1 --was "$t1" --now "$c1" --why "The importer splits on a colon." --by lead >/dev/null 2>&1 || true
+changed_now=$(criteria show approved-note 2>/dev/null | field '[(c["change"], c["criterion"], c["how"]) for c in d["changes"]]' 2>&1 || true)
+# An earlier change lets no later one pass: the plan changes criterion 1 again, and a record of it names what it is now.
 aplan_with "1. $c2" "$one" "2. $t2" "$two"
-again=$(stories show approved-note 2>&1 || true)
-stale=$(adecide story approved-note --changed 1 --was "$t1" --now "$c2" --why "The note comes first." --by lead 2>&1 || true)
-adecide story approved-note --changed 1 --was "$c1" --now "$c2" --why "The note comes first in the sentence." --by lead >/dev/null 2>&1 || true
-chained=$(stories show approved-note 2>/dev/null | field '[c["story"] for c in d["changes"]]' 2>&1 || true)
-# A story the build added can leave again, by a record of its own.
-adecide story approved-note --added 3 --now "$a3" --why "The reader of the file needs it." --by lead >/dev/null 2>&1 || true
+again=$(criteria show approved-note 2>&1 || true)
+stale=$(adecide criterion approved-note --changed 1 --was "$t1" --now "$c2" --why "The note comes first." --by lead 2>&1 || true)
+adecide criterion approved-note --changed 1 --was "$c1" --now "$c2" --why "The note comes first in the sentence." --by lead >/dev/null 2>&1 || true
+chained=$(criteria show approved-note 2>/dev/null | field '[c["criterion"] for c in d["changes"]]' 2>&1 || true)
+# A criterion the build added can leave again, by a record of its own.
+adecide criterion approved-note --added 3 --now "$a3" --why "The reader of the file needs it." --by lead >/dev/null 2>&1 || true
 aplan_with "1. $c2" "$one" "2. $t2" "$two" "3. $a3" '   - no test: printf ends every line so.'
-added_now=$(stories show approved-note 2>/dev/null | field 'len(d["changes"])' 2>&1 || true)
-adecide story approved-note --removed 3 --was "$a3" --why "Printf ends every line so, and nobody needs the rule." --by lead >/dev/null 2>&1 || true
+added_now=$(criteria show approved-note 2>/dev/null | field 'len(d["changes"])' 2>&1 || true)
+adecide criterion approved-note --removed 3 --was "$a3" --why "Printf ends every line so, and nobody needs the rule." --by lead >/dev/null 2>&1 || true
 aplan_with "1. $c2" "$one" "2. $t2" "$two"
-gone_again=$(stories show approved-note 2>/dev/null | field '[(c["how"], c["story"]) for c in d["changes"]]' 2>&1 || true)
-# A dropped story is refused until its removal is recorded with its text.
+gone_again=$(criteria show approved-note 2>/dev/null | field '[(c["how"], c["criterion"]) for c in d["changes"]]' 2>&1 || true)
+# A dropped criterion is refused until its removal is recorded with its text.
 aplan_with "1. $c2" "$one"
-dropped=$(stories show approved-note 2>&1 || true)
-wrong_was=$(adecide story approved-note --removed 2 --was "An order with no gift note has the line 1043." --why "Every order has a note now." --by lead 2>&1 || true)
-adecide story approved-note --removed 2 --was "$t2" --why "Every order has a note now." --by personas --said "The merchant and the accountant both dropped it." >/dev/null 2>&1 || true
-removed_now=$(stories show approved-note 2>/dev/null | field '(d["changes"][-1]["how"], d["changes"][-1]["by"], d["changes"][-1]["said"])' 2>&1 || true)
+dropped=$(criteria show approved-note 2>&1 || true)
+wrong_was=$(adecide criterion approved-note --removed 2 --was "An order with no gift note has the line 1043." --why "Every order has a note now." --by lead 2>&1 || true)
+adecide criterion approved-note --removed 2 --was "$t2" --why "Every order has a note now." --by personas --said "The merchant and the accountant both dropped it." >/dev/null 2>&1 || true
+removed_now=$(criteria show approved-note 2>/dev/null | field '(d["changes"][-1]["how"], d["changes"][-1]["by"], d["changes"][-1]["said"])' 2>&1 || true)
 expected=$(adecide changes approved-note 2>/dev/null | field 'd["expected"]' 2>&1 || true)
 # The command takes one change, its reason, and who made it: a choice of the build, or the lead or the personas.
-neither=$(adecide story approved-note --added 2 --now "x" --why "w" 2>&1 || true)
-both=$(adecide story approved-note --added 2 --now "x" --why "w" --choice 1 --by lead 2>&1 || true)
-nosaid=$(adecide story approved-note --added 2 --now "x" --why "w" --by personas 2>&1 || true)
-twoways=$(adecide story approved-note --changed 1 --added 2 --now "x" --why "w" --by lead 2>&1 || true)
-added_was=$(adecide story approved-note --added 2 --now "x" --was "y" --why "w" --by lead 2>&1 || true)
-nochoice=$(adecide story approved-note --added 2 --now "x" --why "w" --choice 9 2>&1 || true)
-not_approved=$(adecide story export-has-the-gift-note --changed 1 --was "x" --now "y" --why "w" --by lead 2>&1 || true)
-log_story=$(status_of adecide log approved-note --what x --chose y --why z --by lead --story 1 --was "$t1")
-records=$(grep -c '"kind": "story"' "$ST/.lem/state/tasks/approved-note/decisions.jsonl" || true)
-plain=$(stories show export-has-the-gift-note 2>/dev/null | field '(d["approved"], d["changes"])' 2>&1 || true)
-if grep -qF "story 1 of 20261116-approved-note.md says '$c1', and the expected story 1 is '$t1'" <<<"$reworded" \
-  && grep -qF 'decisions.py story approved-note --changed N --was TEXT --now TEXT' <<<"$reworded" \
-  && grep -qF "story 1 of 20261116-approved-note.md says '$c1'" <<<"$red_reworded" && [ "$changed_now" = "[(1, 1, 'changed')]" ] \
-  && grep -qF "story 1 of 20261116-approved-note.md says '$c2', and the expected story 1 is '$c1'" <<<"$again" \
-  && grep -qF "story 1 is '$c1' after every earlier change, and --was says '$t1'" <<<"$stale" && [ "$chained" = "[1, 1]" ] \
+neither=$(adecide criterion approved-note --added 2 --now "x" --why "w" 2>&1 || true)
+both=$(adecide criterion approved-note --added 2 --now "x" --why "w" --choice 1 --by lead 2>&1 || true)
+nosaid=$(adecide criterion approved-note --added 2 --now "x" --why "w" --by personas 2>&1 || true)
+twoways=$(adecide criterion approved-note --changed 1 --added 2 --now "x" --why "w" --by lead 2>&1 || true)
+added_was=$(adecide criterion approved-note --added 2 --now "x" --was "y" --why "w" --by lead 2>&1 || true)
+nochoice=$(adecide criterion approved-note --added 2 --now "x" --why "w" --choice 9 2>&1 || true)
+not_approved=$(adecide criterion export-has-the-gift-note --changed 1 --was "x" --now "y" --why "w" --by lead 2>&1 || true)
+log_story=$(status_of adecide log approved-note --what x --chose y --why z --by lead --criterion 1 --was "$t1")
+records=$(grep -c '"kind": "criterion"' "$ST/.lem/state/tasks/approved-note/decisions.jsonl" || true)
+plain=$(criteria show export-has-the-gift-note 2>/dev/null | field '(d["approved"], d["changes"])' 2>&1 || true)
+if grep -qF "criterion 1 of 20261116-approved-note.md says '$c1', and the expected criterion 1 is '$t1'" <<<"$reworded" \
+  && grep -qF 'decisions.py criterion approved-note --changed N --was TEXT --now TEXT' <<<"$reworded" \
+  && grep -qF "criterion 1 of 20261116-approved-note.md says '$c1'" <<<"$red_reworded" && [ "$changed_now" = "[(1, 1, 'changed')]" ] \
+  && grep -qF "criterion 1 of 20261116-approved-note.md says '$c2', and the expected criterion 1 is '$c1'" <<<"$again" \
+  && grep -qF "criterion 1 is '$c1' after every earlier change, and --was says '$t1'" <<<"$stale" && [ "$chained" = "[1, 1]" ] \
   && [ "$added_now" = 3 ] && [ "$gone_again" = "[('changed', 1), ('changed', 1), ('added', 3), ('removed', 3)]" ] \
-  && grep -qF "20261116-approved-note.md lacks story 2, '$t2', which the expected stories hold" <<<"$dropped" \
-  && grep -qF "story 2 is '$t2' after every earlier change, and --was says 'An order with no gift note has the line 1043.'" <<<"$wrong_was" \
+  && grep -qF "20261116-approved-note.md lacks criterion 2, '$t2', which the expected criteria hold" <<<"$dropped" \
+  && grep -qF "criterion 2 is '$t2' after every earlier change, and --was says 'An order with no gift note has the line 1043.'" <<<"$wrong_was" \
   && [ "$removed_now" = "('removed', 'personas', 'The merchant and the accountant both dropped it.')" ] && [ "$expected" = "['$c2']" ] \
   && grep -qF "names --choice ID, the choice of the build that led to it, or --by lead|personas when no choice did: one of the two" <<<"$neither" \
   && grep -qF "one of the two" <<<"$both" && grep -qF -- "--by personas needs --said" <<<"$nosaid" \
-  && grep -qF "a story change is one of --changed N, --added N or --removed N" <<<"$twoways" && grep -qF -- "--added takes no --was: an added story had no text before" <<<"$added_was" \
+  && grep -qF "a criterion change is one of --changed N, --added N or --removed N" <<<"$twoways" && grep -qF -- "--added takes no --was: an added criterion had no text before" <<<"$added_was" \
   && grep -qF "no choice 9 went to the owner in approved-note" <<<"$nochoice" \
-  && grep -qF "export-has-the-gift-note has no approved stories, so no change of them is recorded" <<<"$not_approved" && [ "$log_story" = 2 ] \
+  && grep -qF "export-has-the-gift-note has no approved criteria, so no change of them is recorded" <<<"$not_approved" && [ "$log_story" = 2 ] \
   && [ "$records" = 5 ] && [ "$plain" = "(None, [])" ]; then
-  pass "a plan whose stories are not the approved ones with each recorded change applied is refused by show and red: an earlier change lets no later one pass, a story the build added can leave again, and a change whose text before is not the story as it stands is refused when it is recorded; the command takes one change with its reason and who made it; a task with no approved stories records none and keeps the plan as the source"
+  pass "a plan whose criteria are not the approved ones with each recorded change applied is refused by show and red: an earlier change lets no later one pass, a criterion the build added can leave again, and a change whose text before is not the criterion as it stands is refused when it is recorded; the command takes one change with its reason and who made it; a task with no approved criteria records none and keeps the plan as the source"
 else
-  fail "story changes against the approved stories: $reworded / $red_reworded / $changed_now / $again / $stale / $chained / $added_now / $gone_again / $dropped / $wrong_was / $removed_now / $expected / $neither / $both / $nosaid / $twoways / $added_was / $nochoice / $not_approved / $log_story / $records / $plain"
+  fail "criterion changes against the approved criteria: $reworded / $red_reworded / $changed_now / $again / $stale / $chained / $added_now / $gone_again / $dropped / $wrong_was / $removed_now / $expected / $neither / $both / $nosaid / $twoways / $added_was / $nochoice / $not_approved / $log_story / $records / $plain"
 fi
 # His next approval starts the changes again. A change keeps its texts as typed, and two spaces of a literal value match;
 # a plan of another size than the approved one is refused, since the size is his.
@@ -1281,33 +1281,33 @@ fi
 code1='The note file holds the code `A  B` for order 1042.'
 # shellcheck disable=SC2016
 code2='The note file holds the code `A  B` for orders 1042 and 1044.'
-printf '%s\n' '## Stories' '' 'Size: full, because the note gets a code.' '' "1. $code1" '2. Order 1043 has no note line.' > "$WORK/reapproved.md"
-stories approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the note gets a code.' '' "1. $code1" '2. Order 1043 has no note line.' > "$WORK/reapproved.md"
+criteria approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
 reset=$(adecide changes approved-note 2>/dev/null | field '(len(d["changes"]), d["expected"])' 2>&1 || true)
-spaced=$(adecide story approved-note --changed 1 --was "$code1" --now "$code2" --why "Order 1044 has the note too." --by lead 2>/dev/null | field '(d["was"], d["now"])' 2>&1 || true)
-printf '%s\n' '# The note' '' '## Stories' '' 'Size: small, because it is one sentence.' '' "1. $code2" '' '## Tasks' '' '1. The note.' > "$aplan"
-kind=$(stories show approved-note 2>&1 || true)
+spaced=$(adecide criterion approved-note --changed 1 --was "$code1" --now "$code2" --why "Order 1044 has the note too." --by lead 2>/dev/null | field '(d["was"], d["now"])' 2>&1 || true)
+printf '%s\n' '# The note' '' '## Acceptance criteria' '' 'Size: small, because it is one sentence.' '' "1. $code2" '' '## Tasks' '' '1. The note.' > "$aplan"
+kind=$(criteria show approved-note 2>&1 || true)
 # shellcheck disable=SC2016
 aplan_with '1. The note file holds the code `A  B` for' '   orders 1042 and 1044.' '2. Order 1043 has no note line.'
-kept_spaces=$(stories show approved-note 2>/dev/null | field '(len(d["changes"]), d["stories"][0]["text"])' 2>&1 || true)
+kept_spaces=$(criteria show approved-note 2>/dev/null | field '(len(d["changes"]), d["criteria"][0]["text"])' 2>&1 || true)
 if [ "$reset" = "(0, ['$code1', 'Order 1043 has no note line.'])" ] && [ "$spaced" = "('$code1', '$code2')" ] \
-  && grep -qF "20261116-approved-note.md says \`Size: small\`, and the owner approved its stories as a full change: a change of the size is the owner's only" <<<"$kind" \
+  && grep -qF "20261116-approved-note.md says \`Size: small\`, and the owner approved its criteria as a full change: a change of the size is the owner's only" <<<"$kind" \
   && [ "$kept_spaces" = "(1, '$code2')" ]; then
-  pass "his next approval starts the story changes again; a change keeps its texts as typed, two spaces of a literal value match, and a story broken over two lines is the same story; a plan of another size than the approved one is refused"
+  pass "his next approval starts the criterion changes again; a change keeps its texts as typed, two spaces of a literal value match, and a criterion broken over two lines is the same criterion; a plan of another size than the approved one is refused"
 else
   fail "a new approval, spaces and the size: $reset / $spaced / $kind / $kept_spaces"
 fi
 # An approval is known by its number, not by its text: his approval of a text approved before is a new one, with no
 # change after it, and the changes of an earlier approval do not come back when its text does.
-stories approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
+criteria approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
 same_text=$(adecide changes approved-note 2>/dev/null | field '(d["approved"]["number"], len(d["changes"]), d["expected"][0])' 2>&1 || true)
 # shellcheck disable=SC2016
 aplan_with '1. The note file holds the code `A  B` for order 1042.' '2. Order 1043 has no note line.'
-just_approved=$(stories show approved-note 2>&1 | field '(d["approved"]["number"], d["changes"])' 2>&1 || true)
-stories approve approved-note --file "$WORK/approved.md" >/dev/null 2>&1 || true
-stories approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
+just_approved=$(criteria show approved-note 2>&1 | field '(d["approved"]["number"], d["changes"])' 2>&1 || true)
+criteria approve approved-note --file "$WORK/approved.md" >/dev/null 2>&1 || true
+criteria approve approved-note --file "$WORK/reapproved.md" >/dev/null 2>&1 || true
 back_again=$(adecide changes approved-note 2>/dev/null | field '(d["approved"]["number"], len(d["changes"]), [(c["approval"], c["taken_over_by"]) for c in d["history"]][-1], [a["number"] for a in d["approvals"]])' 2>&1 || true)
-numbered=$(grep '"event": "stories.approved", "task": "approved-note"' "$ST/.lem/state/events.jsonl" | "$PY" -c 'import json, sys; print([json.loads(line).get("number") for line in sys.stdin])')
+numbered=$(grep '"event": "criteria.approved", "task": "approved-note"' "$ST/.lem/state/events.jsonl" | "$PY" -c 'import json, sys; print([json.loads(line).get("number") for line in sys.stdin])')
 if [ "$same_text" = "(3, 0, '$code1')" ] && [ "$just_approved" = "(3, [])" ] && [ "$back_again" = "(5, 0, (2, 3), [1, 2, 3, 4, 5])" ] \
   && [ "$numbered" = "[1, 2, 3, 4, 5]" ]; then
   pass "an approval has a number of its own: his approval of a text approved before starts with no change after it, the plan that holds what he just approved passes, and the changes of an earlier approval do not come back with its text; each change stays in the history with the approval that took it over"
@@ -1315,12 +1315,12 @@ else
   fail "approvals by number: $same_text / $just_approved / $back_again / $numbered"
 fi
 # An automatic approval is only ever the first contract: Lem's approval of a small change in his name does not replace his full change.
-printf '%s\n' '## Stories' '' 'Size: small, because it is one sentence.' '' '1. The note file omits the code for order 1042.' > "$WORK/omits.md"
-over_feature=$(stories approve approved-note --file "$WORK/omits.md" --small 2>&1 || true)
-contract=$(stories approved approved-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"], d["approved"]["size"], d["approved"]["stories"][0]["text"])' 2>&1 || true)
-if grep -qF "approved-note has approval 5 of its stories already (by owner): Lem approves a small change in the owner's name only as the first contract" <<<"$over_feature" \
+printf '%s\n' '## Acceptance criteria' '' 'Size: small, because it is one sentence.' '' '1. The note file omits the code for order 1042.' > "$WORK/omits.md"
+over_feature=$(criteria approve approved-note --file "$WORK/omits.md" --small 2>&1 || true)
+contract=$(criteria approved approved-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"], d["approved"]["size"], d["approved"]["criteria"][0]["text"])' 2>&1 || true)
+if grep -qF "approved-note has approval 5 of its criteria already (by owner): Lem approves a small change in the owner's name only as the first contract" <<<"$over_feature" \
   && grep -qF "the size only through the owner's own approval" <<<"$over_feature" && [ "$contract" = "(5, 'owner', 'full', '$code1')" ]; then
-  pass "Lem's approval of a small change in his name is only a task's first contract: over his approved full change it is refused, and his stories and their size stay"
+  pass "Lem's approval of a small change in his name is only a task's first contract: over his approved full change it is refused, and his criteria and their size stay"
 else
   fail "a small change over his full change: $over_feature / $contract"
 fi
@@ -1328,19 +1328,19 @@ fi
 # freeze, which comes too late, is refused.
 project --repo "$ST" task-dir locked-note >/dev/null
 "$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(20)' \
-  "$ST/.lem/state/tasks/locked-note/stories.lock" > "$WORK/stories-lock.out" &
+  "$ST/.lem/state/tasks/locked-note/criteria.lock" > "$WORK/criteria-lock.out" &
 holder=$!
-soon test -s "$WORK/stories-lock.out"
-"$PY" -B "$STORIES" --repo "$ST" approve locked-note --file "$WORK/reapproved.md" > "$WORK/his-approval.out" 2>&1 &
+soon test -s "$WORK/criteria-lock.out"
+"$PY" -B "$CRITERIA" --repo "$ST" approve locked-note --file "$WORK/reapproved.md" > "$WORK/his-approval.out" 2>&1 &
 his=$!
 sleep 0.5
-while_held=$([ -e "$ST/.lem/state/tasks/locked-note/stories.json" ] && echo written || echo waits)
+while_held=$([ -e "$ST/.lem/state/tasks/locked-note/criteria.json" ] && echo written || echo waits)
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 wait "$his" || true
-late_freeze=$(stories approve locked-note --read 2>&1 || true)
-after_lock=$(stories approved locked-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"])' 2>&1 || true)
+late_freeze=$(criteria approve locked-note --read 2>&1 || true)
+after_lock=$(criteria approved locked-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"])' 2>&1 || true)
 if [ "$while_held" = waits ] && [ "$after_lock" = "(1, 'owner')" ] \
-  && grep -qF "locked-note has approval 1 of its stories already (by owner): a read freezes only the first contract" <<<"$late_freeze"; then
+  && grep -qF "locked-note has approval 1 of its criteria already (by owner): a read freezes only the first contract" <<<"$late_freeze"; then
   pass "an approval checks and writes under the task's lock: his approval waits while another holds it, and a freeze after his approval is refused"
 else
   fail "approvals under one lock: $while_held / $after_lock / $late_freeze / $(cat "$WORK/his-approval.out")"
@@ -1585,7 +1585,7 @@ if [ -n "$chrome" ]; then
   board --repo "$OLD" --no-open --task owner-lands-it >/dev/null
   draw task-owner-lands-it
   if [ -s "$WORK/task-owner-lands-it.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-owner-lands-it.dom" "Owner lands it · Waits for the merge" "3/3" "Where you answer:" "!2/3" \
-    "round 1, one read: clean, 0 must-fix, 1 should, 0 nit" "answered: codex" "Proposed: not green" "story 1 changed during the build: y is taken."); then
+    "round 1, one read: clean, 0 must-fix, 1 should, 0 nit" "answered: codex" "Proposed: not green" "criterion 1 changed during the build: y is taken."); then
     pass "a task that waits for the merge keeps the phase and the plan tasks it reached, and its board shows its review and why it is not green"
   elif [ -s "$WORK/task-owner-lands-it.dom" ]; then
     fail "a task that waits for the merge: missing $why"
@@ -1617,28 +1617,28 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     fail "a broken meta.js shows no problem: $(grep -o '<title>[^<]*' "$WORK/board.dom")"
   fi
   board --repo "$OLD" --no-open >/dev/null
-  # The board of one task shows its stories, each with its tests and what the last check gave.
+  # The board of one task shows its criteria, each with its tests and what the last check gave.
   "$PY" -B "$BOARD" --repo "$ST" --task export-has-the-gift-note --no-open >/dev/null
   chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-    --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/stories.dom" 2>/dev/null || true
-  if [ ! -s "$WORK/stories.dom" ]; then
-    printf 'SKIP the stories on the board: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories.dom" "Stories" "full change, because the export gets a new column and an empty cell." \
+    --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/criteria.dom" 2>/dev/null || true
+  if [ ! -s "$WORK/criteria.dom" ]; then
+    printf 'SKIP the criteria on the board: %s printed no page\n' "$chrome"
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/criteria.dom" "Acceptance criteria" "full change, because the export gets a new column and an empty cell." \
     'A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' "sh tests/gift.sh" \
     "passes on the branch, fails on the base commit (checked on " "held by its tests" "An order with no gift note has an empty cell"); then
-    pass "the board of one task shows its stories as the plan has them, each with its tests and the result of the last check"
+    pass "the board of one task shows its criteria as the plan has them, each with its tests and the result of the last check"
   else
-    fail "the stories on the board: missing $why"
+    fail "the criteria on the board: missing $why"
   fi
-  # A story that changed after the check has no check: the old result is not shown for it.
+  # A criterion that changed after the check has no check: the old result is not shown for it.
   "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("has that text in its row.", "has that text in the third cell of its row."))' "$stw/docs/plans/20261115-export-has-the-gift-note.md"
-  stories record export-has-the-gift-note >/dev/null && git -C "$stw" checkout -q -- docs
+  criteria record export-has-the-gift-note >/dev/null && git -C "$stw" checkout -q -- docs
   chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
-    --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/stories-changed.dom" 2>/dev/null || true
-  if [ -s "$WORK/stories-changed.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/stories-changed.dom" "in the third cell of its row" "not checked yet" "!held by its tests"); then
-    pass "after a story changed, the board shows no result of the older check for any story"
-  elif [ -s "$WORK/stories-changed.dom" ]; then
-    fail "the stories on the board after a change: missing $why"
+    --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/criteria-changed.dom" 2>/dev/null || true
+  if [ -s "$WORK/criteria-changed.dom" ] && why=$("$PY" -I -B -c "$SHOWN" "$WORK/criteria-changed.dom" "in the third cell of its row" "not checked yet" "!held by its tests"); then
+    pass "after a criterion changed, the board shows no result of the older check for any criterion"
+  elif [ -s "$WORK/criteria-changed.dom" ]; then
+    fail "the criteria on the board after a change: missing $why"
   fi
   # The backlog tab: drawn from backlog.js, and its one action types the item into Lem's session.
   chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \

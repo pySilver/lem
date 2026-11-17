@@ -10,7 +10,7 @@ set -euo pipefail
 # under /private/tmp on macOS.
 cd -P "$(dirname "${BASH_SOURCE[0]}")/.."
 PROJECT=$PWD/skills/lem/scripts/project.py
-STORIES=$PWD/skills/lem/scripts/stories.py
+CRITERIA=$PWD/skills/lem/scripts/criteria.py
 DECISIONS=$PWD/skills/lem/scripts/decisions.py
 LAND=$PWD/skills/lem/scripts/land.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
@@ -49,16 +49,16 @@ open(sys.argv[1], "w").write("".join(json.dumps(line) + "\n" for line in lines))
 # The landing's helpers, for every block that takes a task through land.py.
 land() { "$PY" -B "$LAND" "$@"; }
 ident() { git -C "$1" config user.name t; git -C "$1" config user.email t@t; }
-# plan_in TREE SLUG TEST: the task's plan, a full change's, with one story that TEST holds; TEST is `no test: REASON` for a story with none
+# plan_in TREE SLUG TEST: the task's plan, a full change's, with one criterion that TEST holds; TEST is `no test: REASON` for a criterion with none
 plan_in() {
   local held="   - test: \`$3\` in \`tests/$2.sh\`"
   case "$3" in "no test:"*) held="   - $3" ;; esac
   mkdir -p "$1/docs/plans" "$1/tests"
-  printf '%s\n' "# $2" '' '## Stories' '' 'Size: full, because the ticket names the word and the file.' '' \
+  printf '%s\n' "# $2" '' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' \
     '1. The file holds the word the owner asked for.' "$held" '' '## Tasks' '' '1. The change.' > "$1/docs/plans/20261115-$2.md"
 }
-# task_in REPO SLUG FILE TEXT: a full change with a worktree, one commit that writes FILE, its plan and the test of its story,
-# and the state `ready`. Its landing needs a polish pass (polish_in) and its proposal a read of its stories (read_in).
+# task_in REPO SLUG FILE TEXT: a full change with a worktree, one commit that writes FILE, its plan and the test of its criterion,
+# and the state `ready`. Its landing needs a polish pass (polish_in) and its proposal a read of its criteria (read_in).
 task_in() {
   local tree
   project --repo "$1" task-dir "$2" --ask "Put $4 into $3." >/dev/null
@@ -69,26 +69,26 @@ task_in() {
   git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: $2"
   project --repo "$tree" state "$2" ready "the report is written" >/dev/null
 }
-# small_task_in REPO SLUG FILE TEXT: a small change with a worktree: its one story in the task directory, approved in
+# small_task_in REPO SLUG FILE TEXT: a small change with a worktree: its one criterion in the task directory, approved in
 # the owner's name, with the test line under it; one commit that writes FILE and the test, no plan; and the state `ready`
 small_task_in() {
   local tree directory
   directory=$(project --repo "$1" task-dir "$2" --ask "Put $4 into $3.")
-  printf '%s\n' '## Stories' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$directory/stories.md"
-  "$PY" -B "$STORIES" --repo "$1" approve "$2" --file "$directory/stories.md" --small >/dev/null
-  printf '%s\n' "   - test: \`sh tests/$2.sh\` in \`tests/$2.sh\`" >> "$directory/stories.md"
+  printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$directory/criteria.md"
+  "$PY" -B "$CRITERIA" --repo "$1" approve "$2" --file "$directory/criteria.md" --small >/dev/null
+  printf '%s\n' "   - test: \`sh tests/$2.sh\` in \`tests/$2.sh\`" >> "$directory/criteria.md"
   tree=$(project --repo "$1" worktree-dir "$2")
   git -C "$1" worktree add -q "$tree" -b "fix/$2" main
   mkdir -p "$tree/tests" && printf '%s\n' "$4" > "$tree/$3" && echo "grep -qx $4 $3" > "$tree/tests/$2.sh"
   git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: $2"
   project --repo "$tree" state "$2" ready "the small change is built" >/dev/null
 }
-# read_in REPO SLUG: the personas' read of the plan's stories by the lead, as a full change from a complete request has it: two personas of one
+# read_in REPO SLUG: the personas' read of the plan's criteria by the lead, as a full change from a complete request has it: two personas of one
 # model family, nobody confused. A full change is not proposed without one.
 read_in() {
   local digest
-  digest=$("$PY" -B "$STORIES" --repo "$1" digest "$2" | field 'd["digest"]')
-  project --repo "$1" log "$2" stories.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' stories:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+  digest=$("$PY" -B "$CRITERIA" --repo "$1" digest "$2" | field 'd["digest"]')
+  project --repo "$1" log "$2" criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
 }
 # polish_in REPO SLUG: the polish pass of a full change's landing, which here changes nothing; none when this landing's pass is done already
 polish_in() {

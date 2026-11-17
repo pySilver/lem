@@ -29,8 +29,8 @@ a lead is started, and what to do each time a lead stops.
    - *chore*: work no user of the product sees that is no refactor ("upgrade", "bump", "the CI");
    - *question*: the answer is a report, not a change ("why", "find out", "check if", "how
      often"). It commits nothing.
-   The size is one of two. A *small change* is one plain change: the ask yields one story in his
-   own sentence, is in reach of no topic below, and leaves no question open, whatever its type (a
+   The size is one of two. A *small change* is one plain change: the ask yields one acceptance
+   criterion in his own sentence, is in reach of no topic below, and leaves no question open, whatever its type (a
    fix of one rule, a typo, a rename, a version bump, a line of a document). A fix whose one rule
    is plain from the ask's words ("the button says Save, not Submit") is a small change at once.
    A symptom whose cause the ask does not show is investigated first (step 4), even when the fix
@@ -38,9 +38,9 @@ a lead is started, and what to do each time a lead stops.
    cannot tell, take the small change and ask nothing: its builder checks it again before it
    commits (`prompts/small.md`), and stops when it is not. `/lem plan <what>` asks for a plan to
    read, and a plan is a full change's: the ask is a full change whatever its size, with its
-   interview, its stories, the personas' read and his yes, and the lead stops at the committed
+   interview, its criteria, the personas' read and his yes, and the lead stops at the committed
    plan; the line of step 5 says so ("full, because you asked for its plan: ..."). A plan's size
-   is always `full`, and `stories.py` and `land.py` refuse a plan that says `Size: small`.
+   is always `full`, and `criteria.py` and `land.py` refuse a plan that says `Size: small`.
    In the same look, read the ask's words against each topic of `flow.topics` in `project.py
    show`, the sentences of what must never go wrong here. No code matches a topic and no file
    name settles one: the question is whether the change the ask wants could reach that thing.
@@ -84,21 +84,21 @@ a lead is started, and what to do each time a lead stops.
 4. **Which path.** Choose one:
    - *the investigation first*, for a fix whose cause the ask does not show and for a question:
      a fresh builder reproduces the bug and finds its cause, or answers the question, before
-     anyone writes a story, as "A bug and a question" below says. For a fix, its report then
+     anyone writes a criterion, as "A bug and a question" below says. For a fix, its report then
      takes one of the paths below; a question ends with its answer.
    - *a small change*: one builder, the checks, one read and the pull request, with no lead, no
      plan and no wait for him, as "A small change" below says.
    - *a full change from a complete request*: the whole context and a defined outcome are
      written already: a ticket whose description says what is wanted and how to tell that it is
      done, a backlog item whose options are settled, a night plan he starts, an investigation's
-     report that settles what is wanted. No interview: the lead writes the stories from the code
+     report that settles what is wanted. No interview: the lead writes the criteria from the code
      and has the personas read them (`stages/plan.md`, step 1). He can say "interview me", and
      then it is a full change with an interview. A ticket, an item or a report that asks for one
      plain change is a small change all the same: a full change has a lead and a plan, and a
      plan is never small.
-   - *a full change with an interview*, for every other ask: the interview, then the stories he
-     approves, as "The interview and the stories" below says, all in one sitting while he is
-     there.
+   - *a full change with an interview*, for every other ask: the interview, then the criteria he
+     approves, as "The interview and the acceptance criteria" below says, all in one sitting while
+     he is there.
    Write the task's first state block now, with the type line of step 1, so that the status and
    the board show the task from its first moment. With an interview it is `held` with the line
    `the interview waits for the owner`:
@@ -109,19 +109,19 @@ a lead is started, and what to do each time a lead stops.
 
    On the other paths the first block is the one the path's own first step writes, before its
    builder starts: there is no wait between the two.
-5. **Tell the owner in one line**, and no more: the type and the size, the branch, the story or
+5. **Tell the owner in one line**, and no more: the type and the size, the branch, the criterion or
    the outcome in his words, what happens now, and what he must do. A small change: `fix, small:
    "the date column never wraps". Branch fix/date-column-nowrap. One builder, the checks, one
-   read, then the pull request. Nothing waits for you; say "full" to give it stories.` A full
-   change with an interview: `feat, full: "an export holds the gift note". Branch
-   feat/gift-note-in-export. An interview now, then stories for your yes; after that it runs to
-   the pull request without you.` A topic in reach goes first: `Careful: this changes how a
+   read, then the pull request. Nothing waits for you; say "full" to give it acceptance
+   criteria.` A full change with an interview: `feat, full: "an export holds the gift note".
+   Branch feat/gift-note-in-export. An interview now, then acceptance criteria for your yes;
+   after that it runs to the pull request without you.` A topic in reach goes first: `Careful: this changes how a
    customer is charged. feat, full: ...`. A fix investigated first: `fix: "the total skips
    credit notes". Branch fix/total-skips-credit-notes. A builder finds the cause first, and I
    tell you what it found: then it is a small fix, a full fix, or no bug.` A full change from a
    complete request names what stands in for the interview (`the ticket says what is wanted`).
    A decision you took for him at step 3 is a second line. Nothing repeats this line later: the
-   next thing he hears is a question of the interview, the stories, or the pull request.
+   next thing he hears is a question of the interview, the criteria, or the pull request.
 6. **The brief** of a lead, for a full change. Write `brief.md` in the task directory, with this
    and nothing more:
 
@@ -185,10 +185,10 @@ name, which the lead read wrong, is a lesson about that judgment (`stages/learn.
 no topic names may be a rule for later tasks or a wish for this one task: only the owner knows,
 and only his yes puts a topic into the settings.
 
-## The interview and the stories
+## The interview and the acceptance criteria
 
 A full change with an interview, between step 5 and the brief. He is there for it, and it ends
-with stories he approved, which the lead may not change without the record saying so.
+with criteria he approved, which the lead may not change without the record saying so.
 
 1. **Start the scout and the interview at once.** A fix whose investigation found its cause has
    no scout: the investigation's report is its facts of the code, and wherever these steps name
@@ -208,7 +208,7 @@ with stories he approved, which the lead may not change without the record sayin
    log SLUG scout.start` as the scout starts, and `project.py log SLUG interview.start` before
    the first question. Its reply is its report: write it word for word into `scout.md` in the
    task directory, and log `project.py log SLUG scout`, its end. It is the one place where
-   knowledge of the code comes up to you, and only as facts for the stories: you still read no
+   knowledge of the code comes up to you, and only as facts for the criteria: you still read no
    diff and write no code.
 2. **The interview.** One question at a time, each with your own guess, so that he reacts and
    does not compose. A question he answers with a yes to your guess, or by typing a value (a
@@ -217,8 +217,8 @@ with stories he approved, which the lead may not change without the record sayin
    sets two or more options side by side, each with what it changes for a person, goes on the
    question page (`ask-owner`), as his ruling says of every other question; put the options
    that are ready on one page, never one page per question. The questions come from the
-   `lem-interview-me` method (`load-skill`); its restate and its explicit yes are the stories
-   and his yes to them (steps 4 to 7), so nothing is restated before the stories and he says yes
+   `lem-interview-me` method (`load-skill`); its restate and its explicit yes are the criteria
+   and his yes to them (steps 4 to 7), so nothing is restated before the criteria and he says yes
    once. A fact of the scout's report may go into a later question ("the export already
    writes an empty cell for a missing value; keep that for the note?"). It may be technical: he
    is a developer. Stop when you can write the outcome and each rule without a guess.
@@ -230,109 +230,109 @@ with stories he approved, which the lead may not change without the record sayin
    A defect outside the request, that he names or that the scout's report shows, is no part of
    the task and is not lost: write it to `outside.md` in the task directory, one line each, with
    its place (`path` or `path:symbol`) and what is wrong. Do not ask him whether to file it, and
-   do not put it into the stories. The landing's polish pass fixes a cheap one in place and files
+   do not put it into the criteria. The landing's polish pass fixes a cheap one in place and files
    each other one in the backlog, and the pull request lists what was filed.
-4. **The stories**, when the scout's report is in and not before. Write them from his words, the
-   directions, the project's profile and the report, in the form `stories.py --help` shows: the
-   `## Stories` heading, the line `Size: full, because ...`, and numbered stories, each a
-   business rule in plain language with one concrete example, with real names and values. No
-   test lines: the lead adds those. Keep the file in the task directory, and for each story the
+4. **The criteria**, when the scout's report is in and not before. Write them from his words, the
+   directions, the project's profile and the report, in the form `criteria.py --help` shows: the
+   `## Acceptance criteria` heading, the line `Size: full, because ...`, and numbered criteria, each
+   a business rule in plain language with one concrete example, with real names and values. No
+   test lines: the lead adds those. Keep the file in the task directory, and for each criterion the
    facts of the report that shaped it, for his page.
 5. **Show them in the conversation, and start the personas' read in the same moment.** Write the
-   stories as plain text, each with the scout's facts that shaped it beside it, and the
+   criteria as plain text, each with the scout's facts that shaped it beside it, and the
    directions, and say that the personas read them now. No page opens before the read is in.
-   Log its start, `python3 SKILL_DIR/scripts/project.py log SLUG stories.read.start by=lem`; the
+   Log its start, `python3 SKILL_DIR/scripts/project.py log SLUG criteria.read.start by=lem`; the
    record below is its end, and the end of the interview. The read is the persona panel's
-   "Reading stories" mode (`load-skill`), here in your session with the paired agent of the other
-   family, so that both families answer; without one the
+   "Reading acceptance criteria" mode (`load-skill`), here in your session with the paired agent of
+   the other family, so that both families answer; without one the
    panel says that one family answered. A persona agent that does not answer leaves a partial
    read, which counts: the record says who did not answer and why. A read in which nobody
    answered is written down too, with `answered:=0`, `families:='[]'` and each source in
-   `silent`, and started once more. After a second such read in a row the stories go on
+   `silent`, and started once more. After a second such read in a row the criteria go on
    unread: the owner's yes of step 6 still freezes them, and the pull request is not green, with
-   "the stories were not read" first. A partial read counts by his word of 2026-11-16 ("Thats
+   "the criteria were not read" first. A partial read counts by his word of 2026-11-16 ("Thats
    fine - just log and proceed"); the second try is the amendment's design. The landing refuses a
    request whose newest read had no answer and was the first. When the answers are in, write the
    one event the landing reads:
 
    ```bash
-   python3 SKILL_DIR/scripts/project.py log SLUG stories.read by=lem asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": "PERSONA, FAMILY", "why": "WHAT STOPPED IT"}]' stories:=N flagged:=N split:=true|false digest=DIGEST
+   python3 SKILL_DIR/scripts/project.py log SLUG criteria.read by=lem asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": "PERSONA, FAMILY", "why": "WHAT STOPPED IT"}]' criteria:=N flagged:=N split:=true|false digest=DIGEST
    ```
 
    `asked` is the personas the panel asked and `answered` those of whom at least one family
    answered; `silent` names each source that gave no answer, `[]` when every one did. `flagged`
-   counts the stories an answer called unexpected, confusing or wrong; `split` says whether the
-   two families answered a story differently, which counts as a doubt too. `DIGEST` is the
-   `digest` field of what `python3 SKILL_DIR/scripts/stories.py digest SLUG --file FILE` prints
-   for the stories file the personas read, so that the record knows when he changes them after
+   counts the criteria an answer called unexpected, confusing or wrong; `split` says whether the
+   two families answered a criterion differently, which counts as a doubt too. `DIGEST` is the
+   `digest` field of what `python3 SKILL_DIR/scripts/criteria.py digest SLUG --file FILE` prints
+   for the criteria file the personas read, so that the record knows when he changes them after
    the read.
 
-   **The read is his to skip, never yours.** When a story names a person other than the
+   **The read is his to skip, never yours.** When a criterion names a person other than the
    developer (a customer, a clerk, a reader of a file), the read starts and you ask nothing. When
-   every story names only the developer, ask one fixed question in the terminal before the read
-   starts, a fixed choice with no context: "The stories name only you. Skip the persona read?
-   (y/n)". Never skip the read by your own judgment: you wrote the stories, and the author of a
+   every criterion names only the developer, ask one fixed question in the terminal before the
+   read starts, a fixed choice with no context: "The acceptance criteria name only you. Skip the
+   persona read? (y/n)". Never skip the read by your own judgment: you wrote the criteria, and the author of a
    wrong reading sees it as clear (a Fable second opinion, 2026-11-16, which he agreed to). On his
    no, the read starts as above. On his yes, write his words, then take his approval of step 6 and
-   freeze the stories with step 7, both before the brief:
+   freeze the criteria with step 7, both before the brief:
 
    ```bash
-   python3 SKILL_DIR/scripts/decisions.py log SLUG --by owner --what "the personas' read of the stories" --chose "no read: the stories name only the developer" --why "HIS ANSWER, AS HE TYPED IT"
+   python3 SKILL_DIR/scripts/decisions.py log SLUG --by owner --what "the personas' read of the criteria" --chose "no read: the criteria name only the developer" --why "HIS ANSWER, AS HE TYPED IT"
    ```
 
    The landing knows his word by `--by owner` and those two texts, word for word, and takes it
    only with an approval of his after it and before any lead of the task started; the pull request
-   then says "the stories: not read by the personas, on the owner's word (DATE); the owner
+   then says "the criteria: not read by the personas, on the owner's word (DATE); the owner
    approved them", and stays green, since the decision was his. For a full change from a complete
    request this question is never asked: there the read is the only approval (`stages/plan.md`,
    step 1), and the landing refuses a word to skip it that comes after the lead started.
 6. **His yes.**
-   - *He typed it in the conversation before the read was in*: take it, and freeze the stories
+   - *He typed it in the conversation before the read was in*: take it, and freeze the criteria
      (step 7). When the read is in and nobody is confused and the families agree, say so in one
-     line and open no page. When a story is flagged or the families split, open the page below
+     line and open no page. When a criterion is flagged or the families split, open the page below
      for that.
    - *Otherwise*, when the read is in, open one page through `ask-owner`:
      - the personas' result on top, for each persona and each model family, with a split
-       between the families said first, in one line ("the Opus answers doubt story 1, the Sol
+       between the families said first, in one line ("the Opus answers doubt criterion 1, the Sol
        answers do not");
-     - each story, with the scout's facts that shaped it beside it;
-     - a story a persona flagged as you wrote it, with the answers that flagged it quoted beside
+     - each criterion, with the scout's facts that shaped it beside it;
+     - a criterion a persona flagged as you wrote it, with the answers that flagged it quoted beside
        it. Never reword it before he sees it: what changes it is his;
      - the directions.
-   He approves, or changes a story, a direction or the set. Write each change in his words into
-   the stories file or `directions.md`. The personas do not read his own change again; the pull
-   request then says that the stories changed after the read.
-7. **Freeze them**: `python3 SKILL_DIR/scripts/stories.py approve SLUG --file FILE`, again after
-   each change of his. The stories are then kept word for word with a digest, and the plan's
-   stories have to be those, with only the test lines added: a story the build changes, adds or
-   drops has its own record (`decisions.py story`), and the pull request is not green for it.
-   Go on with step 6 of "Open the task". The landing refuses a full change whose stories nobody read
-   and whose read he did not skip (step 5), and one whose read found a doubt with no yes of his
+   He approves, or changes a criterion, a direction or the set. Write each change in his words into
+   the criteria file or `directions.md`. The personas do not read his own change again; the pull
+   request then says that the criteria changed after the read.
+7. **Freeze them**: `python3 SKILL_DIR/scripts/criteria.py approve SLUG --file FILE`, again after
+   each change of his. The criteria are then kept word for word with a digest, and the plan's
+   criteria have to be those, with only the test lines added: a criterion the build changes, adds or
+   drops has its own record (`decisions.py criterion`), and the pull request is not green for it.
+   Go on with step 6 of "Open the task". The landing refuses a full change whose criteria nobody
+   read and whose read he did not skip (step 5), and one whose read found a doubt with no yes of his
    after it.
 
-When he leaves before he answers, write the state `held` with the line `the stories wait for the
+When he leaves before he answers, write the state `held` with the line `the criteria wait for the
 owner`, and put the page to him again the way `ask-owner` says for an owner who is away. His
 answer goes on from step 6. A task with that line has no lead: when it is approved, write the
 brief and start one.
 
 ## A small change
 
-One story, his own sentence made exact, nothing careful and no question open: one builder makes
+One criterion, his own sentence made exact, nothing careful and no question open: one builder makes
 it, the landing checks it and one read reviews it, and it waits for nothing. The owner, of a
 polish agent with nothing to do on a typo: "That is exactly one of the cases that may frustrate
 the Developer" (2026-11-16). The audit of that day counted 6 to 11 agents and 15 to 32 minutes
 from a typo to its pull request, against about 4 minutes measured for a correction in the first
 flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` has the ledger).
 
-1. **The story.** Write it to `stories.md` in the task directory, in the form `stories.py --help`
-   shows, with `Size: small, because ...` and the one story, and approve it in his name:
+1. **The criterion.** Write it to `criteria.md` in the task directory, in the form `criteria.py
+   --help` shows, with `Size: small, because ...` and the one criterion, and approve it in his name:
 
    ```bash
-   python3 SKILL_DIR/scripts/stories.py approve SLUG --file TASK_DIRECTORY/stories.md --small
+   python3 SKILL_DIR/scripts/criteria.py approve SLUG --file TASK_DIRECTORY/criteria.md --small
    ```
 
    It stays there and is never committed: a small change has no plan, and its builder adds the
-   test line under the story in that file. An approval in his name is only ever a task's first
+   test line under the criterion in that file. An approval in his name is only ever a task's first
    contract: the script refuses it once any approval exists. The personas do not read it; the pull
    request says so.
 2. **The brief**, `brief.md` in the task directory, with this and nothing more:
@@ -354,12 +354,12 @@ flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` h
    - `ready`: the landing, `stages/land.md`, with the small change's steps there, up to its pull
      request with no question on the way: the push and the pull request of `land.py propose`
      are the owner's standing word in `branch.propose`, not a step to ask about;
-   - `held` with `the stories wait for the owner: the small change is a full change`: its builder
-     found a topic in reach, a second rule, a decision the story does not settle, a lowered bar,
+   - `held` with `the criteria wait for the owner: the small change is a full change`: its builder
+     found a topic in reach, a second rule, a decision the criterion does not settle, a lowered bar,
      or more than one plain change. Tell him in one line that it is a full change and why, from
-     the report, and go on with an interview from step 1 of "The interview and the stories", with
-     its report as the scout's: its commits stay on the branch for the lead. His approval of the
-     stories of the full change replaces the small change's.
+     the report, and go on with an interview from step 1 of "The interview and the acceptance
+     criteria", with its report as the scout's: its commits stay on the branch for the lead. His
+     approval of the criteria of the full change replaces the small change's.
 
 When he says "full" of a small change, it becomes a full change with an interview the same way:
 the interview, the personas' read, and his approval, which replaces the small change's. A
@@ -368,7 +368,7 @@ the size from small to full is his or its builder's; a change of the type is his
 
 ## A bug and a question
 
-A bug is investigated before anyone writes a story: "typically the root-cause-investigation is
+A bug is investigated before anyone writes a criterion: "typically the root-cause-investigation is
 needed to unerstand what triggers the bug that we aim to correct" (the owner, 2026-11-16). A
 question is the same work with a question in place of the bug, and its answer is the whole
 task.
@@ -404,7 +404,7 @@ task.
 3. **Read its report.** Its reply is the path of `investigation.md` in the task directory. When
    its agent refused it the write, its reply is the whole report: write it into that file word
    for word, with one line at the top that says who copied it and why. The report is knowledge of
-   the code for the stories, as the scout's is; you still read no diff and write no code. Then
+   the code for the criteria, as the scout's is; you still read no diff and write no code. Then
    write what it found, which the board shows and the landing reads:
 
    ```bash
@@ -417,11 +417,12 @@ task.
    When you take another call than the report's (a one-rule fix whose cause is in reach of a
    topic is not a small change), log yours and tell the owner why in one line.
 4. **The path**, from the call:
-   - *small*: a small change, with its one story the rule that removes the cause, in his
+   - *small*: a small change, with its one criterion the rule that removes the cause, in his
      words made exact, and with nothing careful: read the cause, its place and how far the report
      says it reaches against each topic, as step 1 of "Open the task" reads an ask. The
-     reproducing test is the story's test: the small change's builder names it under the story.
-     Tell him in one line, as step 5 of "Open the task" says, and go on with "A small change".
+     reproducing test is the criterion's test: the small change's builder names it under the
+     criterion. Tell him in one line, as step 5 of "Open the task" says, and go on with "A small
+     change".
    - *full*: a full change with an interview and no scout, whose interview starts from the cause
      ("the total adds the refund as a payment, in `billing/invoice.py:total`; should the refund
      lower the total, or stand as a line of its own?"). Write the state `held` with the line `the
@@ -550,9 +551,9 @@ its choices need no answer.
    the record keeps that one beside it. When he decided something that none of the options
    says, settle the choice with it: `decisions.py answer SLUG N --instead TEXT`, with `--words`
    and `--why` as above. Never log it as a new decision: the choice would wait for ever, and an
-   irreversible one would hold the pull request. A choice carries no story: a story his answer
-   changes is the lead's to record with `decisions.py story ... --choice N`, and the gate refuses
-   the plan until it does. When you cannot tell what he decided, ask him again. A lead in a
+   irreversible one would hold the pull request. A choice carries no criterion: a criterion his
+   answer changes is the lead's to record with `decisions.py criterion ... --choice N`, and the gate
+   refuses the plan until it does. When you cannot tell what he decided, ask him again. A lead in a
    session gets the answer as one message too; a builder that leads finds it at its next
    `decisions.py wait`.
 3. **An answer after the wait** is written down the same way, and the script says it is late,
@@ -604,13 +605,13 @@ Act on the status:
 - **`held`**: the task waits for the owner on what is no decision with options; a decision of
   his never holds a task, since it is asked and waits its time while the work goes on (the
   section above). The state's line says which of four it is:
-  - *the stories wait for the owner*: a lead of a full change from a complete request whose
-    stories a persona doubted, or
-    that met a rule it could not write without a guess, puts the stories and the answers on top
-    of its report. Put them to him as step 6 of "The interview and the stories" says, with the
-    lead's read as the result on top, freeze his answer with step 7, and start a lead: it copies
-    the approved stories. A small change that its builder found to be a full change goes to him as
-    "A small change" says, step 3;
+  - *the criteria wait for the owner*: a lead of a full change from a complete request whose
+    criteria a persona doubted, or
+    that met a rule it could not write without a guess, puts the criteria and the answers on top
+    of its report. Put them to him as step 6 of "The interview and the acceptance criteria" says,
+    with the lead's read as the result on top, freeze his answer with step 7, and start a lead: it
+    copies the approved criteria. A small change that its builder found to be a full change goes to
+    him as "A small change" says, step 3;
   - *one more fact*: the investigation's, as "A bug and a question" says;
   - *a step that is his to do*, and no decision at all: a trust prompt of the reviewer's agent, a
     command an agent is refused. Tell the owner that step as it is, with where he does it; it

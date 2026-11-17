@@ -11,19 +11,19 @@ the style guide, the personas, the review configuration, the lessons, the checks
 landing and what must never go wrong. This skill holds the flow and knows no project.
 
 The owner is a developer whose attention is short, and the size of a change decides its path.
-A small change is one plain change: one story in his own sentence, nothing careful and no
-question open, whatever its type (a fix of one rule, a typo, a rename, a version bump, a line of a
-document). One builder makes it and files in the backlog what it saw outside it, the machine
+A small change is one plain change: one acceptance criterion in his own sentence, nothing careful
+and no question open, whatever its type (a fix of one rule, a typo, a rename, a version bump, a line
+of a document). One builder makes it and files in the backlog what it saw outside it, the machine
 checks and one read review it, it has no polish pass, and it waits for nothing but his merge. Every other request is a full change, and the flow asks for his attention at
-three touches: the interview, while a scout reads the code around his ask; the stories, which the
+three touches: the interview, while a scout reads the code around his ask; the criteria, which the
 personas read before he does and which he approves, so that they are the contract in plain
 language and become the tests; and the pull request, which he merges without a read when it is
 green. A full change from a complete request (a ticket that says what is wanted, a settled
-backlog item) has no interview, and its stories wait for him only when a persona doubts them.
+backlog item) has no interview, and its criteria wait for him only when a persona doubts them.
 Lem names the type of each request from its words, a Conventional Commits type (`feat`, `fix`,
 `docs`, `refactor`, `perf`, `test`, `chore`) or `question`, and its size, and says both in one
 line before anything runs. A bug whose cause the request does not show is investigated
-before any story: a fresh builder reproduces it as a failing test and finds its cause, and its
+before any criterion: a fresh builder reproduces it as a failing test and finds its cause, and its
 report sets the path. A question is the same work, and ends `answered`, with
 a report and nothing to merge. Between the touches a task builds without him. A plan whose change makes a document
 false ends with a documentation task. After the last task a fresh builder makes the polish pass, a
@@ -47,7 +47,7 @@ its reason.
 opens the tasks, starts each task's lead, takes one branch at a time through the checks and the
 review to a pull request, and tells the owner. It holds no task's details. Of a task it reads three things: the ask it wrote
 down, the newest state block and the report file; and during an interview the scout's report,
-or for a bug the investigator's, which gives facts of the code for the stories and nothing else. It does not read the plan's reasoning, the diff
+or for a bug the investigator's, which gives facts of the code for the criteria and nothing else. It does not read the plan's reasoning, the diff
 or what a builder printed, and it writes no code. Lem is the only context that knows every
 task. When it fills with one task's code, it loses the others.
 
@@ -104,7 +104,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 
 | Subcommand | Does | Read |
 | --- | --- | --- |
-| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and says its size in one line. A small change goes to one builder and the landing, and waits for nothing. A full change: interviews the owner while a scout reads the code, has the personas read the stories and takes his yes to them, and starts its lead; a ticket or an item whose whole context is written skips the interview. A bug whose cause the ask does not show is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
+| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and says its size in one line. A small change goes to one builder and the landing, and waits for nothing. A full change: interviews the owner while a scout reads the code, has the personas read the criteria and takes his yes to them, and starts its lead; a ticket or an item whose whole context is written skips the interview. A bug whose cause the ask does not show is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read. A plan is a full change's, so the ask is a full change whatever its size, and Lem's line says so | `stages/new.md` |
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report: act on it as "A bug and a question" says | `stages/new.md` |
@@ -134,7 +134,7 @@ lead whose choice waits for the owner.
 
 ## What holds in every stage
 
-- **The owner is needed at three points.** The interview and his yes to the stories (`new`), a
+- **The owner is needed at three points.** The interview and his yes to the criteria (`new`), a
   decision that is his, and the pull request; a small change needs him at its pull request only. A decision is his when its options each cost a
   person something and no ruling, test or probe answers it. Every such decision takes one path,
   at plan time as in the build (`stages/build.md`, "A choice in the build"): the persona panel
@@ -228,7 +228,7 @@ moves it there and says so in one line on stderr: tell the owner that line once,
   `ticket_owed`: what an ended task's ticket still waits for.
 - `scout.md`: the scout's report of the interview, facts of the code around the ask. Lem writes
   it from the scout's reply, and reads it: it is the one place where knowledge of the code
-  comes up to Lem, and only for the stories.
+  comes up to Lem, and only for the criteria.
 - `investigation.md`: the investigator's report of a bug or a question: reproduced or not and
   how, the cause and its place or the answer, what else the cause reaches, and its call of what
   follows (`prompts/investigator.md`). The investigator writes it, or Lem from its reply. Lem
@@ -238,23 +238,23 @@ moves it there and says so in one line on stderr: tell the owner that line once,
   an option he picked), one line each in his words. Lem writes it; the plan follows it.
 - `outside.md`: the defects outside the request that the interview found, one line each with its
   place. Lem writes it; the landing's polish pass fixes or files each one.
-- `stories.json`: the stories the owner approved, word for word, with a digest, who approved them
+- `criteria.json`: the criteria the owner approved, word for word, with a digest, who approved them
   and when, and the number of the approval, with the earlier approvals under `history`. For a
-  full change from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `stories.py approve` writes it; `stories.py approved SLUG` prints it, and the
-  plan's stories must be those, with the test lines added.
-- `stories.md`: the stories as Lem writes them for his yes. For a small change it is the one
-  story, approved in his name, with the test line its builder adds under it, and it stands in
-  for a plan: a small change commits no plan, and `stories.py` and `land.py` read the story here
-  when the branch has no plan file. A full change's stories are read only from its plan.
+  full change from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `criteria.py approve` writes it; `criteria.py approved SLUG` prints it, and the
+  plan's criteria must be those, with the test lines added.
+- `criteria.md`: the criteria as Lem writes them for his yes. For a small change it is the one
+  criterion, approved in his name, with the test line its builder adds under it, and it stands in
+  for a plan: a small change commits no plan, and `criteria.py` and `land.py` read the criterion
+  here when the branch has no plan file. A full change's criteria are read only from its plan.
 - `brief.md`: the lead's brief, or the small change's builder's. Lem writes it.
 - `state.md`: newest block first. Lem and the lead write it, and only through the script.
 - `report.md`: what the lead did and what it leaves to Lem, rewritten whole by the lead that
   stops. `stages/build.md` gives its form.
 - `decisions.jsonl`: each decision taken without the owner, each choice that went to him and his
-  answer, one line for each thing that happened, and each change of an approved story with its
+  answer, one line for each thing that happened, and each change of an approved criterion with its
   text before and after. Lem and the lead both write it, and only through
   `scripts/decisions.py`; `decisions.py list SLUG` shows each decision as it stands, and
-  `decisions.py changes SLUG` the story changes with the stories they give.
+  `decisions.py changes SLUG` the criterion changes with the criteria they give.
 - `experts/`: for each choice given to the experts, the brief they read (`choice-N.brief.md`)
   and each one's answer (`choice-N.fable.md`, `choice-N.astra.md`), which the `lem-ask-expert`
   skill writes into the record.
@@ -286,7 +286,7 @@ command when it is one. The status says who acts next:
 | `queued` | the ask is written and no lead runs: the limit was reached, or it needs the result of the task its `after:` line names | Lem, when a lead stops or that task ends |
 | `building` | a lead plans or builds, or a builder investigates a bug or a question | the lead, or the investigator |
 | `planned` | the plan is committed and nothing builds it | Lem opens the plan talk's companion, or starts a builder after the talk, or the owner reads the plan |
-| `held` | it waits for the owner on what is no decision with options: the stories that wait for his yes, one more fact an investigation needs, a step that is his to do, or an irreversible choice that every task left depends on | the owner, through Lem |
+| `held` | it waits for the owner on what is no decision with options: the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or an irreversible choice that every task left depends on | the owner, through Lem |
 | `blocked` | the lead stopped on something it could not settle | Lem |
 | `ready` | the report is written and the branch waits for its checks | Lem |
 | `landing` | the checks and the review run on it, or a builder repairs what they showed | Lem |
@@ -308,9 +308,9 @@ A stage's start is an event too, so that the board's time card has a start and a
 span (the owner's pick of 2026-11-17). Each has a fixed form that `project.py log` checks, and
 the event that already ends the stage ends it. Logged by the agent that runs the stage, where its
 stage text says: `interview.start` (Lem, before the first question; it ends at the first
-`stories.read.start` or `stories.approved` after it), `scout.start` and `scout` (Lem, as the
-scout starts and when its report is written), `stories.read.start by=lem|lead` (it ends at
-`stories.read`), `investigation.start type=fix|question` (it ends at `investigation`), and
+`criteria.read.start` or `criteria.approved` after it), `scout.start` and `scout` (Lem, as the
+scout starts and when its report is written), `criteria.read.start by=lem|lead` (it ends at
+`criteria.read`), `investigation.start type=fix|question` (it ends at `investigation`), and
 `builder.start job=JOB` for a builder's job, `task N of M`, `the small change`, `the repair of a
 conflict with the base`, `the repair of a failed check` or `the fix of a review's findings` (it
 ends at the next state block or step of the landing). Logged by `land.py` itself:
@@ -337,10 +337,10 @@ state blocks, each gate command and each review with who answered.
 It reads the event log by itself every two seconds, so open it once, and again after agterm was
 started again.
 
-A task's own board also shows its stories, as the top of its plan has them: each with the tests
-that hold it and what the last check of those tests gave. `python3 SKILL_DIR/scripts/stories.py
-show SLUG` prints the same. The stories are what the owner reads of a task; the rest of the plan
-is the agents'. For a status of one task, say its stories in his words before anything else.
+A task's own board also shows its criteria, as the top of its plan has them: each with the tests
+that hold it and what the last check of those tests gave. `python3 SKILL_DIR/scripts/criteria.py
+show SLUG` prints the same. The criteria are what the owner reads of a task; the rest of the plan
+is the agents'. For a status of one task, say its criteria in his words before anything else.
 
 The board of all tasks has a second tab, the backlog: the items of the backlog path in groups by
 who can act on each (when the `lem-backlog` skill's sorting has verdicts, by each item's own

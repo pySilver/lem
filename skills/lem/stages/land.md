@@ -8,10 +8,10 @@ other.
 
 A small change lands by five steps and no more: `start`, `base`, `gate`, the review at its
 floor, which is one read by the review agent itself, and `propose`. It has no polish pass (step
-3): its builder filed what it saw outside the change. Its stories' check runs once, at the gate,
-and its pull request is short: green or not green, the story, the checks with the items its
-builder filed, and the read. Its story is `stories.md` in the task directory, which the
-steps read in the place of a plan; a step's word "the plan" means that file for it.
+3): its builder filed what it saw outside the change. Its criterion's check runs once, at the gate,
+and its pull request is short: green or not green, the acceptance criterion, the checks with the
+items its builder filed, and the read. Its criterion is `criteria.md` in the task directory, which
+the steps read in the place of a plan; a step's word "the plan" means that file for it.
 
 Take the task that is in `landing`, when a session before you was cut off in the middle of one;
 otherwise the `ready` task with the oldest state time. `/lem land SLUG`, typed by the owner for a
@@ -72,8 +72,8 @@ one finds what the run before it finished.
    document the change made false, and the defects outside the task that `report.md` and the
    interview's `outside.md` name, each fixed in place when cheap or filed in the backlog. It
    changes no behavior. Then `land.py polish SLUG --done` checks what it committed: it refuses a
-   worktree with changes nobody committed, a change of a story's test file or of the plan, and
-   stories' tests that no longer pass on the branch and fail on the base commit; a refusal goes
+   worktree with changes nobody committed, a change of a criterion's test file or of the plan, and
+   tests of the criteria that no longer pass on the branch and fail on the base commit; a refusal goes
    back to a builder with the same job and the step's message. Otherwise it logs the pass, and
    the pull request's checks say how many commits it made and how many items it filed.
    The pass runs once for a task, here, and never after each task of a plan; a builder of a
@@ -101,7 +101,7 @@ one finds what the run before it finished.
      each such file that was not there before the run, and the folders it empties, and names them
      in `removed_untracked`. That is no failure and no task for an ignore rule. A command that
      changed a tracked file or made a commit is refused, since its result is about another tree.
-   - Each story's tests pass on the branch and fail on the base commit (`stories.py red`).
+   - Each criterion's tests pass on the branch and fail on the base commit (`criteria.py red`).
    - The change did not lower the bar: no new lint or type suppression, no skipped or deleted
      test, no fewer assertions in a test file. A lowered bar passes only with a reason for that
      file in the plan, under `## The bar`, as `- PATH: REASON`; and then the request is not
@@ -113,7 +113,7 @@ one finds what the run before it finished.
 
    A check that fails is work, and a builder's: `spawn-builder` with the brief below, the job
    "the repair of a failed check", and as its paths what the step printed (the commands that
-   failed with their output files, or the story and its test, or the files where the bar is
+   failed with their output files, or the criterion and its test, or the files where the bar is
    lower) and the task's plan. For a red gate command the builder runs the same command on the
    base. A failure the change caused, it fixes and commits, and the landing goes on from step
    2. A failure the base already has is not this task's to carry and not this gate's to hide:
@@ -197,12 +197,12 @@ one finds what the run before it finished.
 
    The step writes the text of the pull request (`pr.md` in the task directory): the first line
    says green or not green, and each reason it is not green stands before everything else; then
-   the request in the owner's words, the stories with their tests, each check with what it
+   the request in the owner's words, the criteria with their tests, each check with what it
    returned, each decision of the record (`decisions.py list SLUG`) with who took it and why,
    and your notes. Green means seven things, the seven the step checks: the checks passed with
    the bar where it was; a review with at least one source left no must-fix and saw the change
-   as it is; no story changed during the build; no choice was taken by timeout or by the
-   experts; the gate was the main checkout's own; no read of the stories went unanswered twice;
+   as it is; no criterion changed during the build; no choice was taken by timeout or by the
+   experts; the gate was the main checkout's own; no read of the criteria went unanswered twice;
    and a small change is not careful. A green request needs no read from the owner. The step refuses while a
    choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
    the owner"), and run it again after his answer or after the timeout. It refuses a request
@@ -214,10 +214,10 @@ one finds what the run before it finished.
    `.lem/project.toml`, had no talk due; it gets the full set and a person's merge, and
    its text says that it had no talk and why. A careful request says so in the line after green
    or not green, with each reason, and its checks hold the careful call with the review's reason.
-   It refuses a request whose newest read of its stories had no answer and was the first such
+   It refuses a request whose newest read of its criteria had no answer and was the first such
    read in a row: the read is started once more (`stages/new.md`, "The interview and the
-   stories", step 5). After a second read with no answer the request is proposed, not green,
-   with "the stories were not read" first.
+   acceptance criteria", step 5). After a second read with no answer the request is proposed,
+   not green, with "the criteria were not read" first.
    With a GitHub remote the step pushes the task's branch and opens the pull request, or
    updates the one that is there. Run it without a question: `branch.propose = "pull-request"`,
    in the settings the owner approved at onboarding, is his standing word for this push and this

@@ -118,23 +118,24 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   helps."). The item is filed without a question to him, on the task's branch, and the pull
   request lists it: that form is the design session's, on the page he answered with "all good".
 - **A builder's question about the outcome goes to the personas**, not to the reviewer.
-- **The personas' read of the stories is his to skip, and only when every story names only the
-  developer**: he asked whether the read should be optional ("In some cases the owner has all the
+- **The personas' read of the acceptance criteria is his to skip, and only when every criterion
+  names only the developer**: he asked whether the read should be optional ("In some cases the owner has all the
   knowledge that is needed for task, so personas read would be a pure waste of time and money"),
-  and answered "I agree" (2026-11-16) to the proposal a Fable second opinion shaped. A story that
-  names a person other than the developer gets the read, and Lem asks nothing. When every story
-  names only the developer, Lem asks one fixed question in the terminal, "The stories name only
-  you. Skip the persona read? (y/n)". Lem never skips the read by its own judgment: it wrote the
-  stories, and the author of a wrong reading sees it as clear. On his yes Lem logs his words and
-  he approves the stories, and the pull request stays green, because the decision was his. A full
+  and answered "I agree" (2026-11-16) to the proposal a Fable second opinion shaped. A criterion that
+  names a person other than the developer gets the read, and Lem asks nothing. When every
+  criterion names only the developer, Lem asks one fixed question in the terminal, "The acceptance
+  criteria name only you. Skip the persona read? (y/n)". Lem never skips the read by its own
+  judgment: it wrote the criteria, and the author of a wrong reading sees it as clear. On his yes
+  Lem logs his words and he approves the criteria, and the pull request stays green, because the decision was his. A full
   change with an interview only: for a full change from a complete request the read is the only
   approval and always runs. The form is
   the session's design: his word is the decision `decisions.py log SLUG --by owner --what "the
-  personas' read of the stories" --chose "no read: the stories name only the developer"`, with his
-  answer in `--why`; `land.py` (`READ_SKIP`) takes a full change with no `stories.read` only when an
+  personas' read of the criteria" --chose "no read: the criteria name only the developer"`, with his
+  answer in `--why` (the texts an older Lem wrote with "stories" still count for a task it took that
+  far); `land.py` (`READ_SKIP`) takes a full change with no `criteria.read` only when an
   approval of his follows that decision and both come before the first state that names a lead
   (`lead: builder` or `lead: session`), which is how the script tells an interview from a
-  complete request, and its checks then say "the stories: not read by the personas, on his word (DATE); he
+  complete request, and its checks then say "the criteria: not read by the personas, on his word (DATE); he
   approved them".
 - **Every project of Lem has personas, and a panel asks the project's own**: "every project has
   personas, I don't see why we can have none when Lem is installed for a project" (2026-11-15).
@@ -281,7 +282,7 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   probably not the best solution)" (2026-11-16). What answers it is the session's design: each
   issue the reviewer finds in a changed decision is a hold of the same question, so such a
   question closes as a design choice, and the card compares the kept decision and its mechanisms
-  with the reversed one, its tasks, its stories and each issue raised against it.
+  with the reversed one, its tasks, its acceptance criteria and each issue raised against it.
 - **Lem tells the type of a request, asks when it is unclear, and a bug is investigated
   first**: of a small fix taken as a correction with no scout, "Well typically the
   root-cause-investigation is needed to unerstand what triggers the bug that we aim to correct,
@@ -294,7 +295,7 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   or `question`, taken from the ask's words alone, with example words in `stages/new.md` as hints
   and no code that matches them; the first question of the interview when the words do not settle
   it; the type in `task.md` and in a state line `type: TYPE, because WHY`, and the branch's type
-  from it; a bug whose cause the ask does not show investigated before any story by a fresh
+  from it; a bug whose cause the ask does not show investigated before any acceptance criterion by a fresh
   builder (`prompts/investigator.md`) that commits a failing test and finds the cause with the
   `lem-root-cause` method, whose report makes it a small fix, a full fix, or ends the task; a
   question that ends with its answer; and the state `answered`, a task that ended with a report
@@ -439,7 +440,7 @@ full, with what was designed from it.
   limited. But he may tell to use this and that technology or reivew options during interview."
   No text of Lem writes for a business reader. What he names in the interview is a direction
   the plan follows.
-- **Most requests have an interview and his check of the stories; a green pull request he merges
+- **Most requests have an interview and his check of the acceptance criteria; a green pull request he merges
   without a read**: "most of the time there will be interview and there will be user stories to
   check by Lem user. PR review - not necessarily, I think most of the time if everything is
   green he will be merging it blindly." So the pull request says green or not green first.
@@ -487,7 +488,7 @@ is the session's, and open to him.
   `flow.decision_wait` while the rest goes on, and then the experts' shared pick or the
   recommended option, not green. The question gate (`lem-gate`) sits at Lem's card. A decision
   of the plan no longer holds the task: it was the one place where his wait had no end. `held`
-  keeps what has no options: the stories that wait for his yes (a type only he may change among
+  keeps what has no options: the criteria that wait for his yes (a type only he may change among
   them), one more fact for an investigation, a step that is his to do, and an irreversible
   choice that every task left needs. A night plan asks no such decision, since nobody is there
   and every wait would end without him: its brief says `night: yes`, `decisions.py ask` refuses
@@ -503,7 +504,7 @@ is the session's, and open to him.
   merge, in "Rules for a change here". No copy of the scripts runs a landing, and no step is
   added for it. The backlog item that asked for one of the two is closed by the rule.
 - **Where the stages keep what the amendment of 2026-11-16 says otherwise.** Its note 3 has the
-  lead change a story a persona doubted before the owner sees it; the stages keep the story as
+  lead change a criterion a persona doubted before the owner sees it; the stages keep the criterion as
   written, with what the lead would change beside it as a proposal, because no agent rewrites
   his contract before he reads it. "Not green" stays for every choice the experts or the timeout
   took, where the amendment names only the timeout. The polish pass never runs for a small
@@ -544,30 +545,30 @@ is the session's, and open to him.
   request, a one-rule correction 6 agents and 15 to 25 minutes, against about 4 minutes measured
   for a correction in the first flow, and a lead read about 18,500 words before it acted (the
   times are unmeasured estimates built on the skill files' measurements; the words are `wc -w`
-  of the files a lead reads). So a small change, one plain change with one story in his own
+  of the files a lead reads). So a small change, one plain change with one acceptance criterion in his own
   sentence, no topic in reach and no question open, whatever its type, has one builder and no
   lead: `prompts/small.md`, a brief complete in itself, and the builder's standing rules. It
-  commits no plan; its story is `stories.md` in the task directory, approved in his name, with
-  its test line, and `stories.py` and `land.py` read it there when the branch has no plan file,
+  commits no plan; its criterion is `criteria.md` in the task directory, approved in his name, with
+  its test line, and `criteria.py` and `land.py` read it there when the branch has no plan file,
   for a small change only. A change that keeps behavior has `no test` and its builder runs the
   whole gate suite. Before it commits, the builder reads its change against the topics and stops
-  with `the stories wait for the owner: the small change is a full change` when it reaches one, needs
+  with `the criteria wait for the owner: the small change is a full change` when it reaches one, needs
   a second rule or a decision, lowers the bar or grew. Its landing is `start`, `base`, `gate`
-  (with `stories.py red` once), one read by the review agent itself, and `propose` with a short
+  (with `criteria.py red` once), one read by the review agent itself, and `propose` with a short
   text; no polish pass at all, and its builder files what it sees outside the change. A small
   change that is
   careful after all (by the review's call or its edit of the settings) is not green and a person
   merges it, since it skipped the interview, the read and the plan; one that lowers the bar is
-  refused at the gate. Lem says the size, the branch, the story, what happens and what he must do
+  refused at the gate. Lem says the type and the size, the branch, the criterion, what happens and what he must do
   in one line before anything runs, and nothing repeats it. Counted from the text after the
   change, a typo, a rename and a one-rule fix each start two agents (the builder and the review
   agent), and the builder reads `prompts/small.md` and `agents/lem-builder.md`, 1,954 words
   (`wc -w`: 775 and 1,179, at 15d5697, 2026-11-17).
 - **A full change has one approval and no ceremony that nobody asked for** (2026-11-17), from the same
   audit's findings: the interview's restate and explicit yes were a second approval of what the
-  stories say (F3), so the interview's questions come from the `lem-interview-me` method and its
-  restate and yes are the stories and his yes to them; each question is one line in the
-  conversation with Lem's guess, and no page opens for it. A story whose change keeps behavior (a
+  criteria say (F3), so the interview's questions come from the `lem-interview-me` method and its
+  restate and yes are the criteria and his yes to them; each question is one line in the
+  conversation with Lem's guess, and no page opens for it. A criterion whose change keeps behavior (a
   rename, a bump, a refactor) is held by the suite, `- no test: the change keeps behavior; the
   suite holds it`, and its builder runs the whole suite, where a contrived failing test was asked
   before (F4). "A new kind of test" no longer makes a plan careful: a pattern is product code
@@ -617,9 +618,9 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   or has no new state block. New work on an ended task is a new ask.
 - **A plan never makes a change small** (A3). A lead could write a small change's size line in a
   plan, for a full change from a complete request or at night, and then no approval, no read of
-  the stories and no polish pass was asked: the probe's plan went through the gate, the read and
+  the criteria and no polish pass was asked: the probe's plan went through the gate, the read and
   `propose` green, and `land --by agent` landed it. A one-rule ask is a small change, with its
-  story in the task directory, approved by Lem with `--small`. `stories.py` and `land.py` refuse a
+  criterion in the task directory, approved by Lem with `--small`. `criteria.py` and `land.py` refuse a
   plan file that says `Size: small` (or `Kind: correction`, the line of an older Lem), and a night that meets an item that is one plain change drafts no plan and
   names it in the night report as ready to start as a small change.
 - **The gate removes what its own commands leave** (R3, the first run). `python3 -m unittest`
@@ -722,9 +723,10 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   machine checks, the review's floor and its record, the pull request, the merge),
   `corrections.py` (the optional queue of the owner's corrections: its hook, which claims each
   message so that a hook registered in two places judges it once, and what a retro reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
-  the plugin puts on the Bash tool's `PATH` as the `lem-jev` command), `stories.py` (a task's stories, read from the top of
-  its plan, or for a small change from `stories.md` in its task directory, and the check that
-  each one's tests pass on the branch and fail on the base commit),
+  the plugin puts on the Bash tool's `PATH` as the `lem-jev` command), `criteria.py` (a task's acceptance criteria, read from the top of
+  its plan, or for a small change from `criteria.md` in its task directory, and the check that
+  each one's tests pass on the branch and fail on the base commit; it still reads the `stories.md`,
+  `stories.json` and `## Stories` of a task an older Lem proposed),
   `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, and
   each choice that waits for him `flow.decision_wait` minutes at most, with the experts' advice
   on it, which the landing reads).

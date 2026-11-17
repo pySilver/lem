@@ -38,10 +38,10 @@ last repair raised does not end.
 - A repair that adds a mechanism (a guard, a job, an invalidation, a cache, a flag, a sync, a
   retry) names the decision of the plan it sits on and what that decision rests on. Say which of
   the two it is, beside `closed` or `holds`: `at the cause`, when the repair changed that
-  decision, or `layer over D`, D being the decision. A layer over a decision that cites a story, a
-  ruling or existing code can close; a layer over a decision that rests only on the planner's
-  choice holds, because the repair had to change that decision. A second question on a decision
-  another question named closes at once as a design choice: say `same decision as N`.
+  decision, or `layer over D`, D being the decision. A layer over a decision that cites an
+  acceptance criterion, a ruling or existing code can close; a layer over a decision that rests only
+  on the planner's choice holds, because the repair had to change that decision. A second question
+  on a decision another question named closes at once as a design choice: say `same decision as N`.
 - A repair that changed a decision (`at the cause`) can bring issues of its own. Each issue you
   find in the changed decision is a `holds` on the same question, with the issue as the why,
   never a new question. The defender answers it with a refutation, never a second repair, so

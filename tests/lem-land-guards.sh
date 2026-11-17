@@ -138,7 +138,7 @@ rm -f "$tree/mine.txt"
 project --repo "$GRD" state gate-caches dropped "the test is over" >/dev/null
 
 # The gate judges one tree: a command that changes a tracked file or makes a commit changed it, and a
-# story's test that passes on the base commit too holds nothing. Each refusal records no green tip.
+# criterion's test that passes on the base commit too holds nothing. Each refusal records no green tip.
 small_task_in "$GRD" gate-writes x.txt x
 tree=$(wt gate-writes)
 g start gate-writes >/dev/null && g base gate-writes >/dev/null
@@ -162,7 +162,7 @@ if grep -qF "a gate command changed what git tracks, so its result is about anot
   && grep -qF "a gate command made a commit on the branch" <<<"$made" && grep -qF "git -C $tree reset --hard $tip" <<<"$made" && [ "$made_gated" = None ] \
   && grep -qF "passes on the base commit too" <<<"$weak" && [ "$weak_gated" = None ] \
   && [ "$green" = "(True, '$tip')" ] && [ "$(kept_in "$GRD" gate-writes tree)" = "$(git -C "$tree" rev-parse "$tip^{tree}")" ]; then
-  pass "the gate refuses a command that edits a tracked file, one that makes a commit, and a story's test that passes on the base commit, and records no green tip for any; a green gate records the tip and that tip's tree"
+  pass "the gate refuses a command that edits a tracked file, one that makes a commit, and a criterion's test that passes on the base commit, and records no green tip for any; a green gate records the tip and that tip's tree"
 else
   fail "what the gate judges: $left / $made / $weak / $green"
 fi
@@ -359,14 +359,14 @@ else
   fail "the rebase in land stops: $stopped / $(status_in "$GC" docs-meet)"
 fi
 
-# The stories' check needs a change: a branch the base holds whole has no commit for a test to hold.
+# The check of the criteria needs a change: a branch the base holds whole has no commit for a test to hold.
 small_task_in "$GRD" on-base o.txt o
 git -C "$GRD" merge -q --ff-only fix/on-base
-on_base=$("$PY" -B "$STORIES" --repo "$GRD" red on-base 2>&1 || true)
+on_base=$("$PY" -B "$CRITERIA" --repo "$GRD" red on-base 2>&1 || true)
 if grep -qF "the branch has no commit beyond main, so there is no change for a test to hold" <<<"$on_base"; then
-  pass "the stories' check refuses a branch with no commit beyond the base"
+  pass "the check of the criteria refuses a branch with no commit beyond the base"
 else
-  fail "stories red with no commit beyond the base: $on_base"
+  fail "criteria red with no commit beyond the base: $on_base"
 fi
 
 finish

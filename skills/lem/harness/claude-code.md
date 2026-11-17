@@ -133,13 +133,13 @@ A builder can start builders of its own with the same tool, so a builder leads a
 also the build of a careful or large plan after its talk. Checked on 2026-11-14 in Claude Code
 2.1.325: a subagent of the type `worker`, which like `lem-builder` names no tool list and so
 inherits every tool, called `Agent`, and the nested agent's reply came back to it. Not run yet: the
-same from a `lem-builder`. The persona agents of a lead's read of its stories start the same way: on
-2026-11-16 a `worker` subagent on Opus, standing in for a lead, started two persona subagents and
-had both answers in 25 seconds (07:23:25Z to 07:23:50Z); not checked from a `lem-builder`, which has
-the same tools. The scout of an interview is a builder too, with `prompts/scout.md` as its brief,
-and so are the investigator of a bug or a question, with `prompts/investigator.md`, and the one
-builder of a small change, with `prompts/small.md`, which Lem starts from its own session as it
-starts a lead. A
+same from a `lem-builder`. The persona agents of a lead's read of its acceptance criteria start the
+same way: on 2026-11-16 a `worker` subagent on Opus, standing in for a lead, started two persona
+subagents and had both answers in 25 seconds (07:23:25Z to 07:23:50Z); not checked from a
+`lem-builder`, which has the same tools. The scout of an interview is a builder too, with
+`prompts/scout.md` as its brief, and so are the investigator of a bug or a question, with
+`prompts/investigator.md`, and the one builder of a small change, with `prompts/small.md`, which Lem
+starts from its own session as it starts a lead. A
 builder has no pane of its own, so no reviewer sits beside it and the owner cannot type to it. A
 careful or large plan gets a companion session for its talk for that reason: the talk needs the
 reviewer's pane and the mailbox.
@@ -365,7 +365,7 @@ are the paths `experts.py brief` printed.
   an expert that did not answer: the skill's step 3 says what follows.
 
 Checked on 2026-11-16 in a scratch repository, Claude Code 2.1.325 and codex-cli 0.169.0, on a
-toy choice of two options with two stories and one file: both started in one message (`date -u`
+toy choice of two options with two criteria and one file: both started in one message (`date -u`
 read 13:23:11Z in the call before it). `fable` answered in 12.1 seconds (the subagent's
 `duration_ms`, 12093) and `astra` in 18 seconds (13:23:18Z to 13:23:36Z, `date -u` around the
 command); both picked the same option, each answer was recorded by `experts.py record` as it

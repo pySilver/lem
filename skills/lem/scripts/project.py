@@ -56,7 +56,7 @@ the branch and newest commit of the task's worktree, so the board needs no agent
 second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
 JSON, so a commit made only of digits stays a string and an exit code stays a number. The start
 of each stage that logs its end has a fixed form (`STARTS`: `interview.start`, `scout.start` and
-`scout`, `stories.read.start`, `investigation.start`, `builder.start`, and the three `land.py`
+`scout`, `criteria.read.start`, `investigation.start`, `builder.start`, and the three `land.py`
 writes, `polish.start`, `gate.start` and `review.start`), so that the board draws each span from
 its start to its end. Four more events have a fixed form. `plan.talk.start`, which the defender of a careful or large plan writes when
 the reviewer's seat opens, as `reviewer=AGENT`, so that the board draws the talk from its start.
@@ -72,14 +72,16 @@ it ran, and `log` adds the bound to it as `bound`, for the landing and the board
 talk went over. `tasks` gives each task
 its newest `plan.talk` as `talk`, the record Lem and a builder read before the build of a
 careful or large plan.
-And `stories.read`, which Lem or the lead writes after the personas read the stories, as
-`by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ..., "why":
-...}]' stories:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many personas
-were asked and how many answered, the model families that answered, each source that did not
-and why (a partial read counts), how many stories were read and how many an answer flagged,
-whether the families split, and the digest `stories.py digest` gives for the stories read. A
+And `criteria.read`, which Lem or the lead writes after the personas read the acceptance
+criteria, as `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ...,
+"why": ...}]' criteria:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many
+personas were asked and how many answered, the model families that answered, each source that did
+not and why (a partial read counts), how many criteria were read and how many an answer flagged,
+whether the families split, and the digest `criteria.py digest` gives for the criteria read. A
 read in which nobody answered is written too, with `answered:=0`, no family and each source that
-was asked in `silent`; the landing counts two of those in a row as stories that went on unread.
+was asked in `silent`; the landing counts two of those in a row as criteria that went on unread.
+`log` refuses the names an older Lem gave the read and its start, `stories.read` and
+`stories.read.start`, with the name of now; the landing still reads the events an older Lem wrote.
 `investigation`, which Lem writes after it reads the investigator's report of a fix or a
 question, as `type=fix|question call=CALL line=TEXT [where=PATH:SYMBOL]
 [reproduced:=true|false]`: a fix's call is small, full, not-a-bug or not-reproduced, and it says
@@ -201,7 +203,7 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   queued    the ask is written and no lead runs yet: the limit was reached, or its `after:` line names the task it needs
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
-#   held      it waits for the owner on what is no decision with options: the stories, one more fact, a
+#   held      it waits for the owner on what is no decision with options: the criteria, one more fact, a
 #             step of his, or an irreversible choice every task left needs; a decision of his is a choice
 #   blocked   the lead stopped on something the coordinator has to settle
 #   ready     the report is written and the branch waits for its checks
@@ -314,7 +316,7 @@ commands = []
 # only, the result stands; any other file means the gate runs again. A `*` crosses directories.
 ignores = []
 # What a fresh worktree of this project needs before its tests can start: install the packages,
-# copy an environment file. The check that each story's tests fail on the base commit runs in a
+# copy an environment file. The check that each criterion's tests fail on the base commit runs in a
 # worktree of its own and runs these there first. Leave it empty when the tests start as they are.
 setup = []
 
@@ -1307,7 +1309,9 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
         talk_form(fields)
         # the bound its rules give, beside the record, so that a reader says when the talk went over it
         fields["bound"] = TURNS_PER_QUESTION * fields["questions"] + TURNS_AROUND
-    if event == "stories.read":
+    if event in OLD_EVENTS:
+        raise SettingsError(f"{event} is the name an older Lem gave this event; it is {OLD_EVENTS[event]} now, with the same fields" + (" and criteria:=N for stories:=N" if event == "stories.read" else ""))
+    if event == "criteria.read":
         read_form(fields)
     if event == "investigation":
         investigation_form(fields)
@@ -1315,15 +1319,15 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
 
 
 def read_form(fields: dict) -> None:
-    """The personas' read of the stories is read by the landing, so it has one form: who ran it,
+    """The personas' read of the criteria is read by the landing, so it has one form: who ran it,
     how many personas were asked and how many answered, the model families that answered, each
-    source that did not answer and why, how many stories were read and flagged, whether the
-    families split, and the digest of the stories it read (`stories.py digest`)."""
+    source that did not answer and why, how many criteria were read and flagged, whether the
+    families split, and the digest of the criteria it read (`criteria.py digest`)."""
     form = (
-        "stories.read takes by=lem|lead asked:=N answered:=N families:='[\"FAMILY\", ...]' "
-        "silent:='[{\"name\": SOURCE, \"why\": WHY}, ...]' stories:=N flagged:=N split:=true|false digest=DIGEST"
+        "criteria.read takes by=lem|lead asked:=N answered:=N families:='[\"FAMILY\", ...]' "
+        "silent:='[{\"name\": SOURCE, \"why\": WHY}, ...]' criteria:=N flagged:=N split:=true|false digest=DIGEST"
     )
-    counts = ("asked", "answered", "stories", "flagged")
+    counts = ("asked", "answered", "criteria", "flagged")
     if set(fields) != {"by", "families", "silent", "split", "digest", *counts}:
         raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
     if fields["by"] not in ("lem", "lead"):
@@ -1340,16 +1344,16 @@ def read_form(fields: dict) -> None:
     ):
         raise SettingsError(f"{form}: silent is a list of {{\"name\": ..., \"why\": ...}}, one for each source that did not answer; [] when every one did")
     if not isinstance(fields["split"], bool):
-        raise SettingsError(f"{form}: split is true when the two families answered a story differently, false otherwise, written with :=")
+        raise SettingsError(f"{form}: split is true when the two families answered a criterion differently, false otherwise, written with :=")
     if not isinstance(fields["digest"], str) or not re.fullmatch(r"[0-9a-f]{12}", fields["digest"]):
-        raise SettingsError(f"{form}: digest is the twelve characters `stories.py digest` prints for the stories that were read")
+        raise SettingsError(f"{form}: digest is the twelve characters `criteria.py digest` prints for the criteria that were read")
     # every project's cast has two people or more
     if fields["asked"] < 2:
         raise SettingsError(f"{form}: a read asks two personas at the least")
     if fields["answered"] > fields["asked"]:
         raise SettingsError(f"{form}: answered is at most asked; 0 is a read in which nobody answered")
     # A read in which nobody answered is written down too, and started once more: the landing
-    # counts two in a row as the stories going on unread, and the request as not green.
+    # counts two in a row as the criteria going on unread, and the request as not green.
     if fields["answered"] == 0 and (families or fields["flagged"] or fields["split"] or len(silent) < fields["asked"]):
         raise SettingsError(
             f"{form}: a read in which nobody answered has families:='[]', flagged:=0 and split:=false, "
@@ -1357,8 +1361,8 @@ def read_form(fields: dict) -> None:
         )
     if fields["answered"] < fields["asked"] and not silent:
         raise SettingsError(f"{form}: when fewer answered than were asked, silent names each source that did not, with why")
-    if fields["stories"] < 1 or fields["flagged"] > fields["stories"]:
-        raise SettingsError(f"{form}: a read has one story at the least, and no more stories flagged than it read")
+    if fields["criteria"] < 1 or fields["flagged"] > fields["criteria"]:
+        raise SettingsError(f"{form}: a read has one criterion at the least, and no more criteria flagged than it read")
     if fields["split"] and len(families) < 2:
         raise SettingsError(f"{form}: a split is between two model families, and families names one")
 
@@ -1367,8 +1371,8 @@ def read_form(fields: dict) -> None:
 # the one to the other (the owner's pick of 2026-11-17: "each stage logs its start, and the card
 # becomes exact"). Event -> (its form, the fields it takes, the values each may have). An agent logs
 # the first six where its stage text says; land.py logs the last three itself. The end of each:
-# `interview.start` ends at the first `stories.read.start` or `stories.approved` after it, the
-# scout at `scout`, the read at `stories.read`, an investigation at `investigation`, a builder's
+# `interview.start` ends at the first `criteria.read.start` or `criteria.approved` after it, the
+# scout at `scout`, the read at `criteria.read`, an investigation at `investigation`, a builder's
 # job at the next state block or step of the landing after it, the polish pass at `polish`, the
 # checks at the gate's last `gate` or `task.red`, and the review at `review`.
 BUILDER_JOBS = ("the small change", "the repair of a conflict with the base", "the repair of a failed check", "the fix of a review's findings")
@@ -1377,7 +1381,7 @@ STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
     "interview.start": ("interview.start takes nothing", {}),
     "scout.start": ("scout.start takes nothing", {}),
     "scout": ("scout, the end of the scout's read, takes nothing", {}),
-    "stories.read.start": ("stories.read.start takes by=lem|lead, and nothing else", {"by": ("lem", "lead")}),
+    "criteria.read.start": ("criteria.read.start takes by=lem|lead, and nothing else", {"by": ("lem", "lead")}),
     "investigation.start": ("investigation.start takes type=fix|question, and nothing else", {"type": ("fix", "question")}),
     "builder.start": (
         f"builder.start takes job=JOB, and nothing else: `task N of M`, or one of {', '.join(BUILDER_JOBS)}; the polish pass logs its own start (`land.py polish`)",
@@ -1421,6 +1425,10 @@ def talk_start_form(fields: dict) -> None:
 # talk that ran longer is written as it ran, and `log` adds the bound to it, so the pull request and
 # the board can say that it went over.
 TURNS_PER_QUESTION = 4
+# The names an older Lem gave the personas' read and its start, which `log` refuses with the name of
+# now. The landing and the board still read events of the old names; a later change may drop this
+# once no task with such an event is open.
+OLD_EVENTS = {"stories.read": "criteria.read", "stories.read.start": "criteria.read.start"}
 TURNS_AROUND = 2
 
 
@@ -1431,7 +1439,7 @@ def talk_form(fields: dict) -> None:
     design choice (a question that held a second time), how many questions were raised after the
     list and not argued, and three counts of Fable's check for a layer of patches (2026-11-16):
     `root`, the repairs that changed a decision of the plan; `layer`, the repairs that put a
-    mechanism over a decision the plan cites (a story, a ruling, existing code) and stayed; and
+    mechanism over a decision the plan cites (a criterion, a ruling, existing code) and stayed; and
     `shared`, the decisions two questions named."""
     form = "plan.talk takes reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N"
     counts = ("turns", "questions", "settled", "open", "repaired", "design", "unargued", "root", "layer", "shared")
