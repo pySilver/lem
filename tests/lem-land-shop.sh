@@ -13,12 +13,8 @@ git init -q --bare -b main "$ORIGIN"
 git clone -q "$ORIGIN" "$SHOP" 2>/dev/null
 ident "$SHOP"
 project --repo "$SHOP" init --base main --reviewer codex >/dev/null
-# shop_settings LAND HISTORY: the settings, committed on main and pushed, as the owner's change of them lands; shop_lines LINE...: any other settings so
-shop_lines() {
-  if git -C "$SHOP" rev-parse -q --verify HEAD >/dev/null; then git -C "$SHOP" fetch -q origin && git -C "$SHOP" merge -q --ff-only origin/main; fi
-  printf '%s\n' "$@" > "$SHOP/.lem/project.toml"
-  settled "$SHOP" && git -C "$SHOP" push -q origin main
-}
+# shop_settings LAND HISTORY: the settings, an edit of the owner's in the main checkout; shop_lines LINE...: any other settings so
+shop_lines() { printf '%s\n' "$@" > "$SHOP/.lem/project.toml"; }
 shop_settings() {
   shop_lines '[branch]' 'base = "main"' "land = \"$1\"" "history = \"$2\"" 'protected = ["release"]' \
     '[checks]' 'commands = ["test -f ok.txt", "echo 7 passed"]' 'ignores = ["docs/*"]'
@@ -137,7 +133,7 @@ other=$WORK/other
 git clone -q "$ORIGIN" "$other" && ident "$other"
 echo late > "$other/late.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: late" && git -C "$other" push -q origin main
 err=$(land --repo "$SHOP" land first-change --by agent 2>&1 || true)
-if [ "$(status_of land --repo "$SHOP" land first-change --by agent)" = 1 ] && grep -q "moved after the checks ran, by files the checks read (.lem/project.toml, late.txt)" <<<"$err" \
+if [ "$(status_of land --repo "$SHOP" land first-change --by agent)" = 1 ] && grep -q "moved after the checks ran, by files the checks read (late.txt)" <<<"$err" \
   && grep -q "run .lem land start., .lem land base., .lem land checks. and .lem land propose. again" <<<"$err" && [ "$(status first-change)" = open ]; then
   pass "land refuses when the base moved by a file the gate reads, and says which steps run again"
 else
@@ -233,8 +229,6 @@ else
 fi
 git -C "$tree" revert --no-edit HEAD >/dev/null
 shop_settings agent squash
-# the settings' commit moved the base: the branch is brought onto it
-land --repo "$SHOP" base second-change >/dev/null
 land --repo "$SHOP" checks second-change >/dev/null
 out=$(land --repo "$SHOP" read second-change)
 under=$(land --repo "$SHOP" read second-change --record "$(record 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "a line of the app changes"}], "answered": ["codex"]}')" 2>&1 || true)

@@ -5,10 +5,11 @@
 
 - An unknown table or key, a wrong type, and a path outside the repository are errors. Lem names
   the error and the fix, and it stops.
-- Lem reads the settings as the newest commit of the base branch has them, not from the files in
-  your main checkout. An edit counts after you commit it on the base branch. If the main checkout
-  holds another branch or an edit that is not committed, Lem tells you so in one line.
-- Thus a branch cannot change the rules that guard it: the topics, the checks, who merges.
+- Lem reads the settings from your main checkout. Your edit there counts at once, also before
+  you commit it.
+- If the main checkout holds another branch, Lem reads the settings as the newest commit of the
+  base branch has them, and tells you so in one line.
+- A task's branch cannot change the rules that guard it: the topics, the checks, who merges.
 - A change that edits `.lem/project.toml` is careful, and a person merges it.
 
 ## `[paths]`

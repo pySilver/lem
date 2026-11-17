@@ -116,7 +116,6 @@ else
 fi
 # A red checks.commands leaves the alone commands out: they run only after the others passed.
 printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["echo 1 failed; exit 1"]' "alone = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
-settled "$AL"
 red=$(land --repo "$AL" checks alone-change 2>/dev/null || true)
 if [ "$(field '[(c["command"], c["exit"]) for c in d["commands"]]' <<<"$red" 2>&1)" = "[('echo 1 failed; exit 1', 1)]" ]; then
   pass "a red gate command leaves the alone commands out: they run only after checks.commands pass"

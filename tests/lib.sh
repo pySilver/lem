@@ -25,9 +25,6 @@ project() { "$PY" -B "$PROJECT" "$@"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
 commit() { git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "$2"; }
-# settled REPO: the settings file as it is now, committed on the branch the main checkout holds, as the owner's edit counts:
-# Lem reads the settings as the base branch's newest commit has them
-settled() { git -C "$1" add .lem/project.toml && git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "chore: the settings" -- .lem/project.toml; }
 # CASE: the run that ends badly, which every choice for the owner carries above his card (decisions.py ask)
 CASE=(--case $'1. Order 1042 has two gift notes, "for Ania" and "for Ola".\n2. The export writes one cell for the note of an order.\n3. The merchant prints the slip with one note, and Ola gets none.'
   --case-was derived --cause "An order has one cell for its note, and every export of notes shares that cell.")

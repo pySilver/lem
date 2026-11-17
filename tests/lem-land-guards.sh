@@ -9,8 +9,8 @@
 GRD=$WORK/guards
 git init -q -b main "$GRD" && ident "$GRD"
 project --repo "$GRD" init --base main >/dev/null
-# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items, committed on main; HISTORY=squash for one commit
-grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" > "$GRD/.lem/project.toml"; settled "$GRD"; }
+# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit
+grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" > "$GRD/.lem/project.toml"; }
 grd_settings '"true"'
 mkdir -p "$GRD/tests" && printf '%s\n' 'def test_old():' '    assert 1 + 1 == 2' > "$GRD/tests/test_old.py"
 git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: start"

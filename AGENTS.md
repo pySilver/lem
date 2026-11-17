@@ -537,11 +537,12 @@ is the session's, and open to him.
   branch), the owner's word in the brief or the newest answered review says so, and an agent
   merges only a green request whose newest review said not careful. `careful.missed` is the
   event for a careful call of the review that the plan did not make. The topics cannot be lifted
-  by the branch they guard: `project.py` reads the settings as the base branch's newest commit
-  holds them (`committed_settings`), and in a task's worktree it takes `[flow]` and `[naps]` from
-  there too, so the landing, the lead, `decisions.py` with `flow.decision_wait` (audit findings S1
-  and W2) and the review read the base branch's table, and `land.py` reads every setting from
-  that commit wherever it runs. A change whose diff edits
+  by the branch they guard: `project.py` reads the main checkout's settings (its working tree
+  while it is on the base branch, the base branch's commit while another branch is checked out
+  there, `committed_settings`), and in a task's worktree it takes `[flow]` and `[naps]` from there
+  too, so the landing, the lead, `decisions.py` with `flow.decision_wait` (audit findings S1 and
+  W2) and the review read the main checkout's table, and `land.py` reads every setting from it
+  wherever it runs. A change whose diff edits
   `.lem/project.toml`, in any table, is careful by the script: the one rule that is a match and
   not a judgment, because the file is Lem's own. The same holds for a diff that puts the
   machine's own `.lem/project.local.toml` into git (the second audit, N5). And a task in

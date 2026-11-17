@@ -149,11 +149,7 @@ oland propose old-full --title "feat: old-full" --notes "$NOTES" >/dev/null
 # write in its place, and once the owner wrote them, they go on with the tasks the older scripts left.
 refused=$(project --repo "$OT" show 2>&1 >/dev/null || true)
 landed_refused=$(nland merged old-small 2>&1 || true)
-# written as the refusal says, and committed on main and pushed, as Lem reads the settings; the checks do not read the file,
-# so the base that moved by it alone lets the older pull requests merge
-git -C "$OT" fetch -q origin && git -C "$OT" merge -q --ff-only origin/main
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' 'ignores = [".lem/project.toml"]' > "$OT/.lem/project.toml"
-settled "$OT" && git -C "$OT" push -q origin main
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$OT/.lem/project.toml"
 if grep -qF "[gate] is called [checks] now" <<<"$refused" && grep -qF "[gate] is called [checks] now" <<<"$landed_refused" \
   && [ "$(printf '%s\n' "$refused" | tail -2)" = "$(printf '%s\n' '[checks]' 'commands = ["true"]')" ] && [ "$(status_in "$OT" old-small)" = open ]; then
   pass "the settings of an older Lem, whose checks are a [gate] table, are refused with the lines to write, and nothing of a task moves before they are written"

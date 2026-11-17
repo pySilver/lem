@@ -142,21 +142,21 @@ What must never go wrong is `flow.topics`: sentences in the owner's words, again
 reads an ask, a plan and a diff. No list of paths says whether a change is careful: such a list
 goes stale as the code moves, misses new code, and a branch can edit the list that guards it.
 `flow.careful` is refused, with the sentence to write in its place. The `[flow]` table is read
-from the base branch's settings, also in a task's worktree, as the checks are read by the
+from the main checkout's settings, also in a task's worktree, as the checks are read by the
 landing: a branch that empties its topics or shortens the owner's wait lifts nothing, since every
-lead, reviewer and landing reads the table as the base branch has it. The table the branch writes
+lead, reviewer and landing reads the table as the main checkout has it. The table the branch writes
 is still checked, so that its error shows before it lands. `[naps]` is read the same way: a nap
 spends the tokens of whoever works on the machine, and a branch does not switch them on.
 
-The base branch's settings are `.lem/project.toml` as the base branch's newest commit holds it
-(`git show BASE:.lem/project.toml`), never as the main checkout has it checked out: a colleague's
-branch checked out there (`gh pr checkout 57`), or an edit nobody committed, would change who
-lands and what is careful for every running task. The base is the branch the file names: the file
-of the remote's default branch is read first, then the one of the branch the main checkout's own
-copy names, and a file that names another base is read on that one. A main checkout whose copy is
-not the base's gets one line on stderr that says so; the copy counts once it is committed on the
-base. Before any commit of the base holds the file (an onboarding, on its own branch), the main
-checkout's working tree is read. `show` says which in `settings_from`.
+The main checkout's settings are its working tree's `.lem/project.toml` while it is on the base
+branch: an edit of the owner's there counts at once, committed or not. When another branch is
+checked out there (a colleague's, `gh pr checkout 57`), the file is read as the base branch's
+newest commit holds it (`git show BASE:.lem/project.toml`), with one line on stderr when the two
+differ, so that branch does not change who lands and what is careful for every running task. The
+base is the branch the file names: the file of the remote's default branch is read first, then
+the one of the branch the main checkout's own copy names, and a file that names another base is
+read on that one. Before any commit of the base holds the file (an onboarding, on its own branch),
+the working tree is read. `show` says which in `settings_from`.
 
 `[checks]` holds the machine checks of a landing: `commands`, the whole suite, `setup`, `ignores`
 and `bar`. A file that still has the table under its older name, `[gate]`, is refused with the
@@ -627,8 +627,7 @@ def committed_settings(main: Path) -> dict | None:
     the commit; None when no commit of the base holds the file yet (an onboarding, whose settings
     are only in the working tree or on its own branch). The base is the branch the file names, so
     the first file read is the remote's default branch's, then the one of the branch the main
-    checkout's own copy names; a file that names another base is read on that branch. What the main
-    checkout has checked out (a colleague's branch, an edit nobody committed) decides nothing here."""
+    checkout's own copy names; a file that names another base is read on that branch."""
     def shown(branch: str) -> str | None:
         ran = subprocess.run(["git", "-C", str(main), "show", f"refs/heads/{branch}:{SETTINGS.as_posix()}"], capture_output=True, check=False)
         if ran.returncode != 0:
@@ -665,7 +664,7 @@ def committed_settings(main: Path) -> dict | None:
     return None
 
 
-# Whether this run said once already that the main checkout's copy of the settings is not the base's.
+# Whether this run said once already that the main checkout's copy of the settings is not the one Lem reads.
 DIFFERS_SAID: list[bool] = []
 
 
@@ -936,11 +935,15 @@ def naps_of(raw: dict, name: Path) -> dict:
 def load(root: Path) -> dict:
     file = root / SETTINGS
     main = main_checkout(root)
-    # The project's settings are the base branch's newest commit's: what the main checkout has
-    # checked out, or an edit nobody committed there, is no rule for the tasks that run (audit M-F5,
-    # 2026-11-17: `gh pr checkout 57` in the main checkout changed `branch.land` and the topics for
-    # every task). Before any commit of the base holds the file (an onboarding), the working tree's is read.
+    # The project's settings are the main checkout's working tree while it is on the base branch:
+    # the developer's own edit there is his act, and counts at once. Another branch checked out there
+    # is no rule for the tasks that run (audit M-F5, 2026-11-17: `gh pr checkout 57` in the main
+    # checkout changed `branch.land` and the topics for every task), so then the file is read as the
+    # base branch's newest commit has it. Before any commit of the base holds the file (an
+    # onboarding), the working tree's is read.
     committed = committed_settings(main)
+    if committed and subprocess.run(["git", "-C", str(main), "branch", "--show-current"], capture_output=True, text=True, check=False).stdout.strip() == committed["branch"]:
+        committed = None
     base_file = Path(f"{committed['branch']}:{SETTINGS}") if committed else main / SETTINGS
 
     def base_raw() -> dict:
@@ -958,8 +961,8 @@ def load(root: Path) -> dict:
         if committed and here != committed["text"] and not DIFFERS_SAID:
             DIFFERS_SAID.append(True)
             print(
-                f"project.py: Lem reads {SETTINGS} as {committed['branch']} has it ({committed['commit'][:9]}); the main checkout's copy differs "
-                f"(another branch is checked out there, or an edit is not committed), and it counts once it is committed on {committed['branch']}",
+                f"project.py: the main checkout is not on {committed['branch']}, so Lem reads {SETTINGS} as {committed['branch']} has it ({committed['commit'][:9]}), "
+                f"not the copy checked out there",
                 file=sys.stderr,
             )
     else:
@@ -1078,7 +1081,7 @@ def load(root: Path) -> dict:
         # the checkout every worktree hangs off; it is `root` unless this ran in a task's worktree
         "main": str(main),
         "settings": str(file) if file.is_file() or committed else None,
-        # where the settings were read: the base branch's commit, or the working tree before the base holds them
+        # where the settings were read: the working tree, or the base branch's commit while another branch is checked out
         "settings_from": (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the working tree")
         if main.resolve() == root.resolve() else "this worktree's branch, with [flow] and [naps] from " + (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the main checkout"),
         "paths": paths,

@@ -183,8 +183,8 @@ Your word, the line `careful: yes` of the plan, the newest review, and a diff th
 - a line after green or not green that says careful, with each reason;
 - a note that says if the change holds a migration, and how to revert it.
 
-Lem reads `flow.topics` from the newest commit of the base branch, so a branch cannot change the
-topics that guard it. Only your yes adds a topic.
+Lem reads `flow.topics` from the main checkout, so a task's branch cannot change the topics that
+guard it. Only your yes adds a topic.
 
 ## The plan talk
 

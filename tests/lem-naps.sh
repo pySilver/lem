@@ -17,7 +17,7 @@ nap() { project --repo "$NP" may-nap "$@"; }
 ago() { "$PY" -c 'import sys, datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(hours=float(sys.argv[1]))).strftime("%Y-%m-%d-%H%M"))' "$1"; }
 # woke NAME: a nap's folder as its agent leaves it, with the dream, one made thing and the waking note
 woke() { mkdir -p "$NAPS/$1" && printf '# A dream\n\nA field.\n' > "$NAPS/$1/dream.md" && printf 'x\n' > "$NAPS/$1/thing.txt" && printf '# Waking\n\nNothing.\n' > "$NAPS/$1/waking.md"; }
-naps_on() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$NP/.lem/project.toml" && settled "$NP"; }
+naps_on() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$NP/.lem/project.toml"; }
 
 # The settings: off, 30 days, 6 hours, each guess said so in the file; a wrong value is refused by its key.
 shown=$(project --repo "$NP" show | field 'd["naps"]')
@@ -40,15 +40,15 @@ else
   fail "the naps' settings: $shown / $template"
 fi
 
-# The naps' table is the base branch's, as [flow] is: a task's branch that switches them on, or keeps them longer, changes
+# The naps' table is the main checkout's, as [flow] is: a task's branch that switches them on, or keeps them longer, changes
 # nothing that its worktree reads, since a nap spends the tokens of whoever works on the machine.
 git -C "$NP" worktree add -q "$WORK/nap-tree" -b feat/naps-on main
 "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^keep_days = 30$", "keep_days = 2", re.sub(r"(?m)^on = false$", "on = true", s, count=1), count=1))' "$WORK/nap-tree/.lem/project.toml"
 git -C "$WORK/nap-tree" -c user.name=t -c user.email=t@t commit -q -am "chore: the naps on"
-from_branch=$(project --repo "$WORK/nap-tree" show | field '(d["naps"]["on"], d["naps"]["keep_days"], d["settings_from"].startswith("this worktree'"'"'s branch, with [flow] and [naps] from main@"))')
+from_branch=$(project --repo "$WORK/nap-tree" show | field '(d["naps"]["on"], d["naps"]["keep_days"], d["settings_from"].startswith("this worktree'"'"'s branch, with [flow] and [naps] from the main checkout"))')
 git -C "$NP" worktree remove --force "$WORK/nap-tree" && git -C "$NP" branch -q -D feat/naps-on
 if [ "$from_branch" = "(False, 30, True)" ]; then
-  pass "in a task's worktree the naps' table is the base branch's: a branch that switches the naps on or keeps them longer changes nothing, and show says where both tables come from"
+  pass "in a task's worktree the naps' table is the main checkout's: a branch that switches the naps on or keeps them longer changes nothing, and show says where both tables come from"
 else
   fail "the naps' table of a worktree: $from_branch"
 fi
@@ -106,7 +106,7 @@ woke "$TWO"
 mkdir -p "$NAPS/not-a-nap" && touch -t 202601010000 "$NAPS/not-a-nap"
 ln -s "$NAPS/2026-01-01-0000-the-first" "$NAPS/2026-01-02-0000-a-link"
 cleaned=$(nap)
-"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^keep_days = 30$", "keep_days = 1", s, count=1))' "$NP/.lem/project.toml" && settled "$NP"
+"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^keep_days = 30$", "keep_days = 1", s, count=1))' "$NP/.lem/project.toml"
 shorter=$(nap)
 printf 'not json\n' > "$NAPS/.asleep"
 broken=$(nap 2>&1 || true); broken_code=$(status_of nap)

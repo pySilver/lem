@@ -146,7 +146,7 @@ under: the full set for a careful request, and a round at the least for a plan o
 tasks and after a review that found a must-fix.
 
 Whether a change is careful is judged against the project's topics (`flow.topics`, sentences of
-what must never go wrong, read from the base branch's settings like every setting here): no list
+what must never go wrong, read from the main checkout's settings like every setting here): no list
 of paths decides it. A request is careful when the owner says so (that word in the task's brief),
 when the plan says so (its `careful: yes` under its title, in its text now or in any commit of the
 branch: a later commit does not take the yes back), when the newest review that answered says so,
