@@ -3,7 +3,7 @@
 
     setup.py            make the links, then run the machine check
     setup.py --check    change nothing: say what is linked, what is absent and what is in the way
-    setup.py --remove   remove the links this clone made, and nothing else
+    setup.py --remove   remove the links this clone made, and the folders they leave empty
     setup.py --project DIR [--check | --remove]
                         the same for one repository only: the links go into DIR/.claude
     setup.py --corrections on|off [--project DIR]
@@ -223,17 +223,37 @@ def hide_from_git(rows: list[dict]) -> list[str]:
             # not a folder of this repository: whatever is in it belongs to someone else
             continue
         ignore = folder / ".gitignore"
-        ours = ignore.is_file() and not ignore.is_symlink() and ignore.read_text().splitlines()[:1] == [MARK]
+        ours = ignore.is_file() and not ignore.is_symlink() and ignore.read_text(encoding="utf-8", errors="replace").splitlines()[:1] == [MARK]
         linked = [Path(row["place"]).name for row in members if row["state"] == "linked"]
         if (ignore.exists() or ignore.is_symlink()) and not ours:
             # The project's own file stays as it is. It may hide the links already, so git is asked.
             if any(not ignored(folder, name) for name in linked):
                 visible.append(str(folder))
         elif linked:
-            ignore.write_text("\n".join([MARK, "/.gitignore", *(f"/{name}" for name in linked)]) + "\n")
+            ignore.write_text("\n".join([MARK, "/.gitignore", *(f"/{name}" for name in linked)]) + "\n", encoding="utf-8")
         elif ours:
             ignore.unlink()
     return visible
+
+
+def remove_empty(rows: list[dict], base: Path) -> list[str]:
+    """Remove each folder of the links that holds nothing now, and each folder above it that then
+    holds nothing, up to `base` (the home or the repository), which stays. A folder with anything in
+    it, a file of the owner's or a link of another tool, stays as it is."""
+    removed = []
+    folders = {Path(row["place"]).parent for row in rows if not row["state"].startswith("blocked")}
+    # the deepest first, so that a folder is empty when its last child went
+    for folder in sorted(folders, key=lambda path: len(path.parts), reverse=True):
+        for at in [folder, *folder.parents]:
+            if at == base or not at.is_relative_to(base) or at.is_symlink() or not at.is_dir():
+                break
+            try:
+                at.rmdir()
+            except OSError:
+                # not empty, or not ours to remove: the folders above it hold it, so they stay too
+                break
+            removed.append(str(at))
+    return sorted(removed)
 
 
 def leftovers(rows: list[dict]) -> list[Path]:
@@ -278,7 +298,7 @@ def main() -> None:
     parser.add_argument("--project", type=Path, help="link into this repository's .claude folder only, for a trial")
     parser.add_argument("--corrections", choices=("on", "off"), help="register the hook of the correction queue, or take it out; the owner's step")
     parser.add_argument("--home", type=Path, default=Path.home(), help="the home directory to link into (default: yours)")
-    parser.add_argument("--bin", type=Path, help="the directory on PATH for the lem-ask command (default: HOME/.local/bin)")
+    parser.add_argument("--bin", type=Path, help="the directory on PATH for the lem-ask and jev commands (default: HOME/.local/bin)")
     args = parser.parse_args()
     if args.check and args.remove:
         sys.exit("setup.py: --check and --remove do not go together")
@@ -338,8 +358,10 @@ def main() -> None:
                     stuck.append(row["place"])
         if project is not None:
             hide_from_git(rows)
+        # the folders the links were made in, when nothing else is in them now: a link run makes them
+        emptied = remove_empty(rows, project or args.home) if not stuck else []
         # the hook is not a link: it stays until `--corrections off`, and the report says so
-        print(json.dumps({"links": rows, "leftovers": old, "corrections_hook": hook_state(settings)}, indent=2))
+        print(json.dumps({"links": rows, "leftovers": old, "folders_removed": emptied, "corrections_hook": hook_state(settings)}, indent=2))
         if stuck:
             sys.exit(f"setup.py: {len(stuck)} link(s) could not be removed and are still there: {'; '.join(stuck)}")
         return

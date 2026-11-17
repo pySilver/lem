@@ -518,15 +518,14 @@ else
   fail "setup --project --remove through a linked .claude: $out / $(git -C "$TRIAL" status --porcelain)"
 fi
 out=$(trial --remove)
-if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ -z "$(find "$TRIAL/.claude" -type l)" ] \
-  && [ ! -e "$TRIAL/.claude/skills/.gitignore" ] && [ ! -e "$TRIAL/.claude/agents/.gitignore" ] \
+if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$TRIAL/.claude" ] && [ "$(field '[f.rsplit("/", 2)[-2:] for f in d["folders_removed"]]' <<<"$out")" = "[['trial', '.claude'], ['.claude', 'agents'], ['.claude', 'skills']]" ] \
   && [ "$(status_of env -i PATH="$BIN" HOME="$WORK/trialhome" "$PY" -B "$SETUP" --project "$WORK")" = 1 ]; then
-  pass "setup --project --remove takes its links and its ignore files away, and a folder that is no repository is refused"
+  pass "setup --project --remove takes its links, its ignore files and the folders they leave empty away, and a folder that is no repository is refused"
 else
   fail "setup --project --remove: $out / $(find "$TRIAL/.claude")"
 fi
 # A folder that has an ignore file of its own keeps it, and the result says that git sees the links there.
-echo '# kept by the project' > "$TRIAL/.claude/skills/.gitignore"
+mkdir -p "$TRIAL/.claude/skills" && echo '# kept by the project' > "$TRIAL/.claude/skills/.gitignore"
 out=$(trial)
 if [ "$(cat "$TRIAL/.claude/skills/.gitignore")" = "# kept by the project" ] && [ "$(field 'd["git_sees_the_links_in"]' <<<"$out")" = "['$TRIAL/.claude/skills']" ]; then
   pass "an ignore file of the project's own is left as it is, and the result names the folder where git sees the links"
@@ -562,8 +561,9 @@ fi
 rm "$TRIAL/.claude"
 touch "$SETHOME/.claude/skills/mine"
 out=$(setup --remove)
-if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/lem-ask" ] && [ ! -e "$SETHOME/.local/bin/jev" ]; then
-  pass "setup --remove takes away the links it made and nothing else"
+if [ "$(field 'sorted(set(l["state"] for l in d["links"]))' <<<"$out")" = "['removed']" ] && [ ! -e "$SETHOME/.claude/skills/lem" ] && [ -e "$SETHOME/.claude/skills/mine" ] && [ ! -e "$SETHOME/.local/bin/lem-ask" ] && [ ! -e "$SETHOME/.local/bin/jev" ] \
+  && [ ! -e "$SETHOME/.claude/agents" ] && [ ! -e "$SETHOME/.local" ] && [ -d "$SETHOME/.agents/skills/agterm" ]; then
+  pass "setup --remove takes away the links it made and the folders they leave empty, and nothing else"
 else
   fail "setup --remove: $out"
 fi
