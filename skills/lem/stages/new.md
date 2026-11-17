@@ -27,6 +27,16 @@ a lead is started, and what to do each time a lead stops.
      often");
    - *chore*: work no user of the product sees ("upgrade", "rename", "move", "clean up");
    - *docs*: a document and nothing else ("document", "explain in the README").
+   In the same look, read the ask's words against each topic of `flow.topics` in `project.py
+   show`, the sentences of what must never go wrong here. No code matches a topic and no file
+   name settles one: the question is whether the change the ask wants could reach that thing.
+   When it could, the line you say first names it, before the kind: "Careful: this changes how a
+   customer is charged. A feature: the ask adds a discount." In doubt, say careful. When the
+   scout's report or the investigator's comes in, read its facts against the topics again (the
+   scout lists the topics in reach, with the file and symbol that show each): a topic it finds in
+   reach that the ask's words did not show is told to the owner in one line, the same way. An ask
+   in reach of a topic is never a correction (step 4). The lead makes its own call on the plan
+   (`stages/plan.md`, step 2), and the agent that reviews the diff makes the last.
    When the words do not settle it, ask before step 2, as the first question of the interview,
    with your guess and what each answer would mean: "Is the 0 wrong today, a bug, or do you want
    a new rule for refunds, a feature?" (2026-11-16, his example: "From such input its kinda hard
@@ -64,9 +74,9 @@ a lead is started, and what to do each time a lead stops.
      bug and finds its cause, or answers the question, before anyone writes a story, as "A bug
      and an investigation" below says. For a bug, its report then takes one of the three paths
      below; an investigation ends with its answer.
-   - *a correction*: the kind is a correction, and the ask names nothing careful (no danger topic
-     of `flow.topics`, no path a careful pattern matches). Write its one story and approve it in
-     his name, as "A correction" below says, then go on with step 5.
+   - *a correction*: the kind is a correction, and the ask is in reach of no topic of
+     `flow.topics` (step 1). Write its one story and approve it in his name, as "A correction"
+     below says, then go on with step 5.
    - *the rare path*: the whole context and a defined outcome are written already: a ticket whose
      description says what is wanted and how to tell that it is done, a backlog item whose
      options are settled, a night plan he starts, an investigation's report that settles what is
@@ -128,10 +138,10 @@ that line, also a Lem that started after this one, and the landing reads it too:
 gets the project's full review set, its notes say whether it holds a migration, and a person
 merges it whatever the settings say (`stages/land.md`). A task that still builds finishes its
 build and goes to the landing like any other; nothing is built again for the word.
-Then ask what the owner's word was about, when it is not plain. A topic or a path the settings
-already name, which the lead read wrong, is a lesson about that judgment (`stages/learn.md`).
-Something no setting names may be a rule for later tasks or a wish for this one task: only the
-owner knows, and only his yes puts a topic or a path into the settings.
+Then ask what the owner's word was about, when it is not plain. A topic the settings already
+name, which the lead read wrong, is a lesson about that judgment (`stages/learn.md`). Something
+no topic names may be a rule for later tasks or a wish for this one task: only the owner knows,
+and only his yes puts a topic into the settings.
 
 ## The interview and the stories
 
@@ -313,13 +323,15 @@ task.
    `call` is the report's: `correction`, `usual`, `not-a-bug` or `not-reproduced` for a bug, and
    `answer` for an investigation, which has no `reproduced`. `line` is the cause, the answer, or
    what was tried, in one line. `where` is the cause's place, which a plain cause has. When you
-   take another call than the report's (a one-rule fix in a careful path is not a correction),
+   take another call than the report's (a one-rule fix whose cause is in reach of a topic is not
+   a correction),
    log yours and tell the owner why in one line.
 4. **The path**, from the call:
    - *correction*: the correction path, with its one story the rule that removes the cause, in
-     his words made exact, and with nothing careful (`project.py careful PATH` for the cause's
-     file). The reproducing test is the story's test: the lead adds its line under the story in
-     the plan. Go on with step 5 of "Open the task".
+     his words made exact, and with nothing careful: read the cause, its place and how far the
+     report says it reaches against each topic, as step 1 of "Open the task" reads an ask. The
+     reproducing test is the story's test: the lead adds its line under the story in the plan.
+     Go on with step 5 of "Open the task".
    - *usual*: the usual path, with no scout, whose interview starts from the cause ("the total
      adds the refund as a payment, in `billing/invoice.py:total`; should the refund lower the
      total, or stand as a line of its own?"). Write the state `held` with the line `the

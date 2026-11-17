@@ -67,9 +67,11 @@ onboarding directory, every line with the path it was read from:
   commits are squashed, the form of the commit subjects;
 - where a defect costs most: migrations, money, authentication, anything that writes data which
   cannot be rebuilt, private data, the checks themselves. Most products have most of these, so
-  look for each. They become two proposals: the danger topics, each one sentence in the terms of
-  this product ("the price a merchant's customer pays", not "money"), and the careful paths
-  where the code keeps them today;
+  look for each. They become the proposals of what must never go wrong: each one sentence in
+  the terms of this product, of what a person would see go wrong ("a merchant's customer is
+  charged the wrong price", not "money"), with the code you read it from beside it in
+  `examined.md`. No path goes into the settings: an agent reads each change against the
+  sentences;
 - the conventions the code already keeps: how modules are laid out, how errors are raised, how
   tests are named and what they touch. Note one only where several files agree;
 - `python3 SKILL_DIR/scripts/project.py existing`: the settings an older tool already keeps here
@@ -125,12 +127,11 @@ For a repository that has code:
   owner correct the list. The first onboarding wrote one persona, "a shop employee who reads
   report headings", and its own page said that this person could not tell the options of a
   question apart (a scratch repository, 2026-11-15).
-- **What must never break**: show the danger topics and the careful paths you propose, and ask
-  what is wrong or missing. The topics come first: a person names a danger more surely than a
-  folder, and a topic still holds after the code moves. In a repository with no code, propose
-  the topics from the owner's description of the product; the paths come with the first tasks.
-  Confirm or correct both. This is the one
-  setting that is the owner's to choose.
+- **What must never go wrong here?** One question, with your proposals from the code, each a
+  sentence, and the code each came from beside it. Ask what is wrong or missing. No path is
+  proposed or asked: a sentence still holds after the code moves, and an agent reads every ask,
+  plan and diff against it. In a repository with no code, propose them from the owner's
+  description of the product. This is the one setting that is the owner's to choose.
 - **Who lands**: the owner, or the agent once the gate is green; and the branch tasks land on.
   Where the remote is GitHub, in the same question: a pull request on the forge, or a merge into
   the base branch with no pull request (`branch.propose = "merge"`).
@@ -167,7 +168,7 @@ For a repository that has code:
   can move under `.lem` later by hand, with a `git mv` and their two lines in the settings.
 
 Stop when you could predict the owner's answer to the next question. An answer of "whatever you
-think" is not an answer to the careful paths or to who lands: say what you will assume and ask
+think" is not an answer to what must never go wrong or to who lands: say what you will assume and ask
 for a yes.
 
 ## 4. Write the settings
@@ -177,7 +178,7 @@ python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --exist
 ```
 
 Leave `--existing` out when `project.py existing` listed nothing, or the style guide alone: a rules folder needs no choice, and every other folder it lists does. Then edit `.lem/project.toml`: the
-gate commands from `examined.md`, the danger topics (`flow.topics`) and the careful patterns the owner confirmed, `land`, `history`, `propose`,
+gate commands from `examined.md`, the sentences of what must never go wrong (`flow.topics`) the owner confirmed, `land`, `history`, `propose`,
 the protected branches, the `[tracker]` table when the project has one, the reviewer's `model`,
 `effort` and `plan_effort` when the owner named them, `[seats.planner]` (`agent = "claude"`, the
 defender's `model` and `effort`) when he named those, and `tools.annotate` or `tools.ask` when the owner marks up plans or takes questions with a tool of their own. Leave `gate.ignores` empty unless the owner names paths the gate does not read: an empty list
@@ -251,7 +252,7 @@ runs for its hook, in the form for this one repository, and nothing he has to ed
 a plugin the page says that the hook came with the install, and names no command.
 
 A list of file names is not a hand-over. Every generated file is a draft, and three are read
-first: the careful paths, the gate, the personas. Name each persona that is a thin guess, as the
+first: what must never go wrong, the gate, the personas. Name each persona that is a thin guess, as the
 one the owner should correct first. Offer to open each in the annotate tool
 (`show-page`; `tools.annotate` in the settings), one after the other, and take the owner's notes
 as corrections: edit, commit on the same branch, say for each file what changed. The page and

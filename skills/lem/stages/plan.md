@@ -86,32 +86,35 @@ a list of questions that closes with the reviewer's first turn (step 4).
    When the branch already holds a plan (a night draft, a builder that stopped at the plan), do
    not write another: read it against the code as it is now, and commit a fix for what the code
    has outgrown.
-2. **Is the task careful?** Three tests, and one yes is enough:
-   - *a path*: `project.py careful` over the files the plan names. A match is a yes that no
-     judgment of yours overturns.
-   - *a topic*: the project's danger topics (`flow.topics` in `project.py show`), each a
-     sentence of the owner's about what must not go wrong here. Read the plan against each one:
-     does a task change how that thing behaves, or could a defect in a task reach it? No code
-     matches a topic, and no file name settles it: a price is computed in more places than
-     `billing/`. This is your judgment, and a person can overlook a danger that you see in the
-     code, so say what you see.
+2. **Is the task careful?** Two tests, and one yes is enough:
+   - *a topic*: the project's topics (`flow.topics` in `project.py --repo WORKTREE show`, which
+     gives the main checkout's table, so a branch cannot lift one), each a sentence of the
+     owner's about what must never go wrong here. Read the plan against each one: does a task
+     change how that thing behaves, or could a defect in a task reach it? No code matches a
+     topic, and no file name settles it: a price is computed in more places than `billing/`.
+     This is your judgment, and a person can overlook a danger that you see in the code, so say
+     what you see. In doubt, yes.
    - *a pattern*: the plan starts something other code will copy (a first service layer, a
      first use of a library, a new kind of test).
-   A brief with the line `careful: the owner says so` is a yes too, whatever the three tests
+   A brief with the line `careful: the owner says so` is a yes too, whatever the two tests
    give: the owner called the task careful before its plan, in the ask or later.
    Write the call into the plan as one line under its title, before `## Stories` (a line that
    is no story is refused inside that section), `careful: yes` or `careful: no`, with the one
-   sentence of why: the path, the topic in the owner's words, the pattern, or what you checked
-   to say that none is touched. The same line goes into your next state block, where the owner
-   reads it on the board while the task builds, and into the report.
+   sentence of why: the topic in the owner's words and the task that reaches it, the pattern, or
+   what you checked to say that none is reached. The landing reads the call there and nowhere
+   else, and a yes stays a yes: a later commit that writes `no` does not take back the talk or
+   the full review. The same line goes into your next state block, where the owner reads it on
+   the board while the task builds, and into the report. Yours is not the last look: the agent
+   that reviews the diff before the pull request reads the change against the same topics, and
+   a careful call of its own makes the request careful whatever the plan said.
    An outcome that needs more than seven tasks is two asks: say so in the report, and plan the
    first.
 3. **A careful or large plan is talked through before a builder leads its build.** A plan is
    large when `## Tasks` has more than three numbered tasks. When step 2 says careful, or the
    plan is large, read `talk` in `python3 SKILL_DIR/scripts/project.py --repo WORKTREE tasks`
    for this task: the newest `plan.talk` of its event log, or null.
-   - *null*: write `report.md` with what says so (the path, the topic, the pattern, or the
-     count); write the state `planned` with the line `needs a session: careful` or
+   - *null*: write `report.md` with what says so (the topic, the pattern, the owner's word, or
+     the count); write the state `planned` with the line `needs a session: careful` or
      `needs a session: large, N tasks`; and stop. The plan talk of step 4 needs the reviewer's
      pane and the mailbox, and a builder has neither (the harness file, `spawn-builder`). Lem
      opens a companion session for the talk, and its agent, the plan's defender, starts from your
@@ -260,8 +263,9 @@ a list of questions that closes with the reviewer's first turn (step 4).
    request's line of the talk and the board say that the talk went over. A record the script
    refused would leave the companion open and the request unproposed for ever. The landing refuses a request whose plan says `careful: yes` or has more than three
    tasks with no such event, and the pull request's checks show the newest one. A task that becomes
-   careful after its plan, by the owner's word or by a path its diff matches, gets no talk
-   afterwards: the landing's full review reads the code that exists. A one-shot read of a careful
+   careful after its plan, by the owner's word, by the review's call or by an edit of the settings'
+   `[flow]` or `[gate]`, gets no talk afterwards: the landing's full review reads the code that
+   exists. A one-shot read of a careful
    plan, before this talk replaced it, took nine minutes and found three design failures before any
    code (convertiser-server, 2026-11-14). In another repository a plan round before any code found
    at least one major finding in 7 of 9 plans whose records tell majors from minors, and the largest

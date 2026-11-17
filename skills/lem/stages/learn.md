@@ -46,8 +46,8 @@ read whole.
 (`decisions.py list SLUG`: who took each, a choice taken by timeout, a late answer that differs), the
 "not verified" and "outside defects" lines of each `report.md`, the reviews and the proposals
 in the event log (`review` and `proposed` events: the rounds, the counts, who answered, and each
-reason a request was not green; `careful.missed` events: a careful path that a change matched and
-its plan's own call missed, with the path and its pattern), and the owner's corrections, from the project's correction queue when it keeps one (below). It looks
+reason a request was not green; `careful.missed` events: a change the review called careful and
+its plan's own call did not, with the round and the review's reason), and the owner's corrections, from the project's correction queue when it keeps one (below). It looks
 for what came back:
 
 - a correction the owner gave more than once: the record it had did not reach the step; move it
@@ -55,10 +55,10 @@ for what came back:
 - a decision the owner overturned: the rule that would have decided it right, as a ruling or a
   style guide line;
 - a task the owner made careful after its lead called it plain, a `careful.missed` event, or a
-  defect a review found in a plain task. First find which it was. The settings named the topic or the path, and the lead
+  defect a review found in a plain task. First find which it was. A topic named it, and the lead
   read the plan wrong: the lesson is about that judgment, and it may be sharper words for the
-  topic. No setting named it: propose one line for `flow.topics` or `flow.careful` to the owner,
-  as a move; the settings change on his yes only;
+  topic. No topic named it: propose one sentence for `flow.topics` to the owner, as a move; the
+  settings change on his yes only;
 - a review finding that repeats across items: a style guide line or a check, so the builder meets
   it before the review does;
 - a gate, a check or a step of this skill that cost time and changed nothing: propose to remove

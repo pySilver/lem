@@ -11,9 +11,10 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
 2. **The candidates.** Read the items in the backlog path (`project.py path backlog`), in the
    `lem-backlog` skill's format. The backlog only: a tracker's ticket is never a night's
    candidate, because which ticket is next is a person's call. Leave out an item that is decided against, one a branch, a worktree,
-   an open plan or a task directory already holds, and one whose files match a careful pattern
-   (`project.py careful`) or whose words name one of the project's danger topics (`flow.topics`):
-   a careful plan needs the reviewer, and that is a day's work. When the
+   an open plan or a task directory already holds, and one in reach of one of the project's
+   topics (`flow.topics`): read the item's words and its `where` against each, as `stages/new.md`
+   step 1 reads an ask, and leave it out in doubt. A careful plan needs the reviewer, and that is
+   a day's work. When the
    `lem-backlog` skill's triage has verdicts, take the items it gives to an agent, the surest first.
    Without verdicts, read each item and keep the ones that state a defect or a job, not a choice.
 3. **One item, planned.** For the first candidate, open the task as `stages/new.md` does, on a

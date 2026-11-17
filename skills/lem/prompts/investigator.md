@@ -25,7 +25,7 @@ beside it.
 4. **Make your call** of what follows, one of four:
    - *correction*: the cause is plain, and one rule in the owner's words fixes it;
    - *usual*: the cause is plain, and the fix is a larger change (more than one rule, a design
-     choice, a careful path);
+     choice, a cause in reach of a topic of `flow.topics` in `project.py show`);
    - *not a bug*: the code does what it should, and the request expected something else;
    - *not reproduced*: no try showed the bug.
 

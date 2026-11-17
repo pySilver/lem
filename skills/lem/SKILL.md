@@ -1,6 +1,6 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each task to a lead in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, careful paths), and gives what the project calls careful the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each task to a lead in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, gate, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
@@ -81,8 +81,8 @@ python3 SKILL_DIR/scripts/project.py show
 ```
 
 `SKILL_DIR` is this skill's own directory. The output is the project's settings, resolved: each
-path with whether it exists, the base branch, who lands, the gate commands and the careful
-patterns. When `settings` is null the repository was never onboarded: only `init` and `status`
+path with whether it exists, the base branch, who lands, the gate commands and the topics of
+what must never go wrong (`flow.topics`). When `settings` is null the repository was never onboarded: only `init` and `status`
 run, and every other subcommand says so and stops. Read the project's `AGENTS.md` once per
 session; it is where a project says what its own scripts are (a worktree script, a landing
 script, a board).
@@ -148,15 +148,24 @@ lead whose choice waits for the owner.
 - **A destructive or outward step is never yours.** Dropping data, rewriting shared history,
   touching production, bending a gate, pushing to a branch the settings do not name: stop and
   ask, with the evidence.
-- **What must not go wrong takes the careful flow.** The project names it two ways: paths
-  (`project.py careful FILE...` says which files of a change match) and danger topics in the
-  owner's words (`flow.topics`), which the lead reads a plan against. One match of either makes
-  the task careful: its plan is talked through with the reviewer before any code, in a
-  companion session of its own (`stages/plan.md`, step 4); its tasks are built like any others;
-  and the landing gives it the project's full review set. A large task, a plan of more than
-  three tasks, gets the companion and the talk too, and a review round at the least. The lead
-  writes its call and the one sentence of why into the plan, its state and its report, and the
-  owner may overrule a "no" at any time before the landing.
+- **What must not go wrong takes the careful flow.** The project names it as topics,
+  sentences in the owner's words of what must never go wrong (`flow.topics`), and no list of
+  paths: a list goes stale as the code moves, misses new code, and a branch can edit the list
+  that guards it. Whether a change is careful is a judgment against the topics, made three times
+  by three agents, and in doubt the answer is careful. Lem reads the ask's words and the
+  scout's facts against them, and names a topic in reach in the first line it says to the owner
+  (`stages/new.md`); an ask in reach of one is never a correction. The lead reads its plan
+  against them (`stages/plan.md`, step 2). The fresh agent that reviews the diff before the pull
+  request reads the change itself against them and writes its call into the review's record
+  (`prompts/review.md`). A careful task's plan is talked through with the reviewer before any
+  code, in a companion session of its own (`stages/plan.md`, step 4); its tasks are built like
+  any others; the landing gives it the project's full review set, and a person merges it. A large
+  task, a plan of more than three tasks, gets the companion and the talk too, and a review round
+  at the least. The lead writes its call and the one sentence of why into the plan, its state and
+  its report, and the owner may overrule a "no" at any time before the landing. The `[flow]`
+  table is read from the main checkout's settings, also in a task's worktree, so a branch
+  cannot lift what guards it, and a change that edits the `[flow]` or `[gate]` table of
+  `.lem/project.toml` is careful by the landing's own rule.
 - **Only so many tasks build or land at one time.** `project.py may-start SLUG` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
   the gate runs and a builder may repair what it showed, and not the task SLUG whose lead starts. Four to five tasks ran well on one Mac, and six gave a load average of 12 to

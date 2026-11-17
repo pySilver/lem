@@ -203,15 +203,16 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   his sentence is the session's, not his words.
 - **OpenRouter is the one way to the Jev model for now**: on a direct API beside it, "Ok. Lets
   keep that way for now" (`docs/backlog/no-direct-jev-api.md`).
-- **What must not go wrong is named by topic as well as by path, and the agent says whether a
-  task is careful**: "we analyze the project, then we suggest what are the dangerous zones or
-  topics and let user provide more ... Later at a plan time we can understand if it touches
-  anything whats dangerous and needs to be taken carefully. Works better than just code path",
-  and "it would be nice to get a suggestion from Agent whether its should be safe run or not,
-  human can overlook real danger" (2026-11-15). The form is a design from those words:
-  `flow.topics` beside `flow.careful`, proposed at onboarding; the lead's call with one sentence
-  of why in the plan, the state and the report; a path match that no judgment overturns; the
-  owner's "this one is careful" at any time before the landing. No code matches a topic.
+- **What must not go wrong is named by topic, and an agent says whether a task is careful**: "we
+  analyze the project, then we suggest what are the dangerous zones or topics and let user
+  provide more ... Later at a plan time we can understand if it touches anything whats dangerous
+  and needs to be taken carefully. Works better than just code path", and "it would be nice to
+  get a suggestion from Agent whether its should be safe run or not, human can overlook real
+  danger" (2026-11-15). On 2026-11-16, after an audit showed a branch that set `careful = []` in
+  its own `.lem/project.toml`, a landing that read the branch's settings and an agent that merged
+  it, he asked: "`careful = []` should we have this kind of thing in evolving app? why don't we
+  infere whether changes are dangerous from context of the task/plan?" The form is the
+  maintaining session's decision, below ("Whether a change is careful is inferred"), not his.
 - **The owner learns at the end what was decided for him, each with a short why**: "human needs
   to know about such events in the end and what choices were taken with short 'why'". The
   report holds those lines itself.
@@ -414,6 +415,30 @@ is the session's, and open to him.
   took, where the amendment names only the timeout. The polish pass does not run for a
   correction, unless its report names a defect outside the task: the weight of a step follows
   the size of the change.
+- **Whether a change is careful is inferred from what the owner said must not go wrong, never
+  matched from a list of paths**, after his question of 2026-11-16 in "What must not go wrong is
+  named by topic". A list of paths goes stale as the code moves, misses new code, is a second
+  thing to keep, and can be edited by the branch it guards. So `flow.careful` and `project.py
+  careful` are gone, and `project.py` refuses a settings file that still has the list, with the
+  sentence to write in its place. `flow.topics` is the one setting: sentences in the owner's
+  words, proposed at onboarding by one question, "what must never go wrong here?". Three agents
+  judge a change against them, and in doubt they say careful: Lem at the ask, from its words and
+  the scout's facts, in the first line it says to the developer, and an ask in reach of a topic
+  is never a correction; the lead at the plan, by a topic or a pattern other code will copy; and
+  the fresh agent that reviews the diff before the pull request, whose record holds `careful`
+  and `careful_why` and which runs the full set when it calls careful what the plan did not. The
+  last is the look that takes the place of the path list's floor: its judge did not build the
+  change. `land.py` enforces what the records say: a review record with no call is refused, a
+  request is careful when the plan (its `careful: yes` under its title, in any commit of the
+  branch), the owner's word in the brief or the newest answered review says so, and an agent
+  merges only a green request whose newest review said not careful. `careful.missed` is the
+  event for a careful call of the review that the plan did not make. The topics cannot be lifted
+  by the branch they guard: `project.py` reads `[flow]` from the main checkout's settings, also
+  in a task's worktree, so the landing, the lead, `decisions.py` with `flow.decision_wait`
+  (audit findings S1 and W2) and the review read the main checkout's table, and `land.py` reads
+  every setting from the main checkout wherever it runs. A change whose diff edits the `[flow]`
+  or `[gate]` table of `.lem/project.toml` is careful by the script: the one rule that is a
+  match and not a judgment, because the file is Lem's own.
 
 ## Checks
 

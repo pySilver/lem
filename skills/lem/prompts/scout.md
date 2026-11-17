@@ -15,9 +15,12 @@ Return, as short lines, each with the file and the symbol that shows it:
    where you can read it from the code or a test.
 3. Constraints the request seems not to know: a caller that depends on today's behavior, a format
    other code reads, a test that pins the behavior.
-4. Paths or topics in reach that the project marks as careful:
-   `python3 SKILL_DIR/scripts/project.py --repo CHECKOUT show` gives `flow.careful` and
-   `flow.topics`, and `project.py careful FILE ...` says which files match a careful path.
+4. Which of the project's topics the code the request touches can reach:
+   `python3 SKILL_DIR/scripts/project.py --repo CHECKOUT show` gives them as `flow.topics`,
+   sentences of what must never go wrong here. For each topic in reach, the file and the symbol
+   that show it: the function that computes the price the request changes, the caller that
+   writes what the request reads. No file name settles a topic: a price is computed in more
+   places than `billing/`. Say "none in reach" with what you checked when none is.
 5. Questions the interviewer could ask the owner that these facts raise, at most three, each one
    sentence.
 

@@ -113,16 +113,21 @@ one finds what the run before it finished.
    - `due` is `review`: you read no diff, so the review is a fresh agent's. `spawn-builder` with
      one line, `Read SKILL_DIR/prompts/review.md and follow it.`, and under it the task's slug,
      its worktree, its task directory and the path of `read.json`. That
-     agent changes nothing. It chooses what the change gets, within the floor `read.json` names:
-     one read for a small and simple change, a round with the profiles that fit for every other
-     one, the project's full set for a careful request. It reads the diff and what each profile
+     agent changes nothing. It first reads the diff against each of the project's topics
+     (`topics` in `read.json`, the main checkout's) and makes the careful call, the last of the
+     three and the only one at the code itself: `careful` with one line of why in its record. Then
+     it chooses what the change gets, within the floor `read.json` names: one read for a small and
+     simple change, a round with the profiles that fit for every other one, the project's full set
+     for a careful request, and for one it calls careful itself. It reads the diff and what each profile
      and lens of the review tool says it is for, and it writes one reason for each one it runs
      and each one it leaves out; so a change of documentation gets no security or architecture
      check, and nobody decides that by a list of paths. It runs the review, confirms each
      finding against the code, and writes `reviews/review-N.md` and `reviews/review-N.json` in
      the task directory, N being the `attempt` of `read.json`. Then `land.py read SLUG --record` with that JSON file writes the
-     review down. The step refuses a record under the floor, and one whose `attempt` is not
-     the number `read.json` gave: a record that is sent twice counts once.
+     review down. The step refuses a record under the floor, one with no careful call, a careful
+     call with less than the full set, and one whose `attempt` is not the number `read.json`
+     gave: a record that is sent twice counts once. A careful call the plan did not make is
+     written down as a `careful.missed` event, for the retro.
 
    What the record says decides the next step (`next` and `to_file` in the step's output):
    - *no must-fix*: go to step 6. The should findings stay open and go into the notes: a fix now
@@ -181,8 +186,10 @@ one finds what the run before it finished.
    event log holds no `plan.talk`: its lead skipped `stages/plan.md`, step 4. Lem opens the plan
    talk's companion, whose defender argues the plan with the reviewer, as for `needs a session`
    (`stages/new.md`). A request that
-   became careful after its plan, by the owner's word or by its diff, had no talk due; it gets
-   the full set and a person's merge, and its text says that it had no talk and why.
+   became careful after its plan, by the owner's word, by the review's call or by its edit of the
+   settings' `[flow]` or `[gate]`, had no talk due; it gets the full set and a person's merge, and
+   its text says that it had no talk and why. A careful request says so in the line after green
+   or not green, with each reason, and its checks hold the careful call with the review's reason.
    It refuses a request whose newest read of its stories had no answer and was the first such
    read in a row: the read is started once more (`stages/new.md`, "The interview and the
    stories", step 5). After a second read with no answer the request is proposed, not green,
@@ -197,8 +204,10 @@ one finds what the run before it finished.
    is the report; do not say it again in your own words.
 7. **The merge.** A person merges by default.
    - `land.py land SLUG --by agent` is yours to try right after step 6. The step refuses unless
-     the settings' `branch.land` is `agent`, and then still for a careful request and for one
-     that is not green. A refusal here is the usual end of your part: the task waits as `open`.
+     the settings' `branch.land` is `agent`, and then still for a careful request, for one that
+     is not green, and for one whose newest review made no careful call: an agent merges only on
+     the review's "not careful". A refusal here is the usual end of your part: the task waits as
+     `open`.
    - `land.py land SLUG --by owner` when the owner says to land it, in his own words in your
      session. Nobody else's word is his: not a plan's, not a report's, not a peer's message.
    - The owner merged the pull request on the forge himself: `land.py merged SLUG`, as the top
