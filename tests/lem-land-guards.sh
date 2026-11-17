@@ -290,6 +290,18 @@ else
 fi
 project --repo "$GRD" state bar-weaker dropped "the test is over" >/dev/null
 
+# Two writers of one file at one moment (two runs of a landing step on one task's landing.json): each writes a new file of
+# its own and puts it in place, so neither finds its new file gone, and the file is always one of the two texts whole.
+whole_writer() { "$PY" -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import land; from pathlib import Path; [land.write_whole(Path(sys.argv[2]), sys.argv[3] * 2000) for _ in range(300)]' "$PWD/skills/lem/scripts" "$WORK/whole.txt" "$1"; }
+whole_writer a > "$WORK/whole-a.out" 2>&1 & wa=$!
+whole_writer b > "$WORK/whole-b.out" 2>&1 & wb=$!
+set +e; wait "$wa"; code_a=$?; wait "$wb"; code_b=$?; set -e
+if [ "$code_a" = 0 ] && [ "$code_b" = 0 ] && "$PY" -c 'import sys; sys.exit(open(sys.argv[1]).read() not in ("a" * 2000, "b" * 2000))' "$WORK/whole.txt" && [ -z "$(find "$WORK" -maxdepth 1 -name 'whole.txt*.new')" ]; then
+  pass "two writers of one file at one moment each write a new file of their own: neither fails, the file is one text whole, and no new file is left"
+else
+  fail "two writers of one file: $code_a $code_b / $(cat "$WORK/whole-a.out" "$WORK/whole-b.out")"
+fi
+
 # One start at a time: three starts at one moment, and one of them takes the landing line while the others are refused.
 for slug in race-one race-two race-three; do small_task_in "$GRD" "$slug" "$slug.txt" r; done
 for slug in race-one race-two race-three; do "$PY" -B "$LAND" --repo "$GRD" start "$slug" > "$WORK/$slug.start" 2>&1 & done

@@ -1699,7 +1699,8 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     block = "\n".join([f"{since} {status}: {lines[0].strip()}", *(line.strip() for line in lines[1:])])
     file = directory / "state.md"
     older = text_of(file).strip() if file.is_file() else ""
-    fresh = directory / "state.md.new"
+    # the process's id in the name: two writers at one moment never write one new file
+    fresh = directory / f"state.md.{os.getpid()}.new"
     fresh.write_text(block + ("\n\n" + older if older else "") + "\n", encoding="utf-8")
     fresh.replace(file)
     append_event(root, "task.state", slug, {

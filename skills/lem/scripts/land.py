@@ -503,8 +503,9 @@ def git(where: Path, *args: str, check: bool = True) -> str:
 
 
 def write_whole(file: Path, text: str) -> None:
-    """Write a file whole or not at all: a run cut off in the middle leaves the old file, never half of one."""
-    fresh = file.with_name(file.name + ".new")
+    """Write a file whole or not at all: a run cut off in the middle leaves the old file, never half of one.
+    The new file's name holds this process's id, so two writers of one file at one moment never write one new file."""
+    fresh = file.with_name(f"{file.name}.{os.getpid()}.new")
     fresh.write_text(text, encoding="utf-8")
     fresh.replace(file)
 
