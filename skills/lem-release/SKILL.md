@@ -28,6 +28,12 @@ empty value. `get-notes.sh` in particular fails when the forge CLI is missing,
 unauthenticated or rate-limited; continuing there publishes a release whose notes list
 none of its PRs.
 
+Run each `lem` call as a plain command and read what it prints. A `$(...)` around it or a pipe
+after it is a command of another shape, which the permission rule `Bash(lem *)` does not cover,
+and a shell variable does not live from one call to the next. So `$platform`, `$new_version`
+and `$notes` in the steps below stand for what Steps 2, 5 and 6 printed: write the value itself
+into each later command.
+
 On Gitea, `get-notes.sh` collects no PRs and returns commit-derived notes with a warning
 on stderr, because `tea pr list` exposes neither a merged flag nor a merge timestamp. That warning
 is not a failure - show it to the user with the preview in Step 8 and carry on.
@@ -56,8 +62,10 @@ Use AskUserQuestion tool to get release type:
 ### Step 2: Detect Platform
 
 ```bash
-platform=$(lem release-platform)
+lem release-platform
 ```
+
+Read the word it prints: that is `$platform` below.
 
 ### Step 3: Validate Prerequisites
 
@@ -80,8 +88,10 @@ last_tag=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "none
 ### Step 5: Calculate New Version
 
 ```bash
-new_version=$(lem release-version <release_type>)
+lem release-version <release_type>
 ```
+
+Read the version it prints: that is `$new_version` below.
 
 Verify tag doesn't already exist:
 ```bash
@@ -93,8 +103,10 @@ fi
 ### Step 6: Generate Release Notes
 
 ```bash
-notes=$(lem release-notes "$platform")
+lem release-notes <platform>
 ```
+
+Read the notes it prints: they are `$notes` below.
 
 Script logic:
 1. Collects PRs/MRs merged after last tag (with author)

@@ -154,4 +154,31 @@ else
 $said"
 fi
 
+# The one rule `Bash(lem *)` covers a plain call: no text gives a `lem` call inside `$(...)`, before a pipe into another
+# command or beside an `&&` or `||`, in a code span or a code block. A `|` between two options of a synopsis is no pipe.
+"$PY" -I - "$PWD" > "$WORK/compound" <<'PY'
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+call = r"\blem(?:-ask|-jev)?\s+[a-z]"
+forms = [re.compile(r"\$\(\s*lem(?:-ask|-jev)?\s"), re.compile(r"(?:\s\|\s|&&|\|\|)\s*" + call), re.compile(call + r"[^\n]*?\s(?:\|\s+[a-z]|&&|\|\|)")]
+found = []
+for path in sorted(root.glob("skills/**/*.md")) + sorted(root.glob("agents/**/*.md")):
+    fence = False
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if line.lstrip().startswith("```"):
+            fence = not fence
+            continue
+        if any(form.search(piece) for piece in ([line] if fence else re.findall(r"`([^`]+)`", line)) for form in forms):
+            found.append(f"{path.relative_to(root)}:{number}: {line.strip()[:100]}")
+print("\n".join(found))
+PY
+compound=$(cat "$WORK/compound")
+if [ -z "$compound" ]; then
+  pass "no text under skills/ or agents/ gives a lem call inside \$(...), before a pipe or beside && or ||: each is a plain call whose output the agent reads"
+else
+  fail "a text gives a lem call in a compound command, which the rule Bash(lem *) does not cover:
+$compound"
+fi
+
 finish

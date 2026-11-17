@@ -8,7 +8,9 @@ You run in Claude Code. This file answers `README.md` beside it.
 while the plugin is loaded. It runs the script a name stands for with the arguments as they
 came, and its output and exit status are the script's. So one permission rule, `Bash(lem *)`,
 covers every script of Lem's on every machine and after every update of the plugin, whose folder
-changes with each update. Where the shell does not find it (`command not found`), run the same
+changes with each update. The rule covers a plain call: run each `lem` call alone and read what it
+prints, never inside `$(...)`, before a pipe or after an `&&`, which make a command of another
+shape that needs a rule of its own. Where the shell does not find it (`command not found`), run the same
 script by its path, `python3 SKILL_DIR/scripts/NAME.py ARGS...`, or for a shipped skill's the
 file in that skill's `scripts/` (`lem experts` is `python3
 SKILL_DIR/../lem-ask-expert/scripts/experts.py`; `COMMANDS` in `SKILL_DIR/../../bin/lem` names
