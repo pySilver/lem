@@ -444,8 +444,9 @@
 // The board of one repository's tasks, and the board of one task. It draws two files that sit
 // beside it in the state folder: events.js (project.py: every state block, gate result, review
 // and proposal, and what criteria.py, decisions.py and land.py log through it) and meta.js
-// (board.py: the repository, the base branch, Lem's session). A copy named task-SLUG.html opens
-// on that task; any other name opens on all tasks.
+// (board.py: the repository, the base branch, Lem's session), and a third when it is there:
+// watch.js (land.py watch: when the pull requests of the open tasks were last looked at on the forge).
+// A copy named task-SLUG.html opens on that task; any other name opens on all tasks.
 //
 // A decision of the build is the events with its `id` (decisions.py): `decision.taken` or
 // `decision.asked` opens it, and `decision.advised` (one expert's advice), `decision.answered`,
@@ -652,6 +653,8 @@ const ICONS = {
 
 let events = [];
 let meta = {};
+// the newest look of the watch of the open pull requests (watch.js, land.py watch), or null when none ran
+let watch = null;
 let problems = {};
 let lastGoodRead = 0;
 let sessions = null;
@@ -916,7 +919,7 @@ function derive(now) {
     // Each review of the task's change before it is proposed, and what the proposal said: green,
     // or each reason it is not.
     // A review that was written down again after a cut-off run has the same attempt: it is one review.
-    if (e.event === 'review') { t.reviews = t.reviews.filter(r => r.attempt == null || r.attempt !== e.attempt); t.reviews.push({ts: at(e), attempt: e.attempt, round: e.round, kind: e.kind, verdict: e.verdict, must_fix: e.must_fix, should: e.should, nit: e.nit, answered: e.answered ?? [], silent: e.silent ?? [], ran: e.ran ?? [], left_out: e.left_out ?? [], tip: e.tip}); continue; }
+    if (e.event === 'review') { t.reviews = t.reviews.filter(r => r.attempt == null || r.attempt !== e.attempt); t.reviews.push({ts: at(e), attempt: e.attempt, round: e.round, of: e.of, kind: e.kind, verdict: e.verdict, must_fix: e.must_fix, should: e.should, nit: e.nit, answered: e.answered ?? [], silent: e.silent ?? [], ran: e.ran ?? [], left_out: e.left_out ?? [], tip: e.tip}); continue; }
     if (e.event === 'proposed') { t.proposal = {ts: at(e), green: e.green === true, reasons: e.not_green ?? [], tip: e.tip}; continue; }
     if (e.event !== 'task.state') continue;
     t.landingStep = null;
@@ -1370,7 +1373,7 @@ function timeOf(t, end) {
       if (repairing) add('builders', prev, x, 'A repair, and the checks again', 'no event tells the repair from the checks');
       else if (e.event === 'gate') add('checks', prev, x, `The checks: ${e.command ?? 'a gate command'}`, e.exit === 0 ? `green · ${e.last ?? ''}` : `exit ${e.exit} · ${e.last ?? ''}`);
       else if (e.event === 'task.red') add('checks', prev, x, 'The tests of the criteria, on the branch and on the base commit', e.ok ? 'each test holds its criterion' : 'a test does not hold its criterion');
-      else if (e.event === 'review') add('review', prev, x, `Review round ${e.round ?? '?'}: ${KIND[e.kind] ?? e.kind}`, `${e.verdict}${(e.answered ?? []).length ? ` · answered: ${e.answered.join(', ')}` : ''}`);
+      else if (e.event === 'review') add('review', prev, x, `${e.of === 'resolution' ? 'Review of the conflict’s resolution' : `Review round ${e.round ?? '?'}`}: ${KIND[e.kind] ?? e.kind}`, `${e.verdict}${(e.answered ?? []).length ? ` · answered: ${e.answered.join(', ')}` : ''}`);
       else if (e.event === 'review.filed') add('lem', prev, x, 'Lem files the defects outside the change', plural((e.items ?? []).length, 'item'));
       else add('lem', prev, x, 'Lem writes the pull request', e.green ? 'green' : 'not green');
       prev = x; before = e; opened = null;
@@ -1653,7 +1656,8 @@ function buildFeed(m, list) {
 
 // The three kinds of review, in the words of land.py.
 const KIND = {read: 'one read', round: 'a round with the profiles that fit', full: "the project's full set"};
-const reviewLine = r => `round ${r.round}, ${KIND[r.kind] ?? r.kind}: ${r.verdict === 'not reviewed' ? 'not reviewed' : `${r.verdict}, ${r.must_fix} must-fix, ${r.should} should, ${r.nit} nit`}`;
+// the read of a builder's resolution of a conflict with the base is no round of the change (land.py `of`)
+const reviewLine = r => `${r.of === 'resolution' ? 'the conflict’s resolution' : `round ${r.round}`}, ${KIND[r.kind] ?? r.kind}: ${r.verdict === 'not reviewed' ? 'not reviewed' : `${r.verdict}, ${r.must_fix} must-fix, ${r.should} should, ${r.nit} nit`}`;
 
 // The reviews of one task's change, each with who answered and what was run or left out, and
 // under them what the proposal said: green, or each reason it is not.
@@ -2318,6 +2322,7 @@ function render() {
       keyed(`limit:${m.places}:${m.limit}`, h('span', {class: `chip${full ? ' you' : ''}`, title: `How many tasks build or land at one time, of the ${m.limit ?? '?'} the project lets (flow.max_tasks)${full ? ': the limit is reached, and a new task is queued' : ''}`},
         icon('layers'), h('b', {}, `${m.places} of ${m.limit ?? '?'}`), ' places')),
       m.proposed.length ? chip(`proposed:${m.proposed.length}:${notGreen}`, 'branch', notGreen ? 'you' : '', h('b', {}, m.proposed.length), ' proposed', notGreen ? ` · ${notGreen} not green` : ', green') : null,
+      watchChip(m, now),
       m.landedToday.length ? chip(`today:${m.landedToday.length}`, 'check', 'ok', h('b', {}, m.landedToday.length), ' landed today') : null,
     ]);
     $('now').className = `card now brief a-${focusOf(m)?.t.info.actor ?? 'done'}`;
@@ -2361,7 +2366,7 @@ function render() {
 
   patch($('review'), view && t ? buildReview(t, now) : []);
   { const none = empty('review'); if (none) patch($('review'), []); $('review-card').hidden = !view || none; }
-  $('review-sum').textContent = view && t?.reviews.length ? plural(t.reviews.length, 'round') : '';
+  $('review-sum').textContent = view && t?.reviews.length ? [plural(t.reviews.filter(r => r.of !== 'resolution').length, 'round'), t.reviews.some(r => r.of === 'resolution') && 'a read of a resolution'].filter(Boolean).join(' · ') : '';
   const feed = view ? events.filter(e => e.task === view) : events;
   patch($('feed'), buildFeed(m, feed));
   $('feed-sum').textContent = plural(feed.length, 'event');
@@ -2375,6 +2380,27 @@ function render() {
 
   const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (tab === 'backlog' ? `Backlog · ${repo} · ` : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.lane.build.filter(x => x.status === 'building').length} build · ${m.forOwner.length} for you`);
   if (title !== lastTitle) document.title = lastTitle = title;
+}
+
+// A page cannot ask the forge, so the board says how fresh its word on the pull requests is: when Lem's
+// watch (land.py watch) last looked, and that nobody watches when its last look is older than three of
+// its intervals (STALE_LOOKS in land.py, a guess), or when it ended. Only a request with a pull request
+// has one to watch: a branch ready to land waits for nobody's merge on a forge.
+const STALE_LOOKS = 3;
+function watchChip(m, now) {
+  const pulls = m.proposed.filter(x => /^pull request\b/.test(x.text));
+  if (!pulls.length) return null;
+  const every = Number(watch?.every) || 0;
+  const checked = watch?.checked ? Date.parse(watch.checked) : 0;
+  const what = `${pulls.length === 1 ? 'the pull request' : `the ${pulls.length} pull requests`}`;
+  if (checked && every && !watch.ended && now - checked <= STALE_LOOKS * every * 1000)
+    return keyed('watch:on', h('span', {class: 'chip', title: `Lem looks at the forge every ${every}s for a merge or a close of ${what}, and brings the others onto the new base after a merge`},
+      icon('eye'), 'checked ', h('span', {'data-ago': checked}, ago(now - checked))));
+  const since = checked ? ` since ${stamp(checked, now)}` : '';
+  const why = watch?.ended && watch.why ? ` The watch ended: ${watch.why}.` : '';
+  return keyed(`watch:off:${checked}:${watch?.why ?? ''}`, h('span', {class: 'chip you',
+    title: `Nobody has looked at the forge for ${what}${since}: a merge or a close there shows here only after Lem looks.${why} Type /lem in Lem's session.`},
+    icon('eye'), 'nobody watches ', what, ' · type ', h('b', {}, '/lem')));
 }
 
 function tick(now) {
@@ -2397,6 +2423,10 @@ async function pollFiles() {
   const about = await readScript('meta.js', 'lemMeta', 0);
   if (about.records?.length) { meta = about.records.at(-1); delete problems.meta; }
   else problems.meta = about.problem ?? 'meta.js is missing or empty: open the board with board.py';
+  // no watch.js is no problem: no watch ran yet, and the chip of the pull requests says that nobody watches
+  const looked = await readScript('watch.js', 'lemWatch', 0);
+  if (looked.problem) problems.watch = looked.problem; else delete problems.watch;
+  watch = looked.records?.at(-1) ?? (looked.missing ? null : watch);
   render();
   setTimeout(pollFiles, FEED_EVERY_MS);
 }

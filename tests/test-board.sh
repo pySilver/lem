@@ -748,6 +748,54 @@ elif [ -n "$chrome" ]; then
     fail "the numbers of the board: ${why:-a ring, a grid or the chip of the places}"
   fi
 
+  # How fresh the board's word on the pull requests is: no watch ran, a look 40 seconds ago, a look older than three of
+  # its intervals, and a watch that ended. A copy of the page under another name opens on all tasks too.
+  # watch_at SECONDS_AGO [WHY]: watch.js as land.py watch writes it, with its last look that long before NOW, or ended with WHY
+  watch_at() { "$PY" -I -c 'import json, sys; from datetime import datetime, timedelta, timezone
+now = datetime.strptime(sys.argv[2], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+at = (now - timedelta(seconds=int(sys.argv[3]))).strftime("%Y-%m-%dT%H:%M:%SZ")
+record = {"checked": at, "every": 60, "looks": 4, "open": [], "ended": None} if len(sys.argv) < 5 else {"checked": None, "every": 60, "ended": at, "why": sys.argv[4]}
+open(sys.argv[1], "w").write("lemWatch(" + json.dumps(record) + ");\n")' "$STATE/watch.js" "$NOW" "$@"; }
+  watches=()
+  rm -f "$STATE/watch.js"
+  cp "$STATE/board.html" "$STATE/watchprobe.html" && draw watchprobe
+  why=$("$PY" -I -B -c "$SHOWN" "$WORK/watchprobe.dom" "nobody watches the pull request · type /lem" "!checked") || watches+=("none: $why")
+  grep -q '<span class="chip you"[^>]*title="Nobody has looked at the forge for the pull request: a merge or a close there shows here only after Lem looks. Type /lem in Lem' "$WORK/watchprobe.dom" || watches+=("none: the chip's colour or its hover")
+  watch_at 40 && draw watchprobe
+  why=$("$PY" -I -B -c "$SHOWN" "$WORK/watchprobe.dom" "checked 40s ago" "!nobody watches") || watches+=("40 s: $why")
+  grep -q '<span class="chip"[^>]*title="Lem looks at the forge every 60s for a merge or a close of the pull request' "$WORK/watchprobe.dom" || watches+=("40 s: the chip's hover")
+  watch_at 200 && draw watchprobe
+  why=$("$PY" -I -B -c "$SHOWN" "$WORK/watchprobe.dom" "nobody watches the pull request · type /lem" "!checked") || watches+=("200 s: $why")
+  watch_at 5 "gh is not signed in" && draw watchprobe
+  why=$("$PY" -I -B -c "$SHOWN" "$WORK/watchprobe.dom" "nobody watches the pull request · type /lem" "!checked") || watches+=("ended: $why")
+  grep -q 'The watch ended: gh is not signed in. Type /lem' "$WORK/watchprobe.dom" || watches+=("ended: the reason in the hover")
+  rm -f "$STATE/watch.js" "$STATE/watchprobe.html"
+  if [ "${#watches[@]}" -eq 0 ]; then
+    pass "beside the proposed requests the board says when the pull requests were last checked, and that nobody watches, with /lem to type, when no watch ran, when its last look is older than three of its intervals and when it ended, with why in the hover"
+  else
+    fail "the watch's chip: ${watches[*]}"
+  fi
+
+  # The read of a builder's resolution of a conflict is no round: the task's board names it apart. A folder of its own,
+  # so that no lane or time card of the fixture changes.
+  mkdir -p "$WORK/resolved"
+  cp "$STATE/board.html" "$WORK/resolved/task-resolved.html" && cp "$STATE/lem.css" "$WORK/resolved/"
+  "$PY" -I -c 'import json, sys
+at = sys.argv[2]
+common = {"kind": "read", "verdict": "clean", "must_fix": 0, "should": 0, "nit": 0, "answered": ["codex"], "silent": [], "ran": [], "left_out": [], "tip": "abc1234"}
+events = [{"ts": at, "event": "task.state", "task": "resolved", "status": "landing", "text": "the checks start", "lines": [], "ask": "Keep both lines"},
+          {"ts": at, "event": "review", "task": "resolved", "attempt": 1, "round": 1, **common},
+          {"ts": at, "event": "review", "task": "resolved", "attempt": 2, "round": 1, "of": "resolution", **common}]
+open(sys.argv[1] + "/events.js", "w").write("".join("lemEvent(" + json.dumps(e) + ");\n" for e in events))
+open(sys.argv[1] + "/meta.js", "w").write("lemMeta(" + json.dumps({"repo": "shop", "base": "main", "session": "", "ask": "lem-ask", "gates": 1}) + ");\n")' "$WORK/resolved" "$NOW"
+  "$PY" -I -c "$STOP" "$WORK/resolved/task-resolved.html" "$NOW"
+  headless --virtual-time-budget=5000 --dump-dom "file://$WORK/resolved/task-resolved.html" > "$WORK/resolved.dom"
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/resolved.dom" "round 1, one read: clean, 0 must-fix, 0 should, 0 nit" "the conflict’s resolution, one read: clean, 0 must-fix, 0 should, 0 nit" "1 round · a read of a resolution" "!round 1, one read: clean, 0 must-fix, 0 should, 0 nit round 1"); then
+    pass "the read of a conflict's resolution is drawn apart from the review's rounds, and the review card counts the rounds alone"
+  else
+    fail "the read of a resolution on the board: $why"
+  fi
+
   draw "task-$G"
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$G.dom" "Decisions" "2 wait for you · 1 with the wait over · 4 taken" \
     "Choice 7 waits for you: The note of a cancelled order" "options: keep it · leave it out" "recommended: keep it, because the export shows cancelled orders as they were" \
@@ -1405,6 +1453,12 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
       done
       cp "$WORK/light.html" "$STATE/$page.html"
     done
+    # the head of the board with a watch that looked 40 seconds ago, to look at the chip beside the proposed requests
+    watch_at 40
+    cp "$STATE/board.html" "$STATE/watchprobe.html" && draw watchprobe
+    headless --hide-scrollbars --window-size=1400,700 --virtual-time-budget=5000 --screenshot="$LEM_BOARD_SHOTS/watch-1400-light.png" "file://$STATE/watchprobe.html"
+    printf 'shot %s\n' "$LEM_BOARD_SHOTS/watch-1400-light.png"
+    rm -f "$STATE/watch.js" "$STATE/watchprobe.html"
     # where the lanes start on a 1400 x 900 window, and the tallest card of each lane over its shortest
     cp "$STATE/board.html" "$WORK/board-page.html"
     "$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("</body>", """<script>setTimeout(() => { const pre = document.createElement("pre"); pre.id = "measured";
