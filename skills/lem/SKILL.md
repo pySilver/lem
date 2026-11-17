@@ -101,7 +101,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | Subcommand | Does | Read |
 | --- | --- | --- |
 | `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and says its size in one line. A small change goes to one builder and the landing, and waits for nothing. A feature: interviews the owner while a scout reads the code, has the personas read the stories and takes his yes to them, and starts its lead; a ticket or an item whose whole context is written skips the interview. A bug is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
-| `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read | `stages/new.md` |
+| `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read. A plan is a feature's, so the ask is a feature whatever its size, and Lem's line says so | `stages/new.md` |
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report: act on it as "A bug and an investigation" says | `stages/new.md` |
 | `land` | the oldest ready task: the polish pass, the machine checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |

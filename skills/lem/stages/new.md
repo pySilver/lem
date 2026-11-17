@@ -33,7 +33,10 @@ a lead is started, and what to do each time a lead stops.
    fix of one rule, a typo, a rename, a version bump, a line of a document). Every other ask is a
    *feature* in size, whatever its kind. When you cannot tell, take the small change and ask
    nothing: its builder checks it again before it commits (`prompts/small.md`), and stops when it
-   is not. "Correction" stays the word of the scripts for a small change (`Kind: correction`,
+   is not. `/lem plan <what>` asks for a plan to read, and a plan is a feature's: the ask is a
+   feature whatever its size, with its interview, its stories, the personas' read and his yes,
+   and the lead stops at the committed plan; the line of step 5 says so ("Feature, because you
+   asked for its plan: ..."). "Correction" stays the word of the scripts for a small change (`Kind: correction`,
    `stories.py approve --correction`), and for nothing else: a plan's kind is always `feature`,
    and `stories.py` and `land.py` refuse a plan that says `Kind: correction`. To the owner it is
    a small change.
@@ -422,8 +425,9 @@ task.
      interview waits for the owner` first: the investigator's place is free again.
    - *not a bug*: tell him what the code does in his case and why, as one run (`SKILL.md`, "What
      the owner has to understand is told as one run"), with where each step was read. Write the
-     state `answered` with that in one line, and `land.py clean SLUG`: the worktree goes, and the
-     branch stays with its commits, the reproducing test among them.
+     state `answered` with that in one line, and `land.py clean SLUG`: the worktree goes, and a
+     branch with commits of its own stays, the reproducing test among them, with how to delete it;
+     a branch with none, which the base holds whole, goes.
    - *not reproduced*: tell him each try in one line, and ask him for one more fact: the record,
      the input, the time, what he saw. Write the state `held` with the line `the investigation
      waits for one more fact`. Write his answer into `task.md`, add one line to the brief,
@@ -447,8 +451,9 @@ task.
 
 The owner says that a task is not wanted, at any point before its landing. Write the state
 `dropped` with his reason in one line. Close the task's companion when one is open, and remove its
-worktree the way the project does; the branch stays, because its commits are on no other branch
-(`land.py clean` does both and says so). For a task that came from a ticket, the tracker then
+worktree the way the project does. A branch with commits of its own stays, because those
+commits are on no other branch, and `land.py clean` names how to delete it; a branch with none,
+which the base holds whole, goes (`land.py clean` does both and says which). For a task that came from a ticket, the tracker then
 says so on the ticket (its "drop") and changes no status: tell the owner which status the ticket
 has, since where it goes now is his call. Then look at the queue, as the last section says.
 
