@@ -138,12 +138,16 @@ a lead is started, and what to do each time a lead stops.
    and log his words, as the paragraph on his word below says. A builder still writes the plan:
    it reads that line as a yes (`stages/plan.md`, step 2) and stops for the plan talk, which
    needs a plan to talk about.
-7. **Does it wait for another task?** Two asks that name the same thing (the same screen, the
-   same file, the same command) run one after the other. Write the later one's state as `queued`
-   with the line `after: SLUG` of the earlier one, and stop here: it starts when that task is
-   `landed`, `answered` or `dropped`, so it builds on what the earlier one changed. Do not read
-   the code to find an overlap the asks do not show; the landing line settles that one
-   (`stages/land.md`, step 1).
+7. **Does it wait for another task?** Only when the later ask needs what the earlier one
+   changes: it names the earlier one's result, or it makes no sense before that result exists.
+   Then write the later one's state as `queued` with the line `after: SLUG` of the earlier one,
+   and stop here: it starts when that task is `landed`, `answered` or `dropped`, so it builds on
+   what the earlier one changed. Two asks that only name the same thing (the same screen, the same
+   file, the same function) each start on their own, and the owner orders their pull requests.
+   The owner overturned such a wait: "start this bug now, on its own, and do not wait for the
+   one-day task; I sort out the order of the pull requests myself" (a scratch repository,
+   2026-11-17; the two tasks changed one function). Do not read the code to find an overlap the
+   asks do not show; the landing line settles that one (`stages/land.md`, step 1).
 8. **Start its lead**, as "Start a lead" says. Open the board when this session has not opened
    it yet (`SKILL.md`, Status); it stays in the sidebar beside your session. Then go back to the
    owner's next message. Do not wait for the lead and do not watch it.
