@@ -54,6 +54,28 @@ lands first. Proof: one real small change and one real full change in the scratc
 Proof: `tests/lem-command.sh` and `tests/lem-machine.sh`; a search of every text for a name that
 is gone.
 
+### 1a. Tests that are useful and fast
+
+The owner: "Please make all kind test actually useful and not painfully slow."
+
+Today (the maintaining session's run of 2026-11-17): 623 checks in 20 suites, 408 seconds on the
+clock, 3,897 seconds summed over the suites. One call of a script costs about 170 ms, and most
+checks make several.
+
+- **Useful.** A check stays when it turns red for a thing a developer would notice: a wrong
+  state, a wrong refusal, a lost commit, a false "green". A check that only pins the words of a
+  message pins one key word, or goes.
+- **Fast.** A check of pure logic runs inside one Python process, not as one process for each
+  call. A block copies its throwaway repository from a template, where it builds one with git
+  commands today. The Chrome suites and `shellcheck` run only when their files changed.
+- **Picked.** One script names the blocks for the files a change touched. A builder runs those.
+  The full suite runs once before `main` moves.
+- Targets, both estimates until measured: a builder's blocks in under 30 seconds, the full suite
+  in under 2 minutes on this Mac.
+
+Proof: ten behaviors broken by hand, one at a time (the list is in the task's report). Each must
+turn a check red before the change and after it, so the speed did not cost what the tests guard.
+
 ### 2. The mode of a task
 
 - A task's record holds its mode: with the owner (the default) or alone.
@@ -126,14 +148,20 @@ repository.
 ### 6. The texts for people
 
 The README, `docs/flow.md`, `docs/settings.md`, `docs/inside.md` and `docs/install.md` say the
-above, in ASD-STE100, and are checked against the code. The README's table of commands gets
-shorter, and it gains the three sentences that the owner types to switch the mode.
+above, in ASD-STE100 and American English, written for readers who are not native speakers. They
+are checked against the code, and then proofread by an agent briefed for those readers, as the
+README was. The README's table of commands gets shorter, and it gains the three sentences that
+the owner types to switch the mode.
 
 ## Order
 
-0, then 1. Then 2 and 3 as one chain, because they change the same files. Then 4, 5, 6. One
-builder at a time in a file set. A builder runs only the test blocks it touches. The maintaining
-session runs the full suite once before each move of `main`.
+0, then 1, then 1a, so that every later builder has the fast tests. Then 2 and 3 as one chain,
+because they change the same files. Then 4, 5, 6. One builder at a time in a file set. A builder
+runs only the test blocks it touches. The maintaining session runs the full suite once before
+each move of `main`.
+
+The owner can use Lem while this is built: `main` works today, and each move of `main` is one
+update of the plugin.
 
 ## The real runs that end it
 
@@ -145,7 +173,7 @@ the report, and with the correction queue off for that computer):
 3. The same kind of change with "go alone" said after the interview. The two pages.
 4. One night.
 
-`main` moves after 0 and 1, and again after the rest.
+`main` moves after 0, 1 and 1a, and again after the rest.
 
 ## Not in this plan
 
