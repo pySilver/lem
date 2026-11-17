@@ -25,7 +25,7 @@ state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer a
                      is still to answer (`waiting`)
 
 A choice of a task that waits for the owner, which Lem's stages give the experts right after
-`decisions.py ask`, keeps its brief in the task's directory and its advice in the choice's record:
+`lem decisions ask`, keeps its brief in the task's directory and its advice in the choice's record:
 
     experts.py brief SLUG N [--file PATH ...]
                      write `experts/choice-N.brief.md` in the task's directory: the choice (what,
@@ -35,7 +35,7 @@ A choice of a task that waits for the owner, which Lem's stages give the experts
                      when every expert advised already
     experts.py record SLUG N --expert NAME
                      read `experts/choice-N.NAME.md` and write it into the record with
-                     `decisions.py advise`, under the same refusals as above
+                     `lem decisions advise`, under the same refusals as above
 
 An answer is one of these forms, and nothing else; the last one only for a question with no
 options:
@@ -176,7 +176,7 @@ def answer_form(options: list[str], pick_from: str) -> str:
 def choice(repo: Path, slug: str, number: int) -> dict:
     found = next((d for d in json.loads(script("decisions.py", repo, "list", slug)) if d["id"] == number), None)
     if found is None or "options" not in found:
-        raise ExpertError(f"no choice {number} went to the owner in {slug}: the experts answer a choice that `decisions.py ask` recorded")
+        raise ExpertError(f"no choice {number} went to the owner in {slug}: the experts answer a choice that `lem decisions ask` recorded")
     return found
 
 
@@ -264,7 +264,7 @@ def cmd_choice_brief(repo: Path, slug: str, number: int, names: list[str], given
     advised = found.get("advice", {})
     ask = [expert["name"] for expert in experts if expert["name"] not in advised]
     if not ask:
-        raise ExpertError(f"choice {number} of {slug} has the advice of both experts already: `decisions.py list {slug}` shows it")
+        raise ExpertError(f"choice {number} of {slug} has the advice of both experts already: `lem decisions list {slug}` shows it")
     place = worktree(repo, slug)
     try:
         criteria = json.loads(script("criteria.py", repo, "show", slug))
@@ -281,7 +281,7 @@ def cmd_choice_brief(repo: Path, slug: str, number: int, names: list[str], given
         "experts": [{**expert, "answer": answers[expert["name"]]} for expert in experts],
         "answers": answers, "ask": ask, "advised": sorted(advised),
         "next": f"start {' and '.join(ask)} at once, in the background, with this brief (the harness's `ask-experts`); "
-                f"as each ends, `experts.py record {slug} {number} --expert NAME`",
+                f"as each ends, `lem experts record {slug} {number} --expert NAME`",
     }
 
 
@@ -404,7 +404,7 @@ def summary(folder: Path, record: dict) -> dict:
     shared = picks.pop() if record["options"] and len(answers) > 1 and len(picks) == 1 else None
     waiting = [expert["name"] for expert in record["experts"] if expert["name"] not in answers]
     if waiting:
-        then = f"wait for {' and '.join(waiting)}; as each ends, `experts.py record --folder {folder.name} --expert NAME`"
+        then = f"wait for {' and '.join(waiting)}; as each ends, `lem experts record --folder {folder.name} --expert NAME`"
     elif record["options"]:
         then = "show the owner the answers side by side, " + (f"all picked {shared!r}" if shared else "where they split") + ", and one line of what you would do with them"
     else:
@@ -439,16 +439,16 @@ def cmd_free_brief(repo: Path, question: str, context: str, options: list[str], 
         "experts": record["experts"], "answers": {expert["name"]: expert["answer"] for expert in record["experts"]},
         "ask": names_, "removed": removed,
         "next": f"start {' and '.join(names_)} at once, in the background, with this brief (the harness's `ask-experts`); "
-                f"as each ends, `experts.py record --folder {folder.name} --expert NAME`",
+                f"as each ends, `lem experts record --folder {folder.name} --expert NAME`",
     }
 
 
 def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
     if not FOLDER.match(name):
-        raise ExpertError(f"--folder {name!r} is no question's folder: give the name `experts.py brief --question` printed")
+        raise ExpertError(f"--folder {name!r} is no question's folder: give the name `lem experts brief --question` printed")
     folder = questions(repo) / name
     if not (folder / "record.json").is_file():
-        raise ExpertError(f"no question {name} is in {folder.parent}: give the name `experts.py brief --question` printed; a folder older than {KEEP_DAYS} days is removed")
+        raise ExpertError(f"no question {name} is in {folder.parent}: give the name `lem experts brief --question` printed; a folder older than {KEEP_DAYS} days is removed")
     with open(folder / ".lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         record = json.loads((folder / "record.json").read_text(encoding="utf-8"))

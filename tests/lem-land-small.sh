@@ -91,7 +91,7 @@ s read date-outside --record "$(clean 1)" >/dev/null 2>&1 || true
 outside_due=$(s read date-outside 2>&1 | field '(d["due"], d["to_file"])' 2>&1 || true)
 outside_green=$(s propose date-outside --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
 text=$(dir_of date-outside)/pr.md
-if grep -qF "a small change has no polish pass" <<<"$no_polish" && grep -qF "\`land.py checks date-outside\`" <<<"$no_polish" \
+if grep -qF "a small change has no polish pass" <<<"$no_polish" && grep -qF "\`lem land checks date-outside\`" <<<"$no_polish" \
   && [ "$outside_gate" = "(True, True, [], ['date-outside.css', '$item'])" ] && [ "$outside_due" = "('none', [])" ] && [ "$outside_green" = True ] \
   && grep -qxF -- "- filed in the backlog by the builder: \`$item\`" "$text" && ! grep -q 'polish' "$text" \
   && ! grep -q "\"event\": \"polish.start\", \"task\": \"date-outside\"" "$SMALL/.lem/state/events.jsonl"; then

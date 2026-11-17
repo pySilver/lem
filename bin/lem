@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""lem: Lem's one command. `lem NAME ARGS...` runs the script of Lem that NAME stands for, with
+ARGS as they came; its stdin, stdout, stderr and exit status are the script's own.
+
+One command, so that one permission rule (`Bash(lem *)`) holds on every machine and after every
+update of the plugin: the folder of a plugin's files changes with each update, and a rule on a
+script's path stops holding then. The plugin puts this file on the Bash tool's PATH (`bin/`).
+
+    lem                  the names, one line each (also `lem help`, `lem --help`)
+    lem version          the plugin's version and the commit of its folder, as JSON
+    lem NAME ARGS...     the script NAME stands for; `lem NAME --help` is the script's own help
+
+The process becomes the script (exec), so nothing stands between the caller and it. A Python
+script runs with -B, so it writes no bytecode beside itself. This file loads under any python3: a
+script that needs a newer one says so itself.
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+# name -> (the script, relative to the plugin's folder; what it does, in one line)
+COMMANDS = {
+    "project": ("skills/lem/scripts/project.py", "a repository's settings, a task's state and directory, the event log, the queue"),
+    "land": ("skills/lem/scripts/land.py", "the landing, one step at a time: checks, review, pull request, merge, watch"),
+    "criteria": ("skills/lem/scripts/criteria.py", "a task's acceptance criteria: approve, show, record, and red on the base"),
+    "decisions": ("skills/lem/scripts/decisions.py", "a task's decisions and the choices that wait for the owner"),
+    "board": ("skills/lem/scripts/board.py", "the board of all tasks, or of one task (--task SLUG)"),
+    "doctor": ("skills/lem/scripts/doctor.py", "the machine check: the tools Lem needs and recommends"),
+    "corrections": ("skills/lem/scripts/corrections.py", "the queue of the owner's corrections, for a retro"),
+    "experts": ("skills/lem-ask-expert/scripts/experts.py", "the experts' brief of one question, and the record of their answers"),
+    "cast": ("skills/lem-panel/scripts/cast.py", "the persona panel's cast and profile, and a panel's run folder"),
+    "gate-log": ("skills/lem-gate/scripts/gate-log.py", "the question gate's log"),
+    "triage": ("skills/lem-backlog/scripts/triage.py", "the backlog's sort by who can act on each item"),
+    "release-platform": ("skills/lem-release/scripts/detect-platform.sh", "the forge of the release: github, gitlab or gitea"),
+    "release-version": ("skills/lem-release/scripts/calc-version.sh", "the next version from the last tag: major, minor or hotfix"),
+    "release-notes": ("skills/lem-release/scripts/get-notes.sh", "the release notes since the last tag, for a forge"),
+}
+
+
+def names() -> str:
+    width = max(len(name) for name in COMMANDS)
+    lines = ["lem NAME ARGS... runs one of Lem's scripts; `lem NAME --help` gives its own help.", ""]
+    lines += [f"  {name:<{width}}  {about}" for name, (_, about) in COMMANDS.items()]
+    lines += [f"  {'version':<{width}}  the plugin's version and the commit of its folder, as JSON",
+              f"  {'help':<{width}}  this list", "",
+              "lem-ask (the question page) and lem-jev (the Jev model) are commands of their own."]
+    return "\n".join(lines) + "\n"
+
+
+def version() -> dict:
+    found = {"root": ROOT, "version": None, "commit": None}
+    try:
+        with open(os.path.join(ROOT, ".claude-plugin", "plugin.json"), encoding="utf-8") as manifest:
+            found["version"] = json.load(manifest).get("version")
+    except (OSError, ValueError):
+        pass
+    if os.path.exists(os.path.join(ROOT, ".git")):
+        ran = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=False)
+        if ran.returncode == 0:
+            found["commit"] = ran.stdout.strip()
+    return found
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if not args or args[0] in ("help", "--help", "-h"):
+        sys.stdout.write(names())
+        return
+    name, rest = args[0], args[1:]
+    if name == "version":
+        print(json.dumps(version(), indent=2))
+        return
+    if name not in COMMANDS:
+        sys.stderr.write(f"lem: {name!r} is no command of Lem's; the names are:\n\n" + names())
+        sys.exit(1)
+    script = os.path.join(ROOT, COMMANDS[name][0])
+    if not os.path.isfile(script):
+        sys.exit(f"lem: {script} is not there: the plugin's folder {ROOT} is not whole; install the plugin again")
+    if script.endswith(".sh"):
+        os.execvp("bash", ["bash", script, *rest])
+    python = sys.executable or "python3"
+    os.execv(python, [python, "-B", script, *rest])
+
+
+if __name__ == "__main__":
+    main()

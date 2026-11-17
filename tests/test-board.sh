@@ -83,7 +83,7 @@ lines = [json.loads(line) for line in open(path)]
 for line in lines:
     if line["kind"] == "asked" and str(line["id"]) in sys.argv[2:]: line["deadline"] = "2026-01-01T00:00:00Z"
 open(path, "w").write("".join(json.dumps(line) + "\n" for line in lines))' "$STATE/tasks/$1/decisions.jsonl" "${@:2}"; }
-# criteria_file FILE SIZE: the criteria the owner approves, in the form `criteria.py --help` gives
+# criteria_file FILE SIZE: the criteria the owner approves, in the form `lem criteria --help` gives
 criteria_file() {
   if [ "$2" = small ]; then
     printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The footer says "Terms", not "Terms and condtions".' > "$1"

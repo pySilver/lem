@@ -17,7 +17,7 @@ asks for that ticket in his own words.
 
 ## The settings
 
-`project.py show` prints `tracker`. When it is null, the project has no tracker: say so and stop.
+`lem project show` prints `tracker`. When it is null, the project has no tracker: say so and stop.
 The one exception is "check" at onboarding, before the table is written: it takes the values the
 owner gave in the interview, and the table is written only after it passed.
 
@@ -100,12 +100,12 @@ Reading writes nothing to Linear.
 
 ## What was done to a ticket is written down
 
-`project.py tasks` gives, for a task that came from a ticket, `ticket` and `ticket_steps`: what
+`lem project tasks` gives, for a task that came from a ticket, `ticket` and `ticket_steps`: what
 Lem did to that ticket so far. Before a write, look there: a step that is listed was done, and
 it is never done again. After a write that the server took, write the step down at once:
 
 ```bash
-python3 SKILL_DIR/scripts/project.py ticket-step SLUG started|commented|landed|dropped|answered
+lem project ticket-step SLUG started|commented|landed|dropped|answered
 ```
 
 `SKILL_DIR` is the `lem` skill's directory. `ticket_owed` in the same output is what an ended
@@ -170,7 +170,7 @@ not wanted, while the task has a finding for them; so an answer has its own comm
 1. The workspace test, and the connection's `access` allows a write.
 2. Unless `answered` is written down, or a comment on the ticket ends with `lem: SLUG answered`:
    `save_comment` with the answer as the task's state gives it in one line (the newest
-   `investigation` in `project.py tasks`: its `line`, and its `where` when it has one), and that
+   `investigation` in `lem project tasks`: its `line`, and its `where` when it has one), and that
    the report is in the task's directory, not on the ticket. Its last line is `lem: SLUG answered`.
    Then write the step `answered` down.
 3. No status change, as for a drop. Tell the owner which status the ticket has now: whether an

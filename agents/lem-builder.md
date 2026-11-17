@@ -52,7 +52,7 @@ What holds for every builder, unless your job says otherwise as above:
    callers, and the formatter, the linter and the type checker the project's `AGENTS.md` names.
    Never the whole suite, whatever your brief says: it runs one time, in the checks before the
    pull request. A test of a suite that needs the machine to itself (one the settings list under
-   `checks.alone`, or one that belongs to such a suite) you run through the `project.py alone` line
+   `checks.alone`, or one that belongs to such a suite) you run through the `lem project alone` line
    your brief gives, never bare: it waits while another run holds the machine.
 5. **Commit your own work** on the task's branch. The message has the form the project's
    `AGENTS.md` or its commit hook gives; with neither, a semantic message (`type(scope):

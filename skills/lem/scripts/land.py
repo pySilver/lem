@@ -4,7 +4,7 @@
 Nothing reaches the base branch without the machine checks and a review by an agent that did not
 build it, and a task ends as a pull request where there is a forge and the project wants one.
 Each step here is one command, prints JSON, and refuses with exit 1 and the reason when the step
-may not run; nothing is retried and nothing is forced. Every step first asks `project.py
+may not run; nothing is retried and nothing is forced. Every step first asks `lem project
 may-land` about the settings' base branch, so a protected branch is never reached, whoever asks.
 
     land.py start SLUG [--after LANDED | --conflicting]
@@ -57,8 +57,8 @@ with no interview, read or plan.
 The machine checks have no model in them. `checks` runs the settings' `checks.commands`, the whole
 suite, which runs here one time and in no builder; then, when they all passed, each command of
 `checks.alone`, the ones that need the machine to themselves (an end-to-end suite on fixed ports, one
-database, a browser), each under the repository's one lock for them through `project.py alone`,
-which waits while a builder or another check holds it; then `criteria.py red` (each criterion's tests pass on the branch and fail on the base commit), then the
+database, a browser), each under the repository's one lock for them through `lem project alone`,
+which waits while a builder or another check holds it; then `lem criteria red` (each criterion's tests pass on the branch and fail on the base commit), then the
 bar. A change lowers the bar when it adds a lint or type suppression, a skipped test or a mark
 that runs one test alone, deletes a test file or moves it out of the tests, or leaves fewer
 assertions in one (counted by the words `assert` and `expect` on the lines it adds and removes, in a test file and in every Rust file, where unit tests sit beside
@@ -123,7 +123,7 @@ folder, and the files the pass may not change. It keeps the tip the pass starts 
 start before `--done` keeps the same one. `polish --done` refuses a worktree with changes
 nobody committed, a branch that no longer holds that tip, a pass that leaves a criterion's test
 file or the plan other than it found them, and tests of the criteria that no longer pass on the branch and fail on
-the base commit (`criteria.py red`, run when the pass committed anything). Otherwise it logs one
+the base commit (`lem criteria red`, run when the pass committed anything). Otherwise it logs one
 `polish` event (the tip before and after, the count of commits, the items it added to the
 backlog folder). `checks` refuses a full change with no pass of this landing whose last commit the
 tip holds, and any task whose pass started and is not done. Every task with a plan is a full
@@ -215,13 +215,13 @@ a lost one costs the defect. The review is asked to repeat an earlier round's wo
 it sees again.
 
 `propose` writes the text of the pull request to `pr.md` in the task's directory, from what the
-steps kept, from the record of the task's decisions (`decisions.py list`) and from the notes
+steps kept, from the record of the task's decisions (`lem decisions list`) and from the notes
 file, whose headings it checks. The text opens with green or not green, in one wording for a
 small change and a full change. Green says that the
 checks passed with the bar where it was, a review with at least one source left no
 must-fix, no criterion changed during the build, and no decision was taken by timeout or by the
 experts. A criterion changed, added or removed after the newest approval is one line each, from its
-record (`decisions.py criterion`), with what it was, what it is and why. The text lists every
+record (`lem decisions criterion`), with what it was, what it is and why. The text lists every
 criterion change of the task, under every approval; one that a later approval of the owner's took over says
 so and is no cause of not green, since that approval made it the owner's. A lowered bar is not
 green with a reason either: its line holds the builder's reason and what the review said of it. A choice
@@ -244,9 +244,9 @@ and why, which is no cause of not green. A careful request says so in the line a
 green, with each reason, and its checks hold the call in one line, with the newest review's call
 and reason beside it. A request that is not careful gets
 neither line. The checks also hold one line on the personas' read of the criteria, from the
-newest `criteria.read` event (`project.py log` gives its form): how many of the personas asked
+newest `criteria.read` event (`lem project log` gives its form): how many of the personas asked
 answered, in which model families, who did not answer and why, how many criteria they flagged,
-whether the families split, and when the owner approved them (`criteria.py approve`), or that the
+whether the families split, and when the owner approved them (`lem criteria approve`), or that the
 build started with no wait for the owner.
 When the criteria the read names by their digest are not the plan's (which the checks make the expected
 ones), one more line says that they changed after the read, by a later approval of the owner's or by
@@ -264,7 +264,7 @@ change from a complete request, where the read always runs, and is refused. Then
 personas, on the owner's word (DATE); the owner approved them", which is no cause of not green, since the
 decision was the owner's. It also refuses one whose newest read flagged a criterion or
 showed a split between the families with no approval of the owner's at or after it; the lead's
-freeze of a read (`criteria.py approve --read`) is no approval of the owner's. A read in which nobody
+freeze of a read (`lem criteria approve --read`) is no approval of the owner's. A read in which nobody
 answered is written down too: `propose` refuses while the newest one is the first such read in a
 row, so that the read is started once more, and after the second in a row the request is not
 green, with "the criteria were not read" first, and its checks say so in place of the read's line. A
@@ -364,7 +364,7 @@ NO_GATE = "the project has no command in its checks"
 OLD_NO_GATE = "the project has no gate command"
 # The steps that take a tip from the start to a proposal, which a refusal of `land` names when the
 # tip, the base or the tree is not the one on record.
-AGAIN = "run `land.py start`, `land.py base`, `land.py checks` and `land.py propose` again"
+AGAIN = "run `lem land start`, `lem land base`, `lem land checks` and `lem land propose` again"
 # How many changed lines one reader takes as one piece; a larger change is read task by task, in
 # the plan's own cuts. A guess (2026-11-15), not a measurement.
 READ_AT = 800
@@ -549,7 +549,7 @@ class Task:
             raise LandError(
                 f"the task has no worktree at {self.worktree}: `git -C {self.main} worktree prune` forgets a worktree whose folder was removed by hand, "
                 f"and `git -C {self.main} worktree add {self.worktree} {branch}` puts the task's branch back in it, then this step runs again; "
-                f"when the work is gone with it, `project.py state {self.slug} dropped \"WHY\"` ends the task",
+                f"when the work is gone with it, `lem project state {self.slug} dropped \"WHY\"` ends the task",
             )
         dirty = git(self.worktree, "status", "--porcelain")
         if dirty:
@@ -563,8 +563,8 @@ class Task:
     def need_landing(self) -> None:
         if self.record["status"] != "landing":
             if self.record["status"] in ("ready", "open") or self.blocked_by_start():
-                raise LandError(f"the task is {self.record['status']!r}, not `landing`; `land.py start {self.slug}` comes first")
-            raise LandError(f"the task is {self.record['status']!r}, not `landing`: `land.py start` takes a `ready` or an `open` task into it, and this one is neither")
+                raise LandError(f"the task is {self.record['status']!r}, not `landing`; `lem land start {self.slug}` comes first")
+            raise LandError(f"the task is {self.record['status']!r}, not `landing`: `lem land start` takes a `ready` or an `open` task into it, and this one is neither")
 
     def kept(self) -> dict:
         if not self.kept_file.is_file():
@@ -574,7 +574,7 @@ class Task:
         except ValueError as error:
             raise LandError(
                 f"{self.kept_file} does not read as JSON ({error}); land.py writes it whole, so something else wrote it. "
-                f"Move it aside, then `project.py state {self.slug} ready --start-over \"WHY\"` and `land.py start {self.slug}` start the landing over: "
+                f"Move it aside, then `lem project state {self.slug} ready --start-over \"WHY\"` and `lem land start {self.slug}` start the landing over: "
                 "its checks and its review run again, and `propose` finds a pull request the task has on the forge",
             ) from error
 
@@ -628,7 +628,7 @@ def cmd_start(task: Task, after: str | None = None, conflicting: bool = False) -
         # a file nobody may write, or a folder of that name: the lock holds nothing, so it may go
         raise LandError(
             f"the landing lock {path} cannot be opened ({error.strerror}); it holds no state, so remove it "
-            f"(`rm -r {path}`) and run `land.py start {task.slug}` again",
+            f"(`rm -r {path}`) and run `lem land start {task.slug}` again",
         ) from error
     with lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -644,7 +644,7 @@ def merged_before(task: Task, after: str) -> dict:
     if other is None or other["status"] != "landed":
         raise LandError(
             f"--after names the landed task whose merge moved the base, and {after!r} is "
-            + (f"{other['status']!r}" if other else "no task") + f"; `land.py merged {after}` writes a merge on the forge down first",
+            + (f"{other['status']!r}" if other else "no task") + f"; `lem land merged {after}` writes a merge on the forge down first",
         )
     kept_file = task.directory.parent / after / "landing.json"
     try:
@@ -659,7 +659,7 @@ def start_locked(task: Task, after: str | None = None, conflicting: bool = False
         other = task.others_landing[0]
         raise LandError(
             f"{other} is in `landing`: one branch lands at a time, so finish that one first. When it cannot go on (its worktree or its work is gone), "
-            f"`project.py state {other} ready --start-over \"WHY\"` gives the line back and its landing starts over, or `project.py state {other} dropped \"WHY\"` ends it",
+            f"`lem project state {other} ready --start-over \"WHY\"` gives the line back and its landing starts over, or `lem project state {other} dropped \"WHY\"` ends it",
         )
     # a task `start` blocked for want of a command of the checks is taken back as a `ready` one
     again = task.blocked_by_start()
@@ -678,7 +678,7 @@ def start_locked(task: Task, after: str | None = None, conflicting: bool = False
         raise LandError(
             f"{NO_GATE}, so nothing would show that the change works; the task is `blocked`. "
             "Add the commands to checks.commands in .lem/project.toml, or, for the task that sets up the checks, in its own branch's, "
-            f"then run `land.py start {task.slug}` again",
+            f"then run `lem land start {task.slug}` again",
         )
     task.need_worktree()
     # The landing needs the task's branch: `propose` pushes it, and `clean` deletes it after the merge.
@@ -751,7 +751,7 @@ def cmd_base(task: Task) -> dict:
     if ahead == 0:
         raise LandError(
             f"the branch has no commit that {task.onto} lacks: there is nothing to land. When the work reached the base another way, "
-            f"or there is none, `project.py state {task.slug} dropped \"WHY\"` ends the task",
+            f"or there is none, `lem project state {task.slug} dropped \"WHY\"` ends the task",
         )
     # A builder that resolved the conflict rebased the branch itself: its commits are the ones the
     # rebase rewrote, from the tip before it. One that left the branch as it was resolved nothing.
@@ -820,11 +820,11 @@ def cmd_polish(task: Task, done: bool) -> dict:
     if found["small"]:
         raise LandError(
             f"a small change has no polish pass: its builder filed in the backlog what it saw outside the change, in a commit of its own, "
-            f"and the review reads every line of it. `land.py checks {task.slug}` is the next step",
+            f"and the review reads every line of it. `lem land checks {task.slug}` is the next step",
         )
     kept = task.kept()
     if "base" not in kept:
-        raise LandError(f"`land.py base {task.slug}` comes first: the polish pass works on the branch as it will be checked")
+        raise LandError(f"`lem land base {task.slug}` comes first: the polish pass works on the branch as it will be checked")
     tip = git(task.worktree, "rev-parse", "HEAD")
     # what the pass may not change: the test files of the criteria and the plan that names them; a
     # small change's criteria file is in the task directory, which no commit holds
@@ -850,7 +850,7 @@ def cmd_polish(task: Task, done: bool) -> dict:
             "frozen": frozen,
         }
     if not polish:
-        raise LandError(f"no polish pass started for this landing; `land.py polish {task.slug}` starts it and prints what its builder gets")
+        raise LandError(f"no polish pass started for this landing; `lem land polish {task.slug}` starts it and prints what its builder gets")
     if polish.get("done"):
         raise LandError(f"the polish pass of this landing is done already, at {str(polish.get('after'))[:9]}; a builder of the landing after it has the same list in its brief")
     before = polish["before"]
@@ -901,13 +901,13 @@ def polish_missing(task: Task, tip: str, found: dict) -> str | None:
         return None
     polish = task.kept().get("polish")
     if polish and not polish.get("done"):
-        return f"the polish pass started at {str(polish.get('before'))[:9]} and is not done: after its builder, `land.py polish {task.slug} --done` checks what it did"
+        return f"the polish pass started at {str(polish.get('before'))[:9]} and is not done: after its builder, `lem land polish {task.slug} --done` checks what it did"
     if not polish:
-        return f"{task.slug} is a full change, and no polish pass is on record for this landing: `land.py polish {task.slug}` starts it, a builder does it, and `--done` checks it"
+        return f"{task.slug} is a full change, and no polish pass is on record for this landing: `lem land polish {task.slug}` starts it, a builder does it, and `--done` checks it"
     if not holds_commit(task, polish.get("after"), tip):
         return (
-            f"the tip does not hold the polish pass's last commit ({str(polish.get('after'))[:9]}): the branch was rewritten after the pass by something else than `land.py base`. "
-            f"The pass runs again: `land.py polish {task.slug}`, its builder, and `--done`"
+            f"the tip does not hold the polish pass's last commit ({str(polish.get('after'))[:9]}): the branch was rewritten after the pass by something else than `lem land base`. "
+            f"The pass runs again: `lem land polish {task.slug}`, its builder, and `--done`"
         )
     return None
 
@@ -1242,7 +1242,7 @@ def cmd_checks(task: Task) -> dict:
     task.need_landing()
     task.need_worktree()
     if "base" not in task.kept():
-        raise LandError(f"`land.py base {task.slug}` comes first: the checks run on the tip that will land")
+        raise LandError(f"`lem land base {task.slug}` comes first: the checks run on the tip that will land")
     tip = git(task.worktree, "rev-parse", "HEAD")
     # Before any command runs: the review reads the code as it will merge, so the polish pass comes first.
     try:
@@ -1258,7 +1258,7 @@ def cmd_checks(task: Task) -> dict:
         task.keep(gated=None, tree=None)
         raise LandError(
             f"the checks have no command to run, and checks that ran nothing show nothing: {NO_GATE} in the main checkout's .lem/project.toml, "
-            f"and the branch brings none that the base commit lacks. Add the commands to checks.commands there, then run `land.py checks {task.slug}` again",
+            f"and the branch brings none that the base commit lacks. Add the commands to checks.commands there, then run `lem land checks {task.slug}` again",
         )
     logs = task.directory / "gate"
     logs.mkdir(exist_ok=True)
@@ -1300,7 +1300,7 @@ def cmd_checks(task: Task) -> dict:
     except KeyboardInterrupt:
         end_group(running)
         task.keep(gated=None, tree=None)
-        raise LandError(f"the checks were stopped, and the command that ran is ended with what it started; `land.py checks {task.slug}` runs them again") from None
+        raise LandError(f"the checks were stopped, and the command that ran is ended with what it started; `lem land checks {task.slug}` runs them again") from None
     finally:
         end_group(running)
         signal.signal(signal.SIGTERM, before)
@@ -1521,7 +1521,7 @@ def events_of(task: Task) -> list[dict]:
         try:
             record = json.loads(line)
         except ValueError as error:
-            raise LandError(f"line {number} of {log} is not JSON ({error}); the log is written by `project.py log`, never by hand") from error
+            raise LandError(f"line {number} of {log} is not JSON ({error}); the log is written by `lem project log`, never by hand") from error
         if record.get("task") == task.slug:
             found.append(record)
     return found
@@ -1611,7 +1611,7 @@ def unanswered(task: Task) -> int:
 
 
 def read_form(read: dict) -> bool:
-    """Whether a `criteria.read` event has the form `project.py log` gives it; one that nobody
+    """Whether a `criteria.read` event has the form `lem project log` gives it; one that nobody
     answered names no family."""
     counts = ("asked", "answered", "criteria", "flagged")
     families, silent = read.get("families"), read.get("silent")
@@ -1626,7 +1626,7 @@ def read_form(read: dict) -> bool:
 
 def read_skip_form(slug: str) -> str:
     """The command that writes the owner's word to skip the personas' read, as the landing knows it."""
-    return f"`decisions.py log {slug} --by owner --what \"{READ_SKIP['what']}\" --chose \"{READ_SKIP['chose']}\" --why \"THE OWNER'S ANSWER\"`"
+    return f"`lem decisions log {slug} --by owner --what \"{READ_SKIP['what']}\" --chose \"{READ_SKIP['chose']}\" --why \"THE OWNER'S ANSWER\"`"
 
 
 def read_skipped(task: Task) -> tuple[dict | None, str | None]:
@@ -1651,7 +1651,7 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
     approval = next((index for index in range(word + 1, len(events)) if events[index].get("event") in APPROVED_EVENTS and events[index].get("by") == "owner"), None)
     complete = (
         "the lead wrote the criteria, and for a full change from a complete request the read always runs, as the only approval there "
-        f"(`stages/plan.md`, step 1): the lead runs it and writes `project.py log {task.slug} criteria.read` with the form {READ_FORM}"
+        f"(`stages/plan.md`, step 1): the lead runs it and writes `lem project log {task.slug} criteria.read` with the form {READ_FORM}"
     )
     if lead is not None and lead < word:
         return None, f"a lead of {task.slug} started before the owner's word to skip the personas' read: {complete}"
@@ -1660,7 +1660,7 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
     if approval is None:
         return None, (
             f"the owner's word to skip the personas' read of {task.slug}'s criteria is on record, and no approval of the owner's came after it: "
-            f"the owner's yes to the criteria is kept with `criteria.py approve {task.slug} --file FILE` (`stages/new.md`, \"The interview and the acceptance criteria\", step 7)"
+            f"the owner's yes to the criteria is kept with `lem criteria approve {task.slug} --file FILE` (`stages/new.md`, \"The interview and the acceptance criteria\", step 7)"
         )
     return {"word": events[word], "approval": events[approval]}, None
 
@@ -1814,7 +1814,7 @@ def cmd_file(task: Task, again: bool) -> dict:
                 f"the commit of the backlog items of review round {number} was refused, most likely by a commit hook of the project: {said}. "
                 f"The items are written and staged in the worktree ({', '.join(paths)}): a builder commits them with a message in the form "
                 f"the hook asks for (`git -C {task.worktree} commit -m MESSAGE -- {' '.join(paths)}`), never with --no-verify, "
-                f"then `land.py file {task.slug}` runs again and finds each item by its defect",
+                f"then `lem land file {task.slug}` runs again and finds each item by its defect",
             )
     tip = git(task.worktree, "rev-parse", "HEAD")
     if filed or same or named:
@@ -1830,7 +1830,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     task.need_worktree()
     state = due(task)
     if not gate_holds(task, state["tip"]):
-        raise LandError(f"the review is of the tip the checks passed on, and no check is on record for this tip; `land.py checks {task.slug}` comes first")
+        raise LandError(f"the review is of the tip the checks passed on, and no check is on record for this tip; `lem land checks {task.slug}` comes first")
     reads = task.kept().get("reads", [])
     if record is None:
         # The review starts when it is due, and its record ends it. A second `read` of the same
@@ -1879,7 +1879,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     if said["attempt"] != state["attempt"]:
         raise LandError(
             f"the record says attempt {said['attempt']!r}, and the next review of this task is attempt {state['attempt']}: "
-            + ("that review is written down already" if said["attempt"] in [read.get("attempt") for read in reads] else "`land.py read` prints the number a record carries"),
+            + ("that review is written down already" if said["attempt"] in [read.get("attempt") for read in reads] else "`lem land read` prints the number a record carries"),
         )
     kind = said["kind"]
     if kind not in KINDS:
@@ -1892,7 +1892,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
     if not isinstance(call, bool) or not isinstance(call_why, str) or not call_why.strip() or "\n" in call_why.strip():
         raise LandError(
             "the record makes the careful call: \"careful\": true or false, the review's own reading of the diff against each of the project's topics "
-            "(`topics` in what `land.py read` printed), and \"careful_why\": one line that names the topic the change reaches, or what was checked to say that it reaches none",
+            "(`topics` in what `lem land read` printed), and \"careful_why\": one line that names the topic the change reaches, or what was checked to say that it reaches none",
         )
     if call and kind != "full":
         raise LandError(
@@ -2277,13 +2277,13 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     task.need_worktree()
     tip = git(task.worktree, "rev-parse", "HEAD")
     if not gate_holds(task, tip):
-        raise LandError(f"no green check is on record for this tip; `land.py checks {task.slug}` comes first")
+        raise LandError(f"no green check is on record for this tip; `lem land checks {task.slug}` comes first")
     kept = task.kept()
     reads = kept.get("reads", [])
     unfiled = to_file(reads)
     state = due(task)
     if state["due"] == "review":
-        raise LandError(f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} at the least ({state['why']}); `land.py read {task.slug}` says what a reviewer gets")
+        raise LandError(f"a review is due before anything is proposed, {KIND_SAYS[state['floor']]} at the least ({state['why']}); `lem land read {task.slug}` says what a reviewer gets")
     # A careful or large plan is talked through by its defender and the reviewer, in the plan
     # talk's companion, before any code. The talk leaves one event, and a request without it
     # skipped that step.
@@ -2293,16 +2293,16 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(
             f"{needs_talk}, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (`stages/talk.md`), "
             f"and the event log has no `plan.talk` of {task.slug}. The defender writes it after the talk: "
-            f"`project.py log {task.slug} plan.talk {TALK_FORM}`; for a plan that had no talk, Lem opens the companion first, as for `needs a session` (`stages/new.md`)",
+            f"`lem project log {task.slug} plan.talk {TALK_FORM}`; for a plan that had no talk, Lem opens the companion first, as for `needs a session` (`stages/new.md`)",
         )
     if talk is not None and not (
         isinstance(talk.get("reviewer"), str) and talk["reviewer"].strip()
         and all(isinstance(talk.get(key), int) and not isinstance(talk.get(key), bool) for key in ("turns", "settled", "open"))
     ):
-        raise LandError(f"the newest `plan.talk` of {task.slug} does not have the form `{TALK_FORM}`; its defender writes it again with `project.py log`")
+        raise LandError(f"the newest `plan.talk` of {task.slug} does not have the form `{TALK_FORM}`; its defender writes it again with `lem project log`")
     read = criteria_read_of(task)
     if read is not None and not read_form(read):
-        raise LandError(f"the newest `criteria.read` of {task.slug} does not have the form {READ_FORM}; whoever ran the read writes it again with `project.py log`")
+        raise LandError(f"the newest `criteria.read` of {task.slug} does not have the form {READ_FORM}; whoever ran the read writes it again with `lem project log`")
     # The personas read a full change's criteria before the build, and a doubt of theirs reaches him:
     # a request is not proposed over criteria nobody read, or over a doubt he never saw.
     found = criteria_of(task)
@@ -2315,13 +2315,13 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             raise LandError(
                 f"{task.slug} is a full change, and the event log has no `criteria.read`: the personas read its criteria before the build "
                 "(`stages/new.md`, \"The interview and the acceptance criteria\", step 5; for a full change from a complete request `stages/plan.md`, step 1), "
-                f"and whoever ran the read writes `project.py log {task.slug} criteria.read` with the form {READ_FORM}. "
+                f"and whoever ran the read writes `lem project log {task.slug} criteria.read` with the form {READ_FORM}. "
                 f"Only the owner skips a read, at the interview and when every criterion names only the developer: Lem writes the owner's word with {read_skip_form(task.slug)}, "
                 "and the owner approves the criteria after it, both before a lead starts",
             )
     if read is not None and not read["answered"] and unanswered(task) < 2:
         raise LandError(
-            f"nobody answered the newest read of {task.slug}'s criteria: it is started once more, and its record written again with `project.py log {task.slug} criteria.read` "
+            f"nobody answered the newest read of {task.slug}'s criteria: it is started once more, and its record written again with `lem project log {task.slug} criteria.read` "
             "(`stages/new.md`, \"The interview and the acceptance criteria\", step 5; for a full change from a complete request `stages/plan.md`, step 1). "
             "After a second read in a row that nobody answered, the request is proposed as not green",
         )
@@ -2330,7 +2330,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(
             f"the newest read of {task.slug}'s criteria found {doubt}, and no approval of the owner's came after it: the criteria with the personas' answers "
             "on top go to the owner (`stages/new.md`, \"The interview and the acceptance criteria\", step 6), and the owner's yes is kept with "
-            f"`criteria.py approve {task.slug} --file FILE`",
+            f"`lem criteria approve {task.slug} --file FILE`",
         )
     # Each defect a review saw outside the change has its item in the tip, so that none is lost: one
     # that a session never filed, and one whose item a later commit took out.
@@ -2338,7 +2338,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(
             f"{len(unfiled)} defect(s) a review saw outside the change have no item in the backlog: "
             + "; ".join(f"\"{defect['title']}\" (round {defect['round']})" for defect in unfiled)
-            + f". `land.py file {task.slug}` files them, then this step runs again",
+            + f". `lem land file {task.slug}` files them, then this step runs again",
         )
     gone = [(read, defect) for read in reads if read["answered"] for defect in outside_of(read) if not in_tree(task, tip, defect["item"])]
     if gone:
@@ -2346,7 +2346,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(
             f"the item {defect['item']} of the defect \"{defect['title']}\" (review round {read['round']}) was removed after it was filed"
             + (f", and {len(gone) - 1} more" if len(gone) > 1 else "")
-            + f": a builder puts it back with `land.py file {task.slug} --again`, then this step runs again; when the owner does not want it, "
+            + f": a builder puts it back with `lem land file {task.slug} --again`, then this step runs again; when the owner does not want it, "
             "the item stays with `worth: no` and the owner's reason in it, never deleted",
         )
     # A request is never proposed over an open question of the owner's.
@@ -2354,11 +2354,11 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if waiting:
         ends = (
             "it is a step that a later \"no\" cannot reverse, so only the owner's answer ends it"
-            if waiting["irreversible"] else f"or, after its wait ends at {waiting['deadline']}, `decisions.py timeout {task.slug} {waiting['id']}` takes the experts' shared pick, or the recommended option when they split"
+            if waiting["irreversible"] else f"or, after its wait ends at {waiting['deadline']}, `lem decisions timeout {task.slug} {waiting['id']}` takes the experts' shared pick, or the recommended option when they split"
         )
         raise LandError(
             f"choice {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): a request is never proposed over an open question of the owner's. "
-            f"Lem writes the owner's answer with `decisions.py answer {task.slug} {waiting['id']} --chose OPTION --words TEXT`, the option word for word and the owner's own words beside it, or `--instead TEXT` "
+            f"Lem writes the owner's answer with `lem decisions answer {task.slug} {waiting['id']} --chose OPTION --words TEXT`, the option word for word and the owner's own words beside it, or `--instead TEXT` "
             f"for a decision of the owner's that is none of the options; {ends}",
         )
     notes = Path(notes_file).read_text(encoding="utf-8") if Path(notes_file).is_file() else None
@@ -2385,7 +2385,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             pr = {"number": there[0]["number"], "url": there[0]["url"]} if there else None
         elif (state_now := viewed(task, pr)["state"]) != "OPEN":
             raise LandError(
-                f"the pull request {pr['url']} is {state_now.lower()}: `land.py merged {task.slug}` "
+                f"the pull request {pr['url']} is {state_now.lower()}: `lem land merged {task.slug}` "
                 + ("finishes the task" if state_now == "MERGED" else "writes the task dropped, and its branch keeps its commits"),
             )
         # with lease: after a rebase the remote branch is behind, and nobody else pushes to a task's branch
@@ -2473,7 +2473,7 @@ def cmd_merged(task: Task) -> dict:
     if task.merges:
         raise LandError(
             f'branch.propose is "merge" in .lem/project.toml: no pull request is opened, so none is merged on the forge; '
-            f"`land.py land {task.slug} --by owner|agent` puts the ready branch on the base branch",
+            f"`lem land land {task.slug} --by owner|agent` puts the ready branch on the base branch",
         )
     # `landing` too: the owner may merge on the forge while an open task runs its checks again
     if task.record["status"] not in ("open", "landing") or not task.kept().get("pr"):
@@ -2576,7 +2576,7 @@ def cmd_watch(repo: Path) -> dict:
         return LandError(why)
 
     if settings["branch"]["propose"] == "merge":
-        raise ended('branch.propose is "merge" in .lem/project.toml: no task opens a pull request, so there is none to watch; Lem lands a ready branch with `land.py land`')
+        raise ended('branch.propose is "merge" in .lem/project.toml: no task opens a pull request, so there is none to watch; Lem lands a ready branch with `lem land land`')
     url = git(main, "config", "--get", "remote.origin.url", check=False)
     if not re.match(r"(https://|ssh://git@|git@)github\.com[:/]", url):
         raise ended("the remote is not GitHub, or there is none: a task ends as a branch ready to land, with no pull request on a forge to watch")
@@ -2633,7 +2633,7 @@ def cmd_watch(repo: Path) -> dict:
 
 def cmd_land(task: Task, by: str, message: str | None) -> dict:
     if task.record["status"] != "open":
-        raise LandError(f"the task is {task.record['status']!r}, not `open`; `land.py propose {task.slug}` comes first")
+        raise LandError(f"the task is {task.record['status']!r}, not `open`; `lem land propose {task.slug}` comes first")
     task.need_worktree()
     kept = task.kept()
     intent = kept.get("intent")
@@ -2663,7 +2663,7 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
     if view:
         # A pull request is merged by the forge, under the forge's own rules, and only at the commit that was proposed.
         if view["state"] != "OPEN":
-            raise LandError(f"the pull request was closed without a merge: `land.py merged {task.slug}` writes the task dropped, and its branch keeps its commits")
+            raise LandError(f"the pull request was closed without a merge: `lem land merged {task.slug}` writes the task dropped, and its branch keeps its commits")
         tip = git(task.worktree, "rev-parse", "HEAD")
         if view["headRefOid"] != tip or kept.get("proposed") != tip:
             raise LandError(f"the pull request's head is not the tip that was proposed; {AGAIN}")
@@ -2678,7 +2678,7 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
         gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how)
         view = viewed(task)
         if view["state"] != "MERGED":
-            raise LandError("the forge took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `land.py merged` when it is")
+            raise LandError("the forge took the merge and the pull request is not merged yet (a queue, or a check it waits for); run `lem land merged` when it is")
         return forge_done(task, view)
     if kept.get("proposed") != git(task.worktree, "rev-parse", "HEAD"):
         raise LandError(f"the branch's tip is not the tip that was proposed; {AGAIN}")
@@ -2716,7 +2716,7 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
             git(task.worktree, "reset", "--soft", before)
             raise LandError(
                 f"the one commit was refused, and the branch is as it was: {(made.stderr or made.stdout).strip()}. "
-                f"A hook that refused the subject takes another --message to `land.py land {task.slug}`; one that refused the files, "
+                f"A hook that refused the subject takes another --message to `lem land land {task.slug}`; one that refused the files, "
                 f"a commit on the branch that meets it, then {AGAIN}",
             )
         if git(task.worktree, "rev-parse", "HEAD^{tree}") != checked:
@@ -2833,7 +2833,7 @@ def main() -> None:
             print(json.dumps(cmd_watch(Path(args.repo)), indent=2))
             return
         if args.command == "gate":
-            raise LandError(f"`land.py gate` is `land.py checks` now, with the same steps: run `land.py checks {args.slug}`")
+            raise LandError(f"`lem land gate` is `lem land checks` now, with the same steps: run `lem land checks {args.slug}`")
         task = Task(Path(args.repo), args.slug)
         if args.command == "start":
             result = cmd_start(task, args.after, args.conflicting)

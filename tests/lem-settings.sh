@@ -464,7 +464,7 @@ cut_record=$(project --repo "$OLD" tasks 2>&1 || true)
 echo '[]' > "$dir/landing.json"
 list_record=$(project --repo "$OLD" tasks 2>&1 || true)
 rm "$dir/landing.json"
-if grep -qF "$dir/landing.json does not read as JSON" <<<"$cut_record" && grep -qF "Move it aside, then \`project.py state report-dates-stay-whole ready --start-over \"WHY\"\` and \`land.py start report-dates-stay-whole\`" <<<"$cut_record" \
+if grep -qF "$dir/landing.json does not read as JSON" <<<"$cut_record" && grep -qF "Move it aside, then \`lem project state report-dates-stay-whole ready --start-over \"WHY\"\` and \`lem land start report-dates-stay-whole\`" <<<"$cut_record" \
   && grep -qF "$dir/landing.json is not an object" <<<"$list_record" && grep -qF "Move it aside" <<<"$list_record" && ! grep -q Traceback <<<"$cut_record$list_record"; then
   pass "a landing record that is not JSON, or not an object, is named with the way out: move it aside, the state ready, and land.py start"
 else
@@ -731,7 +731,7 @@ landed_start=$(ends may-start ended-task 2>&1 || true)
 ends task-dir dropped-task >/dev/null && ends state dropped-task dropped "the owner dropped it" >/dev/null
 dropped_again=$(status_of ends state dropped-task building "a late lead")
 dropped_start=$(status_of ends may-start dropped-task)
-if grep -qF "the task 'ended-task' is landing: its build is done, and it gets no lead" <<<"$in_landing" && grep -qF "land.py start ended-task" <<<"$in_open" \
+if grep -qF "the task 'ended-task' is landing: its build is done, and it gets no lead" <<<"$in_landing" && grep -qF "lem land start ended-task" <<<"$in_open" \
   && grep -qF "the task 'ended-task' is open" <<<"$in_open" && [ "$landed_again" = 0 ] \
   && grep -qF "the task 'ended-task' is landed, and an ended task stays ended: new work for it is a new ask" <<<"$reopened" \
   && [ "$readied" = 1 ] && [ "$dropped_over" = 1 ] && grep -qF "the task 'ended-task' is landed: an ended task gets no lead" <<<"$landed_start" \
@@ -1325,7 +1325,7 @@ log_story=$(status_of adecide log approved-note --what x --chose y --why z --by 
 records=$(grep -c '"kind": "criterion"' "$ST/.lem/state/tasks/approved-note/decisions.jsonl" || true)
 plain=$(criteria show export-has-the-gift-note 2>/dev/null | field '(d["approved"], d["changes"])' 2>&1 || true)
 if grep -qF "criterion 1 of 20261116-approved-note.md says '$c1', and the expected criterion 1 is '$t1'" <<<"$reworded" \
-  && grep -qF 'decisions.py criterion approved-note --changed N --was TEXT --now TEXT' <<<"$reworded" \
+  && grep -qF 'lem decisions criterion approved-note --changed N --was TEXT --now TEXT' <<<"$reworded" \
   && grep -qF "criterion 1 of 20261116-approved-note.md says '$c1'" <<<"$red_reworded" && [ "$changed_now" = "[(1, 1, 'changed')]" ] \
   && grep -qF "criterion 1 of 20261116-approved-note.md says '$c2', and the expected criterion 1 is '$c1'" <<<"$again" \
   && grep -qF "criterion 1 is '$c1' after every earlier change, and --was says '$t1'" <<<"$stale" && [ "$chained" = "[1, 1]" ] \

@@ -11,10 +11,10 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
    `SKILL_DIR/harness/` named after the agent you run in. Of the stages you take only
    `SKILL_DIR/stages/talk.md`, the talk, and step 5 of `SKILL_DIR/stages/plan.md` for the
    questions the talk leaves open.
-2. **Read where the task stands**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE tasks`
+2. **Read where the task stands**: `lem project --repo WORKTREE tasks`
    for its status and its `talk`. When `talk` is not null, the talk is done: a defender before you
    finished it. Send Lem the line of step 6 again, and stop. Otherwise read `task.md`,
-   `directions.md` when it is there, the acceptance criteria (`python3 SKILL_DIR/scripts/criteria.py
+   `directions.md` when it is there, the acceptance criteria (`lem criteria
    --repo WORKTREE approved SLUG`), the builder's `report.md`, and the plan on the task's branch, in
    the settings' `plans` path, with the code it rests on.
 3. **Hold the talk** by `stages/talk.md`, with the reviewer's seat at its effort.
@@ -26,7 +26,7 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
    question that needs a criterion changed is no repair, and it goes to step 5 as a choice.
 5. **What you never do**: write code or a test, start a builder, build a task, push, merge,
    land, change another branch, or ask the owner. A question for the owner goes to
-   `stages/plan.md` step 5, which asks it with `decisions.py ask` after the personas, and Lem
+   `stages/plan.md` step 5, which asks it with `lem decisions ask` after the personas, and Lem
    puts it to him; it never makes the state `held`. A step that is his to do, such as the trust prompt of the reviewer's agent, is
    the state `held` with what waits and where, and `lem: SLUG is held`; Lem sends you a message
    when it is done, and you go on in this session.

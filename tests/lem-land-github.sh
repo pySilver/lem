@@ -194,8 +194,8 @@ moved_head=$(gh_land land pr-guards --by agent 2>&1 || true)
 git -C "$GHO" update-ref refs/heads/fix/pr-guards "$tip"
 gh_set "d['prs']['$number']['state'] = 'CLOSED'"
 closed_land=$(gh_land land pr-guards --by agent 2>&1 || true)
-if grep -qF "the pull request's head is not the tip that was proposed; run \`land.py start\`, \`land.py base\`, \`land.py checks\` and \`land.py propose\` again" <<<"$moved_head" \
-  && grep -qF "the pull request was closed without a merge: \`land.py merged pr-guards\` writes the task dropped" <<<"$closed_land" \
+if grep -qF "the pull request's head is not the tip that was proposed; run \`lem land start\`, \`lem land base\`, \`lem land checks\` and \`lem land propose\` again" <<<"$moved_head" \
+  && grep -qF "the pull request was closed without a merge: \`lem land merged pr-guards\` writes the task dropped" <<<"$closed_land" \
   && [ "$(gh_state "sum(c[:3] == ['pr', 'merge', '$number'] for c in d['calls'])")" = 0 ] && [ "$(status_in "$GHS" pr-guards)" = open ]; then
   pass "land merges no pull request whose head on the forge is not the proposed tip, nor a closed one, and names the step for a closed one"
 else
@@ -240,7 +240,7 @@ landed=$(gm_land land solo-change --by agent 2>&1 || true)
 cleaned=$(gm_land clean solo-change 2>&1 || true)
 if [ "$(field 'd["forge"]' <<<"$out")" = None ] && [ "$(field '(d["pull_request"], d["green"])' <<<"$proposed")" = "(None, True)" ] \
   && head -1 "$GMS/.lem/state/tasks/solo-change/pr.md" | grep -q '^\*\*Green\.\*\*' && grep -q "ready to land on main at ${tip:0:9}" <<<"$opened" && [ -z "$pushed_branch" ] \
-  && grep -qF 'branch.propose is "merge"' <<<"$merged" && grep -qF "land.py land solo-change" <<<"$merged" \
+  && grep -qF 'branch.propose is "merge"' <<<"$merged" && grep -qF "lem land land solo-change" <<<"$merged" \
   && [ "$(field '(d["tip"], d["pushed"], d["left_behind"])' <<<"$landed")" = "('$tip', True, None)" ] && [ "$(git -C "$GMO" rev-parse main)" = "$tip" ] \
   && [ "$(git -C "$GMS" rev-parse main)" = "$tip" ] && [ "$(status_in "$GMS" solo-change)" = landed ] \
   && [ "$(field '(d["worktree"], d["branch"], d["remote"])' <<<"$cleaned")" = "(True, 'fix/solo-change', None)" ] && [ -z "$(git -C "$GMS" branch --list fix/solo-change)" ] \

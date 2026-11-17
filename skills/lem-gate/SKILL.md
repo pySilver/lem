@@ -31,7 +31,7 @@ verdict before they answer, or the answer stops being an independent check.
 
 One file, `QUESTION_FILE`: the question in one sentence, the options, the context an outsider
 needs, and where it came from (the plan, task and exchange). It goes in the folder
-`python3 ${CLAUDE_SKILL_DIR}/scripts/gate-log.py dir` makes and prints, as `<NNN>-<slug>.md`, and
+`lem gate-log dir` makes and prints, as `<NNN>-<slug>.md`, and
 its card goes beside it. That folder is in Lem's state folder, which git does not show, so a question
 leaves no file git sees. Pick an `ID`: the file's stem.
 
@@ -50,7 +50,7 @@ When the judge finds the question already framed somewhere (a backlog item with 
 a recommendation), the card starts from that framing, with every option it lists, instead of from
 the draft: on a 2026-11-07 test the judge found a draft that had dropped one of the item's options.
 
-Log it: `python3 ${CLAUDE_SKILL_DIR}/scripts/gate-log.py ask --id ID --question "<one sentence>"
+Log it: `lem gate-log ask --id ID --question "<one sentence>"
 --verdict <verdict> --cite "<cite>"`. In shadow mode, go on to step 3 whatever the verdict.
 
 Once the user has let the judge act alone (they say so; record it as a ruling): on **decided**,
@@ -74,10 +74,10 @@ puts on PATH, with the spec in `lem-panel`'s `references/messages.md`.
 
 ### 4. Ask the user
 
-A project that uses Lem says how in its settings (`tools.ask`, which `project.py show` of the
+A project that uses Lem says how in its settings (`tools.ask`, which `lem project show` of the
 `lem` skill prints), and that value decides. With `lem-ask` there, or with no such setting: in
 agterm with the `lem-ask` skill, otherwise as plain text. Then log the answer:
-`gate-log.py answer --id ID --answer "<the user's choice and their words>"`.
+`lem gate-log answer --id ID --answer "<the user's choice and their words>"`.
 
 ### 5. Is the answer a durable ruling?
 
@@ -90,7 +90,7 @@ the format its AGENTS.md "Where things live" row names): the ruling in one sente
 words verbatim, why, how to apply. First check the folder for a ruling it overturns; the new file
 names that one in `supersedes:` and the old file is `git rm`'d. Commit it with the work in hand,
 tell the user in the same message ("recorded as `docs/rulings/<slug>.md`"), and add `--ruling
-<slug>` to a second `gate-log.py answer` line. The user can undo it by saying so; Jev's call is a
+<slug>` to a second `lem gate-log answer` line. The user can undo it by saying so; Jev's call is a
 sorting aid, and a user's "that was only for this task" wins.
 
 ## What the gate does not do

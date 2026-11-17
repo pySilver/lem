@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The naps (stages/nap.md): the settings of `[naps]`, `project.py may-nap`, which says whether a nap
+# The naps (stages/nap.md): the settings of `[naps]`, `lem project may-nap`, which says whether a nap
 # may start and removes the old ones, and the feed of the board's Dreams tab, `naps.js`. No agent
 # naps here: a nap's folder is written by hand, the way a nap's agent leaves it.
 # shellcheck source-path=SCRIPTDIR

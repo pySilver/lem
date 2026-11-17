@@ -91,7 +91,7 @@ criteria, as `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silen
 "why": ...}]' criteria:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many
 personas were asked and how many answered, the model families that answered, each source that did
 not and why (a partial read counts), how many criteria were read and how many an answer flagged,
-whether the families split, and the digest `criteria.py digest` gives for the criteria read. A
+whether the families split, and the digest `lem criteria digest` gives for the criteria read. A
 read in which nobody answered is written too, with `answered:=0`, no family and each source that
 was asked in `silent`; the landing counts two of those in a row as criteria that went on unread.
 `log` refuses the names an older Lem gave the read and its start, `stories.read` and
@@ -144,7 +144,7 @@ lines to write in its place. `checks.alone` names the commands that need the mac
 uses fixed ports, one database or a browser. `alone` runs any command under one lock for the
 repository, `alone.lock` in the state folder, apart from the landing's lock, since a builder takes
 this one too: the checks of a landing run each `checks.alone` command through it after
-`checks.commands` pass, `criteria.py red` runs a criterion's test of such a suite through it, and a
+`checks.commands` pass, `lem criteria red` runs a criterion's test of such a suite through it, and a
 builder runs such a test through it in its worktree. It waits while another run holds the lock
 and says so on stderr with the holder's line, passes the command's exit status through (128 and
 the signal's number for a command a signal ended), and ends the command's process group when it
@@ -165,7 +165,7 @@ A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM
 named it, is found too: `lem_plans` is the one place that builds and finds the name, and `plan-file` prints both.
 
 `waiting` is the one list of what waits for the owner, which a bare `/lem` says: the choices of
-`decisions.py pending` (`choices`), the tasks `held` with the line `the criteria wait for the
+`lem decisions pending` (`choices`), the tasks `held` with the line `the criteria wait for the
 owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
 task with its proposal (`pull_requests`), each `drafted` task with its plan (`drafts`), and each
 file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
@@ -959,7 +959,7 @@ def load(root: Path) -> dict:
 
 def cmd_path(settings: dict, name: str) -> None:
     if name == "plan_file":
-        raise SettingsError("paths.plan_file is the pattern of a plan's name, not a path: `project.py plan-file SLUG` prints the name of a task's plan")
+        raise SettingsError("paths.plan_file is the pattern of a plan's name, not a path: `lem project plan-file SLUG` prints the name of a task's plan")
     if name not in settings["paths"]:
         raise SettingsError(f"no path named {name!r}{nearest(name, tuple(PATHS))}")
     print(settings["paths"][name]["path"])
@@ -1113,7 +1113,7 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
             )
         parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2])
         local.setdefault("seats", {})["reviewer"] = words[0]
-    lines = ["# This machine's own settings for Lem. Not committed; `project.py reviewer` writes the seat."]
+    lines = ["# This machine's own settings for Lem. Not committed; `lem project reviewer` writes the seat."]
     for table in LOCAL_TABLES:
         body = local.get(table) or {}
         if body:
@@ -1401,7 +1401,7 @@ def task_directory(root: Path, slug: str) -> Path:
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     directory = state_root(root) / "tasks" / slug
     if not directory.is_dir():
-        raise SettingsError(f"no task {slug!r}; `project.py task-dir {slug}` makes its directory")
+        raise SettingsError(f"no task {slug!r}; `lem project task-dir {slug}` makes its directory")
     return directory
 
 
@@ -1580,7 +1580,7 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     """Append one event about a task; `state` is the only writer of task.state."""
     task_directory(root, slug)
     if event == "task.state":
-        raise SettingsError("task.state is written by `project.py state`, which also writes the state block")
+        raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
     fields: dict[str, object] = {}
     for pair in pairs:
         key, separator, raw = pair.partition("=")
@@ -1615,7 +1615,7 @@ def read_form(fields: dict) -> None:
     """The personas' read of the criteria is read by the landing, so it has one form: who ran it,
     how many personas were asked and how many answered, the model families that answered, each
     source that did not answer and why, how many criteria were read and flagged, whether the
-    families split, and the digest of the criteria it read (`criteria.py digest`)."""
+    families split, and the digest of the criteria it read (`lem criteria digest`)."""
     form = (
         "criteria.read takes by=lem|lead asked:=N answered:=N families:='[\"FAMILY\", ...]' "
         "silent:='[{\"name\": SOURCE, \"why\": WHY}, ...]' criteria:=N flagged:=N split:=true|false digest=DIGEST"
@@ -1639,7 +1639,7 @@ def read_form(fields: dict) -> None:
     if not isinstance(fields["split"], bool):
         raise SettingsError(f"{form}: split is true when the two families answered a criterion differently, false otherwise, written with :=")
     if not isinstance(fields["digest"], str) or not re.fullmatch(r"[0-9a-f]{12}", fields["digest"]):
-        raise SettingsError(f"{form}: digest is the twelve characters `criteria.py digest` prints for the criteria that were read")
+        raise SettingsError(f"{form}: digest is the twelve characters `lem criteria digest` prints for the criteria that were read")
     # every project's cast has two people or more
     if fields["asked"] < 2:
         raise SettingsError(f"{form}: a read asks two personas at the least")
@@ -1677,7 +1677,7 @@ STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
     "criteria.read.start": ("criteria.read.start takes by=lem|lead, and nothing else", {"by": ("lem", "lead")}),
     "investigation.start": ("investigation.start takes type=fix|question, and nothing else", {"type": ("fix", "question")}),
     "builder.start": (
-        f"builder.start takes job=JOB, and nothing else: `task N of M`, or one of {', '.join(BUILDER_JOBS)}; the polish pass logs its own start (`land.py polish`)",
+        f"builder.start takes job=JOB, and nothing else: `task N of M`, or one of {', '.join(BUILDER_JOBS)}; the polish pass logs its own start (`lem land polish`)",
         {"job": None},
     ),
     "polish.start": ("polish.start takes before=TIP, and land.py polish writes it", {"before": None}),
@@ -1781,14 +1781,14 @@ def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> l
 
 
 def proposal(directory: Path) -> dict | None:
-    """What `land.py propose` kept for a task: the pull request's address, when there is one, and green or the reasons it is not."""
+    """What `lem land propose` kept for a task: the pull request's address, when there is one, and green or the reasons it is not."""
     kept_file = directory / "landing.json"
     if not kept_file.is_file():
         return None
     # every task's record is read here, so one that does not read stops `tasks` for all: the message says how to start that landing over
     way_out = (
-        f"land.py writes it whole, so something else wrote it. Move it aside, then `project.py state {directory.name} ready --start-over \"WHY\"` "
-        f"and `land.py start {directory.name}` start the landing over: its checks and its review run again"
+        f"land.py writes it whole, so something else wrote it. Move it aside, then `lem project state {directory.name} ready --start-over \"WHY\"` "
+        f"and `lem land start {directory.name}` start the landing over: its checks and its review run again"
     )
     try:
         kept = json.loads(kept_file.read_bytes().decode("utf-8"))
@@ -1892,7 +1892,7 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     if status in ("landing", "open"):
         raise SettingsError(
             f"the task {slug!r} is {status}: its build is done, and it gets no lead. Its landing goes on with `land.py` "
-            f"(`stages/land.md`; an open task takes the line again with `land.py start {slug}`), and a change the owner asks for now is a new ask",
+            f"(`stages/land.md`; an open task takes the line again with `lem land start {slug}`), and a change the owner asks for now is a new ask",
         )
     # A task queued behind another (`after: OTHER`, which Lem writes for an ask that needs another's
     # result, and a lead for a plan that does) starts when that task has ended, so that it builds on
@@ -1983,7 +1983,7 @@ def cmd_alone(root: Path, words: list[str]) -> int:
     themselves, and give its exit status back. Another run that holds the lock is waited for."""
     words = words[1:] if words[:1] == ["--"] else words
     if not words or not any(word.strip() for word in words):
-        raise SettingsError("alone takes the command to run: `project.py alone -- COMMAND ...`, or one quoted line for the shell")
+        raise SettingsError("alone takes the command to run: `lem project alone -- COMMAND ...`, or one quoted line for the shell")
     shown = words[0] if len(words) == 1 else " ".join(words)
     path = state_root(root) / ALONE_LOCK
     try:

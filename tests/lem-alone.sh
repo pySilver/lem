@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The commands that need the machine to themselves (`checks.alone`): `project.py alone` runs one under
+# The commands that need the machine to themselves (`checks.alone`): `lem project alone` runs one under
 # the repository's one lock, the checks of a landing run them after `checks.commands` pass, and the check
 # of the criteria runs a test of such a suite under the same lock.
 # shellcheck source-path=SCRIPTDIR

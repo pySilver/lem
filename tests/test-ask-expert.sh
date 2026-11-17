@@ -203,7 +203,7 @@ if grep -qF "add --away when the owner's own words or away channel say so" <<<"$
   && grep -qF "choice $c14 is a step that a later \"no\" cannot reverse (it sends something to a person): the experts never take it" <<<"$irreversible" \
   && grep -qF "choice $c14 is a step that a later \"no\" cannot reverse (it sends something to a person): no timeout takes it" <<<"$irrtimeout" \
   && [ "$(one "$c14" | field '(d["state"], sorted(d["advice"]))')" = "('waits', ['astra', 'fable'])" ] \
-  && grep -qF "the wait of choice $c15 ended at 2026-01-01T00:00:00Z: \`decisions.py timeout $SLUG $c15\` takes it" <<<"$overaway" \
+  && grep -qF "the wait of choice $c15 ended at 2026-01-01T00:00:00Z: \`lem decisions timeout $SLUG $c15\` takes it" <<<"$overaway" \
   && [ "$thentimeout" = "('after the price', 'experts')" ]; then
   pass "settle --away takes the experts' shared pick before the wait ends, once, and an answer after it is late; it is refused without --away, with one expert or a split, for an irreversible step (which no timeout takes either) and after the deadline, where the timeout takes the shared pick"
 else
@@ -264,7 +264,7 @@ astrad=$(experts record "$SLUG" "$c18" --expert astra | field '(d["expert"], d.g
 # the refusal says what the skill allows: one more ask with the same brief, then nothing recorded for that expert
 if grep -qF "choice-$c18.fable.md is not there" <<<"$absent" && grep -qF "is not an answer in the brief's form" <<<"$badform" \
   && grep -qF "choice-$c18.fable.md is not UTF-8 text" <<<"$latin" && ! grep -q Traceback <<<"$latin" \
-  && grep -qF "Ask fable once more with the same brief" <<<"$badform" && grep -qF "record nothing for fable" <<<"$badform" && ! grep -qF "decisions.py advise" <<<"$badform" \
+  && grep -qF "Ask fable once more with the same brief" <<<"$badform" && grep -qF "record nothing for fable" <<<"$badform" && ! grep -qF "lem decisions advise" <<<"$badform" \
   && grep -qF "the pick of an expert is one of the options of choice $c18, word for word" <<<"$noption" \
   && [ "$fabled" = "('fable', 'after the price', 'The accountant reads the price first. A note beside it is seen.')" ] \
   && [ "$astrad" = "('astra', True, None)" ] && [ "$(advised_lines "$c18")" = 2 ]; then

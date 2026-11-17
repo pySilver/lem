@@ -25,7 +25,7 @@ you the start of one, write the state `blocked` with that refusal, and stop.
      writes at least one test for each, one that fails without its change, except for a criterion
      whose change keeps behavior (a rename, a bump, a refactor), which the whole suite holds at
      the checks;
-   - the style guide files that cover the files it will touch, as `project.py rules FILE ...`
+   - the style guide files that cover the files it will touch, as `lem project rules FILE ...`
      prints them for the files the plan names for the task, and the project's lessons;
    - the report file, `reports/NN-<task>.md` in the task directory;
    - the tests it runs: those of the files it changes and of their direct callers, and never the
@@ -34,8 +34,8 @@ you the start of one, write the state `blocked` with that refusal, and stop.
      change. The owner: "what worked for us is to run only subset of tests during plan execution,
      not the whole suite that takes ages. whole test suite run at the very late stage"
      (2026-11-17);
-   - when the settings' `checks.alone` names commands (`project.py show`), those commands, and the
-     line that runs a test of such a suite: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE
+   - when the settings' `checks.alone` names commands (`lem project show`), those commands, and the
+     line that runs a test of such a suite: `lem project --repo WORKTREE
      alone -- COMMAND`, with `SKILL_DIR` and `WORKTREE` written out. Such a test needs the machine
      to itself (fixed ports, one database, a browser), and four builders may run at one moment, so
      it runs under that one lock and never bare: "e2e is a bit of different beast as it may have
@@ -48,7 +48,7 @@ you the start of one, write the state `blocked` with that refusal, and stop.
    Read the report file, never a summary of it. When a builder's reply is the report itself,
    because its agent refused it the write, put that text into the report file word for word.
    Write the state `building` with the line `task N of M` when a builder starts, and log its
-   start for the board, `python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG
+   start for the board, `lem project --repo WORKTREE log SLUG
    builder.start "job=task N of M"`: two builders may run at one time, and a state block names
    only the newest.
 2. **A builder that stops** reports why in its file. Where it goes depends on what stopped it:
@@ -75,19 +75,19 @@ takes these steps too (`stages/plan.md`, step 5): there is one path for every de
 Every decision goes into the task's record through one script, which also puts it on the board:
 
 ```bash
-python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT]
+lem decisions --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT]
 ```
 
 A criterion the owner approved, or that the lead's read froze for a full change from a complete
-request (`criteria.py approved SLUG`), changes in the plan only with its own record, written
+request (`lem criteria approved SLUG`), changes in the plan only with its own record, written
 before the commit that changes it, with its text before and after:
 
 ```bash
-python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
+lem decisions --repo WORKTREE criterion SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
 ```
 
 N is the criterion's number as the criteria stand after every earlier change;
-`decisions.py changes SLUG` gives them, and the command refuses a `--was` that is not the text
+`lem decisions changes SLUG` gives them, and the command refuses a `--was` that is not the text
 of criterion N then. `--choice ID` names the choice of step 2 that led to it, once it is answered or
 taken by timeout; without a choice it is the personas' clear pick (`--by personas --said`), or
 the lead's own (`--by lead`) for a change that is nobody's choice, such as a typo in an example.
@@ -109,13 +109,13 @@ has no plan, and the size is no choice of this section. A plan that departs from
    waits for the owner").
    - *A clear answer* (the personas agree, nobody in doubt): take it, log it with
      `--by personas --said "who picked what"`, and go on. A criterion that the choice changes gets
-     its record, `decisions.py criterion ... --by personas --said "who picked what"`; change the
+     its record, `lem decisions criterion ... --by personas --said "who picked what"`; change the
      criterion in the plan in the same commit as the code. The pull request is not green for it.
    - *An unclear answer* (the personas split, or one is in doubt), or a question of what the owner
      meant or of taste, which the personas do not answer for him: ask him.
 
      ```bash
-     python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
+     lem decisions --repo WORKTREE ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
      ```
 
      `--case` is one concrete case in numbered steps that ends badly, with real names and values
@@ -125,11 +125,11 @@ has no plan, and the size is no choice of this section. A plan that departs from
      the code. `--said` holds what the personas answered, or why they were not asked. A choice carries no
      criterion. Whichever way it ends, by his answer, by a decision of his that is none of the
      options, by the timeout or by the experts, read what was taken against each criterion: when one no longer
-     holds, or a criterion has to come or go, record it with `decisions.py criterion ... --choice
+     holds, or a criterion has to come or go, record it with `lem decisions criterion ... --choice
      N`, and change the criterion in the plan in the commit that builds the option. A forgotten
      record does not pass: the checks refuse a plan whose criteria are not the expected ones. The
      choice waits the settings' `flow.decision_wait` (15 minutes unless the project says otherwise),
-     and it counts from the ask, so two things come at once, in this order, as `decisions.py ask`
+     and it counts from the ask, so two things come at once, in this order, as `lem decisions ask`
      prints them in its `next`. First give the choice to the experts: the `lem-ask-expert` skill
      (`load-skill`), with the slug, the choice's number and the files the choice is about; its first
      step writes their brief and starts them in the background, which takes seconds. Two experts of
@@ -141,16 +141,16 @@ has no plan, and the size is no choice of this section. A plan that departs from
      defender of a plan talk sends it from its companion, and a builder that leads sends it from
      Lem's own session; the harness file says what of that was checked. A brief with no
      `coordinator:` line has no address: the choice then reaches Lem at its next turn, through
-     `decisions.py pending`, and may end its wait before the owner sees it. Send `lem: SLUG choice
+     `lem decisions pending`, and may end its wait before the owner sees it. Send `lem: SLUG choice
      N advised` the same way when both answers are in the record.
 3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
-   before you start one that depends on it, run `decisions.py --repo WORKTREE wait SLUG N`. It
+   before you start one that depends on it, run `lem decisions --repo WORKTREE wait SLUG N`. It
    returns when the owner answered, when the wait is over, or after nine minutes: run it again
    while it says `still waits`, when nothing else is left to do. When the wait is over, run
-   `decisions.py --repo WORKTREE timeout SLUG N`: the option both experts picked is taken, or the
+   `lem decisions --repo WORKTREE timeout SLUG N`: the option both experts picked is taken, or the
    recommended option when they split or one gave no advice in time, and the pull request is not
    green for it either way. `wait` also returns when Lem settled the choice with the experts'
-   pick because the owner is away (`settled`): build that option. `decisions.py list SLUG` shows each decision as it stands; an
+   pick because the owner is away (`settled`): build that option. `lem decisions list SLUG` shows each decision as it stands; an
    answer that came after the timeout and differs from what was taken is the owner's correction:
    build his answer, and log it with `--by lead` and why.
 4. **A step that a later "no" cannot reverse is never taken by timeout or by the experts.** The four kinds, and no
@@ -180,8 +180,8 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   suite holds it` for a rename, a bump or a refactor, which the checks prove with the whole suite
   before the pull request), commit
   that, and run
-  `python3 SKILL_DIR/scripts/criteria.py record SLUG` and then `python3
-  SKILL_DIR/scripts/criteria.py red SLUG`. The second one runs each criterion's tests in a worktree
+  `lem criteria record SLUG` and then `lem
+  criteria red SLUG`. The second one runs each criterion's tests in a worktree
   of its own, on the branch and on the base commit with only the named test files laid over it; the
   task's worktree has to be clean and is not touched. A test that fails there on the branch, that
   passes on the base commit too, or that does not start on the base commit does not hold its
@@ -193,7 +193,7 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   is missing, it is an outside defect for your report, not yours to set;
 - **not verified**: what you could not or did not check;
 - **decisions**: each one taken without the owner, with why and what it would take to undo, by
-  its number in `decisions.py list SLUG`. Each is in that record before the report: the pull
+  its number in `lem decisions list SLUG`. Each is in that record before the report: the pull
   request takes them from there;
 - **held**: what the task waits on when its state is `held`: the criteria with the answers that
   flagged them, or the irreversible choice that every task left depends on, by its number. A

@@ -690,6 +690,7 @@ bash tests/lem-land-shop.sh    # one block of them, alone (each block sources te
 bash tests/lem-old-tasks.sh    # tasks the scripts of an older commit took to open, read, landed and cleaned by the scripts of now
 bash tests/lem-land-local.sh   # the landing with no remote, in two blocks of about equal time: decisions, criteria and the read here,
 bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and what makes a request careful here
+bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs
@@ -765,8 +766,11 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `lem-*.sh` block sources. `.github/workflows/ci.yml` runs them when someone starts it by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
   plugin `lem`, the one way Lem installs: the manifest, a marketplace file that lists the one
-  plugin, links to the two commands `lem-ask` and `lem-jev`, which a plugin's `bin/` puts on the
-  Bash tool's `PATH`, and the correction hook.
+  plugin, `bin/lem`, Lem's one command, which runs the script a name stands for (`lem project
+  show` is `skills/lem/scripts/project.py show`, `lem help` lists the names), links to the two
+  commands `lem-ask` and `lem-jev`, all of which a plugin's `bin/` puts on the Bash tool's
+  `PATH`, and the correction hook. Every text and every message of a script says `lem NAME`, so
+  one permission rule, `Bash(lem *)`, covers them on every machine and after every update.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the
   builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
 - `skills/lem/references/`: the catalog of published style guides.
@@ -789,7 +793,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
 ## The shipped skills are copies, not yet under the rules above
 
 Each was copied from where it worked and changed only as far as the new layout needed. Their text
-still names Claude Code's tools, `skills/lem-backlog` uses `${CLAUDE_SKILL_DIR}`,
+still names Claude Code's tools,
 and lem-ask's Stop hook (`skills/lem-ask/hooks/hooks.json`) is registered by nothing. Bring one under
 the capability rule when a second agent has to run it, not before.
 

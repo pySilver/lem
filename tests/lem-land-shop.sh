@@ -132,7 +132,7 @@ git clone -q "$ORIGIN" "$other" && ident "$other"
 echo late > "$other/late.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: late" && git -C "$other" push -q origin main
 err=$(land --repo "$SHOP" land first-change --by agent 2>&1 || true)
 if [ "$(status_of land --repo "$SHOP" land first-change --by agent)" = 1 ] && grep -q "moved after the checks ran, by files the checks read (late.txt)" <<<"$err" \
-  && grep -q "run .land.py start., .land.py base., .land.py checks. and .land.py propose. again" <<<"$err" && [ "$(status first-change)" = open ]; then
+  && grep -q "run .lem land start., .lem land base., .lem land checks. and .lem land propose. again" <<<"$err" && [ "$(status first-change)" = open ]; then
   pass "land refuses when the base moved by a file the gate reads, and says which steps run again"
 else
   fail "land after the base moved: $err"
@@ -380,7 +380,7 @@ land --repo "$SHOP" read careful-plan --record "$(record 1 '{"kind": "full", "ra
 talkless=$(land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" 2>&1 || true)
 if grep -q "the plan says that the request is careful, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (.stages/talk.md.)" <<<"$talkless" \
   && grep -q "the event log has no .plan.talk. of careful-plan. The defender writes it after the talk" <<<"$talkless" \
-  && grep -qF "project.py log careful-plan plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N\`" <<<"$talkless" \
+  && grep -qF "lem project log careful-plan plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N\`" <<<"$talkless" \
   && grep -qF "for a plan that had no talk, Lem opens the companion first, as for \`needs a session\`" <<<"$talkless" \
   && [ ! -f "$SHOP/.lem/state/tasks/careful-plan/pr.md" ] && [ "$(status careful-plan)" = landing ]; then
   pass "a request whose plan says careful is not proposed while its event log has no plan talk, and the refusal names the plan stage's step, the companion Lem opens for the talk, and the event its defender writes in the form project.py takes"

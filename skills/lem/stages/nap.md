@@ -16,18 +16,18 @@ Lem starts a nap two ways, and never through a scheduled job:
 1. **May one start?**
 
    ```bash
-   python3 SKILL_DIR/scripts/project.py may-nap            # Lem's own call
-   python3 SKILL_DIR/scripts/project.py may-nap --asked    # /lem nap
+   lem project may-nap            # Lem's own call
+   lem project may-nap --asked    # /lem nap
    ```
 
    It answers in JSON, `may` with its `why`, and writes the nap down as started when it says yes.
    It also removes the naps older than `naps.keep_days`. A no is the usual answer: say nothing of
    it, unless the owner asked; then tell him its `why` in one line.
-2. **Start it** with `start-nap`, with the `time` of that answer and the folder `project.py
+2. **Start it** with `start-nap`, with the `time` of that answer and the folder `lem project
    state-dir` prints. Its brief is `prompts/nap.md`, whole and unchanged: it is written to the nap
    the way the owner's routine is written to his, and a line of Lem's added to it turns a dream
    into a report. Then go on at once with what you were doing; nothing waits for the nap.
-3. **When it ends**, run `python3 SKILL_DIR/scripts/board.py --no-open`, so that the board's Dreams
+3. **When it ends**, run `lem board --no-open`, so that the board's Dreams
    tab has it, and do nothing else with it. Lem does not read a dream, and acts on none. When the
    owner asked for this nap, tell him in one line its name and where to read it: the folder under
    `naps/` whose name starts with its `time`, and the board's Dreams tab. When no such folder holds

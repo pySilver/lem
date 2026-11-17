@@ -51,7 +51,7 @@ else
   fail "the backlog folder as a path: $inside / $beside"
 fi
 
-# A review names each defect it saw outside the change, and `land.py file` files each one as an item
+# A review names each defect it saw outside the change, and `lem land file` files each one as an item
 # of the backlog: a count of them is no record, and is refused; 0 is no defect.
 blg_task outside-form
 checked_in "$BLG" outside-form
@@ -98,7 +98,7 @@ text=$BLG/.lem/state/tasks/two-defects/pr.md
 item="$tree/docs/backlog/empty-input-crashes-the-parser.md"
 logged=$("$PY" -c 'import json, sys; print([[i["item"] for i in e["items"]] for e in map(json.loads, open(sys.argv[1])) if e["event"] == "review.filed" and e["task"] == "two-defects"])' "$BLG/.lem/state/events.jsonl")
 if [ "$first" = "('review', [(1, 'Empty input crashes the parser')])" ] && [ "$filed_a" = "([(1, 'docs/backlog/empty-input-crashes-the-parser.md')], [])" ] \
-  && [ "$second" = "('none', [(2, 'A quoted comma splits the field')])" ] && grep -q "A quoted comma splits the field" <<<"$unfiled" && grep -q "land.py file two-defects" <<<"$unfiled" \
+  && [ "$second" = "('none', [(2, 'A quoted comma splits the field')])" ] && grep -q "A quoted comma splits the field" <<<"$unfiled" && grep -q "lem land file two-defects" <<<"$unfiled" \
   && [ "$filed_b" = "[(2, 'docs/backlog/a-quoted-comma-splits-the-field.md')]" ] \
   && [ "$commit_b" = "docs(backlog): what review round 2 saw outside two-defects||docs/backlog/a-quoted-comma-splits-the-field.md|" ] \
   && [ "$rerun" = "([], [])" ] && [ "$after" = "('none', [])" ] && [ "$green" = True ] \
@@ -129,7 +129,7 @@ gone=$(land --repo "$BLG" propose item-goes --title "fix: item-goes" --notes "$N
 back=$(land --repo "$BLG" file item-goes --again | field '[f["item"] for f in d["filed"]]')
 land --repo "$BLG" checks item-goes >/dev/null
 green=$(land --repo "$BLG" propose item-goes --title "fix: item-goes" --notes "$NOTES" | field 'd["green"]')
-if grep -q "Empty input crashes the parser" <<<"$before" && grep -q "land.py file item-goes" <<<"$before" \
+if grep -q "Empty input crashes the parser" <<<"$before" && grep -q "lem land file item-goes" <<<"$before" \
   && grep -q "docs/backlog/empty-input-crashes-the-parser.md" <<<"$gone" && grep -q "was removed after it was filed" <<<"$gone" && grep -q -- "--again" <<<"$gone" && grep -q "worth: no" <<<"$gone" \
   && [ "$back" = "['docs/backlog/empty-input-crashes-the-parser.md']" ] && [ "$green" = True ]; then
   pass "an item that was on the branch before the review proves nothing; an item that was filed and then removed stops propose with its path and the two ways on, and file --again puts it back"
@@ -229,7 +229,7 @@ land --repo "$BLG" file filed-only >/dev/null
 filed_tip=$(git -C "$tree" rev-parse HEAD)
 carried=$(land --repo "$BLG" propose filed-only --title "fix: filed-only" --notes "$NOTES" 2>&1 || true)
 landed=$(land --repo "$BLG" land filed-only --by agent 2>&1 || true)
-if grep -qF "no green check is on record for this tip; \`land.py checks by-hand\` comes first" <<<"$hand" \
+if grep -qF "no green check is on record for this tip; \`lem land checks by-hand\` comes first" <<<"$hand" \
   && [ "$filed_tip" != "$gated" ] && [ "$(field '(d["green"], d["tip"])' <<<"$carried" 2>/dev/null)" = "(True, '$filed_tip')" ] \
   && [ "$(field 'd["tip"]' <<<"$landed" 2>/dev/null)" = "$filed_tip" ] && [ "$(status_in "$BLG" filed-only)" = landed ] \
   && [ "$(git -C "$BLG" show main:docs/backlog/empty-input-crashes-the-parser.md | sed -n 6p)" = "# Empty input crashes the parser" ] \
@@ -256,7 +256,7 @@ git -C "$tree" commit -q -m "ABC-7 docs(backlog): what the review saw outside ho
 again=$(land --repo "$BLG" file hook-form 2>&1 | field '(d["filed"], [f["item"] for f in d["same"] + d["named"]])' 2>&1 || true)
 rm "$hooks/commit-msg"
 if grep -qF "the commit of the backlog items of review round 1 was refused, most likely by a commit hook of the project: commit-msg: a subject starts with its ticket, as in ABC-12 fix." <<<"$refused" \
-  && grep -qF "a builder commits them with a message in the form the hook asks for (\`git -C $tree commit -m MESSAGE -- docs/backlog/a-hook-defect-of-its-own.md\`), never with --no-verify, then \`land.py file hook-form\` runs again" <<<"$refused" \
+  && grep -qF "a builder commits them with a message in the form the hook asks for (\`git -C $tree commit -m MESSAGE -- docs/backlog/a-hook-defect-of-its-own.md\`), never with --no-verify, then \`lem land file hook-form\` runs again" <<<"$refused" \
   && [ "$code" = 1 ] && [ "$staged" = docs/backlog/a-hook-defect-of-its-own.md ] && ! grep -q Traceback <<<"$refused" \
   && [ "$again" = "([], ['docs/backlog/a-hook-defect-of-its-own.md'])" ] && [ -z "$(git -C "$tree" status --porcelain)" ]; then
   pass "a commit hook that refuses land.py's commit of the backlog items is named with its own words and the fix; the items stay staged, and after a commit in the hook's form the next run finds each by its defect and records it"

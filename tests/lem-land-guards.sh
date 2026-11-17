@@ -51,7 +51,7 @@ again=$(g start no-gate 2>&1 || true)
 grd_settings '"true"'
 g start no-gate >/dev/null 2>&1 || true
 if grep -qF "the project has no command in its checks" <<<"$blocked" && grep -qF "Add the commands to checks.commands in .lem/project.toml" <<<"$blocked" \
-  && grep -qF "then run \`land.py start no-gate\` again" <<<"$blocked" && [ "$was" = blocked ] \
+  && grep -qF "then run \`lem land start no-gate\` again" <<<"$blocked" && [ "$was" = blocked ] \
   && grep -qF "the project has no command in its checks" <<<"$again" && [ "$(status_in "$GRD" no-gate)" = landing ]; then
   pass "with no command in its checks start blocks the task and says to add the commands and run start again, which then takes the task it blocked"
 else
@@ -73,7 +73,7 @@ small_task_in "$GRD" old-blocked o.txt o
 project --repo "$GRD" state old-blocked blocked "the project has no gate command" >/dev/null
 old_gate=$(g gate old-blocked 2>&1 || true)
 g start old-blocked >/dev/null 2>&1 || true
-if [ "$(status_in "$GRD" old-blocked)" = landing ] && grep -qF "\`land.py gate\` is \`land.py checks\` now, with the same steps: run \`land.py checks old-blocked\`" <<<"$old_gate" \
+if [ "$(status_in "$GRD" old-blocked)" = landing ] && grep -qF "\`lem land gate\` is \`lem land checks\` now, with the same steps: run \`lem land checks old-blocked\`" <<<"$old_gate" \
   && [ "$(status_of g gate old-blocked)" = 1 ]; then
   pass "a task an older Lem blocked with its line for no gate command is taken back by start, and the step's older name, land.py gate, is refused with its name of now"
 else
@@ -93,7 +93,7 @@ git -C "$GRD" worktree prune && git -C "$GRD" worktree add -q "$stuck_tree" fix/
 back=$(g base stuck 2>/dev/null | field 'd["ahead"]' 2>/dev/null || true)
 project --repo "$GRD" state stuck ready --start-over "the landing starts over" >/dev/null
 g start waiting >/dev/null 2>&1 || true
-if grep -qF "stuck is in \`landing\`" <<<"$line" && grep -qF "\`project.py state stuck ready --start-over \"WHY\"\`" <<<"$line" && grep -qF "\`project.py state stuck dropped \"WHY\"\`" <<<"$line" \
+if grep -qF "stuck is in \`landing\`" <<<"$line" && grep -qF "\`lem project state stuck ready --start-over \"WHY\"\`" <<<"$line" && grep -qF "\`lem project state stuck dropped \"WHY\"\`" <<<"$line" \
   && grep -qF "the task has no worktree at $stuck_tree" <<<"$gone" && grep -qF "\`git -C $GRD worktree prune\`" <<<"$gone" \
   && grep -qF "\`git -C $GRD worktree add $stuck_tree fix/stuck\`" <<<"$gone" && [ "$back" = 1 ] && [ "$(status_in "$GRD" waiting)" = landing ]; then
   pass "a landing task whose worktree is gone holds the line: the refusal of another start names the two states that give it back, the task's own step names the git commands that put the worktree back, and each works as named"
@@ -211,7 +211,7 @@ if grep -qF "is not a file; --notes names the notes" <<<"$no_notes" && grep -qF 
   && grep -qF "the branch's tip is not the commit the checks passed on" <<<"$c3" \
   && grep -qF "no green check is on record for this tip" <<<"$ungated" \
   && grep -qF "the branch's tip is not the tip that was proposed" <<<"$c2" \
-  && grep -qF "run \`land.py start\`, \`land.py base\`, \`land.py checks\` and \`land.py propose\` again" <<<"$c2" \
+  && grep -qF "run \`lem land start\`, \`lem land base\`, \`lem land checks\` and \`lem land propose\` again" <<<"$c2" \
   && [ "$unlanded" = "$main_was" ] \
   && [ "$(status_in "$GRD" guarded)" = landed ] && [ "$(git -C "$GRD" show main:y2.txt)" = more ]; then
   pass "propose refuses notes that are no file and a title of two lines before it writes anything; land refuses a tree, a gated commit and a tip other than the ones on record, and no record of a gate; after a commit past the proposal the steps the refusal names land the new tip"
@@ -232,7 +232,7 @@ hooked_tip=$(git -C "$tree" rev-parse HEAD)
 rm "$GRD/.git/hooks/pre-commit"
 g land squashed --by owner --message "fix: z" >/dev/null 2>&1 || true
 grd_settings '"true"'
-if grep -qF "the one commit was refused, and the branch is as it was: no commit here" <<<"$hooked" && grep -qF "another --message to \`land.py land squashed\`" <<<"$hooked" \
+if grep -qF "the one commit was refused, and the branch is as it was: no commit here" <<<"$hooked" && grep -qF "another --message to \`lem land land squashed\`" <<<"$hooked" \
   && [ "$hooked_tip" = "$before" ] && [ -z "$(git -C "$tree" status --porcelain)" ] && [ "$(status_in "$GRD" squashed)" = landed ] \
   && [ "$(git -C "$GRD" log -1 --format=%s main)" = "fix: z" ]; then
   pass "a commit hook that refuses the one commit leaves the branch as the gate saw it, and the run after it lands"
@@ -334,7 +334,7 @@ nothing=$(g base empty-branch 2>&1 || true)
 project --repo "$GRD" state empty-branch dropped "nothing to land" >/dev/null
 emptied=$(g clean empty-branch 2>&1 || true)
 kept_branch=$(g clean detached 2>&1 || true)
-if grep -qF "the branch has no commit that main lacks: there is nothing to land" <<<"$nothing" && grep -qF "\`project.py state empty-branch dropped \"WHY\"\`" <<<"$nothing" \
+if grep -qF "the branch has no commit that main lacks: there is nothing to land" <<<"$nothing" && grep -qF "\`lem project state empty-branch dropped \"WHY\"\`" <<<"$nothing" \
   && [ "$(field '(d["worktree"], d["branch"], d["branch_left"])' <<<"$emptied" 2>/dev/null)" = "(True, 'fix/empty-branch', None)" ] \
   && ! git -C "$GRD" rev-parse -q --verify fix/empty-branch >/dev/null \
   && [ "$(field '(d["worktree"], d["branch"])' <<<"$kept_branch" 2>/dev/null)" = "(True, None)" ] \
@@ -364,7 +364,7 @@ git clone -q "$GO" "$gother" && ident "$gother"
 echo base > "$gother/docs/note.md" && git -C "$gother" commit -q -am "docs: the base's note" && git -C "$gother" push -q origin main
 stopped=$(land --repo "$GC" land docs-meet --by owner 2>&1 || true)
 if grep -qF "origin/main moved after the checks ran and the rebase onto it stopped, and the branch is as it was" <<<"$stopped" \
-  && grep -qF "run \`land.py start\`, \`land.py base\`, \`land.py checks\` and \`land.py propose\` again, where \`base\` names the files that meet" <<<"$stopped" \
+  && grep -qF "run \`lem land start\`, \`lem land base\`, \`lem land checks\` and \`lem land propose\` again, where \`base\` names the files that meet" <<<"$stopped" \
   && [ "$(git -C "$tree" rev-parse HEAD)" = "$proposed" ] && [ -z "$(git -C "$tree" status --porcelain)" ] && [ "$(status_in "$GC" docs-meet)" = open ] \
   && [ "$(git -C "$GO" log -1 --format=%s main)" = "docs: the base's note" ]; then
   pass "a base that moved only by ignored files and whose rebase stops is refused by land with the branch as it was proposed, and the steps that run again"

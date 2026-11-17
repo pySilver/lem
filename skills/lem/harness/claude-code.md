@@ -2,12 +2,30 @@
 
 You run in Claude Code. This file answers `README.md` beside it.
 
+## lem
+
+`lem` is a file in the plugin's `bin/`, and Claude Code puts that folder on the Bash tool's `PATH`
+while the plugin is loaded. It runs the script a name stands for with the arguments as they
+came, and its output and exit status are the script's. So one permission rule, `Bash(lem *)`,
+covers every script of Lem's on every machine and after every update of the plugin, whose folder
+changes with each update. Where the shell does not find it (`command not found`), run the same
+script by its path, `python3 SKILL_DIR/scripts/NAME.py ARGS...`, or for a shipped skill's the
+file in that skill's `scripts/` (`lem experts` is `python3
+SKILL_DIR/../lem-ask-expert/scripts/experts.py`; `COMMANDS` in `SKILL_DIR/../../bin/lem` names
+each file), and say once that `lem` was not on the `PATH`.
+
+Checked on 2026-11-17 in Claude Code 2.1.326, with `claude -p --plugin-dir` on a checkout of this
+repository, in a throwaway repository, with `--allowedTools "Bash(lem *)"` and
+`--permission-prompts none`: `which lem` printed that checkout's `bin/lem`, in the session and in
+a subagent it started, and `lem project show` and `lem doctor` ran with no prompt. Not run yet:
+a plugin installed with `claude plugin install`, and a session started in a task's worktree.
+
 ## load-skill
 
 A skill this repository ships, `lem-NAME`: the `Read` tool on `SKILL_DIR/../lem-NAME/SKILL.md`,
 where `SKILL_DIR` is the `lem` skill's directory, and then do what it says. In that file
-`${CLAUDE_SKILL_DIR}` is the folder of that file, and so is a `SKILL_DIR` that the file names
-as its own directory (`lem-linear` names the `lem` skill's). The `Skill` tool refuses these
+a `SKILL_DIR` that the file names as its own directory is the folder of that file (`lem-linear`
+names the `lem` skill's), and its scripts run through `lem`. The `Skill` tool refuses these
 skills: each has `disable-model-invocation: true`, so that it starts only for Lem and puts no
 description in a session's list of skills. Do not try the `Skill` tool on one first: its refusal
 tells the agent not to follow the skill by other means (Claude Code 2.1.326, seen 2026-11-17),
@@ -62,7 +80,7 @@ Do not load a skill whose instructions are already in context.
 - the rules folder. Claude Code loads `.claude/rules/` by itself: a file with a `paths:` list
   when a matching file is read, the others in every session. Codex and the review tool's agents
   load nothing by themselves, so a brief, a review request and a review round name the files
-  `project.py rules` prints. That command reads the same `paths:` list with the glob forms
+  `lem project rules` prints. That command reads the same `paths:` list with the glob forms
   Claude Code's page on that folder gives (read 2026-11-15), and finds rule files in subfolders
   and through links as that page says Claude Code does. For a review round, the files go into
   the review context the `revmux:revmux` skill writes, as paths to read first. Checked by the session that started Lem, in
@@ -73,7 +91,7 @@ Do not load a skill whose instructions are already in context.
 
 ## ask-owner
 
-What the settings' `tools.ask` names (`project.py show`), for every question that asks the owner
+What the settings' `tools.ask` names (`lem project show`), for every question that asks the owner
 to choose or to approve:
 
 - `lem-ask`, unless the settings say otherwise: Lem's own page, each option with what the
@@ -101,7 +119,7 @@ it waits for him, and the task's state says what waits. Not checked in a run.
 Lem takes him as away on two facts only, never on a guess from his silence: his own words in
 this session that he is away or leaves (until he types again), or a question of this turn that
 went to his away channel because his instructions sent it there. For a choice of a build that
-waits, that is what `decisions.py settle SLUG N --away` stands on (`stages/new.md`).
+waits, that is what `lem decisions settle SLUG N --away` stands on (`stages/new.md`).
 
 ## spawn-builder
 
@@ -170,7 +188,7 @@ prompt. Lem opens one for a plan talk only: its agent is the plan's defender
    ```
 
    `MODEL` and `EFFORT` are the `model` and the `effort` of the settings' `seats.planner`, which
-   `project.py show` gives parsed from its one line, `claude/MODEL:EFFORT`. Leave a flag out when
+   `lem project show` gives parsed from its one line, `claude/MODEL:EFFORT`. Leave a flag out when
    the seat does not name its value (`null`): the agent's own default holds then, as for the
    reviewer's pane. The seat's `agent` can only be `claude`, since this file is the only one the
    contract was checked in.
@@ -198,7 +216,7 @@ prompt. Lem opens one for a plan talk only: its agent is the plan's defender
    `agtermctl msg send --stdin --to ID:left --socket "$AGTERM_SOCKET" < FILE`. The mailbox hook of
    the mailbox chat hands it to the agent there at the end of its turn. When the session is gone,
    open one again: the new lead reads the task's files.
-5. **Close it** when the talk is done, once `project.py tasks` gives the task a `talk`, or when the
+5. **Close it** when the talk is done, once `lem project tasks` gives the task a `talk`, or when the
    task is dropped: `agtermctl session close --target ID --socket "$AGTERM_SOCKET"`. Its experts
    and the reviewer's pane end with it.
 
@@ -234,14 +252,14 @@ each start of a lead (`stages/new.md`, "Start a lead"), from its own `AGTERM_SES
 gets the line.
 
 From the defender, one line after its report and its state are written. From either, one line
-right after the experts were given a choice (`decisions.py ask`, then the `lem-ask-expert` skill),
+right after the experts were given a choice (`lem decisions ask`, then the `lem-ask-expert` skill),
 `lem: SLUG choice N waits`, and `lem: SLUG choice N advised` when both answers are in. A builder
 that leads sends no line when it stops: its reply wakes Lem, and a line too would wake it twice. It reaches Lem as mail that starts with
-`[agterm mailbox, not a peer chat message]`; Lem reads the task's state or `decisions.py
+`[agterm mailbox, not a peer chat message]`; Lem reads the task's state or `lem decisions
 pending`, never the line's claim. Mail is kept in memory only, so a pane that was restarted has
 lost it. A lost end of a task costs nothing but time: the state block is on disk, and `/lem
 status` shows it. A lost choice costs the owner part of his wait, so Lem also runs
-`decisions.py pending` at each of its turns (`stages/new.md`, "When a choice waits for the
+`lem decisions pending` at each of its turns (`stages/new.md`, "When a choice waits for the
 owner").
 
 A builder runs as a subagent inside Lem's own session, so its line goes from Lem's pane to Lem's
@@ -257,7 +275,7 @@ background command of that session sent `lem: wake-probe choice 1 waits` with `a
 its turn, and the line reached the idle session as a turn of its own (`[agterm mailbox, not a
 peer chat message]`, from the session's own address). The sender was a background command, not
 a subagent: that a line a builder sends wakes Lem the same way is not checked. Until a run shows
-it, `decisions.py pending` at each of Lem's turns is what makes sure that no choice is missed.
+it, `lem decisions pending` at each of Lem's turns is what makes sure that no choice is missed.
 
 Checked on 2026-11-14: this command, run by Claude Code in a companion session, put its line in
 the mailbox of the pane that opened the session. Checked on 2026-11-15, in the same careful
@@ -270,7 +288,7 @@ transcript of Lem's session).
 
 The reviewer is a second agent in the split pane of the session that asks (the companion of a plan
 talk, for a careful or large plan); the owner reads both panes. The settings hold the seat as one
-line, `reviewer = "AGENT/MODEL:EFFORT"` under `[seats]`, and `project.py show` gives it parsed as
+line, `reviewer = "AGENT/MODEL:EFFORT"` under `[seats]`, and `lem project show` gives it parsed as
 `seats.reviewer`: its `agent` (`claude` or `codex`), its `model` and its `effort`, each null when
 the line leaves it out, and `seat`, the line as written. The effort is the one of its pane for the
 plan talk, which is the one thing this pane opens for.
@@ -278,11 +296,11 @@ When `agent` is null, ask the owner once and write the answer into `.lem/project
 
 The seat may be this machine's own for a while: the usual reviewer is down, or out of tokens.
 `/lem reviewer AGENT/MODEL:EFFORT` (`/lem reviewer codex/gpt-6.1-sol:high`, or `/lem reviewer
-claude` for the agent's own model and effort) runs `project.py reviewer` with that seat, which
+claude` for the agent's own model and effort) runs `lem project reviewer` with that seat, which
 writes it into `.lem/project.local.toml` in the same form, a file git does not track; `/lem
 reviewer default` removes it. Never change the seat by yourself. When the reviewer does not answer, or
 says it is out of tokens, ask the owner once whether the other agent reviews for now, and write
-the seat on his yes. While `project.py show` lists `seats.reviewer` under `local.overrides`,
+the seat on his yes. While `lem project show` lists `seats.reviewer` under `local.overrides`,
 every report says that the reviewer is this machine's choice, and "same family" when it is.
 
 1. **Is a reviewer there?** `mailbox-chat.py status` names the other pane and what serves it:
@@ -298,7 +316,7 @@ every report says that the reviewer is this machine's choice, and "same family" 
        prompt; with an effort, `-c model_reasoning_effort=EFFORT`.
      - Claude Code: `claude --append-system-prompt "$(cat PATH/prompts/reviewer.md)" "You are the reviewer. Wait for the first message."`
        With a model, add `--model MODEL`; with an effort, `--effort EFFORT`.
-     `MODEL` and `EFFORT` are the seat's `model` and `effort` from `project.py show`. Leave a flag
+     `MODEL` and `EFFORT` are the seat's `model` and `effort` from `lem project show`. Leave a flag
      out when the seat does not name its value (`null`): the agent's own default holds then.
    - read the model and the effort back from the pane's status line, and name those in the
      report, never the ones you asked for. When the status line shows no model or no effort (a
@@ -316,7 +334,7 @@ every report says that the reviewer is this machine's choice, and "same family" 
    the same line without typing; in the other restore modes it is refused.
 3. **Send the request** through the `mailbox-chat` skill: the plan's path, the directory to work
    in, the task it belongs to and the style guide files
-   that cover it (`project.py rules`, with the plan's files or `--range`). A message that names git goes from a file, never a heredoc.
+   that cover it (`lem project rules`, with the plan's files or `--range`). A message that names git goes from a file, never a heredoc.
 4. **The reply arrives in this pane by itself.** Never poll for it, and check every claim it makes
    about the code with your own read before you act on it.
    A reply that may not be whole ("so far", a numbered point with no end) is answered in the same
@@ -357,13 +375,13 @@ Several `Agent` calls in one message. The `Workflow` tool only when the owner as
 ## ask-experts
 
 Both in one message, so that they start at one moment; `BRIEF`, `WORKTREE` and each answer file
-are the paths `experts.py brief` printed.
+are the paths `lem experts brief` printed.
 
-The two experts are the settings' `seats.experts` (`project.py show`): two seats, each with its
+The two experts are the settings' `seats.experts` (`lem project show`): two seats, each with its
 `agent`, `model` and `effort` parsed from its line, `claude/fable` and `codex/gpt-6-astra:high`
 unless the project or this machine names others, and each with its `place` in the choice's
 record, `fable` for the first and `astra` for the second, whatever model sits there: the place is
-the `--expert` word of `experts.py record` and the name of its answer file. Start each by its
+the `--expert` word of `lem experts record` and the name of its answer file. Start each by its
 agent:
 
 - an expert whose `agent` is `claude` (the first by default, in the place `fable`): the `Agent`
@@ -374,7 +392,7 @@ agent:
   so the brief's "change no file" is what keeps it from a write there. It runs in the
   background, and its reply reaches you as its message: write that reply into its answer file
   word for word, without the indent Claude Code puts before each line of a subagent's report,
-  then run `experts.py record`.
+  then run `lem experts record`.
 - an expert whose `agent` is `codex` (the second by default, in the place `astra`): the `Bash`
   tool with `run_in_background`, on this line, with `-m MODEL` only when the seat names a model
   and `-c model_reasoning_effort=EFFORT` only when it names an effort:
@@ -386,23 +404,23 @@ agent:
   `-` reads the prompt from stdin, and the brief file is that stdin, so it ends: a Codex in the
   background whose stdin stays open waits for input and never starts (seen 2026-11-16, a headless
   Codex review). `-o` writes its last message into the answer file. You are told when the command
-  exits; then run `experts.py record`. A non-zero exit, or an answer file that is not there, is
+  exits; then run `lem experts record`. A non-zero exit, or an answer file that is not there, is
   an expert that did not answer: the skill's step 3 says what follows.
 
 Checked on 2026-11-16 in a scratch repository, Claude Code 2.1.325 and codex-cli 0.169.0, on a
 toy choice of two options with two criteria and one file: both started in one message (`date -u`
 read 13:23:11Z in the call before it). `fable` answered in 12.1 seconds (the subagent's
 `duration_ms`, 12093) and `astra` in 18 seconds (13:23:18Z to 13:23:36Z, `date -u` around the
-command); both picked the same option, each answer was recorded by `experts.py record` as it
-came, `decisions.py settle --away` took the pick, and both checkouts were clean after it. That
+command); both picked the same option, each answer was recorded by `lem experts record` as it
+came, `lem decisions settle --away` took the pick, and both checkouts were clean after it. That
 was started from a subagent, the way a builder that leads starts them; not run yet from a
 `lem-builder` or from a task's session. One run of a toy choice: a real choice, with a plan and
 more files to read, takes longer, and that time comes out of the owner's wait.
 
 ## run-in-background
 
-The `Bash` tool with `run_in_background`, on the command as the stage gives it, `python3
-SKILL_DIR/scripts/land.py watch` for the watch of the open pull requests. The tool names the
+The `Bash` tool with `run_in_background`, on the command as the stage gives it, `lem
+land watch` for the watch of the open pull requests. The tool names the
 background task and tells you when the command exits; then read the output file it named, which
 holds the command's JSON on exit 0, or its last line, `land.py: ...`, on exit 1. One watch at a
 time: keep the name of the task you started, and while it runs start no other. A watch that an
@@ -413,7 +431,7 @@ that it was stopped.
 Seen: the end of a background command reaches the session that started it as a message, during
 the session's turn (the experts' check above, 2026-11-16). Not run yet: a watch whose end comes
 while Lem's session waits between two of the owner's messages. Until that is seen, the status's
-own `land.py merged` at each turn of Lem's finds a merge the watch's end did not bring.
+own `lem land merged` at each turn of Lem's finds a merge the watch's end did not bring.
 
 ## A session's name
 
@@ -442,8 +460,8 @@ read as it is, and take the notes in the conversation. Do not install it unasked
 
 ## start-nap
 
-The `Bash` tool with `run_in_background`, on this line, where `STATE` is the folder `project.py
-state-dir` printed, `TIME` the `time` that `project.py may-nap` gave, and `SKILL_DIR` this skill's
+The `Bash` tool with `run_in_background`, on this line, where `STATE` is the folder `lem project
+state-dir` printed, `TIME` the `time` that `lem project may-nap` gave, and `SKILL_DIR` this skill's
 directory:
 
 ```bash
@@ -502,7 +520,7 @@ from it by hand. Say that in one line, and do not edit the file: it is the owner
   on 2026-11-15. The `timeout` of 10 seconds in `hooks/hooks.json` is the value its source ran with in one
   repository since 2026-11-07; it is not a measurement.
 - What fails goes to `corrections.log` in Lem's state folder (`.lem/state/`), and
-  `corrections.py list` counts it.
+  `lem corrections list` counts it.
 - The yes is a line of the tracked settings, which a task's branch and the owner's review carry
   like any other change. A hook that sends the owner's messages to an outside service is his to
   turn on: the line goes in only on his yes, in his words.

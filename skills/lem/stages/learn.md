@@ -17,23 +17,23 @@ it:
    - a step of a skill (a page it builds, a message it sends, a command it runs). A skill the
      repository holds itself: that skill's file, a project file like any other. Lem, or another
      skill installed from outside the repository: one line in the project's lessons file
-     (`project.py path lessons`) that opens with the stage's or the skill's name (`new: ...`),
+     (`lem project path lessons`) that opens with the stage's or the skill's name (`new: ...`),
      which Lem reads before each subcommand. Never the installed skill's own file, whether it is
      a link to a clone or a plugin's copy: that file is the same for every repository that uses
      it, an edit there is live in all of them at once with no review, and a plugin's next update
      drops it. Your report says that the line is a lesson about Lem itself, so the owner can
      bring it to whoever maintains Lem;
    - how code is written here: the style guide file whose scope covers it
-     (`project.py path styleguide`);
+     (`lem project path styleguide`);
    - what a person of the project wants or notices: that persona's file
-     (`project.py path personas`);
+     (`lem project path personas`);
    - what a review should catch or stop raising: the lens, the review profile or the
-     rejected-findings list (`project.py path review`). That folder is the review tool's own:
+     rejected-findings list (`lem project path review`). That folder is the review tool's own:
      Lem never moves, links or reshapes it, and a lesson still writes a line into a file there;
-   - a decision about the product that outlives the task: a ruling (`project.py path rulings`);
+   - a decision about the product that outlives the task: a ruling (`lem project path rulings`);
    - a command shape a pattern can match: a hook or a commit check of the repository that refuses
      it and names the replacement;
-   - none of these: one line in the project's lessons file (`project.py path lessons`), which the
+   - none of these: one line in the project's lessons file (`lem project path lessons`), which the
      plan and build stages read.
 3. **When the owner asked for the change, make it** and say, for each file you changed, its path,
    what changed and why, in one to three lines a file. When you found the lesson yourself, show
@@ -54,7 +54,7 @@ read whole.
 ## retro
 
 `/lem retro` reads what the sessions did since the last retro: each task's decisions
-(`decisions.py list SLUG`: who took each, a choice taken by timeout, a late answer that differs), the
+(`lem decisions list SLUG`: who took each, a choice taken by timeout, a late answer that differs), the
 "not verified" and "outside defects" lines of each `report.md`, the reviews and the proposals
 in the event log (`review` and `proposed` events: the rounds, the counts, who answered, and each
 reason a request was not green; `careful.missed` events: a change the review called careful and
@@ -76,7 +76,7 @@ for what came back:
   it, with the turns that show the cost.
 
 Where the project has naps (`stages/nap.md`), the retro also reads their waking notes,
-`naps/*/waking.md` in the folder `project.py state-dir` prints, of each nap whose time, the start
+`naps/*/waking.md` in the folder `lem project state-dir` prints, of each nap whose time, the start
 of its folder's name, is after the retro before this one. A waking note is one agent's impression
 after a dream, so it is a candidate and never a lesson: a thing a note names becomes a lesson only
 when the tasks' records above show it too, and that lesson says which note it came from, by the
@@ -86,10 +86,10 @@ is not read for lessons.
 The owner sees only moves and removals, in one question through `ask-owner`, each with the case
 in their own words. A retro that a scheduled job started, with nobody at the terminal, opens no
 page: a page would wait in a session nobody sees (on 2026-11-17 one did). It writes the moves and
-removals into one file, `retros/YYYY-MM-DD.json` in the folder `project.py state-dir` prints, in
+removals into one file, `retros/YYYY-MM-DD.json` in the folder `lem project state-dir` prints, in
 the form Lem's question page takes: one question for each proposal, its prompt the move in one
 line, its body the file, the change and the case, and the options approve, reject and later. Then
-it ends, with its closing report. `project.py waiting` lists the file, and a bare `/lem` says "the
+it ends, with its closing report. `lem project waiting` lists the file, and a bare `/lem` says "the
 retro of DATE proposes N changes"; on the owner's word Lem opens the proposals on one page, as
 `SKILL.md` says under Status, and makes each move he approved. First-time lessons are recorded without a question. The retro's closing report still names every
 file it changed, a first-time record included, with what changed and why.
@@ -100,13 +100,13 @@ An optional part. A session that is corrected does not always record it, and a c
 is given again is what a retro is for. So a project may keep a queue: a hook asks a small
 decision model about each message the owner types, and queues the ones an agent should learn a
 lesson from. The project's settings turn it on (`corrections.collect`), and `stages/init.md` says
-how the owner agrees to it. `project.py show` says whether it is on. When it is off, skip this
+how the owner agrees to it. `lem project show` says whether it is on. When it is off, skip this
 section.
 
 ```bash
-python3 SKILL_DIR/scripts/corrections.py list      # unreviewed groups, most sessions first
-python3 SKILL_DIR/scripts/corrections.py show ID   # one group in full
-python3 SKILL_DIR/scripts/corrections.py lessons   # what earlier retros recorded
+lem corrections list      # unreviewed groups, most sessions first
+lem corrections show ID   # one group in full
+lem corrections lessons   # what earlier retros recorded
 ```
 
 1. **Failures first.** `list` gives `failures`: messages the hook could not judge (no key, a
@@ -128,7 +128,7 @@ python3 SKILL_DIR/scripts/corrections.py lessons   # what earlier retros recorde
 3. **Record every group**, also the ones nobody was asked about:
 
    ```bash
-   python3 SKILL_DIR/scripts/corrections.py record ID --decision lesson --verdict accepted \
+   lem corrections record ID --decision lesson --verdict accepted \
        --target PATH --lesson "the sentence"
    ```
 
