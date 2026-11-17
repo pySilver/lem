@@ -105,9 +105,10 @@ one finds what the run before it finished.
    lower) and the task's plan. For a red gate command the builder runs the same command on the
    base. A failure the change caused, it fixes and commits, and the landing goes on from step
    2. A failure the base already has is not this task's to carry and not this gate's to hide:
-   write this task's state as `blocked` with the line `the base is red`, open a task for the
-   failing command (`/lem new`), and land that one first; then write this task's state as
-   `ready` again, and it takes its turn. Skipping or changing a gate command is the owner's
+   open a task for the failing command (`/lem new`), write this task's state as `blocked` with
+   the lines `the base is red` and `after: SLUG` of that new task, and land that one first. The
+   queue step at the end of `stages/new.md` writes this task's state `ready` again once that task
+   is `landed`, and it takes its turn. Skipping or changing a gate command is the owner's
    decision only. After two builders on the same failure, write the state `blocked` and tell
    the owner.
 5. **The review**, before anything is proposed. `land.py read SLUG` says whether one is due, the

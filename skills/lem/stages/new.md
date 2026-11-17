@@ -150,7 +150,9 @@ a lead is started, and what to do each time a lead stops.
 
 `/lem build <task>` is for a task whose state is `drafted` or `planned`: change its brief to
 `stop after the plan: no`, take out a `night: yes` line, since the owner is there now, and start
-its lead. A path to a plan file names its task too: the
+its lead. When its `report.md` or a state block of it says `needs a session:` and `project.py
+tasks` gives it no `talk`, change the brief to `lead: session` first: that start opens the plan
+talk's companion at once, where a builder would only stop at the plan again. A path to a plan file names its task too: the
 file is `YYYYMMDD-<slug>.md`, and the slug is the task's. With no name, list the tasks in those
 two states (`project.py tasks`), each with its ask and its plan's path, and ask which one: a
 fixed choice, so it stays in the terminal. One such task needs no question.
@@ -237,9 +239,10 @@ approved, which the lead may not change without the record saying so.
    `asked` is the personas the panel asked and `answered` those of whom at least one family
    answered; `silent` names each source that gave no answer, `[]` when every one did. `flagged`
    counts the stories an answer called unexpected, confusing or wrong; `split` says whether the
-   two families answered a story differently, which counts as a doubt too. `DIGEST` is what
-   `python3 SKILL_DIR/scripts/stories.py digest SLUG --file FILE` prints for the stories file
-   the personas read, so that the record knows when he changes them after the read.
+   two families answered a story differently, which counts as a doubt too. `DIGEST` is the
+   `digest` field of what `python3 SKILL_DIR/scripts/stories.py digest SLUG --file FILE` prints
+   for the stories file the personas read, so that the record knows when he changes them after
+   the read.
 
    **The read is his to skip, never yours.** When a story names a person other than the
    developer (a customer, a clerk, a reader of a file), the read starts and you ask nothing. When
@@ -346,8 +349,9 @@ task.
 1. **A place, the worktree and the state.** `project.py may-start SLUG`, and the worktree on the
    task's branch, as steps 1 and 2 of "Start a lead" say: the investigator runs the project's
    tests, so it takes a place. A task queued there starts its investigator when its turn comes,
-   not a lead: `project.py tasks` gives its `kind` and no `investigation` yet. Then write the
-   state:
+   not a lead: `project.py tasks` gives its `kind`, a bug or an investigation, and either no
+   `investigation` yet or one whose `call` is `not-reproduced`, which waits for the second
+   investigator. Then write the state:
 
    ```bash
    python3 SKILL_DIR/scripts/project.py state SLUG building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because WHY"
@@ -400,8 +404,9 @@ task.
      branch stays with its commits, the reproducing test among them.
    - *not reproduced*: tell him each try in one line, and ask him for one more fact: the record,
      the input, the time, what he saw. Write the state `held` with the line `the investigation
-     waits for one more fact`. Write his answer into `task.md`, and start a fresh investigator
-     with the same brief and one more line, `tried before:` with the report's tries.
+     waits for one more fact`. Write his answer into `task.md`, add one line to the brief,
+     `tried before:` with the report's tries, and start a fresh investigator from step 1, which
+     takes a place again or queues it.
    - *answer*, for an investigation: show him the answer as the report gives it, with where each
      part was read. Write the state `answered` with the answer in one line, and `land.py clean
      SLUG`.
@@ -571,7 +576,9 @@ Act on the status:
   - *one more fact*: the investigation's, as "A bug and an investigation" says;
   - *a step that is his to do*, and no decision at all: a trust prompt of the reviewer's agent, a
     command an agent is refused. Tell the owner that step as it is, with where he does it; it
-    needs no gate and no panel. The lead goes on when the step is done;
+    needs no gate and no panel. When he says it is done, start a lead as "Start a lead" says:
+    for a defender whose companion is still open that is one message to it, and otherwise a
+    fresh lead that reads the state and goes on;
   - *choice N waits for the owner*: an irreversible step that every task left depends on. It is
     in `decisions.py pending` and asked as the section above says; start a lead after his answer.
 - **`blocked`**: the report says what the lead could not settle and what it tried. A missing
@@ -585,7 +592,9 @@ Act on the status:
   tell the owner what the reply or the session's screen shows.
 
 After any of these, look at what is owed and at the queue. A task that ended with a
-`ticket_owed` in `project.py tasks` gets those steps from the tracker now. Take the `queued` tasks in the order of their state's
-time, leave out each one whose `after:` task is not `landed`, `answered` or `dropped`, and start
-a lead, or the investigator of a bug or an investigation, for the first that is left. Step 1 of
-"Start a lead" decides whether there is a place.
+`ticket_owed` in `project.py tasks` gets those steps from the tracker now. A `blocked` task whose
+state has `the base is red` and an `after:` task that is `landed` gets the state `ready` again,
+with the line `the base is green again`, and joins the landing line. Take the `queued` tasks in
+the order of their state's time, leave out each one whose `after:` task is not `landed`,
+`answered` or `dropped`, and start a lead, or the investigator of a bug or an investigation, for
+the first that is left. Step 1 of "Start a lead" decides whether there is a place.

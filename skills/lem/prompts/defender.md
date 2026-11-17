@@ -32,9 +32,9 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
    when it is done, and you go on in this session.
 6. **The close**, in this order:
    - the record and the `plan.talk` event of `stages/talk.md`, then close the reviewer's pane;
-   - each question the talk left open, by step 5. One that is asked as a choice:
-     `tell-coordinator` with `lem: SLUG choice N waits` at once, then the `lem-ask-expert` skill
-     right after the ask. Its experts run in this session, which Lem closes after your last line,
+   - each question the talk left open, by step 5. One that is asked as a choice: the
+     `lem-ask-expert` skill right after the ask, then `tell-coordinator` with `lem: SLUG choice N
+     waits` at once. Its experts run in this session, which Lem closes after your last line,
      so wait for both answers in the record, or for the skill to say that one did not answer, and
      send `lem: SLUG choice N advised`;
    - `report.md` in the task directory, whole: what changed in the plan, by question and by task;

@@ -7,7 +7,7 @@ a list of questions that closes with the reviewer's first turn, by its defender 
 (`stages/talk.md`).
 
 1. **Write the plan** as one file in the settings' `plans` path, named `YYYYMMDD-<slug>.md`, and
-   commit it as the branch's first commit. It opens with the stories, because they are the
+   commit it as your first commit: after a bug, the investigator's test comes before it. It opens with the stories, because they are the
    owner's document: he reads them and not the rest of the plan, and they become the tests.
    - `## Stories`, in the form `python3 SKILL_DIR/scripts/stories.py --help` shows. First run
      `python3 SKILL_DIR/scripts/stories.py approved SLUG`. When the owner approved stories at
@@ -41,10 +41,11 @@ a list of questions that closes with the reviewer's first turn, by its defender 
      to an interview (`stages/new.md`, "The interview and the stories", step 5), and the landing
      refuses one that comes after a lead started. The read is the persona panel's "Reading stories" mode (`load-skill`), run by you while you write the
      rest of the plan. You have no paired agent of the other family, so one family answers: the
-     panel's own persona agents, which a lead can start (the harness file, `spawn-builder`). Write
+     panel's own persona agents, started the way the `lem-panel` skill starts a persona, never
+     as a builder: `lem-builder` has no persona among its jobs. Write
      the event the landing reads, in the form `stages/new.md` gives ("The interview and the
-     stories", step 5), with `by=lead`, your one family, and the digest of the plan's stories
-     (`python3 SKILL_DIR/scripts/stories.py --repo WORKTREE digest SLUG`). A persona agent that
+     stories", step 5), with `by=lead`, your one family, and the `digest` field of what
+     `python3 SKILL_DIR/scripts/stories.py --repo WORKTREE digest SLUG` prints for the plan's stories. A persona agent that
      did not answer is named in `silent` with why. A read in which nobody answered is written
      down too, in the form `stages/new.md` gives for it, and started once more; after a second
      one in a row, freeze the stories as below, write the state line `the stories were not read:

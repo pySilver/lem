@@ -49,7 +49,8 @@ does not take the task to its report.
    how it is asked and logged.
 6. **Write the state as you go**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG
    STATUS "one line"`. It is the only thing Lem and the owner's board see of you while you work.
-7. **Stop the way `build.md` ends**: `report.md`, then the state, then tell Lem. Do this before
+7. **Stop the way `build.md` ends**: `report.md`, then the state, then your reply, the report's
+   path, which is how Lem hears that you stopped. Do this before
    every stop, also one you did not plan. A lead that stops without a state block is started
    again from the beginning of this file. When the write of `report.md` is refused to you,
    `build.md` says what to do: never go around the refusal.

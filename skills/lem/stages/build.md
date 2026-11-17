@@ -115,20 +115,20 @@ says for a correction that is a feature, and is no choice of this section. A pla
      and change the story in the plan in the commit that builds the option. A forgotten record
      does not pass: the gate refuses a plan whose stories are not the expected ones. The choice waits the
      settings' `flow.decision_wait` (15 minutes unless the project says otherwise), and it counts
-     from the ask, so tell Lem at once, before anything else: `tell-coordinator` with the line
-     `lem: SLUG choice N waits`, to the address of the brief's `coordinator:` line. Lem asks the
-     owner when that line wakes it. The defender of a plan talk sends it from its companion, and a
-     builder that leads sends it from Lem's own session; the harness file says what of that was
-     checked. A brief with no `coordinator:` line has no address:
-     the choice then reaches Lem at its next turn, through `decisions.py pending`, and may end its
-     wait before the owner sees it.
-
-     Right after that line, give the choice to the experts: the `lem-ask-expert` skill
-     (`load-skill`), with the slug, the choice's number and the files the choice is about. Two
-     experts of two model families answer it in the background, and their advice goes on the
-     owner's card. It also decides what the end of the wait takes, so it is not skipped for an
-     irreversible step either: there it is advice and nothing more. Send
-     `lem: SLUG choice N advised` the same way when both answers are in the record.
+     from the ask, so two things come at once, in this order, as `decisions.py ask` prints them in
+     its `next`. First give the choice to the experts: the `lem-ask-expert` skill (`load-skill`),
+     with the slug, the choice's number and the files the choice is about; its first step writes
+     their brief and starts them in the background, which takes seconds. Two experts of two model
+     families answer it, and their advice goes on the owner's card. It also decides what the end
+     of the wait takes, so it is not skipped for an irreversible step either: there it is advice
+     and nothing more. Then tell Lem: `tell-coordinator` with the line `lem: SLUG choice N
+     waits`, to the address of the brief's `coordinator:` line. Lem asks the owner when that line
+     wakes it, and finds the experts' brief there, so it never starts them a second time. The
+     defender of a plan talk sends it from its companion, and a builder that leads sends it from
+     Lem's own session; the harness file says what of that was checked. A brief with no
+     `coordinator:` line has no address: the choice then reaches Lem at its next turn, through
+     `decisions.py pending`, and may end its wait before the owner sees it. Send `lem: SLUG choice
+     N advised` the same way when both answers are in the record.
 3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
    before you start one that depends on it, run `decisions.py --repo WORKTREE wait SLUG N`. It
    returns when the owner answered, when the wait is over, or after nine minutes: run it again
@@ -198,8 +198,10 @@ repository's root, never a path inside the worktree: the worktree is gone when t
 - **the branch and its tip**: the branch's name and the commit `git rev-parse HEAD` prints.
 
 Then write the state (`ready`, or `held`, `blocked` or `planned` with the line that says why),
-and tell Lem. A builder's reply is the report's path and nothing else. The defender of a plan
-talk uses `tell-coordinator` (`prompts/defender.md`).
+and stop. A builder that leads tells Lem by its reply, which is the report's path and nothing
+else, and sends no mailbox line for it: its reply already wakes Lem, and a line too would wake it
+twice for one stop. Its only lines are `choice N waits` and `choice N advised`. The defender of a
+plan talk has no such reply and uses `tell-coordinator` (`prompts/defender.md`).
 
 When your agent refuses you the write of `report.md`, do not go around the refusal. Add the line
 `report in the reply` to the state, and make your reply the whole report, in this form: Lem

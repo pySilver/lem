@@ -3,7 +3,7 @@ to the owner. You change nothing: no file of the worktree, no commit, no state b
 under the one that named this file give the task's slug, its worktree, its task directory, and
 the path of `read.json`, which holds what `land.py read` printed: the floor, the facts about the
 change, the reviews before this one, your inputs, and `attempt`, the number N that your record
-and your two files carry.
+and your two files carry. `SKILL_DIR` is the directory above this file's.
 
 You get the owner's words, the stories at the top of the plan, the range of commits, the rule
 files that cover the changed files, the project's topics, and the folder of the project's review

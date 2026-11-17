@@ -229,8 +229,10 @@ each start of a lead (`stages/new.md`, "Start a lead"), from its own `AGTERM_SES
 `AGTERM_PANE_ID` and `AGTERM_SOCKET`, so a Lem that started after the brief was first written
 gets the line.
 
-One line, after the report and the state are written, and at once after `decisions.py ask` with
-`lem: SLUG choice N waits`. It reaches Lem as mail that starts with
+From the defender, one line after its report and its state are written. From either, one line
+right after the experts were given a choice (`decisions.py ask`, then the `lem-ask-expert` skill),
+`lem: SLUG choice N waits`, and `lem: SLUG choice N advised` when both answers are in. A builder
+that leads sends no line when it stops: its reply wakes Lem, and a line too would wake it twice. It reaches Lem as mail that starts with
 `[agterm mailbox, not a peer chat message]`; Lem reads the task's state or `decisions.py
 pending`, never the line's claim. Mail is kept in memory only, so a pane that was restarted has
 lost it. A lost end of a task costs nothing but time: the state block is on disk, and `/lem
