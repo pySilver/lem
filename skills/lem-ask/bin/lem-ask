@@ -79,11 +79,16 @@ def load_spec(arg):
     if arg in (None, "-"):
         if sys.stdin.isatty():
             die("no spec: pass a JSON file or pipe one on stdin")
-        raw = sys.stdin.read()
+        try:
+            raw = sys.stdin.buffer.read().decode("utf-8")
+        except UnicodeDecodeError as e:
+            die(f"the spec on stdin is not UTF-8 text: {e}")
     else:
         try:
             with open(os.path.expanduser(arg), encoding="utf-8") as f:
                 raw = f.read()
+        except UnicodeDecodeError as e:
+            die(f"the spec {arg} is not UTF-8 text: {e}")
         except OSError as e:
             die(f"cannot read the spec: {e}")
     try:

@@ -253,6 +253,8 @@ answers=$TASKDIR/experts
 absent=$(experts record "$SLUG" "$c18" --expert fable 2>&1 || true)
 printf '%s\n' '**My answer**' 'after the price, I think' > "$answers/choice-$c18.fable.md"
 badform=$(experts record "$SLUG" "$c18" --expert fable 2>&1 || true)
+printf 'pick: after the price\nwhy: caf\351.\n' > "$answers/choice-$c18.fable.md"
+latin=$(experts record "$SLUG" "$c18" --expert fable 2>&1 || true)
 printf '%s\n' 'pick: the first column' 'why: It reads first.' > "$answers/choice-$c18.fable.md"
 noption=$(experts record "$SLUG" "$c18" --expert fable 2>&1 || true)
 printf '%s\n' 'pick: after the price' 'why: The accountant reads the price first.' '  A note beside it is seen.' > "$answers/choice-$c18.fable.md"
@@ -261,6 +263,7 @@ printf '%s\n' 'None fits' 'why: Both break an import.' > "$answers/choice-$c18.a
 astrad=$(experts record "$SLUG" "$c18" --expert astra | field '(d["expert"], d.get("none"), d["experts_pick"])' || true)
 # the refusal says what the skill allows: one more ask with the same brief, then nothing recorded for that expert
 if grep -qF "choice-$c18.fable.md is not there" <<<"$absent" && grep -qF "is not an answer in the brief's form" <<<"$badform" \
+  && grep -qF "choice-$c18.fable.md is not UTF-8 text" <<<"$latin" && ! grep -q Traceback <<<"$latin" \
   && grep -qF "Ask fable once more with the same brief" <<<"$badform" && grep -qF "record nothing for fable" <<<"$badform" && ! grep -qF "decisions.py advise" <<<"$badform" \
   && grep -qF "the pick of an expert is one of the options of choice $c18, word for word" <<<"$noption" \
   && [ "$fabled" = "('fable', 'after the price', 'The accountant reads the price first. A note beside it is seen.')" ] \

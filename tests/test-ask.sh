@@ -81,6 +81,7 @@ bad "an option id that is not a string" '{"prompt": "p", "options": [{"id": ["a"
 bad "a file that is not a string" '{"prompt": "p", "context": {"code": {"file": 5}}}'
 bad "a size that is no percent" '{"prompt": "p", "size": "big"}'
 bad "a size past 100" '{"prompt": "p", "size": 150}'
+bad "a spec that is not UTF-8" $'{"prompt": "caf\xe9?", "options": ["Yes", "No"]}'
 printf '{"prompt": "p", "options": ["Yes", "No"]}' > "$WORK/plain.json"
 expect "rejects an output in a folder that is not there" 1 error -- "$PY" -I -B "$B" render "$WORK/plain.json" -o "$WORK/no/such/folder/x.html"
 printf '[1]' > "$WORK/defaults-list.json"

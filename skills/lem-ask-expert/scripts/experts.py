@@ -35,6 +35,7 @@ if sys.version_info < (3, 11):
 
 import argparse
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -175,7 +176,11 @@ def cmd_record(repo: Path, slug: str, number: int, expert: str) -> dict:
     answer = task_directory(repo, slug) / "experts" / f"choice-{number}.{expert}.md"
     if not answer.is_file():
         raise ExpertError(f"{answer} is not there: {expert}'s last message goes into it word for word before it is recorded")
-    found = ANSWER.match(answer.read_text(encoding="utf-8").strip())
+    try:
+        written = answer.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise ExpertError(f"{answer} is not UTF-8 text (byte {error.start} does not read): write {expert}'s last message into it as it came") from error
+    found = ANSWER.match(written.strip())
     if found is None:
         raise ExpertError(
             f"{answer} is not an answer in the brief's form (`pick: OPTION` or `none fits`, then `why: ...`). "
@@ -201,6 +206,11 @@ def main() -> None:
     record.add_argument("id", type=int)
     record.add_argument("--expert", required=True, choices=EXPERTS)
     args = parser.parse_args()
+    for arg in sys.argv[1:]:
+        try:
+            arg.encode("utf-8")
+        except UnicodeEncodeError:
+            sys.exit(f"experts.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
     repo = Path(args.repo)
     try:
         if args.command == "brief":
