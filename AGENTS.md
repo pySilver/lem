@@ -437,6 +437,18 @@ build that follows.
   ("Worth adding to backlog now").
 - **agterm, the mailbox chat and revmux stay required** ("as today"), **and agdoc is required
   too**: of the page at the end of a task, "done by agdoc (hard requirement of the Lem)".
+- **Three more commands are no commands of his, and two recipes of the agterm cookbook become
+  required** (his note on the plan, 2026-11-18): "`/lem ask` is suppossed to be called
+  automatically, just like `huddle` today. `/webrev` becomes a required reciepie. (no need for
+  `/lem annotate`) `/backlog` becomes a required reciepie. from
+  https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker (I don't recall why I
+  wanted my own)". Why he had wanted his own, from his ruling of 2026-11-15 above: three stages
+  live on the backlog (the night picks from it, a landing files into it, a request starts from
+  it). Those stages need the item format, which is the recipe's own (`docs/backlog/<slug>.md`
+  with `worth`, `where`, `added`; read in its README on 2026-11-18), not the skill. So the
+  `lem-backlog` skill leaves, the stage texts say the format, and the board's Backlog tab stays
+  (his "Backlog tab - I like this idea"). The recipe's skill tells an agent never to commit an
+  item on its own; Lem's builders load no such skill and file on the task's branch, as he ruled.
 - **A task runs with him or alone, and he can let go at any stage.** "Sometimes I would love to
   know the decisions taken before implementation, and sometimes I want autonomous exection with 2
   artifacts at the end: what decision were taken and why (a beautiful, easy to read HTML file) and

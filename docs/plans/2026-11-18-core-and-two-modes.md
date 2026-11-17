@@ -47,9 +47,20 @@ lands first. Proof: one real small change and one real full change in the scratc
 - `lem-release`, `lem-last-tag` and `lem-pr-review` leave the repository, with their scripts,
   their names in `bin/lem`, their tests, their rows in the README and their part of `NOTICE`.
 - `/lem gate` and `/lem nap` are no commands of the owner's. The gate's skill stays for task 3.
+- `/lem ask` is no command of the owner's either. The question page stays Lem's own, and Lem
+  opens it by itself each time it asks.
+- `/lem annotate` leaves. webrev becomes a required recipe, and Lem opens a plan or a document
+  with it. The setting `tools.annotate` stays as it is.
+- The `lem-backlog` skill leaves, with its sorting script. The agterm cookbook's backlog recipe
+  (its `backlog` skill and its picker) becomes required in its place. The item format is the
+  same: one file for each item in `docs/backlog/`, with `worth`, `where` and `added`. Lem's
+  builders keep filing items on the task's branch, and the stage texts say the format in two
+  lines, so no stage needs the skill. The night run reads the items itself. The board's Backlog
+  tab stays, with its one action that gives an item to Lem as a request.
 - Naps make no page: the Dreams tab, its pictures and its place in the README go. A nap still
   writes its note for the retro. `[naps]` stays one row of the settings page.
-- agdoc moves from "recommended" to "required" in the machine check and the install page.
+- agdoc, webrev and the backlog recipe move to "required" in the machine check and the install
+  page.
 
 Proof: `tests/lem-command.sh` and `tests/lem-machine.sh`; a search of every text for a name that
 is gone.
