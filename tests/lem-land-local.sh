@@ -71,22 +71,22 @@ instead_pending=$(wdec pending waited-change | field '[c["id"] for c in d["waiti
 local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
 text=$LOCAL/.git/lem/tasks/waited-change/pr.md
 agent=$(local_land land waited-change --by agent 2>&1 || true)
-if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes): a request is never proposed over an open question of his" <<<"$waiting" \
+if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes): a request is never proposed over an open question of the owner's" <<<"$waiting" \
   && grep -qF "decisions.py answer waited-change 2 --chose OPTION --words TEXT" <<<"$waiting" && grep -qF "decisions.py timeout waited-change 2" <<<"$waiting" \
   && grep -qF "choice 3 of waited-change waits for the owner (Tell the merchants)" <<<"$forever" && grep -qF "decisions.py answer waited-change 3 --chose OPTION --words TEXT" <<<"$forever" \
   && ! grep -qF "timeout waited-change 3" <<<"$forever" && [ "$(status_in "$LOCAL" waited-change)" = open ] \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
-  && [ "$(sed -n 3p "$text")" = "- choice 2 was taken by timeout (Where the word goes): \"the first line\", the recommended option, after the owner's wait of 15 minutes ended with no answer; he answered later with the same (his reason: The importer reads the first line)" ] \
-  && [ "$(sed -n 4p "$text")" = "- choice 4 was taken by timeout (The case of the word): \"lower case\", the recommended option, after the owner's wait of 15 minutes ended with no answer; he answered later with \"upper case\", which differs (his words: \"Make it upper case.\"; his reason: The header is in upper case)" ] \
+  && [ "$(sed -n 3p "$text")" = "- choice 2 was taken by timeout (Where the word goes): \"the first line\", the recommended option, after the owner's wait of 15 minutes ended with no answer; the owner answered later with the same (the owner's reason: The importer reads the first line)" ] \
+  && [ "$(sed -n 4p "$text")" = "- choice 4 was taken by timeout (The case of the word): \"lower case\", the recommended option, after the owner's wait of 15 minutes ended with no answer; the owner answered later with \"upper case\", which differs (the owner's words: \"Make it upper case.\"; the owner's reason: The header is in upper case)" ] \
   && [ -z "$(sed -n 5p "$text")" ] && [ "$instead_pending" = "[]" ] \
   && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Stories|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
   && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- The name of the file: \"w.txt\", by the lead. The other files have one letter.
-- Where the word goes: \"the first line\", by the timeout, after the owner's wait of 15 minutes. A reader sees it at once. He answered later with the same (his reason: The importer reads the first line).
-- Tell the merchants: \"send the email\", by the owner, over the recommended \"send nothing\" (recommended because: Nothing they see changes). His words: \"Yes, send it.\" His reason: The merchants asked for it.
-- The case of the word: \"lower case\", by the timeout, after the owner's wait of 15 minutes. The test reads it so. He answered later with \"upper case\", which differs (his words: \"Make it upper case.\"; his reason: The header is in upper case).
+- Where the word goes: \"the first line\", by the timeout, after the owner's wait of 15 minutes. A reader sees it at once. The owner answered later with the same (the owner's reason: The importer reads the first line).
+- Tell the merchants: \"send the email\", by the owner, over the recommended \"send nothing\" (recommended because: Nothing they see changes). The owner's words: \"Yes, send it.\" The owner's reason: The merchants asked for it.
+- The case of the word: \"lower case\", by the timeout, after the owner's wait of 15 minutes. The test reads it so. The owner answered later with \"upper case\", which differs (the owner's words: \"Make it upper case.\"; the owner's reason: The header is in upper case).
 - Which line holds the word: \"the second line\", by the owner, as recommended. A header goes first.
-- Email the customers: \"Email only the beta testers.\", by the owner, none of the options; the recommended was \"email nobody\" (recommended because: Nobody asked for it). His reason: They asked to hear first.
-- The word's line ending: \"A line break, and a second line with the date.\", by the owner, none of the options; the recommended was \"a line break\" (recommended because: Every file ends so). He gave no reason." ] \
+- Email the customers: \"Email only the beta testers.\", by the owner, none of the options; the recommended was \"email nobody\" (recommended because: Nobody asked for it). The owner's reason: They asked to hear first.
+- The word's line ending: \"A line break, and a second line with the date.\", by the owner, none of the options; the recommended was \"a line break\" (recommended because: Every file ends so). The owner gave no reason." ] \
   && grep -qF "the request is not green (choice 2 was taken by timeout" <<<"$agent"; then
   pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken by timeout is a line of its own that is not green, with a late answer, the same or not, and his own words and reason; an answered choice is no cause of not green by itself; a decision of the owner's that is none of the options settles its choice, also an irreversible one, so the request is proposed; and the text lists each decision of the record with who took it and its reason, the recommendation's reason never as the owner's"
 else
@@ -125,13 +125,13 @@ agent=$(local_land land expert-change --by agent 2>&1 || true)
 if grep -qF "choice 1 of expert-change waits for the owner (Where the word goes)" <<<"$held" \
   && grep -qF "\`decisions.py timeout expert-change 1\` takes the experts' shared pick, or the recommended option when they split" <<<"$held" \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
-  && [ "$(sed -n 3p "$text")" = "- choice 1 was taken by the experts (Where the word goes): \"the last line\", the option both picked, while the owner was away, before his wait ended. Fable: A reader of the file looks at its end first. Astra: The importer reads the last line" ] \
-  && [ "$(sed -n 4p "$text")" = "- choice 2 was taken by the experts (The case of the word): \"upper case\", the option both picked, after the owner's wait of 15 minutes ended with no answer. Fable: The header is in upper case. Astra: The other words of the header are in upper case; he answered later with \"lower case\", which differs (his reason: The test reads it so)" ] \
+  && [ "$(sed -n 3p "$text")" = "- choice 1 was taken by the experts (Where the word goes): \"the last line\", the option both picked, while the owner was away, before the wait ended. Fable: A reader of the file looks at its end first. Astra: The importer reads the last line" ] \
+  && [ "$(sed -n 4p "$text")" = "- choice 2 was taken by the experts (The case of the word): \"upper case\", the option both picked, after the owner's wait of 15 minutes ended with no answer. Fable: The header is in upper case. Astra: The other words of the header are in upper case; the owner answered later with \"lower case\", which differs (the owner's reason: The test reads it so)" ] \
   && [ "$(sed -n 5p "$text")" = "- choice 3 was taken by timeout (The word's line ending): \"a line break\", the recommended option, after the owner's wait of 15 minutes ended with no answer" ] \
-  && [ "$(sed -n 6p "$text")" = "- choice 4 was taken by the experts (The name of the file): \"word.txt\", the option both picked, while the owner was away, before his wait ended. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds" ] \
+  && [ "$(sed -n 6p "$text")" = "- choice 4 was taken by the experts (The name of the file): \"word.txt\", the option both picked, while the owner was away, before the wait ended. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds" ] \
   && [ -z "$(sed -n 7p "$text")" ] \
   && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- Where the word goes: \"the last line\", by the experts, the option both picked, while the owner was away; the recommended was \"the first line\". Fable: A reader of the file looks at its end first. Astra: The importer reads the last line.
-- The case of the word: \"upper case\", by the experts, the option both picked, after the owner's wait of 15 minutes; the recommended was \"lower case\". Fable: The header is in upper case. Astra: The other words of the header are in upper case. He answered later with \"lower case\", which differs (his reason: The test reads it so).
+- The case of the word: \"upper case\", by the experts, the option both picked, after the owner's wait of 15 minutes; the recommended was \"lower case\". Fable: The header is in upper case. Astra: The other words of the header are in upper case. The owner answered later with \"lower case\", which differs (the owner's reason: The test reads it so).
 - The word's line ending: \"a line break\", by the timeout, after the owner's wait of 15 minutes. Every file ends so.
 - The name of the file: \"word.txt\", by the experts, the option both picked, while the owner was away; it is also the recommended. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds." ] \
   && grep -qF "the request is not green (choice 1 was taken by the experts" <<<"$agent" && [ "$(status_in "$LOCAL" expert-change)" = open ]; then
@@ -185,7 +185,7 @@ if grep -qF "story 2 of 20261115-story-departs.md says 'The file ends with a lin
   && grep -qxF -- '- story 2: removed, was "The file has one line.". A second line holds the date now, after choice 1 (The one-line rule), where the owner took "no such rule".' "$text" \
   && grep -qxF -- '- story 2: added, "The file ends with a line break.". The importer reads whole lines only. By the lead.' "$text" \
   && [ -n "$(approved_day story-departs)" ] \
-  && grep -qxF -- "- the stories were read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; he approved them on $(approved_day story-departs)" "$text" \
+  && grep -qxF -- "- the stories were read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; the owner approved them on $(approved_day story-departs)" "$text" \
   && grep -qxF -- "- the stories changed after the personas' read, by a change of the build, and the change was not read" "$text" \
   && grep -qF "the request is not green (story 2 was removed during the build" <<<"$agent"; then
   pass "a story a choice of the build removed and one the lead added are not green, each with its line first, what it was or is, its reason and the choice that led to it; a story changes only after its choice is answered; the gate refuses the plan until both are recorded; and the checks say that two model families read the stories, when he approved them, and that a change of the build came after the read"
@@ -214,12 +214,12 @@ lstories approve read-doubt --file "$WORK/doubt.md" >/dev/null 2>&1 || true
 local_land propose read-doubt --title "fix: r" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.git/lem/tasks/read-doubt/pr.md
 if grep -qF "read-doubt is a feature, and the event log has no \`stories.read\`" <<<"$unread_feature" && grep -qF 'stages/new.md' <<<"$unread_feature" \
-  && grep -qF "the newest read of read-doubt's stories found a split between the two families, and no approval of his came after it" <<<"$split_unseen" \
-  && grep -qF "found 1 flagged story, and no approval of his came after it" <<<"$flag_unseen" && grep -qF "stories.py approve read-doubt --file FILE" <<<"$flag_unseen" \
-  && grep -qF "the newest read of read-doubt's stories found a split between the families: the stories wait for the owner, and only his approval freezes them" <<<"$freeze_split" \
+  && grep -qF "the newest read of read-doubt's stories found a split between the two families, and no approval of the owner's came after it" <<<"$split_unseen" \
+  && grep -qF "found 1 flagged story, and no approval of the owner's came after it" <<<"$flag_unseen" && grep -qF "stories.py approve read-doubt --file FILE" <<<"$flag_unseen" \
+  && grep -qF "the newest read of read-doubt's stories found a split between the families: the stories wait for the owner, and only the owner's approval freezes them" <<<"$freeze_split" \
   && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
-  && grep -qxF -- "- the stories were read by 2 of 3 personas asked, two model families (opus, sol); 1 of 1 story flagged; the two families split; no answer from the accountant, sol (the model was at capacity); he approved them on $(approved_day read-doubt)" "$text" \
-  && grep -qxF -- "- the stories changed after the personas' read, by his approval 1, and the change was not read" "$text"; then
+  && grep -qxF -- "- the stories were read by 2 of 3 personas asked, two model families (opus, sol); 1 of 1 story flagged; the two families split; no answer from the accountant, sol (the model was at capacity); the owner approved them on $(approved_day read-doubt)" "$text" \
+  && grep -qxF -- "- the stories changed after the personas' read, by the owner's approval 1, and the change was not read" "$text"; then
   pass "a feature with no read of its stories is not proposed, nor one whose newest read flagged a story or split the families with no approval of his after it; a partial read counts and says who did not answer and why; and stories he changed after the read are one line that is no cause of not green"
 else
   fail "the read before a proposal: $unread_feature / $split_unseen / $freeze_split / $flag_unseen / $(cat "$text" 2>/dev/null)"
@@ -250,7 +250,7 @@ if [ "$(sed -n 1p "$WORK/first-pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "
   && grep -qxF -- "$history_line" "$WORK/first-pr.md" && ! grep -q "after the personas' read" "$WORK/first-pr.md" \
   && [ "$(sed -n 1p "$text" | cut -c1-10)" = '**Green.**' ] \
   && grep -qxF -- "$history_line Approved by you afterwards (approval 2)." "$text" \
-  && grep -qxF -- "- the stories were read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; he approved them on $(approved_day after-change)" "$text" \
+  && grep -qxF -- "- the stories were read by 2 of 2 personas asked, two model families (opus, sol); nobody confused; the owner approved them on $(approved_day after-change)" "$text" \
   && ! grep -q "after the personas' read" "$text"; then
   pass "a read of the stories as a recorded change made them is the read of the stories now, and no line says otherwise; a change he approved afterwards stays in the pull request with its reason and the personas' answer, marked as approved by him, and is no cause of not green"
 else
@@ -285,7 +285,7 @@ echo '1. t.txt does not exist on the base branch (git ls-files).' > "$LOCAL/.git
 to_open ticket-word || true
 text=$LOCAL/.git/lem/tasks/ticket-word/pr.md
 if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
-  && grep -qxF -- "- the stories were read by 2 of 2 personas asked, one model family (opus); nobody confused; the build started with no wait for him" "$text" \
+  && grep -qxF -- "- the stories were read by 2 of 2 personas asked, one model family (opus); nobody confused; the build started with no wait for the owner" "$text" \
   && ! grep -q "after the personas' read" "$text" \
   && grep -qxF -- "- the scout's report, the facts of the code the stories were written from: \`$LOCAL/.git/lem/tasks/ticket-word/scout.md\`" "$text" \
   && grep -q "by is lem, when Lem ran the read" <<<"$bad_by" && grep -q "a read asks two personas at the least" <<<"$bad_one" \
@@ -315,7 +315,7 @@ over_his_file=$(lstories approve after-change --read --file "$WORK/as-correction
 kept_contracts=$("$PY" -c 'import json, sys; print([(json.load(open(f))["number"], json.load(open(f))["by"], json.load(open(f))["kind"]) for f in sys.argv[1:]])' \
   "$LOCAL/.git/lem/tasks/ticket-word/stories.json" "$LOCAL/.git/lem/tasks/after-change/stories.json" 2>&1 || true)
 if grep -qF "ticket-word has approval 1 of its stories already (by read): a read freezes only the first contract" <<<"$refreeze" \
-  && grep -qF "A story changes through its record, \`decisions.py story ticket-word ...\`, and the kind only through his own approval" <<<"$refreeze" \
+  && grep -qF "A story changes through its record, \`decisions.py story ticket-word ...\`, and the kind only through the owner's own approval" <<<"$refreeze" \
   && grep -qF "after-change has approval 2 of its stories already (by owner): a read freezes only the first contract" <<<"$over_his" \
   && grep -qF "it takes no --file" <<<"$over_his_file" && grep -qF "it takes no --file" <<<"$refile" \
   && [ "$kept_contracts" = "[(1, 'read', 'feature'), (2, 'owner', 'feature')]" ]; then
@@ -355,7 +355,7 @@ if grep -q "a read in which nobody answered has families:='\[\]'" <<<"$empty_fam
   && grep -q '"by": "read"' <<<"$freeze_twice" \
   && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = "- the stories were not read: the personas' read was started twice and nobody answered; no answer from the buyer, opus (the model was at capacity); no answer from the clerk, opus (the model was at capacity)" ] \
-  && grep -qxF -- "- the stories were not read by the personas: 2 reads in a row, and none of the 2 personas asked answered; the build started with no wait for him" "$text" \
+  && grep -qxF -- "- the stories were not read by the personas: 2 reads in a row, and none of the 2 personas asked answered; the build started with no wait for the owner" "$text" \
   && grep -qF "the request is not green (the stories were not read" <<<"$twice_agent"; then
   pass "a read in which nobody answered is written down with no family and each source named, and started once more: after one the request is not proposed and the stories are not frozen; after the second the build goes on, the stories are frozen as read, and the request is not green with that reason first"
 else
@@ -369,7 +369,7 @@ lstories approve one-word --file "$WORK/correction.md" --correction >/dev/null 2
 to_open one-word || true
 text=$LOCAL/.git/lem/tasks/one-word/pr.md
 if [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] && [ -n "$(approved_day one-word)" ] \
-  && grep -qxF -- "- a correction: not read by the personas; Lem approved it in his name on $(approved_day one-word), as a correction" "$text" \
+  && grep -qxF -- "- a correction: not read by the personas; Lem approved it in the owner's name on $(approved_day one-word), as a correction" "$text" \
   && ! grep -q 'the stories were read by' "$text"; then
   pass "a correction approved in his name is proposed with the line that the personas did not read it and when Lem approved it for him"
 else
@@ -403,10 +403,10 @@ lstories approve only-me --file "$WORK/mine.md" >/dev/null 2>&1 || true
 local_land propose only-me --title "feat: m" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.git/lem/tasks/only-me/pr.md
 skipped_day=$("$PY" -c 'import json, sys; print(json.loads(open(sys.argv[1]).readline())["at"][:10])' "$LOCAL/.git/lem/tasks/only-me/decisions.jsonl" 2>/dev/null || true)
-if grep -qF "the owner's word to skip the personas' read of only-me's stories is on record, and no approval of his came after it" <<<"$unapproved" \
+if grep -qF "the owner's word to skip the personas' read of only-me's stories is on record, and no approval of the owner's came after it" <<<"$unapproved" \
   && grep -qF "stories.py approve only-me --file FILE" <<<"$unapproved" \
   && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] && [ -n "$skipped_day" ] \
-  && grep -qxF -- "- the stories: not read by the personas, on his word ($skipped_day); he approved them" "$text" \
+  && grep -qxF -- "- the stories: not read by the personas, on the owner's word ($skipped_day); the owner approved them" "$text" \
   && ! grep -q 'the stories were read by\|no read by the personas is on record' "$text" \
   && grep -q '"event": "proposed", "task": "only-me".*"green": true' "$LOCAL/.git/lem/events.jsonl"; then
   pass "a feature whose stories name only the developer lands with no read on his recorded word and his approval after it: green, with the line that the personas did not read them on his word and that he approved them; his word with no approval after it is refused"
@@ -439,9 +439,9 @@ approved_late=$(local_land propose rare-word --title "feat: r" --notes "$NOTES" 
 skip_read rare-word owner >/dev/null
 lstories approve rare-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
 said_late=$(local_land propose rare-word --title "feat: r" --notes "$NOTES" 2>&1 || true)
-if grep -qF "a lead of rare-word started before his approval after his word to skip the personas' read" <<<"$approved_late" \
+if grep -qF "a lead of rare-word started before the owner's approval that came after the word to skip the personas' read" <<<"$approved_late" \
   && grep -qF "on the rare path the read always runs" <<<"$approved_late" && grep -qF "stages/plan.md" <<<"$approved_late" \
-  && grep -qF "a lead of rare-word started before his word to skip the personas' read" <<<"$said_late" \
+  && grep -qF "a lead of rare-word started before the owner's word to skip the personas' read" <<<"$said_late" \
   && [ ! -e "$LOCAL/.git/lem/tasks/rare-word/pr.md" ]; then
   pass "on the rare path his word to skip the read is refused: a lead that started before his word, or before his approval after it, wrote the stories, and the personas read them"
 else

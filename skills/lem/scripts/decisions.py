@@ -575,7 +575,7 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
         if not instead and chose not in decision["options"]:
             raise DecisionError(
                 f"the answer to choice {number} is one of its options, word for word: {'; '.join(decision['options'])}. "
-                "Put the owner's own words in --words. When what he decided fits none of them, settle the choice with "
+                "Put the owner's own words in --words. When what the owner decided fits none of them, settle the choice with "
                 "--instead TEXT, never with a new `decisions.py log`, so it does not wait for ever",
             )
         if decision["state"] == "waits" and (decision["irreversible"] or left(decision) > 0):
@@ -592,7 +592,7 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
         return made
     return {**made, "state": taken["state"], "taken": taken["chose"], "timeout_written": taken["timeout_written"], "next": (
         "the answer is the action that was taken: nothing more to do" if chose == taken["chose"]
-        else f"\"{taken['chose']}\" was taken without him, and the answer differs: it is a correction. Tell the lead while the task builds; after that it is a new ask"
+        else f"\"{taken['chose']}\" was taken without the owner, and the answer differs: it is a correction. Tell the lead while the task builds; after that it is a new ask"
     )}
 
 
@@ -688,8 +688,8 @@ def main() -> None:
     answer.add_argument("id", type=int)
     answer.add_argument("--chose", metavar="OPTION", help="the option the owner's answer takes, word for word")
     answer.add_argument("--instead", metavar="TEXT", help="the owner's decision, when it is none of the options; it settles the choice")
-    answer.add_argument("--words", help="the owner's answer as he gave it, when it is not the option's text")
-    answer.add_argument("--why", help="the owner's own reason, in his words, when he gave one; never the recommendation's")
+    answer.add_argument("--words", help="the owner's answer as given, when it is not the option's text")
+    answer.add_argument("--why", help="the owner's own reason, in the owner's words, when one was given; never the recommendation's")
     timeout = commands.add_parser("timeout")
     timeout.add_argument("slug")
     timeout.add_argument("id", type=int)
@@ -703,7 +703,7 @@ def main() -> None:
     settle = commands.add_parser("settle")
     settle.add_argument("slug")
     settle.add_argument("id", type=int)
-    settle.add_argument("--away", action="store_true", help="the owner is away, as his own words or his away channel say")
+    settle.add_argument("--away", action="store_true", help="the owner is away, as the owner's own words or away channel say")
     commands.add_parser("list").add_argument("slug")
     args = parser.parse_args()
     for arg in sys.argv[1:]:
@@ -737,8 +737,8 @@ def main() -> None:
             elif args.command == "settle":
                 if not args.away:
                     raise DecisionError(
-                        "settle takes a choice before its wait ends only because the owner is away: add --away when his own words "
-                        "or his away channel say so (`stages/new.md`); otherwise the choice waits its time",
+                        "settle takes a choice before its wait ends only because the owner is away: add --away when the owner's own words "
+                        "or away channel say so (`stages/new.md`); otherwise the choice waits its time",
                     )
                 result = cmd_settle(task, args.id)
             else:

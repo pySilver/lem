@@ -1085,8 +1085,8 @@ if [ "$(field '(d["by"], d["kind"], len(d["digest"]), [s["n"] for s in d["storie
   && [ "$("$PY" -c 'import json, sys; print(json.load(open(sys.argv[1]))["text"] == open(sys.argv[2]).read())' "$kept_stories" "$WORK/approved.md" 2>/dev/null)" = True ] \
   && [ "$(grep -c '"event": "stories.approved", "task": "approved-note", "by": "owner"' "$ST/.git/lem/events.jsonl")" = 1 ] \
   && [ "$kept_now" = "('owner', '$(field 'd["digest"]' <<<"$approved" 2>/dev/null)', ['The note file holds the gift note of order 1042: \"for Ania\".', 'An order with no gift note has the line \"1043,\" and no word after the comma.'])" ] \
-  && grep -q "story 1 of tested.md has a test line: the stories he approves have none, and the lead adds them in the plan" <<<"$tested" \
-  && grep -q "says .Kind: feature.: a feature waits for his own yes" <<<"$not_one" && grep -q "approve needs --file" <<<"$no_file" \
+  && grep -q "story 1 of tested.md has a test line: the stories the owner approves have none, and the lead adds them in the plan" <<<"$tested" \
+  && grep -q "says .Kind: feature.: a feature waits for the owner's own yes" <<<"$not_one" && grep -q "approve needs --file" <<<"$no_file" \
   && [ "$(grep -c '"event": "stories.approved"' "$ST/.git/lem/events.jsonl")" = 1 ]; then
   pass "approve keeps the stories the owner approved, before the task has a worktree: their text as written, a digest and who approved them, with one event for the board; a file with a test line, a feature as a correction and no file are refused"
 else
@@ -1209,7 +1209,7 @@ kind=$(stories show approved-note 2>&1 || true)
 aplan_with '1. The note file holds the code `A  B` for' '   orders 1042 and 1044.' '2. Order 1043 has no note line.'
 kept_spaces=$(stories show approved-note 2>/dev/null | field '(len(d["changes"]), d["stories"][0]["text"])' 2>&1 || true)
 if [ "$reset" = "(0, ['$code1', 'Order 1043 has no note line.'])" ] && [ "$spaced" = "('$code1', '$code2')" ] \
-  && grep -qF "20261116-approved-note.md says \`Kind: correction\`, and he approved its stories as a feature: a change of the kind is his only" <<<"$kind" \
+  && grep -qF "20261116-approved-note.md says \`Kind: correction\`, and the owner approved its stories as a feature: a change of the kind is the owner's only" <<<"$kind" \
   && [ "$kept_spaces" = "(1, '$code2')" ]; then
   pass "his next approval starts the story changes again; a change keeps its texts as typed, two spaces of a literal value match, and a story broken over two lines is the same story; a plan of another kind than the approved one is refused"
 else
@@ -1236,8 +1236,8 @@ fi
 printf '%s\n' '## Stories' '' 'Kind: correction, because it is one sentence.' '' '1. The note file omits the code for order 1042.' > "$WORK/omits.md"
 over_feature=$(stories approve approved-note --file "$WORK/omits.md" --correction 2>&1 || true)
 contract=$(stories approved approved-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"], d["approved"]["kind"], d["approved"]["stories"][0]["text"])' 2>&1 || true)
-if grep -qF "approved-note has approval 5 of its stories already (by owner): Lem approves a correction in his name only as the first contract" <<<"$over_feature" \
-  && grep -qF "the kind only through his own approval" <<<"$over_feature" && [ "$contract" = "(5, 'owner', 'feature', '$code1')" ]; then
+if grep -qF "approved-note has approval 5 of its stories already (by owner): Lem approves a correction in the owner's name only as the first contract" <<<"$over_feature" \
+  && grep -qF "the kind only through the owner's own approval" <<<"$over_feature" && [ "$contract" = "(5, 'owner', 'feature', '$code1')" ]; then
   pass "Lem's approval of a correction in his name is only a task's first contract: over his approved feature it is refused, and his stories and their kind stay"
 else
   fail "a correction over his feature: $over_feature / $contract"

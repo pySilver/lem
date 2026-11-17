@@ -266,8 +266,8 @@ approved, which the lead may not change without the record saying so.
 
    The landing knows his word by `--by owner` and those two texts, word for word, and takes it
    only with an approval of his after it and before any lead of the task started; the pull request
-   then says "the stories: not read by the personas, on his word (DATE); he approved them", and
-   stays green, since the decision was his. On the rare path this question is never asked: there
+   then says "the stories: not read by the personas, on the owner's word (DATE); the owner
+   approved them", and stays green, since the decision was his. On the rare path this question is never asked: there
    the read is the only approval (`stages/plan.md`, step 1), and the landing refuses a word to
    skip it that comes after the lead started.
 6. **His yes.**

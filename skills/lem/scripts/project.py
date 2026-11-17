@@ -316,7 +316,7 @@ decision_wait = {decision_wait}
 [corrections]
 # Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
 # message the owner types, with the agent message it answers, to the Jev decision model. That
-# is the owner's choice, so it is false until he says yes. `true` here, in git, is a yes for
+# is the owner's choice, so it is false until the owner says yes. `true` here, in git, is a yes for
 # everybody who works in this repository with the hook: with Lem as a plugin the hook comes with
 # the install, with links the owner registers it by one command of Lem's setup. One person says
 # no for themselves with `collect = false` under [corrections] in .lem/project.local.toml.
@@ -339,7 +339,7 @@ collect = false
 # The skill or command the owner marks up a plan or a draft with. "{annotate}" is the one Lem
 # recommends, a recipe of the agterm cookbook that you install; name your own instead.
 annotate = "{annotate}"
-# How a question that asks the owner to choose or to approve reaches him. "{ask}" comes with
+# How a question that asks the owner to choose or to approve reaches the owner. "{ask}" comes with
 # Lem and shows a page with the options side by side. "terminal" asks in the conversation, as a
 # numbered list. Or name a skill or a command of your own.
 ask = "{ask}"

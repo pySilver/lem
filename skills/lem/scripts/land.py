@@ -213,7 +213,7 @@ which Lem asks for only when every story names only the developer, is a decision
 two texts of `READ_SKIP`, and it counts only with an approval of his after it, both before the
 first state that names a lead. A word or an approval after a lead started is the rare path's,
 where the read always runs, and is refused. Then the checks say "the stories: not read by the
-personas, on his word (DATE); he approved them", which is no cause of not green, since the
+personas, on the owner's word (DATE); the owner approved them", which is no cause of not green, since the
 decision was his. It also refuses one whose newest read flagged a story or
 showed a split between the families with no approval of his at or after it; the rare path's
 freeze of a read (`stories.py approve --read`) is no approval of his. A read in which nobody
@@ -1307,7 +1307,7 @@ def read_form(read: dict) -> bool:
 
 def read_skip_form(slug: str) -> str:
     """The command that writes the owner's word to skip the personas' read, as the landing knows it."""
-    return f"`decisions.py log {slug} --by owner --what \"{READ_SKIP['what']}\" --chose \"{READ_SKIP['chose']}\" --why \"HIS ANSWER\"`"
+    return f"`decisions.py log {slug} --by owner --what \"{READ_SKIP['what']}\" --chose \"{READ_SKIP['chose']}\" --why \"THE OWNER'S ANSWER\"`"
 
 
 def read_skipped(task: Task) -> tuple[dict | None, str | None]:
@@ -1335,13 +1335,13 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
         f"(`stages/plan.md`, step 1): the lead runs it and writes `project.py log {task.slug} stories.read` with the form {READ_FORM}"
     )
     if lead is not None and lead < word:
-        return None, f"a lead of {task.slug} started before his word to skip the personas' read: {rare}"
+        return None, f"a lead of {task.slug} started before the owner's word to skip the personas' read: {rare}"
     if lead is not None and (approval is None or lead < approval):
-        return None, f"a lead of {task.slug} started before his approval after his word to skip the personas' read: {rare}"
+        return None, f"a lead of {task.slug} started before the owner's approval that came after the word to skip the personas' read: {rare}"
     if approval is None:
         return None, (
-            f"the owner's word to skip the personas' read of {task.slug}'s stories is on record, and no approval of his came after it: "
-            f"his yes to the stories is kept with `stories.py approve {task.slug} --file FILE` (`stages/new.md`, \"The interview and the stories\", step 7)"
+            f"the owner's word to skip the personas' read of {task.slug}'s stories is on record, and no approval of the owner's came after it: "
+            f"the owner's yes to the stories is kept with `stories.py approve {task.slug} --file FILE` (`stages/new.md`, \"The interview and the stories\", step 7)"
         )
     return {"word": events[word], "approval": events[approval]}, None
 
@@ -1358,14 +1358,14 @@ def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dic
     approval = found.get("approved")
     approved = ""
     if approval and approval["by"] == "owner":
-        approved = f"he approved them on {approval['at'][:10]}"
+        approved = f"the owner approved them on {approval['at'][:10]}"
     elif approval and approval["by"] == "correction":
-        approved = f"Lem approved it in his name on {approval['at'][:10]}, as a correction"
+        approved = f"Lem approved it in the owner's name on {approval['at'][:10]}, as a correction"
     if read and not read["answered"]:
         # propose refuses the first such read, so this is the second in a row at the least
         return (
             f"- the stories were not read by the personas: {quiet_reads} reads in a row, and none of the {read['asked']} personas asked answered"
-            + (f"; {approved}" if approved else "; the build started with no wait for him")
+            + (f"; {approved}" if approved else "; the build started with no wait for the owner")
         )
     if read:
         count = len(read["families"])
@@ -1377,11 +1377,11 @@ def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dic
         )
         if approved:
             return f"{line}; {approved}"
-        return line + "; the build started with no wait for him"
+        return line + "; the build started with no wait for the owner"
     if found["kind"] == "correction" or (approval and approval["by"] == "correction"):
         return "- a correction: not read by the personas" + (f"; {approved}" if approved else "")
     if skipped:
-        return f"- the stories: not read by the personas, on his word ({skipped['word']['at'][:10]}); he approved them"
+        return f"- the stories: not read by the personas, on the owner's word ({skipped['word']['at'][:10]}); the owner approved them"
     return "- the stories: no read by the personas is on record" + (f"; {approved}" if approved else "")
 
 
@@ -1392,7 +1392,7 @@ def unread(read: dict | None, found: dict) -> str | None:
         return None
     # an approval of his after the read changed the stories only when it holds other stories than the read did
     his = [approval for approval in found.get("approvals", []) if approval["by"] == "owner" and approval["at"] >= read["ts"] and approval["digest"] != read["digest"]]
-    what = [*([f"by his approval {his[-1]['number']}"] if his else []), *(["by a change of the build"] if any(change["at"] >= read["ts"] for change in found.get("history", [])) else [])]
+    what = [*([f"by the owner's approval {his[-1]['number']}"] if his else []), *(["by a change of the build"] if any(change["at"] >= read["ts"] for change in found.get("history", [])) else [])]
     return f"- the stories changed after the personas' read{', ' + ' and '.join(what) if what else ''}, and the change was not read"
 
 
@@ -1620,15 +1620,15 @@ def not_green(task: Task, state: dict) -> list[str]:
     for decision in task.decisions():
         # the experts' shared pick, taken while he was away (`settled`) or at the end of his wait
         if decision.get("by") == "experts":
-            when = "while the owner was away, before his wait ended" if decision["state"] == "settled" else f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer"
+            when = "while the owner was away, before the wait ended" if decision["state"] == "settled" else f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer"
             reasons.append(
                 f"choice {decision['id']} was taken by the experts ({decision['what']}): \"{decision['chose']}\", the option both picked, {when}. "
-                f"{experts_said(decision)}{later(decision, '; he answered later with')}",
+                f"{experts_said(decision)}{later(decision, '; the owner answered later with')}",
             )
         elif decision["state"] == "timeout":
             reasons.append(
                 f"choice {decision['id']} was taken by timeout ({decision['what']}): \"{decision['chose']}\", the recommended option, "
-                f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer{later(decision, '; he answered later with')}",
+                f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer{later(decision, '; the owner answered later with')}",
             )
     return reasons
 
@@ -1672,9 +1672,9 @@ def later(decision: dict, lead: str) -> str:
     late = decision["late"]
     said = []
     if late.get("words", late["chose"]) != late["chose"]:
-        said.append(f"his words: \"{late['words']}\"")
+        said.append(f"the owner's words: \"{late['words']}\"")
     if "why" in late:
-        said.append(f"his reason: {reason(late['why'])}")
+        said.append(f"the owner's reason: {reason(late['why'])}")
     told = f" ({'; '.join(said)})" if said else ""
     if late.get("instead"):
         return f"{lead} \"{late['chose']}\", none of the options{told}"
@@ -1692,27 +1692,27 @@ def decided(decision: dict) -> str:
     if decision["state"] == "answered" and decision.get("instead"):
         # his own decision, which none of the options says: the recommendation is named as such
         line += f", none of the options; the recommended was \"{decision['recommended']}\" (recommended because: {reason(decision['why'])})."
-        line += "" if "owner_why" in decision else " He gave no reason."
+        line += "" if "owner_why" in decision else " The owner gave no reason."
     elif decision["state"] == "answered" and decision["chose"] == decision["recommended"]:
         # the recommendation's reason is the reason of the option he took; his own, when he gave one, follows
         line += f", as recommended. {decision['why']}"
     elif decision["state"] == "answered":
         # the recommendation's reason is about the option he did not take: it is named as such, never as his
         line += f", over the recommended \"{decision['recommended']}\" (recommended because: {reason(decision['why'])})."
-        line += "" if "owner_why" in decision else " He gave no reason."
+        line += "" if "owner_why" in decision else " The owner gave no reason."
     elif decision["by"] == "experts":
         # their reasons are the reasons of the option taken; the recommendation's is about another one, or the same
         when = "while the owner was away" if decision["state"] == "settled" else f"after the owner's wait of {decision['wait_minutes']} minutes"
         also = "it is also the recommended" if decision["chose"] == decision["recommended"] else f"the recommended was \"{decision['recommended']}\""
-        line += f", the option both picked, {when}; {also}. {experts_said(decision)}." + (f" {later(decision, 'He answered later with')}." if "late" in decision else "")
+        line += f", the option both picked, {when}; {also}. {experts_said(decision)}." + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
     elif decision["state"] == "timeout":
-        line += f", after the owner's wait of {decision['wait_minutes']} minutes. {decision['why']}" + (f" {later(decision, 'He answered later with')}." if "late" in decision else "")
+        line += f", after the owner's wait of {decision['wait_minutes']} minutes. {decision['why']}" + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
     else:
         line += f" ({decision['said']}). {decision['why']}" if decision["by"] == "personas" else f". {decision['why']}"
     if decision.get("owner_words", decision["chose"]) != decision["chose"]:
-        line += f" His words: \"{decision['owner_words']}\""
+        line += f" The owner's words: \"{decision['owner_words']}\""
     if "owner_why" in decision:
-        line += f" His reason: {decision['owner_why']}"
+        line += f" The owner's reason: {decision['owner_why']}"
     return line
 
 
@@ -1741,7 +1741,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
         out += [f"**Careful**, so a person merges it: {'; '.join(reason(why) for why in state['careful'])}.", ""]
     out += ["## The request", "", *(f"> {line}" for line in (ask or "(the owner's words were not kept for this task)").splitlines()), ""]
     approval = found.get("approved") or {}
-    by = f" Lem approved it in his name on {approval['at'][:10]}; the personas did not read it." if approval.get("by") == "correction" else ""
+    by = f" Lem approved it in the owner's name on {approval['at'][:10]}; the personas did not read it." if approval.get("by") == "correction" else ""
     out += ["## The story", "", f"A small change, because {reason(found['why'])}.{by}", ""]
     for story in found["stories"]:
         out.append(f"{story['n']}. {story['text']}")
@@ -1910,8 +1910,8 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
                 f"{task.slug} is a feature, and the event log has no `stories.read`: the personas read its stories before the build "
                 "(`stages/new.md`, \"The interview and the stories\", step 5; on the rare path `stages/plan.md`, step 1), "
                 f"and whoever ran the read writes `project.py log {task.slug} stories.read` with the form {READ_FORM}. "
-                f"Only the owner skips a read, at the interview and when every story names only the developer: Lem writes his word with {read_skip_form(task.slug)}, "
-                "and he approves the stories after it, both before a lead starts",
+                f"Only the owner skips a read, at the interview and when every story names only the developer: Lem writes the owner's word with {read_skip_form(task.slug)}, "
+                "and the owner approves the stories after it, both before a lead starts",
             )
     if read is not None and not read["answered"] and unanswered(task) < 2:
         raise LandError(
@@ -1922,8 +1922,8 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if read is not None and (read["flagged"] or read["split"]) and not approved_after(found, read):
         doubt = f"{read['flagged']} flagged stor{'y' if read['flagged'] == 1 else 'ies'}" if read["flagged"] else "a split between the two families"
         raise LandError(
-            f"the newest read of {task.slug}'s stories found {doubt}, and no approval of his came after it: the stories with the personas' answers "
-            "on top go to him (`stages/new.md`, \"The interview and the stories\", step 6), and his yes is kept with "
+            f"the newest read of {task.slug}'s stories found {doubt}, and no approval of the owner's came after it: the stories with the personas' answers "
+            "on top go to the owner (`stages/new.md`, \"The interview and the stories\", step 6), and the owner's yes is kept with "
             f"`stories.py approve {task.slug} --file FILE`",
         )
     # Each defect a review saw outside the change has its item in the tip, so that none is lost: one
@@ -1941,19 +1941,19 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             f"the item {defect['item']} of the defect \"{defect['title']}\" (review round {read['round']}) was removed after it was filed"
             + (f", and {len(gone) - 1} more" if len(gone) > 1 else "")
             + f": a builder puts it back with `land.py file {task.slug} --again`, then this step runs again; when the owner does not want it, "
-            "the item stays with `worth: no` and his reason in it, never deleted",
+            "the item stays with `worth: no` and the owner's reason in it, never deleted",
         )
     # A request is never proposed over an open question of the owner's.
     waiting = next((decision for decision in task.decisions() if decision["state"] == "waits"), None)
     if waiting:
         ends = (
-            "it is a step that a later \"no\" cannot reverse, so only his answer ends it"
+            "it is a step that a later \"no\" cannot reverse, so only the owner's answer ends it"
             if waiting["irreversible"] else f"or, after its wait ends at {waiting['deadline']}, `decisions.py timeout {task.slug} {waiting['id']}` takes the experts' shared pick, or the recommended option when they split"
         )
         raise LandError(
-            f"choice {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): a request is never proposed over an open question of his. "
-            f"Lem writes his answer with `decisions.py answer {task.slug} {waiting['id']} --chose OPTION --words TEXT`, the option word for word and his own words beside it, or `--instead TEXT` "
-            f"for a decision of his that is none of the options; {ends}",
+            f"choice {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): a request is never proposed over an open question of the owner's. "
+            f"Lem writes the owner's answer with `decisions.py answer {task.slug} {waiting['id']} --chose OPTION --words TEXT`, the option word for word and the owner's own words beside it, or `--instead TEXT` "
+            f"for a decision of the owner's that is none of the options; {ends}",
         )
     notes = Path(notes_file).read_text(encoding="utf-8") if Path(notes_file).is_file() else None
     if notes is None:

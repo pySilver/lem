@@ -236,8 +236,8 @@ def against(read: dict, changes: dict, name: str, slug: str) -> None:
     )
     if read["kind"] != changes["approved"]["kind"]:
         raise StoriesError(
-            f"{name} says `Kind: {read['kind']}`, and he approved its stories as a {changes['approved']['kind']}: a change of the kind is his only, "
-            f"by his approval of the stories again (`stories.py approve {slug} --file FILE`)",
+            f"{name} says `Kind: {read['kind']}`, and the owner approved its stories as a {changes['approved']['kind']}: a change of the kind is the owner's only, "
+            f"by the owner's approval of the stories again (`stories.py approve {slug} --file FILE`)",
         )
     expected = changes["expected"]
     now = [story["text"] for story in read["stories"]]
@@ -301,7 +301,7 @@ class Task:
         changes = self.changes()
         digest = text_digest(read["kind"], [story["text"] for story in read["stories"]])
         if small and changes["approved"] is None:
-            raise StoriesError(f"the small change's story in {plan} has no approval: Lem approves it in his name before its builder starts, `stories.py approve {self.slug} --file {plan} --correction`")
+            raise StoriesError(f"the small change's story in {plan} has no approval: Lem approves it in the owner's name before its builder starts, `stories.py approve {self.slug} --file {plan} --correction`")
         if changes["approved"] is None:
             return {"task": self.slug, "plan": str(plan), "small": small, **read, "stories_digest": digest, "approved": None, "approvals": [], "changes": [], "history": []}
         against(read, changes, plan.name, self.slug)
@@ -522,7 +522,7 @@ def reads_of(task: Task) -> list[dict]:
 
 # The automatic approvals, which no word of his gave in the moment: the rare path's read, and Lem's
 # approval of a correction in his name. Each is a task's first contract only.
-AUTOMATIC = {"read": "a read freezes only the first contract", "correction": "Lem approves a correction in his name only as the first contract"}
+AUTOMATIC = {"read": "a read freezes only the first contract", "correction": "Lem approves a correction in the owner's name only as the first contract"}
 
 
 def first_contract(task: Task, by: str) -> None:
@@ -534,7 +534,7 @@ def first_contract(task: Task, by: str) -> None:
         number = kept.get("number") or 1 + len(kept.get("history", []))
         raise StoriesError(
             f"{task.slug} has approval {number} of its stories already (by {kept['by']}): {AUTOMATIC[by]}. "
-            f"A story changes through its record, `decisions.py story {task.slug} ...`, and the kind only through his own approval, "
+            f"A story changes through its record, `decisions.py story {task.slug} ...`, and the kind only through the owner's own approval, "
             f"`stories.py approve {task.slug} --file FILE`",
         )
 
@@ -546,15 +546,15 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
     his and an automatic one that come at one time never both pass."""
     source = Path(file)
     if not source.is_file():
-        raise StoriesError(f"{file} is not a file; --file names the stories he approved, in the form `stories.py --help` shows")
+        raise StoriesError(f"{file} is not a file; --file names the stories the owner approved, in the form `stories.py --help` shows")
     text = source.read_text(encoding="utf-8")
     read = parse(text, source.name)
     tested = [story["n"] for story in read["stories"] if story["tests"] or story["no_test"]]
     # the plan's own stories carry the lead's test lines, which are no part of a story's text
     if tested and not plan:
-        raise StoriesError(f"story {tested[0]} of {source.name} has a test line: the stories he approves have none, and the lead adds them in the plan")
+        raise StoriesError(f"story {tested[0]} of {source.name} has a test line: the stories the owner approves have none, and the lead adds them in the plan")
     if by == "correction" and read["kind"] != "correction":
-        raise StoriesError(f"--correction approves a correction's one story in his name, and {source.name} says `Kind: {read['kind']}`: a feature waits for his own yes")
+        raise StoriesError(f"--correction approves a correction's one story in the owner's name, and {source.name} says `Kind: {read['kind']}`: a feature waits for the owner's own yes")
     stories = [{"n": story["n"], "text": story["text"]} for story in read["stories"]]
     # one mark for this exact set of approved texts; the approval itself is known by its number
     digest = text_digest(read["kind"], [story["text"] for story in stories])
@@ -582,7 +582,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
             if last["flagged"] or last["split"]:
                 raise StoriesError(
                     f"the newest read of {task.slug}'s stories found {'a flagged story' if last['flagged'] else 'a split between the families'}: "
-                    "the stories wait for the owner, and only his approval freezes them",
+                    "the stories wait for the owner, and only the owner's approval freezes them",
                 )
         before = task.approved()
         history = [*before.get("history", []), {key: value for key, value in before.items() if key not in ("history", "task", "text")}] if before else []
@@ -603,8 +603,8 @@ def main() -> None:
     parser.add_argument("--repo", default=".", help="a directory inside the repository (default: the current one)")
     parser.add_argument("step", choices=("approve", "approved", "digest", "show", "record", "red"))
     parser.add_argument("slug")
-    parser.add_argument("--file", help="with approve: the stories he approved, in the form above and with no test lines; with digest: the stories to mark")
-    parser.add_argument("--correction", action="store_true", help="with approve: Lem approves a correction's one story in his name")
+    parser.add_argument("--file", help="with approve: the stories the owner approved, in the form above and with no test lines; with digest: the stories to mark")
+    parser.add_argument("--correction", action="store_true", help="with approve: Lem approves a correction's one story in the owner's name")
     parser.add_argument("--read", action="store_true", help="with approve: the lead of the rare path freezes the stories a read in which nobody was confused read")
     args = parser.parse_args()
     try:
@@ -618,12 +618,12 @@ def main() -> None:
         if args.step == "approve":
             if args.read:
                 if args.file is not None:
-                    raise StoriesError("--read freezes the plan's own stories, the ones the read named: it takes no --file; a file of stories is approved by him, without --read")
+                    raise StoriesError("--read freezes the plan's own stories, the ones the read named: it takes no --file; a file of stories is approved by the owner, without --read")
                 # refused before the plan is read, and again under the lock: a task with a contract keeps it
                 first_contract(task, "read")
                 result = cmd_approve(task, task.stories()["plan"], "read", plan=True)
             elif args.file is None:
-                raise StoriesError("approve needs --file: the stories he approved, in the form `stories.py --help` shows, with no test lines")
+                raise StoriesError("approve needs --file: the stories the owner approved, in the form `stories.py --help` shows, with no test lines")
             else:
                 result = cmd_approve(task, args.file, "correction" if args.correction else "owner")
         elif args.step == "approved":

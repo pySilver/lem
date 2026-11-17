@@ -80,7 +80,7 @@ def brief_text(slug: str, number: int, found: dict, stories: dict, place: Path, 
     kind = f"\n\nKind: {stories['kind']}" + (f", because {stories['why']}" if stories.get("why") else "") if stories.get("kind") else ""
     irreversible = (
         f"\nThis step cannot be undone by a later \"no\" ({found['irreversible']}). Your advice goes to the owner; "
-        "it never decides this choice, which waits for his word.\n"
+        "it never decides this choice, which waits for the owner's word.\n"
     ) if found.get("irreversible") else ""
     listed = "\n".join(f"- {file}" for file in files) or "- none named: read what the choice and the plan point at"
     # a choice asked before the run was a part of the record has none to show
@@ -91,7 +91,7 @@ def brief_text(slug: str, number: int, found: dict, stories: dict, place: Path, 
 
 A task met a choice that is the owner's, in its plan or in its build, and the personas left it
 unclear, so it waits for the owner. You are one of two experts who answer it from this brief, each on their own. Your answer
-goes on his card while he decides. When he does not answer in time, the option both experts
+goes on the owner's card during the wait. When no answer comes in time, the option both experts
 picked is taken; when you split, the recommended option is.
 
 Read only. Change no file, run nothing that writes, and commit nothing. The task's worktree is

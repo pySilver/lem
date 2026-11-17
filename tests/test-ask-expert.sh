@@ -192,7 +192,7 @@ decide advise "$SLUG" "$c15" --expert astra --pick "after the price" --why "a" >
 past "$c15"
 overaway=$(decide settle "$SLUG" "$c15" --away 2>&1 || true)
 thentimeout=$(decide timeout "$SLUG" "$c15" | field '(d["chose"], d["by"])' || true)
-if grep -qF "add --away when his own words or his away channel say so" <<<"$noaway" && [ "$noawaycode" = 1 ] \
+if grep -qF "add --away when the owner's own words or away channel say so" <<<"$noaway" && [ "$noawaycode" = 1 ] \
   && grep -qF "the experts have no shared pick for choice $c12 (fable: after the price; no advice of astra yet): settle it again when both advised" <<<"$halfway" \
   && [ "$settled" = "('settled', 'after the price', 'experts', True, ['astra', 'fable'])" ] \
   && grep -qF "choice $c12 does not wait: it is settled, with 'after the price'" <<<"$twice" \
