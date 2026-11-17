@@ -635,7 +635,7 @@ def cmd_polish(task: Task, done: bool) -> dict:
         result["stories"] = None
     folder = backlog_of(task)
     added = [row.split("\t", 1)[1] for row in git(task.worktree, "diff", "--name-status", "--no-renames", before, tip).splitlines() if row.startswith("A\t")]
-    result["filed"] = [path for path in added if folder != "." and path.startswith(folder + "/")]
+    result["filed"] = [path for path in added if path.startswith(folder + "/")]
     script("project.py", task.worktree, "log", task.slug, "polish", f"before={before[:9]}", f"after={tip[:9]}", f"commits:={len(commits)}", f"filed:={json.dumps(result['filed'])}")
     task.keep(polish={"before": before, "after": tip, "done": True, "commits": len(commits), "filed": result["filed"]})
     return result
@@ -693,7 +693,8 @@ def change(task: Task) -> dict:
 
 
 def backlog_of(task: Task) -> str:
-    """The backlog folder, relative to the root of the repository: a path, never a pattern. `.` is the root."""
+    """The backlog folder, relative to the root of the repository: a path, never a pattern, and never the root,
+    which the settings refuse."""
     return Path(task.settings["paths"]["backlog"]["path"]).relative_to(Path(task.settings["root"]).resolve()).as_posix()
 
 
@@ -702,13 +703,12 @@ def covers(task: Task, read: dict, now: dict) -> bool:
     change is the same, or when the change is the reviewed one plus new files of the backlog
     folder and nothing else: `file` writes the defects a review saw outside the change there after
     the review, and that asks for no other review. Any other file does, an item that was on the
-    base too. A folder that is the root gives no such exception, and a record that kept no
-    contents covers only the same change."""
+    base too. A record that kept no contents covers only the same change."""
     if read["patch"] == now["patch"]:
         return True
     was = read.get("contents")
     folder = backlog_of(task)
-    if was is None or folder == ".":
+    if was is None:
         return False
     extra = [path for path in now["contents"] if path not in was]
     return bool(extra) and all(now["contents"].get(path) == entry for path, entry in was.items()) and all(
@@ -1285,7 +1285,7 @@ def cmd_file(task: Task, again: bool) -> dict:
             # The first name that holds this very defect is its item; the first that is free gets it.
             # A name that holds another defect is passed: an extra item is the price, never a lost one.
             for name in names_for(defect):
-                path = name if folder == "." else f"{folder}/{name}"
+                path = f"{folder}/{name}"
                 file = task.worktree / path
                 if holds(file, defect):
                     same.append({"round": read["round"], "title": defect["title"], "item": path})
