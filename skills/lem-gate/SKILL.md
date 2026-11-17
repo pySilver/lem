@@ -85,7 +85,8 @@ picks which card is made; the question still reaches the user either way, and th
 the verdict. Any other question still goes out as a card in the panel's format (the question in
 user terms, the options, the recommendation and what it costs, the strongest dissent, "wrong if",
 the undo cost), and gets the same framing check through `jev`, the spec in `lem-panel`'s
-`references/messages.md`.
+`references/messages.md`; when `jev` is not on PATH (a trial linked into one repository has none),
+run Lem's own copy, `python3 ${CLAUDE_SKILL_DIR}/../lem/scripts/jev.py`, with the same arguments.
 
 ### 4. Ask the user
 

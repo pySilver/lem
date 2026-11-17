@@ -15,9 +15,10 @@ Verdicts: decided (a recorded ruling answers it; cite the file and heading), che
 test or a rule answers it; cite which), cheap (reversible and cheap, so an agent may decide; cite
 why), held (only the user can answer).
 
-The log is the repository's git directory, decide-gate.jsonl: never committed, shared by every
-worktree, and kept when a worktree and its run records are removed, so a week of comparisons
-outlives the plans that produced them.
+The log is `decide-gate.jsonl` in Lem's folder of the repository's git directory (`.git/lem/`):
+never committed, shared by every worktree, and kept when a worktree and its run records are
+removed, so a week of comparisons outlives the plans that produced them. A log an older copy of
+this script kept in the git directory itself is moved there on the first call.
 
 `dir` makes the folder for the question files and their cards and prints its path: `questions/`
 in Lem's folder of the git directory, so a question leaves no file in the working tree.
@@ -27,6 +28,7 @@ in Lem's folder of the git directory, so a question leaves no file in the workin
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -45,7 +47,14 @@ def log_path(repo: Path) -> Path:
     if done.returncode:
         fail(f"{repo} is not inside a git repository")
     common = Path(done.stdout.strip())
-    return (common if common.is_absolute() else repo / common).resolve() / "decide-gate.jsonl"
+    git_dir = (common if common.is_absolute() else repo / common).resolve()
+    path = git_dir / "lem" / "decide-gate.jsonl"
+    old = git_dir / "decide-gate.jsonl"
+    if old.is_file() and not path.exists():
+        # where an older copy kept it, outside the folder Lem's removal deletes: moved once, whole
+        path.parent.mkdir(exist_ok=True)
+        os.replace(old, path)
+    return path
 
 
 def options(argv: list[str], allowed: set[str]) -> dict[str, str]:
@@ -65,12 +74,22 @@ def options(argv: list[str], allowed: set[str]) -> dict[str, str]:
 
 
 def read(path: Path) -> list[dict]:
+    """Every record of the log. A line that does not read is named with its number, never guessed at."""
     if not path.is_file():
         return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    records = []
+    for number, raw in enumerate(path.read_bytes().splitlines(), 1):
+        try:
+            line = raw.decode("utf-8")
+            if line.strip():
+                records.append(json.loads(line))
+        except ValueError as error:
+            fail(f"{path}:{number} does not read as JSON ({error}); this script writes the log, so correct or remove that line")
+    return records
 
 
 def append(path: Path, record: dict) -> None:
+    path.parent.mkdir(exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
@@ -99,6 +118,11 @@ def main(argv: list[str]) -> None:
     if not argv or argv[0] not in {"ask", "answer", "report", "dir"}:
         fail("usage: gate-log.py ask|answer|report|dir ...")
     command, rest = argv[0], argv[1:]
+    for arg in rest:
+        try:
+            arg.encode("utf-8")
+        except UnicodeEncodeError:
+            fail(f"the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
     repo = Path.cwd()
     if "--repo" in rest:
         i = rest.index("--repo")
@@ -107,7 +131,7 @@ def main(argv: list[str]) -> None:
     path = log_path(repo)
     if command == "dir":
         options(rest, set())
-        questions = path.parent / "lem" / "questions"
+        questions = path.parent / "questions"
         questions.mkdir(parents=True, exist_ok=True)
         print(questions)
         return

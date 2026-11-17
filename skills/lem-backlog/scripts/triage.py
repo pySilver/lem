@@ -18,11 +18,15 @@ Each item gets one of three verdicts:
 refresh judges an item when it has no verdict or its text changed since the last one, and
 re-checks a "waiting" item when the default branch has moved since its last check, giving Jev
 the subjects of the commits that landed in between: that is when most triggers fire. Nothing is
-judged on a timer. The verdicts live in the repository's git directory, backlog-triage.json, so
-they are never committed and every worktree shares them; a record whose item is gone is dropped.
+judged on a timer. The verdicts live in Lem's folder of the repository's git directory,
+`.git/lem/backlog-triage.json`, so they are never committed, every worktree shares them, and
+Lem's removal takes them; a record whose item is gone is dropped. A file an older copy of this
+script kept in the git directory itself is moved there on the first run.
 
-Jev is called through the `jev` command (Lem's setup links one, or JEV_BIN names it). An input Jev refuses
-as too long is reported under "unjudged" with the reason; it is never cut down to fit.
+Jev is called through JEV_BIN when it names a command, else the `jev` command on PATH (Lem's setup
+links one for a home), else Lem's own `jev.py` beside this skill, by its path: a trial linked into
+one repository has no command on PATH. An input Jev refuses as too long is reported under
+"unjudged" with the reason; it is never cut down to fit.
 """
 
 # The macOS system python3 (3.9) runs this from a keymap command or a launchd job; it needs this
@@ -106,29 +110,49 @@ def default_branch_head(repo: Path) -> str:
 class Store:
     def __init__(self, repo: Path) -> None:
         common = Path(git(repo, "rev-parse", "--git-common-dir"))
-        self.path = common if common.is_absolute() else (repo / common)
-        self.path = self.path.resolve() / "backlog-triage.json"
-        self.records: dict = json.loads(self.path.read_text()) if self.path.is_file() else {}
+        git_dir = (common if common.is_absolute() else (repo / common)).resolve()
+        self.path = git_dir / "lem" / "backlog-triage.json"
+        old = git_dir / "backlog-triage.json"
+        if old.is_file() and not self.path.exists():
+            # where an older copy kept it, outside the folder Lem's removal deletes: moved once, whole
+            self.path.parent.mkdir(exist_ok=True)
+            os.replace(old, self.path)
+        self.records: dict = {}
+        if self.path.is_file():
+            try:
+                self.records = json.loads(self.path.read_text(encoding="utf-8"))
+            except ValueError as error:
+                fail(f"{self.path} does not read as JSON ({error}); it holds only verdicts, so remove it and run refresh --all")
+            if not isinstance(self.records, dict):
+                fail(f"{self.path} is not an object of verdicts; remove it and run refresh --all")
 
     def save(self) -> None:
+        self.path.parent.mkdir(exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self.records, indent=1, sort_keys=True))
+        tmp.write_text(json.dumps(self.records, indent=1, sort_keys=True), encoding="utf-8")
         tmp.replace(self.path)
 
 
-def jev_bin() -> str:
+# Lem's own client of Jev, beside this skill in the same clone, whether it is linked or loaded as a plugin
+OWN_JEV = Path(__file__).resolve().parents[2] / "lem" / "scripts" / "jev.py"
+
+
+def jev_bin() -> list[str]:
+    """The command that asks Jev: JEV_BIN, the `jev` on PATH, or Lem's own jev.py by its path."""
     found = os.environ.get("JEV_BIN") or shutil.which("jev")
-    if not found:
-        fail("the jev command is not on PATH; run Lem's setup, which links it, or set JEV_BIN to skills/lem/scripts/jev.py of Lem's clone")
-    return found
+    if found:
+        return [found]
+    if not OWN_JEV.is_file():
+        fail(f"no jev command on PATH and no {OWN_JEV}; set JEV_BIN to the jev.py of Lem's clone")
+    return [sys.executable, "-B", str(OWN_JEV)]
 
 
-def judge(jev: str, item_text: str, commits: list[str]) -> dict:
+def judge(jev: list[str], item_text: str, commits: list[str]) -> dict:
     state = f"{CONTEXT}\n\n--- the item ---\n{item_text}"
     if commits:
         state += "\n\n--- commits landed on the default branch since this item was last judged ---\n" + "\n".join(commits)
     spec = {"state": state, "questions": {"triage": {"instructions": INSTRUCTIONS, "choices": VERDICTS}}}
-    done = subprocess.run([jev, "-"], input=json.dumps(spec), capture_output=True, text=True)
+    done = subprocess.run([*jev, "-"], input=json.dumps(spec), capture_output=True, text=True)
     if done.returncode == 3:
         return {"unjudged": done.stderr.strip()}
     if done.returncode:
@@ -152,7 +176,13 @@ def items(repo: Path) -> dict[str, str]:
     folder = backlog_folder(repo)
     if not folder.is_dir():
         fail(f"{folder} does not exist")
-    return {p.stem: p.read_text(encoding="utf-8") for p in sorted(folder.glob("*.md"))}
+    found = {}
+    for path in sorted(folder.glob("*.md")):
+        try:
+            found[path.stem] = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as error:
+            fail(f"{path} is not UTF-8 text (byte {error.start} does not read); save the item as UTF-8")
+    return found
 
 
 def digest(text: str) -> str:

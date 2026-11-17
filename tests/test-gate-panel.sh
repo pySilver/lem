@@ -21,18 +21,32 @@ fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
 gate() { "$PY" -B "$LOG" "$@" --repo "$WORK"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 
+# a log from before it moved under Lem's folder: the first call takes it from there, with its questions
+printf '%s\n' '{"kind": "ask", "ts": "2026-11-01T00:00:00Z", "id": "000-old", "question": "An older question?", "verdict": "held", "cite": "none"}' > "$WORK/.git/decide-gate.jsonl"
 gate ask --id 001-size --question "Which size?" --verdict held --cite "no ruling covers it"
 gate ask --id 002-gmc --question "May an approved promotion be edited?" --verdict decided --cite "promotions-follow-merchant-center.md"
 gate answer --id 002-gmc --answer "only the end time"
-if [ -f "$WORK/.git/decide-gate.jsonl" ] && [ -z "$(git -C "$WORK" status --porcelain --untracked-files=all)" ]; then
-  pass "the log lives in the git directory, not the work tree"
+if [ -f "$WORK/.git/lem/decide-gate.jsonl" ] && [ ! -e "$WORK/.git/decide-gate.jsonl" ] && grep -q '"000-old"' "$WORK/.git/lem/decide-gate.jsonl" \
+  && [ -z "$(git -C "$WORK" status --porcelain --untracked-files=all)" ]; then
+  pass "the log lives in Lem's folder of the git directory, not the work tree, and a log in the old place is moved there with its questions"
 else
-  fail "the log lives in the git directory, not the work tree"
+  fail "the log lives in the git directory, not the work tree: $(ls -A "$WORK/.git" "$WORK/.git/lem" 2>&1)"
+fi
+# Text that is not UTF-8, in an argument or in the log, and a line that was cut off: named, no traceback.
+latin_arg=$(gate ask --id 003-latin --question $'caf\xe9?' --verdict held --cite x 2>&1 || true)
+cp "$WORK/.git/lem/decide-gate.jsonl" "$WORK/.git/gate.kept" && printf '{"kind": "ask", "id": "cut' >> "$WORK/.git/lem/decide-gate.jsonl"
+cut_line=$(gate report 2>&1 || true)
+mv "$WORK/.git/gate.kept" "$WORK/.git/lem/decide-gate.jsonl"
+if grep -qF "the argument b'caf\\xe9?' is not UTF-8 text" <<<"$latin_arg" && grep -qF "decide-gate.jsonl:5 does not read as JSON" <<<"$cut_line" \
+  && ! grep -q Traceback <<<"$latin_arg$cut_line" && [ "$(grep -c '' "$WORK/.git/lem/decide-gate.jsonl")" = 4 ]; then
+  pass "an argument that is not UTF-8 and a line of the log that does not read are named, and nothing is written"
+else
+  fail "the gate log and text that does not read: $latin_arg / $cut_line"
 fi
 if [ "$(status_of gate ask --id 003 --question q --verdict maybe)" = 1 ]; then pass "an unknown verdict is refused"; else fail "an unknown verdict is refused"; fi
 if [ "$(status_of gate answer --id 404 --answer x)" = 1 ]; then pass "an answer to a question never logged is refused"; else fail "an answer to a question never logged is refused"; fi
 out=$(gate report)
-if grep -q 'owner: only the end time' <<<"$out" && grep -q 'owner: (not answered yet)' <<<"$out" && grep -q '2 questions, 1 answered' <<<"$out"; then
+if grep -q 'owner: only the end time' <<<"$out" && grep -q 'owner: (not answered yet)' <<<"$out" && grep -q '3 questions, 1 answered' <<<"$out" && grep -q 'An older question?' <<<"$out"; then
   pass "the report puts each verdict beside its answer and counts them"
 else
   fail "the report puts each verdict beside its answer: $out"

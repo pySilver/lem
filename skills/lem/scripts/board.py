@@ -125,7 +125,7 @@ def backlog(settings: dict) -> dict:
             changed[entry[3:]] = "new" if code == "??" or "A" in code else "edited"
     # who can act next, as the backlog skill's sorting last judged it; that file is read, never written here
     common = Path(git("rev-parse", "--git-common-dir").strip() or ".git")
-    verdicts_file = (common if common.is_absolute() else main / common) / "backlog-triage.json"
+    verdicts_file = (common if common.is_absolute() else main / common) / "lem" / "backlog-triage.json"
     try:
         verdicts = json.loads(verdicts_file.read_text(encoding="utf-8")) if verdicts_file.is_file() else {}
     except ValueError:

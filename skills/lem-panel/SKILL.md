@@ -218,7 +218,9 @@ Without Codex, a fresh Opus subagent challenges instead, and the card says so.
 ### 5. The framing check
 
 Ask Jev whether the card is framed for the user, with the "Framing check" spec from
-`references/messages.md` through the `jev` command. On "not framed", send the
+`references/messages.md` through the `jev` command, or, when `jev` is not on PATH (a trial linked
+into one repository has none), `python3 ${CLAUDE_SKILL_DIR}/../lem/scripts/jev.py`, Lem's own copy,
+with the same arguments. On "not framed", send the
 moderator Jev's verdict and the criteria it failed, once, and check again. A card that still fails
 goes to the user with the check's result on it, never silently.
 

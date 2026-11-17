@@ -1221,12 +1221,33 @@ mkdir -p "$WORK/jevbin"
 printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'printf "{\"answers\": {\"triage\": {\"choice\": \"agent\", \"confidence\": 0.9, \"probabilities\": {\"agent\": 0.9}}}}"' > "$WORK/jevbin/triage-jev"
 chmod +x "$WORK/jevbin/triage-jev"
 TRIAGE=$PWD/skills/lem-backlog/scripts/triage.py
+# a record of the item from before the verdicts moved under Lem's folder: the first run takes it from there
+"$PY" -c 'import hashlib, json, sys; text = open(sys.argv[1], encoding="utf-8").read(); json.dump({"slow-report": {"verdict": "owner", "confidence": 0.7, "hash": hashlib.sha256(text.encode()).hexdigest()[:16], "head": "x", "checked": 0}}, open(sys.argv[2], "w"))' \
+  "$BKL/notes/later/slow-report.md" "$BKL/.git/backlog-triage.json"
 out=$(env JEV_BIN="$WORK/jevbin/triage-jev" "$PY" -B "$TRIAGE" refresh --json --repo "$BKL" 2>/dev/null)
 err=$(env JEV_BIN="$WORK/jevbin/triage-jev" "$PY" -B "$TRIAGE" item other --repo "$BKL" 2>&1 || true)
 if grep -q '"slow-report"' <<<"$out" && ! grep -q '"other"' <<<"$out" && grep -q "no item other.md in $BKL/notes/later" <<<"$err"; then
   pass "the backlog's sorting reads the items of the folder the project's settings name"
 else
   fail "the backlog's folder: $out / $err"
+fi
+if [ "$(field '[e["slug"] for e in d["owner"]]' <<<"$out")" = "['slow-report']" ] && [ -f "$BKL/.git/lem/backlog-triage.json" ] && [ ! -e "$BKL/.git/backlog-triage.json" ]; then
+  pass "the verdicts live in Lem's folder of the git directory, where its removal deletes them, and a file in the old place is moved there with its records"
+else
+  fail "the place of the verdicts: $out / $(ls -A "$BKL/.git" "$BKL/.git/lem" 2>&1)"
+fi
+# With no jev command and no JEV_BIN, as in a trial linked into one repository, Lem's own jev.py runs by its path: with no key it says so, and sends nothing.
+mkdir -p "$WORK/gitonly" && ln -sf "$(command -v git)" "$WORK/gitonly/git"
+printf '%s\n' '# A second item' 'It needs a verdict.' > "$BKL/notes/later/second.md"
+bypath=$(env -i PATH="$WORK/gitonly" HOME="$WORK" "$PY" -B "$TRIAGE" item second --repo "$BKL" 2>&1 || true)
+printf 'caf\351\n' > "$BKL/notes/later/latin.md"
+latin=$(env JEV_BIN="$WORK/jevbin/triage-jev" "$PY" -B "$TRIAGE" refresh --repo "$BKL" 2>&1 || true)
+rm "$BKL/notes/later/latin.md" "$BKL/notes/later/second.md"
+if grep -qF "OPENROUTER_API_KEY is not set" <<<"$bypath" && ! grep -qF "not on PATH" <<<"$bypath" \
+  && grep -qF "notes/later/latin.md is not UTF-8 text" <<<"$latin" && ! grep -q Traceback <<<"$bypath$latin"; then
+  pass "with no jev command the sorting runs Lem's own client by its path, and an item that is not UTF-8 is named"
+else
+  fail "the sorting without a jev command: $bypath / $latin"
 fi
 
 # The backlog tab of the board: board.py writes the items for the page, with what each needs beside its text.
@@ -1270,11 +1291,11 @@ if grep -q '"state": "new"' "$FIRST/.git/lem/backlog.js" && grep -q '"title": "T
 else
   fail "a first backlog item, and the session after --no-open: $(cat "$FIRST/.git/lem/backlog.js" "$FIRST/.git/lem/meta.js" | head -c 500)"
 fi
-printf '%s\n' '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}, "which-currency": {"verdict": "owner", "confidence": 0.58}, "slow-report": {"verdict": "nonsense"}, "gone-item": {"verdict": "agent"}}' > "$BKB/.git/backlog-triage.json"
+printf '%s\n' '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}, "which-currency": {"verdict": "owner", "confidence": 0.58}, "slow-report": {"verdict": "nonsense"}, "gone-item": {"verdict": "agent"}}' > "$BKB/.git/lem/backlog-triage.json"
 "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
-kept=$(cat "$BKB/.git/backlog-triage.json")
+kept=$(cat "$BKB/.git/lem/backlog-triage.json")
 if [ "$(feed '(d["judged"], by["export-drops-columns"]["who"], by["export-drops-columns"]["confidence"], by["which-currency"]["who"], by["slow-report"]["who"])')" = "(True, 'agent', 0.86, 'owner', '')" ] \
-  && [ "$kept" = "$(cat "$BKB/.git/backlog-triage.json")" ] && [ -z "$(git -C "$BKB" status --porcelain -- app)" ]; then
+  && [ "$kept" = "$(cat "$BKB/.git/lem/backlog-triage.json")" ] && [ -z "$(git -C "$BKB" status --porcelain -- app)" ]; then
   pass "with verdicts of the backlog's sorting the file says who can act on each item, an unknown verdict is none, and the board reads that record without a change to it"
 else
   fail "backlog.js with verdicts: $(head -c 400 "$BKB/.git/lem/backlog.js")"
