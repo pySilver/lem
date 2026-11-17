@@ -432,7 +432,7 @@ else
 fi
 rm "$CLAIMS"
 settings_file=$CQ/.lem/project.toml
-sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settings_file.bak"
+sed -i.bak 's/^collect = true$/collect = "yes"/' "$settings_file" && rm "$settings_file.bak" && settled "$CQ"
 if [ "$(status_of project --repo "$CQ" show)" = 1 ]; then pass "a collect value that is not true or false is refused"; else fail "collect type"; fi
 
 # The plugin form: the files Claude Code reads to load this repository as the plugin `lem`.

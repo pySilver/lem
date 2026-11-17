@@ -675,6 +675,37 @@ if [ "$lifted" = "(['a customer is charged the wrong price'], 15, False)" ]; the
 else
   fail "the flow table of a worktree: $lifted"
 fi
+# The settings are read as the base branch's newest commit has them, not as the main checkout has them checked out: a
+# colleague's branch checked out there (`gh pr checkout 57`), or an edit nobody committed, changes nothing a landing,
+# a lead or a review reads, and the line on stderr says so. The settings of an onboarding, on no commit of the base yet,
+# are read from the working tree.
+git -C "$FLOW" switch -q -c feat/colleague
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[flow]' 'topics = []' 'decision_wait = 1' > "$FLOW/.lem/project.toml"
+git -C "$FLOW" commit -q -am "chore: the colleague's settings"
+checked_out=$(project --repo "$FLOW" show 2>"$WORK/flow.err" | field '(d["branch"]["land"], d["flow"]["topics"], d["flow"]["decision_wait"], d["settings_from"][:5])')
+checked_err=$(cat "$WORK/flow.err")
+from_tree=$(project --repo "$WORK/flow-tree" show 2>/dev/null | field '(d["flow"]["topics"], d["flow"]["decision_wait"])')
+git -C "$FLOW" switch -q main
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[flow]' 'topics = []' > "$FLOW/.lem/project.toml"
+edited=$(project --repo "$FLOW" show 2>"$WORK/flow.err" | field '(d["branch"]["land"], d["flow"]["topics"])')
+edited_err=$(cat "$WORK/flow.err")
+git -C "$FLOW" commit -q -am "chore: the owner's new settings"
+committed=$(project --repo "$FLOW" show 2>"$WORK/flow.err" | field '(d["branch"]["land"], d["flow"]["topics"])')
+committed_err=$(cat "$WORK/flow.err")
+ONB=$WORK/onboarding
+git init -q -b main "$ONB" && ident "$ONB" && commit "$ONB" "chore: start"
+git -C "$ONB" switch -q -c chore/lem-setup && project --repo "$ONB" init --base main >/dev/null
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' > "$ONB/.lem/project.toml"
+git -C "$ONB" add -A && git -C "$ONB" commit -q -m "chore: set up Lem"
+onboarding=$(project --repo "$ONB" show 2>&1 | field '(d["branch"]["land"], d["settings_from"])')
+if [ "$checked_out" = "('owner', ['a customer is charged the wrong price'], 15, 'main@')" ] && grep -qF "the main checkout's copy differs" <<<"$checked_err" \
+  && [ "$from_tree" = "(['a customer is charged the wrong price'], 15)" ] \
+  && [ "$edited" = "('owner', ['a customer is charged the wrong price'])" ] && grep -qF "it counts once it is committed on main" <<<"$edited_err" \
+  && [ "$committed" = "('agent', [])" ] && [ -z "$committed_err" ] && [ "$onboarding" = "('agent', 'the working tree')" ]; then
+  pass "the settings are read as the base branch's newest commit has them: a colleague's branch checked out in the main checkout or an uncommitted edit changes nothing, and stderr says so; a commit on the base does; an onboarding's settings, on no commit of the base yet, are read from the working tree"
+else
+  fail "the settings from the base branch: $checked_out / $checked_err / $from_tree / $edited / $edited_err / $committed / $committed_err / $onboarding"
+fi
 settings '[flow]' 'topics = "money"'
 err=$(project --repo "$OLD" show 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "flow.topics" <<<"$err" && ! grep -q Traceback <<<"$err"; then pass "danger topics that are not a list are refused"; else fail "flow.topics as a string: $err"; fi
@@ -1113,12 +1144,12 @@ fi
 echo 'test -f .made-by-setup && sh export.sh | grep -q "1042,for Ania"' > "$stw/tests/env.sh" && git -C "$stw" add -A && git -C "$stw" commit -q -m "test: one that needs a setup" && before=$(git -C "$stw" rev-parse HEAD)
 # shellcheck disable=SC2016
 lacks=$(story3 '3. The export has the note, in a set-up worktree.' '   - test: `sh tests/env.sh` in `tests/env.sh`')
-sed -i.bak 's|^setup = \[\]$|setup = ["touch .made-by-setup"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak 's|^setup = \[\]$|setup = ["touch .made-by-setup"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak" && settled "$ST"
 # shellcheck disable=SC2016
 made=$(story3 '3. The export has the note, in a set-up worktree.' '   - test: `sh tests/env.sh` in `tests/env.sh`' | field '(d["ok"], d["setup"], d["tests"][2]["problem"])')
-sed -i.bak 's|^setup = .*$|setup = ["exit 3"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak 's|^setup = .*$|setup = ["exit 3"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak" && settled "$ST"
 broken=$(criteria red export-has-the-gift-note 2>&1 || true)
-sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak" && settled "$ST"
 # A worktree that a killed run of the check left behind is removed by the next run.
 git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-tip" main && git -C "$ST" worktree lock "$ST/.lem/worktrees/export-has-the-gift-note.red-tip"
 git -C "$ST" worktree add -q --detach "$ST/.lem/worktrees/export-has-the-gift-note.red-999999" main
@@ -1134,7 +1165,7 @@ fi
 # Each run has a worktree and a setup of its own, so what a test writes on the branch does not reach the base run;
 # the result names the files of the branch that the base run lacked.
 echo 'grep -q correct .test-state || exit 1; echo corrupt > .test-state' > "$stw/tests/state.sh" && git -C "$stw" add -A && git -C "$stw" commit -q -m "test: one that changes a file of the setup" && before=$(git -C "$stw" rev-parse HEAD)
-sed -i.bak 's|^setup = .*$|setup = ["echo correct > .test-state"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak 's|^setup = .*$|setup = ["echo correct > .test-state"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak" && settled "$ST"
 # shellcheck disable=SC2016
 state=$(story3 '3. The state is read.' '   - test: `sh tests/state.sh` in `tests/state.sh`')
 lacked=$(criteria red export-has-the-gift-note | field '("export.sh" in d["run_without"], "tests/gift.sh" in d["run_without"], "tests/runner.sh" in d["run_without"])')
@@ -1152,14 +1183,14 @@ watched=$(criteria red export-has-the-gift-note | field 'd["ok"]')
 watched="$watched $(pgrep -f "sleep ${NAP1/./\\.}" | grep -c '' || true)"
 rm "$ST/.git/hooks/post-checkout"
 after_hook=$(git -C "$ST" worktree list | grep -c '')
-sed -i.bak 's|^setup = .*$|setup = ["git worktree lock ."]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak 's|^setup = .*$|setup = ["git worktree lock ."]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak" && settled "$ST"
 locked=$(criteria red export-has-the-gift-note | field 'd["ok"]')
 after_lock="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
 # A worktree that cannot be removed is said beside the failure that came first, and the next run removes it.
-sed -i.bak 's|^setup = .*$|setup = ["chmod 500 ..; exit 3"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak 's|^setup = .*$|setup = ["chmod 500 ..; exit 3"]|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak" && settled "$ST"
 stuck=$(criteria red export-has-the-gift-note 2>&1 || true)
 chmod 700 "$ST/.lem/worktrees"
-sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak" && settled "$ST"
 criteria red export-has-the-gift-note >/dev/null
 after_stuck="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
 # One check of a task at a time: while another process holds the task's lock, a second check is refused.
@@ -1169,7 +1200,7 @@ soon test -s "$WORK/lock.out"
 second=$(criteria red export-has-the-gift-note 2>&1 || true)
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 # A check that is stopped ends the command it runs, and leaves no worktree.
-sed -i.bak "s|^setup = .*\$|setup = [\"sleep $NAP2\"]|" "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak "s|^setup = .*\$|setup = [\"sleep $NAP2\"]|" "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak" && settled "$ST"
 "$PY" -B "$CRITERIA" --repo "$ST" red export-has-the-gift-note > "$WORK/stopped.out" 2>&1 &
 check=$!
 napping() { pgrep -f "sleep ${NAP2/./\\.}" >/dev/null 2>&1; }
@@ -1178,7 +1209,7 @@ started=$(pgrep -f "sleep ${NAP2/./\\.}" | grep -c '' || true)
 kill -TERM "$check" 2>/dev/null || true; wait "$check" 2>/dev/null || true
 left=$(pgrep -f "sleep ${NAP2/./\\.}" | grep -c '' || true)
 after_stop="$(git -C "$ST" worktree list | grep -c '') $(find "$ST/.lem/worktrees" -maxdepth 1 -name '*.red-*' | grep -c '' || true)"
-sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak"
+sed -i.bak 's|^setup = .*$|setup = []|' "$ST/.lem/project.toml" && rm "$ST/.lem/project.toml.bak" && settled "$ST"
 # shellcheck disable=SC2016
 if grep -q 'criterion 3: `sh tests/state.sh` passes on the base commit too' <<<"$state" && [ "$lacked" = "(True, False, True)" ] \
   && [ "$hooked" = 1 ] && [ "$watched" = "True 0" ] && [ "$after_hook" = 2 ] && [ "$locked" = True ] && [ "$after_lock" = "2 0" ] \

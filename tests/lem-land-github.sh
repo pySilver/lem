@@ -608,18 +608,21 @@ if git cat-file -e "ccba3bd^{commit}" 2>/dev/null; then
     ox propose old-pr --title "fix: twelve" --notes "$NOTES" >/dev/null
   )
   opened=$("$PY" -B "$OLDLEM/skills/lem/scripts/project.py" --repo "$GXS" tasks | field '[(t["slug"], t["status"]) for t in d]')
-  # the settings of that commit name the checks `[gate]`, which the scripts of now refuse with the lines the owner writes
-  printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$GXS/.lem/project.toml"
   number=$("$PY" -c 'import json, sys; print(next(iter(json.load(open(sys.argv[1]))["prs"])))' "$WORK/gx.json")
   head=$(git -C "$GXO" rev-parse refs/heads/fix/old-pr)
   git -C "$GXO" update-ref refs/heads/main "$head"
   "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"][sys.argv[2]].update(state="MERGED", merge=sys.argv[3]); json.dump(d, open(sys.argv[1], "w"))' "$WORK/gx.json" "$number" "$head"
+  # the settings of that commit name the checks `[gate]`, which the scripts of now refuse with the lines the owner writes;
+  # he commits them on main and pushes, as Lem reads the settings
+  git -C "$GXS" fetch -q origin && git -C "$GXS" merge -q --ff-only origin/main
+  printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$GXS/.lem/project.toml"
+  settled "$GXS" && git -C "$GXS" push -q origin main
   gx_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gx.json" GH_ORIGIN="$GXO" "$PY" -B "$LAND" --repo "$GXS" "$@"; }
   merged=$(gx_land merged old-pr 2>"$WORK/gx.err" | field 'd["merged"]' 2>&1 || true)
   cleaned=$(gx_land clean old-pr 2>&1 | field 'd["worktree"]' 2>&1 || true)
   if [ "$opened" = "[('old-pr', 'open')]" ] && grep -qF "project.py: moved Lem's state from $GXS/.git/lem to $GXS/.lem/state (renamed)" "$WORK/gx.err" \
     && [ "$merged" = "$head" ] && [ "$(status_in "$GXS" old-pr)" = landed ] && [ "$cleaned" = True ] && [ ! -e "$GXS/.git/lem" ] \
-    && [ "$(git -C "$GXS" rev-parse main)" = "$head" ] && [ -z "$(git -C "$GXS" status --porcelain --untracked-files=all -- . ':!.lem/project.toml')" ]; then
+    && [ "$(git -C "$GXS" rev-parse main^)" = "$head" ] && [ -z "$(git -C "$GXS" status --porcelain --untracked-files=all -- . ':!.lem/project.toml')" ]; then
     pass "a pull request opened by the scripts before the state moved and merged by the owner on the forge is finished by merged of now, which moves the state and says so; tasks and clean read it there"
   else
     fail "an old pull request after the move: $opened / $merged / $cleaned / $(cat "$WORK/gx.err")"

@@ -85,7 +85,9 @@ git -C "$OS" add -A && git -C "$OS" commit -q -m "chore: start"
 old_open "$OS" old-word
 before=$(oproject --repo "$OS" tasks | field '[(t["slug"], t["status"]) for t in d]')
 # the scripts of now read the checks as [checks], and refuse the older [gate] with the lines the owner writes in its place
-printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$OS/.lem/project.toml"
+# committed on main, as Lem reads the settings; the checks do not read the file, so the base that moved by it alone lands
+printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' 'ignores = [".lem/project.toml"]' > "$OS/.lem/project.toml"
+settled "$OS"
 # The first script of now that reads the state moves it, says so in one line on stderr, and its JSON is as before.
 tasks=$(project --repo "$OS" tasks 2>"$WORK/move.err")
 again=$(project --repo "$OS" tasks 2>&1 >/dev/null)
@@ -113,7 +115,8 @@ oproject --repo "$RL" init --base main >/dev/null
 printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[gate]' 'commands = ["true"]' > "$RL/.lem/project.toml"
 git -C "$RL" add -A && git -C "$RL" commit -q -m "chore: start"
 old_open "$RL" relayed
-printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$RL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' 'ignores = [".lem/project.toml"]' > "$RL/.lem/project.toml"
+settled "$RL"
 land --repo "$RL" land relayed --by owner >/dev/null 2>"$WORK/relay.err" || true
 if grep -qF "project.py: moved Lem's state from $RL/.git/lem to $RL/.lem/state (renamed)" "$WORK/relay.err" && [ "$(status_in "$RL" relayed)" = landed ] && [ ! -e "$RL/.git/lem" ]; then
   pass "when land.py is the first script of now, the line of the move reaches its stderr from the project.py it runs, and the landing goes on"

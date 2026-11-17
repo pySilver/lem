@@ -9,8 +9,8 @@
 GRD=$WORK/guards
 git init -q -b main "$GRD" && ident "$GRD"
 project --repo "$GRD" init --base main >/dev/null
-# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit
-grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" > "$GRD/.lem/project.toml"; }
+# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items, committed on main; HISTORY=squash for one commit
+grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" > "$GRD/.lem/project.toml"; settled "$GRD"; }
 grd_settings '"true"'
 mkdir -p "$GRD/tests" && printf '%s\n' 'def test_old():' '    assert 1 + 1 == 2' > "$GRD/tests/test_old.py"
 git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: start"
@@ -231,7 +231,6 @@ hooked=$(g land squashed --by owner --message "fix: z" 2>&1 || true)
 hooked_tip=$(git -C "$tree" rev-parse HEAD)
 rm "$GRD/.git/hooks/pre-commit"
 g land squashed --by owner --message "fix: z" >/dev/null 2>&1 || true
-grd_settings '"true"'
 if grep -qF "the one commit was refused, and the branch is as it was: no commit here" <<<"$hooked" && grep -qF "another --message to \`land.py land squashed\`" <<<"$hooked" \
   && [ "$hooked_tip" = "$before" ] && [ -z "$(git -C "$tree" status --porcelain)" ] && [ "$(status_in "$GRD" squashed)" = landed ] \
   && [ "$(git -C "$GRD" log -1 --format=%s main)" = "fix: z" ]; then
@@ -239,6 +238,7 @@ if grep -qF "the one commit was refused, and the branch is as it was: no commit 
 else
   fail "a refused one commit: $hooked / $hooked_tip / $before / $(status_in "$GRD" squashed)"
 fi
+grd_settings '"true"'
 land --repo "$GRD" clean squashed >/dev/null 2>&1 || true
 
 # The bar: a test file moved out of the tests is one the tests lose, and a focus mark runs one test alone.

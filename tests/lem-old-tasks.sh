@@ -57,8 +57,15 @@ elif args[:2] == ["pr", "merge"]:
     head = rev("refs/heads/" + pr["head"])
     if opt("--match-head-commit") != head:
         sys.exit("the head is another commit")
-    subprocess.run(["git", "-C", origin, "update-ref", "refs/heads/" + pr["base"], head], check=True)
-    pr.update(state="MERGED", merge=head)
+    base = rev("refs/heads/" + pr["base"])
+    merged = head
+    if subprocess.run(["git", "-C", origin, "merge-base", "--is-ancestor", base, head]).returncode != 0:
+        # a base that moved since: the forge's merge commit, of the two trees
+        tree = subprocess.run(["git", "-C", origin, "merge-tree", "--write-tree", base, head], capture_output=True, text=True, check=True).stdout.split()[0]
+        merged = subprocess.run(["git", "-C", origin, "-c", "user.name=forge", "-c", "user.email=forge@example.com", "commit-tree", tree, "-p", base, "-p", head, "-m", "Merge pull request #" + args[2]],
+                                capture_output=True, text=True, check=True).stdout.strip()
+    subprocess.run(["git", "-C", origin, "update-ref", "refs/heads/" + pr["base"], merged], check=True)
+    pr.update(state="MERGED", merge=merged)
 else:
     sys.exit("gh stand-in: no such command: " + " ".join(args))
 json.dump(state, open(state_file, "w"))
@@ -142,7 +149,11 @@ oland propose old-full --title "feat: old-full" --notes "$NOTES" >/dev/null
 # write in its place, and once the owner wrote them, they go on with the tasks the older scripts left.
 refused=$(project --repo "$OT" show 2>&1 >/dev/null || true)
 landed_refused=$(nland merged old-small 2>&1 || true)
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$OT/.lem/project.toml"
+# written as the refusal says, and committed on main and pushed, as Lem reads the settings; the checks do not read the file,
+# so the base that moved by it alone lets the older pull requests merge
+git -C "$OT" fetch -q origin && git -C "$OT" merge -q --ff-only origin/main
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' 'ignores = [".lem/project.toml"]' > "$OT/.lem/project.toml"
+settled "$OT" && git -C "$OT" push -q origin main
 if grep -qF "[gate] is called [checks] now" <<<"$refused" && grep -qF "[gate] is called [checks] now" <<<"$landed_refused" \
   && [ "$(printf '%s\n' "$refused" | tail -2)" = "$(printf '%s\n' '[checks]' 'commands = ["true"]')" ] && [ "$(status_in "$OT" old-small)" = open ]; then
   pass "the settings of an older Lem, whose checks are a [gate] table, are refused with the lines to write, and nothing of a task moves before they are written"
@@ -171,7 +182,7 @@ fi
 
 # The small change is merged by the owner on the forge; `merged` finishes it, and `clean` removes it.
 head=$(git -C "$GHO" rev-parse refs/heads/fix/old-small)
-git -C "$GHO" update-ref refs/heads/main "$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p main -p "$head" -m "Merge pull request #2" "$head^{tree}")"
+git -C "$GHO" update-ref refs/heads/main "$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p main -p "$head" -m "Merge pull request #2" "$(git -C "$GHO" merge-tree --write-tree main "$head")")"
 "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"]["2"].update(state="MERGED", merge=sys.argv[2]); json.dump(d, open(sys.argv[1], "w"))' "$GH_STATE" "$(git -C "$GHO" rev-parse main)"
 merged_small=$(nland merged old-small 2>>"$WORK/old.err" | field 'd["pull_request"]["number"]' 2>&1 || true)
 clean_small=$(nland clean old-small 2>>"$WORK/old.err" | field '(d["worktree"], d["branch"])' 2>&1 || true)

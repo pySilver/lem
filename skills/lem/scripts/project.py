@@ -138,10 +138,20 @@ What must never go wrong is `flow.topics`: sentences in the owner's words, again
 reads an ask, a plan and a diff. No list of paths says whether a change is careful: such a list
 goes stale as the code moves, misses new code, and a branch can edit the list that guards it.
 `flow.careful` is refused, with the sentence to write in its place. The `[flow]` table is read
-from the main checkout's `.lem/project.toml`, also in a task's worktree, as the checks are read by
-the landing: a branch that empties its topics or shortens the owner's wait lifts nothing, since
-every lead, reviewer and landing reads the table as the base branch's checkout has it. The
-table the branch writes is still checked, so that its error shows before it lands.
+from the base branch's settings, also in a task's worktree, as the checks are read by the
+landing: a branch that empties its topics or shortens the owner's wait lifts nothing, since every
+lead, reviewer and landing reads the table as the base branch has it. The table the branch writes
+is still checked, so that its error shows before it lands.
+
+The base branch's settings are `.lem/project.toml` as the base branch's newest commit holds it
+(`git show BASE:.lem/project.toml`), never as the main checkout has it checked out: a colleague's
+branch checked out there (`gh pr checkout 57`), or an edit nobody committed, would change who
+lands and what is careful for every running task. The base is the branch the file names: the file
+of the remote's default branch is read first, then the one of the branch the main checkout's own
+copy names, and a file that names another base is read on that one. A main checkout whose copy is
+not the base's gets one line on stderr that says so; the copy counts once it is committed on the
+base. Before any commit of the base holds the file (an onboarding, on its own branch), the main
+checkout's working tree is read. `show` says which in `settings_from`.
 
 `[checks]` holds the machine checks of a landing: `commands`, the whole suite, `setup`, `ignores`
 and `bar`. A file that still has the table under its older name, `[gate]`, is refused with the
@@ -603,8 +613,60 @@ def read_settings(file: Path, name: Path, tables: tuple[str, ...], branch_copy: 
     branch's copy (`branch_copy`) in the form of an older Lem is read in the form of now."""
     if not file.is_file():
         return {}
+    return settings_of(text_of(file), name, tables, branch_copy)
+
+
+def committed_settings(main: Path) -> dict | None:
+    """The tracked settings as the base branch's newest commit holds them: the text, the branch and
+    the commit; None when no commit of the base holds the file yet (an onboarding, whose settings
+    are only in the working tree or on its own branch). The base is the branch the file names, so
+    the first file read is the remote's default branch's, then the one of the branch the main
+    checkout's own copy names; a file that names another base is read on that branch. What the main
+    checkout has checked out (a colleague's branch, an edit nobody committed) decides nothing here."""
+    def shown(branch: str) -> str | None:
+        ran = subprocess.run(["git", "-C", str(main), "show", f"refs/heads/{branch}:{SETTINGS.as_posix()}"], capture_output=True, check=False)
+        if ran.returncode != 0:
+            return None
+        try:
+            return ran.stdout.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise SettingsError(f"{branch}:{SETTINGS} is not UTF-8 text (byte {error.start} does not read); save it as UTF-8") from error
+
+    def names(text: str) -> str | None:
+        try:
+            base = tomllib.loads(text).get("branch", {}).get("base")
+        except (tomllib.TOMLDecodeError, AttributeError):
+            return None
+        return base if isinstance(base, str) and base.strip() else None
+
+    working = main / SETTINGS
     try:
-        raw = tomllib.loads(text_of(file))
+        own = names(working.read_text(encoding="utf-8")) if working.is_file() else None
+    except UnicodeDecodeError:
+        own = None
+    for start in dict.fromkeys(branch for branch in (default_branch(main), own) if branch):
+        text = shown(start)
+        if text is None:
+            continue
+        named = names(text) or start
+        if named != start:
+            other = shown(named)
+            if other is None:
+                raise SettingsError(f"{start}:{SETTINGS} names {named!r} as branch.base, and {named} holds no {SETTINGS}: the base branch's own file is the one Lem reads")
+            start, text = named, other
+        commit = subprocess.run(["git", "-C", str(main), "rev-parse", f"refs/heads/{start}"], capture_output=True, text=True, check=False).stdout.strip()
+        return {"text": text, "branch": start, "commit": commit}
+    return None
+
+
+# Whether this run said once already that the main checkout's copy of the settings is not the base's.
+DIFFERS_SAID: list[bool] = []
+
+
+def settings_of(text: str, name: Path, tables: tuple[str, ...], branch_copy: bool = False) -> dict:
+    """The text of one settings file as a dict, checked as `read_settings` says."""
+    try:
+        raw = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise SettingsError(f"{name}: {error}") from error
     if branch_copy:
@@ -839,15 +901,42 @@ def naps_of(raw: dict, name: Path) -> dict:
 def load(root: Path) -> dict:
     file = root / SETTINGS
     main = main_checkout(root)
-    # in a task's worktree the file is the branch's copy, which may be older than the main checkout's
-    raw = read_settings(file, SETTINGS, tuple(TABLES), branch_copy=main.resolve() != root.resolve())
+    # The project's settings are the base branch's newest commit's: what the main checkout has
+    # checked out, or an edit nobody committed there, is no rule for the tasks that run (audit M-F5,
+    # 2026-11-17: `gh pr checkout 57` in the main checkout changed `branch.land` and the topics for
+    # every task). Before any commit of the base holds the file (an onboarding), the working tree's is read.
+    committed = committed_settings(main)
+    base_file = Path(f"{committed['branch']}:{SETTINGS}") if committed else main / SETTINGS
+
+    def base_raw() -> dict:
+        if not committed:
+            return read_settings(main / SETTINGS, main / SETTINGS, tuple(TABLES))
+        try:
+            return settings_of(committed["text"], base_file, tuple(TABLES))
+        except SettingsError as error:
+            # the fix is an edit of the file, and it counts once the base holds it
+            raise SettingsError(f"Lem reads {SETTINGS} as {committed['branch']} has it, so a fix counts once it is committed there. {error}") from error
+
+    if main.resolve() == root.resolve():
+        raw = base_raw()
+        here = text_of(file) if file.is_file() else None
+        if committed and here != committed["text"] and not DIFFERS_SAID:
+            DIFFERS_SAID.append(True)
+            print(
+                f"project.py: Lem reads {SETTINGS} as {committed['branch']} has it ({committed['commit'][:9]}); the main checkout's copy differs "
+                f"(another branch is checked out there, or an edit is not committed), and it counts once it is committed on {committed['branch']}",
+                file=sys.stderr,
+            )
+    else:
+        # in a task's worktree the file is the branch's copy, which may be older than the base's
+        raw = read_settings(file, SETTINGS, tuple(TABLES), branch_copy=True)
     local_file = main / LOCAL
     local = read_settings(local_file, LOCAL, LOCAL_TABLES)
-    # What must never go wrong, and the owner's wait, are the main checkout's: the branch that a
+    # What must never go wrong, and the owner's wait, are the base branch's: the branch that a
     # rule guards does not get to lift it. The branch's own table is still checked.
     flow = flow_of(raw, SETTINGS)
     if main.resolve() != root.resolve():
-        flow = flow_of(read_settings(main / SETTINGS, main / SETTINGS, tuple(TABLES)), main / SETTINGS)
+        flow = flow_of(base_raw(), base_file)
 
     paths = {}
     for name, (default, _older) in PATHS.items():
@@ -940,7 +1029,10 @@ def load(root: Path) -> dict:
         "root": str(root),
         # the checkout every worktree hangs off; it is `root` unless this ran in a task's worktree
         "main": str(main),
-        "settings": str(file) if file.is_file() else None,
+        "settings": str(file) if file.is_file() or committed else None,
+        # where the settings were read: the base branch's commit, or the working tree before the base holds them
+        "settings_from": (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the working tree")
+        if main.resolve() == root.resolve() else "this worktree's branch, with [flow] from " + (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the main checkout"),
         "paths": paths,
         "branch": {"base": base, "land": land, "history": history, "propose": propose, "protected": protected},
         "checks": {

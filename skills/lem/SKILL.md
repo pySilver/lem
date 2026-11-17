@@ -186,8 +186,8 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   task, a plan of more than three tasks, gets the companion and the talk too, and a review round
   at the least. The lead writes its call and the one sentence of why into the plan, its state and
   its report, and the owner may overrule a "no" at any time before the landing. The `[flow]`
-  table is read from the main checkout's settings, also in a task's worktree, so a branch
-  cannot lift what guards it, and a change that edits `.lem/project.toml` at all, or puts the
+  table is read from the base branch's settings, as its newest commit has them, also in a task's
+  worktree and whatever the main checkout has checked out, so a branch cannot lift what guards it, and a change that edits `.lem/project.toml` at all, or puts the
   machine's own `.lem/project.local.toml` into git, is careful by the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
   as what is careful and what the checks run, and a task rarely edits it.
 - **Only so many tasks build or land at one time.** `project.py may-start SLUG` exits 1 at the

@@ -17,7 +17,7 @@ nap() { project --repo "$NP" may-nap "$@"; }
 ago() { "$PY" -c 'import sys, datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(hours=float(sys.argv[1]))).strftime("%Y-%m-%d-%H%M"))' "$1"; }
 # woke NAME: a nap's folder as its agent leaves it, with the dream, one made thing and the waking note
 woke() { mkdir -p "$NAPS/$1" && printf '# A dream\n\nA field.\n' > "$NAPS/$1/dream.md" && printf 'x\n' > "$NAPS/$1/thing.txt" && printf '# Waking\n\nNothing.\n' > "$NAPS/$1/waking.md"; }
-naps_on() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$NP/.lem/project.toml"; }
+naps_on() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$NP/.lem/project.toml" && settled "$NP"; }
 
 # The settings: off, 30 days, 6 hours, each guess said so in the file; a wrong value is refused by its key.
 shown=$(project --repo "$NP" show | field 'd["naps"]')
@@ -93,7 +93,7 @@ woke "$TWO"
 mkdir -p "$NAPS/not-a-nap" && touch -t 202601010000 "$NAPS/not-a-nap"
 ln -s "$NAPS/2026-01-01-0000-the-first" "$NAPS/2026-01-02-0000-a-link"
 cleaned=$(nap)
-"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^keep_days = 30$", "keep_days = 1", s, count=1))' "$NP/.lem/project.toml"
+"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^keep_days = 30$", "keep_days = 1", s, count=1))' "$NP/.lem/project.toml" && settled "$NP"
 shorter=$(nap)
 printf 'not json\n' > "$NAPS/.asleep"
 broken=$(nap 2>&1 || true); broken_code=$(status_of nap)
