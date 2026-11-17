@@ -324,6 +324,26 @@ else
 fi
 if [ -e "$OLD/.git/lem/tasks/empty-ask" ]; then fail "a refused task-dir made its directory"; fi
 rm -r "$titled" "$plain"
+# Text that is not UTF-8, in a file Lem reads or in an argument it writes down, is refused with its place, never a traceback.
+events_before=$(grep -c '' "$OLD/.git/lem/events.jsonl")
+bad_ask=$(project --repo "$OLD" task-dir bad-bytes --ask $'caf\xe9 au lait' 2>&1 || true)
+bad_line=$(project --repo "$OLD" state report-dates-stay-whole building $'task 3 of 3 \xff' 2>&1 || true)
+bad_field=$(project --repo "$OLD" log report-dates-stay-whole gate $'last=\xff' 2>&1 || true)
+bad_field="$bad_field $(project --repo "$OLD" log report-dates-stay-whole gate 'last:="\udcff"' 2>&1 || true)"
+cp "$OLD/.lem/project.toml" "$WORK/settings.kept" && printf '[branch]\nbase = "caf\351"\n' > "$OLD/.lem/project.toml"
+bad_settings=$(project --repo "$OLD" show 2>&1 || true)
+cp "$WORK/settings.kept" "$OLD/.lem/project.toml"
+mkdir -p "$OLD/.git/lem/tasks/latin-state" && printf '2026-01-01T00:00Z building: caf\351\n' > "$OLD/.git/lem/tasks/latin-state/state.md"
+bad_state=$(project --repo "$OLD" tasks 2>&1 || true)
+rm -r "$OLD/.git/lem/tasks/latin-state"
+if grep -qF "the argument b'caf\\xe9 au lait' is not UTF-8 text" <<<"$bad_ask" && [ ! -e "$OLD/.git/lem/tasks/bad-bytes" ] \
+  && grep -qF "is not UTF-8 text" <<<"$bad_line" && grep -qF "is not UTF-8 text; give it in UTF-8" <<<"$bad_field" && grep -qF "a field of the event is not UTF-8 text" <<<"$bad_field" \
+  && grep -qF "$OLD/.lem/project.toml is not UTF-8 text" <<<"$bad_settings" && grep -qF "latin-state/state.md is not UTF-8 text" <<<"$bad_state" \
+  && [ "$(grep -c '' "$OLD/.git/lem/events.jsonl")" = "$events_before" ] && ! grep -q Traceback <<<"$bad_ask$bad_line$bad_field$bad_settings$bad_state"; then
+  pass "an argument or a file of text that is not UTF-8 is refused with the argument or the file named, and nothing is written"
+else
+  fail "text that is not UTF-8: $bad_ask / $bad_line / $bad_field / $bad_settings / $bad_state"
+fi
 # One ticket is one task, until that task is dropped or answered.
 project --repo "$OLD" task-dir from-a-ticket --ticket mbz-12 --ask "Report dates are cut" >/dev/null
 err=$(project --repo "$OLD" task-dir the-same-ticket --ticket MBZ-12 2>&1 || true)

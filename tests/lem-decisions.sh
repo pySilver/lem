@@ -205,6 +205,18 @@ if grep -qF "dropped-task is dropped" <<<"$late_log" && grep -qF "landed-task is
 else
   fail "a write to an ended task: $late_log / $late_ask / $late_answer / $late_timeout"
 fi
+# Text that is not UTF-8 is refused before anything is written: in an argument, and in the record itself.
+lines_before=$(grep -c '' "$DC/.git/lem/tasks/other-task/decisions.jsonl" 2>/dev/null || echo 0)
+latin=$(decide log other-task --what $'caf\xe9' --chose a --why b --by lead 2>&1 || true)
+cp "$dfile" "$WORK/gift-record.kept" && printf 'caf\351\n' >> "$dfile"
+latin_record=$(decide list gift-note 2>&1 || true)
+cp "$WORK/gift-record.kept" "$dfile"
+if grep -qF "the argument b'caf\\xe9' is not UTF-8 text" <<<"$latin" && [ "$(grep -c '' "$DC/.git/lem/tasks/other-task/decisions.jsonl" 2>/dev/null || echo 0)" = "$lines_before" ] \
+  && grep -qF "gift-note/decisions.jsonl is not UTF-8 text" <<<"$latin_record" && ! grep -q Traceback <<<"$latin$latin_record"; then
+  pass "an argument that is not UTF-8 text is refused before it is written, and a record that holds such bytes is named"
+else
+  fail "text that is not UTF-8 in a decision: $latin / $latin_record"
+fi
 # A task dropped while a wait runs ends that wait: the loop reads the task's status each time it reads the choice.
 decide ask cancel-task "${CASE[@]}" --what "Email the merchants" --option "email all" --option "email nobody" --recommended "email nobody" --why "Nobody asked." --said "The two personas split." --irreversible person >/dev/null
 started=$(date +%s)

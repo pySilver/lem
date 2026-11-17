@@ -119,6 +119,7 @@ if sys.version_info < (3, 11):
 import argparse
 import fcntl
 import json
+import os
 import re
 import subprocess
 import time
@@ -190,7 +191,11 @@ class Task:
         if not self.file.is_file():
             return []
         out = []
-        for number, line in enumerate(self.file.read_text(encoding="utf-8").splitlines(), start=1):
+        try:
+            written = self.file.read_text(encoding="utf-8")
+        except UnicodeDecodeError as error:
+            raise DecisionError(f"{self.file} is not UTF-8 text (byte {error.start} does not read); the file is written by this script only") from error
+        for number, line in enumerate(written.splitlines(), start=1):
             if line.strip():
                 try:
                     out.append(json.loads(line))
@@ -701,6 +706,12 @@ def main() -> None:
     settle.add_argument("--away", action="store_true", help="the owner is away, as his own words or his away channel say")
     commands.add_parser("list").add_argument("slug")
     args = parser.parse_args()
+    for arg in sys.argv[1:]:
+        try:
+            arg.encode("utf-8")
+        except UnicodeEncodeError:
+            # the record would hold it, and the event log and the pull request after it
+            sys.exit(f"decisions.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
     repo = Path(args.repo)
     try:
         if args.command == "pending":

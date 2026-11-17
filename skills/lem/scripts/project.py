@@ -396,6 +396,26 @@ def main_checkout(root: Path) -> Path:
     return Path(first) if first else root
 
 
+def text_of(file: Path) -> str:
+    """A text file Lem reads, as UTF-8. A file in another encoding is refused by name: read as
+    the locale's, a settings file would mean something else on another machine."""
+    try:
+        return file.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise SettingsError(f"{file} is not UTF-8 text (byte {error.start} does not read); save it as UTF-8") from error
+
+
+def unreadable_argument(argv: list[str]) -> str | None:
+    """The first argument that is not UTF-8 text, as the message that names it; None when all are.
+    Such an argument would stop the write of the file it goes into half way."""
+    for arg in argv:
+        try:
+            arg.encode("utf-8")
+        except UnicodeEncodeError:
+            return f"the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8"
+    return None
+
+
 def toml_string(value: str) -> str:
     """A string as TOML writes it. JSON's own escapes would turn a character outside the basic plane into two halves TOML refuses."""
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
@@ -407,7 +427,7 @@ def read_settings(file: Path, name: Path, tables: tuple[str, ...]) -> dict:
     if not file.is_file():
         return {}
     try:
-        raw = tomllib.loads(file.read_text())
+        raw = tomllib.loads(text_of(file))
     except tomllib.TOMLDecodeError as error:
         raise SettingsError(f"{name}: {error}") from error
     for table, body in raw.items():
@@ -709,12 +729,12 @@ def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str |
         lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
     agent = f'agent = "{reviewer}"' if reviewer else '# agent = "codex"'
-    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, **TOOLS))
+    file.write_text(TEMPLATE.format(paths="\n".join(lines), base=base, reviewer=agent, max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, **TOOLS), encoding="utf-8")
     # one machine's own settings are never committed
     ignore = file.parent / ".gitignore"
-    known = ignore.read_text().splitlines() if ignore.is_file() else []
+    known = text_of(ignore).splitlines() if ignore.is_file() else []
     if LOCAL.name not in known:
-        ignore.write_text("\n".join([*known, LOCAL.name]) + "\n")
+        ignore.write_text("\n".join([*known, LOCAL.name]) + "\n", encoding="utf-8")
     print(file)
 
 
@@ -749,7 +769,7 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
         file.unlink(missing_ok=True)
     else:
         file.parent.mkdir(exist_ok=True)
-        file.write_text("\n".join(lines) + "\n")
+        file.write_text("\n".join(lines) + "\n", encoding="utf-8")
     resolved = load(root)
     print(json.dumps({"reviewer": resolved["seats"]["reviewer"], "local": resolved["local"]}, indent=2))
 
@@ -971,9 +991,9 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None) -> 
     if ask is not None:
         # The owner's words, as given. task.md is a document with headings; the board and the
         # status show these words, so they have a file of their own that nothing rewrites.
-        (directory / "ask.txt").write_text(ask.strip() + "\n")
+        (directory / "ask.txt").write_text(ask.strip() + "\n", encoding="utf-8")
     if ticket is not None:
-        (directory / "ticket.txt").write_text(ticket + "\n")
+        (directory / "ticket.txt").write_text(ticket + "\n", encoding="utf-8")
     print(directory)
 
 
@@ -986,19 +1006,19 @@ def cmd_ticket_step(root: Path, slug: str, step: str) -> None:
     if step not in TICKET_STEPS:
         raise SettingsError(f"{step!r} is not a step{nearest(step, TICKET_STEPS)}")
     file = directory / "ticket-steps.txt"
-    steps = file.read_text().split() if file.is_file() else []
+    steps = text_of(file).split() if file.is_file() else []
     if step in steps:
         # the caller should have looked first: a step that is written down was done, and is not done again
-        raise SettingsError(f"the step {step!r} is already written down for {ticket.read_text().strip()}: it was done, do not do it again")
-    file.write_text("\n".join([*steps, step]) + "\n")
-    print(json.dumps({"slug": slug, "ticket": ticket.read_text().strip(), "steps": [*steps, step]}))
+        raise SettingsError(f"the step {step!r} is already written down for {text_of(ticket).strip()}: it was done, do not do it again")
+    file.write_text("\n".join([*steps, step]) + "\n", encoding="utf-8")
+    print(json.dumps({"slug": slug, "ticket": text_of(ticket).strip(), "steps": [*steps, step]}))
 
 
 def ask_of(directory: Path) -> str | None:
     """What the owner asked for: the words `task-dir --ask` kept, else the first words of task.md without their markup."""
     for name in ("ask.txt", "task.md"):
         file = directory / name
-        lines = [line.strip() for line in file.read_text().splitlines() if line.strip()] if file.is_file() else []
+        lines = [line.strip() for line in text_of(file).splitlines() if line.strip()] if file.is_file() else []
         if lines:
             return " ".join(lines) if name == "ask.txt" else lines[0].lstrip("#> ").strip() or None
     return None
@@ -1013,7 +1033,7 @@ def cmd_worktree_dir(settings: dict, slug: str) -> None:
     ignore = parent / ".gitignore"
     if not ignore.is_file():
         # `*` ignores the folder's content and this file, so the project needs no ignore rule
-        ignore.write_text("*\n")
+        ignore.write_text("*\n", encoding="utf-8")
     print(parent / slug)
 
 
@@ -1030,6 +1050,11 @@ def append_event(root: Path, event: str, slug: str, fields: dict) -> dict:
     """Append one record to the log, and to the copy of it the board can load."""
     record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, "task": slug, **fields}
     line = json.dumps(record, ensure_ascii=False)
+    try:
+        line.encode("utf-8")
+    except UnicodeEncodeError as error:
+        # a `key:=json` value may spell a lone surrogate, "\udcff", which no UTF-8 file can hold
+        raise SettingsError(f"a field of the event is not UTF-8 text ({line[max(0, error.start - 20):error.start]!r} comes before it); give its text in UTF-8") from error
     directory = state_root(root)
     with (directory / "events.jsonl").open("a", encoding="utf-8") as log:
         log.write(line + "\n")
@@ -1071,9 +1096,9 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str]) -> None:
     since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     block = "\n".join([f"{since} {status}: {lines[0].strip()}", *(line.strip() for line in lines[1:])])
     file = directory / "state.md"
-    older = file.read_text().strip() if file.is_file() else ""
+    older = text_of(file).strip() if file.is_file() else ""
     fresh = directory / "state.md.new"
-    fresh.write_text(block + ("\n\n" + older if older else "") + "\n")
+    fresh.write_text(block + ("\n\n" + older if older else "") + "\n", encoding="utf-8")
     fresh.replace(file)
     append_event(root, "task.state", slug, {
         "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
@@ -1299,7 +1324,7 @@ def proposal(directory: Path) -> dict | None:
     if not kept_file.is_file():
         return None
     try:
-        kept = json.loads(kept_file.read_text(encoding="utf-8"))
+        kept = json.loads(text_of(kept_file))
     except ValueError as error:
         raise SettingsError(f"{kept_file} does not read as JSON ({error}); it is the landing's own record, written by land.py") from error
     if not kept.get("proposed"):
@@ -1315,7 +1340,7 @@ def newest_events(root: Path, event: str) -> dict[str, dict]:
     log, found = state_root(root) / "events.jsonl", {}
     if not log.is_file():
         return found
-    for number, line in enumerate(log.read_text(encoding="utf-8").splitlines(), 1):
+    for number, line in enumerate(text_of(log).splitlines(), 1):
         if f'"{event}"' not in line:
             continue
         try:
@@ -1348,16 +1373,17 @@ def read_tasks(root: Path) -> list[dict]:
     for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
         state = directory / "state.md"
         # state.md is newest block first; a block ends at the first blank line
-        block = state.read_text().strip().split("\n\n")[0] if state.is_file() and state.read_text().strip() else None
+        written = text_of(state) if state.is_file() else ""
+        block = written.strip().split("\n\n")[0] if written.strip() else None
         first = STATE_LINE.fullmatch(block.splitlines()[0]) if block else None
         known = first is not None and first["status"] in STATES
         tasks.append({
             "slug": directory.name,
             "ask": ask_of(directory),
             # the tracker's ticket the ask came from; a dropped or answered task gives its ticket back
-            "ticket": (directory / "ticket.txt").read_text().strip() or None if (directory / "ticket.txt").is_file() else None,
+            "ticket": text_of(directory / "ticket.txt").strip() or None if (directory / "ticket.txt").is_file() else None,
             # what Lem did to that ticket so far (TICKET_STEPS)
-            "ticket_steps": (directory / "ticket-steps.txt").read_text().split() if (directory / "ticket-steps.txt").is_file() else [],
+            "ticket_steps": text_of(directory / "ticket-steps.txt").split() if (directory / "ticket-steps.txt").is_file() else [],
             "ticket_owed": [],
             # null when no block was written through `project.py state`: nobody can tell who acts next
             "status": first["status"] if known else None,
@@ -1368,7 +1394,7 @@ def read_tasks(root: Path) -> list[dict]:
             # the newest record of its plan talk, as `log plan.talk` wrote it, or null when it had none
             "talk": talks.get(directory.name),
             # the kind of the request with its reason, from the newest block that names it, or null
-            "kind": kind_of(state.read_text()) if state.is_file() else None,
+            "kind": kind_of(written),
             # what the investigation of a bug or a question found, as `log investigation` wrote it last, or null
             "investigation": investigations.get(directory.name),
         })
@@ -1434,6 +1460,8 @@ def main() -> None:
     commands.add_parser("may-start").add_argument("slug")
     commands.add_parser("state-dir")
     args = parser.parse_args()
+    if problem := unreadable_argument(sys.argv[1:]):
+        sys.exit(f"project.py: {problem}")
     try:
         root = repo_root(Path(args.repo))
         if args.command == "init":
