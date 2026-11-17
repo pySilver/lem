@@ -205,6 +205,11 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   the code and into its report. Before a brief goes out, every sentence about the code is one you
   read in the code, and a sentence with "never", "always" or "the same" gets its counterexample
   looked for first.
+- **Only the skills a stage names.** While a stage runs, load only the skills that stage names
+  (`load-skill`). An instruction to load every skill that may be relevant, from a hook or a
+  personal rule of the developer's, does not apply to Lem's session, its leads and its builders:
+  a planning or debugging skill loaded beside a stage has Lem read code and plans by itself, which
+  is a lead's work (the compatibility audit, 2026-11-17).
 - **Capabilities, not tools.** A stage says `spawn-builder`, `open-task-session`,
   `tell-coordinator`, `second-opinion`, `ask-owner`, `fan-out`, `show-page` or `load-skill`, and
   names the question gate, the persona panel and the review tool by role. Read, once per session, the file in this skill's `harness/` folder named

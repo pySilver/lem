@@ -1786,10 +1786,21 @@ def cmd_file(task: Task, again: bool) -> dict:
                     written.setdefault(read["round"], []).append(path)
                     break
             defect["item"] = path
-    # One commit for each round, of its new items and nothing else: the worktree was clean.
+    # One commit for each round, of its new items and nothing else: the worktree was clean. A commit
+    # hook of the project may refuse the message, which has Lem's form and not the project's: the
+    # items stay written, and a builder commits them in the project's form, after which a second
+    # run finds each one by its defect and records it.
     for number, paths in written.items():
         git(task.worktree, "add", "--", *paths)
-        git(task.worktree, "commit", "-q", "-m", f"docs(backlog): what review round {number} saw outside {task.slug}", "--", *paths)
+        made = run(["git", "-C", str(task.worktree), "commit", "-q", "-m", f"docs(backlog): what review round {number} saw outside {task.slug}", "--", *paths], check=False)
+        if made.returncode != 0:
+            said = " ".join((made.stderr or made.stdout).split()) or f"git exited {made.returncode} and said nothing"
+            raise LandError(
+                f"the commit of the backlog items of review round {number} was refused, most likely by a commit hook of the project: {said}. "
+                f"The items are written and staged in the worktree ({', '.join(paths)}): a builder commits them with a message in the form "
+                f"the hook asks for (`git -C {task.worktree} commit -m MESSAGE -- {' '.join(paths)}`), never with --no-verify, "
+                f"then `land.py file {task.slug}` runs again and finds each item by its defect",
+            )
     tip = git(task.worktree, "rev-parse", "HEAD")
     if filed or same or named:
         items = [{**entry, "new": True} for entry in filed] + [{**entry, "new": False} for entry in [*same, *named]]

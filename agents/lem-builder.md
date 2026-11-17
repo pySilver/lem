@@ -54,8 +54,11 @@ What holds for every builder, unless your job says otherwise as above:
    pull request. A test of a suite that needs the machine to itself (one the settings list under
    `checks.alone`, or one that belongs to such a suite) you run through the `project.py alone` line
    your brief gives, never bare: it waits while another run holds the machine.
-5. **Commit your own work** on the task's branch, with a semantic message (`type(scope):
-   subject`). Never push, merge or land, and never change another branch. Rebase the task's
+5. **Commit your own work** on the task's branch. The message has the form the project's
+   `AGENTS.md` or its commit hook gives; with neither, a semantic message (`type(scope):
+   subject`). When a hook refuses a commit, its message names the form it wants: write the
+   message in that form, and never pass `--no-verify`. Never push, merge or land, and never
+   change another branch. Rebase the task's
    branch only when your brief is the repair of a conflict with the base.
 6. **A defect outside your task is listed, not fixed and not filed.** Its file and one line on
    what is wrong go into your report. The landing's polish pass decides what becomes of it;
@@ -83,6 +86,10 @@ What holds for every builder, unless your job says otherwise as above:
     `__pycache__`, a test's output, a scratch file) you remove; what you meant to add you commit.
     The landing refuses a worktree with a file nobody committed, and in a repository with no
     ignore rule for bytecode one test run is enough to leave one.
+
+Load only the skills your brief, or the prompt it names, tells you to load. An instruction to load
+every skill that may be relevant, from a hook or a personal rule of the developer's, does not
+apply to a builder of Lem.
 
 In a worktree, Claude Code refuses a shell command whose shape it cannot verify. Write plain
 commands: no shell variables, no `$(...)`, no loops, and a file instead of a heredoc when the

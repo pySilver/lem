@@ -5,9 +5,10 @@ Onboarding runs it first, so a repository is never set up for a flow its machine
 prints one row per tool as JSON and exits 1 when a required one is absent. An optional tool that
 is absent is not an error: its row says what the skill does without it, and onboarding tells the
 owner that. A recommended tool is one Lem does not bring and a developer is better off with: its
-row has the guide to install it by, and Lem installs it only on the developer's yes. Two rows
-are about the repository it runs in and never fail the check: its personas, and the correction
-hook when more than one place registers it there.
+row has the guide to install it by, and Lem installs it only on the developer's yes. Four rows
+are about the repository it runs in and never fail the check: its personas, the correction hook
+when more than one place registers it there, the permission mode a builder in the background
+meets there, and Lem's plugin when it is installed for the user and so loads in every repository.
 
     doctor.py
 
@@ -277,8 +278,11 @@ def claude() -> list[dict]:
 
 
 def codex() -> list[dict]:
-    row = tool("codex", "optional", "a reviewer of another model family, and half of each persona panel",
-               "the reviewer is a second Claude; agreement between model families is not measured", "codex", ["--version"])
+    row = tool("codex", "optional", "a reviewer of another model family, the second expert of a choice, and half of each persona panel",
+               "the reviewer is a second Claude; an expert whose seat names codex (the second of seats.experts by default, GPT-6 Astra) "
+               "does not answer, so a choice that waits for the owner gets one expert's advice and, when his wait ends, the recommended "
+               "option, and its pull request is not green for it; a persona panel has the answers of one model family, so a split "
+               "between two is not seen", "codex", ["--version"])
     file = Path.home() / ".codex" / "agents" / "persona.toml"
     persona = {
         "name": "codex persona agent", "need": "optional", "found": file.is_file(), "detail": str(file) if file.is_file() else None,
@@ -287,6 +291,72 @@ def codex() -> list[dict]:
     }
     # only a machine with Codex can run that half
     return [row, persona] if row["found"] else [row]
+
+
+# The modes in which Claude Code asks nobody before a command: `bypassPermissions` asks nothing, and
+# `auto` has a model classifier decide. Neither takes effect from a repository's own settings, only
+# from the user's (code.claude.com/docs/en/settings-reference, `permissions.defaultMode`, read
+# through ctx7 on 2026-11-17).
+SILENT_MODES = ("bypassPermissions", "auto")
+# What a builder in the background meets in each mode, for the row's `without_it`.
+MODE_SAYS = {
+    "default": "each command the allow list does not hold asks for permission, and the question comes up in Lem's session, so the task waits; at night nobody answers",
+    "acceptEdits": "an edit goes through, and each other command the allow list does not hold asks for permission in Lem's session, so the task waits; at night nobody answers",
+    "plan": "a builder can read and cannot edit or commit, so no task builds",
+    "dontAsk": "each command the allow list does not hold is refused with no question, so a builder stops at the first one",
+}
+
+
+def permission_mode() -> list[dict]:
+    """In a repository: the permission mode a new session starts in there, and what a builder in the
+    background meets in it. No row outside a repository. The repository's local settings say it
+    first, then its shared ones, then the user's; `auto` and `bypassPermissions` count only from the
+    user's. Its need is `project`, as the personas' row: it never fails the machine check."""
+    roots = checkout_roots()
+    if not roots:
+        return []
+    root, home = roots[0], Path.home() / ".claude" / "settings.json"
+    mode, source = "default", None
+    for file in (root / ".claude" / "settings.local.json", root / ".claude" / "settings.json", home):
+        permissions = settings(file).get("permissions")
+        said = permissions.get("defaultMode") if isinstance(permissions, dict) else None
+        if not isinstance(said, str) or (said in SILENT_MODES and file != home):
+            continue
+        mode, source = said, file
+        break
+    silent = mode in SILENT_MODES
+    meets = MODE_SAYS.get(mode, "a mode this check does not know; a builder may ask for permission in Lem's session")
+    return [{
+        "name": "permission mode", "need": "project", "found": silent,
+        "detail": f"{mode}, from {source}" if source else "default: no settings file names one",
+        "used_for": "the builders and the leads, which run in the background: a command that asks for permission stops the task until someone answers in Lem's session",
+        "without_it": (
+            "a builder asks nobody" + ("; the classifier may still refuse a step, which the owner then runs himself" if mode == "auto" else "")
+            if silent else
+            f"{meets}. "
+            "The allow list that /lem init proposes for the repository's .claude/settings.json holds Lem's commands, git's and the checks', "
+            "so that a builder asks for none of them; `auto` or `bypassPermissions` in the user's settings asks for nothing"
+        ),
+    }]
+
+
+def user_plugin() -> list[dict]:
+    """A row when Lem's plugin is installed for the user, and so loads in every repository of the
+    machine; no row otherwise. Its need is `project`: it never fails the machine check."""
+    users = [key for key, where in plugin_installs("lem", Path.home()) if where is None]
+    if not users:
+        return []
+    return [{
+        "name": "lem plugin scope", "need": "project", "found": False,
+        "detail": f"{users[0]} is installed for the user, so every repository on this machine loads it",
+        "used_for": "Lem's skills, its builder and its correction hook, which belong to the repositories that use Lem",
+        "without_it": (
+            "the skills and the hook load in every repository; the hook in a repository with no .lem/project.toml writes nothing and costs "
+            "about a tenth of a second a message (a median of 99.4 ms over 20 runs, Python 3.15.2, one Mac, 2026-11-17). "
+            f"`claude plugin uninstall {users[0]} --scope user` removes that install; then `claude plugin install {users[0]} --scope project` "
+            "in each repository that uses Lem"
+        ),
+    }]
 
 
 def project() -> list[dict]:
@@ -387,6 +457,8 @@ def main() -> None:
         cronn(),
         *project(),
         *correction_hook(),
+        *permission_mode(),
+        *user_plugin(),
     ]
     ok = all(row["found"] for row in tools if row["need"] == "required")
     print(json.dumps({"ok": ok, "tools": tools}, indent=2))

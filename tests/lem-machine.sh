@@ -545,4 +545,51 @@ else
 fi
 git -C "$PPL" worktree remove --force "$WORK/people-wt"
 
+# Without Codex the codex row says what a task loses: the reviewer's other family, the second expert, half of a panel.
+codexless=$(doctor | row codex without_it)
+if grep -qF "an expert whose seat names codex (the second of seats.experts by default, GPT-6 Astra) does not answer" <<<"$codexless" \
+  && grep -qF "its pull request is not green for it" <<<"$codexless" && grep -qF "a persona panel has the answers of one model family" <<<"$codexless"; then
+  pass "with no Codex the codex row says that the reviewer is a second Claude, that the second expert does not answer so a choice ends not green, and that a panel has one model family"
+else
+  fail "the codex row without codex: $codexless"
+fi
+# The permission mode a builder in the background meets: the repository's local settings first, then its shared ones,
+# then the user's; auto and bypassPermissions count from the user's only. The row never fails the machine.
+mode() { (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field '[(t["need"], t["found"], t["detail"], t["without_it"][:44]) for t in d["tools"] if t["name"] == "permission mode"]'; }
+mkdir -p "$MACHINE/.claude"
+rm -f "$FAKEHOME/.claude/settings.json"
+plain=$(mode)
+printf '%s\n' '{"permissions": {"defaultMode": "acceptEdits"}}' > "$MACHINE/.claude/settings.json"
+shared=$(mode)
+printf '%s\n' '{"permissions": {"defaultMode": "bypassPermissions"}}' > "$MACHINE/.claude/settings.local.json"
+local_bypass=$(mode)
+printf '%s\n' '{"permissions": {"defaultMode": "auto"}}' > "$FAKEHOME/.claude/settings.json"
+rm "$MACHINE/.claude/settings.json"
+user_auto=$(mode)
+rm -r "$MACHINE/.claude" "$FAKEHOME/.claude/settings.json"
+outside=$( (cd "$WORK" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field '[t["name"] for t in d["tools"] if t["name"] == "permission mode"]')
+if [ "$plain" = "[('project', False, 'default: no settings file names one', 'each command the allow list does not hold as')]" ] \
+  && [ "$shared" = "[('project', False, 'acceptEdits, from $MACHINE/.claude/settings.json', 'an edit goes through, and each other command')]" ] \
+  && [ "$local_bypass" = "$shared" ] \
+  && [ "$user_auto" = "[('project', True, 'auto, from $FAKEHOME/.claude/settings.json', 'a builder asks nobody; the classifier may st')]" ] \
+  && [ "$outside" = "[]" ]; then
+  pass "the machine check says the permission mode a builder meets in the repository, from its local settings, its shared ones or the user's, takes auto and bypassPermissions from the user's only, says what a builder meets, and has no row outside a repository"
+else
+  fail "the permission mode: $plain / $shared / $local_bypass / $user_auto / $outside"
+fi
+# Lem's plugin installed for the user loads in every repository: a row says so with the two commands that move it.
+mkdir -p "$FAKEHOME/.claude/plugins"
+printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+for_user=$(doctor | field '(d["ok"], [(t["need"], t["found"], t["detail"]) for t in d["tools"] if t["name"] == "lem plugin scope"], next(t["without_it"] for t in d["tools"] if t["name"] == "lem plugin scope"))' || true)
+printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"project\", \"projectPath\": \"$MACHINE\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+for_project=$(doctor | field '[t["name"] for t in d["tools"] if t["name"] == "lem plugin scope"]' || true)
+rm "$FAKEHOME/.claude/plugins/installed_plugins.json"
+if grep -qF "[('project', False, 'lem@lem is installed for the user, so every repository on this machine loads it')]" <<<"$for_user" \
+  && grep -qF "\`claude plugin uninstall lem@lem --scope user\` removes that install; then \`claude plugin install lem@lem --scope project\`" <<<"$for_user" \
+  && grep -qF "a median of 99.4 ms over 20 runs" <<<"$for_user" && [ "$for_project" = "[]" ]; then
+  pass "Lem's plugin installed for the user gets a row that says every repository loads it, what its hook costs there, and the two commands that move it to a project; one installed for the project gets none"
+else
+  fail "the plugin's scope: $for_user / $for_project"
+fi
+
 finish

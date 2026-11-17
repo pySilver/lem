@@ -239,4 +239,30 @@ else
   fail "the gate's result over the filed items: $hand / $carried / $landed"
 fi
 
+# A commit hook of the project that wants another message form refuses land.py's own commit of the items: the
+# step says the hook's words and the fix, the items stay written, and after a builder's commit in the form the
+# hook asks for, a second run finds each item by its defect.
+task_in "$BLG" hook-form hook.txt three && read_in "$BLG" hook-form
+tree=$(project --repo "$BLG" worktree-dir hook-form)
+checked_in "$BLG" hook-form
+H='{"where": "src/hook.py:check", "title": "A hook defect of its own", "what": "check with no subject returns True, on the base commit too."}'
+land --repo "$BLG" read hook-form --record "$(record 1 "$a_read, $(outside "$H")")" >/dev/null
+hooks=$(git -C "$BLG" rev-parse --path-format=absolute --git-path hooks)
+mkdir -p "$hooks" && printf '%s\n' '#!/bin/sh' "grep -q '^ABC-[0-9]* ' \"\$1\" || { echo 'commit-msg: a subject starts with its ticket, as in ABC-12 fix' >&2; exit 1; }" > "$hooks/commit-msg" && chmod +x "$hooks/commit-msg"
+refused=$(land --repo "$BLG" file hook-form 2>&1 || true)
+code=$(status_of land --repo "$BLG" file hook-form)
+staged=$(git -C "$tree" diff --cached --name-only)
+git -C "$tree" commit -q -m "ABC-7 docs(backlog): what the review saw outside hook-form" -- docs/backlog/a-hook-defect-of-its-own.md
+again=$(land --repo "$BLG" file hook-form 2>&1 | field '(d["filed"], [f["item"] for f in d["same"] + d["named"]])' 2>&1 || true)
+rm "$hooks/commit-msg"
+if grep -qF "the commit of the backlog items of review round 1 was refused, most likely by a commit hook of the project: commit-msg: a subject starts with its ticket, as in ABC-12 fix." <<<"$refused" \
+  && grep -qF "a builder commits them with a message in the form the hook asks for (\`git -C $tree commit -m MESSAGE -- docs/backlog/a-hook-defect-of-its-own.md\`), never with --no-verify, then \`land.py file hook-form\` runs again" <<<"$refused" \
+  && [ "$code" = 1 ] && [ "$staged" = docs/backlog/a-hook-defect-of-its-own.md ] && ! grep -q Traceback <<<"$refused" \
+  && [ "$again" = "([], ['docs/backlog/a-hook-defect-of-its-own.md'])" ] && [ -z "$(git -C "$tree" status --porcelain)" ]; then
+  pass "a commit hook that refuses land.py's commit of the backlog items is named with its own words and the fix; the items stay staged, and after a commit in the hook's form the next run finds each by its defect and records it"
+else
+  fail "a hook that refuses the items' commit: $refused / $code / $staged / $again"
+fi
+project --repo "$BLG" state hook-form dropped "the test is over" >/dev/null
+
 finish

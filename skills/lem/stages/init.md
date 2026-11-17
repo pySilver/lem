@@ -159,6 +159,30 @@ the assumptions of step 6:
   defender's seat (`seats.planner`) and the experts (`seats.experts`) stay Lem's defaults;
 - `tools.annotate` and `tools.ask` keep Lem's defaults.
 
+Then the allow list, in the repository's tracked `.claude/settings.json` on the onboarding's branch:
+a builder and a lead run in the background, and in the `default` or `acceptEdits` mode each command
+that no rule allows asks for permission in Lem's session, where the task waits, at night with
+nobody to answer (the machine check's `permission mode` row says which mode a new session starts
+in here). Add these rules to `permissions.allow`, each one that is not there yet, and never take
+one out or change another key of the file:
+
+- `Bash(lem *)`, `Bash(lem-ask *)`, `Bash(lem-jev *)`;
+- `Bash(git worktree add *)`, `Bash(git add *)`, `Bash(git commit *)`, `Bash(git rm *)`, `Bash(git mv *)`;
+- the calls of agterm the harness file makes: `Bash(agtermctl msg send *)`, `Bash(agtermctl session
+  overlay open *)`, `Bash(agtermctl session new *)`, `Bash(agtermctl session split *)`,
+  `Bash(agtermctl session type *)`, `Bash(agtermctl session close *)`, `Bash(agtermctl session
+  rename *)`, `Bash(agtermctl session context *)`, `Bash(agtermctl session text *)`,
+  `Bash(agtermctl tree *)`;
+- `Bash(mailbox-chat.py *)`, `Bash(revmux *)`, and `Bash(codex exec *)` for the experts;
+- `Edit(/WORKTREES/**)`, with the settings' `paths.worktrees` relative to the root (`/` is the
+  root of the project in a rule of its settings file);
+- one rule for each command of `checks.commands`, `checks.alone` and `checks.setup`, the command
+  as written: `Bash(COMMAND)`. A command joined with `&&` needs each of its parts allowed, so
+  write one rule for each part.
+
+The rules are the owner's to change on the page like any assumption ("change allow none" takes
+them all out again). They allow no push, no merge and no command of the project beyond its checks.
+
 Run each command of the checks once, at the root, for the last line the hand-over page shows, and each
 `checks.alone` command through `python3 SKILL_DIR/scripts/project.py alone -- COMMAND`. Then look at
 what they left that git neither tracks nor ignores (`git status --porcelain --untracked-files=all`):
@@ -241,7 +265,16 @@ builder of its own, and how (the harness file, `spawn-builder`).
 **The assumptions**, each one line with its value, where it came from, and the words that change
 it: who lands (`owner`; "change land agent"), a pull request or a merge, what lands, the closed
 branches, the tracker, the reviewer and the defender with their models, the folders already here
-(linked or new), and each command of the checks. With git hooks, one line says, in these words, why the
+(linked or new), and each command of the checks. Three more lines are always there. How Lem asks:
+"Lem asks with `lem-ask`" (`tools.ask`; "change ask NAME", a skill or a command of his own, or
+`terminal`), since a personal rule of his that names another asker would otherwise meet Lem's
+page turn by turn. The three models a task runs on: the builder on Opus at high effort
+(`agents/lem-builder.md`; a project's own `lem-builder.md` in `.claude/agents/` replaces it), and
+the two experts, Fable through Claude Code and GPT-6 Astra through Codex (`seats.experts`; "change
+experts SEAT SEAT"), with a word when the machine check found no Codex: then the second expert and
+the panel's second family do not answer, and a choice the experts would settle ends on the
+recommended option, not green. And the allow list: the rules written into `.claude/settings.json`,
+in one line with their count and the mode a new session starts in ("change allow none"). With git hooks, one line says, in these words, why the
 checks have only tests: "the git hooks run the rest at each commit of a builder" (the hook files;
 "change checks add COMMAND"). With a sign of a suite that needs the machine to itself, one line
 names your guess for `checks.alone` with the file the sign is in ("change alone COMMAND", "change

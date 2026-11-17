@@ -183,7 +183,9 @@ prompt. Lem opens one for a plan talk only: its agent is the plan's defender
    `agtermctl session text --target ID`. Never open a second session for a task whose first one
    runs. Write the id in the task's state. Then read the model and the effort from the status
    line on that screen, and write them in the state as `defender: MODEL, EFFORT`, never the ones
-   you asked for: the talk's record names them, as it names the reviewer's.
+   you asked for: the talk's record names them, as it names the reviewer's. A status line of the
+   owner's own may show neither: write `unread` for each value the screen does not show
+   (`defender: unread, unread`), never the seat's value.
 4. **Send it a message** later (the owner's answers, a changed base):
    `agtermctl msg send --stdin --to ID:left --socket "$AGTERM_SOCKET" < FILE`. The mailbox hook of
    the mailbox chat hands it to the agent there at the end of its turn. When the session is gone,
@@ -291,7 +293,9 @@ every report says that the reviewer is this machine's choice, and "same family" 
      `MODEL` and `EFFORT` are the seat's `model` and `effort` from `project.py show`. Leave a flag
      out when the seat does not name its value (`null`): the agent's own default holds then.
    - read the model and the effort back from the pane's status line, and name those in the
-     report, never the ones you asked for. In one repository seven or more tasks were reviewed on
+     report, never the ones you asked for. When the status line shows no model or no effort (a
+     status line of the owner's own may hide them), the report says `unread` for each, never the
+     seat's value. In one repository seven or more tasks were reviewed on
      another model than the run's log said (mybaze, 2026-11-07, from that project's
      retrospective of 2026-11-08).
    - read `agtermctl tree --json` and confirm the session's `splitForeground` is that agent, then
