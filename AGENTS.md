@@ -1,7 +1,8 @@
 # Lem
 
 Lem is the `lem` skill and the skills it ships: one flow for a unit of work in any repository, with each project's settings kept
-in that project's repository. `README.md` says what it does; this file says how to change it.
+in that project's repository. `README.md` says what it does, the pages in `docs/` say how it
+works, and this file says how to change it.
 
 ## Rules for a change here
 
@@ -304,6 +305,16 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   polish pass, the checks and a review that is due; the stage texts give the line for the
   interview, the scout (with `scout`, its end, which had no event), the personas' read, an
   investigation and each builder's job. `SKILL.md` lists them with their ends.
+- **The README shows the plugin first, and the clone is for people who change Lem**: asked in his
+  Inbox on 2026-11-17 (thread "Lem production pass") which install the README shows first, he
+  picked "The plugin first; the clone for people who change Lem". So the README's install is the
+  two `claude plugin` commands with `--scope project` and then `/lem init`, and the clone with
+  `setup.py --project DIR` and the home links follow in a few lines with a link to
+  `docs/install.md`. One repository still uses one way, the plugin or the links.
+- **The repository is private now, and public later**: asked in the same thread whether the
+  repository stays private, he picked "Private now, public later". So the README says that an
+  install of the plugin needs read access to `pySilver/lem`; that line goes when he makes it
+  public.
 
 Designs taken on 2026-11-14 and 2026-11-15 after a question of the owner's. They are open to
 him, and they are not his rulings until he says so:
@@ -325,8 +336,9 @@ him, and they are not his rulings until he says so:
   `.claude-plugin/marketplace.json`, `bin/` with links to `lem-ask` and `jev`, and
   `hooks/hooks.json` after his ruling on the hook. The links of the setup work as before, and
   removing the four undoes it. As a plugin the builder is `lem:lem-builder`, so the harness file
-  and the machine check know two names. Not in it, and his to rule: the plugin as the one
-  documented way to install, which waits for one real task in that form.
+  and the machine check know two names. Which form the README shows first he ruled on
+  2026-11-17 (above: the plugin first). No task has run in the plugin form yet; the README and
+  `docs/install.md` each say so in one line, which the first such task replaces with its result.
 - **One person can say no to the correction queue, and nobody is switched on by a file git does
   not show**: `[corrections] collect = false` in `.lem/project.local.toml`, and never `true`
   there. A design of the session that carries his words, for the half of him that leaned to
@@ -562,8 +574,20 @@ real task, so say in the commit which task showed the need.
   scout of an interview, of the investigator of a bug or a question (`investigator.md`), of the
   one builder of a small change (`small.md`), of the builders of a landing, of the agent that
   routes and runs a review before a change is proposed, and of the reviewer in the other pane.
-- `docs/`: `free-hour.md` (how an unattended session may change Lem), `linear.md` (how a
-  project connects Linear), and `backlog/`, Lem's own deferred work.
+- `docs/`: the reference pages the README links, each in STE like the README and each with one
+  job: `flow.md` (how one task goes, for each size, with the plan talk and the diagrams),
+  `settings.md` (every setting with its default, one to one with `project.py`), `inside.md` (the
+  two levels, the agents and their briefs, a task's files, the event log, the board),
+  `install.md` (what Lem needs, each form of install, what Lem writes and how to remove it) and
+  `examples.md` (the real runs with their dates, and illustrations). Beside them `free-hour.md`
+  (how an unattended session may change Lem), `linear.md` (how a project connects Linear),
+  `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem: each finished one
+  opens with a status line that names its commits and where later decisions changed it.
+- `.lem/`: Lem's own settings, profile, cast and lessons, from its onboarding, which `/lem` reads
+  when Lem runs in this repository. `.revmux/`: the review tool's profiles, lenses and project
+  profile for this repository.
+- `tests/`: the suites of the Checks above; `all.sh` runs them all, `lib.sh` is what each
+  `lem-*.sh` block sources. `.github/workflows/ci.yml` runs them on a push.
 - `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `lem-ask`
   and `jev` commands from this clone into a home directory, never over something else, and runs
   the machine check. `--corrections on|off` registers the hook of the correction queue in the
@@ -579,10 +603,12 @@ real task, so say in the commit which task showed the need.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
   `assets/lem-night.svg` and `assets/lem-mark-night.svg` are the same drawings in the night
   palette, written by `assets/night.py`; the README shows the night one in a dark theme.
-- `assets/screens/`: the README's pictures of the board, for a light and a dark theme, at two
-  device pixels for each pixel. `board-*` and `task-*` are renders of
-  `skills/lem/assets/board.html` over demo data, and so is `backlog-*`; `real-task-*` is the board of the first task
-  that ran through Lem, over its real event log.
+- `assets/screens/`: the pictures of the board, for a light and a dark theme, at two device
+  pixels for each pixel. `board-*`, `task-*` and `backlog-*` are renders of
+  `skills/lem/assets/board.html` over the data of `board.py --demo`; the README shows `board-*`,
+  and `docs/inside.md` shows `task-*` and `backlog-*`.
+  `real-task-*` is the board of the first task that ran through Lem (2026-11-15), over its real
+  event log, and only `docs/examples.md` shows it, with its date.
 - `skills/lem-ask/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
   `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-ask-expert/`: the
