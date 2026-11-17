@@ -57,18 +57,17 @@ forge calls it conflicting.
      change, and say in the report that it was a small change, for Lem's next call of a size;
    - then the personas read the criteria you wrote. Here
      the read always runs, as the only approval of this path: the owner's word to skip it belongs
-     to an interview (`stages/new.md`, "The interview and the acceptance criteria", step 5), and the
+     to an interview (`stages/interview.md`, step 5), and the
      landing refuses one that comes after a lead started. The read is the persona panel's "Reading
      acceptance criteria" mode (`load-skill`), run by you while you write the rest of the plan. You
      have no paired agent of the other family, so one family answers: the panel's own persona
      agents, started the way the `lem-panel` skill starts a persona, never as a builder:
      `lem-builder` has no persona among its jobs. Log its start as it starts, `lem
      project --repo WORKTREE log SLUG criteria.read.start by=lead`. Write the
-     event the landing reads, in the form `stages/new.md` gives ("The interview and the
-     acceptance criteria", step 5), with `by=lead`, your one family, and the `digest` field of what `lem
+     event the landing reads, in the form `stages/interview.md` gives (step 5), with `by=lead`, your one family, and the `digest` field of what `lem
      criteria --repo WORKTREE digest SLUG` prints for the plan's criteria. A
      persona agent that did not answer is named in `silent` with why. A read in which nobody
-     answered is written down too, in the form `stages/new.md` gives for it, and started once more;
+     answered is written down too, in the form `stages/interview.md` gives for it, and started once more;
      after a second one in a row, freeze the criteria as below, write the state line `the criteria
      were not read: nobody answered twice`, and build: the pull request is not green for it. Nobody
      confused, and your brief says `request by: someone else`: the criteria wait for his yes all

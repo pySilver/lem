@@ -121,7 +121,7 @@ is.
 
 ## start
 
-When the task's lead starts (`stages/new.md`, "Start a lead"), and only with `moves = "lem"`.
+When the task's lead starts (`stages/start.md`), and only with `moves = "lem"`.
 
 1. The workspace test, and the connection's `access` allows a write; a read-only connection
    stops here, and you say so.
@@ -163,8 +163,7 @@ When a task that came from a ticket is dropped (`stages/new.md`, "When a task is
 ## answer
 
 When a task that came from a ticket ends as `answered`: its investigation found that the bug is
-not one, or answered the question, and nothing is merged (`stages/new.md`, "A bug and a
-question"). A drop's comment would tell the people who read the ticket that the work was
+not one, or answered the question, and nothing is merged (`stages/investigate.md`). A drop's comment would tell the people who read the ticket that the work was
 not wanted, while the task has a finding for them; so an answer has its own comment.
 
 1. The workspace test, and the connection's `access` allows a write.

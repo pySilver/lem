@@ -48,7 +48,7 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    - **drop**: the item is gone from the backlog or another branch took it.
    Write the draft's state as `drafted`. When its report says the plan needs a session (a careful
    or a large plan), say so in the night report: the draft stands, and `/lem build` opens the
-   plan talk's companion at once (`stages/new.md`), then a builder leads the build.
+   plan talk's companion at once (`stages/start.md`), then a builder leads the build.
 
 In the morning a bare `/lem` lists each draft that is still `drafted` among what waits for the
 owner (`lem project waiting`), with the night report while it is of that night or the one before.

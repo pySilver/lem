@@ -92,7 +92,7 @@ beside the personas'. Their advice decides nothing by itself; the record does th
   recommended option when they split, when one found none fits, or when one did not answer in
   time;
 - when he is away, `lem decisions settle SLUG N --away` takes their shared pick at once. Only Lem
-  knows that he is away (`stages/new.md`, "When a choice waits for the owner");
+  knows that he is away (`stages/choice.md`);
 - a choice the experts decided is never green: the pull request has a line with their pick and
   both reasons, and he reads it before he merges;
 - a step that a later "no" cannot reverse (`--irreversible`) takes advice for his card, and is
@@ -133,7 +133,7 @@ advice in two places, `fable` and `astra`, the names `lem decisions` knows: the 
 4. **Tell who reads it.** The lead, the defender of a plan talk in its companion session or a
    builder that leads in Lem's own session, sends `lem: SLUG choice N advised` through
    `tell-coordinator` when both answers are in the record. Lem also finds the advice in
-   `lem decisions pending`, when the line is lost. Lem then does what `stages/new.md` says. When the
+   `lem decisions pending`, when the line is lost. Lem then does what `stages/choice.md` says. When the
    owner called this skill for the choice (`/lem ask-expert` alone, step 2 of "Which question"),
    show him both answers as step 4 above, on the choice's own options.
 

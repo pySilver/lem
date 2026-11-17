@@ -121,7 +121,7 @@ it waits for him, and the task's state says what waits. Not checked in a run.
 Lem takes him as away on two facts only, never on a guess from his silence: his own words in
 this session that he is away or leaves (until he types again), or a question of this turn that
 went to his away channel because his instructions sent it there. For a choice of a build that
-waits, that is what `lem decisions settle SLUG N --away` stands on (`stages/new.md`).
+waits, that is what `lem decisions settle SLUG N --away` stands on (`stages/choice.md`, step 4).
 
 ## spawn-builder
 
@@ -249,7 +249,7 @@ agtermctl msg send "lem: SLUG is STATUS" --to SESSION:PANE --socket SOCKET
 Write both values literally, as the brief gives them: a builder writes no shell variable
 (`agents/lem-builder.md`), and `agtermctl` does not read `AGTERM_SOCKET` by itself (the agterm
 skill: "`agtermctl` never reads it automatically"). Lem writes the two lines into the brief at
-each start of a lead (`stages/new.md`, "Start a lead"), from its own `AGTERM_SESSION_ID`,
+each start of a lead (`stages/start.md`), from its own `AGTERM_SESSION_ID`,
 `AGTERM_PANE_ID` and `AGTERM_SOCKET`, so a Lem that started after the brief was first written
 gets the line.
 
@@ -261,8 +261,7 @@ that leads sends no line when it stops: its reply wakes Lem, and a line too woul
 pending`, never the line's claim. Mail is kept in memory only, so a pane that was restarted has
 lost it. A lost end of a task costs nothing but time: the state block is on disk, and `/lem
 status` shows it. A lost choice costs the owner part of his wait, so Lem also runs
-`lem decisions pending` at each of its turns (`stages/new.md`, "When a choice waits for the
-owner").
+`lem decisions pending` at each of its turns (`stages/choice.md`).
 
 A builder runs as a subagent inside Lem's own session, so its line goes from Lem's pane to Lem's
 pane: the sender `agtermctl` takes by default (`--as`, from the `AGTERM_SESSION_ID` and

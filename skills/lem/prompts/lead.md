@@ -44,7 +44,7 @@ does not take the task to its report.
    session, do what the owner says, and write it down so Lem reads it too. When his words answer
    a choice that waits (`lem decisions list SLUG`), write them with `lem decisions answer SLUG N
    --chose OPTION --words TEXT`, or with `--instead TEXT` when he decided what none of the
-   options says (`stages/new.md`, "When a choice waits for the owner", says how). A criterion his
+   options says (`stages/choice.md` says how). A criterion his
    answer changes gets its record from you, `lem decisions criterion ... --choice N`. A new decision
    would leave the choice waiting. Only a word of
    his that answers no choice is logged with `lem decisions log SLUG --by owner`. A choice in the

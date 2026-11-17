@@ -8,7 +8,7 @@ the owner nothing but the agent's minutes: it never holds a task, a question or 
 
 Lem starts a nap two ways, and never through a scheduled job:
 
-- **by itself**, at the moment `stages/new.md` names at its end: a task ended, or nothing is left
+- **by itself**, at the moment "The queue" of `stages/start.md` names at its end: a task ended, or nothing is left
   for Lem but the owner's word, and the settings' `naps.on` is true;
 - **on the owner's word**, `/lem nap`: whatever the gap since the last one, and also when the naps
   are off, since his word is the switch for that one.

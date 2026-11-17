@@ -55,8 +55,7 @@ one finds what the run before it finished.
    An `open` task takes the line again when a later step says so (the base moved, a commit hook
    changed the one commit): its reviews and its pull request stay its own. That is the one way
    back for it: `lem project may-start` refuses a lead for a task in `landing` or `open`, and a
-   change the owner asks for after the build is a new ask (`stages/new.md`, "When a choice waits
-   for the owner", step 3).
+   change the owner asks for after the build is a new ask (`stages/choice.md`, step 3).
 2. **`base`.** The base branch is brought in by a rebase. Before it, with a GitHub remote, the
    step asks origin for the task's own branch: a commit there that Lem did not push (a teammate's
    suggestion on the pull request) stops it, with each such commit named. Nothing is pushed over
@@ -130,7 +129,7 @@ one finds what the run before it finished.
    2. A failure the base already has is not this task's to carry and not these checks' to hide:
    open a task for the failing command (`/lem new`), write this task's state as `blocked` with
    the lines `the base is red` and `after: SLUG` of that new task, and land that one first. The
-   queue step at the end of `stages/new.md` writes this task's state `ready` again once that task
+   queue step of `stages/start.md` ("The queue") writes this task's state `ready` again once that task
    is `landed`, and it takes its turn. Skipping or changing a command of the checks is the owner's
    decision only. After two builders on the same failure, write the state `blocked` and tell
    the owner.
@@ -215,19 +214,17 @@ one finds what the run before it finished.
    as it is; no criterion changed during the build; no choice was taken by timeout or by the
    experts; the checks were the main checkout's own; no read of the criteria went unanswered twice;
    and a small change is not careful. A green request needs no read from the owner. The step refuses while a
-   choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
-   the owner"), and run it again after his answer or after the timeout. It refuses a request
+   choice of the task waits for the owner: ask him (`stages/choice.md`), and run it again after his answer or after the timeout. It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
    event log holds no `plan.talk`: its lead skipped the talk (`stages/talk.md`). Lem opens the plan
    talk's companion, whose defender argues the plan with the reviewer, as for `needs a session`
-   (`stages/new.md`). A request that
+   (`stages/stopped.md`). A request that
    became careful after its plan, by the owner's word, by the review's call or by its edit of
    `.lem/project.toml`, had no talk due; it gets the full set and a person's merge, and
    its text says that it had no talk and why. A careful request says so in the line after green
    or not green, with each reason, and its checks hold the careful call with the review's reason.
    It refuses a request whose newest read of its criteria had no answer and was the first such
-   read in a row: the read is started once more (`stages/new.md`, "The interview and the
-   acceptance criteria", step 5). After a second read with no answer the request is proposed,
+   read in a row: the read is started once more (`stages/interview.md`, step 5). After a second read with no answer the request is proposed,
    not green, with "the criteria were not read" first.
    With a GitHub remote the step pushes the task's branch and opens the pull request, or
    updates the one that is there. Run it without a question: `branch.propose = "pull-request"`,
@@ -331,8 +328,8 @@ project log SLUG builder.start "job=JOB"` with the job of its brief; the
 polish pass is the one job whose start `lem land polish` logs itself, as `checks` and `read` log the
 start of the checks and of a review that is due. Read `report.md` again after the polish pass, before step 6.
 
-Then the next: a `ready` task takes the line, and the queue is looked at as `stages/new.md`
-ends: a landing holds a place, so its end may free one.
+Then the next: a `ready` task takes the line, and the queue is looked at as `stages/start.md`
+says under "The queue": a landing holds a place, so its end may free one.
 
-A task that landed here, or was dropped, also ends the way `stages/new.md` ends: with a nap, when
+A task that landed here, or was dropped, also ends the way "The queue" of `stages/start.md` ends: with a nap, when
 the settings have the naps on and one is due.

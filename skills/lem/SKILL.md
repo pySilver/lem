@@ -111,8 +111,9 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | --- | --- | --- |
 | `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and says its size in one line. A small change goes to one builder and the landing, and waits for nothing. A full change: interviews the owner while a scout reads the code, has the personas read the criteria and takes his yes to them, and starts its lead; a ticket or an item whose whole context is written skips the interview. A bug whose cause the ask does not show is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read. A plan is a full change's, so the ask is a full change whatever its size, and Lem's line says so | `stages/new.md` |
-| `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/new.md` |
-| a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report: act on it as "A bug and a question" says | `stages/new.md` |
+| `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/start.md` |
+| a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report, and a scout's belongs to its interview | `stages/stopped.md`; an investigator's `stages/investigate.md`, a scout's `stages/interview.md` |
+| a choice waits | the line `lem: SLUG choice N waits` arrived, or the `waiting` list of `lem decisions pending` names a choice: run that command at each of your turns, since a line can be lost | `stages/choice.md` |
 | `land` | the oldest ready task: the polish pass for a full change (a small change has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `annotate <file>` | opens a plan, a draft or any text file for the owner to mark up, with what the settings' `tools.annotate` names, and takes his notes as corrections | the harness file, `show-page` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
@@ -388,12 +389,12 @@ and the forge tells Lem nothing by itself: for each `open` task whose `proposal`
 tasks` has a `pull_request`, run `lem land merged SLUG`. One that is
 merged becomes `landed`, and one he closed with no merge becomes `dropped`; take step 9 of
 `stages/land.md` for them (the ticket, `clean`, a conflicting pull request onto the new base), then the
-queue, as `stages/new.md` ends, since a task queued `after:` one may start now. "Not merged yet" is
+queue, as `stages/start.md` says under "The queue", since a task queued `after:` one may start now. "Not merged yet" is
 no news; "not merged yet, and the forge calls it conflicting with main" is: `lem project waiting`
 then gives that pull request `conflict: true`, you say "#4 is green by its checks, and conflicts
 with main" (or not green, with its reasons), and you take step 9 of `stages/land.md` for it at
-once, without waiting for the watch. Do the same at each of your turns where you read `lem decisions pending` (`stages/new.md`,
-"When a choice waits for the owner").
+once, without waiting for the watch. Do the same at each of your turns where you read `lem decisions pending` (the row "a choice
+waits" of Subcommands).
 
 While a task is `open` with a pull request, keep one watch of the forge in the background, never
 two: `run-in-background` with `lem land watch`. It looks once every

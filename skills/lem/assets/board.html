@@ -992,7 +992,7 @@ function derive(now) {
     t.waiting = t.closed ? [] : t.choices.filter(d => d.kind === 'asked' && d.state === 'waits')
       .sort((a, b) => rank(a) - rank(b) || (rank(a) === 1 ? 0 : (a.deadline ?? 0) - (b.deadline ?? 0)) || a.id - b.id);
     t.asks = t.waiting.filter(d => !over(d));
-    // stages/new.md and stages/plan.md write this line for criteria that wait for his yes (an older
+    // stages/interview.md and stages/plan.md write this line for criteria that wait for his yes (an older
     // Lem wrote "the stories wait", which a later change may stop reading once no such task is open)
     t.criteriaWait = t.status === 'held' && CRITERIA_WAIT.test([last.text, ...last.lines].join(' '));
     // a queued task waits for a free place, and one with an `after:` line for the task it needs too
@@ -1146,7 +1146,7 @@ function answerOf(t, c = t.asks[0]) {
   // A held task waits on what its own state line says, and never on a decision with options, which
   // is a choice of the record: the criteria, one more fact an investigation needs, a step that is
   // the owner's to do, such as a trust prompt of the reviewer's agent, or an irreversible choice
-  // every task left needs (stages/new.md). The board quotes the line and does not guess which.
+  // every task left needs (stages/stopped.md). The board quotes the line and does not guess which.
   if (t.status === 'held') return `It waits on what its state says: “${t.shown}”. Lem tells you in its session what to do and where.`;
   if (t.status === 'planned') return 'Read the plan, then tell Lem in its session: build it or drop it.';
   return `Tell Lem in its session: /lem build ${t.slug}, or drop it.`;
@@ -1259,7 +1259,7 @@ const tickLabel = (ms, whole, now) => (whole < 6 * 60000 ? hms(ms, now) : stamp(
 // ---- where the time of one task went ----
 
 const taskLine = b => b.status === 'building' && [b.text, ...b.lines].join(' ').match(/\btask (\d+) of (\d+)\b/);
-// A builder investigates a bug or a question before any lead: the block's line `investigation: bug` or `investigation: question` (stages/new.md).
+// A builder investigates a bug or a question before any lead: the block's line `investigation: bug` or `investigation: question` (stages/investigate.md).
 const investigates = b => b.status === 'building' && [b.text, ...b.lines].some(line => /^investigation:/.test(line));
 // A small change's one builder makes it: the block's line `small change: one builder` (stages/new.md).
 const smallBlock = b => b.status === 'building' && [b.text, ...b.lines].some(line => /^small change: one builder$/.test(line));

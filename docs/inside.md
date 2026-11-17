@@ -60,7 +60,14 @@ holds the rules that every builder follows. A project can replace it with its ow
 
 The stage files tell each role what to do: `skills/lem/stages/new.md`, `plan.md`, `build.md`,
 `talk.md`, `land.md`, `init.md`, `learn.md` and `night.md`. A lead reads `plan.md` and
-`build.md`. Only the defender reads `talk.md`.
+`build.md`. Only the defender reads `talk.md`. A part that only one path of Lem's reads is a file
+of its own, and Lem reads it only on that path:
+
+- `interview.md`: the interview and the acceptance criteria of a full change.
+- `investigate.md`: the investigation of a bug or a question.
+- `start.md`: the start of a lead or a builder, `/lem build`, and the queue.
+- `stopped.md`: what Lem does when a lead stops.
+- `choice.md`: a choice that waits for the owner.
 
 `skills/lem/harness/README.md` is the contract between the stages and an agent. A stage names a
 capability, for example `spawn-builder` or `ask-owner`. `skills/lem/harness/claude-code.md` says

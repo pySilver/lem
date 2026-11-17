@@ -336,7 +336,7 @@ TYPE_LINE = re.compile(r"type:\s*(?P<type>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+
 OLD_KIND_LINE = re.compile(r"kind:\s*(?P<kind>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+))?")
 OLD_KINDS = {"bug": "fix", "feature": "feat", "correction": "fix", "investigation": "question", "chore": "chore", "docs": "docs"}
 # What the investigation of a fix or of a question found, as `log investigation` takes it: the call
-# that sets the task's next path (`stages/new.md`, "A bug and a question"). A fix goes on as a small
+# that sets the task's next path (`stages/investigate.md`). A fix goes on as a small
 # change or a full change, or it is no bug; two of the calls end the task with its report, as `answered`.
 CALLS = {"fix": ("small", "full", "not-a-bug", "not-reproduced"), "question": ("answer",)}
 ANSWERING = ("not-a-bug", "answer")

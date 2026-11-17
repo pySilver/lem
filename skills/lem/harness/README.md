@@ -9,7 +9,7 @@ new agent is one new file here and no edit to a stage.
 | Capability | Meaning |
 | --- | --- |
 | `load-skill` | bring another skill's instructions into context once, and reuse them while they are there |
-| `ask-owner` | put a short choice to the owner and wait for the answer. An interview's questions are no such choice: they are lines in the conversation (`stages/new.md`) |
+| `ask-owner` | put a short choice to the owner and wait for the answer. An interview's questions are no such choice: they are lines in the conversation (`stages/interview.md`) |
 | `spawn-builder` | give one task to a fresh agent on the workhorse model, able to edit, run commands and commit in a directory it is given, and already holding the builder's standing rules (`agents/lem-builder.md` in this repository is their text); you are told when it ends, and its reply is one line. The agent's file says whether a builder can start builders of its own; where it cannot, the lead of any plan stops `blocked` and says so, since every task of a plan gets a builder of its own |
 | `open-task-session` | start a fresh agent of your own kind in a session of its own, under yours or beside it where the agent's file says so, in a directory it is given, on the model and the effort the settings' `seats.planner` names when it names them, with a brief it reads from a file; the owner can read it and type there; later, send it a message, and close it. Lem opens one for a plan talk only, and closes it when the talk is done |
 | `tell-coordinator` | from a plan talk's companion or from a builder that leads a task, send the coordinator one line that wakes it: the task and its new status, or a choice that waits for the owner |

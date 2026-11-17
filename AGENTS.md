@@ -19,8 +19,11 @@ works, and this file says how to change it.
   another project's notes about an agent.
 - **A number in a skill file carries its source and date.** A rule that rests on a measurement
   says so; a rule that rests on a guess says that instead (`READ_AT` in `land.py`).
-- **One stage file per subcommand, read only when it runs.** `SKILL.md` holds what is true in
-  every stage. A rule that one stage needs goes in that stage.
+- **One stage file per subcommand, read only when it runs, and a part that only one path reads
+  is a file of its own.** `SKILL.md` holds what is true in every stage. A rule that one stage
+  needs goes in that stage. A part of a stage that only one of its paths needs (the interview,
+  an investigation, the polish pass) is a file beside it, and the step that chooses the path
+  names that file in one line: a small change reads nothing that only a full change needs.
 - **Lem's stages and a lead's stages stay apart.** `plan` and `build` are a lead's; the others
   are Lem's. A step that reads a task's code or its diff goes to a lead or to a fresh agent,
   never into `new`, `land` or `review`.
@@ -632,7 +635,7 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
 - **A task that ended stays ended** (A2). A stale wake-up wrote `building` over a landed task, and
   in the audit's probe `landing.json` lost `merged`, `pr` and `gated`. So `project.py state`
   refuses a move out of `landed`, `answered` or `dropped`, `may-start` refuses a task that is
-  `landing`, `open` or ended, and `stages/new.md` starts a lead only for a task that is `building`
+  `landing`, `open` or ended, and `stages/stopped.md` starts a lead only for a task that is `building`
   or has no new state block. New work on an ended task is a new ask.
 - **A plan never makes a change small** (A3). A lead could write a small change's size line in a
   plan, for a full change from a complete request or at night, and then no approval, no read of
@@ -755,7 +758,10 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
 
 - `skills/lem/SKILL.md`: the entry point and what holds in every stage.
 - `skills/lem/stages/`: one file per subcommand, and `talk.md`, the plan talk of a careful or
-  large plan, which only its defender reads.
+  large plan, which only its defender reads. The parts of `new.md` that only one path reads are
+  files beside it: `interview.md` (the interview and the acceptance criteria), `investigate.md`
+  (a bug and a question), `start.md` (the start of a lead, `/lem build` and the queue),
+  `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner).
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `lem_state.py` (the one place that names a repository's state folder,
   `.lem/state/` of the main checkout, and moves the `.git/lem/` of an older Lem there once; every

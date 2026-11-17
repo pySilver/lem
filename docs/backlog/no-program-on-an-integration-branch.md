@@ -1,12 +1,12 @@
 ---
 worth: later
-where: skills/lem/stages/new.md
+where: skills/lem/stages/start.md
 added: 2026-11-16
 ---
 # no long program of dependent branches on an integration branch
 
 Every task of Lem starts from `branch.base` (`git worktree add -b BRANCH PATH BASE`,
-`stages/new.md`, "Start a lead") and ends as a pull request into it. A program of ten tasks in
+`stages/start.md`) and ends as a pull request into it. A program of ten tasks in
 which task 4 needs the code of task 3 therefore waits for task 3's pull request to merge before
 task 4 can start. convertiser-server works another way today: a coordinator and about five
 builders landed 67 branches in about 28 hours on an integration branch that is not the main

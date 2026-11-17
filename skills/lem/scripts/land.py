@@ -407,7 +407,7 @@ CHANGE_HOW = {"changed": "changed", "added": "was added", "removed": "was remove
 # The form of the one event that records the personas' read of a task's criteria.
 READ_FORM = "`by=lem|lead asked:=N answered:=N families:='[...]' silent:='[...]' criteria:=N flagged:=N split:=true|false digest=DIGEST`"
 # The owner's word that the personas do not read the criteria, which Lem asks for only when every
-# criterion names only the developer (`stages/new.md`, "The interview and the acceptance criteria",
+# criterion names only the developer (`stages/interview.md`,
 # step 5): one decision of his that `decisions.py log --by owner` writes, known by these two texts
 # word for word.
 READ_SKIP = {"what": "the personas' read of the criteria", "chose": "no read: the criteria name only the developer"}
@@ -1743,7 +1743,7 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
     if approval is None:
         return None, (
             f"the owner's word to skip the personas' read of {task.slug}'s criteria is on record, and no approval of the owner's came after it: "
-            f"the owner's yes to the criteria is kept with `lem criteria approve {task.slug} --file FILE` (`stages/new.md`, \"The interview and the acceptance criteria\", step 7)"
+            f"the owner's yes to the criteria is kept with `lem criteria approve {task.slug} --file FILE` (`stages/interview.md`, step 7)"
         )
     return {"word": events[word], "approval": events[approval]}, None
 
@@ -2388,7 +2388,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         raise LandError(
             f"{needs_talk}, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (`stages/talk.md`), "
             f"and the event log has no `plan.talk` of {task.slug}. The defender writes it after the talk: "
-            f"`lem project log {task.slug} plan.talk {TALK_FORM}`; for a plan that had no talk, Lem opens the companion first, as for `needs a session` (`stages/new.md`)",
+            f"`lem project log {task.slug} plan.talk {TALK_FORM}`; for a plan that had no talk, Lem opens the companion first, as for `needs a session` (`stages/stopped.md`)",
         )
     if talk is not None and not (
         isinstance(talk.get("reviewer"), str) and talk["reviewer"].strip()
@@ -2409,7 +2409,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         if skipped is None:
             raise LandError(
                 f"{task.slug} is a full change, and the event log has no `criteria.read`: the personas read its criteria before the build "
-                "(`stages/new.md`, \"The interview and the acceptance criteria\", step 5; for a full change from a complete request `stages/plan.md`, step 1), "
+                "(`stages/interview.md`, step 5; for a full change from a complete request `stages/plan.md`, step 1), "
                 f"and whoever ran the read writes `lem project log {task.slug} criteria.read` with the form {READ_FORM}. "
                 f"Only the owner skips a read, at the interview and when every criterion names only the developer: Lem writes the owner's word with {read_skip_form(task.slug)}, "
                 "and the owner approves the criteria after it, both before a lead starts",
@@ -2417,14 +2417,14 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if read is not None and not read["answered"] and unanswered(task) < 2:
         raise LandError(
             f"nobody answered the newest read of {task.slug}'s criteria: it is started once more, and its record written again with `lem project log {task.slug} criteria.read` "
-            "(`stages/new.md`, \"The interview and the acceptance criteria\", step 5; for a full change from a complete request `stages/plan.md`, step 1). "
+            "(`stages/interview.md`, step 5; for a full change from a complete request `stages/plan.md`, step 1). "
             "After a second read in a row that nobody answered, the request is proposed as not green",
         )
     if read is not None and (read["flagged"] or read["split"]) and not approved_after(found, read):
         doubt = f"{read['flagged']} flagged {'criterion' if read['flagged'] == 1 else 'criteria'}" if read["flagged"] else "a split between the two families"
         raise LandError(
             f"the newest read of {task.slug}'s criteria found {doubt}, and no approval of the owner's came after it: the criteria with the personas' answers "
-            "on top go to the owner (`stages/new.md`, \"The interview and the acceptance criteria\", step 6), and the owner's yes is kept with "
+            "on top go to the owner (`stages/interview.md`, step 6), and the owner's yes is kept with "
             f"`lem criteria approve {task.slug} --file FILE`",
         )
     # A complete request that someone else wrote: nobody at the terminal read it, so its criteria wait

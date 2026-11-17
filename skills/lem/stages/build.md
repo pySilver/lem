@@ -105,8 +105,7 @@ has no plan, and the size is no choice of this section. A plan that departs from
    the choice concerns, in its reviewing mode: each option as what a person would see and what it
    costs, and a short check of outside facts when one fact decides it. It asks the owner nothing
    and decides nothing. This is the personas' step of every decision of his; the question gate
-   (`lem-gate`) comes later, at Lem, when the card goes to him (`stages/new.md`, "When a choice
-   waits for the owner").
+   (`lem-gate`) comes later, at Lem, when the card goes to him (`stages/choice.md`).
    - *A clear answer* (the personas agree, nobody in doubt): take it, log it with
      `--by personas --said "who picked what"`, and go on. A criterion that the choice changes gets
      its record, `lem decisions criterion ... --by personas --said "who picked what"`; change the

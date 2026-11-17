@@ -666,7 +666,7 @@ def cmd_timeout(task: Task, number: int) -> dict:
 
 def cmd_settle(task: Task, number: int) -> dict:
     """The owner is away: the experts' shared pick is taken before the wait ends. Only Lem knows
-    that he is away (`stages/new.md`); this command takes its word for it and checks the rest."""
+    that he is away (`stages/choice.md`); this command takes its word for it and checks the rest."""
     def make(known: list[dict]) -> list[dict]:
         decision = task.one(number, known)
         if decision["state"] != "waits":
@@ -789,7 +789,7 @@ def main() -> None:
                 if not args.away:
                     raise DecisionError(
                         "settle takes a choice before its wait ends only because the owner is away: add --away when the owner's own words "
-                        "or away channel say so (`stages/new.md`); otherwise the choice waits its time",
+                        "or away channel say so (`stages/choice.md`); otherwise the choice waits its time",
                     )
                 result = cmd_settle(task, args.id)
             else:

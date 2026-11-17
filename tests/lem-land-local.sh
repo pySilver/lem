@@ -214,7 +214,7 @@ project --repo "$LOCAL" log read-doubt criteria.read by=lem asked:=3 answered:=2
 lcriteria approve read-doubt --file "$WORK/doubt.md" >/dev/null 2>&1 || true
 local_land propose read-doubt --title "fix: r" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.lem/state/tasks/read-doubt/pr.md
-if grep -qF "read-doubt is a full change, and the event log has no \`criteria.read\`" <<<"$unread_feature" && grep -qF 'stages/new.md' <<<"$unread_feature" \
+if grep -qF "read-doubt is a full change, and the event log has no \`criteria.read\`" <<<"$unread_feature" && grep -qF 'stages/interview.md' <<<"$unread_feature" \
   && grep -qF "the newest read of read-doubt's criteria found a split between the two families, and no approval of the owner's came after it" <<<"$split_unseen" \
   && grep -qF "found 1 flagged criterion, and no approval of the owner's came after it" <<<"$flag_unseen" && grep -qF "lem criteria approve read-doubt --file FILE" <<<"$flag_unseen" \
   && grep -qF "the newest read of read-doubt's criteria found a split between the families: the criteria wait for the owner, and only the owner's approval freezes them" <<<"$freeze_split" \
