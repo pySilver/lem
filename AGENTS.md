@@ -737,6 +737,12 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   scout of an interview, of the investigator of a bug or a question (`investigator.md`), of the
   one builder of a small change (`small.md`), of the builders of a landing, of the agent that
   routes and runs a review before a change is proposed, and of the reviewer in the other pane.
+- The naps, an optional part: `skills/lem/prompts/nap.md` is the nap's brief, written after the
+  owner's own nap routine and kept in its voice (a change to it is tried with one real nap, and
+  its dream is read: a brief that makes a report of it is wrong); `skills/lem/stages/nap.md` starts
+  one; `project.py may-nap` says whether one may; the board's third tab, Dreams, shows them; and
+  `skills/lem/assets/demo-naps/` holds the example nap `board.py --demo` shows, a real nap of a
+  trial run. `tests/lem-naps.sh` is their block.
 - `docs/`: the reference pages the README links, each in STE like the README and each with one
   job: `flow.md` (how one task goes, for each size, with the plan talk and the diagrams),
   `settings.md` (every setting with its default, one to one with `project.py`), `inside.md` (the

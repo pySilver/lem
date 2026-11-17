@@ -195,6 +195,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## naps
+
+`skills/lem/prompts/nap.md` follows the owner's own nap routine, a brief of his that a scheduled
+job gives a fresh session three times a day, as of 2026-11-17: its falling asleep, its dream that
+does not have to make sense, and its waking up, with the dream written down first, one thing made
+from it and a short waking note, are kept in its words where they fit. Changes made: the nap
+reads the tasks in Lem's state folder instead of the owner's sessions, its folder is in that
+state folder, it commits nothing, and Lem starts it, not a scheduled job. The routine is the
+owner's own and unpublished, so no license applies to it.
+
 ## gate, panel, lem-ask, backlog, interview-me and jev
 
 `skills/lem/scripts/jev.py` is the `jev` command of that repository's `jev` plugin, as of

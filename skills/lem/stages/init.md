@@ -262,6 +262,11 @@ as corrections: edit, commit on the same branch, say for each file what changed.
 - **a paragraph for the project's agent document** (step 5);
 - **a starting style guide** for a new project, copied from another of his repositories that
   uses the same stack, marked as copied and from where.
+- **naps**: now and then, after a task ends, a fresh agent reads the recent tasks, dreams, and
+  writes the dream down for the board's Dreams tab and the retro (`stages/nap.md`). What it
+  costs: an agent's session of some minutes, a few times a day while Lem works. Nobody has shown
+  that it helps. On his yes, set `naps.on = true` in the settings draft; `/lem nap` starts one
+  at any time without it.
 
 The page and your last message end with the three replies you take, in these words:
 

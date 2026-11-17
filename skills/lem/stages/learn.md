@@ -75,6 +75,14 @@ for what came back:
 - a gate, a check or a step of this skill that cost time and changed nothing: propose to remove
   it, with the turns that show the cost.
 
+Where the project has naps (`stages/nap.md`), the retro also reads their waking notes,
+`naps/*/waking.md` in the folder `project.py state-dir` prints, of each nap whose time, the start
+of its folder's name, is after the retro before this one. A waking note is one agent's impression
+after a dream, so it is a candidate and never a lesson: a thing a note names becomes a lesson only
+when the tasks' records above show it too, and that lesson says which note it came from, by the
+folder's name. A note is never put to the owner as a proposal by itself, and the dream beside it
+is not read for lessons.
+
 The owner sees only moves and removals, in one question through `ask-owner`, each with the case
 in their own words. First-time lessons are recorded without a question. The retro's closing report still names every
 file it changed, a first-time record included, with what changed and why.

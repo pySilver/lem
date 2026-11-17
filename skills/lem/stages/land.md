@@ -294,3 +294,6 @@ start of the checks and of a review that is due. Read `report.md` again after th
 
 Then the next: a `ready` task takes the line, and the queue is looked at as `stages/new.md`
 ends: a landing holds a place, so its end may free one.
+
+A task that landed here, or was dropped, also ends the way `stages/new.md` ends: with a nap, when
+the settings have the naps on and one is due.

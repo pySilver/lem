@@ -113,6 +113,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
+| `nap` | a nap now, on the owner's word, also when the naps are off: a fresh agent reads the recent tasks, dreams, and writes the dream down; Lem tells him its name when it ends. Where the settings have the naps on (`naps.on`), Lem also naps by itself after a task ends | `stages/nap.md` |
 | `status`, bare `/lem` | the board of all tasks, and in words: every open task, what is proposed and what waits for the owner | below |
 | `status <task>` | the board of one task | below |
 | `reviewer AGENT [MODEL [PLAN_EFFORT]]`, `reviewer default` | who sits in the reviewer's pane on this machine for now, and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
@@ -350,6 +351,10 @@ action there, "start a task", types `/lem new PATH` into Lem's session, which is
 writes the tab's file at every run, and the page reads it when the tab opens and on a key. So
 after an item was filed, taken or removed, run `board.py --no-open`, which writes the file again
 and opens nothing.
+
+When the project has a nap, the board of all tasks has a third tab, Dreams: the newest naps, each
+with its dream, the thing made from it and its waking note (`stages/nap.md`). `board.py` writes its
+file at every run, as it writes the backlog's.
 
 Every project of Lem has personas, and a project without them has an onboarding that is not
 finished. The machine check (`python3 SKILL_DIR/scripts/doctor.py`), run in the repository, has

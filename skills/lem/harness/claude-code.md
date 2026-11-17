@@ -399,6 +399,40 @@ When the session has no skill and no command of the name the settings give, say 
 that name and, for `webrev`, the guide to install it by; then give the owner the file's path to
 read as it is, and take the notes in the conversation. Do not install it unasked.
 
+## start-nap
+
+The `Bash` tool with `run_in_background`, on this line, where `STATE` is the folder `project.py
+state-dir` printed, `TIME` the `time` that `project.py may-nap` gave, and `SKILL_DIR` this skill's
+directory:
+
+```bash
+cd STATE && env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGTERM_PANE_ID -u AGTERM_PANE -u AGTERM_WINDOW_ID -u AGTERM_WORKSPACE_ID -u AGTERM_ENABLED -u AGTERM_AGENT_RE -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_CODE_MESSAGING_SOCKET -u CLAUDE_CODE_MESSAGING_TOKEN claude -p --safe-mode --restricted --tools Read,Write,Glob,Grep --permission-mode acceptEdits --permission-prompts none --no-session-persistence "Your nap's time, by the clock: TIME. The brief is on stdin." < SKILL_DIR/prompts/nap.md > naps/.last.log 2>&1
+```
+
+A nap is a `claude -p` session of its own and no subagent of yours: it starts with nothing of your
+context, as the owner's own naps start in a fresh session, and its end brings you only the exit
+status. `--restricted` takes away every tool that runs a command and keeps the file tools inside
+the working directory, which is `STATE`, and `--tools` gives back the four a nap needs. `--safe-mode`
+loads no `CLAUDE.md`, skill, plugin, hook or MCP server: the nap reads its brief and the folder and
+nothing else, and the correction hook never takes the brief for a message of the owner's.
+`acceptEdits` lets it write in its folder, and `--permission-prompts none` refuses whatever would
+ask, since nobody is there to answer. `--no-session-persistence` keeps it out of the session files
+of the home directory. `env -u` takes away the variables of agterm and of your own session, so the
+nap opens no page and sends nothing to you. `naps/.last.log` keeps what it printed, and the next
+nap writes over it. The prompt names the time, and `prompts/nap.md` comes on stdin whole.
+
+`spawn-builder` does not fit a nap: a subagent runs with your session's tools and settings, so the
+limits above would be words in its brief only, and Claude Code once refused a builder the write of
+a report file (above), where a nap writes three.
+
+Checked on 2026-11-17 in Claude Code 2.1.326, from a builder and in the foreground, in a throwaway
+repository with three ended tasks: the line above with the time `2026-11-17-1347` ran 32 seconds
+(`date -u` read 13:47:20 before it and 13:47:52 after), exited 0, and left `dream.md`, a made
+thing and `waking.md` in `naps/2026-11-17-1347-white-paper-in-february/` and nothing anywhere
+else. In a probe before it, with the same flags, the nap could not read a file of the home
+directory ("outside the working directory"), had no Bash tool, and saw no `CLAUDE.md`. Not run
+yet: the line from Lem's own session with `run_in_background`.
+
 ## The correction hook
 
 For a project that keeps a correction queue (`stages/learn.md`). The hook exits at once in every
