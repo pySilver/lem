@@ -10,7 +10,7 @@ removed after the landing.
 The brief gives the branch to rebase onto and the files git named as in conflict.
 
 1. Rebase the task's branch onto that branch. This job is the one case where a builder rebases.
-   Keep the branch's commits one for one: squash none, drop none, reorder none, so that `land.py
+   Keep the branch's commits one for one: squash none, drop none, reorder none, so that `lem land
    base` finds each of them, the polish pass's among them, by its place.
 2. Resolve each conflict so that both changes hold: read the plan of this task, and the commits
    of the other side, before you choose. When the two cannot both hold, stop with the rebase
@@ -22,7 +22,7 @@ output of `git status --short`.
 
 ## The polish pass
 
-The brief gives `polish.json`, what `land.py polish` printed: the range of the task's own
+The brief gives `polish.json`, what `lem land polish` printed: the range of the task's own
 commits from the base (`range`), the plan, `report.md`, the interview's `outside.md` when the task
 has one, the backlog folder, and the files you may not change (`frozen`: each acceptance criterion's
 test file, and the plan).
@@ -50,7 +50,7 @@ it touches, and look for these in the lines the change wrote or that sit next to
 5. **The defects outside the task** that `report.md` lists and that `outside.md` names. One that
    is cheap and small, and changes no behavior that a criterion or a test of the task holds, you fix
    in place, in a commit of its own. Each of the others you file: one item in the backlog folder,
-   in the `lem-backlog` skill's item format, committed as `docs(backlog):`. You ask nobody; the
+   in the item format of `SKILL_DIR/../lem-backlog/SKILL.md`, which you read by its path, committed as `docs(backlog):`. You ask nobody; the
    pull request lists what was filed.
 
 Commit each kind on its own (`docs:` for comments and documents, `refactor:` or `chore:` for the
@@ -58,7 +58,7 @@ code), never in one commit with another kind. You change no behavior: a criterio
 the plan stay as they are, and when a fix would change what a test sees, it is not on the list. Run
 the tests of the criteria (each `- test:` command of the plan) before your first commit and after your
 last, and the tests, the formatter and the linter of the files you touched, as the project's
-`AGENTS.md` names them. After you, `land.py polish --done` runs the tests of the criteria in fresh
+`AGENTS.md` names them. After you, `lem land polish --done` runs the tests of the criteria in fresh
 worktrees and refuses a pass that changed a frozen file.
 
 Last, bring `report.md` up to what you did: the documents and comments you corrected, the
@@ -82,9 +82,9 @@ change must do. When you find that an existing test itself is wrong, change noth
 and say in your reply which test, what it expects and why that is wrong.
 
 - *A command of the checks.* Read its output file. Run the command on the base branch too, in a way that
-  leaves the worktree as it was. A command of `checks.alone` (`project.py --repo WORKTREE show`)
-  needs the machine to itself: run it, on the branch and on the base, through `python3
-  SKILL_DIR/scripts/project.py --repo WORKTREE alone -- COMMAND`, never bare (`SKILL_DIR` is
+  leaves the worktree as it was. A command of `checks.alone` (`lem project --repo WORKTREE show`)
+  needs the machine to itself: run it, on the branch and on the base, through `lem
+  project --repo WORKTREE alone -- COMMAND`, never bare (`SKILL_DIR` is
   the directory above this file's). A failure the change caused, you fix and commit. A failure
   the base already has, you do not fix here and do not hide: say so, with the last line of the
   command on the base and on the branch.

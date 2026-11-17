@@ -5,10 +5,10 @@ is Lem for that night. It reads the backlog, picks what an agent can take withou
 the owner, and leaves a plan for the morning. It never builds: a plan is the owner's to start.
 
 1. **The brake.** List the drafts that wait: tasks whose status is `drafted`
-   (`project.py tasks`). With two or more of them, draft nothing and write why in the night
+   (`lem project tasks`). With two or more of them, draft nothing and write why in the night
    report. A plan is written against the code as
    it stood that night, so a draft nobody starts ages, and a third one only adds to the pile.
-2. **The candidates.** Read the items in the backlog path (`project.py path backlog`), in the
+2. **The candidates.** Read the items in the backlog path (`lem project path backlog`), in the
    `lem-backlog` skill's format. The backlog only: a tracker's ticket is never a night's
    candidate, because which ticket is next is a person's call. Leave out an item that is decided against, one a branch, a worktree,
    an open plan or a task directory already holds, and one in reach of one of the project's
@@ -30,14 +30,14 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    time while the work goes on, and at its end the experts' shared pick or the recommended option
    is taken. A night never takes one so: nobody is there to answer, and every wait would end in
    a pick that nobody made. The builder knows it is night from the `night: yes` line of its brief,
-   and `decisions.py ask` refuses a task whose brief has it. So the builder writes each such
+   and `lem decisions ask` refuses a task whose brief has it. So the builder writes each such
    decision into its report under "for the owner" and stops with the line `the plan ends on a
    decision of the owner's` (`stages/plan.md`, step 5). Record the question, in the owner's
    terms, in the item's backlog file and in the night report, remove the worktree and the
    branch, write the state `dropped`, and take the next candidate. This is the filter that
    matters: an item only looks decision-free until someone plans it. Try three candidates at
    most.
-5. **The night report**, `night/YYYY-MM-DD.md` in the folder `project.py state-dir` prints: for the
+5. **The night report**, `night/YYYY-MM-DD.md` in the folder `lem project state-dir` prints: for the
    draft, what the owner gets, the plan's path, why no decision was needed, and what it will not
    verify; for each item dropped in step 4, its question; for each item of one plain change
    (step 2), its path and the line `ready to start as a small change: /lem new PATH`; for the
@@ -51,7 +51,7 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    plan talk's companion at once (`stages/new.md`), then a builder leads the build.
 
 In the morning a bare `/lem` lists each draft that is still `drafted` among what waits for the
-owner (`project.py waiting`), with the night report while it is of that night or the one before.
+owner (`lem project waiting`), with the night report while it is of that night or the one before.
 He answers each with approve, reject or later, on one page with any retro's proposals (`SKILL.md`,
 Status): approve builds it as `/lem build <task>` does, reject drops it, and later leaves it
 `drafted`, where the brake of step 1 counts it.

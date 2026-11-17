@@ -15,18 +15,18 @@ does not take the task to its report.
 1. **Read `SKILL_DIR/SKILL.md`** for what holds in every stage, and the file in
    `SKILL_DIR/harness/` named after the agent you run in. The subcommands in `SKILL.md` are
    Lem's, not yours.
-2. **Read where the task stands**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE tasks`
+2. **Read where the task stands**: `lem project --repo WORKTREE tasks`
    for its status, then `task.md` in the task directory, with `directions.md`, `scout.md` and
    `investigation.md` when it has them: what the owner named in his interview, which the plan
    follows, the facts a scout read in the code then, and for a fix the investigator's cause, what
    else it reaches and the commit of the test that reproduces it, which the plan builds on.
-   `python3 SKILL_DIR/scripts/criteria.py --repo WORKTREE approved
+   `lem criteria --repo WORKTREE approved
    SLUG` gives the acceptance criteria he approved: they are the plan's criteria word for word, and
-   only a change with its own record changes one (`decisions.py criterion`, `stages/build.md`, "A
+   only a change with its own record changes one (`lem decisions criterion`, `stages/build.md`, "A
    choice in the build"). When the status is `ready`, `landing`, `open`,
    `landed`, `answered` or `dropped`, say so and stop: there is nothing to lead. When the task directory holds
    a `report.md`, a `decisions.jsonl` or a longer `state.md`, a lead before you stopped: read the
-   report, the state, `python3 SKILL_DIR/scripts/decisions.py --repo WORKTREE list SLUG` and the
+   report, the state, `lem decisions --repo WORKTREE list SLUG` and the
    branch's log, and go on from there. Do not start over, and do not ask again what that record
    already answers.
 3. **Follow `SKILL_DIR/stages/plan.md`, then `SKILL_DIR/stages/build.md`.** Read each when you
@@ -38,19 +38,19 @@ does not take the task to its report.
 4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
    another branch or touch the checkout the worktree came from.
 5. **You never ask the owner.** A decision that is the owner's, in the plan or in the build, goes
-   to the personas and then into the record with `decisions.py ask`, as `plan.md` step 5 and
+   to the personas and then into the record with `lem decisions ask`, as `plan.md` step 5 and
    `build.md` "A choice in the build" say, and Lem asks it; on a night plan (`night: yes`) it goes
    into `report.md` instead. When the owner writes to you in your
    session, do what the owner says, and write it down so Lem reads it too. When his words answer
-   a choice that waits (`decisions.py list SLUG`), write them with `decisions.py answer SLUG N
+   a choice that waits (`lem decisions list SLUG`), write them with `lem decisions answer SLUG N
    --chose OPTION --words TEXT`, or with `--instead TEXT` when he decided what none of the
    options says (`stages/new.md`, "When a choice waits for the owner", says how). A criterion his
-   answer changes gets its record from you, `decisions.py criterion ... --choice N`. A new decision
+   answer changes gets its record from you, `lem decisions criterion ... --choice N`. A new decision
    would leave the choice waiting. Only a word of
-   his that answers no choice is logged with `decisions.py log SLUG --by owner`. A choice in the
+   his that answers no choice is logged with `lem decisions log SLUG --by owner`. A choice in the
    build waits for him a fixed time at most: `stages/build.md`, "A choice in the build", says
    how it is asked and logged.
-6. **Write the state as you go**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG
+6. **Write the state as you go**: `lem project --repo WORKTREE state SLUG
    STATUS "one line"`. It is the only thing Lem and the owner's board see of you while you work.
 7. **Stop the way `build.md` ends**: `report.md`, then the state, then your reply, the report's
    path, which is how Lem hears that you stopped. Do this before

@@ -6,26 +6,26 @@ by line before the build. Only a careful or large plan is talked through with th
 a list of questions that closes with the reviewer's first turn, by its defender and not by you
 (`stages/talk.md`).
 
-Before the plan, look at the other tasks (`project.py tasks`). When the code you read shows that
+Before the plan, look at the other tasks (`lem project tasks`). When the code you read shows that
 this task builds on what another task changes and that task is not landed (its plan names the
 function, the table or the file this task needs, and the base does not have it yet), the plan
 would be written against code that does not exist. Then write no plan: stop with the state
 
 ```bash
-python3 SKILL_DIR/scripts/project.py --repo WORKTREE state SLUG queued "WHAT THIS TASK NEEDS FROM THE OTHER, IN ONE LINE" "after: OTHER-SLUG"
+lem project --repo WORKTREE state SLUG queued "WHAT THIS TASK NEEDS FROM THE OTHER, IN ONE LINE" "after: OTHER-SLUG"
 ```
 
-and the report and your reply as `stages/build.md` ends. `project.py may-start` keeps the task in
+and the report and your reply as `stages/build.md` ends. `lem project may-start` keeps the task in
 the queue until that task is landed, answered or dropped, and Lem starts a lead for it then; the
 lead finds the base with the other task's change in it. Two tasks that only touch the same file
 each go on: the later pull request is brought onto the base when the first one merges.
 
-1. **Write the plan** as one file at the path `python3 SKILL_DIR/scripts/project.py --repo WORKTREE plan-file SLUG`
+1. **Write the plan** as one file at the path `lem project --repo WORKTREE plan-file SLUG`
    prints (`path`; its name is the settings' `paths.plan_file`, `YYYY-MM-DD-<slug>.md` unless they say otherwise), and
    commit it as your first commit: after a bug, the investigator's test comes before it. It opens with the acceptance criteria, because they are the
    owner's document: he reads them and not the rest of the plan, and they become the tests.
-   - `## Acceptance criteria`, in the form `python3 SKILL_DIR/scripts/criteria.py --help` shows.
-     First run `python3 SKILL_DIR/scripts/criteria.py approved SLUG`. When the owner approved
+   - `## Acceptance criteria`, in the form `lem criteria --help` shows.
+     First run `lem criteria approved SLUG`. When the owner approved
      criteria at his interview, they are your criteria: copy the section word for word, numbered the
      same, and add only the test lines under each, at the end of the build. A criterion whose change
      keeps behavior (a rename, a version bump, a refactor) is held by the suite: its line is `- no
@@ -35,7 +35,7 @@ each go on: the later pull request is brought onto the base when the first one m
      text into other lines; you may not change a word of it. The plan follows the task's
      `directions.md` too, when the task directory has one. A criterion or a direction the code shows
      you cannot keep, or a criterion that is missing, is a decision of the build (`stages/build.md`,
-     "A choice in the build") with its own record (`decisions.py criterion`), never a silent edit:
+     "A choice in the build") with its own record (`lem decisions criterion`), never a silent edit:
      `show`, `record` and `red` refuse a plan whose criteria are not the approved ones with each
      recorded change, word for word, or whose `Size:` is not the approved size. Criteria approved
      as a small change do not reach a lead: a small change has one builder and no plan
@@ -61,19 +61,19 @@ each go on: the later pull request is brought onto the base when the first one m
      acceptance criteria" mode (`load-skill`), run by you while you write the rest of the plan. You
      have no paired agent of the other family, so one family answers: the panel's own persona
      agents, started the way the `lem-panel` skill starts a persona, never as a builder:
-     `lem-builder` has no persona among its jobs. Log its start as it starts, `python3
-     SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG criteria.read.start by=lead`. Write the
+     `lem-builder` has no persona among its jobs. Log its start as it starts, `lem
+     project --repo WORKTREE log SLUG criteria.read.start by=lead`. Write the
      event the landing reads, in the form `stages/new.md` gives ("The interview and the
-     acceptance criteria", step 5), with `by=lead`, your one family, and the `digest` field of what `python3
-     SKILL_DIR/scripts/criteria.py --repo WORKTREE digest SLUG` prints for the plan's criteria. A
+     acceptance criteria", step 5), with `by=lead`, your one family, and the `digest` field of what `lem
+     criteria --repo WORKTREE digest SLUG` prints for the plan's criteria. A
      persona agent that did not answer is named in `silent` with why. A read in which nobody
      answered is written down too, in the form `stages/new.md` gives for it, and started once more;
      after a second one in a row, freeze the criteria as below, write the state line `the criteria
      were not read: nobody answered twice`, and build: the pull request is not green for it. Nobody
-     confused: freeze the criteria they read, `python3 SKILL_DIR/scripts/criteria.py --repo WORKTREE
+     confused: freeze the criteria they read, `lem criteria --repo WORKTREE
      approve SLUG --read`, which takes the plan's criteria and refuses any other text than the one
      the read names. It freezes the task's first contract only, and is refused once the task has any
-     approval: from then on a criterion the build changes has its record (`decisions.py criterion`),
+     approval: from then on a criterion the build changes has its record (`lem decisions criterion`),
      and the size is his to change. It is never his yes. The build starts with no wait, and your
      next state block says `nobody confused, read by N personas, one model family`, where he sees it
      and can stop the task. The landing refuses a full change with no such event. A doubt: the
@@ -81,7 +81,7 @@ each go on: the later pull request is brought onto the base when the first one m
      them on top, quoted, and the line `the criteria wait for the owner`; write the state `held`
      with that line, and stop. Leave a flagged criterion as you wrote it: what you would change goes
      beside it, as a proposal, and he decides;
-   - run `python3 SKILL_DIR/scripts/criteria.py record SLUG`: it refuses a section that does not
+   - run `lem criteria record SLUG`: it refuses a section that does not
      have the form, or that departs from the approved criteria, and it puts the criteria where
      the board and Lem's status show them;
    - `## Tasks`: a numbered list of one to seven tasks, each an outcome a reviewer can check
@@ -102,14 +102,14 @@ each go on: the later pull request is brought onto the base when the first one m
      The landing refuses a lowered bar with no reason, and with one the pull request is not
      green: the owner reads that line himself. So lower it only where the mark is right.
    Before writing, read the style guide files that cover the files the plan touches and the
-   project's lessons (`project.py path lessons`). `python3 SKILL_DIR/scripts/project.py rules
+   project's lessons (`lem project path lessons`). `lem project rules
    FILE ...` prints those style guide files, the ones with no scope of their own too: do not
    match a file's `paths:` by eye.
    When the branch already holds a plan (a night draft, a builder that stopped at the plan), do
    not write another: read it against the code as it is now, and commit a fix for what the code
    has outgrown.
 2. **Is the task careful?** Two tests, and one yes is enough:
-   - *a topic*: the project's topics (`flow.topics` in `project.py --repo WORKTREE show`, which
+   - *a topic*: the project's topics (`flow.topics` in `lem project --repo WORKTREE show`, which
      gives the main checkout's table, so a branch cannot lift one), each a sentence of the
      owner's about what must never go wrong here. Read the plan against each one: does a task
      change how that thing behaves, or could a defect in a task reach it? No code matches a
@@ -134,7 +134,7 @@ each go on: the later pull request is brought onto the base when the first one m
    first.
 3. **A careful or large plan is talked through before a builder leads its build.** A plan is
    large when `## Tasks` has more than three numbered tasks. When step 2 says careful, or the
-   plan is large, read `talk` in `python3 SKILL_DIR/scripts/project.py --repo WORKTREE tasks`
+   plan is large, read `talk` in `lem project --repo WORKTREE tasks`
    for this task: the newest `plan.talk` of its event log, or null.
    - *null*: write `report.md` with what says so (the topic, the pattern, the owner's word, or
      the count); write the state `planned` with the line `needs a session: careful` or
@@ -160,13 +160,13 @@ each go on: the later pull request is brought onto the base when the first one m
    review reads the code that exists.
 5. **A decision that is the owner's is asked, and the work goes on.** For each decision of the
    plan: a ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and
-   log it with `decisions.py log SLUG --by lead` (`stages/build.md`, "A choice in the build"). It
+   log it with `lem decisions log SLUG --by lead` (`stages/build.md`, "A choice in the build"). It
    turns on a claim that can be argued both ways ("this will not scale", "nobody uses that") → the
    `lem-dialectic` skill settles the claim first. Its options each cost a person something and
    nothing answers it → it is the owner's, and it takes the one path every such decision takes,
    at plan time as in the build: `stages/build.md`, "A choice in the build", step 2. The persona
    panel reads it first, and a clear answer of theirs is taken and logged; an unclear one is
-   asked with `decisions.py ask`, whose card has to tell the owner one run without the code:
+   asked with `lem decisions ask`, whose card has to tell the owner one run without the code:
    - `--case`: one concrete case in numbered steps that ends badly, with real names and values
      and where each step was read, and `--case-was reproduced` or `--case-was derived`;
    - `--cause`: one line on why the case became possible and how far the same cause reaches;
@@ -190,7 +190,7 @@ each go on: the later pull request is brought onto the base when the first one m
    builder: the defender is one of the two positions that did not settle.
    A night plan is the exception: its brief has the line `night: yes`, nobody is there to answer,
    and a night never takes a decision of the owner's by its wait or by the experts, so
-   `decisions.py ask` refuses there. Write each such decision into `report.md` under "for the
+   `lem decisions ask` refuses there. Write each such decision into `report.md` under "for the
    owner", with the same case, cause and options, write the state `planned` with the line `the
    plan ends on a decision of the owner's`, and stop (`stages/night.md`, step 4).
 6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.

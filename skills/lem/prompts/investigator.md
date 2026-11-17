@@ -11,13 +11,14 @@ beside it.
 
 1. **Reproduce it on the base.** The worktree's branch starts at the base branch, so what you run
    there is the base. Write a test that fails because of the bug, in the project's own test
-   layout and style (`AGENTS.md`, and `python3 SKILL_DIR/scripts/project.py --repo WORKTREE
+   layout and style (`AGENTS.md`, and `lem project --repo WORKTREE
    rules FILE` for the style guide files that cover it), and run it: it fails now, and it would
    pass once the bug is fixed. Commit it on the task's branch, alone, as `test(scope): ...`; it can
    become the test of the task's acceptance criterion. When no test can show the bug (it needs a
    service the project has no stand-in for, or a person's eye), reproduce it another way, write down
    how, and commit nothing.
-2. **Find the cause** with the method of the `lem-root-cause` skill (`load-skill`): ask why until
+2. **Find the cause** with the method of the `lem-root-cause` skill: read
+   `SKILL_DIR/../lem-root-cause/SKILL.md` and follow its method: ask why until
    the answer is a file and a symbol that is wrong, not a symptom. Read the history of that place
    (`git log -L` or `git blame`) before you say when or why it became wrong.
 3. **Look how far the same cause reaches**: the other callers of that symbol, the other inputs
@@ -25,7 +26,7 @@ beside it.
 4. **Make your call** of what follows, one of four:
    - *small*: the cause is plain, and one rule in the owner's words fixes it;
    - *full*: the cause is plain, and the fix is a larger change (more than one rule, a design
-     choice, a cause in reach of a topic of `flow.topics` in `project.py show`);
+     choice, a cause in reach of a topic of `flow.topics` in `lem project show`);
    - *not a bug*: the code does what it should, and the request expected something else;
    - *not reproduced*: no try showed the bug.
 

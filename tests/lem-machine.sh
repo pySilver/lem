@@ -445,14 +445,15 @@ links = {name: os.path.realpath(f"{root}/bin/{name}") for name in ("lem-ask", "l
 ok = (manifest["name"] == "lem" and "version" not in manifest
       and [(p["name"], p["source"]) for p in market["plugins"]] == [("lem", "./")]
       and links == {"lem-ask": os.path.realpath(f"{root}/skills/lem-ask/bin/lem-ask"), "lem-jev": os.path.realpath(f"{root}/skills/lem/scripts/jev.py")}
-      and sorted(os.listdir(f"{root}/bin")) == ["lem-ask", "lem-jev"] and not os.path.exists(f"{root}/scripts/setup.py")
+      and sorted(os.listdir(f"{root}/bin")) == ["lem", "lem-ask", "lem-jev"] and not os.path.exists(f"{root}/scripts/setup.py")
+      and os.path.isfile(f"{root}/bin/lem") and not os.path.islink(f"{root}/bin/lem") and os.access(f"{root}/bin/lem", os.X_OK)
       and all(os.access(path, os.X_OK) for path in links.values())
       and not os.path.isabs(os.readlink(f"{root}/bin/lem-ask")))
 hooks = json.load(open(f"{root}/hooks/hooks.json"))["hooks"]
 commands = [h["command"] for group in hooks["UserPromptSubmit"] for h in group["hooks"]]
 ok = ok and list(hooks) == ["UserPromptSubmit"] and commands == ["python3 \"${CLAUDE_PLUGIN_ROOT}/skills/lem/scripts/corrections.py\" hook"]
 sys.exit(not ok)' "$PWD"; then
-  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds relative links to the two commands, lem-ask and lem-jev, and no plain jev; there is no setup script; and the one hook that comes with the plugin is the correction hook, by the plugin's own path"
+  pass "the plugin manifest names lem and no version, so each commit is an update; the marketplace file lists the one plugin; bin/ holds the command lem, a file of its own, and relative links to the two commands lem-ask and lem-jev, and no plain jev; there is no setup script; and the one hook that comes with the plugin is the correction hook, by the plugin's own path"
 else
   fail "the plugin files in .claude-plugin and bin"
 fi

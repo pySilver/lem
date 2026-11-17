@@ -47,7 +47,7 @@ people (in one shop project a shopper, a merchant, an ops admin, the engineer on
 CEO).
 
 A panel asks the project's own people and nobody else's. Resolve the cast before every panel
-with `python3 ${CLAUDE_SKILL_DIR}/scripts/cast.py`, which prints the layer, its source, the
+with `lem cast`, which prints the layer, its source, the
 index and each persona's path as JSON. Every project that uses Lem has personas, written at its
 onboarding. When the command exits 1 the project has none: its setup is not finished. Run no
 panel, write no card in a panel's name, and tell the one who asked what the command said, with
@@ -63,7 +63,7 @@ that edits its cast keeps its own.
 
 Two more casts exist, and they answer no panel: the user's in `~/.config/personas/cast/` and the
 built-in one in this skill's `cast/` (a person who uses the product, the engineer who runs it,
-the engineer who builds the next change on it and the owner who pays for it). `cast.py init`
+the engineer who builds the next change on it and the owner who pays for it). `lem cast init`
 copies the first of them that has a persona file into the project's personas folder, as files to
 rewrite, when the owner asks to set up personas for a project.
 
@@ -81,7 +81,7 @@ they are, what they want, what they notice, what they never see.
 ## Steps
 
 The panel's files live in one directory, `PANEL_DIR`: the folder
-`python3 ${CLAUDE_SKILL_DIR}/scripts/cast.py run-dir <slug>` makes and prints,
+`lem cast run-dir <slug>` makes and prints,
 `runs/<YYYY-MM-DD>-<slug>/` beside the personas folder, which git ignores without any
 rule in the project. It is inside Codex's workspace, so Codex can write the Sol answers there.
 
@@ -204,7 +204,7 @@ goes to the user with the check's result on it, never silently.
 ### 6. Ask the user
 
 Put the card to the user. A project that uses Lem says how in its settings (`tools.ask`, which
-`project.py show` of the `lem` skill prints): that value decides, and `terminal` or a tool of the
+`lem project show` of the `lem` skill prints): that value decides, and `terminal` or a tool of the
 developer's own gets the same card as text. With `lem-ask` there, or with no such setting, in
 agterm: the `lem-ask` skill, the options carrying their "what you
 would see" text, the recommendation marked with the reason that names what backs it, and the

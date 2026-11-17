@@ -8,7 +8,7 @@ allowed-tools: Read, Edit, Write, Bash, Grep, Glob, AskUserQuestion
 # Backlog
 
 In a project that uses Lem, the folder is the one its settings name (`paths.backlog`;
-`project.py path backlog` of the `lem` skill prints it), and `docs/backlog/` on this page stands
+`lem project path backlog` of the `lem` skill prints it), and `docs/backlog/` on this page stands
 for that folder. The owner calls this skill as `/lem backlog`.
 
 `docs/backlog/` at a repo root holds work that is real but not being done now: a defect a change did not
@@ -196,9 +196,9 @@ command `JEV_BIN` names; it reads `OPENROUTER_API_KEY`:
 The verdicts live in Lem's state folder (`.lem/state/backlog-triage.json` of the main checkout),
 so they are never committed and every worktree shares them. Nothing runs on a timer:
 
-- After creating or editing an item, run `python3 ${CLAUDE_SKILL_DIR}/scripts/triage.py item <slug>`
+- After creating or editing an item, run `lem triage item <slug>`
   and report its verdict with the filing.
-- When listing the backlog, run `python3 ${CLAUDE_SKILL_DIR}/scripts/triage.py refresh` first and
+- When listing the backlog, run `lem triage refresh` first and
   show the groups. It judges an item whose text changed, and re-checks a `waiting` item when the
   default branch has moved since its last check, with the commits in between.
 

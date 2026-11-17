@@ -2,10 +2,12 @@
 """The experts' brief of one question, and the record of their answers.
 
 Two experts of two model families answer one question from the same brief, at the same moment,
-read-only. Who they are is the settings' `seats.experts`, a list of seats `agent/model:effort`,
-and by default `claude/fable:high` and `codex/gpt-6-astra:high`; `--seat`, once for each expert,
-names them for one call instead. An expert's name is the last word of its model that holds a
-letter (`fable`, `astra`), and its answer file carries that name. This script writes the brief and
+read-only. Who they are is the settings' `seats.experts`, two seats `agent/model:effort` that
+`lem project show` prints; `--seat`, once for each expert, names them for one call instead. A
+choice of a task keeps their advice in two places, `fable` for the first seat and `astra` for the
+second, whatever model sits there, and that place is the expert's name. For a question in words
+an expert's name is the last word of its model that holds a letter (`opus`, `sol`), or its place
+when its seat names no model. Its answer file carries the name. This script writes the brief and
 reads each answer back; starting the agents is the harness's (`ask-experts`).
 
 A question in words, which the owner asks (`/lem ask-expert ...`), has a folder of its own in Lem's
@@ -25,7 +27,7 @@ state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer a
                      is still to answer (`waiting`)
 
 A choice of a task that waits for the owner, which Lem's stages give the experts right after
-`decisions.py ask`, keeps its brief in the task's directory and its advice in the choice's record:
+`lem decisions ask`, keeps its brief in the task's directory and its advice in the choice's record:
 
     experts.py brief SLUG N [--file PATH ...]
                      write `experts/choice-N.brief.md` in the task's directory: the choice (what,
@@ -35,7 +37,7 @@ A choice of a task that waits for the owner, which Lem's stages give the experts
                      when every expert advised already
     experts.py record SLUG N --expert NAME
                      read `experts/choice-N.NAME.md` and write it into the record with
-                     `decisions.py advise`, under the same refusals as above
+                     `lem decisions advise`, under the same refusals as above
 
 An answer is one of these forms, and nothing else; the last one only for a question with no
 options:
@@ -72,16 +74,17 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[2] / "lem" / "scripts"
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
-# the names under which a task's record keeps the experts' advice: decisions.py's, and nobody else's
-from decisions import EXPERTS as CHOICE_NAMES  # noqa: E402
+# the places in which a task's record keeps the experts' advice: decisions.py's, and nobody else's;
+# the first seat answers in the first, the second in the second (project.py's EXPERT_PLACES)
+from decisions import EXPERTS as PLACES  # noqa: E402
 
-# Who the experts are when the settings name none: what the harness of Claude Code runs (`ask-experts`).
-DEFAULT_SEATS = ("claude/fable", "codex/gpt-6-astra:high")
+# A seat for the error messages, in the form `--seat` takes.
+EXAMPLE_SEAT = "codex/gpt-6-astra:high"
 # The agents whose way to start an expert the harness gives.
 AGENTS = ("claude", "codex")
-# An expert's seat names its model, since its name comes from it; the effort may be left out, and
-# is then that agent's own default.
-SEAT = re.compile(r"\A(?P<agent>[a-z]+)/(?P<model>[A-Za-z0-9][A-Za-z0-9._-]*)(?::(?P<effort>[a-z]+))?\Z")
+# A seat as `--seat` takes it: the model and the effort may be left out, and are then that agent's
+# own default.
+SEAT = re.compile(r"\A(?P<agent>[a-z]+)(?:/(?P<model>[A-Za-z0-9][A-Za-z0-9._-]*))?(?::(?P<effort>[a-z]+))?\Z")
 # How long the folder of a question in words is kept after its last write. A guess, not a
 # measurement: long enough for the owner to look back at an answer in the same piece of work.
 KEEP_DAYS = 30
@@ -116,26 +119,29 @@ def name_of(model: str) -> str:
     return words[-1] if words else model.lower()
 
 
-def parse_seat(given: object, where: str) -> dict:
-    if isinstance(given, dict):
-        # `project.py show` gives a seat parsed, with the seat as the settings wrote it
-        given = given.get("seat") or f"{given.get('agent')}/{given.get('model')}" + (f":{given['effort']}" if given.get("effort") else "")
-    found = SEAT.match(given) if isinstance(given, str) else None
+def parse_seat(given: str, where: str, place: str | None) -> dict:
+    """One `--seat`, as `lem project show` gives a seat of the settings: its parts, each None when
+    the seat leaves it out, and its place in a choice's record."""
+    found = SEAT.match(given)
     if found is None:
-        raise ExpertError(f"{where} {given!r} is no seat: write it as agent/model:effort, for example {DEFAULT_SEATS[1]}")
+        raise ExpertError(f"{where} {given!r} is no seat: write it as agent/model:effort, for example {EXAMPLE_SEAT}")
     if found["agent"] not in AGENTS:
         raise ExpertError(f"{where} {given!r} names the agent {found['agent']!r}: an expert is started by {' or '.join(AGENTS)}, the agents the harness knows")
-    return {"name": name_of(found["model"]), "seat": found.group(0), **found.groupdict()}
+    return {"seat": found.group(0), **found.groupdict(), "place": place}
 
 
-def seats(repo: Path, given: list[str]) -> list[dict]:
-    """The experts: `--seat` when given, else the settings' `seats.experts`, else the two defaults."""
+def seats(repo: Path, given: list[str], by_place: bool = False) -> list[dict]:
+    """The experts, each with its seat's parts and its place: `--seat` when given, in the order
+    given, else the settings' `seats.experts` as `lem project show` resolves them (the project's,
+    this machine's own, or Lem's default). Each is named by its place for a choice of a task
+    (`by_place`), and by its model for a question in words."""
     if given:
-        listed, where = given, "--seat"
+        experts = [parse_seat(seat, "--seat", PLACES[number] if number < len(PLACES) else None) for number, seat in enumerate(given)]
     else:
-        named = (json.loads(script("project.py", repo, "show")).get("seats") or {}).get("experts")
-        listed, where = (named, "seats.experts:") if named else (list(DEFAULT_SEATS), "the default seat")
-    experts = [parse_seat(seat, where) for seat in listed]
+        named = json.loads(script("project.py", repo, "show"))["seats"]["experts"]
+        experts = [{key: seat.get(key) for key in ("seat", "agent", "model", "effort", "place")} for seat in named]
+    for expert in experts:
+        expert["name"] = expert["place"] if by_place else name_of(expert["model"]) if expert["model"] else expert["place"] or expert["agent"]
     names = [expert["name"] for expert in experts]
     twice = sorted({name for name in names if names.count(name) > 1})
     if twice:
@@ -176,7 +182,7 @@ def answer_form(options: list[str], pick_from: str) -> str:
 def choice(repo: Path, slug: str, number: int) -> dict:
     found = next((d for d in json.loads(script("decisions.py", repo, "list", slug)) if d["id"] == number), None)
     if found is None or "options" not in found:
-        raise ExpertError(f"no choice {number} went to the owner in {slug}: the experts answer a choice that `decisions.py ask` recorded")
+        raise ExpertError(f"no choice {number} went to the owner in {slug}: the experts answer a choice that `lem decisions ask` recorded")
     return found
 
 
@@ -188,12 +194,13 @@ def worktree(repo: Path, slug: str) -> Path:
 
 
 def choice_experts(repo: Path, given: list[str]) -> list[dict]:
-    experts = seats(repo, given)
-    unknown = [expert["seat"] for expert in experts if expert["name"] not in CHOICE_NAMES]
-    if unknown:
+    """The two experts of a choice of a task, each named by its place in the record, whatever
+    model sits there."""
+    experts = seats(repo, given, by_place=True) if len(given) in (0, len(PLACES)) else None
+    if experts is None or [expert["place"] for expert in experts] != list(PLACES):
         raise ExpertError(
-            f"a task's record keeps the advice of {' and '.join(CHOICE_NAMES)} only (decisions.py), and {', '.join(unknown)} is neither: "
-            "give a choice of a task to those experts, or ask the other ones a question in words (`brief --question`)",
+            f"a choice of a task has {len(PLACES)} experts, and its record keeps their advice as {' and '.join(PLACES)}: "
+            f"give --seat {len(PLACES)} times, the first for {PLACES[0]} and the second for {PLACES[1]}, or leave it out for the settings' seats.experts",
         )
     return experts
 
@@ -264,7 +271,7 @@ def cmd_choice_brief(repo: Path, slug: str, number: int, names: list[str], given
     advised = found.get("advice", {})
     ask = [expert["name"] for expert in experts if expert["name"] not in advised]
     if not ask:
-        raise ExpertError(f"choice {number} of {slug} has the advice of both experts already: `decisions.py list {slug}` shows it")
+        raise ExpertError(f"choice {number} of {slug} has the advice of both experts already: `lem decisions list {slug}` shows it")
     place = worktree(repo, slug)
     try:
         criteria = json.loads(script("criteria.py", repo, "show", slug))
@@ -281,7 +288,7 @@ def cmd_choice_brief(repo: Path, slug: str, number: int, names: list[str], given
         "experts": [{**expert, "answer": answers[expert["name"]]} for expert in experts],
         "answers": answers, "ask": ask, "advised": sorted(advised),
         "next": f"start {' and '.join(ask)} at once, in the background, with this brief (the harness's `ask-experts`); "
-                f"as each ends, `experts.py record {slug} {number} --expert NAME`",
+                f"as each ends, `lem experts record {slug} {number} --expert NAME`",
     }
 
 
@@ -404,7 +411,7 @@ def summary(folder: Path, record: dict) -> dict:
     shared = picks.pop() if record["options"] and len(answers) > 1 and len(picks) == 1 else None
     waiting = [expert["name"] for expert in record["experts"] if expert["name"] not in answers]
     if waiting:
-        then = f"wait for {' and '.join(waiting)}; as each ends, `experts.py record --folder {folder.name} --expert NAME`"
+        then = f"wait for {' and '.join(waiting)}; as each ends, `lem experts record --folder {folder.name} --expert NAME`"
     elif record["options"]:
         then = "show the owner the answers side by side, " + (f"all picked {shared!r}" if shared else "where they split") + ", and one line of what you would do with them"
     else:
@@ -439,16 +446,16 @@ def cmd_free_brief(repo: Path, question: str, context: str, options: list[str], 
         "experts": record["experts"], "answers": {expert["name"]: expert["answer"] for expert in record["experts"]},
         "ask": names_, "removed": removed,
         "next": f"start {' and '.join(names_)} at once, in the background, with this brief (the harness's `ask-experts`); "
-                f"as each ends, `experts.py record --folder {folder.name} --expert NAME`",
+                f"as each ends, `lem experts record --folder {folder.name} --expert NAME`",
     }
 
 
 def cmd_free_record(repo: Path, name: str, expert: str) -> dict:
     if not FOLDER.match(name):
-        raise ExpertError(f"--folder {name!r} is no question's folder: give the name `experts.py brief --question` printed")
+        raise ExpertError(f"--folder {name!r} is no question's folder: give the name `lem experts brief --question` printed")
     folder = questions(repo) / name
     if not (folder / "record.json").is_file():
-        raise ExpertError(f"no question {name} is in {folder.parent}: give the name `experts.py brief --question` printed; a folder older than {KEEP_DAYS} days is removed")
+        raise ExpertError(f"no question {name} is in {folder.parent}: give the name `lem experts brief --question` printed; a folder older than {KEEP_DAYS} days is removed")
     with open(folder / ".lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         record = json.loads((folder / "record.json").read_text(encoding="utf-8"))

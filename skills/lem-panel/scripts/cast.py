@@ -303,7 +303,7 @@ def resolve(root: Path) -> dict[str, object]:
     if found_cast is None:
         fail(
             f"this project has no personas in {PROJECT_CAST}, so its setup is not finished and no panel can run: "
-            "`/lem init` writes them from the owner's answers, or `cast.py init` copies a starting cast there for him to rewrite. "
+            "`/lem init` writes them from the owner's answers, or `lem cast init` copies a starting cast there for him to rewrite. "
             "No generic cast answers in their place",
         )
         raise AssertionError

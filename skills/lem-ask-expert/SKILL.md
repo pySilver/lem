@@ -16,9 +16,11 @@ then provide context directly in command `/lem ask-expert what would be the best
 kind of problem` or just type the `/lem ask-expert` and assume the skill knows what to ask from the
 context", 2026-11-17).
 
-Who they are is the settings' `seats.experts`, a list of seats `agent/model:effort`; with none
-there, `claude/fable:high` and `codex/gpt-6-astra:high`. An expert's name is the last word of its
-model (`fable`, `astra`), and the script prints each one with its seat.
+Who they are is the settings' `seats.experts`, two seats `agent/model:effort`, which `lem project
+show` prints with Lem's default where the project and this machine name none. For a question in
+words an expert's name is the last word of its model; for a choice of a task it is its place in
+the record, below. The script prints each one with its name, its seat, its agent, its model and
+its effort.
 
 `SKILL_DIR` is this skill's directory. `CHECKOUT` is the checkout the question is about: the
 task's worktree when it belongs to a task, else the one this session works in.
@@ -29,13 +31,13 @@ task's worktree when it belongs to a task, else the one this session works in.
    context this session has, since they see nothing else: what is being decided and why it came up,
    the options word for word when there are any, and the files that matter, by path.
 2. **`/lem ask-expert` alone**: the question that is open in this conversation, the last one an
-   agent asked the owner or he raised and nobody settled. Run `python3 SKILL_DIR/../lem/scripts/decisions.py
+   agent asked the owner or he raised and nobody settled. Run `lem decisions
    --repo CHECKOUT pending` too: when no question is open here and exactly one choice of a task
    waits for the owner, that choice is the question, and it goes by "A choice of a task" below.
    When nothing is open and nothing waits, or more than one could be meant, ask the owner in one
    line which one, naming each, and start nothing. Never guess: the owner said "if question is
    unsure it gets back to user".
-3. **A choice of a task, by its slug and number**: Lem's stages only, right after `decisions.py
+3. **A choice of a task, by its slug and number**: Lem's stages only, right after `lem decisions
    ask`, by whoever asked it (a task's lead, a plan talk's defender, or Lem). The advice goes into
    the choice's record, where `decisions.py` reads it.
 
@@ -44,7 +46,7 @@ task's worktree when it belongs to a task, else the one this session works in.
 1. **The brief.**
 
    ```bash
-   python3 SKILL_DIR/scripts/experts.py --repo CHECKOUT brief --question "TEXT" [--context "TEXT"] [--option "TEXT" ...] [--file PATH ...]
+   lem experts --repo CHECKOUT brief --question "TEXT" [--context "TEXT"] [--option "TEXT" ...] [--file PATH ...]
    ```
 
    `--context` is what is being decided and why it came up, in a few sentences; `--option` names an
@@ -64,7 +66,7 @@ task's worktree when it belongs to a task, else the one this session works in.
    says who writes it), and:
 
    ```bash
-   python3 SKILL_DIR/scripts/experts.py --repo CHECKOUT record --folder FOLDER --expert NAME
+   lem experts --repo CHECKOUT record --folder FOLDER --expert NAME
    ```
 
    It writes the answer into the folder's `record.json` and prints the record: each answer, the
@@ -86,10 +88,10 @@ This is the path of the wait: while the owner can answer, the experts' answers a
 beside the personas'. Their advice decides nothing by itself; the record does that, by the rules of
 `decisions.py`:
 
-- when his wait ends with no answer, `decisions.py timeout` takes the option both picked, and the
+- when his wait ends with no answer, `lem decisions timeout` takes the option both picked, and the
   recommended option when they split, when one found none fits, or when one did not answer in
   time;
-- when he is away, `decisions.py settle SLUG N --away` takes their shared pick at once. Only Lem
+- when he is away, `lem decisions settle SLUG N --away` takes their shared pick at once. Only Lem
   knows that he is away (`stages/new.md`, "When a choice waits for the owner");
 - a choice the experts decided is never green: the pull request has a line with their pick and
   both reasons, and he reads it before he merges;
@@ -97,14 +99,14 @@ beside the personas'. Their advice decides nothing by itself; the record does th
   never decided by the experts: it waits for his word.
 
 `WORKTREE` is the task's worktree, or any directory of the checkout. A task's record keeps the
-advice of `fable` and `astra`, the names `decisions.py` knows, so a choice of a task goes to the
-experts of those names.
+advice in two places, `fable` and `astra`, the names `lem decisions` knows: the first seat of
+`seats.experts` answers as `fable` and the second as `astra`, whatever model sits there.
 
 1. **The brief.** Start it before anything else: the wait started with the ask, and the experts
    take part of it.
 
    ```bash
-   python3 SKILL_DIR/scripts/experts.py --repo WORKTREE brief SLUG N [--file PATH ...]
+   lem experts --repo WORKTREE brief SLUG N [--file PATH ...]
    ```
 
    `--file` names a file the choice is about, relative to the worktree, once for each. The script
@@ -120,10 +122,10 @@ experts of those names.
 3. **As each one ends**:
 
    ```bash
-   python3 SKILL_DIR/scripts/experts.py --repo WORKTREE record SLUG N --expert NAME
+   lem experts --repo WORKTREE record SLUG N --expert NAME
    ```
 
-   It writes the advice into the choice's record with `decisions.py advise`, under the task's
+   It writes the advice into the choice's record with `lem decisions advise`, under the task's
    lock, with the same refusals and the same one more ask as step 3 above. With one expert's
    advice the end of the wait takes the recommended option. Advice after the wait ended is refused
    too, and changes nothing.
@@ -131,9 +133,9 @@ experts of those names.
 4. **Tell who reads it.** The lead, the defender of a plan talk in its companion session or a
    builder that leads in Lem's own session, sends `lem: SLUG choice N advised` through
    `tell-coordinator` when both answers are in the record. Lem also finds the advice in
-   `decisions.py pending`, when the line is lost. Lem then does what `stages/new.md` says. When the
+   `lem decisions pending`, when the line is lost. Lem then does what `stages/new.md` says. When the
    owner called this skill for the choice (`/lem ask-expert` alone, step 2 of "Which question"),
    show him both answers as step 4 above, on the choice's own options.
 
-`decisions.py list SLUG` and `decisions.py pending SLUG` show the advice under each choice
+`lem decisions list SLUG` and `lem decisions pending SLUG` show the advice under each choice
 (`advice`), and `experts_pick` is the option both picked, or null.

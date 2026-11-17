@@ -17,10 +17,10 @@ Creates GitHub, GitLab, or Gitea releases with auto-versioning and release notes
 
 ## Scripts
 
-Helper scripts in skill's `scripts/` directory (`SKILL_DIR` below is this skill's own directory):
-- `detect-platform.sh` - outputs `github`, `gitlab`, or `gitea`
-- `calc-version.sh <type>` - outputs new version (e.g., `v1.2.3`)
-- `get-notes.sh <platform>` - outputs release notes (PRs/MRs or commits)
+Helper scripts in skill's `scripts/` directory, each run through Lem's command `lem`:
+- `lem release-platform` (`detect-platform.sh`) - outputs `github`, `gitlab`, or `gitea`
+- `lem release-version <type>` (`calc-version.sh`) - outputs new version (e.g., `v1.2.3`)
+- `lem release-notes <platform>` (`get-notes.sh`) - outputs release notes (PRs/MRs or commits)
 
 Every helper exits non-zero and prints the reason on stderr. If any of Steps 2, 5 or 6
 fails, report that text to the user and **abort the workflow** - do not continue with an
@@ -56,7 +56,7 @@ Use AskUserQuestion tool to get release type:
 ### Step 2: Detect Platform
 
 ```bash
-platform=$(bash SKILL_DIR/scripts/detect-platform.sh)
+platform=$(lem release-platform)
 ```
 
 ### Step 3: Validate Prerequisites
@@ -80,7 +80,7 @@ last_tag=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "none
 ### Step 5: Calculate New Version
 
 ```bash
-new_version=$(bash SKILL_DIR/scripts/calc-version.sh <release_type>)
+new_version=$(lem release-version <release_type>)
 ```
 
 Verify tag doesn't already exist:
@@ -93,7 +93,7 @@ fi
 ### Step 6: Generate Release Notes
 
 ```bash
-notes=$(bash SKILL_DIR/scripts/get-notes.sh "$platform")
+notes=$(lem release-notes "$platform")
 ```
 
 Script logic:

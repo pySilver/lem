@@ -8,7 +8,7 @@ once per repository and stops before any task. The audit of 2026-11-16 counted a
 questions and several offers before the first task, each a page, and 20 to 40 minutes to it (an
 unmeasured estimate).
 
-Keep the onboarding's notes in its own task directory: `project.py task-dir onboarding --ask
+Keep the onboarding's notes in its own task directory: `lem project task-dir onboarding --ask
 "Set up Lem in this repository"`. Write its state as any task's, so that the status and the
 board show it and never a directory with no state: `held` with the line `the onboarding's
 drafts wait for you` when the hand-over page is shown, and at the end `landed` or `dropped`, as
@@ -18,7 +18,7 @@ every later status listed a task whose state nobody wrote (2026-11-17).
 On a repository that already has `.lem/project.toml`, `/lem init` finishes an onboarding: it
 changes no setting that is there. Run step 1, skip the command of step 4 (it refuses a settings
 file that exists, and that is right), and do steps 2, 3 and 5 only for what is missing or
-unfinished: a path `project.py show` marks as not existing, and a cast of fewer than two
+unfinished: a path `lem project show` marks as not existing, and a cast of fewer than two
 personas, which the `project personas` row of step 1 shows. That row never stops the
 onboarding: writing the personas is what this stage is for.
 
@@ -30,7 +30,7 @@ several sessions open, and one named "init" belongs to none of his repositories.
 ## 1. Check the machine
 
 ```bash
-python3 SKILL_DIR/scripts/doctor.py
+lem doctor
 ```
 
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
@@ -70,7 +70,7 @@ onboarding directory, every line with the path it was read from:
   sentences;
 - the conventions the code already keeps: how modules are laid out, how errors are raised, how
   tests are named and what they touch. Note one only where several files agree;
-- `python3 SKILL_DIR/scripts/project.py existing`: the settings an older tool already keeps here
+- `lem project existing`: the settings an older tool already keeps here
   (`.claude/rules`, `.personas`). The review tool's folder is not one of them: it is that tool's
   own, and the settings name it where it is.
 
@@ -123,10 +123,10 @@ for a yes. Stop after the third.
 ## 4. Write the settings
 
 ```bash
-python3 SKILL_DIR/scripts/project.py init --base BRANCH --reviewer codex --existing link    # or: --existing new
+lem project init --base BRANCH --reviewer codex --existing link    # or: --existing new
 ```
 
-Leave `--existing` out when `project.py existing` listed nothing, or the style guide alone: a
+Leave `--existing` out when `lem project existing` listed nothing, or the style guide alone: a
 rules folder needs no choice, and every other folder it lists does. That choice is no question
 either: link what is there, so the older tools and Lem read one copy and nothing moves, and say
 so on the page, where "change folders new" generates new profiles under `.lem/` instead. The rules
@@ -198,7 +198,7 @@ them all out again, the `ask` rules with them). They allow no push, no merge and
 project beyond its checks, and a merge or an approval always shows the owner a prompt.
 
 Run each command of the checks once, at the root, for the last line the hand-over page shows, and each
-`checks.alone` command through `python3 SKILL_DIR/scripts/project.py alone -- COMMAND`. Then look at
+`checks.alone` command through `lem project alone -- COMMAND`. Then look at
 what they left that git neither tracks nor ignores (`git status --porcelain --untracked-files=all`):
 a cache of Python's bytecode, a coverage file, a build folder. Propose an ignore line for each kind
 in the repository's ignore file, `.gitignore` when it has none, in the onboarding's commit, and
@@ -216,7 +216,7 @@ and say so on the page.
 
 ## 5. Generate what is absent
 
-For each path `project.py show` marks as not existing, write a draft. A linked folder is left as
+For each path `lem project show` marks as not existing, write a draft. A linked folder is left as
 it is, with one exception: a cast of fewer than two personas is completed wherever its folder
 is, and no persona file that is there is overwritten.
 
@@ -231,7 +231,7 @@ is, and no persona file that is there is overwritten.
 - **The style guide**: first offer the published guides `references/styleguides.md` lists for the
   project's stack; one the owner picks enters as a linter configuration in the checks and a page of
   differences, as that file says. Then one file per area of the code. Its frontmatter names the
-  paths it covers in the one form `project.py rules` reads, `paths:` with a list of globs, and a
+  paths it covers in the one form `lem project rules` reads, `paths:` with a list of globs, and a
   file without that covers every path; each rule has its reason and the file it was read from. Write only conventions `examined.md` shows the code
   already keeps, and say at the top of each file that it is a draft read from the code. A rule
   nobody has yet needed is not written: the style guide grows when a review finding or a
@@ -342,7 +342,7 @@ The page and your last message end with the three replies you take, in these wor
   go through `stages/land.md`, which reads settings the base branch does not have yet. When the
   settings name commands of the checks, run them on the branch first and do not land on a red result; a
   new project names none, and its onboarding lands without them. Never hand him git commands to
-  type. Then write the state `landed` with that line (`project.py state onboarding landed
+  type. Then write the state `landed` with that line (`lem project state onboarding landed
   "main is at COMMIT: Lem's settings and drafts"`). Open your answer with what you did
   ("Landed: `main` is at ..."). On the first onboarding
   the answer to "land it" opened with "It is not a Lem task, so /lem land does not apply", and

@@ -6,11 +6,11 @@ a lead is started, and what to do each time a lead stops.
 
 ## Open the task
 
-0. **An ask that is a ticket.** When the ask is a ticket's id or its URL and `project.py show`
+0. **An ask that is a ticket.** When the ask is a ticket's id or its URL and `lem project show`
    gives a `tracker`, the tracker reads it (`load-skill` the tracker, its "read"): the title, the
    description, the link, the parent, the labels and the branch name the tracker gives. The
    ticket's words are then the ask. When the settings have no tracker, say that this project has
-   none, and ask the owner for the ask in his words. When `project.py tasks` already lists a task
+   none, and ask the owner for the ask in his words. When `lem project tasks` already lists a task
    with this ticket that is not `dropped` or `answered`, do not open a second one: say which task
    it is and where it stands. A dropped or an answered task gives its ticket back, and
    `task-dir --ticket` refuses the ticket only while another task holds it.
@@ -41,7 +41,7 @@ a lead is started, and what to do each time a lead stops.
    interview, its criteria, the personas' read and his yes, and the lead stops at the committed
    plan; the line of step 5 says so ("full, because you asked for its plan: ..."). A plan's size
    is always `full`, and `criteria.py` and `land.py` refuse a plan that says `Size: small`.
-   In the same look, read the ask's words against each topic of `flow.topics` in `project.py
+   In the same look, read the ask's words against each topic of `flow.topics` in `lem project
    show`, the sentences of what must never go wrong here. No code matches a topic and no file
    name settles one: the question is whether the change the ask wants could reach that thing.
    When it could, the line of step 5 names it first. In doubt, say careful. When the scout's
@@ -56,7 +56,7 @@ a lead is started, and what to do each time a lead stops.
    example: "From such input its kinda hard to deduct if we want to investigate the bug or its a
    feature request.") His answer sets the type. The type goes into `task.md` with its reason, and
    as the line `type: TYPE, because WHY` into the task's first state block (step 4);
-   `project.py state` refuses that line in any other form, and `project.py tasks` gives it as
+   `lem project state` refuses that line in any other form, and `lem project tasks` gives it as
    `type`. When he changes the type later, write a state block with the new line.
 2. **The slug and the branch.** A slug of two to five plain words that say what the owner gets
    ("report-dates-stay-whole"), never a code. The branch is `<type>/<slug>` with a semantic type,
@@ -68,7 +68,7 @@ a lead is started, and what to do each time a lead stops.
    since that task's files stay under it: add a word, as `task-dir` says when it refuses. For a
    ticket, the branch is the name the tracker gives for it, when it gives one: the tracker and
    its automation find the work by that name.
-3. **The task directory.** `project.py task-dir SLUG --ask "the owner's words"` keeps the ask as
+3. **The task directory.** `lem project task-dir SLUG --ask "the owner's words"` keeps the ask as
    the owner gave it, for the board and the status. For a ticket, add `--ticket ID`, and the ask
    is the ticket's title; the command refuses a ticket another task holds. When the branch of step
    2 is not `<type>/<slug>`, add `--branch BRANCH`. The command refuses a slug whose branch origin
@@ -81,7 +81,7 @@ a lead is started, and what to do each time a lead stops.
    - out of scope, when the ask has an obvious neighbor this task leaves alone.
    Write it from the ask, the project's profile and the rulings. Do not read the code for it: a
    "done when" line that needs the code is the lead's to sharpen in its plan. A line you put out
-   of scope by yourself is a decision taken without the owner: log it with `decisions.py log SLUG
+   of scope by yourself is a decision taken without the owner: log it with `lem decisions log SLUG
    --by lem`.
 4. **Which path.** Choose one:
    - *the investigation first*, for a fix whose cause the ask does not show and for a question:
@@ -110,7 +110,7 @@ a lead is started, and what to do each time a lead stops.
    `the interview waits for the owner`:
 
    ```bash
-   python3 SKILL_DIR/scripts/project.py state SLUG held "the interview waits for the owner" "type: feat, because WHY"
+   lem project state SLUG held "the interview waits for the owner" "type: feat, because WHY"
    ```
 
    On the other paths the first block is the one the path's own first step writes, before its
@@ -135,7 +135,7 @@ a lead is started, and what to do each time a lead stops.
    Read SKILL_DIR/prompts/lead.md and follow it.
    task: SLUG
    branch: the branch of step 2
-   worktree: the path `project.py worktree-dir SLUG` prints
+   worktree: the path `lem project worktree-dir SLUG` prints
    task directory: the task directory's absolute path
    lead: builder
    stop after the plan: no
@@ -172,17 +172,17 @@ a lead is started, and what to do each time a lead stops.
 
 `/lem build <task>` is for a task whose state is `drafted` or `planned`: change its brief to
 `stop after the plan: no`, take out a `night: yes` line, since the owner is there now, and start
-its lead. When its `report.md` or a state block of it says `needs a session:` and `project.py
+its lead. When its `report.md` or a state block of it says `needs a session:` and `lem project
 tasks` gives it no `talk`, change the brief to `lead: session` first: that start opens the plan
 talk's companion at once, where a builder would only stop at the plan again. A path to a plan file names its task too: the
 file's name is the settings' `paths.plan_file` (`YYYY-MM-DD-<slug>.md` unless they say otherwise;
 a plan of an older Lem is `YYYYMMDD-<slug>.md`), and the slug is the task's. With no name, list the tasks in those
-two states (`project.py tasks`), each with its ask and its plan's path, and ask which one: a
+two states (`lem project tasks`), each with its ask and its plan's path, and ask which one: a
 fixed choice, so it stays in the terminal. One such task needs no question.
 
 The owner may say that a task is careful, at any time before its landing, whatever its lead
 called it. At once, add the line `careful: the owner says so` to the task's brief, and log his
-words with `decisions.py log SLUG --by owner`. The brief is what holds it: whoever reads the task's next stop reads
+words with `lem decisions log SLUG --by owner`. The brief is what holds it: whoever reads the task's next stop reads
 that line, also a Lem that started after this one, and the landing reads it too: the change
 gets the project's full review set, its notes say whether it holds a migration, and a person
 merges it whatever the settings say (`stages/land.md`). A task that still builds finishes its
@@ -211,10 +211,10 @@ with criteria he approved, which the lead may not change without the record sayi
 
    The interview does not wait for it, so it costs him no wait: on 2026-11-16 a scout took 26.7 s
    in a tiny repository and 116.5 s in Lem's own, 12 files opened in each (one request each).
-   Log the start of each, so that the board draws both: `python3 SKILL_DIR/scripts/project.py
-   log SLUG scout.start` as the scout starts, and `project.py log SLUG interview.start` before
+   Log the start of each, so that the board draws both: `lem project
+   log SLUG scout.start` as the scout starts, and `lem project log SLUG interview.start` before
    the first question. Its reply is its report: write it word for word into `scout.md` in the
-   task directory, and log `project.py log SLUG scout`, its end. It is the one place where
+   task directory, and log `lem project log SLUG scout`, its end. It is the one place where
    knowledge of the code comes up to you, and only as facts for the criteria: you still read no
    diff and write no code.
 2. **The interview.** One question at a time, each with your own guess, so that he reacts and
@@ -240,7 +240,7 @@ with criteria he approved, which the lead may not change without the record sayi
    do not put it into the criteria. The landing's polish pass fixes a cheap one in place and files
    each other one in the backlog, and the pull request lists what was filed.
 4. **The criteria**, when the scout's report is in and not before. Write them from his words, the
-   directions, the project's profile and the report, in the form `criteria.py --help` shows: the
+   directions, the project's profile and the report, in the form `lem criteria --help` shows: the
    `## Acceptance criteria` heading, the line `Size: full, because ...`, and numbered criteria, each
    a business rule in plain language with one concrete example, with real names and values. No
    test lines: the lead adds those. Keep the file in the task directory, and for each criterion the
@@ -248,7 +248,7 @@ with criteria he approved, which the lead may not change without the record sayi
 5. **Show them in the conversation, and start the personas' read in the same moment.** Write the
    criteria as plain text, each with the scout's facts that shaped it beside it, and the
    directions, and say that the personas read them now. No page opens before the read is in.
-   Log its start, `python3 SKILL_DIR/scripts/project.py log SLUG criteria.read.start by=lem`; the
+   Log its start, `lem project log SLUG criteria.read.start by=lem`; the
    record below is its end, and the end of the interview. The read is the persona panel's
    "Reading acceptance criteria" mode (`load-skill`), here in your session with the paired agent of
    the other family, so that both families answer; without one the
@@ -263,14 +263,14 @@ with criteria he approved, which the lead may not change without the record sayi
    one event the landing reads:
 
    ```bash
-   python3 SKILL_DIR/scripts/project.py log SLUG criteria.read by=lem asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": "PERSONA, FAMILY", "why": "WHAT STOPPED IT"}]' criteria:=N flagged:=N split:=true|false digest=DIGEST
+   lem project log SLUG criteria.read by=lem asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": "PERSONA, FAMILY", "why": "WHAT STOPPED IT"}]' criteria:=N flagged:=N split:=true|false digest=DIGEST
    ```
 
    `asked` is the personas the panel asked and `answered` those of whom at least one family
    answered; `silent` names each source that gave no answer, `[]` when every one did. `flagged`
    counts the criteria an answer called unexpected, confusing or wrong; `split` says whether the
    two families answered a criterion differently, which counts as a doubt too. `DIGEST` is the
-   `digest` field of what `python3 SKILL_DIR/scripts/criteria.py digest SLUG --file FILE` prints
+   `digest` field of what `lem criteria digest SLUG --file FILE` prints
    for the criteria file the personas read, so that the record knows when he changes them after
    the read.
 
@@ -284,7 +284,7 @@ with criteria he approved, which the lead may not change without the record sayi
    freeze the criteria with step 7, both before the brief:
 
    ```bash
-   python3 SKILL_DIR/scripts/decisions.py log SLUG --by owner --what "the personas' read of the criteria" --chose "no read: the criteria name only the developer" --why "HIS ANSWER, AS HE TYPED IT"
+   lem decisions log SLUG --by owner --what "the personas' read of the criteria" --chose "no read: the criteria name only the developer" --why "HIS ANSWER, AS HE TYPED IT"
    ```
 
    The landing knows his word by `--by owner` and those two texts, word for word, and takes it
@@ -309,10 +309,10 @@ with criteria he approved, which the lead may not change without the record sayi
    He approves, or changes a criterion, a direction or the set. Write each change in his words into
    the criteria file or `directions.md`. The personas do not read his own change again; the pull
    request then says that the criteria changed after the read.
-7. **Freeze them**: `python3 SKILL_DIR/scripts/criteria.py approve SLUG --file FILE`, again after
+7. **Freeze them**: `lem criteria approve SLUG --file FILE`, again after
    each change of his. The criteria are then kept word for word with a digest, and the plan's
    criteria have to be those, with only the test lines added: a criterion the build changes, adds or
-   drops has its own record (`decisions.py criterion`), and the pull request is not green for it.
+   drops has its own record (`lem decisions criterion`), and the pull request is not green for it.
    Go on with step 6 of "Open the task". The landing refuses a full change whose criteria nobody
    read and whose read he did not skip (step 5), and one whose read found a doubt with no yes of his
    after it.
@@ -331,11 +331,11 @@ the Developer" (2026-11-16). The audit of that day counted 6 to 11 agents and 15
 from a typo to its pull request, against about 4 minutes measured for a correction in the first
 flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` has the ledger).
 
-1. **The criterion.** Write it to `criteria.md` in the task directory, in the form `criteria.py
+1. **The criterion.** Write it to `criteria.md` in the task directory, in the form `lem criteria
    --help` shows, with `Size: small, because ...` and the one criterion, and approve it in his name:
 
    ```bash
-   python3 SKILL_DIR/scripts/criteria.py approve SLUG --small
+   lem criteria approve SLUG --small
    ```
 
    With `--small` the file is that `criteria.md`, and the command takes no `--file`: the owner's own
@@ -350,7 +350,7 @@ flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` h
    Read SKILL_DIR/prompts/small.md and follow it.
    task: SLUG
    branch: the branch of step 2 of "Open the task"
-   worktree: the path `project.py worktree-dir SLUG` prints
+   worktree: the path `lem project worktree-dir SLUG` prints
    task directory: the task directory's absolute path
    ```
 
@@ -361,7 +361,7 @@ flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` h
 3. **When it stops**, its reply is its report, of five lines at most, and you write `report.md`
    in the task directory from it word for word. Its state says what follows:
    - `ready`: the landing, `stages/land.md`, with the small change's steps there, up to its pull
-     request with no question on the way: the push and the pull request of `land.py propose`
+     request with no question on the way: the push and the pull request of `lem land propose`
      are the owner's standing word in `branch.propose`, not a step to ask about;
    - `held` with `the criteria wait for the owner: the small change is a full change`: its builder
      found a topic in reach, a second rule, a decision the criterion does not settle, a lowered bar,
@@ -382,15 +382,15 @@ needed to unerstand what triggers the bug that we aim to correct" (the owner, 20
 question is the same work with a question in place of the bug, and its answer is the whole
 task.
 
-1. **A place, the worktree and the state.** `project.py may-start SLUG`, and the worktree on the
+1. **A place, the worktree and the state.** `lem project may-start SLUG`, and the worktree on the
    task's branch, as steps 1 and 2 of "Start a lead" say: the investigator runs the project's
    tests, so it takes a place. A task queued there starts its investigator when its turn comes,
    not a lead: its `queued` block carries the line `investigation: bug` or `investigation:
-   question`, and `project.py tasks` gives either no `investigation` yet or one whose `call` is
+   question`, and `lem project tasks` gives either no `investigation` yet or one whose `call` is
    `not-reproduced`, which waits for the second investigator. Then write the state:
 
    ```bash
-   python3 SKILL_DIR/scripts/project.py state SLUG building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because WHY"
+   lem project state SLUG building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because WHY"
    ```
 
    with `investigation: question` and the line `type: question, because WHY` for a question. The
@@ -401,12 +401,12 @@ task.
    Read SKILL_DIR/prompts/investigator.md and follow it.
    request: TASK_DIRECTORY/ask.txt
    type: fix or question
-   worktree: the path `project.py worktree-dir SLUG` prints
+   worktree: the path `lem project worktree-dir SLUG` prints
    branch: the branch of step 2 of "Open the task"
    task directory: TASK_DIRECTORY
    ```
 
-   Log its start as it starts, `python3 SKILL_DIR/scripts/project.py log SLUG investigation.start
+   Log its start as it starts, `lem project log SLUG investigation.start
    type=fix` (or `type=question`); the record of step 3 is its end. Then go back to his next
    message: its reply wakes you, and the line of step 5 of "Open the task" told him already. No
    investigation has been timed yet.
@@ -417,7 +417,7 @@ task.
    write what it found, which the board shows and the landing reads:
 
    ```bash
-   python3 SKILL_DIR/scripts/project.py log SLUG investigation type=fix call=CALL "line=ONE LINE" where=PATH:SYMBOL reproduced:=true|false
+   lem project log SLUG investigation type=fix call=CALL "line=ONE LINE" where=PATH:SYMBOL reproduced:=true|false
    ```
 
    `call` is the report's: `small`, `full`, `not-a-bug` or `not-reproduced` for a fix, and
@@ -438,7 +438,7 @@ task.
      interview waits for the owner` first: the investigator's place is free again.
    - *not a bug*: tell him what the code does in his case and why, as one run (`SKILL.md`, "What
      the owner has to understand is told as one run"), with where each step was read. Write the
-     state `answered` with that in one line, and `land.py clean SLUG`: the worktree goes, and a
+     state `answered` with that in one line, and `lem land clean SLUG`: the worktree goes, and a
      branch with commits of its own stays, the reproducing test among them, with how to delete it;
      a branch with none, which the base holds whole, goes.
    - *not reproduced*: tell him each try in one line, and ask him for one more fact: the record,
@@ -447,9 +447,9 @@ task.
      `tried before:` with the report's tries, and start a fresh investigator from step 1, which
      takes a place again or queues it.
    - *answer*, for a question: show him the answer as the report gives it, with where each
-     part was read. Write the state `answered` with the answer in one line, and `land.py clean
+     part was read. Write the state `answered` with the answer in one line, and `lem land clean
      SLUG`.
-   `project.py state SLUG answered` refuses a task with no `investigation.md` or no record whose
+   `lem project state SLUG answered` refuses a task with no `investigation.md` or no record whose
    call is `not-a-bug` or `answer`. For an answered task that came from a ticket, the tracker
    then comments the answer on the ticket and changes no status (its "answer"): tell the owner
    which status the ticket has. A task that goes on keeps the report in its directory, and
@@ -466,8 +466,8 @@ task.
 The owner says that a task is not wanted, at any point before its landing. Write the state
 `dropped` with his reason in one line. Close the task's companion when one is open, and remove its
 worktree the way the project does. A branch with commits of its own stays, because those
-commits are on no other branch, and `land.py clean` names how to delete it; a branch with none,
-which the base holds whole, goes (`land.py clean` does both and says which). For a task that came from a ticket, the tracker then
+commits are on no other branch, and `lem land clean` names how to delete it; a branch with none,
+which the base holds whole, goes (`lem land clean` does both and says which). For a task that came from a ticket, the tracker then
 says so on the ticket (its "drop") and changes no status: tell the owner which status the ticket
 has, since where it goes now is his call. Then look at the queue, as the last section says.
 
@@ -476,7 +476,7 @@ has, since where it goes now is his call. Then look at the queue, as the last se
 Every start goes this way: a new task, `/lem build`, a queued task whose turn came, and a lead
 that is started again after it stopped.
 
-1. **A place.** `project.py may-start SLUG`, with the slug of the task whose lead starts: a task
+1. **A place.** `lem project may-start SLUG`, with the slug of the task whose lead starts: a task
    that builds already (its investigator called the path, its lead stopped) holds its place, and
    that place is not counted against it. On exit 1 for want of a place the task waits: write its
    state as `queued`, unless it is `queued` already, with the line `investigation: bug` or
@@ -488,9 +488,9 @@ that is started again after it stopped.
    was removed), otherwise from the settings' base branch. Use the project's own worktree script
    when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test database, an
    environment), and give it the base as origin has it after `git fetch origin BASE`; otherwise
-   `python3 SKILL_DIR/scripts/project.py worktree SLUG BRANCH`, which takes a branch that exists as
+   `lem project worktree SLUG BRANCH`, which takes a branch that exists as
    it is and starts a new one from origin's base branch after a fetch, never from the local base
-   branch, which may be days old. `project.py worktree-dir` already made the folder for worktrees one that
+   branch, which may be days old. `lem project worktree-dir` already made the folder for worktrees one that
    git ignores. The worktree is in the checkout, not in the task's
    state directory, which is in the main checkout's state folder (`.lem/state/`): the state has
    to outlive the worktree.
@@ -500,8 +500,8 @@ that is started again after it stopped.
    builder's reply is its only word. Write the state `building` first, with the line `lead:
    builder` or `lead: session` as the brief says, or `small change: one builder` for a brief that
    names `prompts/small.md`, so the next `may-start` counts this task. A small change's builder
-   gets one more line, its start for the board, as it starts: `python3
-   SKILL_DIR/scripts/project.py log SLUG builder.start "job=the small change"`; its state of
+   gets one more line, its start for the board, as it starts: `lem
+   project log SLUG builder.start "job=the small change"`; its state of
    `ready` or `held` is its end. The task's first block carries the type line of step 1 of "Open
    the task" too, when no block before it has one. For a task that came from a ticket, the
    tracker then marks the ticket as started (its "start"); it writes nothing when the project's
@@ -521,7 +521,7 @@ the decisions and the commits on the branch; that is the whole handover.
 ## When a choice waits for the owner
 
 Every decision that is the owner's comes here, at plan time and in the build: a lead that meets
-one, in its plan or in a task of it, has the personas read it and asks it with `decisions.py
+one, in its plan or in a task of it, has the personas read it and asks it with `lem decisions
 ask` when they leave it unclear, and the task goes on without it (`stages/plan.md`, step 5, and
 `stages/build.md`, "A choice in the build"). The defender of a plan talk asks the choices the
 talk left open the same way. Either lead tells you at once with the
@@ -529,8 +529,8 @@ line `lem: SLUG choice N waits`, through `tell-coordinator`: the defender from i
 and a builder that leads from this session, where it runs. That line is the wake-up, and the
 wait counts from the ask. A line can be lost (a pane that restarted, a brief with no
 `coordinator:` line), and the harness file says that the builder's line was not yet seen to
-wake an idle Lem, so also run `python3 SKILL_DIR/scripts/decisions.py pending` at each of your
-turns: its `waiting` list is what needs his answer. At the same turns, run `land.py merged SLUG`
+wake an idle Lem, so also run `lem decisions pending` at each of your
+turns: its `waiting` list is what needs his answer. At the same turns, run `lem land merged SLUG`
 for each `open` task with a pull request, as `SKILL.md` says under Status: a merge he made on
 the forge frees the queue and brings the other open tasks onto the new base (`stages/land.md`,
 step 9). A task that was dropped or landed while a choice waited is under `ended`, and
@@ -556,32 +556,32 @@ its choices need no answer.
    are in, and then you tell him both in one short message. When the task's
    directory has no `experts/choice-N.brief.md`, nobody gave the choice to them: run the
    `lem-ask-expert` skill yourself, at once.
-2. **Write his answer**: `decisions.py answer SLUG N --chose OPTION --words TEXT`. `--chose` is
+2. **Write his answer**: `lem decisions answer SLUG N --chose OPTION --words TEXT`. `--chose` is
    the option his answer takes, word for word as the choice has it; the script refuses any
    other text. `--words` is his answer as he gave it, when it is not that text, and `--why`
    his reason, when he gave one, in his words. Never put the recommendation's reason there:
    the record keeps that one beside it. When he decided something that none of the options
-   says, settle the choice with it: `decisions.py answer SLUG N --instead TEXT`, with `--words`
+   says, settle the choice with it: `lem decisions answer SLUG N --instead TEXT`, with `--words`
    and `--why` as above. Never log it as a new decision: the choice would wait for ever, and an
    irreversible one would hold the pull request. A choice carries no criterion: a criterion his
-   answer changes is the lead's to record with `decisions.py criterion ... --choice N`, and the checks
+   answer changes is the lead's to record with `lem decisions criterion ... --choice N`, and the checks
    refuses the plan until it does. When you cannot tell what he decided, ask him again. A lead in a
    session gets the answer as one message too; a builder that leads finds it at its next
-   `decisions.py wait`.
+   `lem decisions wait`.
 3. **An answer after the wait** is written down the same way, and the script says it is late,
    also when nobody wrote the timeout yet: it writes the timeout then, and what the timeout
    takes stands. When the answer differs from what was taken, it is his correction: tell the
    lead while the task builds, and after that it is a new ask. The pull request names it either
    way. An answer after the experts settled the choice is late in the same way.
 4. **When he is away**, the choice does not wait its time for him: once both experts picked the
-   same option, `decisions.py settle SLUG N --away` takes it at once, and the pull request is not
+   same option, `lem decisions settle SLUG N --away` takes it at once, and the pull request is not
    green for it. He is away on two facts only, as the harness file's `ask-owner` says: his own
    words in this session that he is away or leaves, or a question of this turn that went to his
    away channel. His silence is no such fact. The script refuses when the experts split, when
    one has not answered, after the wait ended (the timeout takes it then) and always for an
    irreversible step; a choice it refuses waits its time. A defender whose companion is open
    gets one message with the option taken; a builder that leads finds it at its next
-   `decisions.py wait`. Tell him at
+   `lem decisions wait`. Tell him at
    his return what was taken for him and the experts' reasons.
 
 ## When a lead stops
@@ -589,7 +589,7 @@ its choices need no answer.
 A builder's reply is the path of its report, and a small change's builder replies with the
 report itself, which you write into `report.md`. The defender of a plan talk sends one message
 that starts with `lem:` and names the task. Either is only a wake-up. The fact is the task's
-newest state block: `project.py tasks`, then read the task's `report.md`.
+newest state block: `lem project tasks`, then read the task's `report.md`.
 
 A lead whose agent refused it the write of `report.md` says so in its state (`report in the
 reply`), and its reply is the whole report. Write that text into `report.md` word for word, with
@@ -609,10 +609,10 @@ Act on the status:
     the plan talk's companion, whose agent defends the plan against the reviewer in its other
     pane (`prompts/defender.md`): a builder has no pane for the reviewer.
   - *The talk is done* (`the plan talk is done`, after `lem: SLUG talk done`): read `talk` in
-    `project.py tasks`, never the line's claim. A record there: close the companion
+    `lem project tasks`, never the line's claim. A record there: close the companion
     (`open-task-session`), change the brief to `lead: builder`, and start a lead; the builder
     leads the build of the talked plan, one fresh builder for each of its tasks
-    (`stages/plan.md`, step 3). Each choice the talk left open waits in `decisions.py pending`:
+    (`stages/plan.md`, step 3). Each choice the talk left open waits in `lem decisions pending`:
     ask it as the section above says. No record: the defender ended without its last step, so
     send it one message that says so, and close nothing.
   - *The owner asked for the plan only*: show the owner the plan through the settings'
@@ -634,7 +634,7 @@ Act on the status:
     for a defender whose companion is still open that is one message to it, and otherwise a
     fresh lead that reads the state and goes on;
   - *choice N waits for the owner*: an irreversible step that every task left depends on. It is
-    in `decisions.py pending` and asked as the section above says; start a lead after his answer.
+    in `lem decisions pending` and asked as the section above says; start a lead after his answer.
 - **`blocked`**: the report says what the lead could not settle and what it tried. A missing
   tool, a base branch that does not build, a conflict with another task: settle it, then start a
   lead. An approach that failed twice goes to a fresh builder with a different approach, as
@@ -647,13 +647,13 @@ Act on the status:
 - **`landing`, `open`, `landed`, `answered` or `dropped`**: the task went on, or ended, without
   this lead, and the reply is a stale wake-up (a lead that finished after a later step, a
   message that came late). Do nothing for it: no state, no lead. An ended task stays ended,
-  `project.py state` refuses a move out of `landed`, `answered` or `dropped` and a lead's state
+  `lem project state` refuses a move out of `landed`, `answered` or `dropped` and a lead's state
   over a task in `landing` or `open`, and `may-start`
   refuses a lead for a task in `landing`, `open` or an ended state. New work for it is a new
   ask (`/lem new`), with a slug of its own.
 
 After any of these, look at what is owed and at the queue. A task that ended with a
-`ticket_owed` in `project.py tasks` gets those steps from the tracker now. While a task is `open`
+`ticket_owed` in `lem project tasks` gets those steps from the tracker now. While a task is `open`
 with a pull request and no watch of yours runs, start one, as `SKILL.md` says under Status. A `blocked` task whose
 state has `the base is red` and an `after:` task that is `landed` gets the state `ready` again,
 with the line `the base is green again`, and joins the landing line. Take the `queued` tasks in
@@ -662,7 +662,7 @@ the order of their state's time, leave out each one whose `after:` task is not `
 the first that is left. Step 1 of "Start a lead" decides whether there is a place.
 
 Last, a nap. When a task ended in this turn (`landed`, `answered` or `dropped`), or nothing is left
-for you but the owner's word, and `naps.on` is true in `project.py show`, run `python3
-SKILL_DIR/scripts/project.py may-nap`. When its `may` is true, read `stages/nap.md` and start the
+for you but the owner's word, and `naps.on` is true in `lem project show`, run `lem
+project may-nap`. When its `may` is true, read `stages/nap.md` and start the
 nap as it says; when it is false, say nothing of it. A nap never comes before what is owed, the
 queue or a question.

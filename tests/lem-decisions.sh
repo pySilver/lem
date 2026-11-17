@@ -138,7 +138,7 @@ still=$(dlist 'next(c["state"] for c in d if c["id"] == 10)')
 mapped=$(decide answer gift-note 10 --chose "a summary line" --words "Put a line at the bottom, please." | field '(d["kind"], d["chose"], d["words"])')
 ten=$(dlist 'next((c["state"], c["chose"], c.get("owner_words")) for c in d if c["id"] == 10)')
 if grep -qF "the answer to choice 10 is one of its options, word for word: no summary; a summary line" <<<"$free" && grep -qF -- "--words" <<<"$free" \
-  && grep -qF -- "fits none of them, settle the choice with --instead TEXT, never with a new \`decisions.py log\`" <<<"$free" && [ "$freecode" = 1 ] && [ "$still" = waits ] \
+  && grep -qF -- "fits none of them, settle the choice with --instead TEXT, never with a new \`lem decisions log\`" <<<"$free" && [ "$freecode" = 1 ] && [ "$still" = waits ] \
   && [ "$mapped" = "('answered', 'a summary line', 'Put a line at the bottom, please.')" ] && [ "$ten" = "('answered', 'a summary line', 'Put a line at the bottom, please.')" ]; then
   pass "an answer names one of the choice's options word for word, and his own words go beside it; an answer that fits no option is refused and writes nothing"
 else
@@ -236,8 +236,8 @@ fi
 SKILLTEXT=${SKILLTEXT:-$PWD/skills/lem}
 lead_brief=$SKILLTEXT/prompts/lead.md
 # shellcheck disable=SC2016  # the backticks are the stage text's own marks around a command
-if grep -qF 'decisions.py answer SLUG N' "$lead_brief" && grep -qF -- '`--instead TEXT`' "$lead_brief" && grep -qF 'his that answers no choice is logged with `decisions.py log SLUG --by owner`' "$lead_brief" \
-  && ! grep -qE 'log it with `decisions.py log SLUG --by owner`|Log each answer with `decisions.py log' "$lead_brief" "$SKILLTEXT"/stages/*.md "$SKILLTEXT"/prompts/*.md; then
+if grep -qF 'lem decisions answer SLUG N' "$lead_brief" && grep -qF -- '`--instead TEXT`' "$lead_brief" && grep -qF 'his that answers no choice is logged with `lem decisions log SLUG --by owner`' "$lead_brief" \
+  && ! grep -qE 'log it with `lem decisions log SLUG --by owner`|Log each answer with `lem decisions log' "$lead_brief" "$SKILLTEXT"/stages/*.md "$SKILLTEXT"/prompts/*.md; then
   pass "the lead's brief and Lem's stage write the owner's answer to a choice that waits with answer, --instead included, and log a word of his only when it answers no choice"
 else
   fail "the owner's answer in the lead's brief and the stages: $(grep -n 'by owner' "$SKILLTEXT"/stages/*.md "$SKILLTEXT"/prompts/*.md)"

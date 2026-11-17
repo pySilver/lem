@@ -72,7 +72,7 @@ The record is `decisions.jsonl` in the task's directory, one line for each thing
 a decision is the lines with its number. Each line is also an event in the log the board draws.
 
 A criterion change is a line of the same record, with a number of its own (`change`). It applies
-to the newest approval of the criteria (`criteria.json`, which `criteria.py approve` writes) and names
+to the newest approval of the criteria (`criteria.json`, which `lem criteria approve` writes) and names
 that approval by its number, so a later approval starts from its criteria again, also when its text
 is one approved before. `changes` keeps every change in `history`: one that a later approval of
 the owner's took over is the owner's, and the pull request shows it as approved by the owner
@@ -96,8 +96,9 @@ outside the repository, beyond what the settings already allow, such as the trac
 `person` (it sends something to a person), `money` (it spends money). The lead says which; no
 code can tell.
 
-The experts are two agents of two model families, `fable` and `astra`, that the lem-ask-expert
-skill gives the same brief when the wait starts; the owner asked for them as the way out when
+The experts are two agents of two model families, the settings' `seats.experts`, that the
+lem-ask-expert skill gives the same brief when the wait starts, and the record keeps their advice
+in two places, `fable` for the first seat and `astra` for the second, whatever model sits there; the owner asked for them as the way out when
 the owner is not there to answer (2026-11-16). Their advice goes on the owner's card while the
 owner decides. At the end of the wait their shared pick is taken (`by: experts`, with both
 reasons), and the recommended option when they split or one is missing (`by: timeout`); when the
@@ -137,7 +138,9 @@ SCRIPTS = Path(__file__).resolve().parent
 BY = ("lead", "personas", "owner", "lem")
 # The task states in which nothing of a task waits any more, as project.py's ENDED.
 ENDED = ("dropped", "landed", "answered")
-# The two experts of the lem-ask-expert skill, by the names the record keeps their advice under.
+# The two places in which the record keeps the experts' advice, as project.py's EXPERT_PLACES: the
+# first seat of the settings' `seats.experts` answers in `fable`, the second in `astra`, whatever
+# model sits there, so a record written under any seats reads the same.
 EXPERTS = ("fable", "astra")
 # How the case of a choice is known: the lead ran it, or read it out of the code.
 CASE_WAS = ("reproduced", "derived")
@@ -180,7 +183,7 @@ def read(moment: str) -> datetime:
 
 class Task:
     def __init__(self, repo: Path, slug: str, tasks: list[dict] | None = None, state: Path | None = None) -> None:
-        """`tasks` and `state`, when given, are `project.py tasks` and `state-dir` as this process
+        """`tasks` and `state`, when given, are `lem project tasks` and `state-dir` as this process
         read them already: `pending` reads them once for every task it lists."""
         self.repo = repo
         self.slug = slug
@@ -240,7 +243,7 @@ class Task:
         return [found[key] for key in sorted(found)]
 
     def approved(self) -> dict | None:
-        """The criteria the owner approved, as `criteria.py approve` kept them; none for a task without.
+        """The criteria the owner approved, as `lem criteria approve` kept them; none for a task without.
         An approval an older Lem kept names its kind (`feature`, `correction`) and not its size, and
         Lem's own approval of a small change as `by: correction`: each reads in the form of now. A
         later change may drop the old form once no task with such an approval is open."""
@@ -253,7 +256,7 @@ class Task:
         try:
             record = json.loads(kept.read_text(encoding="utf-8"))
         except ValueError as error:
-            raise DecisionError(f"{kept} does not read as JSON ({error}); it is written by `criteria.py approve` only") from error
+            raise DecisionError(f"{kept} does not read as JSON ({error}); it is written by `lem criteria approve` only") from error
         return {**now_form(record), "history": [now_form(old) for old in record.get("history", [])]}
 
     def changes(self, lines: list[dict] | None = None) -> dict:
@@ -307,7 +310,7 @@ class Task:
             if self.status in ENDED:
                 raise DecisionError(
                     f"{self.slug} is {self.status}: nothing of it is decided or waits any more, so this is not written. "
-                    f"Its record stays as it is (`decisions.py list {self.slug}`); new work is a new ask",
+                    f"Its record stays as it is (`lem decisions list {self.slug}`); new work is a new ask",
                 )
             lines = make(self.decisions())
             with self.file.open("a", encoding="utf-8") as handle:
@@ -399,7 +402,7 @@ def applied(criteria: list[str], change: dict) -> list[str]:
     if not 1 <= number <= len(out):
         raise DecisionError(f"there is no criterion {number}: the criteria are 1 to {len(out)} after every earlier change")
     if not same(out[number - 1], change["was"]):
-        raise DecisionError(f"criterion {number} is {out[number - 1]!r} after every earlier change, and --was says {change['was']!r}; `decisions.py changes SLUG` gives the criteria as they stand")
+        raise DecisionError(f"criterion {number} is {out[number - 1]!r} after every earlier change, and --was says {change['was']!r}; `lem decisions changes SLUG` gives the criteria as they stand")
     if change["how"] == "changed":
         out[number - 1] = change["now"]
     else:
@@ -440,7 +443,7 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
     if approved is None:
         raise DecisionError(
             f"{task.slug} has no approved criteria, so no change of them is recorded: its plan's criteria are their one source. "
-            "Approved criteria are kept by `criteria.py approve`",
+            "Approved criteria are kept by `lem criteria approve`",
         )
     line = {"at": stamp(now()), "kind": "criterion", "how": how, "criterion": getattr(args, how), "why": text(args.why, "--why"), "approval": approved.get("number") or 1 + len(approved.get("history", []))}
     for key in wants:
@@ -514,7 +517,7 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
     experts = f"give it to the experts now, with the lem-ask-expert skill ({task.slug} {made['id']}); tell Lem that choice {made['id']} of {task.slug} waits; "
     return {**made, "next": experts + (
         "it waits for the owner's word, however long: the rest of the plan goes on, and no timeout takes it" if args.irreversible
-        else f"go on with what does not depend on it; `decisions.py wait {task.slug} {made['id']}` says when it is answered or its wait ends"
+        else f"go on with what does not depend on it; `lem decisions wait {task.slug} {made['id']}` says when it is answered or its wait ends"
     )}
 
 
@@ -536,10 +539,10 @@ def cmd_advise(task: Task, number: int, args: argparse.Namespace) -> dict:
         if not decision["irreversible"] and left(decision) <= 0:
             raise DecisionError(
                 f"the wait of choice {number} ended at {decision['deadline']}: advice after it changes nothing. "
-                f"`decisions.py timeout {task.slug} {number}` takes what the advice given in time says",
+                f"`lem decisions timeout {task.slug} {number}` takes what the advice given in time says",
             )
         if args.expert in decision.get("advice", {}):
-            raise DecisionError(f"choice {number} has the advice of {args.expert} already: one advice of each expert, and `decisions.py list {task.slug}` shows it")
+            raise DecisionError(f"choice {number} has the advice of {args.expert} already: one advice of each expert, and `lem decisions list {task.slug}` shows it")
         if "pick" in line and line["pick"] not in decision["options"]:
             raise DecisionError(
                 f"the pick of an expert is one of the options of choice {number}, word for word: {'; '.join(decision['options'])}. "
@@ -595,7 +598,7 @@ def cmd_wait(task: Task, number: int, seconds: int) -> dict:
         if task.status in ENDED:
             return {**shown(task, decision), "ended": f"the task is {task.status}: the choice no longer waits", "status": task.status}
         if not decision["irreversible"] and left(decision) <= 0:
-            return {**shown(task, decision), "ended": "the wait is over", "next": f"`decisions.py timeout {task.slug} {number}` takes the experts' shared pick, or the recommended action when they split"}
+            return {**shown(task, decision), "ended": "the wait is over", "next": f"`lem decisions timeout {task.slug} {number}` takes the experts' shared pick, or the recommended action when they split"}
         if time.monotonic() >= until:
             return {**shown(task, decision), "ended": "still waits"}
         # A short step, so that an answer or a drop ends the wait within two seconds or so; the
@@ -624,7 +627,7 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
             raise DecisionError(
                 f"the answer to choice {number} is one of its options, word for word: {'; '.join(decision['options'])}. "
                 "Put the owner's own words in --words. When what the owner decided fits none of them, settle the choice with "
-                "--instead TEXT, never with a new `decisions.py log`, so it does not wait for ever",
+                "--instead TEXT, never with a new `lem decisions log`, so it does not wait for ever",
             )
         if decision["state"] == "waits" and (decision["irreversible"] or left(decision) > 0):
             return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
@@ -674,7 +677,7 @@ def cmd_settle(task: Task, number: int) -> dict:
                 "the experts never take it. It waits for the owner's word, and the rest of the plan goes on",
             )
         if left(decision) <= 0:
-            raise DecisionError(f"the wait of choice {number} ended at {decision['deadline']}: `decisions.py timeout {task.slug} {number}` takes it, with the experts' shared pick when they have one")
+            raise DecisionError(f"the wait of choice {number} ended at {decision['deadline']}: `lem decisions timeout {task.slug} {number}` takes it, with the experts' shared pick when they have one")
         pick = shared(decision)
         if pick is None:
             advice = decision.get("advice", {})

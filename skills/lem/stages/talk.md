@@ -26,11 +26,11 @@ rules:
   that the board draws the talk from it:
 
   ```bash
-  python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG plan.talk.start reviewer=AGENT
+  lem project --repo WORKTREE log SLUG plan.talk.start reviewer=AGENT
   ```
 
   The first message names the plan's path, the worktree, the task, the style guide files
-  `project.py rules` prints for the plan's files, and the code the plan rests on, by path and
+  `lem project rules` prints for the plan's files, and the code the plan rests on, by path and
   symbol, and asks for the full list.
 - **The list closes with the reviewer's first turn.** That turn is a full read of the plan: a
   numbered list of questions, the most expensive first, each with the position of the plan it
@@ -118,7 +118,7 @@ as a claim, not as a fact. Then close the reviewer's pane (the harness file, `se
 and write the one event the landing reads:
 
 ```bash
-python3 SKILL_DIR/scripts/project.py --repo WORKTREE log SLUG plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N
+lem project --repo WORKTREE log SLUG plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N
 ```
 
 `turns` counts each message of either side; `questions`, the questions of the reviewer's first

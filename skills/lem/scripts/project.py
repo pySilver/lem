@@ -96,7 +96,7 @@ criteria, as `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silen
 "why": ...}]' criteria:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many
 personas were asked and how many answered, the model families that answered, each source that did
 not and why (a partial read counts), how many criteria were read and how many an answer flagged,
-whether the families split, and the digest `criteria.py digest` gives for the criteria read. A
+whether the families split, and the digest `lem criteria digest` gives for the criteria read. A
 read in which nobody answered is written too, with `answered:=0`, no family and each source that
 was asked in `silent`; the landing counts two of those in a row as criteria that went on unread.
 `log` refuses the names an older Lem gave the read and its start, `stories.read` and
@@ -117,13 +117,16 @@ type its kind maps to (bug and correction a fix, feature a feat, investigation a
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
-a plan talk runs, which tool marks up a plan and which one puts a question to the owner, and a no to the correction queue for that one person. It
+a plan talk runs, which tool marks up a plan and which one puts a question to the owner, a no to the correction queue for that one person, a no
+to the naps, which spend that person's tokens, and how many tasks build or land at one time on that machine. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]` and
-`[tools]`, and `[corrections]` with `collect = false`, and nothing else: the checks, what must
+`[tools]`, `[corrections]` with `collect = false`, `[naps]` with `on = false` and `[flow]` with
+`max_tasks`, which is one machine's limit and no guard, and nothing else: the checks, what must
 never go wrong, the protected branches and who lands are the project's rules, and a file nobody reviews
-must not open them. For the same reason it can switch the correction queue off for its person
-and never on: nobody's messages are sent because of a file that git does not show. `show` names each setting that
+must not open them. For the same reason it can switch the correction queue and the naps off
+for its person and never on: nobody's messages are sent, and nobody's tokens spent, because of a
+file that git does not show. `show` names each setting that
 came from it.
 
 The style guide is a folder of markdown files, in an adopted project the one an agent already
@@ -159,7 +162,7 @@ lines to write in its place. `checks.alone` names the commands that need the mac
 uses fixed ports, one database or a browser. `alone` runs any command under one lock for the
 repository, `alone.lock` in the state folder, apart from the landing's lock, since a builder takes
 this one too: the checks of a landing run each `checks.alone` command through it after
-`checks.commands` pass, `criteria.py red` runs a criterion's test of such a suite through it, and a
+`checks.commands` pass, `lem criteria red` runs a criterion's test of such a suite through it, and a
 builder runs such a test through it in its worktree. It waits while another run holds the lock
 and says so on stderr with the holder's line, passes the command's exit status through (128 and
 the signal's number for a command a signal ended), and ends the command's process group when it
@@ -180,7 +183,7 @@ A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM
 named it, is found too: `lem_plans` is the one place that builds and finds the name, and `plan-file` prints both.
 
 `waiting` is the one list of what waits for the owner, which a bare `/lem` says: the choices of
-`decisions.py pending` (`choices`), the tasks `held` with the line `the criteria wait for the
+`lem decisions pending` (`choices`), the tasks `held` with the line `the criteria wait for the
 owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
 task with its proposal (`pull_requests`), each `drafted` task with its plan (`drafts`), and each
 file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
@@ -236,8 +239,9 @@ import lem_state  # noqa: E402
 TOOLS = {"annotate": "webrev", "ask": "lem-ask"}
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
-# the tables one machine may set for itself
-LOCAL_TABLES = ("seats", "tools", "corrections")
+# the tables one machine may set for itself; of [flow] only max_tasks, of [naps] only `on = false`,
+# and of [corrections] only `collect = false`
+LOCAL_TABLES = ("seats", "tools", "corrections", "flow", "naps")
 # name -> (where the skill's own layout keeps it, where an older tool keeps it)
 PATHS: dict[str, tuple[str, str | None]] = {
     "profile": (".lem/profile.md", ".personas/profile.md"),
@@ -872,6 +876,35 @@ def local_off(local: dict) -> bool:
     return True
 
 
+def local_naps_off(local: dict) -> bool:
+    """Whether this machine's own file says no to the naps: a nap spends this person's tokens. It
+    can say nothing else about them."""
+    naps = local.get("naps", {})
+    for key in naps:
+        if key != "on":
+            raise SettingsError(f"{LOCAL}: naps.{key} is the project's and belongs in {SETTINGS}; this file may hold only `on = false` under [naps]")
+    if "on" not in naps:
+        return False
+    if naps["on"] is not False:
+        raise SettingsError(
+            f"{LOCAL}: naps.on = {naps['on']!r} is not for this file. It may say `on = false`, which keeps Lem from napping by itself "
+            f"on this machine; only {SETTINGS}, which everybody reads in git, switches the naps on",
+        )
+    return True
+
+
+def local_max_tasks(local: dict) -> int | None:
+    """The limit of tasks that build or land at one time on this machine, when its own file names
+    one: a machine's load, and no guard of the project's."""
+    flow = local.get("flow", {})
+    for key in flow:
+        if key != "max_tasks":
+            raise SettingsError(
+                f"{LOCAL}: flow.{key} is the project's rule and belongs in {SETTINGS}; this file may hold only max_tasks under [flow], one machine's limit",
+            )
+    return flow_of(local, LOCAL)["max_tasks"] if "max_tasks" in flow else None
+
+
 def tool_of(raw: dict, name: Path, role: str) -> str | None:
     """The tool one file names for a role, checked; None when the file names none."""
     if role not in raw.get("tools", {}):
@@ -937,6 +970,11 @@ def load(root: Path) -> dict:
     flow = flow_of(raw, SETTINGS)
     if main.resolve() != root.resolve():
         flow = flow_of(base_raw(), base_file)
+    overridden = []
+    machine_limit = local_max_tasks(local)
+    if machine_limit is not None:
+        flow["max_tasks"] = machine_limit
+        overridden.append("flow.max_tasks")
 
     paths = {}
     for name, (default, _older) in PATHS.items():
@@ -970,7 +1008,6 @@ def load(root: Path) -> dict:
     protected =strings(branch.get("protected", []), "branch.protected")
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
-    overridden = []
     tools = {}
     for role, own in TOOLS.items():
         tools[role] = tool_of(raw, SETTINGS, role) or own
@@ -1025,6 +1062,11 @@ def load(root: Path) -> dict:
         if given["moves"] == "tracker" and named:
             raise SettingsError(f'{SETTINGS}: with tracker.moves = "tracker" Lem moves no ticket, so {" and ".join(named)} say nothing: remove them')
         tracker = {key: given.get(key) for key in TABLES["tracker"]}
+    naps = naps_of(raw, SETTINGS)
+    if local_naps_off(local):
+        if naps["on"]:
+            overridden.append("naps.on")
+        naps["on"] = False
     return {
         "root": str(root),
         # the checkout every worktree hangs off; it is `root` unless this ran in a task's worktree
@@ -1048,7 +1090,7 @@ def load(root: Path) -> dict:
         "tools": tools,
         "corrections": {"collect": collect},
         "tracker": tracker,
-        "naps": naps_of(raw, SETTINGS),
+        "naps": naps,
         # what this machine set for itself, so a report can say that the reviewer is not the project's
         "local": {"file": str(local_file) if local_file.is_file() else None, "overrides": overridden},
     }
@@ -1056,7 +1098,7 @@ def load(root: Path) -> dict:
 
 def cmd_path(settings: dict, name: str) -> None:
     if name == "plan_file":
-        raise SettingsError("paths.plan_file is the pattern of a plan's name, not a path: `project.py plan-file SLUG` prints the name of a task's plan")
+        raise SettingsError("paths.plan_file is the pattern of a plan's name, not a path: `lem project plan-file SLUG` prints the name of a task's plan")
     if name not in settings["paths"]:
         raise SettingsError(f"no path named {name!r}{nearest(name, tuple(PATHS))}")
     print(settings["paths"][name]["path"])
@@ -1197,6 +1239,8 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     for role in TOOLS:
         tool_of(local, LOCAL, role)
     local_off(local)
+    local_naps_off(local)
+    local_max_tasks(local)
     seat(local, LOCAL, "reviewer")
     seat(local, LOCAL, "planner")
     experts_of(local, LOCAL)
@@ -1210,11 +1254,12 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
             )
         parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2])
         local.setdefault("seats", {})["reviewer"] = words[0]
-    lines = ["# This machine's own settings for Lem. Not committed; `project.py reviewer` writes the seat."]
+    lines = ["# This machine's own settings for Lem. Not committed; `lem project reviewer` writes the seat."]
     for table in LOCAL_TABLES:
         body = local.get(table) or {}
         if body:
-            # a value here is a word in quotes, a list of them, or the one `false` the corrections table may hold
+            # a value here is a word in quotes, a list of them, the one `false` the corrections and the
+            # naps tables may hold, or the number of max_tasks
             lines += ["", f"[{table}]", *(f"{key} = {toml_value(value)}" for key, value in body.items())]
     if len(lines) == 1:
         file.unlink(missing_ok=True)
@@ -1575,7 +1620,7 @@ def task_directory(root: Path, slug: str) -> Path:
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     directory = state_root(root) / "tasks" / slug
     if not directory.is_dir():
-        raise SettingsError(f"no task {slug!r}; `project.py task-dir {slug}` makes its directory")
+        raise SettingsError(f"no task {slug!r}; `lem project task-dir {slug}` makes its directory")
     return directory
 
 
@@ -1754,7 +1799,7 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     """Append one event about a task; `state` is the only writer of task.state."""
     task_directory(root, slug)
     if event == "task.state":
-        raise SettingsError("task.state is written by `project.py state`, which also writes the state block")
+        raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
     fields: dict[str, object] = {}
     for pair in pairs:
         key, separator, raw = pair.partition("=")
@@ -1789,7 +1834,7 @@ def read_form(fields: dict) -> None:
     """The personas' read of the criteria is read by the landing, so it has one form: who ran it,
     how many personas were asked and how many answered, the model families that answered, each
     source that did not answer and why, how many criteria were read and flagged, whether the
-    families split, and the digest of the criteria it read (`criteria.py digest`)."""
+    families split, and the digest of the criteria it read (`lem criteria digest`)."""
     form = (
         "criteria.read takes by=lem|lead asked:=N answered:=N families:='[\"FAMILY\", ...]' "
         "silent:='[{\"name\": SOURCE, \"why\": WHY}, ...]' criteria:=N flagged:=N split:=true|false digest=DIGEST"
@@ -1813,7 +1858,7 @@ def read_form(fields: dict) -> None:
     if not isinstance(fields["split"], bool):
         raise SettingsError(f"{form}: split is true when the two families answered a criterion differently, false otherwise, written with :=")
     if not isinstance(fields["digest"], str) or not re.fullmatch(r"[0-9a-f]{12}", fields["digest"]):
-        raise SettingsError(f"{form}: digest is the twelve characters `criteria.py digest` prints for the criteria that were read")
+        raise SettingsError(f"{form}: digest is the twelve characters `lem criteria digest` prints for the criteria that were read")
     # every project's cast has two people or more
     if fields["asked"] < 2:
         raise SettingsError(f"{form}: a read asks two personas at the least")
@@ -1851,7 +1896,7 @@ STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
     "criteria.read.start": ("criteria.read.start takes by=lem|lead, and nothing else", {"by": ("lem", "lead")}),
     "investigation.start": ("investigation.start takes type=fix|question, and nothing else", {"type": ("fix", "question")}),
     "builder.start": (
-        f"builder.start takes job=JOB, and nothing else: `task N of M`, or one of {', '.join(BUILDER_JOBS)}; the polish pass logs its own start (`land.py polish`)",
+        f"builder.start takes job=JOB, and nothing else: `task N of M`, or one of {', '.join(BUILDER_JOBS)}; the polish pass logs its own start (`lem land polish`)",
         {"job": None},
     ),
     "polish.start": ("polish.start takes before=TIP, and land.py polish writes it", {"before": None}),
@@ -1955,14 +2000,14 @@ def ticket_owed(status: str | None, steps: list[str], tracker: dict | None) -> l
 
 
 def proposal(directory: Path) -> dict | None:
-    """What `land.py propose` kept for a task: the pull request's address, when there is one, and green or the reasons it is not."""
+    """What `lem land propose` kept for a task: the pull request's address, when there is one, and green or the reasons it is not."""
     kept_file = directory / "landing.json"
     if not kept_file.is_file():
         return None
     # every task's record is read here, so one that does not read stops `tasks` for all: the message says how to start that landing over
     way_out = (
-        f"land.py writes it whole, so something else wrote it. Move it aside, then `project.py state {directory.name} ready --start-over \"WHY\"` "
-        f"and `land.py start {directory.name}` start the landing over: its checks and its review run again"
+        f"land.py writes it whole, so something else wrote it. Move it aside, then `lem project state {directory.name} ready --start-over \"WHY\"` "
+        f"and `lem land start {directory.name}` start the landing over: its checks and its review run again"
     )
     try:
         kept = json.loads(kept_file.read_bytes().decode("utf-8"))
@@ -2066,7 +2111,7 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     if status in ("landing", "open"):
         raise SettingsError(
             f"the task {slug!r} is {status}: its build is done, and it gets no lead. Its landing goes on with `land.py` "
-            f"(`stages/land.md`; an open task takes the line again with `land.py start {slug}`), and a change the owner asks for now is a new ask",
+            f"(`stages/land.md`; an open task takes the line again with `lem land start {slug}`), and a change the owner asks for now is a new ask",
         )
     # A task queued behind another (`after: OTHER`, which Lem writes for an ask that needs another's
     # result, and a lead for a plan that does) starts when that task has ended, so that it builds on
@@ -2157,7 +2202,7 @@ def cmd_alone(root: Path, words: list[str]) -> int:
     themselves, and give its exit status back. Another run that holds the lock is waited for."""
     words = words[1:] if words[:1] == ["--"] else words
     if not words or not any(word.strip() for word in words):
-        raise SettingsError("alone takes the command to run: `project.py alone -- COMMAND ...`, or one quoted line for the shell")
+        raise SettingsError("alone takes the command to run: `lem project alone -- COMMAND ...`, or one quoted line for the shell")
     shown = words[0] if len(words) == 1 else " ".join(words)
     path = state_root(root) / ALONE_LOCK
     try:
@@ -2228,7 +2273,8 @@ def hours(seconds: float) -> str:
 def cmd_may_nap(root: Path, asked: bool) -> None:
     """Whether a nap may start now, from the settings and the naps folder. A yes writes the nap
     down as started; every call removes the naps older than `naps.keep_days`."""
-    naps = load(root)["naps"]
+    settings = load(root)
+    naps = settings["naps"]
     folder = state_root(root) / "naps"
     folder.mkdir(exist_ok=True)
     now = datetime.now(timezone.utc)
@@ -2260,7 +2306,8 @@ def cmd_may_nap(root: Path, asked: bool) -> None:
     if asleep is not None and not woke and (now - since).total_seconds() < ASLEEP_MINUTES * 60:
         answer["why"] = f"a nap runs since {asleep['since']}: it ends when naps/{started}-... holds waking.md, or {ASLEEP_MINUTES} minutes after its start"
     elif not asked and not naps["on"]:
-        answer["why"] = "the naps are off (naps.on = false in .lem/project.toml)"
+        answer["why"] = (f"the naps are off on this machine (naps.on = false in {LOCAL})" if "naps.on" in settings["local"]["overrides"]
+                         else f"the naps are off (naps.on = false in {SETTINGS})")
     else:
         last = max([when for when, _nap in kept] + ([since] if asleep is not None else []), default=None)
         age = (now - last).total_seconds() if last else None

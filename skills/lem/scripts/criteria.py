@@ -46,7 +46,7 @@ the criteria are:
                               task's first contract; refused when the task has any approval, and
                               after one read in which nobody answered, until a second such read
                               in a row lets the build go on. It
-                              counts for the plan's check and for `decisions.py criterion`, and never
+                              counts for the plan's check and for `lem decisions criterion`, and never
                               as the owner's yes
     criteria.py approved SLUG the approved criteria of the task, or null when it has none
     criteria.py digest SLUG [--file FILE]
@@ -62,7 +62,7 @@ directory, with their text, a digest and a number of their own (approval 1, 2, .
 approvals under `history`, and logs one `criteria.approved` event. An approval of a text approved
 before is still a new approval, with no change after it. From then on the
 plan's criteria are the expected ones: the newest approval's criteria with each change of them that
-`decisions.py criterion` recorded after it applied in the order of the record (`decisions.py changes
+`lem decisions criterion` recorded after it applied in the order of the record (`lem decisions changes
 SLUG` gives them). They are compared text for text and in order, with each run of spaces as one, so
 how a criterion is broken into lines does not count; the plan's `Size:` is the approved size, which
 only the owner's next approval changes. `show`, `record` and `red` refuse a plan that differs, and name
@@ -100,7 +100,7 @@ and proves nothing. Only the criterion's own list of files tells the two apart, 
 every file the base run lacked (`run_without`), for the one who reads the change.
 
 A test that needs the machine to itself runs under the repository's one lock for such commands,
-through `project.py alone`: a test whose command starts with the words of a command of the
+through `lem project alone`: a test whose command starts with the words of a command of the
 settings' `checks.alone`, whose last word may be a folder of the test's path (`npx playwright test
 e2e/export.spec.ts` under `npx playwright test`, `sh tests/e2e/b.sh` under `sh tests/e2e`), so
 that two checks of two tasks, or a check and a builder, never run such a suite at one moment.
@@ -201,7 +201,7 @@ def parse(text: str, name: str) -> dict:
             opened = None
     start = next((i for i, line in enumerate(lines) if i not in fenced and HEADING.match(line)), None)
     if start is None:
-        raise CriteriaError(f"{name} has no `## Acceptance criteria` section; the plan opens with it, as `criteria.py --help` shows")
+        raise CriteriaError(f"{name} has no `## Acceptance criteria` section; the plan opens with it, as `lem criteria --help` shows")
     end = next((i for i in range(start + 1, len(lines)) if i not in fenced and lines[i].startswith("## ")), len(lines))
     lines = [("" if i in fenced else line) for i, line in enumerate(lines)]
     size = mark = why = None
@@ -289,15 +289,15 @@ def against(read: dict, changes: dict, name: str, slug: str) -> None:
     """Refuse a plan whose criteria are not the expected ones: the approved criteria with every
     recorded change applied, text for text and in order, and of the approved size."""
     fix = (
-        f"The plan's criteria are the approved ones with each recorded change (`decisions.py changes {slug}` gives them), word for word, "
-        f"with only the test lines added. A criterion the build changes, adds or removes is recorded first: `decisions.py criterion {slug} "
+        f"The plan's criteria are the approved ones with each recorded change (`lem decisions changes {slug}` gives them), word for word, "
+        f"with only the test lines added. A criterion the build changes, adds or removes is recorded first: `lem decisions criterion {slug} "
         "--changed N --was TEXT --now TEXT`, `--added N --now TEXT` or `--removed N --was TEXT`, with --why and --choice ID or --by lead|personas"
     )
     approved = size_of(changes["approved"])
     if read["size"] != approved:
         raise CriteriaError(
             f"{name} says `Size: {read['size']}`, and the owner approved its criteria as a {approved} change: a change of the size is the owner's only, "
-            f"by the owner's approval of the criteria again (`criteria.py approve {slug} --file FILE`)",
+            f"by the owner's approval of the criteria again (`lem criteria approve {slug} --file FILE`)",
         )
     expected = changes["expected"]
     now = [criterion["text"] for criterion in read["criteria"]]
@@ -347,7 +347,7 @@ class Task:
         try:
             return now_form(json.loads(kept.read_text(encoding="utf-8")))
         except ValueError as error:
-            raise CriteriaError(f"{kept} does not read as JSON ({error}); it is written by `criteria.py approve` only") from error
+            raise CriteriaError(f"{kept} does not read as JSON ({error}); it is written by `lem criteria approve` only") from error
 
     def criteria(self) -> dict:
         self.need_worktree()
@@ -358,7 +358,7 @@ class Task:
         small = not found and small_file.is_file()
         if not found and not small:
             raise CriteriaError(
-                f"no plan of this task in {self.plans}: its name is {pattern.replace('<slug>', self.slug)} (`project.py plan-file {self.slug}` prints it); "
+                f"no plan of this task in {self.plans}: its name is {pattern.replace('<slug>', self.slug)} (`lem project plan-file {self.slug}` prints it); "
                 f"only a small change keeps its criterion in the task directory instead, in {self.small_file}",
             )
         plan = small_file if small else found
@@ -371,7 +371,7 @@ class Task:
         changes = self.changes()
         digest = text_digest(read["mark"], [criterion["text"] for criterion in read["criteria"]])
         if small and changes["approved"] is None:
-            raise CriteriaError(f"the small change's criterion in {plan} has no approval: Lem approves it in the owner's name before its builder starts, `criteria.py approve {self.slug} --file {plan} --small`")
+            raise CriteriaError(f"the small change's criterion in {plan} has no approval: Lem approves it in the owner's name before its builder starts, `lem criteria approve {self.slug} --file {plan} --small`")
         if changes["approved"] is None:
             self.no_small_plan(read, plan, small)
             return {"task": self.slug, "plan": str(plan), "small": small, **read, "criteria_digest": digest, "approved": None, "approvals": [], "changes": [], "history": []}
@@ -656,8 +656,8 @@ def first_contract(task: Task, by: str) -> None:
         number = kept.get("number") or 1 + len(kept.get("history", []))
         raise CriteriaError(
             f"{task.slug} has approval {number} of its criteria already (by {kept['by']}): {AUTOMATIC[by]}. "
-            f"A criterion changes through its record, `decisions.py criterion {task.slug} ...`, and the size only through the owner's own approval, "
-            f"`criteria.py approve {task.slug} --file FILE`",
+            f"A criterion changes through its record, `lem decisions criterion {task.slug} ...`, and the size only through the owner's own approval, "
+            f"`lem criteria approve {task.slug} --file FILE`",
         )
 
 
@@ -668,7 +668,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
     his and an automatic one that come at one time never both pass."""
     source = Path(file)
     if not source.is_file():
-        raise CriteriaError(f"{file} is not a file; --file names the criteria the owner approved, in the form `criteria.py --help` shows")
+        raise CriteriaError(f"{file} is not a file; --file names the criteria the owner approved, in the form `lem criteria --help` shows")
     text = source.read_text(encoding="utf-8")
     read = parse(text, source.name)
     tested = [criterion["n"] for criterion in read["criteria"] if criterion["tests"] or criterion["no_test"]]
@@ -750,7 +750,7 @@ def main() -> None:
                 # rule of the agent's permissions that this one does not match
                 result = cmd_approve(task, str(task.small_file), "lem")
             elif args.file is None:
-                raise CriteriaError("approve needs --file: the criteria the owner approved, in the form `criteria.py --help` shows, with no test lines")
+                raise CriteriaError("approve needs --file: the criteria the owner approved, in the form `lem criteria --help` shows, with no test lines")
             else:
                 result = cmd_approve(task, args.file, "lem" if args.small else "owner")
         elif args.step == "approved":
@@ -764,7 +764,7 @@ def main() -> None:
                 result = {"task": task.slug, "of": found["plan"], "digest": found["criteria_digest"]}
             else:
                 if not Path(args.file).is_file():
-                    raise CriteriaError(f"{args.file} is not a file; --file names the criteria to mark, in the form `criteria.py --help` shows")
+                    raise CriteriaError(f"{args.file} is not a file; --file names the criteria to mark, in the form `lem criteria --help` shows")
                 read = parse(Path(args.file).read_text(encoding="utf-8"), Path(args.file).name)
                 result = {"task": task.slug, "of": args.file, "digest": text_digest(read["mark"], [criterion["text"] for criterion in read["criteria"]])}
         elif args.step == "red":

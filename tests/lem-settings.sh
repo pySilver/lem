@@ -464,7 +464,7 @@ cut_record=$(project --repo "$OLD" tasks 2>&1 || true)
 echo '[]' > "$dir/landing.json"
 list_record=$(project --repo "$OLD" tasks 2>&1 || true)
 rm "$dir/landing.json"
-if grep -qF "$dir/landing.json does not read as JSON" <<<"$cut_record" && grep -qF "Move it aside, then \`project.py state report-dates-stay-whole ready --start-over \"WHY\"\` and \`land.py start report-dates-stay-whole\`" <<<"$cut_record" \
+if grep -qF "$dir/landing.json does not read as JSON" <<<"$cut_record" && grep -qF "Move it aside, then \`lem project state report-dates-stay-whole ready --start-over \"WHY\"\` and \`lem land start report-dates-stay-whole\`" <<<"$cut_record" \
   && grep -qF "$dir/landing.json is not an object" <<<"$list_record" && grep -qF "Move it aside" <<<"$list_record" && ! grep -q Traceback <<<"$cut_record$list_record"; then
   pass "a landing record that is not JSON, or not an object, is named with the way out: move it aside, the state ready, and land.py start"
 else
@@ -570,6 +570,39 @@ else
   fail "the defender's seat in the local file: $local_seat / $both / $kept / $err"
 fi
 rm "$OLD/.lem/project.local.toml"
+# One person may say no to the naps, which spend their tokens, and name how many tasks build or land at one
+# time on their machine, which is a machine's load and no guard; never yes to the naps there, and no other key.
+settings '[branch]' 'base = "master"' '[flow]' 'max_tasks = 4' '[naps]' 'on = true'
+printf '%s\n' '[flow]' 'max_tasks = 2' '[naps]' 'on = false' > "$OLD/.lem/project.local.toml"
+machine=$(project --repo "$OLD" show 2>&1 | field '(d["flow"]["max_tasks"], d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
+in_tree=$(project --repo "$WORK/wt" show 2>&1 | field '(d["flow"]["max_tasks"], "flow.max_tasks" in d["local"]["overrides"])' 2>&1 || true)
+asleep=$(project --repo "$OLD" may-nap 2>&1 | field '(d["may"], d["why"])' 2>&1 || true)
+project --repo "$OLD" reviewer claude >/dev/null 2>&1 && project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
+rewritten=$(cat "$OLD/.lem/project.local.toml")
+printf '%s\n' '[naps]' 'on = true' > "$OLD/.lem/project.local.toml"
+naps_yes=$(project --repo "$OLD" show 2>&1 || true)
+naps_yes_code=$(status_of project --repo "$OLD" reviewer claude)
+printf '%s\n' '[naps]' 'keep_days = 3' > "$OLD/.lem/project.local.toml"
+naps_key=$(project --repo "$OLD" show 2>&1 || true)
+printf '%s\n' '[flow]' 'decision_wait = 1' > "$OLD/.lem/project.local.toml"
+flow_key=$(project --repo "$OLD" show 2>&1 || true)
+flow_key_code=$(status_of project --repo "$OLD" reviewer claude)
+printf '%s\n' '[flow]' 'max_tasks = 0' > "$OLD/.lem/project.local.toml"
+flow_bad=$(project --repo "$OLD" show 2>&1 || true)
+rm "$OLD/.lem/project.local.toml"
+alone=$(project --repo "$OLD" show 2>&1 | field '(d["flow"]["max_tasks"], d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
+if [ "$machine" = "(2, False, ['flow.max_tasks', 'naps.on'])" ] && [ "$in_tree" = "(2, True)" ] && [ "$asleep" = "(False, 'the naps are off on this machine (naps.on = false in .lem/project.local.toml)')" ] \
+  && [ "$rewritten" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[flow]' 'max_tasks = 2' '' '[naps]' 'on = false')" ] \
+  && grep -qF ".lem/project.local.toml: naps.on = True is not for this file. It may say \`on = false\`" <<<"$naps_yes" \
+  && grep -qF "only .lem/project.toml, which everybody reads in git, switches the naps on" <<<"$naps_yes" && [ "$naps_yes_code" = 1 ] \
+  && grep -qF ".lem/project.local.toml: naps.keep_days is the project's and belongs in .lem/project.toml" <<<"$naps_key" \
+  && grep -qF ".lem/project.local.toml: flow.decision_wait is the project's rule and belongs in .lem/project.toml; this file may hold only max_tasks under [flow]" <<<"$flow_key" \
+  && [ "$flow_key_code" = 1 ] && grep -qF ".lem/project.local.toml: flow.max_tasks = 0 must be a whole number, 1 or more" <<<"$flow_bad" \
+  && [ "$alone" = "(4, True, [])" ]; then
+  pass "the machine's own file may say no to the naps and name its own flow.max_tasks, also for a task's worktree, show and may-nap say that the value is the machine's, and a rewrite keeps both; a yes to the naps, another key of [naps] or [flow] and a wrong limit there are refused with the reason"
+else
+  fail "the naps and the limit in the local file: $machine / $in_tree / $asleep / $rewritten / $naps_yes / $naps_key / $flow_key / $flow_bad / $alone"
+fi
 settings '[branch]' 'base = "master"'
 # A checkout whose folder name holds a line break is still one path.
 ODD="$WORK/odd
@@ -762,7 +795,7 @@ landed_start=$(ends may-start ended-task 2>&1 || true)
 ends task-dir dropped-task >/dev/null && ends state dropped-task dropped "the owner dropped it" >/dev/null
 dropped_again=$(status_of ends state dropped-task building "a late lead")
 dropped_start=$(status_of ends may-start dropped-task)
-if grep -qF "the task 'ended-task' is landing: its build is done, and it gets no lead" <<<"$in_landing" && grep -qF "land.py start ended-task" <<<"$in_open" \
+if grep -qF "the task 'ended-task' is landing: its build is done, and it gets no lead" <<<"$in_landing" && grep -qF "lem land start ended-task" <<<"$in_open" \
   && grep -qF "the task 'ended-task' is open" <<<"$in_open" && [ "$landed_again" = 0 ] \
   && grep -qF "the task 'ended-task' is landed, and an ended task stays ended: new work for it is a new ask" <<<"$reopened" \
   && [ "$readied" = 1 ] && [ "$dropped_over" = 1 ] && grep -qF "the task 'ended-task' is landed: an ended task gets no lead" <<<"$landed_start" \
@@ -1356,7 +1389,7 @@ log_story=$(status_of adecide log approved-note --what x --chose y --why z --by 
 records=$(grep -c '"kind": "criterion"' "$ST/.lem/state/tasks/approved-note/decisions.jsonl" || true)
 plain=$(criteria show export-has-the-gift-note 2>/dev/null | field '(d["approved"], d["changes"])' 2>&1 || true)
 if grep -qF "criterion 1 of 20261116-approved-note.md says '$c1', and the expected criterion 1 is '$t1'" <<<"$reworded" \
-  && grep -qF 'decisions.py criterion approved-note --changed N --was TEXT --now TEXT' <<<"$reworded" \
+  && grep -qF 'lem decisions criterion approved-note --changed N --was TEXT --now TEXT' <<<"$reworded" \
   && grep -qF "criterion 1 of 20261116-approved-note.md says '$c1'" <<<"$red_reworded" && [ "$changed_now" = "[(1, 1, 'changed')]" ] \
   && grep -qF "criterion 1 of 20261116-approved-note.md says '$c2', and the expected criterion 1 is '$c1'" <<<"$again" \
   && grep -qF "criterion 1 is '$c1' after every earlier change, and --was says '$t1'" <<<"$stale" && [ "$chained" = "[1, 1]" ] \

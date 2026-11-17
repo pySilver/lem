@@ -74,8 +74,8 @@ local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/waited-change/pr.md
 agent=$(local_land land waited-change --by agent 2>&1 || true)
 if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes): a request is never proposed over an open question of the owner's" <<<"$waiting" \
-  && grep -qF "decisions.py answer waited-change 2 --chose OPTION --words TEXT" <<<"$waiting" && grep -qF "decisions.py timeout waited-change 2" <<<"$waiting" \
-  && grep -qF "choice 3 of waited-change waits for the owner (Tell the merchants)" <<<"$forever" && grep -qF "decisions.py answer waited-change 3 --chose OPTION --words TEXT" <<<"$forever" \
+  && grep -qF "lem decisions answer waited-change 2 --chose OPTION --words TEXT" <<<"$waiting" && grep -qF "lem decisions timeout waited-change 2" <<<"$waiting" \
+  && grep -qF "choice 3 of waited-change waits for the owner (Tell the merchants)" <<<"$forever" && grep -qF "lem decisions answer waited-change 3 --chose OPTION --words TEXT" <<<"$forever" \
   && ! grep -qF "timeout waited-change 3" <<<"$forever" && [ "$(status_in "$LOCAL" waited-change)" = open ] \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = "- choice 2 was taken by timeout (Where the word goes): \"the first line\", the recommended option, after the owner's wait of 15 minutes ended with no answer; the owner answered later with the same (the owner's reason: The importer reads the first line)" ] \
@@ -126,7 +126,7 @@ local_land propose expert-change --title "fix: e" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/expert-change/pr.md
 agent=$(local_land land expert-change --by agent 2>&1 || true)
 if grep -qF "choice 1 of expert-change waits for the owner (Where the word goes)" <<<"$held" \
-  && grep -qF "\`decisions.py timeout expert-change 1\` takes the experts' shared pick, or the recommended option when they split" <<<"$held" \
+  && grep -qF "\`lem decisions timeout expert-change 1\` takes the experts' shared pick, or the recommended option when they split" <<<"$held" \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = "- choice 1 was taken by the experts (Where the word goes): \"the last line\", the option both picked, while the owner was away, before the wait ended. Fable: A reader of the file looks at its end first. Astra: The importer reads the last line" ] \
   && [ "$(sed -n 4p "$text")" = "- choice 2 was taken by the experts (The case of the word): \"upper case\", the option both picked, after the owner's wait of 15 minutes ended with no answer. Fable: The header is in upper case. Astra: The other words of the header are in upper case; the owner answered later with \"lower case\", which differs (the owner's reason: The test reads it so)" ] \
@@ -216,7 +216,7 @@ local_land propose read-doubt --title "fix: r" --notes "$NOTES" >/dev/null 2>&1 
 text=$LOCAL/.lem/state/tasks/read-doubt/pr.md
 if grep -qF "read-doubt is a full change, and the event log has no \`criteria.read\`" <<<"$unread_feature" && grep -qF 'stages/new.md' <<<"$unread_feature" \
   && grep -qF "the newest read of read-doubt's criteria found a split between the two families, and no approval of the owner's came after it" <<<"$split_unseen" \
-  && grep -qF "found 1 flagged criterion, and no approval of the owner's came after it" <<<"$flag_unseen" && grep -qF "criteria.py approve read-doubt --file FILE" <<<"$flag_unseen" \
+  && grep -qF "found 1 flagged criterion, and no approval of the owner's came after it" <<<"$flag_unseen" && grep -qF "lem criteria approve read-doubt --file FILE" <<<"$flag_unseen" \
   && grep -qF "the newest read of read-doubt's criteria found a split between the families: the criteria wait for the owner, and only the owner's approval freezes them" <<<"$freeze_split" \
   && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
   && grep -qxF -- "- the criteria were read by 2 of 3 personas asked, two model families (opus, sol); 1 of 1 criterion flagged; the two families split; no answer from the accountant, sol (the model was at capacity); the owner approved them on $(approved_day read-doubt)" "$text" \
@@ -313,7 +313,7 @@ over_his_file=$(lcriteria approve after-change --read --file "$WORK/as-correctio
 kept_contracts=$("$PY" -c 'import json, sys; print([(json.load(open(f))["number"], json.load(open(f))["by"], json.load(open(f))["size"]) for f in sys.argv[1:]])' \
   "$LOCAL/.lem/state/tasks/ticket-word/criteria.json" "$LOCAL/.lem/state/tasks/after-change/criteria.json" 2>&1 || true)
 if grep -qF "ticket-word has approval 1 of its criteria already (by read): a read freezes only the first contract" <<<"$refreeze" \
-  && grep -qF "A criterion changes through its record, \`decisions.py criterion ticket-word ...\`, and the size only through the owner's own approval" <<<"$refreeze" \
+  && grep -qF "A criterion changes through its record, \`lem decisions criterion ticket-word ...\`, and the size only through the owner's own approval" <<<"$refreeze" \
   && grep -qF "after-change has approval 2 of its criteria already (by owner): a read freezes only the first contract" <<<"$over_his" \
   && grep -qF "it takes no --file" <<<"$over_his_file" && grep -qF "it takes no --file" <<<"$refile" \
   && [ "$kept_contracts" = "[(1, 'read', 'full'), (2, 'owner', 'full')]" ]; then
@@ -408,7 +408,7 @@ local_land propose only-me --title "feat: m" --notes "$NOTES" >/dev/null 2>&1 ||
 text=$LOCAL/.lem/state/tasks/only-me/pr.md
 skipped_day=$("$PY" -c 'import json, sys; print(json.loads(open(sys.argv[1]).readline())["at"][:10])' "$LOCAL/.lem/state/tasks/only-me/decisions.jsonl" 2>/dev/null || true)
 if grep -qF "the owner's word to skip the personas' read of only-me's criteria is on record, and no approval of the owner's came after it" <<<"$unapproved" \
-  && grep -qF "criteria.py approve only-me --file FILE" <<<"$unapproved" \
+  && grep -qF "lem criteria approve only-me --file FILE" <<<"$unapproved" \
   && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] && [ -n "$skipped_day" ] \
   && grep -qxF -- "- the criteria: not read by the personas, on the owner's word ($skipped_day); the owner approved them" "$text" \
   && ! grep -q 'the criteria were read by\|no read by the personas is on record' "$text" \
@@ -425,7 +425,7 @@ no_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 || 
 skip_read no-word lem >/dev/null
 lem_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 || true)
 if grep -qF "no-word is a full change, and the event log has no \`criteria.read\`" <<<"$no_word" \
-  && grep -qF "decisions.py log no-word --by owner --what \"the personas' read of the criteria\" --chose \"no read: the criteria name only the developer\"" <<<"$no_word" \
+  && grep -qF "lem decisions log no-word --by owner --what \"the personas' read of the criteria\" --chose \"no read: the criteria name only the developer\"" <<<"$no_word" \
   && grep -qF "no-word is a full change, and the event log has no \`criteria.read\`" <<<"$lem_word" \
   && [ ! -e "$LOCAL/.lem/state/tasks/no-word/pr.md" ]; then
   pass "a full change with his approval and no read is refused when no word of his to skip the read is on record, and a word of Lem's in the same form is no such word"

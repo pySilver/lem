@@ -1,6 +1,6 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, checks, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `nap`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, checks, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
@@ -85,7 +85,7 @@ between the two agents are agterm's. When `AGTERM_SESSION_ID` is not set, say th
 must be started in agterm, and stop.
 
 ```bash
-python3 SKILL_DIR/scripts/project.py show
+lem project show
 ```
 
 `SKILL_DIR` is this skill's own directory. The output is the project's settings, resolved: each
@@ -97,6 +97,11 @@ script, a board). Read the project's lessons file (`paths.lessons` in the output
 line that opens with the name of a stage or of a shipped skill is the owner's correction of it
 for this repository, and you follow it where that text says otherwise. No line there lifts what a script
 refuses.
+
+`lem` is Lem's one command: `lem NAME ARGS...` runs the script `NAME.py` of this skill's
+`scripts/`, or a shipped skill's (`lem experts`, `lem cast`), and `lem help` lists every name.
+Run Lem's scripts only through it. The harness file says where it comes from, and what to run
+where the shell does not find it.
 
 ## Subcommands
 
@@ -116,13 +121,13 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, each plan drafted at night, each retro's proposals; and the board of all tasks, with what builds. A proposal or a draft he answers with approve, reject or later, all on one page | below |
 | `nap` | a nap now, on the owner's word, also when the naps are off: a fresh agent reads the recent tasks, dreams, and writes the dream down; Lem tells him its name when it ends. Where the settings have the naps on (`naps.on`), Lem also naps by itself after a task ends | `stages/nap.md` |
 | `status <task>` | the board of one task | below |
-| `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `project.py reviewer` with the same words. Say what `project.py show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments; where its text says `${CLAUDE_SKILL_DIR}`, that is the folder of that file. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
+| `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
 when the name stands alone or is followed by what that skill takes: a slug, a path, a number, a
-statement to argue. `/lem release notes are wrong on the site` and `/lem backlog is slow to open`
+statement to argue, a question in words. `/lem release notes are wrong on the site` and `/lem backlog is slow to open`
 are sentences about the project, so each is an ask and opens a task. `/lem ask` takes a question
 the owner wants put to himself as a page ("`/lem ask` which of the two layouts"), and `/lem ask`
 alone puts the last open question an agent asked in this conversation on a page, with what he
@@ -142,7 +147,7 @@ lead whose choice waits for the owner.
   person something and no ruling, test or probe answers it. Every such decision takes one path,
   at plan time as in the build (`stages/build.md`, "A choice in the build"): the persona panel
   first, which asks the project's own personas, and every project of Lem has them; a clear
-  answer of theirs is taken and logged; an unclear one is asked with `decisions.py ask`, with
+  answer of theirs is taken and logged; an unclear one is asked with `lem decisions ask`, with
   one concrete run that ends badly, and the work that does not depend on it goes on. It waits
   for the owner the settings' `flow.decision_wait` at most, 15 minutes unless the project says
   otherwise. Two experts of two model families answer it in the background from the start of
@@ -171,7 +176,7 @@ lead whose choice waits for the owner.
 - **No secret goes into a file.** No agent writes a credential, a key or a value from an `.env`
   file or the environment into a file or a commit: a builder writes the project's name for it,
   and the review reads the diff for one (`prompts/review.md`).
-- **The pull request is no step to ask about.** `land.py propose` pushes the task's own branch
+- **The pull request is no step to ask about.** `lem land propose` pushes the task's own branch
   and opens or updates its pull request, and you run it without a question. The owner approved
   it when he approved the settings at onboarding: `branch.propose = "pull-request"` is his
   standing word for exactly this. The pull request is the first place he wants to look, and a
@@ -199,7 +204,7 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   worktree and whatever the main checkout has checked out, so a branch cannot lift what guards it, and a change that edits `.lem/project.toml` at all, or puts the
   machine's own `.lem/project.local.toml` into git, is careful by the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
   as what is careful and what the checks run, and a task rarely edits it.
-- **Only so many tasks build or land at one time.** `project.py may-start SLUG` exits 1 at the
+- **Only so many tasks build or land at one time.** `lem project may-start SLUG` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
   the checks run and a builder may repair what they showed, and not the task SLUG whose lead starts. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
   16 and unstable browser tests (convertiser-server, as its owner reported it on 2026-11-14). A
@@ -223,7 +228,8 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   a planning or debugging skill loaded beside a stage has Lem read code and plans by itself, which
   is a lead's work (the compatibility audit, 2026-11-17).
 - **Capabilities, not tools.** A stage says `spawn-builder`, `open-task-session`,
-  `tell-coordinator`, `second-opinion`, `ask-owner`, `fan-out`, `show-page` or `load-skill`, and
+  `tell-coordinator`, `second-opinion`, `ask-owner`, `ask-experts`, `fan-out`, `run-in-background`,
+  `start-nap` (for a nap), `show-page` or `load-skill`, and
   names the question gate, the persona panel and the review tool by role. Read, once per session, the file in this skill's `harness/` folder named
   after the agent you run in (`harness/claude-code.md`); it says what each means there. When
   there is no file for your agent, say so and stop: the contract was not checked in it.
@@ -231,7 +237,7 @@ reads its own change against them before it commits (`prompts/small.md`). The le
 ## Where a task keeps its state
 
 ```bash
-python3 SKILL_DIR/scripts/project.py task-dir SLUG
+lem project task-dir SLUG
 ```
 
 It makes and prints the task's directory in Lem's state folder, `.lem/state/` of the main checkout,
@@ -241,7 +247,7 @@ moves it there and says so in one line on stderr: tell the owner that line once,
 
 - `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome. Lem writes
   them. `ticket.txt` holds the id of the tracker's ticket, for a task that came from one, and
-  `ticket-steps.txt` what Lem did to that ticket; `project.py tasks` gives both, and
+  `ticket-steps.txt` what Lem did to that ticket; `lem project tasks` gives both, and
   `ticket_owed`: what an ended task's ticket still waits for.
 - `scout.md`: the scout's report of the interview, facts of the code around the ask. Lem writes
   it from the scout's reply, and reads it: it is the one place where knowledge of the code
@@ -257,7 +263,7 @@ moves it there and says so in one line on stderr: tell the owner that line once,
   place. Lem writes it; the landing's polish pass fixes or files each one.
 - `criteria.json`: the criteria the owner approved, word for word, with a digest, who approved them
   and when, and the number of the approval, with the earlier approvals under `history`. For a
-  full change from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `criteria.py approve` writes it; `criteria.py approved SLUG` prints it, and the
+  full change from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `lem criteria approve` writes it; `lem criteria approved SLUG` prints it, and the
   plan's criteria must be those, with the test lines added.
 - `criteria.md`: the criteria as Lem writes them for his yes. For a small change it is the one
   criterion, approved in his name, with the test line its builder adds under it, and it stands in
@@ -270,8 +276,8 @@ moves it there and says so in one line on stderr: tell the owner that line once,
 - `decisions.jsonl`: each decision taken without the owner, each choice that went to him and his
   answer, one line for each thing that happened, and each change of an approved criterion with its
   text before and after. Lem and the lead both write it, and only through
-  `scripts/decisions.py`; `decisions.py list SLUG` shows each decision as it stands, and
-  `decisions.py changes SLUG` the criterion changes with the criteria they give.
+  `scripts/decisions.py`; `lem decisions list SLUG` shows each decision as it stands, and
+  `lem decisions changes SLUG` the criterion changes with the criteria they give.
 - `experts/`: for each choice given to the experts, the brief they read (`choice-N.brief.md`)
   and each one's answer (`choice-N.fable.md`, `choice-N.astra.md`), which the `lem-ask-expert`
   skill writes into the record.
@@ -289,7 +295,7 @@ measurement kit was gone from the disk when a later task needed it, and the task
 (mybaze, 2026-11-03, from that project's notes).
 
 ```bash
-python3 SKILL_DIR/scripts/project.py state SLUG STATUS "one line" ["a further line" ...]
+lem project state SLUG STATUS "one line" ["a further line" ...]
 ```
 
 It puts a block at the top of `state.md` with the clock's time. Write one at every stage boundary
@@ -322,7 +328,7 @@ because the board reads them: `lead: builder` or `lead: session` (the plan talk'
 another form, a `kind:` line among them.
 
 A stage's start is an event too, so that the board's time card has a start and an end for each
-span (the owner's pick of 2026-11-17). Each has a fixed form that `project.py log` checks, and
+span (the owner's pick of 2026-11-17). Each has a fixed form that `lem project log` checks, and
 the event that already ends the stage ends it. Logged by the agent that runs the stage, where its
 stage text says: `interview.start` (Lem, before the first question; it ends at the first
 `criteria.read.start` or `criteria.approved` after it), `scout.start` and `scout` (Lem, as the
@@ -336,14 +342,14 @@ the checks under the step's older name (it ends at the last `gate` or `task.red`
 attempt that is due (it ends at `review`). `plan.talk.start` and `plan.talk` have the same pairing.
 
 Nothing else keeps a task's place. A session that was compacted or replaced, Lem's or a lead's,
-reads `project.py tasks`, then the state file and the report of the task it acts on, and goes on.
+reads `lem project tasks`, then the state file and the report of the task it acts on, and goes on.
 Lem keeps no notes of its own beside these files.
 
 ## Status
 
 ```bash
-python3 SKILL_DIR/scripts/board.py             # the board of all tasks
-python3 SKILL_DIR/scripts/board.py --task SLUG # the board of one task
+lem board             # the board of all tasks
+lem board --task SLUG # the board of one task
 ```
 
 The board opens as a page beside the sessions it shows, under Lem's session or under the top of
@@ -355,7 +361,7 @@ It reads the event log by itself every two seconds, so open it once, and again a
 started again.
 
 A task's own board also shows its criteria, as the top of its plan has them: each with the tests
-that hold it and what the last check of those tests gave. `python3 SKILL_DIR/scripts/criteria.py
+that hold it and what the last check of those tests gave. `lem criteria
 show SLUG` prints the same. The criteria are what the owner reads of a task; the rest of the plan
 is the agents'. For a status of one task, say its criteria in his words before anything else.
 
@@ -365,7 +371,7 @@ verdict otherwise), with an item whose place in the code is gone marked as such.
 action there, "start a task", types `/lem new PATH` into Lem's session, which is the ask
 `stages/new.md` takes for a backlog item; the owner confirms it on the page first. `board.py`
 writes the tab's file at every run, and the page reads it when the tab opens and on a key. So
-after an item was filed, taken or removed, run `board.py --no-open`, which writes the file again
+after an item was filed, taken or removed, run `lem board --no-open`, which writes the file again
 and opens nothing.
 
 When the project has a nap, the board of all tasks has a third tab, Dreams: the newest naps, each
@@ -373,7 +379,7 @@ with its dream, the thing made from it and its waking note (`stages/nap.md`). `b
 file at every run, as it writes the backlog's.
 
 Every project of Lem has personas, and a project without them has an onboarding that is not
-finished. The machine check (`python3 SKILL_DIR/scripts/doctor.py`), run in the repository, has
+finished. The machine check (`lem doctor`), run in the repository, has
 a `project personas` row that says how many the panel finds, from the checkout or the default
 branch. Look at it with the status: with none, say so and name the step, `/lem init`, which
 asks who a decision here affects and writes them without touching the settings that exist; with
@@ -383,16 +389,16 @@ plugin wrote, beside the plugin: say each file and the entry its `without_it` sa
 hand, in one line, and ask nothing. Each message is still judged once, so it waits for no answer.
 
 Before you say it, find out what merged. The owner merges and closes pull requests on the forge,
-and the forge tells Lem nothing by itself: for each `open` task whose `proposal` in `project.py
-tasks` has a `pull_request`, run `python3 SKILL_DIR/scripts/land.py merged SLUG`. One that is
+and the forge tells Lem nothing by itself: for each `open` task whose `proposal` in `lem project
+tasks` has a `pull_request`, run `lem land merged SLUG`. One that is
 merged becomes `landed`, and one he closed with no merge becomes `dropped`; take step 9 of
 `stages/land.md` for them (the ticket, `clean`, the other open tasks onto the new base), then the
 queue, as `stages/new.md` ends, since a task queued `after:` one may start now. "Not merged yet" is
-no news. Do the same at each of your turns where you read `decisions.py pending` (`stages/new.md`,
+no news. Do the same at each of your turns where you read `lem decisions pending` (`stages/new.md`,
 "When a choice waits for the owner").
 
 While a task is `open` with a pull request, keep one watch of the forge in the background, never
-two: `run-in-background` with `python3 SKILL_DIR/scripts/land.py watch`. It looks once every
+two: `run-in-background` with `lem land watch`. It looks once every
 `flow.watch_seconds` (60 unless the project says otherwise) with one call for all the pull
 requests, and ends when the owner merged or closed one, or when the forge calls a pull request
 conflicting that it did not call so before; its end wakes you, and you take step 9 of
@@ -407,13 +413,13 @@ the watch's last look is older than three of its intervals.
 Then say what waits for him, as one list in one order, the same at every bare `/lem`:
 
 ```bash
-python3 SKILL_DIR/scripts/project.py waiting
+lem project waiting
 ```
 
 It gives each kind under its key, in this order, and you say them so, in plain names and never in
 task codes, one line each, and leave out a kind that has none:
 
-1. `choices`: each choice of a task that waits for him, as `decisions.py pending` gives it: the
+1. `choices`: each choice of a task that waits for him, as `lem decisions pending` gives it: the
    task, the choice, and the minutes its wait has left, or that it waits for his word;
 2. `criteria`: each task whose acceptance criteria wait for his yes;
 3. `held`: each task that waits for a step of his or one more fact, with that step;
@@ -425,7 +431,7 @@ task codes, one line each, and leave out a kind that has none:
 
 When `count` is 0, say "nothing waits for you" in one line. Then, after the list, what builds and
 what each other task waits on, what landed today, and what was answered today with its answer in
-one line, from `project.py tasks`.
+one line, from `lem project tasks`.
 
 A draft and a retro's proposals are his to answer, and they wait until he says so: on his word
 ("open them", "the drafts"), `ask-owner` with one page that holds each of them as a question of
@@ -434,7 +440,7 @@ move it would make, with the file, the change and the case that asks for it, as 
 it. A draft shows its plan's acceptance criteria and the night report's verdict on it. Then, for
 each answer:
 
-- a draft: approve builds it (`/lem build` with its task), reject drops it (`project.py state
+- a draft: approve builds it (`/lem build` with its task), reject drops it (`lem project state
   SLUG dropped "the owner rejected the night's draft"`, with its worktree and branch removed as
   `clean` does), later leaves it `drafted`;
 - a retro's proposal: approve makes the move as `stages/learn.md` says, reject records it as
@@ -444,7 +450,7 @@ each answer:
 A dropped, landed or answered task has no choice that waits. A task whose status is null has a
 state nobody wrote through the script: say so. A task with a `ticket_owed` ended, and its ticket in
 the tracker does not say so yet: say that too. With a draft in the list, the night report of
-today or of the night before, `night/YYYY-MM-DD.md` in the folder `project.py state-dir` prints,
+today or of the night before, `night/YYYY-MM-DD.md` in the folder `lem project state-dir` prints,
 gives its verdict and what the owner gets; the files hold no record of a status shown. The status
 changes what already happened and nothing else: a merge on the forge is written down, with the
 steps that follow a merge and the queue that it frees.

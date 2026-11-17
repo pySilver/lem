@@ -461,7 +461,7 @@ def cmd_list(where: Path, cwd: str) -> None:
 def cmd_show(where: Path, gid: str) -> None:
     entries = unreviewed(where).get(gid)
     if not entries:
-        raise QueueError(f"no unreviewed group {gid}; `corrections.py list` gives the ids")
+        raise QueueError(f"no unreviewed group {gid}; `lem corrections list` gives the ids")
     print(json.dumps(entries, indent=2, ensure_ascii=False))
 
 
@@ -482,7 +482,7 @@ def cmd_record(where: Path, gid: str, decision: str, verdict: str, target: str |
         raise QueueError("a lesson needs --lesson: the sentence an agent could follow next time")
     entries = unreviewed(where).get(gid)
     if not entries:
-        raise QueueError(f"no unreviewed group {gid}; `corrections.py list` gives the ids")
+        raise QueueError(f"no unreviewed group {gid}; `lem corrections list` gives the ids")
     for entry in entries:
         append(where / "corrections-reviews.jsonl", {
             "ts": entry["ts"], "session": entry["session"], "group": gid, "p_lesson": entry["p_lesson"], "reviewed": now(),
