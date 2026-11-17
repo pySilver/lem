@@ -415,6 +415,73 @@ from Lem's stages, and the plugin's commands carry Lem's name, so that they do n
 developer's own skills and commands ("What are the critical points in Lem that may conflict with
 existing Claude Code setup of the Developer?").
 
+His interview of 2026-11-17 and 2026-11-18 on what stays in Lem; a quote is his words. He asked
+for it ("Lets have quick interview what should stay and what should leave the Lem plugin") after
+he measured Lem against three sentences of his: "Good tools don't demand extra attention", "One
+thing. Done well - Not an everything Companion. A useful tool that fits into an ordinary developer
+day", "Best practices without confusion". `docs/plans/2026-11-18-core-and-two-modes.md` is the
+build that follows.
+
+- **Lem is his one desk for work in a repository, and its core is the path from a request to a
+  merged pull request.** "my workflow is agterm + few cookbooks + skills that I write somewhere, I
+  want to have a clean desk again", and "we aim to build end-to-end opinionated workflow for a
+  developer". A helper stays in the core when a step of the path uses it, and he can then call
+  that step by hand; to that rule, the maintaining session's wording, he marked "Looks good" on
+  the list it gives. He uses by hand: "interview-me when I start the plan / task", "dialectic,
+  ask-expert, panel of personas: those skills help me take a decision during planning", the
+  acceptance criteria, the backlog, and "RCA when I investigate some weird issue".
+- **Release, last-tag and the review of another person's pull request leave the core**: "yeah,
+  those looks like lem addons more than core functionality", and "Release functionality may go as
+  an addon later". What leaves goes out of the repository (his pick on the page: "They leave the
+  repository"); `docs/backlog/add-ons-after-the-core.md` lists what may come back as an add-on
+  ("Worth adding to backlog now").
+- **agterm, the mailbox chat and revmux stay required** ("as today"), **and agdoc is required
+  too**: of the page at the end of a task, "done by agdoc (hard requirement of the Lem)".
+- **A task runs with him or alone, and he can let go at any stage.** "Sometimes I would love to
+  know the decisions taken before implementation, and sometimes I want autonomous exection with 2
+  artifacts at the end: what decision were taken and why (a beautiful, easy to read HTML file) and
+  what we actually have been building here and why we want it (when there are lots of tasks and
+  plans, its easy to loose track on what we build)". And: "I also want to let go sometimes,
+  telling the lem to go fully autonomous at any stage. Lets say we discussed a bit of the issue
+  and I suddenly need to leave the house - I should be able to say that all upcoming task work
+  goes autonomous (probably it should make a switch in task file, some flag) so all upcoming
+  decisions will be taken automatically and when in doubt Lead will use: the panel, ask-expert,
+  dialectic; all by himself". The form is the session's, each part marked "Looks good" by him: his
+  words "go alone" and "go alone for all", a flag in the task's record, and "I am back", which
+  takes it off for the steps that remain. A step that a later "no" cannot reverse and the merge
+  wait for him in either mode, and of those: "It can be described as big red flag in artifact
+  files so I will not overlook it".
+- **The two artifacts are files of the task, not of the repository.** Asked whether
+  `decisions.md` is committed on the branch: "idk, if task folder isn't committed than no. its
+  just a file that will load a context to my brain when I will have a time too look at the PR, to
+  decide whether I like it or not and second artifact file should tell what and why build here".
+- **In doubt, a decision climbs a ladder of opinions, and a count decides, not a model.** His
+  order: "Lead -> Personas -> Experts -> Dialectic (or Dialectic before Experts as its cheaper...)",
+  and "Next level follows if no clear consensus reached or owner wants to check all possible
+  opinions". Of a model as the judge: "I'm a bit in doubt what Jev can decide here without whole
+  context of the use case, specicially Jev cannot read the code". To the session's order, lead,
+  personas, the dialectic on the option with the most votes, then the experts, he wrote "you are
+  right". Whether personas or the experts serve better he left open ("I'm not sure if personas
+  are better than two experts"), so each level logs whether it changed the pick. The dialectic's
+  two agents are subagents of the lead for now: the session's answer to his "for now that would be
+  a typical subagent, like opus 5.5:high? or do we want to run them in separate agterm companion
+  session", open to him.
+- **The question gate stays, hidden, and may decide**: "Sounds useful and it should stay as
+  hidden feature. Decisions taken that way lands in `decisions.md` artifact at PR time." He had
+  forgotten what it was ("sing that I forgot says a lot"), so it has no command of his.
+- **The plan talk stays as one plan, one reviewer and a closed list, and it can stop a task**: "one
+  model prepares the plan and then have limited discussion with the reviewer. Not task by task.
+  And this discussion has closed list of issues and may cancel futher execution if there are signs
+  that the design is wrong and fixing it brings even more problems on a plate or requires dirty
+  hacks."
+- **The lessons, the retro and Jev stay; a night run ends as a pull request; naps are not
+  shown**: "lessons stops agent repeating same errors, retro and Jev proved thier efficiency,
+  night execution is just a fun thing to build something while nobody's looking and its actually
+  got to be a PR to merge, not a plan. Naps and dreams are worthy but does not need to be exposed
+  at all. Its just affects "retro"". Of a night run that writes the criteria itself, builds, and
+  opens a pull request that says "not green: you did not approve the criteria": "Yes this is what
+  I want".
+
 Designs taken on 2026-11-14 and 2026-11-15 after a question of the owner's. They are open to
 him, and they are not his rulings until he says so:
 
