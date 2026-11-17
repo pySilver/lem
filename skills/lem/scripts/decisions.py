@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
-"""The decisions of one task: each one taken without the owner, and each choice that went to him.
+"""The decisions of one task: each one taken without the owner, and each choice put to the owner.
 
 A build meets choices its plan did not see. Most are the lead's own: the stories stay true, so
 the lead decides and writes the decision down. A choice that changes a story, or whose options
 each cost a person something, goes to the personas first; a clear answer of theirs is taken and
-written down. Only an unclear one goes to the owner, and it waits for him a fixed time and no
-longer: after that the recommended action is taken, and the pull request is not green for it.
-A decision of the plan whose options each cost a person something takes the same path. One kind
-of step never goes that way: a step that a later "no" cannot reverse waits for his word however
-long that takes. And a plan written at night asks none: nobody is there to answer.
+written down. Only an unclear one goes to the owner, and it waits a fixed time for the owner's
+answer and no longer: after that the recommended action is taken, and the pull request is not
+green for it. A decision of the plan whose options each cost a person something takes the same
+path. One kind of step never goes that way: a step that a later "no" cannot reverse waits for the
+owner's word however long that takes. And a plan written at night asks none: nobody is there to
+answer.
 
     decisions.py log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas|owner|lem
                  [--said TEXT] [--undo TEXT]
                             a decision that was taken; --said is what the personas answered.
-                            `owner` is a word of his that nobody asked for (the task is careful),
-                            or his yes to skip the personas' read of stories that name only the
-                            developer, in the form `land.py` reads (`READ_SKIP`); `lem` one that
-                            Lem took before the task had a lead (out of scope)
+                            `owner` is a word of the owner's that nobody asked for (the task is
+                            careful), or the owner's yes to skip the personas' read of stories
+                            that name only the developer, in the form `land.py` reads
+                            (`READ_SKIP`); `lem` one that Lem took before the task had a lead
+                            (out of scope)
     decisions.py story SLUG (--changed N --was TEXT --now TEXT | --added N --now TEXT
                  | --removed N --was TEXT) --why TEXT (--choice ID | --by lead|personas [--said TEXT])
                             a change of a story the owner approved, with its text before and
@@ -33,7 +35,8 @@ long that takes. And a plan written at night asks none: nobody is there to answe
                             a choice for the owner, of the plan or of the build: it gets a number
                             and the time its wait ends. --case is one concrete case that ends
                             badly, in numbered steps, one to a line, and --cause one line on why it
-                            became possible and how far that reaches: his card tells one run.
+                            became possible and how far that reaches: the owner's card tells one
+                            run.
                             Refused for a task whose brief says `night: yes`
     decisions.py pending [SLUG]
                             the choices that wait, of one task or of every task, each with the
@@ -44,8 +47,9 @@ long that takes. And a plan written at night asks none: nobody is there to answe
                             return when the choice is answered, when its wait ends, or after N
                             seconds, and say which
     decisions.py answer SLUG ID --chose OPTION [--words TEXT] [--why TEXT]
-                            the owner's answer: the option it takes, word for word, his own
-                            words when they are not that text, and his reason when he gave one.
+                            the owner's answer: the option it takes, word for word, the owner's
+                            own words when they are not that text, and the reason when one was
+                            given.
                             Lem writes it down. Text that is no option is refused here
     decisions.py answer SLUG ID --instead TEXT [--words TEXT] [--why TEXT]
                             the owner decided what none of the options says: TEXT settles the
@@ -71,8 +75,8 @@ A story change is a line of the same record, with a number of its own (`change`)
 the newest approval of the stories (`stories.json`, which `stories.py approve` writes) and names
 that approval by its number, so a later approval starts from its stories again, also when its text
 is one approved before. `changes` keeps every change in `history`: one that a later approval of
-the owner's took over is his, and the pull request shows it as approved by him afterwards. `story` computes the
-stories as they stand after every earlier change, and refuses a change whose story N is not the
+the owner's took over is the owner's, and the pull request shows it as approved by the owner
+afterwards. `story` computes the stories as they stand after every earlier change, and refuses a change whose story N is not the
 text `--was` names: a wrong record never enters. Texts are compared with each run of spaces as
 one, as a story written over two lines reads; they are kept as typed. A choice carries no story:
 when the option taken changes one, the lead records that with `story --choice ID`, and the
@@ -81,7 +85,7 @@ changes: its plan's stories are their one source.
 
 The wait is the settings' `flow.decision_wait`, in minutes. Its default, 15, is the owner's own
 number ("if there is decision taken in 15 min", 2026-11-16). `--said` is not optional for `ask`:
-the personas answer before the owner is asked, and their answers go to him with the question.
+the personas answer before the owner is asked, and their answers go with the question.
 
 `--irreversible` names why a later "no" cannot undo the step, by one of four kinds and no other:
 `data` (it destroys or rewrites data outside the worktree), `system` (it writes to a system
@@ -90,11 +94,11 @@ outside the repository, beyond what the settings already allow, such as the trac
 code can tell.
 
 The experts are two agents of two model families, `fable` and `astra`, that the lem-ask-expert
-skill gives the same brief when the wait starts; the owner asked for them as the way out when he
-is not there to answer (2026-11-16). Their advice goes on his card while he decides. At the end
-of the wait their shared pick is taken (`by: experts`, with both reasons), and the recommended
-option when they split or one is missing (`by: timeout`); when he is away, `settle` takes the
-shared pick at once. Either way the pull request is not green for it. Advice after the wait
+skill gives the same brief when the wait starts; the owner asked for them as the way out when
+the owner is not there to answer (2026-11-16). Their advice goes on the owner's card while the
+owner decides. At the end of the wait their shared pick is taken (`by: experts`, with both
+reasons), and the recommended option when they split or one is missing (`by: timeout`); when the
+owner is away, `settle` takes the shared pick at once. Either way the pull request is not green for it. Advice after the wait
 ended is refused, so what the timeout takes does not depend on when somebody writes it.
 
 An answer that comes after the wait is written down as late, also when nobody wrote the timeout

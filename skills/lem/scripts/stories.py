@@ -2,9 +2,9 @@
 """The stories of a task: what the owner approved, and the tests that hold each one.
 
 A story is one business rule of a request in plain language with one concrete example. The
-stories are the owner's document: he reads them and not the plan, and they become the tests. They
-have one source, the top of the task's plan file, so that the board, the checks and the text of
-the pull request cannot drift apart:
+stories are the owner's document: the owner reads them and not the plan, and they become the
+tests. They have one source, the top of the task's plan file, so that the board, the checks and
+the text of the pull request cannot drift apart:
 
     ## Stories
 
@@ -31,14 +31,14 @@ are:
     stories.py approve SLUG --read
                               keep the stories the owner approved, as FILE has them: the same
                               section with no test lines, which the lead adds. --correction: Lem
-                              approves a correction's one story in his name, as the task's first
-                              contract only, and he may still say "this is a feature". --read: the lead of the rare path freezes
+                              approves a correction's one story in the owner's name, as the task's
+                              first contract only, and the owner may still say "this is a feature". --read: the lead of the rare path freezes
                               the plan's stories, which a read found nobody confused by, as the
                               task's first contract; refused when the task has any approval, and
                               after one read in which nobody answered, until a second such read
                               in a row lets the build go on. It
                               counts for the plan's check and for `decisions.py story`, and never
-                              as his yes
+                              as the owner's yes
     stories.py approved SLUG  the approved stories of the task, or null when it has none
     stories.py digest SLUG [--file FILE]
                               the digest of the stories' kind and texts, without tests: of FILE,
@@ -56,7 +56,7 @@ plan's stories are the expected ones: the newest approval's stories with each ch
 `decisions.py story` recorded after it applied in the order of the record (`decisions.py changes
 SLUG` gives them). They are compared text for text and in order, with each run of spaces as one, so
 how a story is broken into lines does not count; the plan's `Kind:` is the approved kind, which
-only his next approval changes. `show`, `record` and `red` refuse a plan that differs, and name
+only the owner's next approval changes. `show`, `record` and `red` refuse a plan that differs, and name
 the first story that does. So the lead can neither reword, drop nor add a story without the
 record saying so, and the pull request is not green for each such change. A task with no
 approved stories (a plan written before this rule, a night plan, a request whose whole context

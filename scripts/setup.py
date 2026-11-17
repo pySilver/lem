@@ -27,7 +27,7 @@ leaves it.
 A skill of the clone that got a new name leaves a link behind with nothing at its end. A link in
 one of these folders that points into this clone at a path that is not there any more is such a
 leftover: a run that links, and `--remove`, take it away, and `--check` names it. A link of the
-owner's own into the clone that still ends somewhere is his, and stays.
+owner's own into the clone that still ends somewhere is the owner's, and stays.
 
 Either every link is made or none: when one cannot be made, the ones this run made are taken
 away again, and the report says so. Every run prints the state of all the places as JSON, also a
@@ -51,9 +51,9 @@ required tool that is absent makes this script exit 1 after the links are made: 
 right, the machine is not ready.
 
 `--corrections on` is the owner's step, on the day of the setup or any later day: the hook sends
-each message he types, with the agent message it answers, to the Jev decision model, in every
-repository whose settings say `corrections.collect = true`. An agent does not run it for him. It
-adds one command to the `UserPromptSubmit` hooks of Claude Code's settings: `~/.claude/settings.json`,
+each message the owner types, with the agent message it answers, to the Jev decision model, in every
+repository whose settings say `corrections.collect = true`. An agent does not run it for the
+owner. It adds one command to the `UserPromptSubmit` hooks of Claude Code's settings: `~/.claude/settings.json`,
 or with `--project DIR` that checkout's own `DIR/.claude/settings.local.json`. The command names
 `corrections.py` by the clone's real path, so it needs no link; `python3` and `git` are found on
 the hook's `PATH`, as for any hook. The rest of the settings file is kept; the file is written

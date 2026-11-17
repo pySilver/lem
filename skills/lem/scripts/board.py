@@ -9,7 +9,7 @@
 The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`,
 which `project.py` appends to, and `meta.js`, which this script writes (the repository's name,
 the base branch, the session that opened the board, the settings' `tools.ask`, how Lem puts a
-question to the owner, so the page says where he answers, and how many gate commands one run of
+question to the owner, so the page says where the owner answers, and how many gate commands one run of
 the gate has, so the page knows when a run is complete). A file:// page cannot read a file with
 fetch and it can load a script, so each of them is one.
 

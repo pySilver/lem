@@ -110,7 +110,7 @@ tasks and after a review that found a must-fix.
 
 Whether a change is careful is judged against the project's topics (`flow.topics`, sentences of
 what must never go wrong, read from the main checkout's settings like every setting here): no list
-of paths decides it. A request is careful when the owner says so (his word in the task's brief),
+of paths decides it. A request is careful when the owner says so (that word in the task's brief),
 when the plan says so (its `careful: yes` under its title, in its text now or in any commit of the
 branch: a later commit does not take the yes back), when the newest review that answered says so,
 or when the change edits the `[flow]` or the `[gate]` table of `.lem/project.toml`. The last is the
@@ -177,11 +177,11 @@ machine checks passed with the bar where it was, a review with at least one sour
 must-fix, no story changed during the build, and no decision was taken by timeout or by the
 experts. A story changed, added or removed after the newest approval is one line each, from its
 record (`decisions.py story`), with what it was, what it is and why. The text lists every story
-change of the task, under every approval; one that a later approval of his took over says so and
-is no cause of not green, since his approval made it his. A lowered bar is not green with a
-reason either: its line holds the builder's reason and what the review said of it. A choice
+change of the task, under every approval; one that a later approval of the owner's took over says
+so and is no cause of not green, since that approval made it the owner's. A lowered bar is not
+green with a reason either: its line holds the builder's reason and what the review said of it. A choice
 taken by timeout is a line of its own, and so is a choice the experts took (their shared pick,
-while the owner was away or at the end of his wait), with their pick and both their reasons; so
+while the owner was away or at the end of the wait), with their pick and both their reasons; so
 is an answer of the owner's that came after either and differs. Each reason a request is not
 green stands before everything else, one line each; each decision of the record is one line
 before the notes. `propose` is refused while a choice of the task waits for the owner. A plan
@@ -202,21 +202,21 @@ neither line. The checks also hold one line on the personas' read of the stories
 newest `stories.read` event (`project.py log` gives its form): how many of the personas asked
 answered, in which model families, who did not answer and why, how many stories they flagged,
 whether the families split, and when the owner approved them (`stories.py approve`), or that the
-build started with no wait for him; for a correction, that the personas did not read it. When
-the stories the read names by their digest are not the plan's (which the gate makes the expected
-ones), one more line says that they changed after the read, by his later approval or by a change
-of the build, and that the change was not read; that line is no cause of not green. A scout's report in the task's directory is named there as a file.
+build started with no wait for the owner; for a correction, that the personas did not read it.
+When the stories the read names by their digest are not the plan's (which the gate makes the expected
+ones), one more line says that they changed after the read, by a later approval of the owner's or by
+a change of the build, and that the change was not read; that line is no cause of not green. A scout's report in the task's directory is named there as a file.
 A request that came from a bug has one more line with the cause its investigation found, the
 cause's place and the report, from the newest `investigation` event; a question's has none.
-`propose` refuses a feature with no `stories.read`, unless the owner skipped the read: his word,
-which Lem asks for only when every story names only the developer, is a decision of his with the
-two texts of `READ_SKIP`, and it counts only with an approval of his after it, both before the
-first state that names a lead. A word or an approval after a lead started is the rare path's,
+`propose` refuses a feature with no `stories.read`, unless the owner skipped the read: that word
+of the owner's, which Lem asks for only when every story names only the developer, is a decision
+of the owner's with the two texts of `READ_SKIP`, and it counts only with a later approval of
+the owner's, both before the first state that names a lead. A word or an approval after a lead started is the rare path's,
 where the read always runs, and is refused. Then the checks say "the stories: not read by the
 personas, on the owner's word (DATE); the owner approved them", which is no cause of not green, since the
-decision was his. It also refuses one whose newest read flagged a story or
-showed a split between the families with no approval of his at or after it; the rare path's
-freeze of a read (`stories.py approve --read`) is no approval of his. A read in which nobody
+decision was the owner's. It also refuses one whose newest read flagged a story or
+showed a split between the families with no approval of the owner's at or after it; the rare
+path's freeze of a read (`stories.py approve --read`) is no approval of the owner's. A read in which nobody
 answered is written down too: `propose` refuses while the newest one is the first such read in a
 row, so that the read is started once more, and after the second in a row the request is not
 green, with "the stories were not read" first, and its checks say so in place of the read's line. A
@@ -235,7 +235,7 @@ checked its command.
 that is not reviewed among them), and for one whose newest review that answered made no careful
 call. A
 pull request is merged through the forge, so the forge's own rules hold; `merged` is for one the
-owner merged himself. What lands is the tree the checks passed on: when the tip is another tree,
+owner merged by hand. What lands is the tree the checks passed on: when the tip is another tree,
 or the base moved by more than the paths the settings' `gate.ignores` name, `land` refuses and
 says which steps run again.
 
