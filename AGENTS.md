@@ -256,7 +256,7 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   question gets one repair; a question that holds a second time is a design choice, asked and
   never settled by an edit; a question after the first turn is "raised, not argued", and the
   review before the pull request checks it; a scope the plan puts out of the change is no
-  question. `plan.md` step 4 holds the rules, and `project.py`'s `plan.talk` the counts, with
+  question. `stages/talk.md` holds the rules, and `project.py`'s `plan.talk` the counts, with
   the bound of 4 × questions + 2 turns, which is derived and not measured.
 - **The plan talk is a pair in a companion that closes after it**: "for such review we need a
   pair setup, so Lem (or Lead?) should open a companion where two agents of specific models and
@@ -399,7 +399,7 @@ is the session's, and open to him.
   and every wait would end without him: its brief says `night: yes`, `decisions.py ask` refuses
   it, and the draft ends on the decision as before.
 - **A plan talk's record is taken as it ran.** The bound of 4 × questions + 2 turns stays the
-  rule of `stages/plan.md` step 4, which the defender keeps. The script no longer refuses a
+  rule of `stages/talk.md`, which the defender keeps. The script no longer refuses a
   record over it, nor one in which a second question on a decision did not close as a design
   choice: such a record is a fact, and its refusal left the companion open and the request
   unproposed for ever. `project.py log` adds the bound to the event as `bound`, and the pull
@@ -465,6 +465,20 @@ is the session's, and open to him.
   change, a typo, a rename and a one-rule fix each start two agents (the builder and the review
   agent), and the builder reads `prompts/small.md` and `agents/lem-builder.md`, about 1,500 words
   (`wc -w`, 2026-11-17).
+- **A feature has one approval and no ceremony that nobody asked for** (2026-11-17), from the same
+  audit's findings: the interview's restate and explicit yes were a second approval of what the
+  stories say (F3), so the interview's questions come from the `lem-interview-me` method and its
+  restate and yes are the stories and his yes to them; each question is one line in the
+  conversation with Lem's guess, and no page opens for it. A story whose change keeps behavior (a
+  rename, a bump, a refactor) is held by the suite, `- no test: the change keeps behavior; the
+  suite holds it`, and its builder runs the whole suite, where a contrived failing test was asked
+  before (F4). "A new kind of test" no longer makes a plan careful: a pattern is product code
+  that other code will copy (F5), since a one-line fix could become a plan talk and the full
+  review by it. A task has a state block from the moment it opens, `held` with `the interview
+  waits for the owner` and the kind line, so the status and the board show it during the
+  interview (W6). The plan talk is `stages/talk.md`, which only the defender reads: it was half of
+  `plan.md`, and every lead read it (F11; a lead read about 18,500 words before it acted, `wc -w`,
+  2026-11-16).
 
 ## Checks
 
@@ -490,7 +504,8 @@ real task, so say in the commit which task showed the need.
 ## Layout
 
 - `skills/lem/SKILL.md`: the entry point and what holds in every stage.
-- `skills/lem/stages/`: one file per subcommand.
+- `skills/lem/stages/`: one file per subcommand, and `talk.md`, the plan talk of a careful or
+  large plan, which only its defender reads.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `project.py` (a repository's settings, task state and the event log),
   `doctor.py` (the machine),

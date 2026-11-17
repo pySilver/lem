@@ -9,14 +9,15 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
 
 1. **Read `SKILL_DIR/SKILL.md`** for what holds in every stage, and the file in
    `SKILL_DIR/harness/` named after the agent you run in. Of the stages you take only
-   `SKILL_DIR/stages/plan.md`, step 4, and step 5 for the questions the talk leaves open.
+   `SKILL_DIR/stages/talk.md`, the talk, and step 5 of `SKILL_DIR/stages/plan.md` for the
+   questions the talk leaves open.
 2. **Read where the task stands**: `python3 SKILL_DIR/scripts/project.py --repo WORKTREE tasks`
    for its status and its `talk`. When `talk` is not null, the talk is done: a defender before you
    finished it. Send Lem the line of step 6 again, and stop. Otherwise read `task.md`,
    `directions.md` when it is there, the stories (`python3 SKILL_DIR/scripts/stories.py --repo
    WORKTREE approved SLUG`), the builder's `report.md`, and the plan on the task's branch, in the
    settings' `plans` path, with the code it rests on.
-3. **Hold the talk** by `stages/plan.md`, step 4, with the reviewer's seat at its `plan_effort`.
+3. **Hold the talk** by `stages/talk.md`, with the reviewer's seat at its `plan_effort`.
    You are the plan's side in it: you answer each question with one repair or one refutation
    with a cite, and you check each claim of the reviewer's in the code before you answer.
 4. **The plan is the one file you edit.** Each repair is yours to write and to commit on the
@@ -30,7 +31,7 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
    the state `held` with what waits and where, and `lem: SLUG is held`; Lem sends you a message
    when it is done, and you go on in this session.
 6. **The close**, in this order:
-   - the record and the `plan.talk` event of step 4, then close the reviewer's pane;
+   - the record and the `plan.talk` event of `stages/talk.md`, then close the reviewer's pane;
    - each question the talk left open, by step 5. One that is asked as a choice:
      `tell-coordinator` with `lem: SLUG choice N waits` at once, then the `lem-ask-expert` skill
      right after the ask. Its experts run in this session, which Lem closes after your last line,

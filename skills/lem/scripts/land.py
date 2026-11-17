@@ -1798,7 +1798,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     talk = talk_of(task) if needs_talk else None
     if needs_talk and talk is None:
         raise LandError(
-            f"{needs_talk}, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (`stages/plan.md`, step 4), "
+            f"{needs_talk}, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (`stages/talk.md`), "
             f"and the event log has no `plan.talk` of {task.slug}. The defender writes it after the talk: "
             f"`project.py log {task.slug} plan.talk {TALK_FORM}`; for a plan that had no talk, Lem opens the companion first, as for `needs a session` (`stages/new.md`)",
         )

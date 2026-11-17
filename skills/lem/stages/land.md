@@ -193,7 +193,7 @@ one finds what the run before it finished.
    choice of the task waits for the owner: ask him (`stages/new.md`, "When a choice waits for
    the owner"), and run it again after his answer or after the timeout. It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
-   event log holds no `plan.talk`: its lead skipped `stages/plan.md`, step 4. Lem opens the plan
+   event log holds no `plan.talk`: its lead skipped the talk (`stages/talk.md`). Lem opens the plan
    talk's companion, whose defender argues the plan with the reviewer, as for `needs a session`
    (`stages/new.md`). A request that
    became careful after its plan, by the owner's word, by the review's call or by its edit of the

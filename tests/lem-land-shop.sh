@@ -376,7 +376,7 @@ git -C "$tree" commit -q -am "docs: the plan is careful"
 checked careful-plan
 land --repo "$SHOP" read careful-plan --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the plan says careful"}], "answered": ["codex"]}')" >/dev/null
 talkless=$(land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" 2>&1 || true)
-if grep -q "the plan says that the request is careful, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (.stages/plan.md., step 4)" <<<"$talkless" \
+if grep -q "the plan says that the request is careful, so its defender and the reviewer talk its plan through in the plan talk's companion before any code (.stages/talk.md.)" <<<"$talkless" \
   && grep -q "the event log has no .plan.talk. of careful-plan. The defender writes it after the talk" <<<"$talkless" \
   && grep -qF "project.py log careful-plan plan.talk reviewer=AGENT turns:=N questions:=N settled:=N open:=N repaired:=N design:=N unargued:=N root:=N layer:=N shared:=N\`" <<<"$talkless" \
   && grep -qF "for a plan that had no talk, Lem opens the companion first, as for \`needs a session\`" <<<"$talkless" \

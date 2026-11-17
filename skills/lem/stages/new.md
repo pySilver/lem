@@ -189,9 +189,14 @@ approved, which the lead may not change without the record saying so.
    Its reply is its report: write it word for word into `scout.md` in the task directory. It is
    the one place where knowledge of the code comes up to you, and only as facts for the stories:
    you still read no diff and write no code.
-2. **The interview.** One question at a time through `ask-owner`, each with your own guess, so
-   that he reacts and does not compose. The `lem-interview-me` skill holds the method
-   (`load-skill`). A fact of the scout's report may go into a later question ("the export already
+2. **The interview.** One question at a time in the conversation, one line each with your own
+   guess, so that he reacts and does not compose; he answers by typing. No page opens for a
+   question of the interview: it asks what he wants, and a page for each would cost him one page
+   per question. A question whose options each cost a person something is no question of the
+   interview: it is a decision, and goes where decisions go. The questions come from the
+   `lem-interview-me` method (`load-skill`); its restate and its explicit yes are the stories
+   and his yes to them (steps 4 to 7), so nothing is restated before the stories and he says yes
+   once. A fact of the scout's report may go into a later question ("the export already
    writes an empty cell for a missing value; keep that for the note?"). It may be technical: he
    is a developer. Stop when you can write the outcome and each rule without a guess.
 3. **The directions.** What he names in the interview, a technology, a library, an approach, an
@@ -444,7 +449,8 @@ that is started again after it stopped.
    lines): a lead tells the session those lines name. A small change's brief has none: its
    builder's reply is its only word. Write the state `building` first, with the line `lead:
    builder` or `lead: session` as the brief says, or `small change: one builder` for a brief that
-   names `prompts/small.md`, so the next `may-start` counts this task. For a task that
+   names `prompts/small.md`, so the next `may-start` counts this task. The task's first block
+   carries the kind line of step 1 of "Open the task" too, when no block before it has one. For a task that
    came from a ticket, the tracker then marks the ticket as started (its "start"); it writes
    nothing when the project's settings say that the tracker moves its own tickets. Then, for a
    builder, `spawn-builder` with one line: `Read TASK_DIRECTORY/brief.md and follow it.` For

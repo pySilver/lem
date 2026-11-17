@@ -1266,7 +1266,7 @@ def talk_start_form(fields: dict) -> None:
 
 # The most turns a talk of N questions has by its rules: the reviewer's list, two answers of the defender
 # and two of the reviewer on each question (a question that holds a second time stops), and the close.
-# Derived from the rules of `stages/plan.md` step 4, in a Fable second opinion (2026-11-16); no talk
+# Derived from the rules of `stages/talk.md`, in a Fable second opinion (2026-11-16); no talk
 # under these rules has been measured yet. It is the defender's to keep, not a check of the record: a
 # talk that ran longer is written as it ran, and `log` adds the bound to it, so the pull request and
 # the board can say that it went over.

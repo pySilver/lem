@@ -22,11 +22,13 @@ you the start of one, write the state `blocked` with that refusal, and stop.
    after the other unless two tasks touch no common file. Its brief names, by path:
    - the worktree;
    - the plan file and the task's section, with the stories the task serves: the builder writes
-     at least one test for each, one that fails without its change;
+     at least one test for each, one that fails without its change, except for a story whose
+     change keeps behavior (a rename, a bump, a refactor), which the suite holds;
    - the style guide files that cover the files it will touch, as `project.py rules FILE ...`
      prints them for the files the plan names for the task, and the project's lessons;
    - the report file, `reports/NN-<task>.md` in the task directory;
-   - the whole suite, only when the plan says a task needs it.
+   - the whole suite, when the plan says a task needs it, and always for a task whose change
+     keeps behavior: the suite is then the proof.
    The rest a builder has with it: what it checks before it reports, how it commits, what it
    never does, and the report's form (what it did in three lines; proofs, each command with the
    exact last line of its output; what it did not verify; the decisions it took that the plan
@@ -160,7 +162,9 @@ repository's root, never a path inside the worktree: the worktree is gone when t
 - **what the owner gets**, in one or two sentences, and how to see it;
 - **the stories**: each story of the plan with the tests that hold it. Before the report, write
   under each story in the plan its tests (`- test: ...`, or `- no test: REASON` for a story no
-  test can hold, such as a sentence of a document), commit that, and run
+  test can hold, such as a sentence of a document, and `- no test: the change keeps behavior; the
+  suite holds it` for a rename, a bump or a refactor, whose builder ran the whole suite), commit
+  that, and run
   `python3 SKILL_DIR/scripts/stories.py record SLUG` and then `python3 SKILL_DIR/scripts/stories.py
   red SLUG`. The second one runs each story's tests in a worktree of its own, on the branch and
   on the base commit with only the named test files laid over it; the task's worktree has to be

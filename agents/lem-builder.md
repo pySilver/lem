@@ -43,9 +43,11 @@ What holds for every builder, unless your job says otherwise as above:
    your brief names. A rule there outranks your habit.
 3. **A story is held by a test.** Your brief names the stories your task serves. Write at least
    one test for each: it fails without your change and passes with it. Say in your report which
-   test holds which story, as the command that runs it and each file it needs. The one exception
-   is a story that no test can hold, such as a sentence of a document: say that in your report
-   with the reason, and write no test for the sake of having one.
+   test holds which story, as the command that runs it and each file it needs. Two exceptions: a
+   story that no test can hold, such as a sentence of a document, and a story whose change keeps
+   behavior (a rename, a version bump, a refactor), which the suite holds: then run the whole
+   suite yourself. Say which in your report with the reason, and write no test for the sake of
+   having one.
 4. **Check what you changed.** Run the tests of the files you wrote or edited, and the formatter,
    the linter and the type checker the project's `AGENTS.md` names. Never the whole suite unless
    your brief says so: the gate runs it at the landing.

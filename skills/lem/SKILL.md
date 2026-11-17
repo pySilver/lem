@@ -73,8 +73,8 @@ the owner has one place to answer.
 
 A lead's standing brief is `prompts/lead.md`, and a defender's is `prompts/defender.md`, which
 `prompts/lead.md` sends it to. If your first message named either file, your stages are
-`stages/plan.md` and `stages/build.md` (a defender's, step 4 of the first and step 5 for the
-talk's open questions), and the subcommands below are Lem's. When the owner types `/lem` in a
+`stages/plan.md` and `stages/build.md` (a defender's, `stages/talk.md` and step 5 of
+`stages/plan.md` for the talk's open questions), and the subcommands below are Lem's. When the owner types `/lem` in a
 lead's or a defender's session, say that the ask belongs in Lem's session, and change nothing.
 
 ## Before any subcommand
@@ -166,7 +166,7 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   against them (`stages/plan.md`, step 2). The fresh agent that reviews the diff before the pull
   request reads the change itself against them and writes its call into the review's record
   (`prompts/review.md`). A careful task's plan is talked through with the reviewer before any
-  code, in a companion session of its own (`stages/plan.md`, step 4); its tasks are built like
+  code, in a companion session of its own (`stages/talk.md`); its tasks are built like
   any others; the landing gives it the project's full review set, and a person merges it. A large
   task, a plan of more than three tasks, gets the companion and the talk too, and a review round
   at the least. The lead writes its call and the one sentence of why into the plan, its state and
