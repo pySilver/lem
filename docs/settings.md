@@ -1,15 +1,13 @@
 # The settings
 
-`.lem/project.toml` holds the rules of a project, in git. `/lem init` writes it, and
-`python3 skills/lem/scripts/project.py show` prints it resolved. This page follows `TABLES`,
-`PATHS` and `TEMPLATE` in `skills/lem/scripts/project.py`, one key for each row.
+`.lem/project.toml` holds the settings of a project, in git. `/lem init` writes it, and
+`lem project show` prints it with each value resolved.
 
 - An unknown table or key, a wrong type, and a path outside the repository are errors. Lem names
-  the error and stops, because a stage that read half of the file would use defaults that nobody
-  chose.
-- Lem reads the `[flow]` table from the main checkout, also in the worktree of a task. Thus a
-  branch cannot change the topics or the wait that guard it.
-- The landing reads each setting from the main checkout.
+  the error and the fix, and it stops.
+- Lem reads `[flow]` from the main checkout, also in the worktree of a task. The landing reads
+  each setting from the main checkout. Thus a branch cannot change the rules that guard it.
+- A change that edits `.lem/project.toml` is careful, and a person merges it.
 
 ## `[paths]`
 
@@ -19,18 +17,19 @@ repository, not the root.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `paths.profile` | `.lem/profile.md` | what the project is |
-| `paths.styleguide` | `.lem/styleguide`; `/lem init` writes `.claude/rules` when that folder holds rules | the rule files for the code. If the two folders are there, Lem reads the two |
+| `paths.styleguide` | `.lem/styleguide`, or `.claude/rules` when that folder holds rules | the rule files for the code. If both folders hold rules, Lem reads both |
 | `paths.personas` | `.lem/personas` | one file for each person that a change affects |
 | `paths.review` | `.revmux` | the folder of the review tool |
 | `paths.lessons` | `.lem/lessons.md` | the corrections that have no better place |
 | `paths.rulings` | `docs/rulings` | your decisions that hold for later tasks |
 | `paths.backlog` | `docs/backlog` | work for later |
-| `paths.plans` | `docs/plans` | the plan of each feature |
+| `paths.plans` | `docs/plans` | the plan of each full change |
+| `paths.plan_file` | `"YYYY-MM-DD-<slug>.md"` | the name of a plan file. It takes the tokens `YYYY`, `MM`, `DD` and `<slug>`. Lem also finds a plan named `YYYYMMDD-<slug>.md` |
 | `paths.worktrees` | `.lem/worktrees` | the worktrees of the tasks |
 
-A repository that already keeps a profile, personas or worktrees for a different tool gets a
-choice at `/lem init`: `--existing link` names those folders, and `--existing new` starts the
-layout of Lem. Lem moves no file.
+A repository that already keeps a profile, personas or worktrees for another tool gets a choice
+at `/lem init`. Lem links those folders, or it starts its own layout beside them. Lem moves no
+file.
 
 A rule file can name the files that it applies to, at its top, between two `---` lines:
 
@@ -42,84 +41,120 @@ paths:
 ---
 ```
 
-A rule file without `paths:` applies to all files. `project.py rules FILE ...` gives the rule
-files for a change. Each builder and each reviewer gets them.
+A rule file with no `paths:` applies to all files. Each builder and each reviewer gets the rule
+files for the files that it changes or reads.
 
 ## `[branch]`
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `branch.base` | the default branch of `origin`, which `/lem init` writes; `--base NAME` without one | the branch that tasks start from and land on |
-| `branch.land` | `owner` | who merges: `owner`, or `agent`, which merges only a request that is green and that the review called not careful |
-| `branch.history` | `keep` | what lands: the commits of the branch (`keep`), or one commit (`squash`) |
-| `branch.propose` | `pull-request` | how a task ends with a remote on GitHub: a pull request (`pull-request`), or a merge into the base branch with no pull request (`merge`). With a different remote, or none, it is always the merge. With `pull-request`, Lem pushes the branch of each task and opens its pull request, and it does not ask you first: this value is your approval |
+| `branch.base` | the default branch of `origin` | the branch that tasks start from and land on |
+| `branch.land` | `"owner"` | who merges: `owner`, or `agent`. An agent merges only a pull request that is green and that the review called not careful |
+| `branch.history` | `"keep"` | what lands: the commits of the branch (`keep`), or one commit (`squash`) |
+| `branch.propose` | `"pull-request"` | how a task ends with a remote on GitHub: a pull request (`pull-request`), or a merge into the base branch with no pull request (`merge`). With another remote, or with none, it is always the merge. With `pull-request`, Lem pushes the branch of each task and opens its pull request, and it does not ask you first: this value is your approval |
 | `branch.protected` | `[]` | the branches that nothing lands on and nothing is pushed to |
 
 The base branch must not be in `branch.protected`.
 
-## `[gate]`
+## `[checks]`
+
+The checks are the commands that must pass before a pull request: your tests, and a linter or a
+type checker if no git hook runs them.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `gate.commands` | `[]` | the check commands, each run at the root of the task's worktree. With none, Lem proposes no change, except the task whose branch adds them |
-| `gate.ignores` | `[]` | the paths that the gate does not read. If the base branch moves only by these files after a green gate, the result stays. A `*` crosses folders |
-| `gate.setup` | `[]` | the commands that a new worktree needs before its tests can start, for example an install of the packages. The check of the stories runs them in its own worktree |
-| `gate.bar` | `[]` | more regular expressions for a mark that lowers the bar, for a language that Lem has no marks for |
+| `checks.commands` | `[]` | the whole suite, run one time before the pull request, at the root of the worktree of the task. With none, Lem proposes no change, except the task that adds them |
+| `checks.alone` | `[]` | the commands that need the computer to themselves, for example an end-to-end suite with fixed ports, one database or a browser. Lem runs each under one lock for the repository, after `checks.commands` pass |
+| `checks.setup` | `[]` | the commands that a new worktree needs before its tests can start, for example an install of the packages |
+| `checks.ignores` | `[]` | the paths that the checks do not read. If the base branch moves only by these files after green checks, the result stays. A `*` crosses folders |
+| `checks.bar` | `[]` | more regular expressions for a mark that lowers the bar, for a language that Lem has no marks for |
 
-An empty command in `gate.commands` or `gate.setup` is an error, because it passes and runs
-nothing. Lem has its own marks for Python, JavaScript, TypeScript, Go, Rust, Java, Kotlin and
-shell.
+An empty command is an error, because it passes and runs nothing. Lem has its own bar marks for
+Python, JavaScript, TypeScript, Go, Rust, Java, Kotlin and shell.
+
+A Python project with no git hooks:
+
+```toml
+[checks]
+commands = [
+  "uv run ruff check .",
+  "uv run mypy src",
+  "uv run pytest -q --ignore=tests/e2e",
+]
+alone = ["uv run pytest -q tests/e2e"]
+setup = ["uv sync"]
+ignores = ["docs/*"]
+```
+
+A JavaScript project where husky runs the linter and the type checker at each commit:
+
+```toml
+[checks]
+commands = ["npm test"]
+alone = ["npx playwright test"]
+setup = ["npm ci"]
+ignores = ["docs/*"]
+```
 
 ## `[flow]`
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `flow.topics` | `[]` | what must never go wrong, each as one sentence in your words, for example "a customer is charged the wrong amount" |
-| `flow.max_tasks` | `4` | how many tasks build or land at one time. A task over the limit waits in a queue |
-| `flow.decision_wait` | `15` | how many minutes a decision that is yours waits for your answer. Then the lead takes the option of the two experts, or the recommended option, and the pull request is not green for it |
+| `flow.max_tasks` | `4` | how many tasks build or land at one time. A task over the limit waits in the queue. Lower it when the tests share one database or use a browser |
+| `flow.decision_wait` | `15` | how many minutes a decision of yours waits for your answer. Then the lead takes the option of the two experts, or the recommended option, and the pull request is not green for it |
+| `flow.watch_seconds` | `60` | how many seconds the watch of the open pull requests waits between two looks at the forge |
 
-- `flow.careful` is refused, with the sentence to write in `flow.topics` in its place.
-  [flow.md](flow.md#careful) says why.
-- Four to five tasks ran well on one Mac. Six gave a load average of 12 to 16 and unstable browser
-  tests (convertiser-server, as its owner reported it on 2026-11-14). Lower `max_tasks` when the
-  tests share one database or drive a browser.
+## `[seats]`
 
-## `[seats.reviewer]` and `[seats.planner]`
+A seat is one string, `agent/model:effort`.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `seats.reviewer.agent` | the value of `/lem init --reviewer`: Codex when the check finds it | the reviewer of a plan talk: `claude` or `codex` |
-| `seats.reviewer.model` | the default of the agent | the model of the reviewer |
-| `seats.reviewer.plan_effort` | the default of the agent | the effort of the reviewer in a plan talk |
-| `seats.planner.agent` | Claude Code | the defender of a plan talk: only `claude` |
-| `seats.planner.model` | the default of the agent | the model of the defender |
-| `seats.planner.effort` | the default of the agent | the effort of the defender |
+| `seats.reviewer` | `codex` when the machine check finds Codex, otherwise `claude`, with the model and the effort of the agent | the reviewer of the plan talk: `claude` or `codex` |
+| `seats.planner` | `claude`, with the model and the effort of the agent | the defender of the plan talk: only `claude` |
+| `seats.experts` | `["claude/fable:high", "codex/gpt-6-astra:high"]` | the two experts that answer a choice of yours, of two model families |
 
-- A seat that names a model or an effort must also name its agent.
-- An old file with `seats.reviewer.effort` still reads, and Lem does not use that key.
-- The review before a pull request is a new agent, not the reviewer of this seat.
+```toml
+[seats]
+reviewer = "codex/gpt-6.1-sol:high"
+planner = "claude/opus:high"
+experts = ["claude/fable:high", "codex/gpt-6-astra:high"]
+```
+
+A seat with no `/model` or no `:effort` uses the default of the agent. The review before a pull
+request is a new agent with the review tool, not the reviewer of this seat.
 
 ## `[tools]`
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `tools.annotate` | `webrev` | the tool with which you mark a plan or a draft. webrev is a recommended tool that you install |
-| `tools.ask` | `lem-ask` | how a question comes to you: the page of Lem, `terminal` for a list in the conversation, or your own skill or command |
+| `tools.annotate` | `"webrev"` | the tool with which you mark up a plan or a draft. webrev is a recommended tool that you install |
+| `tools.ask` | `"lem-ask"` | how a question comes to you: the page of Lem, `terminal` for a list in the conversation, or your own skill or command |
 
 ## `[corrections]`
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `corrections.collect` | `false` | `true` keeps a queue of corrections for `/lem retro`, for each person who works in the repository with the hook |
+| `corrections.collect` | `false` | `true` keeps a queue of your corrections for `/lem retro`, for each person who works in the repository |
 
 The hook sends each message that a person types, with the agent message before it, to the Jev
-decision model through OpenRouter. It does not send a command that starts with `/`. `true` in git
-is a yes for each person who works in the repository with the hook. [install.md](install.md#the-correction-hook)
-says how the hook gets there.
+decision model through OpenRouter. It does not send a command that starts with `/`.
+[install.md](install.md#the-correction-queue) says more.
+
+## `[naps]`
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `naps.on` | `false` | `true` lets Lem take a nap in the background when it ends a task or waits for you |
+| `naps.keep_days` | `30` | how many days Lem keeps the folder of a nap |
+| `naps.gap_hours` | `6` | how many hours must pass after the last nap before Lem takes a new one |
+
+[inside.md](inside.md#naps) says what a nap does.
 
 ## `[tracker]`
 
-The table is absent when the project has no tracker. Linear is the one tracker now.
+The table is absent when the project has no tracker. Lem supports Linear.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -136,13 +171,13 @@ With `moves = "tracker"`, Lem moves no ticket, and `started` and `landed` must b
 
 ## `.lem/project.local.toml`
 
-This file is for one computer. Git does not track it, and Lem reads it from the main checkout.
-A change that puts this file into git is careful, and a person merges it.
+This file is for one computer. Git does not track it, and Lem reads it from the main checkout. A
+change that puts this file into git is careful, and a person merges it.
 
 - It can hold `[seats]`, `[tools]` and `[corrections]`, and no other table.
-- A seat here replaces the seat of the project for this computer. `/lem reviewer` writes the
-  reviewer seat, and `/lem reviewer default` removes it. You write the defender seat yourself,
-  under `[seats.planner]`.
+- A seat here replaces the seat of the project on this computer, in the same form:
+  `reviewer = "codex/gpt-6.1-sol:high"`. `/lem reviewer` writes the reviewer seat, and
+  `/lem reviewer default` removes it.
 - `[corrections]` can say `collect = false`. Then the hook sends no message from this computer.
   The file cannot say `collect = true`.
-- `project.py show` lists each setting that this file changes, under `local`.
+- `lem project show` lists each setting that this file changes, under `local`.
