@@ -391,8 +391,12 @@ git -C "$GWS" add -A && git -C "$GWS" commit -q -m "chore: start" && git -C "$GW
 GW=$WORK/gw.json
 gw_land() { PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" "$PY" -B "$LAND" --repo "$GWS" "$@"; }
 gw_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$GW" "$1"; }
+# gw_watch: the watch in the background, the command itself (exec), so that $! is its own process and a TERM reaches it;
+# the function's subshell would take the TERM in its place and leave the watch running with no parent
+gw_watch() { PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" exec "$PY" -B "$LAND" --repo "$GWS" watch; }
 watched() { "$PY" -c 'import json, re, sys; print(eval(sys.argv[2], {"d": json.loads(re.fullmatch(r"lemWatch\((.*)\);\n", open(sys.argv[1]).read(), re.S).group(1))}))' "$GWS/.lem/state/watch.js" "$1" 2>/dev/null; }
-looked() { [ "$(watched 'd.get("looks") or 0')" -ge "$1" ] 2>/dev/null; }
+# looked N: the watch this test started ($wpid), and no other, looked N times
+looked() { [ "$(watched 'd.get("looks") or 0 if d.get("pid") == '"$wpid"' else 0')" -ge "$1" ] 2>/dev/null; }
 # line_task SLUG small|full LINE TEXT: a task that writes TEXT on line LINE of shop.txt, with the test `grep -q TEXT shop.txt`, `ready`
 line_task() {
   local tree directory
@@ -453,7 +457,7 @@ fi
 # A watch that looks while nothing changed (each watch starts with no file of an earlier one, so that its own looks are waited for), one call of the forge for both pull requests at each look, and ends on a merge.
 : > "$GW.log"
 rm -f "$GWS/.lem/state/watch.js"
-gw_land watch > "$WORK/watch.out" 2> "$WORK/watch.err" &
+gw_watch > "$WORK/watch.out" 2> "$WORK/watch.err" &
 wpid=$!
 soon looked 3
 alive=$(kill -0 "$wpid" 2>/dev/null && echo yes || echo no)
@@ -510,7 +514,7 @@ line_task w-three small 5 three
 line_task w-four full 5 four
 proposed w-three && proposed w-four
 rm -f "$GWS/.lem/state/watch.js"
-gw_land watch > "$WORK/watch.out" 2>&1 &
+gw_watch > "$WORK/watch.out" 2>&1 &
 wpid=$!
 soon looked 1
 forge_merge 9 "d['prs']['10']['mergeable'] = 'CONFLICTING'"
@@ -551,7 +555,7 @@ fi
 line_task w-five small 2 five
 proposed w-five
 rm -f "$GWS/.lem/state/watch.js"
-gw_land watch > "$WORK/watch.out" 2>&1 &
+gw_watch > "$WORK/watch.out" 2>&1 &
 wpid=$!
 soon looked 1
 gh_set "d['prs']['11']['state'] = 'CLOSED'" "$GW"
@@ -570,7 +574,7 @@ fi
 line_task w-six small 3 six
 proposed w-six
 rm -f "$GWS/.lem/state/watch.js"
-gw_land watch > "$WORK/watch.out" 2>&1 &
+gw_watch > "$WORK/watch.out" 2>&1 &
 wpid=$!
 soon looked 1
 pusher=$WORK/gw-pusher
@@ -580,9 +584,9 @@ git -C "$pusher" commit -q -am "docs: the owner's own line" && git -C "$pusher" 
 gh_set "d['prs']['12']['mergeable'] = 'CONFLICTING'" "$GW"
 set +e; wait "$wpid"; wcode=$?; set -e
 newly=$(field '(d["ended"], [(e["task"], e["pr"], e["why"]) for e in d["conflicting"]], [e["task"] for e in d["open"]][0])' < "$WORK/watch.out" 2>&1)
-gw_land watch > "$WORK/watch-again.out" 2>&1 &
+gw_watch > "$WORK/watch-again.out" 2>&1 &
 wpid=$!
-soon "$PY" -c 'import json, re, sys; d = json.loads(re.fullmatch(r"lemWatch\((.*)\);\n", open(sys.argv[1]).read(), re.S).group(1)); sys.exit(not (d.get("pid") == int(sys.argv[2]) and (d.get("looks") or 0) >= 2))' "$GWS/.lem/state/watch.js" "$wpid"
+soon looked 2
 again_alive=$(kill -0 "$wpid" 2>/dev/null && echo yes || echo no)
 kill -TERM "$wpid" 2>/dev/null || true
 set +e; wait "$wpid" 2>/dev/null; set -e
@@ -642,9 +646,8 @@ else
 fi
 
 # A watch that is stopped ends the forge's calls, says so, and leaves the board's file saying that nobody watches.
-# The command itself in the background, not the function, so that the signal reaches it.
 rm -f "$GWS/.lem/state/watch.js"
-PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" "$PY" -B "$LAND" --repo "$GWS" watch > "$WORK/watch.out" 2> "$WORK/watch.err" &
+gw_watch > "$WORK/watch.out" 2> "$WORK/watch.err" &
 wpid=$!
 soon looked 1
 kill -TERM "$wpid"
