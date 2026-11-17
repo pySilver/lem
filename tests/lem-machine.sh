@@ -418,10 +418,12 @@ fi
 rm -rf "$CLAIMS" && touch "$CLAIMS"
 out=$(claim_event "a claim that cannot be made" c4 | claim_hook 2>&1; echo "exit=$?")
 soon queued_at_least 8
-if [ "$out" = "exit=0" ] && [ "$(queued)" = 8 ] && grep -q "could not claim the message" "$CL/.git/lem/corrections.log" && ! grep -q Traceback "$CL/.git/lem/corrections.log"; then
-  pass "a claim folder that cannot be made still queues the message, with no output, and the log says the message was judged unclaimed"
+claim_failures=$(cd "$CL" && "$PY" -B "$CORR" list | field 'd["failures"]["count"]')
+if [ "$out" = "exit=0" ] && [ "$(queued)" = 8 ] && grep -q "could not claim the message" "$CL/.git/lem/corrections.log" && ! grep -q Traceback "$CL/.git/lem/corrections.log" \
+  && [ "$claim_failures" = 0 ]; then
+  pass "a claim folder that cannot be made still queues the message, with no output, and the log says the message was judged unclaimed, as a note that list does not count as a failure"
 else
-  fail "a claim that cannot be made: $out / $(queued) entries / $(cat "$CL/.git/lem/corrections.log" 2>&1)"
+  fail "a claim that cannot be made: $out / $(queued) entries / $claim_failures failures / $(cat "$CL/.git/lem/corrections.log" 2>&1)"
 fi
 rm "$CLAIMS"
 settings_file=$CQ/.lem/project.toml

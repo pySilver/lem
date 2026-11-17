@@ -593,6 +593,19 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   the same file or function each start at once, each in a worktree of its own, and the landing
   line settles an overlap. In the second real run a bug waited behind a one-day task for that
   reason, and a developer who types a bug wants it started.
+- **A correction hook registered twice judges each message once** (2026-11-17). A scratch
+  repository moved from the links to the plugin and kept the hook that `setup.py --corrections
+  on` had written, beside the plugin's own: two calls of the model and two queue entries for
+  each message, and nothing said so. The maintaining session listed it for the owner as a thing
+  to clean in that repository and called the pass done; he asked "so we need to fix that?". It
+  is a class: three places can register the hook (the home's settings, a repository's, the
+  plugin), and any two double it. So the hook claims each message (the session and the words,
+  for `CLAIM_SECONDS`) before it hands it on, and a second copy exits; the machine check has a
+  row when more than one place registers the hook, with the command that removes one; and
+  `--corrections on` registers nothing where the plugin or the other scope already starts it.
+  One run of Claude Code with two registrations in a throwaway repository: 2 calls and 2 entries
+  with the script before the change, 1 and 1 after it (2026-11-17). A defect of Lem that a run
+  shows is fixed in Lem, also when one repository can be cleaned by hand.
 
 ## Checks
 
@@ -622,11 +635,11 @@ real task, so say in the commit which task showed the need.
   large plan, which only its defender reads.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `project.py` (a repository's settings, task state and the event log),
-  `doctor.py` (the machine),
+  `doctor.py` (the machine, and a row when more than one place registers the correction hook),
   `board.py` (opens the board), `land.py` (the landing, one refusable step at a time: the
   machine checks, the review's floor and its record, the pull request, the merge),
-  `corrections.py` (the optional queue of the owner's corrections: its hook, and what a retro
-  reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
+  `corrections.py` (the optional queue of the owner's corrections: its hook, which claims each
+  message so that a hook registered in two places judges it once, and what a retro reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
   the setup links as the `jev` command), `stories.py` (a task's stories, read from the top of
   its plan, or for a small change from `stories.md` in its task directory, and the check that
   each one's tests pass on the branch and fail on the base commit),
@@ -660,7 +673,8 @@ real task, so say in the commit which task showed the need.
 - `scripts/setup.py`: the setup script. It links the skills, the builder agent and the `lem-ask`
   and `jev` commands from this clone into a home directory, never over something else, and runs
   the machine check. `--corrections on|off` registers the hook of the correction queue in the
-  agent's settings or takes it out, and is the owner's to run. With `--project DIR` it links into one repository only. Use that for a trial: links in
+  agent's settings or takes it out, and is the owner's to run; `on` registers nothing where
+  Lem's plugin or the other scope already starts the hook, and names the fix. With `--project DIR` it links into one repository only. Use that for a trial: links in
   the home directory show Lem to every repository on the machine, also to one where an older
   flow still runs.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the

@@ -314,7 +314,8 @@ def cmd_hook() -> None:
             except Exception as error:  # noqa: BLE001 - a claim that fails costs a double judgment, never the message
                 if where is not None:
                     try:
-                        append(where / "corrections.log", {"ts": now(), "session": session, "error": (
+                        # a note, not an error: the message is judged, so `list` does not count it among the failures
+                        append(where / "corrections.log", {"ts": now(), "session": session, "note": (
                             f"the hook could not claim the message ({error}); it was judged as usual, and a second "
                             "registration of the hook may queue it twice")})
                     except Exception:  # noqa: BLE001
@@ -416,7 +417,8 @@ def trimmed(text: str, limit: int) -> str:
 def cmd_list(where: Path, cwd: str) -> None:
     groups = unreviewed(where)
     ordered = sorted(groups.items(), key=lambda item: (-len({e["session"] for e in item[1]}), max(e["ts"] for e in item[1])))
-    failures = read_jsonl(where / "corrections.log")
+    # a line with a note is of a message that was judged: only an error is a message nobody judged
+    failures = [line for line in read_jsonl(where / "corrections.log") if "error" in line]
     print(json.dumps({
         "collect": collects(cwd),
         # messages the hook failed on were never judged: say this before anything else
