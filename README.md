@@ -123,7 +123,7 @@ To remove Lem, follow [these steps](docs/install.md#remove-lem-from-a-repository
 | You type | What it does |
 | --- | --- |
 | `/lem <your ask>` | opens a task, and says its size in one line |
-| `/lem plan <your ask>` | stops after the plan, for you to read |
+| `/lem plan <your ask>` | takes the ask as a feature, and stops after the plan, for you to read |
 | `/lem build [task or plan file]` | builds a plan that waits |
 | `/lem`, `/lem status [task]` | opens the board, and says what waits for you |
 | `/lem land <task>` | your word to merge an open pull request or a ready branch |
