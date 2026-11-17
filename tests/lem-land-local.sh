@@ -815,7 +815,7 @@ local_land read local-tracked --record "$(record 1 '{"kind": "full", "ran": [{"n
 local_land propose local-tracked --title "chore: my asker" --notes "$MIG" >/dev/null
 local_agent=$(local_land land local-tracked --by agent 2>&1 || true)
 project --repo "$LOCAL" state local-tracked dropped "the test is over" >/dev/null
-local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's reviewer and tools become every machine's"
+local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's seats, tools and corrections become every machine's"
 if [ "$local_floor" = "('full', \"the request is careful: $local_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($local_why)" <<<"$local_agent" \
   && grep -qxF -- "- careful: yes, $local_why; the review says no: $NOT_CAREFUL" "$LOCAL/.git/lem/tasks/local-tracked/pr.md"; then
   pass "a branch that commits the machine's own settings file is careful by the script: the full set, a line of the pull request that says the file is one machine's own, and a person's merge"
