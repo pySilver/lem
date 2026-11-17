@@ -1467,7 +1467,7 @@ def taken_on_remote(root: Path, slug: str, branch: str | None) -> None:
     """Refuse a new task whose branch origin has already: a teammate's work, or a task of another
     machine. The name is the one `--branch` gives, else TYPE/SLUG for every type a task takes. One
     question to origin; a repository with no remote has nobody to collide with, and an origin that
-    does not answer is said on stderr, since the push of `land.py propose` refuses such a branch too."""
+    does not answer is said on stderr, since the push of `lem land propose` refuses such a branch too."""
     if subprocess.run(["git", "-C", str(root), "remote", "get-url", "origin"], capture_output=True, text=True, check=False).returncode != 0:
         return
     names = [branch] if branch else [f"{kind}/{slug}" for kind in TYPES]

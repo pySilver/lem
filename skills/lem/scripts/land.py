@@ -696,7 +696,7 @@ class Task:
         raise LandError(
             f"origin's {branch} holds {len(theirs)} commit(s) that Lem did not push and the task's branch does not hold: {named}{more}. "
             f"A push would remove them. Bring them into the task's worktree with `git -C {self.worktree} pull --rebase origin {branch}`, "
-            f"then run the landing again from `land.py start {self.slug}`: they are part of the change then, with its checks and a read",
+            f"then run the landing again from `lem land start {self.slug}`: they are part of the change then, with its checks and a read",
         )
 
 
@@ -2743,13 +2743,13 @@ def cmd_base_checks(task: Task) -> dict:
     command is the base's, not the task's: the step says which and exits 1, and Lem opens the task
     that repairs the base."""
     if task.record["status"] != "landed":
-        raise LandError(f"the task is {task.record['status']!r}: the checks of the base after a merge are for a task the forge merged, after `land.py merged {task.slug}`")
+        raise LandError(f"the task is {task.record['status']!r}: the checks of the base after a merge are for a task the forge merged, after `lem land merged {task.slug}`")
     needed = task.kept().get("base_check") or {}
     if not needed.get("needed"):
-        raise LandError(f"no check of the base is due for {task.slug}: " + (needed.get("why") or "`land.py merged` found none to run"))
+        raise LandError(f"no check of the base is due for {task.slug}: " + (needed.get("why") or "`lem land merged` found none to run"))
     commit = needed.get("commit")
     if not commit:
-        raise LandError(f"{needed['why']}: run the checks on {task.onto} by hand, or `git fetch` and `land.py merged {task.slug}` again")
+        raise LandError(f"{needed['why']}: run the checks on {task.onto} by hand, or `git fetch` and `lem land merged {task.slug}` again")
     commands = task.settings["checks"]["commands"]
     if not commands:
         raise LandError(f"{NO_GATE}: nothing would show that the base is green")
