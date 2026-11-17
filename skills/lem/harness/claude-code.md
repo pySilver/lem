@@ -5,9 +5,9 @@ You run in Claude Code. This file answers `README.md` beside it.
 ## lem
 
 `lem` is a file in the plugin's `bin/`, and Claude Code puts that folder on the Bash tool's `PATH`
-while the plugin is loaded. It runs the script a name stands for with the arguments as they
-came, and its output and exit status are the script's. So one permission rule, `Bash(lem *)`,
-covers every script of Lem's on every machine and after every update of the plugin, whose folder
+while the plugin is loaded, also in a subagent (Claude Code 2.1.326, 2026-11-17). It runs the
+script a name stands for with the arguments as they came, and its output and exit status are the
+script's. So one permission rule, `Bash(lem *)`, covers every script of Lem's on every machine and after every update of the plugin, whose folder
 changes with each update. The rule covers a plain call: run each `lem` call alone and read what it
 prints, never inside `$(...)`, before a pipe or after an `&&`, which make a command of another
 shape that needs a rule of its own. Where the shell does not find it (`command not found`), run the same
@@ -15,12 +15,6 @@ script by its path, `python3 SKILL_DIR/scripts/NAME.py ARGS...`, or for a shippe
 file in that skill's `scripts/` (`lem experts` is `python3
 SKILL_DIR/../lem-ask-expert/scripts/experts.py`; `COMMANDS` in `SKILL_DIR/../../bin/lem` names
 each file), and say once that `lem` was not on the `PATH`.
-
-Checked on 2026-11-17 in Claude Code 2.1.326, with `claude -p --plugin-dir` on a checkout of this
-repository, in a throwaway repository, with `--allowedTools "Bash(lem *)"` and
-`--permission-prompts none`: `which lem` printed that checkout's `bin/lem`, in the session and in
-a subagent it started, and `lem project show` and `lem doctor` ran with no prompt. Not run yet:
-a plugin installed with `claude plugin install`, and a session started in a task's worktree.
 
 ## load-skill
 
@@ -60,14 +54,10 @@ Do not load a skill whose instructions are already in context.
   The `revmux:revmux` skill is written for a session with a person: its questions to the user,
   its status lines and its offers after a round are not for a review agent, which prepares the
   round itself, asks nobody and stops after its two files.
-  Checked on 2026-11-16 in a trial repository, with revmux v0.2.7: a fresh agent with the
-  brief of `prompts/review.md` chose `focused` for a change of 38 lines, ran
-  `revmux --task SLUG --run 01-initial --profile focused --workdir WORKTREE --tasks-dir
-  TASK_DIR/reviews --no-tui` from the main checkout, and both checkouts were clean after it.
-  The round took 66 seconds (revmux's own `duration_ms`), and both of its agents answered.
-  Checked on revmux v0.2.7, 2026-11-15, with `revmux config`: it reports `./.revmux` as its
-  `project_dir`. The flag `--config-dir PATH` does not name a project folder: it puts PATH in
-  the place of the user's own config folder, and no project folder is reported then.
+  A round's line, run from the main checkout: `revmux --task SLUG --run 01-initial --profile
+  focused --workdir WORKTREE --tasks-dir TASK_DIR/reviews --no-tui`; both checkouts were clean
+  after it (revmux v0.2.7, 2026-11-16). The flag `--config-dir PATH` does not name a project
+  folder: it puts PATH in the place of the user's own config folder (revmux v0.2.7, 2026-11-15).
 - the tracker: the skill the settings' `tracker.kind` names, `lem-linear` for `linear`. The
   tracker's server is an MCP server, and Claude Code shows its tools as `mcp__SERVER__NAME`, with
   the settings' `tracker.server` as SERVER. A session that was running when the server was added
@@ -75,21 +65,17 @@ Do not load a skill whose instructions are already in context.
   session they may be listed by name only and load on their first use, through the tool search
   (seen on 2026-11-15). A builder
   gets the tools of a server the owner added for all his projects; one added for a single folder
-  may be absent in a task's worktree, which is another folder (not tested). Checked on
-  2026-11-15 in the first task that came from a ticket: Lem's session, in auto mode, read the
-  ticket, changed its status two times and wrote one comment, with the owner's go for those
-  writes named in its prompt.
+  may be absent in a task's worktree, which is another folder (not tested).
 - the rules folder. Claude Code loads `.claude/rules/` by itself: a file with a `paths:` list
   when a matching file is read, the others in every session. Codex and the review tool's agents
   load nothing by themselves, so a brief, a review request and a review round name the files
   `lem project rules` prints. That command reads the same `paths:` list with the glob forms
   Claude Code's page on that folder gives (read 2026-11-15), and finds rule files in subfolders
   and through links as that page says Claude Code does. For a review round, the files go into
-  the review context the `revmux:revmux` skill writes, as paths to read first. Checked by the session that started Lem, in
-  Claude Code 2.1.325 on 2026-11-14, with all tools off so that only a loaded rule could give
-  the answer: a linked file in a real rules folder is loaded; a rule with a `paths:` line
-  reached through a link is loaded when a matching file is read and not before; an `@` import
-  line inside a rules file is not expanded, so a rules file cannot stand in for a moved one.
+  the review context the `revmux:revmux` skill writes, as paths to read first. A linked file in
+  the rules folder is loaded, a rule with a `paths:` line reached through a link is loaded when a
+  matching file is read, and an `@` import line inside a rules file is not expanded, so a rules
+  file cannot stand in for a moved one (Claude Code 2.1.325, 2026-11-14).
 
 ## ask-owner
 
@@ -134,14 +120,13 @@ is no fallback to another agent type: when the session lists neither name, Lem's
 installed here; say so, name `doctor.py`, and stop.
 
 The plugin `lem` brings the agent, and Claude Code puts the plugin's name before it,
-`lem:lem-builder`; the plain name then answers "Agent type 'lem-builder' not found" (checked on
-2026-11-15 in Claude Code 2.1.325, with the plugin loaded through `--plugin-dir` and through a
-project's settings; the plugin's agent ran on the model its file names).
+`lem:lem-builder`; the plain name then answers "Agent type 'lem-builder' not found" (Claude
+Code 2.1.325, 2026-11-15).
 
 A project that wants another builder (another model, more rules) keeps a file named
 `lem-builder.md` in its own `.claude/agents/`. That agent is `lem-builder`, so the rule above
-picks it first. Beside the plugin the two agents have two names, and a call of `lem-builder`
-reached the project's file in the same check. No setting of Lem's is involved.
+picks it first: beside the plugin the two agents have two names, and a call of `lem-builder`
+reaches the project's file. No setting of Lem's is involved.
 
 The brief gives the task's worktree as an absolute path; do not pass `isolation: "worktree"`,
 since the task already has its worktree. Agents run in the background and you are told when one
@@ -149,22 +134,17 @@ ends: never predict a builder's report, and never poll for it. A builder's end r
 as its message and then as a notification that points at that message. Act on the first; the
 second needs no act.
 
-Claude Code may refuse a builder the write of its report file. In the first task that ran
-through Lem (a scratch repository, 2026-11-15, Claude Code 2.1.325) the lead's write of
-`report.md` was refused with "Subagents should return findings as text, not write report files",
-and the write of the same file by the next builder, when the file existed, was accepted. So a
-builder never counts on that write: when it is refused, its reply is the whole report, and the
+Claude Code may refuse a builder the write of its report file, with "Subagents should return
+findings as text, not write report files" (Claude Code 2.1.325, 2026-11-15). So a builder never
+counts on that write: when it is refused, its reply is the whole report, and the
 one who started it writes the file from the reply, as the stage files say. A builder that takes
 another tool to get the file written goes around a guard, and it must not.
 
 A builder can start builders of its own with the same tool, so a builder leads a plan of any size,
-also the build of a careful or large plan after its talk. Checked on 2026-11-14 in Claude Code
-2.1.325: a subagent of the type `worker`, which like `lem-builder` names no tool list and so
-inherits every tool, called `Agent`, and the nested agent's reply came back to it. Not run yet: the
-same from a `lem-builder`. The persona agents of a lead's read of its acceptance criteria start the
-same way: on 2026-11-16 a `worker` subagent on Opus, standing in for a lead, started two persona
-subagents and had both answers in 25 seconds (07:23:25Z to 07:23:50Z); not checked from a
-`lem-builder`, which has the same tools. The scout of an interview is a builder too, with
+also the build of a careful or large plan after its talk (a subagent that inherits every tool, as
+`lem-builder` does, called `Agent` and had the nested agent's reply: Claude Code 2.1.325,
+2026-11-14; not run yet from a `lem-builder`). The persona agents of a lead's read of its
+acceptance criteria start the same way. The scout of an interview is a builder too, with
 `prompts/scout.md` as its brief, and so are the investigator of a bug or a question, with
 `prompts/investigator.md`, and the one builder of a small change, with `prompts/small.md`, which Lem
 starts from its own session as it starts a lead. A
@@ -198,8 +178,7 @@ prompt. Lem opens one for a plan talk only: its agent is the plan's defender
    `LOGIN_SHELL` is the owner's login shell by absolute path
    (`dscl . -read /Users/NAME UserShell`), not the shell of your own Bash tool. agterm starts the
    command with its own `PATH`, and only the login shell finds `claude` the way the owner's
-   terminal does: on a Mac whose login shell is fish, `zsh -lc` answered `command not found:
-   claude`. The line has no command substitution, so zsh and fish read it the same way. Pass no
+   terminal does. The line has no command substitution, so zsh and fish read it the same way. Pass no
    flag that widens the session's permissions: it runs in the permission mode the owner's
    settings give a new session.
 3. **Confirm it runs**: the command prints the new session's id. In `agtermctl tree --json` the
@@ -226,16 +205,8 @@ Under agterm's rerun restore mode a relaunch of agterm starts each session's com
 lead started that way is a fresh agent with the same brief; `prompts/lead.md` tells it to read the
 task's state first, so it goes on or stops.
 
-Checked on 2026-11-14 with agterm 0.41.1 in its rerun restore mode: a companion session opened
-with this line through a fish login shell, Claude Code ran its prompt there, and `foreground` and
-`parent` read back from the tree. Checked on 2026-11-15 in a scratch repository, in the first
-careful task that ran through Lem: Lem, itself in a companion session, opened the task's session
-this way and it came up as Lem's sibling; its lead stopped at Codex's trust prompt with the
-state `held`; Lem sent it the owner's answer as in step 4; the lead then had the plan read,
-started a builder, had the diff reviewed and wrote `ready`, and the task landed. The task's
-event log holds each state with its time. Not run yet: a relaunch of agterm with a companion
-open, a companion for a plan talk alone and closed at its end, and the launch line with
-`--model` or `--effort`.
+Not run yet: a relaunch of agterm with a companion open, a companion for a plan talk alone and
+closed at its end, and the launch line with `--model` or `--effort`.
 
 ## tell-coordinator
 
@@ -265,25 +236,13 @@ status` shows it. A lost choice costs the owner part of his wait, so Lem also ru
 
 A builder runs as a subagent inside Lem's own session, so its line goes from Lem's pane to Lem's
 pane: the sender `agtermctl` takes by default (`--as`, from the `AGTERM_SESSION_ID` and
-`AGTERM_PANE_ID` the subagent inherits) is the recipient itself. Checked on 2026-11-16 with agterm
-0.41.1, in a throwaway session that ran no agent: a message sent with `--as` and `--to` the same
-pane was accepted (`delivered` named that pane), and `msg read` as that pane returned it with
-`from` and `to` equal. The mailbox chat's waiter for Claude Code, which wakes an idle agent, takes
-any mail of its pane between two turns and reads no sender (`mailbox-chat.py`, its `Waiter`).
-Checked on 2026-11-16 with agterm 0.41.1 and Claude Code 2.1.325, in a real Lem session: a
-background command of that session sent `lem: wake-probe choice 1 waits` with `agtermctl msg send
---to SESSION:PANE --socket SOCKET` to the session's own pane, 20 seconds after the session ended
-its turn, and the line reached the idle session as a turn of its own (`[agterm mailbox, not a
-peer chat message]`, from the session's own address). The sender was a background command, not
-a subagent: that a line a builder sends wakes Lem the same way is not checked. Until a run shows
-it, `lem decisions pending` at each of Lem's turns is what makes sure that no choice is missed.
-
-Checked on 2026-11-14: this command, run by Claude Code in a companion session, put its line in
-the mailbox of the pane that opened the session. Checked on 2026-11-15, in the same careful
-task: the lead sent this line at each of its two stops, and each one reached the idle Lem as a
-turn of its own, 20 seconds after the lead's `held` state and 2 seconds after its `ready` state
-(the times of the two states are in the task's event log, the times of the two turns in the
-transcript of Lem's session).
+`AGTERM_PANE_ID` the subagent inherits) is the recipient itself. agterm accepts a message to the
+sender's own pane, and the mailbox chat's waiter for Claude Code, which wakes an idle agent, takes
+any mail of its pane between two turns and reads no sender (`mailbox-chat.py`, its `Waiter`). A
+line from a companion, and one from a background command of Lem's own session, reached the idle
+Lem as a turn of its own (agterm 0.41.1, 2026-11-14 to 2026-11-16); a line a builder sends is not
+checked yet, so `lem decisions pending` at each of Lem's turns is what makes sure that no choice
+is missed.
 
 ## second-opinion
 
@@ -322,9 +281,7 @@ every report says that the reviewer is this machine's choice, and "same family" 
    - read the model and the effort back from the pane's status line, and name those in the
      report, never the ones you asked for. When the status line shows no model or no effort (a
      status line of the owner's own may hide them), the report says `unread` for each, never the
-     seat's value. In one repository seven or more tasks were reviewed on
-     another model than the run's log said (mybaze, 2026-11-07, from that project's
-     retrospective of 2026-11-08).
+     seat's value.
    - read `agtermctl tree --json` and confirm the session's `splitForeground` is that agent, then
      `mailbox-chat.py status` again.
    - Codex asks "Trust this folder?" the first time it starts in a repository, and it saves the
@@ -340,34 +297,24 @@ every report says that the reviewer is this machine's choice, and "same family" 
    about the code with your own read before you act on it.
    A reply that may not be whole ("so far", a numbered point with no end) is answered in the same
    turn: accept or dispute its points and ask whether
-   more follows. End the turn to wait only when the reviewer said that more follows. In one run a
-   reply that ended "Source inspection only so far" was taken as partial, both panes waited 137
-   minutes, and the reviewer answered in about 90 seconds once asked (mybaze, 2026-09-29, from
-   that project's notes).
+   more follows. End the turn to wait only when the reviewer said that more follows.
 5. **A reviewer is fresh for each review.** Before the next one, `agtermctl session split close`
    on this session ends the pane and its agent, and step 2 opens a new one. The dispute of a
    review's points and the check of the fixes it asked for belong to that review and stay in its
    pane. A plan talk is one review: every turn of it goes to the same pane.
    A new pane is not always a new Codex. With agterm's cookbook recipe for Codex session resume
    installed, a `codex` typed in a session continues that session's conversation: its wrapper
-   keeps the session's Codex thread in `~/.codex/agterm/SESSION-ID` (the id in lower case). On
-   2026-11-14 four reviewer panes opened one after the other all registered the same thread, and
-   the pane's status line went on from 12% of the context to 17%, 32% and 40%. So before the
-   launch of step 2, remove that file when it is there; after the launch, the pane's status line
-   must show a context near zero. With the file removed, the fifth pane of that day started at
-   2% and registered a new thread. A reviewer that carries the last review reads the next one
+   keeps the session's Codex thread in `~/.codex/agterm/SESSION-ID` (the id in lower case), and
+   every pane opened after it continues that thread (2026-11-14). So before the launch of step
+   2, remove that file when it is there; after the launch, the pane's status line must show a
+   context near zero. A reviewer that carries the last review reads the next one
    with it.
 
 Say in the report which family reviewed. Two agents of one family agree more easily than two of
 different ones; the report says "same family" when that was the case.
 
-Checked on 2026-11-14 with agterm 0.41.1 in its rerun restore mode and a fish login shell: a
-split opened on a background session, Codex started by the typed line with the reviewer's brief,
-its name read back from `splitForeground`, and one review went to it and came back through the
-mailbox. The reply waited in the mailbox while the coordinator's turn ran, and reached it only
-when the coordinator read its mail. Not run yet: a Claude Code reviewer started this way, and a
-launch with a model or an effort flag (the flags are in each command's `--help`, read the same
-day: `codex -m`, `codex -c`, `claude --model`, `claude --effort`).
+Not run yet: a Claude Code reviewer started this way, and a launch with a model or an effort flag
+(the flags are in each command's `--help`, read on 2026-11-14).
 
 ## fan-out
 
@@ -406,15 +353,8 @@ Start each by its agent, and never with a model or an effort the entry does not 
   exits; then run `lem experts record`. A non-zero exit, or an answer file that is not there, is
   an expert that did not answer: the skill's step 3 says what follows.
 
-Checked on 2026-11-16 in a scratch repository, Claude Code 2.1.325 and codex-cli 0.169.0, on a
-toy choice of two options with two criteria and one file: both started in one message (`date -u`
-read 13:23:11Z in the call before it). `fable` answered in 12.1 seconds (the subagent's
-`duration_ms`, 12093) and `astra` in 18 seconds (13:23:18Z to 13:23:36Z, `date -u` around the
-command); both picked the same option, each answer was recorded by `lem experts record` as it
-came, `lem decisions settle --away` took the pick, and both checkouts were clean after it. That
-was started from a subagent, the way a builder that leads starts them; not run yet from a
-`lem-builder` or from a task's session. One run of a toy choice: a real choice, with a plan and
-more files to read, takes longer, and that time comes out of the owner's wait.
+Not run yet: the two experts started from a `lem-builder` or from a task's session (Claude Code
+2.1.325 and codex-cli 0.169.0 ran them from a subagent on 2026-11-16).
 
 ## run-in-background
 
@@ -427,10 +367,9 @@ earlier session started is not yours, and its end wakes that session only. To st
 the owner says so, the `TaskStop` tool with that name; the watch then ends with exit 1 and says
 that it was stopped.
 
-Seen: the end of a background command reaches the session that started it as a message, during
-the session's turn (the experts' check above, 2026-11-16). Not run yet: a watch whose end comes
-while Lem's session waits between two of the owner's messages. Until that is seen, the status's
-own `lem land merged` at each turn of Lem's finds a merge the watch's end did not bring.
+A watch whose end comes while Lem's session waits between two of the owner's messages is not
+seen yet to wake it, so the status's own `lem land merged` at each turn of Lem's finds a merge the
+watch's end did not bring.
 
 ## A session's name
 
@@ -470,8 +409,8 @@ cd STATE && env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGTERM_PANE_ID -u AGTER
 A nap is a `claude -p` session of its own and no subagent of yours: it starts with nothing of your
 context, as the owner's own naps start in a fresh session, and its end brings you only the exit
 status. `--restricted` takes away every tool that runs a command and keeps the file tools inside
-the working directory, which is `STATE`, and `--tools` gives back the four a nap needs. `--safe-mode`
-loads no `CLAUDE.md`, skill, plugin, hook or MCP server: the nap reads its brief and the folder and
+the working directory (Claude Code 2.1.326, 2026-11-17), which is `STATE`, and `--tools` gives
+back the four a nap needs. `--safe-mode` loads no `CLAUDE.md`, skill, plugin, hook or MCP server: the nap reads its brief and the folder and
 nothing else, and the correction hook never takes the brief for a message of the owner's.
 `acceptEdits` lets it write in its folder, and `--permission-prompts none` refuses whatever would
 ask, since nobody is there to answer. `--no-session-persistence` keeps it out of the session files
@@ -483,17 +422,7 @@ nap writes over it. The prompt names the time, and `prompts/nap.md` comes on std
 limits above would be words in its brief only, and Claude Code once refused a builder the write of
 a report file (above), where a nap writes three.
 
-Checked on 2026-11-17 in Claude Code 2.1.326, from a builder and in the foreground, in a throwaway
-repository with three ended tasks: the line above with the time `2026-11-17-1347` ran 32 seconds
-(`date -u` read 13:47:20 before it and 13:47:52 after), exited 0, and left `dream.md`, a made
-thing and `waking.md` in `naps/2026-11-17-1347-white-paper-in-february/` and nothing anywhere
-else. In a probe before it, with the same flags, the nap could not read a file of the home
-directory ("outside the working directory"), had no Bash tool, and saw no `CLAUDE.md`. Run
-again the same day with `run_in_background`, from a subagent, after `lem project may-nap
---asked` in a throwaway repository with no task: the nap started at 16:16:52Z (the `since` of its
-record) and its end reached the session before 16:17:51Z (`date -u`), with exit 0, `dream.md`, a
-made thing and `waking.md` in its folder, and nothing git sees. Not run yet: the line from Lem's
-own session.
+Not run yet: the line from Lem's own session.
 
 ## The correction hook
 
@@ -528,11 +457,6 @@ from it by hand. Say that in one line, and do not edit the file: it is the owner
   like any other change. A hook that sends the owner's messages to an outside service is his to
   turn on: the line goes in only on his yes, in his words.
 
-Run: the plugin's hook starting on each message, with the plugin's folder in `CLAUDE_PLUGIN_ROOT`
-(2026-11-15, Claude Code 2.1.325, three headless sessions with a probe line). Not run yet: a
-message that went through the hook to the model in a real session. The hook's two halves are
-tested with a stand-in for the model.
-
 ## What the owner does himself
 
 Some steps are not an agent's, with or without the owner's yes in the conversation.
@@ -541,12 +465,10 @@ Some steps are not an agent's, with or without the owner's yes in the conversati
   session starts in it, and Codex asks the same. That holds for a repository an agent made
   minutes before. The answer is kept in the owner's configuration, so it is his: say which
   session waits and where, and go on with other work. Do not answer the prompt, and do not go
-  around it: on 2026-11-15 the classifier refused a move of a new repository below a folder the
-  owner already trusts. A task's worktree is inside the project's checkout, which the owner
+  around it. A task's worktree is inside the project's checkout, which the owner
   trusted when Lem's session started there.
-- **What the classifier refuses in auto mode.** In one repository it refused these to the agent
-  after the owner's yes, and the owner ran them himself (mybaze, 2026-11-07, from that project's
-  notes): a push to another repository than the session's own, the registration of a hook that
-  sends prompts to an outside service, and the install of a scheduler, whose login agent counts
+- **What the classifier refuses in auto mode.** It refuses these to the agent also after the
+  owner's yes (mybaze, 2026-11-07): a push to another repository than the session's own, the
+  registration of a hook that sends prompts to an outside service, and the install of a scheduler, whose login agent counts
   as persistence. When the classifier refuses a step, give the owner the exact command on one
   line and go on. Never send the step again in another form.

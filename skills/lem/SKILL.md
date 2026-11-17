@@ -31,13 +31,9 @@ short fixed list of what a build leaves behind (a comment made false, a leftover
 badly, a document made false, the defects outside the task, fixed when cheap or filed), and changes
 no behavior. Then the change passes the machine checks and a
 review by an agent that did not build it, as large as the change needs. Nothing is reviewed after
-the merge: in one repository 43 of 48 reviews queued after the landing were still open about 28
-hours later (convertiser-server, 2026-11-14). And nothing is argued task by task: three days of a
-plan argued before the build and a review of each task produced 37 commits, none in the
-application (the same repository, measured 2026-11-13). Only a careful or large plan is talked
-through, once, before any code. The price of one review at the end is
-not measured: a review of each task found a must-fix on 184 of 414 tasks in another repository
-(mybaze, 2026-11-11), and nobody sorted those into defects a user would meet and the rest. So
+the merge, since reviews queued after a landing stay open (43 of 48 about 28 hours later:
+convertiser-server, 2026-11-14), and nothing is argued task by task. Only a careful or large plan
+is talked through, once, before any code. The price of one review at the end is not measured, so
 the event log keeps each review's rounds and counts, and each request that was not green with
 its reason.
 
@@ -62,9 +58,7 @@ small after all.
 large plan (a plan of more than three tasks), with the reviewer in its other pane. A builder
 writes the plan and stops at it; the defender and the reviewer argue it through the mailbox
 before any code; the defender repairs the plan, writes down how the talk went, and stops. Lem
-closes the companion, and a fresh builder leads the build of the talked plan like any other. The
-owner asked for it so: "a pair setup ... two agents of specific models and efforts have a chat
-about the plan under some rules that disallow endless discussion" (2026-11-16).
+closes the companion, and a fresh builder leads the build of the talked plan like any other.
 
 Each task of a plan gets a builder with a context of its own. Every full change starts with a
 builder as its lead, also one the owner calls careful in the ask: there is no talk before there
@@ -175,9 +169,7 @@ lead whose choice waits for the owner.
   and opens or updates its pull request, and you run it without a question. The owner approved
   it when he approved the settings at onboarding: `branch.propose = "pull-request"` is his
   standing word for exactly this. The pull request is the first place he wants to look, and a
-  question here stops every task one step before its end. In the first real request through
-  this flow Lem asked "Do I push ... and open two pull requests? (y/n)" and both tasks waited (a
-  scratch repository, 2026-11-17). Nothing else leaves the machine without his word: a push to
+  question here stops every task one step before its end. Nothing else leaves the machine without his word: a push to
   another branch, a merge by `land --by owner`, a message to a person.
 - **What must not go wrong takes the careful flow.** The project names it as topics,
   sentences in the owner's words of what must never go wrong (`flow.topics`), and no list of
@@ -202,9 +194,8 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   as what is careful and what the checks run, and a task rarely edits it.
 - **Only so many tasks build or land at one time.** `lem project may-start SLUG` exits 1 at the
   settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
-  the checks run and a builder may repair what they showed, and not the task SLUG whose lead starts. Four to five tasks ran well on one Mac, and six gave a load average of 12 to
-  16 and unstable browser tests (convertiser-server, as its owner reported it on 2026-11-14). A
-  task over the limit is queued, never started "just this once"; only the owner raises the limit.
+  the checks run and a builder may repair what they showed, and not the task SLUG whose lead
+  starts. A task over the limit is queued, never started "just this once"; only the owner raises the limit.
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion
   the owner brings ("I thought X did Y", "why is this happening") get the same form: one
   concrete case in numbered steps, with real names and values, and where each step was read. For
@@ -212,8 +203,7 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   right and it is a defect, so say which of the two it is before changing anything. For a
   decision, the run goes into its ask, with what follows it (`stages/plan.md`, step 5).
 - **Numbers carry their source.** A count is a command's output, a time is `date -u`, a test
-  result is the exact last line of the run. One coordinator made four factual errors in owner
-  reports in its first 28 hours: clock values it estimated, a count and a claim about the checks.
+  result is the exact last line of the run, never an estimate.
 - **A brief is checked before it is sent.** A builder copies a wrong sentence from its brief into
   the code and into its report. Before a brief goes out, every sentence about the code is one you
   read in the code, and a sentence with "never", "always" or "the same" gets its counterexample
@@ -286,9 +276,8 @@ moves it there and says so in one line on stderr: tell the owner that line once,
 A full change's plan itself is a file in the repository, in the settings' `plans` path.
 
 A file that a later step needs (the inputs of a measurement, a probe's output, a benchmark's
-kit) goes in the task directory too, never in `/tmp` or a session's scratch folder. One run's
-measurement kit was gone from the disk when a later task needed it, and the task built it again
-(mybaze, 2026-11-03, from that project's notes).
+kit) goes in the task directory too, never in `/tmp` or a session's scratch folder, which may be
+gone when a later task needs it.
 
 ```bash
 lem project state SLUG STATUS "one line" ["a further line" ...]
