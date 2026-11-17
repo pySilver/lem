@@ -12,7 +12,7 @@ short and spread over many projects; a team may adopt it for one repository, as 
 
 ## Scale
 
-One owner builds it today, and no real project uses it yet (`README.md`, "State"). It is meant
+One owner builds it today, and no real project uses it yet (`docs/examples.md`, "What ran, and what did not"). It is meant
 for one repository at a time with several tasks open in it, and for teams that adopt it per
 repository. Four to five tasks ran well on one Mac (convertiser-server, 2026-11-14).
 

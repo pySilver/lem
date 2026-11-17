@@ -37,7 +37,8 @@ address into `.mcp.json` in the repository; each person still signs in.
 
 ## Codex
 
-Only needed when Codex is the agent that runs `/lem`. A reviewer does not touch the tracker.
+Lem needs none of this today: in Codex `/lem` stops, and a reviewer does not touch the tracker.
+The commands are here for the day a harness file for Codex exists.
 
 ```bash
 codex mcp add linear --url https://mcp.linear.app/mcp

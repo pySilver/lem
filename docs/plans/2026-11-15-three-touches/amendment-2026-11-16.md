@@ -203,4 +203,5 @@ that fit, or the full set) → pull request with green or not green first → me
    and an outside defect is fixed when cheap or filed.
 10. New: the documentation task and its check in the polish pass.
 
-The explainer page for the owner is rebuilt from this: `/tmp/agdoc/topic-lem-three-touches-editorial.html`.
+The explainer page for the owner was rebuilt from this. It was a page outside the repository, and
+it is not kept; [docs/flow.md](../../flow.md) describes the flow as it is now.

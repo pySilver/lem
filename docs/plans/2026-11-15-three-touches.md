@@ -1,5 +1,11 @@
 # Three touches: stories, one read before the merge, a pull request
 
+> **Status: built**, in the commits from `93c63a0` to `715d0d3` (2026-11-15 and 2026-11-16).
+> Later decisions changed parts of it: the small change, care by topics in place of paths, one
+> approval of a feature, the plan talk as a stage of its own, and onboarding in three questions.
+> `AGENTS.md` ("The owner's rulings" and "Decisions the maintaining session took") holds each,
+> and [docs/flow.md](../flow.md) describes the flow as it is now.
+
 Written 2026-11-15 by the Lem design session (mybaze checkout) for the session that builds Lem,
 which took it the same day and added "Read against the code" below. This replaces "build
 first, review after" as Lem's default flow. The owner said on 2026-11-15 that it is built
