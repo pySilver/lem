@@ -189,7 +189,8 @@ named it, is found too: `lem_plans` is the one place that builds and finds the n
 `waiting` is the one list of what waits for the owner, which a bare `/lem` says: the choices of
 `lem decisions pending` (`choices`), the tasks `held` with the line `the criteria wait for the
 owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
-task with its proposal (`pull_requests`), each `drafted` task with its plan (`drafts`), and each
+task with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
+pushed head at the last `lem land merged`, null when nothing asked or the head moved since), each `drafted` task with its plan (`drafts`), and each
 file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
 with nobody at the terminal writes in the form Lem's question page takes, one question for each
 proposal. `count` adds them up. It reads and writes nothing else.
@@ -2055,7 +2056,12 @@ def proposal(directory: Path) -> dict | None:
     if not kept.get("proposed"):
         return None
     reasons = kept.get("not_green", [])
-    return {"pull_request": (kept.get("pr") or {}).get("url"), "green": not reasons, "not_green": reasons}
+    # Whether the forge called the pull request conflicting with the base when `lem land merged` last
+    # asked, on the head Lem pushed: null when nothing asked, the forge did not know, or the head moved since.
+    forge = kept.get("forge") if isinstance(kept.get("forge"), dict) else {}
+    pushed = kept.get("pushed") or kept.get("proposed")
+    conflict = {"CONFLICTING": True, "MERGEABLE": False}.get(forge.get("mergeable")) if pushed and forge.get("head") == pushed else None
+    return {"pull_request": (kept.get("pr") or {}).get("url"), "green": not reasons, "not_green": reasons, "conflict": conflict}
 
 
 def newest_events(root: Path, event: str) -> dict[str, dict]:
@@ -2219,7 +2225,8 @@ def cmd_waiting(root: Path) -> dict:
         "criteria": [{**brief(task), "line": line(task)} for task in held if line(task).startswith(CRITERIA_WAIT)],
         "held": [{**brief(task), "line": line(task)} for task in held if not line(task).startswith(CRITERIA_WAIT)],
         "pull_requests": [
-            {**brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"]}
+            {**brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"],
+             "conflict": task["proposal"]["conflict"]}
             for task in tasks if task["status"] == "open" and task["proposal"]
         ],
         "drafts": [

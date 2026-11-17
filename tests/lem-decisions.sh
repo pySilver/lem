@@ -343,7 +343,7 @@ for slug in a-choice his-criteria his-step proposed-one drafted-one; do wq task-
 wq state his-criteria held "the criteria wait for the owner" "type: feat, because the export gets a column" >/dev/null
 wq state his-step held "the reviewer's pane waits for the owner's trust of the folder" >/dev/null
 wq state proposed-one open "pull request https://github.com/acme/shop/pull/7" "not green: the bar is lower" >/dev/null
-printf '%s\n' '{"proposed": "abc1234", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["the bar is lower"]}' > "$WQ/.lem/state/tasks/proposed-one/landing.json"
+printf '%s\n' '{"proposed": "abc1234", "pushed": "abc1234", "forge": {"mergeable": "CONFLICTING", "head": "abc1234"}, "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["the bar is lower"]}' > "$WQ/.lem/state/tasks/proposed-one/landing.json"
 dtree=$(wq worktree-dir drafted-one)
 git -C "$WQ" worktree add -q "$dtree" -b plan/drafted-one main
 mkdir -p "$dtree/docs/plans" && touch "$dtree/docs/plans/2026-11-17-drafted-one.md"
@@ -352,10 +352,10 @@ mkdir -p "$WQ/.lem/state/retros"
 printf '%s\n' '{"title": "The retro of 2026-11-17", "questions": [{"id": "p1", "prompt": "Move the rule?", "options": ["approve", "reject", "later"]}, {"id": "p2", "prompt": "Drop the step?", "options": ["approve", "reject", "later"]}]}' > "$WQ/.lem/state/retros/2026-11-17.json"
 printf '%s\n' 'not json' > "$WQ/.lem/state/retros/2026-11-18.json"
 listed=$(wq waiting)
-shape=$(field '([(c["task"], c["id"]) for c in d["choices"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"]) for t in d["pull_requests"]], [(t["task"], t["plan"]) for t in d["drafts"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
-if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'])], [('drafted-one', '$dtree/docs/plans/2026-11-17-drafted-one.md')], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 8)" ] \
+shape=$(field '([(c["task"], c["id"]) for c in d["choices"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"], t["conflict"]) for t in d["pull_requests"]], [(t["task"], t["plan"]) for t in d["drafts"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
+if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], [('drafted-one', '$dtree/docs/plans/2026-11-17-drafted-one.md')], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 8)" ] \
   && [ "$(field 'sorted(d["choices"][0])' <<<"$listed" | grep -c seconds_left)" = 1 ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ]; then
-  pass "waiting lists in one JSON what waits for the owner: each choice as decisions.py pending gives it, the criteria and the steps that hold a task, each pull request with green or not, each night's draft with its plan, and each retro's proposals, with a file that does not read named as such"
+  pass "waiting lists in one JSON what waits for the owner: each choice as decisions.py pending gives it, the criteria and the steps that hold a task, each pull request with green or not and whether the forge calls it conflicting, each night's draft with its plan, and each retro's proposals, with a file that does not read named as such"
 else
   fail "waiting: $shape / $listed"
 fi

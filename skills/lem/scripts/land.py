@@ -288,7 +288,9 @@ checked its command.
 finishes as a landing does. A closed one with no merge ends the task: its state becomes `dropped`
 with the line "the pull request was closed on the forge", so nothing of it waits and nobody cleans
 it by hand; `clean` then removes the worktree, and the branch keeps its commits, with how to delete
-it. A task that goes on after all is a new request.
+it. A task that goes on after all is a new request. One that is still open is "not merged yet"
+(exit 1), and `merged` keeps what the forge said of it, its mergeable state on its head
+(`forge` in `landing.json`), so that `lem project waiting` says whether it conflicts with the base.
 
 `watch` is the one step that names no task. It reads the main checkout's settings, and once every
 `flow.watch_seconds` it lists the pull requests of the base branch with one call of `gh` and reads
@@ -2584,7 +2586,7 @@ def forge_done(task: Task, view: dict) -> dict:
 
 def viewed(task: Task, pr: dict | None = None) -> dict:
     pr = pr or task.kept()["pr"]
-    return json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "state,headRefOid,mergeCommit").stdout)
+    return json.loads(gh(task, "pr", "view", str(pr["number"]), "--json", "state,headRefOid,mergeCommit,mergeable").stdout)
 
 
 def cmd_merged(task: Task) -> dict:
@@ -2607,7 +2609,9 @@ def cmd_merged(task: Task) -> dict:
         task.keep(closed=True)
         task.state("dropped", "the pull request was closed on the forge", f"pull request {pr['url']} is closed with no merge; the branch keeps its commits")
         return {"task": task.slug, "pull_request": pr, "closed": True, "state": "dropped"}
-    raise LandError("the pull request is not merged yet")
+    # Still open: what the forge says of a conflict with the base, on the head it says it of, for the list of what waits
+    task.keep(forge={"mergeable": view.get("mergeable"), "head": view.get("headRefOid")})
+    raise LandError("the pull request is not merged yet" + (f", and the forge calls it conflicting with {task.base}" if view.get("mergeable") == "CONFLICTING" else ""))
 
 
 # The fields of a pull request one look of the watch reads, for all the open tasks at once.

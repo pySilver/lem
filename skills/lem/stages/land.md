@@ -285,12 +285,13 @@ one finds what the run before it finished.
    the plan talk's companion when one is still open.
 
 9. **After a merge on the forge, or a pull request that became conflicting.** The watch ended, or
-   `merged` found a merge or a close at a turn of yours. The watch's JSON names each merged or
+   `merged` found at a turn of yours a merge, a close, or a pull request the forge calls
+   conflicting (`conflict: true` in `lem project waiting`). The watch's JSON names each merged or
    closed task under `ended`, and under `conflicting` each open task whose pull request the forge
    now calls conflicting, with `why`. For each task under `ended`: `lem land merged SLUG`, which
    writes `landed` (then step 8) or `dropped` (the top of this stage). Then bring onto the base
-   each task whose pull request the forge calls conflicting (under `conflicting`, or `CONFLICTING`
-   in `open`), one at a time and before any `ready` task takes the line, and tell the owner the
+   each task whose pull request the forge calls conflicting (under `conflicting`, `CONFLICTING` in
+   `open`, or `conflict: true` in `lem project waiting`), one at a time and before any `ready` task takes the line, and tell the owner the
    `why` in one line first: `branch.propose = "pull-request"` is his word for this push. Leave
    every other open task as it is: the forge merges it as it is, and `/lem land` for it meets the
    moved base at step 7. For each conflicting task:

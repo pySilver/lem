@@ -580,6 +580,34 @@ else
   fail "a pull request that became conflicting: code=$wcode $newly / $again_alive / $first / $stopped / $synced"
 fi
 
+# The status asks merged for each open task: a pull request still open is "not merged yet", and merged keeps what the
+# forge says of a conflict on the pushed head, so the list of what waits says it beside green without the watch.
+line_task w-seven small 8 seven
+proposed w-seven
+seven=$(gw_state 'next(n for n, p in d["prs"].items() if p["head"] == "fix/w-seven")')
+conflict_seven() { project --repo "$GWS" waiting | field 'next((t["green"], t["conflict"]) for t in d["pull_requests"] if t["task"] == "w-seven")'; }
+unasked=$(conflict_seven)
+clear_said=$(gw_land merged w-seven 2>&1 || true)
+clear=$(conflict_seven)
+gh_set "d['prs']['$seven']['mergeable'] = 'CONFLICTING'" "$GW"
+conflict_said=$(gw_land merged w-seven 2>&1 || true)
+conflicting=$(conflict_seven)
+# somebody pushed to the branch on the forge: what the forge says is of a head Lem did not push, and says nothing of it
+pushed_seven=$(git -C "$GWO" rev-parse refs/heads/fix/w-seven)
+git -C "$GWO" update-ref refs/heads/fix/w-seven "$(git -C "$GWO" -c user.name=t -c user.email=t@t commit-tree -p "$pushed_seven" -m "fix: pushed by someone else" "$pushed_seven^{tree}")"
+gw_land merged w-seven >/dev/null 2>&1 || true
+moved=$(conflict_seven)
+git -C "$GWO" update-ref refs/heads/fix/w-seven "$pushed_seven"
+gh_set "d['prs']['$seven']['mergeable'] = 'MERGEABLE'" "$GW"
+project --repo "$GWS" state w-seven dropped "the test is over" >/dev/null
+if [ "$unasked" = "(True, None)" ] && [ "$clear_said" = "land.py: the pull request is not merged yet" ] && [ "$clear" = "(True, False)" ] \
+  && [ "$conflict_said" = "land.py: the pull request is not merged yet, and the forge calls it conflicting with main" ] && [ "$conflicting" = "(True, True)" ] \
+  && [ "$moved" = "(True, None)" ]; then
+  pass "merged on a pull request that is still open keeps what the forge says of a conflict on the pushed head, and waiting gives conflict beside green: null before any look and when the head moved, false, then true"
+else
+  fail "a conflict in the list of what waits: $unasked / $clear_said / $clear / $conflict_said / $conflicting / $moved"
+fi
+
 # A careful change keeps its review through a rebase with no conflict, onto a base that left its files alone and onto
 # one that changed one of them in other lines.
 line_task w-care small 7 care
