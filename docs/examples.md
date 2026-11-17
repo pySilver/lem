@@ -1,7 +1,7 @@
 # Examples
 
 Four tasks, from the request to the end. Each example is an illustration: the repository, the
-names and the answers are examples. The lines of Lem have the form that Lem uses.
+names and the answers do not come from a real run. Lem's lines have the form that Lem uses.
 
 ## A small fix
 
@@ -11,13 +11,13 @@ names and the answers are examples. The lines of Lem have the form that Lem uses
    it acceptance criteria.`
 3. One builder adds the rule to the stylesheet, and a test that fails on the base branch. It runs
    the tests of the files that it changed, and it commits.
-4. The builder saw that the amount column wraps too. It files that as a backlog item, in a commit
-   of its own.
+4. The builder sees that the amount column wraps too. It files that as a backlog item, in a
+   commit of its own.
 5. The checks run the whole suite. The test of the criterion passes on the branch and fails on the
    base commit.
 6. The review agent reads the diff itself: one read. It finds nothing that must change.
 7. Lem opens a pull request. Its first line is "Green." It lists the backlog item.
-8. You merge it on GitHub. The watch of Lem sees the merge, and Lem removes the worktree and the
+8. You merge it on GitHub. Lem's watch sees the merge, and Lem removes the worktree and the
    branch.
 
 ## A full feat, with an interview
@@ -28,14 +28,14 @@ names and the answers are examples. The lines of Lem have the form that Lem uses
    without you.`
 3. A scout reads the export code. At the same time, Lem asks its first question: "The gift note
    goes into a new last column, `gift_note`. Is that right?" You answer "yes".
-4. The scout reports that the export already writes an empty cell for a value that is not there. Lem asks:
+4. The scout reports that the export already writes an empty cell for an absent value. Lem asks:
    "An order with no note gets an empty cell, the same as other empty values. Keep that?" You
    answer "yes".
 5. Lem shows two acceptance criteria, and the personas read them:
    1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that
       text in its row.
    2. An order with no gift note has an empty cell, not the word "None".
-6. Nobody is confused, and you type "yes".
+6. No persona is confused, and you type "yes".
 7. A lead commits a plan with two tasks. The plan is not careful and not large, so it gets no plan
    talk.
 8. One new builder makes each task. Each runs the tests of the files that it changed.
@@ -51,9 +51,9 @@ names and the answers are examples. The lines of Lem have the form that Lem uses
    finds the cause first, and I tell you what it found: then it is a small fix, a full fix, or no
    bug.`
 3. The investigator makes an invoice with one credit note, and reads the total. The total is
-   correct: the credit note is a line of its own, under the total, as the invoice template wants.
-4. Lem tells you what the code does, in numbered steps, with where each step was read. The task is
-   answered.
+   correct: the credit note is a line of its own, under the total, as the invoice template requires.
+4. Lem tells you what the code does, in numbered steps. Each step names the place in the code
+   where the investigator read it. The task is answered.
 5. The investigator committed nothing, so Lem removes the worktree and the branch. The board shows
    the task in the "Done" lane, with the answer.
 
