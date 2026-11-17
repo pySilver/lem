@@ -59,7 +59,7 @@ holds the rules that every builder follows. A project can replace it with its ow
 | the review agent | `review.md` | makes the careful call on the diff, selects the size of the review, runs it, and writes its record |
 
 The stage files tell each role what to do: `skills/lem/stages/new.md`, `plan.md`, `build.md`,
-`talk.md`, `land.md`, `init.md`, `learn.md` and `night.md`. A lead reads `plan.md` and
+`talk.md`, `land.md`, `init.md`, `learn.md`, `night.md` and `status.md`. A lead reads `plan.md` and
 `build.md`. Only the defender reads `talk.md`. A part that only one path of Lem's reads is a file
 of its own, and Lem reads it only on that path:
 

@@ -68,9 +68,7 @@ one finds what the run before it finished.
 3. **`polish`: the polish pass**, for a full change: read `stages/polish.md` now and follow it.
    A small change never has the pass, and `lem land polish` refuses one: one builder changed one rule, its own checks ran, the review reads every line of it, and
    its builder filed each defect it saw outside the change in a commit of its own, which the pull
-   request lists. In the first real small change, a polish pass started a second builder only
-   to file one item, and took 73 s, as long as the builder of the change itself (a scratch
-   repository, 2026-11-17).
+   request lists.
 4. **`checks`: the machine checks**, with no model in them, on the tip that will be proposed.
    - The polish pass is on that tip (step 3): the step refuses a full change without one before any
      command runs.
@@ -301,7 +299,7 @@ Such a builder writes no state block, because the task stays in `landing`, and i
 `prompts/landing.md` asks for. As it starts, log its job for the board, `lem
 project log SLUG builder.start "job=JOB"` with the job of its brief; the
 polish pass is the one job whose start `lem land polish` logs itself, as `checks` and `read` log the
-start of the checks and of a review that is due. Read `report.md` again after the polish pass, before step 6.
+start of the checks and of a review that is due.
 
 Then the next: a `ready` task takes the line, and the queue is looked at as `stages/start.md`
 says under "The queue": a landing holds a place, so its end may free one.

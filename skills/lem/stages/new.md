@@ -166,11 +166,8 @@ beside this one, and the step that chooses the path names it.
    (step 4), and stop here: it starts when that task is `landed`, `answered` or `dropped`, so it
    builds on what the earlier one changed. Two asks that only name the same thing (the same
    screen, the same file, the same function) each start on their own, and the owner orders their
-   pull requests.
-   In a trial, a bug waited behind a one-day task because the two changed one function, and
-   whoever ran the trial had to tell Lem to start it (a scratch repository, 2026-11-17). Do not
-   read the code to find an overlap the asks do not show; the landing line settles that one
-   (`stages/land.md`, step 1).
+   pull requests. Do not read the code to find an overlap the asks do not show; the landing line
+   settles that one (`stages/land.md`, step 1).
 8. **Start its lead**, as `stages/start.md` says: read it now. Open the board when this session
    has not opened it yet (`SKILL.md`, Status); it stays in the sidebar beside your session. Then go back to the
    owner's next message. Do not wait for the lead and do not watch it.
@@ -190,11 +187,7 @@ and only his yes puts a topic into the settings.
 ## A small change
 
 One criterion, his own sentence made exact, nothing careful and no question open: one builder makes
-it, the landing checks it and one read reviews it, and it waits for nothing. The owner, of a
-polish agent with nothing to do on a typo: "That is exactly one of the cases that may frustrate
-the Developer" (2026-11-16). The audit of that day counted 6 to 11 agents and 15 to 32 minutes
-from a typo to its pull request, against about 4 minutes measured for a correction in the first
-flow (unmeasured estimates built on the skill files' measurements; `AGENTS.md` has the ledger).
+it, the landing checks it and one read reviews it, and it waits for nothing.
 
 1. **The criterion.** Write it to `criteria.md` in the task directory, in the form `lem criteria
    --help` shows, with `Size: small, because ...` and the one criterion, and approve it in his name:

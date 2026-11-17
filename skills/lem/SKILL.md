@@ -113,9 +113,9 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
-| bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, each plan drafted at night, each retro's proposals; and the board of all tasks, with what builds. A proposal or a draft he answers with approve, reject or later, all on one page | below |
+| bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, each plan drafted at night, each retro's proposals; and the board of all tasks, with what builds. A proposal or a draft he answers with approve, reject or later, all on one page | `stages/status.md` |
 | `nap` | a nap now, on the owner's word, also when the naps are off: a fresh agent reads the recent tasks, dreams, and writes the dream down; Lem tells him its name when it ends. Where the settings have the naps on (`naps.on`), Lem also naps by itself after a task ends | `stages/nap.md` |
-| `status <task>` | the board of one task | below |
+| `status <task>` | the board of one task | `stages/status.md` |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
 | a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
@@ -345,11 +345,6 @@ state blocks, each command of the checks and each review with who answered.
 It reads the event log by itself every two seconds, so open it once, and again after agterm was
 started again.
 
-A task's own board also shows its criteria, as the top of its plan has them: each with the tests
-that hold it and what the last check of those tests gave. `lem criteria
-show SLUG` prints the same. The criteria are what the owner reads of a task; the rest of the plan
-is the agents'. For a status of one task, say its criteria in his words before anything else.
-
 The board of all tasks has a second tab, the backlog: the items of the backlog path in groups by
 who can act on each (when the `lem-backlog` skill's sorting has verdicts, by each item's own
 verdict otherwise), with an item whose place in the code is gone marked as such. An item's one
@@ -363,18 +358,8 @@ When the project has a nap, the board of all tasks has a third tab, Dreams: the 
 with its dream, the thing made from it and its waking note (`stages/nap.md`). `board.py` writes its
 file at every run, as it writes the backlog's.
 
-Every project of Lem has personas, and a project without them has an onboarding that is not
-finished. The machine check (`lem doctor`), run in the repository, has
-a `project personas` row that says how many the panel finds, from the checkout or the default
-branch. Look at it with the status: with none, say so and name the step, `/lem init`, which
-asks who a decision here affects and writes them without touching the settings that exist; with
-one, say that a panel needs a second person who would notice other things. A `correction hook`
-row is there only when a settings file still holds the hook that an install of Lem before the
-plugin wrote, beside the plugin: say each file and the entry its `without_it` says to delete by
-hand, in one line, and ask nothing. Each message is still judged once, so it waits for no answer.
-
-Before you say it, find out what merged. The owner merges and closes pull requests on the forge,
-and the forge tells Lem nothing by itself: for each `open` task whose `proposal` in `lem project
+Before a status, and at each of your turns, find out what merged. The owner merges and closes
+pull requests on the forge, and the forge tells Lem nothing by itself: for each `open` task whose `proposal` in `lem project
 tasks` has a `pull_request`, run `lem land merged SLUG`. One that is
 merged becomes `landed`, and one he closed with no merge becomes `dropped`; take step 9 of
 `stages/land.md` for them (the ticket, `clean`, a conflicting pull request onto the new base), then the
@@ -382,8 +367,7 @@ queue, as `stages/start.md` says under "The queue", since a task queued `after:`
 no news; "not merged yet, and the forge calls it conflicting with main" is: `lem project waiting`
 then gives that pull request `conflict: true`, you say "#4 is green by its checks, and conflicts
 with main" (or not green, with its reasons), and you take step 9 of `stages/land.md` for it at
-once, without waiting for the watch. Do the same at each of your turns where you read `lem decisions pending` (the row "a choice
-waits" of Subcommands).
+once, without waiting for the watch.
 
 While a task is `open` with a pull request, keep one watch of the forge in the background, never
 two: `run-in-background` with `lem land watch`. It looks once every
@@ -397,48 +381,3 @@ with exit 1 says why: nothing open to watch, `gh` missing or not signed in (tell
 line once, as it is), no forge in this project, or it was stopped. Start no other one until that
 reason is gone. The board says when the forge was last looked at, and that nobody watches when
 the watch's last look is older than three of its intervals.
-
-Then say what waits for him, as one list in one order, the same at every bare `/lem`:
-
-```bash
-lem project waiting
-```
-
-It gives each kind under its key, in this order, and you say them so, in plain names and never in
-task codes, one line each, and leave out a kind that has none:
-
-1. `choices`: each choice of a task that waits for him, as `lem decisions pending` gives it: the
-   task, the choice, and the minutes its wait has left, or that it waits for his word;
-2. `criteria`: each task whose acceptance criteria wait for his yes;
-3. `held`: each task that waits for a step of his or one more fact, with that step;
-4. `pull_requests`: each open pull request, its address (or that its branch is ready to land),
-   and green or each reason it is not;
-5. `drafts`: each plan drafted at night, with its plan's path;
-6. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
-   named with it.
-
-When `count` is 0, say "nothing waits for you" in one line. Then, after the list, what builds and
-what each other task waits on, what landed today, and what was answered today with its answer in
-one line, from `lem project tasks`.
-
-A draft and a retro's proposals are his to answer, and they wait until he says so: on his word
-("open them", "the drafts"), `ask-owner` with one page that holds each of them as a question of
-its own, each with the three answers approve, reject and later. A retro's proposal shows the
-move it would make, with the file, the change and the case that asks for it, as the retro wrote
-it. A draft shows its plan's acceptance criteria and the night report's verdict on it. Then, for
-each answer:
-
-- a draft: approve builds it (`/lem build` with its task), reject drops it (`lem project state
-  SLUG dropped "the owner rejected the night's draft"`, with its worktree and branch removed as
-  `clean` does), later leaves it `drafted`;
-- a retro's proposal: approve makes the move as `stages/learn.md` says, reject records it as
-  rejected there, later keeps it. Rewrite the retro's file with the proposals answered later
-  only, and remove it when none is left, so that the list names what still waits.
-
-A dropped, landed or answered task has no choice that waits. A task whose status is null has a
-state nobody wrote through the script: say so. A task with a `ticket_owed` ended, and its ticket in
-the tracker does not say so yet: say that too. With a draft in the list, the night report of
-today or of the night before, `night/YYYY-MM-DD.md` in the folder `lem project state-dir` prints,
-gives its verdict and what the owner gets; the files hold no record of a status shown. The status
-changes what already happened and nothing else: a merge on the forge is written down, with the
-steps that follow a merge and the queue that it frees.

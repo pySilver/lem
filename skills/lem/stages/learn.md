@@ -91,7 +91,7 @@ the form Lem's question page takes: one question for each proposal, its prompt t
 line, its body the file, the change and the case, and the options approve, reject and later. Then
 it ends, with its closing report. `lem project waiting` lists the file, and a bare `/lem` says "the
 retro of DATE proposes N changes"; on the owner's word Lem opens the proposals on one page, as
-`SKILL.md` says under Status, and makes each move he approved. First-time lessons are recorded without a question. The retro's closing report still names every
+`stages/status.md` says, and makes each move he approved. First-time lessons are recorded without a question. The retro's closing report still names every
 file it changed, a first-time record included, with what changed and why.
 
 ## The correction queue
