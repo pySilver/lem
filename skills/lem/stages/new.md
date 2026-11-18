@@ -129,7 +129,7 @@ beside this one, and the step that chooses the path names it.
    Branch feat/gift-note-in-export. An interview now, then acceptance criteria for your yes;
    after that it runs to the pull request without you.` A topic in reach goes first: `Careful: this changes how a
    customer is charged. feat, full: ...`. A fix investigated first: `fix: "the total skips
-   credit notes". Branch fix/total-skips-credit-notes. A builder finds the cause first, and I
+   credit notes". Branch fix/total-skips-credit-notes. An investigator finds the cause first, and I
    tell you what it found: then it is a small fix, a full fix, or no bug.` A full change from a
    complete request names what stands in for the interview (`the ticket says what is wanted`).
    A decision you took for him at step 3 is a second line. Nothing repeats this line later: the

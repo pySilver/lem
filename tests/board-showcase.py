@@ -202,7 +202,7 @@ def afternoon(shop: Shop) -> None:
     # A bug whose investigation runs.
     t = "cart-total-after-coupon"
     s.task(t, "The cart total is wrong after a coupon since yesterday")
-    s.state(t, 12, "building", "a builder reproduces the bug and finds its cause", "investigation: bug",
+    s.state(t, 12, "building", "an investigator reproduces the bug and finds its cause", "investigation: bug",
             "type: fix, because the ask says the total is wrong since yesterday")
     s.log(t, 11.5, "investigation.start", "type=fix")
 
@@ -266,7 +266,7 @@ def afternoon(shop: Shop) -> None:
     # A question, answered by its investigation.
     t = "why-export-is-slow"
     s.task(t, "Why does the monthly export take a minute?")
-    s.state(t, 205, "building", "a builder finds the answer", "investigation: question", "type: question, because the ask asks why")
+    s.state(t, 205, "building", "an investigator finds the answer", "investigation: question", "type: question, because the ask asks why")
     s.log(t, 204.5, "investigation.start", "type=question")
     (s.dir / "tasks" / t / "investigation.md").write_text("# Investigation\n\nThe export reads every order of the month one query at a time.\n")
     s.log(t, 186, "investigation", "type=question", "call=answer", "line=the export reads each order of the month with its own query", "where=reports/export.py:monthly")

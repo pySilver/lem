@@ -191,7 +191,7 @@ git -C "$AC" worktree add -q -b fix/refund-shows-zero "$act" main
 # shellcheck disable=SC2016 # the test file's own text, with its quotes
 mkdir -p "$act/tests" && echo 'test "$(cat total)" = 0' > "$act/tests/refund.sh"
 git -C "$act" add -A && git -C "$act" commit -q -m "test: an invoice after a refund shows what is left to pay"
-project --repo "$AC" state refund-shows-zero building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
+project --repo "$AC" state refund-shows-zero building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
 printf '%s\n' '# Investigation' '' 'Reproduced: yes.' > "$acd/investigation.md"
 project --repo "$AC" log refund-shows-zero investigation type=fix call=not-a-bug "line=the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
 project --repo "$AC" state refund-shows-zero answered "not a bug: the invoice shows what is left to pay" >/dev/null

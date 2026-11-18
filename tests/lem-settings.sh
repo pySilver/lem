@@ -925,11 +925,11 @@ project --repo "$ANS" init --base main --reviewer codex >/dev/null
 "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^max_tasks = 4$", "max_tasks = 1", s, count=1))' "$ANS/.lem/project.toml"
 ans_dir=$(project --repo "$ANS" task-dir zero-after-refund --ask "invoices show 0 after a refund")
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
-unknown=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: defect, because the total is wrong" 2>&1 || true)
-unsaid=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix" 2>&1 || true)
-old_line=$(project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the total is wrong" 2>&1 || true)
+unknown=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: defect, because the total is wrong" 2>&1 || true)
+unsaid=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix" 2>&1 || true)
+old_line=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the total is wrong" 2>&1 || true)
 after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
-project --repo "$ANS" state zero-after-refund building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
+project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
 project --repo "$ANS" state zero-after-refund building "the test that reproduces the bug is committed" "investigation: bug" >/dev/null
 kind=$(project --repo "$ANS" tasks | field 'next(t["type"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
 if grep -qF "'defect' is not a type of request" <<<"$unknown" && grep -qF "feat, fix, docs, refactor, perf, test, chore, question" <<<"$unknown" \

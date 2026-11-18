@@ -355,14 +355,14 @@ retime "$M" now -60 -59 -58 -40 -39 -38 -37 -36
 # A bug that its investigation found to be none: the task ends answered, with its report.
 A=refund-shows-zero
 task "$A" "Invoices show 0 after a refund"
-project state "$A" building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
+project state "$A" building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
 printf '%s\n' '# Investigation' '' 'Reproduced: yes, with tests/refund.sh.' > "$STATE/tasks/$A/investigation.md"
 project log "$A" investigation type=fix call=not-a-bug "line=a refund is a credit note, and the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
 project state "$A" answered "not a bug: the invoice shows what is left to pay" "report: investigation.md" >/dev/null
 retime "$A" now -30 -12 -11
 # A bug whose investigation runs.
 task cart-total-wrong "The cart total is wrong since yesterday"
-project state cart-total-wrong building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong since yesterday" >/dev/null
+project state cart-total-wrong building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong since yesterday" >/dev/null
 project log cart-total-wrong investigation.start type=fix >/dev/null
 
 # A full change whose every stage logged its start (SKILL.md), from the interview to the merge, on 13
@@ -1100,16 +1100,17 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" feed \
       "The investigation found no bug|a refund is a credit note, and the invoice shows what is left to pay|billing/invoice.py:total · reproduced" "Answered|!not a bug: the invoice shows what is left to pay") \
     && ! grep -q 'class="phase cur"' "$WORK/task-$A.dom" \
-    && grep -q 'data-head="The builders · The investigation" data-sub="a builder reproduces the bug and finds its cause · fix, because the ask says the total is wrong today"' "$WORK/task-$A.dom" \
+    && grep -q 'data-head="The builders · The investigation" data-sub="an investigator reproduces the bug and finds its cause · fix, because the ask says the total is wrong today"' "$WORK/task-$A.dom" \
     && grep -q 'data-head="Investigation"' "$WORK/task-$A.dom" && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$A.dom" "Inv." "!Waits for you"); then
     pass "an answered task is in the lane of what ended with its type and its investigation's answer; its own board says it ended with a report, names the call, the cause's place and the report, and draws the investigation as the builders' span"
   else
     fail "an answered task: ${why:-the span of the investigation, or a phase marked as current}"
   fi
   draw task-cart-total-wrong
-  if why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Cart total wrong|Investigating: a builder reproduces the bug and finds its cause|fix") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any criterion|fix, because the ask says the total is wrong since yesterday|!lead"); then
-    pass "a task whose investigation runs says so on its card and on its own board, and names the investigator, not a lead"
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Cart total wrong|Investigating: an investigator reproduces the bug and finds its cause|fix") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any criterion|fix, because the ask says the total is wrong since yesterday|!lead") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" feed "The investigation started|an investigator reproduces the bug and finds its cause|!a builder"); then
+    pass "a task whose investigation runs says so on its card and on its own board, and names the investigator, not a lead and not a builder"
   else
     fail "a task whose investigation runs: $why"
   fi

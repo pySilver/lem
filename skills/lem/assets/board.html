@@ -1291,7 +1291,7 @@ function timeOf(t, end) {
     if (e.event === 'interview.start') pair(i, e, 'you', 'The interview', 'Lem asks you one question at a time', x => x.event === 'criteria.read.start' || x.event === 'criteria.approved');
     else if (e.event === 'scout.start') pair(i, e, 'builders', 'The scout reads the code', 'for the facts the criteria need', x => x.event === 'scout');
     else if (e.event === 'criteria.read.start') { const r = pair(i, e, 'personas', 'The personas’ read of the criteria', readSub, x => x.event === 'criteria.read'); if (r) startedReads.add(r); }
-    else if (e.event === 'investigation.start') pair(i, e, 'builders', 'The investigation', investigatedType(e) === 'fix' ? 'a builder reproduces the bug and finds its cause' : 'a builder finds the answer', x => x.event === 'investigation');
+    else if (e.event === 'investigation.start') pair(i, e, 'builders', 'The investigation', investigatedType(e) === 'fix' ? 'an investigator reproduces the bug and finds its cause' : 'an investigator finds the answer', x => x.event === 'investigation');
     else if (e.event === 'builder.start' && t.blocks[blockOf.get(e)]?.status !== 'landing') {
       pair(i, e, 'builders', cap(String(e.job ?? 'a job')), 'a fresh builder; its span ends at the next state block', x => x.event === 'task.state' || LANDING_STARTS.includes(x.event) || CHECKS.includes(x.event));
     }
@@ -1597,7 +1597,7 @@ const SAYS = {
   'scout.start': () => ({info: {actor: 'lead', icon: 'eye'}, head: 'The scout started', text: 'it reads the code for the facts the criteria need'}),
   'scout': () => ({info: {actor: 'lead', icon: 'file'}, head: 'The scout’s report is in', text: ''}),
   'criteria.read.start': e => ({info: {actor: 'quiet', icon: 'users'}, head: 'The personas’ read of the criteria started', text: `run by ${e.by === 'lead' ? 'the agent' : 'Lem'}`}),
-  'investigation.start': e => ({info: {actor: 'lead', icon: 'eye'}, head: 'The investigation started', text: investigatedType(e) === 'fix' ? 'a builder reproduces the bug and finds its cause' : 'a builder finds the answer'}),
+  'investigation.start': e => ({info: {actor: 'lead', icon: 'eye'}, head: 'The investigation started', text: investigatedType(e) === 'fix' ? 'an investigator reproduces the bug and finds its cause' : 'an investigator finds the answer'}),
   'builder.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'A builder started', text: e.job}),
   'polish.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass started', text: `on ${e.before ?? '?'}`}),
   'gate.start': e => ({info: {actor: 'gate', icon: 'play'}, head: 'The checks started', text: `${plural(e.commands ?? 0, 'command')} on ${e.tip ?? '?'}`}),
@@ -1866,7 +1866,7 @@ function buildTaskProgress(t) {
       ring(finished, current, total || 1, total ? `${finished}/${total}` : '–', 'plan tasks'),
       h('div', {class: `phases a-${t.info.actor}`}, phases.map((name, k) => h('div', {class: `phase ${k < past ? 'past' : k === at_ ? 'cur' : ''}`}, h('i'), name, h('small', {}, sub(k))))),
       h('div', {class: 'stats'},
-        stat('Who works on it', t.lead ? LEAD[leadOf(t)].tag : t.investigated ? 'investigator' : '–', t.lead ? LEAD[leadOf(t)].stat : t.investigated ? 'a builder examined the bug or the question first' : t.closed ? 'no agent was started' : 'no agent was started yet'),
+        stat('Who works on it', t.lead ? LEAD[leadOf(t)].tag : t.investigated ? 'investigator' : '–', t.lead ? LEAD[leadOf(t)].stat : t.investigated ? 'an investigator examined the bug or the question first' : t.closed ? 'no agent was started' : 'no agent was started yet'),
         stat('Last commit', t.commit?.head ?? '–', t.commit ? t.commit.subject : t.closed ? 'no commit of its branch is on record' : 'no commit on its branch yet'),
         stat('Open for', t.closed ? span(t.since - t.first) : live(t.first), `opened ${stamp(t.first, Date.now())}`),
         stat('Checks', t.gates.length ? (t.gateBad ? 'red' : 'green') : '–', t.gates.length ? `${plural(t.gates.length, 'command')} in the last run` : t.status === 'answered' ? 'none: it ended with a report' : 'they run before the pull request', t.gates.length ? (t.gateBad ? 'bad' : 'ok') : ''),
