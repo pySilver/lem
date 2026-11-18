@@ -19,7 +19,7 @@ personas=$(decide log gift-note --what "Two notes on one order" --chose "both no
   --said "The merchant and the accountant both picked the semicolon." | field '(d["id"], d["by"], "criterion" in d, d["said"])')
 if [ "$lead" = "(1, 'taken', 'lead', 'rename the column')" ] \
   && [ "$personas" = "(2, 'personas', False, 'The merchant and the accountant both picked the semicolon.')" ] \
-  && grep -qF -- "--by personas needs --said: who answered and what each picked" <<<"$nosaid" && [ "$nostory" = 2 ] \
+  && grep -qF -- "--by personas needs a --vote for each answer of a persona" <<<"$nosaid" && [ "$nostory" = 2 ] \
   && [ "$(grep -c '' "$dfile")" = 2 ] && [ "$(grep -c '"event": "decision.taken", "task": "gift-note"' "$DC/.lem/state/events.jsonl")" = 2 ]; then
   pass "a decision of the lead or of the personas is written down with its number, and each is an event too; the personas' one needs what they said, and a decision carries no criterion: a criterion's change has a record of its own"
 else
@@ -308,6 +308,47 @@ if [ "$branch_wait" = 15 ]; then
   pass "a choice asked from a task's worktree waits the main checkout's flow.decision_wait, not the one the task's branch writes"
 else
   fail "the wait of a choice asked from a worktree: $branch_wait"
+fi
+
+# The ladder's record: each level that settles logs with its own name; the personas settle with two votes or more, all for
+# the option taken, and a split, one vote or a vote for another option is refused and writes nothing.
+project --repo "$DC" task-dir ladder-task >/dev/null
+lfile=$DC/.lem/state/tasks/ladder-task/decisions.jsonl
+ladder() { decide log ladder-task --what "Where the note goes" --option "the last column" --option "after the price" --why "the import reads by place" "$@"; }
+voted=$(ladder --chose "the last column" --by personas --vote "the merchant, opus=the last column" --vote "the accountant, opus=the last column" | field '(d["by"], d["votes"], d["options"])')
+split=$(ladder --chose "the last column" --by personas --vote "the merchant, opus=the last column" --vote "the accountant, opus=after the price" 2>&1 || true)
+alone_vote=$(ladder --chose "the last column" --by personas --vote "the merchant, opus=the last column" 2>&1 || true)
+bad_vote=$(status_of ladder --chose "the last column" --by personas --vote "the merchant" --vote "the clerk, opus=the last column")
+lines_after_refusals=$(grep -c '' "$lfile")
+gate=$(decide log ladder-task --what "The header's name" --chose "Gift note" --by gate --why "docs/rulings/headers.md: a header says what the cell holds" | field 'd["by"]')
+dialectic=$(ladder --chose "after the price" --by dialectic --level "personas=1 for the last column, 1 for after the price" --level "dialectic=no break" | field '(d["by"], d["levels"])')
+unsettled=$(ladder --chose "the last column" --by lead --unsettled --level "experts=split" | field '(d["by"], d["unsettled"])')
+not_lead=$(status_of ladder --chose "the last column" --by experts --unsettled)
+if [ "$voted" = "('personas', [['the merchant, opus', 'the last column'], ['the accountant, opus', 'the last column']], ['the last column', 'after the price'])" ] \
+  && grep -qF "the accountant, opus voted otherwise" <<<"$split" && grep -qF "this one has 1" <<<"$alone_vote" && [ "$bad_vote" = 1 ] && [ "$lines_after_refusals" = 1 ] \
+  && [ "$gate" = gate ] && [ "$dialectic" = "('dialectic', {'personas': '1 for the last column, 1 for after the price', 'dialectic': 'no break'})" ] \
+  && [ "$unsettled" = "('lead', True)" ] && [ "$not_lead" = 1 ]; then
+  pass "each level of the ladder logs the decision it settles: the personas only with two votes or more, all for the option taken, else nothing is written; the gate, the dialectic and the lead's unsettled pick each with their own name and what each level answered"
+else
+  fail "the ladder's record: $voted / $split / $alone_vote / $bad_vote / $lines_after_refusals / $gate / $dialectic / $unsettled / $not_lead"
+fi
+# The owner says "go alone" while a choice waits: wait returns at once, and the timeout takes the choice before its
+# deadline, early; an irreversible step still waits for him. settle is gone.
+decide ask ladder-task "${CASE[@]}" --what "The note's font" --option plain --option bold --recommended plain --why "The export has no fonts." --said "The personas split; the experts split." >/dev/null
+decide ask ladder-task "${CASE[@]}" --what "Email the merchants" --option "send it" --option "send nothing" --recommended "send nothing" --why "Nothing they see changes." --said s --irreversible person >/dev/null
+with_him=$(status_of decide timeout ladder-task 5)
+project --repo "$DC" mode ladder-task alone --by owner --words "go alone" >/dev/null
+started=$(date +%s)
+woke=$(decide wait ladder-task 5 --seconds 30 | field '(d["ended"], "timeout ladder-task 5" in d["next"])')
+took=$(( $(date +%s) - started ))
+early=$(decide timeout ladder-task 5 | field '(d["chose"], d["by"], d["early"])')
+still=$(decide timeout ladder-task 6 2>&1 || true)
+settle=$(status_of decide settle ladder-task 6 --away)
+if [ "$with_him" = 1 ] && [ "$woke" = "('the task runs without the owner now', True)" ] && [ "$took" -lt 30 ] && [ "$early" = "('plain', 'timeout', True)" ] \
+  && grep -qF "no timeout takes it" <<<"$still" && [ "$settle" = 2 ]; then
+  pass "when the owner says go alone, a wait on a choice returns at once and the timeout takes it before its deadline, marked early; an irreversible step still waits for him; and settle is no command"
+else
+  fail "a choice when the task runs without the owner: $with_him / $woke / $took / $early / $still / $settle"
 fi
 
 

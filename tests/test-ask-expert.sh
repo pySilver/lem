@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The experts of a choice that waits for the owner, offline: decisions.py keeps each expert's
 # advice under the task's lock and refuses a pick that is no option; the end of the wait takes the
-# experts' shared pick, and the recommended option when they split; settle --away takes the shared
-# pick before the wait ends, never for an irreversible step; and the lem-ask-expert skill's
+# experts' shared pick, and the recommended option when they split; when the task runs without the
+# owner the timeout takes it before the wait ends, never for an irreversible step; and the lem-ask-expert skill's
 # brief file holds the choice and the criteria. No expert runs here.
 set -euo pipefail
 
@@ -162,52 +162,32 @@ else
   fail "a late answer and the experts: $lateanswer / $written"
 fi
 
-# settle --away: the shared pick before the deadline; refused when they split, for an irreversible step, and after the deadline
+# A record of an older Lem: a `settled` line, which `settle --away` wrote, still reads as the experts' pick, and an answer
+# after it is late. And the owner's "go alone" while a choice with both experts' shared pick waits: the timeout takes
+# that pick before the deadline, early; an irreversible step is never taken so.
 c12=$(ask "The note's column name")
 decide advise "$SLUG" "$c12" --expert fable --pick "after the price" --why "The accountant reads the price first." >/dev/null || true
-noaway=$(decide settle "$SLUG" "$c12" 2>&1 || true)
-noawaycode=$(status_of decide settle "$SLUG" "$c12")
-halfway=$(decide settle "$SLUG" "$c12" --away 2>&1 || true)
 decide advise "$SLUG" "$c12" --expert astra --pick "after the price" --why "A note beside the price is seen." >/dev/null || true
-settled=$(decide settle "$SLUG" "$c12" --away | field '(d["kind"], d["chose"], d["by"], d["away"], sorted(d["experts"]))' || true)
-twice=$(decide settle "$SLUG" "$c12" --away 2>&1 || true)
+printf '{"id": %s, "at": "2026-11-17T10:00:00Z", "kind": "settled", "chose": "after the price", "by": "experts", "away": true, "experts": {"fable": "f", "astra": "a"}}\n' "$c12" >> "$RECORD"
 stood=$(one "$c12" | field '(d["state"], d["chose"], d["by"], d["away"])' || true)
 waitsays=$(decide wait "$SLUG" "$c12" --seconds 1 | field 'd["ended"]' || true)
 gone=$(decide pending "$SLUG" | field "[c['id'] for c in d['waiting'] if c['id'] == $c12]" || true)
 after=$(decide answer "$SLUG" "$c12" --chose "the last column" | field '(d["kind"], d["state"], d["taken"], d["timeout_written"], "it is a correction" in d["next"])' || true)
 c13=$(ask "The note's width")
 decide advise "$SLUG" "$c13" --expert fable --pick "after the price" --why "f" >/dev/null || true
-decide advise "$SLUG" "$c13" --expert astra --pick "the last column" --why "a" >/dev/null || true
-splitaway=$(decide settle "$SLUG" "$c13" --away 2>&1 || true)
-splitcode=$(status_of decide settle "$SLUG" "$c13" --away)
+decide advise "$SLUG" "$c13" --expert astra --pick "after the price" --why "a" >/dev/null || true
 c14=$(ask "Email the accountants about the column" --irreversible person)
-decide advise "$SLUG" "$c14" --expert fable --pick "after the price" --why "f" >/dev/null || true
-decide advise "$SLUG" "$c14" --expert astra --pick "after the price" --why "a" >/dev/null || true
-irreversible=$(decide settle "$SLUG" "$c14" --away 2>&1 || true)
-past "$c14"
-irrtimeout=$(decide timeout "$SLUG" "$c14" 2>&1 || true)
-c15=$(ask "The note's language")
-decide advise "$SLUG" "$c15" --expert fable --pick "after the price" --why "f" >/dev/null || true
-decide advise "$SLUG" "$c15" --expert astra --pick "after the price" --why "a" >/dev/null || true
-past "$c15"
-overaway=$(decide settle "$SLUG" "$c15" --away 2>&1 || true)
-thentimeout=$(decide timeout "$SLUG" "$c15" | field '(d["chose"], d["by"])' || true)
-if grep -qF "add --away when the owner's own words or away channel say so" <<<"$noaway" && [ "$noawaycode" = 1 ] \
-  && grep -qF "the experts have no shared pick for choice $c12 (fable: after the price; no advice of astra yet): settle it again when both advised" <<<"$halfway" \
-  && [ "$settled" = "('settled', 'after the price', 'experts', True, ['astra', 'fable'])" ] \
-  && grep -qF "choice $c12 does not wait: it is settled, with 'after the price'" <<<"$twice" \
-  && [ "$stood" = "('settled', 'after the price', 'experts', True)" ] && [ "$waitsays" = "settled by the experts while the owner is away" ] && [ "$gone" = "[]" ] \
+project --repo "$EX" mode "$SLUG" alone --by owner --words "go alone" >/dev/null
+early=$(decide timeout "$SLUG" "$c13" | field '(d["chose"], d["by"], d["early"], sorted(d["experts"]))' || true)
+irreversible=$(decide timeout "$SLUG" "$c14" 2>&1 || true)
+project --repo "$EX" mode "$SLUG" with-owner --by owner --words "I am back" >/dev/null
+if [ "$stood" = "('settled', 'after the price', 'experts', True)" ] && [ "$waitsays" = "settled by the experts while the owner is away" ] && [ "$gone" = "[]" ] \
   && [ "$after" = "('late', 'settled', 'after the price', False, True)" ] \
-  && grep -qF "the experts have no shared pick for choice $c13 (fable: after the price; astra: the last column): it waits its time" <<<"$splitaway" && [ "$splitcode" = 1 ] \
-  && [ "$(one "$c13" | field 'd["state"]')" = waits ] \
-  && grep -qF "choice $c14 is a step that a later \"no\" cannot reverse (it sends something to a person): the experts never take it" <<<"$irreversible" \
-  && grep -qF "choice $c14 is a step that a later \"no\" cannot reverse (it sends something to a person): no timeout takes it" <<<"$irrtimeout" \
-  && [ "$(one "$c14" | field '(d["state"], sorted(d["advice"]))')" = "('waits', ['astra', 'fable'])" ] \
-  && grep -qF "the wait of choice $c15 ended at 2026-01-01T00:00:00Z: \`lem decisions timeout $SLUG $c15\` takes it" <<<"$overaway" \
-  && [ "$thentimeout" = "('after the price', 'experts')" ]; then
-  pass "settle --away takes the experts' shared pick before the wait ends, once, and an answer after it is late; it is refused without --away, with one expert or a split, for an irreversible step (which no timeout takes either) and after the deadline, where the timeout takes the shared pick"
+  && [ "$early" = "('after the price', 'experts', True, ['astra', 'fable'])" ] \
+  && grep -qF "choice $c14 is a step that a later \"no\" cannot reverse (it sends something to a person): no timeout takes it" <<<"$irreversible"; then
+  pass "a settled line of an older Lem still reads as the experts' pick, and an answer after it is late; when the task runs without the owner, the timeout takes the experts' shared pick before the deadline, marked early, and never an irreversible step"
 else
-  fail "settle --away: $noaway / $halfway / $settled / $twice / $stood / $waitsays / $gone / $after / $splitaway / $irreversible / $irrtimeout / $overaway / $thentimeout"
+  fail "an older settled line and an early timeout: $stood / $waitsays / $gone / $after / $early / $irreversible"
 fi
 
 # the skill's brief: the choice, the criteria, the plan and the files, in one file of the task's directory

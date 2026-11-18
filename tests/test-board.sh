@@ -290,7 +290,10 @@ project state "$X" building "lead: builder" >/dev/null
 decide ask "$X" "${CASE[@]}" --what "The paper size" --option "A4" --option "Letter" --recommended "Letter" --why "the printer has Letter in its tray" --said "The two personas split." >/dev/null
 decide advise "$X" 1 --expert fable --pick A4 --why "every customer of the shop is in Europe, where the post reads A4" >/dev/null
 decide advise "$X" 1 --expert astra --pick A4 --why "the envelopes of the shop are cut for A4" >/dev/null
-decide settle "$X" 1 --away >/dev/null
+# the experts' pick while the owner was away, as an older Lem's `settle --away` wrote it: the record's line and its event
+"$PY" -I -c 'import json, sys; open(sys.argv[1], "a").write(json.dumps({"id": 1, "at": "2026-11-17T10:00:00Z", "kind": "settled", "chose": "A4", "by": "experts", "away": True, "experts": {"fable": "every customer of the shop is in Europe, where the post reads A4", "astra": "the envelopes of the shop are cut for A4"}}) + "\n")' "$STATE/tasks/$X/decisions.jsonl"
+project log "$X" decision.settled id:=1 at=2026-11-17T10:00:00Z chose=A4 by=experts away:=true \
+  'experts:={"fable": "every customer of the shop is in Europe, where the post reads A4", "astra": "the envelopes of the shop are cut for A4"}' >/dev/null
 decide answer "$X" 1 --chose Letter --words "Letter, it is in the tray" >/dev/null
 decide ask "$X" "${CASE[@]}" --what "The color of the logo" --option "black" --option "the green of the shop" --recommended "black" --why "a black logo prints on every printer" --said "The two personas split." >/dev/null
 decide advise "$X" 2 --expert fable --pick "the green of the shop" --why "the invoice is a page of the shop" >/dev/null

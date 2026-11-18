@@ -109,10 +109,14 @@ eadvise() {
   wdec advise expert-change "$1" --expert fable --pick "$2" --why "$3" >/dev/null
   wdec advise expert-change "$1" --expert astra --pick "$4" --why "$5" >/dev/null
 }
+# settled_by_hand ID PICK FABLE_WHY ASTRA_WHY: the experts' pick while the owner was away, as an older Lem's `settle --away` wrote it
+settled_by_hand() {
+  "$PY" -I -c 'import json, sys; open(sys.argv[1], "a").write(json.dumps({"id": int(sys.argv[2]), "at": "2026-11-17T10:00:00Z", "kind": "settled", "chose": sys.argv[3], "by": "experts", "away": True, "experts": {"fable": sys.argv[4], "astra": sys.argv[5]}}) + "\n")' "$efile" "$@"
+}
 eask "Where the word goes" "the first line" "the last line" "the first line" "A reader sees it at once."
 eadvise 1 "the last line" "A reader of the file looks at its end first." "the last line" "The importer reads the last line."
 held=$(local_land propose expert-change --title "fix: e" --notes "$NOTES" 2>&1 || true)
-wdec settle expert-change 1 --away >/dev/null
+settled_by_hand 1 "the last line" "A reader of the file looks at its end first." "The importer reads the last line."
 eask "The case of the word" "lower case" "upper case" "lower case" "The test reads it so."
 eadvise 2 "upper case" "The header is in upper case." "upper case" "The other words of the header are in upper case."
 past "$efile" 2 && wdec timeout expert-change 2 >/dev/null && wdec answer expert-change 2 --chose "lower case" --why "The test reads it so." >/dev/null
@@ -121,7 +125,7 @@ eadvise 3 "a line break" "Every file ends so." "no line break" "The importer rea
 past "$efile" 3 && wdec timeout expert-change 3 >/dev/null
 eask "The name of the file" "e.txt" "word.txt" "word.txt" "A name says what the file holds."
 eadvise 4 "word.txt" "A name says what the file holds." "word.txt" "Nobody guesses what e.txt holds."
-wdec settle expert-change 4 --away >/dev/null
+settled_by_hand 4 "word.txt" "A name says what the file holds." "Nobody guesses what e.txt holds."
 local_land propose expert-change --title "fix: e" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/expert-change/pr.md
 agent=$(local_land land expert-change --by agent 2>&1 || true)
