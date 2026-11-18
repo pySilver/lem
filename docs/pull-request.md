@@ -18,6 +18,9 @@ A pull request is not green when one of these is true:
 
 You can merge a green pull request without a read.
 
+For a full change, Lem also makes a page that tells what was built, why, and who took each decision.
+Type `/lem status <task>` to open it.
+
 ## Merge it
 
 Merge it on GitHub, as you do with any other. Then Lem removes the worktree and the branch of the

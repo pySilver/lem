@@ -898,7 +898,10 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   polish pass, step 3 of `land.md`, is `polish.md`, which only a full change reads. `mode.md` is
   what Lem does when the owner says "go alone", "go alone for all" or "I am back", and
   `ladder.md` the ladder of a decision in doubt, which only a lead or a defender reads, at such a
-  decision.
+  decision. `pages.md` is the owner's page of a full change, after step 6 of `land.md`: `land.py
+  propose` writes `built.md` and `decisions.md` into the task directory from the records the pull
+  request's text reads (never for a small change, never committed), and Lem makes one page of the
+  two with `make-page` and the brief `templates/page-brief.md`, which `/lem status SLUG` opens.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `lem_state.py` (the one place that names a repository's state folder,
   `.lem/state/` of the main checkout, and moves the `.git/lem/` of an older Lem there once; every
@@ -929,7 +932,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `lem.css` beside it is the look every page of Lem shares: its colors, its type, its header
   and the blocks of a page to read. `handover.html` is the pattern of the onboarding's page.
   A new page for the owner links `lem.css` and brings no style of its own.
-- `skills/lem/templates/`: the shapes onboarding fills.
+- `skills/lem/templates/`: the shapes onboarding fills, and `page-brief.md`, the brief of the owner's
+  page of a full change.
 - `skills/lem/prompts/`: the standing briefs of a task's lead, of a plan talk's defender, of the
   scout of an interview, of the investigator of a bug or a question (`investigator.md`), of the
   one builder of a small change (`small.md`), of the builders of a landing, of the agent that
