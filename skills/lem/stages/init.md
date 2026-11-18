@@ -162,11 +162,13 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
   disagree more usefully than one family twice and a reviewer on another provider's quota does not
   spend the builders'; otherwise a second Claude. Keep the three lines as written;
 
-Then the allow list, in the repository's tracked `.claude/settings.json` on the onboarding's branch:
-a builder and a lead run in the background, and in the `default` or `acceptEdits` mode each command
-that no rule allows asks for permission in Lem's session, where the task waits, at night with
-nobody to answer (the machine check's `permission mode` row says which mode a new session starts
-in here). Add these rules to `permissions.allow`, each one that is not there yet, and never take
+Lem assumes that Claude Code and Codex run in auto mode: a builder works in the background, and a
+permission prompt stops it until someone answers. Then the allow list, in the repository's tracked
+`.claude/settings.json` on the onboarding's branch: in auto mode a rule that allows a command
+skips the classifier, which once blocked a landing step (2026-11-18), and in the `default` or
+`acceptEdits` mode each command that no rule allows asks for permission in Lem's session, where
+the task waits, at night with nobody to answer (the machine check's `permission mode` row says
+which mode a new session starts in here). Add these rules to `permissions.allow`, each one that is not there yet, and never take
 one out or change another key of the file:
 
 - `Bash(lem *)`, `Bash(lem-ask *)`, `Bash(lem-jev *)`;

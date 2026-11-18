@@ -734,16 +734,20 @@ local_bypass=$(mode)
 printf '%s\n' '{"permissions": {"defaultMode": "auto"}}' > "$FAKEHOME/.claude/settings.json"
 rm "$MACHINE/.claude/settings.json"
 user_auto=$(mode)
-rm -r "$MACHINE/.claude" "$FAKEHOME/.claude/settings.json"
+assumed=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field 'next(t["used_for"] for t in d["tools"] if t["name"] == "permission mode")')
+rm "$FAKEHOME/.claude/settings.json"
+to_auto=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field 'next(t["without_it"] for t in d["tools"] if t["name"] == "permission mode")')
+rm -r "$MACHINE/.claude"
 outside=$( (cd "$WORK" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$DOCTOR" || true) | field '[t["name"] for t in d["tools"] if t["name"] == "permission mode"]')
 if [ "$plain" = "[('project', False, 'default: no settings file names one', 'each command the allow list does not hold as')]" ] \
   && [ "$shared" = "[('project', False, 'acceptEdits, from $MACHINE/.claude/settings.json', 'an edit goes through, and each other command')]" ] \
   && [ "$local_bypass" = "$shared" ] \
   && [ "$user_auto" = "[('project', True, 'auto, from $FAKEHOME/.claude/settings.json', 'a builder asks nobody; the classifier may st')]" ] \
-  && [ "$outside" = "[]" ]; then
-  pass "the machine check says the permission mode a builder meets in the repository, from its local settings, its shared ones or the user's, takes auto and bypassPermissions from the user's only, says what a builder meets, and has no row outside a repository"
+  && [ "$outside" = "[]" ] && grep -qF "Lem assumes that Claude Code runs in auto mode" <<<"$assumed" \
+  && grep -qF 'Lem assumes auto mode: put "defaultMode": "auto" under "permissions" in your own ~/.claude/settings.json' <<<"$to_auto"; then
+  pass "the machine check says that Lem assumes auto mode, and the permission mode a builder meets in the repository, from its local settings, its shared ones or the user's, takes auto and bypassPermissions from the user's only, says what a builder meets and, in another mode, the one line to change, and has no row outside a repository"
 else
-  fail "the permission mode: $plain / $shared / $local_bypass / $user_auto / $outside"
+  fail "the permission mode: $plain / $shared / $local_bypass / $user_auto / $outside / $assumed / $to_auto"
 fi
 # Lem's plugin installed for the user loads in every repository: a row says so with the two commands that move it.
 mkdir -p "$FAKEHOME/.claude/plugins"

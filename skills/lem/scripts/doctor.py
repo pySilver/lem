@@ -418,11 +418,19 @@ MODE_SAYS = {
 }
 
 
+# The one line of the row when the mode is not auto: what to change, in the user's own settings,
+# since a repository's settings cannot set auto (see SILENT_MODES).
+TO_AUTO = ('Lem assumes auto mode: put "defaultMode": "auto" under "permissions" in your own ~/.claude/settings.json, '
+           "and start a new session")
+
+
 def permission_mode() -> list[dict]:
     """In a repository: the permission mode a new session starts in there, and what a builder in the
     background meets in it. No row outside a repository. The repository's local settings say it
     first, then its shared ones, then the user's; `auto` and `bypassPermissions` count only from the
-    user's. Its need is `project`, as the personas' row: it never fails the machine check."""
+    user's. Lem assumes that Claude Code runs in auto mode (the owner, 2026-11-18: "we assume that
+    automode is used in codex and claude code"), so the row says that, and what to change when the
+    mode is another. Its need is `project`, as the personas' row: it never fails the machine check."""
     roots = checkout_roots()
     if not roots:
         return []
@@ -440,13 +448,13 @@ def permission_mode() -> list[dict]:
     return [{
         "name": "permission mode", "need": "project", "found": silent,
         "detail": f"{mode}, from {source}" if source else "default: no settings file names one",
-        "used_for": "the builders and the leads, which run in the background: a command that asks for permission stops the task until someone answers in Lem's session",
+        "used_for": "Lem assumes that Claude Code runs in auto mode: the builders and the leads run in the background, and a permission "
+                    "prompt stops the task until someone answers in Lem's session",
         "without_it": (
             "a builder asks nobody" + ("; the classifier may still refuse a step, which the owner then runs himself" if mode == "auto" else "")
             if silent else
-            f"{meets}. "
-            "The allow list that /lem init proposes for the repository's .claude/settings.json holds Lem's commands, git's and the checks', "
-            "so that a builder asks for none of them; `auto` or `bypassPermissions` in the user's settings asks for nothing"
+            f"{meets}. {TO_AUTO}. "
+            "Until then the allow list that /lem init proposes for the repository's .claude/settings.json holds Lem's commands, git's and the checks'"
         ),
     }]
 
