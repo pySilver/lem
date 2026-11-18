@@ -45,8 +45,8 @@ for line in open(sys.argv[1], encoding="utf-8"):
 print(sorted(found))' "$NEW/.lem/project.toml")
 # shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 paged=$("$PY" -I -c 'import re, sys; print(sorted(set(re.findall(r"^\| `(\w+\.\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M))))' "$PWD/docs/settings.md")
-if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 25 ]; then
-  pass "the settings are 25 keys, the same in show, in the file init writes and on the settings page"
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 24 ]; then
+  pass "the settings are 24 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi
@@ -653,7 +653,7 @@ if [ "$machine" = "(2, False, ['flow.max_tasks', 'naps.on'])" ] && [ "$in_tree" 
   && grep -qF ".lem/project.local.toml: naps.on = True is not for this file. It may say \`on = false\`" <<<"$naps_yes" \
   && grep -qF "only .lem/project.toml, which everybody reads in git, switches the naps on" <<<"$naps_yes" && [ "$naps_yes_code" = 1 ] \
   && grep -qxF -- '- delete `keep_days = 3` under [naps]: Lem keeps the folder of a nap 30 days' <<<"$naps_key" \
-  && grep -qF ".lem/project.local.toml: flow.decision_wait is the project's rule and belongs in .lem/project.toml; this file may hold only max_tasks under [flow]" <<<"$flow_key" \
+  && grep -qF -- "delete \`decision_wait = 1\` under [flow]: a choice waits for the owner's answer with no time limit while he is there" <<<"$flow_key" \
   && [ "$flow_key_code" = 1 ] && grep -qF ".lem/project.local.toml: flow.max_tasks = 0 must be a whole number, 1 or more" <<<"$flow_bad" \
   && [ "$alone" = "(4, True, [])" ]; then
   pass "the machine's own file may say no to the naps and name its own flow.max_tasks, also for a task's worktree, show and may-nap say that the value is the machine's, and a rewrite keeps both; a yes to the naps, another key of [naps] or [flow] and a wrong limit there are refused with the reason"
@@ -743,25 +743,25 @@ else
   fail "max_tasks default"
 fi
 settings '[branch]' 'base = "master"' '[flow]' 'topics = ["a price a customer pays", "data that cannot be rebuilt"]'
-if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], sorted(d["flow"]))')" = "(['a price a customer pays', 'data that cannot be rebuilt'], ['decision_wait', 'max_tasks', 'topics'])" ] \
+if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], sorted(d["flow"]))')" = "(['a price a customer pays', 'data that cannot be rebuilt'], ['max_tasks', 'topics'])" ] \
   && ! grep -q '^careful' "$NEW/.lem/project.toml" && grep -q '^topics = \[\]$' "$NEW/.lem/project.toml"; then
   pass "a project names what must never go wrong as sentences in the owner's words, and init writes no list of paths beside them"
 else
   fail "flow.topics: $(project --repo "$OLD" show 2>&1)"
 fi
 # The table that says what must never go wrong is the main checkout's: a task's branch that empties
-# its topics or shortens the owner's wait reads them as the main checkout has them.
+# its topics or raises the limit of tasks reads them as the main checkout has them.
 FLOW=$WORK/flow
 git init -q -b main "$FLOW" && ident "$FLOW"
 project --repo "$FLOW" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = ["a customer is charged the wrong price"]' 'decision_wait = 15' > "$FLOW/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = ["a customer is charged the wrong price"]' 'max_tasks = 3' > "$FLOW/.lem/project.toml"
 git -C "$FLOW" add -A && git -C "$FLOW" commit -q -m "chore: start"
 git -C "$FLOW" worktree add -q "$WORK/flow-tree" -b feat/lift main
-printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = []' 'decision_wait = 1' > "$WORK/flow-tree/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = []' 'max_tasks = 9' > "$WORK/flow-tree/.lem/project.toml"
 git -C "$WORK/flow-tree" commit -q -am "chore: no topics"
-lifted=$(project --repo "$WORK/flow-tree" show | field '(d["flow"]["topics"], d["flow"]["decision_wait"], d["root"] == d["main"])')
-if [ "$lifted" = "(['a customer is charged the wrong price'], 15, False)" ]; then
-  pass "in a task's worktree the flow table is the main checkout's: a branch that empties its own topics or shortens the wait changes nothing a lead or the landing reads"
+lifted=$(project --repo "$WORK/flow-tree" show | field '(d["flow"]["topics"], d["flow"]["max_tasks"], d["root"] == d["main"])')
+if [ "$lifted" = "(['a customer is charged the wrong price'], 3, False)" ]; then
+  pass "in a task's worktree the flow table is the main checkout's: a branch that empties its own topics or raises the limit of tasks changes nothing a lead or the landing reads"
 else
   fail "the flow table of a worktree: $lifted"
 fi
@@ -770,11 +770,11 @@ fi
 # a lead or a review reads: the settings are then read as the base branch's newest commit has them, and the line on
 # stderr says so. The settings of an onboarding, on no commit of the base yet, are read from the working tree.
 git -C "$FLOW" switch -q -c feat/colleague
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[flow]' 'topics = []' 'decision_wait = 1' > "$FLOW/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[flow]' 'topics = []' 'max_tasks = 9' > "$FLOW/.lem/project.toml"
 git -C "$FLOW" commit -q -am "chore: the colleague's settings"
-checked_out=$(project --repo "$FLOW" show 2>"$WORK/flow.err" | field '(d["branch"]["land"], d["flow"]["topics"], d["flow"]["decision_wait"], d["settings_from"][:5])')
+checked_out=$(project --repo "$FLOW" show 2>"$WORK/flow.err" | field '(d["branch"]["land"], d["flow"]["topics"], d["flow"]["max_tasks"], d["settings_from"][:5])')
 checked_err=$(cat "$WORK/flow.err")
-from_tree=$(project --repo "$WORK/flow-tree" show 2>/dev/null | field '(d["flow"]["topics"], d["flow"]["decision_wait"])')
+from_tree=$(project --repo "$WORK/flow-tree" show 2>/dev/null | field '(d["flow"]["topics"], d["flow"]["max_tasks"])')
 git -C "$FLOW" switch -q main
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[flow]' 'topics = []' > "$FLOW/.lem/project.toml"
 edited=$(project --repo "$FLOW" show 2>"$WORK/flow.err" | field '(d["branch"]["land"], d["flow"]["topics"], d["settings_from"])')
@@ -789,9 +789,9 @@ git -C "$ONB" switch -q -c chore/lem-setup && project --repo "$ONB" init --base 
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' > "$ONB/.lem/project.toml"
 git -C "$ONB" add -A && git -C "$ONB" commit -q -m "chore: set up Lem"
 onboarding=$(project --repo "$ONB" show 2>&1 | field '(d["branch"]["land"], d["settings_from"])')
-if [ "$checked_out" = "('owner', ['a customer is charged the wrong price'], 15, 'main@')" ] \
+if [ "$checked_out" = "('owner', ['a customer is charged the wrong price'], 3, 'main@')" ] \
   && grep -qF "the main checkout is not on main, so Lem reads .lem/project.toml as main has it" <<<"$checked_err" \
-  && [ "$from_tree" = "(['a customer is charged the wrong price'], 15)" ] \
+  && [ "$from_tree" = "(['a customer is charged the wrong price'], 3)" ] \
   && [ "$edited" = "('agent', [], 'the working tree')" ] && [ -z "$edited_err" ] && [ "$from_tree_edited" = "[]" ] \
   && [ "$committed" = "('agent', [])" ] && [ -z "$committed_err" ] && [ "$onboarding" = "('agent', 'the working tree')" ]; then
   pass "while the main checkout is on the base branch its working tree's settings count, an uncommitted edit too; a colleague's branch checked out there changes nothing, the base branch's commit is read, and stderr says so; an onboarding's settings, on no commit of the base yet, are read from the working tree"

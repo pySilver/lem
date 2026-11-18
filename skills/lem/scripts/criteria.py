@@ -49,7 +49,7 @@ the criteria are:
                               in a row lets the build go on. It
                               counts for the plan's check and for `lem decisions criterion`, and never
                               as the owner's yes. --alone: Lem or the lead approves a full change's
-                              criteria while the task runs without the owner (`lem project mode`),
+                              criteria while the task runs without the owner (`lem project owner away`, a night),
                               as `by: alone`; refused while it runs with him and after any approval
                               but Lem's of a small change. It is never his yes either: the pull
                               request is not green for it, and his own approval after it takes over

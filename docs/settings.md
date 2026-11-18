@@ -43,7 +43,6 @@ What must never go wrong, and how many tasks run.
 | --- | --- | --- |
 | `flow.topics` | `[]` | the topics, one sentence each: `"a customer is charged the wrong amount"`. A change that can affect one is careful |
 | `flow.max_tasks` | `4` | how many tasks build or land at the same time. Lower it when tests share a database or a browser |
-| `flow.decision_wait` | `15` | the minutes that a decision card waits for you |
 
 ## `[seats]`
 

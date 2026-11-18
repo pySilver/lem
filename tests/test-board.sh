@@ -44,7 +44,7 @@ git -C "$R" add -A && git -C "$R" commit -q -m "chore: the settings"
 
 # retime SLUG BASE MINUTES...: the events of one task, in the order the scripts wrote them, get the
 # times BASE + MINUTES (BASE is an ISO time, or `now`). A decision's own time moves with its event,
-# and a choice's deadline stays its wait after its question, as decisions.py writes it.
+# and the deadline of a choice an older Lem asked stays its wait after its question, as it wrote it.
 #
 # `now` is one fixed moment, NOW, the next whole minute after the last event of the fixture, and the
 # pages are drawn with their clock stopped at it (draw). So a count-down or a share of an open task
@@ -65,7 +65,7 @@ for row, offset in zip(mine, minutes):
     row["ts"] = iso(moment)
     if row["event"].startswith("decision."):
         row["at"] = iso(moment)
-    if row["event"] == "decision.asked":
+    if row["event"] == "decision.asked" and "wait_minutes" in row:
         row["deadline"] = iso(moment + timedelta(minutes=row["wait_minutes"]))
 open(log, "w", encoding="utf-8").write("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
 open(log.removesuffix("jsonl") + "js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(row, ensure_ascii=False)});\n" for row in rows))
@@ -76,13 +76,38 @@ retime_all() {
   local args
   while read -r -a args; do "$PY" -I -c "$RETIME" "$STATE/events.jsonl" "$NOW" "${args[@]}"; done < "$WORK/retimes"
 }
-# past SLUG ID...: the wait of each choice ends in decisions.py's own record, the way fifteen minutes later would find it
-past() { "$PY" -I -c 'import json, sys
-path = sys.argv[1]
-lines = [json.loads(line) for line in open(path)]
-for line in lines:
-    if line["kind"] == "asked" and str(line["id"]) in sys.argv[2:]: line["deadline"] = "2026-01-01T00:00:00Z"
-open(path, "w").write("".join(json.dumps(line) + "\n" for line in lines))' "$STATE/tasks/$1/decisions.jsonl" "${@:2}"; }
+# old_form SLUG wait|timeout ID...: each choice as the Lem before 2026-11-18 left it, which records of open tasks still
+# hold, in decisions.py's record and in the event log: its question with a wait of 15 minutes, and for `timeout` the
+# line its clock wrote, with the experts' shared pick, or the recommended option when they split
+OLDFORM=$(cat <<'PY'
+import json, sys
+from datetime import datetime, timezone
+state, slug, how, *ids = sys.argv[1:]
+record, log = f"{state}/tasks/{slug}/decisions.jsonl", f"{state}/events.jsonl"
+lines = [json.loads(line) for line in open(record, encoding="utf-8")]
+events = [json.loads(line) for line in open(log, encoding="utf-8") if line.strip()]
+now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+for number in map(int, ids):
+    asked = next(line for line in lines if line["kind"] == "asked" and line["id"] == number)
+    asked.update(wait_minutes=15, deadline="2026-01-01T00:00:00Z")
+    for event in events:
+        if event.get("task") == slug and event["event"] == "decision.asked" and event.get("id") == number:
+            event.update(wait_minutes=15, deadline="2026-01-01T00:00:00Z")
+    if how == "timeout":
+        advice = {line["expert"]: line for line in lines if line["kind"] == "advised" and line["id"] == number}
+        picks = {one.get("pick") for one in advice.values()}
+        shared = len(advice) == 2 and len(picks) == 1 and None not in picks
+        end = {"id": number, "at": now, "kind": "timeout", "chose": next(iter(picks)) if shared else asked["recommended"], "by": "experts" if shared else "timeout"}
+        if shared:
+            end["experts"] = {name: advice[name]["why"] for name in ("fable", "astra")}
+        lines.append(end)
+        events.append({"ts": now, "event": "decision.timeout", "task": slug, **{key: value for key, value in end.items() if key != "kind"}})
+open(record, "w", encoding="utf-8").write("".join(json.dumps(line, ensure_ascii=False) + "\n" for line in lines))
+open(log, "w", encoding="utf-8").write("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in events))
+open(log.removesuffix("jsonl") + "js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(row, ensure_ascii=False)});\n" for row in events))
+PY
+)
+old_form() { "$PY" -I -c "$OLDFORM" "$STATE" "$@"; }
 # criteria_file FILE SIZE: the criteria the owner approves, in the form `lem criteria --help` gives
 criteria_file() {
   if [ "$2" = small ]; then
@@ -116,8 +141,8 @@ decide ask "$G" "${CASE[@]}" --what "Email the merchants about the new column" -
   --why "the column is visible in the export" --said "The merchant wants the email, the accountant does not." --irreversible person >/dev/null
 decide ask "$G" "${CASE[@]}" --what "The header of the column" --option "Gift note" --option "Note" --recommended "Gift note" --why "it says what the cell holds" --said "The two personas split." >/dev/null
 decide ask "$G" "${CASE[@]}" --what "A note longer than the cell" --option "all of it" --option "200 characters" --recommended "all of it" --why "nothing is lost" --said "The two personas split." >/dev/null
-past "$G" 5 6
-decide timeout "$G" 5 >/dev/null
+old_form "$G" timeout 5
+old_form "$G" wait 6
 decide ask "$G" "${CASE[@]}" --what "The note of a cancelled order" --option "keep it" --option "leave it out" --recommended "keep it" --why "the export shows cancelled orders as they were" \
   --said "The merchant would keep it, the accountant is in doubt." >/dev/null
 retime "$G" now -60 -52 -51 -45 -44 -40 -35 -34 -31 -30 -27 -26 -25 -10 -5
@@ -195,8 +220,7 @@ T=timed-out
 task "$T" "Round the shipping costs"
 project state "$T" building "lead: builder" >/dev/null
 decide ask "$T" "${CASE[@]}" --what "Round up or to the nearest cent" --option "up" --option "to the nearest cent" --recommended "to the nearest cent" --why "the carrier rounds so" --said "The two personas split." >/dev/null
-past "$T" 1
-decide timeout "$T" 1 >/dev/null
+old_form "$T" timeout 1
 project state "$T" ready "the report is written" >/dev/null
 project state "$T" landing "the checks start" >/dev/null
 project log "$T" gate "command=make test" exit:=0 "last=3 passed" tip=abc1234 >/dev/null
@@ -301,9 +325,7 @@ decide advise "$X" 2 --expert astra --pick "the green of the shop" --why "the pr
 decide ask "$X" "${CASE[@]}" --what "The order number on the page" --option "at the top" --option "at the foot" --recommended "at the top" --why "the post office reads the top first" --said "The two personas split." >/dev/null
 decide advise "$X" 3 --expert fable --pick "at the top" --why "a reader looks for it first" >/dev/null
 decide advise "$X" 3 --expert astra --pick "at the foot" --why "the top holds the address window" >/dev/null
-past "$X" 2 3
-decide timeout "$X" 2 >/dev/null
-decide timeout "$X" 3 >/dev/null
+old_form "$X" timeout 2 3
 decide ask "$X" "${CASE[@]}" --what "The font of the invoice" --option "serif" --option "sans" --recommended "sans" --why "it reads well on a screen" --said "The two personas split." >/dev/null
 decide advise "$X" 4 --expert fable --pick serif --why "a printed invoice reads better in serif" >/dev/null
 decide advise "$X" 4 --expert astra --pick serif --why "the letters of the shop are in serif" >/dev/null
@@ -591,7 +613,8 @@ for want in [w for w in sys.argv[2:] if not w.startswith("#")]:
     name, _, where = rest.partition("|")
     if name not in lanes.get(lane, {}):
         wrong.append(f"{name!r} is not in {lane!r} ({ {k: list(v) for k, v in lanes.items()} })")
-    elif where and lanes[lane][name] != where:
+    # "~PATTERN": the line is the whole of a regular expression, for a time the page's own clock says
+    elif where and (not re.fullmatch(where[1:], lanes[lane][name]) if where.startswith("~") else lanes[lane][name] != where):
         wrong.append(f"{name!r} says {lanes[lane][name]!r}, not {where!r}")
 print("; ".join(wrong))
 sys.exit(bool(wrong))
@@ -677,8 +700,8 @@ fi
 if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # shellcheck disable=SC1111  # the curly quotes around a state's own line are the page's
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "#short" \
-    "Waits for you=Gift note export|Choice 7 waits for you: The note of a cancelled order · 10m left" \
-    "Waits for you=Held choice|Choice 1 waits for you: Refund the 12 duplicate orders now · no end" \
+    "Waits for you=Gift note export|Choice 6 waits for you: A note longer than the cell · 25m" \
+    "Waits for you=Held choice|~Choice 1 waits for you: Refund the 12 duplicate orders now · [0-9][0-9ms ]*" \
     "Waits for you=Held question|The investigation waits for one more fact" \
     "Waits for you=Trust prompt|The reviewer's trust prompt waits for your yes" \
     "Building=Approved again" "Building=Restored read" "Building=Unread change" \
@@ -701,7 +724,7 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
   for want in "held-question|It waits on what its state says: “the investigation waits for one more fact”. Lem tells you in its session what to do and where." \
     "trust-prompt|It waits on what its state says: “the reviewer's trust prompt waits for your yes”. Lem tells you in its session what to do and where." \
-    "held-choice|Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, with no end." \
+    "held-choice|Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, also while you are away." \
     "criteria-wait|Lem shows you the acceptance criteria, with the personas’ read on top, as a page in its session. Approve or change them there." \
     "silent-read|Lem shows you the acceptance criteria as a page in its session. No persona answered the read of them. Approve or change them there." \
     "plan-for-you|Read the plan, then tell Lem in its session: build it or drop it." \
@@ -724,21 +747,22 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
     fail "the counts of the lanes: $why"
   fi
   # Each banner is read alone, so that a card's text elsewhere on the page cannot stand in for one.
-  # The most pressing wait, choice 7, is the large card's, with where you answer, and no banner's.
+  # The first wait, choice 6, whose deadline an older Lem wrote and which still waits, is the large card's, with where
+  # you answer, and no banner's.
   if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
-    "^Choice 4 waits for you: Gift note export · Email the merchants about the new column · no end: no timeout takes it$" \
-    "^Choice 1 waits for you: Held choice · Refund the 12 duplicate orders now · no end: no timeout takes it$" \
-    "^Waits for you: Criteria wait · the criteria wait for you · [0-9][0-9ms ]*$" "!^Choice 7" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
-    "!Lem puts" "!Lem shows you" "!Answer it there" "!^Choice [123] waits for you: Expert advice") \
+    "^Choice 7 waits for you: Gift note export · The note of a cancelled order · 5m 00s$" \
+    "^Choice 4 waits for you: Gift note export · Email the merchants about the new column · 27m$" \
+    "^Waits for you: Criteria wait · the criteria wait for you · [0-9][0-9ms ]*$" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
+    "!Lem puts" "!Lem shows you" "!Answer it there" "!^Choice [123] waits for you: Expert advice" "!left" "!no end" "!wait is over") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" now \
-      "You · choice 7 of the task|Gift note export|The note of a cancelled order|10m left, until|Where you answer: Lem puts choice 7 to you as a page in its session. Answer it there before its wait ends; then the build goes on with the recommended action.") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "=1:Lem puts choice 7 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the acceptance criteria" "!Demo data"); then
-    pass "the large card has the most pressing wait with where you answer, said once on the page; the banners are the waits after it, one line each with its count-down, or no end for an irreversible step, and none whose wait is over"
+      "You · choice 6 of the task|Gift note export|A note longer than the cell|25m|since it was asked|Where you answer: Lem puts choice 6 to you as a page in its session. Answer it there: it waits for your answer. If you say you are away, the build goes on with the recommended action.") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "=1:Lem puts choice 6 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the acceptance criteria" "!Demo data"); then
+    pass "the large card has the first wait with where you answer, said once on the page; the banners are the waits after it, one line each with how long it waits, with no count-down and no end of a wait, also for a choice whose deadline an older Lem wrote"
   else
     fail "the banners: $why"
   fi
   # Ten banners would fill a screen: the first three are shown, and one line counts the rest.
-  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" "#3" "=^7 more: 6 wait for you, 1 blocked · Show them" "^Blocked: Blocked one"); then
+  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" "#3" "=^8 more: 7 wait for you, 1 blocked · Show them" "^Blocked: Blocked one"); then
     pass "past three banners the rest fold under one line that counts what waits for the owner and what is blocked, so the lanes stay on the first screen"
   else
     fail "the fold of the banners: $why"
@@ -802,17 +826,17 @@ open(sys.argv[1] + "/meta.js", "w").write("lemMeta(" + json.dumps({"repo": "shop
   fi
 
   draw "task-$G"
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$G.dom" "Decisions" "2 wait for you · 1 with the wait over · 4 taken" \
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$G.dom" "Decisions" "3 wait for you · 4 taken" \
     "Choice 7 waits for you: The note of a cancelled order" "options: keep it · leave it out" "recommended: keep it, because the export shows cancelled orders as they were" \
-    "the personas: The merchant would keep it, the accountant is in doubt." "Its wait ends at " 'then the build goes on with “keep it”, the recommended option, unless both experts pick one option before then.' "10m left" \
-    "Choice 4 waits for you: Email the merchants about the new column" "It waits for your answer, with no end: it sends something to a person, so no timeout takes it." "no end" \
-    "Choice 6, its wait is over: A note longer than the cell" 'and no timeout is written yet: the build goes on with “all of it”, the recommended option, as no expert advised.' "wait over" \
+    "the personas: The merchant would keep it, the accountant is in doubt." 'It waits for your answer. If you say you are away, the build goes on with “keep it”, the recommended option.' \
+    "Choice 4 waits for you: Email the merchants about the new column" "It waits for your answer, also while you are away: it sends something to a person. The experts advise on it and never take it." \
+    "Choice 6 waits for you: A note longer than the cell" 'If you say you are away, the build goes on with “all of it”, the recommended option.' "!wait over" "!left" "!its wait is over" \
     "5. The header of the column → Gift note" "taken by the timeout at " "no answer came in 15 minutes. The recommended action stands, and the pull request is not green for it." \
     "1. The name of the new column → gift_note" "taken by the agent, because the other columns of the export are in snake case" "to undo: rename the column" \
     "2. Two notes on one order → both notes, with a semicolon between them" "taken by the personas, because a merchant reads both" "the personas: The merchant and the accountant both picked the semicolon." \
     "3. Where the note goes in the row → the last column" 'answered by you: “last, like the other new columns”' \
-    "2 choices wait for you" "left of the wait, until "); then
-    pass "the board of one task has a Decisions card: each choice that waits with the end of its wait and its count-down, an irreversible one with no end, one whose wait is over, one taken by the timeout, and each taken one with what, by whom and why"
+    "3 choices wait for you" "since it was asked · if you say you are away, the build goes on with"); then
+    pass "the board of one task has a Decisions card: each choice that waits with what your away would take, an irreversible one that waits also then, one whose older deadline passed and that still waits, one an older Lem's timeout took, and each taken one with what, by whom and why"
   else
     fail "the Decisions card: $why"
   fi
@@ -1015,21 +1039,21 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   draw "task-$X"
   # shellcheck disable=SC1111,SC1112  # the curly quotes around a pick are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" decisions \
-      "Choice 4 waits for you: The font of the invoice|Fable picks “serif”, because a printed invoice reads better in serif|Astra picks “serif”, because the letters of the shop are in serif|~Its wait ends at [0-9]{2}:[0-9]{2}; then the build goes on with “serif”, the experts’ shared pick\.|Where you answer: Lem puts choice 4 to you as a page in its session. Answer it there before its wait ends; then the build goes on with the experts’ shared pick.|!the recommended option" \
-      "Choice 5 waits for you: The size of the total|Fable finds that none of the options fits, because the total should be bold, not bigger|Astra picks “12 pt”, because the other lines are 12 pt|then the build goes on with “14 pt”, the recommended option, as the experts have no shared pick.|then the build goes on with the recommended action.|!the experts’ shared pick" \
+      "Choice 4 waits for you: The font of the invoice|Fable picks “serif”, because a printed invoice reads better in serif|Astra picks “serif”, because the letters of the shop are in serif|If you say you are away, the build goes on with “serif”, the experts’ shared pick.|Where you answer: Lem puts choice 4 to you as a page in its session. Answer it there: it waits for your answer. If you say you are away, the build goes on with the experts’ shared pick.|!the recommended option" \
+      "Choice 5 waits for you: The size of the total|Fable finds that none of the options fits, because the total should be bold, not bigger|Astra picks “12 pt”, because the other lines are 12 pt|If you say you are away, the build goes on with “14 pt”, the recommended option.|the build goes on with the recommended action.|!the experts’ shared pick" \
       "1. The paper size|!Fable picks|!waits for you") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" now \
-      "2 choices wait for you|The font of the invoice|the experts: Fable “serif” · Astra “serif”|~until [0-9]{2}:[0-9]{2}; then the build goes on with the experts’ shared pick") \
+      "2 choices wait for you|The font of the invoice|the experts: Fable “serif” · Astra “serif”|if you say you are away, the build goes on with “serif”, the experts’ shared pick") \
     && why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
-      "^Choice 4 waits for you: Expert advice · The font of the invoice · .* then the build goes on with the experts’ shared pick\.$" \
-      "^Choice 5 waits for you: Expert advice · The size of the total · .* then the build goes on with the recommended action\.$"); then
-    pass "a choice that waits shows each expert's advice in its own row of the Decisions card, a pick or none fits with its reasons, and its row, its banner and the head of its board say that the end of the wait takes the experts' shared pick when both agree, else the recommended option"
+      "^Choice 4 waits for you: Expert advice · The font of the invoice · [0-9][0-9ms ]*$" \
+      "^Choice 5 waits for you: Expert advice · The size of the total · [0-9][0-9ms ]*$"); then
+    pass "a choice that waits shows each expert's advice in its own row of the Decisions card, a pick or none fits with its reasons, and its row and the head of its board say that the owner's away takes the experts' shared pick when both agree, else the recommended option; its banner says how long it waits"
   else
     fail "the experts' advice on a choice that waits: $why"
   fi
   # shellcheck disable=SC1111,SC1112  # the curly quotes around a pick are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" decisions \
-      "1. The paper size → A4|@a-bad|~taken by the experts at [0-9]{2}:[0-9]{2}, while you were away, before its wait ended: both picked it\. The pull request is not green for it\.|Fable picked “A4”, because every customer of the shop is in Europe, where the post reads A4|Astra picked “A4”, because the envelopes of the shop are cut for A4|~Your answer came at [0-9]{2}:[0-9]{2}, after the experts took it: “Letter” \(Letter, it is in the tray\)\. It differs from what was taken|!taken by the timeout") \
+      "1. The paper size → A4|@a-bad|~taken by the experts at [0-9]{2}:[0-9]{2}, while you were away: both picked it\. The pull request is not green for it\.|Fable picked “A4”, because every customer of the shop is in Europe, where the post reads A4|Astra picked “A4”, because the envelopes of the shop are cut for A4|~Your answer came at [0-9]{2}:[0-9]{2}, after the experts took it: “Letter” \(Letter, it is in the tray\)\. It differs from what was taken|!taken by the timeout") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" feed \
       "Choice 1 taken by the experts while you were away|A4|Fable: every customer of the shop is in Europe, where the post reads A4 · Astra: the envelopes of the shop are cut for A4" \
       "Your answer to choice 1 came after it was taken|Letter") \
@@ -1412,7 +1436,7 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
   draw task-held-choice && draw task-criteria-wait
   # shellcheck disable=SC1112  # the curly quote is the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-held-choice.dom" now \
-      "Where you answer: Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, with no end.") \
+      "Where you answer: Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, also while you are away.") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-criteria-wait.dom" now \
       "Where you answer: Lem shows you the acceptance criteria, with the personas’ read on top, as a page in its session. Approve or change them there."); then
     pass "where the owner answers is Lem's own page in its session, on the board of a task with a choice and of one whose criteria wait"

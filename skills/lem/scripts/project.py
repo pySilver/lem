@@ -19,11 +19,12 @@ file are settings. A project that keeps one of them in another place moves it th
     lem project reviewer default    the project's own reviewer again
     lem project rules [FILE ...] [--range BASE..TIP]
                                     the rule files of .claude/rules that cover these files, as JSON
-    lem project task-dir SLUG [--ask TEXT] [--ticket ID] [--branch NAME]
+    lem project task-dir SLUG [--ask TEXT] [--ticket ID] [--branch NAME] [--night YYYY-MM-DD]
                                     make and print one task's state directory; keep the owner's words
                                     and the ticket the ask came from. At a task's opening it refuses
                                     a slug whose branch origin has already: TYPE/SLUG for every
-                                    type, or the NAME --branch gives
+                                    type, or the NAME --branch gives. --night marks the task as the
+                                    night's, which runs it without the owner
     lem project ticket-step SLUG started|commented|landed|dropped|answered
                                     write down what Lem did to the task's ticket, once
     lem project worktree-dir SLUG   print where the task's worktree goes, inside a folder git ignores
@@ -35,11 +36,10 @@ file are settings. A project that keeps one of them in another place moves it th
     lem project state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
     lem project tasks               every task's ask, status and newest state block, as JSON
-    lem project mode SLUG|--all alone|with-owner --by owner|lem --words TEXT
-                                    whether a task runs with the owner or without him, from now on:
-                                    one task, or (--all) every task that did not end. --words are
-                                    the owner's words as typed ("go alone", "I am back"), or Lem's
-                                    reason with --by lem
+    lem project owner away|active --words TEXT
+                                    the owner says that he is away, or active again: his words as typed.
+                                    Away takes at once each choice that waits for him and is no
+                                    irreversible step (`lem decisions away`)
     lem project log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
     lem project may-start SLUG      exit 1 when as many other tasks build or land as flow.max_tasks
@@ -97,11 +97,15 @@ The rules of a talk keep it within 4 × questions + 2 turns; a record over that 
 it ran, and `log` adds the bound to it as `bound`, for the landing and the board to say that the
 talk went over. `tasks` gives each task
 its newest `plan.talk` as `talk`, the record Lem and a builder read before the build of a
-careful or large plan. `task.mode` is written by `mode` only: `mode` (`alone` or `with-owner`),
-`by`, `words`, `all` and `was`; `tasks` gives each task its newest as `mode` and `mode_since`, and a
-task with none, as every task an older Lem opened, runs `with-owner`. A night puts its task in the
-mode `alone` with `--by lem --words "the night of YYYY-MM-DD"`, which `mode` refuses in another
-form, and `tasks` gives that date as `night` (null for a task of the day).
+careful or large plan. `owner`, which `owner` writes with no task, as `away:=true|false
+by=owner words=TEXT`: the owner's status, there (the default) or away, whose newest event holds.
+`task.mode` is the night's mark, which `task-dir --night` writes, as `mode=alone by=lem words="the
+night of YYYY-MM-DD"`. A task runs without the owner while he is away, and a night's task from its
+mark until he says he is active; `tasks` gives each task `mode` (`alone` or `with-owner`, now),
+`mode_since` and `without_owner`, each span of it with the words that started and ended it, and
+the night's date as `night` (null for a task of the day). A `task.mode` event an older Lem wrote for
+the owner's "go alone" (`by=owner`, or `mode=with-owner` for "I am back") still reads so, and
+ends at his next "active" too.
 And `criteria.read`, which Lem or the lead writes after the personas read the acceptance
 criteria, as `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ...,
 "why": ...}]' criteria:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many
@@ -199,7 +203,8 @@ A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM
 `<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it; a plan named `YYYYMMDD-<slug>.md`, as an older Lem
 named it, is found too: `lem_plans` is the one place that builds and finds the name, and `plan-file` prints both.
 
-`waiting` is the one list of what waits for the owner, which a bare `/lem` says: the choices of
+`waiting` is the one list of what waits for the owner, which a bare `/lem` says: his status first
+(`owner`: `away`, `since` and his `words`), then the choices of
 `lem decisions pending` (`choices`), the tasks `held` with the line `the criteria wait for the
 owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
 task with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
@@ -244,7 +249,7 @@ import signal
 import shutil
 import subprocess
 import tomllib
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 # The one place that says where the state is, shared with the scripts that cannot import this file.
@@ -380,14 +385,11 @@ STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[
 # six gave a load average of 12 to 16 and unstable browser tests (convertiser-server, as its owner
 # reported it on 2026-11-14). The right number depends on the machine and on the project's tests.
 MAX_TASKS = 4
-# How many minutes a choice of the build waits for the owner before the recommended action is
-# taken. The owner's own number: "if there is decision taken in 15 min" (2026-11-16).
-DECISION_WAIT = 15
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": ("plans", "plan_file"),
     "branch": ("base", "land", "history", "propose", "protected"),
     "checks": ("commands", "setup", "alone"),
-    "flow": ("topics", "max_tasks", "decision_wait"),
+    "flow": ("topics", "max_tasks"),
     "seats": ("reviewer", "planner", "experts"),
     "corrections": ("collect",),
     "tracker": ("kind", "server", "workspace", "team", "moves", "started", "landed"),
@@ -478,9 +480,6 @@ topics = []
 # average of 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when
 # the tests share one database or drive a browser.
 max_tasks = {max_tasks}
-# How many minutes a choice of the build waits for the owner before the lead takes the recommended
-# option, and the pull request is not green for it. The owner's own number (2026-11-16).
-decision_wait = {decision_wait}
 
 [seats]
 # Who sits where, each as "agent/model:effort". Leave out the effort ("codex/gpt-6.1-sol"), or
@@ -721,6 +720,7 @@ GONE_KEYS: dict[tuple[str, str], str] = {
     ("checks", "ignores"): "the checks run again whenever the base branch moves",
     ("checks", "bar"): "Lem looks for a lowered bar with its own marks, for Python, JavaScript, TypeScript, Go, Rust, Java, Kotlin and shell",
     ("flow", "watch_seconds"): "the watch of the open pull requests looks every 60 seconds",
+    ("flow", "decision_wait"): "a choice waits for the owner's answer with no time limit while he is there, and is taken at once when he says he is away (`/lem away`)",
     ("naps", "keep_days"): f"Lem keeps the folder of a nap {NAPS_KEEP_DAYS} days",
     ("naps", "gap_hours"): f"{NAPS_GAP_HOURS} hours pass between two naps",
 }
@@ -827,10 +827,7 @@ def flow_of(raw: dict, name: Path) -> dict:
     # a bool is an int in Python, and `max_tasks = true` is a mistake, not the number 1
     if isinstance(max_tasks, bool) or not isinstance(max_tasks, int) or max_tasks < 1:
         raise SettingsError(f"{name}: flow.max_tasks = {max_tasks!r} must be a whole number, 1 or more")
-    decision_wait = flow.get("decision_wait", DECISION_WAIT)
-    if isinstance(decision_wait, bool) or not isinstance(decision_wait, int) or decision_wait < 1:
-        raise SettingsError(f"{name}: flow.decision_wait = {decision_wait!r} must be a whole number of minutes, 1 or more")
-    return {"topics": strings(flow.get("topics", []), "flow.topics"), "max_tasks": max_tasks, "decision_wait": decision_wait}
+    return {"topics": strings(flow.get("topics", []), "flow.topics"), "max_tasks": max_tasks}
 
 
 def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str) -> dict:
@@ -994,6 +991,8 @@ def local_max_tasks(local: dict) -> int | None:
     one: a machine's load, and no guard of the project's."""
     flow = local.get("flow", {})
     for key in flow:
+        if is_gone("flow", key):
+            raise SettingsError(f"{LOCAL}: delete `{key} = {toml_value(flow[key])}` under [flow]: {GONE_KEYS[('flow', key)]}")
         if key != "max_tasks":
             raise SettingsError(
                 f"{LOCAL}: flow.{key} is the project's rule and belongs in {SETTINGS}; this file may hold only max_tasks under [flow], one machine's limit",
@@ -1262,7 +1261,7 @@ def cmd_init(root: Path, base: str | None, reviewer: str | None) -> None:
     agent = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex/gpt-6.1-sol:high"'
     file.write_text(TEMPLATE.format(
         plans=PATHS["plans"], plan_file=PLAN_FILE, base=base, reviewer=agent, experts=", ".join(toml_string(one) for one in EXPERTS),
-        max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT,
+        max_tasks=MAX_TASKS,
     ), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
     # too, for a repository whose ignore file is older than it)
@@ -1520,11 +1519,18 @@ def taken_on_remote(root: Path, slug: str, branch: str | None) -> None:
         )
 
 
-def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, branch: str | None = None) -> None:
+def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, branch: str | None = None, night: str | None = None) -> None:
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     if ask is not None and not ask.strip():
         raise SettingsError("--ask is the owner's words for this task, and they are empty")
+    if night is not None:
+        if ask is None:
+            raise SettingsError("--night marks a task the night opens, so it goes with --ask, the backlog item's path")
+        try:
+            date.fromisoformat(night)
+        except ValueError:
+            raise SettingsError(f"--night is the night's date, YYYY-MM-DD, not {night!r}") from None
     if ask is not None or ticket is not None:
         # This call opens a task. A slug whose task has ended keeps that task's files, its state and
         # what was done to its ticket: a new task under it would start with another task's record.
@@ -1554,6 +1560,9 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
         (directory / "ask.txt").write_text(ask.strip() + "\n", encoding="utf-8")
     if ticket is not None:
         (directory / "ticket.txt").write_text(ticket + "\n", encoding="utf-8")
+    if night is not None and not any(record.get("task") == slug for record in events_named(root, "task.mode")):
+        # the night's mark: the form an older Lem's `mode` wrote, so that one reader reads both
+        append_event(root, "task.mode", slug, {"mode": "alone", "by": "lem", "words": f"the night of {night}", "all": False, "was": "with-owner"})
     print(directory)
 
 
@@ -1834,6 +1843,8 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     task_directory(root, slug)
     if event == "task.state":
         raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
+    if event in ("task.mode", OWNER):
+        raise SettingsError(f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, and a night's mark is the night's")
     fields: dict[str, object] = {}
     for pair in pairs:
         key, separator, raw = pair.partition("=")
@@ -2060,19 +2071,19 @@ def proposal(directory: Path) -> dict | None:
     return {"pull_request": (kept.get("pr") or {}).get("url"), "green": not reasons, "not_green": reasons, "conflict": conflict}
 
 
-def events_named(root: Path, event: str) -> list[dict]:
-    """Every event of one name in the event log, oldest first."""
+def events_named(root: Path, *events: str) -> list[dict]:
+    """Every event of these names in the event log, in the log's order, oldest first."""
     log, found = state_root(root) / "events.jsonl", []
     if not log.is_file():
         return found
     for number, line in enumerate(text_of(log).splitlines(), 1):
-        if f'"{event}"' not in line:
+        if not any(f'"{event}"' in line for event in events):
             continue
         try:
             record = json.loads(line)
         except ValueError as error:
             raise SettingsError(f"{log}:{number} does not read as JSON ({error}); the log is written by project.py, never by hand") from error
-        if record.get("event") == event:
+        if record.get("event") in events:
             found.append(record)
     return found
 
@@ -2084,20 +2095,65 @@ def newest_events(root: Path, event: str) -> dict[str, dict]:
     return {record.get("task"): record for record in events_named(root, event)}
 
 
-# The words of the `task.mode` event with which a night puts its task in the mode `alone`
-# (`stages/night.md`): the one mark that tells a task of the night from a day's task.
+# The words of the `task.mode` event with which a night marks its task (`task-dir --night`,
+# `stages/night.md`): the one mark that tells a task of the night from a day's task.
 NIGHT_WORDS = re.compile(r"the night of (\d{4}-\d{2}-\d{2})")
+# The event of the owner's status, which names no task (`owner`).
+OWNER = "owner"
 
 
 def nights(modes: list[dict]) -> dict[str, str]:
     """The night that opened each task, as its date, from the first `task.mode` event Lem wrote in
-    the night's words. An "I am back" later does not take it away."""
+    the night's words. The owner's "active" later does not take it away."""
     found: dict[str, str] = {}
     for record in modes:
-        night = NIGHT_WORDS.fullmatch(str(record.get("words", ""))) if record.get("by") == "lem" else None
+        night = NIGHT_WORDS.fullmatch(str(record.get("words", ""))) if record.get("event") == "task.mode" and record.get("by") == "lem" else None
         if night:
             found.setdefault(record.get("task"), night[1])
     return found
+
+
+def owner_now(records: list[dict]) -> dict:
+    """The owner's status from the newest `owner` event: there, the default, or away since then."""
+    newest = next((record for record in reversed(records) if record.get("event") == OWNER and record.get("task") is None), None)
+    if newest is None or not newest.get("away"):
+        return {"away": False, "since": newest["ts"] if newest else None, "words": newest.get("words") if newest else None}
+    return {"away": True, "since": newest["ts"], "words": newest.get("words")}
+
+
+def runs_without_owner(slug: str, records: list[dict], first: str | None) -> list[dict]:
+    """The spans in which a task ran without the owner, oldest first, each with the words that
+    started it and the words that ended it (`to` is null for a span that runs now). A span runs
+    while the owner is away, and while the task's own mark holds: a night's, or the "go alone" of an
+    older Lem (a `task.mode` event `alone`, which its `with-owner` ended). The owner's "active" ends
+    both. No span starts before `first`, the task's first event, since a task opened while he is
+    away runs without him from its opening."""
+    def said(record: dict) -> dict:
+        return {"by": record.get("by", "owner"), "words": record.get("words")}
+
+    spans: list[dict] = []
+    own: dict | None = None
+    away: dict | None = None
+    for record in records:
+        if record.get("event") == "task.mode" and record.get("task") == slug:
+            own = (own or record) if record.get("mode") == "alone" else None
+        elif record.get("event") == OWNER and record.get("task") is None:
+            if record.get("away"):
+                away = away or record
+            else:
+                away = own = None
+        else:
+            continue
+        start = own or away
+        if start and (not spans or spans[-1]["to"] is not None):
+            spans.append({"from": max(start["ts"], first or start["ts"]), "to": None, "started": said(start), "ended": None})
+        elif not start and spans and spans[-1]["to"] is None:
+            if first and record["ts"] < first:
+                # an away and an active that both came before the task opened are no span of it
+                spans.pop()
+            else:
+                spans[-1].update(to=max(record["ts"], spans[-1]["from"]), ended=said(record))
+    return spans
 
 
 def type_of(text: str) -> dict | None:
@@ -2119,9 +2175,15 @@ def read_tasks(root: Path) -> list[dict]:
     tasks = []
     talks = newest_events(root, "plan.talk")
     investigations = newest_events(root, "investigation")
-    mode_events = events_named(root, "task.mode")
-    modes = {record.get("task"): record for record in mode_events}
-    night = nights(mode_events)
+    # the owner's status, each task's own mark and its first state, in the log's order
+    presence = events_named(root, "task.mode", OWNER, "task.state")
+    opened: dict[str, str] = {}
+    newest: dict[str, str] = {}
+    for record in presence:
+        opened.setdefault(record.get("task"), record["ts"])
+        newest[record.get("task")] = record["ts"]
+    presence = [record for record in presence if record.get("event") != "task.state"]
+    night = nights(presence)
     parent = state_root(root) / "tasks"
     for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
         state = directory / "state.md"
@@ -2130,6 +2192,10 @@ def read_tasks(root: Path) -> list[dict]:
         block = written.strip().split("\n\n")[0] if written.strip() else None
         first = STATE_LINE.fullmatch(block.splitlines()[0]) if block else None
         known = first is not None and first["status"] in STATES
+        # an ended task ran without the owner only up to its last event: an "away" after it is no span of it
+        ended = known and first["status"] in ENDED and directory.name in newest
+        spans = runs_without_owner(directory.name, [record for record in presence if record["ts"] <= newest[directory.name]] if ended else presence, opened.get(directory.name))
+        alone = bool(spans) and spans[-1]["to"] is None
         tasks.append({
             "slug": directory.name,
             "ask": ask_of(directory),
@@ -2150,9 +2216,11 @@ def read_tasks(root: Path) -> list[dict]:
             "type": type_of(written),
             # what the investigation of a fix or a question found, as `log investigation` wrote it last, or null
             "investigation": investigation_now(investigations.get(directory.name)),
-            # with the owner or without him, from the newest `task.mode`; a task with none (every task an older Lem opened) runs with him
-            "mode": (modes.get(directory.name) or {}).get("mode", "with-owner"),
-            "mode_since": (modes.get(directory.name) or {}).get("ts"),
+            # with the owner or without him now, and since when: from the owner's status and the task's own mark (`runs_without_owner`)
+            "mode": "alone" if alone else "with-owner",
+            "mode_since": (spans[-1]["from"] if alone else spans[-1]["to"]) if spans else None,
+            # each span in which it ran without the owner, with the words that started and ended it, for the pull request
+            "without_owner": spans,
             # the date of the night that opened it, or null for a task of the day
             "night": night.get(directory.name),
         })
@@ -2248,6 +2316,8 @@ def cmd_waiting(root: Path) -> dict:
 
     held = [task for task in tasks if task["status"] == "held"]
     found = {
+        # whether the owner said he is away, since when and in which words: the list says it first
+        "owner": owner_now(events_named(root, OWNER)),
         "choices": json.loads(asked.stdout)["waiting"],
         "criteria": [{**brief(task), "line": line(task)} for task in held if line(task).startswith(CRITERIA_WAIT)],
         "held": [{**brief(task), "line": line(task)} for task in held if not line(task).startswith(CRITERIA_WAIT)],
@@ -2273,38 +2343,30 @@ def cmd_waiting(root: Path) -> dict:
     return found
 
 
-# Whether a task runs with the owner or without him. `alone` is his own word ("go alone"); a text for
-# a person says "without the owner", since `lem project alone` is the lock of the machine.
-MODES = ("with-owner", "alone")
-MODE_BY = ("owner", "lem")
-
-
-def cmd_mode(root: Path, target: list[str], every: bool, by: str, words: str | None) -> dict:
-    """Write one `task.mode` event for each task the words reach, and none for a task that runs
-    that way already."""
-    if len(target) != (1 if every else 2):
-        raise SettingsError("mode takes SLUG MODE, or --all MODE: `lem project mode SLUG alone --by owner --words \"go alone\"`")
-    mode = target[-1]
-    if mode not in MODES:
-        raise SettingsError(f"a task runs {' or '.join(MODES)}, not {mode!r}")
+def cmd_owner(root: Path, status: str, words: str | None) -> dict:
+    """Write the owner's status, away or active, with his words as typed. Nothing is written when it
+    changes nothing: away while he is away, active while he is there and no task runs without him.
+    Away takes at once each choice that waits for him and is no irreversible step."""
+    if status not in ("away", "active"):
+        raise SettingsError(f"the owner is away or active, not {status!r}: `lem project owner away --words \"I'm away\"`")
     if not words or not words.strip():
-        raise SettingsError("--words are the owner's words as typed (\"go alone\", \"I am back\"), or Lem's reason with --by lem")
-    if by == "lem" and words.strip().lower().startswith("the night") and not NIGHT_WORDS.fullmatch(words.strip()):
-        raise SettingsError(f"a night's words are `the night of YYYY-MM-DD`, with the night's date, so that the morning list tells its task from a day's task; not {words.strip()!r}")
+        raise SettingsError("--words are the owner's words as typed (\"I'm away\", \"/lem active\"); no script can tell who typed, so they are his only")
+    now = owner_now(events_named(root, OWNER))
+    away = status == "away"
     tasks = read_tasks(root)
-    if every:
-        reached = [task for task in tasks if task["status"] not in ENDED]
-    else:
-        task_directory(root, target[0])
-        reached = [task for task in tasks if task["slug"] == target[0]]
-        if reached[0]["status"] in ENDED:
-            raise SettingsError(f"the task {target[0]!r} is {reached[0]['status']}: an ended task stays ended, and new work for it is a new ask")
-    written = []
-    for task in reached:
-        if task["mode"] != mode:
-            append_event(root, "task.mode", task["slug"], {"mode": mode, "by": by, "words": words.strip(), "all": every, "was": task["mode"]})
-            written.append({"slug": task["slug"], "mode": mode, "was": task["mode"]})
-    return {"tasks": written, "since": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    without = [task["slug"] for task in tasks if task["status"] not in ENDED and task["mode"] == "alone"]
+    if now["away"] == away and (away or not without):
+        return {**now, "written": False, "tasks": without, "taken": []}
+    record = append_event(root, OWNER, None, {"away": away, "by": "owner", "words": words.strip()})
+    taken: list = []
+    if away:
+        ran = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "away"],
+                             capture_output=True, text=True, check=False)
+        if ran.returncode != 0:
+            raise SettingsError(f"the owner is away now, and the choices that wait were not taken: {ran.stderr.strip().removeprefix('decisions.py: ')}; run `lem decisions away`")
+        taken = json.loads(ran.stdout)["taken"]
+    return {"away": away, "since": record["ts"], "words": record["words"], "written": True,
+            "tasks": [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"] if away else without, "taken": taken}
 
 
 def cmd_alone(root: Path, words: list[str]) -> int:
@@ -2461,17 +2523,16 @@ def main(argv: list[str] | None = None) -> None:
     task_dir.add_argument("--ask", help="the owner's words for this task, as given")
     task_dir.add_argument("--ticket", help="the id of the tracker's ticket the ask came from, e.g. MBZ-12")
     task_dir.add_argument("--branch", help="the branch the task takes, when it is not TYPE/SLUG (a tracker's name, the project's own scheme)")
+    task_dir.add_argument("--night", metavar="YYYY-MM-DD", help="the night that opens the task, which then runs without the owner")
     state = commands.add_parser("state")
     state.add_argument("slug")
     state.add_argument("status")
     state.add_argument("lines", nargs="+", metavar="LINE")
     state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
     commands.add_parser("tasks")
-    mode = commands.add_parser("mode", help="whether a task runs with the owner or without him")
-    mode.add_argument("target", nargs="+", metavar="SLUG MODE | MODE")
-    mode.add_argument("--all", dest="every", action="store_true", help="every task that did not end")
-    mode.add_argument("--by", required=True, choices=MODE_BY)
-    mode.add_argument("--words", help="the owner's words as typed, or Lem's reason with --by lem")
+    owner = commands.add_parser("owner", help="the owner says that he is away, or active again")
+    owner.add_argument("status", metavar="away|active")
+    owner.add_argument("--words", help="the owner's words as typed")
     step = commands.add_parser("ticket-step")
     step.add_argument("slug")
     step.add_argument("step")
@@ -2497,7 +2558,7 @@ def main(argv: list[str] | None = None) -> None:
             cmd_reviewer(root, args.words)
             return
         if args.command == "task-dir":
-            cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch)
+            cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch, args.night)
             return
         if args.command == "state":
             cmd_state(root, args.slug, args.status, args.lines, args.start_over)
@@ -2505,8 +2566,8 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "tasks":
             print(json.dumps(read_tasks(root), indent=2))
             return
-        if args.command == "mode":
-            print(json.dumps(cmd_mode(root, args.target, args.every, args.by, args.words)))
+        if args.command == "owner":
+            print(json.dumps(cmd_owner(root, args.status, args.words)))
             return
         if args.command == "log":
             cmd_log(root, args.slug, args.event, args.fields)

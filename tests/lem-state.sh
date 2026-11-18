@@ -36,30 +36,45 @@ else
   fail "the state outside a repository: $err / $corr_err"
 fi
 
-# A task runs with the owner until his words say otherwise: `mode` writes one event for each task the words reach,
-# `tasks` gives the newest, and a task with none, as an older Lem's, runs with him.
+# The owner says whether he is there, and Lem assumes nothing: `owner away` makes every open task run without him,
+# and one opened while he is away too, from its opening; `owner active` takes them back, also a task an older Lem's
+# "go alone" put so; `waiting` says first that he is away and since when; an ended task is no task of his "away".
 MO=$WORK/mode-repo
 git init -q -b main "$MO" && commit "$MO" start && project --repo "$MO" init --base main >/dev/null
-for slug in gift-note other-task landed-task; do project --repo "$MO" task-dir "$slug" >/dev/null; done
+for slug in gift-note other-task landed-task; do project --repo "$MO" task-dir "$slug" >/dev/null; project --repo "$MO" state "$slug" building "it builds" >/dev/null; done
 project --repo "$MO" state landed-task landed "main a..b" >/dev/null
-modes() { project --repo "$MO" tasks | field '[(t["slug"], t["mode"], t["mode_since"] is not None) for t in d]'; }
+modes() { project --repo "$MO" tasks | field '[(t["slug"], t["mode"], len(t["without_owner"])) for t in d]'; }
 before=$(modes)
-one=$(project --repo "$MO" mode gift-note alone --by owner --words "go alone" | field '[(t["slug"], t["mode"], t["was"]) for t in d["tasks"]]')
-after_one=$(modes)
-every=$(project --repo "$MO" mode --all alone --by owner --words "go alone for all" | field '[t["slug"] for t in d["tasks"]]')
-back=$(project --repo "$MO" mode --all with-owner --by owner --words "I am back" | field '[(t["slug"], t["was"]) for t in d["tasks"]]')
-ended=$(project --repo "$MO" mode landed-task alone --by owner --words "go alone" 2>&1 || true)
-wrong=$(project --repo "$MO" mode gift-note away --by owner --words "go" 2>&1 || true)
-nowords=$(status_of project --repo "$MO" mode gift-note alone --by owner --words " ")
-events=$(grep -c '"event": "task.mode"' "$MO/.lem/state/events.jsonl")
-if [ "$before" = "[('gift-note', 'with-owner', False), ('landed-task', 'with-owner', False), ('other-task', 'with-owner', False)]" ] \
-  && [ "$one" = "[('gift-note', 'alone', 'with-owner')]" ] \
-  && [ "$after_one" = "[('gift-note', 'alone', True), ('landed-task', 'with-owner', False), ('other-task', 'with-owner', False)]" ] \
-  && [ "$every" = "['other-task']" ] && [ "$back" = "[('gift-note', 'alone'), ('other-task', 'alone')]" ] && [ "$(modes)" = "[('gift-note', 'with-owner', True), ('landed-task', 'with-owner', False), ('other-task', 'with-owner', True)]" ] \
-  && grep -qF "an ended task stays ended" <<<"$ended" && grep -qF "not 'away'" <<<"$wrong" && [ "$nowords" = 1 ] && [ "$events" = 4 ]; then
-  pass "a task runs with the owner until his words say otherwise: mode writes one event for each task they reach and none for a task that runs that way already or that ended, tasks gives the newest with its time, and a task with none runs with him"
+old_mode "$MO" gift-note alone "go alone"
+after_old=$(modes)
+sleep 1
+away=$(project --repo "$MO" owner away --words "I'm away" | field '(d["away"], d["written"], d["tasks"])')
+again=$(project --repo "$MO" owner away --words "away" | field '(d["away"], d["written"])')
+listed=$(project --repo "$MO" waiting | field '(d["owner"]["away"], d["owner"]["words"], d["owner"]["since"] is not None)')
+away_since=$(project --repo "$MO" waiting | field 'd["owner"]["since"]')
+sleep 1
+project --repo "$MO" task-dir new-task --ask "Opened while he is away." >/dev/null && project --repo "$MO" state new-task building "it builds" >/dev/null
+opened=$(project --repo "$MO" tasks | field "[t['without_owner'][0]['from'] > '$away_since' and t['without_owner'][0]['started']['words'] == \"I'm away\" for t in d if t['slug'] == 'new-task'][0]")
+during=$(modes)
+back=$(project --repo "$MO" owner active --words "/lem active" | field '(d["away"], d["written"], d["tasks"])')
+after=$(modes)
+there=$(project --repo "$MO" owner active --words "I'm back" | field 'd["written"]')
+wrong=$(project --repo "$MO" owner sideways --words "go" 2>&1 || true)
+nowords=$(status_of project --repo "$MO" owner away --words " ")
+forged=$(project --repo "$MO" log gift-note task.mode mode=alone 2>&1 || true)
+events=$(grep -c '"event": "owner"' "$MO/.lem/state/events.jsonl")
+if [ "$before" = "[('gift-note', 'with-owner', 0), ('landed-task', 'with-owner', 0), ('other-task', 'with-owner', 0)]" ] \
+  && [ "$after_old" = "[('gift-note', 'alone', 1), ('landed-task', 'with-owner', 0), ('other-task', 'with-owner', 0)]" ] \
+  && [ "$away" = "(True, True, ['gift-note', 'other-task'])" ] && [ "$again" = "(True, False)" ] && [ "$listed" = "(True, \"I'm away\", True)" ] \
+  && [ "$during" = "[('gift-note', 'alone', 1), ('landed-task', 'with-owner', 0), ('new-task', 'alone', 1), ('other-task', 'alone', 1)]" ] \
+  && [ "$opened" = True ] \
+  && [ "$back" = "(False, True, ['gift-note', 'new-task', 'other-task'])" ] \
+  && [ "$after" = "[('gift-note', 'with-owner', 1), ('landed-task', 'with-owner', 0), ('new-task', 'with-owner', 1), ('other-task', 'with-owner', 1)]" ] \
+  && [ "$there" = False ] && grep -qF "the owner is away or active, not 'sideways'" <<<"$wrong" && [ "$nowords" = 1 ] \
+  && grep -qF "task.mode is written by \`lem project owner\` and \`task-dir --night\` only" <<<"$forged" && [ "$events" = 2 ]; then
+  pass "the owner says whether he is there: away makes every open task run without him, one opened while he is away from its opening, active takes them all back with an older Lem's \"go alone\", the list says that he is away, an ended task stays out of it, and nothing is written for words that change nothing"
 else
-  fail "the mode of a task: $before / $one / $after_one / $every / $back / $(modes) / $ended / $wrong / $nowords / $events"
+  fail "the owner's status: $before / $after_old / $away / $again / $listed / $opened / $during / $back / $after / $there / $wrong / $nowords / $forged / $events"
 fi
 
 # The scripts of the commit before the move, for a repository whose state they wrote. A shallow clone may not have

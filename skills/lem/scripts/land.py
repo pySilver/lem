@@ -223,21 +223,22 @@ steps kept, from the record of the task's decisions (`lem decisions list`) and f
 file, whose headings it checks. The text opens with green or not green, in one wording for a
 small change and a full change. Green says that the
 checks passed with the bar where it was, a review with at least one source left no
-must-fix, no criterion changed during the build, and no decision was taken by timeout or by the
-experts. A criterion changed, added or removed after the newest approval is one line each, from its
+must-fix, no criterion changed during the build, and no decision past the personas was taken
+without an answer of the owner's. A criterion changed, added or removed after the newest approval is one line each, from its
 record (`lem decisions criterion`), with what it was, what it is and why. The text lists every
 criterion change of the task, under every approval; one that a later approval of the owner's took over says
 so and is no cause of not green, since that approval made it the owner's. A lowered bar is not
 green with a reason either: its line holds the builder's reason and what the review said of it. A choice
-taken by timeout is a line of its own, and so is a choice the experts took (their shared pick,
-at the end of the wait, or before it while the task ran without the owner), with their pick and
-both their reasons; so is an answer of the owner's that came after either and differs. So is a
+taken without the owner (when he said he is away, or by the timeout of an older Lem) is a line of
+its own, and so is a choice the experts took, with their pick and both their reasons; so is an
+answer of the owner's that came after either and differs. So is a
 decision of the ladder that went past the personas without him (`by: dialectic`, `by: experts`)
 or that no level settled (`unsettled`), and criteria approved while the task ran without him
 (`by: alone`) that no approval of his followed. A decision the gate or the personas settled is no
 cause of not green: its line says the gate's cite, or how many personas voted for it and in how
-many model families. A task that ran without the owner (`lem project mode`) says so in the line
-after green or not green, with when and his words; nothing else about it is a cause of not green.
+many model families. A task that ran without the owner (his `lem project owner away`, a night's
+mark) says so in the line after green or not green, with when and the words; nothing else about it
+is a cause of not green.
 Each reason a request is not
 green stands before everything else, one line each; each decision of the record is one line
 before the notes. `propose` is refused while a choice of the task waits for the owner. A plan
@@ -451,10 +452,13 @@ TALK_SAYS = {
 TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open", "bound")
 # Who took a decision of the record, as the text of a pull request names them.
 TAKEN_BY = {"lead": "the lead", "gate": "the gate", "personas": "the personas", "dialectic": "the dialectic", "owner": "the owner", "lem": "Lem", "timeout": "the timeout", "experts": "the experts"}
+# Who took a choice that waited for the owner and was taken without him: the recommended option at
+# the owner's "away" (`early`), or the clock of an older Lem.
+EARLY_BY = "the ladder's pick, taken without the owner"
 # The levels of the ladder whose decision, taken without the owner, is never green: past the personas.
 PAST_PERSONAS = ("dialectic", "experts")
 # The first line of a green pull request, one wording for a small change and a full change.
-GREEN = "**Green.** The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision was taken by timeout or by the experts."
+GREEN = "**Green.** The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision past the personas was taken without an answer."
 # What a review names of each defect it saw outside the change.
 DEFECT = ("where", "title", "what")
 # The longest file name an item of the backlog gets from its title, before `.md`. A guess
@@ -2085,15 +2089,16 @@ def not_green(task: Task, state: dict) -> list[str]:
             # past the personas, with no answer of his: the dialectic, the experts, or the lead's pick that no level settled
             who = "the lead's pick, which no level of the ladder settled" if decision.get("unsettled") else f"by {TAKEN_BY[decision['by']]}"
             reasons.append(f"decision {decision['id']} was taken without the owner ({decision['what']}): \"{decision['chose']}\", {who}")
-        # the experts' shared pick, taken while he was away (`settled`, an older Lem's) or at the end of his wait
+        # the experts' shared pick, taken while he was away (`settled`, an older Lem's), when he went away, or at the end of an older Lem's wait
         elif decision.get("by") == "experts" and decision["state"] in ("timeout", "settled"):
             reasons.append(
                 f"choice {decision['id']} was taken by the experts ({decision['what']}): \"{decision['chose']}\", the option both picked, {waited(decision)}. "
                 f"{experts_said(decision)}{later(decision, '; the owner answered later with')}",
             )
         else:
+            how = "without the owner" if decision.get("early") else "by timeout"
             reasons.append(
-                f"choice {decision['id']} was taken by timeout ({decision['what']}): \"{decision['chose']}\", the recommended option, "
+                f"choice {decision['id']} was taken {how} ({decision['what']}): \"{decision['chose']}\", the recommended option, "
                 f"{waited(decision)}{later(decision, '; the owner answered later with')}",
             )
     return reasons
@@ -2109,33 +2114,26 @@ def without_him(decision: dict) -> bool:
 
 
 def waited(decision: dict) -> str:
-    """When a choice that waited for the owner was taken without his answer."""
+    """When a choice that waited for the owner was taken without his answer. A choice an older Lem's
+    clock took names that wait, from the minutes its record keeps."""
     if decision["state"] == "settled":
-        return "while the owner was away, before the wait ended"
+        return "while the owner was away"
     if decision.get("early"):
-        return "when the task ran without the owner, before the wait ended"
+        return "at once, as the task ran without the owner"
     return f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer"
 
 
 def without_owner(task: Task) -> str | None:
-    """The line that says when the task ran without the owner, from its `task.mode` events, with the
-    owner's words that started each span; none for a task that always ran with him."""
-    spans: list[str] = []
-    start: dict | None = None
+    """The line that says when the task ran without the owner, from the spans `lem project tasks`
+    gives (the owner's away and active, a night's mark, an older Lem's "go alone"), with the words that
+    started and ended each; none for a task that always ran with him."""
+    def said(words: dict) -> str:
+        return f"{'the owner' if words.get('by') == 'owner' else 'Lem'}: \"{words.get('words')}\""
 
-    def said(record: dict) -> str:
-        return f"{'the owner' if record.get('by') == 'owner' else 'Lem'}: \"{record.get('words')}\""
-
-    for record in events_of(task):
-        if record.get("event") != "task.mode":
-            continue
-        if record.get("mode") == "alone" and start is None:
-            start = record
-        elif record.get("mode") == "with-owner" and start is not None:
-            spans.append(f"from {utc(start['ts'])} ({said(start)}) to {utc(record['ts'])} ({said(record)})")
-            start = None
-    if start is not None:
-        spans.append(f"from {utc(start['ts'])} ({said(start)})")
+    spans = [
+        f"from {utc(span['from'])} ({said(span['started'])})" + (f" to {utc(span['to'])} ({said(span['ended'])})" if span["to"] else "")
+        for span in task.record.get("without_owner") or []
+    ]
     return f"It ran without the owner {', and '.join(spans)}." if spans else None
 
 
@@ -2214,12 +2212,14 @@ def decided(decision: dict) -> str:
         line += "" if "owner_why" in decision else " The owner gave no reason."
     elif decision["by"] == "experts" and decision["state"] in ("timeout", "settled"):
         # their reasons are the reasons of the option taken; the recommendation's is about another one, or the same
-        when = "while the owner was away" if decision["state"] == "settled" else "before the end of the owner's wait, when the task ran without the owner" if decision.get("early") else f"after the owner's wait of {decision['wait_minutes']} minutes"
+        when = waited(decision).removesuffix(" ended with no answer")
         also = "it is also the recommended" if decision["chose"] == decision["recommended"] else f"the recommended was \"{decision['recommended']}\""
         line += f", the option both picked, {when}; {also}. {experts_said(decision)}." + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
+    elif decision["state"] == "timeout" and decision.get("early"):
+        line = head + f"\"{decision['chose']}\", the ladder's pick, taken {waited(decision)}. {decision['why']}"
+        line += f" {later(decision, 'The owner answered later with')}." if "late" in decision else ""
     elif decision["state"] == "timeout":
-        when = "before the end of the owner's wait, when the task ran without the owner" if decision.get("early") else f"after the owner's wait of {decision['wait_minutes']} minutes"
-        line += f", {when}. {decision['why']}" + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
+        line += f", {waited(decision).removesuffix(' ended with no answer')}. {decision['why']}" + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
     elif decision["by"] == "personas" and decision.get("votes"):
         # the one stop of the ladder past the gate that is green: how many voted, in how many model families
         votes = decision["votes"]
@@ -2444,7 +2444,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
 PAGES = ("built.md", "decisions.md")
 # Who took a decision, in the order of decisions.md: the ones the owner most likely wants to change first.
 WHO = {
-    "waits": "waits for the owner", "unsettled": "no level: the lead's pick stands", "timeout": "the timeout of the owner's wait",
+    "waits": "waits for the owner", "unsettled": "no level: the lead's pick stands", "away": EARLY_BY, "timeout": "the timeout of an older Lem's wait",
     "experts": "two expert models", "dialectic": "the dialectic", "personas": "the personas", "lead": "the lead", "lem": "Lem",
     "gate": "the gate", "owner": "the owner",
 }
@@ -2512,7 +2512,7 @@ def kind_of(decision: dict) -> str:
     if decision["state"] == "waits" or decision.get("unsettled"):
         return "waits" if decision["state"] == "waits" else "unsettled"
     if decision["state"] in ("timeout", "settled"):
-        return "experts" if decision["by"] == "experts" else "timeout"
+        return "experts" if decision["by"] == "experts" else "away" if decision.get("early") else "timeout"
     return "owner" if decision["state"] == "answered" else decision["by"]
 
 
@@ -2716,7 +2716,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     if waiting:
         ends = (
             "it is a step that a later \"no\" cannot reverse, so only the owner's answer ends it"
-            if waiting["irreversible"] else f"or, after its wait ends at {waiting['deadline']}, `lem decisions timeout {task.slug} {waiting['id']}` takes the experts' shared pick, or the recommended option when they split"
+            if waiting["irreversible"] else "or, when the owner says he is away, `lem project owner away` takes the ladder's pick, and the request is not green for it"
         )
         raise LandError(
             f"choice {waiting['id']} of {task.slug} waits for the owner ({waiting['what']}): a request is never proposed over an open question of the owner's. "

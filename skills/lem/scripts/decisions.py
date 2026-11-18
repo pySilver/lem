@@ -7,10 +7,10 @@ options each cost a person something, climbs a ladder of opinions (`stages/ladde
 the personas, the dialectic, the experts, each only when the one before left it open; the lead
 applies its counts, since the lead reads the code. Without the owner, its result is logged here.
 With the owner, a decision the gate or the personas settled is logged too, and one that went past
-the personas goes to him: it waits a fixed time for his answer and no longer, after which the
-ladder's pick is taken, and the pull request is not green for it. One kind of step never goes
-that way: a step that a later "no" cannot reverse waits for the owner's word however long that
-takes.
+the personas goes to him: it waits for his answer, with no time limit, while the rest of the task
+goes on. When he says he is away (`lem project owner away`), the ladder's pick is taken at once,
+and the pull request is not green for it. One kind of step never goes that way: a step that a
+later "no" cannot reverse waits for the owner's word however long that takes.
 
     lem decisions log SLUG --what TEXT --chose TEXT --why TEXT
                  --by lead|gate|personas|dialectic|experts|owner|lem
@@ -33,7 +33,7 @@ takes.
                             a change of a criterion the owner approved, with its text before and
                             after: N is its number in the criteria as they stand after every
                             earlier change. --choice names the choice of the build that led to
-                            it, answered or taken by timeout; without one, the lead's own change
+                            it, answered or taken without the owner; without one, the lead's own change
                             or the personas' clear pick
     lem decisions changes SLUG
                             the approved criteria, each recorded change of them in order, and the
@@ -41,19 +41,19 @@ takes.
     lem decisions ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT
                  --option TEXT --option TEXT [...] --recommended TEXT --why TEXT --said TEXT
                  [--irreversible data|system|person|money]
-                            a choice for the owner, of the plan or of the build: it gets a number
-                            and the time its wait ends. --case is one concrete case that ends
+                            a choice for the owner, of the plan or of the build: it gets a number,
+                            and while the task runs without the owner the ladder's pick is taken
+                            at once, unless it is irreversible. --case is one concrete case that ends
                             badly, in numbered steps, one to a line, and --cause one line on why it
                             became possible and how far that reaches: the owner's card tells one
                             run.
     lem decisions pending [SLUG]
-                            the choices that wait, of one task or of every task, each with the
-                            seconds its wait has left (`waiting`). A task that is dropped,
+                            the choices that wait, of one task or of every task (`waiting`). A task that is dropped,
                             landed or answered has none: its choices that never got an answer are named
                             under `ended`, with the task's status, and need no answer
     lem decisions wait SLUG ID [--seconds N]
-                            return when the choice is answered, when its wait ends, when the task
-                            runs without the owner (`lem project mode`), or after N seconds, and
+                            return when the choice is answered, when the task runs without the
+                            owner (then the ladder's pick is taken now), or after N seconds, and
                             say which
     lem decisions answer SLUG ID --chose OPTION [--words TEXT] [--why TEXT]
                             the owner's answer: the option it takes, word for word, the owner's
@@ -66,13 +66,12 @@ takes.
     lem decisions advise SLUG ID --expert fable|astra (--pick OPTION | --none) --why TEXT
                             one expert's advice on a choice that waits: the option it picks, word
                             for word, or none of them, with its reasons. One advice of each expert,
-                            given before the wait ends; an irreversible step takes advice too
-    lem decisions timeout SLUG ID
-                            the wait ended with no answer: the experts' shared pick is taken when
-                            both picked the same option, the recommended action otherwise.
-                            Refused while the wait runs, unless the task runs without the owner
-                            (then it is taken at once, `early: true`), and always for an
-                            irreversible step
+                            while the choice waits; an irreversible step takes advice too
+    lem decisions away
+                            what `lem project owner away` runs: each choice that waits, of each
+                            task that runs without the owner now, and that is no irreversible
+                            step, is taken now: the experts' shared pick when both picked the
+                            same option, the ladder's pick (`--recommended`) otherwise
     lem decisions list SLUG  every decision of the task, each as it stands now
 
 The record is `decisions.jsonl` in the task's directory, one line for each thing that happened;
@@ -93,8 +92,13 @@ a line with `"kind": "story"` and its number under `story`, and an approval it k
 `stories.json`: both read as the lines and the file of now. A later change may drop the old forms
 once no task that has them is open.
 
-The wait is the settings' `flow.decision_wait`, in minutes. Its default, 15, is the owner's own
-number ("if there is decision taken in 15 min", 2026-11-16). `--said` is not optional for `ask`:
+A choice has no time limit: "Lets remove this 15min automatic timeout - to have more explicit: Owner
+either tells dnd or not, no assumptions" (the owner, 2026-11-18). A choice taken because the task
+ran without the owner is a line `timeout` with `early: true`, the form an older Lem wrote for its
+"go alone", so that one reader reads both. A choice an older Lem asked has a `deadline` and its
+`wait_minutes`; the deadline no longer ends its wait, and a `timeout` line with no `early`, which
+the clock of an older Lem took, still reads as taken after that wait. `timeout` itself is refused
+with what holds now. `--said` is not optional for `ask`:
 the levels of the ladder answer before the owner is asked, and their answers go with the question;
 `--recommended` is the ladder's pick.
 
@@ -113,20 +117,18 @@ for them as the way out when the owner is not there to answer (2026-11-16). On t
 a level before any card, and their shared pick is logged `--by experts`. `advise` keeps their
 advice on a choice that waits, in two places, `fable` for the first seat and `astra` for the
 second, whatever model sits there: when the owner asks for all opinions on a card, and on a choice
-an older lead asked. At the end of the wait their shared pick is taken (`by: experts`, with both
+an older lead asked. When the owner goes away their shared pick is taken (`by: experts`, with both
 reasons), and the recommended option when they split or one is missing (`by: timeout`). Either way
-the pull request is not green for it. Advice after the wait ended is refused, so what the timeout
-takes does not depend on when somebody writes it. A `settled` line, which an older Lem wrote when
+the pull request is not green for it. A `settled` line, which an older Lem wrote when
 the owner was away, still reads as the experts' pick; a later change may drop it once no task with
 such a line is open.
 
-An answer that comes after the wait is written down as late, also when nobody wrote the timeout
-yet: then the timeout and the late answer are written together. What was taken stands;
-when the answer differs from it, that is a correction, for the lead while the task builds and a
-new ask after that.
+An answer to a choice that was taken without the owner is written down as late. What was taken
+stands; when the answer differs from it, that is a correction, for the lead while the task builds
+and a new ask after that.
 
-Every write reads the record and checks the state under one lock, so an answer and a timeout that
-come at one time leave one outcome, and two writers never take one number. A task that is
+Every write reads the record and checks the state under one lock, so an answer and the owner's
+"away" that come at one time leave one outcome, and two writers never take one number. A task that is
 dropped, landed or answered takes no write at all, read under the same lock: nobody builds it,
 and its record stays as it ended.
 """
@@ -145,7 +147,7 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -195,10 +197,6 @@ def stamp(moment: datetime) -> str:
     return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def read(moment: str) -> datetime:
-    return datetime.strptime(moment, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-
-
 class Task:
     def __init__(self, repo: Path, slug: str, tasks: list[dict] | None = None, state: Path | None = None) -> None:
         """`tasks` and `state`, when given, are `lem project tasks` and `state-dir` as this process
@@ -212,7 +210,7 @@ class Task:
 
     def read_status(self, tasks: list[dict] | None = None) -> str | None:
         """The task's status now, from its state file: a task may be dropped while a command runs.
-        Its mode comes with it: the owner may say "go alone" while a command runs."""
+        Its mode comes with it: the owner may say that he is away while a command runs."""
         if tasks is None:
             tasks = json.loads(script("project.py", self.repo, "tasks"))
         record = next((task for task in tasks if task["slug"] == self.slug), None)
@@ -372,10 +370,6 @@ def changed(line: dict) -> dict:
     return {("criterion" if key == "story" else key): ("criterion" if key == "kind" else value) for key, value in line.items()}
 
 
-def left(decision: dict) -> int:
-    return int((read(decision["deadline"]) - now()).total_seconds())
-
-
 def shared(decision: dict) -> str | None:
     """The option both experts picked, or None: one is missing, one found none fits, or they split."""
     advice = decision.get("advice", {})
@@ -386,11 +380,13 @@ def shared(decision: dict) -> str | None:
 
 
 def ending(number: int, decision: dict, at: str) -> dict:
-    """The line that ends a wait with no answer: the experts' shared pick, or the recommended option."""
+    """The line that takes a choice without the owner, as the task runs without him: the experts'
+    shared pick, or the recommended option. Its form is the one an older Lem wrote for its "go
+    alone" (`early`), so that one reader reads both."""
     pick = shared(decision)
     if pick is None:
-        return {"id": number, "at": at, "kind": "timeout", "chose": decision["recommended"], "by": "timeout"}
-    return {"id": number, "at": at, "kind": "timeout", "chose": pick, "by": "experts", "experts": {name: decision["advice"][name]["why"] for name in EXPERTS}}
+        return {"id": number, "at": at, "kind": "timeout", "chose": decision["recommended"], "by": "timeout", "early": True}
+    return {"id": number, "at": at, "kind": "timeout", "chose": pick, "by": "experts", "experts": {name: decision["advice"][name]["why"] for name in EXPERTS}, "early": True}
 
 
 def text(value: str | None, flag: str) -> str:
@@ -549,21 +545,25 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
     recommended = text(args.recommended, "--recommended")
     if recommended not in options:
         raise DecisionError(f"--recommended is one of the options, word for word: {'; '.join(options)}")
-    wait = json.loads(script("project.py", task.repo, "show"))["flow"]["decision_wait"]
-    asked = now()
     line = {
-        "at": stamp(asked), "kind": "asked", "what": text(args.what, "--what"), "case": case, "case_was": args.case_was, "cause": cause,
+        "at": stamp(now()), "kind": "asked", "what": text(args.what, "--what"), "case": case, "case_was": args.case_was, "cause": cause,
         "options": options, "recommended": recommended,
         "why": text(args.why, "--why"), "said": text(args.said, "--said"), "irreversible": args.irreversible,
-        # a step that a later "no" cannot reverse waits with no end, so it has no deadline
-        "wait_minutes": wait, "deadline": None if args.irreversible else stamp(asked + timedelta(minutes=wait)),
     }
-    made = task.add(lambda known: [{"id": len(known) + 1, **line}])[0]
+
+    def make(known: list[dict]) -> list[dict]:
+        asked = {"id": len(known) + 1, **line}
+        # while the task runs without the owner (read again under the lock), nothing waits for him but an irreversible step
+        return [asked] if args.irreversible or task.mode != "alone" else [asked, ending(asked["id"], {**asked, "advice": {}}, asked["at"])]
+
+    made = task.add(make)
+    if len(made) > 1:
+        return {**made[0], "taken": made[1]["chose"], "next": "the task runs without the owner: the ladder's pick is taken now, the pull request is not green for it, and nothing waits"}
     # the experts answer on the ladder before any card (`stages/ladder.md`), so the next step names only Lem
-    told = f"tell Lem that choice {made['id']} of {task.slug} waits; "
-    return {**made, "next": told + (
-        "it waits for the owner's word, however long: the rest of the plan goes on, and no timeout takes it" if args.irreversible
-        else f"go on with what does not depend on it; `lem decisions wait {task.slug} {made['id']}` says when it is answered or its wait ends"
+    told = f"tell Lem that choice {made[0]['id']} of {task.slug} waits; "
+    return {**made[0], "next": told + (
+        "it waits for the owner's word, however long: the rest of the plan goes on" if args.irreversible
+        else f"go on with what does not depend on it; `lem decisions wait {task.slug} {made[0]['id']}` says when it is answered, or taken because the owner went away"
     )}
 
 
@@ -582,11 +582,6 @@ def cmd_advise(task: Task, number: int, args: argparse.Namespace) -> dict:
         decision = task.one(number, known)
         if decision["state"] != "waits":
             raise DecisionError(f"choice {number} does not wait: it is {decision['state']}, with {decision['chose']!r}; advice on it changes nothing")
-        if not decision["irreversible"] and left(decision) <= 0:
-            raise DecisionError(
-                f"the wait of choice {number} ended at {decision['deadline']}: advice after it changes nothing. "
-                f"`lem decisions timeout {task.slug} {number}` takes what the advice given in time says",
-            )
         if args.expert in decision.get("advice", {}):
             raise DecisionError(f"choice {number} has the advice of {args.expert} already: one advice of each expert, and `lem decisions list {task.slug}` shows it")
         if "pick" in line and line["pick"] not in decision["options"]:
@@ -604,7 +599,6 @@ def cmd_advise(task: Task, number: int, args: argparse.Namespace) -> dict:
 def shown(task: Task, decision: dict) -> dict:
     out = {"task": task.slug, **{key: value for key, value in decision.items() if key != "kind"}}
     if decision["kind"] == "asked" and decision["state"] == "waits":
-        out["seconds_left"] = None if decision["irreversible"] else max(0, left(decision))
         if "advice" in decision:
             out["experts_pick"] = shared(decision)
     return out
@@ -637,17 +631,18 @@ def cmd_wait(task: Task, number: int, seconds: int) -> dict:
     while True:
         decision = task.one(number)
         if decision["state"] != "waits":
-            ended = {"answered": "answered", "settled": "settled by the experts while the owner is away"}.get(
-                decision["state"], "taken by timeout, with the experts' shared pick" if decision["by"] == "experts" else "taken by timeout",
+            ended = {"answered": "answered", "settled": "settled by the experts while the owner was away"}.get(
+                decision["state"], "taken without the owner" if decision.get("early") else "taken by the timeout of an older Lem",
             )
             return {**shown(task, decision), "ended": ended}
         if task.status in ENDED:
             return {**shown(task, decision), "ended": f"the task is {task.status}: the choice no longer waits", "status": task.status}
-        # the owner said "go alone": nothing waits for him any more but an irreversible step
+        # the owner went away, or the task is a night's: nothing waits for him any more but an irreversible step
         if not decision["irreversible"] and task.mode == "alone":
-            return {**shown(task, decision), "ended": "the task runs without the owner now", "next": f"`lem decisions timeout {task.slug} {number}` takes the recommended option now"}
-        if not decision["irreversible"] and left(decision) <= 0:
-            return {**shown(task, decision), "ended": "the wait is over", "next": f"`lem decisions timeout {task.slug} {number}` takes the experts' shared pick, or the recommended action when they split"}
+            taken = take(task, [number])
+            if taken:
+                return {**shown(task, task.one(number)), "ended": "taken without the owner: the task runs without him now"}
+            continue
         if time.monotonic() >= until:
             return {**shown(task, decision), "ended": "still waits"}
         # A short step, so that an answer or a drop ends the wait within two seconds or so; the
@@ -678,40 +673,49 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
                 "Put the owner's own words in --words. When what the owner decided fits none of them, settle the choice with "
                 "--instead TEXT, never with a new `lem decisions log`, so it does not wait for ever",
             )
-        if decision["state"] == "waits" and (decision["irreversible"] or left(decision) > 0):
+        # A choice that waits takes his answer, however long it waited: an older Lem's deadline ends no wait now.
+        if decision["state"] == "waits":
             return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
-        # After the wait, or after the experts settled it while he was away, what was taken stands.
-        # When nobody wrote the timeout yet, it is written here with the answer, in the same write,
-        # so nothing reads one without the other; it takes what a timeout would.
-        lines = [] if decision["state"] in ("timeout", "settled") else [ending(number, decision, at)]
-        taken.update(chose=lines[0]["chose"] if lines else decision["chose"], timeout_written=bool(lines), state="settled" if decision["state"] == "settled" else "timeout")
-        return [*lines, {"id": number, "at": at, "kind": "late", "chose": chose, **reason}]
+        # Taken without him (or by an older Lem's timeout, or settled by the experts while he was away): what was taken stands.
+        taken.update(chose=decision["chose"], state=decision["state"])
+        return [{"id": number, "at": at, "kind": "late", "chose": chose, **reason}]
 
     made = task.add(make)[-1]
     if made["kind"] == "answered":
         return made
-    return {**made, "state": taken["state"], "taken": taken["chose"], "timeout_written": taken["timeout_written"], "next": (
+    return {**made, "state": taken["state"], "taken": taken["chose"], "next": (
         "the answer is the action that was taken: nothing more to do" if chose == taken["chose"]
         else f"\"{taken['chose']}\" was taken without the owner, and the answer differs: it is a correction. Tell the lead while the task builds; after that it is a new ask"
     )}
 
 
-def cmd_timeout(task: Task, number: int) -> dict:
+def take(task: Task, numbers: list[int] | None = None) -> list[dict]:
+    """Take each choice of the task that waits and is no irreversible step (only those of `numbers`,
+    when given), as the task runs without the owner: one line each, under the lock, where the mode is
+    read again. Nothing when the owner is there."""
     def make(known: list[dict]) -> list[dict]:
-        decision = task.one(number, known)
-        if decision["state"] != "waits":
-            raise DecisionError(f"choice {number} does not wait: it is {decision['state']}, with {decision['chose']!r}")
-        if decision["irreversible"]:
-            raise DecisionError(
-                f"choice {number} is a step that a later \"no\" cannot reverse ({IRREVERSIBLE[decision['irreversible']]}): "
-                "no timeout takes it. It waits for the owner's word, and the rest of the plan goes on",
-            )
-        # the owner said "go alone" (`lem project mode`, read again under the lock): the wait is his, so it ends now
-        if left(decision) > 0 and task.mode != "alone":
-            raise DecisionError(f"the wait of choice {number} has {left(decision)} seconds left (until {decision['deadline']}); the owner may still answer")
-        return [{**ending(number, decision, stamp(now())), **({"early": True} if left(decision) > 0 else {})}]
+        if task.mode != "alone":
+            return []
+        at = stamp(now())
+        return [ending(decision["id"], decision, at) for decision in known
+                if decision["kind"] == "asked" and decision["state"] == "waits" and not decision["irreversible"] and (numbers is None or decision["id"] in numbers)]
 
-    return task.add(make)[0]
+    return task.add(make)
+
+
+def cmd_away(repo: Path) -> dict:
+    """Each choice that waits, of each task that runs without the owner now: taken now, except an
+    irreversible step, which waits for him in every case."""
+    listed = json.loads(script("project.py", repo, "tasks"))
+    state = Path(script("project.py", repo, "state-dir").strip())
+    taken: list[dict] = []
+    for record in listed:
+        if record["status"] in ENDED or record.get("mode") != "alone":
+            continue
+        task = Task(repo, record["slug"], listed, state)
+        if any(decision["state"] == "waits" for decision in task.decisions()):
+            taken += [{"task": task.slug, "id": line["id"], "chose": line["chose"], "by": line["by"]} for line in take(task)]
+    return {"taken": taken}
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -765,9 +769,10 @@ def main(argv: list[str] | None = None) -> None:
     answer.add_argument("--instead", metavar="TEXT", help="the owner's decision, when it is none of the options; it settles the choice")
     answer.add_argument("--words", help="the owner's answer as given, when it is not the option's text")
     answer.add_argument("--why", help="the owner's own reason, in the owner's words, when one was given; never the recommendation's")
+    commands.add_parser("away")
+    # an older lead's text runs `timeout` after a wait that has no end now: it is told what holds
     timeout = commands.add_parser("timeout")
-    timeout.add_argument("slug")
-    timeout.add_argument("id", type=int)
+    timeout.add_argument("rest", nargs="*")
     advise = commands.add_parser("advise")
     advise.add_argument("slug")
     advise.add_argument("id", type=int)
@@ -785,8 +790,15 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(f"decisions.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
     repo = Path(args.repo)
     try:
+        if args.command == "timeout":
+            raise DecisionError(
+                "a choice has no time limit now: it waits for the owner's answer while he is there, and `lem project owner away` takes it at once "
+                "when he says he is away. Go on with what does not depend on it; `lem decisions wait SLUG ID` returns when it is answered or taken",
+            )
         if args.command == "pending":
             result: object = cmd_pending(repo, args.slug)
+        elif args.command == "away":
+            result = cmd_away(repo)
         else:
             task = Task(repo, args.slug)
             if args.command == "log":
@@ -801,8 +813,6 @@ def main(argv: list[str] | None = None) -> None:
                 result = cmd_wait(task, args.id, args.seconds)
             elif args.command == "answer":
                 result = cmd_answer(task, args.id, args)
-            elif args.command == "timeout":
-                result = cmd_timeout(task, args.id)
             elif args.command == "advise":
                 result = cmd_advise(task, args.id, args)
             else:
