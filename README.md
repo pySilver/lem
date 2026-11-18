@@ -73,9 +73,21 @@ review, and a person merges it. [docs/flow.md](docs/flow.md) describes each step
 
 ## Install
 
-Lem needs macOS, agterm, Claude Code, git, Python 3.11 or newer, the mailbox chat, revmux, and
-three recipes of the agterm cookbook: webrev, agdoc and the backlog recipe.
-Codex is optional. [docs/install.md](docs/install.md#what-lem-needs) has a link to each tool.
+Lem runs on macOS, in the [agterm](https://agterm.com) terminal, with
+[Claude Code](https://code.claude.com/docs).
+
+| You need | Lem uses it for |
+| --- | --- |
+| git, Python 3.11 or newer, and the [GitHub CLI](https://cli.github.com) for a repository on GitHub | branches, worktrees and pull requests |
+| [revmux](https://github.com/umputun/revmux) | the review before each pull request |
+| Four recipes of the agterm cookbook: the [mailbox chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat), [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document), [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) and the [backlog recipe](https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker) | the messages between agents, and the pages that Lem shows you |
+
+[Codex](https://github.com/openai/codex) is not required, but we recommend it highly. With Codex,
+a second model family reviews each change, talks about each careful plan, and answers as the
+second expert. Without it, Claude reviews the work of Claude.
+
+`/lem init` checks each tool and tells you how to install a missing one.
+[docs/install.md](docs/install.md#what-lem-needs) has the full list.
 
 Run these two commands at the root of your repository:
 

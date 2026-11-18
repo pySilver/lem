@@ -20,8 +20,8 @@ Lem runs on macOS only, because agterm is a terminal for macOS.
 | [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) | required | a page about the issue, the plan or the change of the session |
 | the [backlog recipe](https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker) | required | your own view of the items in `docs/backlog/`: its `backlog` skill and its picker. Install the skill for your user (`~/.claude/skills/backlog`) or for the repository (`.claude/skills/backlog`) |
 | [plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui) | recommended | the markup of the output of a pane, or of the newest reply of an agent |
-| [Codex](https://github.com/openai/codex) | optional | a reviewer of a second model family, the second expert, and half of each persona panel |
-| the Codex persona agent | optional | the second model family of a persona panel, in `~/.codex/agents/persona.toml` |
+| [Codex](https://github.com/openai/codex) | optional, and highly recommended | a reviewer of a second model family, the second expert, and half of each persona panel. Without it, Claude reviews the work of Claude |
+| the Codex persona agent | optional, with Codex | the second model family of a persona panel, in `~/.codex/agents/persona.toml` |
 | [cronn](https://cronn.umputun.dev) | optional | the scheduled retro and night plan |
 | an [OpenRouter](https://openrouter.ai) key, `OPENROUTER_API_KEY` | optional | the Jev decision model, for the correction queue and the check of a question card |
 
