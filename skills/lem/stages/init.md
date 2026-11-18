@@ -146,10 +146,13 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
 - `branch.propose`: a pull request where the remote is GitHub;
 - `branch.history`: `keep` or `squash`, as the last fifty merges in `examined.md` did;
 - `branch.protected`: the branches nothing lands on that `examined.md` found, or none;
-- `[tracker]`: none, unless the repository shows one. When it shows Linear, propose it with the
-  team key it shows and Lem moving the tickets, and run the tracker's "check" with those values
-  before you write the table: a wrong workspace or a status that does not exist shows now, and a
-  check that fails leaves the table out and says why on the page;
+- `[tracker]`: none, unless the repository shows one. When it shows Linear, propose
+  `kind = "linear"` alone, and run the tracker's "check" with the team key the repository shows
+  before you write the table: a connection that sees no team shows now, and a check that fails
+  leaves the table out and says why on the page. When the team has two statuses of the type
+  `started` or of the type `completed`, Lem never picks one: ask the owner once in the terminal,
+  in one line with the names, and write his pick as `started` or `landed`. It is a fixed choice
+  and no fourth question of step 3;
 - the reviewer: Codex when step 1 found it, since two model families disagree more usefully than
   one family twice and a reviewer on another provider's quota does not spend the builders';
   otherwise a second Claude: `reviewer = "codex"` under `[seats]`. Its model and its effort, the

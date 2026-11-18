@@ -27,15 +27,11 @@ the `[tracker]` table and checks it. To add it yourself:
 ```toml
 [tracker]
 kind = "linear"
-server = "linear"          # the name from `claude mcp add`
-workspace = "acme"         # as in linear.app/acme
-team = "ABC"               # the key of your team
-moves = "lem"              # or "tracker", when an automation of Linear moves the tickets
-started = "In Progress"    # only with moves = "lem", as your team spells it
-landed = "Done"            # only with moves = "lem"
 ```
 
-[Settings](settings.md#tracker) says what each key means.
+The key of a ticket names its team. Lem moves a ticket to the one status of the type `started` or
+`completed`. When your team has two statuses of a type, `/lem init` asks which one, and writes it
+as `started = "In Progress"`. [Settings](settings.md#tracker) has the other keys.
 
 ## Start a task from a ticket
 
@@ -44,9 +40,8 @@ and Lem uses the branch name that Linear gives. `/lem linear ABC-12` only reads 
 
 - Lem writes through the connection of the person who signed in, so Linear shows that person as
   the author. The last line of each comment from Lem names the task: `lem: <task> landed`.
-- One connection is one workspace. Lem checks the workspace before it reads or writes, and it
-  stops when the workspace is not the one in the settings. For a second workspace, add a second
-  server with its own name.
+- One connection is one workspace. For a second workspace, add a second server with its own
+  name, and write that name as `server`.
 
 ## When it does not connect
 

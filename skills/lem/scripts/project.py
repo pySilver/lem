@@ -393,13 +393,17 @@ TABLES: dict[str, tuple[str, ...]] = {
     "flow": ("topics", "max_tasks"),
     "seats": ("reviewer", "planner", "experts"),
     "corrections": ("collect",),
-    "tracker": ("kind", "server", "workspace", "team", "moves", "started", "landed"),
+    "tracker": ("kind", "server", "moves", "started", "landed"),
     "naps": ("on",),
 }
 # The trackers Lem has a skill for, and who may move a ticket's status: Lem, or the tracker's own
 # automation (a pull-request integration that moves a ticket by itself).
 TRACKERS = ("linear",)
 MOVES = ("lem", "tracker")
+# What a [tracker] table that names only its kind holds. A status named nowhere is null: the tracker
+# takes the one status of its type (`started`, `completed`) from the team of the ticket's id, and
+# stops with the line to write when the team has two of that type (the lem-linear skill).
+TRACKER_DEFAULTS = {"server": "linear", "moves": "lem"}
 # a ticket's id as a tracker writes it, e.g. MBZ-12
 TICKET = re.compile(r"[A-Za-z][A-Za-z0-9]*-[0-9]+")
 # What Lem did to a task's ticket, each written down after the tracker took it, so that a step is
@@ -505,17 +509,15 @@ max_tasks = {max_tasks}
 collect = false
 
 # The tracker a task's ask may come from. Leave it out when the project has none. Lem reads a
-# ticket into a task, and comments it when the task lands. `moves` says who moves the ticket's
-# status: "lem", with the two status names as the team spells them, or "tracker" when the
-# tracker's own automation moves it (a pull-request integration).
+# ticket into a task, moves it when its work starts and lands, and comments the landing. The
+# team is in the ticket's id (ABC-12). Only `kind` is needed: `server` and `moves` show their
+# defaults, and a status is named only when the team has two statuses of its type.
 # [tracker]
 # kind = "linear"
-# server = "linear"      # the name of the tracker's MCP server in the agent
-# workspace = "acme"     # the workspace, as in its address linear.app/acme: nothing is read or written in another
-# team = "ABC"           # the key of the one team whose tickets this project takes
-# moves = "lem"
-# started = "In Progress"
-# landed = "Done"
+# server = "linear"        # the name of the tracker's MCP server in the agent
+# moves = "lem"            # or "tracker", when the tracker's own automation moves the tickets
+# started = "In Progress"  # only when the team has two statuses of the type "started"
+# landed = "Done"          # only when the team has two statuses of the type "completed"
 """
 # The naps' table, the last of the file.
 TEMPLATE += f"""
@@ -724,6 +726,8 @@ GONE_KEYS: dict[tuple[str, str], str] = {
     ("flow", "decision_wait"): "a choice waits for the owner's answer with no time limit while he is there, and is taken at once when he says he is away (`/lem im-away`)",
     ("naps", "keep_days"): f"Lem keeps the folder of a nap {NAPS_KEEP_DAYS} days",
     ("naps", "gap_hours"): f"{NAPS_GAP_HOURS} hours pass between two naps",
+    ("tracker", "workspace"): "a ticket's address names its workspace, and Lem reads the ticket through the server's one connection",
+    ("tracker", "team"): "the team is in the ticket's id, as ABC in ABC-12",
 }
 GONE_TABLES: dict[str, str] = {
     "tools": "Lem asks the owner with its own page and opens a text for the owner to mark up with webrev",
@@ -1119,19 +1123,17 @@ def load(root: Path) -> dict:
         for key, value in given.items():
             if not isinstance(value, str) or not value.strip():
                 raise SettingsError(f"{SETTINGS}: tracker.{key} must be a word in quotes, not {value!r}")
-        for key in ("kind", "server", "workspace", "team", "moves"):
-            if key not in given:
-                raise SettingsError(f"{SETTINGS}: [tracker] needs {key}; leave the whole table out when the project has no tracker")
+        if "kind" not in given:
+            raise SettingsError(f"{SETTINGS}: [tracker] needs kind; leave the whole table out when the project has no tracker")
+        given = {**TRACKER_DEFAULTS, **given}
         if given["kind"] not in TRACKERS:
             raise SettingsError(f"{SETTINGS}: tracker.kind = {given['kind']!r} must be one of {', '.join(TRACKERS)}")
         if given["moves"] not in MOVES:
             raise SettingsError(f"{SETTINGS}: tracker.moves = {given['moves']!r} must be one of {', '.join(MOVES)}")
+        # Each status name stands alone: a team with two statuses of the type `started` and one of the
+        # type `completed` names `started` only, and the other is taken by its type.
         named = [key for key in ("started", "landed") if key in given]
-        if given["moves"] == "lem" and len(named) != 2:
-            raise SettingsError(
-                f'{SETTINGS}: with tracker.moves = "lem" the table names both statuses, started and landed, as the team spells them',
-            )
-        if given["moves"] == "lem" and given["started"].strip().lower() == given["landed"].strip().lower():
+        if len(named) == 2 and given["started"].strip().lower() == given["landed"].strip().lower():
             raise SettingsError(
                 f"{SETTINGS}: tracker.started and tracker.landed are both {given['started']!r}: "
                 "a ticket would be marked as landed the moment its work starts",

@@ -78,12 +78,10 @@ to fill it.
 | Setting | Default | Use |
 | --- | --- | --- |
 | `tracker.kind` | required | `"linear"` |
-| `tracker.server` | required | the name of the Linear MCP server in Claude Code |
-| `tracker.workspace` | required | the workspace, as in `linear.app/acme` |
-| `tracker.team` | required | the key of the team whose tickets this project takes |
-| `tracker.moves` | required | who moves a ticket: `lem`, or `tracker` when the automation of Linear does it |
-| `tracker.started` | with `moves = "lem"` | the status of a ticket whose work started, as your team spells it |
-| `tracker.landed` | with `moves = "lem"` | the status of a ticket whose work landed |
+| `tracker.server` | `"linear"` | the name of the Linear MCP server in Claude Code |
+| `tracker.moves` | `"lem"` | who moves a ticket: `lem`, or `tracker` when the automation of Linear does it |
+| `tracker.started` | the status of the type `started` | the status of a ticket whose work started. Write it when the team has two of that type |
+| `tracker.landed` | the status of the type `completed` | the same, for work that landed |
 
 ## `.lem/project.local.toml`
 

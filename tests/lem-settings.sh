@@ -29,9 +29,9 @@ if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['alone', 'command
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
-# The settings are 25 keys, one to one in show (with a tracker), in the file init writes (a commented line counts) and on
-# the settings page.
-printf '%s\n' '' '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "ABC"' 'moves = "tracker"' > "$WORK/tracker.toml"
+# The settings are 22 keys, one to one in show (with a tracker that names only its kind), in the file init writes (a
+# commented line counts) and on the settings page.
+printf '%s\n' '' '[tracker]' 'kind = "linear"' > "$WORK/tracker.toml"
 cp "$NEW/.lem/project.toml" "$WORK/template.toml" && cat "$WORK/tracker.toml" >> "$NEW/.lem/project.toml"
 shown=$(project --repo "$NEW" show | field 'sorted(f"{table}.{key}" for table in ("paths", "branch", "checks", "flow", "seats", "corrections", "tracker", "naps") for key in d[table])')
 cp "$WORK/template.toml" "$NEW/.lem/project.toml"
@@ -45,8 +45,8 @@ for line in open(sys.argv[1], encoding="utf-8"):
 print(sorted(found))' "$NEW/.lem/project.toml")
 # shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 paged=$("$PY" -I -c 'import re, sys; print(sorted(set(re.findall(r"^\| `(\w+\.\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M))))' "$PWD/docs/settings.md")
-if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 24 ]; then
-  pass "the settings are 24 keys, the same in show, in the file init writes and on the settings page"
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 22 ]; then
+  pass "the settings are 22 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi
@@ -92,31 +92,63 @@ settings '[paths]' 'plans = "../elsewhere"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a path that leaves the repository is refused"; else fail "path outside"; fi
 settings '[checks]' 'commands = "pytest"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "gate commands that are not a list are refused"; else fail "gate type"; fi
-# The tracker: no table means no tracker; a table names its kind, its server, its team and who moves a ticket.
+# The tracker: no table means no tracker. A table needs its kind only: the server is "linear" and Lem moves the tickets
+# by default, and a status named nowhere is null, which the tracker takes by its type from the team of the ticket's id.
 settings '[branch]' 'base = "master"'
 none=$(project --repo "$OLD" show | field 'd["tracker"]')
-settings '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "MBZ"' 'moves = "lem"' 'started = "In Progress"' 'landed = "Done"'
-full=$(project --repo "$OLD" show | field '(d["tracker"]["workspace"], d["tracker"]["team"], d["tracker"]["moves"], d["tracker"]["started"], d["tracker"]["landed"])')
-settings '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "MBZ"' 'moves = "tracker"'
+settings '[tracker]' 'kind = "linear"'
+short=$(project --repo "$OLD" show | field 'd["tracker"]')
+settings '[tracker]' 'kind = "linear"' 'server = "linear-work"' 'moves = "lem"' 'started = "In Progress"' 'landed = "Done"'
+full=$(project --repo "$OLD" show | field '(d["tracker"]["server"], d["tracker"]["moves"], d["tracker"]["started"], d["tracker"]["landed"])')
+settings '[tracker]' 'kind = "linear"' 'started = "In Progress"'
+one=$(project --repo "$OLD" show | field '(d["tracker"]["started"], d["tracker"]["landed"])')
+settings '[tracker]' 'kind = "linear"' 'landed = "Shipped"'
+other=$(project --repo "$OLD" show | field '(d["tracker"]["started"], d["tracker"]["landed"])')
+settings '[tracker]' 'kind = "linear"' 'moves = "tracker"'
 auto=$(project --repo "$OLD" show | field '(d["tracker"]["moves"], d["tracker"]["started"])')
-if [ "$none" = None ] && [ "$full" = "('acme', 'MBZ', 'lem', 'In Progress', 'Done')" ] && [ "$auto" = "('tracker', None)" ]; then
-  pass "a project has no tracker unless its settings name one, with who moves a ticket and, when Lem does, the two status names"
+if [ "$none" = None ] && [ "$short" = "{'kind': 'linear', 'server': 'linear', 'moves': 'lem', 'started': None, 'landed': None}" ] \
+  && [ "$full" = "('linear-work', 'lem', 'In Progress', 'Done')" ] && [ "$one" = "('In Progress', None)" ] && [ "$other" = "(None, 'Shipped')" ] \
+  && [ "$auto" = "('tracker', None)" ]; then
+  pass "a project has no tracker unless its settings name one; a table with its kind only reads with the server linear, Lem moving the tickets and no status name, and each status name may stand alone"
 else
-  fail "tracker settings: $none / $full / $auto"
+  fail "tracker settings: $none / $short / $full / $one / $other / $auto"
 fi
 refused=""
-for bad in 'kind = "jira"|server = "x"|workspace = "w"|team = "A"|moves = "lem"|started = "a"|landed = "b"' 'kind = "linear"|server = "x"|workspace = "w"|team = "A"|moves = "lem"|started = "a"' \
-           'kind = "linear"|server = "x"|workspace = "w"|team = "A"|moves = "tracker"|landed = "Done"' 'kind = "linear"|workspace = "w"|team = "A"|moves = "tracker"' \
-           'kind = "linear"|server = "x"|workspace = "w"|team = "A"|moves = "both"' 'kind = "linear"|server = "x"|workspace = "w"|team = ""|moves = "tracker"' \
-           'kind = "linear"|server = "x"|team = "A"|moves = "tracker"' 'kind = "linear"|server = "x"|workspace = "w"|team = "A"|moves = "lem"|started = "Done"|landed = "done"'; do
+for bad in 'kind = "jira"' 'server = "x"|moves = "lem"' 'kind = "linear"|moves = "tracker"|landed = "Done"' 'kind = "linear"|moves = "tracker"|started = "In Progress"' \
+           'kind = "linear"|moves = "both"' 'kind = "linear"|server = ""' 'kind = "linear"|started = "Done"|landed = "done"'; do
   IFS='|' read -r -a lines <<<"$bad"
   settings '[tracker]' "${lines[@]}"
   if [ "$(status_of project --repo "$OLD" show)" != 1 ]; then refused="$refused [$bad]"; fi
 done
-if [ -z "$refused" ]; then
-  pass "a tracker table is refused for an unknown kind, a missing key (the workspace too), an empty word, one status name alone, one status for both, or status names when the tracker moves the ticket"
+settings '[tracker]' 'kind = "linear"' 'moves = "tracker"' 'started = "In Progress"' 'landed = "Done"'
+names_err=$(project --repo "$OLD" show 2>&1 || true)
+if [ -z "$refused" ] && grep -qF 'with tracker.moves = "tracker" Lem moves no ticket, so started and landed say nothing: remove them' <<<"$names_err"; then
+  pass "a tracker table is refused for an unknown kind, no kind, an empty word, an unknown mover, one status for both, or a status name when the tracker moves the ticket"
 else
-  fail "tracker tables accepted:$refused"
+  fail "tracker tables accepted:$refused / $names_err"
+fi
+# The workspace and the team of an older table are gone: the main checkout's file is refused once with both lines to
+# delete, and a task branch's own copy is read without them.
+TRK=$WORK/tracker-repo
+git init -q -b master "$TRK" && mkdir -p "$TRK/.lem"
+printf '%s\n' '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "ABC"' 'moves = "lem"' \
+  'started = "In Progress"' 'landed = "Done"' > "$TRK/.lem/project.toml"
+trk_err=$(project --repo "$TRK" show 2>&1 || true)
+trk_code=$(status_of project --repo "$TRK" show)
+git -C "$TRK" add .lem/project.toml && commit "$TRK" "chore: an older tracker table" && git -C "$TRK" worktree add -q "$WORK/trk-wt" -b feat/trk
+printf '%s\n' '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"' > "$TRK/.lem/project.toml"
+git -C "$TRK" add .lem/project.toml && commit "$TRK" "chore: the tracker table of now"
+trk_copy=$(project --repo "$WORK/trk-wt" show 2>&1 >/dev/null || true)
+trk_branch=$(project --repo "$WORK/trk-wt" show 2>/dev/null | field 'd["tracker"]' || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
+if [ "$trk_code" = 1 ] && grep -qxF -- '- delete `workspace = "acme"` under [tracker]: a ticket'"'"'s address names its workspace, and Lem reads the ticket through the server'"'"'s one connection' <<<"$trk_err" \
+  && grep -qxF -- '- delete `team = "ABC"` under [tracker]: the team is in the ticket'"'"'s id, as ABC in ABC-12' <<<"$trk_err" \
+  && [ "$(grep -c '^- delete' <<<"$trk_err")" = 2 ] \
+  && grep -qF "without tracker.workspace and tracker.team, whose settings are gone" <<<"$trk_copy" \
+  && [ "$trk_branch" = "{'kind': 'linear', 'server': 'linear', 'moves': 'lem', 'started': 'In Progress', 'landed': 'Done'}" ]; then
+  pass "a tracker table with a workspace and a team is refused once with both lines to delete, and a task branch's own copy is read without them"
+else
+  fail "the tracker's workspace and team: $trk_code / $trk_err / $trk_copy / $trk_branch"
 fi
 settings '[branch]' 'base = "master"' 'history = "rewrite"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a history other than keep or squash is refused"; else fail "history value"; fi
@@ -468,7 +500,7 @@ else
 fi
 # A task that ended still owes its ticket the steps that are not written down. The states are written
 # by hand in the script's own form, so that the event log the next checks count stays as it is.
-settings '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "MBZ"' 'moves = "lem"' 'started = "In Progress"' 'landed = "Done"'
+settings '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"'
 owed() { project --repo "$OLD" tasks | field 'next(t["ticket_owed"] for t in d if t["slug"] == "from-a-ticket")'; }
 printf '%s\n' '2026-01-01T00:00Z building: task 1 of 1' > "$OLD/.lem/state/tasks/from-a-ticket/state.md"
 building=$(owed)
