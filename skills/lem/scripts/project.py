@@ -35,6 +35,11 @@ file are settings. A project that keeps one of them in another place moves it th
     lem project state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
     lem project tasks               every task's ask, status and newest state block, as JSON
+    lem project mode SLUG|--all alone|with-owner --by owner|lem --words TEXT
+                                    whether a task runs with the owner or without him, from now on:
+                                    one task, or (--all) every task that did not end. --words are
+                                    the owner's words as typed ("go alone", "I am back"), or Lem's
+                                    reason with --by lem
     lem project log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
     lem project may-start SLUG      exit 1 when as many other tasks build or land as flow.max_tasks
@@ -91,7 +96,9 @@ The rules of a talk keep it within 4 × questions + 2 turns; a record over that 
 it ran, and `log` adds the bound to it as `bound`, for the landing and the board to say that the
 talk went over. `tasks` gives each task
 its newest `plan.talk` as `talk`, the record Lem and a builder read before the build of a
-careful or large plan.
+careful or large plan. `task.mode` is written by `mode` only: `mode` (`alone` or `with-owner`),
+`by`, `words`, `all` and `was`; `tasks` gives each task its newest as `mode` and `mode_since`, and a
+task with none, as every task an older Lem opened, runs `with-owner`.
 And `criteria.read`, which Lem or the lead writes after the personas read the acceptance
 criteria, as `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ...,
 "why": ...}]' criteria:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many
@@ -2075,6 +2082,7 @@ def read_tasks(root: Path) -> list[dict]:
     tasks = []
     talks = newest_events(root, "plan.talk")
     investigations = newest_events(root, "investigation")
+    modes = newest_events(root, "task.mode")
     parent = state_root(root) / "tasks"
     for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
         state = directory / "state.md"
@@ -2103,6 +2111,9 @@ def read_tasks(root: Path) -> list[dict]:
             "type": type_of(written),
             # what the investigation of a fix or a question found, as `log investigation` wrote it last, or null
             "investigation": investigation_now(investigations.get(directory.name)),
+            # with the owner or without him, from the newest `task.mode`; a task with none (every task an older Lem opened) runs with him
+            "mode": (modes.get(directory.name) or {}).get("mode", "with-owner"),
+            "mode_since": (modes.get(directory.name) or {}).get("ts"),
         })
     if any(task["ticket"] for task in tasks):
         # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly
@@ -2212,6 +2223,38 @@ def cmd_waiting(root: Path) -> dict:
         entry["proposals"] or 1 for entry in found["retros"]
     )
     return found
+
+
+# Whether a task runs with the owner or without him. `alone` is his own word ("go alone"); a text for
+# a person says "without the owner", since `lem project alone` is the lock of the machine.
+MODES = ("with-owner", "alone")
+MODE_BY = ("owner", "lem")
+
+
+def cmd_mode(root: Path, target: list[str], every: bool, by: str, words: str | None) -> dict:
+    """Write one `task.mode` event for each task the words reach, and none for a task that runs
+    that way already."""
+    if len(target) != (1 if every else 2):
+        raise SettingsError("mode takes SLUG MODE, or --all MODE: `lem project mode SLUG alone --by owner --words \"go alone\"`")
+    mode = target[-1]
+    if mode not in MODES:
+        raise SettingsError(f"a task runs {' or '.join(MODES)}, not {mode!r}")
+    if not words or not words.strip():
+        raise SettingsError("--words are the owner's words as typed (\"go alone\", \"I am back\"), or Lem's reason with --by lem")
+    tasks = read_tasks(root)
+    if every:
+        reached = [task for task in tasks if task["status"] not in ENDED]
+    else:
+        task_directory(root, target[0])
+        reached = [task for task in tasks if task["slug"] == target[0]]
+        if reached[0]["status"] in ENDED:
+            raise SettingsError(f"the task {target[0]!r} is {reached[0]['status']}: an ended task stays ended, and new work for it is a new ask")
+    written = []
+    for task in reached:
+        if task["mode"] != mode:
+            append_event(root, "task.mode", task["slug"], {"mode": mode, "by": by, "words": words.strip(), "all": every, "was": task["mode"]})
+            written.append({"slug": task["slug"], "mode": mode, "was": task["mode"]})
+    return {"tasks": written, "since": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
 
 
 def cmd_alone(root: Path, words: list[str]) -> int:
@@ -2374,6 +2417,11 @@ def main() -> None:
     state.add_argument("lines", nargs="+", metavar="LINE")
     state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
     commands.add_parser("tasks")
+    mode = commands.add_parser("mode", help="whether a task runs with the owner or without him")
+    mode.add_argument("target", nargs="+", metavar="SLUG MODE | MODE")
+    mode.add_argument("--all", dest="every", action="store_true", help="every task that did not end")
+    mode.add_argument("--by", required=True, choices=MODE_BY)
+    mode.add_argument("--words", help="the owner's words as typed, or Lem's reason with --by lem")
     step = commands.add_parser("ticket-step")
     step.add_argument("slug")
     step.add_argument("step")
@@ -2406,6 +2454,9 @@ def main() -> None:
             return
         if args.command == "tasks":
             print(json.dumps(read_tasks(root), indent=2))
+            return
+        if args.command == "mode":
+            print(json.dumps(cmd_mode(root, args.target, args.every, args.by, args.words)))
             return
         if args.command == "log":
             cmd_log(root, args.slug, args.event, args.fields)

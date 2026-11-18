@@ -48,6 +48,32 @@ else
   fail "the gate's folder: $questions / $(cat "$WORK/gate.err")"
 fi
 
+# A task runs with the owner until his words say otherwise: `mode` writes one event for each task the words reach,
+# `tasks` gives the newest, and a task with none, as an older Lem's, runs with him.
+MO=$WORK/mode-repo
+git init -q -b main "$MO" && commit "$MO" start && project --repo "$MO" init --base main >/dev/null
+for slug in gift-note other-task landed-task; do project --repo "$MO" task-dir "$slug" >/dev/null; done
+project --repo "$MO" state landed-task landed "main a..b" >/dev/null
+modes() { project --repo "$MO" tasks | field '[(t["slug"], t["mode"], t["mode_since"] is not None) for t in d]'; }
+before=$(modes)
+one=$(project --repo "$MO" mode gift-note alone --by owner --words "go alone" | field '[(t["slug"], t["mode"], t["was"]) for t in d["tasks"]]')
+after_one=$(modes)
+every=$(project --repo "$MO" mode --all alone --by owner --words "go alone for all" | field '[t["slug"] for t in d["tasks"]]')
+back=$(project --repo "$MO" mode --all with-owner --by owner --words "I am back" | field '[(t["slug"], t["was"]) for t in d["tasks"]]')
+ended=$(project --repo "$MO" mode landed-task alone --by owner --words "go alone" 2>&1 || true)
+wrong=$(project --repo "$MO" mode gift-note away --by owner --words "go" 2>&1 || true)
+nowords=$(status_of project --repo "$MO" mode gift-note alone --by owner --words " ")
+events=$(grep -c '"event": "task.mode"' "$MO/.lem/state/events.jsonl")
+if [ "$before" = "[('gift-note', 'with-owner', False), ('landed-task', 'with-owner', False), ('other-task', 'with-owner', False)]" ] \
+  && [ "$one" = "[('gift-note', 'alone', 'with-owner')]" ] \
+  && [ "$after_one" = "[('gift-note', 'alone', True), ('landed-task', 'with-owner', False), ('other-task', 'with-owner', False)]" ] \
+  && [ "$every" = "['other-task']" ] && [ "$back" = "[('gift-note', 'alone'), ('other-task', 'alone')]" ] && [ "$(modes)" = "[('gift-note', 'with-owner', True), ('landed-task', 'with-owner', False), ('other-task', 'with-owner', True)]" ] \
+  && grep -qF "an ended task stays ended" <<<"$ended" && grep -qF "not 'away'" <<<"$wrong" && [ "$nowords" = 1 ] && [ "$events" = 4 ]; then
+  pass "a task runs with the owner until his words say otherwise: mode writes one event for each task they reach and none for a task that runs that way already or that ended, tasks gives the newest with its time, and a task with none runs with him"
+else
+  fail "the mode of a task: $before / $one / $after_one / $every / $back / $(modes) / $ended / $wrong / $nowords / $events"
+fi
+
 # The scripts of the commit before the move, for a repository whose state they wrote. A shallow clone may not have
 # that commit: the checks that need it are skipped there, with a line that says so.
 OLD=$WORK/old-lem
