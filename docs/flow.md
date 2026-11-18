@@ -330,7 +330,7 @@ moved after the checks, the checks run again first.
 ## After a merge
 
 - **Lem watches its open pull requests.** One watch runs in the background while any task is
-  open. It asks GitHub every `flow.watch_seconds` seconds, with one call for all the pull requests.
+  open. It asks GitHub one time each 60 seconds, with one call for all the pull requests.
   It needs the GitHub CLI `gh`, and you must be signed in. Each time you type `/lem`, Lem also asks
   GitHub first.
 - **A merged pull request ends its task.** Lem marks the task `landed`, removes its worktree and

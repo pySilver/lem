@@ -586,7 +586,7 @@ if [ "$machine" = "(2, False, ['flow.max_tasks', 'naps.on'])" ] && [ "$in_tree" 
   && [ "$rewritten" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[flow]' 'max_tasks = 2' '' '[naps]' 'on = false')" ] \
   && grep -qF ".lem/project.local.toml: naps.on = True is not for this file. It may say \`on = false\`" <<<"$naps_yes" \
   && grep -qF "only .lem/project.toml, which everybody reads in git, switches the naps on" <<<"$naps_yes" && [ "$naps_yes_code" = 1 ] \
-  && grep -qF ".lem/project.local.toml: naps.keep_days is the project's and belongs in .lem/project.toml" <<<"$naps_key" \
+  && grep -qxF -- '- delete `keep_days = 3` under [naps]: Lem keeps the folder of a nap 30 days' <<<"$naps_key" \
   && grep -qF ".lem/project.local.toml: flow.decision_wait is the project's rule and belongs in .lem/project.toml; this file may hold only max_tasks under [flow]" <<<"$flow_key" \
   && [ "$flow_key_code" = 1 ] && grep -qF ".lem/project.local.toml: flow.max_tasks = 0 must be a whole number, 1 or more" <<<"$flow_bad" \
   && [ "$alone" = "(4, True, [])" ]; then
@@ -677,7 +677,7 @@ else
   fail "max_tasks default"
 fi
 settings '[branch]' 'base = "master"' '[flow]' 'topics = ["a price a customer pays", "data that cannot be rebuilt"]'
-if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], sorted(d["flow"]))')" = "(['a price a customer pays', 'data that cannot be rebuilt'], ['decision_wait', 'max_tasks', 'topics', 'watch_seconds'])" ] \
+if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], sorted(d["flow"]))')" = "(['a price a customer pays', 'data that cannot be rebuilt'], ['decision_wait', 'max_tasks', 'topics'])" ] \
   && ! grep -q '^careful' "$NEW/.lem/project.toml" && grep -q '^topics = \[\]$' "$NEW/.lem/project.toml"; then
   pass "a project names what must never go wrong as sentences in the owner's words, and init writes no list of paths beside them"
 else
@@ -849,19 +849,16 @@ for bad in 0 true '"four"' 2.5; do
   if [ "$(status_of project --repo "$OLD" show)" != 1 ]; then accepted="$accepted $bad"; fi
 done
 if [ -z "$accepted" ]; then pass "a limit that is not a whole number of 1 or more is refused"; else fail "max_tasks accepted:$accepted"; fi
-# The watch of the open pull requests looks once a minute unless the settings say otherwise, and init writes the line.
-accepted=""
-for bad in 0 true '"60"' 2.5; do
-  settings '[flow]' "watch_seconds = $bad"
-  if [ "$(status_of project --repo "$OLD" show)" != 1 ]; then accepted="$accepted $bad"; fi
-done
+# The watch of the open pull requests looks once a minute, a number of Lem's with no setting: the key an older Lem had is
+# refused with the line to delete, and init writes none.
 settings '[flow]' 'watch_seconds = 1'
-short=$(project --repo "$OLD" show | field 'd["flow"]["watch_seconds"]')
+watch_err=$(project --repo "$OLD" show 2>&1 || true)
 settings '[branch]' 'base = "master"'
-if [ -z "$accepted" ] && [ "$short" = 1 ] && [ "$(project --repo "$OLD" show | field 'd["flow"]["watch_seconds"]')" = 60 ] && grep -q '^watch_seconds = 60$' "$NEW/.lem/project.toml"; then
-  pass "the watch's interval is flow.watch_seconds, 60 unless the settings say otherwise, which init writes; a value that is not a whole number of 1 or more is refused"
+if [ "$(status_of project --repo "$OLD" show)" = 0 ] && grep -qxF -- '- delete `watch_seconds = 1` under [flow]: the watch of the open pull requests looks every 60 seconds' <<<"$watch_err" \
+  && ! grep -q 'watch_seconds' "$NEW/.lem/project.toml" && [ "$(project --repo "$OLD" show | field '"watch_seconds" in d["flow"]')" = False ]; then
+  pass "the watch's interval is 60 seconds with no setting: flow.watch_seconds is refused with the line to delete, and init writes none"
 else
-  fail "flow.watch_seconds accepted:$accepted short:$short"
+  fail "flow.watch_seconds: $watch_err"
 fi
 settings '[branch]' 'base = "master"'
 

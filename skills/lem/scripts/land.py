@@ -31,8 +31,10 @@ may-land` about the settings' base branch, so a protected branch is never reache
     lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
                            or he closed it with no merge: the task is dropped
     lem land clean SLUG    remove the task's worktree and its branch after the merge
-    lem land watch         look at the forge for the pull requests of the open tasks, and end when
-                           one of them is merged or closed, or newly conflicting
+    lem land watch [--every SECONDS]
+                           look at the forge for the pull requests of the open tasks, and end when
+                           one of them is merged or closed, or newly conflicting; it looks every
+                           60 seconds (`WATCH_SECONDS`), and --every is for a test that cannot wait
 
 What each step keeps for the next is in `landing.json` in the task's directory: the task's
 branch, the base it was rebased on, the commit and tree the checks passed on, each review, and
@@ -290,7 +292,7 @@ it. A task that goes on after all is a new request. One that is still open is "n
 (`forge` in `landing.json`), so that `lem project waiting` says whether it conflicts with the base.
 
 `watch` is the one step that names no task. It reads the main checkout's settings, and once every
-`flow.watch_seconds` it lists the pull requests of the base branch with one call of `gh` and reads
+60 seconds (`WATCH_SECONDS`) it lists the pull requests of the base branch with one call of `gh` and reads
 from it each task that is `open` with a pull request (a number that list does not hold is asked for
 alone). It ends with exit 0 and JSON when one of them is merged or closed: `ended` names each such
 task with what happened, and `open` the others, the ones the forge calls conflicting first, then by
@@ -2606,7 +2608,11 @@ WATCHED = "number,state,mergeable,headRefOid,mergeCommit"
 # How many pull requests of the base branch one look lists, the newest first. A task's pull request
 # that is not among them (more than this many were opened after it) is asked for by its number.
 WATCH_LIST = 100
-# A look older than this many times `flow.watch_seconds` means that nobody watches: the board says so.
+# How many seconds the watch waits between two looks at the forge. A guess (2026-11-17), not a
+# measurement: a merge shows on the board within a minute, and one call of the forge a minute stays
+# far under its limits.
+WATCH_SECONDS = 60
+# A look older than this many times the watch's interval means that nobody watches: the board says so.
 # Three, so that one slow call of the forge does not make the board say it (a guess, 2026-11-17).
 STALE_LOOKS = 3
 
@@ -2659,8 +2665,8 @@ def seen_before(state: Path) -> dict[str, dict]:
     return {task: one for task, one in seen.items() if isinstance(one, dict)} if isinstance(seen, dict) else {}
 
 
-def cmd_watch(repo: Path) -> dict:
-    """Look at the forge once every `flow.watch_seconds` for the pull requests of the open tasks, and
+def cmd_watch(repo: Path, every: int = WATCH_SECONDS) -> dict:
+    """Look at the forge once every EVERY seconds for the pull requests of the open tasks, and
     end when one of them is merged or closed. It takes no lock and changes no task: Lem acts on its result."""
     settings = json.loads(script("project.py", repo, "show").stdout)
     main = Path(settings["main"])
@@ -2669,7 +2675,6 @@ def cmd_watch(repo: Path) -> dict:
     if settings["settings"] is None:
         raise LandError("this repository has no .lem/project.toml; `/lem init` writes it")
     state = Path(script("project.py", main, "state-dir").stdout.strip())
-    every = settings["flow"]["watch_seconds"]
     base = str(settings["branch"]["base"])
     started = time.time()
 
@@ -2920,7 +2925,8 @@ def main() -> None:
     start = commands.add_parser("start")
     start.add_argument("slug")
     start.add_argument("--conflicting", action="store_true", help="for an open task the forge calls conflicting, with no merge of a task to name")
-    commands.add_parser("watch", help="look at the forge for the open tasks' pull requests until one is merged or closed")
+    watch = commands.add_parser("watch", help="look at the forge for the open tasks' pull requests until one is merged or closed")
+    watch.add_argument("--every", type=int, default=WATCH_SECONDS, metavar="SECONDS", help=f"seconds between two looks (default {WATCH_SECONDS}); for a test that cannot wait")
     polish = commands.add_parser("polish")
     polish.add_argument("slug")
     polish.add_argument("--done", action="store_true", help="after the polish builder: check what it committed, and log the pass")
@@ -2941,7 +2947,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         if args.command == "watch":
-            print(json.dumps(cmd_watch(Path(args.repo)), indent=2))
+            print(json.dumps(cmd_watch(Path(args.repo), max(1, args.every)), indent=2))
             return
         if args.command == "gate":
             raise LandError(f"`lem land gate` is `lem land checks` now, with the same steps: run `lem land checks {args.slug}`")

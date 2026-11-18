@@ -18,7 +18,8 @@ ago() { "$PY" -c 'import sys, datetime as d; print((d.datetime.now(d.timezone.ut
 woke() { mkdir -p "$NAPS/$1" && printf '# A dream\n\nA field.\n' > "$NAPS/$1/dream.md" && printf 'x\n' > "$NAPS/$1/thing.txt" && printf '# Waking\n\nNothing.\n' > "$NAPS/$1/waking.md"; }
 naps_on() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$NP/.lem/project.toml"; }
 
-# The settings: off, 30 days, 6 hours, each guess said so in the file; a wrong value is refused by its key.
+# The settings: one switch, off; the 30 days and the 6 hours are fixed, each guess said so in the file; a wrong value
+# is refused by its key, and a key an older Lem had for a number is refused with the line to delete.
 shown=$(project --repo "$NP" show | field 'd["naps"]')
 template=$(sed -n '/^\[naps\]$/,$p' "$NP/.lem/project.toml")
 bad() {
@@ -27,27 +28,28 @@ bad() {
   printf '%s\n' '[naps]' "$2" > "$repo/.lem-settings" && mkdir -p "$repo/.lem" && mv "$repo/.lem-settings" "$repo/.lem/project.toml"
   { project --repo "$repo" show >/dev/null; } 2>&1 || true
 }
-if [ "$shown" = "{'on': False, 'keep_days': 30, 'gap_hours': 6}" ] \
-  && grep -qx 'on = false' <<<"$template" && grep -qx 'keep_days = 30' <<<"$template" && grep -qx 'gap_hours = 6' <<<"$template" \
-  && [ "$(grep -c 'A guess' <<<"$template")" = 2 ] && grep -q 'nobody has shown that it helps' <<<"$template" \
-  && grep -qF 'naps.keep_days = 0 must be a whole number of days, 1 or more' <<<"$(bad zero 'keep_days = 0')" \
+# shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
+if [ "$shown" = "{'on': False}" ] \
+  && grep -qx 'on = false' <<<"$template" && ! grep -qE '^(keep_days|gap_hours) = ' <<<"$template" \
+  && grep -qF '6 hours pass between two naps' <<<"$template" && grep -qF 'kept 30 days: two guesses' <<<"$template" && grep -q 'nobody has shown that it helps' <<<"$template" \
+  && grep -qxF -- '- delete `keep_days = 30` under [naps]: Lem keeps the folder of a nap 30 days' <<<"$(bad days 'keep_days = 30')" \
+  && grep -qxF -- '- delete `gap_hours = 2` under [naps]: 6 hours pass between two naps' <<<"$(bad gap 'gap_hours = 2')" \
   && grep -qF "naps.on = 'yes' must be true or false" <<<"$(bad word 'on = "yes"')" \
-  && grep -qF 'naps.gap_hours = True must be a whole number of hours, 1 or more' <<<"$(bad bool 'gap_hours = true')" \
   && grep -qF "unknown key naps.often" <<<"$(bad key 'often = 2')"; then
-  pass "the naps' settings: off, 30 days and 6 hours unless the project says otherwise, the template says each number is a guess, and a wrong value is refused by its key"
+  pass "the naps' settings: one switch, off; 30 days and 6 hours are fixed and the template says each is a guess; a wrong value is refused by its key, and a number of an older Lem with the line to delete"
 else
   fail "the naps' settings: $shown / $template"
 fi
 
-# The naps' table is the main checkout's, as [flow] is: a task's branch that switches them on, or keeps them longer, changes
+# The naps' table is the main checkout's, as [flow] is: a task's branch that switches them on changes
 # nothing that its worktree reads, since a nap spends the tokens of whoever works on the machine.
 git -C "$NP" worktree add -q "$WORK/nap-tree" -b feat/naps-on main
-"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^keep_days = 30$", "keep_days = 2", re.sub(r"(?m)^on = false$", "on = true", s, count=1), count=1))' "$WORK/nap-tree/.lem/project.toml"
+"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$WORK/nap-tree/.lem/project.toml"
 git -C "$WORK/nap-tree" -c user.name=t -c user.email=t@t commit -q -am "chore: the naps on"
-from_branch=$(project --repo "$WORK/nap-tree" show | field '(d["naps"]["on"], d["naps"]["keep_days"], d["settings_from"].startswith("this worktree'"'"'s branch, with [flow] and [naps] from the main checkout"))')
+from_branch=$(project --repo "$WORK/nap-tree" show | field '(d["naps"]["on"], d["settings_from"].startswith("this worktree'"'"'s branch, with [flow] and [naps] from the main checkout"))')
 git -C "$NP" worktree remove --force "$WORK/nap-tree" && git -C "$NP" branch -q -D feat/naps-on
-if [ "$from_branch" = "(False, 30, True)" ]; then
-  pass "in a task's worktree the naps' table is the main checkout's: a branch that switches the naps on or keeps them longer changes nothing, and show says where both tables come from"
+if [ "$from_branch" = "(False, True)" ]; then
+  pass "in a task's worktree the naps' table is the main checkout's: a branch that switches the naps on changes nothing, and show says where both tables come from"
 else
   fail "the naps' table of a worktree: $from_branch"
 fi
@@ -77,9 +79,9 @@ fi
 # The nap ends when its folder holds waking.md; then the gap holds.
 woke "$time-a-field"
 gap=$(nap)
-if [ "$(field 'd["may"]' <<<"$gap")" = False ] && grep -qF 'and naps.gap_hours is 6' <<<"$(field 'd["why"]' <<<"$gap")" \
+if [ "$(field 'd["may"]' <<<"$gap")" = False ] && grep -qF 'and 6 hours pass between two naps' <<<"$(field 'd["why"]' <<<"$gap")" \
   && [ "$(field 'd["newest"]' <<<"$gap")" = "$time-a-field" ]; then
-  pass "may-nap: a nap that wrote waking.md runs no more, and the next call waits naps.gap_hours from the newest start"
+  pass "may-nap: a nap that wrote waking.md runs no more, and the next call waits 6 hours from the newest start"
 else
   fail "may-nap after a nap: $gap"
 fi
@@ -107,17 +109,15 @@ woke "$TWO"
 mkdir -p "$NAPS/not-a-nap" && touch -t 202601010000 "$NAPS/not-a-nap"
 ln -s "$NAPS/2026-01-01-0000-the-first" "$NAPS/2026-01-02-0000-a-link"
 cleaned=$(nap)
-"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^keep_days = 30$", "keep_days = 1", s, count=1))' "$NP/.lem/project.toml"
-shorter=$(nap)
 printf 'not json\n' > "$NAPS/.asleep"
 broken=$(nap 2>&1 || true); broken_code=$(status_of nap)
 rm -f "$NAPS/.asleep"
 if [ "$(field 'd["removed"]' <<<"$cleaned")" = "['2026-01-01-0000-the-first']" ] && [ -d "$NAPS/not-a-nap" ] && [ -L "$NAPS/2026-01-02-0000-a-link" ] \
-  && [ "$(field 'd["removed"]' <<<"$shorter")" = "['$TWO']" ] && [ -d "$NAPS/$LONG" ] \
+  && [ -d "$NAPS/$TWO" ] && [ -d "$NAPS/$LONG" ] \
   && [ "$broken_code" = 1 ] && grep -qF "$NAPS/.asleep is not the record may-nap writes" <<<"$broken"; then
-  pass "may-nap removes the naps older than naps.keep_days and names them, never a folder whose name holds no time or a link, and refuses a broken record of a start by its file"
+  pass "may-nap removes the naps older than 30 days and names them, keeps a younger one, never a folder whose name holds no time or a link, and refuses a broken record of a start by its file"
 else
-  fail "may-nap's removal: $cleaned / $shorter / $broken"
+  fail "may-nap's removal: $cleaned / $broken"
 fi
 rm -f "$NAPS/2026-01-02-0000-a-link"
 

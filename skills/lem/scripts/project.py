@@ -55,7 +55,7 @@ file are settings. A project that keeps one of them in another place moves it th
                                     of the task the plans folder holds, as JSON
     lem project may-nap             whether a nap may start now, as JSON, and when it may, the nap is
                                     written down as started; it also removes the naps older than
-                                    naps.keep_days
+                                    30 days (`NAPS_KEEP_DAYS`)
 
 Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py` names for
 every script: every worktree writes there, git never tracks it, a worktree's removal does not take
@@ -198,12 +198,12 @@ proposal. `count` adds them up. It reads and writes nothing else.
 A nap is an optional part (`[naps]`, off unless the owner says yes): a fresh agent that reads the
 recent tasks, dreams, and writes the dream down in a folder of its own, `naps/TIME-WORDS/` in the
 state folder, where TIME is the clock's UTC time when the nap started, as `YYYY-MM-DD-HHMM`.
-`may-nap` is the one place that says whether one may start: the naps are on, no nap runs, and the newest one started `naps.gap_hours` ago or more, or there is
+`may-nap` is the one place that says whether one may start: the naps are on, no nap runs, and the newest one started 6 hours ago or more (`NAPS_GAP_HOURS`), or there is
 none. A nap runs from its start until its folder holds `waking.md`, the last file it writes, and
 for an hour at most (`ASLEEP_MINUTES`). Its answer is JSON with exit 0 whether it says yes or
 no, because a no is the usual answer and nothing is wrong; a broken settings file is exit 1. A
 yes writes `naps/.asleep` with the start, so a second call finds the nap that runs. Each call
-removes the nap folders whose time is older than `naps.keep_days` days, and names them in
+removes the nap folders whose time is older than 30 days (`NAPS_KEEP_DAYS`), and names them in
 `removed`; a folder whose name has no such time is never removed.
 
 A settings file with an unknown key, a wrong type or a path outside the repository is an error:
@@ -365,20 +365,16 @@ MAX_TASKS = 4
 # How many minutes a choice of the build waits for the owner before the recommended action is
 # taken. The owner's own number: "if there is decision taken in 15 min" (2026-11-16).
 DECISION_WAIT = 15
-# How many seconds the watch of the open pull requests (`land.py watch`) waits between two looks at
-# the forge. A guess (2026-11-17), not a measurement: a merge shows on the board within a minute,
-# and one call of the forge a minute stays far under its limits.
-WATCH_SECONDS = 60
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": ("plans", "plan_file"),
     "branch": ("base", "land", "history", "propose", "protected"),
     "checks": ("commands", "setup", "alone"),
-    "flow": ("topics", "max_tasks", "decision_wait", "watch_seconds"),
+    "flow": ("topics", "max_tasks", "decision_wait"),
     "seats": ("reviewer", "planner", "experts"),
     "tools": tuple(TOOLS),
     "corrections": ("collect",),
     "tracker": ("kind", "server", "workspace", "team", "moves", "started", "landed"),
-    "naps": ("on", "keep_days", "gap_hours"),
+    "naps": ("on",),
 }
 # The trackers Lem has a skill for, and who may move a ticket's status: Lem, or the tracker's own
 # automation (a pull-request integration that moves a ticket by itself).
@@ -466,9 +462,6 @@ max_tasks = {max_tasks}
 # How many minutes a choice of the build waits for the owner before the lead takes the recommended
 # option, and the pull request is not green for it. The owner's own number (2026-11-16).
 decision_wait = {decision_wait}
-# How many seconds Lem's watch of the open pull requests waits between two looks at the forge, for
-# a merge or a close the owner made there. A guess, not a measurement.
-watch_seconds = {watch_seconds}
 
 [seats]
 # Who sits where, each as "agent/model:effort". Leave out the effort ("codex/gpt-6.1-sol"), or
@@ -514,20 +507,15 @@ annotate = "{annotate}"
 # numbered list. Or name a skill or a command of your own.
 ask = "{ask}"
 """
-# The naps' table, the last of the file. Its numbers are written in here, so it holds no `{}` for
-# the `format` of `init`.
+# The naps' table, the last of the file.
 TEMPLATE += f"""
 [naps]
 # Now and then, when a task has ended or Lem waits for the owner, Lem takes a nap: a fresh agent
 # reads the recent tasks, dreams, and writes the dream down in .lem/state/naps/, which the retro
-# reads. It costs an agent's session of some minutes, a few times a
-# day while Lem works, and nobody has shown that it helps.
+# reads. It costs an agent's session of some minutes, a few times a day while Lem works, and
+# nobody has shown that it helps. {NAPS_GAP_HOURS} hours pass between two naps, and a nap's folder
+# is kept {NAPS_KEEP_DAYS} days: two guesses, from the owner's own nap routine.
 on = false
-# How many days a nap is kept. A guess, from the owner's "a week or a month (?)".
-keep_days = {NAPS_KEEP_DAYS}
-# How many hours at least between two naps that Lem starts by itself. A guess, from "three times a
-# day" in the routine the naps follow.
-gap_hours = {NAPS_GAP_HOURS}
 """
 
 
@@ -721,6 +709,9 @@ def joined(words: list[str]) -> str:
 GONE_KEYS: dict[tuple[str, str], str] = {
     ("checks", "ignores"): "the checks run again whenever the base branch moves",
     ("checks", "bar"): "Lem looks for a lowered bar with its own marks, for Python, JavaScript, TypeScript, Go, Rust, Java, Kotlin and shell",
+    ("flow", "watch_seconds"): "the watch of the open pull requests looks every 60 seconds",
+    ("naps", "keep_days"): f"Lem keeps the folder of a nap {NAPS_KEEP_DAYS} days",
+    ("naps", "gap_hours"): f"{NAPS_GAP_HOURS} hours pass between two naps",
 }
 GONE_TABLES: dict[str, str] = {}
 
@@ -824,10 +815,7 @@ def flow_of(raw: dict, name: Path) -> dict:
     decision_wait = flow.get("decision_wait", DECISION_WAIT)
     if isinstance(decision_wait, bool) or not isinstance(decision_wait, int) or decision_wait < 1:
         raise SettingsError(f"{name}: flow.decision_wait = {decision_wait!r} must be a whole number of minutes, 1 or more")
-    watch_seconds = flow.get("watch_seconds", WATCH_SECONDS)
-    if isinstance(watch_seconds, bool) or not isinstance(watch_seconds, int) or watch_seconds < 1:
-        raise SettingsError(f"{name}: flow.watch_seconds = {watch_seconds!r} must be a whole number of seconds, 1 or more")
-    return {"topics": strings(flow.get("topics", []), "flow.topics"), "max_tasks": max_tasks, "decision_wait": decision_wait, "watch_seconds": watch_seconds}
+    return {"topics": strings(flow.get("topics", []), "flow.topics"), "max_tasks": max_tasks, "decision_wait": decision_wait}
 
 
 def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str) -> dict:
@@ -1009,19 +997,11 @@ def tool_of(raw: dict, name: Path, role: str) -> str | None:
 
 
 def naps_of(raw: dict, name: Path) -> dict:
-    """The `[naps]` table of one settings file, checked."""
-    naps = raw.get("naps", {})
-    on = naps.get("on", False)
+    """The `[naps]` table of one settings file, checked: its one key, `on`."""
+    on = raw.get("naps", {}).get("on", False)
     if not isinstance(on, bool):
         raise SettingsError(f"{name}: naps.on = {on!r} must be true or false")
-    numbers = {}
-    for key, default, unit in (("keep_days", NAPS_KEEP_DAYS, "days"), ("gap_hours", NAPS_GAP_HOURS, "hours")):
-        value = naps.get(key, default)
-        # a bool is an int in Python, and `keep_days = true` is a mistake, not the number 1
-        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-            raise SettingsError(f"{name}: naps.{key} = {value!r} must be a whole number of {unit}, 1 or more")
-        numbers[key] = value
-    return {"on": on, **numbers}
+    return {"on": on}
 
 
 def load(root: Path) -> dict:
@@ -1285,7 +1265,7 @@ def cmd_init(root: Path, base: str | None, reviewer: str | None) -> None:
     agent = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex/gpt-6.1-sol:high"'
     file.write_text(TEMPLATE.format(
         plans=PATHS["plans"], plan_file=PLAN_FILE, base=base, reviewer=agent, experts=", ".join(toml_string(one) for one in EXPERTS),
-        max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, watch_seconds=WATCH_SECONDS, **TOOLS,
+        max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, **TOOLS,
     ), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
     # too, for a repository whose ignore file is older than it)
@@ -2336,7 +2316,7 @@ def hours(seconds: float) -> str:
 
 def cmd_may_nap(root: Path) -> None:
     """Whether a nap may start now, from the settings and the naps folder. A yes writes the nap
-    down as started; every call removes the naps older than `naps.keep_days`."""
+    down as started; every call removes the naps older than `NAPS_KEEP_DAYS`."""
     settings = load(root)
     naps = settings["naps"]
     folder = state_root(root) / "naps"
@@ -2347,7 +2327,7 @@ def cmd_may_nap(root: Path) -> None:
         when = nap_time(entry.name)
         if when is None or entry.is_symlink() or not entry.is_dir():
             continue
-        if (now - when).total_seconds() > naps["keep_days"] * 86400:
+        if (now - when).total_seconds() > NAPS_KEEP_DAYS * 86400:
             shutil.rmtree(entry)
             removed.append(entry.name)
         else:
@@ -2375,8 +2355,8 @@ def cmd_may_nap(root: Path) -> None:
     else:
         last = max([when for when, _nap in kept] + ([since] if asleep is not None else []), default=None)
         age = (now - last).total_seconds() if last else None
-        if age is not None and age < naps["gap_hours"] * 3600:
-            answer["why"] = f"the newest nap started {hours(age)} ago, and naps.gap_hours is {naps['gap_hours']}"
+        if age is not None and age < NAPS_GAP_HOURS * 3600:
+            answer["why"] = f"the newest nap started {hours(age)} ago, and {NAPS_GAP_HOURS} hours pass between two naps"
         else:
             answer["may"] = True
             answer["why"] = "there is no nap yet" if age is None else f"the newest nap started {hours(age)} ago"

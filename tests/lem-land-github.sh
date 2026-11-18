@@ -349,7 +349,7 @@ else
   fail "a GitHub remote with no pull requests: $out / $proposed / $opened / $merged / $landed / $cleaned / $(cat "$WORK/gm-gh-calls" 2>/dev/null)"
 fi
 
-# The watch of the open pull requests. A repository whose watch looks once a second; the owner merges
+# The watch of the open pull requests, which looks once a second here (`--every 1`; Lem's own call waits 60); the owner merges
 # and closes on the forge, here by the stand-in's file, and the watch ends and names the task.
 GWO=$WORK/gw-origin.git
 GWS=$WORK/gw-shop
@@ -358,7 +358,7 @@ git clone -q "$GWO" "$GWS" 2>/dev/null && ident "$GWS"
 git -C "$GWS" config remote.origin.url https://github.com/acme/watch.git
 git -C "$GWS" config "url.$GWO.insteadOf" https://github.com/acme/watch.git
 project --repo "$GWS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' '[flow]' 'watch_seconds = 1' > "$GWS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' > "$GWS/.lem/project.toml"
 printf 'l%s\n' 1 2 3 4 5 6 7 8 9 > "$GWS/shop.txt"
 git -C "$GWS" add -A && git -C "$GWS" commit -q -m "chore: start" && git -C "$GWS" push -q origin main
 GW=$WORK/gw.json
@@ -366,7 +366,7 @@ gw_land() { PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" "$PY" -B "$LA
 gw_state() { "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); print(eval(sys.argv[2], {"d": d}))' "$GW" "$1"; }
 # gw_watch: the watch in the background, the command itself (exec), so that $! is its own process and a TERM reaches it;
 # the function's subshell would take the TERM in its place and leave the watch running with no parent
-gw_watch() { PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" exec "$PY" -B "$LAND" --repo "$GWS" watch; }
+gw_watch() { PATH="$WORK/bin:$PATH" GH_STATE="$GW" GH_ORIGIN="$GWO" exec "$PY" -B "$LAND" --repo "$GWS" watch --every 1; }
 watched() { "$PY" -c 'import json, re, sys; print(eval(sys.argv[2], {"d": json.loads(re.fullmatch(r"lemWatch\((.*)\);\n", open(sys.argv[1]).read(), re.S).group(1))}))' "$GWS/.lem/state/watch.js" "$1" 2>/dev/null; }
 # looked N: the watch this test started ($wpid), and no other, looked N times
 looked() { [ "$(watched 'd.get("looks") or 0 if d.get("pid") == '"$wpid"' else 0')" -ge "$1" ] 2>/dev/null; }

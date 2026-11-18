@@ -264,13 +264,13 @@ Naps are an optional part of Lem. `naps.on = true` turns them on ([settings.md](
 A nap costs one short agent session, and no measurement shows that naps help.
 
 - Lem takes a nap when a task ended or when only your approval is left, if the last nap is
-  `naps.gap_hours` old. Nothing waits for the nap.
+  6 hours old. Nothing waits for the nap.
 - A nap is a new agent in the background. It reads the records of the recent tasks and writes a
   waking note.
 - The nap runs no command. It reads and writes only in the state folder, and it changes nothing in
   the repository.
 - Each nap has a folder `.lem/state/naps/TIME-WORDS/` with its `waking.md`. Lem removes a folder
-  that is older than `naps.keep_days`.
+  that is older than 30 days.
 - No page shows a nap. The retro reads the waking notes since the last retro. A note is only a
   candidate for a lesson.
 

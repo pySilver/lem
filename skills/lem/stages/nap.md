@@ -17,7 +17,7 @@ for Lem but the owner's word, and the settings' `naps.on` is true.
    ```
 
    It answers in JSON, `may` with its `why`, and writes the nap down as started when it says yes.
-   It also removes the naps older than `naps.keep_days`. A no is the usual answer: say nothing of
+   It also removes the naps older than 30 days. A no is the usual answer: say nothing of
    it.
 2. **Start it** with `start-nap`, with the `time` of that answer and the folder `lem project
    state-dir` prints. Its brief is `prompts/nap.md`, whole and unchanged: it is written to the nap
