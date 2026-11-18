@@ -264,7 +264,6 @@ A nap costs one short agent session, and no measurement shows that naps help.
 
 - Lem takes a nap when a task ended or when only your approval is left, if the last nap is
   `naps.gap_hours` old. Nothing waits for the nap.
-- `/lem nap` starts a nap when you ask, even when naps are off.
 - A nap is a new agent in the background. It reads the records of the recent tasks, dreams, makes
   one thing, and writes a waking note.
 - The nap runs no command. It reads and writes only in the state folder, and it changes nothing in

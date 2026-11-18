@@ -108,11 +108,8 @@ project`. Then start a new session. To remove Lem, follow
 | `/lem status <task>` | opens the board of one task |
 | `/lem land <task>` | tells Lem to merge an open pull request |
 | `full`, `careful`, `drop` | makes a small change a full change, marks a task careful, or stops it |
-| `/lem ask [question]` | shows a question to you as a page. With no question, it takes the agent's last question |
-| `/lem annotate <file>` | opens a file for you to mark up |
 | `/lem learn` | puts your correction into the file that owns the step |
 | `/lem reviewer codex/gpt-6.1-sol:high` | sets the reviewer of the plan talk on this computer: agent, model, effort. `default` resets it |
-| `/lem nap` | starts a [nap](#the-words-you-meet): an agent reads the recent tasks, writes a dream, and leaves a note for the retro |
 | `/lem init` | sets up a repository |
 
 Lem starts `/lem land` when a task is ready. Scheduled jobs can start `/lem retro` each morning and
@@ -164,7 +161,6 @@ starts by itself because of what you write. You type its `/lem` name, or a stage
 | `/lem ask-expert` | you want two other models to answer a question | `/lem ask-expert which of the two queue designs fails better under load?` |
 | `/lem linear` | you want to read one Linear ticket | `/lem linear MBZ-12` |
 | `/lem panel` | you want the personas to read a text | `/lem panel docs/backlog/export-drops-custom-columns.md` |
-| `/lem gate` | you want to know if a recorded ruling answers a question | `/lem gate do we still ship the CSV export with no header row?` |
 
 `/lem ask-expert` with no question takes the open question of the conversation. If it cannot find
 the question, it asks you.

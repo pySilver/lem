@@ -1,6 +1,6 @@
 ---
 name: lem-gate
-description: "Lem's question gate: checks whether a question must reach the owner. Lem's stages load it; the owner calls it as `/lem gate`."
+description: "Lem's question gate: checks whether a question must reach the owner. Lem's stages load it; it is no call of the owner's."
 disable-model-invocation: true
 ---
 

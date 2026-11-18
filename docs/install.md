@@ -16,7 +16,7 @@ Lem runs on macOS only, because agterm is a terminal for macOS.
 | the [mailbox chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat) and its skill | required | the messages between Lem and a lead, and between the defender and the reviewer. The recipe puts `mailbox-chat.py` on your `PATH` |
 | [revmux](https://github.com/umputun/revmux) and the revmux skill | required | the review rounds before a pull request |
 | the [GitHub CLI](https://cli.github.com) `gh`, signed in | required with a remote on GitHub | the pull requests, and the watch of the open pull requests |
-| [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document) | recommended | the markup of a plan or a document on a page. `/lem annotate` uses it by default |
+| [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document) | recommended | the markup of a plan or a document on a page |
 | [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) | recommended | a page about the issue, the plan or the change of the session |
 | [plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui) | recommended | the markup of the output of a pane, or of the newest reply of an agent |
 | [Codex](https://github.com/openai/codex) | optional | a reviewer of a second model family, the second expert, and half of each persona panel |

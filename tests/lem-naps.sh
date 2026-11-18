@@ -12,7 +12,7 @@ git init -q -b main "$NP" && commit "$NP" start
 project --repo "$NP" init --base main >/dev/null
 git -C "$NP" add -A && commit "$NP" "chore: the settings"
 NAPS=$NP/.lem/state/naps
-nap() { project --repo "$NP" may-nap "$@"; }
+nap() { project --repo "$NP" may-nap; }
 # ago HOURS: the folder time of a nap that started HOURS ago, by the clock
 ago() { "$PY" -c 'import sys, datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(hours=float(sys.argv[1]))).strftime("%Y-%m-%d-%H%M"))' "$1"; }
 # woke NAME: a nap's folder as its agent leaves it, with the dream, one made thing and the waking note
@@ -53,34 +53,36 @@ else
   fail "the naps' table of a worktree: $from_branch"
 fi
 
-# Off, Lem's own call says no and writes nothing down; the owner's word starts one, and a second call finds it running.
-off=$(nap); off_code=$(status_of nap)
-asked=$(nap --asked)
-time=$(field 'd["time"]' <<<"$asked")
+# Off, Lem's call says no and writes nothing down, and no word of the owner's starts one; on, it says yes at the
+# clock's minute and writes the nap down, and a second call finds it running.
+off=$(nap); off_code=$(status_of nap); asked_code=$(status_of project --repo "$NP" may-nap --asked)
+off_marker=no; [ -e "$NAPS/.asleep" ] && off_marker=yes
+naps_on
+started=$(nap)
+time=$(field 'd["time"]' <<<"$started")
 # the clock's minute, or the one before it when the minute turned between the call and this line
 clock=no
 if [ "$time" = "$(ago 0)" ] || [ "$time" = "$(ago 0.017)" ]; then clock=yes; fi
-again=$(nap --asked)
+again=$(nap)
 if [ "$off_code" = 0 ] && [ "$(field 'd["may"]' <<<"$off")" = False ] && grep -qF 'the naps are off' <<<"$(field 'd["why"]' <<<"$off")" \
-  && [ "$(field 'd["may"]' <<<"$asked")" = True ] && [ "$(field 'd["why"]' <<<"$asked")" = "the owner asked for it" ] \
+  && [ "$off_marker" = no ] && [ "$asked_code" = 2 ] \
+  && [ "$(field 'd["may"]' <<<"$started")" = True ] && [ "$(field 'd["why"]' <<<"$started")" = "there is no nap yet" ] \
   && [[ $time =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{4}$ ]] && [ "$clock" = yes ] \
-  && [ "$(field 'd["folder"]' <<<"$asked")" = "$NAPS" ] && [ -f "$NAPS/.asleep" ] && [ "$(field 'd["time"]' < "$NAPS/.asleep")" = "$time" ] \
+  && [ "$(field 'd["folder"]' <<<"$started")" = "$NAPS" ] && [ -f "$NAPS/.asleep" ] && [ "$(field 'd["time"]' < "$NAPS/.asleep")" = "$time" ] \
   && [ "$(field 'd["may"]' <<<"$again")" = False ] && grep -qF "a nap runs since" <<<"$(field 'd["why"]' <<<"$again")"; then
-  pass "may-nap: with the naps off Lem's own call is a no with exit 0; the owner's word starts one at the clock's minute and writes it down, and while it runs a second call is a no"
+  pass "may-nap: with the naps off it is a no with exit 0 that writes nothing, and it takes no --asked; with them on it starts one at the clock's minute and writes it down, and while it runs a second call is a no"
 else
-  fail "may-nap off and asked: $off / $asked / $again"
+  fail "may-nap off and on: $off / $asked_code / $started / $again"
 fi
 
-# The nap ends when its folder holds waking.md; then the gap holds for Lem's own call, and not for the owner's word.
+# The nap ends when its folder holds waking.md; then the gap holds.
 woke "$time-a-field"
-naps_on
 gap=$(nap)
-asked_again=$(nap --asked)
 if [ "$(field 'd["may"]' <<<"$gap")" = False ] && grep -qF 'and naps.gap_hours is 6' <<<"$(field 'd["why"]' <<<"$gap")" \
-  && [ "$(field 'd["newest"]' <<<"$gap")" = "$time-a-field" ] && [ "$(field 'd["may"]' <<<"$asked_again")" = True ]; then
-  pass "may-nap: a nap that wrote waking.md runs no more; Lem's own call waits naps.gap_hours from the newest start, and the owner's word does not wait"
+  && [ "$(field 'd["newest"]' <<<"$gap")" = "$time-a-field" ]; then
+  pass "may-nap: a nap that wrote waking.md runs no more, and the next call waits naps.gap_hours from the newest start"
 else
-  fail "may-nap after a nap: $gap / $asked_again"
+  fail "may-nap after a nap: $gap"
 fi
 
 # A start with no waking note runs for an hour at most, and the gap counts from it too.
@@ -152,22 +154,20 @@ else
   fail "the naps' feed: $plain"
 fi
 
-# One person says no to the naps on their machine, since a nap spends their tokens: Lem's own call is refused
-# with that reason, and the owner's word still starts one; the machine's file can never switch them on.
+# One person says no to the naps on their machine, since a nap spends their tokens: Lem's call is refused
+# with that reason; the machine's file can never switch them on.
 printf '%s\n' '[naps]' 'on = false' > "$NP/.lem/project.local.toml"
 off_here=$(project --repo "$NP" show 2>&1 | field '(d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
 own_call=$(nap 2>&1 | field '(d["may"], d["why"])' 2>&1 || true)
-rm -rf "$NAPS/.asleep"
-asked_here=$(nap --asked 2>&1 | field 'd["may"]' 2>&1 || true)
 rm -f "$NAPS/.asleep"
 printf '%s\n' '[naps]' 'on = true' > "$NP/.lem/project.local.toml"
 on_here=$(status_of project --repo "$NP" may-nap)
 rm "$NP/.lem/project.local.toml"
 if grep -qx 'on = true' "$NP/.lem/project.toml" && [ "$off_here" = "(False, ['naps.on'])" ] && [ "$own_call" = "(False, 'the naps are off on this machine (naps.on = false in .lem/project.local.toml)')" ] \
-  && [ "$asked_here" = True ] && [ "$on_here" = 1 ]; then
-  pass "the machine's own file says no to the naps for its person: Lem's own call is refused with that reason, the owner's word still starts one, and a yes there is refused"
+  && [ "$on_here" = 1 ]; then
+  pass "the machine's own file says no to the naps for its person: Lem's call is refused with that reason, and a yes there is refused"
 else
-  fail "the naps off on one machine: $off_here / $own_call / $asked_here / $on_here"
+  fail "the naps off on one machine: $off_here / $own_call / $on_here"
 fi
 
 # the settings file is the one this block edited by hand

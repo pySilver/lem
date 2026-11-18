@@ -83,7 +83,7 @@ What the settings' `tools.ask` names (`lem project show`), for every question th
 to choose or to approve:
 
 - `lem-ask`, unless the settings say otherwise: Lem's own page, each option with what the
-  owner would see and what it costs. The owner does not have to type `/lem ask` for it; Lem opens the page. It
+  owner would see and what it costs. Lem opens the page each time it asks; the owner types nothing for it. It
   is a part of Lem, not a tool of the machine: the machine check has no row for it, and no page
   for the owner lists it as one. The plugin puts its `lem-ask` command on the Bash tool's `PATH`.
 - `terminal`: the question in the conversation, as a numbered list with the recommended option
@@ -388,7 +388,7 @@ access inside this directory; relative links resolve beside FILE. Without --cwd,
 file access."
 A document the owner should mark up (a plan, a draft profile) goes through the settings'
 `tools.annotate`: a skill of that name when the session lists one, otherwise a command of that
-name given the file's path. `/lem annotate FILE` is the same for a file the owner names. The
+name given the file's path. The
 default is `webrev`, the tool Lem recommends and does not bring: a recipe of the agterm cookbook
 that the developer installs (the machine check's `webrev skill` row has its guide). An owner who
 prefers another tool, plannotator for one, names it in the settings.

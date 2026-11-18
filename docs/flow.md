@@ -438,7 +438,7 @@ request.
 The README lists the commands that you type. These commands start without you:
 
 - **`/lem land`**: Lem starts it when a task is ready.
-- **A nap**: Lem starts one in the background when naps are on. `/lem nap` starts one by hand.
+- **A nap**: Lem starts one in the background when naps are on.
 - **`/lem retro`**: a scheduled job, each morning. It reads the landed tasks, the correction queue
   and the notes of the naps, and proposes where a repeated correction goes. When nobody is there,
   it records its proposals, and `/lem` lists them for you.

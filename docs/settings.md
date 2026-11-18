@@ -188,7 +188,7 @@ It can hold these tables, and no other:
 | `[seats]` | a seat that replaces the seat of the project on this computer, in the same form: `reviewer = "codex/gpt-6.1-sol:high"`. `/lem reviewer` writes the reviewer seat, and `/lem reviewer default` removes it |
 | `[tools]` | `annotate` and `ask`, as in `.lem/project.toml` |
 | `[corrections]` | only `collect = false`. Then the hook sends no message from this computer |
-| `[naps]` | only `on = false`. Then Lem takes no nap by itself on this computer. `/lem nap` still works |
+| `[naps]` | only `on = false`. Then Lem takes no nap on this computer |
 | `[flow]` | only `max_tasks`: the limit of tasks for this computer |
 
 The file can turn the correction queue and the naps off, but never on. The topics, the checks,

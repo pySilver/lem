@@ -1,6 +1,6 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `nap`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, checks, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, checks, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
@@ -109,25 +109,20 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report, and a scout's belongs to its interview | `stages/stopped.md`; an investigator's `stages/investigate.md`, a scout's `stages/interview.md` |
 | a choice waits | the line `lem: SLUG choice N waits` arrived, or the `waiting` list of `lem decisions pending` names a choice: run that command at each of your turns, since a line can be lost | `stages/choice.md` |
 | `land` | the oldest ready task: the polish pass for a full change (a small change has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
-| `annotate <file>` | opens a plan, a draft or any text file for the owner to mark up, with what the settings' `tools.annotate` names, and takes his notes as corrections | the harness file, `show-page` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: picks a backlog item that needs no decision and leaves its plan for the morning | `stages/night.md` |
 | bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, each plan drafted at night, each retro's proposals; and the board of all tasks, with what builds. A proposal or a draft he answers with approve, reject or later, all on one page | `stages/status.md` |
-| `nap` | a nap now, on the owner's word, also when the naps are off: a fresh agent reads the recent tasks, dreams, and writes the dream down; Lem tells him its name when it ends. Where the settings have the naps on (`naps.on`), Lem also naps by itself after a task ends | `stages/nap.md` |
 | `status <task>` | the board of one task | `stages/status.md` |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `dialectic`, `root-cause`, `ask-expert`, `panel` and `linear` this way (`/lem linear MBZ-12` reads one ticket). Lem's stages load `ask-expert`, `panel` and `linear` by themselves, and `lem-ask` and `lem-gate` too, which are no calls of the owner's: Lem opens its question page each time it asks him, and the gate runs before a question reaches him. See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
 when the name stands alone or is followed by what that skill takes: a slug, a path, a number, a
 statement to argue, a question in words. `/lem root-cause analysis of the logs is slow` and `/lem panel layout breaks on a phone`
-are sentences about the project, so each is an ask and opens a task. `/lem ask` takes a question
-the owner wants put to himself as a page ("`/lem ask` which of the two layouts"), and `/lem ask`
-alone puts the last open question an agent asked in this conversation on a page, with what he
-needs to answer it there (the `lem-ask` skill says how); "`/lem` ask
-the payment provider for a sandbox key" is a task. When you cannot tell which
+are sentences about the project, so each is an ask and opens a task, and so is `/lem ask the
+payment provider for a sandbox key`. When you cannot tell which
 of the two a line is, ask the owner once in the terminal, in one line, before anything runs: a
 skill runs at once, and an ask opens a task.
 
