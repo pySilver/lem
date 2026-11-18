@@ -128,8 +128,9 @@ one finds what the run before it finished.
      and each one it leaves out; so a change of documentation gets no security or architecture
      check, and nobody decides that by a list of paths. It runs the review, confirms each
      finding against the code, and writes `reviews/review-N.md` and `reviews/review-N.json` in
-     the task directory, N being the `attempt` of `read.json`. Then `lem land read SLUG --record` with that JSON file writes the
-     review down. The step refuses a record under the floor, one with no careful call, a careful
+     the task directory, N being the `attempt` of `read.json`, and replies with their paths. It
+     records nothing: when it replies, you run `lem land read SLUG --record reviews/review-N.json`,
+     which writes the review down. The step refuses a record under the floor, one with no careful call, a careful
      call with less than the full set, and one whose `attempt` is not the number `read.json`
      gave: a record that is sent twice counts once. A careful call the plan did not make is
      written down as a `careful.missed` event, for the retro.
