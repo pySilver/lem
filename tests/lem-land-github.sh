@@ -13,7 +13,7 @@ git clone -q "$GHO" "$GHS" 2>/dev/null && ident "$GHS"
 git -C "$GHS" config remote.origin.url https://github.com/acme/shop.git
 git -C "$GHS" config "url.$GHO.insteadOf" https://github.com/acme/shop.git
 project --repo "$GHS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$GHS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$GHS/.lem/project.toml"
 git -C "$GHS" add -A && git -C "$GHS" commit -q -m "chore: start" && git -C "$GHS" push -q origin main
 mkdir -p "$WORK/bin"
 cat > "$WORK/gh.py" <<'PY'
@@ -322,7 +322,7 @@ git clone -q "$GMO" "$GMS" 2>/dev/null && ident "$GMS"
 git -C "$GMS" config remote.origin.url git@github.com:acme/solo.git
 git -C "$GMS" config "url.$GMO.insteadOf" git@github.com:acme/solo.git
 project --repo "$GMS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' 'propose = "merge"' '[checks]' 'commands = ["true"]' > "$GMS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' 'propose = "merge"' '[checks]' 'commands = ["true"]' > "$GMS/.lem/project.toml"
 git -C "$GMS" add -A && git -C "$GMS" commit -q -m "chore: start" && git -C "$GMS" push -q origin main
 mkdir -p "$WORK/gm-bin"
 printf '%s\n' '#!/bin/sh' "echo \"\$*\" >> '$WORK/gm-gh-calls'" 'exit 1' > "$WORK/gm-bin/gh" && chmod +x "$WORK/gm-bin/gh"
@@ -358,7 +358,7 @@ git clone -q "$GWO" "$GWS" 2>/dev/null && ident "$GWS"
 git -C "$GWS" config remote.origin.url https://github.com/acme/watch.git
 git -C "$GWS" config "url.$GWO.insteadOf" https://github.com/acme/watch.git
 project --repo "$GWS" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' > "$GWS/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["true"]' > "$GWS/.lem/project.toml"
 printf 'l%s\n' 1 2 3 4 5 6 7 8 9 > "$GWS/shop.txt"
 git -C "$GWS" add -A && git -C "$GWS" commit -q -m "chore: start" && git -C "$GWS" push -q origin main
 GW=$WORK/gw.json
@@ -656,7 +656,7 @@ if git cat-file -e "ccba3bd^{commit}" 2>/dev/null; then
   git -C "$GXS" config remote.origin.url https://github.com/acme/shop.git
   git -C "$GXS" config "url.$GXO.insteadOf" https://github.com/acme/shop.git
   "$PY" -B "$OLDLEM/skills/lem/scripts/project.py" --repo "$GXS" init --base main >/dev/null
-  printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[gate]' 'commands = ["true"]' > "$GXS/.lem/project.toml"
+  printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "owner"' '[gate]' 'commands = ["true"]' > "$GXS/.lem/project.toml"
   git -C "$GXS" add -A && git -C "$GXS" commit -q -m "chore: start" && git -C "$GXS" push -q origin main
   (
     PROJECT=$OLDLEM/skills/lem/scripts/project.py STORIES=$OLDLEM/skills/lem/scripts/stories.py
@@ -680,7 +680,7 @@ if git cat-file -e "ccba3bd^{commit}" 2>/dev/null; then
   git -C "$GXO" update-ref refs/heads/main "$head"
   "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"][sys.argv[2]].update(state="MERGED", merge=sys.argv[3]); json.dump(d, open(sys.argv[1], "w"))' "$WORK/gx.json" "$number" "$head"
   # the settings of that commit name the checks `[gate]`, which the scripts of now refuse with the lines the owner writes
-  printf '%s\n' '[branch]' 'base = "main"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$GXS/.lem/project.toml"
+  printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$GXS/.lem/project.toml"
   gx_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gx.json" GH_ORIGIN="$GXO" "$PY" -B "$LAND" --repo "$GXS" "$@"; }
   merged=$(gx_land merged old-pr 2>"$WORK/gx.err" | field 'd["merged"]' 2>&1 || true)
   cleaned=$(gx_land clean old-pr 2>&1 | field 'd["worktree"]' 2>&1 || true)

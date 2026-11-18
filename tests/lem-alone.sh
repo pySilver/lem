@@ -80,7 +80,7 @@ fi
 
 # The checks of a landing: checks.commands first, then each checks.alone command under the lock, each with its output and its result.
 small_task_in "$AL" alone-change a.txt one
-printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["echo 3 passed"]' "alone = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["echo 3 passed"]' "alone = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: an e2e suite that needs the machine"
 tree=$AL/.lem/worktrees/alone-change
 # the e2e suite says whether it ran under the lock, by the holder line project.py writes there
@@ -115,7 +115,7 @@ else
   fail "the board's count of the checks: $(cat "$AL/.lem/state/meta.js")"
 fi
 # A red checks.commands leaves the alone commands out: they run only after the others passed.
-printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["echo 1 failed; exit 1"]' "alone = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["echo 1 failed; exit 1"]' "alone = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
 red=$(land --repo "$AL" checks alone-change 2>/dev/null || true)
 if [ "$(field '[(c["command"], c["exit"]) for c in d["commands"]]' <<<"$red" 2>&1)" = "[('echo 1 failed; exit 1', 1)]" ]; then
   pass "a red gate command leaves the alone commands out: they run only after checks.commands pass"
@@ -124,7 +124,7 @@ else
 fi
 
 # The check of the criteria runs a test of an alone suite under the lock, and any other test bare.
-printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' "alone = [\"sh tests/e2e\"]" > "$AL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["true"]' "alone = [\"sh tests/e2e\"]" > "$AL/.lem/project.toml"
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: the e2e suite is a folder of tests"
 small_task_in "$AL" alone-criterion b.txt two
 tree=$AL/.lem/worktrees/alone-criterion

@@ -80,7 +80,7 @@ ostories() { "$PY" -B "$OLDS/stories.py" --repo "$OT" "$@"; }
 oland() { "$PY" -B "$OLDS/land.py" --repo "$OT" "$@"; }
 nland() { land --repo "$OT" "$@"; }
 oproject init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[gate]' 'commands = ["true"]' > "$OT/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[gate]' 'commands = ["true"]' > "$OT/.lem/project.toml"
 git -C "$OT" add -A && git -C "$OT" commit -q -m "chore: start" && git -C "$OT" push -q origin main
 
 # old_small SLUG FILE: the one story of a small change in the task directory (`stories.md`), as the older Lem wrote and approved it
@@ -150,7 +150,7 @@ oland propose old-full --title "feat: old-full" --notes "$NOTES" >/dev/null
 # write in its place, and once the owner wrote them, they go on with the tasks the older scripts left.
 refused=$(project --repo "$OT" show 2>&1 >/dev/null || true)
 landed_refused=$(nland merged old-small 2>&1 || true)
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$OT/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$OT/.lem/project.toml"
 if grep -qF "[gate] is called [checks] now" <<<"$refused" && grep -qF "[gate] is called [checks] now" <<<"$landed_refused" \
   && [ "$(printf '%s\n' "$refused" | sed -n 2,3p)" = "$(printf '%s\n' '[checks]' 'commands = ["true"]')" ] && grep -qF "Then commit the file on the base branch and push it" <<<"$refused" \
   && [ "$(status_in "$OT" old-small)" = open ]; then

@@ -9,7 +9,7 @@
 LOCAL=$WORK/local
 git init -q -b main "$LOCAL" && ident "$LOCAL"
 project --repo "$LOCAL" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$LOCAL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$LOCAL/.lem/project.toml"
 mkdir -p "$LOCAL/tests" "$LOCAL/docs" && printf '%s\n' 'def test_base():' '    assert 1 + 1 == 2' '    assert 2 + 2 == 4' > "$LOCAL/tests/test_base.py" && echo guide > "$LOCAL/docs/guide.md"
 printf '%s\n' 'import plugin # noqa: F401' 'import other  # noqa: E402' > "$LOCAL/plug.py"
 # app_py FIRST SECOND: two functions alike in every line but their names, each longer than the
@@ -464,7 +464,7 @@ project --repo "$LOCAL" state lift-topics dropped "the test is over" >/dev/null
 task_in "$LOCAL" lands-alone ten.txt ten
 read_in "$LOCAL" lands-alone
 tree=$(project --repo "$LOCAL" worktree-dir lands-alone)
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("land = \"agent\"", "land = \"agent\"\nhistory = \"squash\""))' "$tree/.lem/project.toml"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("history = \"keep\"", "history = \"squash\""))' "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "chore: one commit for each task"
 local_land start lands-alone >/dev/null && local_land base lands-alone >/dev/null && polish_in "$LOCAL" lands-alone && local_land checks lands-alone >/dev/null
 branch_floor=$(local_land read lands-alone | field '(d["floor"], d["why"])')

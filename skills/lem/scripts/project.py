@@ -298,7 +298,10 @@ NO_RULE = (
 )
 LAND = ("owner", "agent")
 # How a task's branch reaches the base branch: its own commits, or one commit for the whole branch.
+# One commit unless the settings say otherwise (the owner, 2026-11-18: "my opionated default is
+# "squash"").
 HISTORY = ("keep", "squash")
+HISTORY_DEFAULT = "squash"
 # How a task that has a forge ends: a pull request there, or a merge into the base branch with
 # none, for a developer who wants no pull requests. With no forge it is always the merge.
 PROPOSE = ("pull-request", "merge")
@@ -462,8 +465,8 @@ base = "{base}"
 # Who lands a finished task: "owner", or "agent", which lands only a request that is green and
 # that the review called not careful; the owner lands every other one.
 land = "owner"
-# What lands: "keep" lands the branch's own commits, "squash" lands one commit for the whole task.
-history = "keep"
+# What lands: "squash" lands one commit for the whole task, "keep" lands the branch's own commits.
+history = "squash"
 # How a task ends where the remote is GitHub: "pull-request" opens one there, "merge" lands the
 # branch on the remote's base branch with none. With any other remote, or none, it is the merge.
 # With "pull-request", Lem pushes each task's branch and opens its pull request without asking:
@@ -1102,7 +1105,7 @@ def load(root: Path) -> dict:
     if land not in LAND:
         raise SettingsError(f"{SETTINGS}: branch.land = {land!r} must be one of {', '.join(LAND)}")
 
-    history = branch.get("history", "keep")
+    history = branch.get("history", HISTORY_DEFAULT)
     if history not in HISTORY:
         raise SettingsError(f"{SETTINGS}: branch.history = {history!r} must be one of {', '.join(HISTORY)}")
     propose = branch.get("propose", "pull-request")

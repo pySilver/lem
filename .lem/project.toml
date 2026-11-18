@@ -18,7 +18,7 @@ ruling_file = "<slug>.md"
 base = "main"
 # Who lands a finished task: "owner", or "agent" once the checks are green.
 land = "owner"
-# What lands: "keep" lands the branch's own commits, "squash" lands one commit for the whole task.
+# What lands: "squash" lands one commit for the whole task, "keep" lands the branch's own commits.
 history = "squash"
 # How a task ends where the remote is GitHub: "pull-request" opens one there, "merge" lands the
 # branch on the remote's base branch with none. With any other remote, or none, it is the merge.

@@ -144,7 +144,8 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
 - the sentences of what must never go wrong (`flow.topics`) the owner confirmed;
 - `branch.land = "owner"`: a person merges, until he says otherwise;
 - `branch.propose`: a pull request where the remote is GitHub;
-- `branch.history`: `keep` or `squash`, as the last fifty merges in `examined.md` did;
+- `branch.history`: `squash`, Lem's default, unless the last fifty merges in `examined.md` kept the
+  commits of each branch: then `keep`;
 - `branch.protected`: the branches nothing lands on that `examined.md` found, or none;
 - `[tracker]`: none, unless the repository shows one. When it shows Linear, propose
   `kind = "linear"` alone, and run the tracker's "check" with the team key the repository shows

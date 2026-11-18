@@ -22,7 +22,7 @@ Each path is relative to the root of the repository.
 | --- | --- | --- |
 | `branch.base` | `/lem init` writes the default branch | the branch that a task starts from and lands on |
 | `branch.land` | `"owner"` | who merges. `"owner"`: you. `"agent"`: Lem, and only a green pull request that the review called not careful |
-| `branch.history` | `"keep"` | what lands. `"keep"`: the commits of the branch. `"squash"`: one commit |
+| `branch.history` | `"squash"` | what lands. `"squash"`: one commit. `"keep"`: the commits of the branch |
 | `branch.propose` | `"pull-request"` | how a task ends with a remote on GitHub. `"pull-request"`: Lem opens a pull request, with no question. `"merge"`: Lem merges into the base branch, with no pull request |
 | `branch.protected` | `[]` | the branches where Lem lands nothing and pushes nothing |
 

@@ -166,8 +166,12 @@ else
   fail "branch.propose: $err / $merge"
 fi
 settings '[branch]' 'base = "master"'
-if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], sorted(d["checks"]))')" = "('keep', ['alone', 'commands', 'setup'])" ] && grep -q '^history = "keep"$' "$NEW/.lem/project.toml"; then
-  pass "a branch's own commits land unless the settings say one commit, and the checks are the commands, their setup and the ones that run alone"
+settings '[branch]' 'base = "master"' 'history = "keep"'
+kept_history=$(project --repo "$OLD" show | field 'd["branch"]["history"]')
+settings '[branch]' 'base = "master"'
+if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], sorted(d["checks"]))')" = "('squash', ['alone', 'commands', 'setup'])" ] && grep -q '^history = "squash"$' "$NEW/.lem/project.toml" \
+  && [ "$kept_history" = keep ]; then
+  pass "a task lands as one commit unless the settings say its own commits, a file that says keep keeps them, and the checks are the commands, their setup and the ones that run alone"
 else
   fail "history and the keys of the checks"
 fi

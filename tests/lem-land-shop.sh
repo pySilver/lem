@@ -559,7 +559,7 @@ land --repo "$SHOP" clean not-clean >/dev/null
 
 # No gate command, a protected branch, and a repository with no remote.
 open_task third-change note.txt three
-shop_lines '[branch]' 'base = "main"' 'land = "agent"'
+shop_lines '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"'
 err=$(land --repo "$SHOP" start third-change 2>&1 || true)
 if [ "$(status_of land --repo "$SHOP" start third-change)" = 1 ] && grep -q "no command in its checks" <<<"$err" && [ "$(status third-change)" = blocked ]; then
   pass "a project with no gate command lands nothing, and the task is blocked instead of holding the landing line"
@@ -567,7 +567,7 @@ else
   fail "start with no gate: $err"
 fi
 # with a command of the checks, so that the protected base is the one reason left to refuse the step
-shop_lines '[branch]' 'base = "release"' 'land = "agent"' 'protected = ["release"]' '[checks]' 'commands = ["true"]'
+shop_lines '[branch]' 'base = "release"' 'history = "keep"' 'land = "agent"' 'protected = ["release"]' '[checks]' 'commands = ["true"]'
 err=$(land --repo "$SHOP" start third-change 2>&1) && code=0 || code=$?
 if [ "$code" = 1 ] && grep -qF "protected" <<<"$err" && [ "$(status third-change)" = blocked ]; then pass "no step runs toward a branch the settings refuse"; else fail "land toward a protected base: $code $err"; fi
 # The first task of a new repository sets up the checks: the main checkout's settings have no gate
@@ -577,12 +577,12 @@ if [ "$code" = 1 ] && grep -qF "protected" <<<"$err" && [ "$(status third-change
 FG=$WORK/first-gate
 git init -q -b main "$FG" && ident "$FG"
 project --repo "$FG" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' > "$FG/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' > "$FG/.lem/project.toml"
 git -C "$FG" add -A && git -C "$FG" commit -q -m "chore: start"
 task_in "$FG" set-up-checks c.txt checked
 read_in "$FG" set-up-checks
 tree=$(project --repo "$FG" worktree-dir set-up-checks)
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["echo 3 passed"]' > "$tree/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["echo 3 passed"]' > "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "chore: the checks"
 brought_start=$(land --repo "$FG" start set-up-checks 2>&1 || true)
 brought_gate=$(land --repo "$FG" base set-up-checks >/dev/null 2>&1 && polish_in "$FG" set-up-checks && land --repo "$FG" checks set-up-checks 2>&1 || true)
@@ -594,12 +594,12 @@ text=$FG/.lem/state/tasks/set-up-checks/pr.md
 FG2=$WORK/kept-gate
 git init -q -b main "$FG2" && ident "$FG2"
 project --repo "$FG2" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["echo main passed"]' > "$FG2/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["echo main passed"]' > "$FG2/.lem/project.toml"
 git -C "$FG2" add -A && git -C "$FG2" commit -q -m "chore: start"
 task_in "$FG2" other-checks k.txt kept
 read_in "$FG2" other-checks
 tree=$(project --repo "$FG2" worktree-dir other-checks)
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["false"]' > "$tree/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "agent"' '[checks]' 'commands = ["false"]' > "$tree/.lem/project.toml"
 git -C "$tree" commit -q -am "chore: other checks"
 kept_gate=$(land --repo "$FG2" start other-checks >/dev/null 2>&1 && land --repo "$FG2" base other-checks >/dev/null 2>&1 && polish_in "$FG2" other-checks && land --repo "$FG2" checks other-checks 2>&1 || true)
 kept_floor=$(land --repo "$FG2" read other-checks | field '(d["floor"], d["why"])' 2>&1 || true)
