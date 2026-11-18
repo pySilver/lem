@@ -1,8 +1,9 @@
 # Settings
 
 `.lem/project.toml` holds the settings of a project, in git, and `/lem init` writes it. Lem reads
-it from your main checkout, so a task branch cannot change the rules that guard it. An unknown key
-or a wrong value stops Lem, and the message names the fix.
+the rules that guard a change (the topics, the checks, who merges) from your main checkout, so a
+task branch cannot change them. An unknown key or a wrong value stops Lem, and the message names
+the fix.
 
 ## `[paths]`
 
@@ -31,7 +32,7 @@ runs it.
 | Setting | Default | Use |
 | --- | --- | --- |
 | `checks.commands` | `[]` | the whole suite, run one time before the pull request. With none, only the task that adds them can land |
-| `checks.setup` | `[]` | what a new worktree needs before its tests, for example `"uv sync"` or `"npm ci"` |
+| `checks.setup` | `[]` | what a fresh worktree needs before Lem runs the test of each criterion there, for example `"uv sync"` or `"npm ci"` |
 | `checks.alone` | `[]` | the commands that need the computer to themselves, for example an end-to-end suite with fixed ports |
 
 ## `[flow]`
