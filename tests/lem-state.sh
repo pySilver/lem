@@ -62,6 +62,8 @@ there=$(project --repo "$MO" owner active --words "I'm back" | field 'd["written
 wrong=$(project --repo "$MO" owner sideways --words "go" 2>&1 || true)
 nowords=$(status_of project --repo "$MO" owner away --words " ")
 forged=$(project --repo "$MO" log gift-note task.mode mode=alone 2>&1 || true)
+old_command=$(project --repo "$MO" mode gift-note alone --by owner --words "go alone" 2>&1 || true)
+old_code=$(status_of project --repo "$MO" mode gift-note alone --by owner --words "go alone")
 events=$(grep -c '"event": "owner"' "$MO/.lem/state/events.jsonl")
 if [ "$before" = "[('gift-note', 'with-owner', 0), ('landed-task', 'with-owner', 0), ('other-task', 'with-owner', 0)]" ] \
   && [ "$after_old" = "[('gift-note', 'alone', 1), ('landed-task', 'with-owner', 0), ('other-task', 'with-owner', 0)]" ] \
@@ -71,10 +73,11 @@ if [ "$before" = "[('gift-note', 'with-owner', 0), ('landed-task', 'with-owner',
   && [ "$back" = "(False, True, ['gift-note', 'new-task', 'other-task'])" ] \
   && [ "$after" = "[('gift-note', 'with-owner', 1), ('landed-task', 'with-owner', 0), ('new-task', 'with-owner', 1), ('other-task', 'with-owner', 1)]" ] \
   && [ "$there" = False ] && grep -qF "the owner is away or active, not 'sideways'" <<<"$wrong" && [ "$nowords" = 1 ] \
-  && grep -qF "task.mode is written by \`lem project owner\` and \`task-dir --night\` only" <<<"$forged" && [ "$events" = 2 ]; then
-  pass "the owner says whether he is there: away makes every open task run without him, one opened while he is away from its opening, active takes them all back with an older Lem's \"go alone\", the list says that he is away, an ended task stays out of it, and nothing is written for words that change nothing"
+  && grep -qF "task.mode is written by \`lem project owner\` and \`task-dir --night\` only" <<<"$forged" && [ "$events" = 2 ] \
+  && [ "$old_code" = 1 ] && grep -qF "lem project owner away --words" <<<"$old_command"; then
+  pass "the owner says whether he is there: away makes every open task run without him, one opened while he is away from its opening, active takes them all back with an older Lem's \"go alone\", the list says that he is away, an ended task stays out of it, nothing is written for words that change nothing, and the mode command of an older Lem is refused with what to run now"
 else
-  fail "the owner's status: $before / $after_old / $away / $again / $listed / $opened / $during / $back / $after / $there / $wrong / $nowords / $forged / $events"
+  fail "the owner's status: $before / $after_old / $away / $again / $listed / $opened / $during / $back / $after / $there / $wrong / $nowords / $forged / $events / $old_command"
 fi
 
 # The scripts of the commit before the move, for a repository whose state they wrote. A shallow clone may not have
