@@ -424,8 +424,9 @@ def project() -> list[dict]:
 
 def cronn() -> dict:
     row = tool(
-        "cronn", "optional", "a scheduled retro, a night plan, and the agents' free hours",
-        "a retro and a night plan run only when someone types them; onboarding offers to install it", "cronn",
+        "cronn", "required", "a scheduled retro, a night plan, and the agents' free hours",
+        "no retro and no night plan starts by itself, so the corrections wait unread; install it from https://cronn.umputun.dev "
+        "(a Homebrew formula and an agent that starts at login)", "cronn",
     )
     env_file = Path(os.environ.get("CRONN_CONFIG_DIR") or Path.home() / ".config" / "cronn") / "cronn.env"
     port = None

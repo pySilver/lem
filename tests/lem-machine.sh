@@ -64,6 +64,7 @@ else
 fi
 fake agtermctl "agtermctl 1.0"
 fake mailbox-chat.py "mailbox-chat"
+fake cronn "cronn"
 out=$(doctor || true)
 if [ "$(status_of doctor)" = 1 ] && [ "$(row agterm found <<<"$out")" = "True" ] && [ "$(row agterm in_session <<<"$out")" = "False" ] && [ "$(row 'agterm skill' found <<<"$out")" = "False" ]; then
   pass "agterm without its skill fails the check, and a run outside agterm says it is not in a session"
@@ -169,7 +170,7 @@ else
   fail "the recipes Lem needs: $none_yet / $in_project / $for_user"
 fi
 out=$(doctor)
-if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(field '[t["name"] for t in d["tools"] if "jev" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
+if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(field '[t["name"] for t in d["tools"] if "jev" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$(row cronn found <<<"$out")" = "True" ] \
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "plannotator"]' <<<"$out")" = "[]" ] && [ "$(row codex found <<<"$out")" = "False" ] \
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
   && [ "$(field '[(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["need"] == "recommended"]' <<<"$out")" \
@@ -179,6 +180,15 @@ if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "Tr
 else
   fail "doctor with the required set: $out"
 fi
+rm "$BIN/cronn"
+out=$(doctor || true)
+if [ "$(status_of doctor)" = 1 ] && [ "$(field 'd["ok"]' <<<"$out")" = "False" ] && [ "$(row cronn need <<<"$out")" = "required" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
+  && grep -q "cronn.umputun.dev" <<<"$(row cronn without_it <<<"$out")"; then
+  pass "cronn is required: without it the check fails, and the row says where to get it"
+else
+  fail "doctor without cronn: $out"
+fi
+fake cronn "cronn"
 keyed=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
 if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
   && ! grep -q "sk-not-a-real-key" <<<"$keyed"; then

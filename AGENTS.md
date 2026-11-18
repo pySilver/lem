@@ -441,6 +441,11 @@ build that follows.
   ("Worth adding to backlog now").
 - **agterm, the mailbox chat and revmux stay required** ("as today"), **and agdoc is required
   too**: of the page at the end of a task, "done by agdoc (hard requirement of the Lem)".
+- **cronn is required, and Codex is highly recommended** (his notes on the README and on the
+  install page, 2026-11-18): of the cronn row, "make it required, `/retro` add a lot of value of
+  the time", and of "Codex is optional", "while godex is optional - its highly recommended". So
+  the machine check fails without cronn and `/lem init` stops for it; a scheduled job is still
+  added only on his yes.
 - **Three more commands are no commands of his, and two recipes of the agterm cookbook become
   required** (his note on the plan, 2026-11-18): "`/lem ask` is suppossed to be called
   automatically, just like `huddle` today. `/webrev` becomes a required reciepie. (no need for

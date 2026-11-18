@@ -22,7 +22,7 @@ Lem runs on macOS only, because agterm is a terminal for macOS.
 | [plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui) | recommended | the markup of the output of a pane, or of the newest reply of an agent |
 | [Codex](https://github.com/openai/codex) | optional, and highly recommended | a reviewer of a second model family, the second expert, and half of each persona panel. Without it, Claude reviews the work of Claude |
 | the Codex persona agent | optional, with Codex | the second model family of a persona panel, in `~/.codex/agents/persona.toml` |
-| [cronn](https://cronn.umputun.dev) | optional | the scheduled retro and night plan |
+| [cronn](https://cronn.umputun.dev) | required | the scheduled retro and night plan. Its install adds a Homebrew formula and an agent that starts at login. Lem adds a job only after your yes |
 | an [OpenRouter](https://openrouter.ai) key, `OPENROUTER_API_KEY` | optional | the Jev decision model, for the correction queue and the check of a question card |
 
 Lem does not include the recipes of the agterm cookbook. webrev, agdoc and the backlog recipe are

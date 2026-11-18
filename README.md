@@ -80,6 +80,7 @@ Lem runs on macOS, in the [agterm](https://agterm.com) terminal, with
 | --- | --- |
 | git, Python 3.11 or newer, and the [GitHub CLI](https://cli.github.com) for a repository on GitHub | branches, worktrees and pull requests |
 | [revmux](https://github.com/umputun/revmux) | the review before each pull request |
+| [cronn](https://cronn.umputun.dev) | the scheduled retro, which turns your corrections into lessons, and the night plan |
 | Four recipes of the agterm cookbook: the [mailbox chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat), [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document), [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) and the [backlog recipe](https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker) | the messages between agents, and the pages that Lem shows you |
 
 [Codex](https://github.com/openai/codex) is not required, but we recommend it highly. With Codex,
