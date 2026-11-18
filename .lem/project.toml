@@ -64,12 +64,6 @@ topics = [
   "Lem as a plugin does not load in a developer's Claude Code, or brings a hook or a command he did not install.",
   "A builder or a lead works outside its brief: it edits the main checkout, another task's worktree or a branch it does not own, or it pushes.",
 ]
-# How many tasks build or land at one time. Four to five ran well on one Mac; six gave a load
-# average of 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when
-# the tests share one database or drive a browser.
-# Lem's own repository (2026-11-16 onboarding): its tests drive headless Chrome, and most tasks here
-# change the same stage files.
-max_tasks = 2
 
 [seats]
 # Who sits where, each as "agent/model:effort". A part left out ("codex/gpt-6.2-sol", "codex")

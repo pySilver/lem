@@ -45,11 +45,10 @@ a team that adopts Lem may have its own.
                                     irreversible step (`lem decisions away`)
     lem project log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
-    lem project may-start SLUG      exit 1 when as many other tasks build or land as flow.max_tasks
-                                    allows; the task SLUG, whose lead starts, is not counted. Also
-                                    exit 1 for a task in `landing`, `open` or an ended state, which
+    lem project may-start SLUG      exit 1 for a task in `landing`, `open` or an ended state, which
                                     gets no lead, and for a task `queued` with an `after: OTHER`
-                                    line while OTHER has not ended
+                                    line while OTHER has not ended. No count of tasks stops a start:
+                                    each start by day is the owner's own request
     lem project state-dir           the folder that holds every task, the event log and the night reports
     lem project alone -- COMMAND ...
                                     run one command that needs the machine to itself, under the
@@ -83,7 +82,7 @@ Every state block is also an event. `events.jsonl` in the state folder is the re
 object per line: `ts` (UTC to the second), `event`, `task`, then the event's fields. The same
 record goes to `events.js` as a `lemEvent({...});` line, because the board is a file:// page: it
 cannot read a file with fetch, and it can load a script (measured in agterm 0.34.0 by the monitor
-this one follows). `state` writes `task.state` with the status, the lines, the ask, the limit and
+this one follows). `state` writes `task.state` with the status, the lines, the ask and
 the branch and newest commit of the task's worktree, so the board needs no agent to remember a
 second command. `log` writes any other event: `key=value` stores a string and `key:=value` parses
 JSON, so a commit made only of digits stays a string and an exit code stays a number. The start
@@ -138,12 +137,11 @@ type its kind maps to (bug and correction a fix, feature a feat, investigation a
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
-a plan talk runs, a no to the correction queue for that one person, a no
-to the naps, which spend that person's tokens, and how many tasks build or land at one time on that machine. It
+a plan talk runs, a no to the correction queue for that one person, and a no
+to the naps, which spend that person's tokens. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
 because a task's worktree has no copy of a file git does not track. It may hold `[seats]`,
-`[corrections]` with `collect = false`, `[naps]` with `on = false` and `[flow]` with
-`max_tasks`, which is one machine's limit and no guard, and nothing else: the checks, what must
+`[corrections]` with `collect = false` and `[naps]` with `on = false`, and nothing else: the checks, what must
 never go wrong, the protected branches and who lands are the project's rules, and a file nobody reviews
 must not open them. For the same reason it can switch the correction queue and the naps off
 for its person and never on: nobody's messages are sent, and nobody's tokens spent, because of a
@@ -196,8 +194,7 @@ A seat is one string, `agent/model:effort`: `seats.reviewer`, the agent in the r
 `seats.planner`, the defender of a plan talk; and `seats.experts`, the two experts of a choice
 that waits for the owner. `init` writes each of the three whole (the owner, 2026-11-18: "I think
 it should be explicitly `agent/model:effort` in all 3"). The effort may be left out
-(`codex/gpt-6.2-sol`), and so may the model (`codex`, `codex:high`), as a setup written before
-that has it: the part left out is that agent's own default, and Lem passes nothing for it. `show`
+(`codex/gpt-6.2-sol`), and so may the model (`codex`, `codex:high`): the part left out is that agent's own default, and Lem passes nothing for it. `show`
 gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written; a file with no
 planner or no experts gets Lem's (`PLANNER`, `EXPERTS`), and one with no reviewer gets none, which
 the stage that needs it asks the owner for.
@@ -214,8 +211,7 @@ A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM
 named it, is found too: `lem_plans` is the one place that builds and finds the name, and `plan-file` prints both.
 A ruling's file is named the same way by `paths.ruling_file`, `<slug>.md` unless the settings say
 otherwise, in the folder `paths.rulings` (`docs/rulings`), and `ruling-file` prints it. A settings
-file of an older Lem that names `rulings` under [paths] reads again, with its value: the rulings
-folder was a setting before it was a fixed place, and is one again.
+folder is a setting as the plans folder is.
 
 `waiting` is the one list of what waits for the owner, which a bare `/lem` says: his status first
 (`owner`: `away`, `since` and his `words`), then the choices of
@@ -274,9 +270,9 @@ import lem_state  # noqa: E402
 
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
-# the tables one machine may set for itself; of [flow] only max_tasks, of [naps] only `on = false`,
-# and of [corrections] only `collect = false`
-LOCAL_TABLES = ("seats", "corrections", "flow", "naps")
+# the tables one machine may set for itself; of [naps] only `on = false`, and of [corrections] only
+# `collect = false`
+LOCAL_TABLES = ("seats", "corrections", "naps")
 # What Lem reads beside its settings, each in one place with no setting (the owner's note of
 # 2026-11-18 on the plan, task 1b of docs/plans/2026-11-18-core-and-two-modes.md): Lem's own files,
 # the rules for the code in the folder Claude Code loads by itself, the review tool's folder, and the
@@ -351,7 +347,7 @@ PLAN_TOKENS = lem_plans.TOKENS
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 # What a task's newest state block may say, and who acts next:
-#   queued    the ask is written and no lead runs yet: the limit was reached, or its `after:` line names the task it needs
+#   queued    the ask is written and no lead runs yet: its `after:` line names the task it needs
 #   building  a lead plans or builds
 #   planned   the plan is committed and nothing builds it: it needs its talk, or a builder after the talk, or the owner reads it
 #   held      it waits for the owner on what is no decision with options: the criteria, one more fact, a
@@ -407,15 +403,11 @@ RUNNING = ("building", "landing")
 ALONE_LOCK = "alone.lock"
 # The first line of a state block: the time in UTC, the status, one line of text.
 STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
-# How many tasks build or land at one time when the settings do not say. Four to five ran well on one Mac;
-# six gave a load average of 12 to 16 and unstable browser tests (convertiser-server, as its owner
-# reported it on 2026-11-14). The right number depends on the machine and on the project's tests.
-MAX_TASKS = 4
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": ("plans", "plan_file", "rulings", "ruling_file"),
     "branch": ("base", "land", "history", "propose", "protected"),
     "checks": ("commands", "setup", "alone"),
-    "flow": ("topics", "max_tasks"),
+    "flow": ("topics",),
     "seats": ("reviewer", "planner", "experts"),
     "corrections": ("collect",),
     "tracker": ("kind", "server", "moves", "started", "landed"),
@@ -510,10 +502,6 @@ alone = []
 # before any code, the landing gives it the project's full review set, and a person merges it.
 # This table is read from the main checkout, so a branch cannot lift what guards it.
 topics = []
-# How many tasks build or land at one time. Four to five ran well on one Mac; six gave a load
-# average of 12 to 16 and unstable browser tests (convertiser-server, 2026-11-14). Lower it when
-# the tests share one database or drive a browser.
-max_tasks = {max_tasks}
 
 [seats]
 # Who sits where, each as "agent/model:effort". A part left out ("codex/gpt-6.2-sol", "codex")
@@ -856,12 +844,7 @@ def careful_gone(name: Path, paths: object) -> str:
 
 def flow_of(raw: dict, name: Path) -> dict:
     """The `[flow]` table of one settings file, checked."""
-    flow = raw.get("flow", {})
-    max_tasks = flow.get("max_tasks", MAX_TASKS)
-    # a bool is an int in Python, and `max_tasks = true` is a mistake, not the number 1
-    if isinstance(max_tasks, bool) or not isinstance(max_tasks, int) or max_tasks < 1:
-        raise SettingsError(f"{name}: flow.max_tasks = {max_tasks!r} must be a whole number, 1 or more")
-    return {"topics": strings(flow.get("topics", []), "flow.topics"), "max_tasks": max_tasks}
+    return {"topics": strings(raw.get("flow", {}).get("topics", []), "flow.topics")}
 
 
 def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, example: str) -> dict:
@@ -1021,20 +1004,6 @@ def local_naps_off(local: dict) -> bool:
     return True
 
 
-def local_max_tasks(local: dict) -> int | None:
-    """The limit of tasks that build or land at one time on this machine, when its own file names
-    one: a machine's load, and no guard of the project's."""
-    flow = local.get("flow", {})
-    for key in flow:
-        if is_gone("flow", key):
-            raise SettingsError(f"{LOCAL}: delete `{key} = {toml_value(flow[key])}` under [flow]: {GONE_KEYS[('flow', key)]}")
-        if key != "max_tasks":
-            raise SettingsError(
-                f"{LOCAL}: flow.{key} is the project's rule and belongs in {SETTINGS}; this file may hold only max_tasks under [flow], one machine's limit",
-            )
-    return flow_of(local, LOCAL)["max_tasks"] if "max_tasks" in flow else None
-
-
 def naps_of(raw: dict, name: Path) -> dict:
     """The `[naps]` table of one settings file, checked: its one key, `on`."""
     on = raw.get("naps", {}).get("on", False)
@@ -1087,10 +1056,6 @@ def load(root: Path) -> dict:
     if main.resolve() != root.resolve():
         flow = flow_of(base_raw(), base_file)
     overridden = []
-    machine_limit = local_max_tasks(local)
-    if machine_limit is not None:
-        flow["max_tasks"] = machine_limit
-        overridden.append("flow.max_tasks")
 
     paths = {}
     for name, default in PATHS.items():
@@ -1300,7 +1265,6 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
     file.write_text(TEMPLATE.format(
         plans=PATHS["plans"], plan_file=PLAN_FILE, rulings=PATHS["rulings"], ruling_file=RULING_FILE, base=base,
         reviewer=REVIEWER_SEATS["codex" if codex == "yes" else "claude"], planner=PLANNER, experts=", ".join(toml_string(one) for one in EXPERTS),
-        max_tasks=MAX_TASKS,
     ), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
     # too, for a repository whose ignore file is older than it)
@@ -1320,7 +1284,6 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     # refused with its fix, and the file stays as the owner left it.
     local_off(local)
     local_naps_off(local)
-    local_max_tasks(local)
     seat(local, LOCAL, "reviewer")
     seat(local, LOCAL, "planner")
     experts_of(local, LOCAL)
@@ -1338,8 +1301,8 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     for table in LOCAL_TABLES:
         body = local.get(table) or {}
         if body:
-            # a value here is a word in quotes, a list of them, the one `false` the corrections and the
-            # naps tables may hold, or the number of max_tasks
+            # a value here is a word in quotes, a list of them, or the one `false` the corrections and
+            # the naps tables may hold
             lines += ["", f"[{table}]", *(f"{key} = {toml_value(value)}" for key, value in body.items())]
     if len(lines) == 1:
         file.unlink(missing_ok=True)
@@ -1778,8 +1741,7 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
     fresh.replace(file)
     append_event(root, "task.state", slug, {
         "status": status, "text": lines[0].strip(), "lines": [line.strip() for line in lines[1:]],
-        "ask": ask_of(directory),
-        "limit": settings["flow"]["max_tasks"], **task_worktree(root, settings, slug),
+        "ask": ask_of(directory), **task_worktree(root, settings, slug),
     })
     print(json.dumps({"slug": slug, "status": status, "since": since}))
 
@@ -2298,12 +2260,11 @@ def read_tasks(root: Path) -> list[dict]:
 
 
 def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
-    """Exit 1 when as many other tasks build or land as the project allows at one time. The task
-    whose lead starts is not counted: when it builds already (its investigator called the path, or
-    its lead stopped and starts again), the place it holds is the one its next lead takes. A task in
-    the landing, proposed or ended gets no lead at all: a stale wake-up must not start one."""
+    """Exit 1 for a task that gets no lead: in the landing, proposed or ended, since a stale wake-up
+    must not start one, or queued behind a task that has not ended. No count of tasks stops a
+    start: by day each start is the owner's own request (the owner, 2026-11-18: "Why block him?"),
+    and a night works its items one after another."""
     task_directory(root, slug)
-    limit = settings["flow"]["max_tasks"]
     tasks = read_tasks(root)
     status = next((task["status"] for task in tasks if task["slug"] == slug), None)
     if status in ENDED:
@@ -2326,13 +2287,7 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
                 f"so that it builds on what {after} changes; when it no longer needs that, write its state `queued` again without the `after:` line",
             )
     running = [task["slug"] for task in tasks if task["status"] in RUNNING and task["slug"] != slug]
-    if len(running) >= limit:
-        raise SettingsError(
-            f"{len(running)} tasks build or land ({', '.join(running)}) and flow.max_tasks is {limit}: "
-            f"write the state of {slug} as `queued` and start it when one of them stops; "
-            f"only the owner raises the limit, in {SETTINGS}",
-        )
-    print(json.dumps({"running": running, "limit": limit}))
+    print(json.dumps({"running": running}))
 
 
 # The state line of a task whose criteria wait for the owner's yes, and the one an older Lem wrote.

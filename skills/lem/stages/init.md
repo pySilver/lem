@@ -199,9 +199,6 @@ no `.gitignore`, the checks' `python3 -m unittest` left two `__pycache__` folder
 day refused the tree, and the first task on the fast track ended in a second task for the ignore rule (a
 scratch repository, 2026-11-17).
 
-Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
-and say so on the page.
-
 ## 5. Generate what is absent
 
 For each place of `lem project show` (`places`) that is marked as not existing, write a draft,

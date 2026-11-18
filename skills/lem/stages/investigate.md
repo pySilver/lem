@@ -5,12 +5,12 @@ needed to unerstand what triggers the bug that we aim to correct" (the owner, 20
 question is the same work with a question in place of the bug, and its answer is the whole
 task.
 
-1. **A place, the worktree and the state.** `lem project may-start SLUG`, and the worktree on the
-   task's branch, as steps 1 and 2 of `stages/start.md` say: the investigator runs the project's
-   tests, so it takes a place. A task queued there starts its investigator when its turn comes,
-   not a lead: its `queued` block carries the line `investigation: bug` or `investigation:
-   question`, and `lem project tasks` gives either no `investigation` yet or one whose `call` is
-   `not-reproduced`, which waits for the second investigator. Then write the state:
+1. **May it start, the worktree and the state.** `lem project may-start SLUG`, and the worktree
+   on the task's branch, as steps 1 and 2 of `stages/start.md` say. A task queued `after:`
+   another starts its investigator when its turn comes, not a lead: its `queued` block carries
+   the line `investigation: bug` or `investigation: question`, and `lem project tasks` gives
+   either no `investigation` yet or one whose `call` is `not-reproduced`, which waits for the
+   second investigator. Then write the state:
 
    ```bash
    lem project state SLUG building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because WHY"
@@ -69,8 +69,7 @@ task.
    - *not reproduced*: tell him each try in one line, and ask him for one more fact: the record,
      the input, the time, what he saw. Write the state `held` with the line `the investigation
      waits for one more fact`. Write his answer into `task.md`, add one line to the brief,
-     `tried before:` with the report's tries, and start a fresh investigator from step 1, which
-     takes a place again or queues it.
+     `tried before:` with the report's tries, and start a fresh investigator from step 1.
    - *answer*, for a question: show him the answer as the report gives it, with where each
      part was read. Write the state `answered` with the answer in one line, and `lem land clean
      SLUG`.

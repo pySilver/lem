@@ -276,7 +276,7 @@ fi
 # with the line to delete, and a task branch's copy that still has it is read without it.
 written=$(grep -c 'decision_wait' "$DC/.lem/project.toml" || true)
 shown=$(project --repo "$DC" show | field 'sorted(d["flow"])')
-add_wait() { "$PY" -c 'import sys; p = sys.argv[1]; t = open(p).read(); open(p, "w").write(t.replace("\nmax_tasks = 4\n", "\nmax_tasks = 4\ndecision_wait = 15\n", 1))' "$1"; }
+add_wait() { "$PY" -c 'import sys; p = sys.argv[1]; t = open(p).read(); open(p, "w").write(t.replace("\ntopics = []\n", "\ntopics = []\ndecision_wait = 15\n", 1))' "$1"; }
 add_wait "$DC/.lem/project.toml"
 refused=$(project --repo "$DC" show 2>&1 || true)
 refused_code=$(status_of project --repo "$DC" show)
@@ -286,9 +286,9 @@ git -C "$DC" worktree add -q "$WORK/dc-tree" -b feat/short-wait main
 add_wait "$WORK/dc-tree/.lem/project.toml"
 git -C "$WORK/dc-tree" commit -q -am "chore: a wait"
 branch_flow=$(project --repo "$WORK/dc-tree" show 2>/dev/null | field 'sorted(d["flow"])' 2>&1 || true)
-if [ "$written" = 0 ] && [ "$shown" = "['max_tasks', 'topics']" ] && [ "$refused_code" = 1 ] \
+if [ "$written" = 0 ] && [ "$shown" = "['topics']" ] && [ "$refused_code" = 1 ] \
   && grep -qF -- "- delete \`decision_wait = 15\` under [flow]: a choice waits for the owner's answer with no time limit while he is there, and is taken at once when he says he is away (\`/lem im-away\`)" <<<"$refused" \
-  && [ "$branch_flow" = "['max_tasks', 'topics']" ]; then
+  && [ "$branch_flow" = "['topics']" ]; then
   pass "flow.decision_wait is gone: init writes none, a settings file with it is refused once with the line to delete, and a task branch's copy is read without it"
 else
   fail "flow.decision_wait: $written / $shown / $refused / $branch_flow"
@@ -352,11 +352,11 @@ held_code=$(status_of project --repo "$WQ" may-start shows-the-list)
 project --repo "$WQ" state in-landing landing "the checks start" >/dev/null
 over_landing=$(project --repo "$WQ" state in-landing queued "it needs the cache" "after: caches-the-list" 2>&1 || true)
 project --repo "$WQ" state caches-the-list landed "main 1234567..89abcde" >/dev/null
-freed=$(project --repo "$WQ" may-start shows-the-list 2>&1 | field 'd["limit"]' 2>&1 || true)
+freed=$(project --repo "$WQ" may-start shows-the-list 2>&1 | field 'd["running"]' 2>&1 || true)
 project --repo "$WQ" state in-landing dropped "the test is over" >/dev/null
 if [ "$queued" = queued ] && [ "$held_code" = 1 ] \
   && grep -qF "the task 'shows-the-list' is queued after 'caches-the-list', which is building: it starts when caches-the-list is landed, answered or dropped" <<<"$held_back" \
-  && grep -qF "it is with its landing" <<<"$over_landing" && [ "$(status_in "$WQ" in-landing)" = dropped ] && [ "$freed" = 4 ]; then
+  && grep -qF "it is with its landing" <<<"$over_landing" && [ "$(status_in "$WQ" in-landing)" = dropped ] && [ "$freed" = "['in-landing']" ]; then
   pass "a lead whose task needs another task's result writes its own task queued after that task; may-start keeps it queued until the other one ended and starts it then, and a task with its landing is never queued"
 else
   fail "a lead that queues its task: $queued / $held_back / $over_landing / $freed"

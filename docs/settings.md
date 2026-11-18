@@ -39,12 +39,11 @@ runs it.
 
 ## `[flow]`
 
-What must never go wrong, and how many tasks run.
+What must never go wrong.
 
 | Setting | Default | Use |
 | --- | --- | --- |
 | `flow.topics` | `[]` | the topics, one sentence each: `"a customer is charged the wrong amount"`. `/lem init` proposes them from your code, and you correct them. A change that can affect one is careful |
-| `flow.max_tasks` | `4` | how many tasks build or land at the same time. Lower it when tests share a database or a browser |
 
 ## `[seats]`
 
@@ -94,4 +93,3 @@ This file holds the settings of one computer, and git does not track it. It can 
 | `[seats]` | a seat for this computer. `/lem reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
 | `[corrections]` | only `collect = false` |
 | `[naps]` | only `on = false` |
-| `[flow]` | only `max_tasks` |

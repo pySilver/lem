@@ -117,7 +117,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `land` | the oldest ready task: the polish pass on the standard track (the fast track has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
-| `night` | unattended: takes backlog items, the smallest first, up to `flow.max_tasks`, and runs each one without the owner to its pull request | `stages/night.md` |
+| `night` | unattended: takes backlog items, the smallest first, four at most (`/lem night N` takes N), and runs them one after another without the owner, each to its pull request | `stages/night.md` |
 | bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, those of the night with the night's report, each plan an older night drafted, each retro's proposals; and the board of all tasks, with what builds. A proposal or a draft he answers with approve, reject or later, all on one page | `stages/status.md` |
 | `status <task>` | the board of one task | `stages/status.md` |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.2-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
@@ -186,10 +186,9 @@ reads its own change against them before it commits (`prompts/small.md`). The le
   it, and a change that edits `.lem/project.toml` at all, or puts the
   machine's own `.lem/project.local.toml` into git, is careful by the landing's own rule: the file is Lem's, it says who merges and where a task lands as well
   as what is careful and what the checks run, and a task rarely edits it.
-- **Only so many tasks build or land at one time.** `lem project may-start SLUG` exits 1 at the
-  settings' `flow.max_tasks`; it counts the tasks in `building` and the one in `landing`, where
-  the checks run and a builder may repair what they showed, and not the task SLUG whose lead
-  starts. A task over the limit is queued, never started "just this once"; only the owner raises the limit.
+- **No count of tasks stops a start.** By day each start is the owner's own request: "Why block
+  him?" (2026-11-18). `lem project may-start SLUG` refuses only a task that gets no lead (in
+  `landing`, `open` or ended) and one queued `after:` a task that has not ended.
 - **What the owner has to understand is told as one run.** A decision you bring and a confusion
   the owner brings ("I thought X did Y", "why is this happening") get the same form: one
   concrete case in numbered steps, with real names and values, and where each step was read. For
@@ -285,7 +284,7 @@ command when it is one. The status says who acts next:
 
 | Status | Means | Who acts |
 | --- | --- | --- |
-| `queued` | the ask is written and no lead runs: the limit was reached, or it needs the result of the task its `after:` line names | Lem, when a lead stops or that task ends |
+| `queued` | the ask is written and no lead runs: it needs the result of the task its `after:` line names | Lem, when a lead stops or that task ends |
 | `building` | a lead plans or builds, or an investigator examines a bug or a question | the lead, or the investigator |
 | `planned` | the plan is committed and nothing builds it | Lem opens the plan talk's companion, or starts a builder after the talk, or the owner reads the plan |
 | `held` | it waits for the owner on what is no decision with options: the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or an irreversible choice that every task left depends on | the owner, through Lem |

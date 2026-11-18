@@ -4,10 +4,10 @@
     python3 tests/board-showcase.py DIR             the pictures, into DIR: board-*, task-*, backlog-*, light and dark
     python3 tests/board-showcase.py DIR --measure   also where the lanes start at 900, 1400 and 1800 px, as JSON
 
-The fixture of tests/test-board.sh is a stress case (30 tasks, more places taken than the limit, 12
+The fixture of tests/test-board.sh is a stress case (30 tasks, 17 of them building or landing, 12
 waits): right for its checks, wrong for a picture. This one is seven tasks a team could have on one
 afternoon, written by Lem's own scripts (project.py, criteria.py) in a throwaway repository, with
-every count possible: three places of four taken, one wait for the owner, one pull request.
+every count possible: three tasks that build or land, one wait for the owner, one pull request.
 The scripts write the events seconds apart, and their times are then moved to the minutes a run
 would have spaced them. The board is drawn with its clock stopped at NOW, marked as demo data
 (board.py --demo), and each picture is 1440 px wide at two device pixels for each pixel.

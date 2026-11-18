@@ -30,7 +30,7 @@ if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['alone', 'command
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
-# The settings are 24 keys, one to one in show (with a tracker that names only its kind), in the file init writes (a
+# The settings are 23 keys, one to one in show (with a tracker that names only its kind), in the file init writes (a
 # commented line counts) and on the settings page.
 printf '%s\n' '' '[tracker]' 'kind = "linear"' > "$WORK/tracker.toml"
 cp "$NEW/.lem/project.toml" "$WORK/template.toml" && cat "$WORK/tracker.toml" >> "$NEW/.lem/project.toml"
@@ -46,8 +46,8 @@ for line in open(sys.argv[1], encoding="utf-8"):
 print(sorted(found))' "$NEW/.lem/project.toml")
 # shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 paged=$("$PY" -I -c 'import re, sys; print(sorted(set(re.findall(r"^\| `(\w+\.\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M))))' "$PWD/docs/settings.md")
-if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 24 ]; then
-  pass "the settings are 24 keys, the same in show, in the file init writes and on the settings page"
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 23 ]; then
+  pass "the settings are 23 keys, the same in show, in the file init writes and on the settings page"
 else
   fail "the keys of the settings: show $shown / the file $written / the page $paged"
 fi
@@ -359,9 +359,8 @@ if [ "$built" = "('2026-11-17-gift-note.md', None)" ] && [ "$older" = "$OLD/docs
 else
   fail "plan file names: $built / $older / $newer / $own / $own_found /$plan_refused / $path_err"
 fi
-# The rulings are a folder of the settings too, with the name of a ruling's file built by the code that names a plan's.
-# A file of an older Lem that names `rulings` under [paths] reads again, with its value; a folder outside the
-# repository is refused as the plans' is.
+# The rulings are a folder of the settings too, with the name of a ruling's file built by the code that names a plan's;
+# a folder outside the repository is refused as the plans' is.
 settings '[branch]' 'base = "master"' '[paths]' 'rulings = "decisions"' 'ruling_file = "YYYY-MM-DD-<slug>.md"'
 ruled=$(project --repo "$OLD" path rulings)
 ruled_name=$(project --repo "$OLD" ruling-file header-names --date 2026-11-18 | field '(d["name"], d["path"], d["found"])')
@@ -644,13 +643,13 @@ else
   fail "tools in the local file: $err"
 fi
 # One person may say no to the correction queue in the machine's own file, and never yes.
-printf '%s\n' '[corrections]' 'collect = false' '[flow]' 'max_tasks = 3' > "$OLD/.lem/project.local.toml"
+printf '%s\n' '[corrections]' 'collect = false' > "$OLD/.lem/project.local.toml"
 off=$(project --repo "$OLD" show | field '(d["corrections"]["collect"], d["local"]["overrides"])')
 project --repo "$OLD" reviewer claude >/dev/null && project --repo "$OLD" reviewer default >/dev/null
 kept=$(grep -c '^collect = false$' "$OLD/.lem/project.local.toml")
 printf '%s\n' '[corrections]' 'collect = true' > "$OLD/.lem/project.local.toml"
 err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$off" = "(False, ['flow.max_tasks'])" ] && [ "$kept" = 1 ] && [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] \
+if [ "$off" = "(False, [])" ] && [ "$kept" = 1 ] && [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] \
   && grep -q "It may say .collect = false." <<<"$err" && grep -q "only .lem/project.toml, which everybody reads in git, switches the queue on" <<<"$err"; then
   pass "the machine's own file may say no to the correction queue and keeps that line through a rewrite; a yes there is refused with the reason"
 else
@@ -698,12 +697,12 @@ else
   fail "the defender's seat in the local file: $local_seat / $both / $kept / $err"
 fi
 rm "$OLD/.lem/project.local.toml"
-# One person may say no to the naps, which spend their tokens, and name how many tasks build or land at one
-# time on their machine, which is a machine's load and no guard; never yes to the naps there, and no other key.
-settings '[branch]' 'base = "master"' '[flow]' 'max_tasks = 4' '[naps]' 'on = true'
-printf '%s\n' '[flow]' 'max_tasks = 2' '[naps]' 'on = false' > "$OLD/.lem/project.local.toml"
-machine=$(project --repo "$OLD" show 2>&1 | field '(d["flow"]["max_tasks"], d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
-in_tree=$(project --repo "$WORK/wt" show 2>&1 | field '(d["flow"]["max_tasks"], "flow.max_tasks" in d["local"]["overrides"])' 2>&1 || true)
+# One person may say no to the naps, which spend their tokens; never yes to the naps there, no other key, and no
+# table of [flow], which is the project's.
+settings '[branch]' 'base = "master"' '[naps]' 'on = true'
+printf '%s\n' '[naps]' 'on = false' > "$OLD/.lem/project.local.toml"
+machine=$(project --repo "$OLD" show 2>&1 | field '(d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
+in_tree=$(project --repo "$WORK/wt" show 2>&1 | field '(d["naps"]["on"], "naps.on" in d["local"]["overrides"])' 2>&1 || true)
 asleep=$(project --repo "$OLD" may-nap 2>&1 | field '(d["may"], d["why"])' 2>&1 || true)
 project --repo "$OLD" reviewer claude >/dev/null 2>&1 && project --repo "$OLD" reviewer default >/dev/null 2>&1 || true
 rewritten=$(cat "$OLD/.lem/project.local.toml")
@@ -715,22 +714,22 @@ naps_key=$(project --repo "$OLD" show 2>&1 || true)
 printf '%s\n' '[flow]' 'decision_wait = 1' > "$OLD/.lem/project.local.toml"
 flow_key=$(project --repo "$OLD" show 2>&1 || true)
 flow_key_code=$(status_of project --repo "$OLD" reviewer claude)
-printf '%s\n' '[flow]' 'max_tasks = 0' > "$OLD/.lem/project.local.toml"
-flow_bad=$(project --repo "$OLD" show 2>&1 || true)
+printf '%s\n' '[flow]' 'topics = ["a price"]' > "$OLD/.lem/project.local.toml"
+flow_topics=$(project --repo "$OLD" show 2>&1 || true)
 rm "$OLD/.lem/project.local.toml"
-alone=$(project --repo "$OLD" show 2>&1 | field '(d["flow"]["max_tasks"], d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
+alone=$(project --repo "$OLD" show 2>&1 | field '(d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
 # shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
-if [ "$machine" = "(2, False, ['flow.max_tasks', 'naps.on'])" ] && [ "$in_tree" = "(2, True)" ] && [ "$asleep" = "(False, 'the naps are off on this machine (naps.on = false in .lem/project.local.toml)')" ] \
-  && [ "$rewritten" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[flow]' 'max_tasks = 2' '' '[naps]' 'on = false')" ] \
+if [ "$machine" = "(False, ['naps.on'])" ] && [ "$in_tree" = "(False, True)" ] && [ "$asleep" = "(False, 'the naps are off on this machine (naps.on = false in .lem/project.local.toml)')" ] \
+  && [ "$rewritten" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[naps]' 'on = false')" ] \
   && grep -qF ".lem/project.local.toml: naps.on = True is not for this file. It may say \`on = false\`" <<<"$naps_yes" \
   && grep -qF "only .lem/project.toml, which everybody reads in git, switches the naps on" <<<"$naps_yes" && [ "$naps_yes_code" = 1 ] \
   && grep -qxF -- '- delete `keep_days = 3` under [naps]: Lem keeps the folder of a nap 30 days' <<<"$naps_key" \
   && grep -qF -- "delete \`decision_wait = 1\` under [flow]: a choice waits for the owner's answer with no time limit while he is there" <<<"$flow_key" \
-  && [ "$flow_key_code" = 1 ] && grep -qF ".lem/project.local.toml: flow.max_tasks = 0 must be a whole number, 1 or more" <<<"$flow_bad" \
-  && [ "$alone" = "(4, True, [])" ]; then
-  pass "the machine's own file may say no to the naps and name its own flow.max_tasks, also for a task's worktree, show and may-nap say that the value is the machine's, and a rewrite keeps both; a yes to the naps, another key of [naps] or [flow] and a wrong limit there are refused with the reason"
+  && [ "$flow_key_code" = 1 ] && grep -qF ".lem/project.local.toml: [flow] is the project's rule and belongs in .lem/project.toml" <<<"$flow_topics" \
+  && [ "$alone" = "(True, [])" ]; then
+  pass "the machine's own file may say no to the naps, also for a task's worktree, show and may-nap say that the no is the machine's, and a rewrite keeps it; a yes to the naps, another key of [naps] and a table of [flow] are refused with the reason"
 else
-  fail "the naps and the limit in the local file: $machine / $in_tree / $asleep / $rewritten / $naps_yes / $naps_key / $flow_key / $flow_bad / $alone"
+  fail "the naps and [flow] in the local file: $machine / $in_tree / $asleep / $rewritten / $naps_yes / $naps_key / $flow_key / $flow_topics / $alone"
 fi
 settings '[branch]' 'base = "master"'
 # A checkout whose folder name holds a line break is still one path.
@@ -808,32 +807,26 @@ else
 fi
 project --repo "$OLD" state with-a-worktree dropped "the test is over" >/dev/null
 
-# The limit on tasks that build at one time.
-if [ "$(project --repo "$OLD" show | field 'd["flow"]["max_tasks"]')" = 4 ] && grep -q '^max_tasks = 4$' "$NEW/.lem/project.toml"; then
-  pass "four tasks build at one time unless the settings say otherwise, and init writes that number where the owner sees it"
-else
-  fail "max_tasks default"
-fi
 settings '[branch]' 'base = "master"' '[flow]' 'topics = ["a price a customer pays", "data that cannot be rebuilt"]'
-if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], sorted(d["flow"]))')" = "(['a price a customer pays', 'data that cannot be rebuilt'], ['max_tasks', 'topics'])" ] \
+if [ "$(project --repo "$OLD" show | field '(d["flow"]["topics"], sorted(d["flow"]))')" = "(['a price a customer pays', 'data that cannot be rebuilt'], ['topics'])" ] \
   && ! grep -q '^careful' "$NEW/.lem/project.toml" && grep -q '^topics = \[\]$' "$NEW/.lem/project.toml"; then
   pass "a project names what must never go wrong as sentences in the owner's words, and init writes no list of paths beside them"
 else
   fail "flow.topics: $(project --repo "$OLD" show 2>&1)"
 fi
 # The table that says what must never go wrong is the main checkout's: a task's branch that empties
-# its topics or raises the limit of tasks reads them as the main checkout has them.
+# its topics reads them as the main checkout has them.
 FLOW=$WORK/flow
 git init -q -b main "$FLOW" && ident "$FLOW"
 project --repo "$FLOW" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = ["a customer is charged the wrong price"]' 'max_tasks = 3' > "$FLOW/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$FLOW/.lem/project.toml"
 git -C "$FLOW" add -A && git -C "$FLOW" commit -q -m "chore: start"
 git -C "$FLOW" worktree add -q "$WORK/flow-tree" -b feat/lift main
-printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = []' 'max_tasks = 9' > "$WORK/flow-tree/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' '[flow]' 'topics = []' > "$WORK/flow-tree/.lem/project.toml"
 git -C "$WORK/flow-tree" commit -q -am "chore: no topics"
-lifted=$(project --repo "$WORK/flow-tree" show | field '(d["flow"]["topics"], d["flow"]["max_tasks"], d["root"] == d["main"])')
-if [ "$lifted" = "(['a customer is charged the wrong price'], 3, False)" ]; then
-  pass "in a task's worktree the flow table is the main checkout's: a branch that empties its own topics or raises the limit of tasks changes nothing a lead or the landing reads"
+lifted=$(project --repo "$WORK/flow-tree" show | field '(d["flow"], d["root"] == d["main"])')
+if [ "$lifted" = "({'topics': ['a customer is charged the wrong price']}, False)" ]; then
+  pass "in a task's worktree the flow table is the main checkout's: a branch that empties its own topics changes nothing a lead or the landing reads"
 else
   fail "the flow table of a worktree: $lifted"
 fi
@@ -842,11 +835,11 @@ fi
 # a lead or a review reads: the settings are then read as the base branch's newest commit has them, and the line on
 # stderr says so. The settings of an onboarding, on no commit of the base yet, are read from the working tree.
 git -C "$FLOW" switch -q -c feat/colleague
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[flow]' 'topics = []' 'max_tasks = 9' > "$FLOW/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[flow]' 'topics = []' > "$FLOW/.lem/project.toml"
 git -C "$FLOW" commit -q -am "chore: the colleague's settings"
-checked_out=$(project --repo "$FLOW" show 2>"$WORK/flow.err" | field '(d["branch"]["land"], d["flow"]["topics"], d["flow"]["max_tasks"], d["settings_from"][:5])')
+checked_out=$(project --repo "$FLOW" show 2>"$WORK/flow.err" | field '(d["branch"]["land"], d["flow"]["topics"], d["settings_from"][:5])')
 checked_err=$(cat "$WORK/flow.err")
-from_tree=$(project --repo "$WORK/flow-tree" show 2>/dev/null | field '(d["flow"]["topics"], d["flow"]["max_tasks"])')
+from_tree=$(project --repo "$WORK/flow-tree" show 2>/dev/null | field 'd["flow"]["topics"]')
 git -C "$FLOW" switch -q main
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[flow]' 'topics = []' > "$FLOW/.lem/project.toml"
 edited=$(project --repo "$FLOW" show 2>"$WORK/flow.err" | field '(d["branch"]["land"], d["flow"]["topics"], d["settings_from"])')
@@ -861,9 +854,9 @@ git -C "$ONB" switch -q -c chore/lem-setup && project --repo "$ONB" init --base 
 printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' > "$ONB/.lem/project.toml"
 git -C "$ONB" add -A && git -C "$ONB" commit -q -m "chore: set up Lem"
 onboarding=$(project --repo "$ONB" show 2>&1 | field '(d["branch"]["land"], d["settings_from"])')
-if [ "$checked_out" = "('owner', ['a customer is charged the wrong price'], 3, 'main@')" ] \
+if [ "$checked_out" = "('owner', ['a customer is charged the wrong price'], 'main@')" ] \
   && grep -qF "the main checkout is not on main, so Lem reads .lem/project.toml as main has it" <<<"$checked_err" \
-  && [ "$from_tree" = "(['a customer is charged the wrong price'], 3)" ] \
+  && [ "$from_tree" = "['a customer is charged the wrong price']" ] \
   && [ "$edited" = "('agent', [], 'the working tree')" ] && [ -z "$edited_err" ] && [ "$from_tree_edited" = "[]" ] \
   && [ "$committed" = "('agent', [])" ] && [ -z "$committed_err" ] && [ "$onboarding" = "('agent', 'the working tree')" ]; then
   pass "while the main checkout is on the base branch its working tree's settings count, an uncommitted edit too; a colleague's branch checked out there changes nothing, the base branch's commit is read, and stderr says so; an onboarding's settings, on no commit of the base yet, are read from the working tree"
@@ -873,41 +866,22 @@ fi
 settings '[flow]' 'topics = "money"'
 err=$(project --repo "$OLD" show 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "flow.topics" <<<"$err" && ! grep -q Traceback <<<"$err"; then pass "danger topics that are not a list are refused"; else fail "flow.topics as a string: $err"; fi
-settings '[branch]' 'base = "master"' '[flow]' 'max_tasks = 2'
+# By day each start is the owner's own request: no count of the tasks that build or land stops one.
+settings '[branch]' 'base = "master"'
 project --repo "$OLD" task-dir second-task >/dev/null
-out=$(project --repo "$OLD" may-start second-task)
-if [ "$(field 'd["running"]' <<<"$out")" = "['report-dates-stay-whole']" ] && [ "$(field 'd["limit"]' <<<"$out")" = 2 ]; then
-  pass "may-start names the tasks that build and the limit while a place is free"
-else
-  fail "may-start below the limit: $out"
-fi
 project --repo "$OLD" state second-task building "the plan" >/dev/null
-err=$(project --repo "$OLD" may-start written-by-hand 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" may-start written-by-hand)" = 1 ] && grep -q "flow.max_tasks is 2" <<<"$err" && grep -q "queued" <<<"$err"; then
-  pass "may-start refuses a new task at the limit and says to queue it"
-else
-  fail "may-start at the limit: $err"
-fi
-# A task whose next lead starts (a lead after its investigator, one started again after it stopped)
-# holds its place already: at the limit it may start, and the place it holds is not counted twice.
-own=$(project --repo "$OLD" may-start second-task 2>&1 || true)
+project --repo "$OLD" task-dir third-task >/dev/null
+project --repo "$OLD" state third-task landing "the gate runs" >/dev/null
+out=$(project --repo "$OLD" may-start written-by-hand 2>&1 || true)
+code=$(status_of project --repo "$OLD" may-start written-by-hand)
 unknown=$(project --repo "$OLD" may-start no-such-task 2>&1 || true)
-if [ "$(field 'd["running"]' <<<"$own" 2>&1)" = "['report-dates-stay-whole']" ] && [ "$(status_of project --repo "$OLD" may-start report-dates-stay-whole)" = 0 ] \
+if [ "$code" = 0 ] && [ "$(field 'sorted(d["running"])' <<<"$out" 2>&1)" = "['report-dates-stay-whole', 'second-task', 'third-task']" ] && [ "$(field '"limit" in d' <<<"$out" 2>&1)" = False ] \
   && grep -qF "no task 'no-such-task'" <<<"$unknown" && [ "$(status_of project --repo "$OLD" may-start)" = 2 ]; then
-  pass "may-start names the task whose lead starts and does not count that task's own place, so a task at the limit starts its next lead; an unknown task and no task are refused"
+  pass "may-start lets a task start whatever builds or lands, and names the tasks that do; an unknown task and no task are refused"
 else
-  fail "may-start for a task that builds: $own / $unknown"
+  fail "may-start with no limit: $code / $out / $unknown"
 fi
-project --repo "$OLD" state second-task ready "the report is written" >/dev/null
-if [ "$(status_of project --repo "$OLD" may-start written-by-hand)" = 0 ]; then pass "a task that waits for its landing takes no place"; else fail "may-start after ready"; fi
-project --repo "$OLD" state second-task landing "the gate runs" >/dev/null
-err=$(project --repo "$OLD" may-start written-by-hand 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" may-start written-by-hand)" = 1 ] && grep -q "report-dates-stay-whole, second-task" <<<"$err"; then
-  pass "a task whose gate runs holds a place, because a builder may repair what the gate shows"
-else
-  fail "may-start during a landing: $err"
-fi
-project --repo "$OLD" state second-task ready --start-over "the gate was cut off" >/dev/null
+project --repo "$OLD" state third-task dropped "the test is over" >/dev/null
 # An ended task stays ended: a stale wake-up writes no state over it and starts no lead for it, and a task in the
 # landing or proposed gets no lead either. The same ended state again is taken; new work is a new ask.
 ENDS=$WORK/ends
@@ -981,12 +955,6 @@ if [ "$over_landing_again" = 0 ] && [ "$over_open_again" = 0 ] && [ "$landed" = 
 else
   fail "a landing's own move refused: $over_landing_again / $over_open_again / $other_status / $landed / $dropped / $held"
 fi
-accepted=""
-for bad in 0 true '"four"' 2.5; do
-  settings '[flow]' "max_tasks = $bad"
-  if [ "$(status_of project --repo "$OLD" show)" != 1 ]; then accepted="$accepted $bad"; fi
-done
-if [ -z "$accepted" ]; then pass "a limit that is not a whole number of 1 or more is refused"; else fail "max_tasks accepted:$accepted"; fi
 # The watch of the open pull requests looks once a minute, a number of Lem's with no setting: the key an older Lem had is
 # refused with the line to delete, and init writes none.
 settings '[flow]' 'watch_seconds = 1'
@@ -1004,8 +972,7 @@ settings '[branch]' 'base = "master"'
 # The type of a request, and a task that ends with a report and nothing to merge: `answered`.
 ANS=$WORK/answered
 git init -q -b main "$ANS"
-project --repo "$ANS" init --base main --reviewer codex >/dev/null
-"$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^max_tasks = 4$", "max_tasks = 1", s, count=1))' "$ANS/.lem/project.toml"
+project --repo "$ANS" init --base main >/dev/null
 ans_dir=$(project --repo "$ANS" task-dir zero-after-refund --ask "invoices show 0 after a refund")
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
 unknown=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: defect, because the total is wrong" 2>&1 || true)
@@ -1080,8 +1047,8 @@ answered=$(project --repo "$ANS" tasks | field 'next((t["status"], t["investigat
 project --repo "$ANS" task-dir other-task >/dev/null
 project --repo "$ANS" state other-task building "lead: builder" "type: feat, because the ask wants a new column" >/dev/null
 project --repo "$ANS" task-dir waits-for-a-place >/dev/null
-places=$(project --repo "$ANS" may-start waits-for-a-place 2>&1 || true)
-# with one place, the task that holds it starts its next lead: the investigator's call was a small change
+places=$(project --repo "$ANS" may-start waits-for-a-place 2>&1 | field 'd["running"]' 2>&1 || true)
+# the task starts its next lead: the investigator's call was a small change
 itself=$(project --repo "$ANS" may-start other-task 2>&1 | field 'd["running"]' 2>&1 || true)
 project --repo "$ANS" state other-task answered "the question is answered" >/dev/null 2>&1 || true
 unreported=$(project --repo "$ANS" tasks | field 'next(t["status"] for t in d if t["slug"] == "other-task")')
@@ -1089,7 +1056,7 @@ project --repo "$ANS" state other-task dropped "the test is over" >/dev/null
 free=$(project --repo "$ANS" may-start waits-for-a-place 2>&1 | field 'd["running"]' 2>&1 || true)
 taken=$(project --repo "$ANS" task-dir zero-after-refund --ask "again" 2>&1 || true)
 if grep -qF "investigation.md" <<<"$no_report" && grep -qF "not-a-bug or answer" <<<"$goes_on" && [ "$answered" = "('answered', 'not-a-bug')" ] \
-  && grep -qF "1 tasks build or land (other-task)" <<<"$places" && [ "$itself" = "[]" ] && [ "$unreported" = "building" ] && [ "$free" = "[]" ] \
+  && [ "$places" = "['other-task']" ] && [ "$itself" = "[]" ] && [ "$unreported" = "building" ] && [ "$free" = "[]" ] \
   && grep -qF "the task 'zero-after-refund' is answered; a new task takes a slug of its own" <<<"$taken"; then
   pass "a task is answered only with its investigation's report and a record whose call ends it; an answered task takes no place, and its slug stays its own"
 else
@@ -1274,7 +1241,7 @@ story3() { git -C "$stw" checkout -q -- docs && "$PY" -c 'import sys; p, lines =
 # shellcheck disable=SC2016
 weak=$(story3 '3. The export still has one row for each order.' '   - test: `sh export.sh` in `tests/gift.sh`')
 # the settings file is the same on the base commit and on the branch: a test that reads it and then changes it
-echo 'grep -q max_tasks .lem/project.toml || exit 1; echo changed >> .lem/project.toml' > "$stw/tests/config.sh"
+echo 'grep -q topics .lem/project.toml || exit 1; echo changed >> .lem/project.toml' > "$stw/tests/config.sh"
 # The helper starts by its path, so that a helper that is not there exits 127 in every shell: `sh
 # FILE` with no FILE is 127 in bash and 2 in dash.
 echo './tests/runner.sh' > "$stw/tests/calls.sh" && echo 'exit 0' > "$stw/tests/runner.sh" && chmod +x "$stw/tests/runner.sh"

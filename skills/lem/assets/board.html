@@ -818,7 +818,6 @@ const keyed = (key, node) => { node.dataset.key = key; return node; };
 // Lem's own words, which a developer meets on the page with no other place that says what they are:
 // wherever one stands, a hover of one line says it (the final audit of 2026-11-17).
 const TERMS = [
-  [/\bfree place\b|\bplaces\b/i, 'A place: room for one task that builds or lands at one time. The project allows flow.max_tasks places, and a task past them waits in the queue.'],
   [/\bcompanion\b/i, 'The companion: a second session that Lem opens for the plan talk of a careful or large plan. It builds nothing.'],
   [/\bplan talk\b/i, 'The plan talk: before a careful or large plan is built, the agent of its companion argues the plan with the reviewer, one question at a time, and repairs it.'],
   [/\btrust prompt\b/i, 'A trust prompt: the question an agent asks before it works in a folder that is new to it. Only you answer it, in the pane of that agent.'],
@@ -869,7 +868,6 @@ function phase(node) {
 
 function derive(now) {
   const tasks = new Map();
-  let limit = null;
   // the owner's status, from the newest `owner` event: away since then, or there (null)
   let away = null;
   for (const e of events) {
@@ -941,7 +939,6 @@ function derive(now) {
     t.blocks.push({ts, status: e.status, text: String(e.text ?? ''), lines: (e.lines ?? []).map(String)});
     // an older log may hold the first line of task.md with its heading mark
     t.ask = e.ask ? String(e.ask).replace(/^[#>\s]+/, '') : t.ask;
-    limit = e.limit ?? limit;
     for (const line of lines) {
       const lead = line.match(/^lead: (builder|session)\b/);
       if (lead) { t.lead = lead[1]; if (lead[1] === 'builder') t.session = null; }
@@ -988,7 +985,7 @@ function derive(now) {
     // stages/interview.md and stages/plan.md write this line for criteria that wait for his yes (an older
     // Lem wrote "the stories wait", which a later change may stop reading once no such task is open)
     t.criteriaWait = t.status === 'held' && CRITERIA_WAIT.test([last.text, ...last.lines].join(' '));
-    // a queued task waits for a free place, and one with an `after:` line for the task it needs too
+    // a queued task waits for the task its `after:` line names
     t.waitsAfter = t.status === 'queued' && needsTask(last);
     // A planned task waits for the owner only when its lead said the owner reads the plan.
     // A proposed task waits for the owner's merge, and a task with a choice for him waits for him
@@ -1018,7 +1015,7 @@ function derive(now) {
 
   const by = status => list.filter(t => t.status === status).sort((a, b) => a.since - b.since);
   const m = {
-    now, list, limit, away,
+    now, list, away,
     // proposed: a pull request is open or the branch is ready to land, and it waits for the merge
     proposed: by('open'),
     building: by('building'), queued: by('queued'), ready: by('ready'), landing: by('landing'), blocked: by('blocked'),
@@ -1027,7 +1024,6 @@ function derive(now) {
     forOwner: list.filter(t => t.forOwner).sort((a, b) => a.ownerRank - b.ownerRank || a.since - b.since),
     landedToday: list.filter(t => t.status === 'landed' && dayKey(t.since) === dayKey(now)),
     // What project.py may-start counts: a task that builds, and the one the gate runs on.
-    places: list.filter(t => t.status === 'building' || t.status === 'landing').length,
     unknown: list.filter(t => !STATUS[t.status]),
     // Only a task with a state block has a status to draw: one whose criteria were read before its
     // first block (an interview) has its events in the feed and no board yet.
@@ -1430,7 +1426,7 @@ function timeOf(t, end) {
     const task = taskLine(b);
     const what = saidOf(b, talkedBefore(t, b.ts)).join(' · ');
     if (!ENDED.includes(b.status) && STATUS[b.status]) { stage = stageOf(b); band(stage, from, to, open); }
-    if (b.status === 'queued') addBlock('lem', from, to, needsTask(b) ? 'Queued: it waits for the task it needs and a free place' : 'Queued: it waits for a free place', what, open);
+    if (b.status === 'queued') addBlock('lem', from, to, needsTask(b) ? 'Queued: it waits for the task it needs' : 'Queued: it waits to start', what, open);
     else if (b.status === 'building' && task) addBlock('builders', from, to, `Task ${task[1]} of ${task[2]}`, what, open, 'lead');
     else if (investigates(b)) addBlock('builders', from, to, 'The investigation', what, open, 'lem');
     else if (smallBlock(b)) addBlock('builders', from, to, 'One builder makes the change', what, open, 'lem');
@@ -1799,7 +1795,7 @@ function buildTaskNow(t) {
         pane ? h('span', {class: 'right'}, jump(pane.id, 'Go to the session')) : '')));
   }
   const head = {
-    queued: t.waitsAfter ? 'Waits for the task it needs and a free place' : 'Waits for a free place', building: t.investigating ? 'Its investigator examines it, before any criterion' : LEAD[leadOf(t)].head,
+    queued: t.waitsAfter ? 'Waits for the task it needs' : 'Waits to start', building: t.investigating ? 'Its investigator examines it, before any criterion' : LEAD[leadOf(t)].head,
     planned: t.forOwner ? 'The plan waits for you' : t.talks.length ? 'The plan talk is done: the plan waits for the agent that builds it' : 'The plan waits for its talk companion',
     held: t.criteriaWait ? 'The criteria wait for your yes' : 'Waits for you', blocked: 'The agent stopped; Lem has to settle it', ready: 'Waits for its checks',
     landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : t.landingStep ? stepRuns(t.landingStep) : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
@@ -2305,15 +2301,12 @@ function render() {
     $('title').textContent = parts.length ? parts.join(', ') : m.list.length ? 'Nothing runs' : 'Waiting for the first task';
     $('ask').textContent = '';
     // Each number once: the title counts the lanes, each lane counts its cards, and a chip says only
-    // what no other place says: the places, how many proposed requests are not green, what landed today.
-    const full = typeof m.limit === 'number' && m.places >= m.limit;
+    // what no other place says: how many proposed requests are not green, what landed today.
     // green by the proposal's record, or by the line `green` its state block carries (stages/land.md)
     const green = x => (x.proposal ? x.proposal.green : x.blocks.at(-1).lines.some(line => line === 'green'));
     const notGreen = m.proposed.filter(x => !green(x)).length;
     patch($('meta'), [
       meta.base ? chip('base', 'branch', '', 'tasks land on ', h('b', {}, meta.base)) : null,
-      keyed(`limit:${m.places}:${m.limit}`, h('span', {class: `chip${full ? ' you' : ''}`, title: `How many tasks build or land at one time, of the ${m.limit ?? '?'} the project lets (flow.max_tasks)${full ? ': the limit is reached, and a new task is queued' : ''}`},
-        icon('layers'), h('b', {}, `${m.places} of ${m.limit ?? '?'}`), ' places')),
       m.proposed.length ? chip(`proposed:${m.proposed.length}:${notGreen}`, 'branch', notGreen ? 'you' : '', h('b', {}, m.proposed.length), ' proposed', notGreen ? ` · ${notGreen} not green` : ', green') : null,
       watchChip(m, now),
       m.landedToday.length ? chip(`today:${m.landedToday.length}`, 'check', 'ok', h('b', {}, m.landedToday.length), ' landed today') : null,

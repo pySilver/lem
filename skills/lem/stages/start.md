@@ -3,13 +3,11 @@
 Every start goes this way: a new task, `/lem build`, a queued task whose turn came, and a lead
 that is started again after it stopped.
 
-1. **A place.** `lem project may-start SLUG`, with the slug of the task whose lead starts: a task
-   that builds already (its investigator called the path, its lead stopped) holds its place, and
-   that place is not counted against it. On exit 1 for want of a place the task waits: write its
-   state as `queued`, unless it is `queued` already, with the line `investigation: bug` or
-   `investigation: question` when its investigator is what starts, tell the owner in one line
-   which tasks hold the places, and stop here. A task in `landing`, `open`, `landed`, `answered`
-   or `dropped` gets no lead at all, and the step says so: it is no task to queue.
+1. **May it start?** `lem project may-start SLUG`, with the slug of the task whose lead starts.
+   No count of tasks stops a start. On exit 1 for a task queued `after:` a task that has not
+   ended, it stays `queued`, and the queue starts it when that task ends: stop here. A task in
+   `landing`, `open`, `landed`, `answered` or `dropped` gets no lead at all, and the step says so:
+   it is no task to queue.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
    brief: from the task's branch when that branch exists (an older night's draft, a task whose worktree
    was removed), otherwise from the settings' base branch. Use the project's own worktree script
@@ -69,7 +67,7 @@ state has `the base is red` and an `after:` task that is `landed` gets the state
 with the line `the base is green again`, and joins the landing line. Take the `queued` tasks in
 the order of their state's time, leave out each one whose `after:` task is not `landed`,
 `answered` or `dropped`, and start a lead, or the investigator of a bug or a question
-(`stages/investigate.md`), for the first that is left. Step 1 of "Start a lead" decides whether there is a place.
+(`stages/investigate.md`), for each one that is left.
 
 Last, a nap. When a task ended in this turn (`landed`, `answered` or `dropped`), or nothing is left
 for you but the owner's word, and `naps.on` is true in `lem project show`, run `lem

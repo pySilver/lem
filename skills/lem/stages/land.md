@@ -51,7 +51,7 @@ one finds what the run before it finished.
    `.lem/project.toml`, its checks are those commands, and its pull request is not green for that,
    so that the owner reads the checks once. A branch that changes checks the main checkout has
    is checked by the main checkout's, as every task is.
-   `landing` holds a place, so it is written when the checks will run and never before a stop.
+   `landing` is written when the checks will run and never before a stop.
    An `open` task takes the line again when a later step says so (the base moved, a commit hook
    changed the one commit): its reviews and its pull request stay its own. That is the one way
    back for it: `lem project may-start` refuses a lead for a task in `landing` or `open`, and a
@@ -305,7 +305,7 @@ polish pass is the one job whose start `lem land polish` logs itself, as `checks
 start of the checks and of a review that is due.
 
 Then the next: a `ready` task takes the line, and the queue is looked at as `stages/start.md`
-says under "The queue": a landing holds a place, so its end may free one.
+says under "The queue": a task queued `after:` this one may start now.
 
 A task that landed here, or was dropped, also ends the way "The queue" of `stages/start.md` ends: with a nap, when
 the settings have the naps on and one is due.

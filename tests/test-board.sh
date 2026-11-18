@@ -198,7 +198,7 @@ task building-one "Cache the product list"
 # the type fix on a task with a plan: the tag fix, and no small change
 project state building-one building "task 1 of 2" "type: fix, because one rule of the cache is wrong" >/dev/null
 task queued-one "Add a dark theme"
-project state queued-one queued "waits for a free place" >/dev/null
+project state queued-one queued "waits for its turn" >/dev/null
 task blocked-one "Upgrade the database driver"
 project state blocked-one blocked "the base moved and the rebase has a conflict" >/dev/null
 task ready-one "Name the export files by date"
@@ -710,7 +710,7 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
     "Waits for you=Night draft|Drafted at night: a plan written at night" \
     "Waits for you=Open pr|Waits for the merge: pull request #9" \
     "Waits for you=Ready to land|Waits for the merge: ready to land on main at abc1234" \
-    "Building=Building one|Task 1 of 2" "Building=Queued one|Queued: waits for a free place" "Building=Blocked one|Blocked: the base moved and the rebase has a conflict" \
+    "Building=Building one|Task 1 of 2" "Building=Queued one|Queued: waits for its turn" "Building=Blocked one|Blocked: the base moved and the rebase has a conflict" \
     "Building=Correction one|One builder makes the change" "Building=Changed then approved" "Building=Rare path" \
     "Checks and review=Ready one|Ready for its checks: the report is written" "Checks and review=In checks|The checks start" "Checks and review=Red gate" \
     "Done=Landed one|Landed: main: pull request #7 is merged" "Done=Timed out" "Building=Queued after"); then
@@ -767,14 +767,14 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   else
     fail "the fold of the banners: $why"
   fi
-  # Each number once: the title and the lanes count the tasks; a chip says the places, in a warning
-  # color at the limit, and what no other place says. The board of all tasks has no ring and no grid.
+  # Each number once: the title and the lanes count the tasks; a chip says what no other place says.
+  # The board of all tasks has no ring and no grid, and no count of places: no setting limits the tasks.
   if ! grep -q 'class="ring-wrap"' "$WORK/board.dom" && ! grep -q 'class="stats"' "$WORK/board.dom" \
-    && grep -Eq '<span class="chip you"[^>]*>(<svg[^>]*>.*</svg>)?<b>17 of 4</b> places</span>' "$WORK/board.dom" \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "2 proposed · 1 not green" "!landed today" "!places taken" "!wait for the merge"); then
-    pass "the board of all tasks says each number once: no ring and no grid of counts, the places as a chip in a warning color at the limit, and the proposed requests that are not green"
+    && ! grep -q ' places</span>' "$WORK/board.dom" \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "2 proposed · 1 not green" "!landed today" "!places" "!wait for the merge"); then
+    pass "the board of all tasks says each number once: no ring and no grid of counts, no chip of places, and the proposed requests that are not green"
   else
-    fail "the numbers of the board: ${why:-a ring, a grid or the chip of the places}"
+    fail "the numbers of the board: ${why:-a ring, a grid or a chip of places}"
   fi
 
   # How fresh the board's word on the pull requests is: no watch ran, a look 40 seconds ago, a look older than three of
@@ -1185,12 +1185,12 @@ sys.exit(not ok)' "$WORK/task-cart-total-wrong.dom"); then
   draw task-silent-read && draw task-queued-after && draw task-queued-one
   # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-silent-read.dom" criteria "Nobody answered the personas’ read|(0 of 2)|@a-bad|no answer from Merchant, opus (the model timed out)|no answer from Accountant, sol|!Nobody confused|!read by 0") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-after.dom" now "Waits for the task it needs and a free place|it starts after “Building one” ends") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-one.dom" now "Waits for a free place|!task it needs") \
-    && why="no block of the queued time names the task it needs" && [ "$(shown_text task-queued-after "Queued: it waits for the task it needs and a free place")" -gt 0 ] \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-after.dom" now "Waits for the task it needs|!free place|it starts after “Building one” ends") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-queued-one.dom" now "Waits to start|!task it needs|!free place") \
+    && why="no block of the queued time names the task it needs" && [ "$(shown_text task-queued-after "Queued: it waits for the task it needs")" -gt 0 ] \
     && why="the page of a task with no after: line names a task it needs" && [ "$(shown_text task-queued-one "task it needs")" = 0 ] \
-    && [ "$(shown_text task-queued-one "Queued: it waits for a free place")" -gt 0 ]; then
-    pass "a read of the criteria that no persona answered is shown as no read, with who was silent and why; a queued task says it waits for a free place, and one queued behind another for the task it needs too, which it names once"
+    && [ "$(shown_text task-queued-one "Queued: it waits to start")" -gt 0 ]; then
+    pass "a read of the criteria that no persona answered is shown as no read, with who was silent and why; a queued task with no after: line says it waits to start, and one queued behind another says it waits for the task it needs, which it names once"
   else
     fail "a read nobody answered, or a task queued after another: $why"
   fi
@@ -1341,7 +1341,7 @@ elif check == "shares":
     if args[1] == "none" and said:
         wrong.append(f"the shares add up to {total}%, and the legend says {said.group(0)!r}")
 elif check == "terms":
-    TERMS = {r"\bfree place\b|\bplaces\b": "A place:", r"\bcompanion\b": "The companion:", r"\bplan talk\b": "The plan talk:", r"\btrust prompt\b": "A trust prompt:"}
+    TERMS = {r"\bcompanion\b": "The companion:", r"\bplan talk\b": "The plan talk:", r"\btrust prompt\b": "A trust prompt:"}
     found = {t: 0 for t in TERMS}
     for path in args:
         for data, at in read(path).texts:
@@ -1397,7 +1397,7 @@ PY
     fail "the merged line and the History card: $why"
   fi
   if why=$("$PY" -I -B -c "$LOOK" terms "$WORK/board.dom" "$WORK/task-talk-runs.dom" "$WORK/task-trust-prompt.dom" "$WORK/task-queued-after.dom" "$WORK/task-$M.dom"); then
-    pass "where the page says places, the companion, the plan talk or a trust prompt, a hover says in one line what it is"
+    pass "where the page says the companion, the plan talk or a trust prompt, a hover says in one line what it is"
   else
     fail "the hovers of Lem's own words: $why"
   fi
