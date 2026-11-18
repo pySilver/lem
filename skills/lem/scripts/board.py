@@ -16,7 +16,7 @@ open over the session, which waits for their result.
 The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`,
 which `project.py` appends to, and `meta.js`, which this script writes (the repository's name,
 the base branch, the session that opened the board, and how many commands one run of
-the checks has, so the page knows when a run is complete; the key keeps its older name, `gates`). A file:// page cannot read a file with
+the checks has, `gates`, so the page knows when a run is complete). A file:// page cannot read a file with
 fetch and it can load a script, so each of them is one.
 
 The board's second tab is the backlog, from `backlog.js`, which this script writes at every run:
@@ -181,14 +181,13 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
             known = ", ".join(task["slug"] for task in json.loads(project(repo, "tasks"))) or "none yet"
             raise BoardError(f"no task {slug!r}; the tasks are: {known}")
     # The main checkout names the repository; a worktree's folder is named after its task.
-    # `gates` is how many commands one run of the checks has, so the page knows when a run is complete
-    # (the key keeps the step's older name, which a board page already open reads); `alone` how many
-    # of them are `checks.serial`, which do not run after a red command.
+    # `gates` is how many commands one run of the checks has, so the page knows when a run is complete;
+    # `serial` how many of them are `checks.serial`, which do not run after a red command.
     meta = {
         "repo": Path(settings["main"]).name, "base": settings["branch"]["base"], "session": session,
         "gates": len(settings["checks"]["commands"]) + len(settings["checks"]["serial"]),
         # the commands of `checks.serial`, which run last and only when the others passed
-        "alone": len(settings["checks"]["serial"]),
+        "serial": len(settings["checks"]["serial"]),
     }
     if keep_session:
         # A run that opens nothing only writes the files again. The session the board names is the

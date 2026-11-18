@@ -450,11 +450,9 @@
 //
 // A decision of the build is the events with its `id` (decisions.py): `decision.taken` or
 // `decision.asked` opens it, and `decision.advised` (one expert's advice), `decision.answered`,
-// `decision.settled` (the experts' shared pick, taken while the owner is away), `decision.timeout`
-// (the experts' shared pick or the recommended option, by its `by`: with `early`, taken because the
-// task ran without the owner, else by the clock of an older Lem) and `decision.late` are joined to it
-// by that number. A choice that waits has no end: it waits for the owner's answer, and the
-// `deadline` an older Lem wrote no longer ends it. The `owner` event, which names no task, is the
+// `decision.timeout` (the experts' shared pick or the recommended option, by its `by`, taken because
+// the task ran without the owner) and `decision.late` are joined to it by that number. A choice that
+// waits has no end: it waits for the owner's answer. The `owner` event, which names no task, is the
 // owner's status: away or there, which the header says.
 //
 // "Where the time went" on the board of one task draws only what an event shows: a state block
@@ -462,8 +460,8 @@
 // the personas' read, the investigation, a builder, the polish pass, the checks, the review: SKILL.md)
 // runs from its start to the event that ends it, a choice runs from its question to its outcome, the
 // criteria wait for the owner from the personas' read to his approval, and a plan talk runs from its
-// start to its record. A log written before the stages logged their starts draws what logged only
-// its end (the personas' read, a plan talk) as a mark where it ended.
+// start to its record. A stage whose start is not in the log (the personas' read, a plan talk) is a
+// mark where it ended.
 //
 // The board of all tasks has a second tab, the backlog, from backlog.js (board.py: the items of the
 // backlog folder). Items change rarely, so that file is read when the tab opens and on a key, not
@@ -496,7 +494,6 @@ const STATUS = {
   landing: {actor: 'gate', who: 'The checks', label: 'Checks and review', icon: 'play', live: true},
   open: {actor: 'you', who: 'You', label: 'Waits for the merge', icon: 'branch', live: false},
   landed: {actor: 'done', who: 'Nobody', label: 'Landed', icon: 'check', live: false},
-  drafted: {actor: 'you', who: 'You', label: 'Drafted at night', icon: 'moon', live: false},
   dropped: {actor: 'quiet', who: 'Nobody', label: 'Dropped', icon: 'x', live: false},
   answered: {actor: 'done', who: 'Nobody', label: 'Answered', icon: 'file', live: false},
 };
@@ -514,33 +511,18 @@ const TYPES = ['feat', 'fix', 'docs', 'refactor', 'perf', 'test', 'chore', 'ques
 const FAST_BUILDER = /^small change: one builder$/;
 const FAST_JOB = 'the small change';
 const FAST_GREW = /\bthe small change is a full change$/;
-// The kind line an older Lem wrote, `kind: KIND, because WHY`, and the type each kind reads as
-// (project.py OLD_KINDS). A later change may drop it once no task whose log holds such a line is open.
-const OLD_KINDS = {bug: 'fix', feature: 'feat', correction: 'fix', investigation: 'question', chore: 'chore', docs: 'docs'};
-// The type a state line names, with its reason; an older Lem's kind line reads as its type.
+// The type a state line names, with its reason.
 function typeLine(line) {
   const now = line.match(/^type: ([a-z]+), because (.+)$/);
-  if (now && TYPES.includes(now[1])) return {type: now[1], why: now[2]};
-  const old = line.match(/^kind: ([a-z]+), because (.+)$/);
-  return old && OLD_KINDS[old[1]] ? {type: OLD_KINDS[old[1]], why: old[2]} : null;
+  return now && TYPES.includes(now[1]) ? {type: now[1], why: now[2]} : null;
 }
 // The track of a set of criteria, as the word of their `Size:` line (criteria.py) that the records
-// keep as `size`, and its name on the page. An older Lem logged a kind instead (feature,
-// correction), which reads as its word; a later change may drop that.
-const OLD_SIZES = {feature: 'full', correction: 'small'};
-const sizeOf = e => e?.size ?? OLD_SIZES[e?.kind] ?? null;
+// keep as `size`, and its name on the page.
 const TRACKS = {small: 'fast', full: 'standard'};
 const trackWords = size => (size ? `${TRACKS[size] ?? size} track` : 'criteria');
-// Who approved a set of criteria: Lem approves the fast track's one criterion in the owner's name (`lem`;
-// an older Lem logged `correction`).
-const approver = by => (by === 'correction' ? 'lem' : by);
 // What the investigation of a fix or a question found (project.py `log investigation`), as the
 // head of its line, the card's word before it, and the sentence of the task's own board: the call
-// says which path the task took after it. An older Lem logged `kind=bug|investigation` and the
-// calls `correction` and `usual` (OLD_CALLS); a later change may drop those.
-const OLD_CALLS = {correction: 'small', usual: 'full'};
-const callOf = e => OLD_CALLS[e.call] ?? e.call;
-const investigatedType = e => e.type ?? ({bug: 'fix', investigation: 'question'})[e.kind] ?? null;
+// says which path the task took after it.
 const CALLS = {
   small: {head: 'The investigation found a plain cause: the fast track fixes it', card: 'The cause', now: 'A plain cause, which one rule fixes: the task goes on by the fast track'},
   full: {head: 'The investigation found a plain cause: the standard track', card: 'The cause', now: 'A plain cause, and the standard track: the interview starts from it'},
@@ -550,18 +532,8 @@ const CALLS = {
 };
 // How many criteria, in words: one criterion, two criteria.
 const criteriaCount = n => `${n} ${n === 1 ? 'criterion' : 'criteria'}`;
-// The line of a task whose criteria wait for the owner; an older Lem wrote "the stories wait".
-const CRITERIA_WAIT = /\b(criteria|stories) wait\b/;
-// The events an older Lem wrote under the names of its stories, in the names and fields of now, so
-// the rest of the page reads one form. A later change may drop this once no task with such events is open.
-const OLD_EVENTS = {'stories.approved': 'criteria.approved', 'stories.read': 'criteria.read', 'stories.read.start': 'criteria.read.start', 'task.stories': 'task.criteria', 'decision.story': 'decision.criterion'};
-function eventNow(e) {
-  if (e.event === 'task.red' && (e.tests ?? []).some(x => x.story != null && x.criterion == null))
-    return {...e, tests: e.tests.map(x => ({...x, criterion: x.criterion ?? x.story})), without_a_test: (e.without_a_test ?? []).map(x => ({...x, criterion: x.criterion ?? x.story}))};
-  if (!OLD_EVENTS[e.event]) return e;
-  const {stories, story, ...rest} = e;
-  return {...rest, event: OLD_EVENTS[e.event], ...(stories !== undefined ? {criteria: stories} : {}), ...(story !== undefined ? {criterion: story} : {})};
-}
+// The line of a task whose criteria wait for the owner.
+const CRITERIA_WAIT = /\bcriteria wait\b/;
 const UNKNOWN = {actor: 'bad', who: 'Nobody', label: 'No status', icon: 'alert', live: false};
 // The lanes are who acts: the owner, a lead and its builders, the machine checks and the review.
 const LANES = [
@@ -576,7 +548,7 @@ const PHASES = ['Criteria', 'Plan', 'Build', 'Checks', 'Review', 'Proposed', 'La
 const SMALL_PHASES = ['Change', 'Checks', 'Review', 'Proposed', 'Landed'];
 // What waits for the owner, the most pressing first: a choice whose wait runs out, a held task,
 // then what only waits for his word.
-const OWNER_ORDER = ['choice', 'held', 'planned', 'drafted', 'open'];
+const OWNER_ORDER = ['choice', 'held', 'planned', 'open'];
 // Who took a decision, in the page's words to the owner.
 const BY_WHOM = {lead: 'the agent', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout', experts: 'the experts'};
 // Who works on a task, from its state lines, in words a developer needs no glossary for: the page
@@ -619,7 +591,7 @@ function endOf(d) {
 const adviceLine = (key, a, then) => (a.pick != null
   ? `${expertName(key)} ${then ? 'picked' : 'picks'} “${a.pick}”, because ${a.why}`
   : `${expertName(key)} ${then ? 'found' : 'finds'} that none of the options fits, because ${a.why}`);
-// The experts' reasons a settle or a timeout carries (`experts`: {name: why}), in one line.
+// The experts' reasons a timeout carries (`experts`: {name: why}), in one line.
 const reasonsOf = experts => Object.entries(experts ?? {}).map(([key, why]) => `${expertName(key)}: ${why}`).join(' · ');
 const adviceLines = (d, then) => Object.keys(EXPERTS).filter(key => d.advice[key]).map(key => adviceLine(key, d.advice[key], then));
 // Why a later "no" cannot undo a step, in decisions.py's four kinds.
@@ -738,12 +710,9 @@ const stamp = (ms, now) => (dayKey(ms) === dayKey(now) ? '' : `${dayLabel(ms)} `
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 // A plan talk's record in words: its questions and turns, how its questions ended, its repairs (how
 // many changed a decision of the plan, and how many put a layer over a decision with a cite), the
-// decisions two questions named, and the questions raised after the list. A record with no
-// `questions` in an older log holds only its turns and what it settled and left open, and one with
-// no `root` has no count of where its repairs went. A talk that ran over the bound its rules give
-// (`bound`, which project.py adds to the record) says so after its turns.
+// decisions two questions named, and the questions raised after the list. A talk that ran over the
+// bound its rules give (`bound`, which project.py adds to the record) says so after its turns.
 function talkCounts(x) {
-  if (x.questions == null) return `${plural(x.turns, 'turn')}, ${x.settled} settled, ${x.open} open`;
   const over = x.bound != null && x.turns > x.bound ? `, over the bound of ${x.bound} for its ${plural(x.questions, 'question')}` : '';
   const design = x.design ? `, ${x.design} of them ${x.design === 1 ? 'a design choice' : 'design choices'}` : '';
   const where = [...(x.root ? [`${x.root} at the cause`] : []), ...(x.layer ? [`${x.layer} ${x.layer === 1 ? 'a layer' : 'layers'} over a cited decision`] : [])];
@@ -888,9 +857,9 @@ function derive(now) {
     t.events.push(e);
     if (String(e.event).startsWith('decision.')) { decisionEvent(t, e); continue; }
     // The criteria the owner approved, or Lem in his name on the fast track, and each read of them by the personas.
-    // An approval has a number of its own (criteria.py); a log written before numbers counts them in order.
+    // An approval has a number of its own (criteria.py).
     if (e.event === 'criteria.approved') {
-      t.approvals.push({ts: at(e), order: t.events.length, number: e.number ?? t.approvals.length + 1, by: approver(e.by), size: sizeOf(e), why: e.why, digest: e.digest, criteria: e.criteria ?? [], replaces: e.replaces ?? null});
+      t.approvals.push({ts: at(e), order: t.events.length, number: e.number, by: e.by, size: e.size ?? null, why: e.why, digest: e.digest, criteria: e.criteria ?? [], replaces: e.replaces ?? null});
       continue;
     }
     if (e.event === 'criteria.read') {
@@ -915,10 +884,10 @@ function derive(now) {
     // the polish pass of the landing, as land.py polish --done logged it; it has no start event
     if (e.event === 'polish') { t.polish = {ts: at(e), before: e.before, after: e.after, commits: e.commits, filed: e.filed ?? []}; continue; }
     // what the investigation of a bug or a question found, as Lem logged it after the report; the newest stands
-    if (e.event === 'investigation') { t.investigation = {ts: at(e), type: investigatedType(e), call: callOf(e), line: e.line, where: e.where ?? null, reproduced: e.reproduced ?? null}; continue; }
+    if (e.event === 'investigation') { t.investigation = {ts: at(e), type: e.type, call: e.call, line: e.line, where: e.where ?? null, reproduced: e.reproduced ?? null}; continue; }
     // The criteria of the task's plan, as the lead last recorded them, and the newest check that
     // each one's tests pass on the branch and fail on the base commit.
-    if (e.event === 'task.criteria') { t.criteria = {order: t.events.length, size: sizeOf(e), why: e.why, digest: e.digest, list: e.criteria ?? [], ts: at(e)}; continue; }
+    if (e.event === 'task.criteria') { t.criteria = {order: t.events.length, size: e.size ?? null, why: e.why, digest: e.digest, list: e.criteria ?? [], ts: at(e)}; continue; }
     if (e.event === 'task.red') { t.red = {ok: e.ok, digest: e.digest, tests: e.tests ?? [], without: e.without_a_test ?? [], tip: e.tip, ts: at(e)}; continue; }
     if (e.event === 'gate') {
       // A repaired failure runs the gate again inside one landing: a result on another tip starts
@@ -942,8 +911,7 @@ function derive(now) {
     if (e.status === 'landing' && t.blocks.at(-1)?.status !== 'landing') t.gates = [];
     if (e.status === 'landing' && t.blocks.at(-1)?.status === 'ready') { t.reviews = []; t.proposal = null; }
     t.blocks.push({ts, status: e.status, text: String(e.text ?? ''), lines: (e.lines ?? []).map(String)});
-    // an older log may hold the first line of task.md with its heading mark
-    t.ask = e.ask ? String(e.ask).replace(/^[#>\s]+/, '') : t.ask;
+    t.ask = e.ask ? String(e.ask) : t.ask;
     for (const line of lines) {
       const lead = line.match(/^lead: (builder|session)\b/);
       if (lead) { t.lead = lead[1]; if (lead[1] === 'builder') t.session = null; }
@@ -987,15 +955,14 @@ function derive(now) {
     t.waiting = t.closed ? [] : t.choices.filter(d => d.kind === 'asked' && d.state === 'waits')
       .sort((a, b) => Boolean(a.irreversible) - Boolean(b.irreversible) || a.id - b.id);
     t.asks = t.waiting;
-    // stages/interview.md and stages/plan.md write this line for criteria that wait for his yes (an older
-    // Lem wrote "the stories wait", which a later change may stop reading once no such task is open)
+    // stages/interview.md and stages/plan.md write this line for criteria that wait for his yes
     t.criteriaWait = t.status === 'held' && CRITERIA_WAIT.test([last.text, ...last.lines].join(' '));
     // a queued task waits for the task its `after:` line names
     t.waitsAfter = t.status === 'queued' && needsTask(last);
     // A planned task waits for the owner only when its lead said the owner reads the plan.
     // A proposed task waits for the owner's merge, and a task with a choice for him waits for him
     // while the rest of its plan goes on.
-    t.forOwner = t.asks.length > 0 || t.status === 'held' || t.status === 'drafted' || t.status === 'open' || (t.status === 'planned' && /\bowner\b/.test(t.text));
+    t.forOwner = t.asks.length > 0 || t.status === 'held' || t.status === 'open' || (t.status === 'planned' && /\bowner\b/.test(t.text));
     if (t.forOwner && t.info.actor !== 'you') t.info = {...t.info, actor: 'you', who: 'You'};
     // a builder that investigates a bug or a question works before any lead
     t.investigating = investigates(last);
@@ -1014,7 +981,7 @@ function derive(now) {
     t.reached = t.blocks.findLast(b => !['held', 'blocked'].includes(b.status))?.status ?? t.status;
     // a builder investigated a bug or a question before the criteria: the task's phases start with it
     t.investigated = t.blocks.some(investigates) || t.investigation != null;
-    t.planCommitted = t.blocks.some(b => b.status === 'planned' || b.status === 'drafted' || /\bplan committed\b/.test([b.text, ...b.lines].join(' ')));
+    t.planCommitted = t.blocks.some(b => b.status === 'planned' || /\bplan committed\b/.test([b.text, ...b.lines].join(' ')));
     t.gateBad = t.gates.filter(g => g.exit !== 0).length;
   }
 
@@ -1045,8 +1012,8 @@ function decisionEvent(t, e) {
   const kind = String(e.event).slice('decision.'.length);
   const ts = e.at ? new Date(e.at).getTime() : at(e);
   if (kind === 'criterion') {
-    // A change names the approval it applies to by its number (`approval`); an older one named its digest (`approved`).
-    const approval = e.approval ?? t.approvals.findLast(a => e.approved && a.digest === e.approved && a.ts <= ts)?.number ?? 0;
+    // A change names the approval it applies to by its number (`approval`).
+    const approval = e.approval;
     t.changes.push({ts, order: t.events.length, change: e.change, how: e.how, criterion: e.criterion, was: e.was ?? null, now: e.now ?? null, why: e.why, choice: e.choice ?? null, by: e.by ?? null, said: e.said ?? null, approval});
     return;
   }
@@ -1054,9 +1021,7 @@ function decisionEvent(t, e) {
     t.decisions.set(e.id, {
       id: e.id, kind, ts, what: e.what, chose: e.chose ?? null, why: e.why, by: e.by ?? null, said: e.said ?? null, undo: e.undo ?? null,
       options: e.options ?? [], recommended: e.recommended ?? null, irreversible: e.irreversible ?? null,
-      // an older Lem's question has its wait and its deadline: its timeout, when the record has one, came at that end
-      wait: e.wait_minutes ?? null, deadline: e.deadline ? new Date(e.deadline).getTime() : null,
-      state: kind === 'taken' ? 'taken' : 'waits', ended: null, late: null, advice: {}, experts: null, away: false, advisers: e.advisers ?? null,
+      state: kind === 'taken' ? 'taken' : 'waits', ended: null, late: null, advice: {}, experts: null, advisers: e.advisers ?? null,
     });
     return;
   }
@@ -1065,9 +1030,7 @@ function decisionEvent(t, e) {
   if (!d || d.kind !== 'asked') { t.orphans.push({ts, kind, id: e.id, chose: e.chose}); return; }
   if (kind === 'advised') d.advice[e.expert] = {ts, pick: e.none ? null : e.pick ?? null, why: e.why};
   else if (kind === 'answered') Object.assign(d, {state: 'answered', chose: e.chose, by: 'owner', ended: ts, words: e.words ?? null, ownerWhy: e.why ?? null, instead: e.instead === true});
-  // A timeout written before the experts existed has no `by`: it took the recommended option.
-  else if (kind === 'timeout') Object.assign(d, {state: 'timeout', chose: e.chose, by: e.by ?? 'timeout', ended: ts, experts: e.experts ?? null, early: e.early === true});
-  else if (kind === 'settled') Object.assign(d, {state: 'settled', chose: e.chose, by: 'experts', ended: ts, experts: e.experts ?? null, away: true});
+  else if (kind === 'timeout') Object.assign(d, {state: 'timeout', chose: e.chose, by: e.by, ended: ts, experts: e.experts ?? null});
   else if (kind === 'late') d.late = {ts, chose: e.chose, words: e.words ?? null, why: e.why ?? null, instead: e.instead === true};
   else t.orphans.push({ts, kind, id: e.id, chose: e.chose});
 }
@@ -1299,7 +1262,7 @@ function timeOf(t, end) {
     if (e.event === 'interview.start') pair(i, e, 'you', 'The interview', 'Lem asks you one question at a time', x => x.event === 'criteria.read.start' || x.event === 'criteria.approved');
     else if (e.event === 'scout.start') pair(i, e, 'builders', 'The scout reads the code', 'for the facts the criteria need', x => x.event === 'scout');
     else if (e.event === 'criteria.read.start') { const r = pair(i, e, 'personas', 'The personas’ read of the criteria', readSub, x => x.event === 'criteria.read'); if (r) startedReads.add(r); }
-    else if (e.event === 'investigation.start') pair(i, e, 'builders', 'The investigation', investigatedType(e) === 'fix' ? 'an investigator reproduces the bug and finds its cause' : 'an investigator finds the answer', x => x.event === 'investigation');
+    else if (e.event === 'investigation.start') pair(i, e, 'builders', 'The investigation', e.type === 'fix' ? 'an investigator reproduces the bug and finds its cause' : 'an investigator finds the answer', x => x.event === 'investigation');
     else if (e.event === 'builder.start' && t.blocks[blockOf.get(e)]?.status !== 'landing') {
       pair(i, e, 'builders', cap(String(jobOf(e) ?? 'a job')), 'a fresh builder; its span ends at the next state block', x => x.event === 'task.state' || LANDING_STARTS.includes(x.event) || CHECKS.includes(x.event));
     }
@@ -1335,8 +1298,8 @@ function timeOf(t, end) {
     // shows only as a run on another tip after a failed run, a failed check of the criteria or a must-fix,
     // or as a builder's own start.
     const gates = Number.isInteger(meta.gates) && meta.gates > 0 ? meta.gates : null;
-    // the commands of checks.serial come last and run only when the others passed (meta.js `alone`)
-    const aloneN = Number.isInteger(meta.alone) ? meta.alone : 0;
+    // the commands of checks.serial come last and run only when the others passed (meta.js `serial`)
+    const serialN = Number.isInteger(meta.serial) ? meta.serial : 0;
     const sameTip = (a, b) => Boolean(a && b) && (String(a).startsWith(b) || String(b).startsWith(a));
     let run = null, owed = false, prev = from, before = null, opened = null;
     const job = e => cap(String(jobOf(e) ?? 'a job'));
@@ -1354,10 +1317,8 @@ function timeOf(t, end) {
       const started = LANDING_STARTS.includes(before?.event);
       let repairing = false;
       if (e.event === 'polish') {
-        // With its start logged, the pass is the builders' from it; else from the event before it,
-        // and then the rebase onto the base is in it too. The checks after it start on a new tip.
-        if (opened?.event === 'polish.start') add('builders', prev, x, 'The polish pass', `${e.before ?? '?'} → ${e.after ?? '?'} · ${plural(e.commits ?? 0, 'commit')}`);
-        else add('builders', prev, x, 'The polish pass', 'from the event before it: its start is not logged, so the rebase onto the base is in it');
+        // The pass is the builders' from its start. The checks after it start on a new tip.
+        add('builders', prev, x, 'The polish pass', `${e.before ?? '?'} → ${e.after ?? '?'} · ${plural(e.commits ?? 0, 'commit')}`);
         run = null; owed = false; prev = x; before = e; opened = null;
         continue;
       }
@@ -1368,9 +1329,9 @@ function timeOf(t, end) {
           run = {tip: e.tip, count: 0, plain: 0, failed: false, done: false};
         }
         run.count++;
-        if (!e.alone) run.plain++;
+        if (!e.serial) run.plain++;
         run.failed ||= e.exit !== 0;
-        run.done = gates != null && (run.count >= gates || (run.failed && !e.alone && run.plain >= gates - aloneN));
+        run.done = gates != null && (run.count >= gates || (run.failed && !e.serial && run.plain >= gates - serialN));
       } else if (e.event === 'task.red') {
         repairing = !started && (owed || run?.failed) && Boolean(run) && !sameTip(run.tip, e.tip);
         if (!e.ok) owed = true;
@@ -1411,7 +1372,7 @@ function timeOf(t, end) {
     if (investigates(b)) return {key: 'investigation', label: 'Investigation', short: 'Inv.'};
     if (smallBlock(b)) return {key: 'change', label: 'The change', short: 'Change'};
     if (b.status === 'building') return sawTask ? {key: 'build', label: 'Build', short: 'Build'} : {key: 'plan', label: 'Plan', short: 'Plan'};
-    if (b.status === 'planned' || b.status === 'drafted') return {key: 'plan', label: 'Plan', short: 'Plan'};
+    if (b.status === 'planned') return {key: 'plan', label: 'Plan', short: 'Plan'};
     if (b.status === 'queued') return {key: 'queued', label: 'Queued', short: 'Queued'};
     if (b.status === 'ready' || b.status === 'landing') return {key: 'checks', label: 'Checks and review', short: 'Checks'};
     if (b.status === 'open') return {key: 'pr', label: 'Pull request', short: 'PR'};
@@ -1440,7 +1401,6 @@ function timeOf(t, end) {
       : t.talks.some(x => x.ts <= b.ts) ? 'The plan talk is done: the plan waits for the agent that builds it' : 'The plan waits for its talk companion', what, open);
     else if (b.status === 'held') addBlock('you', from, to, CRITERIA_WAIT.test(what) ? 'The criteria wait for your yes' : 'It waits for you', what, open);
     else if (b.status === 'blocked') addBlock('lem', from, to, 'Blocked: Lem has to settle it', what, open);
-    else if (b.status === 'drafted') addBlock('you', from, to, 'A night draft waits for your word', what, open);
     else if (b.status === 'ready') addBlock('lem', from, to, 'Ready: it waits for its checks', what, open);
     else if (b.status === 'landing') landing(k, from, to, open);
     else if (b.status === 'open') addBlock('you', from, to, 'It waits for your merge', what, open);
@@ -1455,18 +1415,13 @@ function timeOf(t, end) {
     since = a.order;
   }
   // A choice is his from its question to its outcome: his answer, or the pick taken without him.
-  // One with no outcome runs to now while the task is open. One an older Lem's clock took held him
-  // to the end of its wait, whenever the timeout was written.
+  // One with no outcome runs to now while the task is open.
   for (const c of t.choices.filter(d => d.kind === 'asked')) {
-    const limit = c.state === 'timeout' && !c.early && c.deadline != null ? c.deadline : Infinity;
     const outcome = c.ended ?? (t.closed ? Math.max(c.ts, t.lastTs) : null);
     const running = outcome == null;
-    const stop = running ? end : Math.min(outcome, limit);
+    const stop = running ? end : outcome;
     const how = c.state === 'answered' ? `you answered: ${c.chose}`
-      : c.state === 'settled' ? `the experts took “${c.chose}” at ${hhmm(c.ended)}, while you were away`
-      : c.state === 'timeout' && c.early ? `“${c.chose}” was taken at ${hhmm(c.ended)}, as the task ran without you`
-      : c.state === 'timeout' && c.by === 'experts' ? `its wait ended at ${hhmm(limit)}; the experts’ shared pick “${c.chose}” was taken at ${hhmm(c.ended)}`
-      : c.state === 'timeout' ? `its wait ended at ${hhmm(limit)}; the timeout took “${c.chose}” at ${hhmm(c.ended)}`
+      : c.state === 'timeout' ? `“${c.chose}” was taken at ${hhmm(c.ended)}, as the task ran without you`
         : t.closed ? `the task is ${t.status}: it no longer waits` : 'it waits for you';
     add('you', c.ts, stop, `Choice ${c.id}: ${c.what}`, how, running);
   }
@@ -1580,11 +1535,11 @@ const investigationSub = x => [x.where, x.type === 'fix' && x.reproduced != null
 
 // What each event of the scripts says, in the feed's words; an event not named here is shown as its fields.
 const SAYS = {
-  'task.criteria': e => ({info: {actor: 'lead', icon: 'file'}, head: 'Acceptance criteria recorded', text: `${trackWords(sizeOf(e))}: ${criteriaCount((e.criteria ?? []).length)}`}),
+  'task.criteria': e => ({info: {actor: 'lead', icon: 'file'}, head: 'Acceptance criteria recorded', text: `${trackWords(e.size ?? null)}: ${criteriaCount((e.criteria ?? []).length)}`}),
   'task.red': e => ({info: {actor: e.ok ? 'done' : 'bad', icon: e.ok ? 'check' : 'alert'}, head: e.ok ? 'The tests of the criteria hold' : 'A test does not hold its criterion', text: `on ${e.tip ?? '?'}, against ${e.base ?? 'the base'}`}),
   'criteria.approved': e => ({info: {actor: e.by === 'owner' ? 'you' : 'lem', icon: 'check'},
-    head: {owner: 'You approved the acceptance criteria', lem: 'Taken for the fast track in your name', read: 'The personas’ read froze the criteria'}[approver(e.by)] ?? `Criteria approved by ${e.by}`,
-    text: `${e.number ? `approval ${e.number} · ` : ''}${trackWords(sizeOf(e))}: ${criteriaCount((e.criteria ?? []).length)}`}),
+    head: {owner: 'You approved the acceptance criteria', lem: 'Taken for the fast track in your name', read: 'The personas’ read froze the criteria'}[e.by] ?? `Criteria approved by ${e.by}`,
+    text: `${e.number ? `approval ${e.number} · ` : ''}${trackWords(e.size ?? null)}: ${criteriaCount((e.criteria ?? []).length)}`}),
   'criteria.read': e => !e.answered ? {info: {actor: 'bad', icon: 'users'}, head: 'Nobody answered the personas’ read of the criteria', text: `0 of ${e.asked} answered`}
     : {info: {actor: e.split || e.flagged ? 'you' : 'done', icon: 'users'}, head: 'The personas read the criteria',
       text: `${e.split ? 'the families split · ' : ''}${e.flagged ? `${e.flagged} flagged` : 'nobody confused'} · ${e.answered} of ${e.asked} answered`},
@@ -1593,9 +1548,9 @@ const SAYS = {
   'proposed': e => ({info: {actor: e.green ? 'done' : 'you', icon: e.green ? 'check' : 'alert'}, head: e.green ? 'Proposed: green' : 'Proposed: not green', text: (e.not_green ?? []).join(' · ')}),
   'plan.talk.start': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk started', text: `with ${e.reviewer}`}),
   'plan.talk': e => ({info: {actor: 'gate', icon: 'split'}, head: 'The plan talk ended', text: `with ${e.reviewer}: ${talkCounts(e)}`}),
-  'careful.missed': e => ({info: {actor: 'bad', icon: 'alert'}, head: 'Careful by the review, not by the plan', text: e.why != null ? `round ${e.round ?? '?'}: ${e.why}` : `${e.path} (${e.pattern})`}),  // an older event named a path and its pattern
-  'investigation': e => ({info: {actor: e.call === 'not-reproduced' ? 'you' : 'done', icon: 'eye'}, head: CALLS[callOf(e)]?.head ?? `The investigation: ${e.call}`,
-    text: e.line, sub: investigationSub({...e, type: investigatedType(e)})}),
+  'careful.missed': e => ({info: {actor: 'bad', icon: 'alert'}, head: 'Careful by the review, not by the plan', text: `round ${e.round ?? '?'}: ${e.why}`}),
+  'investigation': e => ({info: {actor: e.call === 'not-reproduced' ? 'you' : 'done', icon: 'eye'}, head: CALLS[e.call]?.head ?? `The investigation: ${e.call}`,
+    text: e.line, sub: investigationSub(e)}),
   'polish': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass',
     text: `${plural(e.commits ?? 0, 'commit')}, ${(e.filed ?? []).length ? plural(e.filed.length, 'item') : 'no item'} filed in the backlog`,
     sub: [`${e.before ?? '?'} → ${e.after ?? '?'}`, ...(e.filed ?? [])].join(' · ')}),
@@ -1604,7 +1559,7 @@ const SAYS = {
   'scout.start': () => ({info: {actor: 'lead', icon: 'eye'}, head: 'The scout started', text: 'it reads the code for the facts the criteria need'}),
   'scout': () => ({info: {actor: 'lead', icon: 'file'}, head: 'The scout’s report is in', text: ''}),
   'criteria.read.start': e => ({info: {actor: 'quiet', icon: 'users'}, head: 'The personas’ read of the criteria started', text: `run by ${e.by === 'lead' ? 'the agent' : 'Lem'}`}),
-  'investigation.start': e => ({info: {actor: 'lead', icon: 'eye'}, head: 'The investigation started', text: investigatedType(e) === 'fix' ? 'an investigator reproduces the bug and finds its cause' : 'an investigator finds the answer'}),
+  'investigation.start': e => ({info: {actor: 'lead', icon: 'eye'}, head: 'The investigation started', text: e.type === 'fix' ? 'an investigator reproduces the bug and finds its cause' : 'an investigator finds the answer'}),
   'builder.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'A builder started', text: jobOf(e)}),
   'polish.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass started', text: `on ${e.before ?? '?'}`}),
   'gate.start': e => ({info: {actor: 'gate', icon: 'play'}, head: 'The checks started', text: `${plural(e.commands ?? 0, 'command')} on ${e.tip ?? '?'}`}),
@@ -1613,10 +1568,9 @@ const SAYS = {
   'decision.asked': e => ({info: {actor: 'you', icon: 'help'}, head: `Choice ${e.id} asked`, text: e.what, sub: 'it waits for your answer'}),
   'decision.answered': e => ({info: {actor: 'you', icon: 'user'}, head: `You answered choice ${e.id}`, text: e.chose}),
   'decision.advised': e => ({info: {actor: 'quiet', icon: 'users'}, head: `${expertName(e.expert)} advised on choice ${e.id}`, text: e.none ? 'none of the options fits' : `picks “${e.pick}”`, sub: e.why}),
-  'decision.settled': e => ({info: {actor: 'bad', icon: 'clock'}, head: `Choice ${e.id} taken by the experts while you were away`, text: e.chose, sub: reasonsOf(e.experts)}),
   'decision.timeout': e => (e.by === 'experts'
-    ? {info: {actor: 'bad', icon: 'clock'}, head: `Choice ${e.id} taken by the experts ${e.early ? 'without you' : 'at the end of its wait'}`, text: e.chose, sub: reasonsOf(e.experts)}
-    : {info: {actor: 'bad', icon: 'clock'}, head: e.early ? `Choice ${e.id} taken without you` : `Choice ${e.id} taken by the timeout`, text: e.chose}),
+    ? {info: {actor: 'bad', icon: 'clock'}, head: `Choice ${e.id} taken by the experts without you`, text: e.chose, sub: reasonsOf(e.experts)}
+    : {info: {actor: 'bad', icon: 'clock'}, head: `Choice ${e.id} taken without you`, text: e.chose}),
   'decision.late': e => ({info: {actor: 'you', icon: 'user'}, head: `Your answer to choice ${e.id} came after it was taken`, text: e.chose}),
   'decision.criterion': e => ({info: {actor: 'you', icon: 'alert'}, head: `Criterion ${e.criterion} ${e.how === 'changed' ? 'changed' : e.how === 'added' ? 'was added' : 'was removed'}`, text: e.why}),
 };
@@ -1686,7 +1640,7 @@ function buildReview(t, now) {
 function focusOf(m) {
   const t = m.forOwner[0] ?? m.blocked[0] ?? m.landing[0] ?? m.building[0] ?? m.ready[0] ?? m.queued[0] ?? null;
   if (!t) return null;
-  // "like it": a wait of the same kind (a choice, a held task, a plan, a draft, a pull request), or the same status
+  // "like it": a wait of the same kind (a choice, a held task, a plan, a pull request), or the same status
   const others = (m.forOwner.includes(t) ? m.forOwner.filter(x => x.ownerRank === t.ownerRank) : m[t.status] ?? []).length - 1;
   return {t, others};
 }
@@ -1841,7 +1795,7 @@ function phaseIndex(t) {
   if (reached === 'landing') return t.reviews.length ? 4 : 3;
   if (reached === 'ready') return 3;
   if (reached === 'building') return t.planCommitted || t.progress ? 2 : 1;
-  if (reached === 'planned' || reached === 'drafted') return 1;
+  if (reached === 'planned') return 1;
   return 0;
 }
 
@@ -1986,10 +1940,6 @@ function criteriaHead(t, now) {
         a.by === 'read' ? h('span', {class: 'sub'}, 'The whole request was written, and nobody was confused: the build started, and you can still stop it or change a criterion.') : '',
         a.number > 1 || a.replaces != null ? h('span', {class: 'sub'}, `approval ${a.number}${typeof a.replaces === 'number' ? `; it replaces approval ${a.replaces}` : a.replaces ? '; it replaces an earlier approval' : ''}`) : ''),
       h('span', {class: 'rtime'}, stamp(a.ts, now)))));
-  } else if (r && !(r.split || r.flagged > 0) && t.blocks.some(b => b.status === 'building' && b.ts >= r.ts) && !t.criteriaWait) {
-    // an older log, from before the read froze the criteria: the build that started after the read shows it
-    rows.push(keyed('approved:none', h('div', {class: 'row a-quiet'}, h('span', {class: 'fi'}, icon('play')),
-      h('div', {class: 'rtext'}, 'The build started with no wait for you: nobody was confused.'), h('span', {class: 'rtime'}, ''))));
   }
   for (const c of t.changes) {
     const said = c.how === 'changed' ? `was “${c.was}”, now “${c.now}”` : c.how === 'added' ? `“${c.now}”` : `was “${c.was}”`;
@@ -2031,15 +1981,12 @@ function buildDecisions(t, now) {
         h('span', {class: 'rtime'}, stamp(d.ts, now))));
     }
     // A choice the timeout or the experts took is marked alike: neither is his answer, and each keeps the request from green.
-    const timeout = d.state === 'timeout' || d.state === 'settled';
-    const late = d.late ? [h('span', {class: 'sub'}, `Your answer came at ${hhmm(d.late.ts)}, after ${d.state === 'settled' ? 'the experts took it' : d.early ? 'it was taken' : 'the wait'}: “${d.late.chose}”${d.late.words ? ` (${d.late.words})` : ''}. `,
+    const timeout = d.state === 'timeout';
+    const late = d.late ? [h('span', {class: 'sub'}, `Your answer came at ${hhmm(d.late.ts)}, after it was taken: “${d.late.chose}”${d.late.words ? ` (${d.late.words})` : ''}. `,
       d.late.chose === d.chose ? 'It is what was taken.' : 'It differs from what was taken: a correction for the agent that builds it.')] : [];
     const how = d.kind === 'taken' ? `taken by ${BY_WHOM[d.by] ?? d.by}, because ${d.why}`
       : d.state === 'answered' ? `answered by you${d.instead ? ', with none of the options' : ''}${d.words ? `: “${d.words}”` : ''}${d.ownerWhy ? `, because ${d.ownerWhy}` : ''}`
-        : d.state === 'settled' ? `taken by the experts at ${hhmm(d.ended)}, while you were away: both picked it. The pull request is not green for it.`
-          : d.early ? `taken ${d.by === 'experts' ? `by the experts, as ${pickedWord(d)},` : 'as the recommended option'} at ${hhmm(d.ended)}, as the task ran without you. The pull request is not green for it.`
-          : d.by === 'experts' ? `taken by the experts at the end of the wait, at ${hhmm(d.ended)}: no answer came in ${d.wait ?? '?'} minutes, and both picked it. The pull request is not green for it.`
-            : `taken by the timeout at ${hhmm(d.ended)}: no answer came in ${d.wait ?? '?'} minutes. The recommended action stands, and the pull request is not green for it.`;
+        : `taken ${d.by === 'experts' ? `by the experts, as ${pickedWord(d)},` : 'as the recommended option'} at ${hhmm(d.ended)}, as the task ran without you. The pull request is not green for it.`;
     // The experts' reasons: from the line that took their pick, else from their advice. Advice that
     // did not decide (a split, or none fits) is shown as theirs, beside what was taken.
     const reasons = d.experts ?? Object.fromEntries(Object.entries(d.advice).map(([key, a]) => [key, a.why]));
@@ -2404,7 +2351,7 @@ function tick(now) {
 
 async function pollFiles() {
   const feed = await readScript('events.js', 'lemEvent', events.length);
-  if (feed.records) { events = feed.records.map(eventNow); lastGoodRead = Date.now(); delete problems.events; }
+  if (feed.records) { events = feed.records; lastGoodRead = Date.now(); delete problems.events; }
   else problems.events = feed.missing ? 'events.js is missing: no state was written yet' : feed.problem;
   const about = await readScript('meta.js', 'lemMeta', 0);
   if (about.records?.length) { meta = about.records.at(-1); delete problems.meta; }
