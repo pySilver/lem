@@ -161,13 +161,22 @@ none_yet=$(recipes)
 mkdir -p "$FAKEHOME/.claude/skills" "$MACHINE/.claude/skills/backlog" && mv "$WORK/skills-away/webrev" "$WORK/skills-away/agdoc" "$FAKEHOME/.claude/skills/"
 touch "$MACHINE/.claude/skills/backlog/SKILL.md"
 in_project=$( (doctor || true) | row 'backlog skill' detail)
-rm -r "$MACHINE/.claude" && mv "$WORK/skills-away/backlog" "$FAKEHOME/.claude/skills/" && rmdir "$WORK/skills-away"
+rm -r "$MACHINE/.claude"
+# The owner's own backlog skill may ride in a plugin of another name, as `tracking:backlog` does.
+mkdir -p "$WORK/tracking-plugin/skills/backlog" && touch "$WORK/tracking-plugin/skills/backlog/SKILL.md"
+printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"user\"}], \"tracking@some-market\": [{\"scope\": \"project\", \"projectPath\": \"$WORK/another-repository\", \"installPath\": \"$WORK/tracking-plugin\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+plugin_elsewhere=$( (doctor || true) | row 'backlog skill' found)
+printf '%s\n' "{\"version\": 2, \"plugins\": {\"lem@lem\": [{\"scope\": \"user\"}], \"tracking@some-market\": [{\"scope\": \"user\", \"installPath\": \"$WORK/tracking-plugin\"}]}}" > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+in_plugin=$( (doctor || true) | row 'backlog skill' detail)
+printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+mv "$WORK/skills-away/backlog" "$FAKEHOME/.claude/skills/" && rmdir "$WORK/skills-away"
 for_user=$( (doctor || true) | row 'backlog skill' detail)
 if [ "$none_yet" = "(False, [('webrev skill', False, 'annotate-document'), ('agdoc skill', False, 'html-doc-overlay'), ('backlog skill', False, 'backlog-picker')], ['required', 'required', 'required'])" ] \
-  && [ "$in_project" = "$MACHINE/.claude/skills/backlog" ] && [ "$for_user" = "$FAKEHOME/.claude/skills/backlog" ]; then
-  pass "webrev, agdoc and the backlog recipe are required, each with its guide, and the backlog's skill counts for the user or for the repository"
+  && [ "$in_project" = "$MACHINE/.claude/skills/backlog" ] && [ "$for_user" = "$FAKEHOME/.claude/skills/backlog" ] \
+  && [ "$plugin_elsewhere" = "False" ] && [ "$in_plugin" = "the skill tracking:backlog" ]; then
+  pass "webrev, agdoc and the backlog recipe are required, each with its guide, and the backlog's skill counts for the user or for the repository, in a skills folder or in a plugin of another name"
 else
-  fail "the recipes Lem needs: $none_yet / $in_project / $for_user"
+  fail "the recipes Lem needs: $none_yet / $in_project / $for_user / $plugin_elsewhere / $in_plugin"
 fi
 out=$(doctor)
 if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(field '[t["name"] for t in d["tools"] if "jev" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$(row cronn found <<<"$out")" = "True" ] \

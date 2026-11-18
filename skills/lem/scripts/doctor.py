@@ -114,6 +114,26 @@ def plugin_named(name: str) -> str | None:
     return None
 
 
+def plugin_skill(name: str) -> str | None:
+    """`the skill PLUGIN:NAME` when an installed plugin this repository gets carries a skill NAME
+    under its own name, as `tracking:backlog` carries `backlog`. Else None."""
+    try:
+        listed = json.loads((Path.home() / PLUGINS / "installed_plugins.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    plugins = listed.get("plugins") if isinstance(listed, dict) else None
+    here = checkouts()
+    for key, installs in plugins.items() if isinstance(plugins, dict) else []:
+        for entry in installs if isinstance(installs, list) else []:
+            if not isinstance(entry, dict) or not isinstance(entry.get("installPath"), str):
+                continue
+            where = entry.get("projectPath")
+            gets = entry.get("scope") in ("user", "managed") or (isinstance(where, str) and os.path.realpath(where) in here)
+            if gets and (Path(entry["installPath"]) / "skills" / name / "SKILL.md").is_file():
+                return f"the skill {str(key).split('@')[0]}:{name}"
+    return None
+
+
 def settings(file: Path) -> dict:
     """A settings file of Claude Code; empty when it is absent or reads another way."""
     try:
@@ -213,13 +233,14 @@ def correction_hook() -> list[dict]:
 
 
 def skill(name: str, used_for: str, without_it: str, need: str = "required", guide: str | None = None) -> dict:
-    """A skill an agent loads by name: in a skills folder of the home or of this repository, or installed as a plugin of Claude Code."""
+    """A skill an agent loads by name: in a skills folder of the home or of this repository, installed as a plugin of
+    Claude Code, or carried by an installed plugin of another name."""
     places = [base / home / name for base in [*checkout_roots(), Path.home()] for home in SKILL_HOMES]
     found = next((str(place) for place in places if (place / "SKILL.md").is_file()), None)
     if found is None:
         # Claude Code's own list of installed plugins; where that file is absent or reads another
         # way, the plugin's folder with the skill in it counts too.
-        found = plugin_named(name)
+        found = plugin_named(name) or plugin_skill(name)
     if found is None:
         cache = Path.home() / PLUGINS / "cache"
         found = next((str(file.parent) for file in sorted(cache.glob(f"*/{name}/*/**/skills/{name}/SKILL.md"))), None) if cache.is_dir() else None
