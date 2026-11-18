@@ -26,8 +26,6 @@ In doubt, it first asks one question, with its guess. `/lem standard-track` and
 - **Careful** comes first when the request can affect what must never go wrong:
   `Careful: this changes how a customer is charged. feat: ...`
 
-Each task runs in its own worktree.
-
 ## The fast track
 
 The fast track is for one rule in your words, with no open question and nothing careful. Examples:
