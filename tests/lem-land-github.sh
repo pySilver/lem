@@ -135,10 +135,10 @@ git -C "$gh_other" merge -q --squash origin/fix/pr-squashed && git -C "$gh_other
 oid=$(git -C "$gh_other" rev-parse HEAD)
 gh_set "d['prs']['8'].update(state='MERGED', merge='$oid')"
 out=$(gh_land merged pr-squashed)
-if grep -q "origin/main moved after the checks ran, by files the checks read (late.txt)" <<<"$err" && grep -q "the pull request is not merged yet" <<<"$early" \
+if grep -q "origin/main moved after the checks ran, by files (late.txt)" <<<"$err" && grep -q "the pull request is not merged yet" <<<"$early" \
   && [ "$(gh_state 'sum(c[:3] == ["pr", "merge", "8"] for c in d["calls"])')" = 0 ] \
   && [ "$(field '(d["merged"], d["left_behind"])' <<<"$out")" = "('$oid', None)" ] && [ "$(status_in "$GHS" pr-squashed)" = landed ] && [ "$(git -C "$GHS" rev-parse main)" = "$oid" ]; then
-  pass "a pull request is not merged over a base that moved by files the gate reads; one the owner merged on the forge as one commit is finished by its own step, also while the task has the landing line again"
+  pass "a pull request is not merged over a base that moved; one the owner merged on the forge as one commit is finished by its own step, also while the task has the landing line again"
 else
   fail "a pull request the owner merged: $err / $early / $out"
 fi
@@ -459,7 +459,7 @@ due_after=$(gw_land read w-two 2>&1 || true)
 again=$(gw_land propose w-two --title "fix: w-two" --notes "$NOTES" 2>&1 || true)
 tree=$GWS/.lem/worktrees/w-two
 text=$GWS/.lem/state/tasks/w-two/pr.md
-if [ "$(status_in "$GWS" w-one)" = landed ] && [ "$waited" = open ] && grep -qF "origin/main moved after the checks ran, by files the checks read" <<<"$refused" \
+if [ "$(status_in "$GWS" w-one)" = landed ] && [ "$waited" = open ] && grep -qF "origin/main moved after the checks ran, by files (" <<<"$refused" \
   && [ "$(gw_state 'sum(c[:2] == ["pr", "merge"] for c in d["calls"])')" = 0 ] \
   && [ "$(field 'd["task"]' <<<"$started" 2>&1)" = w-two ] && grep -qF "the base moved: the checks run again" "$GWS/.lem/state/tasks/w-two/state.md" \
   && [ "$(field '(d["moved"], d["resolved"])' <<<"$based" 2>&1)" = "(True, None)" ] && [ "$(field 'd["done"]' <<<"$polished" 2>&1)" = True ] \

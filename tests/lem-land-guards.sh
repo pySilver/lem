@@ -386,34 +386,6 @@ else
   fail "an empty branch: $nothing / $emptied / $kept_branch"
 fi
 
-# The base moved by a file the gate ignores, and the rebase onto it stops: nothing changes, and the refusal names the steps.
-GO=$WORK/guards-origin.git
-GC=$WORK/guards-clone
-git init -q --bare -b main "$GO"
-git clone -q "$GO" "$GC" 2>/dev/null && ident "$GC"
-project --repo "$GC" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'commands = ["true"]' 'ignores = ["docs/*"]' > "$GC/.lem/project.toml"
-mkdir -p "$GC/docs" && echo one > "$GC/docs/note.md"
-git -C "$GC" add -A && git -C "$GC" commit -q -m "chore: start" && git -C "$GC" push -q origin main
-small_task_in "$GC" docs-meet q.txt q
-tree=$(project --repo "$GC" worktree-dir docs-meet)
-echo branch > "$tree/docs/note.md" && git -C "$tree" commit -q -am "docs: the branch's note"
-land --repo "$GC" start docs-meet >/dev/null && land --repo "$GC" base docs-meet >/dev/null && land --repo "$GC" checks docs-meet >/dev/null \
-  && land --repo "$GC" read docs-meet --record "$(clean 1)" >/dev/null && land --repo "$GC" propose docs-meet --title "fix: q" --notes "$NOTES" >/dev/null
-proposed=$(git -C "$tree" rev-parse HEAD)
-gother=$WORK/guards-other
-git clone -q "$GO" "$gother" && ident "$gother"
-echo base > "$gother/docs/note.md" && git -C "$gother" commit -q -am "docs: the base's note" && git -C "$gother" push -q origin main
-stopped=$(land --repo "$GC" land docs-meet --by owner 2>&1 || true)
-if grep -qF "origin/main moved after the checks ran and the rebase onto it stopped, and the branch is as it was" <<<"$stopped" \
-  && grep -qF "run \`lem land start\`, \`lem land base\`, \`lem land checks\` and \`lem land propose\` again, where \`base\` names the files that meet" <<<"$stopped" \
-  && [ "$(git -C "$tree" rev-parse HEAD)" = "$proposed" ] && [ -z "$(git -C "$tree" status --porcelain)" ] && [ "$(status_in "$GC" docs-meet)" = open ] \
-  && [ "$(git -C "$GO" log -1 --format=%s main)" = "docs: the base's note" ]; then
-  pass "a base that moved only by ignored files and whose rebase stops is refused by land with the branch as it was proposed, and the steps that run again"
-else
-  fail "the rebase in land stops: $stopped / $(status_in "$GC" docs-meet)"
-fi
-
 # The check of the criteria needs a change: a branch the base holds whole has no commit for a test to hold.
 small_task_in "$GRD" on-base o.txt o
 git -C "$GRD" merge -q --ff-only fix/on-base

@@ -196,7 +196,6 @@ no `.gitignore`, the checks' `python3 -m unittest` left two `__pycache__` folder
 day refused the tree, and the first small change ended in a second task for the ignore rule (a
 scratch repository, 2026-11-17).
 
-Leave `checks.ignores` empty: an empty list only means the checks run again whenever the base moves.
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,
 and say so on the page.
 

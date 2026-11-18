@@ -233,10 +233,8 @@ one finds what the run before it finished.
    branch of `origin` with a plain push (a GitHub remote with `branch.propose = "merge"` too, so
    that the tasks that run beside it start from what landed), or, with no remote, by a
    fast-forward of the base branch itself. The step's refusals:
-   - *the base moved after the checks ran*, by a file the checks read: `start`, `base` and `checks`
-     again, then step 5 (a rebase that changed nothing of the change keeps its review) and
-     `propose`. A base that moved only by paths the settings' `checks.ignores` name does not
-     refuse.
+   - *the base moved after the checks ran*, by any file: `start`, `base` and `checks` again, then
+     step 5 (a rebase that changed nothing of the change keeps its review) and `propose`.
    - *the tip is not the commit that was proposed*: the same steps again.
    - *a commit hook changed the one commit's files*: the step put the branch back, and the task
      is still `open`. A builder commits what the hook changes, and the landing goes on from

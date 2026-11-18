@@ -70,8 +70,7 @@ forge's workflows. Each existing test, snapshot and test configuration the chang
 mark shows a changed expectation. A mark counts when the change leaves more of it in a file than the file had, so a
 line that only moved is no new mark; a mark whose own text changed is a new one. A lowered bar passes only with a reason for that file under
 `## The bar` in the task's plan, as `- PATH: REASON`. The marks looked for are those of Python, JavaScript and
-TypeScript, Go, Rust, Java and Kotlin, and shell, and the settings' `checks.bar` patterns for any
-file that is not a document. A changed file of another language gets no such check, and the
+TypeScript, Go, Rust, Java and Kotlin, and shell. A changed file of another language gets no such check, and the
 result says which (`not_covered`). The size of the change is counted, for the reviewer.
 
 Each command of the checks runs in a process group of its own, with no standard input; the group is ended
@@ -112,8 +111,7 @@ The checks are the main checkout's. One task may bring its own: when the main ch
 name no command of the checks and the task's branch adds them to its `.lem/project.toml` (they are not on
 the base commit, under `[checks]` or under the older name `[gate]`), `start` and `checks` take those commands, as for the first task of a new
 repository, "set up the checks"; the request is then not green, so that a person reads the
-checks once. The rest of the branch's settings, its `checks.ignores`, `checks.bar` and `checks.setup`
-too, are not read. A branch that changes checks the main checkout has is checked by the main
+checks once. The rest of the branch's settings, its `checks.setup` too, are not read. A branch that changes checks the main checkout has is checked by the main
 checkout's.
 
 The polish pass comes after the task's own work and before the machine checks, so that the
@@ -312,8 +310,7 @@ that is not reviewed among them), and for one whose newest review that answered 
 call. A
 pull request is merged through the forge, so the forge's own rules hold; `merged` is for one the
 owner merged by hand. What lands is the tree the checks passed on: when the tip is another tree,
-or the base moved by more than the paths the settings' `checks.ignores` name, `land` refuses and
-says which steps run again.
+or the base moved by any file, `land` refuses and says which steps run again.
 
 A step that was cut off is run again. `land` writes down the commit it is about to put on the base
 before it does, so a second run that finds that commit on the base only finishes the bookkeeping.
@@ -350,7 +347,6 @@ if sys.version_info < (3, 11):
 
 import argparse
 import fcntl
-import fnmatch
 import hashlib
 import json
 import os
@@ -1242,7 +1238,6 @@ def tasks_of(plan: str) -> int:
 
 def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     """Where the change lowers the bar, each with the reason the plan gives for that file, or none."""
-    extra = [re.compile(pattern) for pattern in task.settings["checks"]["bar"]]
     section = re.search(r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)", plan)
     reasons = {found.group(1).strip(): found.group(2).strip() for found in re.finditer(r"(?m)^-\s+`?([^`:\n]+?)`?:\s+(\S.*)$", section.group(1))} if section else {}
     lowered: list[dict] = []
@@ -1267,7 +1262,7 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
             if Path(file).suffix.lower() in DOCS:
                 # a document may quote a mark, the plan's own reason for one too
                 file = ""
-            marks = [*extra, *(re.compile(mark) for suffixes, found in BAR.items() if Path(file).suffix.lower() in suffixes for mark in found),
+            marks = [*(re.compile(mark) for suffixes, found in BAR.items() if Path(file).suffix.lower() in suffixes for mark in found),
                      *(re.compile(mark) for mark in TEST_CONFIG_MARKS if TEST_CONFIG.search(file))] if file else []
         elif not file or line[:1] not in "+-":
             continue
@@ -1316,7 +1311,7 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
         entry["reason"] = reasons.get(entry["file"])
     covered = {suffix for suffixes in BAR for suffix in suffixes}
     not_covered = sorted({Path(name).suffix.lower() for name in changed(task, base, tip)} - covered - set(DOCS) - set(DATA))
-    return {"lowered": lowered, "not_covered": not_covered, "own_patterns": len(extra), "edited": sorted(edited, key=lambda entry: entry["file"])}
+    return {"lowered": lowered, "not_covered": not_covered, "edited": sorted(edited, key=lambda entry: entry["file"])}
 
 
 def cmd_checks(task: Task) -> dict:
@@ -1500,11 +1495,6 @@ def remove_left(task: Task, path: str) -> None:
             # not empty: it holds something else, tracked or not
             break
         folder = folder.parent
-
-
-def ignored(task: Task, files: list[str]) -> bool:
-    patterns = task.settings["checks"]["ignores"]
-    return all(any(fnmatch.fnmatchcase(file, pattern) for pattern in patterns) for file in files)
 
 
 def changed(task: Task, old: str, new: str) -> list[str]:
@@ -2322,8 +2312,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out += [f"  - `{entry['file']}` ({entry['what']}): {entry['reason']}" for entry in lowered]
     out += edited_line(checks.get("bar") or {})
     if (checks.get("bar") or {}).get("not_covered"):
-        own = checks["bar"].get("own_patterns", 0)
-        out.append(f"- the bar has no marks of its own for files of these kinds: {', '.join(checks['bar']['not_covered'])}" + (f" (the project's {own} pattern(s) in checks.bar were looked for)" if own else ""))
+        out.append(f"- the bar has no marks of its own for files of these kinds: {', '.join(checks['bar']['not_covered'])}")
     size = checks.get("size") or {}
     out.append(f"- size: {size.get('files', '?')} files, {size.get('lines', '?')} changed lines")
     for read in kept.get("reads", []):
@@ -2793,9 +2782,9 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
         task.fetch()
         base_now = git(task.worktree, "rev-parse", task.onto)
         moved = changed(task, kept["base"], base_now) if base_now != kept["base"] else []
-        if not ignored(task, moved):
+        if moved:
             raise LandError(
-                f"{task.onto} moved after the checks ran, by files the checks read ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}",
+                f"{task.onto} moved after the checks ran, by files ({', '.join(moved[:5])}{', ...' if len(moved) > 5 else ''}); {AGAIN}",
             )
         how = ["--squash", "--subject", message] if squash else ["--rebase"]
         gh(task, "pr", "merge", str(kept["pr"]["number"]), "--match-head-commit", tip, *how)
@@ -2810,12 +2799,12 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
     base_now = git(task.worktree, "rev-parse", task.onto)
     arrived: list[str] = []
     if base_now != kept["base"]:
-        # The base moved after the checks ran. The result stands only when every file that arrived is
-        # one the project says the checks do not read.
+        # The base moved after the checks ran. The result stands only when no file arrived (a commit
+        # that changed nothing); any file means the checks run again.
         arrived = changed(task, kept["base"], base_now)
-        if not ignored(task, arrived):
+        if arrived:
             raise LandError(
-                f"{task.onto} moved after the checks ran, by files the checks read ({', '.join(arrived[:5])}"
+                f"{task.onto} moved after the checks ran, by files ({', '.join(arrived[:5])}"
                 f"{', ...' if len(arrived) > 5 else ''}); {AGAIN}",
             )
         if run(["git", "-C", str(task.worktree), "rebase", task.onto], check=False).returncode != 0:
@@ -2823,7 +2812,7 @@ def cmd_land(task: Task, by: str, message: str | None) -> dict:
             raise LandError(f"{task.onto} moved after the checks ran and the rebase onto it stopped, and the branch is as it was; {AGAIN}, where `base` names the files that meet")
     elif git(task.worktree, "rev-parse", "HEAD") != kept["gated"]:
         raise LandError(f"the branch's tip is not the commit the checks passed on; {AGAIN}")
-    # What lands is the tree the checks saw, plus only the ignored files that arrived on the base.
+    # What lands is the tree the checks saw.
     differs = changed(task, kept["tree"], "HEAD^{tree}")
     if not set(differs) <= set(arrived):
         raise LandError(f"the tree that would land differs from the tree the checks passed on in {', '.join(differs[:5])}; {AGAIN}")

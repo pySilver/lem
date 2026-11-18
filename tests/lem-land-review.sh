@@ -9,7 +9,7 @@
 LOCAL=$WORK/local
 git init -q -b main "$LOCAL" && ident "$LOCAL"
 project --repo "$LOCAL" init --base main >/dev/null
-printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' 'bar = ["rubocop:disable"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$LOCAL/.lem/project.toml"
+printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[flow]' 'topics = ["a customer is charged the wrong price"]' > "$LOCAL/.lem/project.toml"
 mkdir -p "$LOCAL/tests" "$LOCAL/docs" && printf '%s\n' 'def test_base():' '    assert 1 + 1 == 2' '    assert 2 + 2 == 4' > "$LOCAL/tests/test_base.py" && echo guide > "$LOCAL/docs/guide.md"
 printf '%s\n' 'import plugin # noqa: F401' 'import other  # noqa: E402' > "$LOCAL/plug.py"
 # app_py FIRST SECOND: two functions alike in every line but their names, each longer than the
@@ -185,34 +185,34 @@ out=$(local_land checks bar-change 2>/dev/null || true)
 err=$(local_land checks bar-change 2>&1 >/dev/null || true)
 git -C "$tree" rm -q tests/test_base.py && git -C "$tree" commit -q -m "fix: the old test goes"
 gone=$(local_land checks bar-change 2>/dev/null || true)
-if [ "$(field '(sorted((e["file"], e["what"], e["reason"]) for e in d["bar"]["lowered"]), d["bar"]["not_covered"], d["bar"]["own_patterns"])' <<<"$out")" \
-  = "([('calc.py', '# noqa', None), ('lib.rs', '1 assertion(s) fewer', None), ('plug.py', '# noqa', None), ('tests/test_base.py', '1 assertion(s) fewer', None), ('tests/test_base.py', 'pytest.mark.skip', None), ('x.rb', 'rubocop:disable', None)], ['.rb'], 1)" ] \
+if [ "$(field '(sorted((e["file"], e["what"], e["reason"]) for e in d["bar"]["lowered"]), d["bar"]["not_covered"], "own_patterns" in d["bar"])' <<<"$out")" \
+  = "([('calc.py', '# noqa', None), ('lib.rs', '1 assertion(s) fewer', None), ('plug.py', '# noqa', None), ('tests/test_base.py', '1 assertion(s) fewer', None), ('tests/test_base.py', 'pytest.mark.skip', None)], ['.rb'], False)" ] \
   && grep -q "the change lowers the bar with no reason given" <<<"$err" && grep -q "## The bar" <<<"$err" && [ "$(kept_in "$LOCAL" bar-change gated)" = None ] \
   && [ "$(field 'sorted((e["file"], e["what"]) for e in d["bar"]["lowered"] if e["file"].startswith("tests/"))' <<<"$gone")" = "[('tests/test_base.py', 'a test file is deleted')]" ] \
   && [ "$(field '[e["line"] for e in d["bar"]["lowered"] if e["file"] == "plug.py"]' <<<"$out")" = "['import other  # noqa']" ] \
   && [ "$(status_of local_land read bar-change)" = 1 ]; then
-  pass "a change that adds a suppression, a mark the project named, a skip of a whole module, fewer assertions, a test taken out of a Rust module or a deleted test file is refused until a reason is given; a suppression that was there and only got a space is none, and one that got wider is one; and the result names the kind of file the bar has no marks for"
+  pass "a change that adds a suppression, a skip of a whole module, fewer assertions, a test taken out of a Rust module or a deleted test file is refused until a reason is given; a suppression that was there and only got a space is none, and one that got wider is one; and the result names the kind of file the bar has no marks for"
 else
   fail "the bar: $out / $err / $gone"
 fi
 plan=$tree/docs/plans/20261115-bar-change.md
 # shellcheck disable=SC2016  # the backticks are the plan's own marks around a path
-printf '%s\n' '' '## The bar' '' '- calc.py: the import registers a plugin.' '- `x.rb`: the cop reads this line wrong.' '- tests/test_base.py: the sum moved to another module with its test.' '- lib.rs: one() has its test in tests/one.rs now.' '- plug.py: E402 and F401 both hold for that import.' >> "$plan"
+printf '%s\n' '' '## The bar' '' '- calc.py: the import registers a plugin.' '- tests/test_base.py: the sum moved to another module with its test.' '- lib.rs: one() has its test in tests/one.rs now.' '- plug.py: E402 and F401 both hold for that import.' >> "$plan"
 git -C "$tree" commit -q -am "docs: why the bar is lower"
 out=$(local_land checks bar-change)
 small=$(local_land read bar-change | field 'd["floor"]')
 unsaid=$(local_land read bar-change --record "$(clean 1)" 2>&1 || true)
-local_land read bar-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}, {"name": "x.rb", "why": "the cop is wrong here."}, {"name": "tests/test_base.py", "why": "the sum and its test are in the other module."}, {"name": "lib.rs", "why": "tests/one.rs is not in this change."}, {"name": "plug.py", "why": "name the two codes."}]}')" >/dev/null
+local_land read bar-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}, {"name": "tests/test_base.py", "why": "the sum and its test are in the other module."}, {"name": "lib.rs", "why": "tests/one.rs is not in this change."}, {"name": "plug.py", "why": "name the two codes."}]}')" >/dev/null
 proposed=$(local_land propose bar-change --title "fix: marks" --notes "$NOTES")
 agent=$(local_land land bar-change --by agent 2>&1 || true)
 text=$LOCAL/.lem/state/tasks/bar-change/pr.md
 # shellcheck disable=SC2016
-if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "['E402 and F401 both hold for that import.', 'one() has its test in tests/one.rs now.', 'the cop reads this line wrong.', 'the import registers a plugin.', 'the sum moved to another module with its test.']" ] \
-  && [ "$small" = read ] && grep -q "the change lowers the bar in calc.py, lib.rs, plug.py, tests/test_base.py, x.rb and the record says nothing of it" <<<"$unsaid" \
-  && [ "$(field '(d["green"], len(d["not_green"]))' <<<"$proposed")" = "(False, 5)" ] && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
+if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "['E402 and F401 both hold for that import.', 'one() has its test in tests/one.rs now.', 'the import registers a plugin.', 'the sum moved to another module with its test.']" ] \
+  && [ "$small" = read ] && grep -q "the change lowers the bar in calc.py, lib.rs, plug.py, tests/test_base.py and the record says nothing of it" <<<"$unsaid" \
+  && [ "$(field '(d["green"], len(d["not_green"]))' <<<"$proposed")" = "(False, 4)" ] && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   && grep -q '^- the bar is lower in `calc.py` (# noqa)\. The builder: the import registers a plugin\. The review: the plugin is loaded by that import\.$' "$text" \
   && grep -q '^- the bar is lowered, with these reasons:$' "$text" && grep -q '^  - `calc.py` (# noqa): the import registers a plugin\.$' "$text" \
-  && grep -q "^- the bar has no marks of its own for files of these kinds: .rb (the project's 1 pattern(s) in checks.bar were looked for)$" "$text" \
+  && grep -q "^- the bar has no marks of its own for files of these kinds: .rb$" "$text" \
   && grep -q "the request is not green (the bar is lower in" <<<"$agent" \
   && [ "$(grep -c '"event": "proposed", "task": "bar-change", "green": false' "$LOCAL/.lem/state/events.jsonl")" = 1 ]; then
   pass "with a reason for each file in the plan the gate passes, and the request is still not green: the review says what it thinks of each reason, the text opens with each lowered bar, its reason and the review's word, the event log counts it, and no agent merges it"

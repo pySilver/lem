@@ -24,8 +24,8 @@ project --repo "$NEW" init --base main --reviewer codex >/dev/null
 # The template names every key show prints under [checks], each with its line in the file init writes.
 shown_keys=$(project --repo "$NEW" show | field 'sorted(d["checks"])')
 template_keys=$("$PY" -I -c 'import sys, tomllib; print(sorted(tomllib.load(open(sys.argv[1], "rb"))["checks"]))' "$NEW/.lem/project.toml")
-if [ "$shown_keys" = "$template_keys" ] && grep -qxF 'bar = []' "$NEW/.lem/project.toml"; then
-  pass "the settings init writes name every key show prints under [checks], bar among them"
+if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['alone', 'commands', 'setup']" ]; then
+  pass "the settings init writes name every key show prints under [checks]: the commands, their setup and the ones that run alone"
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
@@ -111,11 +111,11 @@ if [ "$(status_of project --repo "$OLD" show)" = 0 ] && grep -qF "branch.propose
 else
   fail "branch.propose: $err / $merge"
 fi
-settings '[branch]' 'base = "master"' '[checks]' 'ignores = ["docs/*"]'
-if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], d["checks"]["ignores"])')" = "('keep', ['docs/*'])" ] && grep -q '^history = "keep"$' "$NEW/.lem/project.toml"; then
-  pass "a branch's own commits land unless the settings say one commit, and the gate may name paths it does not read"
+settings '[branch]' 'base = "master"'
+if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], sorted(d["checks"]))')" = "('keep', ['alone', 'commands', 'setup'])" ] && grep -q '^history = "keep"$' "$NEW/.lem/project.toml"; then
+  pass "a branch's own commits land unless the settings say one commit, and the checks are the commands, their setup and the ones that run alone"
 else
-  fail "history and checks.ignores"
+  fail "history and the keys of the checks"
 fi
 # A seat is one string, agent/model:effort: the effort, or the model and the effort, may be left out, and then
 # nothing is passed for it. show gives each seat parsed; the experts are two, in the two places of a choice's record.
@@ -180,11 +180,14 @@ else
   fail "older seat tables: $old_reviewer / $old_planner / $old_agentless"
 fi
 # The checks: [gate] is their older name, refused with the lines to write in its place.
-settings '[gate]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]'
+settings '[gate]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]' 'bar = ["x"]'
 gate_err=$(project --repo "$OLD" show 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF "[gate] is called [checks] now" <<<"$gate_err" && ! grep -qF "[seats" <<<"$gate_err" \
-  && grep -qF "Write these lines in place of the [gate] table:" <<<"$gate_err" && [ "$(printf '%s\n' "$gate_err" | sed -n 2,5p)" = "$(printf '%s\n' '[checks]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]')" ]; then
-  pass "a settings file with the older [gate] table is refused with the [checks] lines to write in its place, its own values in them"
+  && grep -qF "Write these lines in place of the [gate] table:" <<<"$gate_err" && [ "$(printf '%s\n' "$gate_err" | sed -n 2,4p)" = "$(printf '%s\n' '[checks]' 'commands = ["make test", "make lint"]' 'alone = ["npx playwright test"]')" ] \
+  && grep -qxF 'Delete these lines too, whose settings are gone:' <<<"$gate_err" \
+  && grep -qxF -- '- delete `ignores = ["docs/*"]` under [checks]: the checks run again whenever the base branch moves' <<<"$gate_err" \
+  && grep -qF -- '- delete `bar = ["x"]` under [checks]: Lem looks for a lowered bar with its own marks' <<<"$gate_err"; then
+  pass "a settings file with the older [gate] table is refused with the [checks] lines to write in its place, its own values in them, and the lines of its keys that are gone to delete"
 else
   fail "the older [gate] table: $gate_err"
 fi

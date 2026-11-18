@@ -17,7 +17,7 @@ project --repo "$SHOP" init --base main --reviewer codex >/dev/null
 shop_lines() { printf '%s\n' "$@" > "$SHOP/.lem/project.toml"; }
 shop_settings() {
   shop_lines '[branch]' 'base = "main"' "land = \"$1\"" "history = \"$2\"" 'protected = ["release"]' \
-    '[checks]' 'commands = ["test -f ok.txt", "echo 7 passed"]' 'ignores = ["docs/*"]'
+    '[checks]' 'commands = ["test -f ok.txt", "echo 7 passed"]'
 }
 shop_settings owner keep
 mkdir -p "$SHOP/docs" "$SHOP/.claude/rules" && echo guide > "$SHOP/docs/guide.md" && echo one > "$SHOP/app.txt"
@@ -68,7 +68,7 @@ else
   fail "land gate: $out"
 fi
 if [ "$(field '(d["criteria"]["ok"], [(t["criterion"], t["problem"]) for t in d["criteria"]["tests"]], d["bar"], d["size"]["files"], d["size"]["in_parts"])' <<<"$out")" \
-  = "(True, [(1, None)], {'lowered': [], 'not_covered': [], 'own_patterns': 0, 'edited': []}, 3, False)" ] && grep -q '"event": "task.red", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
+  = "(True, [(1, None)], {'lowered': [], 'not_covered': [], 'edited': []}, 3, False)" ] && grep -q '"event": "task.red", "task": "first-change"' "$SHOP/.lem/state/events.jsonl"; then
   pass "after the commands the gate proves each criterion's test on the branch and on the base commit, looks for a lowered bar and counts the size"
 else
   fail "the machine checks after the gate's commands: $out"
@@ -128,14 +128,14 @@ if [ "$(status_of land --repo "$SHOP" land first-change --by agent --message "fi
 else
   fail "land --message with history = keep"
 fi
-# The base moves after the gate ran: by a file the gate reads, then only by one it does not.
+# The base moves after the gate ran: by any file, the checks run again.
 other=$WORK/other
 git clone -q "$ORIGIN" "$other" && ident "$other"
 echo late > "$other/late.txt" && git -C "$other" add -A && git -C "$other" commit -q -m "feat: late" && git -C "$other" push -q origin main
 err=$(land --repo "$SHOP" land first-change --by agent 2>&1 || true)
-if [ "$(status_of land --repo "$SHOP" land first-change --by agent)" = 1 ] && grep -q "moved after the checks ran, by files the checks read (late.txt)" <<<"$err" \
+if [ "$(status_of land --repo "$SHOP" land first-change --by agent)" = 1 ] && grep -q "moved after the checks ran, by files (late.txt)" <<<"$err" \
   && grep -q "run .lem land start., .lem land base., .lem land checks. and .lem land propose. again" <<<"$err" && [ "$(status first-change)" = open ]; then
-  pass "land refuses when the base moved by a file the gate reads, and says which steps run again"
+  pass "land refuses when the base moved by a file, and says which steps run again"
 else
   fail "land after the base moved: $err"
 fi
@@ -154,11 +154,15 @@ else
   fail "the read after a rebase: $out"
 fi
 echo more >> "$other/docs/guide.md" && git -C "$other" add -A && git -C "$other" commit -q -m "docs: more" && git -C "$other" push -q origin main
+docs_err=$(land --repo "$SHOP" land first-change --by agent 2>&1 || true)
+land --repo "$SHOP" start first-change >/dev/null && land --repo "$SHOP" base first-change >/dev/null && land --repo "$SHOP" checks first-change >/dev/null
+land --repo "$SHOP" read first-change >/dev/null && propose first-change
 out=$(land --repo "$SHOP" land first-change --by agent)
-if [ "$(field '(d["pushed"], d["arrived"], d["left_behind"])' <<<"$out")" = "(True, ['docs/guide.md'], None)" ] && [ "$(status first-change)" = landed ] \
+if grep -q "moved after the checks ran, by files (docs/guide.md)" <<<"$docs_err" \
+  && [ "$(field '(d["pushed"], d["arrived"], d["left_behind"])' <<<"$out")" = "(True, [], None)" ] && [ "$(status first-change)" = landed ] \
   && [ "$(git -C "$ORIGIN" log -1 --format=%s main)" = "fix: first-change" ] && [ "$(git -C "$SHOP" rev-parse main)" = "$(git -C "$ORIGIN" rev-parse main)" ] \
   && [ -f "$SHOP/ok.txt" ] && [ -f "$SHOP/late.txt" ]; then
-  pass "where the settings allow it an agent lands a request that is green and not careful; a base that moved only by files the gate ignores still lands: pushed, the main checkout fast-forwarded, the state landed"
+  pass "where the settings allow it an agent lands a request that is green and not careful; a base that moved by a document is refused too, and after the checks run again it lands: pushed, the main checkout fast-forwarded, the state landed"
 else
   fail "land: $out"
 fi
@@ -423,15 +427,15 @@ fi
 project --repo "$SHOP" state bug-cause dropped "the test is over" >/dev/null
 project --repo "$SHOP" state question-cause dropped "the test is over" >/dev/null
 
-# A file that moves into an ignored folder also leaves a folder the gate reads.
+# A file that moved on the base counts as a change of the path it left.
 open_task moved-file extra.txt four
 checked moved-file && read_clean moved-file && propose moved-file
 git -C "$other" pull -q origin main && git -C "$other" mv late.txt docs/late.txt && git -C "$other" commit -q -m "docs: move late" && git -C "$other" push -q origin main
 err=$(land --repo "$SHOP" land moved-file --by agent 2>&1 || true)
-if [ "$(status_of land --repo "$SHOP" land moved-file --by agent)" = 1 ] && grep -q "files the checks read (.*late.txt" <<<"$err" && [ "$(status moved-file)" = open ]; then
-  pass "a file moved into an ignored folder still counts as a change of the path it left"
+if [ "$(status_of land --repo "$SHOP" land moved-file --by agent)" = 1 ] && grep -q "by files (.*late.txt" <<<"$err" && [ "$(status moved-file)" = open ]; then
+  pass "a file moved on the base counts as a change of the path it left, and the landing is refused"
 else
-  fail "a rename across checks.ignores: $err"
+  fail "a rename on the base: $err"
 fi
 checked moved-file && propose moved-file
 # The landing is cut off after the push and before its last state write: a copy of the scripts whose

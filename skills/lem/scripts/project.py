@@ -159,8 +159,8 @@ the one of the branch the main checkout's own copy names, and a file that names 
 read on that one. Before any commit of the base holds the file (an onboarding, on its own branch),
 the working tree is read. `show` says which in `settings_from`.
 
-`[checks]` holds the machine checks of a landing: `commands`, the whole suite, `setup`, `ignores`
-and `bar`. `checks.alone` names the commands that need the machine to themselves: an end-to-end suite that
+`[checks]` holds the machine checks of a landing: `commands`, the whole suite, `setup` and
+`alone`. `checks.alone` names the commands that need the machine to themselves: an end-to-end suite that
 uses fixed ports, one database or a browser. `alone` runs any command under one lock for the
 repository, `alone.lock` in the state folder, apart from the landing's lock, since a builder takes
 this one too: the checks of a landing run each `checks.alone` command through it after
@@ -372,7 +372,7 @@ WATCH_SECONDS = 60
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": ("plans", "plan_file"),
     "branch": ("base", "land", "history", "propose", "protected"),
-    "checks": ("commands", "ignores", "setup", "bar", "alone"),
+    "checks": ("commands", "setup", "alone"),
     "flow": ("topics", "max_tasks", "decision_wait", "watch_seconds"),
     "seats": ("reviewer", "planner", "experts"),
     "tools": tuple(TOOLS),
@@ -440,9 +440,6 @@ protected = []
 # The machine checks of a landing, each run at the root of the task's worktree: the whole suite,
 # which runs here one time, before the pull request, and in no builder.
 commands = []
-# Paths the checks do not read. When the base branch moves after green checks by these files
-# only, the result stands; any other file means the checks run again. A `*` crosses directories.
-ignores = []
 # What a fresh worktree of this project needs before its tests can start: install the packages,
 # copy an environment file. The check that each criterion's tests fail on the base commit runs in a
 # worktree of its own and runs these there first. Leave it empty when the tests start as they are.
@@ -452,10 +449,6 @@ setup = []
 # repository, and a builder runs a test of such a suite through `project.py alone`. `commands` is
 # the whole suite without them, which runs one time, before the pull request.
 alone = []
-# Extra regular expressions that find a mark of a lowered bar (a new suppression, a skipped test)
-# in a language Lem has no marks of its own for. Lem has its own for Python, JavaScript,
-# TypeScript, Go, Rust, Java, Kotlin and shell.
-bar = []
 
 [flow]
 # What must never go wrong in this project, each as one sentence in the owner's words: "a
@@ -568,16 +561,6 @@ def commands(value: object, where: str) -> list[str]:
     if any(not item.strip() for item in found):
         raise SettingsError(f"{where} holds an empty command, which passes without running anything; take it out of the list")
     return found
-
-
-def patterns(value: object, where: str) -> list[str]:
-    """A list of regular expressions, each one read here so that a wrong one is named where it is written."""
-    for item in strings(value, where):
-        try:
-            re.compile(item)
-        except re.error as error:
-            raise SettingsError(f"{where}: {item!r} is not a regular expression ({error})") from error
-    return value
 
 
 def inside(root: Path, relative: str, where: str) -> Path:
@@ -735,7 +718,10 @@ def joined(words: list[str]) -> str:
 # each with what holds in its place now: a key under its table, or a whole table. The keys of
 # [paths] that named a place of PLACES are `OLD_PATH_KEYS`. A file that still has one is refused once
 # (`older_form`), with every line to delete; a task branch's own copy is read without them (`now_form`).
-GONE_KEYS: dict[tuple[str, str], str] = {}
+GONE_KEYS: dict[tuple[str, str], str] = {
+    ("checks", "ignores"): "the checks run again whenever the base branch moves",
+    ("checks", "bar"): "Lem looks for a lowered bar with its own marks, for Python, JavaScript, TypeScript, Go, Rust, Java, Kotlin and shell",
+}
 GONE_TABLES: dict[str, str] = {}
 
 
@@ -1197,9 +1183,7 @@ def load(root: Path) -> dict:
         "branch": {"base": base, "land": land, "history": history, "propose": propose, "protected": protected},
         "checks": {
             "commands": commands(raw.get("checks", {}).get("commands", []), "checks.commands"),
-            "ignores": strings(raw.get("checks", {}).get("ignores", []), "checks.ignores"),
             "setup": commands(raw.get("checks", {}).get("setup", []), "checks.setup"),
-            "bar": patterns(raw.get("checks", {}).get("bar", []), "checks.bar"),
             "alone": commands(raw.get("checks", {}).get("alone", []), "checks.alone"),
         },
         # read from the main checkout's settings, in a task's worktree too
