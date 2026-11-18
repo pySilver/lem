@@ -4,7 +4,8 @@
 Onboarding runs it first, so a repository is never set up for a flow its machine cannot run. It
 prints one row per tool as JSON and exits 1 when a required one is absent. An optional tool that
 is absent is not an error: its row says what the skill does without it, and onboarding tells the
-owner that. A recipe of the agterm cookbook that Lem needs (webrev, agdoc, the backlog) is
+owner that. The OpenRouter key is optional, and required in a repository whose correction queue is
+on, where without it the queue stays empty and nothing says so. A recipe of the agterm cookbook that Lem needs (webrev, agdoc, the backlog) is
 required, and its row has the guide to install it by. A recommended tool is one Lem does not bring
 and a developer is better off with: its row has the guide too, and Lem installs it only on the
 developer's yes. Four rows
@@ -423,6 +424,35 @@ def project() -> list[dict]:
     return [{**row, "found": count > 0, "detail": detail}]
 
 
+def collects_here() -> bool:
+    """Whether the correction queue is on in the repository the check runs in: its settings say
+    `corrections.collect = true`, and this computer's `.lem/project.local.toml` does not say false.
+    The hook's own answer, so the row and the hook never disagree."""
+    if sys.version_info < (3, 11):
+        # the settings file is read with tomllib; on such a machine the python3 row fails the check already
+        return False
+    # no bytecode beside the scripts, also when this file runs without -B
+    sys.dont_write_bytecode = True
+    import corrections
+
+    return corrections.collects(os.getcwd())
+
+
+def openrouter_key() -> dict:
+    """The key of the Jev decision model. Required where the correction queue is on: without it the
+    hook writes a failure for each message to a file nobody reads, and the queue stays empty."""
+    found = bool(os.environ.get("OPENROUTER_API_KEY"))
+    row = {"name": "OpenRouter key", "need": "optional", "found": found, "detail": None,
+           "used_for": "the Jev decision model, which the correction queue and a card's framing check ask"}
+    if collects_here():
+        return {**row, "need": "required", "detail": "the correction queue is on in this repository (corrections.collect = true)",
+                "without_it": "the correction hook writes each message of the owner to .lem/state/corrections.log as a failure, the queue stays "
+                              "empty, and the retro reads nothing. Put OPENROUTER_API_KEY into the environment the agent starts with, or turn the "
+                              "queue off for this computer with `collect = false` under [corrections] in .lem/project.local.toml"}
+    return {**row, "without_it": "a card's framing check gets no answer, and the correction queue, which is off here, would stay empty if it "
+                                 "were on; put OPENROUTER_API_KEY into the environment the agent starts with"}
+
+
 def cronn() -> dict:
     row = tool(
         "cronn", "required", "a scheduled retro, a night plan, and the agents' free hours",
@@ -476,12 +506,7 @@ def main() -> None:
         # The recommended tool: Lem installs it only on the developer's yes.
         {**tool("plannotator-tui", "recommended", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",
                 "no stage needs it", "plannotator-tui", ["--version"]), "guide": COOKBOOK + "annotate-in-plannotator-tui"},
-        {
-            "name": "OpenRouter key", "need": "optional", "found": bool(os.environ.get("OPENROUTER_API_KEY")), "detail": None,
-            "used_for": "the Jev decision model, which the correction queue and a card's framing check ask",
-            "without_it": "neither gets an answer, and the correction hook logs each message as a failure; "
-                          "put OPENROUTER_API_KEY into the environment the agent starts with",
-        },
+        openrouter_key(),
         *codex(),
         *claude(),
         tool("mailbox-chat", "required", "messages between Lem and a task's lead, and between the defender and the reviewer of a plan talk",
