@@ -362,6 +362,11 @@ from datetime import date
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
+# How this script calls a sibling: in this process, as one command of it.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(SCRIPTS))
+import lem_sibling  # noqa: E402
+
 BY = ("owner", "agent")
 # The review a change gets, from the least to the most: one read by one agent, a round of the
 # project's review tool with the profiles that fit the change, the project's full set.
@@ -511,9 +516,7 @@ def write_whole(file: Path, text: str) -> None:
 
 def script(name: str, repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
     """One command of a sibling script, so this one reads a repository the way every stage does."""
-    ran = subprocess.run(
-        [sys.executable, "-B", str(SCRIPTS / name), "--repo", str(repo), *args], capture_output=True, text=True, check=False,
-    )
+    ran = lem_sibling.run(SCRIPTS / name, repo, *args)
     if check and ran.returncode != 0:
         raise LandError(ran.stderr.strip().removeprefix(f"{name}: ") or f"{name} {args[0]} failed")
     # a line project.py writes on stderr when it succeeds (the move of an older state folder) is this script's to say too

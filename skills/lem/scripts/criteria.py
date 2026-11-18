@@ -137,6 +137,8 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 import lem_plans  # noqa: E402
+# How this script calls a sibling: in this process, as one command of it.
+import lem_sibling  # noqa: E402
 # The size of a change: a full change, with its plan and lead, or a small change of one builder.
 SIZES = ("full", "small")
 # The heading of the section, and the heading an older Lem wrote, which still reads. A later change
@@ -172,7 +174,7 @@ def git(where: Path, *args: str, check: bool = True) -> str:
 
 
 def script(name: str, repo: Path, *args: str) -> str:
-    ran = subprocess.run([sys.executable, "-B", str(SCRIPTS / name), "--repo", str(repo), *args], capture_output=True, text=True, check=False)
+    ran = lem_sibling.run(SCRIPTS / name, repo, *args)
     if ran.returncode != 0:
         raise CriteriaError(ran.stderr.strip().removeprefix(f"{name}: ") or f"{name} {args[0]} failed")
     # a line project.py writes on stderr when it succeeds (the move of an older state folder) is this script's to say too

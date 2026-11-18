@@ -891,7 +891,9 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `.lem/state/` of the main checkout, and moves the `.git/lem/` of an older Lem there once; every
   script that touches the state asks it, directly or through `project.py state-dir`),
   `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
-  and finds a plan of the older name `YYYYMMDD-<slug>.md`),
+  and finds a plan of the older name `YYYYMMDD-<slug>.md`), `lem_sibling.py` (how `land.py`,
+  `criteria.py` and `decisions.py` run a command of a sibling: in their own process, as its
+  `main(argv)`, except the commands in its `APART`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
   (`PLACES`), the one refusal of a settings file of an older form (`older_form`), task state, the
   event log, and `waiting`, the one list of what waits for the owner),

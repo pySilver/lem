@@ -1469,7 +1469,8 @@ def state_root(root: Path) -> Path:
     """The folder task state lives in, `.lem/state/` of the main checkout, as `lem_state` says; asked once a run."""
     if root not in STATE_ROOTS:
         try:
-            STATE_ROOTS[root] = lem_state.folder(root)
+            # the line that tells of a move is project.py's, also when a sibling runs this in its own process
+            STATE_ROOTS[root] = lem_state.folder(root, say=lambda line: print(f"project.py: {line}", file=sys.stderr))
         except lem_state.StateError as error:
             raise SettingsError(str(error)) from error
     return STATE_ROOTS[root]
