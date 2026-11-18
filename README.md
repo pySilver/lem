@@ -38,7 +38,7 @@ flowchart LR
 Two examples of the form, not logs:
 
 ```text
-you  /lem the footer says Terms, not Terms and condtions
+you  /lem the footer says Terms, not Terms and Conditions
 lem  docs, small: "the footer says Terms". Branch docs/footer-says-terms. One builder,
      the checks, one read, then the pull request. Nothing waits for you.
      Wrong read? /lem full, /lem careful.
