@@ -118,16 +118,14 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, those of the night with the night's report, each plan an older night drafted, each retro's proposals; and the board of all tasks, with what builds. A proposal or a draft he answers with approve, reject or later, all on one page | `stages/status.md` |
 | `status <task>` | the board of one task | `stages/status.md` |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `dialectic`, `root-cause`, `ask-expert`, `panel` and `linear` this way (`/lem linear MBZ-12` reads one ticket). Lem's stages load `ask-expert`, `panel` and `linear` by themselves, and `lem-ask` and `lem-gate` too, which are no calls of the owner's: Lem opens its question page each time it asks him, and the gate is the first level of the ladder. See below for a line that only starts with such a word | that skill |
-| anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
+| a helper | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. In this session plain words start one too, with or without `/lem`: "let's brainstorm this" or "interview me about X" (`interview-me`), "argue both sides of ..." (`dialectic`), "why does this keep breaking" (`root-cause`), "what would the experts say" (`ask-expert`), "how would the users take this" (`panel`); `/lem linear MBZ-12` reads one ticket. Outside this session a shipped skill never starts by itself. Lem's stages load `ask-expert`, `panel`, `linear`, `lem-ask` and `lem-gate` themselves: Lem opens its question page each time it asks him, and the gate is the first level of the ladder | that skill |
+| anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence. Words that plainly say one of the rows above go there | `stages/new.md` |
 
-A skill's name at the start of a line does not make the line a call of that skill. It is a call
-when the name stands alone or is followed by what that skill takes: a slug, a path, a number, a
-statement to argue, a question in words. `/lem root-cause analysis of the logs is slow` and `/lem panel layout breaks on a phone`
-are sentences about the project, so each is an ask and opens a task, and so is `/lem ask the
-payment provider for a sandbox key`. When you cannot tell which
-of the two a line is, ask the owner once in the terminal, in one line, before anything runs: a
-skill runs at once, and an ask opens a task.
+A helper's name at the start of a line does not make the line its call: `/lem root-cause analysis
+of the logs is slow`, `/lem panel layout breaks on a phone` and `/lem ask the payment provider for
+a sandbox key` are asks, and each opens a task. When you cannot tell a helper from an ask, or one
+helper from another, ask once in the terminal, in one line, with your guess first: "Do you want an
+interview about this first, before I open a task? (y/n)". Never a page for this.
 
 A task runs on from `new` to its pull request without the owner, unless a stage file names a stop.
 Between two of the owner's messages Lem only waits: a lead that stops wakes it, and so does a
