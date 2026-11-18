@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A small change: one criterion in the task directory, no plan on the branch, one builder, the checks
-# with the check of the criteria once, one read, and a short pull request. And what keeps the short path
+# with the check of the criteria once, one read, and a short pull request. And what keeps the fast track
 # safe: a full change with no plan is refused, a careful small change is not green and no agent merges
 # it, and a small change does not lower the bar.
 # shellcheck source-path=SCRIPTDIR
@@ -102,7 +102,7 @@ s read date-outside --record "$(clean 1)" >/dev/null 2>&1 || true
 outside_due=$(s read date-outside 2>&1 | field '(d["due"], d["to_file"])' 2>&1 || true)
 outside_green=$(s propose date-outside --title "fix(report): the date column never wraps" --notes "$SHORT" 2>&1 | field 'd["green"]' 2>&1 || true)
 text=$(dir_of date-outside)/pr.md
-if grep -qF "a small change has no polish pass" <<<"$no_polish" && grep -qF "\`lem land checks date-outside\`" <<<"$no_polish" \
+if grep -qF "the fast track has no polish pass" <<<"$no_polish" && grep -qF "\`lem land checks date-outside\`" <<<"$no_polish" \
   && [ "$outside_gate" = "(True, True, [], ['date-outside.css', '$item'])" ] && [ "$outside_due" = "('none', [])" ] && [ "$outside_green" = True ] \
   && grep -qxF -- "- filed in the backlog by the builder: \`$item\`" "$text" && ! grep -q 'polish' "$text" \
   && ! grep -q "\"event\": \"polish.start\", \"task\": \"date-outside\"" "$SMALL/.lem/state/events.jsonl"; then
@@ -118,8 +118,8 @@ built date-feature "$tree"
 feature=$(criteria show date-feature 2>&1 || true)
 s start date-feature >/dev/null && s base date-feature >/dev/null
 feature_gate=$(s checks date-feature 2>&1 || true)
-if grep -qF "criteria.md says \`Size: full\`: only a small change (\`Size: small\`) keeps its criterion in the task directory" <<<"$feature" \
-  && grep -qF "A full change's criteria are at the top of its plan" <<<"$feature_gate" && [ "$(kept_in "$SMALL" date-feature gated)" = None ]; then
+if grep -qF "criteria.md says \`Size: full\`: only a task on the fast track (\`Size: small\`) keeps its criterion in the task directory" <<<"$feature" \
+  && grep -qF "The criteria of a task on the standard track are at the top of its plan" <<<"$feature_gate" && [ "$(kept_in "$SMALL" date-feature gated)" = None ]; then
   pass "a full change with no plan file on the branch is refused by the criteria and by the gate, also with a criterion file in its task directory"
 else
   fail "a full change with no plan: $feature / $feature_gate"
@@ -138,9 +138,9 @@ careful_green=$(s propose gate-edit --title "chore: two gate commands" --notes "
 by_agent=$(s land gate-edit --by agent 2>&1 || true)
 text=$(dir_of gate-edit)/pr.md
 if [ "$floor" = "('full', 1)" ] && grep -qF "this change gets the project's full set at the least" <<<"$one_read" && [ "$careful_green" = False ] \
-  && grep -qF "a small change that is careful" <<<"$(sed -n 3p "$text")" && grep -qF "a careful request is merged by a person" <<<"$by_agent" \
+  && grep -qF "careful on the fast track" <<<"$(sed -n 3p "$text")" && grep -qF "a careful request is merged by a person" <<<"$by_agent" \
   && [ "$(status_in "$SMALL" gate-edit)" = open ]; then
-  pass "a small change whose diff edits the gate of the settings gets the full set, is not green because a careful change took the short path, and no agent merges it"
+  pass "a small change whose diff edits the gate of the settings gets the full set, is not green because a careful change took the fast track, and no agent merges it"
 else
   fail "a careful small change: $(grep -v "^ \|^[{}]" "$WORK/gate-edit.out") / $floor / $one_read / $careful_green / $by_agent / $(cat "$text" 2>/dev/null)"
 fi
@@ -152,7 +152,7 @@ printf '%s\n' 'import pytest' '' '@pytest.mark.skip' 'def test_old():' '    asse
 built skips-test "$tree"
 s start skips-test >/dev/null && s base skips-test >/dev/null
 lowered=$(s checks skips-test 2>&1 || true)
-if grep -qF "a small change does not lower the bar: tests/test_old.py" <<<"$lowered" && grep -qF "it is a full change" <<<"$lowered" && [ "$(kept_in "$SMALL" skips-test gated)" = None ]; then
+if grep -qF "a task on the fast track does not lower the bar: tests/test_old.py" <<<"$lowered" && grep -qF "it takes the standard track" <<<"$lowered" && [ "$(kept_in "$SMALL" skips-test gated)" = None ]; then
   pass "a small change that lowers the bar is refused at the gate, with the full change's path named, since a small change has no plan to give the reason in"
 else
   fail "a small change that lowers the bar: $(grep -v "^ \|^[{}]" <<<"$lowered")"

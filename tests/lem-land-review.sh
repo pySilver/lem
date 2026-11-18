@@ -43,7 +43,7 @@ dirty=$(local_land polish polish-me --done 2>&1 || true)
 echo 'echo p > p.txt' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "refactor: the tool says what it writes, and nothing else"
 started=$(local_land checks polish-me 2>&1 || true)
 again=$(local_land polish polish-me)
-if grep -qF "polish-me is a full change, and no polish pass is on record for this landing: \`lem land polish polish-me\` starts it" <<<"$no_pass" \
+if grep -qF "polish-me takes the standard track, and no polish pass is on record for this landing: \`lem land polish polish-me\` starts it" <<<"$no_pass" \
   && [ "$(field '(d["size"], d["done"], d["before"], d["range"].split("..")[1], d["commits"], d["plan"].endswith("docs/plans/20261115-polish-me.md"), d["report"], d["outside"], d["backlog"], d["frozen"])' <<<"$first")" \
   = "('full', False, '$lead_tip', '$lead_tip', ['$(git -C "$tree" rev-parse --short "$lead_tip") feat: the tool', '$(git -C "$tree" log -1 --format='%h %s' "$lead_tip~1")'], True, '$pdir/report.md', '$pdir/outside.md', 'docs/backlog', ['tests/polish-me.sh', 'docs/plans/20261115-polish-me.md'])" ] \
   && [ "$(field '(d["before"], d["range"])' <<<"$again")" = "$(field '(d["before"], d["range"])' <<<"$first")" ] && [ "$(kept_in "$LOCAL" polish-me polish)" = "{'before': '$lead_tip', 'done': False}" ]; then

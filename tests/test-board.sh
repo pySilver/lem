@@ -852,8 +852,8 @@ sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 crite
   fi
   draw task-correction-one
   # shellcheck disable=SC1112  # the curly quotes are the page's
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-correction-one.dom" "Taken as a small change: Lem approved its one criterion in your name" \
-    'You may still say “full”' "The personas do not read the one criterion of a small change." "small change, because the request is one sentence." \
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-correction-one.dom" "The fast track: Lem approved its one criterion in your name" \
+    'You may still say “standard”' "The personas do not read the one criterion of a task on the fast track." "fast track, because the request is one sentence." \
     "One builder makes the change" "!a correction" "!correction, because" "!one-rule"); then
     pass "a small change's Acceptance criteria card says that Lem approved its one criterion in your name, that you may call it full, and that the personas do not read it; the size of its criteria is a small change, and no text says correction"
   else
@@ -861,7 +861,7 @@ sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 crite
   fi
   # A small change has one builder and no lead: the builders' row from its start, and phases with no
   # criteria to wait in and no plan.
-  if grep -q 'data-head="The builders · The small change"' "$WORK/task-correction-one.dom" \
+  if grep -q 'data-head="The builders · The change"' "$WORK/task-correction-one.dom" \
     && ! grep -q 'data-head="The agent · It plans the task"' "$WORK/task-correction-one.dom" \
     && why=$("$PY" -I -c 'import re, sys
 dom = open(sys.argv[1], encoding="utf-8").read()
@@ -1000,7 +1000,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   draw task-approved-again
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-approved-again.dom" "1. A slip for Berlin or Vienna is in German." \
     "approved after the plan’s criteria were recorded: the agent records them again, with their tests" "approval 2; it replaces approval 1" \
-    "!held by its tests" "!A slip for Berlin is in German." "full change, because the slip gets a language."); then
+    "!held by its tests" "!A slip for Berlin is in German." "standard track, because the slip gets a language."); then
     pass "after a new approval the Acceptance criteria card shows the approved criteria, not the plan's older ones and their tests' result"
   else
     fail "criteria approved after the plan's: $why"
@@ -1028,7 +1028,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     fail "criterion changes and approvals: $why"
   fi
   draw task-rare-path
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-rare-path.dom" "Frozen by the personas’ read, with no wait for you" "!Taken as a small change" "!Approved by you"); then
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-rare-path.dom" "Frozen by the personas’ read, with no wait for you" "!The fast track: Lem approved" "!Approved by you"); then
     pass "criteria the personas' read froze for a full change from a complete request are shown as such, never as a small change or as the owner's yes"
   else
     fail "the read's approval: $why"
@@ -1260,7 +1260,7 @@ sys.exit(not ok)' "$WORK/board.dom"); then
       || raw+=("$(basename "$dom"): $why")
   done
   if [ "${#raw[@]}" -eq 0 ] \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Correction one|One builder makes the change|small change" "Talk runs|Its companion talks the plan through|plan talk"); then
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Correction one|One builder makes the change|fast track" "Talk runs|Its companion talks the plan through|plan talk"); then
     pass "no page shows a fixed line of a state block or a stage's start as it is written, says the owner in the third person, or names a careful path: who works on a task, its plan, its kind, its investigation and what it waits for are said in words to you"
   else
     fail "a fixed line of a state block: ${raw[*]:-} ${why:-}"
@@ -1359,12 +1359,12 @@ print("; ".join(dict.fromkeys(wrong)))
 sys.exit(bool(wrong))
 PY
 )
-  # The type is shown as Lem wrote it, on a task of any size, and only the one builder of a small change
-  # makes a task a small change.
-  if why=$("$PY" -I -B -c "$LOOK" cards "$WORK/board.dom" "Building one|fix|!small change|!one-rule" "Correction one|One builder makes the change|small change|!one-rule"); then
-    pass "the type fix shows as fix, also on a task with a plan, and the size shows only as the small change chip of a task with one builder"
+  # The type is shown as Lem wrote it, on a task of either track, and only the one builder of the fast
+  # track puts a task on the fast track.
+  if why=$("$PY" -I -B -c "$LOOK" cards "$WORK/board.dom" "Building one|fix|!fast track|!one-rule" "Correction one|One builder makes the change|fast track|!one-rule"); then
+    pass "the type fix shows as fix, also on a task with a plan, and the track shows only as the fast track chip of a task with one builder"
   else
-    fail "the type and the size: $why"
+    fail "the type and the track: $why"
   fi
   # A12: each small thing of the look a reader stumbled on.
   if why=$("$PY" -I -B -c "$LOOK" likeit "$WORK/board.dom"); then

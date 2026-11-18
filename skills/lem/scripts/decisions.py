@@ -263,8 +263,8 @@ class Task:
 
     def approved(self) -> dict | None:
         """The criteria the owner approved, as `lem criteria approve` kept them; none for a task without.
-        An approval an older Lem kept names its kind (`feature`, `correction`) and not its size, and
-        Lem's own approval of a small change as `by: correction`: each reads in the form of now. A
+        An approval an older Lem kept names its kind (`feature`, `correction`) and not its `size`, and
+        Lem's own approval on the fast track as `by: correction`: each reads in the form of now. A
         later change may drop the old form once no task with such an approval is open."""
         kept = self.directory / "criteria.json"
         if not kept.is_file():
@@ -339,15 +339,15 @@ class Task:
         return lines
 
 
-# The kinds an older Lem gave an approval of its stories, by the size each is now, and who approved
+# The kinds an older Lem gave an approval of its stories, by the `size` word each is now, and who approved
 # for its `by: correction`. A later change may drop them once no task with such an approval is open.
 OLD_SIZES = {"feature": "full", "correction": "small"}
 OLD_BY = {"correction": "lem"}
 
 
 def now_form(approval: dict) -> dict:
-    """One approval of criteria in the form of now: its size, its texts under `criteria`, and Lem as who
-    approved a small change."""
+    """One approval of criteria in the form of now: its `size`, its texts under `criteria`, and Lem as who
+    approved on the fast track."""
     out = {key: value for key, value in approval.items() if key not in ("kind", "history", "stories")}
     if "criteria" not in out and "stories" in approval:
         out["criteria"] = approval["stories"]

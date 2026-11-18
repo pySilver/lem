@@ -220,7 +220,7 @@ project --repo "$LOCAL" log read-doubt criteria.read by=lem asked:=3 answered:=2
 lcriteria approve read-doubt --file "$WORK/doubt.md" >/dev/null 2>&1 || true
 local_land propose read-doubt --title "fix: r" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.lem/state/tasks/read-doubt/pr.md
-if grep -qF "read-doubt is a full change, and the event log has no \`criteria.read\`" <<<"$unread_feature" && grep -qF 'stages/interview.md' <<<"$unread_feature" \
+if grep -qF "read-doubt takes the standard track, and the event log has no \`criteria.read\`" <<<"$unread_feature" && grep -qF 'stages/interview.md' <<<"$unread_feature" \
   && grep -qF "the newest read of read-doubt's criteria found a split between the two families, and no approval of the owner's came after it" <<<"$split_unseen" \
   && grep -qF "found 1 flagged criterion, and no approval of the owner's came after it" <<<"$flag_unseen" && grep -qF "lem criteria approve read-doubt --file FILE" <<<"$flag_unseen" \
   && grep -qF "the newest read of read-doubt's criteria found a split between the families: the criteria wait for the owner, and only the owner's approval freezes them" <<<"$freeze_split" \
@@ -319,7 +319,7 @@ over_his_file=$(lcriteria approve after-change --read --file "$WORK/as-correctio
 kept_contracts=$("$PY" -c 'import json, sys; print([(json.load(open(f))["number"], json.load(open(f))["by"], json.load(open(f))["size"]) for f in sys.argv[1:]])' \
   "$LOCAL/.lem/state/tasks/ticket-word/criteria.json" "$LOCAL/.lem/state/tasks/after-change/criteria.json" 2>&1 || true)
 if grep -qF "ticket-word has approval 1 of its criteria already (by read): a read freezes only the first contract" <<<"$refreeze" \
-  && grep -qF "A criterion changes through its record, \`lem decisions criterion ticket-word ...\`, and the size only through the owner's own approval" <<<"$refreeze" \
+  && grep -qF "A criterion changes through its record, \`lem decisions criterion ticket-word ...\`, and the track only through the owner's own approval" <<<"$refreeze" \
   && grep -qF "after-change has approval 2 of its criteria already (by owner): a read freezes only the first contract" <<<"$over_his" \
   && grep -qF "it takes no --file" <<<"$over_his_file" && grep -qF "it takes no --file" <<<"$refile" \
   && [ "$kept_contracts" = "[(1, 'read', 'full'), (2, 'owner', 'full')]" ]; then
@@ -412,10 +412,10 @@ approved_plan=$(lcriteria red one-word 2>&1 || true)
 "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("Size: small, because", "Kind: correction, because"))' "$tree/docs/plans/20261115-one-word.md"
 old_plan=$(lcriteria show one-word 2>&1 || true)
 git -C "$tree" checkout -q -- docs
-never="20261115-one-word.md says \`Size: small\`, and a plan never makes a change small"
-if grep -qF "$never" <<<"$as_plan" && grep -qF "a small change, whose one criterion is \`criteria.md\` in the task directory" <<<"$as_plan" \
+never="20261115-one-word.md says \`Size: small\`, and a plan never puts a task on the fast track"
+if grep -qF "$never" <<<"$as_plan" && grep -qF "one plain change takes the fast track, whose one criterion is \`criteria.md\` in the task directory" <<<"$as_plan" \
   && grep -qF "Size: full, because" <<<"$as_plan" && grep -qF "$never" <<<"$as_polish" && grep -qF "$never" <<<"$as_gate" && grep -qF "$never" <<<"$approved_plan" \
-  && grep -qF "20261115-one-word.md says \`Kind: correction\`, and a plan never makes a change small" <<<"$old_plan" \
+  && grep -qF "20261115-one-word.md says \`Kind: correction\`, and a plan never puts a task on the fast track" <<<"$old_plan" \
   && [ "$(kept_in "$LOCAL" one-word gated)" = None ] && [ "$(kept_in "$LOCAL" one-word polish)" = None ] \
   && ! grep -q '"event": "gate.start", "task": "one-word"' "$LOCAL/.lem/state/events.jsonl"; then
   pass "a plan that says Size: small is refused by the criteria, the polish pass and the gate, also with Lem's approval of a small change in the owner's name, and so is one that says Kind: correction; the refusal names the small change, which has no plan, and the full change's Size line"
@@ -459,9 +459,9 @@ lcriteria approve no-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
 no_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 || true)
 skip_read no-word lem >/dev/null
 lem_word=$(local_land propose no-word --title "feat: w" --notes "$NOTES" 2>&1 || true)
-if grep -qF "no-word is a full change, and the event log has no \`criteria.read\`" <<<"$no_word" \
+if grep -qF "no-word takes the standard track, and the event log has no \`criteria.read\`" <<<"$no_word" \
   && grep -qF "lem decisions log no-word --by owner --what \"the personas' read of the criteria\" --chose \"no read: the criteria name only the developer\"" <<<"$no_word" \
-  && grep -qF "no-word is a full change, and the event log has no \`criteria.read\`" <<<"$lem_word" \
+  && grep -qF "no-word takes the standard track, and the event log has no \`criteria.read\`" <<<"$lem_word" \
   && [ ! -e "$LOCAL/.lem/state/tasks/no-word/pr.md" ]; then
   pass "a full change with his approval and no read is refused when no word of his to skip the read is on record, and a word of Lem's in the same form is no such word"
 else
@@ -479,7 +479,7 @@ skip_read rare-word owner >/dev/null
 lcriteria approve rare-word --file "$WORK/mine.md" >/dev/null 2>&1 || true
 said_late=$(local_land propose rare-word --title "feat: r" --notes "$NOTES" 2>&1 || true)
 if grep -qF "a lead of rare-word started before the owner's approval that came after the word to skip the personas' read" <<<"$approved_late" \
-  && grep -qF "for a full change from a complete request the read always runs" <<<"$approved_late" && grep -qF "stages/plan.md" <<<"$approved_late" \
+  && grep -qF "on the standard track from a complete request the read always runs" <<<"$approved_late" && grep -qF "stages/plan.md" <<<"$approved_late" \
   && grep -qF "a lead of rare-word started before the owner's word to skip the personas' read" <<<"$said_late" \
   && [ ! -e "$LOCAL/.lem/state/tasks/rare-word/pr.md" ]; then
   pass "for a full change from a complete request his word to skip the read is refused: a lead that started before his word, or before his approval after it, wrote the criteria, and the personas read them"
@@ -513,7 +513,7 @@ old_mode "$LOCAL" grew-up alone "go alone"
 over_small=$(lcriteria approve grew-up --file "$WORK/gone.md" --alone 2>&1 | field '(d["by"], d["number"])' 2>&1 || true)
 lcriteria approve grew-up --file "$WORK/gone.md" >/dev/null 2>&1 || true
 over_his=$(lcriteria approve grew-up --file "$WORK/gone.md" --alone 2>&1 || true)
-if grep -qF "gone-out runs with the owner: the owner's yes approves its criteria" <<<"$with_him" && grep -qF "a small change's criterion is approved with --small" <<<"$small_file" \
+if grep -qF "gone-out runs with the owner: the owner's yes approves its criteria" <<<"$with_him" && grep -qF "the fast track's criterion is approved with --small" <<<"$small_file" \
   && [ "$two_kinds" = 1 ] && grep -qF "found 1 flagged criterion, and no approval of the owner's came after it" <<<"$flagged" \
   && [ "$by_alone" = alone ] && [ "$proposed_alone" = open ] \
   && [ "$over_small" = "('alone', 2)" ] && grep -qF "grew-up has approval 3 of its criteria already (by owner)" <<<"$over_his"; then

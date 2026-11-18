@@ -248,9 +248,9 @@ else
   draw task-old-full old-full
   if [ ! -s "$WORK/task-old-bug.dom" ]; then
     skip "the board of the tasks an older Lem proposed: $chrome printed no page"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-old-bug.dom" "fix" "Taken as a small change: Lem approved its one criterion in your name" "small change, because the request is one sentence." \
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-old-bug.dom" "fix" "The fast track: Lem approved its one criterion in your name" "fast track, because the request is one sentence." \
       "nothing writes the word into bug.txt" "!kind: bug" "!correction, because" "!stories" "!one story") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-old-full.dom" "feat" "full change, because the file gets a word and the README a line." "Approved by you" \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-old-full.dom" "feat" "standard track, because the file gets a word and the README a line." "Approved by you" \
       "The file full.txt holds the word the owner asked for." "Acceptance criteria" "read by 2 of 2 personas" "!feature, because" "!stories" "!one story"); then
     pass "the board draws the tasks an older Lem proposed with their types, the small change's approval in the owner's name, its cause, and the full change's acceptance criteria"
   else

@@ -133,7 +133,7 @@ class Shop:
 
 def afternoon(shop: Shop) -> None:
     s = shop
-    # A small change, built, checked, read once and proposed green: it waits for the merge.
+    # A task on the fast track, built, checked, read once and proposed green: it waits for the merge.
     t = "footer-terms-typo"
     s.task(t, 'The footer says "Terms and condtions"')
     s.approve(t, 52, s.criteria_file(t, "small", "the request is one sentence.", 'The footer says "Terms and conditions".'), "--small")
@@ -151,7 +151,7 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 34, "proposed", "green:=true", "not_green:=[]", "tip=4c1d2e3")
     s.state(t, 34, "open", "pull request https://github.com/acme/shop/pull/41", "green")
 
-    # A full change on its second task of three.
+    # A task on the standard track, on its second task of three.
     t = "gift-note-in-export"
     s.task(t, "Add the gift note to the CSV export")
     s.state(t, 150, "held", "the interview waits for the owner", "type: feat, because the export gets a new column")
@@ -206,7 +206,7 @@ def afternoon(shop: Shop) -> None:
             "type: fix, because the ask says the total is wrong since yesterday")
     s.log(t, 11.5, "investigation.start", "type=fix")
 
-    # A full change that landed today, from its interview to the merge.
+    # A task on the standard track that landed today, from its interview to the merge.
     t = "order-date-on-invoice"
     s.task(t, "Print the order date on the invoice")
     s.state(t, 330, "held", "the interview waits for the owner", "type: feat, because the invoice gets a new line")

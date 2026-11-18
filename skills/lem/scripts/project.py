@@ -118,7 +118,7 @@ was asked in `silent`; the landing counts two of those in a row as criteria that
 `stories.read.start`, with the name of now; the landing still reads the events an older Lem wrote.
 `investigation`, which Lem writes after it reads the investigator's report of a fix or a
 question, as `type=fix|question call=CALL line=TEXT [where=PATH:SYMBOL]
-[reproduced:=true|false]`: a fix's call is small, full, not-a-bug or not-reproduced, and it says
+[reproduced:=true|false]`: a fix's call is small (the fast track), full (the standard track), not-a-bug or not-reproduced, and it says
 whether the bug was reproduced; a plain cause names its place; a question's call is answer.
 `tasks` gives each task its newest as `investigation`, and `state SLUG answered` refuses a task
 with no `investigation.md` and no record whose call is not-a-bug or answer. A record an older Lem
@@ -347,14 +347,14 @@ WITH_LANDING = ("landing", "open")
 # The states only a lead, or the start or the queue of a task, writes. None comes over a task with its
 # landing: there it is a lead that woke late. `ready` does with `--start-over`, which only the way out
 # that land.py names gives: a landing that cannot go on, or whose record is broken, starts over.
-# `held` is not here: Lem writes it over `landing` when the checks find a small change to be a full
-# change, and the interview of a full change starts with it (`stages/new.md`, "A small change").
+# `held` is not here: Lem writes it over `landing` when the checks find that a task on the fast track
+# needs the standard track, and the interview of that path starts with it (`stages/new.md`, "The fast track").
 LEADS_WRITE = ("queued", "building", "planned", "ready", "drafted")
 # The type of a request, which Lem takes from the request's words alone (`stages/new.md`, "Open the
 # task"): a Conventional Commits type, and `question` for a task that ends with an answer and commits
 # nothing. A state line `type: TYPE, because WHY` says it; no code matches a request's words against
-# them. The size of a request (a small change or a full change) is no type: a small change has the
-# state line `small change: one builder`.
+# them. The track of a request (the fast track or the standard track) is no type: a task on the fast
+# track has the state line `small change: one builder`.
 TYPES = ("feat", "fix", "docs", "refactor", "perf", "test", "chore", "question")
 TYPE_LINE = re.compile(r"type:\s*(?P<type>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+))?")
 # The line an older Lem wrote for the same, `kind: KIND, because WHY`, and the type each of its kinds
@@ -363,8 +363,9 @@ TYPE_LINE = re.compile(r"type:\s*(?P<type>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+
 OLD_KIND_LINE = re.compile(r"kind:\s*(?P<kind>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+))?")
 OLD_KINDS = {"bug": "fix", "feature": "feat", "correction": "fix", "investigation": "question", "chore": "chore", "docs": "docs"}
 # What the investigation of a fix or of a question found, as `log investigation` takes it: the call
-# that sets the task's next path (`stages/investigate.md`). A fix goes on as a small
-# change or a full change, or it is no bug; two of the calls end the task with its report, as `answered`.
+# that sets the task's next path (`stages/investigate.md`). A fix goes on by the fast track (`small`)
+# or the standard track (`full`), or it is no bug; two of the calls end the task with its report, as `answered`.
+
 CALLS = {"fix": ("small", "full", "not-a-bug", "not-reproduced"), "question": ("answer",)}
 ANSWERING = ("not-a-bug", "answer")
 # The record an older Lem wrote for an investigation: `kind=bug|investigation`, and the calls

@@ -504,9 +504,16 @@ const STATUS = {
 const ENDED = ['landed', 'dropped', 'answered'];
 // The type of a request, from its state line `type: TYPE, because WHY` (stages/new.md): a
 // Conventional Commits type, or `question`, shown as the developer writes it in a commit. It says
-// nothing of the size: a task is a small change only by its one builder (the state line `small
-// change: one builder`), and only that task has the "small change" tag.
+// nothing of the track: a task is on the fast track only by its one builder (FAST_BUILDER), and
+// only that task has the "fast track" tag.
 const TYPES = ['feat', 'fix', 'docs', 'refactor', 'perf', 'test', 'chore', 'question'];
+// The records' own words for the fast track, which the stages write and scripts match (SKILL.md):
+// the state line of its one builder, its builder's job (project.py BUILDER_JOBS), and the line of a
+// task whose builder found that it needs the standard track (prompts/small.md). The page says each
+// in the track's name and never shows them.
+const FAST_BUILDER = /^small change: one builder$/;
+const FAST_JOB = 'the small change';
+const FAST_GREW = /\bthe small change is a full change$/;
 // The kind line an older Lem wrote, `kind: KIND, because WHY`, and the type each kind reads as
 // (project.py OLD_KINDS). A later change may drop it once no task whose log holds such a line is open.
 const OLD_KINDS = {bug: 'fix', feature: 'feat', correction: 'fix', investigation: 'question', chore: 'chore', docs: 'docs'};
@@ -517,12 +524,14 @@ function typeLine(line) {
   const old = line.match(/^kind: ([a-z]+), because (.+)$/);
   return old && OLD_KINDS[old[1]] ? {type: OLD_KINDS[old[1]], why: old[2]} : null;
 }
-// The size of a set of criteria (`Size:` of criteria.py), in the page's words. An older Lem logged a
-// kind instead (feature, correction), which reads as its size; a later change may drop that.
+// The track of a set of criteria, as the word of their `Size:` line (criteria.py) that the records
+// keep as `size`, and its name on the page. An older Lem logged a kind instead (feature,
+// correction), which reads as its word; a later change may drop that.
 const OLD_SIZES = {feature: 'full', correction: 'small'};
 const sizeOf = e => e?.size ?? OLD_SIZES[e?.kind] ?? null;
-const sizeWords = size => (size ? `${size} change` : 'criteria');
-// Who approved a set of criteria: Lem approves a small change's one criterion in the owner's name (`lem`;
+const TRACKS = {small: 'fast', full: 'standard'};
+const trackWords = size => (size ? `${TRACKS[size] ?? size} track` : 'criteria');
+// Who approved a set of criteria: Lem approves the fast track's one criterion in the owner's name (`lem`;
 // an older Lem logged `correction`).
 const approver = by => (by === 'correction' ? 'lem' : by);
 // What the investigation of a fix or a question found (project.py `log investigation`), as the
@@ -533,8 +542,8 @@ const OLD_CALLS = {correction: 'small', usual: 'full'};
 const callOf = e => OLD_CALLS[e.call] ?? e.call;
 const investigatedType = e => e.type ?? ({bug: 'fix', investigation: 'question'})[e.kind] ?? null;
 const CALLS = {
-  small: {head: 'The investigation found a plain cause: a small change fixes it', card: 'The cause', now: 'A plain cause, which one rule fixes: the task goes on as a small change'},
-  full: {head: 'The investigation found a plain cause: a full change', card: 'The cause', now: 'A plain cause, and a full change: the interview starts from it'},
+  small: {head: 'The investigation found a plain cause: the fast track fixes it', card: 'The cause', now: 'A plain cause, which one rule fixes: the task goes on by the fast track'},
+  full: {head: 'The investigation found a plain cause: the standard track', card: 'The cause', now: 'A plain cause, and the standard track: the interview starts from it'},
   'not-a-bug': {head: 'The investigation found no bug', card: 'No bug', now: 'No bug: the code does what it should'},
   'not-reproduced': {head: 'The investigation did not reproduce the bug', card: 'Not reproduced', now: 'Not reproduced: Lem asks you for one more fact'},
   answer: {head: 'The investigation answered the question', card: 'The answer', now: 'The answer to the question'},
@@ -563,7 +572,7 @@ const LANES = [
 ];
 // 'Proposed' is the pull request, or a branch ready to land where the remote is not GitHub.
 const PHASES = ['Criteria', 'Plan', 'Build', 'Checks', 'Review', 'Proposed', 'Landed'];
-// A small change has no criteria to wait in and no plan: one builder makes it, then the landing.
+// The fast track has no criteria to wait in and no plan: one builder makes it, then the landing.
 const SMALL_PHASES = ['Change', 'Checks', 'Review', 'Proposed', 'Landed'];
 // What waits for the owner, the most pressing first: a choice whose wait runs out, a held task,
 // then what only waits for his word.
@@ -573,7 +582,7 @@ const BY_WHOM = {lead: 'the agent', personas: 'the personas', owner: 'you', lem:
 // Who works on a task, from its state lines, in words a developer needs no glossary for: the page
 // never says "lead" or "defender". `lead: session` is the companion Lem opens for a careful or large
 // plan's talk, which builds nothing; `lead: builder` after a plan talk is the agent that builds the
-// talked plan; `small change: one builder` is a small change's one builder, which is no lead.
+// talked plan; FAST_BUILDER is the fast track's one builder, which is no lead.
 // `chip` is the tag a card shows: "one agent" is what most tasks have, so it says nothing there.
 const LEAD = {
   session: {tag: 'plan talk', chip: 'plan talk', title: 'A companion session talks the plan through, with the reviewer in its other pane; an agent builds it after the talk',
@@ -582,7 +591,7 @@ const LEAD = {
     head: 'An agent builds it', stat: 'one agent builds the plan its companion talked through'},
   builder: {tag: 'one agent', chip: null, title: 'One agent plans this task, and a fresh builder builds each task of its plan', head: 'An agent plans and builds it',
     stat: 'one agent plans it, and a fresh builder builds each task of the plan'},
-  small: {tag: 'one builder', chip: 'small change', title: 'A small change: one builder makes it, with no lead and no plan, and the landing checks it',
+  small: {tag: 'one builder', chip: 'fast track', title: 'The fast track: one builder makes it, with no lead and no plan, and the landing checks it',
     head: 'One builder makes the change', stat: 'one builder makes the change, with no lead and no plan'},
 };
 const leadOf = t => (t.lead === 'session' ? 'session' : t.lead === 'small' ? 'small' : t.talks.length ? 'talked' : 'builder');
@@ -747,7 +756,8 @@ const titleOf = slug => { const words = String(slug).replace(/-+/g, ' ').trim();
 function words(line, talked = false) {
   const s = String(line);
   if (/^lead: builder\b/.test(s)) return talked ? 'an agent builds the plan its companion talked through' : 'an agent plans and builds it';
-  if (/^small change: one builder$/.test(s)) return 'one builder makes the change';
+  if (FAST_BUILDER.test(s)) return 'one builder makes the change';
+  if (FAST_GREW.test(s)) return yours(s.replace(FAST_GREW, 'the task takes the standard track'));
   if (/^lead: session\b/.test(s)) return 'its companion talks the plan through';
   if (/^session: \S+$/.test(s) || /^investigation: (bug|question)$/.test(s)) return null;
   const typed = typeLine(s);
@@ -874,7 +884,7 @@ function derive(now) {
     // every event of the task, in the order of the log: "Where the time went" reads them all
     t.events.push(e);
     if (String(e.event).startsWith('decision.')) { decisionEvent(t, e); continue; }
-    // The criteria the owner approved, or Lem in his name for a small change, and each read of them by the personas.
+    // The criteria the owner approved, or Lem in his name on the fast track, and each read of them by the personas.
     // An approval has a number of its own (criteria.py); a log written before numbers counts them in order.
     if (e.event === 'criteria.approved') {
       t.approvals.push({ts: at(e), order: t.events.length, number: e.number ?? t.approvals.length + 1, by: approver(e.by), size: sizeOf(e), why: e.why, digest: e.digest, criteria: e.criteria ?? [], replaces: e.replaces ?? null});
@@ -935,7 +945,7 @@ function derive(now) {
     for (const line of lines) {
       const lead = line.match(/^lead: (builder|session)\b/);
       if (lead) { t.lead = lead[1]; if (lead[1] === 'builder') t.session = null; }
-      if (/^small change: one builder$/.test(line)) { t.lead = 'small'; t.session = null; }
+      if (FAST_BUILDER.test(line)) { t.lead = 'small'; t.session = null; }
       const session = line.match(/^session: (\S+)/);
       if (session) t.session = session[1];
       const progress = e.status === 'building' && line.match(/\btask (\d+) of (\d+)\b/);
@@ -1238,21 +1248,23 @@ const tickLabel = (ms, whole, now) => (whole < 6 * 60000 ? hms(ms, now) : stamp(
 const taskLine = b => b.status === 'building' && [b.text, ...b.lines].join(' ').match(/\btask (\d+) of (\d+)\b/);
 // A builder investigates a bug or a question before any lead: the block's line `investigation: bug` or `investigation: question` (stages/investigate.md).
 const investigates = b => b.status === 'building' && [b.text, ...b.lines].some(line => /^investigation:/.test(line));
-// A small change's one builder makes it: the block's line `small change: one builder` (stages/new.md).
-const smallBlock = b => b.status === 'building' && [b.text, ...b.lines].some(line => /^small change: one builder$/.test(line));
+// The fast track's one builder makes it: the block's line FAST_BUILDER (stages/new.md).
+const smallBlock = b => b.status === 'building' && [b.text, ...b.lines].some(line => FAST_BUILDER.test(line));
 // The events that cut a landing. `polish` is the end of the polish pass (land.py polish --done),
 // which logs no start: its span runs from the event before it.
 const CHECKS = ['polish', 'gate', 'task.red', 'review', 'review.filed', 'proposed'];
 // The starts of the steps of a landing (land.py logs the first three, and a builder of the landing
 // the fourth): each ends at the next step's event (SKILL.md).
 const LANDING_STARTS = ['polish.start', 'gate.start', 'review.start', 'builder.start'];
-// A landing starts with the rebase onto the base and, for a task that is no small change, the polish
+// A landing starts with the rebase onto the base and, for a task that is not on the fast track, the polish
 // pass; no event says which runs until the pass ends. A pass of an earlier landing still counts.
 const criteriaSize = t => t.criteria?.size ?? t.approvals.at(-1)?.size ?? null;
 const startsLanding = t => t.status === 'landing' && !t.gates.length && !t.polish && !t.landingStep && criteriaSize(t) !== 'small';
 // What runs in a landing whose newest step started and has not ended.
 const STEP_RUNS = {'polish.start': 'The polish pass runs', 'gate.start': 'The checks run', 'review.start': 'The review runs'};
-const stepRuns = e => STEP_RUNS[e.event] ?? `A builder makes ${e.job ?? 'its job'}`;
+// A builder's job as the page says it: the fast track's job (FAST_JOB) is "the change".
+const jobOf = e => (e.job === FAST_JOB ? 'the change' : e.job);
+const stepRuns = e => STEP_RUNS[e.event] ?? `A builder makes ${jobOf(e) ?? 'its job'}`;
 
 // The spans of one task, each on the row of who held the work, the marks of what logged only its
 // end, and the bands of the stages behind them. `end` is where the drawing stops: the last event of
@@ -1288,7 +1300,7 @@ function timeOf(t, end) {
     else if (e.event === 'criteria.read.start') { const r = pair(i, e, 'personas', 'The personas’ read of the criteria', readSub, x => x.event === 'criteria.read'); if (r) startedReads.add(r); }
     else if (e.event === 'investigation.start') pair(i, e, 'builders', 'The investigation', investigatedType(e) === 'fix' ? 'an investigator reproduces the bug and finds its cause' : 'an investigator finds the answer', x => x.event === 'investigation');
     else if (e.event === 'builder.start' && t.blocks[blockOf.get(e)]?.status !== 'landing') {
-      pair(i, e, 'builders', cap(String(e.job ?? 'a job')), 'a fresh builder; its span ends at the next state block', x => x.event === 'task.state' || LANDING_STARTS.includes(x.event) || CHECKS.includes(x.event));
+      pair(i, e, 'builders', cap(String(jobOf(e) ?? 'a job')), 'a fresh builder; its span ends at the next state block', x => x.event === 'task.state' || LANDING_STARTS.includes(x.event) || CHECKS.includes(x.event));
     }
   });
   spans.push(...explicit);
@@ -1326,7 +1338,7 @@ function timeOf(t, end) {
     const aloneN = Number.isInteger(meta.alone) ? meta.alone : 0;
     const sameTip = (a, b) => Boolean(a && b) && (String(a).startsWith(b) || String(b).startsWith(a));
     let run = null, owed = false, prev = from, before = null, opened = null;
-    const job = e => cap(String(e.job ?? 'a job'));
+    const job = e => cap(String(jobOf(e) ?? 'a job'));
     for (const e of inside) {
       const x = at(e);
       if (LANDING_STARTS.includes(e.event)) {
@@ -1434,7 +1446,7 @@ function timeOf(t, end) {
   });
 
   // The criteria wait for his yes from the personas' read to his approval after it. A yes he gave
-  // before the read was in, and a small change Lem approved in his name, cost him no wait.
+  // before the read was in, and a fast-track criterion Lem approved in his name, cost him no wait.
   let since = -Infinity;
   for (const a of t.approvals) {
     const read = t.reads.filter(r => r.order > since && r.order < a.order).at(-1);
@@ -1567,11 +1579,11 @@ const investigationSub = x => [x.where, x.type === 'fix' && x.reproduced != null
 
 // What each event of the scripts says, in the feed's words; an event not named here is shown as its fields.
 const SAYS = {
-  'task.criteria': e => ({info: {actor: 'lead', icon: 'file'}, head: 'Acceptance criteria recorded', text: `${sizeWords(sizeOf(e))}: ${criteriaCount((e.criteria ?? []).length)}`}),
+  'task.criteria': e => ({info: {actor: 'lead', icon: 'file'}, head: 'Acceptance criteria recorded', text: `${trackWords(sizeOf(e))}: ${criteriaCount((e.criteria ?? []).length)}`}),
   'task.red': e => ({info: {actor: e.ok ? 'done' : 'bad', icon: e.ok ? 'check' : 'alert'}, head: e.ok ? 'The tests of the criteria hold' : 'A test does not hold its criterion', text: `on ${e.tip ?? '?'}, against ${e.base ?? 'the base'}`}),
   'criteria.approved': e => ({info: {actor: e.by === 'owner' ? 'you' : 'lem', icon: 'check'},
-    head: {owner: 'You approved the acceptance criteria', lem: 'Taken as a small change in your name', read: 'The personas’ read froze the criteria'}[approver(e.by)] ?? `Criteria approved by ${e.by}`,
-    text: `${e.number ? `approval ${e.number} · ` : ''}${sizeWords(sizeOf(e))}: ${criteriaCount((e.criteria ?? []).length)}`}),
+    head: {owner: 'You approved the acceptance criteria', lem: 'Taken for the fast track in your name', read: 'The personas’ read froze the criteria'}[approver(e.by)] ?? `Criteria approved by ${e.by}`,
+    text: `${e.number ? `approval ${e.number} · ` : ''}${trackWords(sizeOf(e))}: ${criteriaCount((e.criteria ?? []).length)}`}),
   'criteria.read': e => !e.answered ? {info: {actor: 'bad', icon: 'users'}, head: 'Nobody answered the personas’ read of the criteria', text: `0 of ${e.asked} answered`}
     : {info: {actor: e.split || e.flagged ? 'you' : 'done', icon: 'users'}, head: 'The personas read the criteria',
       text: `${e.split ? 'the families split · ' : ''}${e.flagged ? `${e.flagged} flagged` : 'nobody confused'} · ${e.answered} of ${e.asked} answered`},
@@ -1592,7 +1604,7 @@ const SAYS = {
   'scout': () => ({info: {actor: 'lead', icon: 'file'}, head: 'The scout’s report is in', text: ''}),
   'criteria.read.start': e => ({info: {actor: 'quiet', icon: 'users'}, head: 'The personas’ read of the criteria started', text: `run by ${e.by === 'lead' ? 'the agent' : 'Lem'}`}),
   'investigation.start': e => ({info: {actor: 'lead', icon: 'eye'}, head: 'The investigation started', text: investigatedType(e) === 'fix' ? 'an investigator reproduces the bug and finds its cause' : 'an investigator finds the answer'}),
-  'builder.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'A builder started', text: e.job}),
+  'builder.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'A builder started', text: jobOf(e)}),
   'polish.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass started', text: `on ${e.before ?? '?'}`}),
   'gate.start': e => ({info: {actor: 'gate', icon: 'play'}, head: 'The checks started', text: `${plural(e.commands ?? 0, 'command')} on ${e.tip ?? '?'}`}),
   'review.start': e => ({info: {actor: 'gate', icon: 'eye'}, head: 'The review started', text: `attempt ${e.attempt ?? '?'} · ${KIND[e.floor] ?? e.floor}`}),
@@ -1821,7 +1833,7 @@ function phaseIndex(t) {
   const reached = t.reached;
   // an answered task ended with a report before any step of the flow that leads to a merge
   if (reached === 'answered') return -1;
-  // a small change has no criteria to wait in and no plan: its phases start at the change
+  // the fast track has no criteria to wait in and no plan: its phases start at the change
   if (t.lead === 'small') return reached === 'landed' ? SMALL_PHASES.length : Math.max(0, phaseIndex({...t, lead: null}) - 2);
   if (reached === 'landed') return PHASES.length;
   if (reached === 'open') return 5;
@@ -1848,7 +1860,7 @@ function buildTaskProgress(t) {
   const done = ['landed', 'ready', 'landing', 'open'].includes(t.reached);
   const total = p?.of ?? 0, finished = done ? total : Math.max(0, (p?.n ?? 1) - 1), current = !done && p && t.status === 'building' ? 1 : 0;
   const review = t.reviews.at(-1);
-  // a small change's phases are the full flow's from Build on: the change stands where the build does
+  // the fast track's phases are the standard track's from Build on: the change stands where the build does
   const sub = k => (k < lead ? (t.investigation ? CALLS[t.investigation.call]?.card ?? '' : '') : phaseSub(k - lead + (small ? 2 : 0)));
   const phaseSub = k => (k === 2 && p ? `task ${done ? p.of : p.n} of ${p.of}` : k === 3 && t.gates.length ? (t.gateBad ? `${t.gateBad} red` : `${t.gates.length} green`)
     : k === 4 && review ? review.verdict : k === 5 && t.proposal ? (t.proposal.green ? 'green' : 'not green') : '');
@@ -1918,8 +1930,8 @@ function buildCriteria(t, now) {
   return [...head, ...criterionRows(t)];
 }
 
-// What happened to the criteria before the build: his approval, or Lem's in his name for a
-// small change, and the personas' read, with a split between the model families said first. Then
+// What happened to the criteria before the build: his approval, or Lem's in his name on the
+// fast track, and the personas' read, with a split between the model families said first. Then
 // each change of an approved criterion during the build, from its own record.
 function criteriaHead(t, now) {
   const rows = [];
@@ -1956,20 +1968,20 @@ function criteriaHead(t, now) {
       h('span', {class: 'rtime'}, stamp(r.ts, now)))));
   } else if (size === 'small') {
     rows.push(keyed('read:none:small', h('div', {class: 'row a-quiet'}, h('span', {class: 'fi'}, icon('users')),
-      h('div', {class: 'rtext'}, 'The personas do not read the one criterion of a small change.'), h('span', {class: 'rtime'}, ''))));
+      h('div', {class: 'rtext'}, 'The personas do not read the one criterion of a task on the fast track.'), h('span', {class: 'rtime'}, ''))));
   } else if (size) {
     rows.push(keyed('read:none', h('div', {class: 'row a-quiet'}, h('span', {class: 'fi'}, icon('users')),
       h('div', {class: 'rtext'}, t.closed ? 'The personas did not read these criteria.' : 'The personas have not read these criteria yet.'), h('span', {class: 'rtime'}, ''))));
   }
   if (a) {
-    // Who froze the criteria: he did; Lem in his name, for a small change; or the personas' read of
-    // a full change from a complete request, which found nobody confused and never counts as his yes.
-    const head = {owner: 'Approved by you', lem: 'Taken as a small change: Lem approved its one criterion in your name', read: 'Frozen by the personas’ read, with no wait for you'}[a.by] ?? `Approved by ${a.by}`;
+    // Who froze the criteria: he did; Lem in his name, on the fast track; or the personas' read on
+    // the standard track from a complete request, which found nobody confused and never counts as his yes.
+    const head = {owner: 'Approved by you', lem: 'The fast track: Lem approved its one criterion in your name', read: 'Frozen by the personas’ read, with no wait for you'}[a.by] ?? `Approved by ${a.by}`;
     rows.push(keyed(`approved:${a.ts}:${a.by}:${a.number}`, h('div', {class: `row a-${a.by === 'owner' ? 'done' : 'quiet'}`},
       h('span', {class: 'fi'}, icon(a.by === 'owner' ? 'check' : a.by === 'read' ? 'users' : 'user')),
       h('div', {class: 'rtext'}, h('b', {}, head),
         r && a.by === 'owner' ? (r.order < a.order ? ' after the personas’ read' : ' before the personas’ read was in') : '',
-        a.by === 'lem' ? h('span', {class: 'sub'}, 'You may still say “full”: then the personas read it, and your approval replaces this one.') : '',
+        a.by === 'lem' ? h('span', {class: 'sub'}, 'You may still say “standard”: then the personas read it, and your approval replaces this one.') : '',
         a.by === 'read' ? h('span', {class: 'sub'}, 'The whole request was written, and nobody was confused: the build started, and you can still stop it or change a criterion.') : '',
         a.number > 1 || a.replaces != null ? h('span', {class: 'sub'}, `approval ${a.number}${typeof a.replaces === 'number' ? `; it replaces approval ${a.replaces}` : a.replaces ? '; it replaces an earlier approval' : ''}`) : ''),
       h('span', {class: 'rtime'}, stamp(a.ts, now)))));
@@ -2277,7 +2289,8 @@ function render() {
     patch($('progress'), t ? [buildTaskProgress(t)] : []);
     patch($('criteria'), t ? buildCriteria(t, now) : []);
     const approved = t?.approvals.at(-1);
-    $('criteria-sum').textContent = t?.criteria && !(approved && approved.order > t.criteria.order) ? `${sizeWords(t.criteria.size)}, because ${t.criteria.why}` : approved ? `${sizeWords(approved.size)}, because ${approved.why}` : '';
+    $('criteria-sum').textContent = t?.criteria && !(approved && approved.order > t.criteria.order) ? `${trackWords(t.criteria.size)}, because ${t.criteria.why}` : approved ? `${trackWords(approved.size)}, because ${approved.why}` : '';
+
     patch($('decisions'), t ? buildDecisions(t, now) : []);
     $('decisions-sum').textContent = t?.choices.length ? [t.asks.length && `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''} for you`,
       `${t.choices.filter(d => d.state !== 'waits').length} taken`].filter(Boolean).join(' · ') : '';

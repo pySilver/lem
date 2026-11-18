@@ -1339,7 +1339,7 @@ criteria record export-has-the-gift-note >/dev/null && criteria red export-has-t
 if [ "$fenced" = "('full', 'The real criterion.')" ] && [ "$other" = "('full', '20261115-export-has-the-gift-note.md')" ] \
   && [ "$old_kind" = "('full', 'feature')" ] && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with \`Size: full, because ...\`" <<<"$odd_size" \
   && grep -q 'has no `## Acceptance criteria` section' <<<"$no_section" && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with" <<<"$no_kind" \
-  && grep -q "a small change has one criterion, and this one has 2: it is a full change" <<<"$two" && grep -q ":6: the criteria are numbered 1, 2, 3 in order" <<<"$order" \
+  && grep -q "a task on the fast track has one criterion, and this one has 2: it takes the standard track" <<<"$two" && grep -q ":6: the criteria are numbered 1, 2, 3 in order" <<<"$order" \
   && [ "$(status_of criteria show no-such-task)" = 1 ]; then
   pass "a plan with no criteria section, no size, a small change of two criteria, an unknown size or a gap in the numbers is refused with the place and the fix; the Kind line of an older Lem reads as its size; a fenced example is not the section, and a plan of another task is not read"
 else
@@ -1365,7 +1365,7 @@ if [ "$(field '(d["by"], d["size"], len(d["digest"]), [s["n"] for s in d["criter
   && [ "$(grep -c '"event": "criteria.approved", "task": "approved-note", "by": "owner"' "$ST/.lem/state/events.jsonl")" = 1 ] \
   && [ "$kept_now" = "('owner', '$(field 'd["digest"]' <<<"$approved" 2>/dev/null)', ['The note file holds the gift note of order 1042: \"for Ania\".', 'An order with no gift note has the line \"1043,\" and no word after the comma.'])" ] \
   && grep -q "criterion 1 of tested.md has a test line: the criteria the owner approves have none, and the lead adds them in the plan" <<<"$tested" \
-  && grep -q "says .Size: full.: a full change waits for the owner's own yes" <<<"$not_one" && grep -q "approve needs --file" <<<"$no_file" \
+  && grep -q "says .Size: full.: the standard track waits for the owner's own yes" <<<"$not_one" && grep -q "approve needs --file" <<<"$no_file" \
   && [ "$(grep -c '"event": "criteria.approved"' "$ST/.lem/state/events.jsonl")" = 1 ]; then
   pass "approve keeps the criteria the owner approved, before the task has a worktree: their text as written, a digest and who approved them, with one event for the board; a file with a test line, a full change as a small change and no file are refused"
 else
@@ -1488,7 +1488,7 @@ kind=$(criteria show approved-note 2>&1 || true)
 aplan_with '1. The note file holds the code `A  B` for' '   orders 1042 and 1044.' '2. Order 1043 has no note line.'
 kept_spaces=$(criteria show approved-note 2>/dev/null | field '(len(d["changes"]), d["criteria"][0]["text"])' 2>&1 || true)
 if [ "$reset" = "(0, ['$code1', 'Order 1043 has no note line.'])" ] && [ "$spaced" = "('$code1', '$code2')" ] \
-  && grep -qF "20261116-approved-note.md says \`Size: small\`, and the owner approved its criteria as a full change: a change of the size is the owner's only" <<<"$kind" \
+  && grep -qF "20261116-approved-note.md says \`Size: small\`, and the owner approved its criteria with \`Size: full\`: a change of the track is the owner's only" <<<"$kind" \
   && [ "$kept_spaces" = "(1, '$code2')" ]; then
   pass "his next approval starts the criterion changes again; a change keeps its texts as typed, two spaces of a literal value match, and a criterion broken over two lines is the same criterion; a plan of another size than the approved one is refused"
 else
@@ -1515,8 +1515,8 @@ fi
 printf '%s\n' '## Acceptance criteria' '' 'Size: small, because it is one sentence.' '' '1. The note file omits the code for order 1042.' > "$WORK/omits.md"
 over_feature=$(criteria approve approved-note --file "$WORK/omits.md" --small 2>&1 || true)
 contract=$(criteria approved approved-note 2>/dev/null | field '(d["approved"]["number"], d["approved"]["by"], d["approved"]["size"], d["approved"]["criteria"][0]["text"])' 2>&1 || true)
-if grep -qF "approved-note has approval 5 of its criteria already (by owner): Lem approves a small change in the owner's name only as the first contract" <<<"$over_feature" \
-  && grep -qF "the size only through the owner's own approval" <<<"$over_feature" && [ "$contract" = "(5, 'owner', 'full', '$code1')" ]; then
+if grep -qF "approved-note has approval 5 of its criteria already (by owner): Lem approves the fast track's criterion in the owner's name only as the first contract" <<<"$over_feature" \
+  && grep -qF "the track only through the owner's own approval" <<<"$over_feature" && [ "$contract" = "(5, 'owner', 'full', '$code1')" ]; then
   pass "Lem's approval of a small change in his name is only a task's first contract: over his approved full change it is refused, and his criteria and their size stay"
 else
   fail "a small change over his full change: $over_feature / $contract"
@@ -1780,7 +1780,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/criteria.dom" 2>/dev/null || true
   if [ ! -s "$WORK/criteria.dom" ]; then
     printf 'SKIP the criteria on the board: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/criteria.dom" "Acceptance criteria" "full change, because the export gets a new column and an empty cell." \
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/criteria.dom" "Acceptance criteria" "standard track, because the export gets a new column and an empty cell." \
     'A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' "sh tests/gift.sh" \
     "passes on the branch, fails on the base commit (checked on " "held by its tests" "An order with no gift note has an empty cell"); then
     pass "the board of one task shows its criteria as the plan has them, each with its tests and the result of the last check"
