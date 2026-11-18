@@ -18,8 +18,8 @@ flowchart TD
 ## The first line
 
 Lem answers each request with one line: the type, the track, what happens, and what you must do.
-In doubt, it first asks one question, with its guess. `/lem standard` and `/lem
-careful` correct the line.
+In doubt, it first asks one question, with its guess. `/lem standard-track` and
+`/lem be-careful` correct the line.
 
 - **Type**: a Conventional Commits type such as `feat` or `fix`, or `question`, which commits
   nothing. Only you can change it.
@@ -39,7 +39,7 @@ a typo, a rename across many files, a version bump, the fix of one rule.
 4. Lem opens the pull request.
 
 If the builder finds that the fast track does not fit, it stops, and the interview of the
-standard track starts. `/lem standard` does the same before the pull request.
+standard track starts. `/lem standard-track` does the same before the pull request.
 
 ## The standard track
 
@@ -61,7 +61,8 @@ and no persona has a doubt, the build starts at once. Say "interview me" to get 
 ## A bug or a question
 
 When your words do not show the cause of a bug, an agent called the investigator looks first. It
-writes a test that fails, finds the cause, and changes no behavior. Then:
+writes a test that fails, and finds the cause with the `root-cause` skill of Lem: it asks why
+until the answer is a file and a symbol. It changes no behavior. Then:
 
 - one rule removes the cause: the fast track, with that test;
 - the fix needs more: the standard track, with an interview that starts from the cause;
@@ -74,7 +75,7 @@ A question gets the same work, and ends with its answer.
 
 Your settings list what must never go wrong as topics, one sentence each: "a customer is charged
 the wrong amount". Lem reads each request, plan and diff against them. When it is not sure, the
-change is careful. `/lem careful` marks a task, also an open one: every reviewer reads it again.
+change is careful. `/lem be-careful` marks a task, also an open one: every reviewer reads it again.
 
 Every reviewer reads a careful change, and a person merges it. When its plan is careful, or has
 more than three parts, two agents argue the plan before any code. You can watch this plan talk.
