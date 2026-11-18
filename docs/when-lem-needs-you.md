@@ -26,7 +26,7 @@ Say "open them" to approve, reject or delay each one on one page.
 
 The board puts each task in a lane by who acts next.
 `/lem status <task>` opens the board of one task, with its criteria and their tests, its checks,
-its review, and where the time went.
+its review, and its times.
 
 In agterm, a chord lists the tasks, with what waits for you first. Pick one, and its board opens.
 `/lem init` gives you the keymap line.
