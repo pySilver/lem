@@ -81,7 +81,7 @@ claude plugin install lem@lem --scope project
 ```
 
 Then start Claude Code in agterm there, and type `/lem init`. Answer three questions, read Lem's
-page, and type "land". Then type `/lem` and your first request.
+page, and type "land". Then type your first request.
 
 ## What you type
 
@@ -90,14 +90,15 @@ page, and type "land". Then type `/lem` and your first request.
 | `/lem <request>` | Lem opens a task, and tells you its type and track |
 | `/lem` | the list of what waits for you, and the board |
 | `/lem status <task>` | the board of one task |
+| a chord in agterm (`ctrl+cmd+t`) | pick a task, and its board opens |
 | `/lem plan <request>` | a task on the standard track that stops after its plan. `/lem build` builds it |
 | `/lem land <task>` | Lem merges the pull request |
 | `/lem careful [task]`, `/lem standard [task]`, `/lem drop [task]` | you change a task: careful until the merge, the standard track until its pull request, or stopped. With no task named, Lem takes the task that you talk about and names it. If two fit, Lem asks |
 | `/lem away`, `/lem active` | the tasks go on without you, or wait for you again |
 | `/lem learn` | Lem puts your correction into the file that owns the step |
 
-Plain words that say the same work too. With your yes at setup, scheduled jobs run `/lem retro`
-each morning and `/lem night` each night.
+Plain words that say the same work too. With your yes at setup, `/lem retro` runs each morning and
+`/lem night` each night.
 
 ## What you can rely on
 
