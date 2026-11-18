@@ -84,7 +84,8 @@ forge calls it conflicting.
      them on top, quoted, and the line `the criteria wait for the owner`; write the state `held`
      with that line, and stop. Leave a flagged criterion as you wrote it: what you would change goes
      beside it, as a proposal, and he decides. A task that runs without him (`mode` is `alone` in
-     `lem project --repo WORKTREE tasks`) waits for nothing of this: each flagged criterion is a
+     `lem project --repo WORKTREE tasks`) waits for nothing of this, a request somebody else
+     wrote among it: each flagged criterion is a
      decision in doubt whose personas split, and it climbs `stages/ladder.md` from the dialectic,
      level 3. Write it as the level that settled it picked, log it with that level (`--option` as
      you wrote it, `--option` as the persona expected it), freeze the criteria with `lem criteria

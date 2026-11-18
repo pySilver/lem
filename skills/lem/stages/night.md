@@ -1,56 +1,54 @@
 # night
 
 `/lem night` runs with nobody at the terminal, started by a scheduled job. The session it starts
-is Lem for that night. It reads the backlog, picks what an agent can take without a decision from
-the owner, and leaves a plan for the morning. It never builds: a plan is the owner's to start.
+is Lem for that night. It takes items of the backlog, the smallest first, and runs each one
+without the owner to its pull request: "night execution is just a fun thing to build something
+while nobody's looking and its actually got to be a PR to merge, not a plan" (2026-11-18).
+Nothing asks him. In the morning he finds pull requests, each green or not green with its
+reasons, and the night's report.
 
 1. **The brake.** List the drafts that wait: tasks whose status is `drafted`
    (`lem project tasks`). With two or more of them, draft nothing and write why in the night
    report. A plan is written against the code as
    it stood that night, so a draft nobody starts ages, and a third one only adds to the pile.
-2. **The candidates.** Read the items in the backlog path (`lem project path backlog`): one file
-   each, with `worth`, `where` and `added` between two `---` lines, then a title and prose. The backlog only: a tracker's ticket is never a night's
-   candidate, because which ticket is next is a person's call. Leave out an item that is decided against (`worth: no`), one a branch, a worktree,
-   an open plan or a task directory already holds, and one in reach of one of the project's
-   topics (`flow.topics`): read the item's words and its `where` against each, as `stages/new.md`
-   step 1 reads an ask, and leave it out in doubt. A careful plan needs the reviewer, and that is
-   a day's work. Take the items with `worth: yes` first, then the others, and read each one: keep
-   the ones that state a defect or a job, not a choice.
-   An item that is one plain change (one rule in a sentence, in reach of no topic, no question
-   open: a small change, as `stages/new.md` step 1 sizes an ask) gets no plan: a plan never
-   makes a change small, and a small change has one builder and no plan. Draft nothing for it, name
-   it in the night report as ready to start as a small change, and take the next candidate; it
-   is none of the three tries of step 4, since no builder ran for it.
-3. **One item, planned.** For the first candidate, open the task as `stages/new.md` does, on a
-   branch `plan/<slug>`, and start a builder with `stop after the plan: yes` and one more line in
-   its brief, `night: yes`. Never ask: nobody is there. Wait for the builder; this session has
-   nothing else to do.
-4. **A decision of the owner's ends the draft.** By day such a decision is asked and waits its
-   time while the work goes on, and at its end the experts' shared pick or the recommended option
-   is taken. A night never takes one so: nobody is there to answer, and every wait would end in
-   a pick that nobody made. The builder knows it is night from the `night: yes` line of its brief,
-   and `lem decisions ask` refuses a task whose brief has it. So the builder writes each such
-   decision into its report under "for the owner" and stops with the line `the plan ends on a
-   decision of the owner's` (`stages/plan.md`, step 5). Record the question, in the owner's
-   terms, in the item's backlog file and in the night report, remove the worktree and the
-   branch, write the state `dropped`, and take the next candidate. This is the filter that
-   matters: an item only looks decision-free until someone plans it. Try three candidates at
-   most.
-5. **The night report**, `night/YYYY-MM-DD.md` in the folder `lem project state-dir` prints: for the
-   draft, what the owner gets, the plan's path, why no decision was needed, and what it will not
-   verify; for each item dropped in step 4, its question; for each item of one plain change
-   (step 2), its path and the line `ready to start as a small change: /lem new PATH`; for the
-   brake, the drafts that wait,
-   each with a verdict and its reason:
-   - **run now**: the code the plan names is as it was;
-   - **replan**: the files the plan names changed on the base branch since the draft;
-   - **drop**: the item is gone from the backlog or another branch took it.
-   Write the draft's state as `drafted`. When its report says the plan needs a session (a careful
-   or a large plan), say so in the night report: the draft stands, and `/lem build` opens the
-   plan talk's companion at once (`stages/start.md`), then a builder leads the build.
+2. **The candidates.** The items in `lem project path backlog`: one file each, with `worth`,
+   `where` and `added` between two `---` lines, then a title and prose. Never a tracker's
+   ticket: which ticket comes next is a person's call. Leave out an item that is decided against
+   (`worth: no`); one that a branch, a worktree, an open plan or a task already holds; one that
+   asks for a choice and states no defect or job; and one in reach of a topic (`flow.topics` in
+   `lem project show`): read its words and its `where` against each, as step 1 of
+   `stages/new.md` reads an ask, and in doubt leave it out, since a careful change needs the
+   owner and the plan talk. Size the rest as that step sizes an ask, and order them: the small
+   changes first, then the others by how much they change, and within one size `worth: yes`
+   first. Take the first `flow.max_tasks` of them.
+3. **Each one runs without the owner.** In that order, open the task as `stages/new.md` does,
+   with the item's path as the ask, and right after `lem project task-dir`:
 
-In the morning a bare `/lem` lists each draft that is still `drafted` among what waits for the
-owner (`lem project waiting`), with the night report while it is of that night or the one before.
-He answers each with approve, reject or later, on one page with any retro's proposals (`SKILL.md`,
-Status): approve builds it as `/lem build <task>` does, reject drops it, and later leaves it
-`drafted`, where the brake of step 1 counts it.
+   ```bash
+   lem project mode SLUG alone --by lem --words "the night of YYYY-MM-DD"
+   ```
+
+   with the night's date, in that form: it tells the task from a day's task in the morning list.
+   From there the task takes the path that `stages/new.md` chose, as any task that runs without
+   the owner does (`stages/mode.md`): a small change has its one builder and Lem's approval; a
+   bug has its investigator first; a full change has its criteria from the item, or from an
+   interview in which you take your own guess for each question, then the personas' read, the
+   ladder for a flagged criterion, and `--alone` for the approval. A lead's brief carries the
+   line `request by: someone else`, since nobody at the terminal read the item. Where a stage
+   file says to tell the owner a line, write it into the night report. `lem project may-start`
+   queues a task over the limit, as by day.
+4. **Stay until each one stops.** A lead or a builder that stops wakes this session, which acts
+   as `stages/stopped.md` and `stages/land.md` say, up to the pull request. An agent never merges
+   a task that runs without the owner. A step that a later "no" cannot reverse waits for him as
+   his card (`stages/choice.md`), and only the part of the plan that needs it waits; when every
+   task left needs it, the task is `held`. The night ends when each of its tasks is `open`,
+   `held`, `blocked` or ended.
+5. **The night report**, `night/YYYY-MM-DD.md` in the folder `lem project state-dir` prints.
+   Write it when the night ends, and again at each stop before it, so that an early morning
+   finds it:
+   - each item that became a task: its path, the task, and its pull request with green or each
+     reason it is not, or where the task stands;
+   - each task `held` for him, with the step it waits on;
+   - each item left out, with why: decided against, held by another branch, a choice, a topic
+     in reach (the topic in his words), or past `flow.max_tasks`;
+   - the brake, when it stopped the night.
