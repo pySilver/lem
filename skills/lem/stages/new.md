@@ -35,9 +35,9 @@ beside this one, and the step that chooses the path names it.
    fix of one rule, a typo, a rename, a version bump, a line of a document). A fix whose one rule
    is plain from the ask's words ("the button says Save, not Submit") is a small change at once.
    A symptom whose cause the ask does not show is investigated first (step 4), even when the fix
-   may turn out to be one line. Every other ask is a *full change*, whatever its type. When you
-   cannot tell, take the small change and ask nothing: its builder checks it again before it
-   commits (`prompts/small.md`), and stops when it is not. `/lem plan <what>` asks for a plan to
+   may turn out to be one line. Every other ask is a *full change*, whatever its type. A small
+   change's builder checks the size again before it commits (`prompts/small.md`), and stops when
+   it is not small. `/lem plan <what>` asks for a plan to
    read, and a plan is a full change's: the ask is a full change whatever its size, with its
    interview, its criteria, the personas' read and his yes, and the lead stops at the committed
    plan; the line of step 5 says so ("full, because you asked for its plan: ..."). A plan's size
@@ -45,17 +45,20 @@ beside this one, and the step that chooses the path names it.
    In the same look, read the ask's words against each topic of `flow.topics` in `lem project
    show`, the sentences of what must never go wrong here. No code matches a topic and no file
    name settles one: the question is whether the change the ask wants could reach that thing.
-   When it could, the line of step 5 names it first. In doubt, say careful. When the scout's
+   When it could, the line of step 5 names it first. When the scout's
    report or the investigator's comes in, read its facts against the topics again (the scout
    lists the topics in reach, with the file and symbol that show each): a topic it finds in reach
    that the ask's words did not show is told to the owner in one line, the same way. An ask in
    reach of a topic is never a small change. The lead makes its own call on the plan
    (`stages/plan.md`, step 2), and the agent that reviews the diff makes the last.
-   When the words do not settle the type between a fix and a feat, ask before step 2, as the
-   first question of the interview, with your guess and what each answer would mean: "Is the 0
-   wrong today, a fix, or do you want a new rule for refunds, a feat?" (2026-11-16, his
-   example: "From such input its kinda hard to deduct if we want to investigate the bug or its a
-   feature request.") His answer sets the type. The type goes into `task.md` with its reason, and
+   **One question when the read is not clear.** When the words and what you looked at do not
+   settle the size, the type or whether it is careful, ask once in the terminal before any agent
+   starts, in one line with your guess first: "I read this as a small fix: one rule in
+   `shop/dates.py`. Small? (y/n)", or "Is the 0 wrong today, a fix, or do you want a new rule
+   for refunds, a feat?" (his example of 2026-11-16: "From such input its kinda hard to deduct if
+   we want to investigate the bug or its a feature request."). One question at most; his answer
+   settles it, and you go on. A clear read asks nothing. While he is away, ask nothing: take a
+   full change, and careful in doubt. The type goes into `task.md` with its reason, and
    as the line `type: TYPE, because WHY` into the task's first state block (step 4);
    `lem project state` refuses that line in any other form, and `lem project tasks` gives it as
    `type`. When he changes the type later, write a state block with the new line.
@@ -124,10 +127,10 @@ beside this one, and the step that chooses the path names it.
 5. **Tell the owner in one line**, and no more: the type and the size, the branch, the criterion or
    the outcome in his words, what happens now, and what he must do. A small change: `fix, small:
    "the date column never wraps". Branch fix/date-column-nowrap. One builder, the checks, one
-   read, then the pull request. Nothing waits for you; say "full" to give it acceptance
-   criteria.` A full change with an interview: `feat, full: "an export holds the gift note".
-   Branch feat/gift-note-in-export. An interview now, then acceptance criteria for your yes;
-   after that it runs to the pull request without you.` A topic in reach goes first: `Careful: this changes how a
+   read, then the pull request. Nothing waits for you. Wrong read? /lem full, /lem careful.` A
+   full change with an interview: `feat, full: "an export holds the gift note". Branch
+   feat/gift-note-in-export. An interview now, then acceptance criteria for your yes; after that
+   it runs to the pull request without you. Wrong read? /lem careful.` A topic in reach goes first: `Careful: this changes how a
    customer is charged. feat, full: ...`. A fix investigated first: `fix: "the total skips
    credit notes". Branch fix/total-skips-credit-notes. An investigator finds the cause first, and I
    tell you what it found: then it is a small fix, a full fix, or no bug.` A full change from a
@@ -158,7 +161,7 @@ beside this one, and the step that chooses the path names it.
    get a second lead, and each start has to find the same answers: `/lem plan <what>` writes
    `stop after the plan: yes` here, and that line is what keeps a queued plan from being built.
    When the owner called the task careful in the ask, add the line `careful: the owner says so`
-   and log his words, as the paragraph on his word below says. A builder still writes the plan:
+   and log his words, as `stages/correct.md` says. A builder still writes the plan:
    it reads that line as a yes (`stages/plan.md`, step 2) and stops for the plan talk, which
    needs a plan to talk about.
 7. **Does it wait for another task?** Only when the later ask needs what the earlier one
@@ -173,18 +176,6 @@ beside this one, and the step that chooses the path names it.
 8. **Start its lead**, as `stages/start.md` says: read it now. Open the board when this session
    has not opened it yet (`SKILL.md`, Status); it stays in the sidebar beside your session. Then go back to the
    owner's next message. Do not wait for the lead and do not watch it.
-
-The owner may say that a task is careful, at any time before its landing, whatever its lead
-called it. At once, add the line `careful: the owner says so` to the task's brief, and log his
-words with `lem decisions log SLUG --by owner`. The brief is what holds it: whoever reads the task's next stop reads
-that line, also a Lem that started after this one, and the landing reads it too: the change
-gets the project's full review set, its notes say whether it holds a migration, and a person
-merges it whatever the settings say (`stages/land.md`). A task that still builds finishes its
-build and goes to the landing like any other; nothing is built again for the word.
-Then ask what the owner's word was about, when it is not plain. A topic the settings already
-name, which the lead read wrong, is a lesson about that judgment (`stages/learn.md`). Something
-no topic names may be a rule for later tasks or a wish for this one task: only the owner knows,
-and only his yes puts a topic into the settings.
 
 ## A small change
 
@@ -228,19 +219,3 @@ it, the landing checks it and one read reviews it, and it waits for nothing.
      the report, read `stages/interview.md`, and go on with an interview from its step 1, with its
      report as the scout's: its commits stay on the branch for the lead. His
      approval of the criteria of the full change replaces the small change's.
-
-When he says "full" of a small change, it becomes a full change with an interview the same way:
-the interview, the personas' read, and his approval, which replaces the small change's. A
-builder that runs then finishes, and its commits stay on the branch for the lead. A change of
-the size from small to full is his or its builder's; a change of the type is his only.
-
-## When a task is dropped
-
-The owner says that a task is not wanted, at any point before its landing. Write the state
-`dropped` with his reason in one line. Close the task's companion when one is open, and remove its
-worktree the way the project does. A branch with commits of its own stays, because those
-commits are on no other branch, and `lem land clean` names how to delete it; a branch with none,
-which the base holds whole, goes (`lem land clean` does both and says which). For a task that came from a ticket, the tracker then
-says so on the ticket (its "drop") and changes no status: tell the owner which status the ticket
-has, since where it goes now is his call. Then look at the queue, as `stages/start.md` says under
-"The queue".

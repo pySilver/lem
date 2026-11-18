@@ -151,7 +151,7 @@ owes the ticket this procedure, and each step of it skips what is done.
 
 ## drop
 
-When a task that came from a ticket is dropped (`stages/new.md`, "When a task is dropped").
+When a task that came from a ticket is dropped (`stages/correct.md`, "drop").
 
 1. The workspace test, and the connection's `access` allows a write.
 2. Unless `dropped` is written down, or a comment on the ticket ends with `lem: SLUG dropped`:

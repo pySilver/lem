@@ -110,6 +110,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report, and a scout's belongs to its interview | `stages/stopped.md`; an investigator's `stages/investigate.md`, a scout's `stages/interview.md` |
 | a choice waits | the line `lem: SLUG choice N waits` arrived, or the `waiting` list of `lem decisions pending` names a choice: run that command at each of your turns, since a line can be lost | `stages/choice.md` |
 | `away`, `active` | the owner says that he is away, and every task goes on without him, or that he is active again | `stages/away.md` |
+| `careful`, `full`, `drop` `[<task>]` | the owner corrects a task: careful until its merge, a full change until its pull request exists, or not wanted | `stages/correct.md` |
 | `land` | the oldest ready task: the polish pass for a full change (a small change has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |

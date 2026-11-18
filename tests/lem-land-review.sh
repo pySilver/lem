@@ -282,6 +282,31 @@ else
 fi
 project --repo "$LOCAL" state price-change dropped "the test is over" >/dev/null
 
+# The owner's careful on a task whose pull request is open (`stages/correct.md`): the line in its brief, then `start`
+# takes it into the landing again, the review is due again with the full set over the one read it had, and propose
+# writes the text again, careful, so a person merges it.
+task_in "$LOCAL" late-care late.txt late
+read_in "$LOCAL" late-care
+local_land start late-care >/dev/null && local_land base late-care >/dev/null && polish_in "$LOCAL" late-care && local_land checks late-care >/dev/null
+local_land read late-care --record "$(clean 1)" >/dev/null
+local_land propose late-care --title "fix: late" --notes "$NOTES" >/dev/null
+text=$LOCAL/.lem/state/tasks/late-care/pr.md
+before=$(head -1 "$text" | cut -c1-10)
+echo "careful: the owner says so" >> "$LOCAL/.lem/state/tasks/late-care/brief.md"
+restarted=$(local_land start late-care | field 'd["task"]' 2>&1 || true)
+local_land base late-care >/dev/null && polish_in "$LOCAL" late-care && local_land checks late-care >/dev/null
+again=$(local_land read late-care | field '(d["due"], d["floor"], d["why"])' 2>&1 || true)
+local_land read late-care --record "$(record 2 '{"kind": "full", "ran": [{"name": "default", "why": "the owner says it is careful"}], "answered": ["codex"]}')" >/dev/null
+local_land propose late-care --title "fix: late" --notes "$MIG" >/dev/null
+if [ "$before" = '**Green.**' ] && [ "$restarted" = late-care ] \
+  && [ "$again" = "('review', 'full', 'the request is careful: the owner says so')" ] \
+  && grep -qxF '**Careful**, so a person merges it: the owner says so.' "$text" && [ "$(status_in "$LOCAL" late-care)" = open ]; then
+  pass "the owner's careful on a task whose pull request is open: start takes it into the landing again, the review is due again with the full set, and propose writes the text again, careful, so a person merges it"
+else
+  fail "careful on an open task: $before / $restarted / $again / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state late-care dropped "the test is over" >/dev/null
+
 # An agent merges a green request only on the newest review's "not careful": a record that holds no
 # call, as a review written down before the call was asked holds none, leaves the merge to a person.
 task_in "$LOCAL" call-kept eight.txt eight
