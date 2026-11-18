@@ -50,7 +50,7 @@ flowchart LR
     req([You type /lem and a request]) --> size{Type and size}
     size -- small change --> one[One builder] --> read[The checks and one read]
     size -- full change --> you[Interview, acceptance criteria, your yes] --> build[A lead and a builder for each task] --> full[Polish pass, the checks, a review]
-    size -- bug or question --> inv[A builder finds the cause] -- a change --> size
+    size -- bug or question --> inv[An investigator finds the cause] -- a change --> size
     inv -- no change --> ans([An answer])
     read --> pr([A pull request: green or not green])
     full --> pr
@@ -73,9 +73,22 @@ review, and a person merges it. [docs/flow.md](docs/flow.md) describes each step
 
 ## Install
 
-Lem needs macOS, agterm, Claude Code, git, Python 3.11 or newer, the mailbox chat, revmux, and
-three recipes of the agterm cookbook: webrev, agdoc and the backlog recipe.
-Codex is optional. [docs/install.md](docs/install.md#what-lem-needs) has a link to each tool.
+Lem runs on macOS, in the [agterm](https://agterm.com) terminal, with
+[Claude Code](https://code.claude.com/docs).
+
+| You need | Lem uses it for |
+| --- | --- |
+| git, Python 3.11 or newer, and the [GitHub CLI](https://cli.github.com) for a repository on GitHub | branches, worktrees and pull requests |
+| [revmux](https://github.com/umputun/revmux) | the review before each pull request |
+| [cronn](https://cronn.umputun.dev) | the scheduled retro, which turns your corrections into lessons, and the night plan |
+| Four recipes of the agterm cookbook: the [mailbox chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat), [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document), [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) and the [backlog recipe](https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker) | the messages between agents, and the pages that Lem shows you |
+
+[Codex](https://github.com/openai/codex) is not required, but we recommend it highly. With Codex,
+a second model family reviews each change, talks about each careful plan, and answers as the
+second expert. Without it, Claude reviews the work of Claude.
+
+`/lem init` checks each tool and tells you how to install a missing one.
+[docs/install.md](docs/install.md#what-lem-needs) has the full list.
 
 Run these two commands at the root of your repository:
 
@@ -108,7 +121,7 @@ project`. Then start a new session. To remove Lem, follow
 | `/lem`, `/lem status` | lists what waits for you, always in one order: choices, criteria for your yes, other held tasks, pull requests, night plans, retro proposals. Say "open them" to answer each plan and proposal with approve, reject or later |
 | `/lem status <task>` | opens the board of one task |
 | `/lem land <task>` | tells Lem to merge an open pull request |
-| `full`, `careful`, `drop` | makes a small change a full change, marks a task careful, or stops it |
+| "full", "careful" or "drop", in plain words with no command, for example "make the footer task full" | changes a task that is open. "Full" makes a small change a full change, with acceptance criteria for your yes. "Careful" gives the task the full review and a merge by a person. "Drop" stops the task. Name the task when more than one is open |
 | `/lem learn` | puts your correction into the file that owns the step |
 | `/lem reviewer codex/gpt-6.1-sol:high` | sets the reviewer of the plan talk on this computer: agent, model, effort. `default` resets it |
 | `/lem init` | sets up a repository |
@@ -130,6 +143,9 @@ Lem starts `/lem land` when a task is ready. Scheduled jobs can start `/lem retr
   lead.
 - **Builder**: an agent that Lem starts in a new context for one job. A **lead** plans a full
   change and gives each task of the plan to a new builder.
+- **Investigator**: an agent with one job: it finds the cause of a bug, or the answer to a
+  question. It reads the code and its history, runs the tests, and uses the root-cause method. For
+  a bug, it writes a test that fails. It changes no behavior.
 - **Interview**: Lem asks you one question at a time, each with its guess.
 - **Personas**: the people that a change affects. Agents read the criteria from the point of view
   of each person.

@@ -101,7 +101,8 @@ flowchart TD
         toml[.lem/project.toml<br/>the settings, in git]
         local[.lem/project.local.toml<br/>the settings of this computer, not in git]
         profiles[.lem/profile.md, personas/, lessons.md<br/>in git]
-        plans[docs/plans/ and docs/backlog/<br/>in git]
+        plans[docs/plans/, docs/backlog/ and docs/rulings/<br/>in git]
+        other[.claude/rules/ and .revmux/<br/>the rules for the code and the review tool, in git.<br/>Lem reads them and owns neither]
         wt[.lem/worktrees/<br/>one worktree for each task, not in git]
         state[.lem/state/<br/>the state of Lem, not in git]
     end
@@ -176,7 +177,7 @@ A file that a later step needs goes into the task folder too, never into `/tmp`.
 | State | What it means | Who acts |
 | --- | --- | --- |
 | `queued` | no lead runs: the limit of tasks was reached, or the task needs the result of the task that its `after:` line names | Lem, when a place is free or that task ends |
-| `building` | a lead plans or builds, or a builder examines a bug or a question | the lead, or the investigator |
+| `building` | a lead plans or builds, or an investigator examines a bug or a question | the lead, or the investigator |
 | `planned` | the plan is committed, and nothing builds it yet | Lem opens the plan talk, or you read the plan |
 | `held` | it waits for you: the criteria, one more fact, a step that is yours, or a step that nobody can undo | you, through Lem |
 | `blocked` | the lead stopped at a problem that it could not solve | Lem |

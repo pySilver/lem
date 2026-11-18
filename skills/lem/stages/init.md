@@ -35,8 +35,8 @@ lem doctor
 
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
 installed, and end. Every other row is no question now: an optional tool that is absent is one
-line of the hand-over page (the row's `without_it`), and a recommended tool that is absent, cronn
-and the correction queue are offers in the short list at the end of that page (step 6). A
+line of the hand-over page (the row's `without_it`), and a recommended tool that is absent, a cronn
+that does not run and the correction queue are offers in the short list at the end of that page (step 6). A
 `correction hook` row (a settings file that still holds the hook an install of Lem before the
 plugin wrote) is one line of that page too, with each file and the entry its guide says to delete
 by hand.
@@ -297,9 +297,10 @@ as corrections: edit, commit on the same branch, say for each file what changed.
 - **each recommended tool that is absent**: what it gives and its guide (the row's `guide`). Lem
   brings none of them, and installs one only on his yes; a guide copies a skill into the owner's
   own skills folder, so where your agent refuses you the step, give him the guide's commands;
-- **cronn**, when it is absent or not running: through the `cronn` skill when that skill is
-  there; its installer adds a Homebrew formula and an agent that starts at login, so it runs
-  only on his yes, and the harness file says which steps he has to run himself;
+- **cronn**, when it is installed and not running: through the `cronn` skill when that skill is
+  there; its agent starts at login, so it is started only on his yes, and the harness file says
+  which steps he has to run himself. An absent cronn is no offer: it is a required tool, and
+  step 1 stopped for it;
 - **the scheduled jobs** of step 7, when cronn runs;
 - **a paragraph for the project's agent document** (step 5);
 - **naps**: now and then, after a task ends, a fresh agent reads the recent tasks, dreams, and
