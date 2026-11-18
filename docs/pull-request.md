@@ -16,6 +16,9 @@ A pull request is not green when one of these is true:
 - the change brings the first checks into a project that had none;
 - a task on the fast track turned out to be careful: it can affect what must never go wrong.
 
+An agent also makes smaller choices inside a task, all the time. They do not change green: the pull
+request lists the ones that matter, each with its reason.
+
 You can merge a green pull request without a read.
 
 On the standard track, Lem also makes a page that tells what was built, why, and who took each decision.
@@ -35,8 +38,9 @@ of your base branch apply. If the base moved after the checks, the checks run ag
 | `branch.history = "keep"` | the commits of the branch land, and not one commit for the task |
 | `branch.propose = "merge"` | no pull request: "land it" merges the branch into the base branch |
 
-While Lem's session is open, it looks at its pull requests one time each minute, with the GitHub
-CLI `gh`. Each `/lem` also looks. When the board says "nobody watches", type `/lem`.
+While Lem's session is open, a script looks at its pull requests one time each minute, with the
+GitHub CLI `gh`. It uses no model until a pull request changes. Each `/lem` also looks. When the
+board says "nobody watches", type `/lem`.
 
 > [!TIP]
 > On GitHub, turn on "Require branches to be up to date before merging" for the base branch.
