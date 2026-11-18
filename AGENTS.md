@@ -503,17 +503,29 @@ build that follows.
   a switch of each task, and it replaces "go alone", "go alone for all" and "I am back"; while he
   is there, a choice of his waits for his answer with no time limit, and `flow.decision_wait`
   goes. This replaces his ruling of 2026-11-16 that a choice "waits for him 15 minutes at most".
-  The keywords are the session's suggestion, open to him: `/lem away` and `/lem back`.
+  The keywords are his: to the session's `/lem away` and `/lem back` he wrote "Lets follow Slack:
+  `/away` and `/active`", so they are `/lem away` and `/lem active`.
 - **The first line is where he corrects Lem's read of a request** (the same notes): of the row
   `"full", "careful" or "drop"`, "I see why want it, but I cant imagine this being clear to
   developer. Maybe it should be a quiz with assumption at the beginning. During the execution, we
   cannot switch from short path to full, it's too late. But we can drop the plan. I'm not sure we
-  can swith to careful execution, probably not?". The session's answer, open to him: Lem's first
-  line is that quiz with its assumption taken, and no question is added, since a question on
-  each small change costs attention; his next message may correct the size or mark the task
-  careful; after a small change is proposed its size no longer changes, and a task can be
-  dropped at any time. "Careful" stays possible until the merge, because it builds nothing
-  again: it widens the review and makes the merge a person's.
+  can swith to careful execution, probably not?". The session answered that the first
+  line is that quiz with its assumption taken, and that it adds no question; he wrote back: "I
+  think confirmation step (when confused) should be add. When its clear - we go without it. I
+  understand that it breaks contract, but isn't it a right thing?" So a clear read asks nothing,
+  and a read that Lem cannot settle (the size, the type, careful) asks one line in the terminal
+  with its guess, before any agent starts; while he is away Lem asks nothing and takes the safer
+  read. Of "careful until the merge": "Still, weird interface. Maybe it should be something like
+  a command that would affect the plan, and even when plan is already completed it will do the
+  right thing, for example it will run the proper review", and of "drop": "but still - Lem
+  should understand what plan is affected the current one or something else". So the three are
+  commands that take a task, `/lem careful`, `/lem full`, `/lem drop` (`stages/correct.md`): a
+  task with an open pull request that is called careful goes through the full review again;
+  "full" holds until a small change is proposed; and Lem asks which task when more than one
+  could be meant.
+- **The README shows the interaction, and links to no run** (the same day): "Having examples of
+  execution in Readme in a form of links to some repo is plain stupid. I would rather show
+  interaction in some short form, or steps in form of small flowchart."
 - **A helper starts from plain words** (the same notes): "will it work if a bit different
   wording will be used like "lets braindstorm" instead of literal "interview-me". It would be
   nice to have more natural way of speaking. When model is unsure which skill should be used - it
