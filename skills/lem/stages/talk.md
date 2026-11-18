@@ -92,9 +92,8 @@ rules:
   say yes: the review before the pull request finds a defect in a mechanism the record names
   while the talk's `layer` was 0. Until a review shows that, no such read runs.
 - **What a person of the project would see** is not the two agents' to settle. A question
-  about it goes to the persona panel, in its reviewing mode, with both positions; its clear
-  answer settles the question, and the record says the personas settled it. One with no clear
-  answer stays open, and `stages/plan.md`, step 5, takes it. It never goes to the owner from here.
+  about it stays open, and `stages/plan.md`, step 5, takes it up the ladder after the talk, with
+  both positions. It never goes to the owner from here.
 - **The close.** When each question of the list has ended, settled, a design choice or open,
   write `nothing further`; the reviewer adds no turn after that.
 Commit every repair before any code. Then write the record into the plan, as a section

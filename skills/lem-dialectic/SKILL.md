@@ -45,6 +45,17 @@ After both agents complete, synthesize findings into an objective conclusion:
 - identify any misinterpretations or missing context from agent reports
 - revise synthesis if verification reveals inaccuracies
 
+## In the ladder
+
+A lead's level 3 of a decision in doubt (`stages/ladder.md` in the `lem` skill), when the
+personas split. The statement is "OPTION is the right pick for DECISION", with the option the
+personas voted for most. Step 1 only, read-only, and the two agents answer in this form, which
+the lead reads: the thesis lists what holds the option, each with its file and line; the
+antithesis ends with the line `no break`, or names each break with its file and line, a break
+being a criterion or a direction the option breaks, a ruling of the owner's it contradicts, or a
+reason it cannot be built. A cost or a risk is no break: the personas weighed those. No
+synthesis: the lead opens each cite (step 3) and applies the count.
+
 ## Use Cases
 
 **Architecture decisions:**

@@ -1,6 +1,6 @@
 ---
 name: lem-ask-expert
-description: "Lem's two experts: two models of two families answer one question, read-only, at the same time. The owner calls it as `/lem ask-expert` with a question in words, or alone for the open question; Lem's stages call it for a choice that waits."
+description: "Lem's two experts: two models of two families answer one question, read-only, at the same time. The owner calls it as `/lem ask-expert` with a question in words, or alone for the open question; Lem's stages call it at a decision in doubt and for a choice that waits."
 disable-model-invocation: true
 argument-hint: '[question in words]'
 ---
@@ -37,8 +37,11 @@ task's worktree when it belongs to a task, else the one this session works in.
    When nothing is open and nothing waits, or more than one could be meant, ask the owner in one
    line which one, naming each, and start nothing. Never guess: the owner said "if question is
    unsure it gets back to user".
-3. **A choice of a task, by its slug and number**: Lem's stages only, right after `lem decisions
-   ask`, by whoever asked it (a task's lead, a plan talk's defender, or Lem). The advice goes into
+3. **A decision in doubt of a task**: a lead's level 4 of the ladder (`stages/ladder.md` in the
+   `lem` skill). It is a question in words, below, with the decision's options word for word and
+   the facts the levels before found in `--context`; both picking one option settles it.
+4. **A choice of a task that waits, by its slug and number**: when the owner asks for all
+   opinions on its card, and for a choice a lead of the text before asked. The advice goes into
    the choice's record, where `decisions.py` reads it.
 
 ## A question in words
@@ -84,15 +87,12 @@ task's worktree when it belongs to a task, else the one this session works in.
 
 ## A choice of a task
 
-This is the path of the wait: while the owner can answer, the experts' answers are on his card,
-beside the personas'. Their advice decides nothing by itself; the record does that, by the rules of
-`decisions.py`:
+Their advice goes on the owner's card, and decides nothing by itself; the record does that, by
+the rules of `decisions.py`:
 
-- when his wait ends with no answer, `lem decisions timeout` takes the option both picked, and the
-  recommended option when they split, when one found none fits, or when one did not answer in
-  time;
-- when he is away, `lem decisions settle SLUG N --away` takes their shared pick at once. Only Lem
-  knows that he is away (`stages/choice.md`);
+- when his wait ends with no answer, or the task runs without him, `lem decisions timeout` takes
+  the option both picked, and the recommended option when they split, when one found none fits,
+  or when one did not answer in time;
 - a choice the experts decided is never green: the pull request has a line with their pick and
   both reasons, and he reads it before he merges;
 - a step that a later "no" cannot reverse (`--irreversible`) takes advice for his card, and is
@@ -130,12 +130,8 @@ advice in two places, `fable` and `astra`, the names `lem decisions` knows: the 
    advice the end of the wait takes the recommended option. Advice after the wait ended is refused
    too, and changes nothing.
 
-4. **Tell who reads it.** The lead, the defender of a plan talk in its companion session or a
-   builder that leads in Lem's own session, sends `lem: SLUG choice N advised` through
-   `tell-coordinator` when both answers are in the record. Lem also finds the advice in
-   `lem decisions pending`, when the line is lost. Lem then does what `stages/choice.md` says. When the
-   owner called this skill for the choice (`/lem ask-expert` alone, step 2 of "Which question"),
-   show him both answers as step 4 above, on the choice's own options.
+4. **Tell who reads it.** Lem finds the advice in `lem decisions pending` and shows both answers
+   to the owner on the choice's own options, as step 4 above.
 
 `lem decisions list SLUG` and `lem decisions pending SLUG` show the advice under each choice
 (`advice`), and `experts_pick` is the option both picked, or null.

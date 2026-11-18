@@ -109,6 +109,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a night draft, a plan the owner read. With no name it lists those tasks and asks which | `stages/start.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report, and a scout's belongs to its interview | `stages/stopped.md`; an investigator's `stages/investigate.md`, a scout's `stages/interview.md` |
 | a choice waits | the line `lem: SLUG choice N waits` arrived, or the `waiting` list of `lem decisions pending` names a choice: run that command at each of your turns, since a line can be lost | `stages/choice.md` |
+| "go alone", "go alone for all", "I am back" | the owner lets a task, or every task, run without him, or takes it back | `stages/mode.md` |
 | `land` | the oldest ready task: the polish pass for a full change (a small change has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
@@ -116,7 +117,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, each plan drafted at night, each retro's proposals; and the board of all tasks, with what builds. A proposal or a draft he answers with approve, reject or later, all on one page | `stages/status.md` |
 | `status <task>` | the board of one task | `stages/status.md` |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `dialectic`, `root-cause`, `ask-expert`, `panel` and `linear` this way (`/lem linear MBZ-12` reads one ticket). Lem's stages load `ask-expert`, `panel` and `linear` by themselves, and `lem-ask` and `lem-gate` too, which are no calls of the owner's: Lem opens its question page each time it asks him, and the gate runs before a question reaches him. See below for a line that only starts with such a word | that skill |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `dialectic`, `root-cause`, `ask-expert`, `panel` and `linear` this way (`/lem linear MBZ-12` reads one ticket). Lem's stages load `ask-expert`, `panel` and `linear` by themselves, and `lem-ask` and `lem-gate` too, which are no calls of the owner's: Lem opens its question page each time it asks him, and the gate is the first level of the ladder. See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
@@ -134,21 +135,18 @@ lead whose choice waits for the owner.
 ## What holds in every stage
 
 - **The owner is needed at three points.** The interview and his yes to the criteria (`new`), a
-  decision that is his, and the pull request; a small change needs him at its pull request only. A decision is his when its options each cost a
-  person something and no ruling, test or probe answers it. Every such decision takes one path,
-  at plan time as in the build (`stages/build.md`, "A choice in the build"): the persona panel
-  first, which asks the project's own personas, and every project of Lem has them; a clear
-  answer of theirs is taken and logged; an unclear one is asked with `lem decisions ask`, with
-  one concrete run that ends badly, and the work that does not depend on it goes on. It waits
-  for the owner the settings' `flow.decision_wait` at most, 15 minutes unless the project says
-  otherwise. Two experts of two model families answer it in the background from the start of
-  the wait (the `lem-ask-expert` skill), and their answers are on his card. When the wait ends,
-  the lead takes the option both experts picked, or the recommended one when they split; when
-  he is away, Lem takes their shared pick at once. The pull request is not green for either. A
-  step that a later "no" cannot reverse is the one exception: the experts only advise, and it
-  waits for his word while the rest of the plan goes on. A night plan asks no decision of his:
-  nobody is there, so the draft ends on it (`stages/night.md`). Every other decision is yours:
-  decide from the code, the settings and the rulings, write it in the decisions log, and go on.
+  decision in doubt that went past the personas, and the pull request; a small change needs him at
+  its pull request only. A lead takes a decision in doubt up a ladder of opinions (the gate, the
+  personas, the dialectic, the experts; `stages/ladder.md`, the lead's). One that the gate or the
+  personas settled is logged: at each of your turns, say each decision taken in a task that runs
+  with him since your last turn (`lem decisions list SLUG`), once, in one line, and wait for
+  nothing. One that went past the personas is his card (`stages/choice.md`), which waits the
+  settings' `flow.decision_wait` at most, 15 minutes unless the project says otherwise; then the
+  ladder's pick is taken, not green. A task he lets go (`stages/mode.md`) waits for none of
+  this. A step that a later "no" cannot reverse waits for him in both modes, and so does the
+  merge of a task that runs without him. A
+  night plan asks no decision of his (`stages/night.md`). Every other decision is yours: decide
+  from the code, the settings and the rulings, write it in the decisions log, and go on.
   A red test, a failed command or a moving base branch is the work, never a reason to stop.
 - **Decisions are logged, and the owner can overturn each.** Each decision made without the
   owner, each choice that went to him and his answer, through `scripts/decisions.py`: what, what

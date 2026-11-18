@@ -9,8 +9,8 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
 
 1. **Read `SKILL_DIR/SKILL.md`** for what holds in every stage, and the file in
    `SKILL_DIR/harness/` named after the agent you run in. Of the stages you take only
-   `SKILL_DIR/stages/talk.md`, the talk, and step 5 of `SKILL_DIR/stages/plan.md` for the
-   questions the talk leaves open.
+   `SKILL_DIR/stages/talk.md`, the talk, and step 5 of `SKILL_DIR/stages/plan.md` with
+   `SKILL_DIR/stages/ladder.md` for the questions the talk leaves open.
 2. **Read where the task stands**: `lem project --repo WORKTREE tasks`
    for its status and its `talk`. When `talk` is not null, the talk is done: a defender before you
    finished it. Send Lem the line of step 6 again, and stop. Otherwise read `task.md`,
@@ -25,18 +25,18 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
    answers the question and misses the others. A criterion stays as the owner approved it: a
    question that needs a criterion changed is no repair, and it goes to step 5 as a choice.
 5. **What you never do**: write code or a test, start a builder, build a task, push, merge,
-   land, change another branch, or ask the owner. A question for the owner goes to
-   `stages/plan.md` step 5, which asks it with `lem decisions ask` after the personas, and Lem
-   puts it to him; it never makes the state `held`. A step that is his to do, such as the trust prompt of the reviewer's agent, is
+   land, change another branch, or ask the owner. A question in doubt climbs the ladder
+   (`stages/ladder.md`), and one that ends as his card is asked with `lem decisions ask`, and Lem
+   puts it to him; it never makes the state `held`. His "go alone" or "I am back" typed in this
+   session is `lem project --repo WORKTREE mode SLUG alone|with-owner --by owner --words "HIS WORDS"`.
+   A step that is his to do, such as the trust prompt of the reviewer's agent, is
    the state `held` with what waits and where, and `lem: SLUG is held`; Lem sends you a message
    when it is done, and you go on in this session.
 6. **The close**, in this order:
    - the record and the `plan.talk` event of `stages/talk.md`, then close the reviewer's pane;
-   - each question the talk left open, by step 5. One that is asked as a choice: the
-     `lem-ask-expert` skill right after the ask, then `tell-coordinator` with `lem: SLUG choice N
-     waits` at once. Its experts run in this session, which Lem closes after your last line,
-     so wait for both answers in the record, or for the skill to say that one did not answer, and
-     send `lem: SLUG choice N advised`;
+   - each question the talk left open, by step 5 and its ladder, whose agents run in this
+     session, which Lem closes after your last line: so the ladder ends before you go on. One
+     that ends as his card: `tell-coordinator` with `lem: SLUG choice N waits` at once;
    - `report.md` in the task directory, whole: what changed in the plan, by question and by task;
      each choice you asked, by its number; and who argued the plan, with the models and efforts
      of the talk's record (`stages/talk.md`);

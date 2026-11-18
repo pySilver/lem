@@ -27,8 +27,9 @@ these comes "The queue", the last section of that file:
     `lem project tasks`, never the line's claim. A record there: close the companion
     (`open-task-session`), change the brief to `lead: builder`, and start a lead; the builder
     leads the build of the talked plan, one fresh builder for each of its tasks
-    (`stages/plan.md`, step 3). Each choice the talk left open waits in `lem decisions pending`:
-    ask it as `stages/choice.md` says. No record: the defender ended without its last step, so
+    (`stages/plan.md`, step 3). Each question the talk left open climbed its ladder in the
+    companion; one that ended as his card waits in `lem decisions pending`: ask it as
+    `stages/choice.md` says. No record: the defender ended without its last step, so
     send it one message that says so, and close nothing.
   - *The owner asked for the plan only*: show the owner the plan to mark up
     (`show-page`), and leave the task as it is until the owner says build or drop.

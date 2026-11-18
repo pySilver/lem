@@ -98,11 +98,6 @@ not there), Lem has no channel of its own. Where his own instructions name one, 
 he reads away from the Mac, the question goes there, with the same case and options; otherwise
 it waits for him, and the task's state says what waits. Not checked in a run.
 
-Lem takes him as away on two facts only, never on a guess from his silence: his own words in
-this session that he is away or leaves (until he types again), or a question of this turn that
-went to his away channel because his instructions sent it there. For a choice of a build that
-waits, that is what `lem decisions settle SLUG N --away` stands on (`stages/choice.md`, step 4).
-
 ## spawn-builder
 
 The `Agent` tool with `subagent_type: "lem-builder"` when the session lists an agent of that
@@ -219,8 +214,7 @@ each start of a lead (`stages/start.md`), from its own `AGTERM_SESSION_ID`,
 gets the line.
 
 From the defender, one line after its report and its state are written. From either, one line
-right after the experts were given a choice (`lem decisions ask`, then the `lem-ask-expert` skill),
-`lem: SLUG choice N waits`, and `lem: SLUG choice N advised` when both answers are in. A builder
+right after a choice is asked (`lem decisions ask`), `lem: SLUG choice N waits`. A builder
 that leads sends no line when it stops: its reply wakes Lem, and a line too would wake it twice. It reaches Lem as mail that starts with
 `[agterm mailbox, not a peer chat message]`; Lem reads the task's state or `lem decisions
 pending`, never the line's claim. Mail is kept in memory only, so a pane that was restarted has

@@ -124,7 +124,9 @@ the record saying so.
    whose criteria nobody read and whose read he did not skip (step 5), and one whose read found a
    doubt with no yes of his after it.
 
-When he leaves before he answers, write the state `held` with the line `the criteria wait for the
+When he says "go alone" during the interview, it goes on without him as step 4 of
+`stages/mode.md` says: your guesses, logged, the read, and the criteria approved with `--alone`.
+When he leaves with no such words, write the state `held` with the line `the criteria wait for the
 owner`, and put the page to him again the way `ask-owner` says for an owner who is away. His
 answer goes on from step 6. A task with that line has no lead: when it is approved, write the
 brief and start one, from step 6 of "Open the task" (`stages/new.md`).

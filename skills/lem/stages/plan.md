@@ -83,7 +83,10 @@ forge calls it conflicting.
      first line of code waits. Write `report.md` with the criteria and the answers that flagged
      them on top, quoted, and the line `the criteria wait for the owner`; write the state `held`
      with that line, and stop. Leave a flagged criterion as you wrote it: what you would change goes
-     beside it, as a proposal, and he decides;
+     beside it, as a proposal, and he decides. A task that runs without him (`mode` is `alone` in
+     `lem project --repo WORKTREE tasks`) waits for nothing of this: freeze the criteria as written
+     with `lem criteria --repo WORKTREE approve SLUG --file PLAN --alone` and build, and the pull
+     request is not green for it;
    - run `lem criteria record SLUG`: it refuses a section that does not
      have the form, or that departs from the approved criteria, and it puts the criteria where
      the board and Lem's status show them;
@@ -161,38 +164,24 @@ forge calls it conflicting.
    plan. A task that becomes careful after its plan, by the owner's word, by the review's call or
    by an edit of `.lem/project.toml`, gets no talk afterwards: the landing's full
    review reads the code that exists.
-5. **A decision that is the owner's is asked, and the work goes on.** For each decision of the
-   plan: a ruling, a test or a probe answers it → quote that. It is cheap to undo → take it and
-   log it with `lem decisions log SLUG --by lead` (`stages/build.md`, "A choice in the build"). It
-   turns on a claim that can be argued both ways ("this will not scale", "nobody uses that") → the
-   `lem-dialectic` skill settles the claim first. Its options each cost a person something and
-   nothing answers it → it is the owner's, and it takes the one path every such decision takes,
-   at plan time as in the build: `stages/build.md`, "A choice in the build", step 2. The persona
-   panel reads it first, and a clear answer of theirs is taken and logged; an unclear one is
-   asked with `lem decisions ask`, whose card has to tell the owner one run without the code:
-   - `--case`: one concrete case in numbered steps that ends badly, with real names and values
-     and where each step was read, and `--case-was reproduced` or `--case-was derived`;
-   - `--cause`: one line on why the case became possible and how far the same cause reaches;
-   - an `--option` for each, as what a person would see and what it costs, and `--recommended`
-     with `--why`, what you would choose;
-   - `--said`: what the personas answered.
-   Then tell Lem and give it to the experts, as that step says, and go on to step 6: the build
-   takes the tasks that do not depend on it, and the wait ends as that section's steps 3 and 4
-   say. The state `held` is not for such a decision. A builder whose plan is careful or large and
-   has no talk yet has stopped at step 3 before this; the builder that leads after the talk takes
-   this step for the plan's own decisions.
-   A question the plan talk left open is a decision of this step like any other, with the two
-   positions as what it rests on, and the defender takes it before it stops. One that is the
-   owner's is asked the same way, and its `--said` holds both positions and what the personas
-   answered, or why they were not asked. A design choice about a decision of the plan (a layer
-   over a decision with no cite, a decision two questions named, or a changed decision that
-   brought issues of its own) is an honest comparison of both sides: one option is the kept
-   decision with each mechanism that guards it, the other the reversed decision with the tasks
-   and the criteria it changes and each issue the reviewer raised against it, and `--said` holds
-   both. A design choice of the talk is always asked so, never taken by the defender or the
-   builder: the defender is one of the two positions that did not settle.
+5. **A decision of the plan in doubt climbs the ladder, and the work goes on.** A decision the
+   lead may take is logged with `--by lead` (`stages/build.md`, "A choice in the build", step 1).
+   One in doubt takes `stages/ladder.md`; with the owner, one that went past the personas becomes
+   his card, as step 2 of that section asks it. Then go on to step 6: the build takes the tasks
+   that do not depend on it, and the wait ends as that section's steps 3 and 4 say. The state
+   `held` is not for such a decision. A builder whose plan is careful or large and has no talk
+   yet has stopped at step 3 before this; the builder that leads after the talk takes this step
+   for the plan's own decisions.
+   A question the plan talk left open climbs the ladder like any other, with the two positions as
+   its facts, and the defender takes it before it stops. A design choice about a decision of the
+   plan (a layer over a decision with no cite, a decision two questions named, or a changed
+   decision that brought issues of its own) is an honest comparison of both sides: one option is
+   the kept decision with each mechanism that guards it, the other the reversed decision with the
+   tasks and the criteria it changes and each issue the reviewer raised against it. Both are the
+   ladder's options, and the pick of level 1 is the kept decision: the plan stands until a level
+   settles otherwise, and the defender is one of the two positions that did not settle.
    A night plan is the exception: its brief has the line `night: yes`, nobody is there to answer,
-   and a night never takes a decision of the owner's by its wait or by the experts, so
+   and a night never takes a decision of the owner's that went past the personas, so
    `lem decisions ask` refuses there. Write each such decision into `report.md` under "for the
    owner", with the same case, cause and options, write the state `planned` with the line `the
    plan ends on a decision of the owner's`, and stop (`stages/night.md`, step 4).

@@ -184,8 +184,8 @@ one finds what the run before it finished.
    returned, each decision of the record (`lem decisions list SLUG`) with who took it and why,
    and your notes. Green means seven things, the seven the step checks: the checks passed with
    the bar where it was; a review with at least one source left no must-fix and saw the change
-   as it is; no criterion changed during the build; no choice was taken by timeout or by the
-   experts; the checks were the main checkout's own; no read of the criteria went unanswered twice;
+   as it is; no criterion changed during the build; nothing of the owner's went past the
+   personas without him (`stages/ladder.md`), and no criteria were approved without him; the checks were the main checkout's own; no read of the criteria went unanswered twice;
    and a small change is not careful. A green request needs no read from the owner. The step refuses while a
    choice of the task waits for the owner: ask him (`stages/choice.md`), and run it again after his answer or after the timeout. It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
@@ -217,7 +217,8 @@ one finds what the run before it finished.
    on the owner's word or an agent's, goes through the forge (`gh pr merge`), so its own rules
    hold; with `"merge"`, or a remote that is not GitHub, the step lands the branch directly.
    - `lem land land SLUG --by agent` is yours to run right after step 6 only when the settings'
-     `branch.land` is `agent` (`lem project show`). With `owner`, never run it: the merge is
+     `branch.land` is `agent` (`lem project show`) and the task runs with the owner. With
+     `owner`, or while it runs without him, never run it: the merge is
      his, your part ends with the proposal, and the task waits as `open`. The step still refuses
      a careful request, one that is not green, and one whose newest review made no careful call:
      an agent merges only on the review's "not careful". A refusal there is the end of your

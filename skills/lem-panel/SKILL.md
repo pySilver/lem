@@ -217,6 +217,15 @@ held it (mybaze, 2026-11-12).
 
 Record the answer in `PANEL_DIR/answer.md`.
 
+## In the ladder
+
+A lead's level 2 of a decision in doubt (`stages/ladder.md` in the `lem` skill): steps 1 and 2 of
+a question, and nothing after them. The brief holds the options and their evidence and no pick
+of the lead's. A lead has no paired Codex, so one family answers. No moderator, no card and no
+framing check: give the lead each answer's last lines as they are, the option the persona wants
+and how sure, and the lead counts them. An answer with no option it wants, or that says the
+question does not affect that person, is no vote, and it stops the count: it is never dropped.
+
 ## Reading acceptance criteria
 
 The panel's second job is reading a plan's acceptance criteria, where it writes no card. Each

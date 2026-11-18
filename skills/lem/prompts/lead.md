@@ -37,19 +37,20 @@ does not take the task to its report.
    refuse a plan that says `Size: small`.
 4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
    another branch or touch the checkout the worktree came from.
-5. **You never ask the owner.** A decision that is the owner's, in the plan or in the build, goes
-   to the personas and then into the record with `lem decisions ask`, as `plan.md` step 5 and
-   `build.md` "A choice in the build" say, and Lem asks it; on a night plan (`night: yes`) it goes
-   into `report.md` instead. When the owner writes to you in your
-   session, do what the owner says, and write it down so Lem reads it too. When his words answer
+5. **You never ask the owner.** A decision in doubt, in the plan or in the build, climbs the
+   ladder (`stages/ladder.md`), and with the owner one that went past the personas goes into the
+   record with `lem decisions ask`, and Lem asks it; on a night plan (`night: yes`) it goes into
+   `report.md` instead. When the owner writes to you in your
+   session, do what the owner says, and write it down so Lem reads it too: "go alone" and "I am
+   back" are `lem project --repo WORKTREE mode SLUG alone|with-owner --by owner --words "HIS WORDS"`. When his words answer
    a choice that waits (`lem decisions list SLUG`), write them with `lem decisions answer SLUG N
    --chose OPTION --words TEXT`, or with `--instead TEXT` when he decided what none of the
    options says (`stages/choice.md` says how). A criterion his
    answer changes gets its record from you, `lem decisions criterion ... --choice N`. A new decision
    would leave the choice waiting. Only a word of
    his that answers no choice is logged with `lem decisions log SLUG --by owner`. A choice in the
-   build waits for him a fixed time at most: `stages/build.md`, "A choice in the build", says
-   how it is asked and logged.
+   build waits for him a fixed time at most, and not at all while the task runs without him:
+   `stages/build.md`, "A choice in the build", says how it is asked and logged.
 6. **Write the state as you go**: `lem project --repo WORKTREE state SLUG
    STATUS "one line"`. It is the only thing Lem and the owner's board see of you while you work.
 7. **Stop the way `build.md` ends**: `report.md`, then the state, then your reply, the report's

@@ -68,14 +68,12 @@ you the start of one, write the state `blocked` with that refusal, and stop.
 ## A choice in the build
 
 A surprise in the build stops the task for the owner's wait at most, never longer, except for a
-step that a later "no" cannot reverse. The owner's rule, 2026-11-16: the personas first, a clear
-choice taken and logged, an unclear one to him, and with no answer in 15 minutes the recommended
-action, logged so that the pull request shows it. A decision of the plan that is the owner's
-takes these steps too (`stages/plan.md`, step 5): there is one path for every decision of his.
-Every decision goes into the task's record through one script, which also puts it on the board:
+step that a later "no" cannot reverse. A decision of the plan takes these steps too
+(`stages/plan.md`, step 5): there is one path for every decision. Every decision goes into the
+task's record through one script, which also puts it on the board:
 
 ```bash
-lem decisions --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead|personas [--said TEXT] [--undo TEXT]
+lem decisions --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead [--undo TEXT]
 ```
 
 A criterion the owner approved, or that the lead's read froze for a full change from a complete
@@ -89,10 +87,11 @@ lem decisions --repo WORKTREE criterion SLUG (--changed N --was TEXT --now TEXT 
 N is the criterion's number as the criteria stand after every earlier change;
 `lem decisions changes SLUG` gives them, and the command refuses a `--was` that is not the text
 of criterion N then. `--choice ID` names the choice of step 2 that led to it, once it is answered or
-taken by timeout; without a choice it is the personas' clear pick (`--by personas --said`), or
-the lead's own (`--by lead`) for a change that is nobody's choice, such as a typo in an example.
-A criterion whose rule changes, comes or goes is never the lead's alone: it takes step 2 below, the
-personas first. `criteria.py`
+taken by timeout; a decision the personas settled is `--by personas --said "who picked what"`,
+one another level of the ladder settled is `--by lead` with its number in `--why`, and so is the
+lead's own change that is nobody's choice, such as a typo in an example.
+A criterion whose rule changes, comes or goes is never the lead's alone: it climbs the ladder
+(step 2). `criteria.py`
 refuses the plan until its criteria are the expected ones, word for word, and the pull request is
 not green for each change. A plan's size (`Size:`) is always `full`, and `criteria.py` refuses
 a plan that says `Size: small`: a build never turns a full change into a small change, which
@@ -101,58 +100,43 @@ has no plan, and the size is no choice of this section. A plan that departs from
 
 1. **The criteria and the directions stay true**: decide it yourself, from the code, the settings
    and the rulings, and log it with `--by lead` and `--undo`, what it would take to undo it.
-2. **Otherwise the persona panel first**: the `lem-panel` skill (`load-skill`), with the personas
-   the choice concerns, in its reviewing mode: each option as what a person would see and what it
-   costs, and a short check of outside facts when one fact decides it. It asks the owner nothing
-   and decides nothing. This is the personas' step of every decision of his; the question gate
-   (`lem-gate`) comes later, at Lem, when the card goes to him (`stages/choice.md`).
-   - *A clear answer* (the personas agree, nobody in doubt): take it, log it with
-     `--by personas --said "who picked what"`, and go on. A criterion that the choice changes gets
-     its record, `lem decisions criterion ... --by personas --said "who picked what"`; change the
-     criterion in the plan in the same commit as the code. The pull request is not green for it.
-   - *An unclear answer* (the personas split, or one is in doubt), or a question of what the owner
-     meant or of taste, which the personas do not answer for him: ask him.
+2. **Otherwise it is in doubt**: `stages/ladder.md`, read at the first such decision. With the
+   owner, a decision that went past the personas, and a step that a later "no" cannot reverse,
+   end as his card:
 
-     ```bash
-     lem decisions --repo WORKTREE ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
-     ```
+   ```bash
+   lem decisions --repo WORKTREE ask SLUG --what TEXT --case STEPS --case-was reproduced|derived --cause TEXT --option TEXT --option TEXT --recommended TEXT --why TEXT --said TEXT [--irreversible data|system|person|money]
+   ```
 
-     `--case` is one concrete case in numbered steps that ends badly, with real names and values
-     and where each step was read, one step to a line; `--case-was` says whether you reproduced
-     it or derived it; `--cause` is one line on why the case became possible and how far the same
-     cause reaches. They go above the owner's card, so that he decides from one run and not from
-     the code. `--said` holds what the personas answered, or why they were not asked. A choice carries no
-     criterion. Whichever way it ends, by his answer, by a decision of his that is none of the
-     options, by the timeout or by the experts, read what was taken against each criterion: when one no longer
-     holds, or a criterion has to come or go, record it with `lem decisions criterion ... --choice
-     N`, and change the criterion in the plan in the commit that builds the option. A forgotten
-     record does not pass: the checks refuse a plan whose criteria are not the expected ones. The
-     choice waits the settings' `flow.decision_wait` (15 minutes unless the project says otherwise),
-     and it counts from the ask, so two things come at once, in this order, as `lem decisions ask`
-     prints them in its `next`. First give the choice to the experts: the `lem-ask-expert` skill
-     (`load-skill`), with the slug, the choice's number and the files the choice is about; its first
-     step writes their brief and starts them in the background, which takes seconds. Two experts of
-     two model families answer it, and their advice goes on the owner's card. It also decides what
-     the end of the wait takes, so it is not skipped for an irreversible step either: there it is
-     advice and nothing more. Then tell Lem: `tell-coordinator` with the line `lem: SLUG choice N
-     waits`, to the address of the brief's `coordinator:` line. Lem asks the owner when that line
-     wakes it, and finds the experts' brief there, so it never starts them a second time. The
-     defender of a plan talk sends it from its companion, and a builder that leads sends it from
-     Lem's own session; the harness file says what of that was checked. A brief with no
-     `coordinator:` line has no address: the choice then reaches Lem at its next turn, through
-     `lem decisions pending`, and may end its wait before the owner sees it. Send `lem: SLUG choice
-     N advised` the same way when both answers are in the record.
+   `--case` is one concrete case in numbered steps that ends badly, with real names and values
+   and where each step was read, one step to a line; `--case-was` says whether you reproduced
+   it or derived it; `--cause` is one line on why the case became possible and how far the same
+   cause reaches. They go above the owner's card, so that he decides from one run and not from
+   the code. `--recommended` is the ladder's pick, and `--said` what each level answered. A
+   choice carries no criterion. Whichever way it ends, by his answer, by a decision of his that
+   is none of the options or by the timeout, read what was taken against each criterion: when
+   one no longer holds, or a criterion has to come or go, record it with `lem decisions
+   criterion ... --choice N`, and change the criterion in the plan in the commit that builds the
+   option. A forgotten record does not pass: the checks refuse a plan whose criteria are not the
+   expected ones. The choice waits the settings' `flow.decision_wait` (15 minutes unless the
+   project says otherwise), counted from the ask, so tell Lem at once: `tell-coordinator` with
+   the line `lem: SLUG choice N waits`, to the address of the brief's `coordinator:` line. The
+   defender of a plan talk sends it from its companion, and a builder that leads sends it from
+   Lem's own session; the harness file says what of that was checked. A brief with no
+   `coordinator:` line has no address: the choice then reaches Lem at its next turn, through
+   `lem decisions pending`, and may end its wait before the owner sees it.
 3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
    before you start one that depends on it, run `lem decisions --repo WORKTREE wait SLUG N`. It
-   returns when the owner answered, when the wait is over, or after nine minutes: run it again
-   while it says `still waits`, when nothing else is left to do. When the wait is over, run
-   `lem decisions --repo WORKTREE timeout SLUG N`: the option both experts picked is taken, or the
-   recommended option when they split or one gave no advice in time, and the pull request is not
-   green for it either way. `wait` also returns when Lem settled the choice with the experts'
-   pick because the owner is away (`settled`): build that option. `lem decisions list SLUG` shows each decision as it stands; an
+   returns when the owner answered, when the wait is over, when the task runs without the owner
+   (`mode` in `lem project tasks`), or after nine minutes: run it again while it says `still
+   waits`, when nothing else is left to do. When the wait is over, or the task runs without him,
+   run `lem decisions --repo WORKTREE timeout SLUG N`: the ladder's pick is taken (on a choice
+   the experts advised, the option both picked), and the pull request is not green for it.
+   `lem decisions list SLUG` shows each decision as it stands; an
    answer that came after the timeout and differs from what was taken is the owner's correction:
    build his answer, and log it with `--by lead` and why.
-4. **A step that a later "no" cannot reverse is never taken by timeout or by the experts.** The four kinds, and no
+4. **A step that a later "no" cannot reverse is never taken by timeout or by a level of the
+   ladder**, with the owner or without him. The four kinds, and no
    other: it destroys or rewrites data outside the worktree (`data`); it writes to a system
    outside the repository beyond what the settings already allow, such as the tracker's ticket
    (`system`); it sends something to a person (`person`); it spends money (`money`). Ask it with
@@ -214,7 +198,7 @@ repository's root, never a path inside the worktree: the worktree is gone when t
 Then write the state (`ready`, or `held`, `blocked` or `planned` with the line that says why),
 and stop. A builder that leads tells Lem by its reply, which is the report's path and nothing
 else, and sends no mailbox line for it: its reply already wakes Lem, and a line too would wake it
-twice for one stop. Its only lines are `choice N waits` and `choice N advised`. The defender of a
+twice for one stop. Its only line is `choice N waits`. The defender of a
 plan talk has no such reply and uses `tell-coordinator` (`prompts/defender.md`).
 
 When your agent refuses you the write of `report.md`, do not go around the refusal. Add the line
