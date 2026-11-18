@@ -272,9 +272,8 @@ review informs whoever acts next, and a decision that follows from it still goes
    - **The cast**: the layer and source it came from, "one model family only" when Codex was
      unavailable, and "no project profile" when there is none.
 
-The caller reports the review with the artifact it was about. Reviewing a backlog item, the
-`lem-backlog` skill may offer to fold what the review changed into the item; the panel never
-edits the artifact itself.
+The caller reports the review with the artifact it was about, and may offer to fold what the
+review changed into it; the panel never edits the artifact itself.
 
 ## The card
 

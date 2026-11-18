@@ -34,7 +34,6 @@ COMMANDS = {
     "experts": ("skills/lem-ask-expert/scripts/experts.py", "the experts' brief of one question, and the record of their answers"),
     "cast": ("skills/lem-panel/scripts/cast.py", "the persona panel's cast and profile, and a panel's run folder"),
     "gate-log": ("skills/lem-gate/scripts/gate-log.py", "the question gate's log"),
-    "triage": ("skills/lem-backlog/scripts/triage.py", "the backlog's sort by who can act on each item"),
 }
 
 

@@ -84,7 +84,7 @@ agents run it, and you do not type it. Because it is one command, the permission
 - `lem NAME ARGS...` runs one script, for example `lem land start SLUG` or `lem project show`.
 - `lem NAME --help` gives the help of that script.
 - `lem help` lists the names: `project`, `land`, `criteria`, `decisions`, `board`, `doctor`,
-  `corrections`, `experts`, `cast`, `gate-log` and `triage`.
+  `corrections`, `experts`, `cast` and `gate-log`.
 - `lem version` prints the folder of the plugin, and its commit when that folder is a git clone.
 
 Two other commands stand alone: `lem-ask`, the question page, and `lem-jev`, the client of the
@@ -130,7 +130,7 @@ removes a worktree.
 - `landing.lock`: the lock of the one task in the landing;
 - `alone.lock`: the lock of the commands under `checks.alone`;
 - `decide-gate.jsonl`: the log of the question gate;
-- `backlog-triage.json` and `backlog.js`: the triage of the backlog, and the backlog for the board;
+- `backlog.js`: the backlog for the board;
 - `corrections.jsonl`, `corrections-reviews.jsonl`, `corrections.log` and `corrections-claims/`:
   the correction queue;
 - `night/`: the night reports;
@@ -238,8 +238,8 @@ Lem.
 
 *The board of one task, with demo data. The task is an example.*
 
-- The second tab is the backlog. Its groups are "Needs you", "An agent can take it", "Waits for
-  something" and "Decided against". An item whose place in the code is gone has a mark. You can
+- The second tab is the backlog. Its groups come from the `worth` of each item: "Worth doing",
+  "Later", "No verdict in the item" and "Decided against". An item whose place in the code is gone has a mark. You can
   filter the items by words.
 - Each backlog item has one action, "Start a task". After you confirm, the board types `/lem new`
   and the path of the item into Lem's session.
@@ -247,7 +247,7 @@ Lem.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/backlog-dark.png">
-    <img src="../assets/screens/backlog-light.png" alt="The backlog tab of the board: the items in groups by who can act" width="900">
+    <img src="../assets/screens/backlog-light.png" alt="The backlog tab of the board: the items in groups by their worth" width="900">
   </picture>
 </p>
 
@@ -298,4 +298,3 @@ starts by itself because of what you write. Lem uses these skills without a comm
 | `lem-interview-me` | the method of the interview |
 | `lem-root-cause` | the method of the investigator, and of a builder after two failed tries |
 | `lem-dialectic` | a claim that a plan rests on, before the plan accepts it |
-| `lem-backlog` | the format of a backlog item, and the triage of the backlog for the board |

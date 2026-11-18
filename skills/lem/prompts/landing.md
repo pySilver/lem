@@ -50,7 +50,7 @@ it touches, and look for these in the lines the change wrote or that sit next to
 5. **The defects outside the task** that `report.md` lists and that `outside.md` names. One that
    is cheap and small, and changes no behavior that a criterion or a test of the task holds, you fix
    in place, in a commit of its own. Each of the others you file: one item in the backlog folder,
-   in the item format of `SKILL_DIR/../lem-backlog/SKILL.md`, which you read by its path, committed as `docs(backlog):`. You ask nobody; the
+   in the item format of rule 6 of your standing rules, committed as `docs(backlog):`. You ask nobody; the
    pull request lists what was filed.
 
 Commit each kind on its own (`docs:` for comments and documents, `refactor:` or `chore:` for the

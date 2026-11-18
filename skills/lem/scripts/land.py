@@ -193,7 +193,7 @@ left nothing open and not green otherwise. `attempt` in a record is the number `
 for it, so a record that is sent twice is written down once.
 
 No defect outside the change gets lost. `file` writes one item in the settings' backlog folder
-for each such defect of a review that has none yet, in the item format of the `lem-backlog` skill
+for each such defect of a review that has none yet, in the item format of `agents/lem-builder.md`
 (`worth: later`, its `where`, the day it was filed; its title; its run and where it was seen),
 commits the new items on the task's branch, one commit for each round, and keeps the path of
 each defect's item in `landing.json`. A second run files nothing new. Those commits ask for no
@@ -213,7 +213,7 @@ Only the `where` is compared, because the builder and the review describe one de
 words; two defects of one place that a builder filed as one are one item, the price of the
 review's not filing the same defect twice. `read` gives the reviewer those items (`filed`), so
 that a defect the branch filed already is not reported again. One defect that two rounds
-describe in other words gets two items: an extra item costs a merge in the backlog's sorting, and
+describe in other words gets two items: an extra item costs a merge of two items by hand, and
 a lost one costs the defect. The review is asked to repeat an earlier round's words for a defect
 it sees again.
 

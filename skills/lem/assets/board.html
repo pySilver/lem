@@ -2100,23 +2100,15 @@ let lastTitle = '';
 
 // ---- the backlog tab ----
 
-// Who can act next, when the backlog skill's sorting has judged the items; the item's own `worth`
-// otherwise. A color never stands alone here: each group has its word and its count beside its
-// mark, and the one for what is decided against is the quiet one, with a dashed edge.
-const BY_WHO = [
-  {key: 'owner', name: 'Needs you', actor: 'you', test: it => it.worth !== 'no' && it.who === 'owner'},
-  {key: 'agent', name: 'An agent can take it', actor: 'lead', test: it => it.worth !== 'no' && it.who === 'agent'},
-  {key: 'waiting', name: 'Waits for something', actor: 'gate', test: it => it.worth !== 'no' && it.who === 'waiting'},
-  {key: 'unjudged', name: 'Not judged yet', actor: 'quiet', test: it => it.worth !== 'no' && !it.who},
-  {key: 'decided', name: 'Decided against', actor: 'quiet', recessive: true, test: it => it.worth === 'no'},
-];
+// The groups come from each item's own `worth`. A color never stands alone here: each group has its
+// word and its count beside its mark, and the one for what is decided against is the quiet one,
+// with a dashed edge.
 const BY_WORTH = [
   {key: 'yes', name: 'Worth doing', actor: 'gate', test: it => it.worth === 'yes'},
   {key: 'later', name: 'Later', actor: 'you', test: it => it.worth === 'later'},
   {key: 'unset', name: 'No verdict in the item', actor: 'quiet', test: it => it.worth === 'unset'},
   {key: 'no', name: 'Decided against', actor: 'quiet', recessive: true, test: it => it.worth === 'no'},
 ];
-const WHO = {owner: 'needs you', agent: 'an agent can take it', waiting: 'waits'};
 // A path is typed into a session as text. Anything but plain path characters is refused, so that
 // no file name can be read as more than a name there.
 const SAFE_PATH = /^[A-Za-z0-9._\/-]+$/;
@@ -2140,7 +2132,7 @@ function shownItems() {
   if (!words.length) return all;
   return all.filter(it => { const hay = `${it.title} ${it.slug} ${it.where} ${it.body}`.toLowerCase(); return words.every(w => hay.includes(w)); });
 }
-const groupsOf = items => (backlog?.judged ? BY_WHO : BY_WORTH).map(g => ({...g, items: items.filter(g.test)})).filter(g => g.items.length);
+const groupsOf = items => BY_WORTH.map(g => ({...g, items: items.filter(g.test)})).filter(g => g.items.length);
 const orderOf = items => groupsOf(items).flatMap(g => g.items.map(it => it.slug));
 
 function itemActions(it) {
@@ -2173,8 +2165,6 @@ function itemRow(it) {
       h('span', {class: 'bl-side'},
         it.state === 'unreadable' ? tag('cannot be read', 'The file of this item is a link to nothing, a folder, or not readable', 'bad')
           : it.state ? tag(it.state === 'new' ? 'new, not committed' : 'edited, not committed', 'git does not have this version of the item yet', 'gate') : null,
-        backlog.judged && it.who ? tag(WHO[it.who] + (it.confidence != null ? ` · ${Number(it.confidence).toFixed(2)}` : ''), 'Who can act next, as the backlog’s sorting judged it. A number near 0.5 is close to a coin toss.') : null,
-        backlog.judged ? tag(`worth: ${it.worth}`, 'The verdict in the item itself') : null,
         days != null ? tag(days === 0 ? 'today' : `${days} d`, `added ${it.added}`) : null),
       it.where ? (it.where_problem
         ? h('span', {class: 'bl-where stale', title: 'The place this item points at is not there any more. The item may be done, or the code moved.'}, icon('alert'), h('span', {}, `${it.where} · ${it.where_problem}`))
@@ -2194,12 +2184,12 @@ function renderBacklog() {
   $('bl-sum').replaceChildren(
     bl.reading ? 'reading… ' : '',
     backlogProblem ? h('span', {class: 'error'}, `${backlogProblem} · `) : '',
-    backlog ? `${bl.q.trim() ? `${items.length} of ${all.length}` : plural(all.length, 'item')} in ${backlog.folder} · ${stale ? `${plural(stale, 'item')} ${stale === 1 ? 'names' : 'name'} a place that is gone or cannot be read` : 'every place named is there'} ${broken ? ` · ${broken} cannot be read` : ''} · ${backlog.judged ? 'sorted by who can act' : 'sorted by the verdict in each item'} · read ${stamp(new Date(backlog.read).getTime(), Date.now())}` : '');
+    backlog ? `${bl.q.trim() ? `${items.length} of ${all.length}` : plural(all.length, 'item')} in ${backlog.folder} · ${stale ? `${plural(stale, 'item')} ${stale === 1 ? 'names' : 'name'} a place that is gone or cannot be read` : 'every place named is there'} ${broken ? ` · ${broken} cannot be read` : ''} · sorted by the worth of each item · read ${stamp(new Date(backlog.read).getTime(), Date.now())}` : '');
   const groups = groupsOf(items).map(g => h('div', {class: `bl-group a-${g.actor}${g.recessive ? ' recessive' : ''}`},
     h('div', {class: 'lane-head'}, h('i', {}), g.name, h('em', {}, g.items.length)),
     g.items.map(itemRow)));
   $('bl-groups').replaceChildren(...(groups.length ? groups : [h('div', {class: 'lane-empty'},
-    !backlog ? (backlogProblem ?? 'The backlog was not read yet.') : all.length ? 'No item has these words.' : `No item in ${backlog.folder}. The polish pass of a landing files items, and /lem backlog adds one.`)]));
+    !backlog ? (backlogProblem ?? 'The backlog was not read yet.') : all.length ? 'No item has these words.' : `No item in ${backlog.folder}. The polish pass of a landing files items, and /backlog adds one.`)]));
 }
 
 async function readBacklog() {

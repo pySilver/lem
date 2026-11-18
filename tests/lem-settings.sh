@@ -4,7 +4,7 @@
 # tool already reads instead of moving them; a settings file with an unknown key, a wrong value or a
 # path that leaves the repository is refused, and so is a list of careful paths; a worktree reads
 # the main checkout's flow table. Then the task state and the event log, the rule picker, a task's criteria and the check that
-# each one's tests fail on the base commit, the backlog's sorting, and the board, which reads them all.
+# each one's tests fail on the base commit, and the board, which reads them all.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -1521,47 +1521,6 @@ else
   fail "approvals under one lock: $while_held / $after_lock / $late_freeze / $(cat "$WORK/his-approval.out")"
 fi
 
-# The backlog's sorting reads the folder the project's settings name, not a fixed one.
-BKL=$WORK/backlog-repo
-git init -q -b main "$BKL" && commit "$BKL" start
-project --repo "$BKL" init --base main >/dev/null
-sed -i.bak 's|^backlog = "docs/backlog"$|backlog = "notes/later"|' "$BKL/.lem/project.toml" && rm "$BKL/.lem/project.toml.bak"
-mkdir -p "$BKL/notes/later" "$BKL/docs/backlog" && printf '%s\n' '# A slow report' 'It takes nine seconds.' > "$BKL/notes/later/slow-report.md" && echo '# Not the backlog' > "$BKL/docs/backlog/other.md"
-mkdir -p "$WORK/jevbin"
-printf '%s\n' '#!/bin/sh' 'cat > /dev/null' 'printf "{\"answers\": {\"triage\": {\"choice\": \"agent\", \"confidence\": 0.9, \"probabilities\": {\"agent\": 0.9}}}}"' > "$WORK/jevbin/triage-jev"
-chmod +x "$WORK/jevbin/triage-jev"
-TRIAGE=$PWD/skills/lem-backlog/scripts/triage.py
-# a record of the item from before the verdicts moved under Lem's folder: the first run takes it from there
-"$PY" -c 'import hashlib, json, sys; text = open(sys.argv[1], encoding="utf-8").read(); json.dump({"slow-report": {"verdict": "owner", "confidence": 0.7, "hash": hashlib.sha256(text.encode()).hexdigest()[:16], "head": "x", "checked": 0}}, open(sys.argv[2], "w"))' \
-  "$BKL/notes/later/slow-report.md" "$BKL/.git/backlog-triage.json"
-out=$(env JEV_BIN="$WORK/jevbin/triage-jev" "$PY" -B "$TRIAGE" refresh --json --repo "$BKL" 2>/dev/null)
-err=$(env JEV_BIN="$WORK/jevbin/triage-jev" "$PY" -B "$TRIAGE" item other --repo "$BKL" 2>&1 || true)
-if grep -q '"slow-report"' <<<"$out" && ! grep -q '"other"' <<<"$out" && grep -q "no item other.md in $BKL/notes/later" <<<"$err"; then
-  pass "the backlog's sorting reads the items of the folder the project's settings name"
-else
-  fail "the backlog's folder: $out / $err"
-fi
-if [ "$(field '[e["slug"] for e in d["owner"]]' <<<"$out")" = "['slow-report']" ] && [ -f "$BKL/.lem/state/backlog-triage.json" ] && [ ! -e "$BKL/.git/backlog-triage.json" ]; then
-  pass "the verdicts live in Lem's state folder, where its removal deletes them, and a file in the oldest place is moved there with its records"
-else
-  fail "the place of the verdicts: $out / $(ls -A "$BKL/.git" "$BKL/.lem/state" 2>&1)"
-fi
-# With no JEV_BIN, Lem's own jev.py runs by its path, also beside a developer's own `jev` on PATH, which it never
-# takes for Lem's: with no key it says so, and sends nothing.
-mkdir -p "$WORK/gitonly" && ln -sf "$(command -v git)" "$WORK/gitonly/git"
-printf '%s\n' '#!/bin/sh' 'echo "the developer'"'"'s own jev ran" >&2' 'exit 1' > "$WORK/gitonly/jev" && chmod +x "$WORK/gitonly/jev"
-printf '%s\n' '# A second item' 'It needs a verdict.' > "$BKL/notes/later/second.md"
-bypath=$(env -i PATH="$WORK/gitonly" HOME="$WORK" "$PY" -B "$TRIAGE" item second --repo "$BKL" 2>&1 || true)
-printf 'caf\351\n' > "$BKL/notes/later/latin.md"
-latin=$(env JEV_BIN="$WORK/jevbin/triage-jev" "$PY" -B "$TRIAGE" refresh --repo "$BKL" 2>&1 || true)
-rm "$BKL/notes/later/latin.md" "$BKL/notes/later/second.md"
-if grep -qF "lem-jev: OPENROUTER_API_KEY is not set" <<<"$bypath" && ! grep -qF "not on PATH" <<<"$bypath" && ! grep -qF "own jev ran" <<<"$bypath" \
-  && grep -qF "notes/later/latin.md is not UTF-8 text" <<<"$latin" && ! grep -q Traceback <<<"$bypath$latin"; then
-  pass "with no JEV_BIN the sorting runs Lem's own client by its path and never a developer's own jev on PATH, and an item that is not UTF-8 is named"
-else
-  fail "the sorting without a jev command: $bypath / $latin"
-fi
-
 # The backlog tab of the board: board.py writes the items for the page, with what each needs beside its text.
 BKB=$WORK/backlog-board
 git init -q -b main "$BKB" && mkdir -p "$BKB/docs/backlog" "$BKB/app" && printf 'def export_rows():\n    return []\n' > "$BKB/app/export.py"
@@ -1580,13 +1539,13 @@ project --repo "$BKB" init --base main >/dev/null
 project --repo "$BKB" task-dir a-first-task >/dev/null && project --repo "$BKB" state a-first-task building 'lead: builder' >/dev/null
 "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
 feed() { "$PY" -c 'import json, re, sys; d = json.loads(re.fullmatch(r"lemBacklog\((.*)\);\n", open(sys.argv[1], encoding="utf-8").read().replace("<\\/", "</"), re.S).group(1)); print(eval(sys.argv[2], {"d": d, "by": {i["slug"]: i for i in d["items"]}}))' "$BKB/.lem/state/backlog.js" "$1"; }
-if [ "$(feed '(d["folder"], d["judged"], sorted(by))')" = "('docs/backlog', False, ['a b;c', 'broken-link', 'dark-theme', 'export-drops-columns', 'folder-item', 'new-from-a-landing', 'slow-report', 'which-currency'])" ] \
+if [ "$(feed '(d["folder"], "judged" in d, sorted(by))')" = "('docs/backlog', False, ['a b;c', 'broken-link', 'dark-theme', 'export-drops-columns', 'folder-item', 'new-from-a-landing', 'slow-report', 'which-currency'])" ] \
   && [ "$(feed '(by["export-drops-columns"]["title"], by["export-drops-columns"]["worth"], by["export-drops-columns"]["where_problem"], by["export-drops-columns"]["state"], by["export-drops-columns"]["path"])')" = "('The export drops custom columns', 'yes', '', '', 'docs/backlog/export-drops-columns.md')" ] \
   && [ "$(feed '(by["slow-report"]["where_problem"], by["which-currency"]["where_problem"], by["dark-theme"]["worth"], by["dark-theme"]["where"])')" = "('the file is not there', 'not in the file: no_such_name', 'no', '')" ] \
   && [ "$(feed '(by["new-from-a-landing"]["worth"], by["new-from-a-landing"]["state"], by["a b;c"]["title"])')" = "('unset', 'new', 'a b;c')" ] \
   && [ "$(feed '(by["broken-link"]["state"], by["folder-item"]["state"], "cannot be read" in by["broken-link"]["body"])')" = "('unreadable', 'unreadable', True)" ] \
   && ! grep -q '</script>' "$BKB/.lem/state/backlog.js" && [ "$(feed '"</script><b>not markup</b>" in by["export-drops-columns"]["body"]')" = True ]; then
-  pass "the board's backlog file has each item with its verdict, whether its place in the code is still there and whether git has it; an item that cannot be read is listed as such; and no text of an item can end the script that carries it"
+  pass "the board's backlog file has each item with its worth, whether its place in the code is still there and whether git has it; an item that cannot be read is listed as such; and no text of an item can end the script that carries it"
 else
   fail "backlog.js: $(head -c 600 "$BKB/.lem/state/backlog.js")"
 fi
@@ -1603,14 +1562,15 @@ if grep -q '"state": "new"' "$FIRST/.lem/state/backlog.js" && grep -q '"title": 
 else
   fail "a first backlog item, and the session after --no-open: $(cat "$FIRST/.lem/state/backlog.js" "$FIRST/.lem/state/meta.js" | head -c 500)"
 fi
-printf '%s\n' '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}, "which-currency": {"verdict": "owner", "confidence": 0.58}, "slow-report": {"verdict": "nonsense"}, "gone-item": {"verdict": "agent"}}' > "$BKB/.lem/state/backlog-triage.json"
+# The verdicts an older Lem's backlog sorting left in the state folder are no part of the board:
+# the tab groups the items by their own worth, and the file stays as it was.
+printf '%s\n' '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}}' > "$BKB/.lem/state/backlog-triage.json"
 "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
-kept=$(cat "$BKB/.lem/state/backlog-triage.json")
-if [ "$(feed '(d["judged"], by["export-drops-columns"]["who"], by["export-drops-columns"]["confidence"], by["which-currency"]["who"], by["slow-report"]["who"])')" = "(True, 'agent', 0.86, 'owner', '')" ] \
-  && [ "$kept" = "$(cat "$BKB/.lem/state/backlog-triage.json")" ] && [ -z "$(git -C "$BKB" status --porcelain -- app)" ]; then
-  pass "with verdicts of the backlog's sorting the file says who can act on each item, an unknown verdict is none, and the board reads that record without a change to it"
+if [ "$(feed '("judged" in d, "who" in by["export-drops-columns"], "confidence" in by["export-drops-columns"])')" = "(False, False, False)" ] \
+  && [ "$(cat "$BKB/.lem/state/backlog-triage.json")" = '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}}' ]; then
+  pass "the board's backlog file reads no verdict of an older sorting: each item has its own worth, and the old file stays as it is"
 else
-  fail "backlog.js with verdicts: $(head -c 400 "$BKB/.lem/state/backlog.js")"
+  fail "backlog.js beside an older sorting's verdicts: $(head -c 400 "$BKB/.lem/state/backlog.js")"
 fi
 
 # The board: board.py writes the page and what it reads beside the events, and the page draws them.
@@ -1820,10 +1780,10 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     --virtual-time-budget=5000 --dump-dom "file://$BKB/.lem/state/board.html#backlog" > "$WORK/backlog.dom" 2>/dev/null || true
   if [ ! -s "$WORK/backlog.dom" ]; then
     printf 'SKIP the backlog tab: %s printed no page\n' "$chrome"
-  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/backlog.dom" "Backlog · backlog-board" "8 items in docs/backlog" "2 items name a place that is gone or cannot be read" "2 cannot be read" "sorted by who can act" \
-    "Needs you" "An agent can take it" "Not judged yet" "Decided against" "The export drops custom columns" "an agent can take it · 0.86" \
-    "app/report.py:monthly · the file is not there" "new, not committed" "worth: unset" "!Waits for something"); then
-    pass "the backlog tab draws the items in groups by who can act, each with its word and its count, and shows a place that is gone"
+  elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/backlog.dom" "Backlog · backlog-board" "8 items in docs/backlog" "2 items name a place that is gone or cannot be read" "2 cannot be read" "sorted by the worth of each item" \
+    "Worth doing" "Later" "No verdict in the item" "Decided against" "The export drops custom columns" \
+    "app/report.py:monthly · the file is not there" "new, not committed" "!Needs you" "!An agent can take it" "!0.86"); then
+    pass "the backlog tab draws the items in groups by their worth, each with its word and its count, and shows a place that is gone"
   else
     fail "the backlog tab: missing $why"
   fi

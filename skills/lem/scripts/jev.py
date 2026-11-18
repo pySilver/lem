@@ -5,8 +5,7 @@
   lem-jev check SPEC.json | lem-jev check -     validate the spec and its size, send nothing
 
 Lem's own copy. The plugin puts it on the Bash tool's PATH as `lem-jev` (`bin/lem-jev`), named so
-that it does not shadow a developer's own `jev`, and the correction hook and the backlog's sorting
-run it by its path.
+that it does not shadow a developer's own `jev`, and the correction hook runs it by its path.
 
 A spec is {"state": "<the facts to decide on>", "questions": {NAME: QUESTION, ...}} and
 optionally "model". A question is {"instructions": "<what to decide>", "choices": {ID: "<what

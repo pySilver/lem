@@ -30,14 +30,10 @@ is the directory above this file's. This file and your standing rules are all yo
    `git status --short` is empty: remove what your runs left untracked, such as a `__pycache__`.
 7. **File what you saw outside the change.** A small change has no polish pass, so a defect in
    code outside your change, one the base commit has too, is yours to file and never to fix: one
-   item for each in the backlog folder (`paths.backlog` in `lem project --repo WORKTREE show`), in
-   the item format of the `lem-backlog` skill: between two `---` lines `worth: later`, `where:
-   PATH` or `PATH:SYMBOL` (never a line number) and `added: YYYY-MM-DD`, today; then `# TITLE` on
-   one line; then the concrete run, with real values; last the line `Seen outside the change by
-   the builder of task SLUG (DATE); the base commit has it.` The file name is the
-   title's words joined by `-`; when a file of that name holds another defect, add the stem of
-   the `where`. Commit the items in one commit of their own, after the change's: `docs(backlog):
-   what the builder of SLUG saw outside it`. You ask nobody; the pull request lists them.
+   item for each, in the item format of rule 6 of your standing rules, with the last line `Seen
+   outside the change by the builder of task SLUG (DATE); the base commit has it.` Commit the
+   items in one commit of their own, after the change's: `docs(backlog): what the builder of SLUG
+   saw outside it`. You ask nobody; the pull request lists them.
 8. **The criterion's line.** Under the criterion in `criteria.md`, three spaces in: `- test:
    `COMMAND` in `FILE``, each file the test needs in its own backticks, or the `- no test:` line of
    step 3. Then `lem criteria --repo WORKTREE record SLUG`, which refuses a

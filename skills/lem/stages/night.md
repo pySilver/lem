@@ -8,15 +8,14 @@ the owner, and leaves a plan for the morning. It never builds: a plan is the own
    (`lem project tasks`). With two or more of them, draft nothing and write why in the night
    report. A plan is written against the code as
    it stood that night, so a draft nobody starts ages, and a third one only adds to the pile.
-2. **The candidates.** Read the items in the backlog path (`lem project path backlog`), in the
-   `lem-backlog` skill's format. The backlog only: a tracker's ticket is never a night's
-   candidate, because which ticket is next is a person's call. Leave out an item that is decided against, one a branch, a worktree,
+2. **The candidates.** Read the items in the backlog path (`lem project path backlog`): one file
+   each, with `worth`, `where` and `added` between two `---` lines, then a title and prose. The backlog only: a tracker's ticket is never a night's
+   candidate, because which ticket is next is a person's call. Leave out an item that is decided against (`worth: no`), one a branch, a worktree,
    an open plan or a task directory already holds, and one in reach of one of the project's
    topics (`flow.topics`): read the item's words and its `where` against each, as `stages/new.md`
    step 1 reads an ask, and leave it out in doubt. A careful plan needs the reviewer, and that is
-   a day's work. When the
-   `lem-backlog` skill's triage has verdicts, take the items it gives to an agent, the surest first.
-   Without verdicts, read each item and keep the ones that state a defect or a job, not a choice.
+   a day's work. Take the items with `worth: yes` first, then the others, and read each one: keep
+   the ones that state a defect or a job, not a choice.
    An item that is one plain change (one rule in a sentence, in reach of no topic, no question
    open: a small change, as `stages/new.md` step 1 sizes an ask) gets no plan: a plan never
    makes a change small, and a small change has one builder and no plan. Draft nothing for it, name

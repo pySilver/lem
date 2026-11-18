@@ -23,7 +23,7 @@ Lem runs on macOS only, because agterm is a terminal for macOS.
 | the Codex persona agent | optional | the second model family of a persona panel, in `~/.codex/agents/persona.toml` |
 | [cronn](https://cronn.umputun.dev) | optional | the scheduled retro and night plan |
 | [plannotator](https://github.com/backnotprop/plannotator) | optional | another tool to mark up a plan, if you name it in `tools.annotate` |
-| an [OpenRouter](https://openrouter.ai) key, `OPENROUTER_API_KEY` | optional | the Jev decision model, for the correction queue, the triage of the backlog, and the check of a question card |
+| an [OpenRouter](https://openrouter.ai) key, `OPENROUTER_API_KEY` | optional | the Jev decision model, for the correction queue and the check of a question card |
 
 Lem does not include the recommended tools. `/lem init` installs one only after your yes. Without
 webrev, you read a file as plain text and give your notes in the conversation. Without agdoc

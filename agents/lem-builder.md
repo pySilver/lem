@@ -63,7 +63,12 @@ What holds for every builder, unless your job says otherwise as above:
 6. **A defect outside your task is listed, not fixed and not filed.** Its file and one line on
    what is wrong go into your report. The landing's polish pass decides what becomes of it;
    when your brief is that polish pass, you are the one who fixes the small ones and files
-   the others.
+   the others. **The item format**, for a builder that files: one file for each defect,
+   `docs/backlog/<slug>.md`, the slug the title's words joined by `-`; between two `---` lines
+   `worth: later`, `where: PATH` or `PATH:SYMBOL` (never a line number) and `added: YYYY-MM-DD`,
+   today; then `# TITLE` on one line; then the concrete run, with real values, in prose. When a
+   file of that name holds another defect, add the stem of the `where` to the slug. The items go
+   on the task's branch, in a commit of their own (`docs(backlog): ...`).
 7. **You ask nobody.** A decision the plan did not take, you take and write in your report with
    its reason, while the criteria stay true. A choice that would change a criterion, whose options
    each cost a person something, or that only the owner can answer, is not yours: commit what

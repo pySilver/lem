@@ -159,7 +159,6 @@ starts by itself because of what you write. You type its `/lem` name, or a stage
 | You type | Use it when | Example |
 | --- | --- | --- |
 | `/lem interview-me` | your request is not clear to you yet | `/lem interview-me a faster export` |
-| `/lem backlog` | you want to see, add or do work for later | `/lem backlog` |
 | `/lem dialectic` | a plan rests on a claim that you doubt | `/lem dialectic this table stays below one million rows` |
 | `/lem root-cause` | a defect comes back after two fixes | `/lem root-cause the import stops at row 5000` |
 | `/lem ask-expert` | you want two other models to answer a question | `/lem ask-expert which of the two queue designs fails better under load?` |

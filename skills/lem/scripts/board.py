@@ -15,8 +15,7 @@ fetch and it can load a script, so each of them is one.
 
 The board's second tab is the backlog, from `backlog.js`, which this script writes at every run:
 each item of the settings' backlog folder in the main checkout, with its `worth`, its `where` and
-whether that still resolves, whether git has it committed, and who can act on it next when the
-`lem-backlog` skill's sorting has a verdict. Items change rarely, so the page reads that file when
+whether that still resolves, and whether git has it committed. Items change rarely, so the page reads that file when
 the tab opens and on a key, and it says when the file was written. A run with `--no-open` writes
 it again without touching agterm, and keeps the session the board already names: the tab's one
 action types an ask into that session, so only a run that opens the board says which one it is.
@@ -110,13 +109,13 @@ def where_problem(root: Path, where: str) -> str:
     return f"not in the file: {'.'.join(missing)}" if missing else ""
 
 
-def backlog(settings: dict, state: Path) -> dict:
+def backlog(settings: dict) -> dict:
     """The items of the backlog folder, as the board's second tab shows them. It reads and changes nothing."""
     main = Path(settings["main"])
     # the main checkout's copy: a task's worktree has the backlog as its branch left it
     folder = main / Path(settings["paths"]["backlog"]["path"]).relative_to(settings["root"])
     relative = folder.relative_to(main).as_posix()
-    feed: dict = {"folder": relative, "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "judged": False, "items": []}
+    feed: dict = {"folder": relative, "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "items": []}
     if not folder.is_dir():
         return feed
 
@@ -131,13 +130,6 @@ def backlog(settings: dict, state: Path) -> dict:
         if len(entry) > 3:
             code = entry[:2]
             changed[entry[3:]] = "new" if code == "??" or "A" in code else "edited"
-    # who can act next, as the backlog skill's sorting last judged it; that file is read, never written here
-    verdicts_file = state / "backlog-triage.json"
-    try:
-        verdicts = json.loads(verdicts_file.read_text(encoding="utf-8")) if verdicts_file.is_file() else {}
-    except ValueError:
-        verdicts = {}
-    verdicts = verdicts if isinstance(verdicts, dict) else {}
     for file in sorted(folder.glob("*.md")):
         rel = f"{relative}/{file.name}"
         try:
@@ -147,7 +139,7 @@ def backlog(settings: dict, state: Path) -> dict:
             # the other items are still read.
             feed["items"].append({
                 "slug": file.stem, "path": rel, "title": file.stem, "worth": "unset", "where": "", "where_problem": "", "added": "",
-                "state": "unreadable", "who": "", "confidence": None, "body": f"This item cannot be read: {error.strerror or error}.",
+                "state": "unreadable", "body": f"This item cannot be read: {error.strerror or error}.",
             })
             continue
         fields: dict[str, str] = {}
@@ -163,18 +155,14 @@ def backlog(settings: dict, state: Path) -> dict:
         title = re.search(r"(?m)^#\s+(.+)$", body)
         if title:
             body = body[: title.start()] + body[title.end():]
-        verdict = verdicts.get(file.stem) if isinstance(verdicts.get(file.stem), dict) else {}
         where = fields.get("where", "")
         feed["items"].append({
             "slug": file.stem, "path": rel, "title": (title.group(1) if title else file.stem).replace("`", "").strip(),
             "worth": fields.get("worth") if fields.get("worth") in ("yes", "later", "no") else "unset",
             "where": where, "where_problem": where_problem(main, where) if where else "",
             "added": fields.get("added", ""), "state": changed.get(rel, ""),
-            "who": verdict.get("verdict") if verdict.get("verdict") in ("owner", "agent", "waiting") else "",
-            "confidence": verdict.get("confidence") if isinstance(verdict.get("confidence"), (int, float)) else None,
             "body": body.strip(),
         })
-    feed["judged"] = any(item["who"] for item in feed["items"])
     return feed
 
 
@@ -301,7 +289,7 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
         meta["demo"] = True
     (state / "meta.js").write_text(f"lemMeta({json.dumps(meta, ensure_ascii=False)});\n", encoding="utf-8")
     # `</` is split so that no item's text can end the script tag the page loads this file with
-    items = json.dumps(backlog(settings, state), ensure_ascii=False).replace("</", "<\\/")
+    items = json.dumps(backlog(settings), ensure_ascii=False).replace("</", "<\\/")
     (state / "backlog.js").write_text(f"lemBacklog({items});\n", encoding="utf-8")
     # the same split of `</` for the naps' text, which an agent wrote and nobody reviewed
     dreamt = json.dumps(naps_feed(state), ensure_ascii=False).replace("</", "<\\/")

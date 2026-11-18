@@ -472,7 +472,7 @@ def main() -> None:
              "nothing is lost: webrev is the default of tools.annotate", "plannotator", ["--version"]),
         {
             "name": "OpenRouter key", "need": "optional", "found": bool(os.environ.get("OPENROUTER_API_KEY")), "detail": None,
-            "used_for": "the Jev decision model, which the correction queue, the backlog's sorting and a card's framing check ask",
+            "used_for": "the Jev decision model, which the correction queue and a card's framing check ask",
             "without_it": "none of the three gets an answer, and the correction hook logs each message as a failure; "
                           "put OPENROUTER_API_KEY into the environment the agent starts with",
         },

@@ -116,7 +116,7 @@ if [ -z "$caches" ]; then pass "lem leaves no __pycache__, also of the scripts t
 import re, sys
 from pathlib import Path
 root = Path(sys.argv[1])
-names = "project|land|criteria|decisions|board|doctor|corrections|experts|cast|gate-log|triage"
+names = "project|land|criteria|decisions|board|doctor|corrections|experts|cast|gate-log"
 # `python3 SKILL_DIR/scripts/land.py`, `bash SKILL_DIR/scripts/run.sh`, also across a line break
 path_form = re.compile(r"(?:python3|bash)\s+\S*scripts/[\w-]+\.(?:py|sh)")
 # `land.py merged SLUG`, `project.py --repo W tasks`, also across a line break

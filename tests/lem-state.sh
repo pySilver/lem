@@ -36,7 +36,7 @@ else
   fail "the state outside a repository: $err / $corr_err"
 fi
 
-# The question gate's log and the backlog's verdicts are in the state folder too, and an older log of the gate there is moved with it.
+# The question gate's log is in the state folder too, and an older log of the gate there is moved with it.
 GL=$WORK/old-gate
 git init -q -b main "$GL" && commit "$GL" start
 mkdir -p "$GL/.git/lem" && printf '%s\n' '{"id": "001-old", "kind": "ask", "question": "q", "verdict": "held", "cite": "c"}' > "$GL/.git/lem/decide-gate.jsonl"
