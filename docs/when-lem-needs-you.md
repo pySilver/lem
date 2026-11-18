@@ -72,7 +72,7 @@ level. The card waits for your answer with no time limit, and the other work goe
 
 ## Away
 
-Type `/lem im-away`, or say "I'm away". Lem assumes nothing: only your word changes it. While you
+Type `/lem im-away`, or say "I'm away". Only your word changes it. While you
 are away, every task goes on without you:
 
 - each choice that waits is taken at once, with the ladder's pick;
