@@ -1501,6 +1501,14 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
       | "$PY" -I -c 'import html, re, sys; found = re.search(r"<pre id=\"measured\">([^<]*)", sys.stdin.read()); print("measured at 1400 x 900:", html.unescape(found.group(1)) if found else "nothing")'
     cp "$WORK/board-page.html" "$STATE/board.html"
   fi
+  # While the owner is away the head of the board says so, with the command that ends it. Last, since his
+  # away takes each choice that waits.
+  project owner away --words "/lem im-away" >/dev/null && board --no-open >/dev/null && draw board away
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/board-away.dom" "the tasks go on without you until /lem im-back" "!/lem active"); then
+    pass "while the owner is away, the head of the board says that the tasks go on without him until /lem im-back"
+  else
+    fail "the head of the board while the owner is away: $why"
+  fi
 fi
 
 results_add_up

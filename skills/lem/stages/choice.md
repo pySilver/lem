@@ -40,4 +40,4 @@ that was dropped or landed while a choice waited is under `ended`, and its choic
    is written down the same way, and the script says it is late: what was taken stands. When
    the answer differs from it, it is his correction: tell the lead while the task builds, and
    after that it is a new ask. The pull request names it either way.
-4. **When he leaves or comes back** (`/lem away`, `/lem active`): `stages/away.md`.
+4. **When he leaves or comes back** (`/lem im-away`, `/lem im-back`): `stages/away.md`.

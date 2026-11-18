@@ -1,10 +1,11 @@
-# `away`, `active`
+# `im-away`, `im-back`
 
-Read when the owner says that he is away or active again, and at no other time. He says whether
+Read when the owner says that he is away or back again, and at no other time. He says whether
 he is there, and Lem assumes nothing: "Owner either tells dnd or not, no assumptions" (2026-11-18).
-`/lem away` and `/lem active` are his words, after Slack's; a plain sentence that plainly says
-the same is too ("I'm away", "I'm back", "I'm here again"). When his words are not that plain ("I
-have to go, carry on"), ask once in the terminal: "Mark you away until you say /lem active? (y/n)".
+`/lem im-away` and `/lem im-back` are his words, and so are the older words that `SKILL.md` sends
+here and a plain sentence that plainly says the same ("I'm away", "I'm back", "I'm here again").
+When his words are not that plain ("I have to go, carry on"), ask once in the terminal: "Mark you
+away until you say /lem im-back? (y/n)".
 His words go into the record as he typed them; no script can tell who typed, so write them only
 for words he typed in this session. A text for him says "without you", never "alone": `lem project
 alone` is the lock of the machine.
@@ -38,7 +39,7 @@ log it with that level: `lem decisions log SLUG --what "criterion N" --option "A
 `--by lead --unsettled`. Nothing waits for him: the pull request is not green in any case, since
 he did not approve the criteria.
 
-## Active
+## Back
 
 `lem project owner active --words "HIS WORDS"`: every task that ran without him comes back to him,
 a night's too. Then one line for each such task: how many decisions were taken without him,

@@ -21,7 +21,7 @@ Nothing asks him.
 3. **Each one runs without the owner.** In that order, open the task as `stages/new.md` does,
    with the item's path as the ask and `--night YYYY-MM-DD` on its `lem project task-dir`, with
    the night's date: it marks the task as the night's, and it runs without the owner until he
-   says `/lem active`. From there the task takes the path that `stages/new.md` chose, as any
+   says `/lem im-back`. From there the task takes the path that `stages/new.md` chose, as any
    task that runs without the owner does (`stages/away.md`). A lead's brief carries `request by: someone else`, since nobody at the
    terminal read the item, so the criteria of a task on the standard track are approved with `--alone` and its pull
    request is not green for them. A line a stage file tells the owner goes into the night

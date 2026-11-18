@@ -128,10 +128,10 @@ beside this one, and the step that chooses the path names it.
    words, the branch, the track with its steps, and what he must do. The track's name stands at its
    steps, never beside the type. On the fast track: `docs: "the README says receive, not
    recieve". Branch docs/readme-receive-typo. Fast track: one builder, the checks, one read, then
-   the pull request. Nothing waits for you. Wrong read? /lem standard, /lem careful.` On the
+   the pull request. Nothing waits for you. Wrong read? /lem standard-track, /lem be-careful.` On the
    standard track with an interview: `feat: "an export holds the gift note". Branch
    feat/gift-note-in-export. Standard track: an interview now, then acceptance criteria for your
-   yes. After that it runs to the pull request without you. Wrong read? /lem careful.` A topic in
+   yes. After that it runs to the pull request without you. Wrong read? /lem be-careful.` A topic in
    reach goes first: `Careful: this changes how a customer is charged. feat: ...`. A fix
    investigated first: `fix: "an invoice shows its total after a refund". Branch
    fix/invoice-total-after-refund. An investigator finds the cause first. Then I tell you what it

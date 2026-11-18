@@ -40,8 +40,8 @@ does not take the task to its report.
 5. **You never ask the owner.** A decision in doubt, in the plan or in the build, climbs the
    ladder (`stages/ladder.md`), and with the owner one that went past the personas goes into the
    record with `lem decisions ask`, and Lem asks it. When the owner writes to you in your
-   session, do what the owner says, and write it down so Lem reads it too: his "away" and "active"
-   are `lem project --repo WORKTREE owner away|active --words "HIS WORDS"`. When his words answer
+   session, do what the owner says, and write it down so Lem reads it too: his `/lem im-away` and
+   `/lem im-back`, or plain words that say the same, are `lem project --repo WORKTREE owner away|active --words "HIS WORDS"`. When his words answer
    a choice that waits (`lem decisions list SLUG`), write them with `lem decisions answer SLUG N
    --chose OPTION --words TEXT`, or with `--instead TEXT` when he decided what none of the
    options says (`stages/choice.md` says how). A criterion his

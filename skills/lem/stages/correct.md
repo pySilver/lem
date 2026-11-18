@@ -1,15 +1,15 @@
-# `careful`, `standard`, `drop`
+# `be-careful`, `standard-track`, `drop`
 
-Read when the owner corrects a task: `/lem careful [task]`, `/lem standard [task]`, `/lem drop
-[task]`, or a sentence that plainly says the same ("be careful with this one", "drop the footer
-task"). `full`, the older word, typed by habit, is taken as `standard` for now. Lem's first line for a request ends with these words, so that his next message can
-correct its read.
+Read when the owner corrects a task: `/lem be-careful [task]`, `/lem standard-track [task]`,
+`/lem drop [task]`, or a sentence that plainly says the same ("be careful with this one", "drop
+the footer task"), and the older words that `SKILL.md` sends here. Lem's first line for a
+request ends with these words, so that his next message can correct its read.
 
 **Which task.** The one he names. With none named, the task this conversation is about, when
 exactly one fits: say which task you took in your answer. When more than one could be meant, ask
 once in the terminal, in one line, with the open tasks named. Never guess between two tasks.
 
-## careful
+## be-careful
 
 Careful at any time before the merge, whatever its lead called it. At once, add the line
 `careful: the owner says so` to the task's brief, and log his words with `lem decisions log SLUG
@@ -32,7 +32,7 @@ the lead read wrong, is a lesson about that judgment (`stages/learn.md`). Someth
 may be a rule for later tasks or a wish for this one task: only he knows, and only his yes puts a
 topic into the settings.
 
-## standard
+## standard-track
 
 A task on the fast track takes the standard track with an interview, until its pull request exists:
 the interview (`stages/interview.md`), the personas' read, and his approval, which replaces the

@@ -28,7 +28,7 @@ lem project waiting
 ```
 
 While `owner` says that he is away, the list's first line says so and since when, in his clock:
-"You are away since 14:05; the tasks go on without you until /lem active." Then it gives each
+"You are away since 14:05; the tasks go on without you until /lem im-back." Then it gives each
 kind under its key, in this order, and you say them so, in plain names and never in
 task codes, one line each, and leave out a kind that has none:
 

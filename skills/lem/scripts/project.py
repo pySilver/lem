@@ -721,7 +721,7 @@ GONE_KEYS: dict[tuple[str, str], str] = {
     ("checks", "ignores"): "the checks run again whenever the base branch moves",
     ("checks", "bar"): "Lem looks for a lowered bar with its own marks, for Python, JavaScript, TypeScript, Go, Rust, Java, Kotlin and shell",
     ("flow", "watch_seconds"): "the watch of the open pull requests looks every 60 seconds",
-    ("flow", "decision_wait"): "a choice waits for the owner's answer with no time limit while he is there, and is taken at once when he says he is away (`/lem away`)",
+    ("flow", "decision_wait"): "a choice waits for the owner's answer with no time limit while he is there, and is taken at once when he says he is away (`/lem im-away`)",
     ("naps", "keep_days"): f"Lem keeps the folder of a nap {NAPS_KEEP_DAYS} days",
     ("naps", "gap_hours"): f"{NAPS_GAP_HOURS} hours pass between two naps",
 }
@@ -2376,7 +2376,7 @@ def cmd_owner(root: Path, status: str, words: str | None) -> dict:
     if status not in ("away", "active"):
         raise SettingsError(f"the owner is away or active, not {status!r}: `lem project owner away --words \"I'm away\"`")
     if not words or not words.strip():
-        raise SettingsError("--words are the owner's words as typed (\"I'm away\", \"/lem active\"); no script can tell who typed, so they are his only")
+        raise SettingsError("--words are the owner's words as typed (\"I'm away\", \"/lem im-back\"); no script can tell who typed, so they are his only")
     now = owner_now(events_named(root, OWNER))
     away = status == "away"
     tasks = read_tasks(root)

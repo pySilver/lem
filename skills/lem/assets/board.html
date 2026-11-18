@@ -2251,7 +2251,7 @@ function render() {
   $('beacon').className = `beacon${trouble.length ? ' bad' : ''}`;
   // while the owner said he is away, the header says so, so that he is never away without knowing it
   $('eyebrow').textContent = (meta.demo ? 'Demo data · ' : '') + (view ? `Lem · ${repo} · one task` : `Lem · ${repo}`)
-    + (m.away ? ` · You are away since ${stamp(m.away.since, now)}: the tasks go on without you until /lem active` : '');
+    + (m.away ? ` · You are away since ${stamp(m.away.since, now)}: the tasks go on without you until /lem im-back` : '');
   patch($('banners'), buildBanners(m));
 
   if (view) tab = 'tasks';

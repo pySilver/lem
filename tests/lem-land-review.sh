@@ -347,7 +347,7 @@ local_land start quiet-run >/dev/null && local_land base quiet-run >/dev/null &&
 local_land propose quiet-run --title "fix: quiet" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/quiet-run/pr.md
 held=$(local_land land quiet-run --by agent 2>&1 || true)
-project --repo "$LOCAL" owner active --words "/lem active" >/dev/null
+project --repo "$LOCAL" owner active --words "/lem im-back" >/dev/null
 back=$(local_land land quiet-run --by agent 2>&1 | field 'd["tip"] is not None' 2>&1 || true)
 if [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -qE '^It ran without the owner from 20[0-9-]+ [0-9:]+ UTC \(the owner: "I'"'"'m away"\)\.$' "$text" \
   && grep -qxF -- '- The word'"'"'s case: "lower case", by the personas: 3 votes of 2 personas, two model families, all for it. the importer reads lower case' "$text" \
@@ -391,7 +391,7 @@ printf '%s\n' '## What the owner gets' '' 'loud.txt holds the word.' '' '```sh' 
 echo '- "keep the word in lower case"' > "$ldir/directions.md"
 local_land start loud-run >/dev/null && local_land base loud-run >/dev/null && polish_in "$LOCAL" loud-run && local_land checks loud-run >/dev/null && local_land read loud-run --record "$(clean 1)" >/dev/null
 local_land propose loud-run --title "fix: loud" --notes "$NOTES" >/dev/null
-project --repo "$LOCAL" owner active --words "/lem active" >/dev/null
+project --repo "$LOCAL" owner active --words "/lem im-back" >/dev/null
 text=$LOCAL/.lem/state/tasks/loud-run/pr.md
 day=$(date -u +%Y-%m-%d)
 if [ "$(sed -n 1p "$text")" = '**Not green.**' ] \

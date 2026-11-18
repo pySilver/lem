@@ -47,7 +47,7 @@ Two examples:
 you  /lem the footer says Terms, not Terms and Conditions
 lem  docs: "the footer says Terms". Branch docs/footer-says-terms. Fast track: one
      builder, the checks, one read, then the pull request. Nothing waits for you.
-     Wrong read? /lem standard, /lem careful.
+     Wrong read? /lem standard-track, /lem be-careful.
 lem  The pull request is open. Green.
 ```
 
@@ -55,7 +55,7 @@ lem  The pull request is open. Green.
 you  /lem the export holds the gift note of an order
 lem  feat: "an export holds the gift note". Branch feat/gift-note-in-export.
      Standard track: an interview now, then acceptance criteria for your yes.
-     Wrong read? /lem careful.
+     Wrong read? /lem be-careful.
 lem  An order with two notes: both in one cell, with a semicolon? My guess: yes.
 you  yes
 lem  The acceptance criteria, which two personas read:
@@ -93,8 +93,8 @@ page, and type "land". Then type your first request.
 | a chord in agterm (`ctrl+cmd+t`) | pick a task, and its board opens |
 | `/lem plan <request>` | a standard-track task that stops after its plan. `/lem build` builds it |
 | `/lem land <task>` | Lem merges the pull request |
-| `/lem careful [task]`, `/lem standard [task]`, `/lem drop [task]` | you change a task: careful until the merge, the standard track until its pull request, or stopped. With no task named, Lem takes the task that you talk about and names it. If two fit, Lem asks |
-| `/lem away`, `/lem active` | the tasks go on without you, or wait for you again |
+| `/lem be-careful [task]`, `/lem standard-track [task]`, `/lem drop [task]` | you change a task: careful until the merge, the standard track until its pull request, or stopped. With no task named, Lem takes the task that you talk about and names it. If two fit, Lem asks |
+| `/lem im-away`, `/lem im-back` | the tasks go on without you, or wait for you again |
 | `/lem learn` | Lem puts your correction into the file that owns the step |
 
 Plain words that say the same work too. With your yes at setup, `/lem retro` runs each morning and

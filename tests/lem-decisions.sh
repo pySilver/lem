@@ -70,7 +70,7 @@ gone_code=$(status_of decide timeout gift-note 3)
 away=$(project --repo "$DC" owner away --words "I'm away" | field '(d["written"], [(t["task"], t["id"], t["chose"]) for t in d["taken"]])')
 taken=$(dlist 'next((c["state"], c["chose"], c.get("early")) for c in d if c["id"] == 3)')
 never=$(dlist 'next(c["state"] for c in d if c["id"] == 4)')
-project --repo "$DC" owner active --words "/lem active" >/dev/null
+project --repo "$DC" owner active --words "/lem im-back" >/dev/null
 same=$(decide answer gift-note 3 --chose "the last column" | field '(d["kind"], d["taken"], d["next"])')
 if [ "$still" = "('still waits', 'waits')" ] && [ "$gone_code" = 1 ] && grep -qF "a choice has no time limit now: it waits for the owner's answer while he is there" <<<"$gone" \
   && [ "$away" = "(True, [('gift-note', 3, 'the last column')])" ] && [ "$taken" = "('timeout', 'the last column', True)" ] && [ "$never" = waits ] \
@@ -287,7 +287,7 @@ add_wait "$WORK/dc-tree/.lem/project.toml"
 git -C "$WORK/dc-tree" commit -q -am "chore: a wait"
 branch_flow=$(project --repo "$WORK/dc-tree" show 2>/dev/null | field 'sorted(d["flow"])' 2>&1 || true)
 if [ "$written" = 0 ] && [ "$shown" = "['max_tasks', 'topics']" ] && [ "$refused_code" = 1 ] \
-  && grep -qF -- "- delete \`decision_wait = 15\` under [flow]: a choice waits for the owner's answer with no time limit while he is there" <<<"$refused" \
+  && grep -qF -- "- delete \`decision_wait = 15\` under [flow]: a choice waits for the owner's answer with no time limit while he is there, and is taken at once when he says he is away (\`/lem im-away\`)" <<<"$refused" \
   && [ "$branch_flow" = "['max_tasks', 'topics']" ]; then
   pass "flow.decision_wait is gone: init writes none, a settings file with it is refused once with the line to delete, and a task branch's copy is read without it"
 else
@@ -383,7 +383,7 @@ printf '%s\n' 'not json' > "$WQ/.lem/state/retros/2026-11-18.json"
 listed=$(wq waiting)
 wq owner away --words "I'm away" >/dev/null
 away_list=$(wq waiting | field '(d["owner"]["away"], d["owner"]["words"], d["owner"]["since"] is not None, d["choices"], d["count"])' 2>&1 || true)
-wq owner active --words "/lem active" >/dev/null
+wq owner active --words "/lem im-back" >/dev/null
 shape=$(field '([(c["task"], c["id"]) for c in d["choices"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"], t["conflict"]) for t in d["pull_requests"]], [(t["task"], t["plan"]) for t in d["drafts"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
 if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], [('drafted-one', '$dtree/docs/plans/2026-11-17-drafted-one.md')], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 8)" ] \
   && [ "$(field 'd["owner"]' <<<"$listed")" = "{'away': False, 'since': None, 'words': None}" ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ] \
@@ -405,7 +405,7 @@ wq state night-small open "pull request https://github.com/acme/shop/pull/8" "gr
 printf '%s\n' '{"proposed": "def5678", "pr": {"number": 8, "url": "https://github.com/acme/shop/pull/8"}, "not_green": []}' > "$WQ/.lem/state/tasks/night-small/landing.json"
 wq state night-full open "pull request https://github.com/acme/shop/pull/9" "not green: the owner did not approve the criteria" >/dev/null
 printf '%s\n' '{"proposed": "0a1b2c3", "pr": {"number": 9, "url": "https://github.com/acme/shop/pull/9"}, "not_green": ["the owner did not approve the criteria"]}' > "$WQ/.lem/state/tasks/night-full/landing.json"
-wq owner active --words "/lem active" >/dev/null
+wq owner active --words "/lem im-back" >/dev/null
 wq state night-merged landed "main 1234567..89abcde" >/dev/null
 wq state night-closed dropped "the pull request was closed on the forge" >/dev/null
 other_form=$(wq task-dir night-other --ask "The backlog item of night-other." --night "the night run" 2>&1 || true)
