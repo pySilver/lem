@@ -749,9 +749,9 @@ fi
 # The event log: every state block is an event the board can load, with the worktree's newest commit.
 events() { "$PY" -c 'import json, sys; d = [json.loads(line) for line in open(sys.argv[1])]; print(eval(sys.argv[2], {"d": d}))' "$OLD/.lem/state/events.jsonl" "$1"; }
 if [ "$(events '[(e["event"], e["task"], e["status"], e["text"], e["lines"]) for e in d[:2]]')" = "[('task.state', 'report-dates-stay-whole', 'queued', 'waits for a free place', []), ('task.state', 'report-dates-stay-whole', 'building', 'task 2 of 3', ['next: the report'])]" ] \
-  && [ "$(events 'len(d)')" = 2 ] && [ "$(events 'd[1]["ask"], d[1]["limit"], "head" in d[1]')" = "('Keep report dates whole.', 4, False)" ] \
+  && [ "$(events 'len(d)')" = 2 ] && [ "$(events 'd[1]["ask"], "limit" in d[1], "head" in d[1]')" = "('Keep report dates whole.', False, False)" ] \
   && [ "$(sed -n 2p "$OLD/.lem/state/events.js")" = "lemEvent($(sed -n 2p "$OLD/.lem/state/events.jsonl"));" ]; then
-  pass "each state block is one event with the ask and the limit, a refused one is none, and the board's copy holds the same record"
+  pass "each state block is one event with the ask, a refused one is none, and the board's copy holds the same record"
 else
   fail "events: $(cat "$OLD/.lem/state/events.jsonl")"
 fi
@@ -882,6 +882,9 @@ else
   fail "may-start with no limit: $code / $out / $unknown"
 fi
 project --repo "$OLD" state third-task dropped "the test is over" >/dev/null
+project --repo "$OLD" state second-task ready "the report is written" >/dev/null
+project --repo "$OLD" state second-task landing "the gate runs" >/dev/null
+project --repo "$OLD" state second-task ready --start-over "the gate was cut off" >/dev/null
 # An ended task stays ended: a stale wake-up writes no state over it and starts no lead for it, and a task in the
 # landing or proposed gets no lead either. The same ended state again is taken; new work is a new ask.
 ENDS=$WORK/ends
@@ -1764,7 +1767,7 @@ if [ -n "$chrome" ]; then
     printf 'SKIP the board pages: %s printed no page\n' "$chrome"
   elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "Lem · old" "1 waits for you, 1 builds, 1 in checks and review" "Report dates stay whole" \
     "Owner lands it" "Tell Lem in its session to land it." "!Demo data" "Keep report dates whole." \
-    "Task 2 of 3" "Second task" "Ready for its checks: the gate was cut off" "1 of 4" "1 proposed · 1 not green" "tasks land on master" "!Review queue"); then
+    "Task 2 of 3" "Second task" "Ready for its checks: the gate was cut off" "!places" "1 proposed · 1 not green" "tasks land on master" "!Review queue"); then
     pass "the board draws each task in its lane from the events, with what waits for the merge and whether it is green"
   else
     fail "the board: missing $why"
