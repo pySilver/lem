@@ -527,6 +527,19 @@ build that follows.
 - **The README shows the interaction, and links to no run** (the same day): "Having examples of
   execution in Readme in a form of links to some repo is plain stupid. I would rather show
   interaction in some short form, or steps in form of small flowchart."
+- **The two tracks are the fast track and the standard track** (the same day). Of the words
+  before: "The only weird thing for me is naming "small, full". Its not wrong, just naming weird
+  for me", and "Ask Fable, maybe my confusion comes from wrong design". Fable's answer: a problem
+  of names, not of design; Lem called the path a "size", and a reader takes a size as a measure
+  of the change, while one line in the code of a charge takes the long path and a rename across
+  300 lines the short one. He then chose the words: "Maybe we should call it `quick path/flow`
+  and `standard path/flow` ?", and of the caution that "quick" promises no time, "analogy to fast
+  track would be perfect, maybe we should even name this mode that way". So a text for a person
+  says "the fast track" and "the standard track", the name stands at the steps in Lem's first
+  line, "size" means files and changed lines only, "full" means the review only, and the command
+  is `/lem standard`. The records keep their words (`Size: small|full`, `--small`,
+  `call=small|full`, `prompts/small.md`), so that a task that is open reads as before; the
+  session's decisions above keep the words of their day.
 - **A helper starts from plain words** (the same notes): "will it work if a bit different
   wording will be used like "lets braindstorm" instead of literal "interview-me". It would be
   nice to have more natural way of speaking. When model is unsure which skill should be used - it
