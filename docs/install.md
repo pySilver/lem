@@ -4,7 +4,7 @@
 
 | Tool | Lem uses it for |
 | --- | --- |
-| macOS, [agterm](https://agterm.com) and its skill, from the agterm Help menu | sessions, panes and pages |
+| [agterm](https://agterm.com) and its skill, from the agterm Help menu | sessions, panes and pages |
 | [Claude Code](https://code.claude.com/docs) | the agents |
 | git, and Python 3.11 or newer as `python3` | branches, worktrees, scripts |
 | [revmux](https://github.com/umputun/revmux) and its skill | the review before each pull request |

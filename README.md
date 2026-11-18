@@ -11,7 +11,9 @@ Type a request in plain words, and get a pull request whose first line says gree
 Agents plan, build, test and review the change in your repository, and you merge a green one
 without a read.
 
-Lem is a Claude Code plugin for macOS, and it runs in the [agterm](https://agterm.com) terminal.
+Lem is a plugin for Claude Code that works closely with the [agterm](https://agterm.com) terminal:
+agterm shows Lem's pages, its panes and its board. Codex is the second reviewer today, and next it
+becomes a full agent of Lem.
 
 <p align="center">
   <picture>
@@ -24,9 +26,9 @@ Lem is a Claude Code plugin for macOS, and it runs in the [agterm](https://agter
 
 ## What it looks like
 
-A task takes one of two tracks. The fast track is for one plain change with no open question: one
-builder makes it, and nothing waits for you. The standard track is for every other request: an
-interview, acceptance criteria for your yes, a plan, and a larger review.
+A task takes one of two tracks. The **fast track** is for one plain change with no open question:
+one builder makes it, and nothing waits for you. The **standard track** is for every other
+request: an interview, acceptance criteria for your yes, a plan, and a larger review.
 
 ```mermaid
 flowchart LR
@@ -39,7 +41,7 @@ flowchart LR
   build --> pr
 ```
 
-Two examples of the form, not logs:
+Two examples:
 
 ```text
 you  /lem the footer says Terms, not Terms and Conditions
@@ -79,7 +81,7 @@ claude plugin install lem@lem --scope project
 ```
 
 Then start Claude Code in agterm there, and type `/lem init`. Answer three questions, read Lem's
-page, and type "land" to accept the setup. Then type `/lem` and your first request.
+page, and type "land". Then type `/lem` and your first request.
 
 ## What you type
 
@@ -89,13 +91,13 @@ page, and type "land" to accept the setup. Then type `/lem` and your first reque
 | `/lem` | the list of what waits for you, and the board |
 | `/lem status <task>` | the board of one task |
 | `/lem plan <request>` | a task on the standard track that stops after its plan. `/lem build` builds it |
-| `/lem land <task>`, or "land it" | Lem merges the pull request |
-| `/lem careful`, `/lem standard`, `/lem drop` | you change a task: careful until the merge, the standard track until its pull request, or stopped |
+| `/lem land <task>` | Lem merges the pull request |
+| `/lem careful [task]`, `/lem standard [task]`, `/lem drop [task]` | you change a task: careful until the merge, the standard track until its pull request, or stopped. With no task named, Lem takes the task that you talk about and names it. If two fit, Lem asks |
 | `/lem away`, `/lem active` | the tasks go on without you, or wait for you again |
 | `/lem learn` | Lem puts your correction into the file that owns the step |
 
-In Lem's session, plain words that say the same work too. If you accept them at setup, scheduled
-jobs run `/lem retro` each morning and `/lem night` each night.
+Plain words that say the same work too. With your yes at setup, scheduled jobs run `/lem retro`
+each morning and `/lem night` each night.
 
 ## What you can rely on
 
@@ -118,7 +120,6 @@ In Lem's session, plain words start a skill too: "let's brainstorm this" starts 
 | `/lem root-cause the import stops at row 5000` | a defect comes back after two fixes |
 | `/lem ask-expert` | you want two expert models to answer the open question, or your own |
 | `/lem panel docs/backlog/export-drops-custom-columns.md` | you want the personas to read a text |
-| `/lem linear ABC-12` | you want to read a Linear ticket |
 
 ## Guides
 
