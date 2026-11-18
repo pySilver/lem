@@ -692,7 +692,7 @@ if git cat-file -e "ccba3bd^{commit}" 2>/dev/null; then
     fail "an old pull request after the move: $opened / $merged / $cleaned / $(cat "$WORK/gx.err")"
   fi
 else
-  printf 'SKIP a pull request opened before the state moved: this clone does not have commit ccba3bd\n'
+  skip "a pull request opened before the state moved: this clone does not have commit ccba3bd"
 fi
 
 finish

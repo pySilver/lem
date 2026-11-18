@@ -570,10 +570,11 @@ def inside(root: Path, relative: str, where: str) -> Path:
 
 def main_checkout(root: Path) -> Path:
     """The checkout every worktree hangs off: the first entry git lists. A file git does not track lives only there."""
-    # -z ends each field with a NUL: a path may hold a line break, and a split on lines would cut it
-    listed = subprocess.run(["git", "-C", str(root), "worktree", "list", "--porcelain", "-z"], capture_output=True, text=True, check=False)
-    first = next((field.removeprefix("worktree ") for field in listed.stdout.split("\0") if field.startswith("worktree ")), None)
-    return Path(first) if first else root
+    # lem_state's search, which asks git once a command for each folder
+    try:
+        return lem_state.main_checkout(root)
+    except lem_state.StateError:
+        return root
 
 
 def text_of(file: Path) -> str:
@@ -1484,7 +1485,8 @@ def state_root(root: Path) -> Path:
     """The folder task state lives in, `.lem/state/` of the main checkout, as `lem_state` says; asked once a run."""
     if root not in STATE_ROOTS:
         try:
-            STATE_ROOTS[root] = lem_state.folder(root)
+            # the line that tells of a move is project.py's, also when a sibling runs this in its own process
+            STATE_ROOTS[root] = lem_state.folder(root, say=lambda line: print(f"project.py: {line}", file=sys.stderr))
         except lem_state.StateError as error:
             raise SettingsError(str(error)) from error
     return STATE_ROOTS[root]
@@ -2393,7 +2395,7 @@ def cmd_may_nap(root: Path) -> None:
     print(json.dumps(answer, indent=2))
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem project", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -2443,8 +2445,8 @@ def main() -> None:
     alone = commands.add_parser("alone", help="run one command that needs the machine to itself, under the repository's one lock")
     alone.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     commands.add_parser("may-nap")
-    args = parser.parse_args()
-    if problem := unreadable_argument(sys.argv[1:]):
+    args = parser.parse_args(argv)
+    if problem := unreadable_argument(sys.argv[1:] if argv is None else argv):
         sys.exit(f"project.py: {problem}")
     try:
         root = repo_root(Path(args.repo))

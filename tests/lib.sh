@@ -1,10 +1,10 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034  # the paths and values here are read by the blocks that source this file
 # What every block of Lem's script checks shares: the strict mode, the root of the checkout, a
-# folder of its own, the interpreter, and the helpers more than one block calls. A block sources
-# this file first and ends with `finish`. Each block runs alone, so nothing here depends on the
-# order in which the blocks run.
-set -euo pipefail
+# folder of its own, the interpreter, the count of its checks (checks.sh), and the helpers more than
+# one block calls. A block sources this file first and ends with `finish`. Each block runs alone, so
+# nothing here depends on the order in which the blocks run.
+set -eEuo pipefail
 
 # -P: the folder as it is on disk, the way readlink and git name it: a checkout under /tmp is
 # under /private/tmp on macOS.
@@ -14,13 +14,12 @@ CRITERIA=$PWD/skills/lem/scripts/criteria.py
 DECISIONS=$PWD/skills/lem/scripts/decisions.py
 LAND=$PWD/skills/lem/scripts/land.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
-trap 'rm -rf "$WORK"' EXIT
+# shellcheck source=tests/checks.sh
+. tests/checks.sh
+trap 'stopped; rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
-fails=0
-pass() { printf 'ok   %s\n' "$1"; }
-fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
 project() { "$PY" -B "$PROJECT" "$@"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1"; }
@@ -115,9 +114,14 @@ cp "$NOTES" "$MIG" && printf '%s\n' '' '## Migration' '' 'none' >> "$MIG"
 
 # The block's last line, which tests/test-lem.sh reads: `all checks passed`, or the count that failed.
 finish() {
+  results_add_up
+  finished=yes
   if [ "$fails" -gt 0 ]; then
     printf '\n%s check(s) failed\n' "$fails"
     exit 1
   fi
   printf '\nall checks passed\n'
 }
+
+# the count of the block's checks, before the first of them
+collected

@@ -142,6 +142,8 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 import lem_plans  # noqa: E402
+# How this script calls a sibling: in this process, as one command of it.
+import lem_sibling  # noqa: E402
 # The size of a change: a full change, with its plan and lead, or a small change of one builder.
 SIZES = ("full", "small")
 # The heading of the section, and the heading an older Lem wrote, which still reads. A later change
@@ -177,7 +179,7 @@ def git(where: Path, *args: str, check: bool = True) -> str:
 
 
 def script(name: str, repo: Path, *args: str) -> str:
-    ran = subprocess.run([sys.executable, "-B", str(SCRIPTS / name), "--repo", str(repo), *args], capture_output=True, text=True, check=False)
+    ran = lem_sibling.run(SCRIPTS / name, repo, *args)
     if ran.returncode != 0:
         raise CriteriaError(ran.stderr.strip().removeprefix(f"{name}: ") or f"{name} {args[0]} failed")
     # a line project.py writes on stderr when it succeeds (the move of an older state folder) is this script's to say too
@@ -740,7 +742,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
     return {**record, "file": str(task.approved_file)}
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem criteria", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the repository (default: the current one)")
     parser.add_argument("step", choices=("approve", "approved", "digest", "show", "record", "red"))
@@ -749,7 +751,7 @@ def main() -> None:
     parser.add_argument("--small", action="store_true", help="with approve: Lem approves a small change's one criterion in the owner's name")
     parser.add_argument("--read", action="store_true", help="with approve: the lead of a full change from a complete request freezes the criteria a read in which nobody was confused read")
     parser.add_argument("--alone", action="store_true", help="with approve: Lem or the lead approves a full change's criteria while the task runs without the owner")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         if args.file is not None and args.step not in ("approve", "digest"):
             raise CriteriaError("--file goes with `approve` and `digest`")

@@ -50,7 +50,8 @@ if [ "$(field '(d["remote"], d["forge"])' <<<"$out")" = "(True, None)" ] && [ "$
 else
   fail "land start: $out / $err"
 fi
-if [ "$(status_of land --repo "$SHOP" checks first-change)" = 1 ]; then pass "the gate refuses to run before the base was brought in"; else fail "gate before base"; fi
+err=$(land --repo "$SHOP" checks first-change 2>&1) && code=0 || code=$?
+if [ "$code" = 1 ] && grep -qF "\`lem land base first-change\` comes first" <<<"$err"; then pass "the gate refuses to run before the base was brought in"; else fail "gate before base: $code $err"; fi
 out=$(land --repo "$SHOP" base first-change)
 if [ "$(field '(d["ahead"], d["moved"], d["onto"])' <<<"$out")" = "(1, False, 'origin/main')" ]; then
   pass "base rebases onto the remote's base branch and says how many commits the branch adds"
@@ -123,10 +124,11 @@ else
   fail "land with branch.land = owner: $err"
 fi
 shop_settings agent keep
-if [ "$(status_of land --repo "$SHOP" land first-change --by agent --message "fix: x")" = 1 ]; then
+err=$(land --repo "$SHOP" land first-change --by agent --message "fix: x" 2>&1) && code=0 || code=$?
+if [ "$code" = 1 ] && grep -qF 'branch.history is "keep": the branch'"'"'s own commits land, so --message has nothing to name' <<<"$err"; then
   pass "a commit subject is refused when the branch's own commits land"
 else
-  fail "land --message with history = keep"
+  fail "land --message with history = keep: $code $err"
 fi
 # The base moves after the gate ran: by any file, the checks run again.
 other=$WORK/other
@@ -175,10 +177,11 @@ if [ "$(field '(d["worktree"], d["branch"])' <<<"$out")" = "(False, 'fix/first-c
 else
   fail "land clean after the worktree went: $out"
 fi
-if [ "$(status_of land --repo "$SHOP" clean second-change)" = 1 ] && [ -d "$SHOP/.lem/worktrees/second-change" ]; then
+err=$(land --repo "$SHOP" clean second-change 2>&1) && code=0 || code=$?
+if [ "$code" = 1 ] && grep -qF "only a landed, dropped or answered task loses its worktree" <<<"$err" && [ -d "$SHOP/.lem/worktrees/second-change" ]; then
   pass "clean refuses a task that has not landed"
 else
-  fail "clean before the landing"
+  fail "clean before the landing: $code $err"
 fi
 # An answered task loses its worktree as a dropped one does, and its branch stays: it may hold the test that reproduced the bug.
 AC=$WORK/answered-clean
@@ -279,7 +282,8 @@ if grep -q "the notes lack ## Migration" <<<"$err" && grep -qxF -- "- careful: y
 else
   fail "a careful request at the proposal: $err / $agent / $(cat "$text" 2>/dev/null)"
 fi
-if [ "$(status_of land --repo "$SHOP" land second-change --by owner)" = 1 ]; then pass "one commit for the branch needs its subject"; else fail "squash without a message"; fi
+err=$(land --repo "$SHOP" land second-change --by owner 2>&1) && code=0 || code=$?
+if [ "$code" = 1 ] && grep -qF 'branch.history is "squash": pass --message' <<<"$err"; then pass "one commit for the branch needs its subject"; else fail "squash without a message: $code $err"; fi
 before=$(git -C "$ORIGIN" rev-parse main)
 # A commit hook that changes a tracked file makes the one commit another tree than the gate saw.
 gated=$(git -C "$tree" rev-parse HEAD)
@@ -562,8 +566,10 @@ if [ "$(status_of land --repo "$SHOP" start third-change)" = 1 ] && grep -q "no 
 else
   fail "start with no gate: $err"
 fi
-shop_lines '[branch]' 'base = "release"' 'land = "agent"' 'protected = ["release"]'
-if [ "$(status_of land --repo "$SHOP" start third-change)" = 1 ]; then pass "no step runs toward a branch the settings refuse"; else fail "land toward a protected base"; fi
+# with a command of the checks, so that the protected base is the one reason left to refuse the step
+shop_lines '[branch]' 'base = "release"' 'land = "agent"' 'protected = ["release"]' '[checks]' 'commands = ["true"]'
+err=$(land --repo "$SHOP" start third-change 2>&1) && code=0 || code=$?
+if [ "$code" = 1 ] && grep -qF "protected" <<<"$err" && [ "$(status third-change)" = blocked ]; then pass "no step runs toward a branch the settings refuse"; else fail "land toward a protected base: $code $err"; fi
 # The first task of a new repository sets up the checks: the main checkout's settings have no gate
 # command, and the task's branch adds them to its own .lem/project.toml. That gate gates the task,
 # and its pull request is not green for it, so that a person reads the checks once. A branch that
