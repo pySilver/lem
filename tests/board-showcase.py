@@ -223,7 +223,7 @@ def afternoon(shop: Shop) -> None:
     # the base commit, as a real build does.
     tree = Path(s.project("worktree-dir", t).strip())
     s.git("worktree", "add", "-q", "-b", f"feat/{t}", str(tree), "main")
-    s.commit_in(tree, "docs(plans): the order date on the invoice", {"docs/plans/20261117-order-date-on-invoice.md": "\n".join([
+    s.commit_in(tree, "docs(plans): the order date on the invoice", {"docs/plans/2026-11-17-order-date-on-invoice.md": "\n".join([
         "# The order date on the invoice", "", "## Acceptance criteria", "", "Size: full, because the invoice gets a new line.", "",
         '1. The invoice of order 1042, placed on 3 May, says "Ordered 3 May 2026" under its number.',
         "   - test: `sh tests/order-date.sh` in `tests/order-date.sh`", "", "## Tasks", "",

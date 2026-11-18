@@ -17,12 +17,13 @@ lead=$(decide log gift-note --what "The name of the new column" --chose gift_not
 nosaid=$(decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by personas 2>&1 || true)
 nostory=$(status_of decide log gift-note --what "Two notes on one order" --chose "both" --why "nobody loses one" --by lead --criterion 2 --was "the old text")
 personas=$(decide log gift-note --what "Two notes on one order" --chose "both notes, with a semicolon between them" --why "a merchant reads both" --by personas \
+  --vote "the merchant, opus=both notes, with a semicolon between them" --vote "the accountant, opus=both notes, with a semicolon between them" \
   --said "The merchant and the accountant both picked the semicolon." | field '(d["id"], d["by"], "criterion" in d, d["said"])')
 if [ "$lead" = "(1, 'taken', 'lead', 'rename the column')" ] \
   && [ "$personas" = "(2, 'personas', False, 'The merchant and the accountant both picked the semicolon.')" ] \
   && grep -qF -- "--by personas needs a --vote for each answer of a persona" <<<"$nosaid" && [ "$nostory" = 2 ] \
   && [ "$(grep -c '' "$dfile")" = 2 ] && [ "$(grep -c '"event": "decision.taken", "task": "gift-note"' "$DC/.lem/state/events.jsonl")" = 2 ]; then
-  pass "a decision of the lead or of the personas is written down with its number, and each is an event too; the personas' one needs what they said, and a decision carries no criterion: a criterion's change has a record of its own"
+  pass "a decision of the lead or of the personas is written down with its number, and each is an event too; the personas' one needs their votes, and a decision carries no criterion: a criterion's change has a record of its own"
 else
   fail "decisions.py log: $lead / $personas / $nosaid / $nostory / $(cat "$dfile")"
 fi
@@ -60,27 +61,24 @@ if grep -qF -- "--case is one concrete case that ends badly, in numbered steps, 
 else
   fail "the run of a choice: $nocase / $onestep / $unknown / $nocause / $(choice3 case)"
 fi
-# While the owner is there a choice waits past any time, also one an older Lem asked whose deadline passed, and the
-# clock's timeout is gone. When he says he is away, each choice that waits is taken at once with the ladder's pick, but
-# a step a later "no" cannot reverse; his answer after it is late, and after he is back again the next choice waits again.
-old_wait "$dfile" 3
+# While the owner is there a choice waits past any time. When he says he is away, each choice that waits is taken at
+# once with the ladder's pick, but a step a later "no" cannot reverse; his answer after it is late, and after he is back
+# again the next choice waits again.
 still=$(decide wait gift-note 3 --seconds 1 | field '(d["ended"], d["state"])')
-gone=$(decide timeout gift-note 3 2>&1 || true)
-gone_code=$(status_of decide timeout gift-note 3)
 away=$(project --repo "$DC" owner away --words "I'm away" | field '(d["written"], [(t["task"], t["id"], t["chose"]) for t in d["taken"]])')
 taken=$(dlist 'next((c["state"], c["chose"], c.get("early")) for c in d if c["id"] == 3)')
 never=$(dlist 'next(c["state"] for c in d if c["id"] == 4)')
 project --repo "$DC" owner back --words "/lem im-back" >/dev/null
 same=$(decide answer gift-note 3 --chose "the last column" | field '(d["kind"], d["taken"], d["next"])')
-if [ "$still" = "('still waits', 'waits')" ] && [ "$gone_code" = 1 ] && grep -qF "a choice has no time limit now: it waits for the owner's answer while he is there" <<<"$gone" \
+if [ "$still" = "('still waits', 'waits')" ] \
   && [ "$away" = "(True, [('gift-note', 3, 'the last column')])" ] && [ "$taken" = "('timeout', 'the last column', True)" ] && [ "$never" = waits ] \
   && [ "$same" = "('late', 'the last column', 'the answer is the action that was taken: nothing more to do')" ]; then
-  pass "a choice waits past any time while the owner is there, also past an older Lem's deadline, and timeout is refused with what holds now; his away takes each choice that waits at once with the recommended option, never an irreversible step, and a late answer that is the same needs nothing more"
+  pass "a choice waits past any time while the owner is there; his away takes each choice that waits at once with the recommended option, never an irreversible step, and a late answer that is the same needs nothing more"
 else
-  fail "a choice and the owner's status: $still / $gone / $away / $taken / $never / $same"
+  fail "a choice and the owner's status: $still / $away / $taken / $never / $same"
 fi
 decide ask gift-note "${CASE[@]}" --what "The header of the column" --option "Gift note" --option "Note" --recommended "Gift note" --why "it says what the cell holds" --said "The two personas split." >/dev/null
-timed_out "$dfile" 5
+project --repo "$DC" owner away --words "I'm away" >/dev/null && project --repo "$DC" owner back --words "/lem im-back" >/dev/null
 differs=$(decide answer gift-note 5 --chose "Note" | field '(d["kind"], d["taken"], "it is a correction" in d["next"])')
 decide ask gift-note "${CASE[@]}" --what "The note's length" --option "all of it" --option "200 characters" --recommended "all of it" --why "nothing is lost" --said "The two personas split." >/dev/null
 answered=$(decide answer gift-note 6 --chose "200 characters" | field '(d["kind"], d["chose"])')
@@ -97,18 +95,8 @@ if [ "$differs" = "('late', 'Gift note', True)" ] && [ "$answered" = "('answered
 else
   fail "decisions.py answer, wait and list: $differs / $answered / $ended / $took / $twice / $unknown / $stands"
 fi
-# A choice an older Lem asked, whose deadline passed with nobody to write its timeout, still waits: his answer now is an
-# answer, never late, and no timeout goes in with it.
 decide ask gift-note "${CASE[@]}" --what "The note's font" --option "plain" --option "bold" --recommended "plain" --why "The export has no fonts." --said "The two personas split." >/dev/null
-old_wait "$dfile" 7
-after=$(decide answer gift-note 7 --chose "bold" --why "Merchants miss it otherwise." | field '(d["kind"], d["chose"], d["why"])')
-kinds=$(grep '"id": 7' "$dfile" | "$PY" -c 'import json, sys; print([json.loads(line)["kind"] for line in sys.stdin])')
-seven=$(dlist 'next((c["state"], c["chose"], c.get("owner_why")) for c in d if c["id"] == 7)')
-if [ "$after" = "('answered', 'bold', 'Merchants miss it otherwise.')" ] && [ "$kinds" = "['asked', 'answered']" ] && [ "$seven" = "('answered', 'bold', 'Merchants miss it otherwise.')" ]; then
-  pass "a choice an older Lem asked, whose deadline passed with no timeout written, still waits: the owner's answer is an answer, with his reason, and no timeout goes in with it"
-else
-  fail "an answer after an older Lem's deadline: $after / $kinds / $seven"
-fi
+decide answer gift-note 7 --chose "bold" --why "Merchants miss it otherwise." >/dev/null
 # A choice carries no criterion: the options are only its own, and a criterion it changes gets a record of its own after it.
 carried=$(status_of decide ask gift-note "${CASE[@]}" --what w --option a --option b --recommended a --why w --said s --criterion 1 --was "the old text" --changes b)
 decide ask gift-note "${CASE[@]}" --what "The note in the header" --option "no header" --option "a header" --recommended "no header" --why "The rows stay as they are." --said "The two personas split." >/dev/null
@@ -155,13 +143,12 @@ if grep -qF -- "--chose names one of the options and --instead a decision of the
 else
   fail "an answer that is none of the options: $both / $neither / $settled / $eleven / $open_ones / $flagged_answer / $twelve"
 fi
-# A step that a later "no" cannot reverse has no end to its wait: his answer an hour later is an answer, never late, and no timeout goes in with it.
+# A step that a later "no" cannot reverse has no end to its wait: his answer is an answer, never late, and no timeout goes in with it.
 decide ask gift-note "${CASE[@]}" --what "Delete the old exports" --option "delete them" --option "keep them" --recommended "keep them" --why "Nobody asked." --said "The two personas split." --irreversible data >/dev/null
-old_wait "$dfile" 13
 hour_later=$(decide answer gift-note 13 --chose "delete them" 2>&1 | field '(d["kind"], d["chose"])' 2>&1 || true)
 thirteen=$(grep '"id": 13' "$dfile" | "$PY" -c 'import json, sys; print([json.loads(line)["kind"] for line in sys.stdin])')
 if [ "$hour_later" = "('answered', 'delete them')" ] && [ "$thirteen" = "['asked', 'answered']" ] && [ "$(dlist 'next((c["state"], c["by"]) for c in d if c["id"] == 13)')" = "('answered', 'owner')" ]; then
-  pass "an answer to an irreversible step after any time is his answer: no timeout is written with it, and the step is taken as he said"
+  pass "an answer to an irreversible step is his answer: no timeout is written with it, and the step is taken as he said"
 else
   fail "a late answer to an irreversible step: $hour_later / $thirteen"
 fi
@@ -272,27 +259,6 @@ if [ "${held:-0}" = 0 ] && [ "$numbers" = "[1, 2]" ]; then
 else
   fail "the lock of decisions.jsonl: held $held / $numbers / $(cat "$WORK/dw1.out" "$WORK/dw2.out")"
 fi
-# flow.decision_wait is gone: init writes none and show gives none, a settings file that still has it is refused once
-# with the line to delete, and a task branch's copy that still has it is read without it.
-written=$(grep -c 'decision_wait' "$DC/.lem/project.toml" || true)
-shown=$(project --repo "$DC" show | field 'sorted(d["flow"])')
-add_wait() { "$PY" -c 'import sys; p = sys.argv[1]; t = open(p).read(); open(p, "w").write(t.replace("\ntopics = []\n", "\ntopics = []\ndecision_wait = 15\n", 1))' "$1"; }
-add_wait "$DC/.lem/project.toml"
-refused=$(project --repo "$DC" show 2>&1 || true)
-refused_code=$(status_of project --repo "$DC" show)
-"$PY" -c 'import sys; p = sys.argv[1]; t = open(p).read(); open(p, "w").write(t.replace("decision_wait = 15\n", ""))' "$DC/.lem/project.toml"
-ident "$DC" && git -C "$DC" add -A && git -C "$DC" commit -q -m "chore: the settings"
-git -C "$DC" worktree add -q "$WORK/dc-tree" -b feat/short-wait main
-add_wait "$WORK/dc-tree/.lem/project.toml"
-git -C "$WORK/dc-tree" commit -q -am "chore: a wait"
-branch_flow=$(project --repo "$WORK/dc-tree" show 2>/dev/null | field 'sorted(d["flow"])' 2>&1 || true)
-if [ "$written" = 0 ] && [ "$shown" = "['topics']" ] && [ "$refused_code" = 1 ] \
-  && grep -qF -- "- delete \`decision_wait = 15\` under [flow]: a choice waits for the owner's answer with no time limit while he is there, and is taken at once when he says he is away (\`/lem im-away\`)" <<<"$refused" \
-  && [ "$branch_flow" = "['topics']" ]; then
-  pass "flow.decision_wait is gone: init writes none, a settings file with it is refused once with the line to delete, and a task branch's copy is read without it"
-else
-  fail "flow.decision_wait: $written / $shown / $refused / $branch_flow"
-fi
 
 # The ladder's record: each level that settles logs with its own name; the personas settle with two votes or more, all for
 # the option taken, and a split, one vote or a vote for another option is refused and writes nothing.
@@ -316,25 +282,23 @@ if [ "$voted" = "('personas', [['the merchant, opus', 'the last column'], ['the 
 else
   fail "the ladder's record: $voted / $split / $alone_vote / $bad_vote / $lines_after_refusals / $gate / $dialectic / $unsettled / $not_lead"
 fi
-# A task that runs without the owner, here by an older Lem's "go alone": a lead's wait on a choice returns at once and
-# takes the ladder's pick, marked early; a choice asked then is taken at once; an irreversible step still waits for him.
-# settle is gone.
+# A task that runs without the owner, here by a night's mark: a lead's wait on a choice returns at once and takes the
+# ladder's pick, marked early; a choice asked then is taken at once; an irreversible step still waits for him.
 decide ask ladder-task "${CASE[@]}" --what "The note's font" --option plain --option bold --recommended plain --why "The export has no fonts." --said "The personas split; the experts split." >/dev/null
 decide ask ladder-task "${CASE[@]}" --what "Email the merchants" --option "send it" --option "send nothing" --recommended "send nothing" --why "Nothing they see changes." --said s --irreversible person >/dev/null
-old_mode "$DC" ladder-task alone "go alone"
+project --repo "$DC" task-dir ladder-task --ask "The ladder of the gift note." --night 2026-11-18 >/dev/null
 started=$(date +%s)
 woke=$(decide wait ladder-task 5 --seconds 30 | field '(d["ended"], d["state"], d["chose"], d["by"], d["early"])')
 took=$(( $(date +%s) - started ))
 still=$(decide wait ladder-task 6 --seconds 1 | field 'd["ended"]')
 asked_away=$(decide ask ladder-task "${CASE[@]}" --what "The note's colour" --option black --option red --recommended black --why "The export has no colours." --said s | field '(d["taken"], "nothing waits" in d["next"])')
 seven=$(decide list ladder-task | field 'next((c["state"], c["chose"], c.get("early")) for c in d if c["id"] == 7)')
-settle=$(status_of decide settle ladder-task 6 --away)
-old_mode "$DC" ladder-task with-owner "I am back"
+project --repo "$DC" owner back --words "I am back" >/dev/null
 if [ "$woke" = "('taken without the owner: the task runs without him now', 'timeout', 'plain', 'timeout', True)" ] && [ "$took" -lt 30 ] \
-  && [ "$still" = "still waits" ] && [ "$asked_away" = "('black', True)" ] && [ "$seven" = "('timeout', 'black', True)" ] && [ "$settle" = 2 ]; then
-  pass "while a task runs without the owner a wait on a choice returns at once with the recommended option taken, marked early, and a choice asked then is taken at once; an irreversible step still waits for him; and settle is no command"
+  && [ "$still" = "still waits" ] && [ "$asked_away" = "('black', True)" ] && [ "$seven" = "('timeout', 'black', True)" ]; then
+  pass "while a task runs without the owner a wait on a choice returns at once with the recommended option taken, marked early, and a choice asked then is taken at once; an irreversible step still waits for him"
 else
-  fail "a choice when the task runs without the owner: $woke / $took / $still / $asked_away / $seven / $settle"
+  fail "a choice when the task runs without the owner: $woke / $took / $still / $asked_away / $seven"
 fi
 
 
@@ -363,20 +327,14 @@ else
 fi
 
 # The one list of what waits for the owner: a choice, criteria that wait for his yes, a step of his, a pull
-# request with green or not, a plan drafted at night, and a retro's proposals.
+# request with green or not, and a retro's proposals.
 wq() { project --repo "$WQ" "$@"; }
-for slug in a-choice his-criteria his-step proposed-one drafted-one; do wq task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
+for slug in a-choice his-criteria his-step proposed-one; do wq task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
 "$PY" -B "$DECISIONS" --repo "$WQ" ask a-choice "${CASE[@]}" --what "Where the note goes" --option "the last column" --option "after the price" --recommended "the last column" --why w --said s >/dev/null
 wq state his-criteria held "the criteria wait for the owner" "type: feat, because the export gets a column" >/dev/null
 wq state his-step held "the reviewer's pane waits for the owner's trust of the folder" >/dev/null
 wq state proposed-one open "pull request https://github.com/acme/shop/pull/7" "not green: the bar is lower" >/dev/null
 printf '%s\n' '{"proposed": "abc1234", "pushed": "abc1234", "forge": {"mergeable": "CONFLICTING", "head": "abc1234"}, "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": ["the bar is lower"]}' > "$WQ/.lem/state/tasks/proposed-one/landing.json"
-dtree=$(wq worktree-dir drafted-one)
-git -C "$WQ" worktree add -q "$dtree" -b plan/drafted-one main
-mkdir -p "$dtree/docs/plans" && touch "$dtree/docs/plans/2026-11-17-drafted-one.md"
-wq state drafted-one drafted "the plan waits for the owner's word" >/dev/null
-# the brief an older night wrote for its draft
-printf '%s\n' 'Read SKILL_DIR/prompts/lead.md and follow it.' 'task: drafted-one' 'branch: plan/drafted-one' 'lead: builder' 'stop after the plan: yes' 'night: yes' > "$WQ/.lem/state/tasks/drafted-one/brief.md"
 mkdir -p "$WQ/.lem/state/retros"
 printf '%s\n' '{"title": "The retro of 2026-11-17", "questions": [{"id": "p1", "prompt": "Move the rule?", "options": ["approve", "reject", "later"]}, {"id": "p2", "prompt": "Drop the step?", "options": ["approve", "reject", "later"]}]}' > "$WQ/.lem/state/retros/2026-11-17.json"
 printf '%s\n' 'not json' > "$WQ/.lem/state/retros/2026-11-18.json"
@@ -384,11 +342,11 @@ listed=$(wq waiting)
 wq owner away --words "I'm away" >/dev/null
 away_list=$(wq waiting | field '(d["owner"]["away"], d["owner"]["words"], d["owner"]["since"] is not None, d["choices"], d["count"])' 2>&1 || true)
 wq owner back --words "/lem im-back" >/dev/null
-shape=$(field '([(c["task"], c["id"]) for c in d["choices"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"], t["conflict"]) for t in d["pull_requests"]], [(t["task"], t["plan"]) for t in d["drafts"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
-if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], [('drafted-one', '$dtree/docs/plans/2026-11-17-drafted-one.md')], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 8)" ] \
+shape=$(field '([(c["task"], c["id"]) for c in d["choices"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"], t["conflict"]) for t in d["pull_requests"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
+if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 7)" ] \
   && [ "$(field 'd["owner"]' <<<"$listed")" = "{'away': False, 'since': None, 'words': None}" ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ] \
-  && [ "$away_list" = "(True, \"I'm away\", True, [], 7)" ]; then
-  pass "waiting lists in one JSON what waits for the owner: whether he is away, each choice as decisions.py pending gives it, the criteria and the steps that hold a task, each pull request with green or not and whether the forge calls it conflicting, each night's draft with its plan, and each retro's proposals, with a file that does not read named as such; while he is away it says so first, since when and in his words, and his choice is taken"
+  && [ "$away_list" = "(True, \"I'm away\", True, [], 6)" ]; then
+  pass "waiting lists in one JSON what waits for the owner: whether he is away, each choice as decisions.py pending gives it, the criteria and the steps that hold a task, each pull request with green or not and whether the forge calls it conflicting, and each retro's proposals, with a file that does not read named as such; while he is away it says so first, since when and in his words, and his choice is taken"
 else
   fail "waiting: $shape / $away_list / $listed"
 fi
@@ -420,22 +378,6 @@ else
   fail "the night's pull requests: $nightly / $marked / $other_form / $night_mode"
 fi
 
-# A draft an older night left stays in the list until the owner answers it, and both answers still work: approve
-# starts its lead, whose brief still has the older night's line, which no longer stops a choice of the build, and
-# reject drops it.
-wq task-dir drafted-two --ask "The ask of drafted-two." >/dev/null && wq state drafted-two drafted "the plan waits for the owner's word" >/dev/null
-drafts=$(wq waiting | field '[t["task"] for t in d["drafts"]]' 2>&1 || true)
-place=$(status_of wq may-start drafted-one)
-approved=$(wq state drafted-one building "lead: builder" 2>&1 | field 'd["status"]' 2>&1 || true)
-asked=$("$PY" -B "$DECISIONS" --repo "$WQ" ask drafted-one "${CASE[@]}" --what "Where the note goes" --option "the last column" --option "after the price" --recommended "the last column" --why w --said s 2>&1 | field 'd["id"]' 2>&1 || true)
-rejected=$(wq state drafted-two dropped "the owner rejected the night's draft" 2>&1 | field 'd["status"]' 2>&1 || true)
-if [ "$drafts" = "['drafted-one', 'drafted-two']" ] && [ "$place" = 0 ] && [ "$approved" = building ] && [ "$asked" = 1 ] && [ "$rejected" = dropped ] \
-  && [ "$(wq waiting | field 'd["drafts"]')" = "[]" ]; then
-  pass "a draft an older night left is listed until the owner answers it: approve starts its lead and a choice of its build goes to the owner as any other, whatever its brief says of the night, and reject drops it"
-else
-  fail "an older night's draft: $drafts / $place / $approved / $asked / $rejected"
-fi
-
 # The morning: a task the night left held for the owner is marked with its night beside a day's, the night's pull
 # requests are among the others, and the list names last night's report, today's or yesterday's, never an older one.
 wq task-dir night-held --ask "The backlog item of night-held." --night 2026-11-18 >/dev/null
@@ -453,6 +395,5 @@ if [ "$no_report" = None ] && [ "$before" = None ] \
 else
   fail "the morning: $no_report / $before / $morning"
 fi
-git -C "$WQ" worktree remove --force "$dtree"
 
 finish

@@ -19,7 +19,7 @@ woke() { mkdir -p "$NAPS/$1" && printf '# A dream\n\nA field.\n' > "$NAPS/$1/dre
 naps_on() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^on = false$", "on = true", s, count=1))' "$NP/.lem/project.toml"; }
 
 # The settings: one switch, off; the 30 days and the 6 hours are fixed, each guess said so in the file; a wrong value
-# is refused by its key, and a key an older Lem had for a number is refused with the line to delete.
+# or a key it does not know is refused by its key.
 shown=$(project --repo "$NP" show | field 'd["naps"]')
 template=$(sed -n '/^\[naps\]$/,$p' "$NP/.lem/project.toml")
 bad() {
@@ -28,15 +28,12 @@ bad() {
   printf '%s\n' '[naps]' "$2" > "$repo/.lem-settings" && mkdir -p "$repo/.lem" && mv "$repo/.lem-settings" "$repo/.lem/project.toml"
   { project --repo "$repo" show >/dev/null; } 2>&1 || true
 }
-# shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
 if [ "$shown" = "{'on': False}" ] \
-  && grep -qx 'on = false' <<<"$template" && ! grep -qE '^(keep_days|gap_hours) = ' <<<"$template" \
+  && grep -qx 'on = false' <<<"$template" \
   && grep -qF '6 hours pass between two naps' <<<"$template" && grep -qF 'kept 30 days: two guesses' <<<"$template" && grep -q 'nobody has shown that it helps' <<<"$template" \
-  && grep -qxF -- '- delete `keep_days = 30` under [naps]: Lem keeps the folder of a nap 30 days' <<<"$(bad days 'keep_days = 30')" \
-  && grep -qxF -- '- delete `gap_hours = 2` under [naps]: 6 hours pass between two naps' <<<"$(bad gap 'gap_hours = 2')" \
   && grep -qF "naps.on = 'yes' must be true or false" <<<"$(bad word 'on = "yes"')" \
   && grep -qF "unknown key naps.often" <<<"$(bad key 'often = 2')"; then
-  pass "the naps' settings: one switch, off; 30 days and 6 hours are fixed and the template says each is a guess; a wrong value is refused by its key, and a number of an older Lem with the line to delete"
+  pass "the naps' settings: one switch, off; 30 days and 6 hours are fixed and the template says each is a guess; a wrong value or a key it does not know is refused by its key"
 else
   fail "the naps' settings: $shown / $template"
 fi

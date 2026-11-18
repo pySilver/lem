@@ -312,7 +312,7 @@ printf '%s\n' '## Decisions' '' 'none' '' '## Left open' '' 'none' '' '## Worth 
 shop_settings agent keep
 open_task four-tasks five.txt five
 tree=$(project --repo "$SHOP" worktree-dir four-tasks)
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("1. The change.", "1. The change.\n2. Its test.\n3. Its page.\n4. Its note."))' "$tree/docs/plans/20261115-four-tasks.md"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("1. The change.", "1. The change.\n2. Its test.\n3. Its page.\n4. Its note."))' "$tree/docs/plans/2026-11-15-four-tasks.md"
 git -C "$tree" commit -q -am "docs: four tasks"
 checked four-tasks
 land --repo "$SHOP" read four-tasks --record "$(record 1 '{"kind": "round", "ran": [{"name": "correctness", "why": "four tasks change the app"}], "answered": ["codex"]}')" >/dev/null
@@ -383,7 +383,7 @@ project --repo "$SHOP" state four-tasks dropped "the test is over" >/dev/null
 # A plan that says careful calls for a plan talk: the request is not proposed without one, and with one its text holds the talk's line.
 open_task careful-plan six.txt six
 tree=$(project --repo "$SHOP" worktree-dir careful-plan)
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n## Acceptance criteria", "careful: yes, a price is rounded here.\n\n## Acceptance criteria", 1))' "$tree/docs/plans/20261115-careful-plan.md"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("\n## Acceptance criteria", "careful: yes, a price is rounded here.\n\n## Acceptance criteria", 1))' "$tree/docs/plans/2026-11-15-careful-plan.md"
 git -C "$tree" commit -q -am "docs: the plan is careful"
 checked careful-plan
 land --repo "$SHOP" read careful-plan --record "$(record 1 '{"kind": "full", "ran": [{"name": "default", "why": "the plan says careful"}], "answered": ["codex"]}')" >/dev/null
@@ -397,14 +397,13 @@ if grep -q "the plan says that the request is careful, so its defender and the r
 else
   fail "a careful plan with no plan talk: $talkless"
 fi
-# an event of the older form, with no counts but the turns and the positions, as a log written before the counts holds it
-printf '%s\n' '{"ts": "2026-11-15T10:00:00Z", "event": "plan.talk", "task": "careful-plan", "reviewer": "codex", "turns": 6, "settled": 2, "open": 1}' >> "$SHOP/.lem/state/events.jsonl"
+project --repo "$SHOP" log careful-plan plan.talk reviewer=codex turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 design:=0 unargued:=0 root:=1 layer:=0 shared:=0 >/dev/null
 land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" >/dev/null
 text=$SHOP/.lem/state/tasks/careful-plan/pr.md
-if [ "$(grep 'plan talk' "$text" || true)" = "- the plan talk: codex argued the plan with its defender, 6 turns; 2 positions settled by the two, 1 left open" ] \
+if [ "$(grep 'plan talk' "$text" || true)" = "- the plan talk: codex argued the plan with its defender, 6 turns; 2 positions settled by the two, 1 left open; 3 questions in the reviewer's first list, 1 repaired by the defender, 0 of the open ones a design choice, 0 raised after the list and not argued, 1 repaired at the cause, 0 layers over a cited decision, 0 decisions two questions named" ] \
   && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c 'plan talk')" = 1 ] && grep -qxF -- "- careful: yes, the plan says so; the review says no: $NOT_CAREFUL" "$text" \
   && [ "$(status careful-plan)" = open ]; then
-  pass "after its plan talk a request whose plan says careful is proposed, and the checks of its text say who argued the plan with its defender, the turns, and the positions settled and left open; an event of the older form, with no other count, reads as before"
+  pass "after its plan talk a request whose plan says careful is proposed, and the checks of its text say who argued the plan with its defender, the turns, the positions settled and left open, and the other counts of the talk"
 else
   fail "the plan talk in the text of a careful plan: $(cat "$text" 2>/dev/null)"
 fi
@@ -486,7 +485,7 @@ git -C "$SHOP" merge -q --ff-only origin/main
 tree=$SHOP/.lem/worktrees/more-work
 # the first half is on the base now, so its test no longer fails there: the criterion is held by a test of the second half
 echo six > "$tree/n.txt" && echo 'grep -qx six n.txt' > "$tree/tests/more-work-n.sh"
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("tests/more-work.sh", "tests/more-work-n.sh"))' "$tree/docs/plans/20261115-more-work.md"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("tests/more-work.sh", "tests/more-work-n.sh"))' "$tree/docs/plans/2026-11-15-more-work.md"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: more-work, the second half"
 err=$(land --repo "$SHOP" land more-work --by agent 2>&1 || true)
 if grep -q "from a landing that was cut off, and the branch has more work since" <<<"$err" && [ "$(status more-work)" = open ] && ! git -C "$ORIGIN" cat-file -e main:n.txt 2>/dev/null \

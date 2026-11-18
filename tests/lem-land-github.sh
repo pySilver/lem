@@ -417,7 +417,7 @@ line_task() {
 # proposed SLUG: its landing to the pull request, with a polish pass for a full change and one clean read
 proposed() {
   gw_land start "$1" >/dev/null && gw_land base "$1" >/dev/null
-  if [ -e "$GWS/docs/plans/20261115-$1.md" ] || [ -e "$GWS/.lem/worktrees/$1/docs/plans/20261115-$1.md" ]; then polish_in_gw "$1"; fi
+  if [ -e "$GWS/docs/plans/2026-11-15-$1.md" ] || [ -e "$GWS/.lem/worktrees/$1/docs/plans/2026-11-15-$1.md" ]; then polish_in_gw "$1"; fi
   gw_land checks "$1" >/dev/null && gw_land read "$1" --record "$(clean 1)" >/dev/null && gw_land propose "$1" --title "fix: $1" --notes "$NOTES" >/dev/null
 }
 polish_in_gw() {
@@ -666,58 +666,6 @@ if [ "$wcode" = 1 ] && grep -qF "land.py: the watch was stopped" "$WORK/watch.er
   pass "a watch that is stopped exits 1, says so, and its file for the board says that it ended"
 else
   fail "a stopped watch: code=$wcode / $(cat "$WORK/watch.err")"
-fi
-
-# A pull request the scripts before the state moved opened, with their state in .git/lem, and the owner then
-# merged on the forge, as three tasks of one scratch repository stand: the scripts of now move the state on
-# their first call, and merged, tasks and clean take the task to its end.
-if git cat-file -e "ccba3bd^{commit}" 2>/dev/null; then
-  OLDLEM=$WORK/old-lem
-  mkdir -p "$OLDLEM" && git archive ccba3bd skills | tar -x -C "$OLDLEM"
-  GXO=$WORK/gx-origin.git
-  GXS=$WORK/gx-shop
-  git init -q --bare -b main "$GXO"
-  git clone -q "$GXO" "$GXS" 2>/dev/null && ident "$GXS"
-  git -C "$GXS" config remote.origin.url https://github.com/acme/shop.git
-  git -C "$GXS" config "url.$GXO.insteadOf" https://github.com/acme/shop.git
-  "$PY" -B "$OLDLEM/skills/lem/scripts/project.py" --repo "$GXS" init --base main >/dev/null
-  printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "owner"' '[gate]' 'commands = ["true"]' > "$GXS/.lem/project.toml"
-  git -C "$GXS" add -A && git -C "$GXS" commit -q -m "chore: start" && git -C "$GXS" push -q origin main
-  (
-    PROJECT=$OLDLEM/skills/lem/scripts/project.py STORIES=$OLDLEM/skills/lem/scripts/stories.py
-    # the small change as the scripts of that commit wrote it: `Kind: correction` and --correction
-    directory=$(project --repo "$GXS" task-dir old-pr --ask "Put twelve into o.txt.")
-    printf '%s\n' '## Stories' '' 'Kind: correction, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$directory/stories.md"
-    "$PY" -B "$STORIES" --repo "$GXS" approve old-pr --file "$directory/stories.md" --correction >/dev/null
-    printf '%s\n' "   - test: \`sh tests/old-pr.sh\` in \`tests/old-pr.sh\`" >> "$directory/stories.md"
-    tree=$(project --repo "$GXS" worktree-dir old-pr)
-    git -C "$GXS" worktree add -q "$tree" -b fix/old-pr main
-    mkdir -p "$tree/tests" && printf '%s\n' twelve > "$tree/o.txt" && echo "grep -qx twelve o.txt" > "$tree/tests/old-pr.sh"
-    git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: old-pr"
-    project --repo "$tree" state old-pr ready "the small change is built" >/dev/null
-    ox() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gx.json" GH_ORIGIN="$GXO" "$PY" -B "$OLDLEM/skills/lem/scripts/land.py" --repo "$GXS" "$@"; }
-    ox start old-pr >/dev/null && ox base old-pr >/dev/null && ox gate old-pr >/dev/null && ox read old-pr --record "$(clean 1)" >/dev/null
-    ox propose old-pr --title "fix: twelve" --notes "$NOTES" >/dev/null
-  )
-  opened=$("$PY" -B "$OLDLEM/skills/lem/scripts/project.py" --repo "$GXS" tasks | field '[(t["slug"], t["status"]) for t in d]')
-  number=$("$PY" -c 'import json, sys; print(next(iter(json.load(open(sys.argv[1]))["prs"])))' "$WORK/gx.json")
-  head=$(git -C "$GXO" rev-parse refs/heads/fix/old-pr)
-  git -C "$GXO" update-ref refs/heads/main "$head"
-  "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); d["prs"][sys.argv[2]].update(state="MERGED", merge=sys.argv[3]); json.dump(d, open(sys.argv[1], "w"))' "$WORK/gx.json" "$number" "$head"
-  # the settings of that commit name the checks `[gate]`, which the scripts of now refuse with the lines the owner writes
-  printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' 'land = "owner"' '[checks]' 'commands = ["true"]' > "$GXS/.lem/project.toml"
-  gx_land() { PATH="$WORK/bin:$PATH" GH_STATE="$WORK/gx.json" GH_ORIGIN="$GXO" "$PY" -B "$LAND" --repo "$GXS" "$@"; }
-  merged=$(gx_land merged old-pr 2>"$WORK/gx.err" | field 'd["merged"]' 2>&1 || true)
-  cleaned=$(gx_land clean old-pr 2>&1 | field 'd["worktree"]' 2>&1 || true)
-  if [ "$opened" = "[('old-pr', 'open')]" ] && grep -qF "project.py: moved Lem's state from $GXS/.git/lem to $GXS/.lem/state (renamed)" "$WORK/gx.err" \
-    && [ "$merged" = "$head" ] && [ "$(status_in "$GXS" old-pr)" = landed ] && [ "$cleaned" = True ] && [ ! -e "$GXS/.git/lem" ] \
-    && [ "$(git -C "$GXS" rev-parse main)" = "$head" ] && [ -z "$(git -C "$GXS" status --porcelain --untracked-files=all -- . ':!.lem/project.toml')" ]; then
-    pass "a pull request opened by the scripts before the state moved and merged by the owner on the forge is finished by merged of now, which moves the state and says so; tasks and clean read it there"
-  else
-    fail "an old pull request after the move: $opened / $merged / $cleaned / $(cat "$WORK/gx.err")"
-  fi
-else
-  skip "a pull request opened before the state moved: this clone does not have commit ccba3bd"
 fi
 
 finish

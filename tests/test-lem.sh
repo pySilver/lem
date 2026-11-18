@@ -10,7 +10,7 @@ cd -P "$(dirname "$0")/.." || exit 1
 # shellcheck source-path=SCRIPTDIR source=suites.sh
 . tests/suites.sh
 
-blocks=(lem-settings lem-machine lem-state lem-old-tasks lem-decisions lem-land-shop lem-land-local lem-land-review lem-land-backlog lem-land-github lem-land-guards lem-land-small lem-serial)
+blocks=(lem-settings lem-machine lem-state lem-decisions lem-land-shop lem-land-local lem-land-review lem-land-backlog lem-land-github lem-land-guards lem-land-small lem-serial)
 blocks+=(lem-naps)
 blocks+=(lem-command)
 blocks+=(lem-picker)

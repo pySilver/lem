@@ -86,10 +86,10 @@ fi
 
 # an unknown name: exit 1, the name and the list on stderr, nothing on stdout
 set +e
-unknown_out=$("$LEM" stories approve x 2>"$WORK/unknown")
+unknown_out=$("$LEM" tickets approve x 2>"$WORK/unknown")
 unknown_code=$?
 set -e
-if [ "$unknown_code" = 1 ] && [ -z "$unknown_out" ] && grep -qF "lem: 'stories' is no command of Lem's" "$WORK/unknown" && grep -qE '^  project +' "$WORK/unknown"; then
+if [ "$unknown_code" = 1 ] && [ -z "$unknown_out" ] && grep -qF "lem: 'tickets' is no command of Lem's" "$WORK/unknown" && grep -qE '^  project +' "$WORK/unknown"; then
   pass "an unknown name exits 1, and says so on stderr with the names"
 else
   fail "an unknown name: $unknown_code / $unknown_out / $(cat "$WORK/unknown")"

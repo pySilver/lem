@@ -41,7 +41,7 @@ project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
 mkdir -p "$tree/docs/plans"
 printf '%s\n' '# The export has the gift note' '' '## Acceptance criteria' '' 'Size: full, because the export gets a new column.' '' \
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
-  '2. An order with no gift note has an empty cell, not the word "None".' '' '## Tasks' '' '1. The column.' > "$tree/docs/plans/20261116-$SLUG.md"
+  '2. An order with no gift note has an empty cell, not the word "None".' '' '## Tasks' '' '1. The column.' > "$tree/docs/plans/2026-11-16-$SLUG.md"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "docs: the plan"
 TASKDIR=$EX/.lem/state/tasks/$SLUG
 RECORD=$TASKDIR/decisions.jsonl
@@ -57,18 +57,9 @@ ask() {
   decide ask "$SLUG" --what "$what" "${CASE[@]}" --option "the last column" --option "after the price" --recommended "the last column" \
     --why "an import that reads the columns by place keeps working" --said "The merchant picked the last column, the accountant after the price." "$@" | field 'd["id"]'
 }
-# old_wait ID...: each choice as the Lem before 2026-11-18 asked it, which records of open tasks still hold: a wait of
-# 15 minutes whose deadline is past, and no timeout written
-old_wait() { "$PY" -c 'import json, sys
-lines = [json.loads(line) for line in open(sys.argv[1])]
-for line in lines:
-    if line["kind"] == "asked" and str(line["id"]) in sys.argv[2:]: line.update(wait_minutes=15, deadline="2026-01-01T00:00:00Z")
-open(sys.argv[1], "w").write("".join(json.dumps(line) + "\n" for line in lines))' "$RECORD" "$@"; }
-# old_mode SLUG alone|with-owner: the event the "go alone" and "I am back" of the Lem before 2026-11-18 wrote for one task
-old_mode() { "$PY" -c 'import json, sys, datetime
-line = json.dumps({"ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "task.mode", "task": sys.argv[2], "mode": sys.argv[3], "by": "owner", "words": "go alone", "all": False, "was": "with-owner"})
-open(sys.argv[1] + "/events.jsonl", "a").write(line + "\n")
-open(sys.argv[1] + "/events.js", "a").write("lemEvent(" + line + ");\n")' "$EX/.lem/state" "$@"; }
+# night SLUG: a night's mark on the task, so that it runs without the owner and only its choices go; back: his "back", which ends it
+night() { project --repo "$EX" task-dir "$1" --ask "The backlog item of $1." --night 2026-11-18 >/dev/null; }
+back() { project --repo "$EX" owner back --words "I'm back" >/dev/null; }
 one() { decide list "$SLUG" | "$PY" -c 'import json, sys; print(json.dumps(next(c for c in json.load(sys.stdin) if c["id"] == int(sys.argv[1]))))' "$1"; }
 advised_lines() { grep -c "\"id\": $1, .*\"kind\": \"advised\"" "$RECORD" || true; }
 
@@ -111,28 +102,24 @@ else
   fail "advise under the lock: $fables / $astras / $refused / $(cat "$WORK"/race-*.out)"
 fi
 
-# advice comes while a choice waits, however long, also past the deadline an older Lem wrote; an irreversible step takes
-# advice too, and an answered choice none
+# advice comes while a choice waits; an irreversible step takes advice too, and an answered choice none
 c3=$(ask "The note's font")
-old_wait "$c3"
 late=$(decide advise "$SLUG" "$c3" --expert fable --pick "after the price" --why "w" 2>&1 | field 'd["kind"]' || true)
 c4=$(ask "Email the merchants about the column" --irreversible person)
-old_wait "$c4"
 forever=$(decide advise "$SLUG" "$c4" --expert fable --pick "after the price" --why "The merchants read the email." | field 'd["kind"]' || true)
 c5=$(ask "The note's length")
 decide answer "$SLUG" "$c5" --chose "the last column" >/dev/null || true
 over=$(decide advise "$SLUG" "$c5" --expert fable --pick "after the price" --why "w" 2>&1 || true)
 if [ "$late" = advised ] && [ "$(advised_lines "$c3")" = 1 ] \
   && [ "$forever" = advised ] && grep -qF "choice $c5 does not wait: it is answered, with 'the last column'; advice on it changes nothing" <<<"$over"; then
-  pass "advice goes in while a choice waits, however long, also past an older Lem's deadline; an irreversible step takes advice too, and an answered choice takes none"
+  pass "advice goes in while a choice waits; an irreversible step takes advice too, and an answered choice takes none"
 else
   fail "advice and the wait: $late / $forever / $over"
 fi
 
-# When the task runs without the owner (here by the "go alone" of an older Lem, so that only this task's choices go),
-# `lem decisions away` takes each choice that waits: the experts' shared pick, by: experts with both reasons, marked
-# early; when they split, one found none fits, one is missing or none advised, the recommended option, by: timeout.
-# A choice an older Lem asked, whose deadline passed, takes the owner's answer as an answer.
+# When the task runs without the owner (here by a night's mark, so that only this task's choices go), `lem decisions
+# away` takes each choice that waits: the experts' shared pick, by: experts with both reasons, marked early; when they
+# split, one found none fits, one is missing or none advised, the recommended option, by: timeout.
 KEEP_SLUG=$SLUG KEEP_RECORD=$RECORD
 SLUG=gift-away RECORD=$EX/.lem/state/tasks/gift-away/decisions.jsonl
 project --repo "$EX" task-dir "$SLUG" >/dev/null && project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
@@ -148,26 +135,21 @@ decide advise "$SLUG" "$c8" --expert astra --none --why "a" >/dev/null || true
 c9=$(ask "The note's separator")
 decide advise "$SLUG" "$c9" --expert fable --pick "after the price" --why "f" >/dev/null || true
 c10=$(ask "The note's escape")
-c11=$(ask "The note's quotes")
-decide advise "$SLUG" "$c11" --expert fable --pick "after the price" --why "f" >/dev/null || true
-decide advise "$SLUG" "$c11" --expert astra --pick "after the price" --why "a" >/dev/null || true
-old_wait "$c11"
-lateanswer=$(decide answer "$SLUG" "$c11" --chose "the last column" | field '(d["kind"], d["chose"])' || true)
 with_him=$(decide away | field 'd["taken"]' || true)
-old_mode "$SLUG" alone
+night "$SLUG"
 taken=$(decide away | field '[(t["id"], t["chose"], t["by"]) for t in d["taken"]]' || true)
-old_mode "$SLUG" with-owner
+back
 listed=$(one "$c6" | field '(d["state"], d["chose"], d["by"], d.get("early"), d["experts"], sorted(d["advice"]))' || true)
 ended=$(decide wait "$SLUG" "$c6" --seconds 1 | field 'd["ended"]' || true)
 untouched=$(decide list "$KEEP_SLUG" | field '[c["state"] for c in d if c["id"] in (1, 2)]' || true)
 SLUG=$KEEP_SLUG RECORD=$KEEP_RECORD
-if [ "$lateanswer" = "('answered', 'the last column')" ] && [ "$with_him" = "[]" ] \
+if [ "$with_him" = "[]" ] \
   && [ "$taken" = "[($c6, 'after the price', 'experts'), ($c7, 'the last column', 'timeout'), ($c8, 'the last column', 'timeout'), ($c9, 'the last column', 'timeout'), ($c10, 'the last column', 'timeout')]" ] \
   && [ "$listed" = "('timeout', 'after the price', 'experts', True, {'fable': 'The accountant reads the price first.', 'astra': 'A note beside the price is seen.'}, ['astra', 'fable'])" ] \
   && [ "$ended" = "taken without the owner" ] && [ "$untouched" = "['waits', 'waits']" ]; then
-  pass "a task that runs without the owner has each choice that waits taken: the experts' shared pick, by: experts with both reasons, marked early; when they split, one found none fits, one is missing or none advised, the recommended option; nothing of a task that runs with him; and a choice past an older Lem's deadline takes his answer as an answer"
+  pass "a task that runs without the owner has each choice that waits taken: the experts' shared pick, by: experts with both reasons, marked early; when they split, one found none fits, one is missing or none advised, the recommended option; and nothing of a task that runs with him"
 else
-  fail "the owner's away and the experts: $lateanswer / $with_him / $taken / $listed / $ended / $untouched"
+  fail "the owner's away and the experts: $with_him / $taken / $listed / $ended / $untouched"
 fi
 
 # Without Codex on the machine the one expert that can answer answers alone: a choice asked there names one adviser, its
@@ -179,9 +161,9 @@ alone_ask=$(env PATH="$NOCODEX" "$PY" -B "$DECISIONS" --repo "$EX" ask "$SLUG" -
   --recommended "the last column" --why "w" --said "The two personas split." | field '(d["id"], d["advisers"])' || true)
 c12=$(cut -d, -f1 <<<"$alone_ask" | tr -d '( ')
 alone_pick=$(decide advise "$SLUG" "$c12" --expert fable --pick "after the price" --why "A printed note reads better beside the price." | field 'd["experts_pick"]' || true)
-old_mode "$SLUG" alone
+night "$SLUG"
 alone_taken=$(decide away | field '[(t["id"], t["chose"], t["by"]) for t in d["taken"]]' || true)
-old_mode "$SLUG" with-owner
+back
 alone_listed=$(decide list "$SLUG" | field 'next((c["state"], c["by"], c["experts"]) for c in d if c["id"] == '"$c12"')' || true)
 alone_brief=$(env PATH="$NOCODEX" "$PY" -B "$EXPERTS" --repo "$EX" brief --question "Which font for the note?" || true)
 alone_names=$(field '[e["name"] for e in d["experts"]]' <<<"$alone_brief" || true)
@@ -195,32 +177,21 @@ else
   fail "one expert alone: $alone_ask / $alone_pick / $alone_taken / $alone_listed / $alone_names / $alone_file"
 fi
 
-# A record of an older Lem: a `settled` line, which `settle --away` wrote, still reads as the experts' pick, and an answer
-# after it is late. And a lead's wait on a choice with both experts' shared pick, when the task runs without the owner:
-# the wait takes that pick at once, early; an irreversible step is never taken so.
-c12=$(ask "The note's column name")
-decide advise "$SLUG" "$c12" --expert fable --pick "after the price" --why "The accountant reads the price first." >/dev/null || true
-decide advise "$SLUG" "$c12" --expert astra --pick "after the price" --why "A note beside the price is seen." >/dev/null || true
-printf '{"id": %s, "at": "2026-11-17T10:00:00Z", "kind": "settled", "chose": "after the price", "by": "experts", "away": true, "experts": {"fable": "f", "astra": "a"}}\n' "$c12" >> "$RECORD"
-stood=$(one "$c12" | field '(d["state"], d["chose"], d["by"], d["away"])' || true)
-waitsays=$(decide wait "$SLUG" "$c12" --seconds 1 | field 'd["ended"]' || true)
-gone=$(decide pending "$SLUG" | field "[c['id'] for c in d['waiting'] if c['id'] == $c12]" || true)
-after=$(decide answer "$SLUG" "$c12" --chose "the last column" | field '(d["kind"], d["state"], d["taken"], "it is a correction" in d["next"])' || true)
+# A lead's wait on a choice with both experts' shared pick, when the task runs without the owner: the wait takes that
+# pick at once, early; an irreversible step is never taken so.
 c13=$(ask "The note's width")
 decide advise "$SLUG" "$c13" --expert fable --pick "after the price" --why "f" >/dev/null || true
 decide advise "$SLUG" "$c13" --expert astra --pick "after the price" --why "a" >/dev/null || true
 c14=$(ask "Email the accountants about the column" --irreversible person)
-old_mode "$SLUG" alone
+night "$SLUG"
 early=$(decide wait "$SLUG" "$c13" --seconds 30 | field '(d["chose"], d["by"], d["early"], sorted(d["experts"]))' || true)
 irreversible=$(decide wait "$SLUG" "$c14" --seconds 1 | field 'd["ended"]' || true)
 others=$(decide list "$SLUG" | field '[c["state"] for c in d if c["id"] in (1, 2)]' || true)
-old_mode "$SLUG" with-owner
-if [ "$stood" = "('settled', 'after the price', 'experts', True)" ] && [ "$waitsays" = "settled by the experts while the owner was away" ] && [ "$gone" = "[]" ] \
-  && [ "$after" = "('late', 'settled', 'after the price', True)" ] \
-  && [ "$early" = "('after the price', 'experts', True, ['astra', 'fable'])" ] && [ "$irreversible" = "still waits" ] && [ "$others" = "['waits', 'waits']" ]; then
-  pass "a settled line of an older Lem still reads as the experts' pick, and an answer after it is late; when the task runs without the owner, a wait takes the experts' shared pick of its own choice at once, marked early, and never an irreversible step"
+back
+if [ "$early" = "('after the price', 'experts', True, ['astra', 'fable'])" ] && [ "$irreversible" = "still waits" ] && [ "$others" = "['waits', 'waits']" ]; then
+  pass "when the task runs without the owner, a wait takes the experts' shared pick of its own choice at once, marked early, and never an irreversible step"
 else
-  fail "an older settled line and a choice taken early: $stood / $waitsays / $gone / $after / $early / $irreversible / $others"
+  fail "a choice taken early: $early / $irreversible / $others"
 fi
 
 # the skill's brief: the choice, the criteria, the plan and the files, in one file of the task's directory
@@ -240,7 +211,7 @@ for want in "# Choice $c16 of $SLUG: the experts' brief" "Where the note goes in
   "Size: full, because the export gets a new column." \
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania" has that text in its row.' \
   '2. An order with no gift note has an empty cell, not the word "None".' \
-  "\`$tree/docs/plans/20261116-$SLUG.md\`" "- $tree/export.sh" "Read only. Change no file" "    pick: ONE OPTION" "    none fits"; do
+  "\`$tree/docs/plans/2026-11-16-$SLUG.md\`" "- $tree/export.sh" "Read only. Change no file" "    pick: ONE OPTION" "    none fits"; do
   grep -qF -- "$want" "$brief" || { holds="no: $want"; break; }
 done
 decide answer "$SLUG" "$c16" --chose "after the price" >/dev/null || true

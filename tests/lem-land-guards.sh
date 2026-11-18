@@ -68,18 +68,6 @@ else
   fail "a gate of no command: $empty / $(kept_in "$GRD" no-gate gated)"
 fi
 project --repo "$GRD" state no-gate dropped "the test is over" >/dev/null
-# A task an older Lem blocked for want of a gate command has that older line, and start takes it back the same way.
-small_task_in "$GRD" old-blocked o.txt o
-project --repo "$GRD" state old-blocked blocked "the project has no gate command" >/dev/null
-old_gate=$(g gate old-blocked 2>&1 || true)
-g start old-blocked >/dev/null 2>&1 || true
-if [ "$(status_in "$GRD" old-blocked)" = landing ] && grep -qF "\`lem land gate\` is \`lem land checks\` now, with the same steps: run \`lem land checks old-blocked\`" <<<"$old_gate" \
-  && [ "$(status_of g gate old-blocked)" = 1 ]; then
-  pass "a task an older Lem blocked with its line for no gate command is taken back by start, and the step's older name, land.py gate, is refused with its name of now"
-else
-  fail "an older blocked task: $(status_in "$GRD" old-blocked) / $old_gate"
-fi
-project --repo "$GRD" state old-blocked dropped "the test is over" >/dev/null
 
 # A task whose worktree was removed by hand while it held the landing line: every message on the way names the step out.
 small_task_in "$GRD" stuck s.txt s

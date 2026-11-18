@@ -45,36 +45,6 @@ soon() {
     sleep 0.2
   done
 }
-# old_wait FILE ID...: each choice as the Lem before 2026-11-18 asked it, which records of open tasks still hold: a wait
-# of 15 minutes whose deadline is past, and no timeout written
-old_wait() { "$PY" -c 'import json, sys
-lines = [json.loads(line) for line in open(sys.argv[1])]
-for line in lines:
-    if line["kind"] == "asked" and str(line["id"]) in sys.argv[2:]: line.update(wait_minutes=15, deadline="2026-01-01T00:00:00Z")
-open(sys.argv[1], "w").write("".join(json.dumps(line) + "\n" for line in lines))' "$@"; }
-# timed_out FILE ID...: each choice as the clock of the Lem before 2026-11-18 took it, which records of open tasks still
-# hold: its question with a deadline in the past and a wait of 15 minutes, and a `timeout` line with the experts'
-# shared pick, or the recommended option when they split
-timed_out() { "$PY" -c 'import json, sys
-lines = [json.loads(line) for line in open(sys.argv[1])]
-for number in sys.argv[2:]:
-    asked = next(line for line in lines if line["kind"] == "asked" and str(line["id"]) == number)
-    asked.update(wait_minutes=15, deadline="2026-01-01T00:00:00Z")
-    advice = {line["expert"]: line for line in lines if line["kind"] == "advised" and str(line["id"]) == number}
-    picks = {a.get("pick") for a in advice.values()}
-    shared = len(advice) == 2 and len(picks) == 1 and None not in picks
-    end = {"id": asked["id"], "at": "2026-01-01T00:00:01Z", "kind": "timeout", "chose": picks.pop() if shared else asked["recommended"], "by": "experts" if shared else "timeout"}
-    if shared: end["experts"] = {name: advice[name]["why"] for name in ("fable", "astra")}
-    lines.append(end)
-open(sys.argv[1], "w").write("".join(json.dumps(line) + "\n" for line in lines))' "$@"; }
-# old_mode REPO SLUG alone|with-owner WORDS: the `task.mode` event that the "go alone" and "I am back" of the Lem before
-# 2026-11-18 wrote for one task, which the event log of an open task still holds
-old_mode() { "$PY" -c 'import json, sys, datetime
-state, slug, mode, words = sys.argv[1:]
-line = json.dumps({"ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": "task.mode", "task": slug, "mode": mode,
-                   "by": "owner", "words": words, "all": False, "was": "with-owner" if mode == "alone" else "alone"})
-open(state + "/events.jsonl", "a").write(line + "\n")
-open(state + "/events.js", "a").write("lemEvent(" + line + ");\n")' "$(project --repo "$1" state-dir)" "$2" "$3" "$4"; }
 
 # The landing's helpers, for every block that takes a task through land.py.
 land() { "$PY" -B "$LAND" "$@"; }
@@ -85,7 +55,7 @@ plan_in() {
   case "$3" in "no test:"*) held="   - $3" ;; esac
   mkdir -p "$1/docs/plans" "$1/tests"
   printf '%s\n' "# $2" '' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' \
-    '1. The file holds the word the owner asked for.' "$held" '' '## Tasks' '' '1. The change.' > "$1/docs/plans/20261115-$2.md"
+    '1. The file holds the word the owner asked for.' "$held" '' '## Tasks' '' '1. The change.' > "$1/docs/plans/2026-11-15-$2.md"
 }
 # task_in REPO SLUG FILE TEXT: a full change with a worktree, one commit that writes FILE, its plan and the test of its criterion,
 # and the state `ready`. Its landing needs a polish pass (polish_in) and its proposal a read of its criteria (read_in).

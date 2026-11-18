@@ -43,22 +43,23 @@ else
   fail "local landing: $err / $out"
 fi
 local_land clean local-change >/dev/null
-# A choice that waits for the owner holds the proposal; one the timeout of the Lem before 2026-11-18 took, which the record
-# of an open task still holds, is not green, and a late answer that differs is said.
+# A choice that waits for the owner holds the proposal; one taken while he was away is not green, and a late answer
+# that differs is said.
 task_in "$LOCAL" waited-change w.txt w
 read_in "$LOCAL" waited-change
 local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land checks waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
 wdec() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
-wfile=$LOCAL/.lem/state/tasks/waited-change/decisions.jsonl
 wdec log waited-change --what "The name of the file" --chose w.txt --why "The other files have one letter." --by lead >/dev/null
 wdec ask waited-change "${CASE[@]}" --what "Where the word goes" --option "the first line" --option "the last line" --recommended "the first line" --why "A reader sees it at once." --said "The two personas split." >/dev/null
 waiting=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
-timed_out "$wfile" 2
+# away_and_back: the owner's away takes each choice that waits, and his back ends it
+away_and_back() { project --repo "$LOCAL" owner away --words "I'm away" >/dev/null && project --repo "$LOCAL" owner back --words "I'm back" >/dev/null; }
+away_and_back
 wdec ask waited-change "${CASE[@]}" --what "Tell the merchants" --option "send the email" --option "send nothing" --recommended "send nothing" --why "Nothing they see changes." --said "The two personas split." --irreversible person >/dev/null
 forever=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
 wdec answer waited-change 3 --chose "send the email" --words "Yes, send it." --why "The merchants asked for it." >/dev/null
 wdec ask waited-change "${CASE[@]}" --what "The case of the word" --option "lower case" --option "upper case" --recommended "lower case" --why "The test reads it so." --said "The two personas split." >/dev/null
-timed_out "$wfile" 4 && wdec answer waited-change 4 --chose "upper case" --words "Make it upper case." --why "The header is in upper case." >/dev/null
+away_and_back && wdec answer waited-change 4 --chose "upper case" --words "Make it upper case." --why "The header is in upper case." >/dev/null
 wdec answer waited-change 2 --chose "the first line" --why "The importer reads the first line." >/dev/null
 # a choice the personas left unclear: the owner takes the recommended option in time
 wdec ask waited-change "${CASE[@]}" --what "Which line holds the word" --option "the only line" --option "the second line" --recommended "the second line" --why "A header goes first." \
@@ -80,30 +81,29 @@ if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes)
   && grep -qF "choice 3 of waited-change waits for the owner (Tell the merchants)" <<<"$forever" && grep -qF "lem decisions answer waited-change 3 --chose OPTION --words TEXT" <<<"$forever" \
   && ! grep -qF "owner away" <<<"$forever" && [ "$(status_in "$LOCAL" waited-change)" = open ] \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
-  && [ "$(sed -n 3p "$text")" = "- choice 2 was taken by timeout (Where the word goes): \"the first line\", the recommended option, after the owner's wait of 15 minutes ended with no answer; the owner answered later with the same (the owner's reason: The importer reads the first line)" ] \
-  && [ "$(sed -n 4p "$text")" = "- choice 4 was taken by timeout (The case of the word): \"lower case\", the recommended option, after the owner's wait of 15 minutes ended with no answer; the owner answered later with \"upper case\", which differs (the owner's words: \"Make it upper case.\"; the owner's reason: The header is in upper case)" ] \
+  && [ "$(sed -n 3p "$text")" = "- choice 2 was taken without the owner (Where the word goes): \"the first line\", the recommended option, at once, as the task ran without the owner; the owner answered later with the same (the owner's reason: The importer reads the first line)" ] \
+  && [ "$(sed -n 4p "$text")" = "- choice 4 was taken without the owner (The case of the word): \"lower case\", the recommended option, at once, as the task ran without the owner; the owner answered later with \"upper case\", which differs (the owner's words: \"Make it upper case.\"; the owner's reason: The header is in upper case)" ] \
   && [ -z "$(sed -n 5p "$text")" ] && [ "$instead_pending" = "[]" ] \
   && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Acceptance criteria|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
   && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- The name of the file: \"w.txt\", by the lead. The other files have one letter.
-- Where the word goes: \"the first line\", by the timeout, after the owner's wait of 15 minutes. A reader sees it at once. The owner answered later with the same (the owner's reason: The importer reads the first line).
+- Where the word goes: \"the first line\", the ladder's pick, taken at once, as the task ran without the owner. A reader sees it at once. The owner answered later with the same (the owner's reason: The importer reads the first line).
 - Tell the merchants: \"send the email\", by the owner, over the recommended \"send nothing\" (recommended because: Nothing they see changes). The owner's words: \"Yes, send it.\" The owner's reason: The merchants asked for it.
-- The case of the word: \"lower case\", by the timeout, after the owner's wait of 15 minutes. The test reads it so. The owner answered later with \"upper case\", which differs (the owner's words: \"Make it upper case.\"; the owner's reason: The header is in upper case).
+- The case of the word: \"lower case\", the ladder's pick, taken at once, as the task ran without the owner. The test reads it so. The owner answered later with \"upper case\", which differs (the owner's words: \"Make it upper case.\"; the owner's reason: The header is in upper case).
 - Which line holds the word: \"the second line\", by the owner, as recommended. A header goes first.
 - Email the customers: \"Email only the beta testers.\", by the owner, none of the options; the recommended was \"email nobody\" (recommended because: Nobody asked for it). The owner's reason: They asked to hear first.
 - The word's line ending: \"A line break, and a second line with the date.\", by the owner, none of the options; the recommended was \"a line break\" (recommended because: Every file ends so). The owner gave no reason." ] \
-  && grep -qF "the request is not green (choice 2 was taken by timeout" <<<"$agent"; then
-  pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken by timeout is a line of its own that is not green, with a late answer, the same or not, and his own words and reason; an answered choice is no cause of not green by itself; a decision of the owner's that is none of the options settles its choice, also an irreversible one, so the request is proposed; and the text lists each decision of the record with who took it and its reason, the recommendation's reason never as the owner's"
+  && grep -qF "the request is not green (choice 2 was taken without the owner" <<<"$agent"; then
+  pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken without the owner is a line of its own that is not green, with a late answer, the same or not, and his own words and reason; an answered choice is no cause of not green by itself; a decision of the owner's that is none of the options settles its choice, also an irreversible one, so the request is proposed; and the text lists each decision of the record with who took it and its reason, the recommendation's reason never as the owner's"
 else
   fail "decisions in the landing: $waiting / $forever / $agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/null
 
-# A choice the experts took is not green, while the owner was away or at the end of an older Lem's wait: its line
-# names their pick and both reasons. A timeout whose experts split took the recommended option.
+# A choice the experts took while the owner was away is not green: its line names their pick and both reasons. A
+# choice whose experts split took the recommended option.
 task_in "$LOCAL" expert-change e.txt e
 read_in "$LOCAL" expert-change
 local_land start expert-change >/dev/null && local_land base expert-change >/dev/null && polish_in "$LOCAL" expert-change && local_land checks expert-change >/dev/null && local_land read expert-change --record "$(clean 1)" >/dev/null
-efile=$LOCAL/.lem/state/tasks/expert-change/decisions.jsonl
 # eask WHAT FIRST SECOND RECOMMENDED WHY: a choice for the owner that the personas left unclear
 eask() { wdec ask expert-change "${CASE[@]}" --what "$1" --option "$2" --option "$3" --recommended "$4" --why "$5" --said "The two personas split." >/dev/null; }
 # eadvise ID FABLE_PICK FABLE_WHY ASTRA_PICK ASTRA_WHY: both experts' advice on choice ID
@@ -111,40 +111,33 @@ eadvise() {
   wdec advise expert-change "$1" --expert fable --pick "$2" --why "$3" >/dev/null
   wdec advise expert-change "$1" --expert astra --pick "$4" --why "$5" >/dev/null
 }
-# settled_by_hand ID PICK FABLE_WHY ASTRA_WHY: the experts' pick while the owner was away, as an older Lem's `settle --away` wrote it
-settled_by_hand() {
-  "$PY" -I -c 'import json, sys; open(sys.argv[1], "a").write(json.dumps({"id": int(sys.argv[2]), "at": "2026-11-17T10:00:00Z", "kind": "settled", "chose": sys.argv[3], "by": "experts", "away": True, "experts": {"fable": sys.argv[4], "astra": sys.argv[5]}}) + "\n")' "$efile" "$@"
-}
 eask "Where the word goes" "the first line" "the last line" "the first line" "A reader sees it at once."
 eadvise 1 "the last line" "A reader of the file looks at its end first." "the last line" "The importer reads the last line."
 held=$(local_land propose expert-change --title "fix: e" --notes "$NOTES" 2>&1 || true)
-settled_by_hand 1 "the last line" "A reader of the file looks at its end first." "The importer reads the last line."
 eask "The case of the word" "lower case" "upper case" "lower case" "The test reads it so."
 eadvise 2 "upper case" "The header is in upper case." "upper case" "The other words of the header are in upper case."
-timed_out "$efile" 2 && wdec answer expert-change 2 --chose "lower case" --why "The test reads it so." >/dev/null
 eask "The word's line ending" "a line break" "no line break" "a line break" "Every file ends so."
 eadvise 3 "a line break" "Every file ends so." "no line break" "The importer reads the last byte."
-timed_out "$efile" 3
 eask "The name of the file" "e.txt" "word.txt" "word.txt" "A name says what the file holds."
 eadvise 4 "word.txt" "A name says what the file holds." "word.txt" "Nobody guesses what e.txt holds."
-settled_by_hand 4 "word.txt" "A name says what the file holds." "Nobody guesses what e.txt holds."
+away_and_back && wdec answer expert-change 2 --chose "lower case" --why "The test reads it so." >/dev/null
 local_land propose expert-change --title "fix: e" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/expert-change/pr.md
 agent=$(local_land land expert-change --by agent 2>&1 || true)
 if grep -qF "choice 1 of expert-change waits for the owner (Where the word goes)" <<<"$held" \
   && grep -qF "\`lem project owner away\` takes the ladder's pick, and the request is not green for it" <<<"$held" \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
-  && [ "$(sed -n 3p "$text")" = "- choice 1 was taken by the experts (Where the word goes): \"the last line\", the option both picked, while the owner was away. Fable: A reader of the file looks at its end first. Astra: The importer reads the last line" ] \
-  && [ "$(sed -n 4p "$text")" = "- choice 2 was taken by the experts (The case of the word): \"upper case\", the option both picked, after the owner's wait of 15 minutes ended with no answer. Fable: The header is in upper case. Astra: The other words of the header are in upper case; the owner answered later with \"lower case\", which differs (the owner's reason: The test reads it so)" ] \
-  && [ "$(sed -n 5p "$text")" = "- choice 3 was taken by timeout (The word's line ending): \"a line break\", the recommended option, after the owner's wait of 15 minutes ended with no answer" ] \
-  && [ "$(sed -n 6p "$text")" = "- choice 4 was taken by the experts (The name of the file): \"word.txt\", the option both picked, while the owner was away. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds" ] \
+  && [ "$(sed -n 3p "$text")" = "- choice 1 was taken by the experts (Where the word goes): \"the last line\", the option both picked, at once, as the task ran without the owner. Fable: A reader of the file looks at its end first. Astra: The importer reads the last line" ] \
+  && [ "$(sed -n 4p "$text")" = "- choice 2 was taken by the experts (The case of the word): \"upper case\", the option both picked, at once, as the task ran without the owner. Fable: The header is in upper case. Astra: The other words of the header are in upper case; the owner answered later with \"lower case\", which differs (the owner's reason: The test reads it so)" ] \
+  && [ "$(sed -n 5p "$text")" = "- choice 3 was taken without the owner (The word's line ending): \"a line break\", the recommended option, at once, as the task ran without the owner" ] \
+  && [ "$(sed -n 6p "$text")" = "- choice 4 was taken by the experts (The name of the file): \"word.txt\", the option both picked, at once, as the task ran without the owner. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds" ] \
   && [ -z "$(sed -n 7p "$text")" ] \
-  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- Where the word goes: \"the last line\", by the experts, the option both picked, while the owner was away; the recommended was \"the first line\". Fable: A reader of the file looks at its end first. Astra: The importer reads the last line.
-- The case of the word: \"upper case\", by the experts, the option both picked, after the owner's wait of 15 minutes; the recommended was \"lower case\". Fable: The header is in upper case. Astra: The other words of the header are in upper case. The owner answered later with \"lower case\", which differs (the owner's reason: The test reads it so).
-- The word's line ending: \"a line break\", by the timeout, after the owner's wait of 15 minutes. Every file ends so.
-- The name of the file: \"word.txt\", by the experts, the option both picked, while the owner was away; it is also the recommended. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds." ] \
+  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- Where the word goes: \"the last line\", by the experts, the option both picked, at once, as the task ran without the owner; the recommended was \"the first line\". Fable: A reader of the file looks at its end first. Astra: The importer reads the last line.
+- The case of the word: \"upper case\", by the experts, the option both picked, at once, as the task ran without the owner; the recommended was \"lower case\". Fable: The header is in upper case. Astra: The other words of the header are in upper case. The owner answered later with \"lower case\", which differs (the owner's reason: The test reads it so).
+- The word's line ending: \"a line break\", the ladder's pick, taken at once, as the task ran without the owner. Every file ends so.
+- The name of the file: \"word.txt\", by the experts, the option both picked, at once, as the task ran without the owner; it is also the recommended. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds." ] \
   && grep -qF "the request is not green (choice 1 was taken by the experts" <<<"$agent" && [ "$(status_in "$LOCAL" expert-change)" = open ]; then
-  pass "a choice the experts took, while the owner was away or at the end of an older Lem's wait, is a line of its own that is not green, with their pick, both reasons and a late answer of his; the text lists it as taken by the experts; a timeout whose experts split took the recommended option; and a request held by a choice that waits says what the owner's away takes"
+  pass "a choice the experts took while the owner was away is a line of its own that is not green, with their pick, both reasons and a late answer of his; the text lists it as taken by the experts; a choice whose experts split took the recommended option; and a request held by a choice that waits says what the owner's away takes"
 else
   fail "the experts' choices in the landing: $held / $agent / $(cat "$text" 2>/dev/null)"
 fi
@@ -191,7 +184,7 @@ lcriteria approve criterion-departs --file "$WORK/approved.md" >/dev/null 2>&1 |
 # shellcheck disable=SC2016
 printf '%s\n' '# criterion-departs' '' '## Acceptance criteria' '' 'Size: full, because the file gets a word and a rule of its own.' '' '1. The file holds the word the owner asked for.' \
   '   - test: `sh tests/criterion-departs.sh` in `tests/criterion-departs.sh`' '2. The file ends with a line break.' '   - no test: printf ends every line so.' '' '## Tasks' '' '1. The change.' \
-  > "$tree/docs/plans/20261115-criterion-departs.md"
+  > "$tree/docs/plans/2026-11-15-criterion-departs.md"
 git -C "$tree" commit -q -am "docs: the criteria as they are built"
 unrecorded=$(local_land start criterion-departs >/dev/null && local_land base criterion-departs >/dev/null && local_land checks criterion-departs 2>&1 || true)
 # a criterion that a choice of the build removes, once the choice is answered; and one the lead adds
@@ -205,8 +198,8 @@ polish_local criterion-departs 2>/dev/null && local_land checks criterion-depart
   && local_land propose criterion-departs --title "fix: criterion-departs" --notes "$NOTES" >/dev/null 2>&1 || true
 text=$LOCAL/.lem/state/tasks/criterion-departs/pr.md
 agent=$(local_land land criterion-departs --by agent 2>&1 || true)
-if grep -qF "criterion 2 of 20261115-criterion-departs.md says 'The file ends with a line break.', and the expected criterion 2 is 'The file has one line.'" <<<"$unrecorded" \
-  && grep -qF "choice 1 waits: a criterion changes after a choice that was answered or taken by timeout" <<<"$early" \
+if grep -qF "criterion 2 of 2026-11-15-criterion-departs.md says 'The file ends with a line break.', and the expected criterion 2 is 'The file has one line.'" <<<"$unrecorded" \
+  && grep -qF "choice 1 waits: a criterion changes after a choice that was answered or taken without the owner" <<<"$early" \
   && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = '- criterion 2 was removed during the build: A second line holds the date now, after choice 1 (The one-line rule), where the owner took "no such rule"' ] \
   && [ "$(sed -n 4p "$text")" = '- criterion 2 was added during the build: The importer reads whole lines only.' ] \
@@ -415,11 +408,10 @@ project --repo "$LOCAL" state nobody-read dropped "the test is over" >/dev/null
 # A plan never makes a change small: one plain change is a small change, whose one criterion is in the task directory
 # and which has no plan. A plan that says `Size: small`, as a lead of a full change from a complete request or of a
 # night could write it, is refused by the criteria and by every step of the landing that reads them, with or without
-# Lem's approval of a small change in the owner's name, and the refusal names the small change. So is a plan that
-# says `Kind: correction`, the form of an older Lem.
+# Lem's approval of a small change in the owner's name, and the refusal names the small change.
 task_in "$LOCAL" one-word o.txt o
 tree=$(project --repo "$LOCAL" worktree-dir one-word)
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("Size: full, because the ticket names the word and the file.", "Size: small, because the request is one sentence."))' "$tree/docs/plans/20261115-one-word.md"
+"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("Size: full, because the ticket names the word and the file.", "Size: small, because the request is one sentence."))' "$tree/docs/plans/2026-11-15-one-word.md"
 git -C "$tree" commit -q -am "docs: the plan of a small change"
 as_plan=$(lcriteria show one-word 2>&1 || true)
 local_land start one-word >/dev/null && local_land base one-word >/dev/null
@@ -428,18 +420,14 @@ as_gate=$(local_land checks one-word 2>&1 || true)
 printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$WORK/correction.md"
 lcriteria approve one-word --file "$WORK/correction.md" --small >/dev/null 2>&1 || true
 approved_plan=$(lcriteria red one-word 2>&1 || true)
-"$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("Size: small, because", "Kind: correction, because"))' "$tree/docs/plans/20261115-one-word.md"
-old_plan=$(lcriteria show one-word 2>&1 || true)
-git -C "$tree" checkout -q -- docs
-never="20261115-one-word.md says \`Size: small\`, and a plan never puts a task on the fast track"
+never="2026-11-15-one-word.md says \`Size: small\`, and a plan never puts a task on the fast track"
 if grep -qF "$never" <<<"$as_plan" && grep -qF "one plain change takes the fast track, whose one criterion is \`criteria.md\` in the task directory" <<<"$as_plan" \
   && grep -qF "Size: full, because" <<<"$as_plan" && grep -qF "$never" <<<"$as_polish" && grep -qF "$never" <<<"$as_gate" && grep -qF "$never" <<<"$approved_plan" \
-  && grep -qF "20261115-one-word.md says \`Kind: correction\`, and a plan never puts a task on the fast track" <<<"$old_plan" \
   && [ "$(kept_in "$LOCAL" one-word gated)" = None ] && [ "$(kept_in "$LOCAL" one-word polish)" = None ] \
   && ! grep -q '"event": "gate.start", "task": "one-word"' "$LOCAL/.lem/state/events.jsonl"; then
-  pass "a plan that says Size: small is refused by the criteria, the polish pass and the gate, also with Lem's approval of a small change in the owner's name, and so is one that says Kind: correction; the refusal names the small change, which has no plan, and the full change's Size line"
+  pass "a plan that says Size: small is refused by the criteria, the polish pass and the gate, also with Lem's approval of a small change in the owner's name; the refusal names the small change, which has no plan, and the full change's Size line"
 else
-  fail "a plan of a small change: $as_plan / $as_polish / $as_gate / $approved_plan / $old_plan"
+  fail "a plan of a small change: $as_plan / $as_polish / $as_gate / $approved_plan"
 fi
 project --repo "$LOCAL" state one-word dropped "the test is over" >/dev/null
 # The owner's word to skip the personas' read, when every criterion names only the developer: the record of his word and
@@ -507,17 +495,17 @@ else
 fi
 project --repo "$LOCAL" state rare-word dropped "the test is over" >/dev/null
 
-# Without the owner, Lem or the lead approves the criteria itself (`approve --alone`), here in tasks that the "go alone"
-# of the scripts before 2026-11-18 put so, which the records of open tasks still hold: refused while the task runs with
-# him, for a small change's file and over his approval, taken over Lem's approval of a small change; and a request that
-# someone else wrote, whose read flagged a criterion, is proposed with such an approval after the read.
+# Without the owner, Lem or the lead approves the criteria itself (`approve --alone`), here in tasks a night marked:
+# refused while the task runs with him, for a small change's file and over his approval, taken over Lem's approval of a
+# small change; and a request that someone else wrote, whose read flagged a criterion, is proposed with such an approval
+# after the read.
 task_in "$LOCAL" gone-out g.txt g
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/gone.md"
 printf '%s\n' 'slug: gone-out' 'request by: someone else' > "$LOCAL/.lem/state/tasks/gone-out/brief.md"
 digest=$(lcriteria digest gone-out 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log gone-out criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$digest" >/dev/null 2>&1 || true
 with_him=$(lcriteria approve gone-out --file "$WORK/gone.md" --alone 2>&1 || true)
-old_mode "$LOCAL" gone-out alone "go alone"
+project --repo "$LOCAL" task-dir gone-out --ask "Put the word into g.txt." --night 2026-11-18 >/dev/null
 small_file=$(lcriteria approve gone-out --file "$WORK/as-correction.md" --alone 2>&1 || true)
 two_kinds=$(status_of lcriteria approve gone-out --file "$WORK/gone.md" --alone --small)
 checked_local gone-out
@@ -528,7 +516,7 @@ proposed_alone=$(status_in "$LOCAL" gone-out)
 project --repo "$LOCAL" task-dir grew-up >/dev/null
 printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$LOCAL/.lem/state/tasks/grew-up/criteria.md"
 lcriteria approve grew-up --small >/dev/null 2>&1 || true
-old_mode "$LOCAL" grew-up alone "go alone"
+project --repo "$LOCAL" task-dir grew-up --ask "Put the word into the file." --night 2026-11-18 >/dev/null
 over_small=$(lcriteria approve grew-up --file "$WORK/gone.md" --alone 2>&1 | field '(d["by"], d["number"])' 2>&1 || true)
 lcriteria approve grew-up --file "$WORK/gone.md" >/dev/null 2>&1 || true
 over_his=$(lcriteria approve grew-up --file "$WORK/gone.md" --alone 2>&1 || true)
@@ -549,7 +537,7 @@ task_in "$LOCAL" settled-out s.txt s
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds a word.' > "$WORK/settled-read.md"
 read_digest=$(lcriteria digest settled-out --file "$WORK/settled-read.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
 project --repo "$LOCAL" log settled-out criteria.read by=lem asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$read_digest" >/dev/null 2>&1 || true
-old_mode "$LOCAL" settled-out alone "go alone"
+project --repo "$LOCAL" task-dir settled-out --ask "Put the word into s.txt." --night 2026-11-18 >/dev/null
 ldecide log settled-out --what "criterion 1" --option "The file holds a word." --option "The file holds the word the owner asked for." \
   --chose "The file holds the word the owner asked for." --by dialectic --level "personas=one flagged it" --why "no break against the persona's reading" >/dev/null 2>&1 || true
 settled_by=$(lcriteria approve settled-out --file "$WORK/gone.md" --alone 2>&1 | field 'd["by"]' 2>&1 || true)

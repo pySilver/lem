@@ -11,7 +11,7 @@ cd -P "$(dirname "$0")/.." || exit 1
 # shellcheck source-path=SCRIPTDIR source=suites.sh
 . tests/suites.sh
 
-suites=(lem-settings lem-machine lem-state lem-old-tasks lem-decisions lem-land-shop lem-land-local lem-land-review lem-land-backlog lem-land-github lem-land-guards lem-land-small lem-serial
+suites=(lem-settings lem-machine lem-state lem-decisions lem-land-shop lem-land-local lem-land-review lem-land-backlog lem-land-github lem-land-guards lem-land-small lem-serial
   test-board test-gate-panel test-ask test-ask-expert shellcheck pick)
 suites+=(lem-naps)
 suites+=(lem-command)

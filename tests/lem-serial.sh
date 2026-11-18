@@ -7,12 +7,12 @@
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-AL=$WORK/alone
+AL=$WORK/serial
 git init -q -b main "$AL" && ident "$AL"
 project --repo "$AL" init --base main >/dev/null
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: start"
 serial() { "$PY" -B "$PROJECT" --repo "$AL" serial "$@"; }
-LOCK=$AL/.lem/state/alone.lock
+LOCK=$AL/.lem/state/serial.lock
 
 # The exit status of the command is the exit of the run; a command of one word list runs as it is, one line runs in the shell.
 code=$(status_of serial -- sh -c 'exit 7')
@@ -80,62 +80,62 @@ else
 fi
 
 # The checks of a landing: checks.commands first, then each checks.serial command under the lock, each with its output and its result.
-small_task_in "$AL" alone-change a.txt one
+small_task_in "$AL" serial-change a.txt one
 printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["echo 3 passed"]' "serial = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: an e2e suite that needs the machine"
-tree=$AL/.lem/worktrees/alone-change
+tree=$AL/.lem/worktrees/serial-change
 # the e2e suite says whether it ran under the lock, by the holder line project.py writes there
-printf '%s\n' "grep -q 'sh e2e.sh' '$LOCK' && echo 'e2e: 2 passed, alone' || { echo 'e2e: not alone'; exit 1; }" > "$tree/e2e.sh"
+printf '%s\n' "grep -q 'sh e2e.sh' '$LOCK' && echo 'e2e: 2 passed, serial' || { echo 'e2e: not serial'; exit 1; }" > "$tree/e2e.sh"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "test: the e2e suite"
 git -C "$tree" rebase -q main
-land --repo "$AL" start alone-change >/dev/null && land --repo "$AL" base alone-change >/dev/null
-# a builder holds the machine until the gate's alone command waits for it, and then lets go: no fixed time,
+land --repo "$AL" start serial-change >/dev/null && land --repo "$AL" base serial-change >/dev/null
+# a builder holds the machine until the gate's serial command waits for it, and then lets go: no fixed time,
 # which a loaded machine outlasts before the checks reach that command
 serial -- sh -c "until [ -e '$WORK/release' ]; do sleep 0.1; done" &
 holder=$!
 soon test -s "$LOCK"
-land --repo "$AL" checks alone-change > "$WORK/gated.out" 2>&1 &
+land --repo "$AL" checks serial-change > "$WORK/gated.out" 2>&1 &
 checking=$!
-soon grep -qsF "another serial test holds the lock" "$AL/.lem/state/tasks/alone-change/gate/02.log"
+soon grep -qsF "another serial test holds the lock" "$AL/.lem/state/tasks/serial-change/gate/02.log"
 touch "$WORK/release"
 wait "$holder"
 set +e; wait "$checking"; set -e
 gated=$(cat "$WORK/gated.out")
-if [ "$(field '[(c["command"], c["exit"], c["last"], c.get("alone", False)) for c in d["commands"]]' <<<"$gated" 2>&1)" = "[('echo 3 passed', 0, '3 passed', False), ('sh e2e.sh', 0, 'e2e: 2 passed, alone', True)]" ] \
-  && grep -qF "another serial test holds the lock" "$AL/.lem/state/tasks/alone-change/gate/02.log" \
-  && [ "$(grep -c '"event": "gate", "task": "alone-change"' "$AL/.lem/state/events.jsonl")" = 2 ] && grep -q '"event": "gate.start", "task": "alone-change", "tip": "[0-9a-f]*", "commands": 2' "$AL/.lem/state/events.jsonl"; then
+if [ "$(field '[(c["command"], c["exit"], c["last"], c.get("serial", False)) for c in d["commands"]]' <<<"$gated" 2>&1)" = "[('echo 3 passed', 0, '3 passed', False), ('sh e2e.sh', 0, 'e2e: 2 passed, serial', True)]" ] \
+  && grep -qF "another serial test holds the lock" "$AL/.lem/state/tasks/serial-change/gate/02.log" \
+  && [ "$(grep -c '"event": "gate", "task": "serial-change"' "$AL/.lem/state/events.jsonl")" = 2 ] && grep -q '"event": "gate.start", "task": "serial-change", "tip": "[0-9a-f]*", "commands": 2' "$AL/.lem/state/events.jsonl"; then
   pass "the checks run each checks.serial command after checks.commands, under the one lock (waiting while a builder holds it), with its output in a file and its result logged"
 else
-  fail "the gate's alone commands: $gated"
+  fail "the gate's serial commands: $gated"
 fi
 # The board knows how many commands one run of the checks has, and how many of them are serial.
 "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$AL" --no-open >/dev/null
-if grep -qF '"gates": 2, "alone": 1' "$AL/.lem/state/meta.js"; then
+if grep -qF '"gates": 2, "serial": 1' "$AL/.lem/state/meta.js"; then
   pass "the board's meta.js counts the serial commands in one run of the checks, and says how many there are"
 else
   fail "the board's count of the checks: $(cat "$AL/.lem/state/meta.js")"
 fi
 # A red checks.commands leaves the serial commands out: they run only after the others passed.
 printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["echo 1 failed; exit 1"]' "serial = [\"sh e2e.sh\"]" > "$AL/.lem/project.toml"
-red=$(land --repo "$AL" checks alone-change 2>/dev/null || true)
+red=$(land --repo "$AL" checks serial-change 2>/dev/null || true)
 if [ "$(field '[(c["command"], c["exit"]) for c in d["commands"]]' <<<"$red" 2>&1)" = "[('echo 1 failed; exit 1', 1)]" ]; then
   pass "a red gate command leaves the serial commands out: they run only after checks.commands pass"
 else
-  fail "a red gate before the alone commands: $red"
+  fail "a red gate before the serial commands: $red"
 fi
 
 # The check of the criteria runs a test of a serial suite under the lock, and any other test bare.
 printf '%s\n' '[branch]' 'base = "main"' 'history = "keep"' '[checks]' 'commands = ["true"]' "serial = [\"sh tests/e2e\"]" > "$AL/.lem/project.toml"
 git -C "$AL" add -A && git -C "$AL" commit -q -m "chore: the e2e suite is a folder of tests"
-small_task_in "$AL" alone-criterion b.txt two
-tree=$AL/.lem/worktrees/alone-criterion
-directory=$AL/.lem/state/tasks/alone-criterion
+small_task_in "$AL" serial-criterion b.txt two
+tree=$AL/.lem/worktrees/serial-criterion
+directory=$AL/.lem/state/tasks/serial-criterion
 mkdir -p "$tree/tests/e2e"
 printf '%s\n' "grep -q 'sh tests/e2e' '$LOCK' || exit 3" 'grep -qx two b.txt' > "$tree/tests/e2e/b.sh"
 git -C "$tree" add -A && git -C "$tree" commit -q -m "test: the criterion in the e2e suite"
 # shellcheck disable=SC2016  # the backticks are the criterion line's own
-"$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("`sh tests/alone-criterion.sh` in `tests/alone-criterion.sh`", "`sh tests/e2e/b.sh` in `tests/e2e/b.sh`"))' "$directory/criteria.md"
-held=$("$PY" -B "$CRITERIA" --repo "$AL" red alone-criterion 2>&1 || true)
+"$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("`sh tests/serial-criterion.sh` in `tests/serial-criterion.sh`", "`sh tests/e2e/b.sh` in `tests/e2e/b.sh`"))' "$directory/criteria.md"
+held=$("$PY" -B "$CRITERIA" --repo "$AL" red serial-criterion 2>&1 || true)
 if [ "$(field '(d["ok"], [(t["command"], t["on_branch"], t["on_base"]) for t in d["tests"]])' <<<"$held" 2>&1)" = "(True, [('sh tests/e2e/b.sh', 0, 2)])" ]; then
   pass "the check of the criteria runs a test whose command starts with a checks.serial command under the one lock, on the branch and on the base commit"
 else

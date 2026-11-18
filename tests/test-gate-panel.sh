@@ -153,31 +153,6 @@ else
   fail "newer profile: $(profile_of "$PANEL/newer")"
 fi
 
-# What an older cast.py left in the git directory moves to the state folder at the first run that
-# needs it, once, and a copy there that the state folder holds already goes.
-MOVE=$PANEL/move
-git init -q -b main "$MOVE" && commit "$MOVE" "start" && git -C "$MOVE" branch before
-mkdir -p "$MOVE/.lem/personas" && printf '# Shopper\n' > "$MOVE/.lem/personas/shopper.md" && printf '# Profile\n' > "$MOVE/.lem/profile.md"
-git -C "$MOVE" add -A && commit "$MOVE" "the cast"
-git -C "$MOVE" worktree add -q "$PANEL/move-old" before
-mkdir -p "$MOVE/.git/personas-cast/0000kept" "$MOVE/.git/personas-profile"
-printf '# Old\n' > "$MOVE/.git/personas-cast/0000kept/old.md" && printf '# Old profile\n' > "$MOVE/.git/personas-profile/kept.md"
-moved=$(cast --repo "$PANEL/move-old" 2>&1 >/dev/null || true)
-movedcast=$(cast --repo "$PANEL/move-old" 2>/dev/null | "$PY" -c 'import json, sys; c = json.load(sys.stdin); print(c["source"].split(" at ")[0], c["dir"].rsplit("/", 1)[0], c["profile"]["path"].rsplit("/", 1)[0])' || true)
-again=$(cast --repo "$PANEL/move-old" 2>&1 >/dev/null || true)
-mkdir -p "$MOVE/.git/personas-cast/0000again"
-both=$(cast --repo "$PANEL/move-old" 2>&1 >/dev/null || true)
-if [ "$(grep -c "moved the panel's copies from $MOVE/.git/personas-" <<<"$moved")" = 2 ] && [ -z "$again" ] \
-  && [ ! -e "$MOVE/.git/personas-cast" ] && [ ! -e "$MOVE/.git/personas-profile" ] \
-  && [ -f "$MOVE/.lem/state/personas-cast/0000kept/old.md" ] && [ -f "$MOVE/.lem/state/personas-profile/kept.md" ] \
-  && [ "$movedcast" = "main $MOVE/.lem/state/personas-cast $MOVE/.lem/state/personas-profile" ] \
-  && grep -qF "removed $MOVE/.git/personas-cast: the state folder holds the same copies" <<<"$both" \
-  && [ -z "$(git -C "$MOVE" status --porcelain --untracked-files=all)" ] && [ -z "$(git -C "$PANEL/move-old" status --porcelain --untracked-files=all)" ]; then
-  pass "the panel's copies that an older cast.py kept in the git directory move to Lem's state folder once, with a line on stderr; a copy left there beside the state folder's is removed; git shows nothing"
-else
-  fail "the move of the panel's copies: $moved / $again / $movedcast / $both / $(find "$MOVE/.git" "$MOVE/.lem/state" -maxdepth 1 -name 'personas-*' 2>&1 | tr '\n' ' ')"
-fi
-
 if [ "$(status_of cast --repo "$PANEL/no-such-dir")" = 1 ]; then pass "a --repo that does not exist is refused"; else fail "a missing --repo was accepted"; fi
 
 FRESH=$PANEL/fresh
@@ -210,19 +185,10 @@ else
 fi
 if [ "$(status_of cast run-dir pack-size --repo "$REPO")" = 1 ]; then pass "run-dir refuses a folder that already exists"; else fail "run-dir reused a folder"; fi
 
-# A cast and a profile outside their place are no part of the panel: a settings file that still names the older
-# place is refused, with the move, and stops the panel.
+# A settings file Lem refuses stops the panel too.
 LINKED=$PANEL/linked
 git init -q -b main "$LINKED"
-mkdir -p "$LINKED/.personas/cast" "$LINKED/.lem"
-printf '# Shopper\n' > "$LINKED/.personas/cast/shopper.md"
-printf '%s\n' '[paths]' 'personas = ".personas/cast"' > "$LINKED/.lem/project.toml"
-linked=$(cast --repo "$LINKED" 2>&1 || true)
-if [ "$(status_of cast --repo "$LINKED")" = 1 ] && grep -qF 'git mv .personas/cast .lem/personas' <<<"$linked"; then
-  pass "a settings file that names an older place of the cast stops the panel, with the move that brings the cast to its place"
-else
-  fail "a cast in an older place: $linked"
-fi
+mkdir -p "$LINKED/.lem"
 printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/project.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
 # once without -B: whatever the run says, its imports wrote no bytecode

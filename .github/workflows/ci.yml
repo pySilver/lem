@@ -14,10 +14,7 @@ jobs:
         os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      # the whole history: the checks of tasks an older Lem left read the scripts of older commits
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
       # the oldest Python Lem supports, so that a newer feature in a script fails here
       - uses: actions/setup-python@v7
         with:

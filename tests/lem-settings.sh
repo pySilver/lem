@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Lem's project settings, offline: project.py resolves where a repository keeps what the skill reads.
 # With no settings file it answers from Lem's own places; what Lem reads beside the settings has one
-# place each and no setting, and a settings file that still names one, or another key that is gone,
-# is refused once with every line to delete; a settings file with an unknown key, a wrong value or a
-# path that leaves the repository is refused, and so is a list of careful paths; a worktree reads
-# the main checkout's flow table. Then the task state and the event log, the rule picker, a task's criteria and the check that
+# place each and no setting; a settings file with an unknown table or key, a wrong value or a path
+# that leaves the repository is refused, with the name and the file; a worktree reads the main
+# checkout's flow table. Then the task state and the event log, the rule picker, a task's criteria and the check that
 # each one's tests fail on the base commit, and the board, which reads them all.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
@@ -91,7 +90,7 @@ else
   fail "init over another tool's folders: $places /$answered"
 fi
 if [ "$(project --repo "$OLD/docs" path plans)" = "$OLD/docs/plans" ]; then pass "path prints one absolute path, from any directory of the checkout"; else fail "path plans"; fi
-if [ "$(status_of project --repo "$OLD" path plan)" = 1 ] && [ "$(status_of project --repo "$OLD" path styleguide)" = 1 ]; then pass "an unknown path name is refused, the style guide's older name among them"; else fail "unknown path name"; fi
+if [ "$(status_of project --repo "$OLD" path plan)" = 1 ]; then pass "an unknown path name is refused"; else fail "unknown path name"; fi
 
 settings() { printf '%s\n' "$@" > "$OLD/.lem/project.toml"; }
 settings '[branch]' 'base = "master"' 'lands = "agent"'
@@ -137,29 +136,6 @@ if [ -z "$refused" ] && grep -qF 'with tracker.moves = "tracker" Lem moves no ti
   pass "a tracker table is refused for an unknown kind, no kind, an empty word, an unknown mover, one status for both, or a status name when the tracker moves the ticket"
 else
   fail "tracker tables accepted:$refused / $names_err"
-fi
-# The workspace and the team of an older table are gone: the main checkout's file is refused once with both lines to
-# delete, and a task branch's own copy is read without them.
-TRK=$WORK/tracker-repo
-git init -q -b master "$TRK" && mkdir -p "$TRK/.lem"
-printf '%s\n' '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "ABC"' 'moves = "lem"' \
-  'started = "In Progress"' 'landed = "Done"' > "$TRK/.lem/project.toml"
-trk_err=$(project --repo "$TRK" show 2>&1 || true)
-trk_code=$(status_of project --repo "$TRK" show)
-git -C "$TRK" add .lem/project.toml && commit "$TRK" "chore: an older tracker table" && git -C "$TRK" worktree add -q "$WORK/trk-wt" -b feat/trk
-printf '%s\n' '[branch]' 'base = "master"' '[tracker]' 'kind = "linear"' > "$TRK/.lem/project.toml"
-git -C "$TRK" add .lem/project.toml && commit "$TRK" "chore: the tracker table of now"
-trk_copy=$(project --repo "$WORK/trk-wt" show 2>&1 >/dev/null || true)
-trk_branch=$(project --repo "$WORK/trk-wt" show 2>/dev/null | field 'd["tracker"]' || true)
-# shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
-if [ "$trk_code" = 1 ] && grep -qxF -- '- delete `workspace = "acme"` under [tracker]: a ticket'"'"'s address names its workspace, and Lem reads the ticket through the server'"'"'s one connection' <<<"$trk_err" \
-  && grep -qxF -- '- delete `team = "ABC"` under [tracker]: the team is in the ticket'"'"'s id, as ABC in ABC-12' <<<"$trk_err" \
-  && [ "$(grep -c '^- delete' <<<"$trk_err")" = 2 ] \
-  && grep -qF "without tracker.workspace and tracker.team, whose settings are gone" <<<"$trk_copy" \
-  && [ "$trk_branch" = "{'kind': 'linear', 'server': 'linear', 'moves': 'lem', 'started': 'In Progress', 'landed': 'Done'}" ]; then
-  pass "a tracker table with a workspace and a team is refused once with both lines to delete, and a task branch's own copy is read without them"
-else
-  fail "the tracker's workspace and team: $trk_code / $trk_err / $trk_copy / $trk_branch"
 fi
 settings '[branch]' 'base = "master"' 'history = "rewrite"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a history other than keep or squash is refused"; else fail "history value"; fi
@@ -240,111 +216,31 @@ if [ "$two_code" = 1 ] && grep -qF "the reviewer = 'claude/opus:high:max' holds 
 else
   fail "a seat with two colons: $two_colons / $two_in_file"
 fi
-# The tables of an older Lem are refused with the one line that says the same now.
-settings '[seats.reviewer]' 'agent = "codex"' 'model = "gpt-6.1-sol"' 'effort = "xhigh"' 'plan_effort = "high"'
-old_reviewer=$(project --repo "$OLD" show 2>&1 || true)
-settings '[seats.planner]' 'agent = "claude"' 'model = "opus"' 'effort = "high"'
-old_planner=$(project --repo "$OLD" show 2>&1 || true)
-settings '[seats.reviewer]' 'model = "gpt"'
-old_agentless=$(project --repo "$OLD" show 2>&1 || true)
-if grep -qF "[seats.reviewer] is one line under [seats] now, \"agent/model:effort\"; the reviewer's effort for the review of a diff was used by no step" <<<"$old_reviewer" \
-  && grep -qF "Write these lines in place of the [seats.reviewer] table:" <<<"$old_reviewer" \
-  && [ "$(printf '%s\n' "$old_reviewer" | sed -n 2,3p)" = "$(printf '%s\n' '[seats]' 'reviewer = "codex/gpt-6.1-sol:high"')" ] \
-  && grep -qxF 'planner = "claude/opus:high"' <<<"$old_planner" && ! grep -qF "[seats.reviewer]" <<<"$old_planner" && grep -qxF 'reviewer = "AGENT/gpt"' <<<"$old_agentless" \
-  && [ "$(status_of project --repo "$OLD" show)" = 1 ]; then
-  pass "a seat table of an older Lem is refused alone, with the line to write under [seats], its effort for the plan talk as the effort"
-else
-  fail "older seat tables: $old_reviewer / $old_planner / $old_agentless"
-fi
-# The checks: [gate] is their older name, refused with the lines to write in its place.
-settings '[gate]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'serial = ["npx playwright test"]' 'bar = ["x"]'
-gate_err=$(project --repo "$OLD" show 2>&1 || true)
-# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF "[gate] is called [checks] now" <<<"$gate_err" && ! grep -qF "[seats" <<<"$gate_err" \
-  && grep -qF "Write these lines in place of the [gate] table:" <<<"$gate_err" && [ "$(printf '%s\n' "$gate_err" | sed -n 2,4p)" = "$(printf '%s\n' '[checks]' 'commands = ["make test", "make lint"]' 'serial = ["npx playwright test"]')" ] \
-  && grep -qxF 'Delete these lines too, whose settings are gone:' <<<"$gate_err" \
-  && grep -qxF -- '- delete `ignores = ["docs/*"]` under [checks]: the checks run again whenever the base branch moves' <<<"$gate_err" \
-  && grep -qF -- '- delete `bar = ["x"]` under [checks]: Lem looks for a lowered bar with its own marks' <<<"$gate_err"; then
-  pass "a settings file with the older [gate] table is refused with the [checks] lines to write in its place, its own values in them, and the lines of its keys that are gone to delete"
-else
-  fail "the older [gate] table: $gate_err"
-fi
-# All three older tables at once: one refusal names each, and gives the whole text to paste in their place.
-settings '[gate]' 'commands = ["make test"]' '[seats]' 'experts = ["claude/fable", "codex/gpt-6-astra:high"]' \
-  '[seats.reviewer]' 'agent = "codex"' 'model = "gpt-6.1-sol"' 'plan_effort = "high"' '[seats.planner]' 'agent = "claude"' 'model = "opus"' 'effort = "high"'
-all_err=$(project --repo "$OLD" show 2>&1 || true)
-pasted=$(printf '%s\n' "$all_err" | sed -n '2,/^planner = /p')
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(grep -c "has the form of an older Lem" <<<"$all_err")" = 1 ] \
-  && grep -qF "Write these lines in place of the [gate], [seats], [seats.reviewer] and [seats.planner] tables:" <<<"$all_err" \
-  && grep -qF "[gate] is called [checks] now" <<<"$all_err" && grep -qF "[seats.reviewer] and [seats.planner] are each one line under [seats] now" <<<"$all_err" \
-  && [ "$(tail -n 2 <<<"$all_err")" = "$(printf '%s\n' '' 'Then commit the file on the base branch and push it: that makes the fix count for the tasks that are open, whose branches take the file from the base')" ] \
-  && [ "$pasted" = "$(printf '%s\n' '[checks]' 'commands = ["make test"]' '' '[seats]' 'experts = ["claude/fable", "codex/gpt-6-astra:high"]' 'reviewer = "codex/gpt-6.1-sol:high"' 'planner = "claude/opus:high"')" ]; then
-  printf '%s\n' "$pasted" > "$OLD/.lem/project.toml"
-  if [ "$(project --repo "$OLD" show | field '(d["checks"]["commands"], d["seats"]["reviewer"]["seat"], d["seats"]["planner"]["seat"], len(d["seats"]["experts"]))')" = "(['make test'], 'codex/gpt-6.1-sol:high', 'claude/opus:high', 2)" ]; then
-    pass "a file with [gate], [seats.reviewer] and [seats.planner] is refused once, naming all three, with the whole text to write in their place and, last, the commit and push that make it count for the open tasks; that text pasted reads"
-  else
-    fail "the pasted text of the older tables does not read: $pasted"
-  fi
-else
-  fail "the three older tables at once: $all_err"
-fi
-# A key of [paths] that named a place is gone: refused once with the line to delete, also when it names the place of now,
-# and with the move, both paths named, when it names another place. Nothing moves by itself.
-settings '[branch]' 'base = "master"' '[paths]' 'personas = ".personas/cast"' 'backlog = "docs/backlog"' 'worktrees = ".claude/worktrees"' 'plans = "docs/plans"'
-paths_err=$(project --repo "$OLD" show 2>&1 || true)
-# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.toml has settings of an older Lem that are gone. Delete these lines:" <<<"$paths_err" \
-  && grep -qxF -- '- delete `personas = ".personas/cast"` under [paths], and move .personas/cast to .lem/personas first, with `git mv .personas/cast .lem/personas`: .lem/personas is its one place, with no setting' <<<"$paths_err" \
-  && grep -qxF -- '- delete `backlog = "docs/backlog"` under [paths]: docs/backlog is its one place, with no setting' <<<"$paths_err" \
-  && grep -qxF -- '- delete `worktrees = ".claude/worktrees"` under [paths], and move each task'"'"'s worktree from .claude/worktrees to .lem/worktrees first, with `git worktree move .claude/worktrees/SLUG .lem/worktrees/SLUG`: .lem/worktrees is its one place, with no setting' <<<"$paths_err" \
-  && ! grep -qF "plans" <<<"$paths_err" && [ -d "$OLD/.personas/cast" ]; then
-  pass "a key of [paths] that named a place is refused once with the line to delete, and a place of another name with the move that brings it, both paths named; plans stays a setting"
-else
-  fail "the place keys of an older Lem: $paths_err"
-fi
-# The style guide's older key: its folder may hold the draft README.md an older /lem init wrote, which holds no rule, and
-# Claude Code loads every .md file of .claude/rules as a rule; so the refusal says to delete such a file before the move.
+# A table or a key that Lem does not know is refused with its name and the file, whatever wrote it, and a seat written as
+# a table with the seat's one form.
+settings '[gate]' 'commands = ["make test"]'
+unknown_table=$(project --repo "$OLD" show 2>&1 || true)
+settings '[branch]' 'base = "master"' '[flow]' 'careful = ["app/outbox/*"]'
+unknown_key=$(project --repo "$OLD" show 2>&1 || true)
 settings '[branch]' 'base = "master"' '[paths]' 'styleguide = ".lem/styleguide"'
-guide_err=$(project --repo "$OLD" show 2>&1 || true)
-# shellcheck disable=SC2016  # the backticks are the refusal's own marks
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] \
-  && grep -qxF -- '- delete `styleguide = ".lem/styleguide"` under [paths], and move the rule files of .lem/styleguide to .claude/rules first: delete each file in .lem/styleguide that holds no rule, such as the draft README.md an older `/lem init` wrote there (`git rm .lem/styleguide/README.md`), since Claude Code loads every .md file of .claude/rules as a rule in each session, then `git mv .lem/styleguide .claude/rules`: .claude/rules is its one place, with no setting' <<<"$guide_err"; then
-  pass "the style guide's older key is refused with the move to .claude/rules and, before it, the delete of a file with no rule, the draft README.md of an older init named"
+unknown_path=$(project --repo "$OLD" show 2>&1 || true)
+settings '[seats.reviewer]' 'agent = "codex"' 'model = "gpt-6.1-sol"'
+seat_table=$(project --repo "$OLD" show 2>&1 || true)
+if grep -qF "project.py: $OLD/.lem/project.toml: unknown table [gate]" <<<"$unknown_table" \
+  && grep -qF "project.py: $OLD/.lem/project.toml: unknown key flow.careful; valid: topics" <<<"$unknown_key" \
+  && grep -qF "project.py: $OLD/.lem/project.toml: unknown key paths.styleguide; valid: plans, plan_file, rulings, ruling_file" <<<"$unknown_path" \
+  && grep -qF "project.py: .lem/project.toml: seats.reviewer = {'agent': 'codex', 'model': 'gpt-6.1-sol'} must be one string, \"agent/model:effort\"" <<<"$seat_table" \
+  && [ "$(status_of project --repo "$OLD" show)" = 1 ] && ! grep -q Traceback <<<"$unknown_table$unknown_key$unknown_path$seat_table"; then
+  pass "a table or a key that Lem does not know is refused with its name, the file and the keys it knows, and a seat written as a table with the seat's form"
 else
-  fail "the style guide's older key: $guide_err"
+  fail "unknown tables and keys: $unknown_table / $unknown_key / $unknown_path / $seat_table"
 fi
 
-# A file with keys and a table of several kinds that are gone is refused once, with every line to delete, the move of a
-# place that names another, and last the commit and push. A task branch's own copy is read without them, with one line.
-GONE=$WORK/gone-repo
-git init -q -b master "$GONE" && mkdir -p "$GONE/.lem"
-printf '%s\n' '[branch]' 'base = "master"' '[paths]' 'backlog = "notes/later"' '[checks]' 'commands = ["true"]' 'ignores = ["docs/*"]' \
-  '[flow]' 'watch_seconds = 30' '[tools]' 'annotate = "webrev"' 'ask = "lem-ask"' > "$GONE/.lem/project.toml"
-gone_err=$(project --repo "$GONE" show 2>&1 || true)
-# shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
-want=$(printf '%s\n' "project.py: $GONE/.lem/project.toml has settings of an older Lem that are gone. Delete these lines:" \
-  '- delete `backlog = "notes/later"` under [paths], and move notes/later to docs/backlog first, with `git mv notes/later docs/backlog`: docs/backlog is its one place, with no setting' \
-  '- delete `ignores = ["docs/*"]` under [checks]: the checks run again whenever the base branch moves' \
-  '- delete `watch_seconds = 30` under [flow]: the watch of the open pull requests looks every 60 seconds' \
-  '- delete the [tools] table with its lines `annotate = "webrev"` and `ask = "lem-ask"`: Lem asks the owner with its own page and opens a text for the owner to mark up with webrev' \
-  '' 'Then commit the file on the base branch and push it: that makes the fix count for the tasks that are open, whose branches take the file from the base')
-git -C "$GONE" add .lem/project.toml && commit "$GONE" "chore: settings of an older Lem" && git -C "$GONE" worktree add -q "$WORK/gone-wt" -b feat/gone
-printf '%s\n' '[branch]' 'base = "master"' > "$GONE/.lem/project.toml"
-git -C "$GONE" add .lem/project.toml && commit "$GONE" "chore: the settings of now"
-branch_copy=$(project --repo "$WORK/gone-wt" show 2>&1 >/dev/null || true)
-branch_code=$(status_of project --repo "$WORK/gone-wt" show)
-if [ "$gone_err" = "$want" ] && [ "$branch_code" = 0 ] \
-  && [ "$branch_copy" = "project.py: this worktree's .lem/project.toml is the task branch's own copy, in the form of an older Lem; Lem reads it as now (without paths.backlog, checks.ignores, flow.watch_seconds and [tools], whose settings are gone), so that the task goes on" ]; then
-  pass "a file with [tools], paths.backlog, checks.ignores and flow.watch_seconds is refused once with every line to delete and the move, then the commit and push; a task branch's own copy is read without them, with one line that says so"
-else
-  fail "the keys that are gone: $gone_err / $branch_copy"
-fi
-
-# A plan's file name: paths.plan_file, YYYY-MM-DD-<slug>.md by default; a plan of the older name YYYYMMDD-<slug>.md is found too.
+# A plan's file name: paths.plan_file, YYYY-MM-DD-<slug>.md by default.
 settings '[branch]' 'base = "master"'
 mkdir -p "$OLD/docs/plans"
 built=$(project --repo "$OLD" plan-file gift-note --date 2026-11-17 | field '(d["name"], d["found"])')
-touch "$OLD/docs/plans/20261116-gift-note.md" "$OLD/docs/plans/20261116-gift-note-extra.md" "$OLD/docs/plans/2026-11-17-other.md"
+touch "$OLD/docs/plans/2026-11-16-gift-note.md" "$OLD/docs/plans/2026-11-16-gift-note-extra.md" "$OLD/docs/plans/2026-11-17-other.md"
 older=$(project --repo "$OLD" plan-file gift-note | field 'd["found"]')
 touch "$OLD/docs/plans/2026-11-17-gift-note.md"
 newer=$(project --repo "$OLD" plan-file gift-note | field 'd["found"]')
@@ -361,10 +257,10 @@ done
 settings '[branch]' 'base = "master"'
 path_err=$(project --repo "$OLD" path plan_file 2>&1 || true)
 rm -f "$OLD"/docs/plans/*.md
-if [ "$built" = "('2026-11-17-gift-note.md', None)" ] && [ "$older" = "$OLD/docs/plans/20261116-gift-note.md" ] && [ "$newer" = "$OLD/docs/plans/2026-11-17-gift-note.md" ] \
-  && [ "$own" = "('gift-note-20261118.md', '$OLD/docs/plans/20261116-gift-note.md')" ] && [ "$own_found" = "$OLD/docs/plans/gift-note-20261118.md" ] \
+if [ "$built" = "('2026-11-17-gift-note.md', None)" ] && [ "$older" = "$OLD/docs/plans/2026-11-16-gift-note.md" ] && [ "$newer" = "$OLD/docs/plans/2026-11-17-gift-note.md" ] \
+  && [ "$own" = "('gift-note-20261118.md', None)" ] && [ "$own_found" = "$OLD/docs/plans/gift-note-20261118.md" ] \
   && [ -z "$plan_refused" ] && grep -qF "paths.plan_file is the pattern of a plan's name, not a path" <<<"$path_err"; then
-  pass "a plan's name is paths.plan_file, YYYY-MM-DD-<slug>.md by default; a plan of the older YYYYMMDD-<slug>.md is found, the newest day wins, another task's plan is never it, and a pattern with no <slug>, a folder, another ending, an unknown or a twice-named token is refused"
+  pass "a plan's name is paths.plan_file, YYYY-MM-DD-<slug>.md by default; of two plans of the task the newest day wins, another task's plan is never it, and a pattern with no <slug>, a folder, another ending, an unknown or a twice-named token is refused"
 else
   fail "plan file names: $built / $older / $newer / $own / $own_found /$plan_refused / $path_err"
 fi
@@ -373,7 +269,7 @@ fi
 settings '[branch]' 'base = "master"' '[paths]' 'rulings = "decisions"' 'ruling_file = "YYYY-MM-DD-<slug>.md"'
 ruled=$(project --repo "$OLD" path rulings)
 ruled_name=$(project --repo "$OLD" ruling-file header-names --date 2026-11-18 | field '(d["name"], d["path"], d["found"])')
-mkdir -p "$OLD/decisions" && touch "$OLD/decisions/2026-11-17-header-names.md" "$OLD/decisions/20261116-header-names.md"
+mkdir -p "$OLD/decisions" && touch "$OLD/decisions/2026-11-17-header-names.md"
 ruled_found=$(project --repo "$OLD" ruling-file header-names | field 'd["found"]')
 rm -rf "$OLD/decisions"
 settings '[paths]' 'rulings = "../decisions"'
@@ -423,31 +319,8 @@ else
 fi
 settings '[branch]' 'base = "master"' 'protected = ["master"]'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a base branch that is also protected is refused as a contradiction"; else fail "protected base"; fi
-settings '[branch]' 'base = "master"' '[tools]' 'annotate = "my-own-rev"' 'ask = "terminal"'
-err=$(project --repo "$OLD" show 2>&1 || true)
-# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] \
-  && grep -qxF -- '- delete the [tools] table with its lines `annotate = "my-own-rev"` and `ask = "terminal"`: Lem asks the owner with its own page and opens a text for the owner to mark up with webrev' <<<"$err"; then
-  pass "a project file with [tools] is refused with the table to delete: Lem asks with its page and opens a text with webrev"
-else
-  fail "the [tools] table: $err"
-fi
 settings 'not toml ['
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a settings file that does not parse is refused"; else fail "parse error"; fi
-
-# No list of paths says whether a change is careful: a settings file that still has one is refused,
-# with the sentence to write in its place, made from its first pattern, and the line to remove.
-settings '[branch]' 'base = "master"' '[flow]' 'careful = ["app/outbox/*", "*/migrations/*"]'
-err=$(project --repo "$OLD" show 2>&1 || true)
-settings '[branch]' 'base = "master"' '[flow]' 'careful = []'
-empty=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.toml: flow.careful is gone" <<<"$err" \
-  && grep -qF 'topics = ["what goes wrong for a person when app/outbox/* breaks, in your words"]' <<<"$err" \
-  && grep -qF "then remove the line careful = [...]" <<<"$err" && grep -qF "flow.careful is gone" <<<"$empty" && ! grep -q Traceback <<<"$err$empty"; then
-  pass "a settings file that still names careful paths is refused, with the sentence of flow.topics to write in their place, made from the first pattern, and the line to remove"
-else
-  fail "flow.careful refused: $err / $empty"
-fi
 if [ "$(status_of project --repo "$WORK" show)" = 1 ]; then pass "a directory outside any checkout is refused"; else fail "outside a checkout"; fi
 
 # Task state: one directory per task in the main checkout's state folder, seen from every worktree.
@@ -634,22 +507,11 @@ else
 fi
 printf '%s\n' '[checks]' 'commands = []' > "$OLD/.lem/project.local.toml"
 err=$(project --repo "$OLD" show 2>&1 || true)
-printf '%s\n' '[gate]' 'commands = []' > "$OLD/.lem/project.local.toml"
-old_err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "\[checks\] is the project's rule" <<<"$err" && grep -qF "[gate] is called [checks] now" <<<"$old_err" \
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "\[checks\] is the project's rule" <<<"$err" \
   && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ]; then
-  pass "the machine's own file may not hold the checks or any other rule of the project, nor the checks' older table"
+  pass "the machine's own file may not hold the checks or any other rule of the project"
 else
-  fail "the checks in the local file: $err / $old_err"
-fi
-printf '%s\n' '[tools]' 'ask = "my-asker"' > "$OLD/.lem/project.local.toml"
-err=$(project --repo "$OLD" show 2>&1 || true)
-# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.local.toml has settings of an older Lem that are gone. Delete these lines:" <<<"$err" \
-  && grep -qF -- '- delete the [tools] table with its lines `ask = "my-asker"`' <<<"$err" && ! grep -qF "Then commit the file" <<<"$err"; then
-  pass "the machine's own file with [tools] is refused with the table to delete, and no commit is asked of a file git does not track"
-else
-  fail "tools in the local file: $err"
+  fail "the checks in the local file: $err"
 fi
 # One person may say no to the correction queue in the machine's own file, and never yes.
 printf '%s\n' '[corrections]' 'collect = false' > "$OLD/.lem/project.local.toml"
@@ -673,17 +535,14 @@ if [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] && [ "$(status_o
 else
   fail "a number as the local defender's seat: $err"
 fi
-printf '%s\n' '[seats.reviewer]' 'agent = "codex"' > "$OLD/.lem/project.local.toml"
-old_local=$(project --repo "$OLD" reviewer default 2>&1 || true)
 rm "$OLD/.lem/project.local.toml"
 words=$(project --repo "$OLD" reviewer codex gpt-6.1-sol high 2>&1 || true)
 gemini=$(project --repo "$OLD" reviewer gemini/pro 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && grep -qF "reviewer takes one seat, \"agent/model:effort\", as \`reviewer codex/gpt-6.2-sol:high\`" <<<"$words" \
-  && grep -qF "the agent 'gemini' must be claude or codex" <<<"$gemini" && [ "$(status_of project --repo "$OLD" reviewer codex/)" = 1 ] && [ ! -e "$OLD/.lem/project.local.toml" ] \
-  && grep -qF "Write these lines in place of the [seats.reviewer] table:" <<<"$old_local" && grep -qxF 'reviewer = "codex"' <<<"$old_local" && ! grep -qF "commit the file" <<<"$old_local"; then
-  pass "reviewer refuses an agent that cannot review, the older three words and a seat that does not parse, and writes nothing then; an older seat table already in the file is refused with its line"
+  && grep -qF "the agent 'gemini' must be claude or codex" <<<"$gemini" && [ "$(status_of project --repo "$OLD" reviewer codex/)" = 1 ] && [ ! -e "$OLD/.lem/project.local.toml" ]; then
+  pass "reviewer refuses an agent that cannot review, a seat in three words and a seat that does not parse, and writes nothing then"
 else
-  fail "reviewer refusals: $words / $gemini / $old_local"
+  fail "reviewer refusals: $words / $gemini"
 fi
 project --repo "$OLD" reviewer codex >/dev/null && project --repo "$OLD" reviewer default >/dev/null
 if [ ! -e "$OLD/.lem/project.local.toml" ]; then pass "a local file with nothing left in it is removed"; else fail "empty local file stays"; fi
@@ -718,13 +577,11 @@ rewritten=$(cat "$OLD/.lem/project.local.toml")
 printf '%s\n' '[naps]' 'on = true' > "$OLD/.lem/project.local.toml"
 naps_yes=$(project --repo "$OLD" show 2>&1 || true)
 naps_yes_code=$(status_of project --repo "$OLD" reviewer claude)
-printf '%s\n' '[naps]' 'keep_days = 3' > "$OLD/.lem/project.local.toml"
+printf '%s\n' '[naps]' 'when = "night"' > "$OLD/.lem/project.local.toml"
 naps_key=$(project --repo "$OLD" show 2>&1 || true)
-printf '%s\n' '[flow]' 'decision_wait = 1' > "$OLD/.lem/project.local.toml"
-flow_key=$(project --repo "$OLD" show 2>&1 || true)
-flow_key_code=$(status_of project --repo "$OLD" reviewer claude)
 printf '%s\n' '[flow]' 'topics = ["a price"]' > "$OLD/.lem/project.local.toml"
 flow_topics=$(project --repo "$OLD" show 2>&1 || true)
+flow_key_code=$(status_of project --repo "$OLD" reviewer claude)
 rm "$OLD/.lem/project.local.toml"
 alone=$(project --repo "$OLD" show 2>&1 | field '(d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
 # shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
@@ -732,13 +589,12 @@ if [ "$machine" = "(False, ['naps.on'])" ] && [ "$in_tree" = "(False, True)" ] &
   && [ "$rewritten" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[naps]' 'on = false')" ] \
   && grep -qF ".lem/project.local.toml: naps.on = True is not for this file. It may say \`on = false\`" <<<"$naps_yes" \
   && grep -qF "only .lem/project.toml, which everybody reads in git, switches the naps on" <<<"$naps_yes" && [ "$naps_yes_code" = 1 ] \
-  && grep -qxF -- '- delete `keep_days = 3` under [naps]: Lem keeps the folder of a nap 30 days' <<<"$naps_key" \
-  && grep -qF -- "delete \`decision_wait = 1\` under [flow]: a choice waits for the owner's answer with no time limit while he is there" <<<"$flow_key" \
+  && grep -qF ".lem/project.local.toml: unknown key naps.when; valid: on" <<<"$naps_key" \
   && [ "$flow_key_code" = 1 ] && grep -qF ".lem/project.local.toml: [flow] is the project's rule and belongs in .lem/project.toml" <<<"$flow_topics" \
   && [ "$alone" = "(True, [])" ]; then
   pass "the machine's own file may say no to the naps, also for a task's worktree, show and may-nap say that the no is the machine's, and a rewrite keeps it; a yes to the naps, another key of [naps] and a table of [flow] are refused with the reason"
 else
-  fail "the naps and [flow] in the local file: $machine / $in_tree / $asleep / $rewritten / $naps_yes / $naps_key / $flow_key / $flow_topics / $alone"
+  fail "the naps and [flow] in the local file: $machine / $in_tree / $asleep / $rewritten / $naps_yes / $naps_key / $flow_topics / $alone"
 fi
 settings '[branch]' 'base = "master"'
 # A checkout whose folder name holds a line break is still one path.
@@ -967,19 +823,6 @@ if [ "$over_landing_again" = 0 ] && [ "$over_open_again" = 0 ] && [ "$landed" = 
 else
   fail "a landing's own move refused: $over_landing_again / $over_open_again / $other_status / $landed / $dropped / $held"
 fi
-# The watch of the open pull requests looks once a minute, a number of Lem's with no setting: the key an older Lem had is
-# refused with the line to delete, and init writes none.
-settings '[flow]' 'watch_seconds = 1'
-watch_err=$(project --repo "$OLD" show 2>&1 || true)
-settings '[branch]' 'base = "master"'
-# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
-if [ "$(status_of project --repo "$OLD" show)" = 0 ] && grep -qxF -- '- delete `watch_seconds = 1` under [flow]: the watch of the open pull requests looks every 60 seconds' <<<"$watch_err" \
-  && ! grep -q 'watch_seconds' "$NEW/.lem/project.toml" && [ "$(project --repo "$OLD" show | field '"watch_seconds" in d["flow"]')" = False ]; then
-  pass "the watch's interval is 60 seconds with no setting: flow.watch_seconds is refused with the line to delete, and init writes none"
-else
-  fail "flow.watch_seconds: $watch_err"
-fi
-settings '[branch]' 'base = "master"'
 
 # The type of a request, and a task that ends with a report and nothing to merge: `answered`.
 ANS=$WORK/answered
@@ -989,18 +832,16 @@ ans_dir=$(project --repo "$ANS" task-dir zero-after-refund --ask "invoices show 
 before=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
 unknown=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: defect, because the total is wrong" 2>&1 || true)
 unsaid=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix" 2>&1 || true)
-old_line=$(project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "kind: bug, because the total is wrong" 2>&1 || true)
 after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl" 2>/dev/null || echo 0)
 project --repo "$ANS" state zero-after-refund building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
 project --repo "$ANS" state zero-after-refund building "the test that reproduces the bug is committed" "investigation: bug" >/dev/null
 kind=$(project --repo "$ANS" tasks | field 'next(t["type"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
 if grep -qF "'defect' is not a type of request" <<<"$unknown" && grep -qF "feat, fix, docs, refactor, perf, test, chore, question" <<<"$unknown" \
-  && grep -qF "write it as \`type: fix, because ...\`" <<<"$unsaid" && grep -qF "write it as \`type: fix, because the total is wrong\`" <<<"$old_line" \
-  && grep -qF "the kind line of an older Lem" <<<"$old_line" && [ "$after_refusals" = "$before" ] \
+  && grep -qF "write it as \`type: fix, because ...\`" <<<"$unsaid" && [ "$after_refusals" = "$before" ] \
   && [ "$kind" = "{'type': 'fix', 'why': 'the ask says the total is wrong today'}" ]; then
-  pass "a state line that names the type of a request names one of the eight with its reason, a kind line of an older Lem is refused with the type line to write, and tasks gives the newest type also when a later block says nothing of it"
+  pass "a state line that names the type of a request names one of the eight with its reason, and tasks gives the newest type also when a later block says nothing of it"
 else
-  fail "the type of a request: $unknown / $unsaid / $old_line / $before $after_refusals / $kind"
+  fail "the type of a request: $unknown / $unsaid / $before $after_refusals / $kind"
 fi
 # The investigation's record: a fix's call, whether the bug was reproduced and where the cause is; a question's answer.
 inv() { project --repo "$ANS" log zero-after-refund investigation "$@" 2>&1 || true; }
@@ -1010,18 +851,16 @@ nowhere=$(inv type=fix call=small "line=the total skips credit notes" reproduced
 not_so=$(inv type=fix call=not-reproduced "line=a refund of 10 gave 90" reproduced:=true)
 odd_call=$(inv type=fix call=maybe "line=x" reproduced:=false)
 untyped=$(inv type=fix call=full "line=x" where=a.py:f reproduced=true)
-old_form=$(inv kind=bug call=correction "line=x" where=a.py:f reproduced:=true)
 after_refusals=$(grep -c '' "$ANS/.lem/state/events.jsonl")
 none_yet=$(project --repo "$ANS" tasks | field 'next(t["investigation"] for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
 inv type=fix call=full "line=the invoice total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
 found=$(project --repo "$ANS" tasks | field 'next((t["investigation"]["call"], t["investigation"]["where"], t["investigation"]["reproduced"]) for t in d if t["slug"] == "zero-after-refund")' 2>&1 || true)
 if grep -qF "reproduced is a fix's" <<<"$asked_back" && grep -qF "where names the cause" <<<"$nowhere" && grep -qF "not-reproduced is a bug that was not reproduced" <<<"$not_so" \
   && grep -qF "call is small, full, not-a-bug or not-reproduced for a fix" <<<"$odd_call" && grep -qF "written with :=" <<<"$untyped" \
-  && grep -qF "kind=bug|investigation is the form of an older Lem; write type=fix call=small" <<<"$old_form" \
   && [ "$after_refusals" = "$before" ] && [ "$none_yet" = "None" ] && [ "$found" = "('full', 'billing/invoice.py:total', True)" ]; then
-  pass "an investigation's record names its type, its call and its one line, a fix's whether the bug was reproduced and a cause's place; a wrong one or one of an older Lem's form writes nothing, and tasks gives the newest"
+  pass "an investigation's record names its type, its call and its one line, a fix's whether the bug was reproduced and a cause's place; a wrong one writes nothing, and tasks gives the newest"
 else
-  fail "the investigation's record: $asked_back / $nowhere / $not_so / $odd_call / $untyped / $old_form / $before $after_refusals / $none_yet / $found"
+  fail "the investigation's record: $asked_back / $nowhere / $not_so / $odd_call / $untyped / $before $after_refusals / $none_yet / $found"
 fi
 # The start of each stage an agent runs has one form, so that the board draws its span from it to the event that ends it.
 starts() { project --repo "$ANS" log zero-after-refund "$@" 2>&1 || true; }
@@ -1180,26 +1019,17 @@ if [ "$code" = "1 1 1 1" ] && grep -q "name them, or pass --range BASE..TIP" <<<
 else
   fail "the picker's refusals: $code / $err / $outside / $empty / $shape / $glob / $odd"
 fi
-# A project with no rules yet gets an empty answer, not an error. Rule files where an older Lem kept them, in
-# .lem/styleguide, are refused with the move that brings them to .claude/rules: they must not go unread.
+# A project with no rules yet gets an empty answer, not an error.
 FRESH=$WORK/rules-fresh
 git init -q -b main "$FRESH" && commit "$FRESH" start
 project --repo "$FRESH" init --base main >/dev/null
 none=$(project --repo "$FRESH" rules app/x.py | field '(d["exists"], d["rules"])')
-mkdir -p "$FRESH/.lem/styleguide" && printf '%s\n' '---' 'paths:' '  - "app/**/*.py"' '---' > "$FRESH/.lem/styleguide/python.md"
-older=$(project --repo "$FRESH" rules app/x.py 2>&1 || true)
-older_code=$(status_of project --repo "$FRESH" rules app/x.py)
-mkdir -p "$FRESH/.claude/rules"
-beside=$(project --repo "$FRESH" rules app/x.py 2>&1 || true)
-# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
-if [ "$none" = "(False, [])" ] && [ "$older_code" = 1 ] && grep -qF 'Then move the rule files there: `mkdir -p .claude && git mv .lem/styleguide .claude/rules`' <<<"$older" \
-  && grep -qF 'Then move the rule files there: `git mv .lem/styleguide/* .claude/rules/`' <<<"$beside" && [ -f "$FRESH/.lem/styleguide/python.md" ] \
-  && grep -qF 'First delete each file in .lem/styleguide that holds no rule, such as the draft README.md an older `/lem init` wrote there (`git rm .lem/styleguide/README.md`), since Claude Code loads every .md file of .claude/rules as a rule in each session.' <<<"$older"; then
-  pass "a project with no rules gets no rule and no error, and rule files in the folder an older Lem kept them in are refused with the delete of a file with no rule, the draft README.md of an older init named, and then the move to .claude/rules, which nothing makes by itself"
+if [ "$none" = "(False, [])" ]; then
+  pass "a project with no rules gets no rule and no error"
 else
-  fail "the rules of an older Lem's folder: $none / $older / $beside"
+  fail "the rules of a project with none: $none"
 fi
-if [ "$(status_of project --repo "$RUL" migrate plan)" != 0 ] && [ -d "$RUL/.claude/rules" ] && [ ! -e "$RUL/.lem/styleguide" ] \
+if [ "$(status_of project --repo "$RUL" migrate plan)" != 0 ] && [ -d "$RUL/.claude/rules" ] \
   && [ "$(project --repo "$RUL" show | field 'd["places"]["rules"]["path"]')" = "$RUL/.claude/rules" ]; then
   pass "the rules of an adopted project stay where the agent loads them: the settings name that folder, and no command moves it"
 else
@@ -1217,7 +1047,7 @@ stw=$(project --repo "$ST" worktree-dir export-has-the-gift-note)
 git -C "$ST" worktree add -q -b feat/export-has-the-gift-note "$stw" main
 project --repo "$ST" state export-has-the-gift-note building 'lead: builder' >/dev/null
 mkdir -p "$stw/docs/plans" "$stw/tests"
-plan=$stw/docs/plans/20261115-export-has-the-gift-note.md
+plan=$stw/docs/plans/2026-11-15-export-has-the-gift-note.md
 # shellcheck disable=SC2016  # the backticks are the plan's own marks around a command and a file
 printf '%s\n' '# The export has the gift note' '' '## Acceptance criteria' '' 'Size: full, because the export gets a new column and an empty cell.' '' \
   '1. A CSV export holds the gift note of an order: order 1042 with the note "for Ania"' '   has that text in its row.' \
@@ -1375,26 +1205,24 @@ no_section=$(form '# A plan' '' '## Tasks')
 no_kind=$(form '## Acceptance criteria' '' '1. A criterion.')
 two=$(form '## Acceptance criteria' '' 'Size: small, because it is one sentence.' '' '1. One.' '2. Two.')
 order=$(form '## Acceptance criteria' '' 'Size: full, because of two things.' '' '1. One.' '3. Three.')
-# The section an older Lem wrote, `## Stories` with `Kind: feature` or `Kind: correction`, reads as its size; another word there does not.
-old_kind=$(form '## Stories' '' 'Kind: feature, because an older Lem wrote it.' '' '1. One.' | field '(d["size"], d["mark"])' 2>&1 || true)
 odd_size=$(form '## Acceptance criteria' '' 'Size: medium, because it is between.' '' '1. One.')
 # An example of the form in a code fence is not the section, and a plan of another task whose name ends the same way is not this task's.
 # shellcheck disable=SC2016
 fenced=$(form '# A plan' '' '````markdown' 'An example in an example:' '```' '## Acceptance criteria' '' 'Size: small, because it is an example.' '' '1. An example.' '```' '````' '' '## Acceptance criteria' '' 'Size: full, because it is the real one.' '' '1. The real criterion.' | field '(d["size"], d["criteria"][0]["text"])')
 git -C "$stw" checkout -q -- docs
-printf '%s\n' '## Acceptance criteria' '' 'Size: small, because it is another task.' '' '1. Not this task.' > "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
+printf '%s\n' '## Acceptance criteria' '' 'Size: small, because it is another task.' '' '1. Not this task.' > "$stw/docs/plans/2026-11-16-csv-export-has-the-gift-note.md"
 other=$(criteria show export-has-the-gift-note | field '(d["size"], d["plan"].rsplit("/", 1)[1])')
-rm "$stw/docs/plans/20261116-csv-export-has-the-gift-note.md"
+rm "$stw/docs/plans/2026-11-16-csv-export-has-the-gift-note.md"
 criteria record export-has-the-gift-note >/dev/null && criteria red export-has-the-gift-note >/dev/null
 # shellcheck disable=SC2016
-if [ "$fenced" = "('full', 'The real criterion.')" ] && [ "$other" = "('full', '20261115-export-has-the-gift-note.md')" ] \
-  && [ "$old_kind" = "('full', 'feature')" ] && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with \`Size: full, because ...\`" <<<"$odd_size" \
-  && grep -q 'has no `## Acceptance criteria` section' <<<"$no_section" && grep -q "20261115-export-has-the-gift-note.md:3: the section starts with" <<<"$no_kind" \
+if [ "$fenced" = "('full', 'The real criterion.')" ] && [ "$other" = "('full', '2026-11-15-export-has-the-gift-note.md')" ] \
+  && grep -q "2026-11-15-export-has-the-gift-note.md:3: the section starts with \`Size: full, because ...\`" <<<"$odd_size" \
+  && grep -q 'has no `## Acceptance criteria` section' <<<"$no_section" && grep -q "2026-11-15-export-has-the-gift-note.md:3: the section starts with" <<<"$no_kind" \
   && grep -q "a task on the fast track has one criterion, and this one has 2: it takes the standard track" <<<"$two" && grep -q ":6: the criteria are numbered 1, 2, 3 in order" <<<"$order" \
   && [ "$(status_of criteria show no-such-task)" = 1 ]; then
-  pass "a plan with no criteria section, no size, a small change of two criteria, an unknown size or a gap in the numbers is refused with the place and the fix; the Kind line of an older Lem reads as its size; a fenced example is not the section, and a plan of another task is not read"
+  pass "a plan with no criteria section, no size, a small change of two criteria, an unknown size or a gap in the numbers is refused with the place and the fix; a fenced example is not the section, and a plan of another task is not read"
 else
-  fail "the form of the criteria: $no_section / $no_kind / $two / $order / $old_kind / $odd_size"
+  fail "the form of the criteria: $no_section / $no_kind / $two / $order / $odd_size"
 fi
 
 # Approved criteria are frozen as written: the plan's criteria are those, word for word, with only test lines added.
@@ -1427,7 +1255,7 @@ atw=$(project --repo "$ST" worktree-dir approved-note)
 git -C "$ST" worktree add -q -b feat/approved-note "$atw" main
 project --repo "$ST" state approved-note building 'lead: builder' >/dev/null
 mkdir -p "$atw/docs/plans" "$atw/tests"
-aplan=$atw/docs/plans/20261116-approved-note.md
+aplan=$atw/docs/plans/2026-11-16-approved-note.md
 # aplan_with LINE...: the plan of approved-note, with these lines as its criteria, and its commit
 aplan_with() {
   printf '%s\n' '# The note' '' 'careful: no, it touches one new file.' '' '## Acceptance criteria' '' 'Size: full, because the note gets a file and an empty case.' '' "$@" '' '## Tasks' '' '1. The note.' > "$aplan"
@@ -1455,8 +1283,8 @@ aplan_with "$s1" "$one" '2. An order with no gift note has the line "1043," and 
   '3. The note file ends with a line break.' '   - no test: printf ends every line so.'
 extra=$(criteria show approved-note 2>&1 || true)
 red_extra=$(criteria red approved-note 2>&1 || true)
-if grep -qF "criterion 3 of 20261116-approved-note.md, 'The note file ends with a line break.', is not among the expected criteria, which end at 2" <<<"$extra" \
-  && grep -qF -- "\`--added N --now TEXT\`" <<<"$extra" && grep -qF "criterion 3 of 20261116-approved-note.md, 'The note file ends with a line break.', is not among" <<<"$red_extra"; then
+if grep -qF "criterion 3 of 2026-11-16-approved-note.md, 'The note file ends with a line break.', is not among the expected criteria, which end at 2" <<<"$extra" \
+  && grep -qF -- "\`--added N --now TEXT\`" <<<"$extra" && grep -qF "criterion 3 of 2026-11-16-approved-note.md, 'The note file ends with a line break.', is not among" <<<"$red_extra"; then
   pass "a criterion the plan adds after the approved ones with no record of it is refused by show and red, with how its addition is recorded"
 else
   fail "an extra criterion at the end of the plan: $extra / $red_extra"
@@ -1504,13 +1332,13 @@ not_approved=$(adecide criterion export-has-the-gift-note --changed 1 --was "x" 
 log_story=$(status_of adecide log approved-note --what x --chose y --why z --by lead --criterion 1 --was "$t1")
 records=$(grep -c '"kind": "criterion"' "$ST/.lem/state/tasks/approved-note/decisions.jsonl" || true)
 plain=$(criteria show export-has-the-gift-note 2>/dev/null | field '(d["approved"], d["changes"])' 2>&1 || true)
-if grep -qF "criterion 1 of 20261116-approved-note.md says '$c1', and the expected criterion 1 is '$t1'" <<<"$reworded" \
+if grep -qF "criterion 1 of 2026-11-16-approved-note.md says '$c1', and the expected criterion 1 is '$t1'" <<<"$reworded" \
   && grep -qF 'lem decisions criterion approved-note --changed N --was TEXT --now TEXT' <<<"$reworded" \
-  && grep -qF "criterion 1 of 20261116-approved-note.md says '$c1'" <<<"$red_reworded" && [ "$changed_now" = "[(1, 1, 'changed')]" ] \
-  && grep -qF "criterion 1 of 20261116-approved-note.md says '$c2', and the expected criterion 1 is '$c1'" <<<"$again" \
+  && grep -qF "criterion 1 of 2026-11-16-approved-note.md says '$c1'" <<<"$red_reworded" && [ "$changed_now" = "[(1, 1, 'changed')]" ] \
+  && grep -qF "criterion 1 of 2026-11-16-approved-note.md says '$c2', and the expected criterion 1 is '$c1'" <<<"$again" \
   && grep -qF "criterion 1 is '$c1' after every earlier change, and --was says '$t1'" <<<"$stale" && [ "$chained" = "[1, 1]" ] \
   && [ "$added_now" = 3 ] && [ "$gone_again" = "[('changed', 1), ('changed', 1), ('added', 3), ('removed', 3)]" ] \
-  && grep -qF "20261116-approved-note.md lacks criterion 2, '$t2', which the expected criteria hold" <<<"$dropped" \
+  && grep -qF "2026-11-16-approved-note.md lacks criterion 2, '$t2', which the expected criteria hold" <<<"$dropped" \
   && grep -qF "criterion 2 is '$t2' after every earlier change, and --was says 'An order with no gift note has the line 1043.'" <<<"$wrong_was" \
   && [ "$removed_now" = "('removed', 'personas', 'The merchant and the accountant both dropped it.')" ] && [ "$expected" = "['$c2']" ] \
   && grep -qF "names --choice ID, the choice of the build that led to it, or --by lead|personas when no choice did: one of the two" <<<"$neither" \
@@ -1539,7 +1367,7 @@ kind=$(criteria show approved-note 2>&1 || true)
 aplan_with '1. The note file holds the code `A  B` for' '   orders 1042 and 1044.' '2. Order 1043 has no note line.'
 kept_spaces=$(criteria show approved-note 2>/dev/null | field '(len(d["changes"]), d["criteria"][0]["text"])' 2>&1 || true)
 if [ "$reset" = "(0, ['$code1', 'Order 1043 has no note line.'])" ] && [ "$spaced" = "('$code1', '$code2')" ] \
-  && grep -qF "20261116-approved-note.md says \`Size: small\`, and the owner approved its criteria with \`Size: full\`: a change of the track is the owner's only" <<<"$kind" \
+  && grep -qF "2026-11-16-approved-note.md says \`Size: small\`, and the owner approved its criteria with \`Size: full\`: a change of the track is the owner's only" <<<"$kind" \
   && [ "$kept_spaces" = "(1, '$code2')" ]; then
   pass "his next approval starts the criterion changes again; a change keeps its texts as typed, two spaces of a literal value match, and a criterion broken over two lines is the same criterion; a plan of another size than the approved one is refused"
 else
@@ -1635,17 +1463,6 @@ if grep -q '"state": "new"' "$FIRST/.lem/state/backlog.js" && grep -q '"title": 
 else
   fail "a first backlog item, and the session after --no-open: $(cat "$FIRST/.lem/state/backlog.js" "$FIRST/.lem/state/meta.js" | head -c 500)"
 fi
-# The verdicts an older Lem's backlog sorting left in the state folder are no part of the board:
-# the tab groups the items by their own worth, and the file stays as it was.
-printf '%s\n' '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}}' > "$BKB/.lem/state/backlog-triage.json"
-"$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$BKB" --no-open >/dev/null
-if [ "$(feed '("judged" in d, "who" in by["export-drops-columns"], "confidence" in by["export-drops-columns"])')" = "(False, False, False)" ] \
-  && [ "$(cat "$BKB/.lem/state/backlog-triage.json")" = '{"export-drops-columns": {"verdict": "agent", "confidence": 0.86}}' ]; then
-  pass "the board's backlog file reads no verdict of an older sorting: each item has its own worth, and the old file stays as it is"
-else
-  fail "backlog.js beside an older sorting's verdicts: $(head -c 400 "$BKB/.lem/state/backlog.js")"
-fi
-
 # The board: board.py writes the page and what it reads beside the events, and the page draws them.
 BOARD=$PWD/skills/lem/scripts/board.py
 board() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" "$@"; }
@@ -1656,8 +1473,8 @@ named=$(cat "$OLD/.lem/state/meta.js")
 board --repo "$OLD" --no-open >/dev/null
 if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.lem/state/board.html" ] && cmp -s "$OLD/.lem/state/board.html" "$PWD/skills/lem/assets/board.html" \
   && cmp -s "$OLD/.lem/state/lem.css" "$PWD/skills/lem/assets/lem.css" \
-  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "gates": 0, "alone": 0});' ] \
-  && [ "$(cat "$OLD/.lem/state/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "gates": 0, "alone": 0});' ]; then
+  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "gates": 0, "serial": 0});' ] \
+  && [ "$(cat "$OLD/.lem/state/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "gates": 0, "serial": 0});' ]; then
   pass "board --no-open writes the page and the stylesheet it links into the shared state folder, from a worktree too, with the repository's name and its base"
 else
   fail "board --no-open: $out / $named / $(cat "$OLD/.lem/state/meta.js" 2>&1)"
@@ -1860,7 +1677,7 @@ sys.exit(not (len(labels) >= 2 and len(days) == 1 and all(" " in label for label
     fail "the criteria on the board: missing $why"
   fi
   # A criterion that changed after the check has no check: the old result is not shown for it.
-  "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("has that text in its row.", "has that text in the third cell of its row."))' "$stw/docs/plans/20261115-export-has-the-gift-note.md"
+  "$PY" -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("has that text in its row.", "has that text in the third cell of its row."))' "$stw/docs/plans/2026-11-15-export-has-the-gift-note.md"
   criteria record export-has-the-gift-note >/dev/null && git -C "$stw" checkout -q -- docs
   chrome_run --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
     --virtual-time-budget=5000 --dump-dom "file://$ST/.lem/state/task-export-has-the-gift-note.html" > "$WORK/criteria-changed.dom" 2>/dev/null || true

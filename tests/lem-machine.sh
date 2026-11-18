@@ -637,9 +637,9 @@ if [ "$(row cronn found <<<"$out")" = "True" ] && [ "$(row cronn running <<<"$ou
 else
   fail "doctor with cronn: $out"
 fi
-# The correction hook comes with Lem's plugin. A settings file that still holds the hook an older install of Lem
-# wrote is a second place: the machine check names each file with the entry to delete from it by hand, never says
-# to remove the plugin, and never fails the machine for it.
+# The correction hook comes with Lem's plugin. A settings file that also names the hook is a second place: the
+# machine check names each file with the entry to delete from it by hand, never says to remove the plugin, and never
+# fails the machine for it.
 want=$("$PY" -c 'import shlex, sys; print("python3 " + shlex.quote(sys.argv[1]) + " hook")' "$PWD/skills/lem/scripts/corrections.py")
 with_hook() { "$PY" -c 'import json, sys; json.dump({"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": sys.argv[2], "timeout": 10}]}]}, **json.loads(sys.argv[3])}, open(sys.argv[1], "w"))' "$@"; }
 entry_of() { "$PY" -c 'import json, sys; print(json.dumps({"type": "command", "command": sys.argv[1], "timeout": 10}))' "$1"; }
@@ -669,11 +669,11 @@ if [ "$alone" = "[]" ] && [ "$plugin_detail" = "registered 2 times for this repo
   && [ "$plugin_need" = "[('project', False, True)]" ] \
   && [ "$three" = "registered 3 times for this repository: $FAKEHOME/.claude/settings.json, $MACHINE/.claude/settings.local.json, the plugin lem@lem" ] && [ "$off" = "[]" ] \
   && grep -qF "$MACHINE/.claude/settings.json: delete the entry $(entry_of "LEM_JEV=/x/jev python3 /elsewhere/corrections.py hook") from the UserPromptSubmit hooks of $MACHINE/.claude/settings.json by hand, and commit that." <<<"$shared_fix"; then
-  pass "a settings file that still holds the hook beside Lem's plugin is named with the entry to delete from it by hand, never the plugin, and never fails the machine; the plugin alone, or switched off there, gets no row; an entry in the shared settings is a change to commit"
+  pass "a settings file that also holds the hook beside Lem's plugin is named with the entry to delete from it by hand, never the plugin, and never fails the machine; the plugin alone, or switched off there, gets no row; an entry in the shared settings is a change to commit"
 else
   fail "doctor with the hook beside the plugin: $alone / $plugin_detail / $plugin_fix / $plugin_need / $three / $off / $shared_fix"
 fi
-# With no plugin, two settings files that hold the hook are both an older install's: the row says that the hook comes with the plugin.
+# With no plugin, two settings files that hold the hook: the row says that the hook comes with the plugin.
 mv "$FAKEHOME/.claude/plugins/installed_plugins.json" "$WORK/installed.kept"
 mkdir -p "$MACHINE/.claude"
 with_hook "$MACHINE/.claude/settings.local.json" "$want" '{}'
@@ -684,7 +684,7 @@ rm -r "$MACHINE/.claude" "$FAKEHOME/.claude/settings.json"
 mv "$WORK/installed.kept" "$FAKEHOME/.claude/plugins/installed_plugins.json"
 if grep -qF "The hook comes with Lem's plugin: install it, and remove each of these: $FAKEHOME/.claude/settings.json: delete the entry" <<<"$no_plugin" \
   && [ "$no_plugin_need" = "[('project', False)]" ]; then
-  pass "with no plugin, the hook in two settings files is named with the plugin that brings it now and the entry to delete from each"
+  pass "with no plugin, the hook in two settings files is named with the plugin that brings it and the entry to delete from each"
 else
   fail "doctor with the hook in two settings files and no plugin: $no_plugin / $no_plugin_need"
 fi

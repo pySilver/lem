@@ -44,8 +44,8 @@ echo 'echo p > p.txt' >> "$tree/tool.sh" && git -C "$tree" commit -q -am "refact
 started=$(local_land checks polish-me 2>&1 || true)
 again=$(local_land polish polish-me)
 if grep -qF "polish-me takes the standard track, and no polish pass is on record for this landing: \`lem land polish polish-me\` starts it" <<<"$no_pass" \
-  && [ "$(field '(d["size"], d["done"], d["before"], d["range"].split("..")[1], d["commits"], d["plan"].endswith("docs/plans/20261115-polish-me.md"), d["report"], d["outside"], d["backlog"], d["frozen"])' <<<"$first")" \
-  = "('full', False, '$lead_tip', '$lead_tip', ['$(git -C "$tree" rev-parse --short "$lead_tip") feat: the tool', '$(git -C "$tree" log -1 --format='%h %s' "$lead_tip~1")'], True, '$pdir/report.md', '$pdir/outside.md', 'docs/backlog', ['tests/polish-me.sh', 'docs/plans/20261115-polish-me.md'])" ] \
+  && [ "$(field '(d["size"], d["done"], d["before"], d["range"].split("..")[1], d["commits"], d["plan"].endswith("docs/plans/2026-11-15-polish-me.md"), d["report"], d["outside"], d["backlog"], d["frozen"])' <<<"$first")" \
+  = "('full', False, '$lead_tip', '$lead_tip', ['$(git -C "$tree" rev-parse --short "$lead_tip") feat: the tool', '$(git -C "$tree" log -1 --format='%h %s' "$lead_tip~1")'], True, '$pdir/report.md', '$pdir/outside.md', 'docs/backlog', ['tests/polish-me.sh', 'docs/plans/2026-11-15-polish-me.md'])" ] \
   && [ "$(field '(d["before"], d["range"])' <<<"$again")" = "$(field '(d["before"], d["range"])' <<<"$first")" ] && [ "$(kept_in "$LOCAL" polish-me polish)" = "{'before': '$lead_tip', 'done': False}" ]; then
   pass "a full change's checks waits for the polish pass; polish prints the range of the task's own commits from the base, the plan, the report, the interview's outside.md, the backlog folder and the files the pass may not change, and keeps the tip it starts at, also when it is started again after the builder's first commit"
 else
@@ -195,7 +195,7 @@ if [ "$(field '(sorted((e["file"], e["what"], e["reason"]) for e in d["bar"]["lo
 else
   fail "the bar: $out / $err / $gone"
 fi
-plan=$tree/docs/plans/20261115-bar-change.md
+plan=$tree/docs/plans/2026-11-15-bar-change.md
 # shellcheck disable=SC2016  # the backticks are the plan's own marks around a path
 printf '%s\n' '' '## The bar' '' '- calc.py: the import registers a plugin.' '- tests/test_base.py: the sum moved to another module with its test.' '- lib.rs: one() has its test in tests/one.rs now.' '- plug.py: E402 and F401 both hold for that import.' >> "$plan"
 git -C "$tree" commit -q -am "docs: why the bar is lower"
@@ -458,7 +458,7 @@ else
 fi
 project --repo "$LOCAL" state lift-topics dropped "the test is over" >/dev/null
 
-# Every edit of Lem's own settings is careful by the script, not only one of [flow] or [gate]: a branch that
+# Every edit of Lem's own settings is careful by the script, not only one of [flow] or [checks]: a branch that
 # changes how its tasks land, and one that changes no value and only the file's text, each get the full set,
 # with the tables named, and a person's merge.
 task_in "$LOCAL" lands-alone ten.txt ten
@@ -516,7 +516,7 @@ local_land read local-tracked --record "$(record 1 '{"kind": "full", "ran": [{"n
 local_land propose local-tracked --title "chore: my asker" --notes "$MIG" >/dev/null
 local_agent=$(local_land land local-tracked --by agent 2>&1 || true)
 project --repo "$LOCAL" state local-tracked dropped "the test is over" >/dev/null
-local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's seats, corrections, naps and limit of tasks become every machine's"
+local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's seats, corrections and naps become every machine's"
 if [ "$local_floor" = "('full', \"the request is careful: $local_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($local_why)" <<<"$local_agent" \
   && grep -qxF -- "- careful: yes, $local_why; the review says no: $NOT_CAREFUL" "$LOCAL/.lem/state/tasks/local-tracked/pr.md"; then
   pass "a branch that commits the machine's own settings file is careful by the script: the full set, a line of the pull request that says the file is one machine's own, and a person's merge"
