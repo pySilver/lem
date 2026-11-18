@@ -62,8 +62,12 @@ request, green.
 
 ## Install
 
-Lem needs agterm, Claude Code, git, Python 3.11, revmux, cronn and four recipes of the agterm
-cookbook. Codex is optional, and highly recommended. [Install](docs/install.md) lists each tool.
+Lem runs in agterm, with Claude Code. It needs a few more tools: [Install](docs/install.md) lists
+them, and `/lem init` checks each one for you.
+
+> [!TIP]
+> Codex is optional, and we recommend it highly. With Codex, a second model family reviews each
+> change. Without it, Claude reviews the work of Claude.
 
 At the root of your repository:
 
@@ -73,7 +77,7 @@ claude plugin install lem@lem --scope project
 ```
 
 Then start Claude Code in agterm there, and type `/lem init`. Answer three questions, read the page
-that Lem shows, and type `land`.
+that Lem shows, and say "land" to accept the setup.
 
 ## What you type
 
@@ -88,8 +92,8 @@ that Lem shows, and type `land`.
 | "go alone", "go alone for all", "I am back" | one task, or every task, goes on without you until you come back |
 | `/lem learn` | Lem puts your correction into the file that owns the step |
 
-Lem starts `/lem land` itself when a task is ready. Scheduled jobs that you accept at setup start
-`/lem retro` each morning and `/lem night` each night.
+The words in quotes are plain sentences in Lem's session, with no command. Scheduled jobs that you
+accept at setup start `/lem retro` each morning and `/lem night` each night.
 
 ## What you can rely on
 
@@ -100,7 +104,6 @@ Lem starts `/lem land` itself when a task is ready. Scheduled jobs that you acce
   by a person.
 - A step that nobody can undo always waits for you.
 - Lem never pushes over a commit that it did not push.
-- Lem writes no secret into a file or a commit.
 
 ## Skills you can call
 
