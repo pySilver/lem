@@ -125,7 +125,8 @@ the record saying so.
    doubt with no yes of his after it.
 
 When he says "go alone" during the interview, it goes on without him as step 4 of
-`stages/mode.md` says: your guesses, logged, the read, and the criteria approved with `--alone`.
+`stages/mode.md` says: your guesses, logged, the read, each flagged criterion settled by the
+ladder, and the criteria approved with `--alone`.
 When he leaves with no such words, write the state `held` with the line `the criteria wait for the
 owner`, and put the page to him again the way `ask-owner` says for an owner who is away. His
 answer goes on from step 6. A task with that line has no lead: when it is approved, write the

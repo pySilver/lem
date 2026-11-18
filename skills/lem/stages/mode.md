@@ -14,13 +14,23 @@ on"), ask once in the terminal: "Run SLUG without you until you say 'I am back'?
 2. Each choice of those tasks that waits for him and is no irreversible step (`lem decisions
    pending`): `lem decisions timeout SLUG N`, which takes it now. A lead in its `wait` sees the
    mode by itself and does the same.
-3. A task `held` with `the criteria wait for the owner`: `lem criteria approve SLUG --file FILE
-   --alone`, with the criteria as they stand and a flagged one as written, then start its lead
-   (`stages/start.md`).
+3. A task `held` with `the criteria wait for the owner`: settle each flagged criterion as below,
+   then `lem criteria approve SLUG --file FILE --alone` with the criteria as the ladder left
+   them, and start its lead (`stages/start.md`).
 4. An interview that runs goes on without him: take your guess for each question left and log
    each, `lem decisions log SLUG --by lem --what "THE QUESTION" --chose "YOUR GUESS" --why WHY`.
-   The personas' read runs, since nobody can skip it now, and `--alone` approves the criteria
-   whatever it found: the read's answers go into the pull request.
+   The personas' read runs, since nobody can skip it now. Each criterion it flagged is settled as
+   below, and then `--alone` approves the criteria. The read's answers go into the pull request.
+
+**A flagged criterion without him** (one a persona called unexpected, confusing or wrong, or one
+on which the two families split) is a decision in doubt whose personas answered and split. It
+goes on from the dialectic of `stages/ladder.md`, level 3, and to the experts, level 4, when the
+dialectic finds a break. Write the criterion into FILE as the level that settled it picked, and
+log it with that level: `lem decisions log SLUG --what "criterion N" --option "AS YOU WROTE IT"
+--option "AS THE PERSONA EXPECTED IT" --chose OPTION --by dialectic|experts --level
+"personas=WHAT THEY SAID" --why WHY`. When no level settles it, it stays as you wrote it, with
+`--by lead --unsettled`. Nothing waits for him: the pull request is not green in any case, since
+he did not approve the criteria.
 5. Tell him in one line which tasks run without him, and that a step a later "no" cannot reverse
    and the merge still wait for him.
 

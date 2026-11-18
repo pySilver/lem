@@ -84,9 +84,12 @@ forge calls it conflicting.
      them on top, quoted, and the line `the criteria wait for the owner`; write the state `held`
      with that line, and stop. Leave a flagged criterion as you wrote it: what you would change goes
      beside it, as a proposal, and he decides. A task that runs without him (`mode` is `alone` in
-     `lem project --repo WORKTREE tasks`) waits for nothing of this: freeze the criteria as written
-     with `lem criteria --repo WORKTREE approve SLUG --file PLAN --alone` and build, and the pull
-     request is not green for it;
+     `lem project --repo WORKTREE tasks`) waits for nothing of this: each flagged criterion is a
+     decision in doubt whose personas split, and it climbs `stages/ladder.md` from the dialectic,
+     level 3. Write it as the level that settled it picked, log it with that level (`--option` as
+     you wrote it, `--option` as the persona expected it), freeze the criteria with `lem criteria
+     --repo WORKTREE approve SLUG --file PLAN --alone`, and build. The pull request is not green
+     for it;
    - run `lem criteria record SLUG`: it refuses a section that does not
      have the form, or that departs from the approved criteria, and it puts the criteria where
      the board and Lem's status show them;

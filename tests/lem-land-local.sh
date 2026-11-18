@@ -520,4 +520,27 @@ else
 fi
 project --repo "$LOCAL" state gone-out dropped "the test is over" >/dev/null
 
+# Without the owner a criterion the personas flagged climbs the ladder (`stages/mode.md`): the dialectic rewrites it, and
+# `approve --alone` takes the criteria as the ladder left them, which differ from the ones the personas read; the request
+# is proposed, not green, with the decision and the change after the read each on a line.
+task_in "$LOCAL" settled-out s.txt s
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds a word.' > "$WORK/settled-read.md"
+read_digest=$(lcriteria digest settled-out --file "$WORK/settled-read.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log settled-out criteria.read by=lem asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$read_digest" >/dev/null 2>&1 || true
+project --repo "$LOCAL" mode settled-out alone --by owner --words "go alone" >/dev/null
+ldecide log settled-out --what "criterion 1" --option "The file holds a word." --option "The file holds the word the owner asked for." \
+  --chose "The file holds the word the owner asked for." --by dialectic --level "personas=one flagged it" --why "no break against the persona's reading" >/dev/null 2>&1 || true
+settled_by=$(lcriteria approve settled-out --file "$WORK/gone.md" --alone 2>&1 | field 'd["by"]' 2>&1 || true)
+checked_local settled-out
+local_land propose settled-out --title "feat: s" --notes "$NOTES" >/dev/null 2>&1 || true
+text=$LOCAL/.lem/state/tasks/settled-out/pr.md
+if [ "$settled_by" = alone ] && [ "$(status_in "$LOCAL" settled-out)" = open ] && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
+  && grep -qF -- '- decision 1 was taken without the owner (criterion 1): "The file holds the word the owner asked for.", by the dialectic' "$text" \
+  && grep -qF -- "- the criteria changed after the personas' read" "$text"; then
+  pass "without the owner a flagged criterion the dialectic rewrote is approved by:alone as the ladder left it, and the request is proposed not green, with the decision and the change after the read"
+else
+  fail "a flagged criterion settled by the ladder without the owner: $settled_by / $(status_in "$LOCAL" settled-out) / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state settled-out dropped "the test is over" >/dev/null
+
 finish
