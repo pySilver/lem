@@ -37,9 +37,7 @@ at 0.3, on 150 replies their owner had labeled, it caught 22 of 27 lessons and f
 that were none (mybaze, 2026-11-07, tuned on that same sample, so the true rate is lower).
 
 The queue is one file for one project: `corrections.jsonl` in Lem's state folder (`.lem/state/` of
-the main checkout, as `lem_state.py` names it), shared by every worktree and never committed. The
-hook says nothing, so when it is the script that moves an older state folder from the git
-directory, the line that tells of the move goes to `corrections.log`. What a retro decided is in
+the main checkout, as `lem_state.py` names it), shared by every worktree and never committed. What a retro decided is in
 `corrections-reviews.jsonl` beside it. A failure (no key, a failed request) goes to
 `corrections.log` there and never to the conversation, and `list` reports it first: a message
 the hook failed on was never judged.
@@ -133,19 +131,14 @@ def git(cwd: str, *args: str) -> str | None:
 
 
 def folder(cwd: str, quiet: bool = False) -> Path | None:
-    """Lem's state folder, which every worktree shares; None outside a checkout. A quiet caller (the
-    hook and its detached half) writes the line of a move into the log instead of stderr. Two state
-    folders are an error for the retro's commands, and no folder at all for the quiet ones."""
-    moved: list[str] = []
+    """Lem's state folder, which every worktree shares; None outside a checkout. It is an error for
+    the retro's commands, and no folder at all for a quiet caller (the hook and its detached half)."""
     try:
-        where = lem_state.folder(Path(cwd), say=moved.append if quiet else lem_state.say_on_stderr, timeout=WAIT_SECONDS)
+        return lem_state.folder(Path(cwd), timeout=WAIT_SECONDS)
     except lem_state.StateError as error:
         if quiet:
             return None
         raise QueueError(str(error)) from error
-    for line in moved:
-        append(where / "corrections.log", {"ts": now(), "note": f"corrections.py: {line}"})
-    return where
 
 
 def uses_lem(cwd: str) -> bool:

@@ -185,7 +185,7 @@ def script(name: str, repo: Path, *args: str) -> str:
     ran = lem_sibling.run(SCRIPTS / name, repo, *args)
     if ran.returncode != 0:
         raise DecisionError(ran.stderr.strip().removeprefix(f"{name}: ") or f"{name} {args[0]} failed")
-    # a line project.py writes on stderr when it succeeds (the move of an older state folder) is this script's to say too
+    # a line project.py writes on stderr when it succeeds (the settings read from the base branch) is this script's to say too
     if ran.returncode == 0 and ran.stderr:
         sys.stderr.write(ran.stderr)
     return ran.stdout

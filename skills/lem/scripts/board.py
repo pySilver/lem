@@ -81,7 +81,7 @@ def project(repo: str, *args: str) -> str:
     )
     if ran.returncode != 0:
         raise BoardError(ran.stderr.strip().removeprefix("project.py: ") or f"project.py {args[0]} failed")
-    # a line project.py writes on stderr when it succeeds (the move of an older state folder) is this script's to say too
+    # a line project.py writes on stderr when it succeeds (the settings read from the base branch) is this script's to say too
     if ran.returncode == 0 and ran.stderr:
         sys.stderr.write(ran.stderr)
     return ran.stdout.strip()

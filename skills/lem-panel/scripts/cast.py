@@ -41,11 +41,6 @@ stands in for it. A checkout without one reads the default branch's, as for the 
 the state folder (personas-profile/<blob id>.md, one file per version of the profile); with
 neither, `profile` is null.
 
-An older cast.py wrote both folders into the git directory, which Codex's sandbox keeps read-only.
-The first run that finds one there moves it to the state folder, once, and says so on stderr; when
-the state folder has it already, the copy in the git directory goes, since both hold the same files
-of the same commits.
-
 `init` copies a starting cast, the user's or else the built-in one, into the project's personas
 folder so the project has its own people to rewrite. It refuses a checkout whose personas folder already holds any file, and one whose default branch
 already has a cast, which a rebase brings in instead.
@@ -113,24 +108,12 @@ def git(cwd: Path, *args: str) -> str:
 
 
 def cache(root: Path, folder: str) -> Path:
-    """The folder `folder` of the panel's copies in Lem's state folder, with the one an older
-    cast.py kept in the git directory moved there first."""
+    """The folder `folder` of the panel's copies in Lem's state folder."""
     try:
-        new = lem_state.folder(root) / folder
-        common = Path(git(root, "rev-parse", "--git-common-dir"))
-        old = (common if common.is_absolute() else root / common).resolve() / folder
-        if old.is_dir() and not old.is_symlink():
-            if new.exists():
-                shutil.rmtree(old, ignore_errors=True)
-                lem_state.say_on_stderr(f"removed {old}: the state folder holds the same copies in {new}")
-            else:
-                how = lem_state.move(old, new)
-                if how:
-                    lem_state.say_on_stderr(f"moved the panel's copies from {old} to {new} ({how}); nothing reads {old} any more")
+        return lem_state.folder(root) / folder
     except lem_state.StateError as error:
         fail(str(error))
         raise AssertionError from error
-    return new
 
 
 def checkout_root(start: Path) -> Path:

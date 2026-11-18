@@ -72,9 +72,7 @@ a team that adopts Lem may have its own.
 
 Task state is kept in `.lem/state/` of the main checkout, the one folder `lem_state.py` names for
 every script: every worktree writes there, git never tracks it, a worktree's removal does not take
-it, and a session that replaces another finds it. A state folder an older Lem kept in the git
-directory (`.git/lem/`) is moved there by the first script that reads it, which says so in one
-line on stderr.
+it, and a session that replaces another finds it.
 
 An ended task stays ended. `state` refuses a move out of `landed`, `answered` or `dropped` (the
 same status again is taken), so that a stale wake-up, a lead that finished after a later step,
@@ -1075,8 +1073,8 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
         reviewer=REVIEWER_SEATS["codex" if codex == "yes" else "claude"], planner=PLANNER,
         experts=", ".join(toml_string(one) for one in EXPERTS if codex == "yes" or one.startswith("claude")),
     ), encoding="utf-8")
-    # one machine's own settings and Lem's state are never committed (the state folder hides itself
-    # too, for a repository whose ignore file is older than it)
+    # one machine's own settings and Lem's state are never committed (the state folder also holds an
+    # ignore file of its own, `lem_state.py`)
     ignore = file.parent / ".gitignore"
     known = text_of(ignore).splitlines() if ignore.is_file() else []
     missing = [line for line in (LOCAL.name, f"{lem_state.STATE.name}/") if line not in known]
@@ -1301,8 +1299,7 @@ def state_root(root: Path) -> Path:
     """The folder task state lives in, `.lem/state/` of the main checkout, as `lem_state` says; asked once a run."""
     if root not in STATE_ROOTS:
         try:
-            # the line that tells of a move is project.py's, also when a sibling runs this in its own process
-            STATE_ROOTS[root] = lem_state.folder(root, say=lambda line: print(f"project.py: {line}", file=sys.stderr))
+            STATE_ROOTS[root] = lem_state.folder(root)
         except lem_state.StateError as error:
             raise SettingsError(str(error)) from error
     return STATE_ROOTS[root]
