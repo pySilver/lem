@@ -1108,19 +1108,13 @@ function tags(t, card = false) {
 // What green means, in the words of the first line of a green pull request (`GREEN` in land.py).
 const GREEN = 'The checks passed with the bar where it was, the review left no must-fix, no criterion changed, and no decision was taken by timeout or by the experts';
 
-// How Lem puts a question to the owner: the project's `tools.ask` (`project.py show`), which board.py
-// writes into meta.js. Lem's own page, the conversation in Lem's session, or the developer's own
-// asker; a meta.js from before it names none says only where.
+// How Lem puts a question to the owner: always as its own page, in its session.
 function askedHow(what, shown = false) {
-  const verb = shown ? 'shows you' : 'asks you';
-  if (meta.ask === 'lem-ask') return shown ? `Lem shows you ${what} as a page in its session` : `Lem puts ${what} to you as a page in its session`;
-  if (meta.ask === 'terminal') return `Lem ${verb} ${what} in its session, as text in the conversation`;
-  if (meta.ask) return `Lem ${verb} ${what} with ${meta.ask}, the asker this project names`;
-  return `Lem ${verb} ${what} in its session`;
+  return shown ? `Lem shows you ${what} as a page in its session` : `Lem puts ${what} to you as a page in its session`;
 }
 
 // Where the owner answers what waits for them. Lem is the one voice to the owner: a question comes
-// the way the project's asker puts it (askedHow), and a merge or a landing is his word to Lem.
+// as Lem's page (askedHow), and a merge or a landing is his word to Lem.
 function answerOf(t, c = t.asks[0]) {
   if (c) {
     return c.irreversible

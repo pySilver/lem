@@ -384,7 +384,7 @@ fi
 task_in "$LOCAL" local-tracked thirteen.txt thirteen
 read_in "$LOCAL" local-tracked
 tree=$(project --repo "$LOCAL" worktree-dir local-tracked)
-printf '%s\n' '[tools]' 'ask = "terminal"' > "$tree/.lem/project.local.toml"
+printf '%s\n' '[seats]' 'reviewer = "claude"' > "$tree/.lem/project.local.toml"
 git -C "$tree" add -f .lem/project.local.toml && git -C "$tree" commit -q -m "chore: my asker"
 local_land start local-tracked >/dev/null && local_land base local-tracked >/dev/null && polish_in "$LOCAL" local-tracked && local_land checks local-tracked >/dev/null
 local_floor=$(local_land read local-tracked | field '(d["floor"], d["why"])')
@@ -392,7 +392,7 @@ local_land read local-tracked --record "$(record 1 '{"kind": "full", "ran": [{"n
 local_land propose local-tracked --title "chore: my asker" --notes "$MIG" >/dev/null
 local_agent=$(local_land land local-tracked --by agent 2>&1 || true)
 project --repo "$LOCAL" state local-tracked dropped "the test is over" >/dev/null
-local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's seats, tools and corrections become every machine's"
+local_why="the change adds .lem/project.local.toml, one machine's own settings, which git does not track: tracked, that machine's seats, corrections, naps and limit of tasks become every machine's"
 if [ "$local_floor" = "('full', \"the request is careful: $local_why\")" ] && grep -qF "a careful request is merged by a person, whatever the settings say ($local_why)" <<<"$local_agent" \
   && grep -qxF -- "- careful: yes, $local_why; the review says no: $NOT_CAREFUL" "$LOCAL/.lem/state/tasks/local-tracked/pr.md"; then
   pass "a branch that commits the machine's own settings file is careful by the script: the full set, a line of the pull request that says the file is one machine's own, and a person's merge"

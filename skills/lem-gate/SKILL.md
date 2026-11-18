@@ -74,9 +74,7 @@ puts on PATH, with the spec in `lem-panel`'s `references/messages.md`.
 
 ### 4. Ask the user
 
-A project that uses Lem says how in its settings (`tools.ask`, which `lem project show` of the
-`lem` skill prints), and that value decides. With `lem-ask` there, or with no such setting: in
-agterm with the `lem-ask` skill, otherwise as plain text. Then log the answer:
+In agterm with the `lem-ask` skill, otherwise as plain text. Then log the answer:
 `lem gate-log answer --id ID --answer "<the user's choice and their words>"`.
 
 ### 5. Is the answer a durable ruling?

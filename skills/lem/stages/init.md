@@ -154,7 +154,6 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
   one family twice and a reviewer on another provider's quota does not spend the builders';
   otherwise a second Claude: `reviewer = "codex"` under `[seats]`. Its model and its effort, the
   defender's seat (`seats.planner`) and the experts (`seats.experts`) stay Lem's defaults;
-- `tools.annotate` and `tools.ask` keep Lem's defaults.
 
 Then the allow list, in the repository's tracked `.claude/settings.json` on the onboarding's branch:
 a builder and a lead run in the background, and in the `default` or `acceptEdits` mode each command
@@ -256,10 +255,10 @@ builder of its own, and how (the harness file, `spawn-builder`).
 **The assumptions**, each one line with its value, where it came from, and the words that change
 it: who lands (`owner`; "change land agent"), a pull request or a merge, what lands, the closed
 branches, the tracker, the reviewer and the defender with their models, and each command of the
-checks. Three more lines are always there. How Lem asks:
-"Lem asks with `lem-ask`" (`tools.ask`; "change ask NAME", a skill or a command of his own, or
-`terminal`), since a personal rule of his that names another asker would otherwise meet Lem's
-page turn by turn. The three models a task runs on: the builder on Opus at high effort
+checks. Three more lines are always there. How Lem asks: "Lem asks with its own page, `lem-ask`, and
+opens a text for you to mark up with webrev", with no word that changes it, since a personal
+rule of his that names another asker would otherwise meet Lem's page turn by turn and wonder
+which one holds. The three models a task runs on: the builder on Opus at high effort
 (`agents/lem-builder.md`; a project's own `lem-builder.md` in `.claude/agents/` replaces it), and
 the two experts, Fable through Claude Code and GPT-6 Astra through Codex (`seats.experts`; "change
 experts SEAT SEAT"), with a word when the machine check found no Codex: then the second expert and
@@ -277,8 +276,8 @@ standing word for the push, so that no task stops before its pull request to ask
 
 A list of file names is not a hand-over. Every generated file is a draft, and three are read
 first: what must never go wrong, the checks, the personas. Name each persona that is a thin guess, as the
-one the owner should correct first. Offer to open each in the annotate tool
-(`show-page`; `tools.annotate` in the settings), one after the other, and take the owner's notes
+one the owner should correct first. Offer to open each for him to mark up (`show-page`), one
+after the other, and take the owner's notes
 as corrections: edit, commit on the same branch, say for each file what changed.
 
 **The offers**, last, as one short list, never a question each; he takes one by its name:

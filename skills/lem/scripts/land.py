@@ -394,7 +394,7 @@ PLAN_CALL = re.compile(r"(?mi)^careful:\s*(yes|no)\b")
 # rarely edits it, and every table of it guards something for every later task (audit A1,
 # 2026-11-17: a branch that set `branch.land` to "agent" got one read and a green pull request).
 SETTINGS_FILE = ".lem/project.toml"
-# One machine's own settings (`[seats]`, `[tools]` and `[corrections]`), untracked by design and
+# One machine's own settings (`[seats]`, `[corrections]`, `[naps]` and `[flow]`), untracked by design and
 # read from the main checkout. A branch that commits it, or changes or removes a tracked copy, is
 # careful by this script too: a green request and an agent's merge would make one machine's choices
 # every machine's (audit N5, 2026-11-17: a branch that committed it with `git add -f` got both).
@@ -1189,7 +1189,7 @@ def in_commit(task: Task, commit: str, path: str) -> bool:
 
 def local_settings_edit(task: Task, now: dict) -> str | None:
     """Why the change is careful by a commit of one machine's own settings: `.lem/project.local.toml`
-    is untracked by design, and a tracked copy gives every machine that machine's seats, tools and corrections.
+    is untracked by design, and a tracked copy gives every machine that machine's seats, corrections, naps and limit of tasks.
     None when the change leaves the file alone."""
     if LOCAL_SETTINGS_FILE not in now["files"]:
         return None
@@ -1197,7 +1197,7 @@ def local_settings_edit(task: Task, now: dict) -> str | None:
     how = "adds" if after and not before else "removes" if before and not after else "changes"
     return (
         f"the change {how} {LOCAL_SETTINGS_FILE}, one machine's own settings, which git does not track: "
-        "tracked, that machine's seats, tools and corrections become every machine's"
+        "tracked, that machine's seats, corrections, naps and limit of tasks become every machine's"
     )
 
 

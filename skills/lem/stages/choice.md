@@ -16,7 +16,7 @@ the forge frees the queue and brings a pull request it made conflicting onto the
 (`stages/land.md`, step 9). A task that was dropped or landed while a choice waited is under `ended`, and
 its choices need no answer.
 
-1. **Ask him at once**, through `ask-owner`, which shows it as the settings' `tools.ask` says.
+1. **Ask him at once**, through `ask-owner`.
    Above the card, the run: the choice's `case` in its numbered steps, whether it was
    reproduced or derived (`case_was`), and its `cause` line. On the card's top the two experts'
    answers (`advice`: each one's pick, or that none fits, with its reasons) beside the personas'

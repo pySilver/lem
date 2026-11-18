@@ -30,8 +30,8 @@ these comes "The queue", the last section of that file:
     (`stages/plan.md`, step 3). Each choice the talk left open waits in `lem decisions pending`:
     ask it as `stages/choice.md` says. No record: the defender ended without its last step, so
     send it one message that says so, and close nothing.
-  - *The owner asked for the plan only*: show the owner the plan through the settings'
-    `tools.annotate`, and leave the task as it is until the owner says build or drop.
+  - *The owner asked for the plan only*: show the owner the plan to mark up
+    (`show-page`), and leave the task as it is until the owner says build or drop.
 - **`held`**: the task waits for the owner on what is no decision with options; a decision of
   his never holds a task, since it is asked and waits its time while the work goes on
   (`stages/choice.md`). The state's line says which of four it is:

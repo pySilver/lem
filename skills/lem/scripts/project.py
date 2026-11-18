@@ -118,11 +118,11 @@ type its kind maps to (bug and correction a fix, feature a feat, investigation a
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
-a plan talk runs, which tool marks up a plan and which one puts a question to the owner, a no to the correction queue for that one person, a no
+a plan talk runs, a no to the correction queue for that one person, a no
 to the naps, which spend that person's tokens, and how many tasks build or land at one time on that machine. It
 is not committed (`init` writes `.lem/.gitignore` for it), and it is read from the main checkout,
-because a task's worktree has no copy of a file git does not track. It may hold `[seats]` and
-`[tools]`, `[corrections]` with `collect = false`, `[naps]` with `on = false` and `[flow]` with
+because a task's worktree has no copy of a file git does not track. It may hold `[seats]`,
+`[corrections]` with `collect = false`, `[naps]` with `on = false` and `[flow]` with
 `max_tasks`, which is one machine's limit and no guard, and nothing else: the checks, what must
 never go wrong, the protected branches and who lands are the project's rules, and a file nobody reviews
 must not open them. For the same reason it can switch the correction queue and the naps off
@@ -237,15 +237,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lem_plans  # noqa: E402
 import lem_state  # noqa: E402
 
-# A role a developer may give to a tool of their own -> the tool Lem uses for it unless the
-# settings say otherwise. The one place that names each. `lem-ask` comes with Lem; `webrev` is a
-# recommended tool the developer installs (the machine check has its row and its guide).
-TOOLS = {"annotate": "webrev", "ask": "lem-ask"}
 SETTINGS = Path(".lem") / "project.toml"
 LOCAL = Path(".lem") / "project.local.toml"
 # the tables one machine may set for itself; of [flow] only max_tasks, of [naps] only `on = false`,
 # and of [corrections] only `collect = false`
-LOCAL_TABLES = ("seats", "tools", "corrections", "flow", "naps")
+LOCAL_TABLES = ("seats", "corrections", "flow", "naps")
 # What Lem reads beside its settings, each in one place with no setting (the owner's note of
 # 2026-11-18 on the plan, task 1b of docs/plans/2026-11-18-core-and-two-modes.md): Lem's own files,
 # the rules for the code in the folder Claude Code loads by itself, the review tool's folder, and the
@@ -371,7 +367,6 @@ TABLES: dict[str, tuple[str, ...]] = {
     "checks": ("commands", "setup", "alone"),
     "flow": ("topics", "max_tasks", "decision_wait"),
     "seats": ("reviewer", "planner", "experts"),
-    "tools": tuple(TOOLS),
     "corrections": ("collect",),
     "tracker": ("kind", "server", "workspace", "team", "moves", "started", "landed"),
     "naps": ("on",),
@@ -497,15 +492,6 @@ collect = false
 # moves = "lem"
 # started = "In Progress"
 # landed = "Done"
-
-[tools]
-# The skill or command the owner marks up a plan or a draft with. "{annotate}" is the one Lem
-# recommends, a recipe of the agterm cookbook that you install; name your own instead.
-annotate = "{annotate}"
-# How a question that asks the owner to choose or to approve reaches the owner. "{ask}" comes with
-# Lem and shows a page with the options side by side. "terminal" asks in the conversation, as a
-# numbered list. Or name a skill or a command of your own.
-ask = "{ask}"
 """
 # The naps' table, the last of the file.
 TEMPLATE += f"""
@@ -713,7 +699,9 @@ GONE_KEYS: dict[tuple[str, str], str] = {
     ("naps", "keep_days"): f"Lem keeps the folder of a nap {NAPS_KEEP_DAYS} days",
     ("naps", "gap_hours"): f"{NAPS_GAP_HOURS} hours pass between two naps",
 }
-GONE_TABLES: dict[str, str] = {}
+GONE_TABLES: dict[str, str] = {
+    "tools": "Lem asks the owner with its own page and opens a text for the owner to mark up with webrev",
+}
 
 
 def old_path_line(key: str, value: object) -> str:
@@ -986,16 +974,6 @@ def local_max_tasks(local: dict) -> int | None:
     return flow_of(local, LOCAL)["max_tasks"] if "max_tasks" in flow else None
 
 
-def tool_of(raw: dict, name: Path, role: str) -> str | None:
-    """The tool one file names for a role, checked; None when the file names none."""
-    if role not in raw.get("tools", {}):
-        return None
-    tool = raw["tools"][role]
-    if not isinstance(tool, str) or not tool.strip():
-        raise SettingsError(f'{name}: tools.{role} = {tool!r} must name a skill or a command in quotes, as in {role} = "{TOOLS[role]}"')
-    return tool
-
-
 def naps_of(raw: dict, name: Path) -> dict:
     """The `[naps]` table of one settings file, checked: its one key, `on`."""
     on = raw.get("naps", {}).get("on", False)
@@ -1087,13 +1065,6 @@ def load(root: Path) -> dict:
     protected =strings(branch.get("protected", []), "branch.protected")
     if base in protected:
         raise SettingsError(f"{SETTINGS}: branch.base = {base!r} is in branch.protected, so no task could land")
-    tools = {}
-    for role, own in TOOLS.items():
-        tools[role] = tool_of(raw, SETTINGS, role) or own
-        here = tool_of(local, LOCAL, role)
-        if here is not None:
-            tools[role] = here
-            overridden.append(f"tools.{role}")
 
     # A local seat replaces the project's whole: its model and effort belong to the project's agent.
     seats: dict = {}
@@ -1169,7 +1140,6 @@ def load(root: Path) -> dict:
         # read from the main checkout's settings, in a task's worktree too
         "flow": flow,
         "seats": seats,
-        "tools": tools,
         "corrections": {"collect": collect},
         "tracker": tracker,
         "naps": naps,
@@ -1265,7 +1235,7 @@ def cmd_init(root: Path, base: str | None, reviewer: str | None) -> None:
     agent = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex/gpt-6.1-sol:high"'
     file.write_text(TEMPLATE.format(
         plans=PATHS["plans"], plan_file=PLAN_FILE, base=base, reviewer=agent, experts=", ".join(toml_string(one) for one in EXPERTS),
-        max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, **TOOLS,
+        max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT,
     ), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
     # too, for a repository whose ignore file is older than it)
@@ -1283,8 +1253,6 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     local = read_settings(file, LOCAL, LOCAL_TABLES)
     # What the file already holds is checked before any of it is written again: a wrong value is
     # refused with its fix, and the file stays as the owner left it.
-    for role in TOOLS:
-        tool_of(local, LOCAL, role)
     local_off(local)
     local_naps_off(local)
     local_max_tasks(local)

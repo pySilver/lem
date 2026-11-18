@@ -23,7 +23,6 @@ Lem runs on macOS only, because agterm is a terminal for macOS.
 | [Codex](https://github.com/openai/codex) | optional | a reviewer of a second model family, the second expert, and half of each persona panel |
 | the Codex persona agent | optional | the second model family of a persona panel, in `~/.codex/agents/persona.toml` |
 | [cronn](https://cronn.umputun.dev) | optional | the scheduled retro and night plan |
-| [plannotator](https://github.com/backnotprop/plannotator) | optional | another tool to mark up a plan, if you name it in `tools.annotate` |
 | an [OpenRouter](https://openrouter.ai) key, `OPENROUTER_API_KEY` | optional | the Jev decision model, for the correction queue and the check of a question card |
 
 Lem does not include the recipes of the agterm cookbook. webrev, agdoc and the backlog recipe are

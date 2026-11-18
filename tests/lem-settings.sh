@@ -283,13 +283,14 @@ else
 fi
 settings '[branch]' 'base = "master"' 'protected = ["master"]'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a base branch that is also protected is refused as a contradiction"; else fail "protected base"; fi
-settings '[tools]' 'annotate = "my-own-rev"'
-if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('my-own-rev', 'lem-ask')" ]; then pass "a project names its own tool for marking up a plan, and questions keep Lem's page"; else fail "tools.annotate"; fi
-settings '[tools]' 'ask = "terminal"'
-if [ "$(project --repo "$OLD" show | field '(d["tools"]["annotate"], d["tools"]["ask"])')" = "('webrev', 'terminal')" ]; then pass "a project takes its questions in the terminal, or names its own tool for them"; else fail "tools.ask"; fi
-settings '[tools]' 'ask = ""'
+settings '[branch]' 'base = "master"' '[tools]' 'annotate = "my-own-rev"' 'ask = "terminal"'
 err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "tools.ask = '' must name a skill or a command in quotes, as in ask = \"lem-ask\"" <<<"$err"; then pass "an empty tool for questions is refused with the fix"; else fail "tools.ask empty: $err"; fi
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] \
+  && grep -qxF -- '- delete the [tools] table with its lines `annotate = "my-own-rev"` and `ask = "terminal"`: Lem asks the owner with its own page and opens a text for the owner to mark up with webrev' <<<"$err"; then
+  pass "a project file with [tools] is refused with the table to delete: Lem asks with its page and opens a text with webrev"
+else
+  fail "the [tools] table: $err"
+fi
 settings 'not toml ['
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a settings file that does not parse is refused"; else fail "parse error"; fi
 
@@ -470,7 +471,7 @@ else
   fail "hand-written state: $out"
 fi
 
-# This machine's own settings: read from the main checkout in a worktree too, only seats and tools.
+# This machine's own settings: read from the main checkout in a worktree too, only seats and the few keys one machine may set.
 settings '[branch]' 'base = "master"' '[seats]' 'reviewer = "codex/the-usual:high"'
 out=$(project --repo "$WORK/wt" reviewer claude/a-claude-model:high)
 if [ "$(field '(d["reviewer"], d["local"]["overrides"])' <<<"$out")" = "({'agent': 'claude', 'model': 'a-claude-model', 'effort': 'high', 'seat': 'claude/a-claude-model:high'}, ['seats.reviewer'])" ] \
@@ -481,11 +482,11 @@ else
   fail "reviewer override: $out"
 fi
 # A value the owner wrote by hand keeps every character through a rewrite: a rocket, a quote, a backslash.
-printf '%s\n' '[tools]' 'annotate = "/opt/my \"own\" rev-🚀\\x"' >> "$OLD/.lem/project.local.toml"
+printf '%s\n' 'planner = "claude/my\"own\"-🚀\\x:high"' >> "$OLD/.lem/project.local.toml"
 project --repo "$OLD" reviewer claude >/dev/null
 out=$(project --repo "$OLD" reviewer default)
-if [ "$(field '(d["reviewer"]["agent"], d["reviewer"]["model"], d["reviewer"]["effort"], d["local"]["overrides"])' <<<"$out")" = "('codex', 'the-usual', 'high', ['tools.annotate'])" ] \
-  && [ "$(project --repo "$OLD" show | field 'd["tools"]["annotate"]')" = '/opt/my "own" rev-🚀\x' ] && ! grep -q "seats" "$OLD/.lem/project.local.toml"; then
+if [ "$(field '(d["reviewer"]["agent"], d["reviewer"]["model"], d["reviewer"]["effort"], d["local"]["overrides"])' <<<"$out")" = "('codex', 'the-usual', 'high', ['seats.planner'])" ] \
+  && [ "$(project --repo "$OLD" show | field 'd["seats"]["planner"]["model"]')" = 'my"own"-🚀\x' ] && ! grep -q "^reviewer" "$OLD/.lem/project.local.toml"; then
   pass "reviewer default gives the project's reviewer back and keeps what else the machine set, character for character"
 else
   fail "reviewer default: $out / $(cat "$OLD/.lem/project.local.toml")"
@@ -501,32 +502,34 @@ else
   fail "the checks in the local file: $err / $old_err"
 fi
 printf '%s\n' '[tools]' 'ask = "my-asker"' > "$OLD/.lem/project.local.toml"
-if [ "$(project --repo "$OLD" show | field '(d["tools"]["ask"], d["tools"]["annotate"], d["local"]["overrides"])')" = "('my-asker', 'webrev', ['tools.ask'])" ]; then
-  pass "one machine names its own tool for questions, and show says that the value is the machine's"
+err=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.local.toml has settings of an older Lem that are gone. Delete these lines:" <<<"$err" \
+  && grep -qF -- '- delete the [tools] table with its lines `ask = "my-asker"`' <<<"$err" && ! grep -qF "Then commit the file" <<<"$err"; then
+  pass "the machine's own file with [tools] is refused with the table to delete, and no commit is asked of a file git does not track"
 else
-  fail "tools.ask in the local file: $(project --repo "$OLD" show 2>&1)"
+  fail "tools in the local file: $err"
 fi
 # One person may say no to the correction queue in the machine's own file, and never yes.
-printf '%s\n' '[corrections]' 'collect = false' '[tools]' 'ask = "my-asker"' > "$OLD/.lem/project.local.toml"
+printf '%s\n' '[corrections]' 'collect = false' '[flow]' 'max_tasks = 3' > "$OLD/.lem/project.local.toml"
 off=$(project --repo "$OLD" show | field '(d["corrections"]["collect"], d["local"]["overrides"])')
 project --repo "$OLD" reviewer claude >/dev/null && project --repo "$OLD" reviewer default >/dev/null
 kept=$(grep -c '^collect = false$' "$OLD/.lem/project.local.toml")
 printf '%s\n' '[corrections]' 'collect = true' > "$OLD/.lem/project.local.toml"
 err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$off" = "(False, ['tools.ask'])" ] && [ "$kept" = 1 ] && [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] \
+if [ "$off" = "(False, ['flow.max_tasks'])" ] && [ "$kept" = 1 ] && [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] \
   && grep -q "It may say .collect = false." <<<"$err" && grep -q "only .lem/project.toml, which everybody reads in git, switches the queue on" <<<"$err"; then
   pass "the machine's own file may say no to the correction queue and keeps that line through a rewrite; a yes there is refused with the reason"
 else
   fail "corrections in the local file: $off / $kept / $err"
 fi
-printf '%s\n' '[tools]' 'annotate = 42' > "$OLD/.lem/project.local.toml"
+printf '%s\n' '[seats]' 'planner = 42' > "$OLD/.lem/project.local.toml"
 err=$(project --repo "$OLD" reviewer claude 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer default)" = 1 ] \
-  && grep -q "project.py: .lem/project.local.toml: tools.annotate = 42 must name" <<<"$err" && ! grep -q Traceback <<<"$err" \
-  && [ "$(cat "$OLD/.lem/project.local.toml")" = "$(printf '%s\n' '[tools]' 'annotate = 42')" ]; then
+  && grep -q "project.py: .lem/project.local.toml: seats.planner = 42 must be" <<<"$err" && ! grep -q Traceback <<<"$err" \
+  && [ "$(cat "$OLD/.lem/project.local.toml")" = "$(printf '%s\n' '[seats]' 'planner = 42')" ]; then
   pass "a wrong value already in the machine's own file is refused with its fix, and the file is left as it was"
 else
-  fail "a number as the local annotate tool: $err"
+  fail "a number as the local defender's seat: $err"
 fi
 printf '%s\n' '[seats.reviewer]' 'agent = "codex"' > "$OLD/.lem/project.local.toml"
 old_local=$(project --repo "$OLD" reviewer default 2>&1 || true)

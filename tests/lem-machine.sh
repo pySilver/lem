@@ -170,9 +170,8 @@ else
 fi
 out=$(doctor)
 if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(field '[t["name"] for t in d["tools"] if "jev" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
-  && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ] && [ "$(row codex found <<<"$out")" = "False" ] \
+  && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "plannotator"]' <<<"$out")" = "[]" ] && [ "$(row codex found <<<"$out")" = "False" ] \
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
-  && [ "$(row plannotator without_it <<<"$out" | grep -c 'webrev is the default')" = 1 ] \
   && [ "$(field '[(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["need"] == "recommended"]' <<<"$out")" \
     = "[('plannotator-tui', False, 'annotate-in-plannotator-tui')]" ] \
   && [ ! -e "$PWD/skills/lem-webrev" ]; then
@@ -207,9 +206,8 @@ CORR=$PWD/skills/lem/scripts/corrections.py
 CQ=$WORK/corr
 git init -q -b main "$CQ" && commit "$CQ" start
 project --repo "$CQ" init --base main >/dev/null
-if grep -q '^annotate = "webrev"$' "$CQ/.lem/project.toml" && grep -q '^ask = "lem-ask"$' "$CQ/.lem/project.toml" \
-  && [ "$(project --repo "$CQ" show | field 'd["tools"]')" = "{'annotate': 'webrev', 'ask': 'lem-ask'}" ]; then
-  pass "a new settings file names the recommended tool for marking up and Lem's own page for questions"
+if ! grep -qE '^\[tools\]|^(annotate|ask) = ' "$CQ/.lem/project.toml" && [ "$(project --repo "$CQ" show | field '"tools" in d')" = False ]; then
+  pass "a new settings file has no [tools]: Lem asks with its own page and opens a text with webrev"
 else
   fail "the tools of a new settings file: $(grep -n -A8 '^\[tools\]' "$CQ/.lem/project.toml")"
 fi

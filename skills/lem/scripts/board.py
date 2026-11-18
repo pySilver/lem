@@ -8,8 +8,7 @@
 
 The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`,
 which `project.py` appends to, and `meta.js`, which this script writes (the repository's name,
-the base branch, the session that opened the board, the settings' `tools.ask`, how Lem puts a
-question to the owner, so the page says where the owner answers, and how many commands one run of
+the base branch, the session that opened the board, and how many commands one run of
 the checks has, so the page knows when a run is complete; the key keeps its older name, `gates`). A file:// page cannot read a file with
 fetch and it can load a script, so each of them is one.
 
@@ -175,13 +174,12 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
             known = ", ".join(task["slug"] for task in json.loads(project(repo, "tasks"))) or "none yet"
             raise BoardError(f"no task {slug!r}; the tasks are: {known}")
     # The main checkout names the repository; a worktree's folder is named after its task.
-    # `ask` is how Lem puts a question to the owner (`tools.ask`), so the page says where he answers;
     # `gates` is how many commands one run of the checks has, so the page knows when a run is complete
     # (the key keeps the step's older name, which a board page already open reads); `alone` how many
     # of them are `checks.alone`, which do not run after a red command.
     meta = {
         "repo": Path(settings["main"]).name, "base": settings["branch"]["base"], "session": session,
-        "ask": settings["tools"]["ask"], "gates": len(settings["checks"]["commands"]) + len(settings["checks"]["alone"]),
+        "gates": len(settings["checks"]["commands"]) + len(settings["checks"]["alone"]),
         # the commands of `checks.alone`, which run last and only when the others passed
         "alone": len(settings["checks"]["alone"]),
     }

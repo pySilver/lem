@@ -474,8 +474,6 @@ def main() -> None:
         # The recommended tool: Lem installs it only on the developer's yes.
         {**tool("plannotator-tui", "recommended", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",
                 "no stage needs it", "plannotator-tui", ["--version"]), "guide": COOKBOOK + "annotate-in-plannotator-tui"},
-        tool("plannotator", "optional", "another way to mark up a plan or a draft, for an owner who names it in tools.annotate",
-             "nothing is lost: webrev is the default of tools.annotate", "plannotator", ["--version"]),
         {
             "name": "OpenRouter key", "need": "optional", "found": bool(os.environ.get("OPENROUTER_API_KEY")), "detail": None,
             "used_for": "the Jev decision model, which the correction queue and a card's framing check ask",

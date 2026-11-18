@@ -27,10 +27,10 @@ and its agents.
 ## Rules and CLAUDE.md
 
 Your `CLAUDE.md` and your personal rules also apply inside Lem. Where they disagree with Lem, the
-agent decides, and the result can change from turn to turn. To make it certain, write
-what you want in one of three places: `tools.ask` for the tool that asks you questions,
-`.lem/lessons.md` for a stage of Lem (a line that starts with the name of the stage), and the
-`AGENTS.md` of the project for all other rules.
+agent decides, and the result can change from turn to turn. To make it certain, write what you
+want in one of two places: `.lem/lessons.md` for a stage of Lem (a line that starts with the name
+of the stage), and the `AGENTS.md` of the project for all other rules. Lem always asks you with
+its own page, and it opens a text for you to mark up with webrev.
 
 ## Commit messages
 

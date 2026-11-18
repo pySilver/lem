@@ -79,18 +79,12 @@ Do not load a skill whose instructions are already in context.
 
 ## ask-owner
 
-What the settings' `tools.ask` names (`lem project show`), for every question that asks the owner
-to choose or to approve:
-
-- `lem-ask`, unless the settings say otherwise: Lem's own page, each option with what the
-  owner would see and what it costs. Lem opens the page each time it asks; the owner types nothing for it. It
-  is a part of Lem, not a tool of the machine: the machine check has no row for it, and no page
-  for the owner lists it as one. The plugin puts its `lem-ask` command on the Bash tool's `PATH`.
-- `terminal`: the question in the conversation, as a numbered list with the recommended option
-  first.
-- any other name, the developer's own asker: a skill of that name when the session lists one,
-  otherwise a command of that name, given the path of a markdown file that holds the question.
-  What it prints is the answer.
+`lem-ask`, Lem's own page, for every question that asks the owner to choose or to approve: each
+option with what the owner would see and what it costs. Lem opens the page each time it asks; the
+owner types nothing for it. It is a part of Lem, not a tool of the machine: the machine check has
+no row for it, and no page for the owner lists it as one. The plugin puts its `lem-ask` command on
+the Bash tool's `PATH`. Outside agterm it exits 3 and opens nothing; then ask in the conversation,
+as a numbered list with the recommended option first.
 
 The question itself has one form whatever shows it: one concrete case, the options with what the
 owner would see for each, the recommended one with its reason, and the shortest way to answer.
@@ -386,15 +380,11 @@ where `DIR` is the absolute path of the folder that holds `FILE`). The `--cwd` i
 page read the `lem.css` beside it: agterm's help says of `--cwd` with `--html` "grants read
 access inside this directory; relative links resolve beside FILE. Without --cwd, the page has no
 file access."
-A document the owner should mark up (a plan, a draft profile) goes through the settings'
-`tools.annotate`: a skill of that name when the session lists one, otherwise a command of that
-name given the file's path. The
-default is `webrev`, the tool Lem recommends and does not bring: a recipe of the agterm cookbook
-that the developer installs (the machine check's `webrev skill` row has its guide). An owner who
-prefers another tool, plannotator for one, names it in the settings.
-When the session has no skill and no command of the name the settings give, say so once, with
-that name and, for `webrev`, the guide to install it by; then give the owner the file's path to
-read as it is, and take the notes in the conversation. Do not install it unasked.
+A document the owner should mark up (a plan, a draft profile) opens with the `webrev` skill,
+given the file's path: a recipe of the agterm cookbook that Lem needs and does not bring (the
+machine check's `webrev skill` row is required and has its guide). When the session has no such
+skill, say so once, with the guide to install it by; then give the owner the file's path to read
+as it is, and take the notes in the conversation. Do not install it unasked.
 
 ## start-nap
 

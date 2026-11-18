@@ -1402,27 +1402,16 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
   else
     fail "the phases at 1300 px: $why"
   fi
-  # The project's own asker: the page says where the owner answers, by the settings' tools.ask: on the
-  # large card of the board, and on the task's own board.
-  printf '%s\n' '[tools]' 'ask = "terminal"' > "$R/.lem/project.local.toml"
-  board --no-open >/dev/null && draw board && draw task-criteria-wait
-  cp "$WORK/board.dom" "$WORK/board-terminal.dom" && cp "$WORK/task-criteria-wait.dom" "$WORK/criteria-terminal.dom"
-  printf '%s\n' '[tools]' 'ask = "my-asker"' > "$R/.lem/project.local.toml"
-  board --no-open >/dev/null && draw task-held-choice && draw task-criteria-wait
-  rm "$R/.lem/project.local.toml"
-  board --no-open >/dev/null && draw board
+  # Where the owner answers: Lem's own page in its session, on the large card of the board and on the task's own board.
+  draw task-held-choice && draw task-criteria-wait
   # shellcheck disable=SC1112  # the curly quote is the page's
-  if why=$("$PY" -I -B -c "$ROWS" "$WORK/board-terminal.dom" now \
-      "Gift note export|Where you answer: Lem asks you choice 7 in its session, as text in the conversation. Answer it there before its wait ends; then the build goes on with the recommended action.") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/criteria-terminal.dom" now \
-      "Where you answer: Lem shows you the acceptance criteria, with the personas’ read on top, in its session, as text in the conversation. Approve or change them there.") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-held-choice.dom" now \
-      "Where you answer: Lem asks you choice 1 with my-asker, the asker this project names. Answer it there: it waits for your word, with no end.") \
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-held-choice.dom" now \
+      "Where you answer: Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, with no end.") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-criteria-wait.dom" now \
-      "Where you answer: Lem shows you the acceptance criteria, with the personas’ read on top, with my-asker, the asker this project names. Approve or change them there."); then
-    pass "where the owner answers follows the project's tools.ask: Lem's page, the conversation, or the developer's own asker by its name"
+      "Where you answer: Lem shows you the acceptance criteria, with the personas’ read on top, as a page in its session. Approve or change them there."); then
+    pass "where the owner answers is Lem's own page in its session, on the board of a task with a choice and of one whose criteria wait"
   else
-    fail "the project's asker: $why"
+    fail "where the owner answers: $why"
   fi
 
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.
