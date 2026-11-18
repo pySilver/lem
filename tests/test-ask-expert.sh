@@ -342,7 +342,7 @@ else
 fi
 # who the experts are: the settings' seats.experts, which experts.py reads through project.py show, the project's and
 # this machine's own; a choice of a task names each by its place in the record, whatever model sits there
-seats_in() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^# experts = .*$", "experts = " + sys.argv[2], s, count=1))' "$EX/.lem/project.toml" "$1"; }
+seats_in() { "$PY" -I -c 'import re, sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(re.sub(r"(?m)^experts = .*$", "experts = " + sys.argv[2], s, count=1))' "$EX/.lem/project.toml" "$1"; }
 # Lem reads the settings as the base branch's commit has them, so an edit counts once it is committed
 settings_committed() { git -C "$EX" add .lem/project.toml && git -C "$EX" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "chore: the settings" -- .lem/project.toml; }
 cp "$EX/.lem/project.toml" "$WORK/project.toml"

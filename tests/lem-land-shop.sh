@@ -12,7 +12,7 @@ SHOP=$WORK/shop
 git init -q --bare -b main "$ORIGIN"
 git clone -q "$ORIGIN" "$SHOP" 2>/dev/null
 ident "$SHOP"
-project --repo "$SHOP" init --base main --reviewer codex >/dev/null
+project --repo "$SHOP" init --base main >/dev/null
 # shop_settings LAND HISTORY: the settings, an edit of the owner's in the main checkout; shop_lines LINE...: any other settings so
 shop_lines() { printf '%s\n' "$@" > "$SHOP/.lem/project.toml"; }
 shop_settings() {
@@ -186,7 +186,7 @@ fi
 # An answered task loses its worktree as a dropped one does, and its branch stays: it may hold the test that reproduced the bug.
 AC=$WORK/answered-clean
 git init -q -b main "$AC" && git -C "$AC" config user.name t && git -C "$AC" config user.email t@t
-project --repo "$AC" init --base main --reviewer codex >/dev/null
+project --repo "$AC" init --base main >/dev/null
 git -C "$AC" add -A && git -C "$AC" commit -q -m "chore: start"
 acd=$(project --repo "$AC" task-dir refund-shows-zero --ask "invoices show 0 after a refund")
 act=$(project --repo "$AC" worktree-dir refund-shows-zero)

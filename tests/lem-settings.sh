@@ -737,7 +737,7 @@ ODD="$WORK/odd
 name"
 git init -q -b main "$ODD"
 commit "$ODD" start
-project --repo "$ODD" init --base main --reviewer codex >/dev/null
+project --repo "$ODD" init --base main >/dev/null
 project --repo "$ODD" reviewer claude >/dev/null
 git -C "$ODD" worktree add -q "$WORK/odd-wt" -b feat/odd
 if [ "$(project --repo "$WORK/odd-wt" show | field '(d["seats"]["reviewer"]["agent"], d["main"] == d["local"]["file"][:len(d["main"])], "\n" in d["main"])')" = "('claude', True, True)" ]; then
