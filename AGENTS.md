@@ -932,14 +932,15 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   its dream is read: a brief that makes a report of it is wrong); `skills/lem/stages/nap.md` starts
   one; `project.py may-nap` says whether one may; no page shows them, and the retro reads their
   waking notes. `tests/lem-naps.sh` is their block.
-- `docs/`: the reference pages the README links, each in STE like the README and each with one
-  job: `flow.md` (how one task goes, for each size, with the plan talk and the diagrams),
-  `settings.md` (every setting with its default, one to one with `project.py`), `inside.md` (the
-  two levels, the agents and their briefs, a task's files, the event log, the board),
-  `install.md` (what Lem needs, each form of install, what Lem writes and how to remove it) and
-  `examples.md` (the real runs with their dates, and illustrations). Beside them `free-hour.md`
-  (how an unattended session may change Lem), `linear.md` (how a project connects Linear),
-  `compatibility.md` (where a developer's own skills, hooks, rules, permissions and models meet Lem),
+- `docs/`: the guides the README links, each in STE like the README, each with one job and under
+  800 words: `flow.md` (how a task goes, for each size, with the one diagram),
+  `when-lem-needs-you.md` (the three points, what waits, the board, the ladder, "go alone"),
+  `pull-request.md` (what green means, the merge, a conflict, a drop), `install.md` (what Lem
+  needs, the install and the setup, what Lem keeps in a repository, the update, the removal) and
+  `linear.md` (how a project connects Linear; `skills/lem-linear` points to it); and
+  `settings.md`, the reference: one table for each table of the settings, one to one with
+  `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
+  skill, not in `docs/`. Beside them `free-hour.md` (how an unattended session may change Lem),
   `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem: each finished one
   opens with a status line that names its commits and where later decisions changed it.
 - `.lem/`: Lem's own settings, profile, cast and lessons, from its onboarding, which `/lem` reads
@@ -964,9 +965,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
 - `assets/screens/`: the pictures of the board, for a light and a dark theme, at two device
   pixels for each pixel. `board-*`, `task-*` and `backlog-*` are renders of
   `skills/lem/assets/board.html` over the data of `board.py --demo`; the README shows `board-*`,
-  and `docs/inside.md` shows `task-*` and `backlog-*`.
-  `real-task-*` is the board of the first task that ran through Lem (2026-11-15), over its real
-  event log, and only `docs/examples.md` shows it, with its date.
+  `docs/when-lem-needs-you.md` shows `task-*`, and no page shows `backlog-*`.
 - `skills/lem-ask/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`, `skills/lem-root-cause/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-ask-expert/`: the
   skills Lem names and ships. `lem-ask-expert` is Lem's own, written under the rules above, with
