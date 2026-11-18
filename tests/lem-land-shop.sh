@@ -20,9 +20,9 @@ shop_settings() {
     '[checks]' 'commands = ["test -f ok.txt", "echo 7 passed"]' 'ignores = ["docs/*"]'
 }
 shop_settings owner keep
-mkdir -p "$SHOP/docs" "$SHOP/.lem/styleguide" && echo guide > "$SHOP/docs/guide.md" && echo one > "$SHOP/app.txt"
-printf '%s\n' '---' 'paths:' '  - "tests/**"' '---' 'A test names what it checks.' > "$SHOP/.lem/styleguide/tests.md"
-printf '%s\n' '---' 'paths:' '  - "billing/**"' '---' 'Money is an integer.' > "$SHOP/.lem/styleguide/money.md"
+mkdir -p "$SHOP/docs" "$SHOP/.claude/rules" && echo guide > "$SHOP/docs/guide.md" && echo one > "$SHOP/app.txt"
+printf '%s\n' '---' 'paths:' '  - "tests/**"' '---' 'A test names what it checks.' > "$SHOP/.claude/rules/tests.md"
+printf '%s\n' '---' 'paths:' '  - "billing/**"' '---' 'Money is an integer.' > "$SHOP/.claude/rules/money.md"
 git -C "$SHOP" add -A && git -C "$SHOP" commit -q -m "chore: start" && git -C "$SHOP" push -q origin main
 # open_task SLUG FILE TEXT: a full change of the shop, with the lead's read of its criteria
 open_task() { task_in "$SHOP" "$@" && read_in "$SHOP" "$1"; }
@@ -78,8 +78,8 @@ err=$(land --repo "$SHOP" propose first-change --title "fix: the file is there" 
 out=$(land --repo "$SHOP" read first-change)
 base=$(git -C "$SHOP" rev-parse origin/main)
 if grep -q "a review is due before anything is proposed, one read at the least" <<<"$err" && [ "$(status first-change)" = landing ] \
-  && [ "$(field '(d["due"], d["floor"], d["round"], d["in_parts"], sorted(d["inputs"]), d["inputs"]["range"], [r.split("/.lem/")[-1] for r in d["inputs"]["rules"]], d["inputs"]["filed"])' <<<"$out")" \
-  = "('review', 'read', 1, False, ['bar', 'filed', 'plan', 'range', 'review', 'rules', 'topics', 'words', 'worktree'], '$base..$tip', ['styleguide/tests.md'], [])" ] \
+  && [ "$(field '(d["due"], d["floor"], d["round"], d["in_parts"], sorted(d["inputs"]), d["inputs"]["range"], [r.split("/.claude/")[-1] for r in d["inputs"]["rules"]], d["inputs"]["filed"])' <<<"$out")" \
+  = "('review', 'read', 1, False, ['bar', 'filed', 'plan', 'range', 'review', 'rules', 'topics', 'words', 'worktree'], '$base..$tip', ['rules/tests.md'], [])" ] \
   && [ "$(cat "$(field 'd["inputs"]["words"]' <<<"$out")")" = "Put yes into ok.txt." ] && [ -f "$(field 'd["inputs"]["plan"]' <<<"$out")" ] \
   && [ "$(field 'd["inputs"]["review"]' <<<"$out")" = "$SHOP/.revmux" ]; then
   pass "nothing is proposed before its review; for a request that is not careful the floor is one read, and a reviewer gets the owner's words, the plan, the range, the rule files of the changed files, the project's topics and the folder of the review tool"

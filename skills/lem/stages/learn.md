@@ -23,7 +23,7 @@ it:
      it, an edit there is live in all of them at once with no review, and a plugin's next update
      drops it. Your report says that the line is a lesson about Lem itself, so the owner can
      bring it to whoever maintains Lem;
-   - how code is written here: the style guide file whose scope covers it
+   - how code is written here: the rule file of `.claude/rules` whose scope covers it
      (`lem project path rules`);
    - what a person of the project wants or notices: that persona's file
      (`lem project path personas`);
@@ -64,13 +64,13 @@ for what came back:
 - a correction the owner gave more than once: the record it had did not reach the step; move it
   with step 2 above, and put the move to the owner;
 - a decision the owner overturned: the rule that would have decided it right, as a ruling or a
-  style guide line;
+  rule line;
 - a task the owner made careful after its lead called it plain, a `careful.missed` event, or a
   defect a review found in a plain task. First find which it was. A topic named it, and the lead
   read the plan wrong: the lesson is about that judgment, and it may be sharper words for the
   topic. No topic named it: propose one sentence for `flow.topics` to the owner, as a move; the
   settings change on his yes only;
-- a review finding that repeats across items: a style guide line or a check, so the builder meets
+- a review finding that repeats across items: a rule line or a check, so the builder meets
   it before the review does;
 - a check or a step of this skill that cost time and changed nothing: propose to remove
   it, with the turns that show the cost.

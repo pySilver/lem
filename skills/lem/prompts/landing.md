@@ -45,7 +45,7 @@ it touches, and look for these in the lines the change wrote or that sit next to
 4. **A document the change made false.** List what the change renamed, moved or removed
    (symbols, paths, commands, settings) and what it changed of a behavior a document describes.
    Search the repository's durable documents for each (the guides, the README, the agent
-   document, the style guide) and correct every sentence the change made false. When the plan
+   document, the rules in `.claude/rules`) and correct every sentence the change made false. When the plan
    has a documentation task, check that it missed none.
 5. **The defects outside the task** that `report.md` lists and that `outside.md` names. One that
    is cheap and small, and changes no behavior that a criterion or a test of the task holds, you fix

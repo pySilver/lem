@@ -6,7 +6,7 @@ is the directory above this file's. This file and your standing rules are all yo
 1. **Read the criterion** in `criteria.md` in the task directory, and the ask in `task.md`. When
    `investigation.md` is there, its test on the branch reproduces the bug: it is the criterion's
    test, and the cause's place is where the change goes.
-2. **Make the change**, after the style guide files `lem project --repo
+2. **Make the change**, after the rule files `lem project --repo
    WORKTREE rules FILE ...` prints for your files, and the lessons (`lem project path lessons`).
 3. **Hold the criterion.** A change of behavior gets a test that fails on the base and passes with
    the change. A change that keeps behavior (a rename, a version bump, a refactor, a sentence of a

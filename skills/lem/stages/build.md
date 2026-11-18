@@ -25,7 +25,7 @@ you the start of one, write the state `blocked` with that refusal, and stop.
      writes at least one test for each, one that fails without its change, except for a criterion
      whose change keeps behavior (a rename, a bump, a refactor), which the whole suite holds at
      the checks;
-   - the style guide files that cover the files it will touch, as `lem project rules FILE ...`
+   - the rule files that cover the files it will touch, as `lem project rules FILE ...`
      prints them for the files the plan names for the task, and the project's lessons;
    - the report file, `reports/NN-<task>.md` in the task directory;
    - the tests it runs: those of the files it changes and of their direct callers, and never the

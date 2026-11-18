@@ -12,7 +12,7 @@ beside it.
 1. **Reproduce it on the base.** The worktree's branch starts at the base branch, so what you run
    there is the base. Write a test that fails because of the bug, in the project's own test
    layout and style (`AGENTS.md`, and `lem project --repo WORKTREE
-   rules FILE` for the style guide files that cover it), and run it: it fails now, and it would
+   rules FILE` for the rule files that cover it), and run it: it fails now, and it would
    pass once the bug is fixed. Commit it on the task's branch, alone, as `test(scope): ...`; it can
    become the test of the task's acceptance criterion. When no test can show the bug (it needs a
    service the project has no stand-in for, or a person's eye), reproduce it another way, write down

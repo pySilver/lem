@@ -1,14 +1,15 @@
 ---
 name: lem
-description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: style guide, personas, review configuration, lessons, checks, what must never go wrong), and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
+description: "Lem coordinates the work of coding agents in one repository: `/lem new`, `plan`, `build`, `land`, `night`, `status`, `reviewer`, `learn`, `retro` and `init`, or `/lem` followed by an ask in plain words. One Lem per repository takes the asks, gives each full change to a lead and each small change to one builder, each in a context of its own, and takes one branch at a time through the machine checks and a review to a pull request that says green or not green. It reads the repository's own settings (`.lem/project.toml`: checks, what must never go wrong, who lands) and its personas, lessons, rulings and rules, and gives a change that reaches what must never go wrong the full review and a person's merge. Use when the user says \"lem\", \"/lem\", \"lem new\", \"lem status\", \"lem land\", \"lem night\", \"lem init\", \"lem retro\", \"ask Lem\" or \"tell Lem\"."
 ---
 
 # Lem
 
 One command carries a unit of work from the ask to a pull request that says whether it is green,
 the same way in every repository. What differs between repositories is in the repository: its settings file names
-the style guide, the personas, the review configuration, the lessons, the machine checks of a
-landing and what must never go wrong. This skill holds the flow and knows no project.
+the machine checks of a landing and what must never go wrong, and beside it are the personas, the
+lessons, the rulings and the review configuration, each in its one place, and the rules for the
+code in `.claude/rules`. This skill holds the flow and knows no project.
 
 The owner is a developer whose attention is short, and the size of a change decides its path.
 A small change is one plain change: one acceptance criterion in his own sentence, nothing careful

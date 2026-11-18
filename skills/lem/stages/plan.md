@@ -93,7 +93,7 @@ forge calls it conflicting.
      a plan of more than three is large, gets a plan talk before any code (step 4) and a review
      round at the least, and a plan with no such list is refused there;
    - the documentation task, last, when the change makes a document false: a guide, the README,
-     the agent document, the style guide, a page of help. Write it like any other task, with the
+     the agent document, the rules in `.claude/rules`, a page of help. Write it like any other task, with the
      documents it corrects by path and what in each one the change makes false; it serves no
      criterion unless a criterion is about a document. The landing's polish pass checks that no
      document the change made false was missed; it is the check, not the place where documents are
@@ -104,9 +104,9 @@ forge calls it conflicting.
      or deleted test, fewer assertions in a test): one line for each such file, `- PATH: REASON`.
      The landing refuses a lowered bar with no reason, and with one the pull request is not
      green: the owner reads that line himself. So lower it only where the mark is right.
-   Before writing, read the style guide files that cover the files the plan touches and the
+   Before writing, read the rule files that cover the files the plan touches and the
    project's lessons (`lem project path lessons`). `lem project rules
-   FILE ...` prints those style guide files, the ones with no scope of their own too: do not
+   FILE ...` prints those rule files, the ones with no scope of their own too: do not
    match a file's `paths:` by eye.
    When the branch already holds a plan (a night draft, a builder that stopped at the plan), do
    not write another: read it against the code as it is now, and commit a fix for what the code

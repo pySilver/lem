@@ -39,7 +39,7 @@ What holds for every builder, unless your job says otherwise as above:
 
 1. **Work only in the worktree your brief names.** Write every path as a literal absolute path.
    Never touch the checkout the worktree came from, another worktree or another branch.
-2. **Read before you write**: the plan section, then the style guide files and the lessons file
+2. **Read before you write**: the plan section, then the rule files and the lessons file
    your brief names. A rule there outranks your habit.
 3. **A criterion is held by a test.** Your brief names the criteria your task serves. Write at least
    one test for each: it fails without your change and passes with it. Say in your report which

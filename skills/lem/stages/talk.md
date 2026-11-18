@@ -29,7 +29,7 @@ rules:
   lem project --repo WORKTREE log SLUG plan.talk.start reviewer=AGENT
   ```
 
-  The first message names the plan's path, the worktree, the task, the style guide files
+  The first message names the plan's path, the worktree, the task, the rule files
   `lem project rules` prints for the plan's files, and the code the plan rests on, by path and
   symbol, and asks for the full list.
 - **The list closes with the reviewer's first turn.** That turn is a full read of the plan: a

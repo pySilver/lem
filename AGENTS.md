@@ -918,7 +918,6 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   one permission rule, `Bash(lem *)`, covers them on every machine and after every update.
 - `agents/lem-builder.md`: the builder, as a Claude Code agent definition. Its body is the
   builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
-- `skills/lem/references/`: the catalog of published style guides.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
   `assets/lem-night.svg` and `assets/lem-mark-night.svg` are the same drawings in the night
   palette, written by `assets/night.py`; the README shows the night one in a dark theme.

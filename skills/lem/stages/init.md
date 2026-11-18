@@ -215,23 +215,13 @@ persona file that is there is overwritten.
   he only nodded) says so in its first line, as the template shows, and its line in the
   `README.md` says it too: a thin persona answers every question the same way, and only the
   owner can make it a person.
-- **The style guide**: first offer the published guides `references/styleguides.md` lists for the
-  project's stack; one the owner picks enters as a linter configuration in the checks and a page of
-  differences, as that file says. Then one file per area of the code. Its frontmatter names the
-  paths it covers in the one form `lem project rules` reads, `paths:` with a list of globs, and a
-  file without that covers every path; each rule has its reason and the file it was read from. Write only conventions `examined.md` shows the code
-  already keeps, and say at the top of each file that it is a draft read from the code. A rule
-  nobody has yet needed is not written: the style guide grows when a review finding or a
-  correction repeats (`stages/learn.md`). A new project gets the copy the owner took from the
-  offers of step 6, or no style guide yet.
-  A draft never cites a file of this skill by the path you read it from. That path is one
-  install's copy and does not exist in the next checkout. Name what the owner can use instead:
-  `/lem learn`, "the published guides Lem lists for this stack". The first onboarding wrote
-  `.claude/skills/lem/stages/learn.md` into a style guide (2026-11-15).
-- **A paragraph for the project's agent document**, as a proposal: where the rules are, that a
-  file's `paths:` says which files it covers and a file without it covers all, and that an agent
-  reads the ones that cover what it changes. With it an agent that runs without Lem finds the
-  rules; with Lem, the picker hands them over. Show the paragraph on the hand-over page and put
+- **No rules for the code.** They are the harness's, in `.claude/rules`, which Claude Code loads by
+  itself: Lem writes none and offers none, and only names the files that cover a change to the
+  agents that load nothing by themselves (`lem project rules`).
+- **A paragraph for the project's agent document**, as a proposal: that the rules are in
+  `.claude/rules`, that a file's `paths:` says which files it covers and a file without it covers
+  all, and that an agent reads the ones that cover what it changes. With it an agent that runs
+  without Lem finds the rules; with Lem, the picker hands them over. Show the paragraph on the hand-over page and put
   it into the agent document, on the onboarding's branch, only on the owner's yes.
 - **The checks of a new project** do not exist yet. Leave `checks.commands` empty and name "set up
   the checks" (formatter, linter, type checker, a first test) as the task to run first: no task
@@ -314,8 +304,6 @@ as corrections: edit, commit on the same branch, say for each file what changed.
   only on his yes, and the harness file says which steps he has to run himself;
 - **the scheduled jobs** of step 7, when cronn runs;
 - **a paragraph for the project's agent document** (step 5);
-- **a starting style guide** for a new project, copied from another of his repositories that
-  uses the same stack, marked as copied and from where.
 - **naps**: now and then, after a task ends, a fresh agent reads the recent tasks, dreams, and
   writes the dream down for the retro (`stages/nap.md`). What it
   costs: an agent's session of some minutes, a few times a day while Lem works. Nobody has shown

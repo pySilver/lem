@@ -18,7 +18,7 @@ file are settings. A project that keeps one of them in another place moves it th
                                     who reviews on this machine, until `reviewer default`
     lem project reviewer default    the project's own reviewer again
     lem project rules [FILE ...] [--range BASE..TIP]
-                                    the style guide files that cover these files, as JSON
+                                    the rule files of .claude/rules that cover these files, as JSON
     lem project task-dir SLUG [--ask TEXT] [--ticket ID] [--branch NAME]
                                     make and print one task's state directory; keep the owner's words
                                     and the ticket the ask came from. At a task's opening it refuses
@@ -130,13 +130,14 @@ for its person and never on: nobody's messages are sent, and nobody's tokens spe
 file that git does not show. `show` names each setting that
 came from it.
 
-The style guide is a folder of markdown files, in an adopted project the one an agent already
-loads by itself (`.claude/rules`), which Lem reads and never moves; when `.lem/styleguide` holds
-rules beside it, `rules` reads both folders, and `folders` in its answer names them. A file scopes itself to paths
-in its frontmatter, in Claude Code's form (`paths:` with a list of globs), and a file without
-that covers every path. `rules` is the one place that matches a change against those scopes: a
-builder's brief, the message to the reviewer and a review round all get its answer, so an agent
-that does not load the folder by itself reads the same rules as one that does.
+The rules for the code are the markdown files of `.claude/rules`, the folder Claude Code loads by
+itself; Lem writes none of them and moves none. A file scopes itself to paths in its frontmatter,
+in Claude Code's form (`paths:` with a list of globs), and a file without that covers every path.
+`rules` is the one place that matches a change against those scopes: a builder's brief, the
+message to the reviewer and a review round all get its answer, so an agent that does not load the
+folder by itself (Codex, the agents of the review tool) reads the same rules as one that does.
+Rule files in `.lem/styleguide`, where an older Lem kept them, are refused with the `git mv` that
+moves them: rules must not go unread in silence.
 
 What must never go wrong is `flow.topics`: sentences in the owner's words, against which an agent
 reads an ask, a plan and a diff. No list of paths says whether a change is careful: such a list
@@ -1275,11 +1276,18 @@ def rule_files(folder: Path) -> list[Path]:
     return found
 
 
-def style_folders(settings: dict) -> list[Path]:
-    """The folders the rules for the code are read from: `.claude/rules`, and `.lem/styleguide`, the
-    folder an older Lem kept them in, when it is there too."""
+def rules_folder(settings: dict) -> Path:
+    """The folder of the rules for the code, `.claude/rules`; refused while `.lem/styleguide`, where an
+    older Lem kept them, still holds a rule file, with the move that brings them there."""
     root = Path(settings["root"]).resolve()
-    return [root / PLACES["rules"], *([root / ".lem" / "styleguide"] if (root / ".lem" / "styleguide").is_dir() else [])]
+    folder, older = root / PLACES["rules"], root / ".lem" / "styleguide"
+    if older.is_dir() and rule_files(older):
+        move = f"git mv .lem/styleguide/* {PLACES['rules']}/" if folder.is_dir() else f"mkdir -p {Path(PLACES['rules']).parent} && git mv .lem/styleguide {PLACES['rules']}"
+        raise SettingsError(
+            f".lem/styleguide holds rule files, and Lem reads the rules for the code from {PLACES['rules']} only, the folder Claude Code loads by itself. "
+            f"Move them there: `{move}`, then commit the move",
+        )
+    return folder
 
 
 def cmd_init(root: Path, base: str | None, reviewer: str | None) -> None:
@@ -1476,7 +1484,7 @@ def rule_scope(file: Path, name: str) -> list[str] | None:
 
 
 def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
-    """The style guide files that cover the given files: one match for every reader of the rules."""
+    """The rule files that cover the given files: one match for every reader of the rules."""
     root = Path(settings["root"]).resolve()
     changed = []
     for file in files:
@@ -1499,17 +1507,9 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
     changed = sorted(set(changed))
     if not files and not commits:
         raise SettingsError("rules needs the files a change touches: name them, or pass --range BASE..TIP")
-    folders = style_folders(settings)
-    folder = folders[0]
-    # Each file once by where it really is, so a file linked into both folders is one rule. Two
-    # files of one name, one in each folder, are two files: both are read, the named folder's first.
-    rules, seen, files_read = [], set(), []
-    for one in folders:
-        for file in rule_files(one):
-            if os.path.realpath(file) not in seen:
-                seen.add(os.path.realpath(file))
-                files_read.append(file)
-    for file in files_read:
+    folder = rules_folder(settings)
+    rules = []
+    for file in rule_files(folder):
         shown = file.relative_to(root).as_posix() if file.is_relative_to(root) else str(file)
         globs = rule_scope(file, shown)
         if globs is None:
@@ -1522,7 +1522,7 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
         covers = sorted({name for name in changed for _, pattern in patterns if pattern.fullmatch(name)})
         if covers:
             rules.append({"file": str(file), "scope": sorted({glob for glob, pattern in patterns if any(pattern.fullmatch(name) for name in changed)}), "covers": covers})
-    print(json.dumps({"styleguide": str(folder), "exists": folder.is_dir(), "folders": [str(one) for one in folders], "files": changed, "rules": rules}, indent=2))
+    print(json.dumps({"folder": str(folder), "exists": folder.is_dir(), "files": changed, "rules": rules}, indent=2))
 
 
 STATE_ROOTS: dict[Path, Path] = {}

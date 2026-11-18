@@ -291,7 +291,7 @@ every report says that the reviewer is this machine's choice, and "same family" 
    Under agterm's Live sessions mode, `agtermctl session restart --pane-id ID --command LINE` starts
    the same line without typing; in the other restore modes it is refused.
 3. **Send the request** through the `mailbox-chat` skill: the plan's path, the directory to work
-   in, the task it belongs to and the style guide files
+   in, the task it belongs to and the rule files
    that cover it (`lem project rules`, with the plan's files or `--range`). A message that names git goes from a file, never a heredoc.
 4. **The reply arrives in this pane by itself.** Never poll for it, and check every claim it makes
    about the code with your own read before you act on it.

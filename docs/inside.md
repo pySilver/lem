@@ -112,8 +112,9 @@ flowchart TD
   the stage. Lem reads the file before each command.
 - `personas/` has one file for each person that a change affects, for example a customer. Every
   project that uses Lem has two or more personas. `/lem init` writes them from your answers.
-- A repository that already has `.claude/rules` keeps that folder. It is the style guide, and the
-  settings name it. Lem makes no copy and no link.
+- The rules for the code are in `.claude/rules`, the folder that Claude Code loads by itself. Lem
+  writes no rule there. It gives the rule files that cover a change to the agents that do not load
+  the folder: Codex and the agents of the review tool.
 - `.revmux/` is the folder of the review tool. `/lem init` puts the starter set of that tool
   there. A lesson can change a file there, and Lem tells you each change and why.
 

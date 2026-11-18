@@ -1014,7 +1014,7 @@ fi
 out=$(project --repo "$RUL" rules src/components/a.tsx "$RUL/app/models.py")
 if [ "$(field '[(r["file"].rsplit("/", 1)[1], r["scope"], r.get("covers")) for r in d["rules"] if r["scope"] != "every path"]' <<<"$out")" \
   = "[('11-under-src.md', ['src/**/*'], ['src/components/a.tsx']), ('13-one-folder.md', ['src/components/*.tsx'], ['src/components/a.tsx']), ('14-braces.md', ['src/**/*.{ts,tsx}'], ['src/components/a.tsx']), ('20-models.md', ['**/models.py'], ['app/models.py'])]" ] \
-  && [ "$(field '(d["files"], d["exists"], d["styleguide"], d["rules"][0]["file"])' <<<"$out")" = "(['app/models.py', 'src/components/a.tsx'], True, '$RUL/.claude/rules', '$RUL/.claude/rules/00-conduct.md')" ]; then
+  && [ "$(field '(d["files"], d["exists"], d["folder"], d["rules"][0]["file"])' <<<"$out")" = "(['app/models.py', 'src/components/a.tsx'], True, '$RUL/.claude/rules', '$RUL/.claude/rules/00-conduct.md')" ]; then
   pass "the picker says for each rule which glob matched and which files it covers, reads rule files in subfolders and through links, and does not turn in a loop of links"
 else
   fail "the picker's output: $out"
@@ -1062,16 +1062,22 @@ if [ "$code" = "1 1 1 1" ] && grep -q "name them, or pass --range BASE..TIP" <<<
 else
   fail "the picker's refusals: $code / $err / $outside / $empty / $shape / $glob / $odd"
 fi
-# The skill's own layout is read the same way, and a project with no style guide yet gets an empty answer, not an error.
+# A project with no rules yet gets an empty answer, not an error. Rule files where an older Lem kept them, in
+# .lem/styleguide, are refused with the move that brings them to .claude/rules: they must not go unread.
 FRESH=$WORK/rules-fresh
 git init -q -b main "$FRESH" && commit "$FRESH" start
 project --repo "$FRESH" init --base main >/dev/null
 none=$(project --repo "$FRESH" rules app/x.py | field '(d["exists"], d["rules"])')
 mkdir -p "$FRESH/.lem/styleguide" && printf '%s\n' '---' 'paths:' '  - "app/**/*.py"' '---' > "$FRESH/.lem/styleguide/python.md"
-if [ "$none" = "(False, [])" ] && [ "$(project --repo "$FRESH" rules app/x.py web/x.js | field '[(r["file"], r["covers"]) for r in d["rules"]]')" = "[('$FRESH/.lem/styleguide/python.md', ['app/x.py'])]" ]; then
-  pass "a project with no style guide gets no rule and no error, and the skill's own style guide folder is read in the same format"
+older=$(project --repo "$FRESH" rules app/x.py 2>&1 || true)
+older_code=$(status_of project --repo "$FRESH" rules app/x.py)
+mkdir -p "$FRESH/.claude/rules"
+beside=$(project --repo "$FRESH" rules app/x.py 2>&1 || true)
+if [ "$none" = "(False, [])" ] && [ "$older_code" = 1 ] && grep -qF 'Move them there: `mkdir -p .claude && git mv .lem/styleguide .claude/rules`' <<<"$older" \
+  && grep -qF 'Move them there: `git mv .lem/styleguide/* .claude/rules/`' <<<"$beside" && [ -f "$FRESH/.lem/styleguide/python.md" ]; then
+  pass "a project with no rules gets no rule and no error, and rule files in the folder an older Lem kept them in are refused with the move to .claude/rules, which nothing makes by itself"
 else
-  fail "the picker in the skill's own layout: $none / $(project --repo "$FRESH" rules app/x.py web/x.js)"
+  fail "the rules of an older Lem's folder: $none / $older / $beside"
 fi
 if [ "$(status_of project --repo "$RUL" migrate plan)" != 0 ] && [ -d "$RUL/.claude/rules" ] && [ ! -e "$RUL/.lem/styleguide" ] \
   && [ "$(project --repo "$RUL" show | field 'd["places"]["rules"]["path"]')" = "$RUL/.claude/rules" ]; then
