@@ -19,9 +19,9 @@ Each path is relative to the root of the repository.
 | Setting | Default | Use |
 | --- | --- | --- |
 | `branch.base` | `/lem init` writes the default branch | the branch that a task starts from and lands on |
-| `branch.land` | `"owner"` | who merges: `owner`, or `agent`, which merges only a green pull request that the review called not careful |
-| `branch.history` | `"keep"` | what lands: the commits of the branch (`keep`), or one commit (`squash`) |
-| `branch.propose` | `"pull-request"` | with a remote on GitHub: a pull request that Lem opens without a question, or `merge` into the base branch with no pull request |
+| `branch.land` | `"owner"` | who merges. `"owner"`: you. `"agent"`: Lem, and only a green pull request that the review called not careful |
+| `branch.history` | `"keep"` | what lands. `"keep"`: the commits of the branch. `"squash"`: one commit |
+| `branch.propose` | `"pull-request"` | how a task ends with a remote on GitHub. `"pull-request"`: Lem opens a pull request, with no question. `"merge"`: Lem merges into the base branch, with no pull request |
 | `branch.protected` | `[]` | the branches where Lem lands nothing and pushes nothing |
 
 ## `[checks]`
@@ -41,7 +41,7 @@ What must never go wrong, and how many tasks run.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `flow.topics` | `[]` | the topics, one sentence each: `"a customer is charged the wrong amount"`. A change that can affect one is careful |
+| `flow.topics` | `[]` | the topics, one sentence each: `"a customer is charged the wrong amount"`. `/lem init` proposes them from your code, and you correct them. A change that can affect one is careful |
 | `flow.max_tasks` | `4` | how many tasks build or land at the same time. Lower it when tests share a database or a browser |
 
 ## `[seats]`
