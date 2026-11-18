@@ -68,6 +68,9 @@ of its own, and Lem reads it only on that path:
 - `start.md`: the start of a lead or a builder, `/lem build`, and the queue.
 - `stopped.md`: what Lem does when a lead stops.
 - `choice.md`: a choice that waits for the owner.
+- `ladder.md`: the ladder of opinions for a decision in doubt. Only a lead or a defender reads it,
+  and only at such a decision.
+- `mode.md`: what Lem does when the owner says "go alone", "go alone for all" or "I am back".
 - `polish.md`: the polish pass of a full change, step 3 of `land.md`. A small change has no polish
   pass, so Lem does not read this file for it.
 

@@ -860,9 +860,9 @@ bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and wh
 bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path or wraps a call
 bash tests/lem-alone.sh        # the commands that need the machine to themselves (checks.alone): lem project alone, its one lock, and the checks that use it
 bash tests/lem-naps.sh         # the naps: the [naps] settings and lem project may-nap
-bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, in their one place
+bash tests/test-gate-panel.sh  # the panel's cast, in its one place
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
-bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs
+bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, its end when the task runs without the owner, and the brief; no expert runs
 bash tests/test-board.sh       # the board over a repository whose tasks stand in every lane; loads its pages in headless Chrome when one is installed
 shellcheck tests/*.sh
 ```
@@ -885,7 +885,10 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   files beside it: `interview.md` (the interview and the acceptance criteria), `investigate.md`
   (a bug and a question), `start.md` (the start of a lead, `/lem build` and the queue),
   `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner); and the
-  polish pass, step 3 of `land.md`, is `polish.md`, which only a full change reads.
+  polish pass, step 3 of `land.md`, is `polish.md`, which only a full change reads. `mode.md` is
+  what Lem does when the owner says "go alone", "go alone for all" or "I am back", and
+  `ladder.md` the ladder of a decision in doubt, which only a lead or a defender reads, at such a
+  decision.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `lem_state.py` (the one place that names a repository's state folder,
   `.lem/state/` of the main checkout, and moves the `.git/lem/` of an older Lem there once; every
@@ -893,8 +896,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
   and finds a plan of the older name `YYYYMMDD-<slug>.md`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
-  (`PLACES`), the one refusal of a settings file of an older form (`older_form`), task state, the
-  event log, and `waiting`, the one list of what waits for the owner),
+  (`PLACES`), the one refusal of a settings file of an older form (`older_form`), task state, a
+  task's mode (with the owner or without him), the event log, and `waiting`, the one list of what waits for the owner),
   `doctor.py` (the machine, with the three recipes of the agterm cookbook Lem needs, webrev, agdoc
   and the backlog, and a row when more than one place registers the correction hook),
   `board.py` (opens the board), `land.py` (the landing, one refusable step at a time: the
@@ -906,9 +909,9 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   its plan, or for a small change from `criteria.md` in its task directory, and the check that
   each one's tests pass on the branch and fail on the base commit; it still reads the `stories.md`,
   `stories.json` and `## Stories` of a task an older Lem proposed),
-  `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, and
-  each choice that waits for him `flow.decision_wait` minutes at most, with the experts' advice
-  on it, which the landing reads).
+  `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, with
+  the level of the ladder that took it, and each choice that waits for him `flow.decision_wait`
+  minutes at most, which the landing reads).
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both, and
   on the board of all tasks a second tab for the backlog, its items in groups by their own `worth`.
   `lem.css` beside it is the look every page of Lem shares: its colors, its type, its header

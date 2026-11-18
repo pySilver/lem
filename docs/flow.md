@@ -323,7 +323,8 @@ first: `branch.propose = "pull-request"` is your approval, and you gave it at on
 leaves the computer waits for your approval.
 
 **The merge.** A person merges by default (`branch.land = "owner"`). With `branch.land = "agent"`,
-Lem merges a pull request only if it is green and its newest review said not careful. To merge an
+Lem merges a pull request only if it is green, its newest review said not careful, and the task
+runs with you. To merge an
 open pull request or a ready branch, type `/lem land <task>`, or say "land it". If the base branch
 moved after the checks, the checks run again first.
 
@@ -385,20 +386,28 @@ flowchart TD
 
 ## Decisions
 
-- **Lem needs you at three points**: your yes to the criteria, a decision whose options each cost
-  a person something, and the pull request. A small change needs you only at the pull request.
+- **Lem needs you at three points**: your yes to the criteria, a decision in doubt that the
+  personas did not settle, and the pull request. A small change needs you only at the pull request.
 - **Lem takes the small decisions.** It logs each one with its reason, and the pull request lists
   them so that you can reverse them.
-- **The personas answer your decisions first.** When their answer is clear, it becomes the
-  decision, and the log records it.
-- **An unclear answer comes to you as a card** that starts with one example that ends badly.
-  Two experts from two model families answer the same choice, and their answers are on the card.
-- **The choice waits `flow.decision_wait` minutes**, 15 by default, while the other work
-  continues. If you do not answer, the lead then takes the option that both experts chose, or else
-  the recommended option. The pull request is not green because of it. If you said that you are
-  away, Lem makes this choice at once.
+- **A decision in doubt goes up a ladder of opinions.** First the question gate looks for a ruling
+  of yours. Then the personas vote. If they do not agree, two agents argue for and against the
+  option with the most votes. Then two experts from two model families answer. A count decides at
+  each level, not a model. If no level decides, the pick of the lead stays.
+- **Lem tells you each decision that the gate or the personas made**, in one line, and waits for
+  nothing. The pull request stays green for these decisions.
+- **A decision past the personas comes to you as a card** that starts with one example that ends
+  badly, and shows the answer of each level.
+- **The card waits `flow.decision_wait` minutes**, 15 by default, while the other work
+  continues. If you do not answer, the lead takes the pick of the ladder. The pull request is not
+  green because of it.
+- **You can let a task go on without you.** Type "go alone" for one task, or "go alone for all"
+  for all open tasks. Then no step waits for you. The pull request is not green for each thing of
+  yours that Lem decided without you, and its first lines tell when the task ran without you. Type
+  "I am back" to take it back.
 - **A step that nobody can undo waits for your approval**: a step that destroys data, writes to an
-  outside system, sends something to a person, or spends money.
+  outside system, sends something to a person, or spends money. It waits also while a task runs
+  without you, and so does the merge.
 - **A night plan asks you nothing.** If a night plan comes to a decision of yours, it stops, and
   the night report gives you the question.
 
