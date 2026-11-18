@@ -1,165 +1,99 @@
-# Install and remove
+# Install, update, remove
 
-Lem is a Claude Code plugin. This page tells you what Lem needs, how to install and update it,
-what Lem writes, and how to remove it.
+After this page, Lem runs in your repository, and you know what it keeps there and how to take it
+out.
 
-## What Lem needs
+## What you need
 
-Lem runs on macOS only, because agterm is a terminal for macOS.
+| Tool | Lem uses it for |
+| --- | --- |
+| macOS, [agterm](https://agterm.com) and its skill (agterm Help menu) | sessions, panes and pages |
+| [Claude Code](https://code.claude.com/docs) | the agents |
+| git, and Python 3.11 or newer as `python3` | branches, worktrees, scripts |
+| [revmux](https://github.com/umputun/revmux) and its skill | the review before each pull request |
+| [cronn](https://cronn.umputun.dev) | the scheduled retro and night plan |
+| the mailbox chat, webrev, agdoc and the backlog recipe, from the [agterm cookbook](https://github.com/umputun/agterm/tree/master/cookbook) | the messages between agents, and the pages that you read and mark up |
+| the [GitHub CLI](https://cli.github.com) `gh`, signed in | the pull requests on GitHub |
+| [Codex](https://github.com/openai/codex): optional, highly recommended | a second model family. Without it, Claude reviews the work of Claude |
+| an [OpenRouter](https://openrouter.ai) key: optional | only [the correction queue](#the-correction-queue) |
 
-| Tool | Need | What Lem uses it for |
-| --- | --- | --- |
-| Python 3.11 or newer, as `python3` | required | each script of Lem. The `python3` that comes with macOS can be older |
-| git | required | worktrees and branches |
-| [Claude Code](https://code.claude.com/docs) | required | the agent that runs `/lem` |
-| [agterm](https://agterm.com) and the agterm skill | required | the pages, the panes and the companion session of a plan talk. The agterm Help menu installs the skill |
-| the [mailbox chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat) and its skill | required | the messages between Lem and a lead, and between the defender and the reviewer. The recipe puts `mailbox-chat.py` on your `PATH` |
-| [revmux](https://github.com/umputun/revmux) and the revmux skill | required | the review rounds before a pull request |
-| the [GitHub CLI](https://cli.github.com) `gh`, signed in | required with a remote on GitHub | the pull requests, and the watch of the open pull requests |
-| [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document) | required | the markup of a plan or a document on a page |
-| [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) | required | a page about the issue, the plan or the change of the session |
-| the [backlog recipe](https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker) | required | your own view of the items in `docs/backlog/`: its `backlog` skill and its picker. Install the skill for your user (`~/.claude/skills/backlog`) or for the repository (`.claude/skills/backlog`) |
-| [plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui) | recommended | the markup of the output of a pane, or of the newest reply of an agent |
-| [Codex](https://github.com/openai/codex) | optional, and highly recommended | a reviewer of a second model family, the second expert, and half of each persona panel. Without it, Claude reviews the work of Claude |
-| the Codex persona agent | optional, with Codex | the second model family of a persona panel, in `~/.codex/agents/persona.toml` |
-| [cronn](https://cronn.umputun.dev) | required | the scheduled retro and night plan. Its install adds a Homebrew formula and an agent that starts at login. Lem adds a job only after your yes |
-| an [OpenRouter](https://openrouter.ai) key, `OPENROUTER_API_KEY` | optional | the Jev decision model, for the correction queue and the check of a question card |
+`/lem init` checks each tool, and tells you how to install a missing one.
 
-Lem does not include the recipes of the agterm cookbook. webrev, agdoc and the backlog recipe are
-required: each row of the machine check gives the address of its guide. Lem does not include the
-recommended tool either, and `/lem init` installs it only after your yes. Without plannotator-tui,
-no step of Lem changes. Without Codex, the reviewer is a second Claude, one
-expert does not answer, and a persona panel has one model family. Without an OpenRouter key, the
-two uses of Jev give no result.
+## Install
 
-`/lem init` runs the machine check for you. The check shows one row for each tool, and says what
-Lem cannot do without that tool. To run it yourself in Claude Code, ask the agent to run
-`lem doctor`.
-
-## The install
-
-Run these two commands at the root of the repository:
+Run these two commands at the root of your repository, and commit `.claude/settings.json`. Then
+each person who works in the repository gets Lem.
 
 ```bash
 claude plugin marketplace add pySilver/lem --scope project
 claude plugin install lem@lem --scope project
 ```
 
-- The two commands write two keys into `.claude/settings.json`: `extraKnownMarketplaces` and
-  `enabledPlugins`. Commit that file, so that each person who works in the repository gets Lem.
-- Start Claude Code at the root of the repository. A session that starts in a subfolder does not
-  get the plugin.
-- The skill list shows the skills as `lem:lem`, `lem:lem-ask` and so on, and the builder as
-  `lem:lem-builder`. You still type `/lem`.
-- The plugin puts the commands `lem`, `lem-ask` and `lem-jev` on the `PATH` of the agent, in that
-  repository only.
-- The correction hook comes with the plugin. It sends nothing until the settings say
-  `corrections.collect = true`.
-- The plugin has no version number. Each commit of Lem is an update.
+## Set up the repository
 
-Then type `/lem init` in a session at the root of the repository. The
-[README](../README.md#install) gives its five steps.
+1. Start Claude Code in agterm, at the root of the repository.
+2. Type `/lem init`.
+3. Answer three questions: what the product is and who it is for, who a change affects, and what
+   must never go wrong.
+4. Read the page that Lem shows. It lists what Lem assumed, for example who merges. To correct an
+   item, type `change` and the correction: `change land agent`.
+5. Type `land`. Lem puts its settings on your base branch.
 
-## The update
+The page also lists the allow rules that Lem adds to `.claude/settings.json`. Keep them: a builder
+runs in the background, and a permission prompt stops it until you answer. A `Stop` hook of yours
+that blocks the end of a turn also keeps a builder from its end. Let such a hook pass where
+`.lem/project.toml` exists.
 
-Run these two commands, and then start a new session:
+> [!NOTE]
+> With a remote on GitHub, Lem pushes the branch of each task and opens its pull request without
+> a question. Your `land` at the end of `/lem init` approves this.
+
+A worktree of a task has no `.env` file and no test database. If your tests need them, name a
+script in `AGENTS.md` that prepares a worktree.
+
+## What Lem keeps in your repository
+
+| Path | In git | What it holds |
+| --- | --- | --- |
+| `.lem/project.toml` | yes | the [settings](settings.md) |
+| `.lem/profile.md` | yes | what the product is |
+| `.lem/personas/` | yes | the people that a change affects |
+| `.lem/lessons.md` | yes | how agents work here. A line that starts with a stage name, such as `new:`, corrects that stage of Lem |
+| `docs/plans/` | yes | the plan of each full change |
+| `docs/backlog/` | yes | work for later |
+| `docs/rulings/` | yes | your decisions about the product |
+| `.claude/rules/` | yes | your rules for the code. Lem reads them, and writes none |
+| `.revmux/` | yes | the folder of the review tool |
+| `.lem/project.local.toml` | no | the settings of this computer |
+| `.lem/worktrees/`, `.lem/state/` | no | the worktrees, the tasks and the board |
+
+If your repository keeps one of these in another folder, move it with `git mv`.
+
+## The correction queue
+
+With this optional queue, a retro finds a correction that you gave two times or more. A hook sends
+each message that you type, with the agent's message before it, to a small model through
+OpenRouter. It uses the key of the person who typed it. Commands that start with `/` stay local.
+
+`corrections.collect = true` turns it on for each person in the repository. To say no for
+yourself, put `collect = false` under `[corrections]` in `.lem/project.local.toml`.
+
+## Update
+
+Run these two commands, then start a new session.
 
 ```bash
 claude plugin marketplace update lem
 claude plugin update lem@lem --scope project
 ```
 
-To see which copy of Lem runs, ask the agent to run `lem version`. It prints the folder of the
-plugin, and the commit when that folder is a git clone.
-
-## The permissions that `/lem init` proposes
-
-A builder runs in the background. In the `default` or the `acceptEdits` permission mode, a
-command that needs a permission stops the builder. The permission question appears in Lem's
-session, and at night nobody answers it. So `/lem init` proposes rules for the tracked
-`.claude/settings.json`. The hand-over page at the end of `/lem init` shows them as an assumption
-that you can change ("change allow none" removes them all).
-
-Under `permissions.allow`:
-
-- `Bash(lem *)`, `Bash(lem-ask *)` and `Bash(lem-jev *)`;
-- `Bash(git worktree add *)`, `Bash(git add *)`, `Bash(git commit *)`, `Bash(git rm *)` and
-  `Bash(git mv *)`;
-- the `agtermctl` calls that Lem uses, for example `Bash(agtermctl msg send *)`;
-- `Bash(mailbox-chat.py *)` and `Bash(revmux *)`;
-- `Bash(codex exec *)`, for the experts;
-- `Edit(/.lem/worktrees/**)`, the folder of the worktrees;
-- one rule for each command of `checks.commands`, `checks.alone` and `checks.setup`. A command
-  with `&&` gets one rule for each part.
-
-The rules allow no `git push` and no command of the project other than its checks. Claude Code
-shows no prompt when Lem merges. In a project with pull requests, Lem merges each one through
-GitHub, so GitHub's rules for the base branch apply. With `branch.propose = "merge"`, Lem puts the branch on the
-base branch directly. A push of a task branch goes only through `lem land`. The machine check
-reads `permissions.defaultMode` and tells you what happens to a builder in that mode.
-
-## GitHub
-
-With a remote on GitHub, Lem pushes the branch of each task and opens its pull request. Turn on
-the branch rule "Require branches to be up to date before merging" for the base branch. GitHub
-then refuses to merge a pull request whose base is out of date.
-
-## The correction queue
-
-The correction queue is optional. With it, `/lem retro` can find a correction that you gave two
-times or more.
-
-- The hook sends each message that you type, with the agent's message before it, to the Jev
-  decision model through OpenRouter. It does not send a command that starts with `/`.
-- It sends only in a repository whose `.lem/project.toml` says `corrections.collect = true`. That
-  line is in git, so it is a yes for each person who works in the repository.
-- The hook of each person uses that person's own `OPENROUTER_API_KEY`. A person with no key sends
-  nothing.
-- A person who does not want it writes `collect = false` under `[corrections]` in
-  `.lem/project.local.toml`.
-- A message that may hold a lesson goes into the queue in `.lem/state/`. Git never sees it.
-- A failure goes to `.lem/state/corrections.log`.
-
-## What Lem writes, and how you undo it
-
-| Where | What | How you undo it |
-| --- | --- | --- |
-| the repository | two keys in `.claude/settings.json` | `claude plugin uninstall` and `claude plugin marketplace remove`, each with `--scope project` |
-| the repository | the allow list in `.claude/settings.json`, if you kept it at onboarding | remove the rules |
-| your home | the clone of the marketplace in `~/.claude/plugins/marketplaces/lem/`, a copy of the plugin in `~/.claude/plugins/cache/lem/lem/`, and the entries `lem` and `lem@lem` in `~/.claude/plugins/known_marketplaces.json` and `installed_plugins.json` | `claude plugin uninstall` and `claude plugin marketplace remove` |
-| the repository | `.lem/` and the starter set of the review tool in `.revmux/`, on the branch `chore/lem-onboarding` | before "land": answer "drop". After it: the steps below |
-| the repository | `.lem/.gitignore` and `.lem/worktrees/.gitignore`, so that git does not see the local settings, the state and the worktrees | the steps below |
-| the repository | in the commit of the onboarding: an ignore line for each kind of file that your check commands leave, for example `__pycache__/` | answer "change ignore none" before "land". After it: remove the lines |
-| the repository | one branch for each task, and its worktree in `.lem/worktrees/` | Lem removes them after the merge |
-| the repository | the plan of each full change in `docs/plans/`, and the backlog items of a task in `docs/backlog/`, on the task branch | `git revert` after the merge |
-| the repository | `.lem/state/`, the state of Lem | delete that folder |
-| the repository | the commits of a task on the base branch, after the merge | `git revert` |
-| the remote | the branch of each proposed task, and its pull request, on GitHub | close the pull request, and delete the branch |
-| the remote | a merge of a pull request, or a push to the base branch on `origin`, after your approval or with `branch.land = "agent"` | `git revert`, then a push |
-| Linear | status changes and one comment on the ticket of a task, only with a `[tracker]` table | change the ticket in Linear |
-| your home | scheduled jobs in cronn, only after your yes in `/lem init` | remove the job in cronn |
-| your home | `~/.cache/lem-ask/mermaid-11.12.0.min.js`, which the question page gets on its first use | delete that folder |
-| your home | the question pages in `$TMPDIR/lem-ask/`. Lem removes a page after a day | delete that folder |
-| your home | before a Codex reviewer starts, Lem removes `~/.codex/agterm/SESSION-ID`, where the agterm recipe for Codex resume keeps the conversation of a session. So each reviewer starts with an empty context | none: the next `codex` in that session writes a new file |
-
-- The scripts of Lem do not edit your `.gitignore`. Only the onboarding adds lines to it, in its
-  own commit, and its page lists them.
-- The checks remove each file that their own commands leave in the worktree of a task, and they
-  name the files. They never remove a file that was there before the run.
-- A task that you drop, or that Lem answers, loses its worktree. Its branch goes too, if it has no
-  commit of its own. A branch with commits stays, and Lem tells you how to delete it.
-
-## Remove Lem from a repository
+## Remove
 
 1. Land or drop each open task.
-2. Remove the scheduled jobs of this repository in cronn, if you accepted them.
-3. Run `claude plugin uninstall lem@lem --scope project` at the root of the repository.
+2. Remove the scheduled jobs of this repository in cronn.
+3. Run `claude plugin uninstall lem@lem --scope project`.
 4. Run `claude plugin marketplace remove lem --scope project`.
-5. Remove the allow rules of Lem from `.claude/settings.json`, if you kept them.
-6. Commit the change of `.claude/settings.json`.
-7. Run `git rm -r .lem`. Commit that change.
-8. Delete the folder `.lem/`. It still holds the local settings, the state and the worktrees,
-   which git does not track.
-9. Delete the branch of each task that you dropped or that Lem answered, if the branch is still
-   there.
-10. Delete `~/.cache/lem-ask/` and `$TMPDIR/lem-ask/`, if no other repository uses Lem.
+5. Remove the allow rules of Lem from `.claude/settings.json`.
+6. Run `git rm -r .lem`, and commit with the change of step 5.
+7. Delete the folder `.lem/`, which still holds the files that git does not track.
+8. If no other repository uses Lem, delete `~/.cache/lem-ask/` and `$TMPDIR/lem-ask/`.

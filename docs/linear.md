@@ -1,64 +1,61 @@
 # Connect Linear
 
-Lem can turn a Linear ticket into a task. It moves the ticket when the work starts. When the task
-lands, it adds a comment and moves the ticket again. Lem does this through the `lem-linear` skill,
-the `[tracker]` table of the settings ([settings.md](settings.md#tracker)), and the MCP server of
-Linear. The facts below come from the documentation of Linear, https://linear.app/docs/mcp.
+After this page, you can start a task from a Linear ticket, and Lem moves the ticket as the work
+goes on.
 
-## The server
+Lem, or an automation of Linear, moves a ticket when its work starts and when it lands. Lem adds a
+comment when the task ends. Lem supports no other tracker.
 
-| Access | Address |
-| --- | --- |
-| read and write | `https://mcp.linear.app/mcp` |
-| read only | `https://mcp.linear.app/mcp/readonly` |
+## Connect the server
 
-The server finds, creates and updates issues, projects and comments.
+Linear has an MCP server, `https://mcp.linear.app/mcp`, and a read-only one,
+`https://mcp.linear.app/mcp/readonly` ([Linear's guide](https://linear.app/docs/mcp)). Lem needs
+the first.
 
-## Claude Code
+1. Add the server for your user, so that the worktree of each task gets it too:
 
-```bash
-claude mcp add --transport http --scope user linear https://mcp.linear.app/mcp
-```
+   ```bash
+   claude mcp add --transport http --scope user linear https://mcp.linear.app/mcp
+   ```
 
-Then connect:
-
-1. Start a session.
-2. Type `/mcp`, and select `linear`.
+2. Start a session, type `/mcp`, and select `linear`.
 3. Sign in to Linear in the browser.
 
-The server uses OAuth, so no secret goes into a settings file. `claude mcp list` shows if the
-server is connected.
+`claude mcp list` shows if the server is connected. A team can use `--scope project` instead: it
+writes the address into `.mcp.json`, and each person still signs in.
 
-- The name `linear` is the value of `tracker.server` in the settings.
-- `--scope user` makes the server available in all your projects, and also in the worktree of a
-  task. The default scope, `local`, belongs to one project folder, and a worktree is another
-  folder.
-- A team that shares one workspace can use `--scope project`. It writes the address into
-  `.mcp.json` in the repository, and each person still signs in.
+## Fill the settings
 
-## Whose name is on a comment
+When your repository shows Linear, for example ticket keys in branch names, `/lem init` proposes
+the `[tracker]` table and checks it. To add it yourself:
 
-Lem writes through the connection of the person who signed in. Linear shows that person as the
-author of each comment and status change that Lem makes. The last line of each comment from Lem
-says that it is from Lem (`lem: <task> landed`).
+```toml
+[tracker]
+kind = "linear"
+server = "linear"          # the name from `claude mcp add`
+workspace = "acme"         # as in linear.app/acme
+team = "ABC"               # the key of your team
+moves = "lem"              # or "tracker", when an automation of Linear moves the tickets
+started = "In Progress"    # only with moves = "lem", as your team spells it
+landed = "Done"            # only with moves = "lem"
+```
 
-## One server is one workspace
+[Settings](settings.md#tracker) says what each key means.
 
-A connection is signed in to one Linear workspace, and a new sign-in does not change it. A person
-with two workspaces gives each one its own server name and its own sign-in. Before the first
-write, Lem asks the server which workspace it uses. If it is not the workspace of the project, Lem
-stops.
+## Start a task from a ticket
 
-## With no browser
+Type `/lem new` and the ticket's key or its address: `/lem new ABC-12`. The ticket is the request,
+and Lem uses the branch name that Linear gives. `/lem linear ABC-12` only reads the ticket.
 
-A session with nobody at the terminal cannot sign in. Linear also accepts an API key or an OAuth
-token in a header: add `--header "Authorization: Bearer <key>"` to the `claude mcp add` command.
-A key with only the `Read` permission gives a read-only connection. The key is a secret: keep it
-out of the repository.
+- Lem writes through the connection of the person who signed in, so Linear shows that person as
+  the author. The last line of each comment of Lem names the task: `lem: <task> landed`.
+- One connection is one workspace. Lem checks the workspace before it reads or writes, and it
+  stops when the workspace is not the one in the settings. For a second workspace, add a second
+  server with its own name.
 
 ## When it does not connect
 
-- An internal server error when you connect: remove the saved sign-in (`rm -rf ~/.mcp-auth`), and
-  connect again.
-- A connection that does not answer: disconnect it, and connect it again in Claude Code. This
-  changes nothing in Linear.
+- A session with nobody at the terminal cannot sign in. Add `--header "Authorization: Bearer
+  <key>"` with a Linear API key to `claude mcp add`. Keep the key out of the repository.
+- An internal server error when you connect: run `rm -rf ~/.mcp-auth`, and connect again.
+- A connection that does not answer: disconnect it in Claude Code, and connect it again.
