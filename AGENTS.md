@@ -36,18 +36,10 @@ works, and this file says how to change it.
 - **A session with nobody at the terminal reads `docs/free-hour.md` first.** It works in a
   worktree of this clone, on a branch, and never pushes: `main` of this repository is what every
   project's next update of the plugin installs.
-- **A change to what an open task's record holds keeps reading the form before it.** A
-  repository updates the plugin while its tasks are open, so the new scripts meet records the
-  scripts before them wrote: a task that is `open` with its pull request, one whose landing was
-  cut off, one that waits in the queue. `land.py merged`, `land` and `clean`, `project.py tasks`
-  and `may-start`, the board, and the stage text Lem reads again each read what the code before
-  the change wrote. So a change to the keys of `landing.json`, to the state names, to the form of
-  a state block, an event or an approval, to a file's name in a task directory, or to the
-  arguments of `project.py state`, `tasks` and `may-land`, reads the old form too, with a comment
-  at the place that says so and a test that takes a task of the older scripts to its end
-  (`tests/lem-old-tasks.sh`, `tests/lem-state.sh`). A settings key that changes is refused with
-  the line to write in its place, never read silently. A later change may drop an old form, once
-  no task that wrote it is open.
+- **Lem is not released, so a change keeps no reading of the form before it.** A change to the
+  settings, a record, an event, a state or a command reads and writes the new form only, and the
+  maintaining session corrects the repositories that use Lem by hand. When Lem has users, this
+  rule changes.
 
 ## The owner's rulings
 
@@ -927,7 +919,6 @@ One suite alone:
 ```bash
 bash tests/test-lem.sh         # Lem's scripts, in throwaway repositories: the blocks tests/lem-*.sh at the same time; loads the board in headless Chrome when one is installed
 bash tests/lem-land-shop.sh    # one block of them, alone (each block sources tests/lib.sh)
-bash tests/lem-old-tasks.sh    # tasks the scripts of an older commit took to open, read, landed and cleaned by the scripts of now
 bash tests/lem-land-local.sh   # the landing with no remote, in two blocks of about equal time: decisions, criteria and the read here,
 bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and what makes a request careful here
 bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path or wraps a call
@@ -968,14 +959,13 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   two with `make-page` and the brief `templates/page-brief.md`, which `/lem status SLUG` opens.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `lem_state.py` (the one place that names a repository's state folder,
-  `.lem/state/` of the main checkout, and moves the `.git/lem/` of an older Lem there once; every
-  script that touches the state asks it, directly or through `project.py state-dir`),
+  `.lem/state/` of the main checkout; every script that touches the state asks it, directly or through `project.py state-dir`),
   `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
-  and a ruling's from `paths.ruling_file`, and finds a plan of the older name `YYYYMMDD-<slug>.md`), `lem_sibling.py` (how `land.py`,
+  and a ruling's from `paths.ruling_file`), `lem_sibling.py` (how `land.py`,
   `criteria.py` and `decisions.py` run a command of a sibling: in their own process, as its
   `main(argv)`, except the commands in its `APART`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
-  (`PLACES`), the one refusal of a settings file of an older form (`older_form`), task state, a
+  (`PLACES`), task state, a
   the owner's status (away or back) and from it each task's mode, the event log, and `waiting`, the one list of what waits for the owner),
   `doctor.py` (the machine, with the three recipes of the agterm cookbook Lem needs, webrev, agdoc
   and the backlog, and a row when more than one place registers the correction hook),
@@ -990,8 +980,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   message so that a hook registered in two places judges it once, and what a retro reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
   the plugin puts on the Bash tool's `PATH` as the `lem-jev` command; its key is `JEV_API_KEY` and its address `JEV_API_URL`, OpenRouter's by default), `criteria.py` (a task's acceptance criteria, read from the top of
   its plan, or on the fast track from `criteria.md` in its task directory, and the check that
-  each one's tests pass on the branch and fail on the base commit; it still reads the `stories.md`,
-  `stories.json` and `## Stories` of a task an older Lem proposed),
+  each one's tests pass on the branch and fail on the base commit),
   `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, with
   the level of the ladder that took it, and each choice that waits for his answer with no time
   limit, which `lem decisions away` takes when he says he is away; the landing reads it).
