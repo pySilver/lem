@@ -290,11 +290,11 @@ as corrections: edit, commit on the same branch, say for each file what changed.
   corrections for the retro; without it, a correction is learned in the session it was given in
   and nowhere else. What he agrees to, in these words or closer ones: each message he types in
   this repository, other than a command that starts with `/`, goes with the agent message it
-  answers to the Jev decision model through OpenRouter, under the key of whoever typed it, and
+  answers to the Jev decision model, at OpenRouter or the provider `JEV_API_URL` names, under the key of whoever typed it, and
   the ones that may hold a lesson are kept in a file that is never committed. The yes is a line
   in the tracked settings, so it holds for everybody who works in this repository with the hook,
   and one person can say no for themselves (the harness file says how). The check's
-  "OpenRouter key" row says whether this session has a key; without one the queue stays empty
+  "Jev key" row says whether this session has a key (`JEV_API_KEY`); without one the queue stays empty
   and its log fills, so say that too. On his yes, set `corrections.collect = true` in the
   settings draft on the onboarding's branch, which his "land" then approves with the rest. The
   hook comes with the plugin, so nothing is registered and he has nothing to run;

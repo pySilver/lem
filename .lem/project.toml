@@ -52,7 +52,7 @@ serial = []
 topics = [
   "A pull request says green when it should not: a check failed, a review found a must-fix, an acceptance criterion changed, or the bar went lower.",
   "Lem changes a developer's repository without his word: a push, a merge, a removed worktree or branch, a protected branch touched.",
-  "A developer's typed messages leave the machine without his yes: the correction hook sends them to the Jev model through OpenRouter.",
+  "A developer's typed messages leave the machine without his yes: the correction hook sends them to the Jev model's provider.",
   "Lem writes over something of the developer's: a file in his home or his repository that was there, his settings, his own command or skill of the same name.",
   "A task's record is lost or wrong: its state, its decisions and its approved criteria, which nothing rebuilds and the pull request reads.",
   "A change bends a ruling of the owner: a ruling in AGENTS.md is reopened only by asking him.",

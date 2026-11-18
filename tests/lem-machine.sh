@@ -220,12 +220,19 @@ else
   fail "doctor without cronn: $out"
 fi
 fake cronn "cronn"
-keyed=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
-if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'OpenRouter key' found <<<"$out")" = "False" ] && [ "$(row 'OpenRouter key' need <<<"$out")" = "optional" ] && [ "$(row 'OpenRouter key' found <<<"$keyed")" = "True" ] \
-  && ! grep -q "sk-not-a-real-key" <<<"$keyed"; then
-  pass "the check has no row for the question page, which is a part of Lem; it says whether the key of the decision model is in the environment, and never prints it"
+keyed=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" JEV_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
+# a machine set up before has OPENROUTER_API_KEY, which is read when JEV_API_KEY is not set; JEV_API_URL names another provider
+before=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" OPENROUTER_API_KEY=sk-not-a-real-key "$PY" -B "$DOCTOR")
+elsewhere=$(cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" JEV_API_KEY=sk-not-a-real-key JEV_API_URL=https://api.example.test/v1/systemone "$PY" -B "$DOCTOR")
+nokey_says=$(row 'Jev key' without_it <<<"$out")
+if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'Jev key' found <<<"$out")" = "False" ] && [ "$(row 'Jev key' need <<<"$out")" = "optional" ] \
+  && [ "$(row 'Jev key' found <<<"$keyed")" = "True" ] && [ "$(row 'Jev key' detail <<<"$keyed")" = "JEV_API_KEY, to OpenRouter" ] \
+  && [ "$(row 'Jev key' detail <<<"$before")" = "OPENROUTER_API_KEY, to OpenRouter" ] && [ "$(row 'Jev key' detail <<<"$elsewhere")" = "JEV_API_KEY, to https://api.example.test/v1/systemone" ] \
+  && grep -qF "JEV_API_KEY in the environment the agent starts with" <<<"$nokey_says" && grep -qF "OpenRouter unless JEV_API_URL names another" <<<"$nokey_says" \
+  && ! grep -q "sk-not-a-real-key" <<<"$keyed$before$elsewhere"; then
+  pass "the check has no row for the question page, which is a part of Lem; its Jev key row says which variable gives the key, JEV_API_KEY or the OPENROUTER_API_KEY of a machine set up before, and to which provider, names both variables and OpenRouter as the default when there is none, and never prints the key"
 else
-  fail "doctor and the key: $keyed"
+  fail "doctor and the key: $keyed / $before / $elsewhere / $nokey_says"
 fi
 # Where the correction queue is on, the key is required: with no key the hook fails on each message and the queue stays
 # empty. The row names both ways out; the queue off, or off for this computer in the local file, leaves it optional.
@@ -233,11 +240,11 @@ KEYED=$WORK/key-repo
 git init -q -b main "$KEYED" && mkdir -p "$KEYED/.lem"
 printf '%s\n' '[corrections]' 'collect = true' > "$KEYED/.lem/project.toml"
 key_doctor() { (cd "$KEYED" && env -i PATH="$BIN" HOME="$FAKEHOME" "$@" "$PY" -B "$DOCTOR"); }
-key_row() { field '(lambda t: (t["need"], t["found"]))(next(t for t in d["tools"] if t["name"] == "OpenRouter key"))'; }
+key_row() { field '(lambda t: (t["need"], t["found"]))(next(t for t in d["tools"] if t["name"] == "Jev key"))'; }
 on_out=$(key_doctor || true)
 on_code=$(status_of key_doctor)
-on_keyed=$(key_doctor OPENROUTER_API_KEY=sk-not-a-real-key | key_row)
-on_keyed_code=$(status_of key_doctor OPENROUTER_API_KEY=sk-not-a-real-key)
+on_keyed=$(key_doctor JEV_API_KEY=sk-not-a-real-key | key_row)
+on_keyed_code=$(status_of key_doctor JEV_API_KEY=sk-not-a-real-key)
 printf '%s\n' '[corrections]' 'collect = false' > "$KEYED/.lem/project.local.toml"
 local_off=$(key_doctor | key_row)
 local_off_code=$(status_of key_doctor)
@@ -245,9 +252,9 @@ rm "$KEYED/.lem/project.local.toml"
 printf '%s\n' '[corrections]' 'collect = false' > "$KEYED/.lem/project.toml"
 off=$(key_doctor | key_row)
 off_code=$(status_of key_doctor)
-on_says=$(row 'OpenRouter key' without_it <<<"$on_out")
+on_says=$(row 'Jev key' without_it <<<"$on_out")
 if [ "$on_code" = 1 ] && [ "$(key_row <<<"$on_out")" = "('required', False)" ] && [ "$(field 'd["ok"]' <<<"$on_out")" = False ] \
-  && grep -qF "the queue stays empty" <<<"$on_says" && grep -qF "Put OPENROUTER_API_KEY into the environment the agent starts with" <<<"$on_says" \
+  && grep -qF "the queue stays empty" <<<"$on_says" && grep -qF "Put JEV_API_KEY in the environment the agent starts with" <<<"$on_says" \
   && grep -qF "\`collect = false\` under [corrections] in .lem/project.local.toml" <<<"$on_says" \
   && [ "$on_keyed" = "('required', True)" ] && [ "$on_keyed_code" = 0 ] \
   && [ "$local_off" = "('optional', False)" ] && [ "$local_off_code" = 0 ] && [ "$off" = "('optional', False)" ] && [ "$off_code" = 0 ]; then
@@ -398,12 +405,12 @@ env LEM_JEV="$WORK/no-such-jev" "$PY" -B "$CORR" worker "$WORK/payload.json"
 # No LEM_JEV: the worker runs Lem's own jev.py by its path, with a PATH that has no jev. No key is
 # set, so the copy stops before it sends anything, and its own words are in the log.
 printf '{"prompt": "the copy beside the hook", "cwd": "%s", "session": "s9", "transcript": ""}' "$CQ" > "$WORK/payload.json"
-env -u LEM_JEV -u OPENROUTER_API_KEY PATH="$BIN" "$PY" -B "$CORR" worker "$WORK/payload.json"
+env -u LEM_JEV -u JEV_API_KEY -u OPENROUTER_API_KEY PATH="$BIN" "$PY" -B "$CORR" worker "$WORK/payload.json"
 sleep 1
 out=$(corr list)
 if [ "$(field '(d["entries"], [(g["entries"], g["sessions"], g["p_lesson_max"]) for g in d["groups"]], d["failures"]["count"])' <<<"$out")" = "(3, [(2, 2, 0.9), (1, 1, None)], 3)" ] \
   && grep -q "no key" "$CQ/.lem/state/corrections.log" && grep -q "jev did not run" "$CQ/.lem/state/corrections.log" \
-  && grep -q "jev gave no answer: lem-jev: OPENROUTER_API_KEY is not set" "$CQ/.lem/state/corrections.log"; then
+  && grep -q "jev gave no answer: lem-jev: JEV_API_KEY is not set in this process's environment (nor OPENROUTER_API_KEY)" "$CQ/.lem/state/corrections.log"; then
   pass "one sentence from two sessions is one group; a low score, a command and injected text queue nothing; a message too long for Jev is queued unjudged; each failure is in the log and counted; with no other jev named, the worker runs the copy beside it"
 else
   fail "the queue: $out / $(cat "$CQ/.lem/state/corrections.log" 2>&1)"
@@ -492,6 +499,39 @@ if [ "$soon_code" = 1 ] && grep -qF "lem-jev: JEV_TIMEOUT='soon' is not a number
   pass "lem-jev names a JEV_TIMEOUT that is no number and a spec that is not UTF-8, from a file or from its input, and exits 1"
 else
   fail "jev's refusals: $soon_timeout / $latin_file / $latin_stdin / $checked"
+fi
+# The key and the address of the Jev model: JEV_API_KEY, else the OPENROUTER_API_KEY of a machine set up before;
+# JEV_API_URL, else OpenRouter's. A request goes to that address with that key, as a stand-in server of Jev's form sees it.
+jcheck() { env -u JEV_API_KEY -u OPENROUTER_API_KEY -u JEV_API_URL "$@" "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" | field '(d["url"], d["key_from"])' 2>&1 || true; }
+by_jev=$(jcheck JEV_API_KEY=k1 OPENROUTER_API_KEY=k2)
+by_before=$(jcheck OPENROUTER_API_KEY=k2)
+by_none=$(jcheck)
+by_url=$(jcheck JEV_API_KEY=k1 JEV_API_URL=https://api.example.test/v1/systemone)
+bad_url=$(env JEV_API_KEY=k1 JEV_API_URL=api.example.test "$PY" -B "$JEVPY" check "$WORK/jev-spec.json" 2>&1 || true)
+printf '%s\n' 'import http.server, json, sys' \
+  'class H(http.server.BaseHTTPRequestHandler):' \
+  '    def do_POST(self):' \
+  '        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))' \
+  '        open(sys.argv[2], "w").write(json.dumps({"path": self.path, "auth": self.headers["Authorization"], "model": body["model"]}))' \
+  '        reply = json.dumps({"model": body["model"], "answers": {"q": {"type": "choice", "choice": "a", "confidence": 0.9, "probabilities": {"a": 0.9, "b": 0.1}}}, "usage": {"tokens": 12}}).encode()' \
+  '        self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(reply))); self.end_headers(); self.wfile.write(reply)' \
+  '    def log_message(self, *args): pass' \
+  's = http.server.HTTPServer(("127.0.0.1", 0), H)' \
+  'open(sys.argv[1], "w").write(str(s.server_address[1]))' \
+  's.handle_request()' > "$WORK/jev-server.py"
+"$PY" -B "$WORK/jev-server.py" "$WORK/jev-port" "$WORK/jev-seen" &
+jev_server=$!
+soon test -s "$WORK/jev-port"
+asked=$(env -u OPENROUTER_API_KEY JEV_API_KEY=sk-test-key JEV_API_URL="http://127.0.0.1:$(cat "$WORK/jev-port")/v1/systemone" JEV_MODEL=jev-latest "$PY" -B "$JEVPY" "$WORK/jev-spec.json" | field '(d["model"], d["answers"]["q"]["choice"], d["cost"])' 2>&1 || true)
+wait "$jev_server" 2>/dev/null || true
+seen=$(field '(d["path"], d["auth"], d["model"])' < "$WORK/jev-seen" 2>&1 || true)
+if [ "$by_jev" = "('https://openrouter.ai/api/alpha/decisions', 'JEV_API_KEY')" ] && [ "$by_before" = "('https://openrouter.ai/api/alpha/decisions', 'OPENROUTER_API_KEY')" ] \
+  && [ "$by_none" = "('https://openrouter.ai/api/alpha/decisions', None)" ] && [ "$by_url" = "('https://api.example.test/v1/systemone', 'JEV_API_KEY')" ] \
+  && grep -qF "lem-jev: JEV_API_URL='api.example.test' is not an address" <<<"$bad_url" \
+  && [ "$asked" = "('jev-latest', 'a', None)" ] && [ "$seen" = "('/v1/systemone', 'Bearer sk-test-key', 'jev-latest')" ]; then
+  pass "lem-jev takes its key from JEV_API_KEY, else from the OPENROUTER_API_KEY of a machine set up before, and its address from JEV_API_URL, else OpenRouter's; a request goes to that address with that key, and a reply with no cost reads"
+else
+  fail "jev's key and address: $by_jev / $by_before / $by_none / $by_url / $bad_url / $asked / $seen"
 fi
 # One message, one judgment: a hook registered in two or three places (the home's settings, the
 # repository's, the plugin) starts once for each, at the same moment, and the first copy claims the message.

@@ -4,7 +4,7 @@
 Onboarding runs it first, so a repository is never set up for a flow its machine cannot run. It
 prints one row per tool as JSON and exits 1 when a required one is absent. An optional tool that
 is absent is not an error: its row says what the skill does without it, and onboarding tells the
-owner that. The OpenRouter key is optional, and required in a repository whose correction queue is
+owner that. The key of the Jev model (`JEV_API_KEY`) is optional, and required in a repository whose correction queue is
 on, where without it the queue stays empty and nothing says so. A recipe of the agterm cookbook that Lem needs (webrev, agdoc, the backlog) is
 required, and its row has the guide to install it by. A recommended tool is one Lem does not bring
 and a developer is better off with: its row has the guide too, and Lem installs it only on the
@@ -520,19 +520,27 @@ def collects_here() -> bool:
     return corrections.collects(os.getcwd())
 
 
-def openrouter_key() -> dict:
-    """The key of the Jev decision model. Required where the correction queue is on: without it the
-    hook writes a failure for each message to a file nobody reads, and the queue stays empty."""
-    found = bool(os.environ.get("OPENROUTER_API_KEY"))
-    row = {"name": "OpenRouter key", "need": "optional", "found": found, "detail": None,
+# What the row of the Jev key says of where the key and the address come from (jev.py reads them)
+JEV_WHERE = ("JEV_API_KEY in the environment the agent starts with, the key of the Jev model's provider; the provider is "
+             "OpenRouter unless JEV_API_URL names another (then JEV_MODEL names its model)")
+
+
+def jev_key() -> dict:
+    """The key of the Jev decision model: JEV_API_KEY, or OPENROUTER_API_KEY of a machine set up
+    before. Required where the correction queue is on: without it the hook writes a failure for
+    each message to a file nobody reads, and the queue stays empty."""
+    given = next((name for name in ("JEV_API_KEY", "OPENROUTER_API_KEY") if os.environ.get(name)), None)
+    url = os.environ.get("JEV_API_URL", "").strip()
+    detail = (f"{given}, to {url or 'OpenRouter'}" if given else None)
+    row = {"name": "Jev key", "need": "optional", "found": bool(given), "detail": detail,
            "used_for": "the Jev decision model, which the correction queue and a card's framing check ask"}
     if collects_here():
-        return {**row, "need": "required", "detail": "the correction queue is on in this repository (corrections.collect = true)",
+        return {**row, "need": "required", "detail": (f"{detail}; " if detail else "") + "the correction queue is on in this repository (corrections.collect = true)",
                 "without_it": "the correction hook writes each message of the owner to .lem/state/corrections.log as a failure, the queue stays "
-                              "empty, and the retro reads nothing. Put OPENROUTER_API_KEY into the environment the agent starts with, or turn the "
+                              f"empty, and the retro reads nothing. Put {JEV_WHERE}, or turn the "
                               "queue off for this computer with `collect = false` under [corrections] in .lem/project.local.toml"}
     return {**row, "without_it": "a card's framing check gets no answer, and the correction queue, which is off here, would stay empty if it "
-                                 "were on; put OPENROUTER_API_KEY into the environment the agent starts with"}
+                                 f"were on; put {JEV_WHERE}"}
 
 
 def cronn() -> dict:
@@ -588,7 +596,7 @@ def main() -> None:
         # The recommended tool: Lem installs it only on the developer's yes.
         {**tool("plannotator-tui", "recommended", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",
                 "no stage needs it", "plannotator-tui", ["--version"]), "guide": COOKBOOK + "annotate-in-plannotator-tui"},
-        openrouter_key(),
+        jev_key(),
         *codex(),
         *claude(),
         tool("mailbox-chat", "required", "messages between Lem and a task's lead, and between the defender and the reviewer of a plan talk",

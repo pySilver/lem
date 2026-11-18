@@ -419,7 +419,7 @@ Not run yet: the line from Lem's own session.
 For a project that keeps a correction queue (`stages/learn.md`). The hook exits at once in every
 repository whose settings do not say `corrections.collect = true`. That line is in the tracked
 settings file, so it is the repository's yes: it holds for everybody who works there with the
-hook and an OpenRouter key, and everybody can read it in git. Say that to the owner before he
+hook and a key of the Jev model, and everybody can read it in git. Say that to the owner before he
 says yes, in those words. One person says no for themselves with `collect = false` under
 `[corrections]` in `.lem/project.local.toml`; that file can never say yes.
 
@@ -435,8 +435,9 @@ from it by hand. Say that in one line, and do not edit the file: it is the owner
 - It needs Python 3.11 or newer as `python3`. Under an older one it judges nothing, and says so
   in its log. It finds `python3` and `git` on the hook's `PATH`, as any hook does; with no `git`
   there it queues nothing and has nowhere to say so, since git names its state folder. The
-  model's client is Lem's own `jev.py`, run by its path. It needs `OPENROUTER_API_KEY` in the
-  environment Claude Code starts with.
+  model's client is Lem's own `jev.py`, run by its path. It needs `JEV_API_KEY` in the
+  environment Claude Code starts with (`OPENROUTER_API_KEY` of a machine set up before is read
+  when it is not set), and `JEV_API_URL` there for a provider other than OpenRouter.
 - It prints nothing and does not wait for the model: a detached copy asks it. The hook's own two
   waits, for its input and for each of its git calls, end after two seconds each, a bound chosen by guess
   on 2026-11-15. The `timeout` of 10 seconds in `hooks/hooks.json` is the value its source ran with in one

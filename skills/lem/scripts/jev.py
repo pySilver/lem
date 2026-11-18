@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""lem-jev: ask TypeSafe's Jev decision model one or more choice questions through OpenRouter.
+"""lem-jev: ask TypeSafe's Jev decision model one or more choice questions, through OpenRouter or another provider.
 
   lem-jev SPEC.json | lem-jev - < spec.json     ask, print the answers as JSON
   lem-jev check SPEC.json | lem-jev check -     validate the spec and its size, send nothing
@@ -19,12 +19,24 @@ call slower and less accurate, so a spec whose state and questions together pass
 refused with exit 3 and nothing is sent. Nothing here truncates: a caller with a longer input
 sends it to a big model instead.
 
-The key is OPENROUTER_API_KEY from the environment. A process keeps the value it started with,
-so a key changed later reaches only processes started after the change.
+The key is JEV_API_KEY from the environment, and the address JEV_API_URL, OpenRouter's by default
+(the owner, 2026-11-18: "jev lib only care about API url and API token - we can use any
+provider"). A machine set up before with OPENROUTER_API_KEY goes on: that key is read when
+JEV_API_KEY is not set. The key is in no settings file: a settings file is in the repository's
+folder, and no secret goes into a file. A process keeps the values it started with, so a key
+changed later reaches only processes started after the change.
+
+The request and the reply are Jev's own form, the same at every provider: a POST of state, model
+and questions with the key as a Bearer token, and answers with choice, confidence and
+probabilities. Three parts are OpenRouter's: its address (`URL`), its name of the model
+(`typesafe/jev-1.14`, where TypeSafe's own API says `jev-latest`), and the reply's `usage.cost`,
+which another provider may not give (`cost` is then null). With another JEV_API_URL, set JEV_MODEL
+to that provider's name of the model.
 
 Exit codes: 0 answered; 1 a bad spec, no key, or a failed request (the error names which);
 3 the input is over LIMIT_BYTES.
-Environment: OPENROUTER_API_KEY (required), JEV_MODEL (default model), JEV_TIMEOUT (seconds).
+Environment: JEV_API_KEY (required; OPENROUTER_API_KEY when it is not set), JEV_API_URL (the
+address of the decisions endpoint, default URL), JEV_MODEL (default model), JEV_TIMEOUT (seconds).
 """
 
 import json
@@ -35,7 +47,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+# OpenRouter's address of Jev's decisions, the default of JEV_API_URL
 URL = "https://openrouter.ai/api/alpha/decisions"
+# The variables of the key: Lem's, then the one a machine set up before has
+KEYS = ("JEV_API_KEY", "OPENROUTER_API_KEY")
 DEFAULT_MODEL = os.environ.get("JEV_MODEL", "typesafe/jev-1.14")
 LIMIT_BYTES = 32_000
 # the default of JEV_TIMEOUT; main() reads the variable, so a wrong value is a message, not a traceback at import
@@ -108,22 +123,38 @@ def build(spec: dict) -> dict:
     return body
 
 
+def key() -> str:
+    """The key: JEV_API_KEY, or OPENROUTER_API_KEY when it is not set."""
+    found = next((os.environ[name] for name in KEYS if os.environ.get(name)), "")
+    if not found:
+        raise RuntimeError("JEV_API_KEY is not set in this process's environment (nor OPENROUTER_API_KEY); put the key of the Jev model's provider there")
+    return found
+
+
+def address() -> str:
+    """JEV_API_URL, or OpenRouter's address when it is not set."""
+    found = os.environ.get("JEV_API_URL", "").strip() or URL
+    if not found.startswith(("https://", "http://")):
+        raise SpecError(f"JEV_API_URL={found!r} is not an address; set it as the provider's decisions endpoint, as JEV_API_URL={URL}, or unset it for OpenRouter")
+    return found
+
+
 def ask(body: dict, timeout: float) -> dict:
-    key = os.environ.get("OPENROUTER_API_KEY", "")
-    if not key:
-        raise RuntimeError("OPENROUTER_API_KEY is not set in this process's environment")
+    secret = key()
+    url = address()
+    where = "OpenRouter" if url == URL else url
     context = ssl.create_default_context(cafile=str(MACOS_CA_BUNDLE)) if MACOS_CA_BUNDLE.is_file() else ssl.create_default_context()
     request = urllib.request.Request(
-        URL, data=json.dumps(body).encode(), method="POST",
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        url, data=json.dumps(body).encode(), method="POST",
+        headers={"Authorization": f"Bearer {secret}", "Content-Type": "application/json"},
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
             reply = json.load(response)
     except urllib.error.HTTPError as error:
-        raise RuntimeError(f"OpenRouter answered HTTP {error.code}: {error.read().decode(errors='replace')[:400]}") from error
+        raise RuntimeError(f"{where} answered HTTP {error.code}: {error.read().decode(errors='replace')[:400]}") from error
     except urllib.error.URLError as error:
-        raise RuntimeError(f"OpenRouter could not be reached: {error.reason}") from error
+        raise RuntimeError(f"{where} could not be reached: {error.reason}") from error
     answers = reply.get("answers")
     if not isinstance(answers, dict) or set(answers) != set(body["questions"]):
         raise RuntimeError(f"the reply does not answer every question: {json.dumps(reply)[:400]}")
@@ -147,7 +178,9 @@ def main(argv: list[str]) -> int:
         timeout = timeout_seconds()
         body = build(load(args[0]))
         if check:
-            print(json.dumps({"ok": True, "model": body["model"], "questions": sorted(body["questions"])}))
+            # what a request would use, and no key's value: the address, and which variable gives the key
+            given = next((name for name in KEYS if os.environ.get(name)), None)
+            print(json.dumps({"ok": True, "model": body["model"], "questions": sorted(body["questions"]), "url": address(), "key_from": given}))
             return 0
         print(json.dumps(ask(body, timeout)))
         return 0
