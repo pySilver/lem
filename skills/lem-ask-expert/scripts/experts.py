@@ -79,7 +79,7 @@ sys.path.insert(0, str(SCRIPTS))
 from decisions import EXPERTS as PLACES  # noqa: E402
 
 # A seat for the error messages, in the form `--seat` takes.
-EXAMPLE_SEAT = "codex/gpt-6-astra:high"
+EXAMPLE_SEAT = "codex/gpt-6.2-astra:high"
 # The agents whose way to start an expert the harness gives.
 AGENTS = ("claude", "codex")
 # A seat as `--seat` takes it: the model and the effort may be left out, and are then that agent's

@@ -21,7 +21,7 @@ else
   fail "defaults: $out"
 fi
 if [ "$(status_of project --repo "$NEW" init)" = 1 ]; then pass "init refuses a checkout whose base branch it cannot tell"; else fail "init without a base"; fi
-project --repo "$NEW" init --base main --reviewer codex >/dev/null
+project --repo "$NEW" init --base main >/dev/null
 # The template names every key show prints under [checks], each with its line in the file init writes.
 shown_keys=$(project --repo "$NEW" show | field 'sorted(d["checks"])')
 template_keys=$("$PY" -I -c 'import sys, tomllib; print(sorted(tomllib.load(open(sys.argv[1], "rb"))["checks"]))' "$NEW/.lem/project.toml")
@@ -53,13 +53,22 @@ else
 fi
 out=$(project --repo "$NEW" show)
 if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["places"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
-  && [ "$(field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"])' <<<"$out")" = "('codex', None)" ] \
+  && [ "$(field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"])' <<<"$out")" = "('codex', 'gpt-6.2-sol')" ] \
   && [ "$(cat "$NEW/.lem/.gitignore")" = "$(printf 'project.local.toml\nstate/')" ] && [ "$(field 'd["local"]' <<<"$out")" = "{'file': None, 'overrides': []}" ]; then
-  pass "init in a new project writes Lem's own places, the given base, the reviewer's agent, and ignore rules for the machine's own settings and for Lem's state"
+  pass "init in a new project writes Lem's own places, the given base, the reviewer's whole seat, and ignore rules for the machine's own settings and for Lem's state"
 else
   fail "init in a new project: $out"
 fi
 if [ "$(status_of project --repo "$NEW" init --base main)" = 1 ]; then pass "init refuses a settings file that already exists"; else fail "second init"; fi
+# Without Codex on the machine, init writes the reviewer's seat on Claude.
+NOCODEX=$WORK/no-codex
+git init -q -b main "$NOCODEX"
+project --repo "$NOCODEX" init --base main --codex no >/dev/null
+if grep -qxF 'reviewer = "claude/opus:high"' "$NOCODEX/.lem/project.toml" && [ "$(project --repo "$NOCODEX" show | field 'd["seats"]["reviewer"]["seat"]')" = "claude/opus:high" ]; then
+  pass "init with --codex no, for a machine with no Codex, writes the reviewer's whole seat on Claude"
+else
+  fail "init without Codex: $(grep -A1 '^reviewer' "$NOCODEX/.lem/project.toml")"
+fi
 
 OLD=$WORK/old
 git init -q -b master "$OLD"
@@ -185,10 +194,11 @@ settings '[branch]' 'base = "master"'
 unset=$(project --repo "$OLD" show | field '(d["seats"]["reviewer"], d["seats"]["planner"]["agent"], [e["seat"] for e in d["seats"]["experts"]])' 2>&1 || true)
 if [ "$seats" = "({'agent': 'codex', 'model': 'gpt-6.1-sol', 'effort': 'high', 'seat': 'codex/gpt-6.1-sol:high'}, {'agent': 'claude', 'model': 'opus', 'effort': None, 'seat': 'claude/opus'}, [('claude', 'fable', 'high', 'fable'), ('codex', None, None, 'astra')])" ] \
   && [ "$no_model" = "('codex', None, 'high')" ] \
-  && [ "$unset" = "({'agent': None, 'model': None, 'effort': None, 'seat': None}, None, ['claude/fable', 'codex/gpt-6-astra:high'])" ] \
-  && grep -qxF 'plan_file = "YYYY-MM-DD-<slug>.md"' "$NEW/.lem/project.toml" && grep -qxF 'reviewer = "codex"' "$NEW/.lem/project.toml" \
-  && grep -qxF '# experts = ["claude/fable", "codex/gpt-6-astra:high"]' "$NEW/.lem/project.toml"; then
-  pass "a seat is one string agent/model:effort, shown parsed: the effort or the model may be left out, the experts are two in the record's two places, and with no seat the reviewer is unset and the experts are Fable and GPT-6 Astra"
+  && [ "$unset" = "({'agent': None, 'model': None, 'effort': None, 'seat': None}, 'claude', ['claude/fable:high', 'codex/gpt-6.2-astra:high'])" ] \
+  && grep -qxF 'plan_file = "YYYY-MM-DD-<slug>.md"' "$NEW/.lem/project.toml" && grep -qxF 'reviewer = "codex/gpt-6.2-sol:high"' "$NEW/.lem/project.toml" \
+  && grep -qxF 'planner = "claude/opus:high"' "$NEW/.lem/project.toml" \
+  && grep -qxF 'experts = ["claude/fable:high", "codex/gpt-6.2-astra:high"]' "$NEW/.lem/project.toml"; then
+  pass "a seat is one string agent/model:effort, shown parsed: the effort or the model may be left out, the experts are two in the record's two places; init writes the three seats whole, and with no seat the reviewer is unset, the defender is Opus at high and the experts are Fable and Astra at high"
 else
   fail "seats: $seats / $no_model / $unset"
 fi
@@ -660,7 +670,7 @@ old_local=$(project --repo "$OLD" reviewer default 2>&1 || true)
 rm "$OLD/.lem/project.local.toml"
 words=$(project --repo "$OLD" reviewer codex gpt-6.1-sol high 2>&1 || true)
 gemini=$(project --repo "$OLD" reviewer gemini/pro 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && grep -qF "reviewer takes one seat, \"agent/model:effort\", as \`reviewer codex/gpt-6.1-sol:high\`" <<<"$words" \
+if [ "$(status_of project --repo "$OLD" reviewer gemini)" = 1 ] && grep -qF "reviewer takes one seat, \"agent/model:effort\", as \`reviewer codex/gpt-6.2-sol:high\`" <<<"$words" \
   && grep -qF "the agent 'gemini' must be claude or codex" <<<"$gemini" && [ "$(status_of project --repo "$OLD" reviewer codex/)" = 1 ] && [ ! -e "$OLD/.lem/project.local.toml" ] \
   && grep -qF "Write these lines in place of the [seats.reviewer] table:" <<<"$old_local" && grep -qxF 'reviewer = "codex"' <<<"$old_local" && ! grep -qF "commit the file" <<<"$old_local"; then
   pass "reviewer refuses an agent that cannot review, the older three words and a seat that does not parse, and writes nothing then; an older seat table already in the file is refused with its line"

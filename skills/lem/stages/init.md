@@ -126,7 +126,7 @@ for a yes. Stop after the third.
 ## 4. Write the settings
 
 ```bash
-lem project init --base BRANCH --reviewer codex
+lem project init --base BRANCH --codex yes
 ```
 
 Then edit `.lem/project.toml` with the three answers and the assumptions of step 6:
@@ -154,10 +154,10 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
   `started` or of the type `completed`, Lem never picks one: ask the owner once in the terminal,
   in one line with the names, and write his pick as `started` or `landed`. It is a fixed choice
   and no fourth question of step 3;
-- the reviewer: Codex when step 1 found it, since two model families disagree more usefully than
-  one family twice and a reviewer on another provider's quota does not spend the builders';
-  otherwise a second Claude: `reviewer = "codex"` under `[seats]`. Its model and its effort, the
-  defender's seat (`seats.planner`) and the experts (`seats.experts`) stay Lem's defaults;
+- the seats, each whole, as `agent/model:effort`: the command writes them, with `--codex no` when
+  step 1 found no Codex. The reviewer is Codex when step 1 found it, since two model families
+  disagree more usefully than one family twice and a reviewer on another provider's quota does not
+  spend the builders'; otherwise a second Claude. Keep the three lines as written;
 
 Then the allow list, in the repository's tracked `.claude/settings.json` on the onboarding's branch:
 a builder and a lead run in the background, and in the `default` or `acceptEdits` mode each command

@@ -48,13 +48,13 @@ What must never go wrong, and how many tasks run.
 
 ## `[seats]`
 
-A seat is one string, `agent/model:effort`, and the model and the effort are optional.
+A seat is one string, `agent/model:effort`. A part that you leave out takes the default of the agent.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `seats.reviewer` | `/lem init` writes `"codex"`, or `"claude"` without Codex | the reviewer of the plan talk: `claude` or `codex` |
-| `seats.planner` | `claude`, with its own model and effort | the agent that defends the plan in the plan talk: only `claude` |
-| `seats.experts` | `["claude/fable", "codex/gpt-6-astra:high"]` | the two experts of a decision in doubt |
+| `seats.reviewer` | `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk: `claude` or `codex` |
+| `seats.planner` | `"claude/opus:high"` | the agent that defends the plan in the plan talk: only `claude` |
+| `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the two experts of a decision in doubt |
 
 ## `[corrections]`
 
@@ -91,7 +91,7 @@ This file holds the settings of one computer, and git does not track it. It can 
 
 | Table | What it can say |
 | --- | --- |
-| `[seats]` | a seat for this computer. `/lem reviewer codex/gpt-6.1-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
+| `[seats]` | a seat for this computer. `/lem reviewer codex/gpt-6.2-sol:high` writes the reviewer, and `/lem reviewer default` removes it |
 | `[corrections]` | only `collect = false` |
 | `[naps]` | only `on = false` |
 | `[flow]` | only `max_tasks` |

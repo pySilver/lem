@@ -13,8 +13,10 @@ a team that adopts Lem may have its own.
     lem project show                everything, resolved, as JSON
     lem project path NAME           one path, absolute: plans, rulings, or a place of PLACES
     lem project may-land BRANCH     exit 1 unless tasks of this project may land on BRANCH
-    lem project init [--base NAME] [--reviewer claude|codex]
-                                    write .lem/project.toml
+    lem project init [--base NAME] [--codex yes|no]
+                                    write .lem/project.toml, with a whole seat for each of the
+                                    three: the reviewer on Codex and two experts, or with
+                                    `--codex no` (the machine check found no Codex) on Claude
     lem project reviewer AGENT[/MODEL[:EFFORT]]
                                     who reviews on this machine, until `reviewer default`
     lem project reviewer default    the project's own reviewer again
@@ -192,9 +194,13 @@ runs in the shell, as a command of the checks does.
 
 A seat is one string, `agent/model:effort`: `seats.reviewer`, the agent in the reviewer's pane;
 `seats.planner`, the defender of a plan talk; and `seats.experts`, the two experts of a choice
-that waits for the owner. The effort may be left out (`codex/gpt-6.1-sol`), and so may the model
-(`codex`, `codex:high`): the part left out is that agent's own default, and Lem passes nothing for
-it. `show` gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written.
+that waits for the owner. `init` writes each of the three whole (the owner, 2026-11-18: "I think
+it should be explicitly `agent/model:effort` in all 3"). The effort may be left out
+(`codex/gpt-6.2-sol`), and so may the model (`codex`, `codex:high`), as a setup written before
+that has it: the part left out is that agent's own default, and Lem passes nothing for it. `show`
+gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written; a file with no
+planner or no experts gets Lem's (`PLANNER`, `EXPERTS`), and one with no reviewer gets none, which
+the stage that needs it asks the owner for.
 
 A file in the form of an older Lem is refused once (`older_form`): the tables `[gate]` (the checks'
 older name), `[seats.reviewer]` (with `agent`, `model` and `plan_effort`) and `[seats.planner]`,
@@ -308,7 +314,8 @@ PROPOSE = ("pull-request", "merge")
 # the agents that can sit in the reviewer's pane
 REVIEWERS = ("claude", "codex")
 # A seat is one string, `agent/model:effort` (the owner, 2026-11-17: "I personally prefer
-# `codex/gpt-6.1-sol:high`"). A model and an effort are not checked against a list: their names
+# `codex/gpt-6.1-sol:high`"; and 2026-11-18, of the models `init` writes: "Use latest
+# `codex/gpt-6.2-sol:high` and `codex/gpt-6.2-astra:high` (released yesterday)"). A model and an effort are not checked against a list: their names
 # change with each release of an agent's command, and that command refuses a wrong one loudly when
 # it starts. A part left out is the agent's own default, and Lem passes nothing for it.
 SEAT_FORM = "agent/model:effort"
@@ -316,17 +323,20 @@ SEAT_KEYS = ("agent", "model", "effort")
 # The defender's seat: the agent Lem starts in the companion of a plan talk, which defends the
 # plan against the reviewer. Only Claude Code, because the harness was checked in no other agent.
 PLANNERS = ("claude",)
+PLANNER = "claude/opus:high"
+# The reviewer's seat that `init` writes for each agent: Codex when the machine has it, since two
+# model families disagree more usefully than one family twice, and Claude otherwise.
+REVIEWER_SEATS = {"codex": "codex/gpt-6.2-sol:high", "claude": "claude/opus:high"}
 # The experts of a choice that waits for the owner: two, because the record of a choice holds two
 # answers (`decisions.py advise --expert fable|astra`): the first seat answers in the place named
-# `fable`, the second in the place named `astra`. The default is what `harness/claude-code.md`
-# ran before the seats named them: Fable as a Claude Code subagent at the agent's own effort, and
-# GPT-6 Astra through Codex at high.
-EXPERTS = ("claude/fable", "codex/gpt-6-astra:high")
+# `fable`, the second in the place named `astra`. The default is the newest Fable of Anthropic as a
+# Claude Code subagent and the newest Astra of OpenAI through Codex, each at high effort.
+EXPERTS = ("claude/fable:high", "codex/gpt-6.2-astra:high")
 EXPERT_PLACES = ("fable", "astra")
 # seat -> (the agents that may sit in it, why only those, an example of the line)
 SEATS = {
-    "reviewer": (REVIEWERS, "the agents that can sit in the reviewer's pane", "codex/gpt-6.1-sol:high"),
-    "planner": (PLANNERS, "the harness was checked in Claude Code only", "claude/opus:high"),
+    "reviewer": (REVIEWERS, "the agents that can sit in the reviewer's pane", REVIEWER_SEATS["codex"]),
+    "planner": (PLANNERS, "the harness was checked in Claude Code only", PLANNER),
 }
 # The keys the tables of an older Lem had for each seat, read only to write the refusal's line:
 # `[seats.reviewer]` with `plan_effort` as its effort, and `effort`, the effort for the review of a
@@ -506,18 +516,18 @@ topics = []
 max_tasks = {max_tasks}
 
 [seats]
-# Who sits where, each as "agent/model:effort". Leave out the effort ("codex/gpt-6.1-sol"), or
-# the model and the effort ("codex"), and that agent's own default holds.
+# Who sits where, each as "agent/model:effort". A part left out ("codex/gpt-6.2-sol", "codex")
+# takes that agent's own default.
 # The reviewer: "claude" or "codex". Lem's builders build; this one talks the plan of a careful
 # or large task through with its defender, in the plan talk's companion. The same family twice is
 # allowed.
-{reviewer}
+reviewer = "{reviewer}"
 # The defender of a careful or large plan in its talk with the reviewer, in a companion session
 # Lem opens for the talk and closes after it. Only "claude" for now.
-# planner = "claude/opus:high"
+planner = "{planner}"
 # The two experts who answer a choice that waits for the owner, at the same moment and read-only:
 # two model families, so that their agreement is worth more than two of one.
-# experts = [{experts}]
+experts = [{experts}]
 
 [corrections]
 # Keep a queue of the owner's corrections for the retro. The hook that fills it sends each
@@ -1121,7 +1131,9 @@ def load(root: Path) -> dict:
     # A local seat replaces the project's whole: its model and effort belong to the project's agent.
     seats: dict = {}
     for which in SEATS:
-        seats[which] = seat(raw, SETTINGS, which) or {**{key: None for key in SEAT_KEYS}, "seat": None}
+        seats[which] = seat(raw, SETTINGS, which) or (
+            seat({"seats": {which: PLANNER}}, Path("Lem's default"), which) if which == "planner" else {**{key: None for key in SEAT_KEYS}, "seat": None}
+        )
         local_seat = seat(local, LOCAL, which)
         if local_seat is not None:
             seats[which] = local_seat
@@ -1276,7 +1288,7 @@ def rules_folder(settings: dict) -> Path:
     return folder
 
 
-def cmd_init(root: Path, base: str | None, reviewer: str | None) -> None:
+def cmd_init(root: Path, base: str | None, codex: str) -> None:
     file = root / SETTINGS
     if file.exists():
         raise SettingsError(f"{SETTINGS} already exists; edit it")
@@ -1284,9 +1296,10 @@ def cmd_init(root: Path, base: str | None, reviewer: str | None) -> None:
     if not base:
         raise SettingsError("cannot tell the base branch (no origin/HEAD); pass --base NAME")
     file.parent.mkdir(exist_ok=True)
-    agent = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex/gpt-6.1-sol:high"'
+    # a whole seat for each of the three, of the agents the machine has
     file.write_text(TEMPLATE.format(
-        plans=PATHS["plans"], plan_file=PLAN_FILE, rulings=PATHS["rulings"], ruling_file=RULING_FILE, base=base, reviewer=agent, experts=", ".join(toml_string(one) for one in EXPERTS),
+        plans=PATHS["plans"], plan_file=PLAN_FILE, rulings=PATHS["rulings"], ruling_file=RULING_FILE, base=base,
+        reviewer=REVIEWER_SEATS["codex" if codex == "yes" else "claude"], planner=PLANNER, experts=", ".join(toml_string(one) for one in EXPERTS),
         max_tasks=MAX_TASKS,
     ), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
@@ -1316,7 +1329,7 @@ def cmd_reviewer(root: Path, words: list[str]) -> None:
     else:
         if len(words) != 1:
             raise SettingsError(
-                f'reviewer takes one seat, "{SEAT_FORM}", as `reviewer codex/gpt-6.1-sol:high`, or the word default; '
+                f'reviewer takes one seat, "{SEAT_FORM}", as `reviewer {REVIEWER_SEATS["codex"]}`, or the word default; '
                 f"not {len(words)} words. The effort, or the model and the effort, may be left out",
             )
         parse_seat(words[0], "the reviewer", REVIEWERS, SEATS["reviewer"][1], SEATS["reviewer"][2])
@@ -2561,7 +2574,7 @@ def main(argv: list[str] | None = None) -> None:
     worktree.add_argument("branch")
     init = commands.add_parser("init")
     init.add_argument("--base")
-    init.add_argument("--reviewer", choices=REVIEWERS)
+    init.add_argument("--codex", choices=("yes", "no"), default="yes", help="whether the machine check found Codex: no writes the reviewer on Claude (default: yes)")
     commands.add_parser("reviewer").add_argument("words", nargs="+", metavar="AGENT[/MODEL[:EFFORT]]|default")
     plan_file = commands.add_parser("plan-file", help="the name a task's plan takes, and the plan the plans folder holds")
     plan_file.add_argument("slug")
@@ -2608,7 +2621,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         root = repo_root(Path(args.repo))
         if args.command == "init":
-            cmd_init(root, args.base, args.reviewer)
+            cmd_init(root, args.base, args.codex)
             return
         if args.command == "reviewer":
             cmd_reviewer(root, args.words)
