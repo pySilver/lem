@@ -1,13 +1,11 @@
 # How a task goes
 
-After this page, you know what Lem does with a request, and where it stops for you.
-
 ```mermaid
 flowchart TD
     req([/lem and a request]) --> size{Type and size}
     size -- small --> one[One builder makes the change]
     size -- full --> crit[Interview, acceptance criteria, your yes]
-    size -- unclear bug, or a question --> inv[An investigator finds the cause or the answer]
+    size -- a bug with no clear cause, or a question --> inv[An investigator finds the cause or the answer]
     inv -- one rule fixes it --> one
     inv -- a larger fix --> crit
     inv -- no bug, or an answer --> stop([An answer, and nothing to merge])
@@ -32,12 +30,12 @@ Each task runs in its own worktree, beside the other tasks.
 
 ## A small change
 
-One rule in your words, with no open question and nothing careful: a typo, a rename, a version
-bump, the fix of one rule.
+A small change is one rule in your words, with no open question and nothing careful. Examples: a
+typo, a rename, a version bump, the fix of one rule.
 
 1. Lem writes the rule as one acceptance criterion, and approves it for you.
 2. One builder makes the change. A change of behavior gets a test that fails on the old code.
-3. The checks run, and an agent that did not build the change reads it once.
+3. The checks run your tests, and an agent that did not build the change reads it once.
 4. Lem opens the pull request.
 
 If the builder finds that the change is not small, it stops, and the interview of a full change
@@ -49,8 +47,8 @@ starts. Say "full" at any time for the same result.
    an approach, the plan uses it.
 2. **Acceptance criteria.** Each one is a rule in plain words with one real example, and each gets
    a test.
-3. **The personas read them.** Personas are the people that a change affects, as `/lem init`
-   wrote them. Agents read the criteria as each person, and a doubt shows next to its criterion.
+3. **The personas read them.** A persona is a person that a change affects, as your setup
+   describes them. Agents read the criteria as each person, and a doubt shows next to its criterion.
 4. **Your yes.** Nothing builds before it, unless you
    [let the task go on without you](when-lem-needs-you.md#go-alone).
 5. **The plan.** An agent commits a short plan to `docs/plans/`, and a new builder makes each part.
@@ -62,8 +60,8 @@ and no persona has a doubt, the build starts at once. Say "interview me" to get 
 
 ## A bug or a question
 
-When your words do not show the cause of a bug, an investigator looks first. This agent writes a
-test that fails, finds the cause, and changes no behavior. Then:
+When your words do not show the cause of a bug, an agent called the investigator looks first. It
+writes a test that fails, finds the cause, and changes no behavior. Then:
 
 - one rule removes the cause: a small change, with that test;
 - the fix needs more: a full change, with an interview that starts from the cause;
@@ -84,10 +82,10 @@ that you can watch.
 
 ## The checks and the review
 
-The checks run your test commands, with no model in them. The test of each criterion must pass on
-the branch and fail on the old code. The bar must not go down: no new suppression, no skipped or
-deleted test, no fewer assertions.
+The checks run your test commands, and no model judges them. The test of each criterion must pass
+on the branch and fail on the old code. The bar, how strict your tests are, must not go down: no
+new suppression, no skipped or deleted test, no fewer assertions.
 
-The review is as large as the change: one read for a small change, more review profiles for a
-larger or careful one. A builder fixes each must-fix, in two rounds at most. Then Lem opens
-[the pull request](pull-request.md).
+The review is as large as the change: one read for a small change, more reviewers for a larger
+one. A careful change gets all of them. A builder fixes each must-fix, in two rounds at most. Then
+Lem opens [the pull request](pull-request.md).

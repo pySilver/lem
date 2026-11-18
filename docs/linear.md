@@ -1,8 +1,5 @@
 # Connect Linear
 
-After this page, you can start a task from a Linear ticket, and Lem moves the ticket as the work
-goes on.
-
 Lem, or an automation of Linear, moves a ticket when its work starts and when it lands. Lem adds a
 comment when the task ends. Lem supports no other tracker.
 
@@ -10,7 +7,7 @@ comment when the task ends. Lem supports no other tracker.
 
 Linear has an MCP server, `https://mcp.linear.app/mcp`, and a read-only one,
 `https://mcp.linear.app/mcp/readonly` ([Linear's guide](https://linear.app/docs/mcp)). Lem needs
-the first.
+the first, because it writes to tickets.
 
 1. Add the server for your user, so that the worktree of each task gets it too:
 
@@ -21,7 +18,7 @@ the first.
 2. Start a session, type `/mcp`, and select `linear`.
 3. Sign in to Linear in the browser.
 
-`claude mcp list` shows if the server is connected. A team can use `--scope project` instead: it
+`claude mcp list` shows whether the server is connected. A team can use `--scope project` instead: it
 writes the address into `.mcp.json`, and each person still signs in.
 
 ## Fill the settings
@@ -48,7 +45,7 @@ Type `/lem new` and the ticket's key or its address: `/lem new ABC-12`. The tick
 and Lem uses the branch name that Linear gives. `/lem linear ABC-12` only reads the ticket.
 
 - Lem writes through the connection of the person who signed in, so Linear shows that person as
-  the author. The last line of each comment of Lem names the task: `lem: <task> landed`.
+  the author. The last line of each comment from Lem names the task: `lem: <task> landed`.
 - One connection is one workspace. Lem checks the workspace before it reads or writes, and it
   stops when the workspace is not the one in the settings. For a second workspace, add a second
   server with its own name.

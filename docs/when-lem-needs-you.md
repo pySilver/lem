@@ -1,15 +1,12 @@
 # When Lem needs you
 
-After this page, you know when Lem stops for you, how to see what waits, and how to let a task go
-on without you.
-
 ## Three points
 
 1. **A full change**: you answer the interview, and say yes to the acceptance criteria.
 2. **A decision in doubt** that the personas did not settle: you pick an option on a card.
 3. **The pull request**: you merge it.
 
-A small change needs you only at its pull request. Lem takes every other decision itself, and the
+A small change, one rule that one builder makes, needs you only at its pull request. Lem takes every other decision itself, and the
 pull request lists each one with its reason, so that you can reverse it.
 
 ## What waits for you
@@ -22,10 +19,10 @@ list, always in this order:
 3. the tasks that wait for a step of yours, or for one more fact;
 4. the open pull requests, each green or with its reasons;
 5. the plans that `/lem night` wrote, each for one backlog item;
-6. the proposals of a retro, which finds a correction that you gave two times.
+6. the changes that the morning retro proposes, for each correction that you gave two times or more.
 
-Say "open them" for the night plans and the retro proposals. One page shows them, and you answer
-each with approve, reject or later.
+Say "open them" to answer the night plans and the retro's changes on one page: approve, reject or
+later.
 
 ## The board
 
@@ -36,7 +33,7 @@ its review, and where the time went.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/task-dark.png">
-    <img src="../assets/screens/task-light.png" alt="The board of one task: its phases, where the time went, its acceptance criteria, its checks and its review" width="900">
+    <img src="../assets/screens/task-light.png" alt="The board of one task, with its phases, criteria, checks and review" width="900">
   </picture>
 </p>
 
@@ -55,14 +52,14 @@ person something. It climbs a ladder, one level at a time, until a level settles
 
 1. **The question gate** settles it with a ruling of yours in `docs/rulings/` or `AGENTS.md`, a
    test or a rule. It also settles a decision whose wrong pick is cheap to undo.
-2. **The personas** vote.
+2. **The personas** vote: agents answer as each person that the decision affects.
 3. **Two agents** argue for and against the option with the most votes.
 4. **Two experts** answer: Fable, and GPT-6 Astra through Codex.
 
-A decision that the gate or the personas settled comes to you as one line, and nothing waits. Any
-other decision comes as a card, with one example that goes wrong and the answer of each level. The
-card waits 15 minutes (`flow.decision_wait`) while the other work goes on. Then the ladder's pick
-is taken, and the pull request is not green.
+When the gate or the personas settle a decision, Lem tells you in one line, and nothing waits. Any
+other decision comes to you as a card, with one example that goes wrong and the answer of each
+level. The card waits 15 minutes (`flow.decision_wait`), and the other work goes on. If you do not
+answer, Lem takes the ladder's pick, and the pull request is not green.
 
 ## Go alone
 
@@ -74,12 +71,17 @@ you:
 - the personas read the criteria. Two agents, and the experts when needed, settle each criterion
   that a persona doubted. Then Lem approves the criteria without you.
 
-The pull request is not green for each thing of yours that Lem decided. Type "I am back" to take
-the tasks back. For each task, Lem tells you how many decisions it took, and if it approved the
-criteria. Nothing is undone.
+The pull request is then not green, and it lists each decision that Lem took for you. Type "I am
+back" to take the tasks back. For each task, Lem tells you how many decisions it took, and whether
+it approved the criteria. Nothing is undone.
 
 > [!IMPORTANT]
-> After "go alone", the merge and a step that nobody can undo still wait for you. Such a step
-> destroys or rewrites data outside the worktree, or spends money, or sends something to a person. It can also
-> write to an outside system beyond what the settings allow. Only the part of the plan that needs
-> it waits.
+> After "go alone", the merge still waits for you, and so does a step that nobody can undo. Such a
+> step:
+>
+> - destroys or rewrites data outside the worktree;
+> - writes to an outside system beyond what the settings allow;
+> - sends something to a person;
+> - spends money.
+>
+> Only the part of the plan that needs the step waits.

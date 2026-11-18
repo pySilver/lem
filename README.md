@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/lem-night.svg">
-    <img src="assets/lem.svg" alt="Lem: a tall hooded figure holds one line, and four smaller figures and the name hang from it" width="720">
+    <img src="assets/lem.svg" alt="Lem: a tall hooded figure holds one line, and four figures hang from it" width="720">
   </picture>
 </p>
 
@@ -20,7 +20,7 @@ Lem is a Claude Code plugin for macOS, and it runs in the [agterm](https://agter
   </picture>
 </p>
 
-*The board shows each task in a lane by who acts next. The picture shows demo data.*
+*The board of all tasks. The picture shows demo data.*
 
 ## Two real requests
 
@@ -53,21 +53,20 @@ after the request. Its first line:
 > `feat/heading-reads-back-into-dates`. First an interview, then acceptance criteria for your yes.
 > After that, the task runs to the pull request without you.
 
-Lem asked its questions one at a time, each with its guess. Then it wrote four acceptance criteria,
-each a rule in plain words with a real example: "`3-9 Mar 2026` reads as 3 Mar 2026 to 9 Mar
-2026". Two personas, the people that the change affects, read them before the yes. Then agents
-built and reviewed the change with no question.
+Lem asked one question at a time, each with its guess. Then it wrote four acceptance criteria,
+rules in plain words with real examples: "`3-9 Mar 2026` reads as 3 Mar 2026 to 9 Mar 2026". Two
+personas, people that the change affects, read them before the owner said yes. Then agents built
+and reviewed the change with no question.
 [Pull request #6](https://github.com/pySilver/lem-scratch/pull/6) opened 26 minutes after the
 request, green.
 
 ## Install
 
-Lem runs in agterm, with Claude Code. It needs a few more tools: [Install](docs/install.md) lists
-them, and `/lem init` checks each one for you.
+[Install](docs/install.md) lists the tools that Lem needs, and `/lem init` checks each one.
 
 > [!TIP]
-> Codex is optional, and we recommend it highly. With Codex, a second model family reviews the
-> larger changes and answers as an expert. Without it, Claude reviews the work of Claude.
+> Codex is optional and highly recommended: with it, a second model family reviews the larger
+> changes and answers as an expert.
 
 At the root of your repository:
 
@@ -76,8 +75,8 @@ claude plugin marketplace add pySilver/lem --scope project
 claude plugin install lem@lem --scope project
 ```
 
-Then start Claude Code in agterm there, and type `/lem init`. Answer three questions, read the page
-that Lem shows, and say "land" to accept the setup.
+Then start Claude Code in agterm there, and type `/lem init`. Answer three questions, read Lem's
+page, and type "land" to accept the setup. Then type `/lem` and your first request.
 
 ## What you type
 
@@ -88,12 +87,14 @@ that Lem shows, and say "land" to accept the setup.
 | `/lem status <task>` | the board of one task |
 | `/lem plan <request>` | a full change that stops after its plan. `/lem build` builds it |
 | `/lem land <task>`, or "land it" | Lem merges the pull request |
-| "full", "careful" or "drop" | a small change becomes full; a task gets the full review and a merge by a person; a task stops |
+| "full" | a small change becomes a full change |
+| "careful" | the task gets the full review and a merge by a person |
+| "drop" | the task stops |
 | "go alone", "go alone for all", "I am back" | one task, or every task, goes on without you until you come back |
 | `/lem learn` | Lem puts your correction into the file that owns the step |
 
-The words in quotes are plain sentences in Lem's session, with no command. Scheduled jobs that you
-accept at setup start `/lem retro` each morning and `/lem night` each night.
+Type the words in quotes as plain text in Lem's session. If you accept them at setup, scheduled
+jobs run `/lem retro` each morning and `/lem night` each night.
 
 ## What you can rely on
 
@@ -109,12 +110,12 @@ accept at setup start `/lem retro` each morning and `/lem night` each night.
 
 | Example | Use it when |
 | --- | --- |
-| `/lem interview-me a faster export` | your request is not clear to you yet |
+| `/lem interview-me a faster export` | your request is not clear yet |
 | `/lem dialectic this table stays below one million rows` | a plan rests on a claim that you doubt |
 | `/lem root-cause the import stops at row 5000` | a defect comes back after two fixes |
-| `/lem ask-expert` | you want two other models on the open question, or on the one that you type |
+| `/lem ask-expert` | you want two expert models to answer the open question, or your own |
 | `/lem panel docs/backlog/export-drops-custom-columns.md` | you want the personas to read a text |
-| `/lem linear ABC-12` | you want to read one Linear ticket |
+| `/lem linear ABC-12` | you want to read a Linear ticket |
 
 ## Guides
 

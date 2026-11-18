@@ -2,7 +2,7 @@
 
 `.lem/project.toml` holds the settings of a project, in git, and `/lem init` writes it. Lem reads
 it from your main checkout, so a task branch cannot change the rules that guard it. An unknown key
-or a wrong value stops Lem with the fix.
+or a wrong value stops Lem, and the message names the fix.
 
 ## `[paths]`
 
@@ -25,7 +25,7 @@ Each path is relative to the root of the repository.
 
 ## `[checks]`
 
-The checks must pass before a pull request; put your tests here, and a linter only if no git hook
+The checks must pass before a pull request. Put your tests here, and a linter only when no git hook
 runs it.
 
 | Setting | Default | Use |
@@ -36,9 +36,11 @@ runs it.
 
 ## `[flow]`
 
+What must never go wrong, and how many tasks run.
+
 | Setting | Default | Use |
 | --- | --- | --- |
-| `flow.topics` | `[]` | what must never go wrong, one sentence each: `"a customer is charged the wrong amount"`. A change that can affect one is careful |
+| `flow.topics` | `[]` | the topics, one sentence each: `"a customer is charged the wrong amount"`. A change that can affect one is careful |
 | `flow.max_tasks` | `4` | how many tasks build or land at the same time. Lower it when tests share a database or a browser |
 | `flow.decision_wait` | `15` | the minutes that a decision card waits for you |
 
@@ -54,15 +56,19 @@ A seat is one string, `agent/model:effort`, and the model and the effort are opt
 
 ## `[corrections]`
 
+The optional queue of your corrections.
+
 | Setting | Default | Use |
 | --- | --- | --- |
-| `corrections.collect` | `false` | `true` turns on [the correction queue](install.md#the-correction-queue) for each person in the repository |
+| `corrections.collect` | `false` | `true` turns on [the queue](install.md#the-correction-queue) for each person in the repository |
 
 ## `[naps]`
 
+An optional agent that reads the recent tasks now and then, and leaves a note for the retro.
+
 | Setting | Default | Use |
 | --- | --- | --- |
-| `naps.on` | `false` | `true` lets an agent read the recent tasks now and then, and leave a note for the retro |
+| `naps.on` | `false` | `true` turns the naps on |
 
 ## `[tracker]`
 
@@ -81,7 +87,7 @@ to fill it.
 
 ## `.lem/project.local.toml`
 
-This file holds the settings of one computer, git does not see it, and it can hold only these.
+This file holds the settings of one computer, and git does not track it. It can hold only these.
 
 | Table | What it can say |
 | --- | --- |

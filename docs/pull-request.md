@@ -1,22 +1,20 @@
 # The pull request
 
-After this page, you can read a pull request of Lem, merge it or let Lem merge it, and stop a task.
-
 ## What it says
 
 The first line says green or not green, and each reason for "not green" comes next. Then come your
-request, the acceptance criteria with their tests, the checks, and each decision with who took it
-and why.
+request, the acceptance criteria with their tests, the checks (your test commands), and each
+decision with who took it and why.
 
-A pull request is not green when:
+A pull request is not green when one of these is true:
 
-- the bar, how strict your tests are, went down with a reason in the plan;
+- your tests got less strict (the bar went down), even with a reason in the plan;
 - the review left a must-fix after two rounds, or no reviewer answered;
 - a criterion changed during the build;
-- Lem decided something of yours without you: a card whose time ended, or after "go alone";
-- the personas did not answer when they read the criteria;
+- Lem took a decision of yours: a card whose wait ended, or a decision after "go alone";
+- the personas did not answer, two times, when they read the criteria;
 - the change brings the first checks into a project that had none;
-- it is a small change that is careful.
+- a small change turned out to be careful: it can affect what must never go wrong.
 
 You can merge a green pull request without a read.
 
@@ -35,7 +33,7 @@ of your base branch apply. If the base moved after the checks, the checks run ag
 | `branch.propose = "merge"` | no pull request: "land it" merges the branch into the base branch |
 
 While Lem's session is open, it looks at its pull requests one time each minute, with the GitHub
-CLI `gh`. Each `/lem` looks too. When the board says "nobody watches", type `/lem`.
+CLI `gh`. Each `/lem` also looks. When the board says "nobody watches", type `/lem`.
 
 > [!TIP]
 > On GitHub, turn on "Require branches to be up to date before merging" for the base branch.

@@ -1,13 +1,10 @@
 # Install, update, remove
 
-After this page, Lem runs in your repository, and you know what it keeps there and how to take it
-out.
-
 ## What you need
 
 | Tool | Lem uses it for |
 | --- | --- |
-| macOS, [agterm](https://agterm.com) and its skill (agterm Help menu) | sessions, panes and pages |
+| macOS, [agterm](https://agterm.com) and its skill, from the agterm Help menu | sessions, panes and pages |
 | [Claude Code](https://code.claude.com/docs) | the agents |
 | git, and Python 3.11 or newer as `python3` | branches, worktrees, scripts |
 | [revmux](https://github.com/umputun/revmux) and its skill | the review before each pull request |
@@ -17,7 +14,7 @@ out.
 | [Codex](https://github.com/openai/codex): optional, highly recommended | a second model family. Without it, Claude reviews the work of Claude |
 | an [OpenRouter](https://openrouter.ai) key: required when [the correction queue](#the-correction-queue) is on | the correction queue, and a check of each question card |
 
-`/lem init` checks each tool, and tells you how to install a missing one.
+`/lem init` checks each tool, and tells you how to install one that is absent.
 
 ## Install
 
@@ -38,11 +35,12 @@ claude plugin install lem@lem --scope project
 4. Read the page that Lem shows. It lists what Lem assumed, for example who merges. To correct an
    item, type `change` and the correction: `change land agent`.
 5. Type `land`. Lem puts its settings on your base branch.
+6. Type `/lem` and your first request, in one sentence.
 
 The page also lists the allow rules that Lem adds to `.claude/settings.json`. Keep them: a builder
-runs in the background, and a permission prompt stops it until you answer. A `Stop` or
-`SubagentStop` hook of yours that blocks the end of a turn also keeps Lem or a builder from its
-end. Let such a hook pass where `.lem/project.toml` exists.
+runs in the background, and a permission prompt stops it until you answer. If a `Stop` or
+`SubagentStop` hook of yours blocks the end of a turn, Lem and its builders cannot finish. Let
+such a hook pass where `.lem/project.toml` exists.
 
 > [!NOTE]
 > With a remote on GitHub, Lem pushes the branch of each task and opens its pull request without
