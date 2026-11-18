@@ -269,7 +269,8 @@ showed a split between the families with no approval of the owner's at or after 
 freeze of a read (`lem criteria approve --read`) is no approval of the owner's. A complete request
 that someone else wrote (the line `request by: someone else` in the task's brief or in a block of its
 state) needs that approval after the newest read even when nobody was confused, since nobody at the
-terminal read the request. A read in which nobody
+terminal read the request. In both cases an approval made while the task ran without the owner
+(`approve --alone`, `by: alone`) at or after the read lets it be proposed, not green. A read in which nobody
 answered is written down too: `propose` refuses while the newest one is the first such read in a
 row, so that the read is started once more, and after the second in a row the request is not
 green, with "the criteria were not read" first, and its checks say so in place of the read's line. A
@@ -1744,6 +1745,12 @@ def approved_after(found: dict, read: dict) -> bool:
     return any(approval["by"] == "owner" and approval["at"] >= read["ts"] for approval in found.get("approvals", []))
 
 
+def approved_alone(found: dict, read: dict) -> bool:
+    """Whether Lem or the lead approved the criteria at the read's time or after it while the task ran
+    without the owner (`lem criteria approve --alone`): enough to propose, never green."""
+    return any(approval["by"] == "alone" and approval["at"] >= read["ts"] for approval in found.get("approvals", []))
+
+
 def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dict | None = None) -> str:
     """The personas' read of the criteria and his approval, as one line of the pull request's checks;
     `skipped` is his word to skip the read with his approval after it, as `read_skipped` gives them."""
@@ -2409,7 +2416,8 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             "(`stages/interview.md`, step 5; for a full change from a complete request `stages/plan.md`, step 1). "
             "After a second read in a row that nobody answered, the request is proposed as not green",
         )
-    if read is not None and (read["flagged"] or read["split"]) and not approved_after(found, read):
+    # Without the owner, an approval made then lets the request go on, and it is not green for it.
+    if read is not None and (read["flagged"] or read["split"]) and not approved_after(found, read) and not approved_alone(found, read):
         doubt = f"{read['flagged']} flagged {'criterion' if read['flagged'] == 1 else 'criteria'}" if read["flagged"] else "a split between the two families"
         raise LandError(
             f"the newest read of {task.slug}'s criteria found {doubt}, and no approval of the owner's came after it: the criteria with the personas' answers "
@@ -2418,7 +2426,7 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
         )
     # A complete request that someone else wrote: nobody at the terminal read it, so its criteria wait
     # for his yes even when nobody was confused, and the lead's freeze of the read is not that yes.
-    if read is not None and not approved_after(found, read) and someone_elses(task):
+    if read is not None and not approved_after(found, read) and not approved_alone(found, read) and someone_elses(task):
         raise LandError(
             f"{task.slug} is a complete request that someone else wrote, and no approval of the owner's came after the newest read of its criteria: "
             f"nobody at the terminal read that request, so its criteria wait for his yes even when nobody was confused, and a freeze by the read is not his yes "

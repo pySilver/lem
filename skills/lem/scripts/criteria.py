@@ -37,6 +37,7 @@ the criteria are:
     lem criteria approve SLUG --file FILE
     lem criteria approve SLUG --small [--file FILE]
     lem criteria approve SLUG --read
+    lem criteria approve SLUG --file FILE --alone
                               keep the criteria the owner approved, as FILE has them: the same
                               section with no test lines, which the lead adds. --small: Lem
                               approves a small change's one criterion in the owner's name, as the task's
@@ -47,7 +48,11 @@ the criteria are:
                               after one read in which nobody answered, until a second such read
                               in a row lets the build go on. It
                               counts for the plan's check and for `lem decisions criterion`, and never
-                              as the owner's yes
+                              as the owner's yes. --alone: Lem or the lead approves a full change's
+                              criteria while the task runs without the owner (`lem project mode`),
+                              as `by: alone`; refused while it runs with him and after any approval
+                              but Lem's of a small change. It is never his yes either: the pull
+                              request is not green for it, and his own approval after it takes over
     lem criteria approved SLUG the approved criteria of the task, or null when it has none
     lem criteria digest SLUG [--file FILE]
                               the digest of the size and the texts of the criteria, without tests: of FILE,
@@ -316,8 +321,10 @@ class Task:
         if self.settings["settings"] is None:
             raise CriteriaError("this repository has no .lem/project.toml; `/lem init` writes it")
         tasks = json.loads(script("project.py", repo, "tasks"))
-        if not any(task["slug"] == slug for task in tasks):
+        record = next((task for task in tasks if task["slug"] == slug), None)
+        if record is None:
             raise CriteriaError(f"no task {slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
+        self.mode = record.get("mode", "with-owner")
         self.slug = slug
         self.repo = repo
         self.main = Path(self.settings["main"])
@@ -677,6 +684,8 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         raise CriteriaError(f"criterion {tested[0]} of {source.name} has a test line: the criteria the owner approves have none, and the lead adds them in the plan")
     if by == "lem" and read["size"] != "small":
         raise CriteriaError(f"--small approves a small change's one criterion in the owner's name, and {source.name} says `Size: {read['size']}`: a full change waits for the owner's own yes")
+    if by == "alone" and read["size"] == "small":
+        raise CriteriaError(f"{source.name} says `Size: small`: a small change's criterion is approved with --small, in either mode")
     criteria = [{"n": criterion["n"], "text": criterion["text"]} for criterion in read["criteria"]]
     # one mark for this exact set of approved texts; the approval itself is known by its number
     digest = text_digest(read["mark"], [criterion["text"] for criterion in criteria])
@@ -685,6 +694,16 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if by in AUTOMATIC:
             first_contract(task, by)
+        if by == "alone":
+            if task.mode != "alone":
+                raise CriteriaError(f"{task.slug} runs with the owner: the owner's yes approves its criteria (`stages/interview.md`, step 7), and --alone is for a task that runs without the owner")
+            kept = task.approved()
+            # a small change that turned out to be a full one needs its full approval; any other approval stands
+            if kept is not None and kept["by"] != "lem":
+                raise CriteriaError(
+                    f"{task.slug} has approval {kept.get('number') or 1 + len(kept.get('history', []))} of its criteria already (by {kept['by']}): "
+                    f"a criterion changes through its record, `lem decisions criterion {task.slug} ...`",
+                )
         if by == "read":
             # a full change from a complete request: the lead freezes the criteria the personas read, and only when nobody was confused
             reads = reads_of(task)
@@ -710,8 +729,9 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         history = [*before.get("history", []), {key: value for key, value in before.items() if key not in ("history", "task", "text")}] if before else []
         record = {
             "task": task.slug, "number": len(history) + 1, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            # who approved: the owner; Lem in his name, for a small change that does not wait; or the
-            # lead's read of a full change from a complete request, which counts for the plan's check and never as his yes
+            # who approved: the owner; Lem in his name, for a small change that does not wait; the
+            # lead's read of a full change from a complete request, which counts for the plan's check and never as his yes;
+            # or Lem or the lead while the task runs without the owner (`alone`), which is never his yes either
             "by": by, "size": read["size"], "why": read["why"], "digest": digest, "criteria": criteria, "text": text,
             **({"replaces": before["number"]} if before else {}), "history": history,
         }
@@ -728,14 +748,17 @@ def main() -> None:
     parser.add_argument("--file", help="with approve: the criteria the owner approved, in the form above and with no test lines; with digest: the criteria to mark")
     parser.add_argument("--small", action="store_true", help="with approve: Lem approves a small change's one criterion in the owner's name")
     parser.add_argument("--read", action="store_true", help="with approve: the lead of a full change from a complete request freezes the criteria a read in which nobody was confused read")
+    parser.add_argument("--alone", action="store_true", help="with approve: Lem or the lead approves a full change's criteria while the task runs without the owner")
     args = parser.parse_args()
     try:
         if args.file is not None and args.step not in ("approve", "digest"):
             raise CriteriaError("--file goes with `approve` and `digest`")
-        if (args.small or args.read) and args.step != "approve":
-            raise CriteriaError("--small and --read go with `approve`")
-        if args.small and args.read:
-            raise CriteriaError("an approval is Lem's for a small change or the read's of a full change from a complete request, not both: --small or --read")
+        if (args.small or args.read or args.alone) and args.step != "approve":
+            raise CriteriaError("--small, --read and --alone go with `approve`")
+        if args.small + args.read + args.alone > 1:
+            raise CriteriaError("an approval is Lem's for a small change, the read's of a full change from a complete request, or one made without the owner: one of --small, --read and --alone")
+        if args.alone and args.file is None:
+            raise CriteriaError("--alone needs --file: the criteria approved without the owner, the interview's file or the plan")
         task = Task(Path(args.repo).resolve(), args.slug)
         if args.step == "approve":
             if args.read:
@@ -749,6 +772,9 @@ def main() -> None:
                 result = cmd_approve(task, str(task.small_file), "lem")
             elif args.file is None:
                 raise CriteriaError("approve needs --file: the criteria the owner approved, in the form `lem criteria --help` shows, with no test lines")
+            elif args.alone:
+                # the plan's own criteria carry the lead's test lines, which are no part of a criterion's text
+                result = cmd_approve(task, args.file, "alone", plan=True)
             else:
                 result = cmd_approve(task, args.file, "lem" if args.small else "owner")
         elif args.step == "approved":

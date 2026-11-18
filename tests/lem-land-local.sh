@@ -482,4 +482,38 @@ else
 fi
 project --repo "$LOCAL" state rare-word dropped "the test is over" >/dev/null
 
+# Without the owner, Lem or the lead approves the criteria itself (`approve --alone`): refused while the task runs with
+# him, for a small change's file and over his approval, taken over Lem's approval of a small change; and a request that
+# someone else wrote, whose read flagged a criterion, is proposed with such an approval after the read.
+task_in "$LOCAL" gone-out g.txt g
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/gone.md"
+printf '%s\n' 'slug: gone-out' 'request by: someone else' > "$LOCAL/.lem/state/tasks/gone-out/brief.md"
+digest=$(lcriteria digest gone-out 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log gone-out criteria.read by=lead asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$digest" >/dev/null 2>&1 || true
+with_him=$(lcriteria approve gone-out --file "$WORK/gone.md" --alone 2>&1 || true)
+project --repo "$LOCAL" mode gone-out alone --by owner --words "go alone" >/dev/null
+small_file=$(lcriteria approve gone-out --file "$WORK/as-correction.md" --alone 2>&1 || true)
+two_kinds=$(status_of lcriteria approve gone-out --file "$WORK/gone.md" --alone --small)
+checked_local gone-out
+flagged=$(local_land propose gone-out --title "feat: g" --notes "$NOTES" 2>&1 || true)
+by_alone=$(lcriteria approve gone-out --file "$WORK/gone.md" --alone 2>&1 | field 'd["by"]' 2>&1 || true)
+local_land propose gone-out --title "feat: g" --notes "$NOTES" >/dev/null 2>&1 || true
+proposed_alone=$(status_in "$LOCAL" gone-out)
+project --repo "$LOCAL" task-dir grew-up >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: small, because the request is one sentence.' '' '1. The file holds the word the owner asked for.' > "$LOCAL/.lem/state/tasks/grew-up/criteria.md"
+lcriteria approve grew-up --small >/dev/null 2>&1 || true
+project --repo "$LOCAL" mode grew-up alone --by owner --words "go alone" >/dev/null
+over_small=$(lcriteria approve grew-up --file "$WORK/gone.md" --alone 2>&1 | field '(d["by"], d["number"])' 2>&1 || true)
+lcriteria approve grew-up --file "$WORK/gone.md" >/dev/null 2>&1 || true
+over_his=$(lcriteria approve grew-up --file "$WORK/gone.md" --alone 2>&1 || true)
+if grep -qF "gone-out runs with the owner: the owner's yes approves its criteria" <<<"$with_him" && grep -qF "a small change's criterion is approved with --small" <<<"$small_file" \
+  && [ "$two_kinds" = 1 ] && grep -qF "found 1 flagged criterion, and no approval of the owner's came after it" <<<"$flagged" \
+  && [ "$by_alone" = alone ] && [ "$proposed_alone" = open ] \
+  && [ "$over_small" = "('alone', 2)" ] && grep -qF "grew-up has approval 3 of its criteria already (by owner)" <<<"$over_his"; then
+  pass "without the owner the criteria are approved by:alone, never while the task runs with him, for a small change's file or over his approval; a flagged read of someone else's request with such an approval after it is proposed"
+else
+  fail "criteria approved without the owner: $with_him / $small_file / $two_kinds / $flagged / $by_alone / $proposed_alone / $over_small / $over_his"
+fi
+project --repo "$LOCAL" state gone-out dropped "the test is over" >/dev/null
+
 finish
