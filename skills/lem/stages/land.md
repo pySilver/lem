@@ -209,7 +209,8 @@ one finds what the run before it finished.
    owner reads either way. The state becomes `open`, and the landing line is free.
    Tell the owner once, in two lines at most: the pull request's address (or that the branch is
    ready to land), and green, or not green with the reasons as the step printed them. The text
-   is the report; do not say it again in your own words. Then, when it opened or updated a pull
+   is the report; do not say it again in your own words. For a full change, read
+   `stages/pages.md` now and follow it. Then, when it opened or updated a pull
    request and no watch of yours runs, start one (`run-in-background`, `lem
    land watch`): the forge tells nobody when the owner merges or closes it,
    and `SKILL.md` says under Status how the watch runs.

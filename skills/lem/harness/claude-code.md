@@ -380,6 +380,12 @@ machine check's `webrev skill` row is required and has its guide). When the sess
 skill, say so once, with the guide to install it by; then give the owner the file's path to read
 as it is, and take the notes in the conversation. Do not install it unasked.
 
+## make-page
+
+A subagent in the background (the `Agent` tool, `run_in_background`) whose prompt is `Use the agdoc
+skill with the text below as its arguments.` and the filled brief. Without agdoc, say so once with
+the guide of its row in the machine check, and give the owner the two files' paths.
+
 ## start-nap
 
 `run-in-background`, on this line, where `STATE` is the folder `lem project
