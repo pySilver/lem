@@ -32,8 +32,8 @@ task codes, one line each, and leave out a kind that has none:
 2. `criteria`: each task whose acceptance criteria wait for his yes;
 3. `held`: each task that waits for a step of his or one more fact, with that step;
 4. `pull_requests`: each open pull request, its address (or that its branch is ready to land),
-   and green or each reason it is not;
-5. `drafts`: each plan drafted at night, with its plan's path;
+   and green or each reason it is not; a task with a `night` says "of the night";
+5. `drafts`: each plan an older night drafted, with its plan's path;
 6. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
    named with it.
 
@@ -57,8 +57,8 @@ each answer:
 
 A dropped, landed or answered task has no choice that waits. A task whose status is null has a
 state nobody wrote through the script: say so. A task with a `ticket_owed` ended, and its ticket in
-the tracker does not say so yet: say that too. With a draft in the list, the night report of
-today or of the night before, `night/YYYY-MM-DD.md` in the folder `lem project state-dir` prints,
-gives its verdict and what the owner gets; the files hold no record of a status shown. The status
+the tracker does not say so yet: say that too. When `night_report` is not null, say after the
+list, from that file, which items became which pull request, which the night left out and why,
+and which task it left held for him; the files hold no record of a status shown. The status
 changes what already happened and nothing else: a merge on the forge is written down, with the
 steps that follow a merge and the queue that it frees.

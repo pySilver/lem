@@ -52,3 +52,6 @@ reasons, and the night's report.
    - each item left out, with why: decided against, held by another branch, a choice, a topic
      in reach (the topic in his words), or past `flow.max_tasks`;
    - the brake, when it stopped the night.
+
+In the morning a bare `/lem` lists the night's pull requests among the others, each marked as of
+the night, with this report (`stages/status.md`).

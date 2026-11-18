@@ -53,8 +53,9 @@ file are settings. A project that keeps one of them in another place moves it th
                                     repository's one lock for such commands
     lem project waiting             everything that waits for the owner, as JSON: each choice of a task,
                                     each task whose criteria or a step of his hold it, each pull
-                                    request with green or not, each plan drafted at night, each
-                                    retro's proposals
+                                    request with green or not, each task marked with the night that
+                                    opened it, each plan an older night drafted, each retro's
+                                    proposals, and last night's report
     lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON
@@ -202,11 +203,13 @@ named it, is found too: `lem_plans` is the one place that builds and finds the n
 `lem decisions pending` (`choices`), the tasks `held` with the line `the criteria wait for the
 owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
 task with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
-pushed head at the last `lem land merged`, null when nothing asked or the head moved since, and
-`night`, the date of the night that opened it or null), each `drafted` task with its plan (`drafts`), and each
+pushed head at the last `lem land merged`, null when nothing asked or the head moved since), each `drafted` task with its plan (`drafts`), and each
 file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
 with nobody at the terminal writes in the form Lem's question page takes, one question for each
-proposal. `count` adds them up. It reads and writes nothing else.
+proposal. `count` adds them up. Each task in the list gives `night`, the date of the night that
+opened it, or null; its report is `night/DATE.md` in the state folder. `night_report` is the
+report of last night, today's or yesterday's, or null; it waits for no answer and is not counted.
+It reads and writes nothing else.
 
 A nap is an optional part (`[naps]`, off unless the owner says yes): a fresh agent that reads the
 recent tasks, dreams, and writes the dream down in a folder of its own, `naps/TIME-WORDS/` in the
@@ -241,7 +244,7 @@ import signal
 import shutil
 import subprocess
 import tomllib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # The one place that says where the state is, shared with the scripts that cannot import this file.
@@ -2205,6 +2208,8 @@ CRITERIA_WAIT = ("the criteria wait for the owner", "the stories wait for the ow
 # Where a retro started with nobody at the terminal keeps its proposals: one file a retro, in the
 # state folder, named by its day.
 RETROS = "retros"
+# Where a night keeps its report, `night/YYYY-MM-DD.md` in the state folder (`stages/night.md`).
+NIGHTS = "night"
 
 
 def retro_proposals(file: Path) -> dict:
@@ -2239,7 +2244,7 @@ def cmd_waiting(root: Path) -> dict:
         return STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]
 
     def brief(task: dict) -> dict:
-        return {"task": task["slug"], "ask": task["ask"], "since": task["since"]}
+        return {"task": task["slug"], "ask": task["ask"], "since": task["since"], "night": task["night"]}
 
     held = [task for task in tasks if task["status"] == "held"]
     found = {
@@ -2248,7 +2253,7 @@ def cmd_waiting(root: Path) -> dict:
         "held": [{**brief(task), "line": line(task)} for task in held if not line(task).startswith(CRITERIA_WAIT)],
         "pull_requests": [
             {**brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"],
-             "conflict": task["proposal"]["conflict"], "night": task["night"]}
+             "conflict": task["proposal"]["conflict"]}
             for task in tasks if task["status"] == "open" and task["proposal"]
         ],
         "drafts": [
@@ -2257,6 +2262,11 @@ def cmd_waiting(root: Path) -> dict:
         ],
         "retros": [retro_proposals(file) for file in sorted((state_root(root) / RETROS).glob("*.json"))],
     }
+    # the report of last night: a night writes it under the day it started, so today's or yesterday's
+    today = datetime.now().date()
+    recent = [(state_root(root) / NIGHTS / f"{day.isoformat()}.md") for day in (today, today - timedelta(days=1))]
+    report = next((file for file in recent if file.is_file()), None)
+    found["night_report"] = {"date": report.stem, "file": str(report)} if report else None
     found["count"] = sum(len(found[key]) for key in ("choices", "criteria", "held", "pull_requests", "drafts")) + sum(
         entry["proposals"] or 1 for entry in found["retros"]
     )

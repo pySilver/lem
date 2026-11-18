@@ -438,6 +438,24 @@ if [ "$drafts" = "['drafted-one', 'drafted-two']" ] && [ "$place" = 0 ] && [ "$a
 else
   fail "an older night's draft: $drafts / $place / $approved / $asked / $rejected"
 fi
+
+# The morning: a task the night left held for the owner is marked with its night beside a day's, the night's pull
+# requests are among the others, and the list names last night's report, today's or yesterday's, never an older one.
+wq task-dir night-held --ask "The backlog item of night-held." >/dev/null && wq mode night-held alone --by lem --words "the night of 2026-11-18" >/dev/null
+wq state night-held held "choice 1 waits for the owner" >/dev/null
+no_report=$(wq waiting | field 'd["night_report"]' 2>&1 || true)
+mkdir -p "$WQ/.lem/state/night"
+printf '%s\n' '# The night of 2026-01-01' > "$WQ/.lem/state/night/2026-01-01.md"
+before=$(wq waiting | field 'd["night_report"]' 2>&1 || true)
+last_night=$WQ/.lem/state/night/$(date +%F).md
+printf '%s\n' '# The night' '- night-small: pull request 8, green' '- night-full: pull request 9, not green' '- night-held: choice 1 waits for the owner' > "$last_night"
+morning=$(wq waiting | field '([(t["task"], t["night"]) for t in d["held"]], [(t["task"], t["night"]) for t in d["pull_requests"]], d["night_report"]["file"])' 2>&1 || true)
+if [ "$no_report" = None ] && [ "$before" = None ] \
+  && [ "$morning" = "([('his-step', None), ('night-held', '2026-11-18')], [('night-full', '2026-11-18'), ('night-small', '2026-11-18'), ('proposed-one', None)], '$last_night')" ]; then
+  pass "in the morning the list marks a task the night held and the night's pull requests with the night, beside a day's, and names last night's report and no older one"
+else
+  fail "the morning: $no_report / $before / $morning"
+fi
 git -C "$WQ" worktree remove --force "$dtree"
 
 finish
