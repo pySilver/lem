@@ -179,4 +179,48 @@ else
 $compound"
 fi
 
+# land.py, criteria.py and decisions.py run a sibling's command in their own process (lem_sibling.py): for each way
+# a script can end, the result is the one a process of its own gives, and a command of APART is such a process.
+mkdir -p "$WORK/siblings"
+"$PY" -I -B - "$PWD/skills/lem/scripts" "$WORK/siblings" > "$WORK/siblings.out" <<'PY' || true
+import subprocess, sys
+from pathlib import Path
+sys.dont_write_bytecode = True
+sys.path.insert(0, sys.argv[1])
+import lem_sibling
+work = Path(sys.argv[2])
+ends = {
+    "text": 'print("out")\n    sys.exit("text.py: refused")', "number": 'print("out")\n    sys.exit(3)', "wrapped": "sys.exit(-1)",
+    "none": 'print("out", argv)\n    print("said", file=sys.stderr)\n    sys.exit()', "plain": 'print("out")',
+    "crash": 'print("half")\n    {}["x"]', "pid": 'import os\n    print(os.getpid())',
+}
+wrong = []
+for name, body in ends.items():
+    (work / f"{name}.py").write_text(f"import sys\ndef main(argv=None):\n    {body}\nif __name__ == '__main__':\n    main(sys.argv[1:])\n")
+    got = lem_sibling.run(work / f"{name}.py", work, name, "--flag")
+    real = subprocess.run([sys.executable, "-B", str(work / f"{name}.py"), "--repo", str(work), name, "--flag"], capture_output=True, text=True)
+    if name == "pid":
+        # this process runs it, and a command of APART (as criteria.py red is) runs in another
+        lem_sibling.APART[("pid.py", "apart")] = "a process of its own"
+        got, real = got.stdout.strip(), lem_sibling.run(work / "pid.py", work, "apart").stdout.strip()
+        if got != str(__import__("os").getpid()) or real in ("", got):
+            wrong.append(f"pid: {got} in this process, {real} for a command of APART")
+        continue
+    last = [(ran.returncode, ran.stdout, ran.stderr.strip().splitlines()[-1:] if name == "crash" else ran.stderr) for ran in (got, real)]
+    if last[0] != last[1] or (name == "crash" and not got.stderr.startswith("Traceback")):
+        wrong.append(f"{name}: {last[0]!r} in this process, {last[1]!r} as a process")
+# a file in a sibling's place with no main(argv) of its own, such as a stand-in that reads sys.argv, is run as a process
+(work / "stand.py").write_text('import sys\nprint(sys.argv[1:])\nsys.exit("stand.py: refused" if "landed" in sys.argv else 0)\n')
+for args in (("state", "x", "landed"), ("tasks",)):
+    got, real = lem_sibling.run(work / "stand.py", work, *args), subprocess.run([sys.executable, "-B", str(work / "stand.py"), "--repo", str(work), *args], capture_output=True, text=True)
+    if (got.returncode, got.stdout, got.stderr) != (real.returncode, real.stdout, real.stderr):
+        wrong.append(f"stand-in {args}: {(got.returncode, got.stdout, got.stderr)!r}, as a process {(real.returncode, real.stdout, real.stderr)!r}")
+print("; ".join(wrong) or "same")
+PY
+if [ "$(cat "$WORK/siblings.out")" = same ]; then
+  pass "a sibling's command in the caller's process ends as its own process would: sys.exit with a text, a number or none, a plain end, and a crash with its traceback and exit 1; a command of APART and a file with no main(argv) each run as a process of their own"
+else
+  fail "a sibling's command in the caller's process: $(cat "$WORK/siblings.out")"
+fi
+
 finish
