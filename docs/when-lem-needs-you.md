@@ -48,8 +48,8 @@ The second tab shows the backlog. "Start a task" on an item opens a task for it.
 
 ## At night
 
-A scheduled job runs `/lem night`. Lem takes the smallest backlog items, up to `flow.max_tasks`,
-and runs each one without you to its pull request. In the morning, `/lem` shows these pull
+A scheduled job runs `/lem night`. Lem takes the smallest backlog items, four at most, and runs
+them one after the other, each without you to its pull request. `/lem night 2` takes two. In the morning, `/lem` shows these pull
 requests and the report of the night. A task of the night on the standard track is not green, because you did
 not approve its criteria. Lem leaves out an item near what must never go wrong. When two pull
 requests of earlier nights are still open, the night opens nothing.
@@ -71,7 +71,7 @@ level. The card waits for your answer with no time limit, and the other work goe
 
 ## Away
 
-Type `/lem away`, or say "I'm away". Until you say so, Lem takes it that you are there. While you
+Type `/lem im-away`, or say "I'm away". Until you say so, Lem takes it that you are there. While you
 are away, every task goes on without you:
 
 - each choice that waits is taken at once, with the ladder's pick;
@@ -80,7 +80,7 @@ are away, every task goes on without you:
   that a persona doubted. Then Lem approves the criteria without you.
 
 The pull request is then not green, and it lists each decision that Lem took for you. Type
-`/lem active` when you are back. For each task, Lem tells you how many decisions it took, and
+`/lem im-back` when you are back. For each task, Lem tells you how many decisions it took, and
 whether it approved the criteria.
 
 > [!IMPORTANT]
