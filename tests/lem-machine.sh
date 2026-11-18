@@ -196,6 +196,34 @@ if [ "$(field '[t["name"] for t in d["tools"] if "lem-ask" in t["name"]]' <<<"$o
 else
   fail "doctor and the key: $keyed"
 fi
+# Where the correction queue is on, the key is required: with no key the hook fails on each message and the queue stays
+# empty. The row names both ways out; the queue off, or off for this computer in the local file, leaves it optional.
+KEYED=$WORK/key-repo
+git init -q -b main "$KEYED" && mkdir -p "$KEYED/.lem"
+printf '%s\n' '[corrections]' 'collect = true' > "$KEYED/.lem/project.toml"
+key_doctor() { (cd "$KEYED" && env -i PATH="$BIN" HOME="$FAKEHOME" "$@" "$PY" -B "$DOCTOR"); }
+key_row() { field '(lambda t: (t["need"], t["found"]))(next(t for t in d["tools"] if t["name"] == "OpenRouter key"))'; }
+on_out=$(key_doctor || true)
+on_code=$(status_of key_doctor)
+on_keyed=$(key_doctor OPENROUTER_API_KEY=sk-not-a-real-key | key_row)
+on_keyed_code=$(status_of key_doctor OPENROUTER_API_KEY=sk-not-a-real-key)
+printf '%s\n' '[corrections]' 'collect = false' > "$KEYED/.lem/project.local.toml"
+local_off=$(key_doctor | key_row)
+local_off_code=$(status_of key_doctor)
+rm "$KEYED/.lem/project.local.toml"
+printf '%s\n' '[corrections]' 'collect = false' > "$KEYED/.lem/project.toml"
+off=$(key_doctor | key_row)
+off_code=$(status_of key_doctor)
+on_says=$(row 'OpenRouter key' without_it <<<"$on_out")
+if [ "$on_code" = 1 ] && [ "$(key_row <<<"$on_out")" = "('required', False)" ] && [ "$(field 'd["ok"]' <<<"$on_out")" = False ] \
+  && grep -qF "the queue stays empty" <<<"$on_says" && grep -qF "Put OPENROUTER_API_KEY into the environment the agent starts with" <<<"$on_says" \
+  && grep -qF "\`collect = false\` under [corrections] in .lem/project.local.toml" <<<"$on_says" \
+  && [ "$on_keyed" = "('required', True)" ] && [ "$on_keyed_code" = 0 ] \
+  && [ "$local_off" = "('optional', False)" ] && [ "$local_off_code" = 0 ] && [ "$off" = "('optional', False)" ] && [ "$off_code" = 0 ]; then
+  pass "where the correction queue is on the key is required: with none the check fails and names the key and the local collect = false; with the key it passes; the queue off, or off for this computer, leaves it optional"
+else
+  fail "the key where the queue is on: $on_code $(key_row <<<"$on_out") / $on_says / $on_keyed $on_keyed_code / $local_off $local_off_code / $off $off_code"
+fi
 fake codex "codex-cli 9.9"
 without=$(doctor | field '(next(t for t in d["tools"] if t["name"] == "codex persona agent")["found"], d["ok"])')
 mkdir -p "$FAKEHOME/.codex/agents" && touch "$FAKEHOME/.codex/agents/persona.toml"
@@ -317,7 +345,8 @@ if [ -n "$old" ]; then
     fail "the scripts under $old: $rows / $said"
   fi
 else
-  printf 'SKIP the hook under an old python3: none found\n'
+  skip "the hook under a python3 before 3.11: none found"
+  skip "the other scripts under a python3 before 3.11: none found"
 fi
 sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")
@@ -367,7 +396,7 @@ git clone -q --bare "$CQ" "$WORK/corr-bare.git" && git -C "$WORK/corr-bare.git" 
 mkdir -p "$WORK/corr-bare.git/.lem" && printf '%s\n' '[corrections]' 'collect = false' > "$WORK/corr-bare.git/.lem/project.local.toml"
 printf '{"prompt": "from the worktree of a bare repository", "cwd": "%s", "session": "s14", "transcript": ""}' "$WORK/corr-bare-wt" > "$WORK/payload.json"
 hook worker "$WORK/payload.json"
-bare_log=$( (cat "$WORK/corr-bare.lem/state/corrections.log" "$WORK/corr-bare.lem/state/corrections.jsonl" 2>/dev/null || true) | wc -l | tr -d ' ')
+bare_log=$( (cat "$WORK/corr-bare.git/.lem/state/corrections.log" "$WORK/corr-bare.git/.lem/state/corrections.jsonl" 2>/dev/null || true) | wc -l | tr -d ' ')
 if [ "$shown" = "(False, ['corrections.collect'])" ] && [ "$(wc -l < "$CQ/.lem/state/corrections.jsonl")" = "$before" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/corr-wt/.lem/project.local.toml" ] && [ "$bare_log" = 0 ]; then
   pass "one person's no in the machine's own file stops the hook before anything is sent, from a worktree and from the worktree of a bare repository too; a file there that does not read, or has another shape, is a no"
 else
@@ -611,10 +640,13 @@ fi
 git -C "$PPL" worktree remove --force "$WORK/people-wt"
 
 # Without Codex the codex row says what a task loses: the reviewer's other family, the second expert, half of a panel.
+# It stays optional, since nothing fails without it, and says that it is highly recommended and why.
 codexless=$(doctor | row codex without_it)
-if grep -qF "an expert whose seat names codex (the second of seats.experts by default, GPT-6 Astra) does not answer" <<<"$codexless" \
+codex_need=$(doctor | row codex need)
+if [ "$codex_need" = optional ] && grep -qF "highly recommended, since without it Claude reviews the work of Claude" <<<"$codexless" \
+  && grep -qF "an expert whose seat names codex (the second of seats.experts by default, GPT-6 Astra) does not answer" <<<"$codexless" \
   && grep -qF "its pull request is not green for it" <<<"$codexless" && grep -qF "a persona panel has the answers of one model family" <<<"$codexless"; then
-  pass "with no Codex the codex row says that the reviewer is a second Claude, that the second expert does not answer so a choice ends not green, and that a panel has one model family"
+  pass "with no Codex the codex row stays optional and says it is highly recommended, since without it Claude reviews the work of Claude: the reviewer is a second Claude, the second expert does not answer so a choice ends not green, and a panel has one model family"
 else
   fail "the codex row without codex: $codexless"
 fi

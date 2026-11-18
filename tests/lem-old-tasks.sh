@@ -11,10 +11,11 @@
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-# The scripts of the commit before the rename. A shallow clone may not have it: then nothing here runs.
+# The scripts of the commit before the rename. A shallow clone may not have it: then nothing here runs,
+# and each check says so in a line of its own.
 BEFORE=9a35e30
 if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-  printf 'SKIP the tasks an older Lem proposed: this clone does not have commit %s\n' "$BEFORE"
+  skip_rest "this clone does not have commit $BEFORE"
   finish
   exit 0
 fi
@@ -236,7 +237,7 @@ sys.exit(bool(missing))
 PY
 )
 if [ -z "$chrome" ]; then
-  printf 'SKIP the board of the tasks an older Lem proposed: no Chrome or Chromium on this machine\n'
+  skip "the board of the tasks an older Lem proposed: no Chrome or Chromium on this machine"
 else
   draw() {
     "$PY" -B "$PWD/skills/lem/scripts/board.py" --repo "$OT" ${2:+--task "$2"} --no-open >/dev/null
@@ -246,7 +247,7 @@ else
   draw task-old-bug old-bug
   draw task-old-full old-full
   if [ ! -s "$WORK/task-old-bug.dom" ]; then
-    printf 'SKIP the board of the tasks an older Lem proposed: %s printed no page\n' "$chrome"
+    skip "the board of the tasks an older Lem proposed: $chrome printed no page"
   elif why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-old-bug.dom" "fix" "Taken as a small change: Lem approved its one criterion in your name" "small change, because the request is one sentence." \
       "nothing writes the word into bug.txt" "!kind: bug" "!correction, because" "!stories" "!one story") \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-old-full.dom" "feat" "full change, because the file gets a word and the README a line." "Approved by you" \

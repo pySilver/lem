@@ -270,6 +270,12 @@ PLACES: dict[str, str] = {
 PATHS = {"plans": "docs/plans"}
 # The keys an older Lem had under [paths] for what is a place now: the key -> its place's name.
 OLD_PATH_KEYS = {**{name: name for name in PLACES if name != "rules"}, "styleguide": "rules"}
+# What a move of `.lem/styleguide` into `.claude/rules` takes out first: an older `/lem init` wrote a
+# draft README.md with no rule there, and Claude Code loads every .md file of `.claude/rules` as a rule.
+NO_RULE = (
+    "delete each file in .lem/styleguide that holds no rule, such as the draft README.md an older `/lem init` wrote there "
+    "(`git rm .lem/styleguide/README.md`), since Claude Code loads every .md file of .claude/rules as a rule in each session"
+)
 LAND = ("owner", "agent")
 # How a task's branch reaches the base branch: its own commits, or one commit for the whole branch.
 HISTORY = ("keep", "squash")
@@ -564,10 +570,11 @@ def inside(root: Path, relative: str, where: str) -> Path:
 
 def main_checkout(root: Path) -> Path:
     """The checkout every worktree hangs off: the first entry git lists. A file git does not track lives only there."""
-    # -z ends each field with a NUL: a path may hold a line break, and a split on lines would cut it
-    listed = subprocess.run(["git", "-C", str(root), "worktree", "list", "--porcelain", "-z"], capture_output=True, text=True, check=False)
-    first = next((field.removeprefix("worktree ") for field in listed.stdout.split("\0") if field.startswith("worktree ")), None)
-    return Path(first) if first else root
+    # lem_state's search, which asks git once a command for each folder
+    try:
+        return lem_state.main_checkout(root)
+    except lem_state.StateError:
+        return root
 
 
 def text_of(file: Path) -> str:
@@ -726,6 +733,8 @@ def old_path_line(key: str, value: object) -> str:
         return f"- delete {line}: {place} is its one place, with no setting"
     if key == "worktrees":
         move = f"move each task's worktree from {given} to {place} first, with `git worktree move {given}/SLUG {place}/SLUG`"
+    elif key == "styleguide":
+        move = f"move the rule files of {given} to {place} first: {NO_RULE}, then `git mv {given} {place}`"
     else:
         move = f"move {given} to {place} first, with `git mv {given} {place}`"
     return f"- delete {line}, and {move}: {place} is its one place, with no setting"
@@ -1231,7 +1240,7 @@ def rules_folder(settings: dict) -> Path:
         move = f"git mv .lem/styleguide/* {PLACES['rules']}/" if folder.is_dir() else f"mkdir -p {Path(PLACES['rules']).parent} && git mv .lem/styleguide {PLACES['rules']}"
         raise SettingsError(
             f".lem/styleguide holds rule files, and Lem reads the rules for the code from {PLACES['rules']} only, the folder Claude Code loads by itself. "
-            f"Move them there: `{move}`, then commit the move",
+            f"First {NO_RULE}. Then move the rule files there: `{move}`, and commit the move",
         )
     return folder
 
@@ -1476,7 +1485,8 @@ def state_root(root: Path) -> Path:
     """The folder task state lives in, `.lem/state/` of the main checkout, as `lem_state` says; asked once a run."""
     if root not in STATE_ROOTS:
         try:
-            STATE_ROOTS[root] = lem_state.folder(root)
+            # the line that tells of a move is project.py's, also when a sibling runs this in its own process
+            STATE_ROOTS[root] = lem_state.folder(root, say=lambda line: print(f"project.py: {line}", file=sys.stderr))
         except lem_state.StateError as error:
             raise SettingsError(str(error)) from error
     return STATE_ROOTS[root]
@@ -2385,7 +2395,7 @@ def cmd_may_nap(root: Path) -> None:
     print(json.dumps(answer, indent=2))
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem project", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -2435,8 +2445,8 @@ def main() -> None:
     alone = commands.add_parser("alone", help="run one command that needs the machine to itself, under the repository's one lock")
     alone.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     commands.add_parser("may-nap")
-    args = parser.parse_args()
-    if problem := unreadable_argument(sys.argv[1:]):
+    args = parser.parse_args(argv)
+    if problem := unreadable_argument(sys.argv[1:] if argv is None else argv):
         sys.exit(f"project.py: {problem}")
     try:
         root = repo_root(Path(args.repo))

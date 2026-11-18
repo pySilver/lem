@@ -145,12 +145,16 @@ import fcntl
 import json
 import os
 import re
-import subprocess
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
+# How this script calls a sibling: in this process, as one command of it.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(SCRIPTS))
+import lem_sibling  # noqa: E402
+
 # Who took a decision: the lead, a level of the ladder (`stages/ladder.md`), the owner, or Lem.
 BY = ("lead", "gate", "personas", "dialectic", "experts", "owner", "lem")
 # The task states in which nothing of a task waits any more, as project.py's ENDED.
@@ -177,7 +181,7 @@ class DecisionError(Exception):
 
 
 def script(name: str, repo: Path, *args: str) -> str:
-    ran = subprocess.run([sys.executable, "-B", str(SCRIPTS / name), "--repo", str(repo), *args], capture_output=True, text=True, check=False)
+    ran = lem_sibling.run(SCRIPTS / name, repo, *args)
     if ran.returncode != 0:
         raise DecisionError(ran.stderr.strip().removeprefix(f"{name}: ") or f"{name} {args[0]} failed")
     # a line project.py writes on stderr when it succeeds (the move of an older state folder) is this script's to say too
@@ -513,7 +517,9 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
         if args.choice is not None:
             choice = task.one(args.choice, known)
             if choice["state"] not in ("answered", "timeout", "settled"):
-                raise DecisionError(f"choice {args.choice} is {choice['state']}: a criterion changes after a choice that was answered or taken by timeout, or that the experts settled")
+                # the state as a verb: a choice that "waits", a decision that "is taken"
+                said = "waits" if choice["state"] == "waits" else f"is {choice['state']}"
+                raise DecisionError(f"choice {args.choice} {said}: a criterion changes after a choice that was answered or taken by timeout, or that the experts settled")
         lines = task.lines()
         # the same computation the check of the criteria makes, with this change last: a wrong record never enters
         task.changes([*lines, line])
@@ -723,7 +729,7 @@ def cmd_timeout(task: Task, number: int) -> dict:
     return task.add(make)[0]
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem decisions", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -785,8 +791,8 @@ def main() -> None:
     advise.add_argument("--none", action="store_true", help="the expert found that none of the options fits")
     advise.add_argument("--why", required=True, help="the expert's reasons, in two to four sentences")
     commands.add_parser("list").add_argument("slug")
-    args = parser.parse_args()
-    for arg in sys.argv[1:]:
+    args = parser.parse_args(argv)
+    for arg in sys.argv[1:] if argv is None else argv:
         try:
             arg.encode("utf-8")
         except UnicodeEncodeError:

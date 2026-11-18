@@ -286,7 +286,7 @@ command when it is one. The status says who acts next:
 | Status | Means | Who acts |
 | --- | --- | --- |
 | `queued` | the ask is written and no lead runs: the limit was reached, or it needs the result of the task its `after:` line names | Lem, when a lead stops or that task ends |
-| `building` | a lead plans or builds, or a builder investigates a bug or a question | the lead, or the investigator |
+| `building` | a lead plans or builds, or an investigator examines a bug or a question | the lead, or the investigator |
 | `planned` | the plan is committed and nothing builds it | Lem opens the plan talk's companion, or starts a builder after the talk, or the owner reads the plan |
 | `held` | it waits for the owner on what is no decision with options: the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or an irreversible choice that every task left depends on | the owner, through Lem |
 | `blocked` | the lead stopped on something it could not settle | Lem |
@@ -303,7 +303,7 @@ task's worktree, so the board needs no second command from anyone. Seven lines h
 because the board reads them: `lead: builder` or `lead: session` (the plan talk's companion),
 `small change: one builder` (a small change's one builder, which is no lead), `session: ID`,
 `plan committed` with `N tasks`, `task N of M`, `investigation: bug` or `investigation: question`
-(a builder investigates before any lead), and `type: TYPE, because WHY`, which `state` refuses in
+(an investigator works before any lead), and `type: TYPE, because WHY`, which `state` refuses in
 another form, a `kind:` line among them.
 
 A stage's start is an event too, so that the board's time card has a start and an end for each

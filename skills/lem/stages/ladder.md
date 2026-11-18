@@ -1,6 +1,7 @@
 # A decision in doubt: the ladder
 
-Read by a lead or a plan talk's defender at a decision in doubt, and by nobody else. A decision is
+Read by a lead or a plan talk's defender at a decision in doubt, and by Lem at a criterion the
+personas flagged while the task runs without the owner (`stages/mode.md`). A decision is
 in doubt when it changes a criterion or a direction, or when its options each cost a person
 something and nothing you read answers it. Every other decision is yours: decide it from the
 code, the settings and the rulings, log it with `--by lead` and `--undo`, and go on.

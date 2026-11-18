@@ -10,18 +10,18 @@
 # over the same tasks marked as examples (board.py --demo), at 900, 1400 and 1800 px in a light and a
 # dark theme, and prints where the lanes start on a 1400 x 900 window. The README's pictures are of
 # a normal afternoon instead: tests/board-showcase.py.
-set -euo pipefail
+set -eEuo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source-path=SCRIPTDIR source=checks.sh
+. tests/checks.sh
+collected
 SCRIPTS=$PWD/skills/lem/scripts
 WORK=$(cd "$(mktemp -d)" && pwd -P)
-trap 'rm -rf "$WORK"' EXIT
+trap 'stopped; rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
-fails=0
-pass() { printf 'ok   %s\n' "$1"; }
-fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
 R=$WORK/shop
 STATE=$R/.lem/state
 project() { "$PY" -B "$SCRIPTS/project.py" --repo "$R" "$@"; }
@@ -355,14 +355,14 @@ retime "$M" now -60 -59 -58 -40 -39 -38 -37 -36
 # A bug that its investigation found to be none: the task ends answered, with its report.
 A=refund-shows-zero
 task "$A" "Invoices show 0 after a refund"
-project state "$A" building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
+project state "$A" building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong today" >/dev/null
 printf '%s\n' '# Investigation' '' 'Reproduced: yes, with tests/refund.sh.' > "$STATE/tasks/$A/investigation.md"
 project log "$A" investigation type=fix call=not-a-bug "line=a refund is a credit note, and the invoice shows what is left to pay" where=billing/invoice.py:total reproduced:=true >/dev/null
 project state "$A" answered "not a bug: the invoice shows what is left to pay" "report: investigation.md" >/dev/null
 retime "$A" now -30 -12 -11
 # A bug whose investigation runs.
 task cart-total-wrong "The cart total is wrong since yesterday"
-project state cart-total-wrong building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong since yesterday" >/dev/null
+project state cart-total-wrong building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because the ask says the total is wrong since yesterday" >/dev/null
 project log cart-total-wrong investigation.start type=fix >/dev/null
 
 # A full change whose every stage logged its start (SKILL.md), from the interview to the merge, on 13
@@ -430,12 +430,14 @@ git -C "$R" add -A && git -C "$R" commit -q -m "docs: the backlog"
 chmod 000 "$R/locked.txt"
 
 NOW=$("$PY" -I -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:00Z"))')
+# the board's copy of the log as Lem's scripts fed it, before retime writes it again from the moved log
+fed=$(grep -c '"task": "gift-note-export"' "$STATE/events.js" || true)
 retime_all
 
-if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 37 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
-  pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log holds the moved times"
+if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 37 ] && [ "$fed" = 15 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.jsonl")" = 15 ]; then
+  pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log, as the scripts fed it, holds each event of a task"
 else
-  fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events"
+  fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events, $fed events of gift-note-export in the board's copy"
 fi
 
 # Green has one wording: the board's sentence is the first line of a green pull request, land.py's GREEN.
@@ -664,15 +666,15 @@ draw() {
   headless --virtual-time-budget=5000 --dump-dom "file://$STATE/$1.html${2:+#$2}" > "$WORK/$1${2:+-$2}.dom"
 }
 
+# Every check from here on reads a page Chrome drew: with none, or with a Chrome that cannot start
+# (a sandbox that forbids it) and so says nothing about the page, each says so in a SKIP line.
 if [ -z "$chrome" ]; then
-  printf 'SKIP the board pages: no Chrome or Chromium found\n'
+  skip_rest "no Chrome or Chromium found"
 else
   draw board
+  if [ ! -s "$WORK/board.dom" ]; then skip_rest "$chrome printed no page"; fi
 fi
-if [ -n "$chrome" ] && [ ! -s "$WORK/board.dom" ]; then
-  # A Chrome that cannot start (a sandbox that forbids it) says nothing about the page.
-  printf 'SKIP the board pages: %s printed no page\n' "$chrome"
-elif [ -n "$chrome" ]; then
+if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # shellcheck disable=SC1111  # the curly quotes around a state's own line are the page's
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "#short" \
     "Waits for you=Gift note export|Choice 7 waits for you: The note of a cancelled order · 10m left" \
@@ -935,7 +937,7 @@ wrong = [name for name, ok in {
 }.items() if not ok]
 print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/probe.dom" 2>&1 || true)
   if [ ! -s "$WORK/probe.dom" ]; then
-    printf 'SKIP the hover of the time card: %s printed no page\n' "$chrome"
+    skip "the hover of the time card: $chrome printed no page"
   elif [ "$hovered" = "ok " ]; then
     pass "a hover on a band, a span or a mark of the time card says what it is, how long it took and its two clock times, as in \"Task 1 · 18m · 09:40:00 → 09:58:00\""
   else
@@ -1100,16 +1102,17 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$A.dom" feed \
       "The investigation found no bug|a refund is a credit note, and the invoice shows what is left to pay|billing/invoice.py:total · reproduced" "Answered|!not a bug: the invoice shows what is left to pay") \
     && ! grep -q 'class="phase cur"' "$WORK/task-$A.dom" \
-    && grep -q 'data-head="The builders · The investigation" data-sub="a builder reproduces the bug and finds its cause · fix, because the ask says the total is wrong today"' "$WORK/task-$A.dom" \
+    && grep -q 'data-head="The builders · The investigation" data-sub="an investigator reproduces the bug and finds its cause · fix, because the ask says the total is wrong today"' "$WORK/task-$A.dom" \
     && grep -q 'data-head="Investigation"' "$WORK/task-$A.dom" && why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$A.dom" "Inv." "!Waits for you"); then
     pass "an answered task is in the lane of what ended with its type and its investigation's answer; its own board says it ended with a report, names the call, the cause's place and the report, and draws the investigation as the builders' span"
   else
     fail "an answered task: ${why:-the span of the investigation, or a phase marked as current}"
   fi
   draw task-cart-total-wrong
-  if why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Cart total wrong|Investigating: a builder reproduces the bug and finds its cause|fix") \
-    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any criterion|fix, because the ask says the total is wrong since yesterday|!lead"); then
-    pass "a task whose investigation runs says so on its card and on its own board, and names the investigator, not a lead"
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" lanes "Cart total wrong|Investigating: an investigator reproduces the bug and finds its cause|fix") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" now "The investigator acts|Its investigator examines it, before any criterion|fix, because the ask says the total is wrong since yesterday|!lead") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-cart-total-wrong.dom" feed "The investigation started|an investigator reproduces the bug and finds its cause|!a builder"); then
+    pass "a task whose investigation runs says so on its card and on its own board, and names the investigator, not a lead and not a builder"
   else
     fail "a task whose investigation runs: $why"
   fi
@@ -1476,6 +1479,8 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
   fi
 fi
 
+results_add_up
+finished=yes
 if [ "$fails" -gt 0 ]; then
   printf '%d failed\n' "$fails"
   exit 1

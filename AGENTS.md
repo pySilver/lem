@@ -851,8 +851,13 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
 ## Checks
 
 ```bash
-bash tests/all.sh              # every suite below at the same time, one log each, a line of ok and FAIL per suite
+bash tests/all.sh              # every suite below at the same time, one log each, a line of ok, FAIL and SKIP per suite
+python3 tests/pick.py --base main  # the suites to run for what the branch changed (or name the files); all.sh still runs before main moves
 ```
+
+Each suite says how many checks it holds (`collected N`, `tests/checks.sh`), and a check that
+cannot run here prints a `SKIP` line of its own. A suite whose `ok` and `SKIP` lines do not add up
+to that count fails, and so does one that runs over its time limit (`LEM_TEST_LIMIT`, 30 minutes).
 
 One suite alone:
 
@@ -869,7 +874,7 @@ bash tests/test-gate-panel.sh  # the panel's cast, in its one place
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, its end when the task runs without the owner, and the brief; no expert runs
 bash tests/test-board.sh       # the board over a repository whose tasks stand in every lane; loads its pages in headless Chrome when one is installed
-shellcheck tests/*.sh
+bash tests/shellcheck.sh       # ShellCheck over tests/*.sh, one check for each file, or over the files named
 ```
 
 A change to a script comes with its test. A change to a stage file has no test: its test is a
@@ -899,7 +904,9 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `.lem/state/` of the main checkout, and moves the `.git/lem/` of an older Lem there once; every
   script that touches the state asks it, directly or through `project.py state-dir`),
   `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
-  and finds a plan of the older name `YYYYMMDD-<slug>.md`),
+  and finds a plan of the older name `YYYYMMDD-<slug>.md`), `lem_sibling.py` (how `land.py`,
+  `criteria.py` and `decisions.py` run a command of a sibling: in their own process, as its
+  `main(argv)`, except the commands in its `APART`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
   (`PLACES`), the one refusal of a settings file of an older form (`older_form`), task state, a
   task's mode (with the owner or without him), the event log, and `waiting`, the one list of what waits for the owner),
@@ -949,7 +956,9 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   and the copies a panel read; `lem_state.py` names it. `.revmux/`: the review tool's profiles, lenses and project
   profile for this repository.
 - `tests/`: the suites of the Checks above; `all.sh` runs them all, `lib.sh` is what each
-  `lem-*.sh` block sources. `.github/workflows/ci.yml` runs them when someone starts it by hand.
+  `lem-*.sh` block sources, `checks.sh` is how every suite counts its checks, `suites.sh` and
+  `limit.py` are what `all.sh` and `test-lem.sh` share, and `pick.py` holds the map of which suite
+  reads which file. `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
   plugin `lem`, the one way Lem installs: the manifest, a marketplace file that lists the one
   plugin, `bin/lem`, Lem's one command, which runs the script a name stands for (`lem project

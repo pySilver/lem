@@ -63,10 +63,10 @@ else
 fi
 
 # The scripts of the commit before the move, for a repository whose state they wrote. A shallow clone may not have
-# that commit: the checks that need it are skipped there, with a line that says so.
+# that commit: the checks that need it are skipped there, with a line for each.
 OLD=$WORK/old-lem
 if ! git cat-file -e "ccba3bd^{commit}" 2>/dev/null; then
-  printf 'SKIP the move of a state folder the scripts before it wrote: this clone does not have commit ccba3bd\n'
+  skip_rest "this clone does not have commit ccba3bd"
   finish
   exit 0
 fi

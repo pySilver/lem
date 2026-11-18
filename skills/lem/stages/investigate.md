@@ -13,10 +13,11 @@ task.
    `not-reproduced`, which waits for the second investigator. Then write the state:
 
    ```bash
-   lem project state SLUG building "a builder reproduces the bug and finds its cause" "investigation: bug" "type: fix, because WHY"
+   lem project state SLUG building "an investigator reproduces the bug and finds its cause" "investigation: bug" "type: fix, because WHY"
    ```
 
-   with `investigation: question` and the line `type: question, because WHY` for a question. The
+   with `an investigator finds the answer`, `investigation: question` and the line `type:
+   question, because WHY` for a question. The
    board draws a block with an `investigation:` line as the investigation.
 2. **Start the investigator**, a fresh builder (`spawn-builder`) with the brief
 

@@ -3,23 +3,23 @@
 # comes from the project alone (none there means no panel; the user's and the built-in cast only start one), a checkout older than its default
 # branch's cast reads that cast, the project's profile comes from the checkout or the default branch
 # and never from a generic layer, init copies a cast down, and run-dir makes a folder git ignores.
-set -euo pipefail
+set -eEuo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source-path=SCRIPTDIR source=checks.sh
+. tests/checks.sh
+collected
 WORK=$(cd "$(mktemp -d)" && pwd -P)
-trap 'rm -rf "$WORK"' EXIT
+trap 'stopped; rm -rf "$WORK" "$WORK-wt"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 git -C "$WORK" init -q
 
-fails=0
-pass() { printf 'ok   %s\n' "$1"; }
-fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 
 CAST=$PWD/skills/lem-panel/scripts/cast.py
 PANEL=$(cd "$(mktemp -d)" && pwd -P)
-trap 'rm -rf "$WORK" "$PANEL"' EXIT
+trap 'stopped; rm -rf "$WORK" "$WORK-wt" "$PANEL"' EXIT
 export HOME=$PANEL/home
 mkdir -p "$HOME"
 commit() { git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "$2"; }
@@ -225,7 +225,9 @@ else
 fi
 printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/project.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
-if [ -d "$(dirname "$CAST")/__pycache__" ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
+# once without -B: whatever the run says, its imports wrote no bytecode
+env -u PYTHONDONTWRITEBYTECODE "$PY" "$CAST" --repo "$LINKED" >/dev/null 2>&1 || true
+if [ -d "$(dirname "$CAST")/__pycache__" ] || [ -d skills/lem/scripts/__pycache__ ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
 
 # Every skill Lem ships starts only for Lem: the flag keeps it out of every session's list of
 # skills, and its description is short and names Lem. The `lem` skill itself keeps its own.
@@ -253,5 +255,7 @@ else
   fail "the shipped skills' frontmatter: $shipped"
 fi
 
+results_add_up
+finished=yes
 [ "$fails" -eq 0 ] || { printf '%d failure(s)\n' "$fails"; exit 1; }
 printf 'all passed\n'

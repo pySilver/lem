@@ -31,7 +31,8 @@ read_in "$LOCAL" local-change
 local_land start local-change >/dev/null && local_land base local-change >/dev/null && polish_in "$LOCAL" local-change && local_land checks local-change >/dev/null && local_land read local-change --record "$(clean 1)" >/dev/null
 local_land propose local-change --title "fix: x" --notes "$NOTES" >/dev/null
 err=$(local_land land local-change --by agent 2>&1 || true)
-out=$(local_land land local-change --by owner)
+# an agent's merge of it would leave nothing for the owner's: that is this check's FAIL, not a stop of the block
+out=$(local_land land local-change --by owner) || true
 if grep -q "the request is not green (criterion 1 changed during the build: y is taken by another file.), so a person merges it" <<<"$err" \
   && [ "$(sed -n 1p "$LOCAL/.lem/state/tasks/local-change/pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "$LOCAL/.lem/state/tasks/local-change/pr.md")" = '- criterion 1 changed during the build: y is taken by another file.' ] \
   && grep -qxF -- '- criterion 1: was "The file holds the word y.", now "The file holds the word the owner asked for.". y is taken by another file. By the personas: Both personas picked x.' "$LOCAL/.lem/state/tasks/local-change/pr.md" \
@@ -185,7 +186,7 @@ polish_local criterion-departs 2>/dev/null && local_land checks criterion-depart
 text=$LOCAL/.lem/state/tasks/criterion-departs/pr.md
 agent=$(local_land land criterion-departs --by agent 2>&1 || true)
 if grep -qF "criterion 2 of 20261115-criterion-departs.md says 'The file ends with a line break.', and the expected criterion 2 is 'The file has one line.'" <<<"$unrecorded" \
-  && grep -qF "choice 1 is waits: a criterion changes after a choice that was answered or taken by timeout" <<<"$early" \
+  && grep -qF "choice 1 waits: a criterion changes after a choice that was answered or taken by timeout" <<<"$early" \
   && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = '- criterion 2 was removed during the build: A second line holds the date now, after choice 1 (The one-line rule), where the owner took "no such rule"' ] \
   && [ "$(sed -n 4p "$text")" = '- criterion 2 was added during the build: The importer reads whole lines only.' ] \
@@ -519,5 +520,28 @@ else
   fail "criteria approved without the owner: $with_him / $small_file / $two_kinds / $flagged / $by_alone / $proposed_alone / $over_small / $over_his"
 fi
 project --repo "$LOCAL" state gone-out dropped "the test is over" >/dev/null
+
+# Without the owner a criterion the personas flagged climbs the ladder (`stages/mode.md`): the dialectic rewrites it, and
+# `approve --alone` takes the criteria as the ladder left them, which differ from the ones the personas read; the request
+# is proposed, not green, with the decision and the change after the read each on a line.
+task_in "$LOCAL" settled-out s.txt s
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds a word.' > "$WORK/settled-read.md"
+read_digest=$(lcriteria digest settled-out --file "$WORK/settled-read.md" 2>/dev/null | field 'd["digest"]' 2>/dev/null || true)
+project --repo "$LOCAL" log settled-out criteria.read by=lem asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=1 split:=false "digest=$read_digest" >/dev/null 2>&1 || true
+project --repo "$LOCAL" mode settled-out alone --by owner --words "go alone" >/dev/null
+ldecide log settled-out --what "criterion 1" --option "The file holds a word." --option "The file holds the word the owner asked for." \
+  --chose "The file holds the word the owner asked for." --by dialectic --level "personas=one flagged it" --why "no break against the persona's reading" >/dev/null 2>&1 || true
+settled_by=$(lcriteria approve settled-out --file "$WORK/gone.md" --alone 2>&1 | field 'd["by"]' 2>&1 || true)
+checked_local settled-out
+local_land propose settled-out --title "feat: s" --notes "$NOTES" >/dev/null 2>&1 || true
+text=$LOCAL/.lem/state/tasks/settled-out/pr.md
+if [ "$settled_by" = alone ] && [ "$(status_in "$LOCAL" settled-out)" = open ] && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
+  && grep -qF -- '- decision 1 was taken without the owner (criterion 1): "The file holds the word the owner asked for.", by the dialectic' "$text" \
+  && grep -qF -- "- the criteria changed after the personas' read" "$text"; then
+  pass "without the owner a flagged criterion the dialectic rewrote is approved by:alone as the ladder left it, and the request is proposed not green, with the decision and the change after the read"
+else
+  fail "a flagged criterion settled by the ladder without the owner: $settled_by / $(status_in "$LOCAL" settled-out) / $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state settled-out dropped "the test is over" >/dev/null
 
 finish
