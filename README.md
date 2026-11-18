@@ -22,7 +22,7 @@ becomes a full agent of Lem.
   </picture>
 </p>
 
-*The board of all tasks. The picture shows demo data.*
+*The board. The picture shows demo data.*
 
 ## What it looks like
 
@@ -91,7 +91,7 @@ page, and type "land". Then type your first request.
 | `/lem` | the list of what waits for you, and the board |
 | `/lem status <task>` | the board of one task |
 | a chord in agterm (`ctrl+cmd+t`) | pick a task, and its board opens |
-| `/lem plan <request>` | a task on the standard track that stops after its plan. `/lem build` builds it |
+| `/lem plan <request>` | a standard-track task that stops after its plan. `/lem build` builds it |
 | `/lem land <task>` | Lem merges the pull request |
 | `/lem careful [task]`, `/lem standard [task]`, `/lem drop [task]` | you change a task: careful until the merge, the standard track until its pull request, or stopped. With no task named, Lem takes the task that you talk about and names it. If two fit, Lem asks |
 | `/lem away`, `/lem active` | the tasks go on without you, or wait for you again |
