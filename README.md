@@ -22,43 +22,41 @@ Lem is a Claude Code plugin for macOS, and it runs in the [agterm](https://agter
 
 *The board of all tasks. The picture shows demo data.*
 
-## Two real requests
+## What it looks like
 
-### A small change
-
-```text
-/lem the README shows one example of a heading, 3-9 Mar 2026, below the first paragraph
+```mermaid
+flowchart LR
+  request[Your request] --> read{Lem reads it}
+  read -->|small| builder[One builder]
+  builder --> checks[Checks and one review]
+  read -->|full| talk[Interview, criteria, your yes]
+  talk --> build[Build and review]
+  checks --> pr[Pull request: green or not green]
+  build --> pr
 ```
 
-Lem answers at once:
-
-> docs, small: "the README shows one example of a heading, `3-9 Mar 2026`, below its first
-> paragraph". The branch is `docs/readme-shows-a-heading-example`. One builder now makes the
-> change. Then the checks run, one review reads it, and it goes to a pull request. Nothing waits
-> for you. Say "full" if you want acceptance criteria for it.
-
-[Pull request #5](https://github.com/pySilver/lem-scratch/pull/5) opened 3 minutes and 41 seconds
-after the request. Its first line:
-
-> **Green.** The checks passed with the bar where it was, the review left no must-fix, no
-> criterion changed, and no decision was taken by timeout or by the experts.
-
-### A full change
+Two examples of the form, not logs:
 
 ```text
-/lem the shop can read a heading back into its two dates, for the import of old reports
+you  /lem the footer says Terms, not Terms and condtions
+lem  docs, small: "the footer says Terms". Branch docs/footer-says-terms. One builder,
+     the checks, one read, then the pull request. Nothing waits for you.
+     Wrong read? /lem full, /lem careful.
+lem  The pull request is open. Green.
 ```
 
-> feat, full: "the shop can read a heading back into its two dates". The branch is
-> `feat/heading-reads-back-into-dates`. First an interview, then acceptance criteria for your yes.
-> After that, the task runs to the pull request without you.
-
-Lem asked one question at a time, each with its guess. Then it wrote four acceptance criteria,
-rules in plain words with real examples: "`3-9 Mar 2026` reads as 3 Mar 2026 to 9 Mar 2026". Two
-personas, people that the change affects, read them before the owner said yes. Then agents built
-and reviewed the change with no question.
-[Pull request #6](https://github.com/pySilver/lem-scratch/pull/6) opened 26 minutes after the
-request, green.
+```text
+you  /lem the export holds the gift note of an order
+lem  feat, full: "an export holds the gift note". Branch feat/gift-note-in-export.
+     An interview now, then acceptance criteria for your yes. Wrong read? /lem careful.
+lem  An order with two notes: both in one cell, with a semicolon? My guess: yes.
+you  yes
+lem  The acceptance criteria, which two personas read:
+     1. Order 1042 with the note "for Ania" has that text in its row.
+     2. An order with no note has an empty cell.
+you  yes
+lem  The pull request is open. Green.
+```
 
 ## Install
 
@@ -87,26 +85,26 @@ page, and type "land" to accept the setup. Then type `/lem` and your first reque
 | `/lem status <task>` | the board of one task |
 | `/lem plan <request>` | a full change that stops after its plan. `/lem build` builds it |
 | `/lem land <task>`, or "land it" | Lem merges the pull request |
-| "full" | a small change becomes a full change |
-| "careful" | the task gets the full review and a merge by a person |
-| "drop" | the task stops |
-| "go alone", "go alone for all", "I am back" | one task, or every task, goes on without you until you come back |
+| `/lem careful`, `/lem full`, `/lem drop` | you change a task: careful until the merge, full until its pull request, or stopped |
+| `/lem away`, `/lem active` | the tasks go on without you, or wait for you again |
 | `/lem learn` | Lem puts your correction into the file that owns the step |
 
-Type the words in quotes as plain text in Lem's session. If you accept them at setup, scheduled
+In Lem's session, plain words that say the same work too. If you accept them at setup, scheduled
 jobs run `/lem retro` each morning and `/lem night` each night.
 
 ## What you can rely on
 
 - Nothing merges before your tests pass and an agent that did not build the change reviews it.
-- After an interview, nothing builds before your yes to the acceptance criteria, unless you say
-  "go alone".
+- After an interview, nothing builds before your yes to the acceptance criteria, unless you are
+  away.
 - A change that can affect what you said must never go wrong gets the full review and a merge
   by a person.
 - A step that nobody can undo always waits for you.
 - Lem never pushes over a commit that it did not push.
 
 ## Skills you can call
+
+In Lem's session, plain words start a skill too: "let's brainstorm this" starts `interview-me`.
 
 | Example | Use it when |
 | --- | --- |

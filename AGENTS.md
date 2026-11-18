@@ -633,9 +633,9 @@ is the session's, and open to him.
 
 - **Every decision that is the owner's takes one path**, at plan time as in the build: the
   persona panel (`lem-panel`, the lead's step), then `decisions.py ask` with one concrete run
-  (`--case`, `--case-was`, `--cause`, which the card shows above it), the wait of
-  `flow.decision_wait` while the rest goes on, and then the experts' shared pick or the
-  recommended option, not green. The question gate (`lem-gate`) sits at Lem's card. A decision
+  (`--case`, `--case-was`, `--cause`, which the card shows above it), the wait for his answer
+  while the rest goes on, with no time limit since 2026-11-18, and, when he says he is away, the
+  experts' shared pick or the recommended option, not green. The question gate (`lem-gate`) sits at Lem's card. A decision
   of the plan no longer holds the task: it was the one place where his wait had no end. `held`
   keeps what has no options: the criteria that wait for his yes (a type only he may change among
   them), one more fact for an investigation, a step that is his to do, and an irreversible
@@ -679,8 +679,8 @@ is the session's, and open to him.
   by the branch they guard: `project.py` reads the main checkout's settings (its working tree
   while it is on the base branch, the base branch's commit while another branch is checked out
   there, `committed_settings`), and in a task's worktree it takes `[flow]` and `[naps]` from there
-  too, so the landing, the lead, `decisions.py` with `flow.decision_wait` (audit findings S1 and
-  W2) and the review read the main checkout's table, and `land.py` reads every setting from it
+  too, so the landing, the lead, `decisions.py` (audit findings S1 and W2) and the review read
+  the main checkout's table, and `land.py` reads every setting from it
   wherever it runs. A change whose diff edits
   `.lem/project.toml`, in any table, is careful by the script: the one rule that is a match and
   not a judgment, because the file is Lem's own. The same holds for a diff that puts the
@@ -875,8 +875,8 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   else's word is his.
 - **A night ends as pull requests, and a task without the owner covers what a night was**
   (2026-11-18), on his "its actually got to be a PR to merge, not a plan". A night takes backlog
-  items, the smallest first, up to `flow.max_tasks`, puts each in the mode `alone` with the words
-  "the night of DATE", and from there every path is the one a day has. So the night's own path is
+  items, the smallest first, up to `flow.max_tasks`, marks each as the night's with `task-dir
+  --night DATE`, which runs it without the owner, and from there every path is the one a day has. So the night's own path is
   gone: `night: yes` in a brief, the refusal of `lem decisions ask` for it, the draft that ended on
   a decision, the three tries. The sentences above that describe them ("A night plan asks no such
   decision", "a night that meets an item that is one plain change drafts no plan", "a report of
@@ -932,9 +932,9 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   files beside it: `interview.md` (the interview and the acceptance criteria), `investigate.md`
   (a bug and a question), `start.md` (the start of a lead, `/lem build` and the queue),
   `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner); and the
-  polish pass, step 3 of `land.md`, is `polish.md`, which only a full change reads. `mode.md` is
-  what Lem does when the owner says "go alone", "go alone for all" or "I am back", and
-  `ladder.md` the ladder of a decision in doubt, which only a lead or a defender reads, at such a
+  polish pass, step 3 of `land.md`, is `polish.md`, which only a full change reads. `away.md` is
+  what Lem does when the owner says `/lem away` or `/lem active`, `correct.md` what it does at his
+  `/lem careful`, `full` or `drop` of a task, and `ladder.md` the ladder of a decision in doubt, which only a lead or a defender reads, at such a
   decision. `pages.md` is the owner's page of a full change, after step 6 of `land.md`: `land.py
   propose` writes `built.md` and `decisions.md` into the task directory from the records the pull
   request's text reads (never for a small change, never committed), and Lem makes one page of the
@@ -949,7 +949,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `main(argv)`, except the commands in its `APART`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
   (`PLACES`), the one refusal of a settings file of an older form (`older_form`), task state, a
-  task's mode (with the owner or without him), the event log, and `waiting`, the one list of what waits for the owner),
+  the owner's status (away or active) and from it each task's mode, the event log, and `waiting`, the one list of what waits for the owner),
   `doctor.py` (the machine, with the three recipes of the agterm cookbook Lem needs, webrev, agdoc
   and the backlog, and a row when more than one place registers the correction hook),
   `board.py` (opens the board), `land.py` (the landing, one refusable step at a time: the
@@ -962,8 +962,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   each one's tests pass on the branch and fail on the base commit; it still reads the `stories.md`,
   `stories.json` and `## Stories` of a task an older Lem proposed),
   `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, with
-  the level of the ladder that took it, and each choice that waits for him `flow.decision_wait`
-  minutes at most, which the landing reads).
+  the level of the ladder that took it, and each choice that waits for his answer with no time
+  limit, which `lem decisions away` takes when he says he is away; the landing reads it).
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both, and
   on the board of all tasks a second tab for the backlog, its items in groups by their own `worth`.
   `lem.css` beside it is the look every page of Lem shares: its colors, its type, its header
@@ -982,7 +982,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   waking notes. `tests/lem-naps.sh` is their block.
 - `docs/`: the guides the README links, each in STE like the README, each with one job and under
   800 words: `flow.md` (how a task goes, for each size, with the one diagram),
-  `when-lem-needs-you.md` (the three points, what waits, the board, the ladder, "go alone"),
+  `when-lem-needs-you.md` (the three points, what waits, the board, the ladder, away),
   `pull-request.md` (what green means, the merge, a conflict, a drop), `install.md` (what Lem
   needs, the install and the setup, what Lem keeps in a repository, the update, the removal) and
   `linear.md` (how a project connects Linear; `skills/lem-linear` points to it); and

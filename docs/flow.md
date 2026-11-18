@@ -17,16 +17,16 @@ flowchart TD
 
 ## The first line
 
-Lem answers each request at once, with one line. The line says what happens, and what you must
-do.
+Lem answers each request with one line: the type, the size, what happens, and what you must do.
+In doubt, it first asks one question, with its guess. `/lem full` and `/lem
+careful` correct the line.
 
 - **Type**: a Conventional Commits type such as `feat` or `fix`, or `question`, which commits
   nothing. Only you can change it.
-- **Size**: small or full. When Lem is not sure, it starts small.
 - **Careful** comes first when the request can affect what must never go wrong:
   `Careful: this changes how a customer is charged. feat, full: ...`
 
-Each task runs in its own worktree, beside the other tasks.
+Each task runs in its own worktree.
 
 ## A small change
 
@@ -39,7 +39,7 @@ typo, a rename, a version bump, the fix of one rule.
 4. Lem opens the pull request.
 
 If the builder finds that the change is not small, it stops, and the interview of a full change
-starts. Say "full" at any time for the same result.
+starts. `/lem full` does the same before the pull request.
 
 ## A full change
 
@@ -49,8 +49,8 @@ starts. Say "full" at any time for the same result.
    a test.
 3. **The personas read them.** A persona is a person that a change affects, as your setup
    describes them. Agents read the criteria as each person, and a doubt shows next to its criterion.
-4. **Your yes.** Nothing builds before it, unless you
-   [let the task go on without you](when-lem-needs-you.md#go-alone).
+4. **Your yes.** Nothing builds before it, unless you are
+   [away](when-lem-needs-you.md#away).
 5. **The plan.** An agent commits a short plan to `docs/plans/`, and a new builder makes each part.
 6. **The polish pass.** A new builder removes leftovers, such as a comment that is now false. It
    fixes a small defect outside the task, and files a larger one in `docs/backlog/`.
@@ -74,11 +74,10 @@ A question gets the same work, and ends with its answer.
 
 Your settings list what must never go wrong as topics, one sentence each: "a customer is charged
 the wrong amount". Lem reads each request, plan and diff against them. When it is not sure, the
-change is careful. Say "careful" to mark a task yourself.
+change is careful. `/lem careful` marks a task, also an open one: the full review runs again.
 
 A careful change gets the full review and a merge by a person. When its plan is careful, or has
-more than three parts, two agents argue the plan before any code. This plan talk runs in a session
-that you can watch.
+more than three parts, two agents argue the plan before any code. You can watch this plan talk.
 
 ## The checks and the review
 

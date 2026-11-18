@@ -12,9 +12,9 @@ pull request lists each one with its reason, so that you can reverse it.
 ## What waits for you
 
 Type `/lem` with nothing after it. Lem asks GitHub what merged, opens the board, and gives one
-list, always in this order:
+list, always in this order. When you are away, its first line says so, and since when.
 
-1. the choices of a task, each with the minutes that are left;
+1. the choices of a task;
 2. the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
 4. the open pull requests, each green or with its reasons;
@@ -64,25 +64,24 @@ person something. It climbs a ladder, one level at a time, until a level settles
 
 When the gate or the personas settle a decision, Lem tells you in one line, and nothing waits. Any
 other decision comes to you as a card, with one example that goes wrong and the answer of each
-level. The card waits 15 minutes (`flow.decision_wait`), and the other work goes on. If you do not
-answer, Lem takes the ladder's pick, and the pull request is not green.
+level. The card waits for your answer with no time limit, and the other work goes on.
 
-## Go alone
+## Away
 
-Type "go alone" for one task, or "go alone for all" for every open task. Then nothing waits for
-you:
+Type `/lem away`, or say "I'm away". Until you say so, Lem takes it that you are there. While you
+are away, every task goes on without you:
 
-- each choice that waits is taken at once;
+- each choice that waits is taken at once, with the ladder's pick;
 - an interview goes on: Lem takes its own guess for each question, and writes it down;
 - the personas read the criteria. Two agents, and the experts when needed, settle each criterion
   that a persona doubted. Then Lem approves the criteria without you.
 
-The pull request is then not green, and it lists each decision that Lem took for you. Type "I am
-back" to take the tasks back. For each task, Lem tells you how many decisions it took, and whether
-it approved the criteria. Nothing is undone.
+The pull request is then not green, and it lists each decision that Lem took for you. Type
+`/lem active` when you are back. For each task, Lem tells you how many decisions it took, and
+whether it approved the criteria.
 
 > [!IMPORTANT]
-> After "go alone", the merge still waits for you, and so does a step that nobody can undo. Such a
+> While you are away, the merge still waits for you, and so does a step that nobody can undo. Such a
 > step:
 >
 > - destroys or rewrites data outside the worktree;

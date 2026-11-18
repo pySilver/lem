@@ -11,7 +11,7 @@ A pull request is not green when one of these is true:
 - your tests got less strict (the bar went down), even with a reason in the plan;
 - the review left a must-fix after two rounds, or no reviewer answered;
 - a criterion changed during the build;
-- Lem took a decision of yours: a card whose wait ended, or a decision after "go alone";
+- Lem took a decision of yours while you were away;
 - the personas did not answer, two times, when they read the criteria;
 - the change brings the first checks into a project that had none;
 - a small change turned out to be careful: it can affect what must never go wrong.
@@ -31,7 +31,7 @@ of your base branch apply. If the base moved after the checks, the checks run ag
 
 | Setting | What changes |
 | --- | --- |
-| `branch.land = "agent"` | Lem merges a green pull request itself, if the review said not careful and the task runs with you |
+| `branch.land = "agent"` | Lem merges a green pull request itself, if the review said not careful and the task does not run without you |
 | `branch.history = "squash"` | one commit lands for the task |
 | `branch.propose = "merge"` | no pull request: "land it" merges the branch into the base branch |
 
@@ -47,7 +47,7 @@ CLI `gh`. Each `/lem` also looks. When the board says "nobody watches", type `/l
 
 When a merge makes another open pull request conflict, Lem rebases its branch, and a builder
 resolves the conflict. The checks run again, and one read checks the resolution. Then Lem updates
-the pull request and tells you in one line, as in pull request #6:
+the pull request and tells you in one line, for example:
 
 > Rebased on main after the forge called it conflicting; one conflict in shop/dates.py, resolved by
 > a builder; the checks passed again.
@@ -61,6 +61,6 @@ and Lem names the `git pull --rebase` that brings it in. Then the commit gets th
 
 ## Stop a task
 
-Say "drop", or close the pull request on GitHub with no merge. Lem removes the worktree. A branch
+Type `/lem drop <task>`, or close the pull request on GitHub with no merge. Lem removes the worktree. A branch
 with commits of its own stays, and Lem tells you how to delete it. A task that ended does not start
 again: for new work, make a new request.
