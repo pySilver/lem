@@ -53,7 +53,7 @@ ENDED_DAYS = 7
 WORDS = {
     "queued": "Queued", "building": "Building", "planned": "Planned", "held": "Waits for you", "blocked": "Blocked",
     "ready": "Ready for its checks", "landing": "Checks and review", "open": "Waits for the merge", "landed": "Landed",
-    "drafted": "Drafted at night", "dropped": "Dropped", "answered": "Answered",
+    "dropped": "Dropped", "answered": "Answered",
 }
 # the board's word for a task with no state block, and for a builder that investigates before any lead
 UNKNOWN = "No status"
@@ -139,7 +139,7 @@ def rows(root: Path, now: datetime) -> list[dict]:
         add(slug, choices_words(numbers))
     for entry in waiting["criteria"]:
         add(entry["task"], "Waits for you: the acceptance criteria")
-    for key in ("held", "pull_requests", "drafts"):
+    for key in ("held", "pull_requests"):
         for entry in waiting[key]:
             add(entry["task"])
     def newest(task: dict) -> str:

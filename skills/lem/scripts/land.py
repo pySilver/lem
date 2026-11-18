@@ -229,7 +229,7 @@ record (`lem decisions criterion`), with what it was, what it is and why. The te
 criterion change of the task, under every approval; one that a later approval of the owner's took over says
 so and is no cause of not green, since that approval made it the owner's. A lowered bar is not
 green with a reason either: its line holds the builder's reason and what the review said of it. A choice
-taken without the owner (when he said he is away, or by the timeout of an older Lem) is a line of
+taken without the owner (when he said he is away, or the task is a night's) is a line of
 its own, and so is a choice the experts took, with their pick and both their reasons; so is an
 answer of the owner's that came after either and differs. So is a
 decision of the ladder that went past the personas without him (`by: dialectic`, `by: experts`)
@@ -248,8 +248,7 @@ wrote it down as one `plan.talk` event in the log `project.py` keeps: `propose` 
 request with none, and the text's checks hold one line from the newest, with who argued the plan
 with its defender, the turns (with the bound of its rules, when the talk went over it), the
 positions settled and left open, and every other count the event holds, in words where Lem
-knows the count (`TALK_SAYS`) and by its name where it does not. An event of the older form,
-with no counts but those three, reads as before. A talk is a step before the build, so a request
+knows the count (`TALK_SAYS`) and by its name where it does not. A talk is a step before the build, so a request
 that is careful only by the owner's later word, by its review or by its edit of the settings gets
 the full set and no talk; it is not asked for one, and its checks say in words that it had none
 and why, which is no cause of not green. A careful request says so in the line after green or not
@@ -389,10 +388,8 @@ OVERRULED = "careful: the owner says so"
 # The line of a task's brief, or of a block of its state, that says someone else wrote its complete request.
 SOMEONE_ELSE = "request by: someone else"
 # The state line `start` writes when the project has no command of its checks; a task blocked with
-# it is the one `start` takes back once the commands are there. A task an older Lem blocked has the
-# line it wrote then, which is taken back too; a later change may drop it once no such task is open.
+# it is the one `start` takes back once the commands are there.
 NO_GATE = "the project has no command in its checks"
-OLD_NO_GATE = "the project has no gate command"
 # The steps that take a tip from the start to a proposal, which a refusal of `land` names when the
 # tip, the base or the tree is not the one on record.
 AGAIN = "run `lem land start`, `lem land base`, `lem land checks` and `lem land propose` again"
@@ -425,13 +422,6 @@ READ_FORM = "`by=lem|lead asked:=N answered:=N families:='[...]' silent:='[...]'
 # step 5): one decision of his that `decisions.py log --by owner` writes, known by these two texts
 # word for word.
 READ_SKIP = {"what": "the personas' read of the criteria", "chose": "no read: the criteria name only the developer"}
-# The same word in the texts an older Lem wrote, which still counts for a task it took that far. A
-# later change may drop it once no such task is open.
-OLD_READ_SKIP = {"what": "the personas' read of the stories", "chose": "no read: the stories name only the developer"}
-# The events of the personas' read and of an approval, and the names an older Lem gave them, which
-# the landing still reads. A later change may drop the old names once no task with such events is open.
-READ_EVENTS = ("criteria.read", "stories.read")
-APPROVED_EVENTS = ("criteria.approved", "stories.approved")
 # How many model families read the criteria, in the words of the pull request.
 FAMILIES = {1: "one model family", 2: "two model families"}
 # The form of the one event that records a plan talk, as `talk_form` in `project.py` checks it.
@@ -453,7 +443,7 @@ TALK_FIRST = ("ts", "event", "task", "reviewer", "turns", "settled", "open", "bo
 # Who took a decision of the record, as the text of a pull request names them.
 TAKEN_BY = {"lead": "the lead", "gate": "the gate", "personas": "the personas", "dialectic": "the dialectic", "owner": "the owner", "lem": "Lem", "timeout": "the timeout", "experts": "the experts"}
 # Who took a choice that waited for the owner and was taken without him: the recommended option at
-# the owner's "away" (`early`), or the clock of an older Lem.
+# the owner's "away", or at once in a task that runs without him.
 EARLY_BY = "the ladder's pick, taken without the owner"
 # The levels of the ladder whose decision, taken without the owner, is never green: past the personas.
 PAST_PERSONAS = ("dialectic", "experts")
@@ -611,7 +601,7 @@ class Task:
     def blocked_by_start(self) -> bool:
         """Whether the task is `blocked` by `start` itself, for want of a command of the checks."""
         block = self.record.get("state") or ""
-        return self.record["status"] == "blocked" and block.splitlines()[0].endswith((f" blocked: {NO_GATE}", f" blocked: {OLD_NO_GATE}"))
+        return self.record["status"] == "blocked" and block.splitlines()[0].endswith(f" blocked: {NO_GATE}")
 
     def need_landing(self) -> None:
         if self.record["status"] != "landing":
@@ -680,9 +670,8 @@ class Task:
         if there is None:
             return ""
         kept = self.kept()
-        # what Lem pushed last, and what the remote held when the branch took its commits in; a
-        # landing an older Lem proposed kept only the commit it proposed
-        known = [commit for commit in (kept.get("pushed") or kept.get("proposed"), kept.get("taken")) if commit]
+        # what Lem pushed last, and what the remote held when the branch took its commits in
+        known = [commit for commit in (kept.get("pushed"), kept.get("taken")) if commit]
         if there in known:
             return there
         git(self.main, "fetch", "-q", "origin", f"+{ref}:refs/remotes/origin/{branch}")
@@ -754,9 +743,7 @@ def start_locked(task: Task, conflicting: bool = False) -> dict:
         # stays its own, and so does what Lem knows of its branch on the forge: the commit it pushed
         # last, and the one whose commits the branch took in (`own_remote`).
         kept = task.kept()
-        # a landing an older Lem proposed kept only the commit it proposed, which it pushed
-        forge = {key: value for key, value in {**kept, "pushed": kept.get("pushed") or (kept.get("proposed") if kept.get("pr") else None)}.items()
-                 if key in ("pr", "pushed", "taken") and value}
+        forge = {key: value for key, value in kept.items() if key in ("pr", "pushed", "taken") and value}
         task.kept_file.unlink(missing_ok=True)
         if forge:
             task.keep(**forge)
@@ -1368,10 +1355,10 @@ def cmd_checks(task: Task) -> dict:
     # the start of the checks: the board draws them from here to their last result
     # The commands that need the machine to themselves come after the others, each under the
     # repository's one lock for them (`project.py serial`), and only when the others passed. The field
-    # of their result and of their `gate` event is `alone`, the name the board reads.
-    # The output folder and the events keep the step's older name, `gate`, which the board reads.
-    alone = task.settings["checks"]["serial"]
-    script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands) + len(alone)}")
+    # of their result and of their `gate` event is `serial`, which the board reads.
+    # The output folder and the events are named `gate`, which the board reads.
+    serial = task.settings["checks"]["serial"]
+    script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands) + len(serial)}")
     results = []
     running: list[subprocess.Popen] = []
 
@@ -1380,7 +1367,7 @@ def cmd_checks(task: Task) -> dict:
 
     before = signal.signal(signal.SIGTERM, stopped)
     try:
-        for number, (command, apart) in enumerate([*((command, False) for command in commands), *((command, True) for command in alone)], start=1):
+        for number, (command, apart) in enumerate([*((command, False) for command in commands), *((command, True) for command in serial)], start=1):
             if apart and any(result["exit"] != 0 for result in results):
                 break
             output = logs / f"{number:02d}.log"
@@ -1395,8 +1382,8 @@ def cmd_checks(task: Task) -> dict:
                 end_group(running)
             lines = [line for line in output.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
             last = lines[-1].strip() if lines else ""
-            results.append({"command": command, "exit": code, "last": last, "output": str(output), **({"alone": True} if apart else {})})
-            script("project.py", task.worktree, "log", task.slug, "gate", f"command={command}", f"exit:={code}", f"last={last}", f"tip={tip[:9]}", *(["alone:=true"] if apart else []))
+            results.append({"command": command, "exit": code, "last": last, "output": str(output), **({"serial": True} if apart else {})})
+            script("project.py", task.worktree, "log", task.slug, "gate", f"command={command}", f"exit:={code}", f"last={last}", f"tip={tip[:9]}", *(["serial:=true"] if apart else []))
     except KeyboardInterrupt:
         end_group(running)
         task.keep(gated=None, tree=None)
@@ -1655,7 +1642,7 @@ def careful_line(task: Task, state: dict) -> str:
 def talked(talk: dict) -> str:
     """The plan talk as one line of the pull request's checks: the turns, with the bound of its rules
     when the talk went over it, and the positions, then each other count the event holds, in the
-    event's order. An event of the older form has none."""
+    event's order."""
     def many(count: int, one: str, more: str) -> str:
         return f"{count} {one if count == 1 else more}"
     counts = [
@@ -1672,32 +1659,23 @@ def talked(talk: dict) -> str:
     )
 
 
-def polished(polish: dict | None) -> str:
-    """The polish pass as one line of the pull request's checks, from what `polish --done` logged."""
-    if polish and polish.get("done"):
-        commits, filed = polish["commits"], len(polish["filed"])
-        return f"- the polish pass: {commits} commit{'' if commits == 1 else 's'}, {filed} item{'' if filed == 1 else 's'} filed in the backlog"
-    # the checks refuse a task on the standard track with no pass, so only a record from before the pass existed is here
-    return "- the polish pass: none on record"
-
-
-def read_now(record: dict) -> dict:
-    """A read's record in the form of now: one an older Lem wrote counts what it read as `stories`."""
-    if "criteria" in record or "stories" not in record:
-        return record
-    return {("criteria" if key == "stories" else key): value for key, value in record.items()}
+def polished(polish: dict) -> str:
+    """The polish pass as one line of the pull request's checks, from what `polish --done` logged.
+    The checks refuse a task on the standard track with no pass that is done."""
+    commits, filed = polish["commits"], len(polish["filed"])
+    return f"- the polish pass: {commits} commit{'' if commits == 1 else 's'}, {filed} item{'' if filed == 1 else 's'} filed in the backlog"
 
 
 def criteria_read_of(task: Task) -> dict | None:
     """The newest record of the personas' read of the task's criteria in the event log."""
-    return next((read_now(record) for record in reversed(events_of(task)) if record.get("event") in READ_EVENTS), None)
+    return next((record for record in reversed(events_of(task)) if record.get("event") == "criteria.read"), None)
 
 
 def unanswered(task: Task) -> int:
     """How many reads of the criteria in a row, the newest last, nobody answered."""
     count = 0
     for record in reversed(events_of(task)):
-        if record.get("event") not in READ_EVENTS:
+        if record.get("event") != "criteria.read":
             continue
         if record.get("answered") != 0:
             break
@@ -1733,7 +1711,7 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
     words = [
         index for index, record in enumerate(events)
         if record.get("event") == "decision.taken" and record.get("by") == "owner"
-        and any(record.get("what") == said["what"] and record.get("chose") == said["chose"] for said in (READ_SKIP, OLD_READ_SKIP))
+        and record.get("what") == READ_SKIP["what"] and record.get("chose") == READ_SKIP["chose"]
     ]
     if not words:
         return None, None
@@ -1743,7 +1721,7 @@ def read_skipped(task: Task) -> tuple[dict | None, str | None]:
          if record.get("event") == "task.state" and any(line.startswith("lead:") for line in [record.get("text", ""), *record.get("lines", [])])),
         None,
     )
-    approval = next((index for index in range(word + 1, len(events)) if events[index].get("event") in APPROVED_EVENTS and events[index].get("by") == "owner"), None)
+    approval = next((index for index in range(word + 1, len(events)) if events[index].get("event") == "criteria.approved" and events[index].get("by") == "owner"), None)
     complete = (
         "the lead wrote the criteria, and on the standard track from a complete request the read always runs, as the only approval there "
         f"(`stages/plan.md`, step 1): the lead runs it and writes `lem project log {task.slug} criteria.read` with the form {READ_FORM}"
@@ -2091,16 +2069,15 @@ def not_green(task: Task, state: dict) -> list[str]:
             # past the personas, with no answer of his: the dialectic, the experts, or the lead's pick that no level settled
             who = "the lead's pick, which no level of the ladder settled" if decision.get("unsettled") else f"by {taken_by(decision)}"
             reasons.append(f"decision {decision['id']} was taken without the owner ({decision['what']}): \"{decision['chose']}\", {who}")
-        # the experts' shared pick, taken while he was away (`settled`, an older Lem's), when he went away, or at the end of an older Lem's wait
-        elif decision.get("by") == "experts" and decision["state"] in ("timeout", "settled"):
+        # the experts' shared pick, taken when he went away or at once in a task that ran without him
+        elif decision.get("by") == "experts":
             reasons.append(
                 f"choice {decision['id']} was taken by {taken_by(decision)} ({decision['what']}): \"{decision['chose']}\", {picked(decision)}, {waited(decision)}. "
                 f"{experts_said(decision)}{later(decision, '; the owner answered later with')}",
             )
         else:
-            how = "without the owner" if decision.get("early") else "by timeout"
             reasons.append(
-                f"choice {decision['id']} was taken {how} ({decision['what']}): \"{decision['chose']}\", the recommended option, "
+                f"choice {decision['id']} was taken without the owner ({decision['what']}): \"{decision['chose']}\", the recommended option, "
                 f"{waited(decision)}{later(decision, '; the owner answered later with')}",
             )
     return reasons
@@ -2109,25 +2086,20 @@ def not_green(task: Task, state: dict) -> list[str]:
 def without_him(decision: dict) -> bool:
     """Whether a decision is the owner's and was taken without him, so that the request is not green
     for it: past the personas (the dialectic, the experts), a pick that no level settled, or a
-    choice that waited for him and was taken when its wait ended or while he was away."""
+    choice that waited for him and was taken while the task ran without him."""
     if decision["state"] == "taken":
         return decision.get("by") in PAST_PERSONAS or bool(decision.get("unsettled"))
-    return decision["state"] in ("timeout", "settled")
+    return decision["state"] == "timeout"
 
 
 def waited(decision: dict) -> str:
-    """When a choice that waited for the owner was taken without his answer. A choice an older Lem's
-    clock took names that wait, from the minutes its record keeps."""
-    if decision["state"] == "settled":
-        return "while the owner was away"
-    if decision.get("early"):
-        return "at once, as the task ran without the owner"
-    return f"after the owner's wait of {decision['wait_minutes']} minutes ended with no answer"
+    """When a choice that waited for the owner was taken without his answer."""
+    return "at once, as the task ran without the owner"
 
 
 def without_owner(task: Task) -> str | None:
     """The line that says when the task ran without the owner, from the spans `lem project tasks`
-    gives (the owner's away and back, a night's mark, an older Lem's "go alone"), with the words that
+    gives (the owner's away and back, a night's mark), with the words that
     started and ended each; none for a task that always ran with him."""
     def said(words: dict) -> str:
         return f"{'the owner' if words.get('by') == 'owner' else 'Lem'}: \"{words.get('words')}\""
@@ -2228,17 +2200,15 @@ def decided(decision: dict) -> str:
         # the recommendation's reason is about the option he did not take: it is named as such, never as his
         line += f", over the recommended \"{decision['recommended']}\" (recommended because: {reason(decision['why'])})."
         line += "" if "owner_why" in decision else " The owner gave no reason."
-    elif decision["by"] == "experts" and decision["state"] in ("timeout", "settled"):
+    elif decision["by"] == "experts" and decision["state"] == "timeout":
         # their reasons are the reasons of the option taken; the recommendation's is about another one, or the same
-        when = waited(decision).removesuffix(" ended with no answer")
+        when = waited(decision)
         also = "it is also the recommended" if decision["chose"] == decision["recommended"] else f"the recommended was \"{decision['recommended']}\""
         line += f", {picked(decision)}, {when}; {also}. {experts_said(decision)}." + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
-    elif decision["state"] == "timeout" and decision.get("early"):
+    elif decision["state"] == "timeout":
         line = head + f"\"{decision['chose']}\", the ladder's pick, taken {waited(decision)}. {decision['why']}"
         line += f" {later(decision, 'The owner answered later with')}." if "late" in decision else ""
-    elif decision["state"] == "timeout":
-        line += f", {waited(decision).removesuffix(' ended with no answer')}. {decision['why']}" + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
-    elif decision["by"] == "personas" and decision.get("votes"):
+    elif decision["by"] == "personas":
         # the one stop of the ladder past the gate that is green: how many voted, in how many model families
         votes = decision["votes"]
         personas = {name.rpartition(", ")[0] or name for name, _ in votes}
@@ -2246,7 +2216,7 @@ def decided(decision: dict) -> str:
         named = f", {FAMILIES.get(len(families), f'{len(families)} model families')}" if families else ""
         line += f": {len(votes)} votes of {len(personas)} personas{named}, all for it. {decision['why']}"
     else:
-        line += f" ({decision['said']}). {decision['why']}" if decision["by"] == "personas" else f". {decision['why']}"
+        line += f". {decision['why']}"
     if decision.get("levels"):
         line += " Each level: " + "; ".join(f"{name}: {said}" for name, said in decision["levels"].items()) + "."
     if decision.get("owner_words", decision["chose"]) != decision["chose"]:
@@ -2257,11 +2227,9 @@ def decided(decision: dict) -> str:
 
 
 def checked_criteria(checks: dict) -> dict:
-    """What the checks kept of the check of the criteria; a landing an older Lem ran kept it as
-    `stories`, with each test's criterion under `story`. A later change may drop the old form once
-    no task whose landing kept it is open."""
-    kept = checks.get("criteria") or checks.get("stories") or {}
-    return {**kept, "tests": [{"criterion": test.get("criterion", test.get("story")), **test} for test in kept.get("tests", [])]}
+    """What the checks kept of the check of the criteria."""
+    kept = checks.get("criteria") or {}
+    return {**kept, "tests": kept.get("tests", [])}
 
 
 def criteria_lines(found: dict, held: dict) -> list[str]:
@@ -2340,7 +2308,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     out += criteria_lines(found, held)
     out += [change_line(task, change) for change in found["history"]]
     out += ["", "## Checks", ""]
-    out += [f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('alone') else ''}: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
+    out += [f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('serial') else ''}: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
     own = builder_filed(task)
     if own:
         out.append("- filed in the backlog by the builder: " + ", ".join(f"`{path}`" for path in own))
@@ -2404,7 +2372,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]
-        out.append(f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('alone') else ''}: {command['last'] or f'exit {code}'}")
+        out.append(f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('serial') else ''}: {command['last'] or f'exit {code}'}")
     tests = checked_criteria(checks)["tests"]
     without = checked_criteria(checks).get("without_a_test", [])
     out.append(f"- the tests of the criteria: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} {'criterion has' if len(without) == 1 else 'criteria have'} no test" if without else ""))
@@ -2462,7 +2430,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
 PAGES = ("built.md", "decisions.md")
 # Who took a decision, in the order of decisions.md: the ones the owner most likely wants to change first.
 WHO = {
-    "waits": "waits for the owner", "unsettled": "no level: the lead's pick stands", "away": EARLY_BY, "timeout": "the timeout of an older Lem's wait",
+    "waits": "waits for the owner", "unsettled": "no level: the lead's pick stands", "away": EARLY_BY,
     "experts": "two expert models", "expert": "one expert model", "dialectic": "the dialectic", "personas": "the personas", "lead": "the lead", "lem": "Lem",
     "gate": "the gate", "owner": "the owner",
 }
@@ -2529,8 +2497,8 @@ def kind_of(decision: dict) -> str:
     """Which key of WHO took a decision."""
     if decision["state"] == "waits" or decision.get("unsettled"):
         return "waits" if decision["state"] == "waits" else "unsettled"
-    if decision["state"] in ("timeout", "settled"):
-        return ("expert" if one_expert(decision) else "experts") if decision["by"] == "experts" else "away" if decision.get("early") else "timeout"
+    if decision["state"] == "timeout":
+        return ("expert" if one_expert(decision) else "experts") if decision["by"] == "experts" else "away"
     if decision["state"] == "taken" and decision["by"] == "experts" and one_expert(decision):
         return "expert"
     return "owner" if decision["state"] == "answered" else decision["by"]
@@ -2952,7 +2920,7 @@ def watch_file(state: Path, record: dict) -> None:
 
 def seen_before(state: Path) -> dict[str, dict]:
     """What the newest look of any watch saw of each task's pull request: its mergeable state and
-    its head. A watch.js an older watch wrote, or none, holds nothing, and the first look is then the
+    its head. A watch.js with no `seen`, or none, holds nothing, and the first look is then the
     look before nothing."""
     file = state / "watch.js"
     try:

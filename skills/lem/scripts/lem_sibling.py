@@ -40,7 +40,7 @@ APART = {
     ("criteria.py", "red"): "runs the criteria's tests under its own SIGTERM handler",
     # It holds the machine's one lock for as long as its command runs, and a kill of its process
     # group has to end the command with it.
-    ("project.py", "alone"): "holds the machine's lock for its command",
+    ("project.py", "serial"): "holds the machine's lock for its command",
 }
 
 

@@ -58,8 +58,7 @@ a team that adopts Lem may have its own.
     lem project waiting             everything that waits for the owner, as JSON: each choice of a task,
                                     each task whose criteria or a step of his hold it, each pull
                                     request with green or not, each task marked with the night that
-                                    opened it, each plan an older night drafted, each retro's
-                                    proposals, and last night's report
+                                    opened it, each retro's proposals, and last night's report
     lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON
@@ -88,7 +87,7 @@ second command. `log` writes any other event: `key=value` stores a string and `k
 JSON, so a commit made only of digits stays a string and an exit code stays a number. The start
 of each stage that logs its end has a fixed form (`STARTS`: `interview.start`, `scout.start` and
 `scout`, `criteria.read.start`, `investigation.start`, `builder.start`, and the three `land.py`
-writes, `polish.start`, `gate.start` (the start of the checks, by the step's older name) and `review.start`), so that the board draws each span from
+writes, `polish.start`, `gate.start` (the start of the checks) and `review.start`), so that the board draws each span from
 its start to its end. Four more events have a fixed form. `plan.talk.start`, which the defender of a careful or large plan writes when
 the reviewer's seat opens, as `reviewer=AGENT`, so that the board draws the talk from its start.
 `plan.talk`, which the landing reads and the plan's defender writes after the talk, as
@@ -108,9 +107,7 @@ by=owner words=TEXT`: the owner's status, there (the default) or away, whose new
 night of YYYY-MM-DD"`. A task runs without the owner while he is away, and a night's task from its
 mark until he says he is back; `tasks` gives each task `mode` (`alone` or `with-owner`, now),
 `mode_since` and `without_owner`, each span of it with the words that started and ended it, and
-the night's date as `night` (null for a task of the day). A `task.mode` event an older Lem wrote for
-the owner's "go alone" (`by=owner`, or `mode=with-owner` for "I am back") still reads so, and
-ends at his next "back" too.
+the night's date as `night` (null for a task of the day).
 And `criteria.read`, which Lem or the lead writes after the personas read the acceptance
 criteria, as `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ...,
 "why": ...}]' criteria:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many
@@ -119,21 +116,16 @@ not and why (a partial read counts), how many criteria were read and how many an
 whether the families split, and the digest `lem criteria digest` gives for the criteria read. A
 read in which nobody answered is written too, with `answered:=0`, no family and each source that
 was asked in `silent`; the landing counts two of those in a row as criteria that went on unread.
-`log` refuses the names an older Lem gave the read and its start, `stories.read` and
-`stories.read.start`, with the name of now; the landing still reads the events an older Lem wrote.
 `investigation`, which Lem writes after it reads the investigator's report of a fix or a
 question, as `type=fix|question call=CALL line=TEXT [where=PATH:SYMBOL]
 [reproduced:=true|false]`: a fix's call is small (the fast track), full (the standard track), not-a-bug or not-reproduced, and it says
 whether the bug was reproduced; a plain cause names its place; a question's call is answer.
 `tasks` gives each task its newest as `investigation`, and `state SLUG answered` refuses a task
-with no `investigation.md` and no record whose call is not-a-bug or answer. A record an older Lem
-wrote (`kind=bug|investigation`, the calls correction and usual) is given in the form of now.
+with no `investigation.md` and no record whose call is not-a-bug or answer.
 
 A state line that starts with `type:` names the type of the request with its reason, as `type:
 fix, because the total is wrong today`, one of feat, fix, docs, refactor, perf, test, chore and
-question; `state` refuses any other, and `tasks` gives the newest as `type`. A `kind:` line, which
-an older Lem wrote, is refused by `state` with the type line to write, and read by `tasks` as the
-type its kind maps to (bug and correction a fix, feature a feat, investigation a question).
+question; `state` refuses any other, and `tasks` gives the newest as `type`.
 
 `.lem/project.local.toml` is one person's or one day's choice on one machine: who sits in the
 reviewer's pane (the usual reviewer is down, or out of tokens) and on which model the defender of
@@ -180,7 +172,7 @@ the working tree is read. `show` says which in `settings_from`.
 ci`): `worktree` runs it one time in a worktree that it makes, and `lem criteria red` in each of its
 two fresh worktrees; its output goes to `setup.log` in the task directory. `checks.serial` names the
 tests that two tasks cannot run at the same time: an end-to-end suite that uses fixed ports, one
-database or a browser. `serial` runs any command under one lock for the repository, `alone.lock`
+database or a browser. `serial` runs any command under one lock for the repository, `serial.lock`
 in the state folder, apart from the landing's lock, since a builder takes this one too: the checks
 of a landing run each `checks.serial` command through it after `checks.commands` pass, `lem
 criteria red` runs a criterion's test of such a suite through it, and a builder runs such a test
@@ -204,8 +196,8 @@ planner or no experts gets Lem's (`PLANNER`, `EXPERTS`), and one with no reviewe
 the stage that needs it asks the owner for.
 
 A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
-`<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it; a plan named `YYYYMMDD-<slug>.md`, as an older Lem
-named it, is found too: `lem_plans` is the one place that builds and finds the name, and `plan-file` prints both.
+`<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it:
+`lem_plans` is the one place that builds and finds the name, and `plan-file` prints both.
 A ruling's file is named the same way by `paths.ruling_file`, `<slug>.md` unless the settings say
 otherwise, in the folder `paths.rulings` (`docs/rulings`), and `ruling-file` prints it. A settings
 folder is a setting as the plans folder is.
@@ -215,7 +207,7 @@ folder is a setting as the plans folder is.
 `lem decisions pending` (`choices`), the tasks `held` with the line `the criteria wait for the
 owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
 task with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
-pushed head at the last `lem land merged`, null when nothing asked or the head moved since), each `drafted` task with its plan (`drafts`), and each
+pushed head at the last `lem land merged`, null when nothing asked or the head moved since), and each
 file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
 with nobody at the terminal writes in the form Lem's question page takes, one question for each
 proposal. `count` adds them up. Each task in the list gives `night`, the date of the night that
@@ -345,10 +337,9 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   landing   the checks and the read run on it, or a builder repairs what they or the base showed
 #   open      it is proposed: a pull request is open, or the branch is ready to land, and it waits for the merge
 #   landed    it is on the base branch
-#   drafted   a plan an older night wrote, which waits for the owner's word; no night writes one now
 #   dropped   nobody will build it
 #   answered  it ended with a report and nothing to merge: a question answered, or a bug that is none
-STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "drafted", "dropped", "answered")
+STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "dropped", "answered")
 # The states a task does not leave: its files stay under its slug, and nothing of it waits.
 ENDED = ("landed", "dropped", "answered")
 # The states of a task that is with its landing: the checks run on it, or it is proposed.
@@ -358,7 +349,7 @@ WITH_LANDING = ("landing", "open")
 # that land.py names gives: a landing that cannot go on, or whose record is broken, starts over.
 # `held` is not here: Lem writes it over `landing` when the checks find that a task on the fast track
 # needs the standard track, and the interview of that path starts with it (`stages/new.md`, "The fast track").
-LEADS_WRITE = ("queued", "building", "planned", "ready", "drafted")
+LEADS_WRITE = ("queued", "building", "planned", "ready")
 # The type of a request, which Lem takes from the request's words alone (`stages/new.md`, "Open the
 # task"): a Conventional Commits type, and `question` for a task that ends with an answer and commits
 # nothing. A state line `type: TYPE, because WHY` says it; no code matches a request's words against
@@ -366,30 +357,19 @@ LEADS_WRITE = ("queued", "building", "planned", "ready", "drafted")
 # track has the state line `small change: one builder`.
 TYPES = ("feat", "fix", "docs", "refactor", "perf", "test", "chore", "question")
 TYPE_LINE = re.compile(r"type:\s*(?P<type>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+))?")
-# The line an older Lem wrote for the same, `kind: KIND, because WHY`, and the type each of its kinds
-# reads as. `tasks` still reads it in a state.md that an older Lem wrote, and `state` refuses it with
-# the type line to write. A later change may drop it once no task whose state holds such a line is open.
-OLD_KIND_LINE = re.compile(r"kind:\s*(?P<kind>[^,\s]+)\s*(?:,\s*because\s+(?P<why>.+))?")
-OLD_KINDS = {"bug": "fix", "feature": "feat", "correction": "fix", "investigation": "question", "chore": "chore", "docs": "docs"}
 # What the investigation of a fix or of a question found, as `log investigation` takes it: the call
 # that sets the task's next path (`stages/investigate.md`). A fix goes on by the fast track (`small`)
 # or the standard track (`full`), or it is no bug; two of the calls end the task with its report, as `answered`.
 
 CALLS = {"fix": ("small", "full", "not-a-bug", "not-reproduced"), "question": ("answer",)}
 ANSWERING = ("not-a-bug", "answer")
-# The record an older Lem wrote for an investigation: `kind=bug|investigation`, and the calls
-# `correction` and `usual` for what are now `small` and `full`. `tasks` gives such a record in the
-# form of now, and `log` refuses the old form with the new one. A later change may drop it once no
-# task with such a record is open.
-OLD_INVESTIGATION_KINDS = {"bug": "fix", "investigation": "question"}
-OLD_CALLS = {"correction": "small", "usual": "full"}
 # The states in which the task loads the machine: a lead builds, or the checks run and a builder may
 # repair a conflict or a red check.
 RUNNING = ("building", "landing")
 # The lock of the tests that two tasks cannot run at the same time (`serial`, `checks.serial`), in the
 # state folder. Not the landing's `landing.lock`: a builder takes this one too, while another task
 # holds the landing line.
-ALONE_LOCK = "alone.lock"
+SERIAL_LOCK = "serial.lock"
 # The first line of a state block: the time in UTC, the status, one line of text.
 STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
 TABLES: dict[str, tuple[str, ...]] = {
@@ -443,7 +423,7 @@ TEMPLATE = """\
 # docs/backlog: each has that one place, and no line here.
 plans = "{plans}"
 # The name of a plan's file in the plans folder: YYYY, MM and DD are the day the plan was
-# written, <slug> is the task's. A plan named YYYYMMDD-<slug>.md is found too.
+# written, <slug> is the task's.
 plan_file = "{plan_file}"
 # The folder of the owner's rulings, the decisions about the product that outlive a task, and the
 # name of a ruling's file there, with the same tokens.
@@ -1017,7 +997,7 @@ def cmd_plan_file(settings: dict, slug: str, day: str | None, key: str = "plan_f
         raise SettingsError(f"--date {day!r} is not a day as YYYY-MM-DD") from error
     pattern = settings["paths"][key]["pattern"]
     folder = Path(settings["paths"][FILE_PATTERNS[key][1]]["path"])
-    found = lem_plans.found(folder, pattern, slug, older=key == "plan_file")
+    found = lem_plans.found(folder, pattern, slug)
     name = lem_plans.name(pattern, slug, day)
     print(json.dumps({"slug": slug, "pattern": pattern, "name": name, "path": str(folder / name), "found": str(found) if found else None}, indent=2))
 
@@ -1369,7 +1349,7 @@ def cmd_task_dir(root: Path, slug: str, ask: str | None, ticket: str | None, bra
     if ticket is not None:
         (directory / "ticket.txt").write_text(ticket + "\n", encoding="utf-8")
     if night is not None and not any(record.get("task") == slug for record in events_named(root, "task.mode")):
-        # the night's mark: the form an older Lem's `mode` wrote, so that one reader reads both
+        # the night's mark
         append_event(root, "task.mode", slug, {"mode": "alone", "by": "lem", "words": f"the night of {night}", "all": False, "was": "with-owner"})
     print(directory)
 
@@ -1448,7 +1428,7 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
     if not (place.parent / ".gitignore").is_file():
         (place.parent / ".gitignore").write_text("*\n", encoding="utf-8")
     if git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch}").returncode == 0:
-        # a branch the task has already (an older night's draft, a task whose worktree was removed): as it is
+        # a branch the task has already (a task whose worktree was removed): as it is
         made, start = git("worktree", "add", str(place), branch), branch
     else:
         start = base
@@ -1581,16 +1561,8 @@ def cmd_state(root: Path, slug: str, status: str, lines: list[str], start_over: 
 
 def type_line(line: str) -> dict | None:
     """The type of the request, when the line names one: `type: fix, because the total is wrong
-    today`. The status and the board read it, so a line that starts with `type:` has this form. A
-    `kind:` line, the form an older Lem wrote, is refused with the type line to write."""
+    today`. The status and the board read it, so a line that starts with `type:` has this form."""
     text = line.strip()
-    if text.startswith("kind:"):
-        old = OLD_KIND_LINE.fullmatch(text)
-        named = OLD_KINDS.get(old["kind"]) if old else None
-        raise SettingsError(
-            f"the line {text!r} is the kind line of an older Lem: a task has a type now, one of {', '.join(TYPES)}; write it as "
-            f"`type: {named or 'TYPE'}, because {old['why'].strip() if old and old['why'] else '...'}`",
-        )
     if not text.startswith("type:"):
         return None
     found = TYPE_LINE.fullmatch(text)
@@ -1600,27 +1572,6 @@ def type_line(line: str) -> dict | None:
     if not found or not found["why"]:
         raise SettingsError(f"the line {text!r} names the type without its reason: write it as `type: {kind}, because ...`")
     return {"type": kind, "why": found["why"].strip()}
-
-
-def old_kind_line(line: str) -> dict | None:
-    """The type a `kind:` line of an older Lem reads as, with its reason; none for any other line.
-    A later change may drop it once no task whose state holds such a line is open."""
-    found = OLD_KIND_LINE.fullmatch(line.strip())
-    if not found or found["kind"] not in OLD_KINDS or not found["why"]:
-        return None
-    return {"type": OLD_KINDS[found["kind"]], "why": found["why"].strip()}
-
-
-def investigation_now(record: dict | None) -> dict | None:
-    """An investigation's record in the form of now: one an older Lem wrote (`kind=bug|investigation`,
-    the calls `correction` and `usual`) reads as `type=fix|question` and `small` and `full`. A later
-    change may drop the old form once no task with such a record is open."""
-    if record is None or "kind" not in record or "type" in record:
-        return record
-    out = {key: value for key, value in record.items() if key != "kind"}
-    out["type"] = OLD_INVESTIGATION_KINDS.get(record["kind"], record["kind"])
-    out["call"] = OLD_CALLS.get(record.get("call"), record.get("call"))
-    return out
 
 
 def answered_form(root: Path, directory: Path, slug: str) -> None:
@@ -1644,11 +1595,6 @@ def investigation_form(fields: dict) -> None:
     report: the type, the call that sets the next path, one line (the cause, the answer, or what was
     tried), the cause's place, and for a fix whether the bug was reproduced."""
     form = "investigation takes type=fix|question call=CALL line=TEXT [where=PATH:SYMBOL] [reproduced:=true|false, for a fix]"
-    if "kind" in fields:
-        # the form of an older Lem: its kind and two of its calls have the names of now
-        kind = OLD_INVESTIGATION_KINDS.get(fields["kind"], "fix|question")
-        call = OLD_CALLS.get(fields.get("call"), fields.get("call"))
-        raise SettingsError(f"{form}: kind=bug|investigation is the form of an older Lem; write type={kind}" + (f" call={call}" if call else ""))
     allowed = {"type", "call", "line", "where", "reproduced"}
     if not {"type", "call", "line"} <= set(fields) <= allowed:
         raise SettingsError(f"{form}, and nothing else; this one has {', '.join(sorted(fields)) or 'no field'}")
@@ -1700,8 +1646,6 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
         talk_form(fields)
         # the bound its rules give, beside the record, so that a reader says when the talk went over it
         fields["bound"] = TURNS_PER_QUESTION * fields["questions"] + TURNS_AROUND
-    if event in OLD_EVENTS:
-        raise SettingsError(f"{event} is the name an older Lem gave this event; it is {OLD_EVENTS[event]} now, with the same fields" + (" and criteria:=N for stories:=N" if event == "stories.read" else ""))
     if event == "criteria.read":
         read_form(fields)
     if event == "investigation":
@@ -1765,7 +1709,7 @@ def read_form(fields: dict) -> None:
 # `interview.start` ends at the first `criteria.read.start` or `criteria.approved` after it, the
 # scout at `scout`, the read at `criteria.read`, an investigation at `investigation`, a builder's
 # job at the next state block or step of the landing after it, the polish pass at `polish`, the
-# checks at their last `gate` or `task.red` (the events keep the step's older name), and the review at `review`.
+# checks at their last `gate` or `task.red`, and the review at `review`.
 BUILDER_JOBS = ("the small change", "the repair of a conflict with the base", "the repair of a failed check", "the fix of a review's findings")
 TASK_JOB = re.compile(r"task [1-9]\d* of [1-9]\d*")
 STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {
@@ -1816,10 +1760,6 @@ def talk_start_form(fields: dict) -> None:
 # talk that ran longer is written as it ran, and `log` adds the bound to it, so the pull request and
 # the board can say that it went over.
 TURNS_PER_QUESTION = 4
-# The names an older Lem gave the personas' read and its start, which `log` refuses with the name of
-# now. The landing and the board still read events of the old names; a later change may drop this
-# once no task with such an event is open.
-OLD_EVENTS = {"stories.read": "criteria.read", "stories.read.start": "criteria.read.start"}
 TURNS_AROUND = 2
 
 
@@ -1958,8 +1898,7 @@ def owner_now(records: list[dict]) -> dict:
 def runs_without_owner(slug: str, records: list[dict], first: str | None) -> list[dict]:
     """The spans in which a task ran without the owner, oldest first, each with the words that
     started it and the words that ended it (`to` is null for a span that runs now). A span runs
-    while the owner is away, and while the task's own mark holds: a night's, or the "go alone" of an
-    older Lem (a `task.mode` event `alone`, which its `with-owner` ended). The owner's "back" ends
+    while the owner is away, and while the task's own mark holds: a night's. The owner's "back" ends
     both. No span starts before `first`, the task's first event, since a task opened while he is
     away runs without him from its opening."""
     def said(record: dict) -> dict:
@@ -1970,7 +1909,7 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
     away: dict | None = None
     for record in records:
         if record.get("event") == "task.mode" and record.get("task") == slug:
-            own = (own or record) if record.get("mode") == "alone" else None
+            own = own or record
         elif record.get("event") == OWNER and record.get("task") is None:
             if record.get("away"):
                 away = away or record
@@ -1991,15 +1930,13 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
 
 
 def type_of(text: str) -> dict | None:
-    """The newest type of the request that a block of state.md names (newest block first). A `kind:`
-    line that an older Lem wrote reads as the type its kind maps to."""
+    """The newest type of the request that a block of state.md names (newest block first)."""
     for line in text.splitlines():
         try:
             found = type_line(line)
         except SettingsError:
-            # state wrote every type line in its form; a line written by hand that is not is no type,
-            # and a kind line of an older Lem is read as its type
-            found = old_kind_line(line)
+            # state wrote every type line in its form; a line written by hand that is not is no type
+            found = None
         if found:
             return found
     return None
@@ -2074,7 +2011,7 @@ def read_tasks(root: Path) -> list[dict]:
             # `fast` or `standard`, from the newest state line that tells it (`track_of`), or null
             "track": track_of(written),
             # what the investigation of a fix or a question found, as `log investigation` wrote it last, or null
-            "investigation": investigation_now(investigations.get(directory.name)),
+            "investigation": investigations.get(directory.name),
             # with the owner or without him now, and since when: from the owner's status and the task's own mark (`runs_without_owner`)
             "mode": "alone" if alone else "with-owner",
             "mode_since": (spans[-1]["from"] if alone else spans[-1]["to"]) if spans else None,
@@ -2123,8 +2060,8 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     print(json.dumps({"running": running}))
 
 
-# The state line of a task whose criteria wait for the owner's yes, and the one an older Lem wrote.
-CRITERIA_WAIT = ("the criteria wait for the owner", "the stories wait for the owner")
+# The state line of a task whose criteria wait for the owner's yes.
+CRITERIA_WAIT = "the criteria wait for the owner"
 # Where a retro started with nobody at the terminal keeps its proposals: one file a retro, in the
 # state folder, named by its day.
 RETROS = "retros"
@@ -2150,16 +2087,13 @@ def retro_proposals(file: Path) -> dict:
 
 def cmd_waiting(root: Path) -> dict:
     """Everything that waits for the owner, from the files that hold it: nothing here decides or writes."""
-    settings = load(root)
+    # a broken settings file is an error here too
+    load(root)
     tasks = read_tasks(root)
     asked = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "pending"],
                            capture_output=True, text=True, check=False)
     if asked.returncode != 0:
         raise SettingsError(asked.stderr.strip().removeprefix("decisions.py: ") or "decisions.py pending failed")
-    main = main_checkout(root)
-    worktrees = main / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve())
-    plans = Path(settings["paths"]["plans"]["path"]).relative_to(root.resolve())
-
     def line(task: dict) -> str:
         return STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]
 
@@ -2178,10 +2112,6 @@ def cmd_waiting(root: Path) -> dict:
              "conflict": task["proposal"]["conflict"]}
             for task in tasks if task["status"] == "open" and task["proposal"]
         ],
-        "drafts": [
-            {**brief(task), "plan": str(plan) if (plan := lem_plans.found(worktrees / task["slug"] / plans, settings["paths"]["plan_file"]["pattern"], task["slug"])) else None}
-            for task in tasks if task["status"] == "drafted"
-        ],
         "retros": [retro_proposals(file) for file in sorted((state_root(root) / RETROS).glob("*.json"))],
     }
     # the report of last night: a night writes it under the day it started, so today's or yesterday's
@@ -2189,7 +2119,7 @@ def cmd_waiting(root: Path) -> dict:
     recent = [(state_root(root) / NIGHTS / f"{day.isoformat()}.md") for day in (today, today - timedelta(days=1))]
     report = next((file for file in recent if file.is_file()), None)
     found["night_report"] = {"date": report.stem, "file": str(report)} if report else None
-    found["count"] = sum(len(found[key]) for key in ("choices", "criteria", "held", "pull_requests", "drafts")) + sum(
+    found["count"] = sum(len(found[key]) for key in ("choices", "criteria", "held", "pull_requests")) + sum(
         entry["proposals"] or 1 for entry in found["retros"]
     )
     return found
@@ -2228,7 +2158,7 @@ def cmd_serial(root: Path, words: list[str]) -> int:
     if not words or not any(word.strip() for word in words):
         raise SettingsError("serial takes the command to run: `lem project serial -- COMMAND ...`, or one quoted line for the shell")
     shown = words[0] if len(words) == 1 else " ".join(words)
-    path = state_root(root) / ALONE_LOCK
+    path = state_root(root) / SERIAL_LOCK
     try:
         handle = path.open("a+", encoding="utf-8")
     except OSError as error:

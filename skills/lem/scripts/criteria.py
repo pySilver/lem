@@ -25,11 +25,7 @@ task on the fast track is read from that file: the criteria of a task on the sta
 the top of its plan, and such a task with no plan is refused. A plan never puts a task on the fast
 track: a plan that says `Size: small` is refused, with the fast track named as the way for one plain
 change, since a fast-track task in a plan would take the standard track with none of what that path
-gives (the owner's approval, the personas' read, the polish pass). The section of an older Lem, under `## Stories` with
-the first line `Kind: feature` or `Kind: correction`, reads as `## Acceptance criteria` with
-`Size: full` or `Size: small`, and its digests stay the ones that Lem wrote; the `stories.md` of an
-older Lem's fast-track task and an approval's `stories.json` are read where no `criteria.md` and
-no `criteria.json` are. A criterion's test is a command and the files that hold the test, each in backticks. A
+gives (the owner's approval, the personas' read, the polish pass). A criterion's test is a command and the files that hold the test, each in backticks. A
 criterion that no test can hold (a sentence of a document) says so, and that is shown wherever
 the criteria are:
 
@@ -75,8 +71,8 @@ how a criterion is broken into lines does not count; the plan's `Size:` is the a
 only the owner's next approval changes. `show`, `record` and `red` refuse a plan that differs, and name
 the first criterion that does. So the lead can neither reword, drop nor add a criterion without
 the record saying so, and the pull request is not green for each such change. A task with no
-approved criteria (a plan written before this rule, an older night's draft, a task on the standard
-track from a complete request) has the plan's criteria as their one source.
+approved criteria (a task on the standard track from a complete request) has the plan's criteria as
+their one source.
 
 `digest` gives the digest of a set of criteria without their tests: a file's, or the plan's. It
 is what an approval keeps and what the record of the personas' read names, so that a read of
@@ -149,15 +145,8 @@ import lem_sibling  # noqa: E402
 # The track of a task, as the `Size:` line names it: `full`, the standard track with its plan and lead,
 # or `small`, the fast track of one builder.
 SIZES = ("full", "small")
-# The heading of the section, and the heading an older Lem wrote, which still reads. A later change
-# may drop the old one once no task whose plan or criteria.md says `## Stories` is open.
-HEADING = re.compile(r"^##\s+(Acceptance criteria|Stories)\s*$")
-SIZE = re.compile(r"^(Size|Kind):\s*(\w+)\s*(?:,\s*because|:|—|-)\s*(.+)$", re.IGNORECASE)
-# The first line of a section an older Lem wrote, `Kind: feature|correction, because ...`, and the
-# `Size` word each kind reads as. A digest is of the word as the file has it, so a digest an older Lem
-# wrote of such a section still matches it. A later change may drop it once no task whose criteria
-# say `Kind:` is open.
-OLD_SIZES = {"feature": "full", "correction": "small"}
+HEADING = re.compile(r"^##\s+Acceptance criteria\s*$")
+SIZE = re.compile(r"^Size:\s*(\w+)\s*(?:,\s*because|:|—|-)\s*(.+)$", re.IGNORECASE)
 CRITERION = re.compile(r"^(\d+)\.\s+(.+)$")
 TEST = re.compile(r"^\s+-\s+test:\s+`([^`]+)`\s+in\s+(.+)$")
 NO_TEST = re.compile(r"^\s+-\s+no test:\s+(.+)$")
@@ -214,7 +203,7 @@ def parse(text: str, name: str) -> dict:
         raise CriteriaError(f"{name} has no `## Acceptance criteria` section; the plan opens with it, as `lem criteria --help` shows")
     end = next((i for i in range(start + 1, len(lines)) if i not in fenced and lines[i].startswith("## ")), len(lines))
     lines = [("" if i in fenced else line) for i, line in enumerate(lines)]
-    size = mark = why = None
+    size = why = None
     criteria: list[dict] = []
     for number, line in enumerate(lines[start + 1:end], start + 2):
         where = f"{name}:{number}"
@@ -222,11 +211,10 @@ def parse(text: str, name: str) -> dict:
             continue
         if size is None:
             found = SIZE.match(line.strip())
-            label, word = (found.group(1).lower(), found.group(2).lower()) if found else (None, None)
-            known = (label == "size" and word in SIZES) or (label == "kind" and word in OLD_SIZES)
-            if not found or not known or not found.group(3).strip():
+            word = found.group(1).lower() if found else None
+            if not found or word not in SIZES or not found.group(2).strip():
                 raise CriteriaError(f"{where}: the section starts with `Size: full, because ...` or `Size: small, because ...`, and this line is {line.strip()!r}")
-            size, mark, why = (word if label == "size" else OLD_SIZES[word]), word, found.group(3).strip()
+            size, why = word, found.group(2).strip()
             continue
         criterion = CRITERION.match(line)
         if criterion:
@@ -258,41 +246,15 @@ def parse(text: str, name: str) -> dict:
     if both:
         raise CriteriaError(f"{name}: criterion {both[0]} names a test and says that it has none; keep one of the two")
     # one mark for this exact set of criteria and tests: a result of the check belongs to the set it ran on
-    digest = hashlib.sha256(json.dumps([mark, criteria], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
-    return {"size": size, "why": why, "digest": digest, "criteria": criteria, "mark": mark}
+    digest = hashlib.sha256(json.dumps([size, criteria], sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
+    return {"size": size, "why": why, "digest": digest, "criteria": criteria}
 
 
-def text_digest(mark: str, texts: list[str]) -> str:
-    """One mark for a set of criteria without their tests: the word of their `Size` line as the file
-    has it and their texts, with each run of spaces as one. An approval keeps it, and the record of
-    the personas' read names it."""
-    return hashlib.sha256(json.dumps([mark, [" ".join(text.split()) for text in texts]], ensure_ascii=False).encode()).hexdigest()[:12]
-
-
-# Who approved, for an approval an older Lem kept: Lem's approval on the fast track was `correction`.
-OLD_BY = {"correction": "lem"}
-
-
-def now_form(approval: dict) -> dict:
-    """An approval in the form of now. One an older Lem kept names its kind (`feature`, `correction`)
-    and not its `size`, holds its texts under `stories`, and names Lem's approval on the fast track
-    `by: correction`. A later change may drop the old form once no task with such an approval is open."""
-    out = dict(approval)
-    if "size" not in out and "kind" in out:
-        out["size"] = OLD_SIZES.get(out.pop("kind"), approval["kind"])
-    if "criteria" not in out and "stories" in out:
-        out["criteria"] = out.pop("stories")
-    if out.get("by") in OLD_BY:
-        out["by"] = OLD_BY[out["by"]]
-    if "history" in out:
-        out["history"] = [now_form(old) for old in out["history"]]
-    return out
-
-
-def size_of(approval: dict) -> str | None:
-    """The `size` (the track) an approval holds; one that an older Lem kept names its kind instead. A later change
-    may drop the old form once no task whose approval names a kind is open."""
-    return approval.get("size") or OLD_SIZES.get(approval.get("kind"))
+def text_digest(size: str, texts: list[str]) -> str:
+    """One mark for a set of criteria without their tests: the word of their `Size` line and their
+    texts, with each run of spaces as one. An approval keeps it, and the record of the personas'
+    read names it."""
+    return hashlib.sha256(json.dumps([size, [" ".join(text.split()) for text in texts]], ensure_ascii=False).encode()).hexdigest()[:12]
 
 
 def against(read: dict, changes: dict, name: str, slug: str) -> None:
@@ -303,7 +265,7 @@ def against(read: dict, changes: dict, name: str, slug: str) -> None:
         f"with only the test lines added. A criterion the build changes, adds or removes is recorded first: `lem decisions criterion {slug} "
         "--changed N --was TEXT --now TEXT`, `--added N --now TEXT` or `--removed N --was TEXT`, with --why and --choice ID or --by lead|personas"
     )
-    approved = size_of(changes["approved"])
+    approved = changes["approved"]["size"]
     if read["size"] != approved:
         raise CriteriaError(
             f"{name} says `Size: {read['size']}`, and the owner approved its criteria with `Size: {approved}`: a change of the track is the owner's only, "
@@ -340,10 +302,6 @@ class Task:
         self.approved_file = self.directory / "criteria.json"
         # the one criterion of a task on the fast track, with its test line: it has no plan, and no commit holds this file
         self.small_file = self.directory / "criteria.md"
-        # What an older Lem wrote in their place, read when the file of now is not there. A later change
-        # may drop the two once no task with such a file is open.
-        self.old_approved_file = self.directory / "stories.json"
-        self.old_small_file = self.directory / "stories.md"
 
     def need_worktree(self) -> None:
         # the criteria are approved before the task has a worktree; its plan is read from one
@@ -351,13 +309,12 @@ class Task:
             raise CriteriaError(f"the task has no worktree at {self.worktree}")
 
     def approved(self) -> dict | None:
-        """The criteria the owner approved, as `approve` kept them; none for a task without. An
-        approval an older Lem kept in `stories.json` reads in the form of now."""
-        kept = self.approved_file if self.approved_file.is_file() else self.old_approved_file
+        """The criteria the owner approved, as `approve` kept them; none for a task without."""
+        kept = self.approved_file
         if not kept.is_file():
             return None
         try:
-            return now_form(json.loads(kept.read_text(encoding="utf-8")))
+            return json.loads(kept.read_text(encoding="utf-8"))
         except ValueError as error:
             raise CriteriaError(f"{kept} does not read as JSON ({error}); it is written by `lem criteria approve` only") from error
 
@@ -366,14 +323,13 @@ class Task:
         # the plan of this task and of no other: the name `paths.plan_file` gives, with the task's whole slug
         pattern = self.settings["paths"]["plan_file"]["pattern"]
         found = lem_plans.found(self.plans, pattern, self.slug)
-        small_file = self.small_file if self.small_file.is_file() else self.old_small_file
-        small = not found and small_file.is_file()
+        small = not found and self.small_file.is_file()
         if not found and not small:
             raise CriteriaError(
                 f"no plan of this task in {self.plans}: its name is {pattern.replace('<slug>', self.slug)} (`lem project plan-file {self.slug}` prints it); "
                 f"only a task on the fast track keeps its criterion in the task directory instead, in {self.small_file}",
             )
-        plan = small_file if small else found
+        plan = self.small_file if small else found
         read = parse(plan.read_text(encoding="utf-8"), plan.name)
         if small and read["size"] != "small":
             raise CriteriaError(
@@ -381,7 +337,7 @@ class Task:
                 f"The criteria of a task on the standard track are at the top of its plan, and the branch has none in {self.plans}: its lead writes {pattern.replace('<slug>', self.slug)}",
             )
         changes = self.changes()
-        digest = text_digest(read["mark"], [criterion["text"] for criterion in read["criteria"]])
+        digest = text_digest(read["size"], [criterion["text"] for criterion in read["criteria"]])
         if small and changes["approved"] is None:
             raise CriteriaError(f"the fast track's criterion in {plan} has no approval: Lem approves it in the owner's name before its builder starts, `lem criteria approve {self.slug} --file {plan} --small`")
         if changes["approved"] is None:
@@ -396,18 +352,15 @@ class Task:
         }
 
     def no_small_plan(self, read: dict, plan: Path, small: bool) -> None:
-        """Refuse a plan file that says `Size: small` (or `Kind: correction`, as an older Lem wrote it):
-        a plan never puts a task on the fast track. One plain change takes the fast track, with its criterion in the
+        """Refuse a plan file that says `Size: small`: a plan never puts a task on the fast track. One plain change takes the fast track, with its criterion in the
         task directory and no plan; a fast-track task in a plan would land with no approval of the
         owner's, no read and no polish pass."""
         if small or read["size"] != "small":
             return
-        said = "Kind: correction" if read["mark"] == "correction" else "Size: small"
         raise CriteriaError(
-            f"{plan.name} says `{said}`, and a plan never puts a task on the fast track: one plain change takes the fast track, whose one criterion is "
+            f"{plan.name} says `Size: small`, and a plan never puts a task on the fast track: one plain change takes the fast track, whose one criterion is "
             f"`criteria.md` in the task directory and which has no plan (`stages/new.md`, \"The fast track\"). A plan's criteria are the standard track's: "
             f"its lead writes `Size: full, because ...`, and the personas read them (`stages/plan.md`, step 1)",
-
         )
 
     def changes(self) -> dict:
@@ -446,7 +399,7 @@ def unstarted(command: str, where: Path) -> bool:
     return file is not None and not (where / file).is_file()
 
 
-def needs_alone(command: str, alone: list[str]) -> bool:
+def needs_serial(command: str, serial: list[str]) -> bool:
     """Whether a test belongs to a suite that needs the machine to itself: its command starts with
     the words of one of the settings' `checks.serial`, the last of which may also be a folder of the
     test's path (`sh tests/e2e` holds `sh tests/e2e/export.sh`). Words, so that a test's own file
@@ -455,7 +408,7 @@ def needs_alone(command: str, alone: list[str]) -> bool:
         words = shlex.split(command)
     except ValueError:
         return False
-    for line in alone:
+    for line in serial:
         try:
             own = shlex.split(line)
         except ValueError:
@@ -551,13 +504,13 @@ def cmd_red(task: Task) -> dict:
                         continue
             child.clear()
 
-        alone = task.settings["checks"]["serial"]
+        serial = task.settings["checks"]["serial"]
 
         def outcome(command: str, where: Path, test: bool = False) -> int:
             # through a shell, as the commands of the checks run: a test command is a line the project would type;
             # a test of a suite that needs the machine to itself runs under its lock, which project.py holds
             line: str | list[str] = command
-            if test and needs_alone(command, alone):
+            if test and needs_serial(command, serial):
                 line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "serial", "--", command]
             proc = subprocess.Popen(line, shell=isinstance(line, str), cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
             child.append(proc)
@@ -638,25 +591,20 @@ def cmd_red(task: Task) -> dict:
 
 def reads_of(task: Task) -> list[dict]:
     """The task's reads of its criteria, oldest first, from the log `project.py` writes: its
-    `criteria.read` events, and the `stories.read` events an older Lem wrote, whose count of what was
-    read is `stories`. A later change may drop the old name once no task with such an event is open."""
+    `criteria.read` events."""
     log = task.directory.parent.parent / "events.jsonl"
     found = []
     for line in (log.read_text(encoding="utf-8").splitlines() if log.is_file() else []):
-        if '"criteria.read"' in line or '"stories.read"' in line:
+        if '"criteria.read"' in line:
             record = json.loads(line)
-            if record.get("event") in READ_EVENTS and record.get("task") == task.slug:
+            if record.get("event") == "criteria.read" and record.get("task") == task.slug:
                 found.append(record)
     return found
 
 
-# The events of a read of the criteria: the one of now, and the one an older Lem wrote.
-READ_EVENTS = ("criteria.read", "stories.read")
-
-
 # The automatic approvals, which no word of his gave in the moment: the read of a task on the
-# standard track from a complete request, and Lem's approval on the fast track in his name (`by: lem`;
-# an older Lem kept it as `by: correction`). Each is a task's first contract only.
+# standard track from a complete request, and Lem's approval on the fast track in his name (`by: lem`).
+# Each is a task's first contract only.
 AUTOMATIC = {"read": "a read freezes only the first contract", "lem": "Lem approves the fast track's criterion in the owner's name only as the first contract"}
 
 
@@ -666,9 +614,8 @@ def first_contract(task: Task, by: str) -> None:
     through his own approval, which is always allowed and always makes a new number."""
     kept = task.approved()
     if kept is not None:
-        number = kept.get("number") or 1 + len(kept.get("history", []))
         raise CriteriaError(
-            f"{task.slug} has approval {number} of its criteria already (by {kept['by']}): {AUTOMATIC[by]}. "
+            f"{task.slug} has approval {kept['number']} of its criteria already (by {kept['by']}): {AUTOMATIC[by]}. "
             f"A criterion changes through its record, `lem decisions criterion {task.slug} ...`, and the track only through the owner's own approval, "
             f"`lem criteria approve {task.slug} --file FILE`",
         )
@@ -694,7 +641,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         raise CriteriaError(f"{source.name} says `Size: small`: the fast track's criterion is approved with --small, in either mode")
     criteria = [{"n": criterion["n"], "text": criterion["text"]} for criterion in read["criteria"]]
     # one mark for this exact set of approved texts; the approval itself is known by its number
-    digest = text_digest(read["mark"], [criterion["text"] for criterion in criteria])
+    digest = text_digest(read["size"], [criterion["text"] for criterion in criteria])
     task.directory.mkdir(parents=True, exist_ok=True)
     with (task.directory / "criteria.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -707,7 +654,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
             # a fast-track task that turned out to need the standard track needs that path's approval; any other approval stands
             if kept is not None and kept["by"] != "lem":
                 raise CriteriaError(
-                    f"{task.slug} has approval {kept.get('number') or 1 + len(kept.get('history', []))} of its criteria already (by {kept['by']}): "
+                    f"{task.slug} has approval {kept['number']} of its criteria already (by {kept['by']}): "
                     f"a criterion changes through its record, `lem decisions criterion {task.slug} ...`",
                 )
         if by == "read":
@@ -797,7 +744,7 @@ def main(argv: list[str] | None = None) -> None:
                 if not Path(args.file).is_file():
                     raise CriteriaError(f"{args.file} is not a file; --file names the criteria to mark, in the form `lem criteria --help` shows")
                 read = parse(Path(args.file).read_text(encoding="utf-8"), Path(args.file).name)
-                result = {"task": task.slug, "of": args.file, "digest": text_digest(read["mark"], [criterion["text"] for criterion in read["criteria"]])}
+                result = {"task": task.slug, "of": args.file, "digest": text_digest(read["size"], [criterion["text"] for criterion in read["criteria"]])}
         elif args.step == "red":
             result = cmd_red(task)
         else:

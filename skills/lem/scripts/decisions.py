@@ -21,8 +21,7 @@ later "no" cannot reverse waits for the owner's word however long that takes.
                             each option the decision had, --vote each persona's answer, one for
                             each model family, and --level what each level that ran answered.
                             `--by personas` takes two votes or more, each for the option --chose
-                            names (one of an older lead, with --said and no --vote, is taken as
-                            before). `--unsettled` goes with `--by lead`: no level settled it, and
+                            names. `--unsettled` goes with `--by lead`: no level settled it, and
                             the lead's pick stands. `owner` is a word of the owner's that nobody
                             asked for (the task is careful), or the owner's yes to skip the
                             personas' read of criteria that name only the developer, in the form
@@ -87,18 +86,11 @@ text `--was` names: a wrong record never enters. Texts are compared with each ru
 one, as a criterion written over two lines reads; they are kept as typed. A choice carries no
 criterion: when the option taken changes one, the lead records that with `criterion --choice ID`,
 and the check of the criteria refuses the plan until it does. A task with no approved criteria has
-no criterion changes: its plan's criteria are their one source. A change an older Lem recorded is
-a line with `"kind": "story"` and its number under `story`, and an approval it kept is
-`stories.json`: both read as the lines and the file of now. A later change may drop the old forms
-once no task that has them is open.
+no criterion changes: its plan's criteria are their one source.
 
 A choice has no time limit: "Lets remove this 15min automatic timeout - to have more explicit: Owner
 either tells dnd or not, no assumptions" (the owner, 2026-11-18). A choice taken because the task
-ran without the owner is a line `timeout` with `early: true`, the form an older Lem wrote for its
-"go alone", so that one reader reads both. A choice an older Lem asked has a `deadline` and its
-`wait_minutes`; the deadline no longer ends its wait, and a `timeout` line with no `early`, which
-the clock of an older Lem took, still reads as taken after that wait. `timeout` itself is refused
-with what holds now. `--said` is not optional for `ask`:
+ran without the owner is a line `timeout` with `early: true`. `--said` is not optional for `ask`:
 the levels of the ladder answer before the owner is asked, and their answers go with the question;
 `--recommended` is the ladder's pick.
 
@@ -121,9 +113,7 @@ waits, in two places, `fable` for the first seat and `astra` for the second, wha
 there. `ask` and `log --by experts` write which places answer on this machine (`advisers`), so that
 the record says one expert or two. When the owner goes away their pick is taken (`by: experts`,
 with each reason), and the recommended option when they split or one of them did not advise (`by:
-timeout`). Either way the pull request is not green for it. A `settled` line, which an older Lem wrote when
-the owner was away, still reads as the experts' pick; a later change may drop it once no task with
-such a line is open.
+timeout`). Either way the pull request is not green for it.
 
 An answer to a choice that was taken without the owner is written down as late. What was taken
 stands; when the answer differs from it, that is a correction, for the lead while the task builds
@@ -252,33 +242,23 @@ class Task:
             elif line["kind"] == "advised":
                 found[line["id"]].setdefault("advice", {})[line["expert"]] = {key: line[key] for key in ("pick", "none", "why", "at") if key in line}
             elif line["kind"] == "timeout":
-                # a timeout before the experts existed has no `by`: it took the recommended option
                 found[line["id"]].update(
-                    state="timeout", chose=line["chose"], by=line.get("by", "timeout"), taken=line["at"],
+                    state="timeout", chose=line["chose"], by=line["by"], taken=line["at"],
                     **({"experts": line["experts"]} if "experts" in line else {}), **({"early": True} if line.get("early") else {}),
                 )
-            elif line["kind"] == "settled":
-                found[line["id"]].update(state="settled", chose=line["chose"], by="experts", taken=line["at"], experts=line["experts"], away=True)
             elif line["kind"] == "late":
                 found[line["id"]].update(late={"chose": line["chose"], "at": line["at"], **{key: line[key] for key in ("words", "why", "instead") if key in line}})
         return [found[key] for key in sorted(found)]
 
     def approved(self) -> dict | None:
-        """The criteria the owner approved, as `lem criteria approve` kept them; none for a task without.
-        An approval an older Lem kept names its kind (`feature`, `correction`) and not its `size`, and
-        Lem's own approval on the fast track as `by: correction`: each reads in the form of now. A
-        later change may drop the old form once no task with such an approval is open."""
+        """The criteria the owner approved, as `lem criteria approve` kept them; none for a task without."""
         kept = self.directory / "criteria.json"
-        if not kept.is_file():
-            # where an older Lem kept them
-            kept = self.directory / "stories.json"
         if not kept.is_file():
             return None
         try:
-            record = json.loads(kept.read_text(encoding="utf-8"))
+            return json.loads(kept.read_text(encoding="utf-8"))
         except ValueError as error:
             raise DecisionError(f"{kept} does not read as JSON ({error}); it is written by `lem criteria approve` only") from error
-        return {**now_form(record), "history": [now_form(old) for old in record.get("history", [])]}
 
     def changes(self, lines: list[dict] | None = None) -> dict:
         """The approvals, the recorded changes of the criteria in order, and the criteria they give.
@@ -293,13 +273,11 @@ class Task:
             return {"task": self.slug, "approved": None, "approvals": [], "changes": [], "history": [], "expected": None}
         keys = ("number", "at", "by", "size", "digest")
         approvals = [{key: old.get(key) for key in keys} for old in approved.get("history", [])] + [{key: approved.get(key) for key in keys}]
-        # a file an approve before numbered approvals wrote has one approval, the first
-        approvals[-1]["number"] = approvals[-1]["number"] or len(approvals)
         newest = approvals[-1]["number"]
-        everything = [changed(line) for line in (self.lines() if lines is None else lines) if line["kind"] in CHANGE_KINDS]
+        everything = [line for line in (self.lines() if lines is None else lines) if line["kind"] == "criterion"]
         history = []
         for line in everything:
-            later = next((old["number"] for old in approvals if old["number"] > line.get("approval", 0) and old["by"] == "owner"), None)
+            later = next((old["number"] for old in approvals if old["number"] > line["approval"] and old["by"] == "owner"), None)
             history.append({**line, "taken_over_by": later})
         changes = [line for line in everything if line.get("approval") == newest]
         expected = [criterion["text"] for criterion in approved["criteria"]]
@@ -341,37 +319,6 @@ class Task:
         return lines
 
 
-# The kinds an older Lem gave an approval of its stories, by the `size` word each is now, and who approved
-# for its `by: correction`. A later change may drop them once no task with such an approval is open.
-OLD_SIZES = {"feature": "full", "correction": "small"}
-OLD_BY = {"correction": "lem"}
-
-
-def now_form(approval: dict) -> dict:
-    """One approval of criteria in the form of now: its `size`, its texts under `criteria`, and Lem as who
-    approved on the fast track."""
-    out = {key: value for key, value in approval.items() if key not in ("kind", "history", "stories")}
-    if "criteria" not in out and "stories" in approval:
-        out["criteria"] = approval["stories"]
-    if "size" not in out and "kind" in approval:
-        out["size"] = OLD_SIZES.get(approval["kind"], approval["kind"])
-    if out.get("by") in OLD_BY:
-        out["by"] = OLD_BY[out["by"]]
-    return out
-
-
-# The kind of a line that changes a criterion, and the kind an older Lem wrote for it (`story`, with
-# the number under `story`). A later change may drop the old one once no task with such a line is open.
-CHANGE_KINDS = ("criterion", "story")
-
-
-def changed(line: dict) -> dict:
-    """A line that changes a criterion, in the form of now."""
-    if line["kind"] != "story":
-        return line
-    return {("criterion" if key == "story" else key): ("criterion" if key == "kind" else value) for key, value in line.items()}
-
-
 def advisers(decision: dict) -> list[str]:
     """The places of the experts who answer a decision: the ones `ask` or `log` found on the machine."""
     return list(decision.get("advisers") or EXPERTS)
@@ -390,8 +337,7 @@ def shared(decision: dict) -> str | None:
 
 def ending(number: int, decision: dict, at: str) -> dict:
     """The line that takes a choice without the owner, as the task runs without him: the experts'
-    shared pick, or the recommended option. Its form is the one an older Lem wrote for its "go
-    alone" (`early`), so that one reader reads both."""
+    shared pick, or the recommended option."""
     pick = shared(decision)
     if pick is None:
         return {"id": number, "at": at, "kind": "timeout", "chose": decision["recommended"], "by": "timeout", "early": True}
@@ -450,12 +396,10 @@ def pairs(values: list[str] | None, flag: str, form: str) -> list[list[str]]:
 def cmd_log(task: Task, args: argparse.Namespace) -> dict:
     chose = text(args.chose, "--chose")
     votes = pairs(args.vote, "--vote", "\"PERSONA, FAMILY=OPTION\", one for each answer of a persona")
-    if args.by == "personas" and not votes and not args.said:
+    if args.by == "personas" and not votes:
         raise DecisionError("--by personas needs a --vote for each answer of a persona, \"PERSONA, FAMILY=OPTION\", and --said: who answered and what each picked")
-    # The one count the script checks (`stages/ladder.md`, level 2). A log with --said and no vote is
-    # the form a lead of the stage text before wrote, and is taken as it was: a later change may drop
-    # it once no such lead runs.
-    if args.by == "personas" and votes:
+    # The one count the script checks (`stages/ladder.md`, level 2).
+    if args.by == "personas":
         other = [name for name, option in votes if option != chose]
         if len(votes) < 2 or other:
             raise DecisionError(
@@ -507,7 +451,7 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
             f"{task.slug} has no approved criteria, so no change of them is recorded: its plan's criteria are their one source. "
             "Approved criteria are kept by `lem criteria approve`",
         )
-    line = {"at": stamp(now()), "kind": "criterion", "how": how, "criterion": getattr(args, how), "why": text(args.why, "--why"), "approval": approved.get("number") or 1 + len(approved.get("history", []))}
+    line = {"at": stamp(now()), "kind": "criterion", "how": how, "criterion": getattr(args, how), "why": text(args.why, "--why"), "approval": approved["number"]}
     for key in wants:
         line[key] = typed(getattr(args, key), f"--{key}")
     if args.choice is not None:
@@ -520,14 +464,14 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
     def make(known: list[dict]) -> list[dict]:
         if args.choice is not None:
             choice = task.one(args.choice, known)
-            if choice["state"] not in ("answered", "timeout", "settled"):
+            if choice["state"] not in ("answered", "timeout"):
                 # the state as a verb: a choice that "waits", a decision that "is taken"
                 said = "waits" if choice["state"] == "waits" else f"is {choice['state']}"
-                raise DecisionError(f"choice {args.choice} {said}: a criterion changes after a choice that was answered or taken by timeout, or that the experts settled")
+                raise DecisionError(f"choice {args.choice} {said}: a criterion changes after a choice that was answered or taken without the owner")
         lines = task.lines()
         # the same computation the check of the criteria makes, with this change last: a wrong record never enters
         task.changes([*lines, line])
-        return [{"change": sum(1 for old in lines if old["kind"] in CHANGE_KINDS) + 1, **line}]
+        return [{"change": sum(1 for old in lines if old["kind"] == "criterion") + 1, **line}]
 
     made = task.add(make)[0]
     return {**made, "criteria": task.changes()["expected"]}
@@ -652,9 +596,7 @@ def cmd_wait(task: Task, number: int, seconds: int) -> dict:
     while True:
         decision = task.one(number)
         if decision["state"] != "waits":
-            ended = {"answered": "answered", "settled": "settled by the experts while the owner was away"}.get(
-                decision["state"], "taken without the owner" if decision.get("early") else "taken by the timeout of an older Lem",
-            )
+            ended = "answered" if decision["state"] == "answered" else "taken without the owner"
             return {**shown(task, decision), "ended": ended}
         if task.status in ENDED:
             return {**shown(task, decision), "ended": f"the task is {task.status}: the choice no longer waits", "status": task.status}
@@ -694,10 +636,10 @@ def cmd_answer(task: Task, number: int, args: argparse.Namespace) -> dict:
                 "Put the owner's own words in --words. When what the owner decided fits none of them, settle the choice with "
                 "--instead TEXT, never with a new `lem decisions log`, so it does not wait for ever",
             )
-        # A choice that waits takes his answer, however long it waited: an older Lem's deadline ends no wait now.
+        # A choice that waits takes his answer, however long it waited.
         if decision["state"] == "waits":
             return [{"id": number, "at": at, "kind": "answered", "chose": chose, **reason}]
-        # Taken without him (or by an older Lem's timeout, or settled by the experts while he was away): what was taken stands.
+        # Taken without him: what was taken stands.
         taken.update(chose=decision["chose"], state=decision["state"])
         return [{"id": number, "at": at, "kind": "late", "chose": chose, **reason}]
 
