@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Every check of this repository at the same time: the blocks of Lem's scripts, the board, the
-# gate and the panel, lem-ask, the experts and ShellCheck. Each suite
+# gate and the panel, lem-ask, the experts, ShellCheck and the map of tests/pick.py. Each suite
 # writes a log of its own and runs within a time limit (tests/suites.sh). At the end one line for
 # each suite gives its count of `ok`, `FAIL` and `SKIP`, its exit and its time, and the log of each
 # suite that failed follows. A suite passes only when its ok and SKIP lines add up to the checks it
@@ -12,7 +12,7 @@ cd -P "$(dirname "$0")/.." || exit 1
 . tests/suites.sh
 
 suites=(lem-settings lem-machine lem-state lem-old-tasks lem-decisions lem-land-shop lem-land-local lem-land-review lem-land-backlog lem-land-github lem-land-guards lem-land-small lem-alone
-  test-board test-gate-panel test-ask test-ask-expert shellcheck)
+  test-board test-gate-panel test-ask test-ask-expert shellcheck pick)
 suites+=(lem-naps)
 suites+=(lem-command)
 if [ -n "${LEM_TEST_LOGS:-}" ]; then
@@ -38,7 +38,11 @@ run() {
 }
 started=$SECONDS
 for suite in "${suites[@]}"; do
-  run "$suite" bash "tests/$suite.sh" &
+  if [ "$suite" = pick ]; then
+    run pick python3 -I -B tests/pick.py --check &
+  else
+    run "$suite" bash "tests/$suite.sh" &
+  fi
   pids+=("$!")
 done
 wait
@@ -47,7 +51,9 @@ pids=()
 failed=()
 for suite in "${suites[@]}"; do
   read -r code seconds < "$LOGS/$suite.exit"
-  summary "$suite" "$LOGS/$suite.log" "$code" "$seconds" "tests/$suite.sh" || failed+=("$suite")
+  source_file=tests/$suite.sh
+  [ -f "$source_file" ] || source_file=""
+  summary "$suite" "$LOGS/$suite.log" "$code" "$seconds" "$source_file" || failed+=("$suite")
 done
 # what no suite checks alone: the scripts of every suite, run at one time, left no cache
 caches=$(find skills bin -name __pycache__ -type d 2>/dev/null)

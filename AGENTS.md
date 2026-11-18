@@ -847,6 +847,7 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
 
 ```bash
 bash tests/all.sh              # every suite below at the same time, one log each, a line of ok, FAIL and SKIP per suite
+python3 tests/pick.py --base main  # the suites to run for what the branch changed (or name the files); all.sh still runs before main moves
 ```
 
 Each suite says how many checks it holds (`collected N`, `tests/checks.sh`), and a check that
@@ -946,9 +947,9 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   and the copies a panel read; `lem_state.py` names it. `.revmux/`: the review tool's profiles, lenses and project
   profile for this repository.
 - `tests/`: the suites of the Checks above; `all.sh` runs them all, `lib.sh` is what each
-  `lem-*.sh` block sources, `checks.sh` is how every suite counts its checks, and `suites.sh` and
-  `limit.py` are what `all.sh` and `test-lem.sh` share. `.github/workflows/ci.yml` runs them when
-  someone starts it by hand.
+  `lem-*.sh` block sources, `checks.sh` is how every suite counts its checks, `suites.sh` and
+  `limit.py` are what `all.sh` and `test-lem.sh` share, and `pick.py` holds the map of which suite
+  reads which file. `.github/workflows/ci.yml` runs them when someone starts it by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
   plugin `lem`, the one way Lem installs: the manifest, a marketplace file that lists the one
   plugin, `bin/lem`, Lem's one command, which runs the script a name stands for (`lem project
