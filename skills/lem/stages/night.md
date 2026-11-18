@@ -19,15 +19,10 @@ Nothing asks him.
    them: the small changes first, then the others by how much they change, and within one size
    `worth: yes` first. Take the first `flow.max_tasks` of them.
 3. **Each one runs without the owner.** In that order, open the task as `stages/new.md` does,
-   with the item's path as the ask, and right after `lem project task-dir`:
-
-   ```bash
-   lem project mode SLUG alone --by lem --words "the night of YYYY-MM-DD"
-   ```
-
-   with the night's date, in that form: it marks the task as the night's. From there the task
-   takes the path that `stages/new.md` chose, as any task that runs without the owner does
-   (`stages/mode.md`). A lead's brief carries `request by: someone else`, since nobody at the
+   with the item's path as the ask and `--night YYYY-MM-DD` on its `lem project task-dir`, with
+   the night's date: it marks the task as the night's, and it runs without the owner until he
+   says `/lem active`. From there the task takes the path that `stages/new.md` chose, as any
+   task that runs without the owner does (`stages/away.md`). A lead's brief carries `request by: someone else`, since nobody at the
    terminal read the item, so a full change's criteria are approved with `--alone` and its pull
    request is not green for them. A line a stage file tells the owner goes into the night
    report. `lem project may-start` queues a task over the limit, as by day.

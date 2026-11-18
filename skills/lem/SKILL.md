@@ -109,7 +109,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a plan the owner read, an older night's draft. With no name it lists those tasks and asks which | `stages/start.md` |
 | a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report, and a scout's belongs to its interview | `stages/stopped.md`; an investigator's `stages/investigate.md`, a scout's `stages/interview.md` |
 | a choice waits | the line `lem: SLUG choice N waits` arrived, or the `waiting` list of `lem decisions pending` names a choice: run that command at each of your turns, since a line can be lost | `stages/choice.md` |
-| "go alone", "go alone for all", "I am back" | the owner lets a task, or every task, run without him, or takes it back | `stages/mode.md` |
+| `away`, `active` | the owner says that he is away, and every task goes on without him, or that he is active again | `stages/away.md` |
 | `land` | the oldest ready task: the polish pass for a full change (a small change has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
@@ -140,10 +140,9 @@ lead whose choice waits for the owner.
   personas, the dialectic, the experts; `stages/ladder.md`, the lead's). One that the gate or the
   personas settled is logged: at each of your turns, say each decision taken in a task that runs
   with him since your last turn (`lem decisions list SLUG`), once, in one line, and wait for
-  nothing. One that went past the personas is his card (`stages/choice.md`), which waits the
-  settings' `flow.decision_wait` at most, 15 minutes unless the project says otherwise; then the
-  ladder's pick is taken, not green. A task he lets go (`stages/mode.md`) waits for none of
-  this. A step that a later "no" cannot reverse waits for him in both modes, and so does the
+  nothing. One that went past the personas is his card (`stages/choice.md`), which waits for
+  his answer with no time limit. While he is away (`stages/away.md`) nothing waits for him: the
+  ladder's pick is taken, not green. A step that a later "no" cannot reverse waits for him in both modes, and so does the
   merge of a task that runs without him. Every other decision is yours: decide
   from the code, the settings and the rulings, write it in the decisions log, and go on.
   A red test, a failed command or a moving base branch is the work, never a reason to stop.

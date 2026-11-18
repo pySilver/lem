@@ -27,11 +27,13 @@ Then say what waits for him, as one list in one order, the same at every bare `/
 lem project waiting
 ```
 
-It gives each kind under its key, in this order, and you say them so, in plain names and never in
+While `owner` says that he is away, the list's first line says so and since when, in his clock:
+"You are away since 14:05; the tasks go on without you until /lem active." Then it gives each
+kind under its key, in this order, and you say them so, in plain names and never in
 task codes, one line each, and leave out a kind that has none:
 
 1. `choices`: each choice of a task that waits for him, as `lem decisions pending` gives it: the
-   task, the choice, and the minutes its wait has left, or that it waits for his word;
+   task and the choice;
 2. `criteria`: each task whose acceptance criteria wait for his yes;
 3. `held`: each task that waits for a step of his or one more fact, with that step;
 4. `pull_requests`: each open pull request, its address (or that its branch is ready to land),

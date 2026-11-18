@@ -171,7 +171,7 @@ forge calls it conflicting.
    lead may take is logged with `--by lead` (`stages/build.md`, "A choice in the build", step 1).
    One in doubt takes `stages/ladder.md`; with the owner, one that went past the personas becomes
    his card, as step 2 of that section asks it. Then go on to step 6: the build takes the tasks
-   that do not depend on it, and the wait ends as that section's steps 3 and 4 say. The state
+   that do not depend on it, and the choice waits as that section's steps 3 and 4 say. The state
    `held` is not for such a decision. A builder whose plan is careful or large and has no talk
    yet has stopped at step 3 before this; the builder that leads after the talk takes this step
    for the plan's own decisions.

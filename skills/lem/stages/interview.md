@@ -124,8 +124,8 @@ the record saying so.
    whose criteria nobody read and whose read he did not skip (step 5), and one whose read found a
    doubt with no yes of his after it.
 
-When he says "go alone" during the interview, it goes on without him as step 4 of
-`stages/mode.md` says: your guesses, logged, the read, each flagged criterion settled by the
+When he says that he is away during the interview, it goes on without him as step 3 of
+`stages/away.md` says: your guesses, logged, the read, each flagged criterion settled by the
 ladder, and the criteria approved with `--alone`.
 When he leaves with no such words, write the state `held` with the line `the criteria wait for the
 owner`, and put the page to him again the way `ask-owner` says for an owner who is away. His

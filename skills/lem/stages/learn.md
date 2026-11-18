@@ -54,7 +54,7 @@ read whole.
 ## retro
 
 `/lem retro` reads what the sessions did since the last retro: each task's decisions
-(`lem decisions list SLUG`: who took each, a choice taken by timeout, a late answer that differs), the
+(`lem decisions list SLUG`: who took each, a choice taken without the owner, a late answer that differs), the
 "not verified" and "outside defects" lines of each `report.md`, the reviews and the proposals
 in the event log (`review` and `proposed` events: the rounds, the counts, who answered, and each
 reason a request was not green; `careful.missed` events: a change the review called careful and

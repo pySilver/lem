@@ -114,29 +114,26 @@ has no plan, and the size is no choice of this section. A plan that departs from
    cause reaches. They go above the owner's card, so that he decides from one run and not from
    the code. `--recommended` is the ladder's pick, and `--said` what each level answered. A
    choice carries no criterion. Whichever way it ends, by his answer, by a decision of his that
-   is none of the options or by the timeout, read what was taken against each criterion: when
+   is none of the options or taken when he went away, read what was taken against each criterion: when
    one no longer holds, or a criterion has to come or go, record it with `lem decisions
    criterion ... --choice N`, and change the criterion in the plan in the commit that builds the
    option. A forgotten record does not pass: the checks refuse a plan whose criteria are not the
-   expected ones. The choice waits the settings' `flow.decision_wait` (15 minutes unless the
-   project says otherwise), counted from the ask, so tell Lem at once: `tell-coordinator` with
+   expected ones. The choice waits for his answer with no time limit, so tell Lem at once: `tell-coordinator` with
    the line `lem: SLUG choice N waits`, to the address of the brief's `coordinator:` line. The
    defender of a plan talk sends it from its companion, and a builder that leads sends it from
    Lem's own session; the harness file says what of that was checked. A brief with no
    `coordinator:` line has no address: the choice then reaches Lem at its next turn, through
-   `lem decisions pending`, and may end its wait before the owner sees it.
+   `lem decisions pending`.
 3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
    before you start one that depends on it, run `lem decisions --repo WORKTREE wait SLUG N`. It
-   returns when the owner answered, when the wait is over, when the task runs without the owner
-   (`mode` in `lem project tasks`), or after nine minutes: run it again while it says `still
-   waits`, when nothing else is left to do. When the wait is over, or the task runs without him,
-   run `lem decisions --repo WORKTREE timeout SLUG N`: the ladder's pick is taken (on a choice
-   the experts advised, the option both picked), and the pull request is not green for it.
-   `lem decisions list SLUG` shows each decision as it stands; an
-   answer that came after the timeout and differs from what was taken is the owner's correction:
+   returns when the owner answered, when the task runs without him (he said he is away; it then
+   takes the ladder's pick, on a choice the experts advised the option both picked, and the pull
+   request is not green for it), or after nine minutes: run it again while it says `still
+   waits`, when nothing else is left to do. `lem decisions list SLUG` shows each decision as it
+   stands; an answer that came after it was taken and differs from what was taken is the owner's correction:
    build his answer, and log it with `--by lead` and why.
-4. **A step that a later "no" cannot reverse is never taken by timeout or by a level of the
-   ladder**, with the owner or without him. The four kinds, and no
+4. **A step that a later "no" cannot reverse is never taken without his answer or by a level of
+   the ladder**, with the owner or without him. The four kinds, and no
    other: it destroys or rewrites data outside the worktree (`data`); it writes to a system
    outside the repository beyond what the settings already allow, such as the tracker's ticket
    (`system`); it sends something to a person (`person`); it spends money (`money`). Ask it with

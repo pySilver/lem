@@ -187,7 +187,7 @@ one finds what the run before it finished.
    as it is; no criterion changed during the build; nothing of the owner's went past the
    personas without him (`stages/ladder.md`), and no criteria were approved without him; the checks were the main checkout's own; no read of the criteria went unanswered twice;
    and a small change is not careful. A green request needs no read from the owner. The step refuses while a
-   choice of the task waits for the owner: ask him (`stages/choice.md`), and run it again after his answer or after the timeout. It refuses a request
+   choice of the task waits for the owner: ask him (`stages/choice.md`), and run it again after his answer, or after his "away" took it. It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
    event log holds no `plan.talk`: its lead skipped the talk (`stages/talk.md`). Lem opens the plan
    talk's companion, whose defender argues the plan with the reviewer, as for `needs a session`

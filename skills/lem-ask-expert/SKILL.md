@@ -90,9 +90,9 @@ task's worktree when it belongs to a task, else the one this session works in.
 Their advice goes on the owner's card, and decides nothing by itself; the record does that, by
 the rules of `decisions.py`:
 
-- when his wait ends with no answer, or the task runs without him, `lem decisions timeout` takes
-  the option both picked, and the recommended option when they split, when one found none fits,
-  or when one did not answer in time;
+- when he says that he is away (`lem project owner away`), the choice is taken with the option
+  both picked, and the recommended option when they split, when one found none fits, or when one
+  did not answer;
 - a choice the experts decided is never green: the pull request has a line with their pick and
   both reasons, and he reads it before he merges;
 - a step that a later "no" cannot reverse (`--irreversible`) takes advice for his card, and is
@@ -102,8 +102,8 @@ the rules of `decisions.py`:
 advice in two places, `fable` and `astra`, the names `lem decisions` knows: the first seat of
 `seats.experts` answers as `fable` and the second as `astra`, whatever model sits there.
 
-1. **The brief.** Start it before anything else: the wait started with the ask, and the experts
-   take part of it.
+1. **The brief.** Start it before anything else: the owner may answer, or say that he is away,
+   while the experts read.
 
    ```bash
    lem experts --repo WORKTREE brief SLUG N [--file PATH ...]
@@ -127,8 +127,8 @@ advice in two places, `fable` and `astra`, the names `lem decisions` knows: the 
 
    It writes the advice into the choice's record with `lem decisions advise`, under the task's
    lock, with the same refusals and the same one more ask as step 3 above. With one expert's
-   advice the end of the wait takes the recommended option. Advice after the wait ended is refused
-   too, and changes nothing.
+   advice his "away" takes the recommended option. Advice on a choice that no longer waits is
+   refused too, and changes nothing.
 
 4. **Tell who reads it.** Lem finds the advice in `lem decisions pending` and shows both answers
    to the owner on the choice's own options, as step 4 above.
