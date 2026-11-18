@@ -400,6 +400,30 @@ if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for th
 else
   fail "waiting: $shape / $listed"
 fi
+
+# A night's task is told from a day's task by the words of its mode, and the night's brake counts its pull
+# requests that nobody merged or closed: two here, beside a day's request, one the night opened that merged and
+# one whose request was closed. The owner's "I am back" keeps the mark, and words of another form are refused.
+for slug in night-small night-full night-merged night-closed; do
+  wq task-dir "$slug" --ask "The backlog item of $slug." >/dev/null && wq mode "$slug" alone --by lem --words "the night of 2026-11-18" >/dev/null
+done
+wq state night-small open "pull request https://github.com/acme/shop/pull/8" "green" >/dev/null
+printf '%s\n' '{"proposed": "def5678", "pr": {"number": 8, "url": "https://github.com/acme/shop/pull/8"}, "not_green": []}' > "$WQ/.lem/state/tasks/night-small/landing.json"
+wq state night-full open "pull request https://github.com/acme/shop/pull/9" "not green: the owner did not approve the criteria" >/dev/null
+printf '%s\n' '{"proposed": "0a1b2c3", "pr": {"number": 9, "url": "https://github.com/acme/shop/pull/9"}, "not_green": ["the owner did not approve the criteria"]}' > "$WQ/.lem/state/tasks/night-full/landing.json"
+wq mode night-full with-owner --by owner --words "I am back" >/dev/null
+wq state night-merged landed "main 1234567..89abcde" >/dev/null
+wq state night-closed dropped "the pull request was closed on the forge" >/dev/null
+other_form=$(wq mode night-small alone --by lem --words "the night run" 2>&1 || true)
+nightly=$(wq waiting | field '([(t["task"], t["green"], t["night"]) for t in d["pull_requests"]], sum(1 for t in d["pull_requests"] if t["night"]))' 2>&1 || true)
+marked=$(wq tasks | field '[(t["slug"], t["night"]) for t in d if t["slug"].startswith("night-") or t["slug"] == "proposed-one"]' 2>&1 || true)
+if [ "$nightly" = "([('night-full', False, '2026-11-18'), ('night-small', True, '2026-11-18'), ('proposed-one', False, None)], 2)" ] \
+  && [ "$marked" = "[('night-closed', '2026-11-18'), ('night-full', '2026-11-18'), ('night-merged', '2026-11-18'), ('night-small', '2026-11-18'), ('proposed-one', None)]" ] \
+  && grep -qF "a night's words are \`the night of YYYY-MM-DD\`" <<<"$other_form"; then
+  pass "a task the night opened carries the night's date in tasks and in waiting, also after \"I am back\", and the brake counts the night's pull requests that nobody merged or closed; a night's words of another form are refused"
+else
+  fail "the night's pull requests: $nightly / $marked / $other_form"
+fi
 git -C "$WQ" worktree remove --force "$dtree"
 
 finish

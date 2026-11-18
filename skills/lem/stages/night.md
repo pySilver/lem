@@ -7,10 +7,10 @@ while nobody's looking and its actually got to be a PR to merge, not a plan" (20
 Nothing asks him. In the morning he finds pull requests, each green or not green with its
 reasons, and the night's report.
 
-1. **The brake.** List the drafts that wait: tasks whose status is `drafted`
-   (`lem project tasks`). With two or more of them, draft nothing and write why in the night
-   report. A plan is written against the code as
-   it stood that night, so a draft nobody starts ages, and a third one only adds to the pile.
+1. **The brake.** Count the pull requests of earlier nights that nobody merged or closed: the
+   `pull_requests` of `lem project waiting` whose `night` is not null. With two or more, open
+   nothing, and write the night report with why. A request nobody reads ages as the base moves,
+   and a third one only adds to the pile.
 2. **The candidates.** The items in `lem project path backlog`: one file each, with `worth`,
    `where` and `added` between two `---` lines, then a title and prose. Never a tracker's
    ticket: which ticket comes next is a person's call. Leave out an item that is decided against

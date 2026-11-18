@@ -98,7 +98,9 @@ talk went over. `tasks` gives each task
 its newest `plan.talk` as `talk`, the record Lem and a builder read before the build of a
 careful or large plan. `task.mode` is written by `mode` only: `mode` (`alone` or `with-owner`),
 `by`, `words`, `all` and `was`; `tasks` gives each task its newest as `mode` and `mode_since`, and a
-task with none, as every task an older Lem opened, runs `with-owner`.
+task with none, as every task an older Lem opened, runs `with-owner`. A night puts its task in the
+mode `alone` with `--by lem --words "the night of YYYY-MM-DD"`, which `mode` refuses in another
+form, and `tasks` gives that date as `night` (null for a task of the day).
 And `criteria.read`, which Lem or the lead writes after the personas read the acceptance
 criteria, as `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ...,
 "why": ...}]' criteria:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many
@@ -200,7 +202,8 @@ named it, is found too: `lem_plans` is the one place that builds and finds the n
 `lem decisions pending` (`choices`), the tasks `held` with the line `the criteria wait for the
 owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
 task with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
-pushed head at the last `lem land merged`, null when nothing asked or the head moved since), each `drafted` task with its plan (`drafts`), and each
+pushed head at the last `lem land merged`, null when nothing asked or the head moved since, and
+`night`, the date of the night that opened it or null), each `drafted` task with its plan (`drafts`), and each
 file of a retro's proposals in `retros/` of the state folder (`retros`), which a retro started
 with nobody at the terminal writes in the form Lem's question page takes, one question for each
 proposal. `count` adds them up. It reads and writes nothing else.
@@ -2054,11 +2057,9 @@ def proposal(directory: Path) -> dict | None:
     return {"pull_request": (kept.get("pr") or {}).get("url"), "green": not reasons, "not_green": reasons, "conflict": conflict}
 
 
-def newest_events(root: Path, event: str) -> dict[str, dict]:
-    """Each task's newest event of one name in the event log. Lem closes a talk's companion, and a
-    builder leads the build of a careful or large plan, only on the newest `plan.talk`, never on a
-    line that says so; Lem takes a bug's next path on the newest `investigation`."""
-    log, found = state_root(root) / "events.jsonl", {}
+def events_named(root: Path, event: str) -> list[dict]:
+    """Every event of one name in the event log, oldest first."""
+    log, found = state_root(root) / "events.jsonl", []
     if not log.is_file():
         return found
     for number, line in enumerate(text_of(log).splitlines(), 1):
@@ -2069,7 +2070,30 @@ def newest_events(root: Path, event: str) -> dict[str, dict]:
         except ValueError as error:
             raise SettingsError(f"{log}:{number} does not read as JSON ({error}); the log is written by project.py, never by hand") from error
         if record.get("event") == event:
-            found[record.get("task")] = record
+            found.append(record)
+    return found
+
+
+def newest_events(root: Path, event: str) -> dict[str, dict]:
+    """Each task's newest event of one name in the event log. Lem closes a talk's companion, and a
+    builder leads the build of a careful or large plan, only on the newest `plan.talk`, never on a
+    line that says so; Lem takes a bug's next path on the newest `investigation`."""
+    return {record.get("task"): record for record in events_named(root, event)}
+
+
+# The words of the `task.mode` event with which a night puts its task in the mode `alone`
+# (`stages/night.md`): the one mark that tells a task of the night from a day's task.
+NIGHT_WORDS = re.compile(r"the night of (\d{4}-\d{2}-\d{2})")
+
+
+def nights(modes: list[dict]) -> dict[str, str]:
+    """The night that opened each task, as its date, from the first `task.mode` event Lem wrote in
+    the night's words. An "I am back" later does not take it away."""
+    found: dict[str, str] = {}
+    for record in modes:
+        night = NIGHT_WORDS.fullmatch(str(record.get("words", ""))) if record.get("by") == "lem" else None
+        if night:
+            found.setdefault(record.get("task"), night[1])
     return found
 
 
@@ -2092,7 +2116,9 @@ def read_tasks(root: Path) -> list[dict]:
     tasks = []
     talks = newest_events(root, "plan.talk")
     investigations = newest_events(root, "investigation")
-    modes = newest_events(root, "task.mode")
+    mode_events = events_named(root, "task.mode")
+    modes = {record.get("task"): record for record in mode_events}
+    night = nights(mode_events)
     parent = state_root(root) / "tasks"
     for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
         state = directory / "state.md"
@@ -2124,6 +2150,8 @@ def read_tasks(root: Path) -> list[dict]:
             # with the owner or without him, from the newest `task.mode`; a task with none (every task an older Lem opened) runs with him
             "mode": (modes.get(directory.name) or {}).get("mode", "with-owner"),
             "mode_since": (modes.get(directory.name) or {}).get("ts"),
+            # the date of the night that opened it, or null for a task of the day
+            "night": night.get(directory.name),
         })
     if any(task["ticket"] for task in tasks):
         # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly
@@ -2220,7 +2248,7 @@ def cmd_waiting(root: Path) -> dict:
         "held": [{**brief(task), "line": line(task)} for task in held if not line(task).startswith(CRITERIA_WAIT)],
         "pull_requests": [
             {**brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"],
-             "conflict": task["proposal"]["conflict"]}
+             "conflict": task["proposal"]["conflict"], "night": task["night"]}
             for task in tasks if task["status"] == "open" and task["proposal"]
         ],
         "drafts": [
@@ -2251,6 +2279,8 @@ def cmd_mode(root: Path, target: list[str], every: bool, by: str, words: str | N
         raise SettingsError(f"a task runs {' or '.join(MODES)}, not {mode!r}")
     if not words or not words.strip():
         raise SettingsError("--words are the owner's words as typed (\"go alone\", \"I am back\"), or Lem's reason with --by lem")
+    if by == "lem" and words.strip().lower().startswith("the night") and not NIGHT_WORDS.fullmatch(words.strip()):
+        raise SettingsError(f"a night's words are `the night of YYYY-MM-DD`, with the night's date, so that the morning list tells its task from a day's task; not {words.strip()!r}")
     tasks = read_tasks(root)
     if every:
         reached = [task for task in tasks if task["status"] not in ENDED]
