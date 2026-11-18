@@ -12,7 +12,7 @@
 | the mailbox chat, webrev, agdoc and the backlog recipe, from the [agterm cookbook](https://github.com/umputun/agterm/tree/master/cookbook) | the messages between agents, and the pages that you read and mark up |
 | the [GitHub CLI](https://cli.github.com) `gh`, signed in: only with a remote on GitHub | the pull requests on GitHub |
 | [Codex](https://github.com/openai/codex): optional, highly recommended | a second model family. Without it, Claude reviews the work of Claude |
-| an [OpenRouter](https://openrouter.ai) key: required when [the correction queue](#the-correction-queue) is on | the correction queue, and a check of each question card |
+| a key for the Jev decision model, `JEV_API_KEY`: required when [the correction queue](#the-correction-queue) is on | the correction queue, and a check of each question card |
 
 `/lem init` checks each tool, and tells you how to install one that is absent.
 
@@ -37,10 +37,8 @@ claude plugin install lem@lem --scope project
 5. Type `land`. Lem puts its settings on your base branch.
 6. Type `/lem` and your first request, in one sentence.
 
-The page also lists the allow rules that Lem adds to `.claude/settings.json`. Keep them: a builder
-runs in the background, and a permission prompt stops it until you answer. If a `Stop` or
-`SubagentStop` hook of yours blocks the end of a turn, Lem and its builders cannot finish. Let
-such a hook pass where `.lem/project.toml` exists.
+Lem assumes that Claude Code and Codex run in auto mode: a builder works in the background, and
+a permission prompt stops it until you answer.
 
 > [!NOTE]
 > With a remote on GitHub, Lem pushes the branch of each task and opens its pull request without
@@ -71,11 +69,12 @@ other path is fixed: if your repository keeps one in another folder, move it wit
 ## The correction queue
 
 With this optional queue, a retro finds a correction that you gave two times or more. A hook sends
-each message that you type, with the agent's message before it, to a model through
-OpenRouter. It uses the key of the person who typed it. Commands that start with `/` stay local.
+each message that you type, with the agent's message before it, to the Jev decision model. It uses
+the key of the person who typed it. Commands that start with `/` stay local.
 
-`corrections.collect = true` turns it on for each person in the repository. Each person then
-needs an OpenRouter key, `OPENROUTER_API_KEY`, and `/lem init` stops without one. To say no for
+`corrections.collect = true` turns it on for each person in the repository. Each person then puts
+a key into the environment as `JEV_API_KEY`, and `/lem init` stops without one. The default
+provider is [OpenRouter](https://openrouter.ai). For another provider, set `JEV_API_URL`. To say no for
 yourself, put `collect = false` under `[corrections]` in `.lem/project.local.toml`.
 
 ## Update
