@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Lem's project settings, offline: project.py resolves where a repository keeps what the skill reads.
-# With no settings file it answers from the skill's own layout; init points at the folders an older
-# tool already reads instead of moving them; a settings file with an unknown key, a wrong value or a
+# With no settings file it answers from Lem's own places; what Lem reads beside the settings has one
+# place each and no setting, and a settings file that still names one, or another key that is gone,
+# is refused once with every line to delete; a settings file with an unknown key, a wrong value or a
 # path that leaves the repository is refused, and so is a list of careful paths; a worktree reads
 # the main checkout's flow table. Then the task state and the event log, the rule picker, a task's criteria and the check that
 # each one's tests fail on the base commit, and the board, which reads them all.
@@ -12,9 +13,9 @@
 NEW=$WORK/new
 git init -q -b main "$NEW"
 out=$(project --repo "$NEW" show)
-if [ "$(field 'd["settings"]' <<<"$out")" = "None" ] && [ "$(field 'd["paths"]["styleguide"]["path"]' <<<"$out")" = "$NEW/.lem/styleguide" ] \
-  && [ "$(field 'd["branch"]["land"]' <<<"$out")" = "owner" ]; then
-  pass "with no settings file, show answers from the skill's own layout and the owner lands"
+if [ "$(field 'd["settings"]' <<<"$out")" = "None" ] && [ "$(field 'd["places"]["rules"]["path"]' <<<"$out")" = "$NEW/.claude/rules" ] \
+  && [ "$(field 'd["branch"]["land"]' <<<"$out")" = "owner" ] && [ "$(field 'sorted(d["paths"])' <<<"$out")" = "['plan_file', 'plans']" ]; then
+  pass "with no settings file, show answers from Lem's own places, the paths are the plans folder and the plan's name, and the owner lands"
 else
   fail "defaults: $out"
 fi
@@ -29,10 +30,10 @@ else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
 out=$(project --repo "$NEW" show)
-if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["paths"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
+if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["places"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
   && [ "$(field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"])' <<<"$out")" = "('codex', None)" ] \
   && [ "$(cat "$NEW/.lem/.gitignore")" = "$(printf 'project.local.toml\nstate/')" ] && [ "$(field 'd["local"]' <<<"$out")" = "{'file': None, 'overrides': []}" ]; then
-  pass "init in a new project writes the skill's own layout, the given base, the reviewer's agent, and ignore rules for the machine's own settings and for Lem's state"
+  pass "init in a new project writes Lem's own places, the given base, the reviewer's agent, and ignore rules for the machine's own settings and for Lem's state"
 else
   fail "init in a new project: $out"
 fi
@@ -42,91 +43,23 @@ OLD=$WORK/old
 git init -q -b master "$OLD"
 mkdir -p "$OLD/.claude/rules" "$OLD/.revmux" "$OLD/.personas/cast" "$OLD/docs/plans"
 touch "$OLD/.personas/profile.md"
-err=$(project --repo "$OLD" init --base master 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" init --base master)" = 1 ] && grep -q "this repository already keeps profile in .personas/profile.md, personas in .personas/cast; pass" <<<"$err" && [ ! -e "$OLD/.lem" ]; then
-  pass "init refuses to choose between a cast and a profile already there and a new layout, and names them, not the rules, which are no choice"
-else
-  fail "init without --existing: $err"
-fi
-if [ "$(project --repo "$OLD" existing | field 'sorted(d)')" = "['personas', 'profile', 'styleguide']" ]; then
-  pass "existing lists the settings an older tool already keeps here"
-else
-  fail "existing: $(project --repo "$OLD" existing)"
-fi
-NEWLAYOUT=$WORK/newlayout
-git init -q -b master "$NEWLAYOUT"
-mkdir -p "$NEWLAYOUT/.claude/rules" "$NEWLAYOUT/.personas/cast"
-project --repo "$NEWLAYOUT" init --base master --existing new >/dev/null
-if [ "$(project --repo "$NEWLAYOUT" path styleguide)" = "$NEWLAYOUT/.claude/rules" ] && [ "$(project --repo "$NEWLAYOUT" path personas)" = "$NEWLAYOUT/.lem/personas" ]; then
-  pass "init --existing new starts the skill's own layout for the cast, and the rules an agent already loads stay the style guide"
-else
-  fail "init --existing new"
-fi
-RULESONLY=$WORK/rulesonly
-git init -q -b master "$RULESONLY"
-mkdir -p "$RULESONLY/.claude/rules"
-if project --repo "$RULESONLY" init --base master >/dev/null && [ "$(project --repo "$RULESONLY" path styleguide)" = "$RULESONLY/.claude/rules" ]; then
-  pass "a repository with a rules folder and nothing else of an older tool needs no choice: its rules are the style guide"
-else
-  fail "init over a rules folder alone"
-fi
-# A setup that stopped half way left an empty folder of the skill's own layout: the rules still are the style guide.
-HALF=$WORK/halfway
-git init -q -b master "$HALF"
-mkdir -p "$HALF/.claude/rules" "$HALF/.lem/styleguide" "$HALF/.claude/worktrees" && echo 'Type every function.' > "$HALF/.claude/rules/python.md"
-err=$(project --repo "$HALF" init --base master 2>&1 || true)
-code=$(status_of project --repo "$HALF" init --base master)
-rmdir "$HALF/.claude/worktrees"
-empty=$(project --repo "$HALF" existing | field 'd.get("styleguide")')
-if grep -q "this repository already keeps worktrees in .claude/worktrees; pass --existing" <<<"$err" && [ "$code" = 1 ] && [ ! -e "$HALF/.lem/project.toml" ] \
-  && [ "$empty" = .claude/rules ]; then
-  pass "an empty style guide folder of the skill's own does not hide the rules an agent loads, and a worktrees folder of an older tool still asks for the choice"
-else
-  fail "init over a half setup: $err / $code / $empty"
-fi
-# Two folders that each hold a rule the other lacks are both read, and nothing moves: the rules of a
-# project stay where they are. A file of the same name in each is two files, and each is read.
-echo 'A second guide.' > "$HALF/.lem/styleguide/other.md"
-echo 'Name each function for what it returns.' > "$HALF/.lem/styleguide/python.md"
-both=$(project --repo "$HALF" existing 2>&1 || true)
-project --repo "$HALF" init --base master >/dev/null 2>"$WORK/both.err" || true
-read=$(project --repo "$HALF" rules app/x.py 2>&1 || true)
-if [ "$(field 'd.get("styleguide")' <<<"$both" 2>&1)" = .claude/rules ] && [ ! -s "$WORK/both.err" ] && [ "$(project --repo "$HALF" path styleguide)" = "$HALF/.claude/rules" ] \
-  && [ "$(field '[r["file"] for r in d["rules"]]' <<<"$read")" = "['$HALF/.claude/rules/python.md', '$HALF/.lem/styleguide/other.md', '$HALF/.lem/styleguide/python.md']" ] \
-  && [ "$(field 'd["folders"]' <<<"$read")" = "['$HALF/.claude/rules', '$HALF/.lem/styleguide']" ] \
-  && [ "$(cat "$HALF/.claude/rules/python.md")" = 'Type every function.' ] && [ "$(cat "$HALF/.lem/styleguide/python.md")" = 'Name each function for what it returns.' ] \
-  && [ "$(find "$HALF/.claude/rules" "$HALF/.lem/styleguide" -name '*.md' | wc -l | tr -d ' ')" = 3 ]; then
-  pass "two style guide folders that each hold a rule the other lacks are both read, the agent's own first, a file of one name in each is read twice, and init refuses nothing and moves nothing"
-else
-  fail "two style guide folders: $both / $(cat "$WORK/both.err") / $read"
-fi
-# One set of rules by two paths is one style guide: a rules folder that is a link, and rule files linked between two folders.
-ONE=$WORK/one-guide
-git init -q -b master "$ONE"
-mkdir -p "$ONE/.lem/styleguide" "$ONE/.claude" && echo 'Type every function.' > "$ONE/.lem/styleguide/python.md" && ln -s ../.lem/styleguide "$ONE/.claude/rules"
-linked=$(project --repo "$ONE" existing | field 'd.get("styleguide")')
-rm "$ONE/.claude/rules" && mkdir "$ONE/.claude/rules" && ln -s ../../.lem/styleguide/python.md "$ONE/.claude/rules/python.md" && echo 'Never dig up a deleted document.' > "$ONE/.claude/rules/conduct.md"
-superset=$(project --repo "$ONE" existing | field 'd.get("styleguide")')
-rm "$ONE/.claude/rules/conduct.md" && echo 'Version every route.' > "$ONE/.lem/styleguide/api.md"
-subset=$(project --repo "$ONE" existing | field 'd.get("styleguide")')
-if [ "$linked / $superset / $subset" = ".claude/rules / .claude/rules / None" ] && project --repo "$ONE" init --base master >/dev/null \
-  && [ "$(project --repo "$ONE" path styleguide)" = "$ONE/.lem/styleguide" ] \
-  && [ "$(project --repo "$ONE" rules app/x.py | field '[r["file"] for r in d["rules"]]')" = "['$ONE/.lem/styleguide/api.md', '$ONE/.lem/styleguide/python.md']" ]; then
-  pass "two paths to one set of rule files are one style guide: the agent's folder when it holds every file, the skill's own when only that one does, and a file linked into both is read once"
-else
-  fail "one set of rules by two paths: $linked / $superset / $subset"
-fi
-project --repo "$OLD" init --base master --existing link >/dev/null
+# A repository that keeps a cast and a profile for another tool: init links nothing and asks nothing, and
+# writes no setting for a place; each place is Lem's own, and `path` answers for each name.
+project --repo "$OLD" init --base master >/dev/null
 out=$(project --repo "$OLD" show)
-if [ "$(field 'd["paths"]["styleguide"]["path"]' <<<"$out")" = "$OLD/.claude/rules" ] && [ "$(field 'd["paths"]["review"]["path"]' <<<"$out")" = "$OLD/.revmux" ] \
-  && [ "$(field 'd["paths"]["personas"]["path"]' <<<"$out")" = "$OLD/.personas/cast" ] && [ "$(field 'd["paths"]["profile"]["exists"]' <<<"$out")" = "True" ] \
-  && [ "$(field 'd["paths"]["lessons"]["exists"]' <<<"$out")" = "False" ]; then
-  pass "init --existing link points at the folders an older tool already reads, and show says which paths exist"
+places=$(field '{name: (p["path"].removeprefix(d["root"] + "/"), p["exists"]) for name, p in d["places"].items()}' <<<"$out")
+answered=""
+for name in profile personas lessons worktrees rules review backlog rulings plans; do answered="$answered $(project --repo "$OLD" path "$name" | sed "s|^$OLD/||")"; done
+if [ "$places" = "{'profile': ('.lem/profile.md', False), 'personas': ('.lem/personas', False), 'lessons': ('.lem/lessons.md', False), 'worktrees': ('.lem/worktrees', False), 'rules': ('.claude/rules', True), 'review': ('.revmux', True), 'backlog': ('docs/backlog', False), 'rulings': ('docs/rulings', False)}" ] \
+  && [ "$answered" = " .lem/profile.md .lem/personas .lem/lessons.md .lem/worktrees .claude/rules .revmux docs/backlog docs/rulings docs/plans" ] \
+  && ! grep -qE '^(profile|personas|lessons|worktrees|styleguide|review|backlog|rulings) = ' "$OLD/.lem/project.toml" && [ -d "$OLD/.personas/cast" ] \
+  && [ "$(status_of project --repo "$OLD" init --base master --existing link)" = 2 ]; then
+  pass "init over another tool's cast and profile links nothing and moves nothing; each place is Lem's one place, show says whether it exists, and path answers for each name"
 else
-  fail "init over older folders: $out"
+  fail "init over another tool's folders: $places /$answered"
 fi
 if [ "$(project --repo "$OLD/docs" path plans)" = "$OLD/docs/plans" ]; then pass "path prints one absolute path, from any directory of the checkout"; else fail "path plans"; fi
-if [ "$(status_of project --repo "$OLD" path plan)" = 1 ]; then pass "an unknown path name is refused"; else fail "unknown path name"; fi
+if [ "$(status_of project --repo "$OLD" path plan)" = 1 ] && [ "$(status_of project --repo "$OLD" path styleguide)" = 1 ]; then pass "an unknown path name is refused, the style guide's older name among them"; else fail "unknown path name"; fi
 
 settings() { printf '%s\n' "$@" > "$OLD/.lem/project.toml"; }
 settings '[branch]' 'base = "master"' 'lands = "agent"'
@@ -134,7 +67,7 @@ err=$(project --repo "$OLD" show 2>&1 || true)
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "did you mean 'land'" <<<"$err"; then pass "an unknown key is refused with the nearest valid one"; else fail "unknown key: $err"; fi
 settings '[branch]' 'base = "master"' 'land = "robot"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a land value other than owner or agent is refused"; else fail "land value"; fi
-settings '[paths]' 'styleguide = "../elsewhere"'
+settings '[paths]' 'plans = "../elsewhere"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a path that leaves the repository is refused"; else fail "path outside"; fi
 settings '[checks]' 'commands = "pytest"'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "gate commands that are not a list are refused"; else fail "gate type"; fi
@@ -274,6 +207,20 @@ if [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(grep -c "has the fo
 else
   fail "the three older tables at once: $all_err"
 fi
+# A key of [paths] that named a place is gone: refused once with the line to delete, also when it names the place of now,
+# and with the move, both paths named, when it names another place. Nothing moves by itself.
+settings '[branch]' 'base = "master"' '[paths]' 'personas = ".personas/cast"' 'backlog = "docs/backlog"' 'worktrees = ".claude/worktrees"' 'plans = "docs/plans"'
+paths_err=$(project --repo "$OLD" show 2>&1 || true)
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.toml has settings of an older Lem that are gone. Delete these lines:" <<<"$paths_err" \
+  && grep -qxF -- '- delete `personas = ".personas/cast"` under [paths], and move .personas/cast to .lem/personas first, with `git mv .personas/cast .lem/personas`: .lem/personas is its one place, with no setting' <<<"$paths_err" \
+  && grep -qxF -- '- delete `backlog = "docs/backlog"` under [paths]: docs/backlog is its one place, with no setting' <<<"$paths_err" \
+  && grep -qxF -- '- delete `worktrees = ".claude/worktrees"` under [paths], and move each task'"'"'s worktree from .claude/worktrees to .lem/worktrees first, with `git worktree move .claude/worktrees/SLUG .lem/worktrees/SLUG`: .lem/worktrees is its one place, with no setting' <<<"$paths_err" \
+  && ! grep -qF "plans" <<<"$paths_err" && [ -d "$OLD/.personas/cast" ]; then
+  pass "a key of [paths] that named a place is refused once with the line to delete, and a place of another name with the move that brings it, both paths named; plans stays a setting"
+else
+  fail "the place keys of an older Lem: $paths_err"
+fi
+
 # A plan's file name: paths.plan_file, YYYY-MM-DD-<slug>.md by default; a plan of the older name YYYYMMDD-<slug>.md is found too.
 settings '[branch]' 'base = "master"'
 mkdir -p "$OLD/docs/plans"
@@ -319,13 +266,13 @@ settings '[checks]' 'commands = ["make test", " "]'
 blank_command=$(project --repo "$OLD" show 2>&1 || true)
 settings '[checks]' 'setup = [""]'
 blank_setup=$(project --repo "$OLD" show 2>&1 || true)
-settings '[paths]' 'backlog = ""'
+settings '[paths]' 'plans = ""'
 root_backlog=$(project --repo "$OLD" show 2>&1 || true)
-settings '[paths]' 'worktrees = "."'
+settings '[paths]' 'plans = "."'
 root_worktrees=$(project --repo "$OLD" worktree-dir some-task 2>&1 || true)
 if grep -qF "branch.base = '' names no branch" <<<"$empty_base" && grep -qF "checks.commands holds an empty command" <<<"$blank_command" \
-  && grep -qF "checks.setup holds an empty command" <<<"$blank_setup" && grep -qF "paths.backlog = '' names the root of the checkout" <<<"$root_backlog" \
-  && grep -qF "paths.worktrees = '.' names the root of the checkout" <<<"$root_worktrees" && [ ! -e "$OLD/.gitignore" ] \
+  && grep -qF "checks.setup holds an empty command" <<<"$blank_setup" && grep -qF "paths.plans = '' names the root of the checkout" <<<"$root_backlog" \
+  && grep -qF "paths.plans = '.' names the root of the checkout" <<<"$root_worktrees" && [ ! -e "$OLD/.gitignore" ] \
   && ! grep -q Traceback <<<"$empty_base$blank_command$blank_setup$root_backlog$root_worktrees"; then
   pass "an empty base branch, an empty command of the gate or its setup, and a path that is the root of the checkout are refused, each with what to write"
 else
@@ -1047,7 +994,7 @@ printf '%s\n' '---' 'paths: # what follows is the scope' '  - "**/*.sql" # every
 { printf '\357\273\277'; printf '%s\n' '---' 'paths: ["**/*.proto"]  # with a byte order mark before the first line' '---'; } > "$RUL/.claude/rules/15-bom.md"
 ln -s "$WORK/shared-rules" "$RUL/.claude/rules/shared" && ln -s .. "$RUL/.claude/rules/backend/loop"
 echo 'not a rule' > "$RUL/.claude/rules/notes.txt"
-project --repo "$RUL" init --base main --existing link >/dev/null
+project --repo "$RUL" init --base main >/dev/null
 git -C "$RUL" add -A && git -C "$RUL" commit -q -m "chore: start"
 picked() { project --repo "$RUL" rules "$@" | field '" ".join(r["file"].rsplit("/", 1)[1][:2] for r in d["rules"])'; }
 got=""
@@ -1127,7 +1074,7 @@ else
   fail "the picker in the skill's own layout: $none / $(project --repo "$FRESH" rules app/x.py web/x.js)"
 fi
 if [ "$(status_of project --repo "$RUL" migrate plan)" != 0 ] && [ -d "$RUL/.claude/rules" ] && [ ! -e "$RUL/.lem/styleguide" ] \
-  && [ "$(project --repo "$RUL" show | field 'd["paths"]["styleguide"]["path"]')" = "$RUL/.claude/rules" ]; then
+  && [ "$(project --repo "$RUL" show | field 'd["places"]["rules"]["path"]')" = "$RUL/.claude/rules" ]; then
   pass "the rules of an adopted project stay where the agent loads them: the settings name that folder, and no command moves it"
 else
   fail "an adopted project's rules"

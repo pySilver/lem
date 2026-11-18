@@ -105,33 +105,20 @@ if [ "$(profile_of "$REPO")" = "none" ]; then pass "a project with no profile ge
 printf '# Profile\n' >"$REPO/.lem/profile.md"
 if [ "$(profile_of "$REPO")" = "checkout" ]; then pass "the checkout's profile is read, beside the project's cast"; else fail "checkout profile: $(profile_of "$REPO")"; fi
 
-# A project that keeps its people in a folder of its own: a worktree branched before the settings
-# named it still finds them on the default branch, and init there does not start a second cast.
+# A worktree branched before the cast still finds the cast and the profile on the default branch, in
+# their one place, and init there does not start a second cast.
 CUSTOM=$PANEL/custom
 git init -q -b main "$CUSTOM" && commit "$CUSTOM" "start" && git -C "$CUSTOM" branch before-the-cast
-mkdir -p "$CUSTOM/.lem" "$CUSTOM/people" && printf '%s\n' '[paths]' 'personas = "people"' 'profile = "people/about.md"' '[branch]' 'base = "main"' > "$CUSTOM/.lem/project.toml"
-printf '# Shopper\n' > "$CUSTOM/people/shopper.md" && printf '# About\n' > "$CUSTOM/people/about.md"
+mkdir -p "$CUSTOM/.lem/personas" && printf '%s\n' '[branch]' 'base = "main"' > "$CUSTOM/.lem/project.toml"
+printf '# Shopper\n' > "$CUSTOM/.lem/personas/shopper.md" && printf '# About\n' > "$CUSTOM/.lem/profile.md"
 git -C "$CUSTOM" add -A && commit "$CUSTOM" "feat: the people of this project"
 git -C "$CUSTOM" worktree add -q "$PANEL/custom-old" before-the-cast
 refusal=$(cast init --repo "$PANEL/custom-old" 2>&1 || true)
-if [ "$(layer_of "$CUSTOM")" = "project 2" ] && [ "$(layer_of "$PANEL/custom-old")" = "project 2" ] && [ "$(profile_of "$PANEL/custom-old")" = "main" ] \
+if [ "$(layer_of "$CUSTOM")" = "project 1" ] && [ "$(layer_of "$PANEL/custom-old")" = "project 1" ] && [ "$(profile_of "$PANEL/custom-old")" = "main" ] \
   && [ "$(status_of cast init --repo "$PANEL/custom-old")" = 1 ] && grep -q 'rebase onto it' <<<"$refusal" && [ ! -e "$PANEL/custom-old/.lem" ]; then
-  pass "a worktree older than the settings finds the cast and the profile where the default branch's settings keep them, and init does not start a second cast there"
+  pass "a worktree older than the cast finds the cast and the profile on the default branch, and init does not start a second cast there"
 else
-  fail "a custom personas path from an older worktree: $(layer_of "$CUSTOM") / $(layer_of "$PANEL/custom-old") / $(profile_of "$PANEL/custom-old") / $refusal"
-fi
-# The same with settings written another way that TOML allows, and then with the paths taken out
-# again: the default branch's own settings decide, not what the older worktree was told.
-printf '%s\n' "[paths] # where things are" "  personas = 'people'" "  profile = 'people/about.md'" '[branch]' 'base = "main"' > "$CUSTOM/.lem/project.toml"
-git -C "$CUSTOM" add -A && commit "$CUSTOM" "chore: the same settings, written another way"
-quoted="$(layer_of "$PANEL/custom-old") $(profile_of "$PANEL/custom-old")"
-mkdir -p "$PANEL/custom-old/.lem" && printf '%s\n' '[paths]' 'personas = "people"' 'profile = "people/about.md"' > "$PANEL/custom-old/.lem/project.toml"
-printf '%s\n' '[branch]' 'base = "main"' > "$CUSTOM/.lem/project.toml" && mkdir -p "$CUSTOM/.lem/personas"
-git -C "$CUSTOM" mv people/shopper.md .lem/personas/shopper.md && git -C "$CUSTOM" mv people/about.md .lem/profile.md && git -C "$CUSTOM" add -A && commit "$CUSTOM" "chore: Lem's own layout"
-if [ "$quoted" = "project 2 main" ] && [ "$(layer_of "$PANEL/custom-old")" = "project 1" ] && [ "$(profile_of "$PANEL/custom-old")" = "main" ]; then
-  pass "the default branch's settings are read as TOML, whatever their quotes and spaces, and a path they no longer name is Lem's own, also for a worktree that still names the old one"
-else
-  fail "the default branch's settings from an older worktree: $quoted / $(layer_of "$PANEL/custom-old") / $(profile_of "$PANEL/custom-old")"
+  fail "the cast from an older worktree: $(layer_of "$CUSTOM") / $(layer_of "$PANEL/custom-old") / $(profile_of "$PANEL/custom-old") / $refusal"
 fi
 
 # The cast lands on local main only; origin/HEAD still names a main without it.
@@ -269,21 +256,19 @@ else
 fi
 if [ "$(status_of cast run-dir pack-size --repo "$REPO")" = 1 ]; then pass "run-dir refuses a folder that already exists"; else fail "run-dir reused a folder"; fi
 
-# A project that keeps its cast where an older tool reads it says so in its settings.
+# A cast and a profile outside their place are no part of the panel: a settings file that still names the older
+# place is refused, with the move, and stops the panel.
 LINKED=$PANEL/linked
 git init -q -b main "$LINKED"
 mkdir -p "$LINKED/.personas/cast" "$LINKED/.lem"
 printf '# Shopper\n' > "$LINKED/.personas/cast/shopper.md"
-printf '# Profile\n' > "$LINKED/.personas/profile.md"
-printf '%s\n' '[paths]' 'personas = ".personas/cast"' 'profile = ".personas/profile.md"' > "$LINKED/.lem/project.toml"
-linked=$(cast --repo "$LINKED")
-if [ "$("$PY" -c 'import json, sys; c = json.load(sys.stdin); print(c["layer"], c["dir"], c["profile"]["path"])' <<<"$linked")" = "project $LINKED/.personas/cast $LINKED/.personas/profile.md" ]; then
-  pass "a cast and a profile at the paths the project's settings name are the project's"
+printf '%s\n' '[paths]' 'personas = ".personas/cast"' > "$LINKED/.lem/project.toml"
+linked=$(cast --repo "$LINKED" 2>&1 || true)
+if [ "$(status_of cast --repo "$LINKED")" = 1 ] && grep -qF 'git mv .personas/cast .lem/personas' <<<"$linked"; then
+  pass "a settings file that names an older place of the cast stops the panel, with the move that brings the cast to its place"
 else
-  fail "linked cast: $linked"
+  fail "a cast in an older place: $linked"
 fi
-dir=$(cast run-dir linked-run --repo "$LINKED")
-if [ "$(dirname "$dir")" = "$LINKED/.personas/runs" ]; then pass "a linked cast's panels write beside it"; else fail "linked run-dir: $dir"; fi
 printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/project.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
 if [ -d "$(dirname "$CAST")/__pycache__" ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi

@@ -46,7 +46,8 @@ choice with no answer from you always ends with the recommended option.
 
 ## Folders, the builder and the scope
 
-- `[paths]` moves `docs/plans`, `docs/backlog` and the worktrees, if another tool uses them.
+- `paths.plans` moves `docs/plans`, if another tool uses it. The other folders that Lem reads have
+  one place each: `.lem/`, `.claude/rules`, `.revmux`, `docs/backlog` and `docs/rulings`.
 - A file `.claude/agents/lem-builder.md` in the repository replaces the builder of Lem.
 - Install Lem with `--scope project`. An install at the user scope puts the hook and the skills of
   Lem into every repository, and the machine check tells you so.

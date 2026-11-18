@@ -83,11 +83,11 @@ lem project show
 ```
 
 `SKILL_DIR` is this skill's own directory. The output is the project's settings, resolved: each
-path with whether it exists, the base branch, who lands, the commands of the checks and the topics of
+place Lem reads with whether it exists, the base branch, who lands, the commands of the checks and the topics of
 what must never go wrong (`flow.topics`). When `settings` is null the repository was never onboarded: only `init` and `status`
 run, and every other subcommand says so and stops. Read the project's `AGENTS.md` once per
 session; it is where a project says what its own scripts are (a worktree script, a landing
-script, a board). Read the project's lessons file (`paths.lessons` in the output) when it exists: a
+script, a board). Read the project's lessons file (`places.lessons` in the output, `.lem/lessons.md`) when it exists: a
 line that opens with the name of a stage or of a shipped skill is the owner's correction of it
 for this repository, and you follow it where that text says otherwise. No line there lifts what a script
 refuses.

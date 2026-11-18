@@ -595,7 +595,7 @@ older=$(people "$WORK/people-wt")
 outside=$(doctor | field '[t["name"] for t in d["tools"] if t["name"] == "project personas"]')
 if [ "$none" = "(True, [('project', False, 'this project has no personas in .lem/p')])" ] && [ "$one" = "(True, [('project', True, 'a panel needs a second person who would notice other things')])" ] \
   && [ "$two" = "(True, [('project', True, '2 (project, checkout)')])" ] && grep -q "'project', True, '2 (project, main at " <<<"$older" && [ "$outside" = "[]" ] \
-  && [ "$(project --repo "$PPL" show | field 'sorted(d["paths"]["personas"])')" = "['exists', 'path']" ]; then
+  && [ "$(project --repo "$PPL" show | field 'sorted(d["places"]["personas"])')" = "['exists', 'path']" ]; then
   pass "in a repository that uses Lem the machine check says when the project has no personas or one, finds the cast of a worktree that is older than it, never fails for it, and has no such row anywhere else"
 else
   fail "the project's personas: $none / $one / $two / $older / $outside"

@@ -70,9 +70,12 @@ onboarding directory, every line with the path it was read from:
   sentences;
 - the conventions the code already keeps: how modules are laid out, how errors are raised, how
   tests are named and what they touch. Note one only where several files agree;
-- `lem project existing`: the settings an older tool already keeps here
-  (`.claude/rules`, `.personas`). The review tool's folder is not one of them: it is that tool's
-  own, and the settings name it where it is.
+- the files Lem reads that the repository keeps in another place than Lem's: a cast or a profile
+  outside `.lem/` (`.personas/cast`, `.personas/profile.md`), worktrees outside `.lem/worktrees`,
+  rules for the code outside `.claude/rules`, a backlog outside `docs/backlog`. Each has one place
+  and no setting (`lem project show`, `places`), so Lem links none: each is a move of the owner's,
+  `git mv FROM TO`, which the hand-over page names with both paths. The review tool's folder is
+  `.revmux`, that tool's own.
 
 In a large repository, `fan-out` one reader per area and merge what they return. A reader reports
 what it read and where; it proposes nothing.
@@ -123,16 +126,10 @@ for a yes. Stop after the third.
 ## 4. Write the settings
 
 ```bash
-lem project init --base BRANCH --reviewer codex --existing link    # or: --existing new
+lem project init --base BRANCH --reviewer codex
 ```
 
-Leave `--existing` out when `lem project existing` listed nothing, or the style guide alone: a
-rules folder needs no choice, and every other folder it lists does. That choice is no question
-either: link what is there, so the older tools and Lem read one copy and nothing moves, and say
-so on the page, where "change folders new" generates new profiles under `.lem/` instead. The rules
-an agent already loads by itself stay in their folder whatever `--existing` says, and the
-settings name it as the style guide. Then edit `.lem/project.toml` with the three answers and
-the assumptions of step 6:
+Then edit `.lem/project.toml` with the three answers and the assumptions of step 6:
 
 - the commands of the checks from `examined.md`. `checks.commands` is the whole suite, which runs one time,
   in the checks before the pull request; no builder runs it. When git hooks run at a commit,
@@ -174,8 +171,8 @@ one out or change another key of the file:
   rename *)`, `Bash(agtermctl session context *)`, `Bash(agtermctl session text *)`,
   `Bash(agtermctl tree *)`;
 - `Bash(mailbox-chat.py *)`, `Bash(revmux *)`, and `Bash(codex exec *)` for the experts;
-- `Edit(/WORKTREES/**)`, with the settings' `paths.worktrees` relative to the root (`/` is the
-  root of the project in a rule of its settings file);
+- `Edit(/.lem/worktrees/**)`, the worktrees' one place (`/` is the root of the project in a rule
+  of its settings file);
 - one rule for each command of `checks.commands`, `checks.alone` and `checks.setup`, the command
   as written: `Bash(COMMAND)`. A command joined with `&&` needs each of its parts allowed, so
   write one rule for each part.
@@ -205,9 +202,10 @@ and say so on the page.
 
 ## 5. Generate what is absent
 
-For each path `lem project show` marks as not existing, write a draft. A linked folder is left as
-it is, with one exception: a cast of fewer than two personas is completed wherever its folder
-is, and no persona file that is there is overwritten.
+For each place of `lem project show` (`places`) that is marked as not existing, write a draft,
+except where step 2 found the same files in another place: those are the owner's move, named on
+the page, and no draft takes their place. A cast of fewer than two personas is completed, and no
+persona file that is there is overwritten.
 
 - **The profile**, from `templates/profile.md`: the three answers and the examined facts,
   one page.
@@ -260,15 +258,16 @@ stylesheet is the one the board uses, so the page looks like the same tool; the 
 onboarding's page was written by hand, and the owner found it "a bit old school" (2026-11-15).
 Its title names the repository and its first line is the
 root as an absolute path: every other path on the page is relative to it, and a page without it
-cannot be checked against any folder. Then what the machine has and lacks, which folders the
-settings link and what was generated, and the settings file. The machine's part lists the tools the check lists and
+cannot be checked against any folder. Then what the machine has and lacks, what was there and
+what was generated, each move of the owner's that step 2 found with its `git mv FROM TO`, and the
+settings file. The machine's part lists the tools the check lists and
 no part of Lem itself: the question page comes with Lem. Say there that the project may bring a
 builder of its own, and how (the harness file, `spawn-builder`).
 
 **The assumptions**, each one line with its value, where it came from, and the words that change
 it: who lands (`owner`; "change land agent"), a pull request or a merge, what lands, the closed
-branches, the tracker, the reviewer and the defender with their models, the folders already here
-(linked or new), and each command of the checks. Three more lines are always there. How Lem asks:
+branches, the tracker, the reviewer and the defender with their models, and each command of the
+checks. Three more lines are always there. How Lem asks:
 "Lem asks with `lem-ask`" (`tools.ask`; "change ask NAME", a skill or a command of his own, or
 `terminal`), since a personal rule of his that names another asker would otherwise meet Lem's
 page turn by turn. The three models a task runs on: the builder on Opus at high effort

@@ -89,7 +89,7 @@ Under `permissions.allow`:
 - the `agtermctl` calls that Lem uses, for example `Bash(agtermctl msg send *)`;
 - `Bash(mailbox-chat.py *)` and `Bash(revmux *)`;
 - `Bash(codex exec *)`, for the experts;
-- `Edit(/.lem/worktrees/**)`, with the folder of `paths.worktrees`;
+- `Edit(/.lem/worktrees/**)`, the folder of the worktrees;
 - one rule for each command of `checks.commands`, `checks.alone` and `checks.setup`. A command
   with `&&` gets one rule for each part.
 

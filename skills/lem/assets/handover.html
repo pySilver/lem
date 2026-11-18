@@ -171,16 +171,18 @@
   </section>
 
   <section class="box">
-    <h2>What was linked and what was written</h2>
+    <h2>What was there and what was written</h2>
     <ul>
       <li><code>PATH</code>: WHAT IT IS, AND WHETHER IT WAS THERE OR IS A DRAFT</li>
+      <!-- each file of another place that has a place of Lem's: the owner moves it -->
+      <li><code>FROM</code> has one place, <code>TO</code>: move it with <code>git mv FROM TO</code></li>
     </ul>
   </section>
 
   <section class="box">
     <h2>Assumptions: say <code>change</code> and what</h2>
     <!-- each setting nobody asked about: who lands, a pull request or a merge, what lands, the
-         closed branches, the tracker, the reviewer and the defender, the folders already here,
+         closed branches, the tracker, the reviewer and the defender,
          the checks with only tests when git hooks run the rest, and the ignore lines for what the
          commands of the checks left untracked -->
     <ul>
@@ -198,7 +200,7 @@
           <li>Bash(git worktree add *), Bash(git add *), Bash(git commit *), Bash(git rm *), Bash(git mv *)</li>
           <li>Bash(agtermctl msg send *), Bash(agtermctl session overlay open *), Bash(agtermctl session new *), Bash(agtermctl session split *), Bash(agtermctl session type *), Bash(agtermctl session close *), Bash(agtermctl session rename *), Bash(agtermctl session context *), Bash(agtermctl session text *), Bash(agtermctl tree *)</li>
           <li>Bash(mailbox-chat.py *), Bash(revmux *), Bash(codex exec *)</li>
-          <li>Edit(/WORKTREES/**)</li>
+          <li>Edit(/.lem/worktrees/**)</li>
           <li>Bash(COMMAND), one for each command of checks.commands, checks.alone and checks.setup</li>
         </ul>
       </li>

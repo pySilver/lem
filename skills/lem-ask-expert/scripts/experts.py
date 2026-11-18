@@ -190,7 +190,7 @@ def worktree(repo: Path, slug: str) -> Path:
     """The task's worktree, where criteria.py reads its plan: the experts read the code there."""
     settings = json.loads(script("project.py", repo, "show"))
     root = Path(settings["root"]).resolve()
-    return Path(settings["main"]) / Path(settings["paths"]["worktrees"]["path"]).relative_to(root) / slug
+    return Path(settings["main"]) / Path(settings["places"]["worktrees"]["path"]).relative_to(root) / slug
 
 
 def choice_experts(repo: Path, given: list[str]) -> list[dict]:

@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 """Say where one repository keeps what Lem reads, and what its flow settings are.
 
-Every project keeps its own settings in its repository: what the project is, its style guide, its
-personas, its review configuration, its lessons, the machine checks of a landing, and what must
-never go wrong there. `.lem/project.toml` at the root of the checkout names them. A project that keeps a cast or a profile where an older tool already reads them
-(`.personas`), or its worktrees, may point at them there (`init --existing link`), so adopting the skill moves
-nothing, or start the skill's own layout beside them (`init --existing new`). Which of the two is
-the owner's choice, so `init` refuses to guess it. The rules an agent already loads by itself
-(`.claude/rules`) are no choice: they are the style guide, where they are.
+Every project keeps its own settings in its repository: the machine checks of a landing, what must
+never go wrong there, who lands, the seats, the tracker. `.lem/project.toml` at the root of the
+checkout names them. What Lem reads beside them has one place each and no setting (`PLACES`): Lem's
+own files under `.lem/` (the profile, the personas, the lessons, the worktrees), the rules for the
+code in the harness's folder (`.claude/rules`), the review tool's folder (`.revmux`), the backlog
+(`docs/backlog`) and the rulings (`docs/rulings`). Only the plans folder and the name of a plan's
+file are settings. A project that keeps one of them in another place moves it there.
 
     lem project show                everything, resolved, as JSON
-    lem project path NAME           one path, absolute
+    lem project path NAME           one path, absolute: plans, or a place of PLACES
     lem project may-land BRANCH     exit 1 unless tasks of this project may land on BRANCH
-    lem project existing            the folders an older tool already reads here, as JSON
-    lem project init [--base NAME] [--existing link|new] [--reviewer claude|codex]
+    lem project init [--base NAME] [--reviewer claude|codex]
                                     write .lem/project.toml
     lem project reviewer AGENT[/MODEL[:EFFORT]]
                                     who reviews on this machine, until `reviewer default`
@@ -246,19 +245,24 @@ LOCAL = Path(".lem") / "project.local.toml"
 # the tables one machine may set for itself; of [flow] only max_tasks, of [naps] only `on = false`,
 # and of [corrections] only `collect = false`
 LOCAL_TABLES = ("seats", "tools", "corrections", "flow", "naps")
-# name -> (where the skill's own layout keeps it, where an older tool keeps it)
-PATHS: dict[str, tuple[str, str | None]] = {
-    "profile": (".lem/profile.md", ".personas/profile.md"),
-    "styleguide": (".lem/styleguide", ".claude/rules"),
-    "personas": (".lem/personas", ".personas/cast"),
-    # the review tool's own folder, where that tool reads it: another program's settings stay where they are
-    "review": (".revmux", None),
-    "lessons": (".lem/lessons.md", None),
-    "rulings": ("docs/rulings", None),
-    "backlog": ("docs/backlog", None),
-    "plans": ("docs/plans", None),
-    "worktrees": (".lem/worktrees", ".claude/worktrees"),
+# What Lem reads beside its settings, each in one place with no setting (the owner's note of
+# 2026-11-18 on the plan, task 1b of docs/plans/2026-11-18-core-and-two-modes.md): Lem's own files,
+# the rules for the code in the folder Claude Code loads by itself, the review tool's folder, and the
+# backlog where the agterm cookbook's recipe keeps it. `lem project path NAME` answers for each.
+PLACES: dict[str, str] = {
+    "profile": ".lem/profile.md",
+    "personas": ".lem/personas",
+    "lessons": ".lem/lessons.md",
+    "worktrees": ".lem/worktrees",
+    "rules": ".claude/rules",
+    "review": ".revmux",
+    "backlog": "docs/backlog",
+    "rulings": "docs/rulings",
 }
+# The settings of [paths]: the plans folder, and the name of a plan's file (`plan_file`).
+PATHS = {"plans": "docs/plans"}
+# The keys an older Lem had under [paths] for what is a place now: the key -> its place's name.
+OLD_PATH_KEYS = {**{name: name for name in PLACES if name != "rules"}, "styleguide": "rules"}
 LAND = ("owner", "agent")
 # How a task's branch reaches the base branch: its own commits, or one commit for the whole branch.
 HISTORY = ("keep", "squash")
@@ -365,7 +369,7 @@ DECISION_WAIT = 15
 # and one call of the forge a minute stays far under its limits.
 WATCH_SECONDS = 60
 TABLES: dict[str, tuple[str, ...]] = {
-    "paths": (*PATHS, "plan_file"),
+    "paths": ("plans", "plan_file"),
     "branch": ("base", "land", "history", "propose", "protected"),
     "checks": ("commands", "ignores", "setup", "bar", "alone"),
     "flow": ("topics", "max_tasks", "decision_wait", "watch_seconds"),
@@ -407,8 +411,10 @@ TEMPLATE = """\
 # What Lem reads in this repository. `project.py show` prints it resolved.
 
 [paths]
-# Where each kind of setting lives, relative to the root of the checkout.
-{paths}
+# The folder of the plans, relative to the root of the checkout. Lem's own files are in .lem/, the
+# rules for the code in .claude/rules, the review tool's folder is .revmux, the backlog is
+# docs/backlog and the rulings are docs/rulings: each has that one place, and no line here.
+plans = "{plans}"
 # The name of a plan's file in the plans folder: YYYY, MM and DD are the day the plan was
 # written, <slug> is the task's. A plan named YYYYMMDD-<slug>.md is found too.
 plan_file = "{plan_file}"
@@ -719,25 +725,72 @@ def toml_value(value: object) -> str:
     return str(value)
 
 
+def joined(words: list[str]) -> str:
+    """Words as a sentence lists them: `a`, `a and b`, `a, b and c`."""
+    return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
+
+
+# The settings an older Lem had that are gone (task 1b of docs/plans/2026-11-18-core-and-two-modes.md),
+# each with what holds in its place now: a key under its table, or a whole table. The keys of
+# [paths] that named a place of PLACES are `OLD_PATH_KEYS`. A file that still has one is refused once
+# (`older_form`), with every line to delete; a task branch's own copy is read without them (`now_form`).
+GONE_KEYS: dict[tuple[str, str], str] = {}
+GONE_TABLES: dict[str, str] = {}
+
+
+def old_path_line(key: str, value: object) -> str:
+    """The line of the refusal for a key of [paths] that named a place: delete it, and, when it named
+    another place than the one of now, the move that brings the files there, with both paths."""
+    place = PLACES[OLD_PATH_KEYS[key]]
+    line = f"`{key} = {toml_value(value)}` under [paths]"
+    given = value.strip().strip("/").removeprefix("./") if isinstance(value, str) else ""
+    if given in ("", place):
+        return f"- delete {line}: {place} is its one place, with no setting"
+    if key == "worktrees":
+        move = f"move each task's worktree from {given} to {place} first, with `git worktree move {given}/SLUG {place}/SLUG`"
+    else:
+        move = f"move {given} to {place} first, with `git mv {given} {place}`"
+    return f"- delete {line}, and {move}: {place} is its one place, with no setting"
+
+
+def gone_lines(raw: dict) -> list[str]:
+    """One line of the refusal for each key and table of `raw` that is gone, in the file's order."""
+    lines = []
+    for table, body in raw.items():
+        if table in GONE_TABLES:
+            keys = [f"`{key} = {toml_value(value)}`" for key, value in body.items()] if isinstance(body, dict) else []
+            lines.append(f"- delete the [{table}] table" + (f" with its lines {joined(keys)}" if keys else "") + f": {GONE_TABLES[table]}")
+            continue
+        for key, value in body.items() if isinstance(body, dict) else ():
+            if table == "paths" and key in OLD_PATH_KEYS:
+                lines.append(old_path_line(key, value))
+            elif (table, key) in GONE_KEYS:
+                lines.append(f"- delete `{key} = {toml_value(value)}` under [{table}]: {GONE_KEYS[(table, key)]}")
+    return lines
+
+
+def is_gone(table: str, key: str) -> bool:
+    return (table == "paths" and key in OLD_PATH_KEYS) or (table, key) in GONE_KEYS
+
+
 def older_form(raw: dict, name: Path) -> str | None:
-    """The one refusal of a file that has tables of an older Lem: `[gate]`, `[seats.reviewer]`,
-    `[seats.planner]`. It names every one the file has and gives the whole text to write in their
-    place, ready to paste; None when the file has none. The keys of `[gate]` are those of `[checks]`,
-    so its lines are the table's own, and an unknown key among them is refused after the move."""
+    """The one refusal of a file in the form of an older Lem: the tables `[gate]`, `[seats.reviewer]`
+    and `[seats.planner]`, with the whole text to write in their place, ready to paste; and each key
+    and table that is gone (`gone_lines`), with the line to delete. None when the file has none of
+    them. The keys of `[gate]` are those of `[checks]`, so its lines are the table's own, without the
+    keys that are gone, and an unknown key among them is refused after the move."""
     gate = raw.get("gate")
     seats = raw.get("seats") if isinstance(raw.get("seats"), dict) else {}
     tables = [which for which in SEATS if isinstance(seats.get(which), dict)]
-    if gate is None and not tables:
+    gone = gone_lines({("checks" if table == "gate" and "checks" not in raw else table): body for table, body in raw.items()})
+    if gate is None and not tables and not gone:
         return None
-
-    def joined(words: list[str]) -> str:
-        return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
 
     named, said, text = [], [], []
     if gate is not None:
         named.append("[gate]")
-        said.append("[gate] is called [checks] now, with the same keys (commands, setup, ignores, bar, alone)")
-        text += ["[checks]", *([f"{key} = {toml_value(value)}" for key, value in gate.items()] if isinstance(gate, dict) else [])]
+        said.append(f"[gate] is called [checks] now, with the keys {joined(list(TABLES['checks']))}")
+        text += ["[checks]", *([f"{key} = {toml_value(value)}" for key, value in gate.items() if not is_gone("checks", key)] if isinstance(gate, dict) else [])]
     if tables:
         # the keys of [seats] that are lines already go into the one [seats] table with the new lines
         plain = [f"{key} = {toml_value(value)}" for key, value in seats.items() if not isinstance(value, dict)]
@@ -749,10 +802,15 @@ def older_form(raw: dict, name: Path) -> str | None:
             + ("; the reviewer's effort for the review of a diff was used by no step, and has no place in the line" if "reviewer" in tables and "effort" in seats["reviewer"] else ""),
         )
         text += [*([""] if text else []), "[seats]", *plain, *(old_seat_line(which, seats[which]) for which in tables)]
-    return (
-        f"{name} has the form of an older Lem: {'; '.join(said)}. "
-        f"Write these lines in place of the {joined(named)} table{'s' if len(named) > 1 else ''}:\n" + "\n".join(text)
-    )
+    parts = []
+    if said:
+        parts.append(
+            f"{name} has the form of an older Lem: {'; '.join(said)}. "
+            f"Write these lines in place of the {joined(named)} table{'s' if len(named) > 1 else ''}:\n" + "\n".join(text),
+        )
+    if gone:
+        parts.append(("Delete these lines too, whose settings are gone:\n" if said else f"{name} has settings of an older Lem that are gone. Delete these lines:\n") + "\n".join(gone))
+    return "\n\n".join(parts)
 
 
 def careful_gone(name: Path, paths: object) -> str:
@@ -829,7 +887,8 @@ def old_seat_line(which: str, table: dict) -> str:
 
 def now_form(raw: dict, name: Path) -> dict:
     """A task branch's copy of the settings in the form an older Lem wrote, in the form of now: the
-    `[gate]` table as `[checks]`, a seat table as its one line, so that the task goes on. The branch
+    `[gate]` table as `[checks]`, a seat table as its one line, and no key or table that is gone
+    (`GONE_KEYS`, `GONE_TABLES`, `OLD_PATH_KEYS`), so that the task goes on. The branch
     took the file from a base that held it so, and holds it until the file of now is on the base it
     is brought onto, which only the owner's commit and push make. The main checkout's own file,
     which the owner keeps, is refused instead (`older_form`). One line on stderr says what was read
@@ -844,6 +903,17 @@ def now_form(raw: dict, name: Path) -> dict:
             if isinstance(seats.get(which), dict):
                 seats[which] = old_seat_value(which, seats[which])
                 read.append(f"[seats.{which}] as {which} = {toml_string(seats[which])}")
+    dropped = []
+    for table in list(raw):
+        if table in GONE_TABLES:
+            del raw[table]
+            dropped.append(f"[{table}]")
+        elif isinstance(raw[table], dict):
+            for key in [key for key in raw[table] if is_gone(table, key)]:
+                del raw[table][key]
+                dropped.append(f"{table}.{key}")
+    if dropped:
+        read.append(f"without {joined(dropped)}, whose settings are gone")
     if read:
         print(
             f"project.py: this worktree's {name} is the task branch's own copy, in the form of an older Lem; "
@@ -1017,7 +1087,7 @@ def load(root: Path) -> dict:
         overridden.append("flow.max_tasks")
 
     paths = {}
-    for name, (default, _older) in PATHS.items():
+    for name, default in PATHS.items():
         relative = raw.get("paths", {}).get(name, default)
         if not isinstance(relative, str):
             raise SettingsError(f"{SETTINGS}: paths.{name} must be a string")
@@ -1025,6 +1095,8 @@ def load(root: Path) -> dict:
         paths[name] = {"path": str(resolved), "exists": resolved.exists()}
     # a pattern, not a path: the name of a plan's file in the plans folder
     paths["plan_file"] = {"pattern": plan_file_of(raw, SETTINGS)}
+    # what Lem reads beside the settings, each in its one place: no setting names them
+    places = {name: {"path": str(root.resolve() / place), "exists": (root / place).exists()} for name, place in PLACES.items()}
 
     branch = raw.get("branch", {})
     base = branch.get("base")
@@ -1120,6 +1192,7 @@ def load(root: Path) -> dict:
         "settings_from": (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the working tree")
         if main.resolve() == root.resolve() else "this worktree's branch, with [flow] and [naps] from " + (f"{committed['branch']}@{committed['commit'][:9]}" if committed else "the main checkout"),
         "paths": paths,
+        "places": places,
         "branch": {"base": base, "land": land, "history": history, "propose": propose, "protected": protected},
         "checks": {
             "commands": commands(raw.get("checks", {}).get("commands", []), "checks.commands"),
@@ -1143,9 +1216,10 @@ def load(root: Path) -> dict:
 def cmd_path(settings: dict, name: str) -> None:
     if name == "plan_file":
         raise SettingsError("paths.plan_file is the pattern of a plan's name, not a path: `lem project plan-file SLUG` prints the name of a task's plan")
-    if name not in settings["paths"]:
-        raise SettingsError(f"no path named {name!r}{nearest(name, tuple(PATHS))}")
-    print(settings["paths"][name]["path"])
+    found = {**settings["places"], "plans": settings["paths"]["plans"]}
+    if name not in found:
+        raise SettingsError(f"no path named {name!r}{nearest(name, tuple(found))}")
+    print(found[name]["path"])
 
 
 def cmd_plan_file(settings: dict, slug: str, day: str | None) -> None:
@@ -1201,67 +1275,24 @@ def rule_files(folder: Path) -> list[Path]:
     return found
 
 
-def older_folders(root: Path) -> dict[str, str]:
-    """The settings an older tool already keeps here, where the skill's own layout has nothing yet."""
-    found = {
-        name: older for name, (default, older) in PATHS.items()
-        if older and (root / older).exists() and not (root / default).exists()
-    }
-    # The rules an agent loads by itself are the style guide wherever they exist. An empty folder
-    # of the skill's own layout beside them (a setup that stopped half way) does not hide them.
-    # Files are compared by where they really are: one folder linked from the other, or rule
-    # files linked between the two, is one set of rules. The settings name the agent's folder
-    # unless the skill's own holds every file of it and more. Either way `rules` reads both
-    # (`style_folders`), so two folders that each hold a file the other lacks are no refusal and
-    # no move: "The rules of an existing project stay where they are" (the owner, 2026-11-15).
-    own, rules = PATHS["styleguide"]
-    found.pop("styleguide", None)
-    if (root / rules).exists():
-        ours = {os.path.realpath(file) for file in rule_files(root / own)}
-        theirs = {os.path.realpath(file) for file in rule_files(root / rules)}
-        if not theirs < ours:
-            found["styleguide"] = rules
-    return found
-
-
 def style_folders(settings: dict) -> list[Path]:
-    """The folders the style guide is read from: the one the settings name, and when that is the
-    agent's rules folder or the skill's own, the other of the two where it exists too. A project
-    may keep rules in both, and Lem moves no file between them."""
-    # compared as the settings resolve a path, through links: a rules folder linked to the other is one folder
-    root = Path(settings["root"])
-    named = Path(settings["paths"]["styleguide"]["path"])
-    pair = [(root / folder).resolve() for folder in PATHS["styleguide"]]
-    if named not in pair:
-        return [named]
-    return [named, *(folder for folder in pair if folder != named and folder.is_dir())]
+    """The folders the rules for the code are read from: `.claude/rules`, and `.lem/styleguide`, the
+    folder an older Lem kept them in, when it is there too."""
+    root = Path(settings["root"]).resolve()
+    return [root / PLACES["rules"], *([root / ".lem" / "styleguide"] if (root / ".lem" / "styleguide").is_dir() else [])]
 
 
-def cmd_init(root: Path, base: str | None, existing: str | None, reviewer: str | None) -> None:
+def cmd_init(root: Path, base: str | None, reviewer: str | None) -> None:
     file = root / SETTINGS
     if file.exists():
         raise SettingsError(f"{SETTINGS} already exists; edit it")
     base = base or default_branch(root)
     if not base:
         raise SettingsError("cannot tell the base branch (no origin/HEAD); pass --base NAME")
-    older = older_folders(root)
-    # The rules an agent already loads by itself are never a choice: they stay, and they are the
-    # style guide. Where the cast, the profile and the worktrees live is the owner's to say.
-    choice = {name: path for name, path in older.items() if name != "styleguide"}
-    if choice and existing is None:
-        found = ", ".join(f"{name} in {path}" for name, path in choice.items())
-        raise SettingsError(
-            f"this repository already keeps {found}; pass --existing link to point at them, "
-            "or --existing new to start the skill's own layout",
-        )
-    lines = []
-    for name, (default, _older) in PATHS.items():
-        chosen = older[name] if name in older and (name == "styleguide" or existing == "link") else default
-        lines.append(f'{name} = "{chosen}"')
     file.parent.mkdir(exist_ok=True)
     agent = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex/gpt-6.1-sol:high"'
     file.write_text(TEMPLATE.format(
-        paths="\n".join(lines), plan_file=PLAN_FILE, base=base, reviewer=agent, experts=", ".join(toml_string(one) for one in EXPERTS),
+        plans=PATHS["plans"], plan_file=PLAN_FILE, base=base, reviewer=agent, experts=", ".join(toml_string(one) for one in EXPERTS),
         max_tasks=MAX_TASKS, decision_wait=DECISION_WAIT, watch_seconds=WATCH_SECONDS, **TOOLS,
     ), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
@@ -1597,7 +1628,7 @@ def cmd_worktree_dir(settings: dict, slug: str) -> None:
     """Print where a task's worktree goes, and keep the folder that holds worktrees out of git status."""
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
-    parent = Path(settings["paths"]["worktrees"]["path"])
+    parent = Path(settings["places"]["worktrees"]["path"])
     parent.mkdir(parents=True, exist_ok=True)
     ignore = parent / ".gitignore"
     if not ignore.is_file():
@@ -1628,7 +1659,7 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
         raise SettingsError(f"{SETTINGS} names no branch.base, so a new task has nothing to start from")
     if branch == base or branch in settings["branch"]["protected"]:
         raise SettingsError(f"{branch!r} is the base branch or a protected one; a task works on a branch of its own")
-    parent = Path(settings["paths"]["worktrees"]["path"])
+    parent = Path(settings["places"]["worktrees"]["path"])
     place = main / parent.relative_to(root.resolve()) / slug
     if (place / ".git").exists():
         on = subprocess.run(["git", "-C", str(place), "branch", "--show-current"], capture_output=True, text=True, check=False).stdout.strip()
@@ -1690,7 +1721,7 @@ def task_worktree(root: Path, settings: dict, slug: str) -> dict:
         return ran.stdout.strip() if ran.returncode == 0 and ran.stdout.strip() else None
 
     # Worktrees hang off the main checkout, and this may run in one of them.
-    path = main_checkout(root) / Path(settings["paths"]["worktrees"]["path"]).relative_to(root.resolve()) / slug
+    path = main_checkout(root) / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve()) / slug
     if not (path / ".git").exists():
         return {}
     commit = git(path, "log", "-1", "--format=%h%x00%s")
@@ -2215,7 +2246,7 @@ def cmd_waiting(root: Path) -> dict:
     if asked.returncode != 0:
         raise SettingsError(asked.stderr.strip().removeprefix("decisions.py: ") or "decisions.py pending failed")
     main = main_checkout(root)
-    worktrees = main / Path(settings["paths"]["worktrees"]["path"]).relative_to(root.resolve())
+    worktrees = main / Path(settings["places"]["worktrees"]["path"]).relative_to(root.resolve())
     plans = Path(settings["paths"]["plans"]["path"]).relative_to(root.resolve())
 
     def line(task: dict) -> str:
@@ -2387,9 +2418,7 @@ def main() -> None:
     worktree.add_argument("branch")
     init = commands.add_parser("init")
     init.add_argument("--base")
-    init.add_argument("--existing", choices=("link", "new"))
     init.add_argument("--reviewer", choices=REVIEWERS)
-    commands.add_parser("existing")
     commands.add_parser("reviewer").add_argument("words", nargs="+", metavar="AGENT[/MODEL[:EFFORT]]|default")
     plan_file = commands.add_parser("plan-file", help="the name a task's plan takes, and the plan the plans folder holds")
     plan_file.add_argument("slug")
@@ -2427,13 +2456,10 @@ def main() -> None:
     try:
         root = repo_root(Path(args.repo))
         if args.command == "init":
-            cmd_init(root, args.base, args.existing, args.reviewer)
+            cmd_init(root, args.base, args.reviewer)
             return
         if args.command == "reviewer":
             cmd_reviewer(root, args.words)
-            return
-        if args.command == "existing":
-            print(json.dumps(older_folders(root), indent=2))
             return
         if args.command == "task-dir":
             cmd_task_dir(root, args.slug, args.ask, args.ticket, args.branch)

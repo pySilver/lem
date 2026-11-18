@@ -70,7 +70,6 @@ import json
 import os
 import shutil
 import subprocess
-import tomllib
 from pathlib import Path
 
 # Lem's scripts, beside this skill in the same plugin: `lem_state` is the one place that says where the state is.
@@ -78,13 +77,10 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lem" / "scripts"))
 import lem_state  # noqa: E402
 
-# Where a project keeps its personas, its profile and its panels' files, relative to the checkout.
-# These are Lem's own layout; configure() replaces them with what the project's
-# settings say, so a project that keeps its cast where an older tool reads it is served too.
+# Where a project keeps its personas, its profile and its panels' files, relative to the checkout:
+# each has one place, which configure() takes from `project.py show` (`places`).
 PROJECT_CAST = Path(".lem") / "personas"
 PROJECT_PROFILE = Path(".lem") / "profile.md"
-# Lem's own layout, which a settings file that names no path keeps.
-LAYOUT = {"personas": PROJECT_CAST, "profile": PROJECT_PROFILE}
 RUNS = Path(".lem") / "runs"
 BUILT_IN = Path(__file__).resolve().parent.parent / "cast"
 PROJECT_SETTINGS = Path(__file__).resolve().parents[2] / "lem" / "scripts" / "project.py"
@@ -96,7 +92,8 @@ def fail(message: str) -> None:
 
 
 def configure(root: Path) -> None:
-    """Take the personas and profile paths from the project's settings (.lem/project.toml)."""
+    """Take the places of the personas and the profile from the project's settings, which this checks
+    first: a settings file that does not read stops the panel."""
     global PROJECT_CAST, PROJECT_PROFILE, RUNS
     done = subprocess.run(
         [sys.executable, "-B", str(PROJECT_SETTINGS), "--repo", str(root), "show"], capture_output=True, text=True
@@ -105,8 +102,8 @@ def configure(root: Path) -> None:
         fail(done.stderr.strip() or "could not read the project's settings")
     settings = json.loads(done.stdout)
     top = Path(settings["root"]).resolve()
-    PROJECT_CAST = Path(settings["paths"]["personas"]["path"]).relative_to(top)
-    PROJECT_PROFILE = Path(settings["paths"]["profile"]["path"]).relative_to(top)
+    PROJECT_CAST = Path(settings["places"]["personas"]["path"]).relative_to(top)
+    PROJECT_PROFILE = Path(settings["places"]["profile"]["path"]).relative_to(top)
     RUNS = PROJECT_CAST.parent / "runs"
 
 
@@ -181,30 +178,12 @@ def default_refs(root: Path) -> list[str]:
     return refs
 
 
-def path_at(root: Path, sha: str, name: str, fallback: Path) -> Path:
-    """Where a commit's own settings keep the personas or the profile: this checkout may be older than
-    the settings on the default branch, and would look for them in the wrong folder.
-
-    With no settings file at that commit, the checkout's own configured path stands. With one, the
-    answer is that file's: the path it names, or Lem's own layout when it names none.
-    """
-    body = subprocess.run(["git", "-C", str(root), "show", f"{sha}:.lem/project.toml"], capture_output=True, text=True)
-    if body.returncode != 0:
-        return fallback
-    try:
-        named = tomllib.loads(body.stdout).get("paths", {}).get(name)
-    except (tomllib.TOMLDecodeError, AttributeError) as error:
-        fail(f".lem/project.toml at {sha[:9]} does not read ({error}); correct it on the default branch")
-        raise AssertionError
-    return Path(named.rstrip("/")) if isinstance(named, str) and named.strip() else LAYOUT[name]
-
-
 def default_branch_cast(root: Path) -> tuple[str, Path, str] | None:
     """The default branch's cast, written out in the state folder, with the ref it came from, or None when it has none."""
     for ref in default_refs(root):
         sha = commit_of(root, ref)
         label = ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
-        listed = git(root, "ls-tree", "--name-only", sha, "--", f"{path_at(root, sha, 'personas', PROJECT_CAST).as_posix()}/")
+        listed = git(root, "ls-tree", "--name-only", sha, "--", f"{PROJECT_CAST.as_posix()}/")
         names = [n for n in listed.splitlines() if n.endswith(".md")]
         if not any(is_persona(n) for n in names):
             continue
@@ -276,7 +255,7 @@ def profile(root: Path) -> dict[str, str] | None:
     for ref in default_refs(root):
         sha = commit_of(root, ref)
         label = ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
-        there = path_at(root, sha, "profile", PROJECT_PROFILE).as_posix()
+        there = PROJECT_PROFILE.as_posix()
         if git(root, "cat-file", "-t", f"{sha}:{there}") != "blob":
             continue
         if local.is_file() and not follows_default(root, ref, PROJECT_PROFILE.as_posix()):

@@ -322,7 +322,7 @@ class Task:
         self.repo = repo
         self.main = Path(self.settings["main"])
         root = Path(self.settings["root"]).resolve()
-        self.worktree = self.main / Path(self.settings["paths"]["worktrees"]["path"]).relative_to(root) / slug
+        self.worktree = self.main / Path(self.settings["places"]["worktrees"]["path"]).relative_to(root) / slug
         self.directory = Path(script("project.py", repo, "state-dir").strip()) / "tasks" / slug
         self.plans = self.worktree / Path(self.settings["paths"]["plans"]["path"]).relative_to(root)
         self.approved_file = self.directory / "criteria.json"

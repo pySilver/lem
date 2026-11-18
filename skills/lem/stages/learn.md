@@ -24,7 +24,7 @@ it:
      drops it. Your report says that the line is a lesson about Lem itself, so the owner can
      bring it to whoever maintains Lem;
    - how code is written here: the style guide file whose scope covers it
-     (`lem project path styleguide`);
+     (`lem project path rules`);
    - what a person of the project wants or notices: that persona's file
      (`lem project path personas`);
    - what a review should catch or stop raising: the lens, the review profile or the

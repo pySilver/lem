@@ -109,7 +109,7 @@ def backlog(settings: dict) -> dict:
     """The items of the backlog folder, as the board's second tab shows them. It reads and changes nothing."""
     main = Path(settings["main"])
     # the main checkout's copy: a task's worktree has the backlog as its branch left it
-    folder = main / Path(settings["paths"]["backlog"]["path"]).relative_to(settings["root"])
+    folder = main / Path(settings["places"]["backlog"]["path"]).relative_to(settings["root"])
     relative = folder.relative_to(main).as_posix()
     feed: dict = {"folder": relative, "read": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "items": []}
     if not folder.is_dir():

@@ -5,14 +5,13 @@
 . "$(dirname "$0")/lib.sh"
 
 # What a review saw outside the change is filed after it, as new items in the backlog folder: that asks
-# for no other review. Any other file does, an item that was on the base included; the folder is a
-# folder and not a pattern. (The settings refuse the root of the repository as the backlog folder.)
-# backlog_repo NAME FOLDER: a repository whose settings name FOLDER as the backlog, with one item there on the base
+# for no other review. Any other file does, an item that was on the base included.
+# backlog_repo NAME: a repository with one item in its backlog folder, docs/backlog, on the base
 backlog_repo() {
   local repo=$WORK/$1
   git init -q -b main "$repo" && ident "$repo" && project --repo "$repo" init --base main >/dev/null
-  printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' '[paths]' "backlog = \"$2\"" > "$repo/.lem/project.toml"
-  mkdir -p "$repo/$2" && echo '# an item from before' > "$repo/$2/existing.md" && echo one > "$repo/app.txt"
+  printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' '[checks]' 'commands = ["true"]' > "$repo/.lem/project.toml"
+  mkdir -p "$repo/docs/backlog" && echo '# an item from before' > "$repo/docs/backlog/existing.md" && echo one > "$repo/app.txt"
   git -C "$repo" add -A && git -C "$repo" commit -q -m "chore: start"
 }
 # blg_task SLUG: a full change of the backlog repository, with the lead's read of its criteria
@@ -32,7 +31,7 @@ reviewed_then() {
   land --repo "$1" read "$2" | field 'd["due"]'
   project --repo "$1" state "$2" dropped "the test is over" >/dev/null
 }
-backlog_repo backlog-land docs/backlog
+backlog_repo backlog-land
 BLG=$WORK/backlog-land
 added=$(reviewed_then "$BLG" new-item 'echo "# a defect from before" > docs/backlog/new.md')
 edited=$(reviewed_then "$BLG" edited-item 'echo more >> docs/backlog/existing.md')
@@ -42,15 +41,6 @@ if [ "$added" = none ] && [ "$edited" = review ] && [ "$removed" = review ]; the
 else
   fail "backlog items after a review: $added / $edited / $removed"
 fi
-backlog_repo backlog-star 'docs/backlog-x*'
-inside=$(reviewed_then "$WORK/backlog-star" in-folder 'echo "# an item" > "docs/backlog-x*/new.md"')
-beside=$(reviewed_then "$WORK/backlog-star" beside-folder 'mkdir -p docs/backlog-xy && echo "x = 1" > docs/backlog-xy/app.py')
-if [ "$inside" = none ] && [ "$beside" = review ]; then
-  pass "the backlog folder is read as the path it names, not as a pattern: a file in docs/backlog-xy is no item of the folder docs/backlog-x*"
-else
-  fail "the backlog folder as a path: $inside / $beside"
-fi
-
 # A review names each defect it saw outside the change, and `lem land file` files each one as an item
 # of the backlog: a count of them is no record, and is refused; 0 is no defect.
 blg_task outside-form

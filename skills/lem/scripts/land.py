@@ -184,15 +184,14 @@ who did not. One in which nobody answered is none; it is started once more, and 
 record sends the request on as not reviewed. A review is of a change, known by the content of
 each file it touches, before and after: a rebase onto a base that left those files alone does
 not undo it, nor does a rebase `base` made with no conflict (above), and a change of one space does. The one addition a review still covers is a new file
-in the backlog folder (the settings' `paths.backlog`, a path and not a pattern), when every file
-the review saw is as it saw it: that is where the defects outside the change are filed after the
-review. An edit or a deletion of an item that was there before is a change like any other, and a
-backlog folder that is the root of the repository gives no such exception.
+in the backlog folder (`docs/backlog`, its one place), when every file the review saw is as it saw
+it: that is where the defects outside the change are filed after the review. An edit or a
+deletion of an item that was there before is a change like any other.
 Two rounds at most: after that the request is proposed as it is, green when the second round
 left nothing open and not green otherwise. `attempt` in a record is the number `read` printed
 for it, so a record that is sent twice is written down once.
 
-No defect outside the change gets lost. `file` writes one item in the settings' backlog folder
+No defect outside the change gets lost. `file` writes one item in the backlog folder
 for each such defect of a review that has none yet, in the item format of `agents/lem-builder.md`
 (`worth: later`, its `where`, the day it was filed; its title; its run and where it was seen),
 commits the new items on the task's branch, one commit for each round, and keeps the path of
@@ -548,7 +547,7 @@ class Task:
         listed = run(["git", "-C", str(repo), "worktree", "list", "--porcelain", "-z"]).stdout
         entries = [block.split("\0") for block in listed.split("\0\0") if block.strip("\0")]
         self.main = Path(self.settings["main"])
-        relative = Path(self.settings["paths"]["worktrees"]["path"]).relative_to(Path(self.settings["root"]).resolve())
+        relative = Path(self.settings["places"]["worktrees"]["path"]).relative_to(Path(self.settings["root"]).resolve())
         self.worktree = self.main / relative / slug
         # the checkout that holds the base branch, when one does
         self.base_checkout = next(
@@ -993,9 +992,8 @@ def change(task: Task) -> dict:
 
 
 def backlog_of(task: Task) -> str:
-    """The backlog folder, relative to the root of the repository: a path, never a pattern, and never the root,
-    which the settings refuse."""
-    return Path(task.settings["paths"]["backlog"]["path"]).relative_to(Path(task.settings["root"]).resolve()).as_posix()
+    """The backlog folder, relative to the root of the repository: its one place, `docs/backlog`."""
+    return Path(task.settings["places"]["backlog"]["path"]).relative_to(Path(task.settings["root"]).resolve()).as_posix()
 
 
 def covers(task: Task, read: dict, now: dict) -> bool:
@@ -1945,7 +1943,7 @@ def cmd_read(task: Task, record: str | None) -> dict:
                 # what the branch filed in the backlog before the review: a defect named there is not reported again
                 "filed": branch_items(task),
                 # where the project's review tool keeps each profile and lens, with what each is for
-                "review": task.settings["paths"]["review"]["path"],
+                "review": task.settings["places"]["review"]["path"],
             },
         }
     if state["due"] != "review":
