@@ -949,7 +949,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
 - `tests/`: the suites of the Checks above; `all.sh` runs them all, `lib.sh` is what each
   `lem-*.sh` block sources, `checks.sh` is how every suite counts its checks, `suites.sh` and
   `limit.py` are what `all.sh` and `test-lem.sh` share, and `pick.py` holds the map of which suite
-  reads which file. `.github/workflows/ci.yml` runs them when someone starts it by hand.
+  reads which file. `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
   plugin `lem`, the one way Lem installs: the manifest, a marketplace file that lists the one
   plugin, `bin/lem`, Lem's one command, which runs the script a name stands for (`lem project
