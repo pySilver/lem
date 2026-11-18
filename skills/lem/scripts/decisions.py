@@ -254,7 +254,7 @@ class Task:
                 # a timeout before the experts existed has no `by`: it took the recommended option
                 found[line["id"]].update(
                     state="timeout", chose=line["chose"], by=line.get("by", "timeout"), taken=line["at"],
-                    **({"experts": line["experts"]} if "experts" in line else {}),
+                    **({"experts": line["experts"]} if "experts" in line else {}), **({"early": True} if line.get("early") else {}),
                 )
             elif line["kind"] == "settled":
                 found[line["id"]].update(state="settled", chose=line["chose"], by="experts", taken=line["at"], experts=line["experts"], away=True)

@@ -307,6 +307,59 @@ else
 fi
 local_land clean call-kept >/dev/null
 
+# A task that ran without the owner: green when nothing of his was decided without him, with the line that says when it
+# ran so, and a decision the gate or the personas settled stays green, its line with the votes and the model families. No
+# agent merges it while it runs so, whatever branch.land says; once he is back, branch.land rules as before.
+ldecide() { "$PY" -B "$DECISIONS" --repo "$LOCAL" "$@"; }
+task_in "$LOCAL" quiet-run quiet.txt quiet
+read_in "$LOCAL" quiet-run
+ldecide log quiet-run --what "The file's name" --chose quiet.txt --by gate --why "docs/rulings/names.md: a file is named for what it holds" >/dev/null
+ldecide log quiet-run --what "The word's case" --chose "lower case" --by personas --vote "the merchant, opus=lower case" --vote "the merchant, sol=lower case" --vote "the clerk, opus=lower case" \
+  --why "the importer reads lower case" >/dev/null
+project --repo "$LOCAL" mode quiet-run alone --by owner --words "go alone" >/dev/null
+local_land start quiet-run >/dev/null && local_land base quiet-run >/dev/null && polish_in "$LOCAL" quiet-run && local_land checks quiet-run >/dev/null && local_land read quiet-run --record "$(clean 1)" >/dev/null
+local_land propose quiet-run --title "fix: quiet" --notes "$NOTES" >/dev/null
+text=$LOCAL/.lem/state/tasks/quiet-run/pr.md
+held=$(local_land land quiet-run --by agent 2>&1 || true)
+project --repo "$LOCAL" mode quiet-run with-owner --by owner --words "I am back" >/dev/null
+back=$(local_land land quiet-run --by agent 2>&1 | field 'd["tip"] is not None' 2>&1 || true)
+if [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -qE '^It ran without the owner from 20[0-9-]+ [0-9:]+ UTC \(the owner: "go alone"\)\.$' "$text" \
+  && grep -qxF -- '- The word'"'"'s case: "lower case", by the personas: 3 votes of 2 personas, two model families, all for it. the importer reads lower case' "$text" \
+  && grep -qxF -- '- The file'"'"'s name: "quiet.txt", by the gate. docs/rulings/names.md: a file is named for what it holds' "$text" \
+  && grep -qF "quiet-run runs without the owner: an agent never merges it" <<<"$held" && [ "$back" = True ] && [ "$(status_in "$LOCAL" quiet-run)" = landed ]; then
+  pass "a task that ran without the owner with nothing of his decided without him is green, and says when it ran so and on whose words; the gate's and the personas' decisions stay green, with the cite and the count of votes and families; no agent merges while it runs so, and branch.land rules again once he is back"
+else
+  fail "a green task that ran without the owner: $held / $back / $(cat "$text" 2>/dev/null)"
+fi
+local_land clean quiet-run >/dev/null
+# Not green when something of his was decided without him: criteria approved without him, a decision past the personas
+# or that no level settled, and a choice the timeout took early when he said "go alone"; each is a line of its own.
+task_in "$LOCAL" loud-run loud.txt loud
+read_in "$LOCAL" loud-run
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/loud.md"
+project --repo "$LOCAL" mode loud-run alone --by owner --words "go alone" >/dev/null
+lcriteria approve loud-run --file "$WORK/loud.md" --alone >/dev/null
+ldecide log loud-run --what "Where the word goes" --chose "the last line" --by experts --why "both experts picked it" --level "personas=1 to 1" --level "dialectic=one break" >/dev/null
+ldecide log loud-run --what "The word's font" --chose plain --by lead --unsettled --why "the export has no fonts" >/dev/null
+ldecide ask loud-run "${CASE[@]}" --what "The line ending" --option "a line break" --option "none" --recommended "a line break" --why "every file ends so" --said "the personas split" >/dev/null
+ldecide timeout loud-run 3 >/dev/null
+local_land start loud-run >/dev/null && local_land base loud-run >/dev/null && polish_in "$LOCAL" loud-run && local_land checks loud-run >/dev/null && local_land read loud-run --record "$(clean 1)" >/dev/null
+local_land propose loud-run --title "fix: loud" --notes "$NOTES" >/dev/null
+text=$LOCAL/.lem/state/tasks/loud-run/pr.md
+day=$(date -u +%Y-%m-%d)
+if [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
+  && [ "$(sed -n 3p "$text")" = "- the owner did not approve the criteria: they were approved on $day while the task ran without the owner" ] \
+  && [ "$(sed -n 4p "$text")" = '- decision 1 was taken without the owner (Where the word goes): "the last line", by the experts' ] \
+  && [ "$(sed -n 5p "$text")" = "- decision 2 was taken without the owner (The word's font): \"plain\", the lead's pick, which no level of the ladder settled" ] \
+  && [ "$(sed -n 6p "$text")" = '- choice 3 was taken by timeout (The line ending): "a line break", the recommended option, when the task ran without the owner, before the wait ended' ] \
+  && grep -qE '^It ran without the owner from ' "$text" && grep -qF 'Each level: personas: 1 to 1; dialectic: one break.' "$text" \
+  && grep -qF "approved on $day while the task ran without the owner" <<<"$(grep '^- the criteria were read' "$text")"; then
+  pass "a task that ran without the owner is not green for each thing of his decided without him, one line each: criteria approved without him, a decision of the experts or of the dialectic, one no level settled, and a choice the timeout took early"
+else
+  fail "a task that ran without the owner, not green: $(cat "$text" 2>/dev/null)"
+fi
+project --repo "$LOCAL" state loud-run dropped "the test is over" >/dev/null
+
 # A branch cannot lift what guards it: one that edits the flow table of its own .lem/project.toml is
 # careful by the script, which says why, and the landing reads the topics of the main checkout's
 # settings, also when it runs from the task's worktree.
