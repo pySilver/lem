@@ -29,6 +29,27 @@ if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['alone', 'command
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
+# The settings are 25 keys, one to one in show (with a tracker), in the file init writes (a commented line counts) and on
+# the settings page.
+printf '%s\n' '' '[tracker]' 'kind = "linear"' 'server = "linear"' 'workspace = "acme"' 'team = "ABC"' 'moves = "tracker"' > "$WORK/tracker.toml"
+cp "$NEW/.lem/project.toml" "$WORK/template.toml" && cat "$WORK/tracker.toml" >> "$NEW/.lem/project.toml"
+shown=$(project --repo "$NEW" show | field 'sorted(f"{table}.{key}" for table in ("paths", "branch", "checks", "flow", "seats", "corrections", "tracker", "naps") for key in d[table])')
+cp "$WORK/template.toml" "$NEW/.lem/project.toml"
+written=$("$PY" -I -c 'import re, sys
+table, found = None, set()
+for line in open(sys.argv[1], encoding="utf-8"):
+    head = re.match(r"#?\s*\[(\w+)\]\s*$", line)
+    if head: table = head.group(1); continue
+    key = re.match(r"#?\s*(\w+) = ", line)
+    if key and table: found.add(f"{table}.{key.group(1)}")
+print(sorted(found))' "$NEW/.lem/project.toml")
+# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
+paged=$("$PY" -I -c 'import re, sys; print(sorted(set(re.findall(r"^\| `(\w+\.\w+)` \|", open(sys.argv[1], encoding="utf-8").read(), re.M))))' "$PWD/docs/settings.md")
+if [ "$shown" = "$written" ] && [ "$shown" = "$paged" ] && [ "$("$PY" -c 'import sys; print(len(eval(sys.argv[1])))' "$shown")" = 25 ]; then
+  pass "the settings are 25 keys, the same in show, in the file init writes and on the settings page"
+else
+  fail "the keys of the settings: show $shown / the file $written / the page $paged"
+fi
 out=$(project --repo "$NEW" show)
 if [ "$(field 'd["branch"]["base"]' <<<"$out")" = "main" ] && [ "$(field 'd["places"]["personas"]["path"]' <<<"$out")" = "$NEW/.lem/personas" ] \
   && [ "$(field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"])' <<<"$out")" = "('codex', None)" ] \
@@ -182,6 +203,7 @@ fi
 # The checks: [gate] is their older name, refused with the lines to write in its place.
 settings '[gate]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]' 'bar = ["x"]'
 gate_err=$(project --repo "$OLD" show 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF "[gate] is called [checks] now" <<<"$gate_err" && ! grep -qF "[seats" <<<"$gate_err" \
   && grep -qF "Write these lines in place of the [gate] table:" <<<"$gate_err" && [ "$(printf '%s\n' "$gate_err" | sed -n 2,4p)" = "$(printf '%s\n' '[checks]' 'commands = ["make test", "make lint"]' 'alone = ["npx playwright test"]')" ] \
   && grep -qxF 'Delete these lines too, whose settings are gone:' <<<"$gate_err" \
@@ -214,6 +236,7 @@ fi
 # and with the move, both paths named, when it names another place. Nothing moves by itself.
 settings '[branch]' 'base = "master"' '[paths]' 'personas = ".personas/cast"' 'backlog = "docs/backlog"' 'worktrees = ".claude/worktrees"' 'plans = "docs/plans"'
 paths_err=$(project --repo "$OLD" show 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.toml has settings of an older Lem that are gone. Delete these lines:" <<<"$paths_err" \
   && grep -qxF -- '- delete `personas = ".personas/cast"` under [paths], and move .personas/cast to .lem/personas first, with `git mv .personas/cast .lem/personas`: .lem/personas is its one place, with no setting' <<<"$paths_err" \
   && grep -qxF -- '- delete `backlog = "docs/backlog"` under [paths]: docs/backlog is its one place, with no setting' <<<"$paths_err" \
@@ -222,6 +245,32 @@ if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.t
   pass "a key of [paths] that named a place is refused once with the line to delete, and a place of another name with the move that brings it, both paths named; plans stays a setting"
 else
   fail "the place keys of an older Lem: $paths_err"
+fi
+
+# A file with keys and a table of several kinds that are gone is refused once, with every line to delete, the move of a
+# place that names another, and last the commit and push. A task branch's own copy is read without them, with one line.
+GONE=$WORK/gone-repo
+git init -q -b master "$GONE" && mkdir -p "$GONE/.lem"
+printf '%s\n' '[branch]' 'base = "master"' '[paths]' 'backlog = "notes/later"' '[checks]' 'commands = ["true"]' 'ignores = ["docs/*"]' \
+  '[flow]' 'watch_seconds = 30' '[tools]' 'annotate = "webrev"' 'ask = "lem-ask"' > "$GONE/.lem/project.toml"
+gone_err=$(project --repo "$GONE" show 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
+want=$(printf '%s\n' "project.py: $GONE/.lem/project.toml has settings of an older Lem that are gone. Delete these lines:" \
+  '- delete `backlog = "notes/later"` under [paths], and move notes/later to docs/backlog first, with `git mv notes/later docs/backlog`: docs/backlog is its one place, with no setting' \
+  '- delete `ignores = ["docs/*"]` under [checks]: the checks run again whenever the base branch moves' \
+  '- delete `watch_seconds = 30` under [flow]: the watch of the open pull requests looks every 60 seconds' \
+  '- delete the [tools] table with its lines `annotate = "webrev"` and `ask = "lem-ask"`: Lem asks the owner with its own page and opens a text for the owner to mark up with webrev' \
+  '' 'Then commit the file on the base branch and push it: that makes the fix count for the tasks that are open, whose branches take the file from the base')
+git -C "$GONE" add .lem/project.toml && commit "$GONE" "chore: settings of an older Lem" && git -C "$GONE" worktree add -q "$WORK/gone-wt" -b feat/gone
+printf '%s\n' '[branch]' 'base = "master"' > "$GONE/.lem/project.toml"
+git -C "$GONE" add .lem/project.toml && commit "$GONE" "chore: the settings of now"
+branch_copy=$(project --repo "$WORK/gone-wt" show 2>&1 >/dev/null || true)
+branch_code=$(status_of project --repo "$WORK/gone-wt" show)
+if [ "$gone_err" = "$want" ] && [ "$branch_code" = 0 ] \
+  && [ "$branch_copy" = "project.py: this worktree's .lem/project.toml is the task branch's own copy, in the form of an older Lem; Lem reads it as now (without paths.backlog, checks.ignores, flow.watch_seconds and [tools], whose settings are gone), so that the task goes on" ]; then
+  pass "a file with [tools], paths.backlog, checks.ignores and flow.watch_seconds is refused once with every line to delete and the move, then the commit and push; a task branch's own copy is read without them, with one line that says so"
+else
+  fail "the keys that are gone: $gone_err / $branch_copy"
 fi
 
 # A plan's file name: paths.plan_file, YYYY-MM-DD-<slug>.md by default; a plan of the older name YYYYMMDD-<slug>.md is found too.
@@ -285,6 +334,7 @@ settings '[branch]' 'base = "master"' 'protected = ["master"]'
 if [ "$(status_of project --repo "$OLD" show)" = 1 ]; then pass "a base branch that is also protected is refused as a contradiction"; else fail "protected base"; fi
 settings '[branch]' 'base = "master"' '[tools]' 'annotate = "my-own-rev"' 'ask = "terminal"'
 err=$(project --repo "$OLD" show 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] \
   && grep -qxF -- '- delete the [tools] table with its lines `annotate = "my-own-rev"` and `ask = "terminal"`: Lem asks the owner with its own page and opens a text for the owner to mark up with webrev' <<<"$err"; then
   pass "a project file with [tools] is refused with the table to delete: Lem asks with its page and opens a text with webrev"
@@ -503,6 +553,7 @@ else
 fi
 printf '%s\n' '[tools]' 'ask = "my-asker"' > "$OLD/.lem/project.local.toml"
 err=$(project --repo "$OLD" show 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.local.toml has settings of an older Lem that are gone. Delete these lines:" <<<"$err" \
   && grep -qF -- '- delete the [tools] table with its lines `ask = "my-asker"`' <<<"$err" && ! grep -qF "Then commit the file" <<<"$err"; then
   pass "the machine's own file with [tools] is refused with the table to delete, and no commit is asked of a file git does not track"
@@ -585,6 +636,7 @@ printf '%s\n' '[flow]' 'max_tasks = 0' > "$OLD/.lem/project.local.toml"
 flow_bad=$(project --repo "$OLD" show 2>&1 || true)
 rm "$OLD/.lem/project.local.toml"
 alone=$(project --repo "$OLD" show 2>&1 | field '(d["flow"]["max_tasks"], d["naps"]["on"], d["local"]["overrides"])' 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's own marks around a line
 if [ "$machine" = "(2, False, ['flow.max_tasks', 'naps.on'])" ] && [ "$in_tree" = "(2, True)" ] && [ "$asleep" = "(False, 'the naps are off on this machine (naps.on = false in .lem/project.local.toml)')" ] \
   && [ "$rewritten" = "$(printf '%s\n' "# This machine's own settings for Lem. Not committed; \`lem project reviewer\` writes the seat." '' '[flow]' 'max_tasks = 2' '' '[naps]' 'on = false')" ] \
   && grep -qF ".lem/project.local.toml: naps.on = True is not for this file. It may say \`on = false\`" <<<"$naps_yes" \
@@ -857,6 +909,7 @@ if [ -z "$accepted" ]; then pass "a limit that is not a whole number of 1 or mor
 settings '[flow]' 'watch_seconds = 1'
 watch_err=$(project --repo "$OLD" show 2>&1 || true)
 settings '[branch]' 'base = "master"'
+# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 if [ "$(status_of project --repo "$OLD" show)" = 0 ] && grep -qxF -- '- delete `watch_seconds = 1` under [flow]: the watch of the open pull requests looks every 60 seconds' <<<"$watch_err" \
   && ! grep -q 'watch_seconds' "$NEW/.lem/project.toml" && [ "$(project --repo "$OLD" show | field '"watch_seconds" in d["flow"]')" = False ]; then
   pass "the watch's interval is 60 seconds with no setting: flow.watch_seconds is refused with the line to delete, and init writes none"
@@ -1076,6 +1129,7 @@ older=$(project --repo "$FRESH" rules app/x.py 2>&1 || true)
 older_code=$(status_of project --repo "$FRESH" rules app/x.py)
 mkdir -p "$FRESH/.claude/rules"
 beside=$(project --repo "$FRESH" rules app/x.py 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 if [ "$none" = "(False, [])" ] && [ "$older_code" = 1 ] && grep -qF 'Move them there: `mkdir -p .claude && git mv .lem/styleguide .claude/rules`' <<<"$older" \
   && grep -qF 'Move them there: `git mv .lem/styleguide/* .claude/rules/`' <<<"$beside" && [ -f "$FRESH/.lem/styleguide/python.md" ]; then
   pass "a project with no rules gets no rule and no error, and rule files in the folder an older Lem kept them in are refused with the move to .claude/rules, which nothing makes by itself"
@@ -1539,8 +1593,8 @@ named=$(cat "$OLD/.lem/state/meta.js")
 board --repo "$OLD" --no-open >/dev/null
 if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.lem/state/board.html" ] && cmp -s "$OLD/.lem/state/board.html" "$PWD/skills/lem/assets/board.html" \
   && cmp -s "$OLD/.lem/state/lem.css" "$PWD/skills/lem/assets/lem.css" \
-  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "ask": "lem-ask", "gates": 0, "alone": 0});' ] \
-  && [ "$(cat "$OLD/.lem/state/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "ask": "lem-ask", "gates": 0, "alone": 0});' ]; then
+  && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "gates": 0, "alone": 0});' ] \
+  && [ "$(cat "$OLD/.lem/state/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "gates": 0, "alone": 0});' ]; then
   pass "board --no-open writes the page and the stylesheet it links into the shared state folder, from a worktree too, with the repository's name and its base"
 else
   fail "board --no-open: $out / $named / $(cat "$OLD/.lem/state/meta.js" 2>&1)"

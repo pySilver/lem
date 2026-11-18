@@ -1,16 +1,10 @@
 # What Lem reads in this repository. `project.py show` prints it resolved.
 
 [paths]
-# Where each kind of setting lives, relative to the root of the checkout.
-profile = ".lem/profile.md"
-styleguide = ".lem/styleguide"
-personas = ".lem/personas"
-review = ".revmux"
-lessons = ".lem/lessons.md"
-rulings = "docs/rulings"
-backlog = "docs/backlog"
+# The folder of the plans, relative to the root of the checkout. Lem's own files are in .lem/, the
+# rules for the code in .claude/rules, the review tool's folder is .revmux, the backlog is
+# docs/backlog and the rulings are docs/rulings: each has that one place, and no line here.
 plans = "docs/plans"
-worktrees = ".lem/worktrees"
 # The name of a plan's file in the plans folder: YYYY, MM and DD are the day the plan was
 # written, <slug> is the task's. A plan named YYYYMMDD-<slug>.md is found too.
 plan_file = "YYYY-MM-DD-<slug>.md"
@@ -33,13 +27,13 @@ protected = []
 # tests/all.sh runs every suite of the repository and ShellCheck at the same time; its last line
 # says whether all passed, which is what the landing shows of each command.
 commands = ["bash tests/all.sh"]
-# Paths the checks do not read. When the base branch moves after green checks by these files
-# only, the result stands; any other file means the checks run again. A `*` crosses directories.
-ignores = []
 # What a fresh worktree of this project needs before its tests can start: install the packages,
 # copy an environment file. The check that each criterion's tests fail on the base commit runs in a
 # worktree of its own and runs these there first. Leave it empty when the tests start as they are.
 setup = []
+# Commands that need the machine to themselves: an end-to-end suite that uses fixed ports, one
+# database or a browser. None here: tests/all.sh runs the Chrome suites beside the others.
+alone = []
 
 [flow]
 # What must never go wrong in this project, each as one sentence in the owner's words. No code
@@ -111,11 +105,8 @@ collect = true
 # started = "In Progress"
 # landed = "Done"
 
-[tools]
-# The skill or command the owner marks up a plan or a draft with. "webrev" is the one Lem
-# recommends, a recipe of the agterm cookbook that you install; name your own instead.
-annotate = "webrev"
-# How a question that asks the owner to choose or to approve reaches him. "lem-ask" comes with
-# Lem and shows a page with the options side by side. "terminal" asks in the conversation, as a
-# numbered list. Or name a skill or a command of your own.
-ask = "lem-ask"
+[naps]
+# Now and then, when a task has ended or Lem waits for the owner, Lem takes a nap: a fresh agent
+# reads the recent tasks, dreams, and writes the dream down in .lem/state/naps/, which the retro
+# reads. Off here.
+on = false

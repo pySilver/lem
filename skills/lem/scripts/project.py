@@ -178,9 +178,12 @@ that waits for the owner. The effort may be left out (`codex/gpt-6.1-sol`), and 
 (`codex`, `codex:high`): the part left out is that agent's own default, and Lem passes nothing for
 it. `show` gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written.
 
-A file with the tables of an older Lem, `[gate]` (the checks' older name), `[seats.reviewer]` (with
-`agent`, `model` and `plan_effort`) or `[seats.planner]`, is refused once, with every such table
-named and the whole text to write in their place.
+A file in the form of an older Lem is refused once (`older_form`): the tables `[gate]` (the checks'
+older name), `[seats.reviewer]` (with `agent`, `model` and `plan_effort`) and `[seats.planner]`,
+with the whole text to write in their place; and each key and table that is gone (`GONE_KEYS`,
+`GONE_TABLES`, the place keys of [paths]), with the line to delete and, for a place that names
+another folder, the move. A task branch's own copy in a worktree is read as now instead, with one
+line on stderr (`now_form`).
 
 A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
 `<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it; a plan named `YYYYMMDD-<slug>.md`, as an older Lem
@@ -429,7 +432,9 @@ protected = []
 
 [checks]
 # The machine checks of a landing, each run at the root of the task's worktree: the whole suite,
-# which runs here one time, before the pull request, and in no builder.
+# which runs here one time, before the pull request, and in no builder. A linter and a type
+# checker belong in a git hook, which runs at each commit; a test suite belongs here, since a hook
+# must be fast and "green" must be what this script saw.
 commands = []
 # What a fresh worktree of this project needs before its tests can start: install the packages,
 # copy an environment file. The check that each criterion's tests fail on the base commit runs in a

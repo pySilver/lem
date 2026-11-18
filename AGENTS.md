@@ -29,7 +29,7 @@ works, and this file says how to change it.
   never into `new`, `land` or `review`.
 - **Scripts are standard-library Python, 3.11 or newer**, print JSON for an agent to read, and
   refuse a wrong input with exit 1 and a message that names the fix. No silent default for a
-  choice that is the owner's (`project.py init --existing`).
+  choice that is the owner's (`project.py init` with no base it can tell asks for `--base`).
 - **A change is measured by what it costs a developer on a small task** (the touches it asks of
   him, the waits, the agents it starts) as well as by what it guards.
 - **Documentation describes the current state.** No changelog paragraphs, no "previously".
@@ -830,7 +830,7 @@ bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and wh
 bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path or wraps a call
 bash tests/lem-alone.sh        # the commands that need the machine to themselves (checks.alone): lem project alone, its one lock, and the checks that use it
 bash tests/lem-naps.sh         # the naps: the [naps] settings and lem project may-nap
-bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
+bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, in their one place
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs
 bash tests/test-board.sh       # the board over a repository whose tasks stand in every lane; loads its pages in headless Chrome when one is installed
@@ -862,9 +862,11 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   script that touches the state asks it, directly or through `project.py state-dir`),
   `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
   and finds a plan of the older name `YYYYMMDD-<slug>.md`),
-  `project.py` (a repository's settings, task state, the event log, and `waiting`, the one list of
-  what waits for the owner),
-  `doctor.py` (the machine, and a row when more than one place registers the correction hook),
+  `project.py` (a repository's settings, the one place of each file Lem reads beside them
+  (`PLACES`), the one refusal of a settings file of an older form (`older_form`), task state, the
+  event log, and `waiting`, the one list of what waits for the owner),
+  `doctor.py` (the machine, with the three recipes of the agterm cookbook Lem needs, webrev, agdoc
+  and the backlog, and a row when more than one place registers the correction hook),
   `board.py` (opens the board), `land.py` (the landing, one refusable step at a time: the
   machine checks, the review's floor and its record, the pull request, the merge, and the watch
   of the open pull requests on the forge),
@@ -878,7 +880,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   each choice that waits for him `flow.decision_wait` minutes at most, with the experts' advice
   on it, which the landing reads).
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both, and
-  on the board of all tasks a second tab for the backlog.
+  on the board of all tasks a second tab for the backlog, its items in groups by their own `worth`.
   `lem.css` beside it is the look every page of Lem shares: its colors, its type, its header
   and the blocks of a page to read. `handover.html` is the pattern of the onboarding's page.
   A new page for the owner links `lem.css` and brings no style of its own.
@@ -903,7 +905,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `backlog/`, Lem's own deferred work, and `plans/`, the plans that built Lem: each finished one
   opens with a status line that names its commits and where later decisions changed it.
 - `.lem/`: Lem's own settings, profile, cast and lessons, from its onboarding, which `/lem` reads
-  when Lem runs in this repository. Its `state/` folder, which git ignores, is the state of a
+  when Lem runs in this repository; each file has that one place in every repository. Its `state/` folder, which git ignores, is the state of a
   repository's Lem: the tasks, the event log, the night reports, the naps, the experts' folders
   and the copies a panel read; `lem_state.py` names it. `.revmux/`: the review tool's profiles, lenses and project
   profile for this repository.
@@ -944,5 +946,6 @@ and lem-ask's Stop hook (`skills/lem-ask/hooks/hooks.json`) is registered by not
 the capability rule when a second agent has to run it, not before.
 
 The set is deliberately small. A tool with its own life (revmux, agterm, the mailbox chat, webrev,
-agdoc, cronn, plannotator, Codex) is checked for by `doctor.py` and never copied in, and a project that prefers its own tool for a
-role says so in its settings or its `AGENTS.md`.
+agdoc, the backlog recipe, cronn, plannotator-tui, Codex) is checked for by `doctor.py` and never
+copied in. The backlog's item format is the recipe's, and Lem's builders read it in rule 6 of
+`agents/lem-builder.md`; no builder loads the recipe's skill, which is the owner's own tool.
