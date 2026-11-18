@@ -54,17 +54,17 @@ script in `AGENTS.md` that prepares a worktree.
 | `.lem/project.toml` | yes | the [settings](settings.md) |
 | `.lem/profile.md` | yes | what the product is |
 | `.lem/personas/` | yes | the people that a change affects |
-| `.lem/lessons.md` | yes | how agents work here. A line that starts with a stage name, such as `new:`, corrects that stage of Lem |
+| `.lem/lessons.md` | yes | how agents work here |
 | `docs/plans/` | yes | the plan of each task on the standard track |
 | `docs/backlog/` | yes | work for later |
 | `docs/rulings/` | yes | your decisions about the product |
-| `.claude/rules/` | yes | your rules for the code. Lem reads them, and writes none |
+| `.claude/rules/` | yes | your rules for the code, which Lem only reads |
 | `.revmux/` | yes | the folder of the review tool |
 | `.lem/project.local.toml` | no | the settings of this computer |
 | `.lem/worktrees/`, `.lem/state/` | no | the worktrees, the tasks and the board |
 
-The [settings](settings.md#paths) can name another folder for the plans and for the rulings. Each
-other path is fixed: if your repository keeps one in another folder, move it with `git mv`.
+The [settings](settings.md#paths) can name another folder for the plans and the rulings. Move any
+other folder with `git mv`.
 
 ## The correction queue
 
