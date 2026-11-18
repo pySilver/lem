@@ -1,6 +1,6 @@
 # The polish pass
 
-Step 3 of `stages/land.md`, for a full change.
+Step 3 of `stages/land.md`, on the standard track.
 
 The task's own work is done, so this is the one moment for what it left around it, before the checks
 and the review, so that the review reads the code as it will merge. Rules and reviews do not catch
@@ -21,7 +21,7 @@ and the pull request's checks say how many commits it made and how many items it
 runs once for a task, here, and never after each task of a plan; a builder of a later job of this
 landing has the same list in its brief. So when the landing comes back here from a later step and
 `lem land polish` prints `"done": true`, go on to step 4 of `stages/land.md`. `checks` refuses a
-full change with no pass on the tip it checks. A rewrite of the branch after the pass, other than
+task on the standard track with no pass on the tip it checks. A rewrite of the branch after the pass, other than
 the rebase of `base`, asks for the pass again: `checks` says so.
 
 Read `report.md` again after the pass: its builder brought it up to what it did, the documents it

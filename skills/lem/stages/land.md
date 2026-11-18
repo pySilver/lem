@@ -6,7 +6,7 @@ machine checks and a review by an agent that did not build it. One task is in th
 time: the checks are about one tip on one base, and two at once would each be tested without the
 other.
 
-A small change lands by five steps and no more: `start`, `base`, `checks`, the review at its
+A task on the fast track lands by five steps and no more: `start`, `base`, `checks`, the review at its
 floor, which is one read by the review agent itself, and `propose`. It has no polish pass (step
 3): its builder filed what it saw outside the change. Its criterion's check runs once, in the checks,
 and its pull request is short: green or not green, the acceptance criterion, the checks with the
@@ -65,12 +65,12 @@ one finds what the run before it finished.
    same files meet, and it is not yours to resolve: the step prints the files and undoes the
    rebase. `spawn-builder` with the brief below, the job "the repair of a conflict with the
    base", and as its paths the branch to rebase onto and those files. Then run the step again.
-3. **`polish`: the polish pass**, for a full change: read `stages/polish.md` now and follow it.
-   A small change never has the pass, and `lem land polish` refuses one: one builder changed one rule, its own checks ran, the review reads every line of it, and
+3. **`polish`: the polish pass**, on the standard track: read `stages/polish.md` now and follow it.
+   The fast track never has the pass, and `lem land polish` refuses one: one builder changed one rule, its own checks ran, the review reads every line of it, and
    its builder filed each defect it saw outside the change in a commit of its own, which the pull
    request lists.
 4. **`checks`: the machine checks**, with no model in them, on the tip that will be proposed.
-   - The polish pass is on that tip (step 3): the step refuses a full change without one before any
+   - The polish pass is on that tip (step 3): the step refuses a task on the standard track without one before any
      command runs.
    - Every command of the settings' `checks.commands` runs at the root of the task's worktree,
      each with its output in a file of the task directory. The step keeps the exact last line of
@@ -88,11 +88,11 @@ one finds what the run before it finished.
    - The change did not lower the bar: no new lint or type suppression, no skipped or deleted
      test, no fewer assertions in a test file. A lowered bar passes only with a reason for that
      file in the plan, under `## The bar`, as `- PATH: REASON`; and then the request is not
-     green (step 6), because the owner reads that line himself. A small change has no plan for
-     the reason, and the step refuses its lowered bar: it is a full change, and you tell the
-     owner so in one line and go on with an interview, as `stages/new.md` says for "A small
-     change", step 3.
-   - The size of the change is counted, for the review.
+     green (step 6), because the owner reads that line himself. The fast track has no plan for
+     the reason, and the step refuses its lowered bar: the task takes the standard track, and you tell the
+     owner so in one line and go on with an interview, as `stages/new.md` says for "The fast
+     track", step 3.
+   - The size of the change, in files and changed lines, is counted, for the review.
 
    A check that fails is work, and a builder's: `spawn-builder` with the brief below, the job
    "the repair of a failed check", and as its paths what the step printed (the commands that
@@ -120,8 +120,8 @@ one finds what the run before it finished.
      agent changes nothing. It first reads the diff against each of the project's topics
      (`topics` in `read.json`, the main checkout's) and makes the careful call, the last of the
      three and the only one at the code itself: `careful` with one line of why in its record. Then
-     it chooses what the change gets, within the floor `read.json` names: one read for a small and
-     simple change, by the review agent itself for a small change (`small` in `read.json`), a
+     it chooses what the change gets, within the floor `read.json` names: one read for a short and
+     simple change, by the review agent itself on the fast track (`small` in `read.json`), a
      round with the profiles that fit for every other one, the project's full set
      for a careful request, and for one it calls careful itself. It reads the diff and what each profile
      and lens of the review tool says it is for, and it writes one reason for each one it runs
@@ -163,7 +163,7 @@ one finds what the run before it finished.
    not green otherwise.
 6. **`propose`**, with `--title` and `--notes`. The title is the report's commit subject. The
    notes are a file you write in the task directory, `notes.md`, from `report.md` and the last
-   review's file. A small change's notes are the should findings the review left, one line each
+   review's file. The fast track's notes are the should findings the review left, one line each
    with its file, or the one word `none`, and `## Migration` when it is careful. Every other
    request's have these headings, each holding what is true of this task or the one word `none`:
    - `## Decisions`: what the record of the task's decisions does not hold, one line each: what
@@ -187,7 +187,7 @@ one finds what the run before it finished.
    the bar where it was; a review with at least one source left no must-fix and saw the change
    as it is; no criterion changed during the build; nothing of the owner's went past the
    personas without him (`stages/ladder.md`), and no criteria were approved without him; the checks were the main checkout's own; no read of the criteria went unanswered twice;
-   and a small change is not careful. A green request needs no read from the owner. The step refuses while a
+   and a task on the fast track is not careful. A green request needs no read from the owner. The step refuses while a
    choice of the task waits for the owner: ask him (`stages/choice.md`), and run it again after his answer, or after his "away" took it. It refuses a request
    whose plan called for a plan talk (its own `careful: yes`, or more than three tasks) and whose
    event log holds no `plan.talk`: its lead skipped the talk (`stages/talk.md`). Lem opens the plan
@@ -210,7 +210,7 @@ one finds what the run before it finished.
    owner reads either way. The state becomes `open`, and the landing line is free.
    Tell the owner once, in two lines at most: the pull request's address (or that the branch is
    ready to land), and green, or not green with the reasons as the step printed them. The text
-   is the report; do not say it again in your own words. For a full change, read
+   is the report; do not say it again in your own words. On the standard track, read
    `stages/pages.md` now and follow it. Then, when it opened or updated a pull
    request and no watch of yours runs, start one (`run-in-background`, `lem
    land watch`): the forge tells nobody when the owner merges or closes it,
@@ -282,8 +282,9 @@ one finds what the run before it finished.
    start the watch again while a task is `open` with a pull request.
 
 Every way out of this stage writes a state other than `landing`: `open`, `landed`, `dropped` for a
-pull request the owner closed, or `blocked`, or `held` for a small change that step 4 found to be a
-full change, whose interview starts with it.
+pull request the owner closed, or `blocked`, or `held` for a task on the fast track that step 4 found
+to need the standard track, whose interview starts with it.
+
 
 The brief for each builder of this stage is these lines and nothing more. Its standing text is
 `prompts/landing.md`, so that you do not say a step again in your own words:

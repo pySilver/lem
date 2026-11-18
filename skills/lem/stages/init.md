@@ -192,7 +192,7 @@ checks remove such files after every run anyway (`stages/land.md`, step 4), so t
 developer's own checkout tidy and nothing waits on them. Then remove what the commands left, the
 way it came: the files they wrote, never a file that was there before. In a Python module with
 no `.gitignore`, the checks' `python3 -m unittest` left two `__pycache__` folders, the checks of that
-day refused the tree, and the first small change ended in a second task for the ignore rule (a
+day refused the tree, and the first task on the fast track ended in a second task for the ignore rule (a
 scratch repository, 2026-11-17).
 
 Lower `flow.max_tasks` when `examined.md` shows tests that share one database or drive a browser,

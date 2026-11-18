@@ -38,12 +38,12 @@ forge calls it conflicting.
      you cannot keep, or a criterion that is missing, is a decision of the build (`stages/build.md`,
      "A choice in the build") with its own record (`lem decisions criterion`), never a silent edit:
      `show`, `record` and `red` refuse a plan whose criteria are not the approved ones with each
-     recorded change, word for word, or whose `Size:` is not the approved size. Criteria approved
-     as a small change do not reach a lead: a small change has one builder and no plan
-     (`stages/new.md`, "A small change"), and one that is a full change after all comes to you
-     with his approval of its criteria as a full change. A plan's size is always `full`:
+     recorded change, word for word, or whose `Size:` is not the approved one. Criteria approved
+     for the fast track do not reach a lead: the fast track has one builder and no plan
+     (`stages/new.md`, "The fast track"), and a task that needs the standard track after all comes to you
+     with his approval of its criteria for that track. A plan's criteria always say `Size: full`:
      `criteria.py` and `land.py` refuse a plan that says `Size: small`;
-   - with no approved criteria (a full change from a complete request), write them.
+   - with no approved criteria (the standard track from a complete request), write them.
      A criterion is one business rule of the request in plain language with one concrete example,
      with real names and values: what a person of the project would see, never how the code does
      it. Take them from the outcome and the "done when" of `task.md`, now that you have read the
@@ -51,10 +51,10 @@ forge calls it conflicting.
      the criteria wait for him, as for a doubt of the personas below, with the criterion as you
      would guess it and each other reading beside it as a proposal. The first line of that section
      is `Size: full`, with the reason after `because`, also for a plan of one criterion: a plan
-     never makes a change small. One plain change with nothing careful is a small change, which
-     has one builder and no plan (`stages/new.md`, "A small change"), and Lem chose this path for
-     the task before you started. When the code shows you that it is one, still write the full
-     change, and say in the report that it was a small change, for Lem's next call of a size;
+     never puts a task on the fast track. One plain change with nothing careful takes the fast track, which
+     has one builder and no plan (`stages/new.md`, "The fast track"), and Lem chose this path for
+     the task before you started. When the code shows you that it is one, still write the plan,
+     and say in the report that the fast track would have fit, for Lem's next call of a track;
    - then the personas read the criteria you wrote. Here
      the read always runs, as the only approval of this path: the owner's word to skip it belongs
      to an interview (`stages/interview.md`, step 5), and the
@@ -77,9 +77,10 @@ forge calls it conflicting.
      approve SLUG --read`, which takes the plan's criteria and refuses any other text than the one
      the read names. It freezes the task's first contract only, and is refused once the task has any
      approval: from then on a criterion the build changes has its record (`lem decisions criterion`),
-     and the size is his to change. It is never his yes. The build starts with no wait, and your
+     and the track is his to change. It is never his yes. The build starts with no wait, and your
      next state block says `nobody confused, read by N personas, one model family`, where he sees it
-     and can stop the task. The landing refuses a full change with no such event. A doubt: the
+     and can stop the task. The landing refuses a task on the standard track with no such event.
+ A doubt: the
      first line of code waits. Write `report.md` with the criteria and the answers that flagged
      them on top, quoted, and the line `the criteria wait for the owner`; write the state `held`
      with that line, and stop. Leave a flagged criterion as you wrote it: what you would change goes

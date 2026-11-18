@@ -24,10 +24,11 @@ that is started again after it stopped.
    to outlive the worktree.
 3. **The lead.** Write a lead's `coordinator:` and `socket:` lines again with your own
    values when they are not yours (a brief written by a Lem before you, or one with no such
-   lines): a lead tells the session those lines name. A small change's brief has none: its
+   lines): a lead tells the session those lines name. The fast track's brief has none: its
    builder's reply is its only word. Write the state `building` first, with the line `lead:
    builder` or `lead: session` as the brief says, or `small change: one builder` for a brief that
-   names `prompts/small.md`, so the next `may-start` counts this task. A small change's builder
+   names `prompts/small.md`, so the next `may-start` counts this task. The fast track's builder
+
    gets one more line, its start for the board, as it starts: `lem
    project log SLUG builder.start "job=the small change"`; its state of
    `ready` or `held` is its end. The task's first block carries the type line of step 1 of "Open

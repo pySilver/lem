@@ -1,6 +1,6 @@
 # When a lead stops
 
-A builder's reply is the path of its report, and a small change's builder replies with the
+A builder's reply is the path of its report, and the fast track's builder replies with the
 report itself, which you write into `report.md`. The defender of a plan talk sends one message
 that starts with `lem:` and names the task. Either is only a wake-up. The fact is the task's
 newest state block: `lem project tasks`, then read the task's `report.md`.
@@ -36,14 +36,15 @@ these comes "The queue", the last section of that file:
 - **`held`**: the task waits for the owner on what is no decision with options; a decision of
   his never holds a task, since it is asked and waits its time while the work goes on
   (`stages/choice.md`). The state's line says which of four it is:
-  - *the criteria wait for the owner*: a lead of a full change from a complete request whose
+  - *the criteria wait for the owner*: a lead on the standard track from a complete request whose
     criteria a persona doubted, or
     that met a rule it could not write without a guess, or whose request somebody else wrote,
     puts the criteria and the answers on top
     of its report. Put them to him as step 6 of `stages/interview.md` says,
     with the lead's read as the result on top, freeze his answer with step 7, and start a lead: it
-    copies the approved criteria. A small change that its builder found to be a full change goes to
-    him as `stages/new.md` says in "A small change", step 3;
+    copies the approved criteria. A task on the fast track whose builder found that it needs the
+    standard track goes to him as `stages/new.md` says in "The fast track", step 3;
+
   - *one more fact*: the investigation's, as `stages/investigate.md` says;
   - *a step that is his to do*, and no decision at all: a trust prompt of the reviewer's agent, a
     command an agent is refused. Tell the owner that step as it is, with where he does it; it

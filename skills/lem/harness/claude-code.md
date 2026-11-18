@@ -135,7 +135,7 @@ also the build of a careful or large plan after its talk (a subagent that inheri
 2026-11-14; not run yet from a `lem-builder`). The persona agents of a lead's read of its
 acceptance criteria start the same way. The scout of an interview is a builder too, with
 `prompts/scout.md` as its brief, and so are the investigator of a bug or a question, with
-`prompts/investigator.md`, and the one builder of a small change, with `prompts/small.md`, which Lem
+`prompts/investigator.md`, and the one builder of the fast track, with `prompts/small.md`, which Lem
 starts from its own session as it starts a lead. A
 builder has no pane of its own, so no reviewer sits beside it and the owner cannot type to it. A
 careful or large plan gets a companion session for its talk for that reason: the talk needs the

@@ -15,15 +15,15 @@ Nothing asks him.
    (`worth: no`); one that a branch, a worktree, an open plan or a task already holds; one that
    asks for a choice and states no defect or job; and one in reach of a topic (`flow.topics` in
    `lem project show`) or in doubt, read as step 1 of `stages/new.md` reads an ask: a careful
-   change needs the owner and the plan talk. Size the rest as that step sizes an ask, and order
-   them: the small changes first, then the others by how much they change, and within one size
+   change needs the owner and the plan talk. Give the rest a track as that step does for an ask, and order
+   them: the fast track first, then the others by how much they change, and within one track
    `worth: yes` first. Take the first `flow.max_tasks` of them.
 3. **Each one runs without the owner.** In that order, open the task as `stages/new.md` does,
    with the item's path as the ask and `--night YYYY-MM-DD` on its `lem project task-dir`, with
    the night's date: it marks the task as the night's, and it runs without the owner until he
    says `/lem active`. From there the task takes the path that `stages/new.md` chose, as any
    task that runs without the owner does (`stages/away.md`). A lead's brief carries `request by: someone else`, since nobody at the
-   terminal read the item, so a full change's criteria are approved with `--alone` and its pull
+   terminal read the item, so the criteria of a task on the standard track are approved with `--alone` and its pull
    request is not green for them. A line a stage file tells the owner goes into the night
    report. `lem project may-start` queues a task over the limit, as by day.
 4. **Stay until each one stops.** A lead or a builder that stops wakes this session, which acts

@@ -1,8 +1,8 @@
-# `careful`, `full`, `drop`
+# `careful`, `standard`, `drop`
 
-Read when the owner corrects a task: `/lem careful [task]`, `/lem full [task]`, `/lem drop
+Read when the owner corrects a task: `/lem careful [task]`, `/lem standard [task]`, `/lem drop
 [task]`, or a sentence that plainly says the same ("be careful with this one", "drop the footer
-task"). Lem's first line for a request ends with these words, so that his next message can
+task"). `full`, the older word, typed by habit, is taken as `standard` for now. Lem's first line for a request ends with these words, so that his next message can
 correct its read.
 
 **Which task.** The one he names. With none named, the task this conversation is about, when
@@ -32,13 +32,13 @@ the lead read wrong, is a lesson about that judgment (`stages/learn.md`). Someth
 may be a rule for later tasks or a wish for this one task: only he knows, and only his yes puts a
 topic into the settings.
 
-## full
+## standard
 
-A small change becomes a full change with an interview, until its pull request exists: the
-interview (`stages/interview.md`), the personas' read, and his approval, which replaces the small
-change's. A builder that runs then finishes, and its commits stay on the branch for the lead. A
-change of the size from small to full is his or its builder's; a change of the type is his only.
-Once its pull request exists (the task is `open` or ended), say in one line that the size no
+A task on the fast track takes the standard track with an interview, until its pull request exists:
+the interview (`stages/interview.md`), the personas' read, and his approval, which replaces the
+fast track's. A builder that runs then finishes, and its commits stay on the branch for the lead. A
+move from the fast track to the standard track is his or its builder's; a change of the type is his
+only. Once its pull request exists (the task is `open` or ended), say in one line that the track no
 longer changes, and that a new request does it.
 
 ## drop

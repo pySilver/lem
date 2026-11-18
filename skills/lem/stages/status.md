@@ -7,7 +7,7 @@ A task's own board also shows its criteria, as the top of its plan has them: eac
 that hold it and what the last check of those tests gave. `lem criteria
 show SLUG` prints the same. The criteria are what the owner reads of a task; the rest of the plan
 is the agents'. For a status of one task, say its criteria in his words before anything else.
-Then, for a full change that was proposed, `show-page` the page of what was built and decided,
+Then, for a task on the standard track that was proposed, `show-page` the page of what was built and decided,
 `page.html` in its task directory; when it has `built.md` and no page yet, make the page first,
 as `stages/pages.md` says.
 

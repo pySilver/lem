@@ -1,6 +1,6 @@
-# The owner's page of a full change
+# The owner's page of a task on the standard track
 
-Step 6 of `stages/land.md`, after `propose`, for a full change.
+Step 6 of `stages/land.md`, after `propose`, on the standard track.
 
 `propose` wrote two files into the task directory, which `pages` in its output names: `built.md`,
 what the owner asked, what was built and why, and what was not built; and `decisions.md`, each

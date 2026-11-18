@@ -33,7 +33,7 @@ does not take the task to its report.
    reach it. When the task needs the result of another task that is not landed, `plan.md` says
    how you queue it behind that task (`queued` with `after: SLUG`) instead of writing a plan. You write the plan and no code: each task of the plan goes to a fresh builder, also
    the one task of a plan that has one. A plan's criteria are always `Size: full`: one plain
-   change is a small change, which has no lead and no plan, and `criteria.py` and `land.py`
+   change takes the fast track, which has no lead and no plan, and `criteria.py` and `land.py`
    refuse a plan that says `Size: small`.
 4. **Work only in the worktree.** Commit on the task's branch. Never push, merge, land, change
    another branch or touch the checkout the worktree came from.

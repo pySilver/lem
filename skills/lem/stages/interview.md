@@ -1,6 +1,6 @@
 # The interview and the acceptance criteria
 
-A full change with an interview, between step 5 and the brief of "Open the task" (`stages/new.md`).
+The standard track with an interview, between step 5 and the brief of "Open the task" (`stages/new.md`).
 He is there for it, and it ends with criteria he approved, which the lead may not change without
 the record saying so.
 
@@ -97,7 +97,7 @@ the record saying so.
    The landing knows his word by `--by owner` and those two texts, word for word, and takes it
    only with an approval of his after it and before any lead of the task started; the pull request
    then says "the criteria: not read by the personas, on the owner's word (DATE); the owner
-   approved them", and stays green, since the decision was his. For a full change from a complete
+   approved them", and stays green, since the decision was his. On the standard track from a complete
    request this question is never asked: there the read is the only approval (`stages/plan.md`,
    step 1), and the landing refuses a word to skip it that comes after the lead started.
 6. **His yes.**
@@ -120,7 +120,7 @@ the record saying so.
    each change of his. The criteria are then kept word for word with a digest, and the plan's
    criteria have to be those, with only the test lines added: a criterion the build changes, adds or
    drops has its own record (`lem decisions criterion`), and the pull request is not green for it.
-   Go on with step 6 of "Open the task" (`stages/new.md`). The landing refuses a full change
+   Go on with step 6 of "Open the task" (`stages/new.md`). The landing refuses a task on the standard track
    whose criteria nobody read and whose read he did not skip (step 5), and one whose read found a
    doubt with no yes of his after it.
 

@@ -17,10 +17,10 @@ Your brief gives you one of seven jobs:
   its word to Lem, in that order.
 - **It names a plan file and one task's section: you build that one task** and nothing beside
   it.
-- **It names `prompts/small.md`: you make one small change**, the one task of a request that has
+- **It names `prompts/small.md`: you make one change on the fast track**, the one task of a request that has
   no plan. Read that file and follow it: it gives the test, the checks you run, the
   filing of each defect outside the change and the report in place of rules 3, 4, 6 and 9 below,
-  and the check before you commit that makes the request a full change when it is not small.
+  and the check before you commit that moves the request to the standard track when the fast track does not fit.
 - **It names `prompts/review.md`: you review one task's change** and change nothing. Read that
   file and follow it; rules 3 to 6 below are about a builder that edits, which you are not here.
 - **It names `prompts/scout.md`: you read the code around a request** while Lem interviews the
@@ -84,7 +84,7 @@ What holds for every builder, unless your job says otherwise as above:
    nothing else. When the write of the report file is refused to you, do not go around the
    refusal by another tool: your reply is then the whole report, and the one who started you
    keeps the file. A brief that gives the report its own form and says that your reply is the
-   report (a small change's) names no file, and you write none.
+   report (the fast track's) names no file, and you write none.
 10. **Leave no file of your own runs.** Before you report and write the state that ends your
     work, `git status --short` in your worktree is empty, in every job. What your own commands
     left untracked (a

@@ -76,7 +76,7 @@ task's record through one script, which also puts it on the board:
 lem decisions --repo WORKTREE log SLUG --what TEXT --chose TEXT --why TEXT --by lead [--undo TEXT]
 ```
 
-A criterion the owner approved, or that the lead's read froze for a full change from a complete
+A criterion the owner approved, or that the lead's read froze on the standard track from a complete
 request (`lem criteria approved SLUG`), changes in the plan only with its own record, written
 before the commit that changes it, with its text before and after:
 
@@ -93,9 +93,10 @@ lead's own change that is nobody's choice, such as a typo in an example.
 A criterion whose rule changes, comes or goes is never the lead's alone: it climbs the ladder
 (step 2). `criteria.py`
 refuses the plan until its criteria are the expected ones, word for word, and the pull request is
-not green for each change. A plan's size (`Size:`) is always `full`, and `criteria.py` refuses
-a plan that says `Size: small`: a build never turns a full change into a small change, which
-has no plan, and the size is no choice of this section. A plan that departs from a direction
+not green for each change. A plan's `Size:` line always says `full`, and `criteria.py` refuses
+a plan that says `Size: small`: a build never moves a task from the standard track to the fast
+track, which has no plan, and the track is no choice of this section.
+ A plan that departs from a direction
 (`directions.md`) is a decision of this section too, with the direction in `--what`.
 
 1. **The criteria and the directions stay true**: decide it yourself, from the code, the settings

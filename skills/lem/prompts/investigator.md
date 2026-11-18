@@ -24,8 +24,8 @@ beside it.
 3. **Look how far the same cause reaches**: the other callers of that symbol, the other inputs
    that take the same path, the other places that copy the same mistake.
 4. **Make your call** of what follows, one of four:
-   - *small*: the cause is plain, and one rule in the owner's words fixes it;
-   - *full*: the cause is plain, and the fix is a larger change (more than one rule, a design
+   - *small*: the cause is plain, and one rule in the owner's words fixes it: Lem's fast track;
+   - *full*: the cause is plain, and the fix needs Lem's standard track: a larger change (more than one rule, a design
      choice, a cause in reach of a topic of `flow.topics` in `lem project show`);
    - *not a bug*: the code does what it should, and the request expected something else;
    - *not reproduced*: no try showed the bug.

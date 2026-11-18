@@ -1,4 +1,4 @@
-# The brief of the owner's page of a full change
+# The brief of the owner's page of a task on the standard track
 
 `stages/pages.md` fills it, after `propose` wrote `built.md` and `decisions.md`, and `make-page`
 passes the text in the fence as it is. The `{{...}}` values are the task's, from the table under

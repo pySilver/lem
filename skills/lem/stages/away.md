@@ -24,7 +24,7 @@ alone` is the lock of the machine.
    The personas' read runs, since nobody can skip it now. Each criterion it flagged is settled as
    below, and then `--alone` approves the criteria. The read's answers go into the pull request.
 4. A request he types while he is away runs without a question to him: where a stage would ask
-   him, take the safer read (a full change, and careful in doubt) and log it.
+   him, take the safer read (the standard track, and careful in doubt) and log it.
 5. Tell him in one line that the tasks go on without him, and that a step a later "no" cannot
    reverse and the merge still wait for him.
 
