@@ -1710,6 +1710,27 @@ if [ "$(field '(d["companion"], d["reloaded"], d["parent"])' <<<"$out")" = "('NE
 else
   fail "board open: $out / $(cat "$WORK/calls")"
 fi
+# Any page of Lem to read opens the same way: a page companion of the session's group, and the same file shown again
+# reloads its companion. No overlay covers the session; a file that is no page and a call outside agterm are refused.
+mkdir -p "$WORK/pages" && echo '<html><body>built</body></html>' > "$WORK/pages/page.html" && echo 'text' > "$WORK/pages/notes.md"
+showpage() { : > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$PY" -B "$BOARD" "$@"; }
+first=$(showpage --page "$WORK/pages/page.html" --name "gift-note page")
+first_calls=$(cat "$WORK/calls")
+printf '%s\n' '{"result": {"tree": {"workspaces": [{"sessions": [{"id": "CCC", "name": "lem c"},' \
+  "{\"id\": \"PP\", \"name\": \"gift-note page\", \"content\": \"page\", \"parent\": \"CCC\", \"htmlOverlays\": [{\"file\": \"$WORK/pages/page.html\"}]}]}]}}}" > "$WORK/tree-page.json"
+again=$(: > "$WORK/calls"; env PATH="$FAKE:$PATH" AGT_CALLS="$WORK/calls" AGT_TREE="$WORK/tree-page.json" AGTERM_SESSION_ID=CCC AGTERM_SOCKET=/none "$PY" -B "$BOARD" --page "$WORK/pages/page.html" --name "gift-note page")
+again_calls=$(cat "$WORK/calls")
+not_page=$(showpage --page "$WORK/pages/notes.md" 2>&1 || true)
+outside=$(env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" --page "$WORK/pages/page.html" 2>&1 || true)
+if [ "$(field '(d["companion"], d["reloaded"], d["parent"], d["name"])' <<<"$first")" = "('NEW', False, 'CCC', 'gift-note page')" ] \
+  && grep -q "session overlay open --html $WORK/pages/page.html --cwd $WORK/pages --js --companion --target CCC" <<<"$first_calls" \
+  && ! grep -q "overlay open --html [^ ]* --cwd [^ ]* --target" <<<"$first_calls" \
+  && [ "$(field '(d["companion"], d["reloaded"])' <<<"$again")" = "('PP', True)" ] && grep -q "session overlay reload --target PP" <<<"$again_calls" \
+  && ! grep -q "overlay open" <<<"$again_calls" && grep -qF "is not an HTML file" <<<"$not_page" && grep -qF "not inside an agterm session" <<<"$outside"; then
+  pass "a page of Lem to read opens as a page companion of the session's group, never over the session, and the same file shown again reloads its companion; a file that is no page and a call outside agterm are refused"
+else
+  fail "a page as a companion: $first / $first_calls / $again / $again_calls / $not_page / $outside"
+fi
 night=0
 for name in lem lem-mark; do
   "$PY" -B "$PWD/assets/night.py" "$PWD/assets/$name.svg" "$WORK/$name-night.svg" && cmp -s "$WORK/$name-night.svg" "$PWD/assets/$name-night.svg" || night=1

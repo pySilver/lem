@@ -5,6 +5,13 @@
     lem board [--repo DIR] [--follow] --task SLUG   the board of one task
     lem board [--repo DIR] [--task SLUG] --no-open  write the page's files and print where; open nothing
     lem board ... --demo                            mark the state folder's tasks as examples, for good
+    lem board --page FILE [--name NAME] [--follow]  open any page of Lem to read, as a companion the same way
+
+Every page of Lem that the owner reads (the board, the page of a task, the hand-over page of the
+onboarding) opens this way, as a companion, and never as an overlay over Lem's session (the owner,
+2026-11-18: "Command like this and possibly others that opens html overlay should be opened in
+companion"). A page that waits for an answer is no such page: a question and a text to mark up
+open over the session, which waits for their result.
 
 The page is `assets/board.html`. It draws the files beside it in the state folder: `events.js`,
 which `project.py` appends to, and `meta.js`, which this script writes (the repository's name,
@@ -261,6 +268,20 @@ def show(page: Path, name: str, session: str, socket: str, window: str, follow: 
     return {"companion": target, "parent": parent, "reloaded": kept is not None}
 
 
+def open_page(page: Path, args: argparse.Namespace, session: str, socket: str) -> dict:
+    """One page of Lem to read, opened as the board opens: a page companion of the session's group,
+    known by the file it shows, so the same file shown again reloads its companion."""
+    if args.task or args.demo or args.no_open:
+        raise BoardError("--page opens one file; --task, --demo and --no-open belong to the board")
+    page = page.resolve()
+    if not page.is_file() or page.suffix.lower() not in (".html", ".htm"):
+        raise BoardError(f"--page {page} is not an HTML file: give the page to open")
+    if not (session and socket):
+        raise BoardError("not inside an agterm session, so no companion can open; give the owner the file's path instead")
+    name = args.name or page.stem
+    return {"page": str(page), "name": name, **show(page, name, session, socket, env("AGT_WINDOW_ID", "AGTERM_WINDOW_ID"), args.follow)}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="lem board", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=env("AGT_SESSION_PWD") or ".", help="a directory inside the checkout (default: the current one)")
@@ -268,10 +289,17 @@ def main() -> None:
     parser.add_argument("--follow", action="store_true", help="switch to the board after it opens")
     parser.add_argument("--no-open", action="store_true", help="write the files and print the page's path; open nothing")
     parser.add_argument("--demo", action="store_true", help="the state folder holds example tasks: every board of it says so from now on")
+    parser.add_argument("--page", metavar="FILE", help="open this HTML file as a page companion, as the board opens, or reload the one that shows it")
+    parser.add_argument("--name", help="with --page: the companion's name (default: the file's name)")
     args = parser.parse_args()
     session = env("AGT_SESSION_ID", "AGTERM_SESSION_ID")
     socket = env("AGT_SOCKET", "AGTERM_SOCKET")
     try:
+        if args.page is not None:
+            print(json.dumps(open_page(Path(args.page), args, session, socket), indent=2))
+            return
+        if args.name is not None:
+            raise BoardError("--name goes with --page: the board names itself")
         if not args.no_open and not (session and socket):
             raise BoardError("not inside an agterm session; --no-open writes the page without one")
         page, repo = prepare(args.repo, args.task, session, args.demo, keep_session=args.no_open)

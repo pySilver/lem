@@ -8,7 +8,7 @@ that hold it and what the last check of those tests gave. `lem criteria
 show SLUG` prints the same. The criteria are what the owner reads of a task; the rest of the plan
 is the agents'. For a status of one task, say its criteria in his words before anything else.
 Then, for a task on the standard track that was proposed, `show-page` the page of what was built and decided,
-`page.html` in its task directory; when it has `built.md` and no page yet, make the page first,
+`page.html` in its task directory, as a companion beside the board (a second `/lem status SLUG` reloads it); when it has `built.md` and no page yet, make the page first,
 as `stages/pages.md` says.
 
 Every project of Lem has personas, and a project without them has an onboarding that is not

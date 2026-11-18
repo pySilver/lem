@@ -245,7 +245,7 @@ persona file that is there is overwritten.
 Commit the settings and the generated files on a branch of their own, `chore/lem-onboarding`.
 It is not landed yet: the owner's read of the drafts is the review.
 
-`show-page` one page to the owner, built from the pattern `SKILL_DIR/assets/handover.html`: copy
+`show-page` one page to the owner, a companion beside the session, built from the pattern `SKILL_DIR/assets/handover.html`: copy
 that file and `SKILL_DIR/assets/lem.css` into the onboarding's directory, put the facts in the
 place of its words in capitals and of its example rows, repeat a block as the content needs and
 remove a section that has nothing to say. Keep its classes and add no style of your own. The
