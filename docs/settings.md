@@ -17,7 +17,7 @@ Each path is relative to the root of the repository.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `branch.base` | the default branch of `origin` | the branch that a task starts from and lands on |
+| `branch.base` | `/lem init` writes the default branch | the branch that a task starts from and lands on |
 | `branch.land` | `"owner"` | who merges: `owner`, or `agent`, which merges only a green pull request that the review called not careful |
 | `branch.history` | `"keep"` | what lands: the commits of the branch (`keep`), or one commit (`squash`) |
 | `branch.propose` | `"pull-request"` | with a remote on GitHub: a pull request that Lem opens without a question, or `merge` into the base branch with no pull request |

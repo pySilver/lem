@@ -11,7 +11,7 @@ and why.
 A pull request is not green when:
 
 - the bar, how strict your tests are, went down with a reason in the plan;
-- the review left a must-fix;
+- the review left a must-fix after two rounds, or no reviewer answered;
 - a criterion changed during the build;
 - Lem decided something of yours without you: a card whose time ended, or after "go alone";
 - the personas did not answer when they read the criteria;

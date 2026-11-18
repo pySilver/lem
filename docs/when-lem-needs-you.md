@@ -71,7 +71,8 @@ you:
 
 - each choice that waits is taken at once;
 - an interview goes on: Lem takes its own guess for each question, and writes it down;
-- the personas read the criteria, and Lem approves them without you.
+- the personas read the criteria. Two agents, and the experts when needed, settle each criterion
+  that a persona doubted. Then Lem approves the criteria without you.
 
 The pull request is not green for each thing of yours that Lem decided. Type "I am back" to take
 the tasks back. For each task, Lem tells you how many decisions it took, and if it approved the
@@ -79,6 +80,6 @@ criteria. Nothing is undone.
 
 > [!IMPORTANT]
 > After "go alone", the merge and a step that nobody can undo still wait for you. Such a step
-> destroys data outside the worktree, or spends money, or sends something to a person. It can also
+> destroys or rewrites data outside the worktree, or spends money, or sends something to a person. It can also
 > write to an outside system beyond what the settings allow. Only the part of the plan that needs
 > it waits.

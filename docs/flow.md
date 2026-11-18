@@ -9,7 +9,7 @@ flowchart TD
     size -- full --> crit[Interview, acceptance criteria, your yes]
     size -- unclear bug, or a question --> inv[An investigator finds the cause or the answer]
     inv -- one rule fixes it --> one
-    inv -- more than one rule --> crit
+    inv -- a larger fix --> crit
     inv -- no bug, or an answer --> stop([An answer, and nothing to merge])
     crit --> plan[Plan, build, polish]
     one --> checks[The checks and a review]
@@ -19,8 +19,8 @@ flowchart TD
 
 ## The first line
 
-Lem answers each request with one line before any agent starts. The line says what happens, and
-what you must do.
+Lem answers each request at once, with one line. The line says what happens, and what you must
+do.
 
 - **Type**: a Conventional Commits type such as `feat` or `fix`, or `question`, which commits
   nothing. Only you can change it.

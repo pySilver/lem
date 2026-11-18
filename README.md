@@ -66,8 +66,8 @@ Lem runs in agterm, with Claude Code. It needs a few more tools: [Install](docs/
 them, and `/lem init` checks each one for you.
 
 > [!TIP]
-> Codex is optional, and we recommend it highly. With Codex, a second model family reviews each
-> change. Without it, Claude reviews the work of Claude.
+> Codex is optional, and we recommend it highly. With Codex, a second model family reviews the
+> larger changes and answers as an expert. Without it, Claude reviews the work of Claude.
 
 At the root of your repository:
 

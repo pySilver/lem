@@ -13,9 +13,9 @@ out.
 | [revmux](https://github.com/umputun/revmux) and its skill | the review before each pull request |
 | [cronn](https://cronn.umputun.dev) | the scheduled retro and night plan |
 | the mailbox chat, webrev, agdoc and the backlog recipe, from the [agterm cookbook](https://github.com/umputun/agterm/tree/master/cookbook) | the messages between agents, and the pages that you read and mark up |
-| the [GitHub CLI](https://cli.github.com) `gh`, signed in | the pull requests on GitHub |
+| the [GitHub CLI](https://cli.github.com) `gh`, signed in: only with a remote on GitHub | the pull requests on GitHub |
 | [Codex](https://github.com/openai/codex): optional, highly recommended | a second model family. Without it, Claude reviews the work of Claude |
-| an [OpenRouter](https://openrouter.ai) key: optional | only [the correction queue](#the-correction-queue) |
+| an [OpenRouter](https://openrouter.ai) key: required when [the correction queue](#the-correction-queue) is on | the correction queue, and a check of each question card |
 
 `/lem init` checks each tool, and tells you how to install a missing one.
 
@@ -40,9 +40,9 @@ claude plugin install lem@lem --scope project
 5. Type `land`. Lem puts its settings on your base branch.
 
 The page also lists the allow rules that Lem adds to `.claude/settings.json`. Keep them: a builder
-runs in the background, and a permission prompt stops it until you answer. A `Stop` hook of yours
-that blocks the end of a turn also keeps a builder from its end. Let such a hook pass where
-`.lem/project.toml` exists.
+runs in the background, and a permission prompt stops it until you answer. A `Stop` or
+`SubagentStop` hook of yours that blocks the end of a turn also keeps Lem or a builder from its
+end. Let such a hook pass where `.lem/project.toml` exists.
 
 > [!NOTE]
 > With a remote on GitHub, Lem pushes the branch of each task and opens its pull request without
@@ -72,7 +72,7 @@ If your repository keeps one of these in another folder, move it with `git mv`.
 ## The correction queue
 
 With this optional queue, a retro finds a correction that you gave two times or more. A hook sends
-each message that you type, with the agent's message before it, to a small model through
+each message that you type, with the agent's message before it, to a model through
 OpenRouter. It uses the key of the person who typed it. Commands that start with `/` stay local.
 
 `corrections.collect = true` turns it on for each person in the repository. To say no for
