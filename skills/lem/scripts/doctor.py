@@ -306,6 +306,7 @@ def claude() -> list[dict]:
 
 def codex() -> list[dict]:
     row = tool("codex", "optional", "a reviewer of another model family, the second expert of a choice, and half of each persona panel",
+               "highly recommended, since without it Claude reviews the work of Claude: "
                "the reviewer is a second Claude; an expert whose seat names codex (the second of seats.experts by default, GPT-6 Astra) "
                "does not answer, so a choice that waits for the owner gets one expert's advice and, when his wait ends, the recommended "
                "option, and its pull request is not green for it; a persona panel has the answers of one model family, so a split "

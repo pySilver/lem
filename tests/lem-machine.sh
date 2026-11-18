@@ -611,10 +611,13 @@ fi
 git -C "$PPL" worktree remove --force "$WORK/people-wt"
 
 # Without Codex the codex row says what a task loses: the reviewer's other family, the second expert, half of a panel.
+# It stays optional, since nothing fails without it, and says that it is highly recommended and why.
 codexless=$(doctor | row codex without_it)
-if grep -qF "an expert whose seat names codex (the second of seats.experts by default, GPT-6 Astra) does not answer" <<<"$codexless" \
+codex_need=$(doctor | row codex need)
+if [ "$codex_need" = optional ] && grep -qF "highly recommended, since without it Claude reviews the work of Claude" <<<"$codexless" \
+  && grep -qF "an expert whose seat names codex (the second of seats.experts by default, GPT-6 Astra) does not answer" <<<"$codexless" \
   && grep -qF "its pull request is not green for it" <<<"$codexless" && grep -qF "a persona panel has the answers of one model family" <<<"$codexless"; then
-  pass "with no Codex the codex row says that the reviewer is a second Claude, that the second expert does not answer so a choice ends not green, and that a panel has one model family"
+  pass "with no Codex the codex row stays optional and says it is highly recommended, since without it Claude reviews the work of Claude: the reviewer is a second Claude, the second expert does not answer so a choice ends not green, and a panel has one model family"
 else
   fail "the codex row without codex: $codexless"
 fi
