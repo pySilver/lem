@@ -2172,6 +2172,29 @@ def type_of(text: str) -> dict | None:
     return None
 
 
+# The state lines that tell a task's track (SKILL.md, the seven lines of a fixed form), as the board
+# reads them (board.html FAST_BUILDER, FAST_GREW): the fast track's one builder; the line of a fast
+# task whose builder found that it needs the standard track; a lead, which only the standard track has.
+FAST_BUILDER = "small change: one builder"
+FAST_GREW = re.compile(r"\bthe small change is a full change$")
+LEAD_LINE = re.compile(r"lead: (builder|session)\b")
+
+
+def track_of(text: str) -> str | None:
+    """The track of a task, `fast` or `standard`, from the newest of its state lines that tells it
+    (state.md is newest block first); None while nothing has: an investigation before its call, or a
+    task queued before its first builder. Criteria that wait for the owner's yes are the standard
+    track's: the fast track's one criterion is approved in his name."""
+    for line in text.splitlines():
+        found = STATE_LINE.fullmatch(line.strip())
+        said = found["text"] if found else line.strip()
+        if FAST_GREW.search(said) or LEAD_LINE.match(said) or said.startswith(CRITERIA_WAIT):
+            return "standard"
+        if said == FAST_BUILDER:
+            return "fast"
+    return None
+
+
 def read_tasks(root: Path) -> list[dict]:
     tasks = []
     talks = newest_events(root, "plan.talk")
@@ -2215,6 +2238,8 @@ def read_tasks(root: Path) -> list[dict]:
             "talk": talks.get(directory.name),
             # the type of the request with its reason, from the newest block that names it, or null
             "type": type_of(written),
+            # `fast` or `standard`, from the newest state line that tells it (`track_of`), or null
+            "track": track_of(written),
             # what the investigation of a fix or a question found, as `log investigation` wrote it last, or null
             "investigation": investigation_now(investigations.get(directory.name)),
             # with the owner or without him now, and since when: from the owner's status and the task's own mark (`runs_without_owner`)

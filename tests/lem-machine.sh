@@ -189,6 +189,28 @@ if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "Tr
 else
   fail "doctor with the required set: $out"
 fi
+# The task picker's row: optional, with the keymap line for this machine. The line names a folder of Lem that an update
+# does not move: the marketplace's clone, else this checkout when it is a clone; a plugin's folder alone gives no line.
+# The row is found when agterm's keymap holds the line; Lem only reads that file.
+picker_row() { field '(lambda t: (t["need"], t["found"], t["line"]))(next(t for t in d["tools"] if t["name"] == "task picker"))'; }
+from_clone=$(doctor | picker_row || true)
+mkdir -p "$WORK/market/skills/lem/scripts" && touch "$WORK/market/skills/lem/scripts/picker.py"
+printf '%s\n' "{\"lem\": {\"source\": {\"source\": \"github\", \"repo\": \"pySilver/lem\"}, \"installLocation\": \"$WORK/market\"}}" > "$FAKEHOME/.claude/plugins/known_marketplaces.json"
+from_market=$(doctor | picker_row || true)
+mkdir -p "$FAKEHOME/.config/agterm"
+printf '%s\n' "command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/skills/lem/scripts/picker.py" > "$FAKEHOME/.config/agterm/keymap.conf"
+held=$(doctor | picker_row || true)
+rm -r "$FAKEHOME/.config/agterm" "$FAKEHOME/.claude/plugins/known_marketplaces.json"
+mkdir -p "$WORK/cache/lem/abc123" && cp -R "$PWD/skills" "$WORK/cache/lem/abc123/"
+from_cache=$( (cd "$MACHINE" && env -i PATH="$BIN" HOME="$FAKEHOME" "$PY" -B "$WORK/cache/lem/abc123/skills/lem/scripts/doctor.py") | picker_row || true)
+if [ "$from_clone" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $PWD/skills/lem/scripts/picker.py')" ] \
+  && [ "$from_market" = "('optional', False, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/skills/lem/scripts/picker.py')" ] \
+  && [ "$held" = "('optional', True, 'command \"Lem tasks ›\" ctrl+cmd+t --error-hud $PY $WORK/market/skills/lem/scripts/picker.py')" ] \
+  && [ "$from_cache" = "('optional', False, None)" ]; then
+  pass "the task picker's row is optional and gives the keymap line with a python3 and a folder of Lem that an update does not move, the marketplace's clone before this clone; it is found when agterm's keymap holds the line, and a plugin's folder alone gives no line"
+else
+  fail "the task picker's row: $from_clone / $from_market / $held / $from_cache"
+fi
 rm "$BIN/cronn"
 out=$(doctor || true)
 if [ "$(status_of doctor)" = 1 ] && [ "$(field 'd["ok"]' <<<"$out")" = "False" ] && [ "$(row cronn need <<<"$out")" = "required" ] && [ "$(row cronn found <<<"$out")" = "False" ] \

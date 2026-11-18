@@ -8,7 +8,8 @@ owner that. The OpenRouter key is optional, and required in a repository whose c
 on, where without it the queue stays empty and nothing says so. A recipe of the agterm cookbook that Lem needs (webrev, agdoc, the backlog) is
 required, and its row has the guide to install it by. A recommended tool is one Lem does not bring
 and a developer is better off with: its row has the guide too, and Lem installs it only on the
-developer's yes. Four rows
+developer's yes. On a machine with agterm, the optional row `task picker` gives the keymap line
+that starts `lem picker` with a chord, which the owner adds to agterm's keymap. Four rows
 are about the repository it runs in and never fail the check: its personas, the correction hook
 when more than one place registers it there, the permission mode a builder in the background
 meets there, and Lem's plugin when it is installed for the user and so loads in every repository.
@@ -25,6 +26,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -297,7 +299,66 @@ def agterm() -> list[dict]:
         "used_for": "how an agent drives agterm: overlays, sessions, panes",
         "without_it": "an agent has agterm and does not know its commands; install it from agterm's Help menu",
     }
-    return [row, skill] if row["found"] else [row]
+    return [row, skill, picker()] if row["found"] else [row]
+
+
+# The task picker: an agterm keymap line that starts it with a chord. The keymap is agterm's file, so
+# Lem only reads it, at the place agterm reads it by default.
+KEYMAP = Path(".config") / "agterm" / "keymap.conf"
+PICKER = Path("skills") / "lem" / "scripts" / "picker.py"
+CHORD = "ctrl+cmd+t"
+
+
+def stable_lem(home: Path) -> tuple[Path, str] | None:
+    """A folder of Lem whose path outlives an update of the plugin, with what keeps it new, or None. The plugin's own folder
+    is named by its commit and changes with each update, so it is never this. First the clone of
+    Lem's marketplace, which Claude Code pulls before it copies a new folder of the plugin, so it is
+    the newest Lem on the machine; the scripts of a newer Lem read the records of an older one
+    (AGENTS.md). Else this checkout, when it is a clone of Lem's repository, as for a contributor
+    who loads it with `claude --plugin-dir`."""
+    try:
+        known = json.loads((home / PLUGINS / "known_marketplaces.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        known = {}
+    for key, _ in plugin_installs("lem", home):
+        entry = known.get(key.partition("@")[2]) if isinstance(known, dict) else None
+        place = entry.get("installLocation") if isinstance(entry, dict) else None
+        if isinstance(place, str) and (Path(place) / PICKER).is_file():
+            return Path(place), "Lem's marketplace clone, which each update of the plugin pulls and never moves"
+    own = Path(__file__).resolve().parents[3]
+    return (own, "this clone of Lem, which stays where it is") if (own / ".git").exists() and (own / PICKER).is_file() else None
+
+
+def interpreter() -> str:
+    """The python3 the keymap line names: a keymap command gets the system's PATH, whose python3 is
+    older than 3.11 on a Mac. The one first on this PATH when it is the one running (its link, which
+    an upgrade keeps), else the one running."""
+    found = shutil.which("python3")
+    return found if found and os.path.realpath(found) == os.path.realpath(sys.executable) else sys.executable
+
+
+def picker() -> dict:
+    """The keymap line of the task picker for this machine, and whether agterm's keymap holds it. An
+    optional row: nothing of Lem needs the chord, and `/lem status SLUG` opens the same board."""
+    home = Path.home()
+    keymap = home / KEYMAP
+    row = {"name": "task picker", "need": "optional", "found": False, "detail": None, "line": None,
+           "used_for": "a chord in agterm that lists this repository's tasks, what waits for the owner first, and opens the board of the one picked"}
+    found = stable_lem(home)
+    if found is None:
+        return {**row, "without_it": "no chord lists the tasks, and `/lem status SLUG` opens a board. No folder of Lem here keeps its path "
+                                     "after an update: Lem's marketplace clone is not there, so a keymap line would name a folder the next update removes"}
+    root, kept = found
+    script = root / PICKER
+    line = f'command "Lem tasks ›" {CHORD} --error-hud {shlex.quote(interpreter())} {shlex.quote(str(script))}'
+    try:
+        held = any(said.lstrip().startswith("command") and str(script) in said for said in keymap.read_text(encoding="utf-8", errors="replace").splitlines())
+    except OSError:
+        held = False
+    return {**row, "found": held, "line": line, "detail": f"{keymap} holds the line" if held else f"{keymap} has no line that runs {script}",
+            "without_it": f"no chord lists the tasks, and `/lem status SLUG` opens a board. The owner adds the line to {keymap} and runs "
+                          f"`agtermctl keymap reload`; {CHORD} is the chord unless he picks another. The line names {root}, {kept}, "
+                          "and a python3 of 3.11 or newer, which a keymap command does not find on its own PATH"}
 
 
 def claude() -> list[dict]:

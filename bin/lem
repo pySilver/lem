@@ -29,6 +29,7 @@ COMMANDS = {
     "criteria": ("skills/lem/scripts/criteria.py", "a task's acceptance criteria: approve, show, record, and red on the base"),
     "decisions": ("skills/lem/scripts/decisions.py", "a task's decisions and the choices that wait for the owner"),
     "board": ("skills/lem/scripts/board.py", "the board of all tasks, or of one task (--task SLUG)"),
+    "picker": ("skills/lem/scripts/picker.py", "agterm's picker over the tasks, which opens the board of the one picked (--list prints the rows)"),
     "doctor": ("skills/lem/scripts/doctor.py", "the machine check: the tools Lem needs and recommends"),
     "corrections": ("skills/lem/scripts/corrections.py", "the queue of the owner's corrections, for a retro"),
     "experts": ("skills/lem-ask-expert/scripts/experts.py", "the experts' brief of one question, and the record of their answers"),

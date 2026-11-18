@@ -15,6 +15,7 @@ suites=(lem-settings lem-machine lem-state lem-old-tasks lem-decisions lem-land-
   test-board test-gate-panel test-ask test-ask-expert shellcheck pick)
 suites+=(lem-naps)
 suites+=(lem-command)
+suites+=(lem-picker)
 if [ -n "${LEM_TEST_LOGS:-}" ]; then
   LOGS=$LEM_TEST_LOGS
   mkdir -p "$LOGS" || exit 1
