@@ -563,6 +563,99 @@ build that follows.
   opens a pull request that says "not green: you did not approve the criteria": "Yes this is what
   I want".
 
+His review of the README and of each guide on 2026-11-18, after that build; a quote is his words.
+Where a note replaces an earlier ruling, this is the ruling now.
+
+- **The commands of his status and of a task are `/lem im-away`, `/lem im-back`, `/lem be-careful
+  [task]`, `/lem standard-track [task]` and `/lem drop [task]`.** He asked: "Whats your opinion on
+  renaming: `/lem careful, /lem standard, /lem away, /lem active` to: `/lem careful-track, /lem
+  standard-track, /lem im-away, /lem im-active`?" Careful is a mark and no track, so the session
+  proposed other words. Of `im-away`: "use it"; of `im-back`: "I like that one"; of
+  `standard-track`: "use it"; of `be-careful`: "I'm not totally sold, but this one sounds best
+  now. As far as I understand it's the command we need to run occasionally, when we change our
+  mind about task severity". These replace `/lem away`, `/lem active`, `/lem careful` and `/lem
+  standard` in the rulings above.
+- **No word and no form of a Lem before is kept.** The session had left the older command words
+  as accepted "when you type them by habit"; he wrote: "what habits? its unreleased code!!". Asked
+  whether the refusal of a settings key that went and the reading of an open task's older records
+  should go too, with the two repositories that use Lem corrected by hand: "yes, remove". The
+  rule is in "Rules for a change here".
+- **The README says a plugin that works closely with agterm, and names no operating system**:
+  "Should be rephrased as there is an agterm fork that runs on linux (and probably windows),
+  potentially it is compatible. So in fact its a plugin tightly integrated with agterm. Is it
+  Claude Code exclusive? Now yes, but it will work with Codex as 1st class citizen very soon."
+- **A chord opens a list of the tasks**: "Add a shortcut functionality for agterm that behave
+  like currently installed backlog picker, so its trivial to navigate between task". The form is
+  the session's: `picker.py` (`lem picker`), and a row of the machine check that gives the line
+  for agterm's keymap, which is the owner's file and which Lem never edits.
+- **The Linear table is short**: "Do we really need all these settings for Linear integration?",
+  and "Linear - yes, shorter, everything can be infered from Ticket ID". `[tracker]` needs only
+  `kind`. The team comes from the ticket's id, and the two statuses from Linear by their type; a
+  name goes into the settings only for a team with two statuses of one type. This replaces
+  "Status names are carried by name in the settings". Of a connection that fails: "I think we
+  should simply point to Linear MCP help page. We don't know exact problems and reasons here."
+  No real ticket has run through it; of that gap, "put into backlog"
+  (`docs/backlog/linear-status-by-type-has-not-run.md`).
+- **`branch.history` is `"squash"` by default**: "my opionated default is "squash"".
+- **Each of the three seats is written whole**: "I think it should be explicitly
+  `agent/model:effort` in all 3; not simply "claude" or "codex"", and of the models, "Use latest
+  `codex/gpt-6.2-sol:high` and `codex/gpt-6.2-astra:high` (released yesterday)". A guide names
+  the experts without a version: "its better to call these models as latest Anthropic Fable and
+  OpenAI Astra to avoid version drift".
+- **Without Codex one expert answers alone.** Of a second Claude model as the second expert:
+  "Sound pointless and should be degraded to a single expert then. Once we have 1st class support
+  for Codex this can be reverse situation (only Astra works, alone)". `lem project init --codex
+  no` writes the seats for such a machine.
+- **No setting counts the tasks that run**: of `flow.max_tasks`, "will it be default for
+  developer or a project? Feels like it depends on developer machine capacity. But then maybe we
+  shouldn't even have such option and let Developer decide whether to run a session or not. Why
+  block him?" The key is gone and nothing stops a start. **A night works its items one after
+  another**, four at most, or the N of `/lem night N`: "I think night run works linearly ... one
+  task at a time per project is fine default for night runs."
+- **`[checks]` keeps three keys, and `alone` is `serial`.** "I'm a bit confused with this
+  section. Yes its Lead who usually run tests, and e2e local tests are usually needs to run in
+  queue. Then maybe we need to name `alone` differently? Should Lem support something like merge
+  train or test train? Ask Fable for opinion for that section". Fable's answer, which the session
+  took: no train; `checks.serial` names the tests that two tasks cannot run at the same time, and
+  they run one at a time for all tasks. `checks.setup` runs once in each new worktree.
+- **The topics are proposed at the setup**: "It should predict during initialization what are
+  the dangerous zones for that project". `/lem init` proposes them from the code, and the guide
+  says so.
+- **Four places are settings**: "all 3 should be configurable: rulings location, plans location,
+  plan file names format, rulings file names format; For the team it stays consistent in the
+  project, but there might be different defaults for different teams that adopts or evaluates
+  Lem." `[paths]` holds `plans`, `plan_file`, `rulings` and `ruling_file`; the lessons keep their
+  one place, `.lem/lessons.md`.
+- **Every way to merge stays, and there is no train.** He drew three cases (GitHub with pull
+  requests, GitHub with a direct merge, another host) and asked: "Ask Fable - maybe we should not
+  support some of those modes for simplicity as an opionated tool?", and "What is the recommended
+  flow for Github based projects: triggering "merge" in Github or via Lem?" Fable's answer, which
+  the session took: drop none; with pull requests the button on GitHub and `/lem land` are the
+  same merge, and a task's branch is never merged by hand.
+- **A choice that matters is logged, also when nobody was asked**: of the pull request's lines
+  for what was decided without him, "this is different case than "Agent took a decision durign
+  implementation without asking". The latter happens all the time. Some important choices needs
+  to be logged into our artifact log." The lead logs such a choice with `--by lead`
+  (`stages/ladder.md`), and `decisions.md` shows it.
+- **The investigation of a bug keeps its method**: "If we aim to support the bug investigation,
+  then we need to revert removal of the RCA skill. It may be hidden and called by the model
+  during investigation". `lem-root-cause` was never removed: the investigator loads it, and it
+  has no command of his.
+- **The Jev model comes through any provider**: "since its using jev lib and jev lib only care
+  about API url and API token - we can use any provider, not the openrouter. Ask user to provide
+  the token in settings or in environment key and the api url". The form is the session's:
+  `JEV_API_KEY` and `JEV_API_URL` in the environment, OpenRouter's address by default, and no key
+  in a file. This replaces "OpenRouter is the one way to the Jev model for now".
+- **Lem assumes auto mode**: "I would rather state that we assume that automode is used in codex
+  and claude code."
+- **A page to read opens as a companion**: "Command like this and possibly others that opens
+  html overlay should be opened in companion `/lem status working-days-of-a-range`; isn't it?"
+  `lem board --page FILE` opens it. A question page and a mark-up stay overlays, since each waits
+  for his answer: that part is the session's.
+- **The board as a tabbed interface is a backlog item**: "redesign board to a tabbed interface,
+  consider using the WebAwesome (we have a professional license)"
+  (`docs/backlog/board-as-a-tabbed-interface.md`).
+
 Designs taken on 2026-11-14 and 2026-11-15 after a question of the owner's. They are open to
 him, and they are not his rulings until he says so:
 
