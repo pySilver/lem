@@ -36,9 +36,12 @@ fi
 latin_arg=$(gate ask --id 003-latin --question $'caf\xe9?' --verdict held --cite x 2>&1 || true)
 cp "$WORK/.lem/state/decide-gate.jsonl" "$WORK/.git/gate.kept" && printf '{"kind": "ask", "id": "cut' >> "$WORK/.lem/state/decide-gate.jsonl"
 cut_line=$(gate report 2>&1 || true)
+# the log as the report left it: its four lines and the one cut off, which nothing dropped or mended
+cut_after=$(cat "$WORK/.lem/state/decide-gate.jsonl")
 mv "$WORK/.git/gate.kept" "$WORK/.lem/state/decide-gate.jsonl"
 if grep -qF "the argument b'caf\\xe9?' is not UTF-8 text" <<<"$latin_arg" && grep -qF "decide-gate.jsonl:5 does not read as JSON" <<<"$cut_line" \
-  && ! grep -q Traceback <<<"$latin_arg$cut_line" && [ "$(grep -c '' "$WORK/.lem/state/decide-gate.jsonl")" = 4 ]; then
+  && ! grep -q Traceback <<<"$latin_arg$cut_line" && [ "$(grep -c '' "$WORK/.lem/state/decide-gate.jsonl")" = 4 ] \
+  && [ "$cut_after" = "$(cat "$WORK/.lem/state/decide-gate.jsonl")"$'\n{"kind": "ask", "id": "cut' ]; then
   pass "an argument that is not UTF-8 and a line of the log that does not read are named, and nothing is written"
 else
   fail "the gate log and text that does not read: $latin_arg / $cut_line"
@@ -61,11 +64,14 @@ git -C "$WORK" -c user.name=t -c user.email=t@t commit -q --allow-empty -m start
 git -C "$WORK" worktree add -q "$WORK-wt" -b side
 if [ "$("$PY" -B "$LOG" dir --repo "$WORK-wt")" = "$dir" ]; then pass "a worktree gets the same folder as its main checkout"; else fail "the question folder from a worktree"; fi
 git -C "$WORK" worktree remove --force "$WORK-wt"
-if [ -d "$(dirname "$LOG")/__pycache__" ]; then fail "the script left no __pycache__"; else pass "the script left no __pycache__"; fi
+# Every call above passes -B. Run once without it, the way any caller may, the script itself writes no
+# bytecode: not beside itself, and not for lem_state, which it imports from Lem's scripts.
+env -u PYTHONDONTWRITEBYTECODE "$PY" "$LOG" dir --repo "$WORK" >/dev/null
+if [ -d "$(dirname "$LOG")/__pycache__" ] || [ -d skills/lem/scripts/__pycache__ ]; then fail "the script left no __pycache__"; else pass "the script left no __pycache__"; fi
 
 CAST=$PWD/skills/lem-panel/scripts/cast.py
 PANEL=$(cd "$(mktemp -d)" && pwd -P)
-trap 'rm -rf "$WORK" "$PANEL"' EXIT
+trap 'stopped; rm -rf "$WORK" "$WORK-wt" "$PANEL"' EXIT
 export HOME=$PANEL/home
 mkdir -p "$HOME"
 commit() { git -C "$1" -c user.name=t -c user.email=t@t commit -q --allow-empty -m "$2"; }
@@ -271,7 +277,9 @@ else
 fi
 printf '%s\n' '[paths]' 'persona = "x"' > "$LINKED/.lem/project.toml"
 if [ "$(status_of cast --repo "$LINKED")" = 1 ]; then pass "a settings file Lem refuses stops the panel too"; else fail "bad settings passed"; fi
-if [ -d "$(dirname "$CAST")/__pycache__" ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
+# once without -B, as for gate-log.py above: whatever the run says, its imports wrote no bytecode
+env -u PYTHONDONTWRITEBYTECODE "$PY" "$CAST" --repo "$LINKED" >/dev/null 2>&1 || true
+if [ -d "$(dirname "$CAST")/__pycache__" ] || [ -d skills/lem/scripts/__pycache__ ]; then fail "cast.py left no __pycache__"; else pass "cast.py left no __pycache__"; fi
 
 # Every skill Lem ships starts only for Lem: the flag keeps it out of every session's list of
 # skills, and its description is short and names Lem. The `lem` skill itself keeps its own.

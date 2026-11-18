@@ -342,12 +342,18 @@ nohook=$(env -u AGTERM_ENABLED "$PY" -I -B "$B" hook-stop < /dev/null; echo "rc=
 if [ "$nohook" = "rc=0" ]; then pass "Stop hook is silent and exits 0 outside agterm"; else fail "Stop hook outside agterm: $nohook"; fi
 # The hooks.json command itself, run the way Claude Code runs a command with no args: through a shell.
 HOOKCMD=$("$PY" -I -B -c 'import json,sys; print(json.load(open(sys.argv[1]))["hooks"]["Stop"][0]["hooks"][0]["command"])' skills/lem-ask/hooks/hooks.json)
-guard1=$(env -u AGTERM_SESSION_ID CLAUDE_PLUGIN_ROOT="$PWD/skills/lem-ask" sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
-guard2=$(env AGTERM_SESSION_ID=S1 PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$PWD/skills/lem-ask" /bin/sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
-if [ "$guard1" = "rc=0" ] && [ "$guard2" = "rc=0" ]; then
+# A stand-in for bin/lem-ask that leaves a mark and exits 9: lem-ask itself is silent outside agterm, so only
+# the guard keeps the stand-in from running, and a run with a session and a python3 shows that it can run.
+FAKE=$WORK/fake-plugin
+mkdir -p "$FAKE/bin" && printf '#!/bin/sh\n: > "%s/ran"\nexit 9\n' "$FAKE" > "$FAKE/bin/lem-ask" && chmod +x "$FAKE/bin/lem-ask"
+guard1=$(env -u AGTERM_SESSION_ID CLAUDE_PLUGIN_ROOT="$FAKE" sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
+guard2=$(env AGTERM_SESSION_ID=S1 PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$FAKE" /bin/sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
+ran_before=$([ -e "$FAKE/ran" ] && echo yes || echo no)
+guard3=$(env AGTERM_SESSION_ID=S1 CLAUDE_PLUGIN_ROOT="$FAKE" sh -c "$HOOKCMD" < /dev/null 2>&1; echo "rc=$?")
+if [ "$guard1" = "rc=0" ] && [ "$guard2" = "rc=0" ] && [ "$ran_before" = no ] && [ "$guard3" = "rc=9" ] && [ -e "$FAKE/ran" ]; then
   pass "hooks.json guard: silent exit 0 with no agterm session, and with no python3"
 else
-  fail "hooks.json guard: no session [$guard1], no python3 [$guard2]"
+  fail "hooks.json guard: no session [$guard1], no python3 [$guard2], ran before a session [$ran_before], with a session [$guard3]"
 fi
 
 # A whole file in a code block is capped; past the cap the spec has to name its lines.

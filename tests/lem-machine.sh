@@ -358,7 +358,7 @@ git clone -q --bare "$CQ" "$WORK/corr-bare.git" && git -C "$WORK/corr-bare.git" 
 mkdir -p "$WORK/corr-bare.git/.lem" && printf '%s\n' '[corrections]' 'collect = false' > "$WORK/corr-bare.git/.lem/project.local.toml"
 printf '{"prompt": "from the worktree of a bare repository", "cwd": "%s", "session": "s14", "transcript": ""}' "$WORK/corr-bare-wt" > "$WORK/payload.json"
 hook worker "$WORK/payload.json"
-bare_log=$( (cat "$WORK/corr-bare.lem/state/corrections.log" "$WORK/corr-bare.lem/state/corrections.jsonl" 2>/dev/null || true) | wc -l | tr -d ' ')
+bare_log=$( (cat "$WORK/corr-bare.git/.lem/state/corrections.log" "$WORK/corr-bare.git/.lem/state/corrections.jsonl" 2>/dev/null || true) | wc -l | tr -d ' ')
 if [ "$shown" = "(False, ['corrections.collect'])" ] && [ "$(wc -l < "$CQ/.lem/state/corrections.jsonl")" = "$before" ] && [ ! -e "$WORK/jev-called" ] && [ ! -e "$WORK/corr-wt/.lem/project.local.toml" ] && [ "$bare_log" = 0 ]; then
   pass "one person's no in the machine's own file stops the hook before anything is sent, from a worktree and from the worktree of a bare repository too; a file there that does not read, or has another shape, is a no"
 else

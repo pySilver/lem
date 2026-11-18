@@ -427,12 +427,14 @@ git -C "$R" add -A && git -C "$R" commit -q -m "docs: the backlog"
 chmod 000 "$R/locked.txt"
 
 NOW=$("$PY" -I -c 'from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:00Z"))')
+# the board's copy of the log as Lem's scripts fed it, before retime writes it again from the moved log
+fed=$(grep -c '"task": "gift-note-export"' "$STATE/events.js" || true)
 retime_all
 
-if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 37 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.js")" = 15 ]; then
-  pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log holds the moved times"
+if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 37 ] && [ "$fed" = 15 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.jsonl")" = 15 ]; then
+  pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log, as the scripts fed it, holds each event of a task"
 else
-  fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events"
+  fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events, $fed events of gift-note-export in the board's copy"
 fi
 
 # Green has one wording: the board's sentence is the first line of a green pull request, land.py's GREEN.
