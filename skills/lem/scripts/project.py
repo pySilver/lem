@@ -328,7 +328,7 @@ SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 #   landing   the checks and the read run on it, or a builder repairs what they or the base showed
 #   open      it is proposed: a pull request is open, or the branch is ready to land, and it waits for the merge
 #   landed    it is on the base branch
-#   drafted   a plan written at night that waits for the owner's word
+#   drafted   a plan an older night wrote, which waits for the owner's word; no night writes one now
 #   dropped   nobody will build it
 #   answered  it ended with a report and nothing to merge: a question answered, or a bug that is none
 STATES = ("queued", "building", "planned", "held", "blocked", "ready", "landing", "open", "landed", "drafted", "dropped", "answered")
@@ -1628,7 +1628,7 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
     if not (place.parent / ".gitignore").is_file():
         (place.parent / ".gitignore").write_text("*\n", encoding="utf-8")
     if git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch}").returncode == 0:
-        # a branch the task has already (a night draft, a task whose worktree was removed): as it is
+        # a branch the task has already (an older night's draft, a task whose worktree was removed): as it is
         made, start = git("worktree", "add", str(place), branch), branch
     else:
         start = base

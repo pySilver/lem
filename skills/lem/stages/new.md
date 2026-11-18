@@ -95,7 +95,7 @@ beside this one, and the step that chooses the path names it.
      plan and no wait for him, as "A small change" below says.
    - *a full change from a complete request*: the whole context and a defined outcome are
      written already: a ticket whose description says what is wanted and how to tell that it is
-     done, a backlog item whose options are settled, a night plan he starts, an investigation's
+     done, a backlog item whose options are settled, an investigation's
      report that settles what is wanted. No interview: the lead writes the criteria from the code
      and has the personas read them (`stages/plan.md`, step 1). He can say "interview me", and
      then it is a full change with an interview. A ticket, an item or a report that asks for one

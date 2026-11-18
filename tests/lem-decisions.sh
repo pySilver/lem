@@ -47,25 +47,21 @@ else
   fail "decisions.py ask and pending: $one / $notone / $asked / $forever / $waits / $everywhere"
 fi
 # A choice for the owner tells him one run above his card: the case in numbered steps, how it is known,
-# and its cause. A night plan asks no choice of his: nobody is there, and no wait or expert takes one at night.
+# and its cause.
 two_options=(--option "the first" --option "the last" --recommended "the first" --why w --said s)
 nocase=$(decide ask gift-note --what "Which note wins" "${two_options[@]}" 2>&1 || true)
 onestep=$(decide ask gift-note --what "Which note wins" --case "1. Two notes come in for order 1042." --case-was derived --cause c "${two_options[@]}" 2>&1 || true)
 unknown=$(decide ask gift-note --what "Which note wins" --case $'1. a\n2. b' --case-was guessed --cause c "${two_options[@]}" 2>&1 || true)
 nocause=$(decide ask gift-note --what "Which note wins" --case $'1. a\n2. b' --case-was derived "${two_options[@]}" 2>&1 || true)
 choice3() { decide pending gift-note | "$PY" -c 'import json, sys; print(next(c for c in json.load(sys.stdin)["waiting"] if c["id"] == 3)[sys.argv[1]])' "$1"; }
-project --repo "$DC" task-dir night-task >/dev/null
-printf '%s\n' 'Read SKILL_DIR/prompts/lead.md and follow it.' 'task: night-task' 'stop after the plan: yes' 'night: yes' > "$DC/.lem/state/tasks/night-task/brief.md"
-at_night=$(decide ask night-task "${CASE[@]}" --what "Which note wins" "${two_options[@]}" 2>&1 || true)
 if grep -qF -- "--case is one concrete case that ends badly, in numbered steps, one to a line" <<<"$nocase" && grep -qF "this one has 0 numbered steps" <<<"$nocase" \
   && grep -qF "this one has 1 numbered step" <<<"$onestep" && grep -qF -- "--case-was says how the case is known: reproduced or derived" <<<"$unknown" \
   && grep -qF -- "--cause needs its text" <<<"$nocause" \
   && [ "$(choice3 case)" = "${CASE[1]}" ] && [ "$(choice3 case_was)" = derived ] && [ "$(choice3 cause)" = "${CASE[5]}" ] \
-  && grep -qF "the brief of night-task says \`night: yes\`: nobody is there to answer at night" <<<"$at_night" && grep -qF "report.md under \"for the owner\"" <<<"$at_night" \
-  && [ ! -e "$DC/.lem/state/tasks/night-task/decisions.jsonl" ] && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.lem/state/events.jsonl")" = 2 ]; then
-  pass "a choice for the owner carries one run above his card: its case in two numbered steps or more, kept line by line, whether it was reproduced or derived, and its cause; a choice without them is refused, and a night plan asks none, since nobody is there and no wait or expert takes a decision of his at night"
+  && [ "$(grep -c '"event": "decision.asked", "task": "gift-note"' "$DC/.lem/state/events.jsonl")" = 2 ]; then
+  pass "a choice for the owner carries one run above his card: its case in two numbered steps or more, kept line by line, whether it was reproduced or derived, and its cause; a choice without them is refused"
 else
-  fail "the run of a choice and the night: $nocase / $onestep / $unknown / $nocause / $(choice3 case) / $at_night"
+  fail "the run of a choice: $nocase / $onestep / $unknown / $nocause / $(choice3 case)"
 fi
 early=$(decide timeout gift-note 3 2>&1 || true)
 past "$dfile" 3 4
@@ -389,6 +385,8 @@ dtree=$(wq worktree-dir drafted-one)
 git -C "$WQ" worktree add -q "$dtree" -b plan/drafted-one main
 mkdir -p "$dtree/docs/plans" && touch "$dtree/docs/plans/2026-11-17-drafted-one.md"
 wq state drafted-one drafted "the plan waits for the owner's word" >/dev/null
+# the brief an older night wrote for its draft
+printf '%s\n' 'Read SKILL_DIR/prompts/lead.md and follow it.' 'task: drafted-one' 'branch: plan/drafted-one' 'lead: builder' 'stop after the plan: yes' 'night: yes' > "$WQ/.lem/state/tasks/drafted-one/brief.md"
 mkdir -p "$WQ/.lem/state/retros"
 printf '%s\n' '{"title": "The retro of 2026-11-17", "questions": [{"id": "p1", "prompt": "Move the rule?", "options": ["approve", "reject", "later"]}, {"id": "p2", "prompt": "Drop the step?", "options": ["approve", "reject", "later"]}]}' > "$WQ/.lem/state/retros/2026-11-17.json"
 printf '%s\n' 'not json' > "$WQ/.lem/state/retros/2026-11-18.json"
@@ -423,6 +421,22 @@ if [ "$nightly" = "([('night-full', False, '2026-11-18'), ('night-small', True, 
   pass "a task the night opened carries the night's date in tasks and in waiting, also after \"I am back\", and the brake counts the night's pull requests that nobody merged or closed; a night's words of another form are refused"
 else
   fail "the night's pull requests: $nightly / $marked / $other_form"
+fi
+
+# A draft an older night left stays in the list until the owner answers it, and both answers still work: approve
+# starts its lead, whose brief still has the older night's line, which no longer stops a choice of the build, and
+# reject drops it.
+wq task-dir drafted-two --ask "The ask of drafted-two." >/dev/null && wq state drafted-two drafted "the plan waits for the owner's word" >/dev/null
+drafts=$(wq waiting | field '[t["task"] for t in d["drafts"]]' 2>&1 || true)
+place=$(status_of wq may-start drafted-one)
+approved=$(wq state drafted-one building "lead: builder" 2>&1 | field 'd["status"]' 2>&1 || true)
+asked=$("$PY" -B "$DECISIONS" --repo "$WQ" ask drafted-one "${CASE[@]}" --what "Where the note goes" --option "the last column" --option "after the price" --recommended "the last column" --why w --said s 2>&1 | field 'd["id"]' 2>&1 || true)
+rejected=$(wq state drafted-two dropped "the owner rejected the night's draft" 2>&1 | field 'd["status"]' 2>&1 || true)
+if [ "$drafts" = "['drafted-one', 'drafted-two']" ] && [ "$place" = 0 ] && [ "$approved" = building ] && [ "$asked" = 1 ] && [ "$rejected" = dropped ] \
+  && [ "$(wq waiting | field 'd["drafts"]')" = "[]" ]; then
+  pass "a draft an older night left is listed until the owner answers it: approve starts its lead and a choice of its build goes to the owner as any other, whatever its brief says of the night, and reject drops it"
+else
+  fail "an older night's draft: $drafts / $place / $approved / $asked / $rejected"
 fi
 git -C "$WQ" worktree remove --force "$dtree"
 

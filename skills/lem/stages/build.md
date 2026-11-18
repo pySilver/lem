@@ -182,8 +182,6 @@ repository's root, never a path inside the worktree: the worktree is gone when t
   flagged them, or the irreversible choice that every task left depends on, by its number. A
   choice that waits while the work goes on is in the record, not here. Leave the heading out when
   there is none;
-- **for the owner**, on a night plan only: each decision of his that the plan met, with its case,
-  its cause and its options (`plan.md`, step 5). Leave the heading out otherwise;
 - **outside defects**: each defect seen in code outside the task, with its file and one line on
   what is wrong. Do not fix it and do not file it: the polish pass of the landing fixes the
   small ones in place and files the others in the backlog (`stages/land.md`, step 3), with those

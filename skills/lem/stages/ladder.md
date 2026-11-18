@@ -53,7 +53,5 @@ record shows later which level changes picks and which never does.
 - **All opinions**, the owner's words on a card: run each level that did not run, and give him
   the new answers through Lem. The experts on that choice are `lem experts brief SLUG N` and
   `record SLUG N`, which keep their advice on his card.
-- **A night plan** (`night: yes` in the brief) asks no card: the decision goes where
-  `stages/plan.md`, step 5, says.
 
 A choice of the plan talk that it left open, and a design choice of it, climb the same way.
