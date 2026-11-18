@@ -73,7 +73,8 @@ With this optional queue, a retro finds a correction that you gave two times or 
 each message that you type, with the agent's message before it, to a model through
 OpenRouter. It uses the key of the person who typed it. Commands that start with `/` stay local.
 
-`corrections.collect = true` turns it on for each person in the repository. To say no for
+`corrections.collect = true` turns it on for each person in the repository. Each person then
+needs an OpenRouter key, `OPENROUTER_API_KEY`, and `/lem init` stops without one. To say no for
 yourself, put `collect = false` under `[corrections]` in `.lem/project.local.toml`.
 
 ## Update
