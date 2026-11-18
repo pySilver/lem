@@ -28,6 +28,9 @@ The board puts each task in a lane by who acts next: you, an agent, the checks, 
 `/lem status <task>` opens the board of one task, with its criteria and their tests, its checks,
 its review, and where the time went.
 
+In agterm, a chord lists the tasks, with what waits for you first. Pick one, and its board opens.
+`/lem init` gives you the keymap line.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/task-dark.png">
@@ -37,9 +40,9 @@ its review, and where the time went.
 
 *The board of one task. The picture shows demo data.*
 
-A task that is "Queued" waits for a free place, or for a task whose result it needs. "Blocked"
-means that an agent stopped at a problem that it could not solve. "Landed", "Answered" and
-"Dropped" tasks are done: new work on one of them is a new request.
+A "Queued" task waits for a free place, or for the result of another task. A "Blocked" task
+stopped at a problem that its agent could not solve. "Landed", "Answered" and "Dropped" tasks
+are done, and new work on one is a new request.
 
 The second tab shows the backlog. "Start a task" on an item opens a task for it.
 

@@ -933,6 +933,7 @@ bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and wh
 bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path or wraps a call
 bash tests/lem-alone.sh        # the commands that need the machine to themselves (checks.alone): lem project alone, its one lock, and the checks that use it
 bash tests/lem-naps.sh         # the naps: the [naps] settings and lem project may-nap
+bash tests/lem-picker.sh       # the task picker: its rows, a pick, Escape and its refusals, with a stand-in for agtermctl
 bash tests/test-gate-panel.sh  # the panel's cast, in its one place
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, its end when the task runs without the owner, and the brief; no expert runs
@@ -978,7 +979,10 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   the owner's status (away or active) and from it each task's mode, the event log, and `waiting`, the one list of what waits for the owner),
   `doctor.py` (the machine, with the three recipes of the agterm cookbook Lem needs, webrev, agdoc
   and the backlog, and a row when more than one place registers the correction hook),
-  `board.py` (opens the board), `land.py` (the landing, one refusable step at a time: the
+  `board.py` (opens the board), `picker.py` (`lem picker`: agterm's picker over the tasks, which
+  an agterm chord starts and which opens the board of the one picked; the `task picker` row of
+  `doctor.py` gives the owner its keymap line, with the folder of Lem's marketplace clone, whose
+  path an update does not move), `land.py` (the landing, one refusable step at a time: the
   machine checks, the review's floor and its record, the pull request, the merge, and the watch
   of the open pull requests on the forge),
   `corrections.py` (the optional queue of the owner's corrections: its hook, which claims each

@@ -457,6 +457,10 @@ Some steps are not an agent's, with or without the owner's yes in the conversati
   session waits and where, and go on with other work. Do not answer the prompt, and do not go
   around it. A task's worktree is inside the project's checkout, which the owner
   trusted when Lem's session started there.
+- **agterm's keymap.** The line of the task picker (the `line` of the `task picker` row of
+  `lem doctor`) goes into agterm's own file, `~/.config/agterm/keymap.conf`, and the owner adds
+  it: another program's settings stay where that program keeps them (his ruling). Give him the
+  line and `agtermctl keymap reload`, and do not edit the file, also on his yes.
 - **What the classifier refuses in auto mode.** It refuses these to the agent also after the
   owner's yes (mybaze, 2026-11-07): a push to another repository than the session's own, the
   registration of a hook that sends prompts to an outside service, and the install of a scheduler, whose login agent counts

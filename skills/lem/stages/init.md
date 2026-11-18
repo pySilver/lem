@@ -36,7 +36,7 @@ lem doctor
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
 installed, and end. Every other row is no question now: an optional tool that is absent is one
 line of the hand-over page (the row's `without_it`), and a recommended tool that is absent, a cronn
-that does not run and the correction queue are offers in the short list at the end of that page (step 6). A
+that does not run, the task picker and the correction queue are offers in the short list at the end of that page (step 6). A
 `correction hook` row (a settings file that still holds the hook an install of Lem before the
 plugin wrote) is one line of that page too, with each file and the entry its guide says to delete
 by hand.
@@ -297,6 +297,10 @@ as corrections: edit, commit on the same branch, say for each file what changed.
 - **each recommended tool that is absent**: what it gives and its guide (the row's `guide`). Lem
   brings none of them, and installs one only on his yes; a guide copies a skill into the owner's
   own skills folder, so where your agent refuses you the step, give him the guide's commands;
+- **the task picker**, when the check's `task picker` row is not found: a chord in agterm that
+  lists this repository's tasks, what waits for him first, and opens the board of the one he
+  picks. The keymap is agterm's file, and he adds the row's `line` to it himself, as the harness
+  file says. A row with no `line` is no offer: its `without_it` says why;
 - **cronn**, when it is installed and not running: through the `cronn` skill when that skill is
   there; its agent starts at login, so it is started only on his yes, and the harness file says
   which steps he has to run himself. An absent cronn is no offer: it is a required tool, and
