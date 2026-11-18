@@ -331,6 +331,22 @@ if [ "$(head -1 "$text" | cut -c1-10)" = '**Green.**' ] && grep -qE '^It ran wit
 else
   fail "a green task that ran without the owner: $held / $back / $(cat "$text" 2>/dev/null)"
 fi
+# Its two files for the owner: no red block, since nothing of his was decided without him, and each decision with who took it.
+built=$LOCAL/.lem/state/tasks/quiet-run/built.md
+decided=$LOCAL/.lem/state/tasks/quiet-run/decisions.md
+# shellcheck disable=SC2016  # the backticks are the files' own marks around a branch
+if ! grep -q 'CAUTION\|not green' "$built" "$decided" && [ "$(sed -n 1p "$built")" = '# What was built: fix: quiet' ] \
+  && grep -qE '^Branch `fix/quiet-run`, ready to land on `main`\. Green\. It waits for the owner'"'"'s word to land it\. It ran without the owner from ' "$built" \
+  && grep -qxF '1. The file holds the word the owner asked for.' "$built" \
+  && [ "$(grep '^| [0-9]' "$decided")" = '| 2 | The word'"'"'s case | lower case | the personas |
+| 1 | The file'"'"'s name | quiet.txt | the gate |' ] \
+  && grep -qxF -- '- **Taken:** "quiet.txt", by the gate. docs/rulings/names.md: a file is named for what it holds' "$decided" \
+  && grep -qxF 'Branch `fix/quiet-run`. 2 decisions: 1 by the personas; 1 by the gate. The ones the owner most likely wants to change come first.' "$decided" \
+  && ! git -C "$LOCAL" log --all --format= --name-only | grep -q 'built.md\|decisions.md'; then
+  pass "a full change's proposal writes built.md and decisions.md into its task directory and no commit: with nothing of the owner's decided without him neither opens with a red block, and each decision says who took it"
+else
+  fail "the owner's two files of a green task: $(cat "$built" "$decided" 2>/dev/null)"
+fi
 local_land clean quiet-run >/dev/null
 # Not green when something of his was decided without him: criteria approved without him, a decision past the personas
 # or that no level settled, and a choice the timeout took early when he said "go alone"; each is a line of its own.
@@ -343,6 +359,10 @@ ldecide log loud-run --what "Where the word goes" --chose "the last line" --by e
 ldecide log loud-run --what "The word's font" --chose plain --by lead --unsettled --why "the export has no fonts" >/dev/null
 ldecide ask loud-run "${CASE[@]}" --what "The line ending" --option "a line break" --option "none" --recommended "a line break" --why "every file ends so" --said "the personas split" >/dev/null
 ldecide timeout loud-run 3 >/dev/null
+ldir=$LOCAL/.lem/state/tasks/loud-run
+printf '%s\n' '# The loud word' '' '## Outcome' '' 'The importer finds the word on its own line.' '' '## Out of scope' '' '- the quiet word' > "$ldir/task.md"
+printf '%s\n' '## What the owner gets' '' 'loud.txt holds the word.' '' '```sh' '# see it' 'cat loud.txt' '```' '' '## Not verified' '' 'nothing' > "$ldir/report.md"
+echo '- "keep the word in lower case"' > "$ldir/directions.md"
 local_land start loud-run >/dev/null && local_land base loud-run >/dev/null && polish_in "$LOCAL" loud-run && local_land checks loud-run >/dev/null && local_land read loud-run --record "$(clean 1)" >/dev/null
 local_land propose loud-run --title "fix: loud" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/loud-run/pr.md
@@ -357,6 +377,30 @@ if [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   pass "a task that ran without the owner is not green for each thing of his decided without him, one line each: criteria approved without him, a decision of the experts or of the dialectic, one no level settled, and a choice the timeout took early"
 else
   fail "a task that ran without the owner, not green: $(cat "$text" 2>/dev/null)"
+fi
+# Both files open with the same red block, one item for each thing of his decided without him; decisions.md
+# puts the ones he most likely wants to change first, each with who took it, and built.md takes the title, the
+# outcome and what is out of scope from task.md, his words of the interview, and what he gets from the lead's report.
+built=$ldir/built.md
+decided=$ldir/decisions.md
+flag() { sed -n '/^> \[!CAUTION\]$/,/^$/p' "$1"; }
+if [ "$(sed -n 1p "$built")" = '# What was built: The loud word' ] && [ "$(sed -n 1p "$decided")" = '# Decisions: The loud word' ] \
+  && [ "$(flag "$built")" = "$(flag "$decided")" ] && [ "$(flag "$built" | sed -n 2p)" = '> **4 things wait for the owner.**' ] \
+  && grep -qxF "> 1. The owner did not approve the criteria: they were approved on $day while the task ran without the owner." "$built" \
+  && grep -qxF '> 2. Decision 1 was taken without the owner (Where the word goes): "the last line", by the experts.' "$built" \
+  && grep -qxF "> 3. Decision 2 was taken without the owner (The word's font): \"plain\", the lead's pick, which no level of the ladder settled." "$built" \
+  && grep -qxF '> The pull request is not green for these. The owner reads each before the merge.' "$built" \
+  && grep -qF 'Lem approved them while the task ran without the owner; the owner did not.' "$built" \
+  && [ "$(sed -n '/^## What was built$/,/^The acceptance/p' "$built" | sed -n '3,7p')" = $'loud.txt holds the word.\n\n```sh\n# see it\ncat loud.txt' ] \
+  && grep -qxF -- '- "keep the word in lower case"' "$built" && grep -qxF 'The importer finds the word on its own line.' "$built" \
+  && grep -qxF -- '- the quiet word' "$built" && ! grep -q 'Not verified' "$built" \
+  && [ "$(grep '^| [0-9]' "$decided")" = "| 2 | The word's font | plain | no level: the lead's pick stands; **not green** |
+| 3 | The line ending | a line break | the timeout of the owner's wait; **not green** |
+| 1 | Where the word goes | the last line | two expert models; **not green** |" ] \
+  && grep -qxF -- '- **The other option:** "none"' "$decided" && [ "$(grep -c '^\*\*Not green\.\*\* ' "$decided")" = 3 ]; then
+  pass "a task with things of the owner's decided without him opens both files with the same red block, one item for each, and decisions.md lists the decisions he most likely wants to change first, each with who took it and the options it did not take"
+else
+  fail "the owner's two files of a task that is not green: $(cat "$built" "$decided" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state loud-run dropped "the test is over" >/dev/null
 

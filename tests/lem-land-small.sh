@@ -69,8 +69,8 @@ if [ "$shown" = "(True, 'small', True)" ] && [ "$gated" = "(True, None, True)" ]
   && grep -qxF -- "   - \`sh tests/date-nowrap.sh\`: passes on the branch, fails on the base commit" "$text" \
   && grep -qxF -- '- the review, round 1 (one read; answered: codex): clean, 0 must-fix, 0 should, 0 nit' "$text" \
   && ! grep -q 'polish pass\|## Decisions of the build\|personas asked\|size:' "$text" && [ "$(grep -c '' "$text")" -le 20 ] \
-  && ! grep -qiwE 'you|your' "$text"; then
-  pass "a small change with its criterion in the task directory goes from Lem's approval through the gate, one read and a short pull request to an agent's merge, with no plan file on the branch and the check of the criteria run once"
+  && ! grep -qiwE 'you|your' "$text" && [ ! -e "$(dir_of date-nowrap)/built.md" ] && [ ! -e "$(dir_of date-nowrap)/decisions.md" ]; then
+  pass "a small change with its criterion in the task directory goes from Lem's approval through the gate, one read and a short pull request to an agent's merge, with no plan file on the branch, the check of the criteria run once, and neither of a full change's two files for the owner"
 else
   fail "a small change: $shown / $gated / $due / $proposed / $merged / reds $(reds date-nowrap) / $(cat "$text" 2>/dev/null)"
 fi

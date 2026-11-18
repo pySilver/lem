@@ -25,7 +25,9 @@ may-land` about the settings' base branch, so a protected branch is never reache
                            place an item of the branch already names is that item
     lem land propose SLUG --title SUBJECT --notes FILE
                            open the pull request, or mark the branch ready where the remote is not
-                           GitHub or `branch.propose` is `merge`: the state becomes `open`
+                           GitHub or `branch.propose` is `merge`: the state becomes `open`. A full
+                           change also gets built.md and decisions.md in its task directory, for
+                           the owner: what was built and why, and each decision with who took it
     lem land land SLUG --by owner|agent [--message SUBJECT]
                            merge the pull request, or put a ready branch on the base branch
     lem land merged SLUG   the owner merged the pull request on the forge: finish the bookkeeping;
@@ -2077,7 +2079,9 @@ def not_green(task: Task, state: dict) -> list[str]:
     if approval.get("by") == "alone":
         reasons.append(f"the owner did not approve the criteria: they were approved on {approval['at'][:10]} while the task ran without the owner")
     for decision in task.decisions():
-        if decision["state"] == "taken" and (decision.get("by") in PAST_PERSONAS or decision.get("unsettled")):
+        if not without_him(decision):
+            continue
+        if decision["state"] == "taken":
             # past the personas, with no answer of his: the dialectic, the experts, or the lead's pick that no level settled
             who = "the lead's pick, which no level of the ladder settled" if decision.get("unsettled") else f"by {TAKEN_BY[decision['by']]}"
             reasons.append(f"decision {decision['id']} was taken without the owner ({decision['what']}): \"{decision['chose']}\", {who}")
@@ -2087,12 +2091,21 @@ def not_green(task: Task, state: dict) -> list[str]:
                 f"choice {decision['id']} was taken by the experts ({decision['what']}): \"{decision['chose']}\", the option both picked, {waited(decision)}. "
                 f"{experts_said(decision)}{later(decision, '; the owner answered later with')}",
             )
-        elif decision["state"] == "timeout":
+        else:
             reasons.append(
                 f"choice {decision['id']} was taken by timeout ({decision['what']}): \"{decision['chose']}\", the recommended option, "
                 f"{waited(decision)}{later(decision, '; the owner answered later with')}",
             )
     return reasons
+
+
+def without_him(decision: dict) -> bool:
+    """Whether a decision is the owner's and was taken without him, so that the request is not green
+    for it: past the personas (the dialectic, the experts), a pick that no level settled, or a
+    choice that waited for him and was taken when its wait ended or while he was away."""
+    if decision["state"] == "taken":
+        return decision.get("by") in PAST_PERSONAS or bool(decision.get("unsettled"))
+    return decision["state"] in ("timeout", "settled")
 
 
 def waited(decision: dict) -> str:
@@ -2423,6 +2436,181 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     return "\n".join(out) + "\n\n" + notes.strip() + "\n"
 
 
+# The two files a full change leaves for the owner at its proposal, in its task directory and in no
+# commit: what was built and why, and each decision with who took it and why. Lem makes one page of
+# the two (`stages/pages.md`). A small change has neither: its pull request's text is short enough.
+# Each is written from the records the pull request's text reads, and a part that no record holds is
+# left out.
+PAGES = ("built.md", "decisions.md")
+# Who took a decision, in the order of decisions.md: the ones the owner most likely wants to change first.
+WHO = {
+    "waits": "waits for the owner", "unsettled": "no level: the lead's pick stands", "timeout": "the timeout of the owner's wait",
+    "experts": "two expert models", "dialectic": "the dialectic", "personas": "the personas", "lead": "the lead", "lem": "Lem",
+    "gate": "the gate", "owner": "the owner",
+}
+# Who approved the criteria, for the line above them; a small change's `lem` has no page.
+APPROVED_BY = {
+    "owner": "The owner approved them.",
+    "alone": "Lem approved them while the task ran without the owner; the owner did not.",
+    "read": "The personas read them and nobody was confused, so the lead took them; the owner did not approve them.",
+}
+
+
+def text_of(file: Path) -> str:
+    return file.read_text(encoding="utf-8") if file.is_file() else ""
+
+
+def part(text: str, name: str) -> str | None:
+    """The body of the part of a markdown text whose heading starts with NAME, case aside, up to the
+    next heading of its level or above; none when there is no such part, or it holds only `none`. A
+    line in a code fence is never a heading."""
+    body: list[str] = []
+    fence, level = None, 0
+    for line in text.splitlines():
+        mark = re.match(r" {0,3}(`{3,}|~{3,})", line)
+        heading = re.match(r"(#{1,6})\s+(.*\S)", line) if fence is None and not mark else None
+        if mark:
+            fence = None if fence == mark.group(1)[0] else fence or mark.group(1)[0]
+        if level and heading and len(heading.group(1)) <= level:
+            break
+        if level:
+            body.append(line)
+        elif heading and heading.group(2).lower().startswith(name):
+            level = len(heading.group(1))
+    found = "\n".join(body).strip()
+    return found if found and found.lower() != "none" else None
+
+
+def title_of(task: Task, title: str) -> str:
+    """The task's title: the first heading of its task.md, or the pull request's title without one."""
+    found = re.search(r"(?m)^#\s+(.*\S)", text_of(task.directory / "task.md"))
+    return found.group(1) if found else title
+
+
+def flags(reasons: list[str]) -> list[str]:
+    """The red block that opens both files, one item for each reason the request is not green: each
+    is a thing of the owner's that was decided without him, or a line he reads before the merge.
+    Nothing when the request is green."""
+    if not reasons:
+        return []
+    many = len(reasons) > 1
+    out = ["> [!CAUTION]", f"> **{len(reasons)} things wait for the owner.**" if many else "> **One thing waits for the owner.**", ">"]
+    out += [f"> {number}. {why[0].upper()}{reason(why)[1:]}." for number, why in enumerate(reasons, start=1)]
+    return [*out, ">", f"> The pull request is not green for {'these' if many else 'it'}. The owner reads {'each' if many else 'it'} before the merge.", ""]
+
+
+def where_line(task: Task, branch: str, pr: dict | None, reasons: list[str]) -> list[str]:
+    """The line under the title: the pull request or the branch, green or not, and when the task ran without the owner."""
+    where = f"Pull request [#{pr['number']}]({pr['url']}), branch `{branch}`." if pr else f"Branch `{branch}`, ready to land on `{task.base}`."
+    said = "Not green: the block above says why." if reasons else f"Green. It waits for the owner's {'merge' if pr else 'word to land it'}."
+    alone = without_owner(task)
+    return [" ".join([where, said, *([alone] if alone else [])]), ""]
+
+
+def kind_of(decision: dict) -> str:
+    """Which key of WHO took a decision."""
+    if decision["state"] == "waits" or decision.get("unsettled"):
+        return "waits" if decision["state"] == "waits" else "unsettled"
+    if decision["state"] in ("timeout", "settled"):
+        return "experts" if decision["by"] == "experts" else "timeout"
+    return "owner" if decision["state"] == "answered" else decision["by"]
+
+
+def built_text(task: Task, name: str, notes: str, reasons: list[str], branch: str, pr: dict | None) -> str:
+    """built.md: what the owner asked, what was built, why he wants it, and what was not built."""
+    found = criteria_of(task)
+    kept = task.kept()
+    task_md = text_of(task.directory / "task.md")
+    held = {(test["criterion"], test["command"]): test for test in checked_criteria(kept.get("checks") or {})["tests"]}
+    out = [f"# What was built: {name}", "", *flags(reasons), *where_line(task, branch, pr, reasons)]
+    ask = text_of(task.directory / "ask.txt").strip()
+    if ask:
+        out += ["## What the owner asked", "", *(f"> {line}" for line in ask.splitlines()), ""]
+    named = [line.strip().removeprefix("- ") for line in text_of(task.directory / "directions.md").splitlines() if line.strip() and not line.startswith("#")]
+    if named:
+        out += ["In the interview the owner also named:", "", *(f"- {line}" for line in named), ""]
+    out += ["## What was built", ""]
+    gets = part(text_of(task.directory / "report.md"), "what the owner gets")
+    if gets:
+        out += [gets, ""]
+    proven = all(
+        criterion["tests"] and all((proof := held.get((criterion["n"], test["command"]))) and not proof["problem"] for test in criterion["tests"])
+        for criterion in found["criteria"]
+    )
+    approval = (found.get("approved") or {}).get("by")
+    said = ["The acceptance criteria that the change holds.", *([APPROVED_BY[approval]] if approval in APPROVED_BY else [])]
+    said += ["Each one has a test that fails on the base commit and passes on the branch."] if proven else []
+    out += [" ".join(said), ""]
+    out += [f"{criterion['n']}. {criterion['text']}" for criterion in found["criteria"]] if proven else criteria_lines(found, held)
+    if found["history"]:
+        out += ["", "Criteria that changed during the build:", "", *(change_line(task, change) for change in found["history"])]
+    files = changed(task, git(task.worktree, "merge-base", "HEAD", task.onto), "HEAD")
+    shown = ", ".join(f"`{file}`" for file in files[:12]) + (f", and {len(files) - 12} more" if len(files) > 12 else "")
+    out += ["", f"The change touches {len(files)} file{'' if len(files) == 1 else 's'}: {shown}.", ""]
+    why = part(task_md, "outcome")
+    if why:
+        out += ["## Why the owner wants it", "", why, ""]
+    filed = [f"- `{item['item']}`" + (f": {item['title']}" if item["title"] else "") for item in branch_items(task)]
+    filed += [f"- `{defect['item']}`: {defect['title']}" for read in kept.get("reads", []) if read["answered"] for defect in outside_of(read) if defect.get("item")]
+    missing = [
+        (label, body) for label, body in (
+            ("Out of scope", part(task_md, "out of scope")), ("Not done", part(notes, "not done")),
+            ("Left open by the review", part(notes, "left open")), ("Filed in the backlog", "\n".join(filed) or None),
+        ) if body
+    ]
+    if missing:
+        out += ["## What was not built", ""]
+        for label, body in missing:
+            out += [f"**{label}**", "", body, ""]
+    return "\n".join(out).rstrip() + "\n"
+
+
+def decisions_text(task: Task, name: str, reasons: list[str], branch: str, pr: dict | None) -> str:
+    """decisions.md: each decision of the record, the ones the owner most likely wants to change first,
+    each with who took it, what it chose over what, why, and how to change it."""
+    order = list(WHO)
+    decisions = sorted(task.decisions(), key=lambda decision: (order.index(kind_of(decision)), decision["id"]))
+    out = [f"# Decisions: {name}", "", *flags(reasons)]
+    where = f"Pull request [#{pr['number']}]({pr['url']})." if pr else f"Branch `{branch}`."
+    if not decisions:
+        return "\n".join([*out, f"{where} No decision is on record."]) + "\n"
+    counts = {kind: sum(kind_of(decision) == kind for decision in decisions) for kind in order}
+    said = {"waits": "that {} for the owner", "unsettled": "that no level settled"}
+    by = "; ".join(
+        f"{count} " + (said[kind].format("waits" if count == 1 else "wait") if kind in said else f"by {WHO[kind]}")
+        for kind, count in counts.items() if count
+    )
+    many = len(decisions) > 1
+    out += [f"{where} {len(decisions)} decision{'s' if many else ''}: {by}." + (" The ones the owner most likely wants to change come first." if many else ""), ""]
+    out += ["| # | The decision | Taken | Who decided |", "| --- | --- | --- | --- |"]
+    for decision in decisions:
+        taken = decision["chose"] if decision["state"] != "waits" else "nothing yet"
+        mark = "; **not green**" if without_him(decision) else ""
+        row = [str(decision["id"]), decision["what"], taken, WHO[kind_of(decision)] + mark]
+        out.append("| " + " | ".join(value.replace("|", "\\|") for value in row) + " |")
+    for decision in decisions:
+        out += ["", f"## {decision['id']}. {decision['what']}", ""]
+        if without_him(decision):
+            out += ["**Not green.** The decision was the owner's, and it was taken without him.", ""]
+        head = f"- {decision['what']}: "
+        out.append(f"- **Taken:** {decided(decision).removeprefix(head)}")
+        others = [option for option in decision.get("options", []) if option != decision.get("chose")]
+        if others:
+            out.append(f"- **The other option{'s' if len(others) > 1 else ''}:** " + "; ".join(f"\"{option}\"" for option in others))
+        if decision.get("undo"):
+            out.append(f"- **To change it:** {decision['undo']}")
+    return "\n".join(out) + "\n"
+
+
+def write_pages(task: Task, title: str, notes: str, reasons: list[str], branch: str, pr: dict | None) -> list[str]:
+    """Write both files into the task directory, whole, at each proposal of a full change."""
+    built, decisions = (task.directory / file for file in PAGES)
+    name = title_of(task, title)
+    write_whole(built, built_text(task, name, notes, reasons, branch, pr))
+    write_whole(decisions, decisions_text(task, name, reasons, branch, pr))
+    return [str(built), str(decisions)]
+
+
 def gh(task: Task, *args: str, check: bool = True) -> subprocess.CompletedProcess:
     return gh_in(task.worktree if task.worktree.exists() else task.main, *args, check=check)
 
@@ -2589,6 +2777,8 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
             if not number.isdigit():
                 raise LandError(f"gh pr create printed no pull request address: {url!r}")
             pr = {"number": int(number), "url": url}
+    # what was built and each decision, for the owner's own read before the merge: a full change's only
+    pages = None if found["small"] else write_pages(task, title, notes, reasons, branch, pr)
     # The events come after the forge's step: a proposal that the forge or the push refused is none.
     # for the retro: how often a request is not green, and for which reason
     script("project.py", task.worktree, "log", task.slug, "proposed", f"green:={json.dumps(not reasons)}", f"not_green:={json.dumps(reasons)}", f"tip={tip[:9]}")
@@ -2599,7 +2789,10 @@ def cmd_propose(task: Task, title: str, notes_file: str) -> dict:
     else:
         task.keep(proposed=tip, title=title, not_green=reasons)
         task.state("open", f"ready to land on {task.base} at {tip[:9]}", says, *([moved] if moved else []))
-    return {"task": task.slug, "text": str(body), "pull_request": pr, "green": not reasons, "not_green": reasons, "branch": branch, "tip": tip, "synced": moved}
+    return {
+        "task": task.slug, "text": str(body), "pull_request": pr, "green": not reasons, "not_green": reasons, "branch": branch, "tip": tip,
+        "synced": moved, "pages": pages,
+    }
 
 
 def follow(task: Task) -> str | None:

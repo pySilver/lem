@@ -153,8 +153,10 @@ there by these steps.
 
 The lead's last act, and also what it does before any other stop. Lem reads
 this file and the state block and nothing else of the task, and writes the owner's report from it.
-Write `report.md` in the task directory, whole, each time. A path in it is relative to the
-repository's root, never a path inside the worktree: the worktree is gone when the owner reads.
+Write `report.md` in the task directory, whole, each time, each part below under a heading of its
+name (`## What the owner gets`): the owner's page of the task takes that part. A path in it is
+relative to the repository's root, never a path inside the worktree: the worktree is gone when the
+owner reads.
 
 - **what the owner gets**, in one or two sentences, and how to see it;
 - **the criteria**: each criterion of the plan with the tests that hold it. Before the report, write
