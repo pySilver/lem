@@ -492,6 +492,32 @@ build that follows.
   project (`init --existing link`).
 - **The tests are to be useful and fast**: "Please make all kind test actually useful and not
   painfully slow. I can't wait to use Lem!" (the same page). Task 1a of the plan.
+- **He says whether he is there, and Lem assumes nothing** (his notes on the README, 2026-11-18,
+  after the words "go alone" were built): "also a bit confusing. In a typical flow I may want to
+  mark myself as `dnd` or `online` (or some better keyword). When I'm `dnd` - everything goes
+  without my attention. I don't want any assumptions whether I'm dnd or not. Lets remove this
+  15min automatic timeout - to have more explicit: Owner either tells dnd or not, no assumptions.
+  In the future there might be some external connectors that would tell that owner is dnd, but
+  thats a backlog item story. Command suggestion: with `/lem dnd`, `/lem online` (suggest better
+  keyword, something chat app related?)". So his being there is one status of the repository, not
+  a switch of each task, and it replaces "go alone", "go alone for all" and "I am back"; while he
+  is there, a choice of his waits for his answer with no time limit, and `flow.decision_wait`
+  goes. This replaces his ruling of 2026-11-16 that a choice "waits for him 15 minutes at most".
+  The keywords are the session's suggestion, open to him: `/lem away` and `/lem back`.
+- **The first line is where he corrects Lem's read of a request** (the same notes): of the row
+  `"full", "careful" or "drop"`, "I see why want it, but I cant imagine this being clear to
+  developer. Maybe it should be a quiz with assumption at the beginning. During the execution, we
+  cannot switch from short path to full, it's too late. But we can drop the plan. I'm not sure we
+  can swith to careful execution, probably not?". The session's answer, open to him: Lem's first
+  line is that quiz with its assumption taken, and no question is added, since a question on
+  each small change costs attention; his next message may correct the size or mark the task
+  careful; after a small change is proposed its size no longer changes, and a task can be
+  dropped at any time. "Careful" stays possible until the merge, because it builds nothing
+  again: it widens the review and makes the merge a person's.
+- **A helper starts from plain words** (the same notes): "will it work if a bit different
+  wording will be used like "lets braindstorm" instead of literal "interview-me". It would be
+  nice to have more natural way of speaking. When model is unsure which skill should be used - it
+  will ask directly with suggestion (plain terminal ask)."
 - **In doubt, a decision climbs a ladder of opinions, and a count decides, not a model.** His
   order: "Lead -> Personas -> Experts -> Dialectic (or Dialectic before Experts as its cheaper...)",
   and "Next level follows if no clear consensus reached or owner wants to check all possible
