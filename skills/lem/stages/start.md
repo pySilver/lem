@@ -11,7 +11,7 @@ that is started again after it stopped.
    which tasks hold the places, and stop here. A task in `landing`, `open`, `landed`, `answered`
    or `dropped` gets no lead at all, and the step says so: it is no task to queue.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
-   brief: from the task's branch when that branch exists (a night draft, a task whose worktree
+   brief: from the task's branch when that branch exists (an older night's draft, a task whose worktree
    was removed), otherwise from the settings' base branch. Use the project's own worktree script
    when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test database, an
    environment), and give it the base as origin has it after `git fetch origin BASE`; otherwise
@@ -49,7 +49,7 @@ the decisions and the commits on the branch; that is the whole handover.
 ## `/lem build`
 
 `/lem build <task>` is for a task whose state is `drafted` or `planned`: change its brief to
-`stop after the plan: no`, take out a `night: yes` line, since the owner is there now, and start
+`stop after the plan: no`, take out the `night: yes` line of an older night's draft, and start
 its lead. When its `report.md` or a state block of it says `needs a session:` and `lem project
 tasks` gives it no `talk`, change the brief to `lead: session` first: that start opens the plan
 talk's companion at once, where a builder would only stop at the plan again. A path to a plan file names its task too: the

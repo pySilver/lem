@@ -73,7 +73,7 @@ how a criterion is broken into lines does not count; the plan's `Size:` is the a
 only the owner's next approval changes. `show`, `record` and `red` refuse a plan that differs, and name
 the first criterion that does. So the lead can neither reword, drop nor add a criterion without
 the record saying so, and the pull request is not green for each such change. A task with no
-approved criteria (a plan written before this rule, a night plan, a full change from a complete
+approved criteria (a plan written before this rule, an older night's draft, a full change from a complete
 request) has the plan's criteria as their one source.
 
 `digest` gives the digest of a set of criteria without their tests: a file's, or the plan's. It

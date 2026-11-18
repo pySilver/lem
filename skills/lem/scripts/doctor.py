@@ -455,8 +455,8 @@ def openrouter_key() -> dict:
 
 def cronn() -> dict:
     row = tool(
-        "cronn", "required", "a scheduled retro, a night plan, and the agents' free hours",
-        "no retro and no night plan starts by itself, so the corrections wait unread; install it from https://cronn.umputun.dev "
+        "cronn", "required", "a scheduled retro, a night run, and the agents' free hours",
+        "no retro and no night run starts by itself, so the corrections wait unread; install it from https://cronn.umputun.dev "
         "(a Homebrew formula and an agent that starts at login)", "cronn",
     )
     env_file = Path(os.environ.get("CRONN_CONFIG_DIR") or Path.home() / ".config" / "cronn") / "cronn.env"

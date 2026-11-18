@@ -43,7 +43,7 @@ forge calls it conflicting.
      (`stages/new.md`, "A small change"), and one that is a full change after all comes to you
      with his approval of its criteria as a full change. A plan's size is always `full`:
      `criteria.py` and `land.py` refuse a plan that says `Size: small`;
-   - with no approved criteria (a full change from a complete request, a night plan), write them.
+   - with no approved criteria (a full change from a complete request), write them.
      A criterion is one business rule of the request in plain language with one concrete example,
      with real names and values: what a person of the project would see, never how the code does
      it. Take them from the outcome and the "done when" of `task.md`, now that you have read the
@@ -84,7 +84,8 @@ forge calls it conflicting.
      them on top, quoted, and the line `the criteria wait for the owner`; write the state `held`
      with that line, and stop. Leave a flagged criterion as you wrote it: what you would change goes
      beside it, as a proposal, and he decides. A task that runs without him (`mode` is `alone` in
-     `lem project --repo WORKTREE tasks`) waits for nothing of this: each flagged criterion is a
+     `lem project --repo WORKTREE tasks`) waits for nothing of this, a request somebody else
+     wrote among it: each flagged criterion is a
      decision in doubt whose personas split, and it climbs `stages/ladder.md` from the dialectic,
      level 3. Write it as the level that settled it picked, log it with that level (`--option` as
      you wrote it, `--option` as the persona expected it), freeze the criteria with `lem criteria
@@ -114,7 +115,7 @@ forge calls it conflicting.
    project's lessons (`lem project path lessons`). `lem project rules
    FILE ...` prints those rule files, the ones with no scope of their own too: do not
    match a file's `paths:` by eye.
-   When the branch already holds a plan (a night draft, a builder that stopped at the plan), do
+   When the branch already holds a plan (an older night's draft, a builder that stopped at the plan), do
    not write another: read it against the code as it is now, and commit a fix for what the code
    has outgrown.
 2. **Is the task careful?** Two tests, and one yes is enough:
@@ -158,8 +159,7 @@ forge calls it conflicting.
      not yet from a `lem-builder`: when your agent refuses you the start of a builder, write the
      state `blocked` with that refusal, and stop.
    When your brief says `stop after the plan: yes`, take the plan's decisions through step 5
-   first, then stop the same way with the line `the owner reads the plan`; a night plan whose
-   step 5 found a decision of the owner's stops with step 5's line instead.
+   first, then stop the same way with the line `the owner reads the plan`.
 4. **A careful or large plan gets a plan talk before any code**, in the companion Lem opens for
    it: the defender holds the talk with the reviewer by `stages/talk.md`, and writes its record
    into the plan as `## Plan talk` and into the event log as `plan.talk`. You do not read that
@@ -183,9 +183,4 @@ forge calls it conflicting.
    tasks and the criteria it changes and each issue the reviewer raised against it. Both are the
    ladder's options, and the pick of level 1 is the kept decision: the plan stands until a level
    settles otherwise, and the defender is one of the two positions that did not settle.
-   A night plan is the exception: its brief has the line `night: yes`, nobody is there to answer,
-   and a night never takes a decision of the owner's that went past the personas, so
-   `lem decisions ask` refuses there. Write each such decision into `report.md` under "for the
-   owner", with the same case, cause and options, write the state `planned` with the line `the
-   plan ends on a decision of the owner's`, and stop (`stages/night.md`, step 4).
 6. **Go on to `build`.** Write the state `building` with the line `plan committed, N tasks`.

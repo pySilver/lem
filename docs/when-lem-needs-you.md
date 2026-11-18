@@ -18,11 +18,9 @@ list, always in this order:
 2. the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
 4. the open pull requests, each green or with its reasons;
-5. the plans that `/lem night` wrote, each for one backlog item;
-6. the changes that the morning retro proposes, for each correction that you gave two times or more.
+5. the changes that the morning retro proposes, for each correction that you gave two times or more.
 
-Say "open them" to answer the night plans and the retro's changes on one page: approve, reject or
-later.
+Say "open them" to answer the retro's changes on one page: approve, reject or later.
 
 ## The board
 
@@ -44,6 +42,14 @@ means that an agent stopped at a problem that it could not solve. "Landed", "Ans
 "Dropped" tasks are done: new work on one of them is a new request.
 
 The second tab shows the backlog. "Start a task" on an item opens a task for it.
+
+## At night
+
+A scheduled job runs `/lem night`. Lem takes the smallest backlog items, up to `flow.max_tasks`,
+and runs each one without you to its pull request. In the morning, `/lem` shows these pull
+requests and the report of the night. A full change of the night is not green, because you did
+not approve its criteria. Lem leaves out an item near what must never go wrong. When two pull
+requests of earlier nights are still open, the night opens nothing.
 
 ## A decision in doubt
 

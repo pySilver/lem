@@ -10,7 +10,7 @@ With the owner, a decision the gate or the personas settled is logged too, and o
 the personas goes to him: it waits a fixed time for his answer and no longer, after which the
 ladder's pick is taken, and the pull request is not green for it. One kind of step never goes
 that way: a step that a later "no" cannot reverse waits for the owner's word however long that
-takes. And a plan written at night asks none: nobody is there to answer.
+takes.
 
     lem decisions log SLUG --what TEXT --chose TEXT --why TEXT
                  --by lead|gate|personas|dialectic|experts|owner|lem
@@ -46,7 +46,6 @@ takes. And a plan written at night asks none: nobody is there to answer.
                             badly, in numbered steps, one to a line, and --cause one line on why it
                             became possible and how far that reaches: the owner's card tells one
                             run.
-                            Refused for a task whose brief says `night: yes`
     lem decisions pending [SLUG]
                             the choices that wait, of one task or of every task, each with the
                             seconds its wait has left (`waiting`). A task that is dropped,
@@ -165,8 +164,6 @@ ENDED = ("dropped", "landed", "answered")
 EXPERTS = ("fable", "astra")
 # How the case of a choice is known: the lead ran it, or read it out of the code.
 CASE_WAS = ("reproduced", "derived")
-# The line of a task's brief that says its plan is written at night, as `stages/night.md` writes it.
-NIGHT = "night: yes"
 # Why a later "no" cannot undo a step. A fixed list: see the text above.
 IRREVERSIBLE = {
     "data": "it destroys or rewrites data outside the worktree",
@@ -541,19 +538,7 @@ def steps(value: str | None) -> str:
     return "\n".join(lines)
 
 
-def at_night(task: Task) -> bool:
-    """Whether the task's brief says that its plan is written at night, when nobody can answer."""
-    brief = task.directory / "brief.md"
-    return brief.is_file() and NIGHT in [line.strip() for line in brief.read_text(encoding="utf-8", errors="replace").splitlines()]
-
-
 def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
-    if at_night(task):
-        raise DecisionError(
-            f"the brief of {task.slug} says `{NIGHT}`: nobody is there to answer at night, and a decision of the owner's is never taken "
-            "by its wait or by the experts then. Write it into report.md under \"for the owner\", with its case, its cause and its options, "
-            "write the state `planned` with the line `the plan ends on a decision of the owner's`, and stop (`stages/plan.md`, step 5)",
-        )
     case = steps(args.case)
     if args.case_was not in CASE_WAS:
         raise DecisionError(f"--case-was says how the case is known: {' or '.join(CASE_WAS)}")

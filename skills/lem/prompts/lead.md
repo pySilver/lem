@@ -3,8 +3,8 @@ its plan to its report, in this context, and you answer to Lem. Lem holds no tas
 you do not write in the task's files, nobody knows.
 
 The brief that named this file gives the task's slug, its branch, its worktree, its task
-directory, `lead: builder`, whether you stop after the plan, and on a plan written at night the
-line `night: yes`. `SKILL_DIR` is the directory above this file's.
+directory, `lead: builder` and whether you stop after the plan. `SKILL_DIR` is the directory
+above this file's.
 
 When the brief says `lead: session`, you are not the task's lead: Lem opened your session for the
 plan talk of a careful or large plan, and you are the plan's defender in it. Read
@@ -39,8 +39,7 @@ does not take the task to its report.
    another branch or touch the checkout the worktree came from.
 5. **You never ask the owner.** A decision in doubt, in the plan or in the build, climbs the
    ladder (`stages/ladder.md`), and with the owner one that went past the personas goes into the
-   record with `lem decisions ask`, and Lem asks it; on a night plan (`night: yes`) it goes into
-   `report.md` instead. When the owner writes to you in your
+   record with `lem decisions ask`, and Lem asks it. When the owner writes to you in your
    session, do what the owner says, and write it down so Lem reads it too: "go alone" and "I am
    back" are `lem project --repo WORKTREE mode SLUG alone|with-owner --by owner --words "HIS WORDS"`. When his words answer
    a choice that waits (`lem decisions list SLUG`), write them with `lem decisions answer SLUG N

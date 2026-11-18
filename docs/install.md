@@ -8,7 +8,7 @@
 | [Claude Code](https://code.claude.com/docs) | the agents |
 | git, and Python 3.11 or newer as `python3` | branches, worktrees, scripts |
 | [revmux](https://github.com/umputun/revmux) and its skill | the review before each pull request |
-| [cronn](https://cronn.umputun.dev) | the scheduled retro and night plan |
+| [cronn](https://cronn.umputun.dev) | the scheduled retro and night run |
 | the mailbox chat, webrev, agdoc and the backlog recipe, from the [agterm cookbook](https://github.com/umputun/agterm/tree/master/cookbook) | the messages between agents, and the pages that you read and mark up |
 | the [GitHub CLI](https://cli.github.com) `gh`, signed in: only with a remote on GitHub | the pull requests on GitHub |
 | [Codex](https://github.com/openai/codex): optional, highly recommended | a second model family. Without it, Claude reviews the work of Claude |

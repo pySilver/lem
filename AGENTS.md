@@ -847,6 +847,17 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   covers a pull request opened after it started; `SKILL.md` says so now. The same session
   refused a merge on the owner's words as relayed by its operator, as the text asks: nobody
   else's word is his.
+- **A night ends as pull requests, and a task without the owner covers what a night was**
+  (2026-11-18), on his "its actually got to be a PR to merge, not a plan". A night takes backlog
+  items, the smallest first, up to `flow.max_tasks`, puts each in the mode `alone` with the words
+  "the night of DATE", and from there every path is the one a day has. So the night's own path is
+  gone: `night: yes` in a brief, the refusal of `lem decisions ask` for it, the draft that ended on
+  a decision, the three tries. The sentences above that describe them ("A night plan asks no such
+  decision", "a night that meets an item that is one plain change drafts no plan", "a report of
+  that night ... that names a draft still `drafted`") and `settle --away` in his ruling on the
+  experts tell the form before. A task `drafted` by an older night still shows in the list and
+  can be approved or rejected. The brake counts a night's pull requests that nobody merged or
+  closed: with two or more, the night opens nothing.
 
 ## Checks
 
