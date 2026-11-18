@@ -46,14 +46,29 @@ def git(start: Path, args: list, timeout: float | None) -> str | None:
     return ran.stdout if ran.returncode == 0 else None
 
 
+# The main checkout of each folder this process found one for. It cannot change while one command
+# runs, and a command that calls its siblings in its own process asks for it many times, so git is
+# asked once for each folder. Only the path is kept: the list of worktrees, which a command may
+# change, is asked again each time. A process that runs many commands calls `forget()` between two.
+CHECKOUTS = {}
+
+
+def forget() -> None:
+    CHECKOUTS.clear()
+
+
 def main_checkout(start: Path, timeout: float | None = None) -> Path:
     """The checkout every worktree hangs off: the first entry `git worktree list` gives."""
+    key = os.path.abspath(start)
+    if key in CHECKOUTS:
+        return CHECKOUTS[key]
     # -z ends each field with a NUL: a path may hold a line break, and a split on lines would cut it
     listed = git(start, ["worktree", "list", "--porcelain", "-z"], timeout)
     first = next((field[len("worktree "):] for field in (listed or "").split("\0") if field.startswith("worktree ")), None)
     if not first:
         raise StateError(f"git lists no worktree for {start}: Lem's state belongs to a repository, so run this inside its checkout")
-    return Path(first)
+    CHECKOUTS[key] = Path(first)
+    return CHECKOUTS[key]
 
 
 def say_on_stderr(line: str) -> None:

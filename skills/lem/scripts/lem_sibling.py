@@ -14,10 +14,10 @@ What makes this safe is the siblings' form, kept so: each `main(argv)` parses `a
 `sys.argv`; each prints through `sys.stdout` and `sys.stderr` as they are at the time of the call,
 and catches the output of every child it starts; each signal handler is put back in a `finally`;
 and what a module keeps between two calls is only what cannot change while one command runs
-(`project.py`'s state folder for a root, and its "said once" of the settings' copy). A command
-that needs a process of its own stays one: `APART`, and so does a file in the sibling's place
-with no `def main(argv` of its own (a stand-in a test puts there, which reads `sys.argv` as a
-process does).
+(`lem_state`'s main checkout of a folder, `project.py`'s state folder for a root, and its "said
+once" of the settings' copy). A command that needs a process of its own stays one: `APART`, and
+so does a file in the sibling's place with no `def main(argv` of its own (a stand-in a test puts
+there, which reads `sys.argv` as a process does).
 """
 
 from __future__ import annotations

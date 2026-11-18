@@ -557,10 +557,11 @@ def inside(root: Path, relative: str, where: str) -> Path:
 
 def main_checkout(root: Path) -> Path:
     """The checkout every worktree hangs off: the first entry git lists. A file git does not track lives only there."""
-    # -z ends each field with a NUL: a path may hold a line break, and a split on lines would cut it
-    listed = subprocess.run(["git", "-C", str(root), "worktree", "list", "--porcelain", "-z"], capture_output=True, text=True, check=False)
-    first = next((field.removeprefix("worktree ") for field in listed.stdout.split("\0") if field.startswith("worktree ")), None)
-    return Path(first) if first else root
+    # lem_state's search, which asks git once a command for each folder
+    try:
+        return lem_state.main_checkout(root)
+    except lem_state.StateError:
+        return root
 
 
 def text_of(file: Path) -> str:
