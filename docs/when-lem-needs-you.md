@@ -6,25 +6,25 @@
 2. **A decision in doubt** that the personas did not settle: you pick an option on a card.
 3. **The pull request**: you merge it.
 
-On the fast track, one builder makes one rule, and Lem needs you only at its pull request. Lem takes every other decision itself, and the
-pull request lists each one with its reason, so that you can reverse it.
+On the fast track, Lem needs you only at the pull request. Lem takes every other decision itself,
+and the pull request lists each one with its reason.
 
 ## What waits for you
 
-Type `/lem` with nothing after it. Lem asks GitHub what merged, opens the board, and gives one
-list, always in this order. When you are away, its first line says so, and since when.
+Type `/lem`. Lem asks GitHub what merged, opens the board, and gives one list in this order. While
+you are away, its first line says so.
 
 1. the choices of a task;
 2. the acceptance criteria that wait for your yes;
 3. the tasks that wait for a step of yours, or for one more fact;
 4. the open pull requests, each green or with its reasons;
-5. the changes that the morning retro proposes, for each correction that you gave two times or more.
+5. the changes that the morning retro proposes.
 
-Say "open them" to answer the retro's changes on one page: approve, reject or later.
+Say "open them" to approve, reject or delay each one on one page.
 
 ## The board
 
-The board puts each task in a lane by who acts next: you, an agent, the checks, or nobody.
+The board puts each task in a lane by who acts next.
 `/lem status <task>` opens the board of one task, with its criteria and their tests, its checks,
 its review, and where the time went.
 
@@ -34,36 +34,37 @@ In agterm, a chord lists the tasks, with what waits for you first. Pick one, and
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/task-dark.png">
-    <img src="../assets/screens/task-light.png" alt="The board of one task, with its phases, criteria, checks and review" width="900">
+    <img src="../assets/screens/task-light.png" alt="The board of one task" width="900">
   </picture>
 </p>
 
 *The board of one task. The picture shows demo data.*
 
-A "Queued" task waits for a free place, or for the result of another task. A "Blocked" task
-stopped at a problem that its agent could not solve. "Landed", "Answered" and "Dropped" tasks
-are done, and new work on one is a new request.
+A "Queued" task waits for the result of another task. A "Blocked" task stopped at a problem that
+its agent could not solve. "Landed", "Answered" and "Dropped" tasks are done.
 
-The second tab shows the backlog. "Start a task" on an item opens a task for it.
+The second tab shows the backlog, and "Start a task" opens a task for an item.
 
 ## At night
 
 A scheduled job runs `/lem night`. Lem takes the smallest backlog items, four at most, and runs
-them one after the other, each without you to its pull request. `/lem night 2` takes two. In the morning, `/lem` shows these pull
-requests and the report of the night. A task of the night on the standard track is not green, because you did
-not approve its criteria. Lem leaves out an item near what must never go wrong. When two pull
-requests of earlier nights are still open, the night opens nothing.
+them one after the other, each without you to its pull request. `/lem night 2` takes two. In the
+morning, `/lem` shows these pull requests and the report of the night. On the standard track, such
+a pull request is not green, because you did not approve its criteria. Lem leaves out an item near
+what must never go wrong. With two night pull requests still open, the night opens nothing.
 
 ## A decision in doubt
 
 A decision is in doubt when it changes a criterion or a direction, or when each option costs a
 person something. It climbs a ladder, one level at a time, until a level settles it:
 
-1. **The question gate** settles it with a ruling of yours in `docs/rulings/` or `AGENTS.md`, a
-   test or a rule. It also settles a decision whose wrong pick is cheap to undo.
+1. **The question gate** settles it with a ruling of yours, a test or a rule. A ruling is a
+   decision of yours about the product that holds for later tasks. `/lem learn` writes one into
+   `docs/rulings/`. The gate also settles a decision whose wrong pick is cheap to undo.
 2. **The personas** vote: agents answer as each person that the decision affects.
 3. **Two agents** argue for and against the option with the most votes.
-4. **Two experts** answer: Fable, and GPT-6 Astra through Codex.
+4. **Two experts** answer: the newest Fable of Anthropic, and the newest Astra of OpenAI through
+   Codex. Without Codex, the second expert is a second Claude model.
 
 When the gate or the personas settle a decision, Lem tells you in one line, and nothing waits. Any
 other decision comes to you as a card, with one example that goes wrong and the answer of each
@@ -71,7 +72,7 @@ level. The card waits for your answer with no time limit, and the other work goe
 
 ## Away
 
-Type `/lem im-away`, or say "I'm away". Until you say so, Lem takes it that you are there. While you
+Type `/lem im-away`, or say "I'm away". Lem assumes nothing: only your word changes it. While you
 are away, every task goes on without you:
 
 - each choice that waits is taken at once, with the ladder's pick;
@@ -84,12 +85,9 @@ The pull request is then not green, and it lists each decision that Lem took for
 whether it approved the criteria.
 
 > [!IMPORTANT]
-> While you are away, the merge still waits for you, and so does a step that nobody can undo. Such a
-> step:
+> Two things always wait for you, also while you are away:
 >
-> - destroys or rewrites data outside the worktree;
-> - writes to an outside system beyond what the settings allow;
-> - sends something to a person;
-> - spends money.
->
-> Only the part of the plan that needs the step waits.
+> - **The merge.** Lem merges nothing for you while you are away.
+> - **A step that nobody can undo.** Examples: it deletes data in a database, it sends an email to
+>   a customer, it changes a live system, or it spends money. Lem builds the rest of the task, does
+>   not take that step, and asks you on a card.
