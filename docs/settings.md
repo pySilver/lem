@@ -7,21 +7,21 @@ the fix.
 
 ## `[paths]`
 
-Each path is relative to the root of the repository.
+Paths are relative to the root of the repository.
 
 | Setting | Default | Use |
 | --- | --- | --- |
 | `paths.plans` | `"docs/plans"` | the folder of the plans |
 | `paths.plan_file` | `"YYYY-MM-DD-<slug>.md"` | the name of a plan file |
 | `paths.rulings` | `"docs/rulings"` | the folder of your rulings |
-| `paths.ruling_file` | `"<slug>.md"` | the name of a ruling file, with the same parts |
+| `paths.ruling_file` | `"<slug>.md"` | the name of a ruling file |
 
 ## `[branch]`
 
 | Setting | Default | Use |
 | --- | --- | --- |
 | `branch.base` | `/lem init` writes the default branch | the branch that a task starts from and lands on |
-| `branch.land` | `"owner"` | who merges. `"owner"`: you. `"agent"`: Lem, and only a green pull request that the review called not careful |
+| `branch.land` | `"owner"` | who merges. `"owner"`: you. `"agent"`: Lem, only a green pull request that the review called not careful, and never while you are away |
 | `branch.history` | `"squash"` | what lands. `"squash"`: one commit. `"keep"`: the commits of the branch |
 | `branch.propose` | `"pull-request"` | how a task ends with a remote on GitHub. `"pull-request"`: Lem opens a pull request, with no question. `"merge"`: Lem merges into the base branch, with no pull request |
 | `branch.protected` | `[]` | the branches where Lem lands nothing and pushes nothing |
@@ -39,8 +39,6 @@ runs the commands below one time, in the worktree of the task.
 
 ## `[flow]`
 
-What must never go wrong.
-
 | Setting | Default | Use |
 | --- | --- | --- |
 | `flow.topics` | `[]` | the topics, one sentence each: `"a customer is charged the wrong amount"`. `/lem init` proposes them from your code, and you correct them. A change that can affect one is careful |
@@ -51,21 +49,19 @@ A seat is one string, `agent/model:effort`. A part that you leave out takes the 
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `seats.reviewer` | `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk: `claude` or `codex` |
-| `seats.planner` | `"claude/opus:high"` | the agent that defends the plan in the plan talk: only `claude` |
-| `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | one or two experts of a decision in doubt. Without Codex, one expert answers alone |
+| `seats.reviewer` | `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk |
+| `seats.planner` | `"claude/opus:high"` | the defender of the plan in the plan talk: only `claude` |
+| `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the experts of a decision in doubt. Without Codex, one answers alone |
 
 ## `[corrections]`
 
-The optional queue of your corrections.
-
 | Setting | Default | Use |
 | --- | --- | --- |
-| `corrections.collect` | `false` | `true` turns on [the queue](install.md#the-correction-queue) for each person in the repository |
+| `corrections.collect` | `false` | `true` turns on [the correction queue](install.md#the-correction-queue) for each person in the repository |
 
 ## `[naps]`
 
-An optional agent that reads the recent tasks now and then, and leaves a note for the retro.
+An optional agent that reads the recent tasks and leaves a note for the retro.
 
 | Setting | Default | Use |
 | --- | --- | --- |
@@ -73,20 +69,19 @@ An optional agent that reads the recent tasks now and then, and leaves a note fo
 
 ## `[tracker]`
 
-Leave this table out when the project has no tracker; [Connect Linear](linear.md) tells you how
-to fill it.
+Leave this table out with no tracker. [Connect Linear](linear.md) tells you how to fill it.
 
 | Setting | Default | Use |
 | --- | --- | --- |
 | `tracker.kind` | required | `"linear"` |
-| `tracker.server` | `"linear"` | the name of the Linear MCP server in Claude Code |
-| `tracker.moves` | `"lem"` | who moves a ticket: `lem`, or `tracker` when the automation of Linear does it |
+| `tracker.server` | `"linear"` | the name of the Linear MCP server |
+| `tracker.moves` | `"lem"` | who moves a ticket: `lem`, or `tracker` for the automation of Linear |
 | `tracker.started` | the status of the type `started` | the status of a ticket whose work started. Write it when the team has two of that type |
 | `tracker.landed` | the status of the type `completed` | the same, for work that landed |
 
 ## `.lem/project.local.toml`
 
-This file holds the settings of one computer, and git does not track it. It can hold only these.
+Git does not track this file. It holds the settings of one computer, and only these.
 
 | Table | What it can say |
 | --- | --- |

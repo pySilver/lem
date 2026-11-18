@@ -146,7 +146,8 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
   time in each worktree it makes;
 - the sentences of what must never go wrong (`flow.topics`) the owner confirmed;
 - `branch.land = "owner"`: a person merges, until he says otherwise;
-- `branch.propose`: a pull request where the remote is GitHub;
+- `branch.propose`: `"pull-request"` where the remote is GitHub, and `"merge"` on any other remote or
+  none, so that the file says what happens there: with no forge a task ends as a merge either way;
 - `branch.history`: `squash`, Lem's default, unless the last fifty merges in `examined.md` kept the
   commits of each branch: then `keep`;
 - `branch.protected`: the branches nothing lands on that `examined.md` found, or none;

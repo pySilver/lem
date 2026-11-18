@@ -3194,7 +3194,25 @@ def cmd_clean(task: Task) -> dict:
     # proof in git: there the proof is that the branch's tip is the commit the forge merged.
     kept = task.kept()
     if not on_base and not (kept.get("merged") and tip == kept.get("merged_head")):
-        after = f"; the forge merged {kept['merged_head'][:9]}, and the branch has commits after it" if kept.get("merged") else ""
+        after = ""
+        if kept.get("merged"):
+            merged = kept["merged_head"]
+
+            def under(older: str, newer: str) -> bool:
+                return run(["git", "-C", str(task.main), "merge-base", "--is-ancestor", older, newer], check=False).returncode == 0
+
+            # The owner may have pressed "Update branch" on the forge and then merged as one commit: the
+            # head the forge merged then holds the branch's tip and the forge's merge of the base after
+            # it, and this checkout may not hold that head at all.
+            if under(merged, tip):
+                after = f"; the forge merged {merged[:9]}, and the branch has commits after it"
+            elif under(tip, merged):
+                after = (f"; the forge merged {merged[:9]}, which holds the tip of {branch} and a commit made on the forge after it "
+                         f"(its \"Update branch\"), so the branch holds nothing that was not merged: `git branch -D {branch}` removes it")
+            else:
+                after = (f"; the forge merged {merged[:9]}, which is not the tip of {branch} and which this checkout does not hold: "
+                         f"a commit made on the forge after the tip, as its \"Update branch\" makes. `git log {branch}` shows what the branch holds, "
+                         f"and `git branch -D {branch}` removes it")
         raise LandError(f"{task.onto} does not hold the tip of {branch}, so the branch stays{after}")
     if kept.get("merged") and task.forge:
         # The forge's copy first, and only when it is the commit that was merged: a failure here

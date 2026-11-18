@@ -173,6 +173,30 @@ if grep -q "the forge merged ${head:0:9}, and the branch has commits after it" <
 else
   fail "clean after a merge on the forge: $after / $kept_branch / $refused / $still / $left / $cleaned"
 fi
+# The owner pressed "Update branch" on the forge, then merged as one commit: the head the forge merged holds the branch's
+# tip and a merge of the base after it, which this checkout never fetched. clean says so, and the one command that removes
+# the branch; it guesses nothing.
+small_task_in "$GHS" pr-updated u.txt eleven
+gh_checked pr-updated && gh_land read pr-updated --record "$(clean 1)" >/dev/null && gh_land propose pr-updated --title "fix: eleven" --notes "$NOTES" >/dev/null
+updated_pr=$(gh_state 'next(n for n, pr in d["prs"].items() if pr["head"] == "fix/pr-updated")')
+git -C "$gh_other" pull -q origin main
+echo base-later > "$gh_other/base-later.txt" && git -C "$gh_other" add -A && git -C "$gh_other" commit -q -m "feat: base later" && git -C "$gh_other" push -q origin main
+# "Update branch": the forge merges the base into the pull request's branch, on the forge only
+local_tip=$(git -C "$GHS/.lem/worktrees/pr-updated" rev-parse HEAD)
+update=$(git -C "$GHO" -c user.name=t -c user.email=t@t commit-tree -p "$local_tip" -p "$(git -C "$GHO" rev-parse main)" -m "Merge branch 'main' into fix/pr-updated" "$(git -C "$gh_other" rev-parse 'HEAD^{tree}')")
+git -C "$GHO" update-ref refs/heads/fix/pr-updated "$update"
+git -C "$gh_other" fetch -q origin && git -C "$gh_other" merge -q --squash origin/fix/pr-updated && git -C "$gh_other" commit -q -m "fix: eleven (#$updated_pr)" && git -C "$gh_other" push -q origin main
+squashed=$(git -C "$gh_other" rev-parse HEAD)
+gh_set "d['prs']['$updated_pr'].update(state='MERGED', merge='$squashed')"
+gh_land merged pr-updated >/dev/null
+updated_clean=$(gh_land clean pr-updated 2>&1 || true)
+if grep -qF "the forge merged ${update:0:9}, which is not the tip of fix/pr-updated and which this checkout does not hold: a commit made on the forge after the tip, as its \"Update branch\" makes" <<<"$updated_clean" \
+  && ! grep -qF "the branch has commits after it" <<<"$updated_clean" \
+  && grep -qF '`git branch -D fix/pr-updated` removes it' <<<"$updated_clean" && [ -n "$(git -C "$GHS" branch --list fix/pr-updated)" ]; then
+  pass "after an Update branch on the forge and a merge as one commit, clean says that the forge merged a commit made on the forge after the branch's tip, not that the branch has commits after it, keeps the branch, and names the one command that removes it"
+else
+  fail "clean after an Update branch on the forge: $updated_clean"
+fi
 # A proposal the forge's step refused is none: no `proposed` event, and the task keeps the landing line.
 # With no `gh` on PATH the refusal names the command; a forge that fails is said with what it said.
 small_task_in "$GHS" pr-guards r.txt twelve
