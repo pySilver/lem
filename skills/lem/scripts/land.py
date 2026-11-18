@@ -113,7 +113,7 @@ refusal on the way names the step out, also when its worktree is gone.
 
 The checks are the main checkout's. One task may bring its own: when the main checkout's settings
 name no command of the checks and the task's branch adds them to its `.lem/project.toml` (they are not on
-the base commit, under `[checks]` or under the older name `[gate]`), `start` and `checks` take those commands, as for the first task of a new
+the base commit), `start` and `checks` take those commands, as for the first task of a new
 repository, "set up the checks"; the request is then not green, so that a person reads the
 checks once. The rest of the branch's settings, its `checks.setup` too, are not read. A branch that changes checks the main checkout has is checked by the main
 checkout's.
@@ -658,9 +658,8 @@ class Task:
         base = git(self.worktree, "merge-base", "HEAD", self.onto, check=False)
         before = git(self.worktree, "show", f"{base}:.lem/project.toml", check=False) if base else ""
         try:
-            # the base commit's file may name the table as an older Lem did, `[gate]`
             parsed = tomllib.loads(before) if before else {}
-            on_base = (parsed.get("checks") or parsed.get("gate") or {}).get("commands", [])
+            on_base = parsed.get("checks", {}).get("commands", [])
         except tomllib.TOMLDecodeError:
             on_base = []
         return (tip, True) if not on_base else ([], False)
@@ -1211,7 +1210,7 @@ def in_commit(task: Task, commit: str, path: str) -> bool:
 
 def local_settings_edit(task: Task, now: dict) -> str | None:
     """Why the change is careful by a commit of one machine's own settings: `.lem/project.local.toml`
-    is untracked by design, and a tracked copy gives every machine that machine's seats, corrections, naps and limit of tasks.
+    is untracked by design, and a tracked copy gives every machine that machine's seats, corrections and naps.
     None when the change leaves the file alone."""
     if LOCAL_SETTINGS_FILE not in now["files"]:
         return None
@@ -1219,7 +1218,7 @@ def local_settings_edit(task: Task, now: dict) -> str | None:
     how = "adds" if after and not before else "removes" if before and not after else "changes"
     return (
         f"the change {how} {LOCAL_SETTINGS_FILE}, one machine's own settings, which git does not track: "
-        "tracked, that machine's seats, corrections, naps and limit of tasks become every machine's"
+        "tracked, that machine's seats, corrections and naps become every machine's"
     )
 
 

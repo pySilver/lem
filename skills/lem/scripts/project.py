@@ -156,13 +156,11 @@ in Claude Code's form (`paths:` with a list of globs), and a file without that c
 `rules` is the one place that matches a change against those scopes: a builder's brief, the
 message to the reviewer and a review round all get its answer, so an agent that does not load the
 folder by itself (Codex, the agents of the review tool) reads the same rules as one that does.
-Rule files in `.lem/styleguide`, where an older Lem kept them, are refused with the `git mv` that
-moves them: rules must not go unread in silence.
 
 What must never go wrong is `flow.topics`: sentences in the owner's words, against which an agent
 reads an ask, a plan and a diff. No list of paths says whether a change is careful: such a list
 goes stale as the code moves, misses new code, and a branch can edit the list that guards it.
-`flow.careful` is refused, with the sentence to write in its place. The `[flow]` table is read
+The `[flow]` table is read
 from the main checkout's settings, also in a task's worktree, as the checks are read by the
 landing: a branch that empties its topics or shortens the owner's wait lifts nothing, since every
 lead, reviewer and landing reads the table as the main checkout has it. The table the branch writes
@@ -206,13 +204,6 @@ it should be explicitly `agent/model:effort` in all 3"). The effort may be left 
 gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written; a file with no
 planner or no experts gets Lem's (`PLANNER`, `EXPERTS`), and one with no reviewer gets none, which
 the stage that needs it asks the owner for.
-
-A file in the form of an older Lem is refused once (`older_form`): the tables `[gate]` (the checks'
-older name), `[seats.reviewer]` (with `agent`, `model` and `plan_effort`) and `[seats.planner]`,
-with the whole text to write in their place; and each key and table that is gone (`GONE_KEYS`,
-`GONE_TABLES`, the place keys of [paths]), with the line to delete and, for a place that names
-another folder, the move. A task branch's own copy in a worktree is read as now instead, with one
-line on stderr (`now_form`).
 
 A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
 `<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it; a plan named `YYYYMMDD-<slug>.md`, as an older Lem
@@ -298,14 +289,6 @@ PLACES: dict[str, str] = {
 # configurable: rulings location, plans location, plan file names format, rulings file names
 # format"): the plans and the rulings. The name of a file in each is `plan_file` and `ruling_file`.
 PATHS = {"plans": "docs/plans", "rulings": "docs/rulings"}
-# The keys an older Lem had under [paths] for what is a place now: the key -> its place's name.
-OLD_PATH_KEYS = {**{name: name for name in PLACES if name != "rules"}, "styleguide": "rules"}
-# What a move of `.lem/styleguide` into `.claude/rules` takes out first: an older `/lem init` wrote a
-# draft README.md with no rule there, and Claude Code loads every .md file of `.claude/rules` as a rule.
-NO_RULE = (
-    "delete each file in .lem/styleguide that holds no rule, such as the draft README.md an older `/lem init` wrote there "
-    "(`git rm .lem/styleguide/README.md`), since Claude Code loads every .md file of .claude/rules as a rule in each session"
-)
 LAND = ("owner", "agent")
 # How a task's branch reaches the base branch: its own commits, or one commit for the whole branch.
 # One commit unless the settings say otherwise (the owner, 2026-11-18: "my opionated default is
@@ -345,10 +328,6 @@ SEATS = {
     "reviewer": (REVIEWERS, "the agents that can sit in the reviewer's pane", REVIEWER_SEATS["codex"]),
     "planner": (PLANNERS, "the harness was checked in Claude Code only", PLANNER),
 }
-# The keys the tables of an older Lem had for each seat, read only to write the refusal's line:
-# `[seats.reviewer]` with `plan_effort` as its effort, and `effort`, the effort for the review of a
-# diff, which no step used (audit W7, 2026-11-16); `[seats.planner]` with `effort`.
-OLD_SEAT_EFFORT = {"reviewer": "plan_effort", "planner": "effort"}
 # A plan's and a ruling's file name: their defaults, and their tokens; `lem_plans` builds and finds the name.
 PLAN_FILE = lem_plans.PLAN_FILE
 RULING_FILE = lem_plans.RULING_FILE
@@ -642,12 +621,11 @@ def toml_string(value: str) -> str:
     return '"' + "".join(f"\\u{ord(c):04x}" if ord(c) < 0x20 or ord(c) == 0x7F else c for c in escaped) + '"'
 
 
-def read_settings(file: Path, name: Path, tables: tuple[str, ...], branch_copy: bool = False) -> dict:
-    """One settings file as a dict, with every table and key it may not hold refused. A task
-    branch's copy (`branch_copy`) in the form of an older Lem is read in the form of now."""
+def read_settings(file: Path, name: Path, tables: tuple[str, ...]) -> dict:
+    """One settings file as a dict, with every table and key it may not hold refused."""
     if not file.is_file():
         return {}
-    return settings_of(text_of(file), name, tables, branch_copy)
+    return settings_of(text_of(file), name, tables)
 
 
 def committed_settings(main: Path) -> dict | None:
@@ -696,22 +674,12 @@ def committed_settings(main: Path) -> dict | None:
 DIFFERS_SAID: list[bool] = []
 
 
-def settings_of(text: str, name: Path, tables: tuple[str, ...], branch_copy: bool = False) -> dict:
+def settings_of(text: str, name: Path, tables: tuple[str, ...]) -> dict:
     """The text of one settings file as a dict, checked as `read_settings` says."""
     try:
         raw = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise SettingsError(f"{name}: {error}") from error
-    if branch_copy:
-        raw = now_form(raw, name)
-    older = older_form(raw, name)
-    if older:
-        # The tracked file: a worktree of an open task reads its branch's own copy, which takes the
-        # fix only from the base, and a fresh worktree starts from origin's base.
-        raise SettingsError(older + (
-            "\n\nThen commit the file on the base branch and push it: that makes the fix count for the tasks that are open, whose branches take the file from the base"
-            if "checks" in tables else ""
-        ))
     for table, body in raw.items():
         if table not in TABLES:
             raise SettingsError(f"{name}: unknown table [{table}]{nearest(table, tuple(TABLES))}")
@@ -722,8 +690,6 @@ def settings_of(text: str, name: Path, tables: tuple[str, ...], branch_copy: boo
             )
         if not isinstance(body, dict):
             raise SettingsError(f"{name}: [{table}] must be a table")
-        if table == "flow" and "careful" in body:
-            raise SettingsError(careful_gone(name, body["careful"]))
         for key in body:
             if key not in TABLES[table]:
                 raise SettingsError(f"{name}: unknown key {table}.{key}{nearest(key, TABLES[table])}")
@@ -739,121 +705,6 @@ def toml_value(value: object) -> str:
     if isinstance(value, list):
         return "[" + ", ".join(toml_value(item) for item in value) + "]"
     return str(value)
-
-
-def joined(words: list[str]) -> str:
-    """Words as a sentence lists them: `a`, `a and b`, `a, b and c`."""
-    return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
-
-
-# The settings an older Lem had that are gone (task 1b of docs/plans/2026-11-18-core-and-two-modes.md),
-# each with what holds in its place now: a key under its table, or a whole table. The keys of
-# [paths] that named a place of PLACES are `OLD_PATH_KEYS`. A file that still has one is refused once
-# (`older_form`), with every line to delete; a task branch's own copy is read without them (`now_form`).
-GONE_KEYS: dict[tuple[str, str], str] = {
-    ("checks", "ignores"): "the checks run again whenever the base branch moves",
-    ("checks", "bar"): "Lem looks for a lowered bar with its own marks, for Python, JavaScript, TypeScript, Go, Rust, Java, Kotlin and shell",
-    ("flow", "watch_seconds"): "the watch of the open pull requests looks every 60 seconds",
-    ("flow", "decision_wait"): "a choice waits for the owner's answer with no time limit while he is there, and is taken at once when he says he is away (`/lem im-away`)",
-    ("naps", "keep_days"): f"Lem keeps the folder of a nap {NAPS_KEEP_DAYS} days",
-    ("naps", "gap_hours"): f"{NAPS_GAP_HOURS} hours pass between two naps",
-    ("tracker", "workspace"): "a ticket's address names its workspace, and Lem reads the ticket through the server's one connection",
-    ("tracker", "team"): "the team is in the ticket's id, as ABC in ABC-12",
-}
-GONE_TABLES: dict[str, str] = {
-    "tools": "Lem asks the owner with its own page and opens a text for the owner to mark up with webrev",
-}
-
-
-def old_path_line(key: str, value: object) -> str:
-    """The line of the refusal for a key of [paths] that named a place: delete it, and, when it named
-    another place than the one of now, the move that brings the files there, with both paths."""
-    place = PLACES[OLD_PATH_KEYS[key]]
-    line = f"`{key} = {toml_value(value)}` under [paths]"
-    given = value.strip().strip("/").removeprefix("./") if isinstance(value, str) else ""
-    if given in ("", place):
-        return f"- delete {line}: {place} is its one place, with no setting"
-    if key == "worktrees":
-        move = f"move each task's worktree from {given} to {place} first, with `git worktree move {given}/SLUG {place}/SLUG`"
-    elif key == "styleguide":
-        move = f"move the rule files of {given} to {place} first: {NO_RULE}, then `git mv {given} {place}`"
-    else:
-        move = f"move {given} to {place} first, with `git mv {given} {place}`"
-    return f"- delete {line}, and {move}: {place} is its one place, with no setting"
-
-
-def gone_lines(raw: dict) -> list[str]:
-    """One line of the refusal for each key and table of `raw` that is gone, in the file's order."""
-    lines = []
-    for table, body in raw.items():
-        if table in GONE_TABLES:
-            keys = [f"`{key} = {toml_value(value)}`" for key, value in body.items()] if isinstance(body, dict) else []
-            lines.append(f"- delete the [{table}] table" + (f" with its lines {joined(keys)}" if keys else "") + f": {GONE_TABLES[table]}")
-            continue
-        for key, value in body.items() if isinstance(body, dict) else ():
-            if table == "paths" and key in OLD_PATH_KEYS:
-                lines.append(old_path_line(key, value))
-            elif (table, key) in GONE_KEYS:
-                lines.append(f"- delete `{key} = {toml_value(value)}` under [{table}]: {GONE_KEYS[(table, key)]}")
-    return lines
-
-
-def is_gone(table: str, key: str) -> bool:
-    return (table == "paths" and key in OLD_PATH_KEYS) or (table, key) in GONE_KEYS
-
-
-def older_form(raw: dict, name: Path) -> str | None:
-    """The one refusal of a file in the form of an older Lem: the tables `[gate]`, `[seats.reviewer]`
-    and `[seats.planner]`, with the whole text to write in their place, ready to paste; and each key
-    and table that is gone (`gone_lines`), with the line to delete. None when the file has none of
-    them. The keys of `[gate]` are those of `[checks]`, so its lines are the table's own, without the
-    keys that are gone, and an unknown key among them is refused after the move."""
-    gate = raw.get("gate")
-    seats = raw.get("seats") if isinstance(raw.get("seats"), dict) else {}
-    tables = [which for which in SEATS if isinstance(seats.get(which), dict)]
-    gone = gone_lines({("checks" if table == "gate" and "checks" not in raw else table): body for table, body in raw.items()})
-    if gate is None and not tables and not gone:
-        return None
-
-    named, said, text = [], [], []
-    if gate is not None:
-        named.append("[gate]")
-        said.append(f"[gate] is called [checks] now, with the keys {joined(list(TABLES['checks']))}")
-        text += ["[checks]", *([f"{key} = {toml_value(value)}" for key, value in gate.items() if not is_gone("checks", key)] if isinstance(gate, dict) else [])]
-    if tables:
-        # the keys of [seats] that are lines already go into the one [seats] table with the new lines
-        plain = [f"{key} = {toml_value(value)}" for key, value in seats.items() if not isinstance(value, dict)]
-        if plain:
-            named.append("[seats]")
-        named += [f"[seats.{which}]" for which in tables]
-        said.append(
-            f"{joined([f'[seats.{which}]' for which in tables])} {'is' if len(tables) == 1 else 'are each'} one line under [seats] now, \"{SEAT_FORM}\""
-            + ("; the reviewer's effort for the review of a diff was used by no step, and has no place in the line" if "reviewer" in tables and "effort" in seats["reviewer"] else ""),
-        )
-        text += [*([""] if text else []), "[seats]", *plain, *(old_seat_line(which, seats[which]) for which in tables)]
-    parts = []
-    if said:
-        parts.append(
-            f"{name} has the form of an older Lem: {'; '.join(said)}. "
-            f"Write these lines in place of the {joined(named)} table{'s' if len(named) > 1 else ''}:\n" + "\n".join(text),
-        )
-    if gone:
-        parts.append(("Delete these lines too, whose settings are gone:\n" if said else f"{name} has settings of an older Lem that are gone. Delete these lines:\n") + "\n".join(gone))
-    return "\n\n".join(parts)
-
-
-def careful_gone(name: Path, paths: object) -> str:
-    """The refusal of a list of careful paths, with the sentence to write in its place."""
-    first = paths[0] if isinstance(paths, list) and paths and isinstance(paths[0], str) else None
-    example = (
-        f'say what the paths stood for as sentences in flow.topics, as topics = ["what goes wrong for a person when {first} breaks, in your words"], '
-        if first else "say in flow.topics, as sentences, what must never go wrong here, "
-    )
-    return (
-        f"{name}: flow.careful is gone: whether a change is careful is judged against flow.topics, at the ask, at the plan and at the diff, "
-        f"and no list of paths decides it, since a list goes stale as the code moves and a branch can edit it. {example.capitalize()}"
-        "then remove the line careful = [...]"
-    )
 
 
 def flow_of(raw: dict, name: Path) -> dict:
@@ -891,63 +742,12 @@ def parse_seat(text: object, where: str, agents: tuple[str, ...], why: str, exam
     return {"agent": agent, "model": model or None, "effort": effort or None, "seat": text}
 
 
-def old_seat_value(which: str, table: dict) -> str:
-    """The one line an older Lem's seat table says now, from what the table holds."""
-    agent, model, effort = table.get("agent"), table.get("model"), table.get(OLD_SEAT_EFFORT[which])
-    words = [value if isinstance(value, str) and value.strip() else None for value in (agent, model, effort)]
-    return (words[0] or "AGENT") + (f"/{words[1]}" if words[1] else "") + (f":{words[2]}" if words[2] else "")
-
-
-def old_seat_line(which: str, table: dict) -> str:
-    """The line to write in place of an older Lem's seat table."""
-    return f"{which} = {toml_string(old_seat_value(which, table))}"
-
-
-def now_form(raw: dict, name: Path) -> dict:
-    """A task branch's copy of the settings in the form an older Lem wrote, in the form of now: the
-    `[gate]` table as `[checks]`, a seat table as its one line, and no key or table that is gone
-    (`GONE_KEYS`, `GONE_TABLES`, `OLD_PATH_KEYS`), so that the task goes on. The branch
-    took the file from a base that held it so, and holds it until the file of now is on the base it
-    is brought onto, which only the owner's commit and push make. The main checkout's own file,
-    which the owner keeps, is refused instead (`older_form`). One line on stderr says what was read
-    so, and why. A later change may drop this once no task whose branch holds such a file is open."""
-    read = []
-    if "gate" in raw and "checks" not in raw:
-        raw = {("checks" if table == "gate" else table): body for table, body in raw.items()}
-        read.append("[gate] as [checks]")
-    seats = raw.get("seats")
-    if isinstance(seats, dict):
-        for which in SEATS:
-            if isinstance(seats.get(which), dict):
-                seats[which] = old_seat_value(which, seats[which])
-                read.append(f"[seats.{which}] as {which} = {toml_string(seats[which])}")
-    dropped = []
-    for table in list(raw):
-        if table in GONE_TABLES:
-            del raw[table]
-            dropped.append(f"[{table}]")
-        elif isinstance(raw[table], dict):
-            for key in [key for key in raw[table] if is_gone(table, key)]:
-                del raw[table][key]
-                dropped.append(f"{table}.{key}")
-    if dropped:
-        read.append(f"without {joined(dropped)}, whose settings are gone")
-    if read:
-        print(
-            f"project.py: this worktree's {name} is the task branch's own copy, in the form of an older Lem; "
-            f"Lem reads it as now ({'; '.join(read)}), so that the task goes on",
-            file=sys.stderr,
-        )
-    return raw
-
-
 def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     """The seat (`SEATS`) one file names, checked; None when the file names none."""
     agents, why, example = SEATS[which]
     given = raw.get("seats", {}).get(which)
     if given is None:
         return None
-    # a table of an older Lem never comes here: `older_form` refused it when the file was read
     return parse_seat(given, f"{name}: seats.{which}", agents, why, example)
 
 
@@ -1068,8 +868,8 @@ def load(root: Path) -> dict:
                 file=sys.stderr,
             )
     else:
-        # in a task's worktree the file is the branch's copy, which may be older than the base's
-        raw = read_settings(file, SETTINGS, tuple(TABLES), branch_copy=True)
+        # in a task's worktree the file is the branch's copy
+        raw = read_settings(file, SETTINGS, tuple(TABLES))
     local_file = main / LOCAL
     local = read_settings(local_file, LOCAL, LOCAL_TABLES)
     # What must never go wrong, and the owner's wait, are the base branch's: the branch that a
@@ -1259,20 +1059,6 @@ def rule_files(folder: Path) -> list[Path]:
         folders.sort()
         found += [Path(where) / name for name in sorted(names) if name.endswith(".md")]
     return found
-
-
-def rules_folder(settings: dict) -> Path:
-    """The folder of the rules for the code, `.claude/rules`; refused while `.lem/styleguide`, where an
-    older Lem kept them, still holds a rule file, with the move that brings them there."""
-    root = Path(settings["root"]).resolve()
-    folder, older = root / PLACES["rules"], root / ".lem" / "styleguide"
-    if older.is_dir() and rule_files(older):
-        move = f"git mv .lem/styleguide/* {PLACES['rules']}/" if folder.is_dir() else f"mkdir -p {Path(PLACES['rules']).parent} && git mv .lem/styleguide {PLACES['rules']}"
-        raise SettingsError(
-            f".lem/styleguide holds rule files, and Lem reads the rules for the code from {PLACES['rules']} only, the folder Claude Code loads by itself. "
-            f"First {NO_RULE}. Then move the rule files there: `{move}`, and commit the move",
-        )
-    return folder
 
 
 def cmd_init(root: Path, base: str | None, codex: str) -> None:
@@ -1490,7 +1276,7 @@ def cmd_rules(settings: dict, files: list[str], commits: str | None) -> None:
     changed = sorted(set(changed))
     if not files and not commits:
         raise SettingsError("rules needs the files a change touches: name them, or pass --range BASE..TIP")
-    folder = rules_folder(settings)
+    folder = Path(settings["root"]).resolve() / PLACES["rules"]
     rules = []
     for file in rule_files(folder):
         shown = file.relative_to(root).as_posix() if file.is_relative_to(root) else str(file)
