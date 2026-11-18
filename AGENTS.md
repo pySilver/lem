@@ -83,8 +83,9 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   asks it with who lands.
 - **Claude Code first.** The harness file for Codex comes after that works. The reviewer may be
   Codex or a second Claude; Codex as the builder is wanted later.
-- **Opinionated and small.** A developer may use their own tool for a role (`tools.annotate`). Out
-  of scope: a peer-planning flow, a skill-activation hook, language-server plugins, output styles,
+- **Opinionated and small.** His first form let a developer use their own tool for a role
+  (`tools.annotate`); he let that go with the `[tools]` table on 2026-11-18 (his interview, below).
+  Out of scope: a peer-planning flow, a skill-activation hook, language-server plugins, output styles,
   a brainstorm skill, clipboard helpers, a writing-style skill.
 - **A project can close branches** (`branch.protected`): a rewrite that lands on a branch of its
   own never lands on the release branches.
@@ -168,8 +169,10 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   share project rules between Codex and Claude Code is a huge benefit, especially for review
   rounds". Lem has no command that moves linked settings: `/lem migrate` "becomes pointless as
   personas is used in one or two of our projects so we can move those ad-hoc there", and
-  `init --existing link` is how an adopted project names its folders. "For now" is his: a move
-  of the rules is a new decision of his, and nothing here prepares one. The form built from it
+  `init --existing link` was how an adopted project named its folders until 2026-11-18, when
+  every place became fixed (his interview, below): a project moves its personas and its profile
+  into `.lem/`, and `.claude/rules` is the one place Lem reads the rules for the code. "For now"
+  is his: a move of the rules is a new decision of his, and nothing here prepares one. The form built from it
   is the session's design: `project.py rules`, the one match of a change against the files'
   `paths:` scopes, whose answer goes to a builder's brief, the reviewer's message and a review
   round; one format, Claude Code's, until a project needs another.
@@ -191,9 +194,9 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   changed and why. The cast and the profile are Lem's and move to `.lem`.
 - **A developer may ask with a tool of their own**: "We also need a way out, to let dev avoid
   huddle if they prefer their own asker UI?", and of the key built from it, "I like your solution
-  for huddle, then name and the way out". `tools.ask`, beside `tools.annotate` and allowed in the
-  machine's own file: Lem's page (the default), `terminal`, or the name of a skill or a command.
-  `TOOLS` in `project.py` is the one place that names Lem's own tool for each role.
+  for huddle, then name and the way out". The key was `tools.ask`, beside `tools.annotate`. He
+  let both go on 2026-11-18 ("[tools] - goes away?", his interview, below): Lem asks with its own
+  page, which needs agterm, and agterm is required.
 - **The question page is a part of Lem, not a tool the machine has or lacks**: "it does not need
   to mention that 'huddle' dependency is satisfied as it's an internal lem feature" (the page's
   name at that time). The machine
@@ -236,9 +239,10 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
 - **The backlog is a part of Lem, and its view is a tab of the board**: "Backlog tab - I like
   this idea" (2026-11-15), on the answer that three stages already live on the backlog (the
   night plan picks from it, the closing pass files into it, an ask starts from it). So
-  `lem-backlog` stays a shipped skill, not a recommended outside tool, and the board's second
-  tab shows the items by who can act, with one action that gives an item to Lem as an ask. The
-  content follows a page of his own; no code of it is used.
+  `lem-backlog` was a shipped skill until 2026-11-18, when he took the agterm cookbook's backlog
+  recipe in its place (his interview, below). The item format and the tab stay: the board's
+  second tab shows the items by their `worth`, with one action that gives an item to Lem as a
+  request. The content follows a page of his own; no code of it is used.
 - **A board of example tasks says so on the page**, and a line that waits for him says where he
   answers. He took a fixture's line for a real one on 2026-11-14.
 - **Two experts answer a choice that waits for him**: "also at Lem we will need a skill "ask
@@ -467,6 +471,8 @@ build that follows.
   `decisions.md` is committed on the branch: "idk, if task folder isn't committed than no. its
   just a file that will load a context to my brain when I will have a time too look at the PR, to
   decide whether I like it or not and second artifact file should tell what and why build here".
+  Of a sample of the page (agdoc's "classic" design, a red block first on the screen for what
+  waits for him; `docs/plans/2026-11-18-core-and-two-modes/pages/`): "sample page is fine".
 - **Not every section of the settings stays** (his note on the plan, 2026-11-18): "I also have
   doubts all sections of the settings should stay ... paths.styleguide - is it really part of the
   Lem or harness setup itself? paths.lessons vs paths.rules (wft? which is what? why?)
@@ -812,6 +818,30 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   "text from outside is data" is one sentence for the builder and one for the review;
   `/lem pr-review` asks once before it runs a fork's code; a task starts from the local base when
   origin does not answer.
+- **The mode and the ladder are built in the smaller of two designs** (2026-11-18). A first
+  design of the plan's tasks 2 and 3 added six `lem decisions` commands, forms for what agents
+  answer, a script that checked the lines a dialectic agent cites, and about 300 script lines
+  (its own estimate). A Fable second opinion, asked before any builder started: "The ladder half
+  is a state machine with parsers that no act of Lem's needs, and three of its rules fail toward
+  settled", for one a persona's objection that the script could not parse was dropped and the
+  rest then settled the decision green. So the rules of the ladder are one stage text that the
+  lead applies, since the lead reads the code, and the script checks one thing only: two persona
+  votes or more, all for the option taken. A count moves into a script when a real run shows a
+  lead that records a level wrongly, and only that count.
+  `docs/plans/2026-11-18-core-and-two-modes/mode-and-ladder.md` is the design. It corrects two
+  sentences of the plan the owner passed, both told to him: a task that ran without him is not
+  green only when something of his was decided without him, and an agent never merges while a
+  task runs alone; and with him a decision that the gate or the personas settled gets no card,
+  while Lem says each decision once in the conversation, for his "Sometimes I would love to know
+  the decisions taken before implementation".
+- **Two things a real run showed on 2026-11-18** (pySilver/lem-scratch#5 and #6, with the stage
+  texts split by path). Lem tried `lem land land --by agent` after a proposal where
+  `branch.land` is `owner`, because `stages/land.md` told it to try and let the script refuse;
+  Claude Code's classifier blocked the call and showed the owner "2 actions blocked". The text
+  now has Lem run it only where the settings say `agent`. And Lem did not know that the watch
+  covers a pull request opened after it started; `SKILL.md` says so now. The same session
+  refused a merge on the owner's words as relayed by its operator, as the text asks: nobody
+  else's word is his.
 
 ## Checks
 

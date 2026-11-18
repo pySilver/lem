@@ -7,9 +7,10 @@ Status: a plan, not built. It follows the owner's interview of 2026-11-17 and 20
 
 1. A smaller Lem. Its core is the path from a request to a merged pull request. Four commands
    leave, and two parts go out of sight.
-2. Two ways to run a task. **With you**: you see the criteria and each decision before the build.
-   **Alone**: no step waits for you, and you get two pages at the end. You switch with "go alone"
-   and "I am back", at any stage.
+2. Two ways to run a task. **With you**: you approve the criteria, Lem tells you each decision
+   in one line when it is taken, and a decision in real doubt comes to you as a card. **Alone**:
+   no step waits for you, and you get two pages at the end. You switch with "go alone" and "I am
+   back", at any stage.
 3. One way to decide in doubt: a ladder of opinions. A count decides, not a model.
 4. A night run that ends as a pull request.
 
@@ -50,7 +51,7 @@ lands first. Proof: one real small change and one real full change in the scratc
 - `/lem ask` is no command of the owner's either. The question page stays Lem's own, and Lem
   opens it by itself each time it asks.
 - `/lem annotate` leaves. webrev becomes a required recipe, and Lem opens a plan or a document
-  with it. The setting `tools.annotate` stays as it is.
+  with it. The setting `tools.annotate` goes with the `[tools]` table (task 1b).
 - The `lem-backlog` skill leaves, with its sorting script. The agterm cookbook's backlog recipe
   (its `backlog` skill and its picker) becomes required in its place. The item format is the
   same: one file for each item in `docs/backlog/`, with `worth`, `where` and `added`. Lem's
@@ -122,14 +123,22 @@ turn a check red before the change and after it, so the speed did not cost what 
 
 ### 2. The mode of a task
 
-- A task's record holds its mode: with the owner (the default) or alone.
+The design to build is the smaller one of two: `2026-11-18-core-and-two-modes/mode-and-ladder.md`
+beside this file. A first design added six commands and a script that checked what agents wrote;
+a second opinion called it machinery, and the maintaining session took the smaller one.
+
+- A task's record holds its mode: with the owner (the default) or alone. The command is `lem
+  project mode`, because `lem project alone` is the lock for tests that need the machine. Texts
+  for people say "without the owner".
 - The owner's words: "go alone" for one task, "go alone for all" for every open task, "I am
-  back" to take it off for the steps that remain. `lem project` writes it and logs who said it.
+  back" to take it off for the steps that remain. The event logs who said it.
 - Alone means: Lem takes its own guess for each interview question and logs it as a decision. It
   approves the criteria itself. Each decision takes the ladder of task 3 with no wait.
-- Two things wait in either mode: a step that a later "no" cannot reverse, and the merge.
-- A pull request of a task that ran alone is not green, and its first line says what the owner did
-  not approve.
+- Two things wait in either mode: a step that a later "no" cannot reverse, and the merge. An
+  agent never merges while a task runs alone, whatever `branch.land` says.
+- A pull request is not green when something of the owner's was decided without him: criteria he
+  did not approve, or a decision that went past the personas. Its first lines say which part ran
+  without him. A task that ran alone with nothing of his decided without him is green.
 - With the owner, a card that he does not answer in `flow.decision_wait` minutes goes on as if
   the task ran alone for that one decision. This is today's rule, in the new words.
 - `settle --away` and the "away on two facts" rule go: the flag is his word that he is away.
@@ -144,21 +153,27 @@ One path for every decision that is not plainly the lead's own, in the plan and 
 0. **The gate.** Did the owner rule on it (the rulings folder)? Can a test or a rule answer it? Is
    it cheap and can it be reversed? Then it is decided there, and logged as the gate's.
 1. **The lead** writes the options, its pick and the facts.
-2. **The personas** answer. All for the pick: taken.
+2. **The personas** answer. Two or more votes, all for the pick: taken. An answer with no clear
+   pick blocks, and is never dropped.
 3. **The dialectic**, when they split: two subagents of the lead, one for and one against the
-   option with the most votes. A clear result: taken.
+   option with the most votes. The one against names breaks with file and line, and the lead
+   opens each. No confirmed break: taken. A confirmed break goes to the experts as a fact.
 4. **The experts**, when it is not clear: two model families. Both for one option: taken.
-5. Else the lead's pick stands, and the pull request is not green for it.
+5. Else the lead's pick stands, marked as not settled.
 
-- "All opinions", the owner's words, runs every level for one decision.
-- Each level logs whether it changed the pick. After real decisions, the log shows which level
-  never changes anything.
-- With the owner, the result of the ladder is the card he sees before the build goes on. Alone,
-  nothing waits.
+- The rules are one stage text, read only when a decision is in doubt. The lead applies the
+  counts. A script checks one thing: two persona votes or more, all for the option taken.
+- A decision that went past the personas is not green when the owner did not answer it.
+- "All opinions", the owner's words, runs the levels that did not run yet for one decision.
+- Each record says which level settled it and what each level answered. After real decisions,
+  the records show which level never changes anything.
+- With the owner: a decision that the gate or the personas settled gets no card. Lem says each
+  decision once in the conversation, in one line, and waits for nothing. A decision that went
+  past the personas is a card before the build goes on. Alone, nothing waits.
 - The Jev model is no part of it. It stays where it works: the correction queue.
 
-This replaces the card with the experts' advice at the start of the wait, and the gate's shadow
-mode. `lem decisions` loses `advise` and `settle`, and gains the level of each record.
+This replaces the gate's shadow mode with its log, and `settle --away`. A choice shows on the
+board when it is taken, not while it climbs.
 
 Proof: `tests/lem-decisions.sh` and `tests/test-ask-expert.sh`, with stand-ins for every agent.
 
@@ -171,6 +186,9 @@ Proof: `tests/lem-decisions.sh` and `tests/test-ask-expert.sh`, with stand-ins f
   reversed, criteria he did not approve, a decision that no level settled.
 - Neither file is committed. The pull request text carries the short form for a teammate.
 - At the pull request, Lem makes one agdoc page from the two files. `/lem status <task>` opens it.
+  The owner saw a sample (agdoc's "classic" design, the red block first on the screen) and said
+  "sample page is fine" (2026-11-18). The sample and the shapes of the two files are in
+  `2026-11-18-core-and-two-modes/pages/`.
 - A small change gets neither.
 
 Proof: a test that `land.py` writes both files from a task's records, with the red block in each

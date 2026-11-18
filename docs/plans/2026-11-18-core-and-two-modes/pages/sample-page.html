@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A CSV export of the orders: before you merge</title>
+<meta name="description" content="Illustration. A CSV export of the orders: three things wait for you, and the pull request is not green.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A CSV export of the orders: before you merge">
+<meta property="og:description" content="Illustration. A CSV export of the orders: three things wait for you, and the pull request is not green.">
+<meta name="twitter:card" content="summary">
+<style>
+/* Canvas and CanvasText follow the viewer's light or dark setting only when a scheme is declared */
+:root { color-scheme: light dark; }
+.doc {
+  --fg: var(--agterm-foreground, CanvasText);
+  /* a shade darker than the terminal, so the page reads as its own surface */
+  --bg: color-mix(in srgb, var(--agterm-background, Canvas) 80%, black);
+  --ok: var(--agterm-color-2, #2e9e5b);
+  --bad: var(--agterm-color-1, #d0463c);
+  --warn: var(--agterm-color-3, #c8961e);
+  --accent: var(--agterm-color-4, #3b7dd8);
+  --alt: var(--agterm-color-5, #9a5cc6);
+  --info: var(--agterm-color-6, #2a9fb0);
+  --muted: color-mix(in srgb, var(--fg) 62%, transparent);
+  --panel: color-mix(in srgb, var(--fg) 5%, transparent);
+  --line: color-mix(in srgb, var(--fg) 14%, transparent);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: color-mix(in srgb, var(--agterm-background, Canvas) 80%, black); color: var(--agterm-foreground, CanvasText);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+.doc { max-width: 1080px; margin: 0 auto; padding: 28px 32px 56px; }
+code, pre, .mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 13px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+header.top { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 22px; }
+.kind { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 6px; }
+h1 { font-size: 26px; line-height: 1.25; margin: 0 0 8px; }
+.sub { color: var(--muted); margin: 0 0 12px; font-size: 16px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 13px; }
+.meta b { color: var(--fg); font-weight: 600; }
+
+html { scroll-behavior: smooth; }
+nav.toc { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center;
+  margin: 16px -32px 0; padding: 8px 32px; font-size: 13px; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--agterm-background, Canvas) 80%, black); }
+nav.toc a { padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg); }
+nav.toc a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+nav.toc a.top { margin-left: auto; color: var(--muted); }
+[id] { scroll-margin-top: 52px; }
+:target { animation: flash 1.2s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--accent) 22%, transparent); } }
+
+h2 { font-size: 18px; margin: 30px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+h3 { font-size: 15px; margin: 18px 0 6px; }
+p { margin: 8px 0; }
+ul, ol { margin: 6px 0; padding-left: 22px; }
+li { margin: 3px 0; }
+
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  border: 1px solid currentColor; background: color-mix(in srgb, currentColor 12%, transparent); }
+.pill.ok { color: var(--ok); } .pill.bad { color: var(--bad); } .pill.warn { color: var(--warn); }
+.pill.info { color: var(--info); } .pill.alt { color: var(--alt); } .pill.muted { color: var(--muted); }
+
+.tldr { border-left: 4px solid var(--accent); background: var(--panel); padding: 12px 16px; border-radius: 6px;
+  font-size: 16px; }
+.tldr > :first-child { margin-top: 0; } .tldr > :last-child { margin-bottom: 0; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 12px 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.card h3 { margin-top: 0; }
+.stat { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.stat-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+
+.callout { border: 1px solid var(--line); border-left: 4px solid var(--c, var(--accent)); border-radius: 6px;
+  padding: 10px 14px; margin: 12px 0; background: color-mix(in srgb, var(--c, var(--accent)) 7%, transparent); }
+.callout.warn { --c: var(--warn); } .callout.risk { --c: var(--bad); } .callout.ok { --c: var(--ok); }
+.callout > b:first-child { display: block; margin-bottom: 2px; }
+
+table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+pre { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px;
+  overflow-x: auto; line-height: 1.45; }
+:not(pre) > code { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.add { color: var(--ok); } .del { color: var(--bad); }
+
+.bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--line); min-width: 80px; }
+.bar > .a { background: var(--ok); } .bar > .d { background: var(--bad); }
+
+.timeline { list-style: none; padding-left: 0; border-left: 2px solid var(--line); margin-left: 6px; }
+.timeline li { position: relative; padding: 0 0 12px 18px; }
+.timeline li::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--bg); border: 2px solid var(--c, var(--accent)); }
+.timeline .when { color: var(--muted); font-size: 12px; }
+
+details { border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; margin: 8px 0; }
+details > summary { cursor: pointer; font-weight: 600; }
+details[open] > summary { margin-bottom: 6px; }
+
+figure { margin: 14px 0; } figure svg { max-width: 100%; height: auto; }
+figcaption { color: var(--muted); font-size: 12px; margin-top: 4px; }
+svg text { fill: var(--agterm-foreground, CanvasText); font-family: -apple-system, sans-serif; font-size: 13px; }
+svg .box { fill: var(--panel); stroke: var(--line); }
+svg .edge { stroke: var(--muted); fill: none; }
+svg .hl { stroke: var(--accent); }
+
+.muted { color: var(--muted); }
+footer { margin-top: 36px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.md-copy textarea { display: block; box-sizing: border-box; width: 100%; min-height: 360px; resize: vertical;
+  padding: 10px 12px; font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: var(--fg);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+</style>
+</head>
+<body>
+<main class="doc" id="top">
+<p class="muted"><em>Illustration. No run made this page. The task, its records, its names and its numbers are invented, to show every case.</em></p>
+
+<div class="callout risk" style="border: 2px solid var(--bad); border-left-width: 8px; background: color-mix(in srgb, var(--bad) 16%, transparent); padding: 14px 18px">
+  <b style="font-size: 18px; color: var(--bad)">Three things wait for you.</b>
+  <ol>
+    <li><b>A step that cannot be reversed.</b> Lem holds the October file for <code>accounting@example.com</code>. An email cannot be taken back. Tell Lem &quot;send it&quot; or &quot;do not send&quot; (<a href="#d1">decision 1</a>).</li>
+    <li><b>You did not approve the criteria.</b> The task ran alone after the interview, so Lem approved them. Read the <a href="#built">four criteria</a>.</li>
+    <li><b>One decision has no agreement</b>: the time zone of the dates. Read <a href="#d2">decision 2</a>.</li>
+  </ol>
+  <p>The pull request is not green because of 2 and 3. Merge it only when you agree with both.</p>
+</div>
+
+<header class="top">
+  <div class="kind">Lem · before you merge</div>
+  <h1>A CSV export of the orders</h1>
+  <p class="sub">Pull request #12, branch <code>feat/csv-export-of-the-orders</code>. The task ran alone from the end of the interview.</p>
+  <div class="meta">
+    <span><b>Pull request</b> <a href="https://github.com/example/shop/pull/12">#12</a></span>
+    <span><b>Branch</b> <code>feat/csv-export-of-the-orders</code></span>
+    <span class="pill bad">not green</span>
+    <span class="pill warn">illustration</span>
+  </div>
+</header>
+
+<div class="tldr"><p>A new command writes the orders of one month as CSV. Accounting gets the orders of each month as one file that Excel opens.</p></div>
+
+<nav class="toc"><a href="#asked">What you asked</a><a href="#built">What was built</a><a href="#not-built">Not built</a><a href="#see">See it work</a><a href="#decisions">Decisions</a><a class="top" href="#top">top</a></nav>
+
+<h2 id="asked">What you asked</h2>
+<blockquote class="callout"><p>add a CSV export of the orders, so that accounting gets a file each month. send them the October file when it works</p></blockquote>
+<p>In the interview you also said:</p>
+<ul>
+  <li>&quot;one month at a time is enough&quot;</li>
+  <li>&quot;accounting opens it in Excel&quot;</li>
+</ul>
+
+<h2 id="built">What was built</h2>
+<p>A new command writes the orders of one month as CSV:</p>
+<pre><code>python3 -m shop.export orders --month 2026-10 &gt; orders-2026-10.csv</code></pre>
+<p>The code is a new module, <code>shop/export.py</code>, with its tests in <code>tests/test_export.py</code>. Nothing else changed.</p>
+<p>The criteria that the change holds. <b>Lem approved them, not you.</b> Each one has a test that fails on <code>main</code> and passes on the branch.</p>
+<ol>
+  <li>The command writes a header row and then one row for each order of the month.</li>
+  <li>The columns are: order number, date, status, customer, total, currency.</li>
+  <li>A total is text with two decimal places, as <code>1234.50</code>, never <code>1234.5</code>.</li>
+  <li>A month with no orders gives the header row only, and the command exits with 0.</li>
+</ol>
+
+<h2 id="why">Why we want it</h2>
+<p>Accounting gets the orders of each month as one file that Excel opens. Nobody copies rows from the order page by hand.</p>
+
+<h2 id="not-built">What did not get built</h2>
+<ul>
+  <li>No schedule. The command does not run each month by itself. You run it, or a later task adds a job.</li>
+  <li>No export of customers or of products.</li>
+  <li>The October file is not sent. It waits for you (item 1 at the top).</li>
+  <li>An agent saw a defect outside this change and filed it: <code>docs/backlog/order-page-shows-totals-as-floats.md</code>. The order page shows <code>1234.5</code>.</li>
+</ul>
+
+<h2 id="see">How to see it work</h2>
+<p>In the task's worktree:</p>
+<pre><code>python3 -m shop.export orders --month 2026-10 | head -3</code></pre>
+<p>It prints the header row and the first two orders of October 2026.</p>
+
+<h2 id="decisions">Decisions</h2>
+<p>Seven decisions. One waits for you. The ones that you most likely want to change come first.</p>
+<table>
+  <tr><th class="num">#</th><th>The question</th><th>What was taken</th><th>Who decided</th></tr>
+  <tr><td class="num"><a href="#d1">1</a></td><td>Send the October file to accounting now?</td><td>nothing yet</td><td><span class="pill bad">waits for you</span></td></tr>
+  <tr><td class="num"><a href="#d2">2</a></td><td>Which time zone do the dates use?</td><td>the shop's time zone</td><td><span class="pill bad">nobody agreed</span> <span class="muted">the task's agent's pick stands</span></td></tr>
+  <tr><td class="num"><a href="#d3">3</a></td><td>What does a month with no orders give?</td><td>the header row only</td><td><span class="pill warn">two expert models</span></td></tr>
+  <tr><td class="num"><a href="#d4">4</a></td><td>Which form does a date have?</td><td><code>2026-10-03</code></td><td><span class="pill alt">a for-and-against test</span></td></tr>
+  <tr><td class="num"><a href="#d5">5</a></td><td>Does the file show cancelled orders?</td><td>yes, with a status column</td><td><span class="pill info">the personas, 3 of 3</span></td></tr>
+  <tr><td class="num"><a href="#d6">6</a></td><td>Which form does a total have?</td><td><code>1234.50</code></td><td><span class="pill ok">your ruling</span></td></tr>
+  <tr><td class="num"><a href="#d7">7</a></td><td>Where does the code go?</td><td>a new module, <code>shop/export.py</code></td><td><span class="pill muted">the task's agent</span></td></tr>
+</table>
+
+<div class="callout" id="d1" style="--c: var(--bad)">
+  <b>1. Send the October file to accounting now?</b>
+  <p><strong>Waits for you.</strong> No agent sends it, in either mode: a later &quot;no&quot; cannot take back an email.</p>
+  <ul>
+    <li><b>The options:</b> send the file now, from the branch; send the file after you merge (recommended); do not send it.</li>
+    <li><b>Why the recommendation:</b> after the merge, the file comes from the code on <code>main</code>, and not from a branch that can still change.</li>
+    <li><b>What you do:</b> tell Lem &quot;send it&quot;, &quot;send it after the merge&quot; or &quot;do not send&quot;.</li>
+  </ul>
+</div>
+
+<div class="callout" id="d2" style="--c: var(--bad)">
+  <b>2. Which time zone do the dates use?</b>
+  <p><strong>Not green. Check this one.</strong> Nobody agreed, so the pick of the task's agent stands.</p>
+  <ul>
+    <li><b>Taken:</b> the shop's time zone, Europe/Warsaw, as the order page shows the dates.</li>
+    <li><b>The other option:</b> UTC.</li>
+    <li><b>Why:</b> an order at 00:30 on 1 Nov in Warsaw is on 31 Oct in UTC. With UTC, the October file has orders that the order page shows in November. Accounting compares the file with the order page.</li>
+    <li><b>How it went:</b> the personas: 2 for UTC, 1 for the shop's time zone; a for-and-against test on UTC: no clear result; two expert models: Fable for UTC, GPT-6 Astra for the shop's time zone.</li>
+    <li><b>To change it:</b> say &quot;use UTC in the export&quot;. An agent changes the date column and its test.</li>
+  </ul>
+</div>
+
+<div class="callout" id="d3" style="--c: var(--warn)">
+  <b>3. What does a month with no orders give?</b>
+  <ul>
+    <li><b>Taken:</b> the header row only, and the command exits with 0.</li>
+    <li><b>The other options:</b> an error message, and the command exits with 1; no output at all.</li>
+    <li><b>Who decided:</b> two expert models, Fable and GPT-6 Astra. Both picked this option.</li>
+    <li><b>Why:</b> a month with no orders is a correct result, not an error. A run that fails still exits with a number that is not 0, so a script of accounting can tell the two apart.</li>
+    <li><b>How it went:</b> the personas split, 2 for the header row and 1 for an error. The for-and-against test gave no clear result.</li>
+    <li><b>To change it:</b> say &quot;a month with no orders is an error&quot;. An agent changes criterion 4 and its test.</li>
+  </ul>
+</div>
+
+<div class="callout" id="d4" style="--c: var(--alt)">
+  <b>4. Which form does a date have in the file?</b>
+  <ul>
+    <li><b>Taken:</b> <code>2026-10-03</code> (ISO 8601).</li>
+    <li><b>The other option:</b> the form of the order page, <code>3 Oct 2026</code>.</li>
+    <li><b>Who decided:</b> a for-and-against test. One agent argued for <code>2026-10-03</code>, and one agent argued against it.</li>
+    <li><b>Why:</b> Excel reads <code>2026-10-03</code> as a date and sorts it correctly. The case against it was that accounting reads <code>3 Oct 2026</code> on the order page. That case did not hold: Excel shows a date in its own form in any case.</li>
+    <li><b>How it went:</b> the personas split, 2 for <code>2026-10-03</code> and 1 for <code>3 Oct 2026</code>.</li>
+    <li><b>To change it:</b> say &quot;dates as on the order page&quot;. An agent changes the date column and its test.</li>
+  </ul>
+</div>
+
+<div class="callout" id="d5" style="--c: var(--info)">
+  <b>5. Does the file show cancelled orders?</b>
+  <ul>
+    <li><b>Taken:</b> yes. The file shows every order of the month, with a status column.</li>
+    <li><b>The other option:</b> show paid orders only.</li>
+    <li><b>Who decided:</b> the personas, 3 of 3.</li>
+    <li><b>Why:</b> accounting must see a cancelled order next to its refund. A file of paid orders only does not show why the total of the month is lower.</li>
+    <li><b>To change it:</b> say &quot;paid orders only&quot;. An agent changes criterion 1 and its test.</li>
+  </ul>
+</div>
+
+<div class="callout" id="d6" style="--c: var(--ok)">
+  <b>6. Which form does a total have?</b>
+  <ul>
+    <li><b>Taken:</b> text with two decimal places, as <code>1234.50</code>.</li>
+    <li><b>The other options:</b> a number in cents, as <code>123450</code>; a plain number, as <code>1234.5</code>.</li>
+    <li><b>Who decided:</b> your ruling of 2026-10-02 in <code>docs/rulings/money.md</code>: &quot;Money leaves the system as text with two decimal places, never as a float.&quot;</li>
+    <li><b>Why:</b> the ruling answers the question, so nobody else was asked.</li>
+    <li><b>To change it:</b> change the ruling first. This task follows it.</li>
+  </ul>
+</div>
+
+<div class="callout" id="d7" style="--c: var(--muted)">
+  <b>7. Where does the code go?</b>
+  <ul>
+    <li><b>Taken:</b> a new module, <code>shop/export.py</code>.</li>
+    <li><b>The other option:</b> a new function in <code>shop/orders.py</code>.</li>
+    <li><b>Who decided:</b> the task's agent.</li>
+    <li><b>Why:</b> <code>shop/orders.py</code> holds the code of the order page. The export has its own tests and no code of the page.</li>
+    <li><b>To change it:</b> say where. The change moves one module and does not change the behavior.</li>
+  </ul>
+</div>
+
+<!-- agdoc:md -->
+<details class="md-copy">
+<summary>Markdown copy</summary>
+<textarea readonly spellcheck="false">
+*Illustration. No run made this page. The task, its records, its names and its numbers are invented, to show every case.*
+
+&gt; [!CAUTION]
+&gt; **Three things wait for you.**
+&gt;
+&gt; 1. **A step that cannot be reversed.** Lem holds the October file for `accounting@example.com`. An email cannot be taken back. Tell Lem "send it" or "do not send" ([decision 1](#d1)).
+&gt; 2. **You did not approve the criteria.** The task ran alone after the interview, so Lem approved them. Read the [four criteria](#built).
+&gt; 3. **One decision has no agreement**: the time zone of the dates. Read [decision 2](#d2).
+&gt;
+&gt; The pull request is not green because of 2 and 3. Merge it only when you agree with both.
+
+LEM · BEFORE YOU MERGE
+
+# A CSV export of the orders
+
+Pull request #12, branch `feat/csv-export-of-the-orders`. The task ran alone from the end of the interview.
+
+**Pull request** [#12](https://github.com/example/shop/pull/12) · **Branch** `feat/csv-export-of-the-orders` · not green · illustration
+
+&gt; A new command writes the orders of one month as CSV. Accounting gets the orders of each month as one file that Excel opens.
+
+## What you asked
+
+&gt; add a CSV export of the orders, so that accounting gets a file each month. send them the October file when it works
+
+In the interview you also said:
+
+- "one month at a time is enough"
+- "accounting opens it in Excel"
+
+## What was built
+
+A new command writes the orders of one month as CSV:
+
+```bash
+python3 -m shop.export orders --month 2026-10 &gt; orders-2026-10.csv
+```
+
+The code is a new module, `shop/export.py`, with its tests in `tests/test_export.py`. Nothing else changed.
+
+The criteria that the change holds. **Lem approved them, not you.** Each one has a test that fails on `main` and passes on the branch.
+
+1. The command writes a header row and then one row for each order of the month.
+2. The columns are: order number, date, status, customer, total, currency.
+3. A total is text with two decimal places, as `1234.50`, never `1234.5`.
+4. A month with no orders gives the header row only, and the command exits with 0.
+
+## Why we want it
+
+Accounting gets the orders of each month as one file that Excel opens. Nobody copies rows from the order page by hand.
+
+## What did not get built
+
+- No schedule. The command does not run each month by itself. You run it, or a later task adds a job.
+- No export of customers or of products.
+- The October file is not sent. It waits for you (item 1 at the top).
+- An agent saw a defect outside this change and filed it: `docs/backlog/order-page-shows-totals-as-floats.md`. The order page shows `1234.5`.
+
+## How to see it work
+
+In the task's worktree:
+
+```bash
+python3 -m shop.export orders --month 2026-10 | head -3
+```
+
+It prints the header row and the first two orders of October 2026.
+
+## Decisions
+
+Seven decisions. One waits for you. The ones that you most likely want to change come first.
+
+| # | The question | What was taken | Who decided |
+| --- | --- | --- | --- |
+| [1](#d1) | Send the October file to accounting now? | nothing yet | waits for you |
+| [2](#d2) | Which time zone do the dates use? | the shop's time zone | nobody agreed: the task's agent's pick stands |
+| [3](#d3) | What does a month with no orders give? | the header row only | two expert models |
+| [4](#d4) | Which form does a date have? | `2026-10-03` | a for-and-against test |
+| [5](#d5) | Does the file show cancelled orders? | yes, with a status column | the personas, 3 of 3 |
+| [6](#d6) | Which form does a total have? | `1234.50` | your ruling |
+| [7](#d7) | Where does the code go? | a new module, `shop/export.py` | the task's agent |
+
+### 1. Send the October file to accounting now?
+
+**Waits for you.** No agent sends it, in either mode: a later "no" cannot take back an email.
+
+- **The options:** send the file now, from the branch; send the file after you merge (recommended); do not send it.
+- **Why the recommendation:** after the merge, the file comes from the code on `main`, and not from a branch that can still change.
+- **What you do:** tell Lem "send it", "send it after the merge" or "do not send".
+
+### 2. Which time zone do the dates use?
+
+**Not green. Check this one.** Nobody agreed, so the pick of the task's agent stands.
+
+- **Taken:** the shop's time zone, Europe/Warsaw, as the order page shows the dates.
+- **The other option:** UTC.
+- **Why:** an order at 00:30 on 1 Nov in Warsaw is on 31 Oct in UTC. With UTC, the October file has orders that the order page shows in November. Accounting compares the file with the order page.
+- **How it went:** the personas: 2 for UTC, 1 for the shop's time zone; a for-and-against test on UTC: no clear result; two expert models: Fable for UTC, GPT-6 Astra for the shop's time zone.
+- **To change it:** say "use UTC in the export". An agent changes the date column and its test.
+
+### 3. What does a month with no orders give?
+
+- **Taken:** the header row only, and the command exits with 0.
+- **The other options:** an error message, and the command exits with 1; no output at all.
+- **Who decided:** two expert models, Fable and GPT-6 Astra. Both picked this option.
+- **Why:** a month with no orders is a correct result, not an error. A run that fails still exits with a number that is not 0, so a script of accounting can tell the two apart.
+- **How it went:** the personas split, 2 for the header row and 1 for an error. The for-and-against test gave no clear result.
+- **To change it:** say "a month with no orders is an error". An agent changes criterion 4 and its test.
+
+### 4. Which form does a date have in the file?
+
+- **Taken:** `2026-10-03` (ISO 8601).
+- **The other option:** the form of the order page, `3 Oct 2026`.
+- **Who decided:** a for-and-against test. One agent argued for `2026-10-03`, and one agent argued against it.
+- **Why:** Excel reads `2026-10-03` as a date and sorts it correctly. The case against it was that accounting reads `3 Oct 2026` on the order page. That case did not hold: Excel shows a date in its own form in any case.
+- **How it went:** the personas split, 2 for `2026-10-03` and 1 for `3 Oct 2026`.
+- **To change it:** say "dates as on the order page". An agent changes the date column and its test.
+
+### 5. Does the file show cancelled orders?
+
+- **Taken:** yes. The file shows every order of the month, with a status column.
+- **The other option:** show paid orders only.
+- **Who decided:** the personas, 3 of 3.
+- **Why:** accounting must see a cancelled order next to its refund. A file of paid orders only does not show why the total of the month is lower.
+- **To change it:** say "paid orders only". An agent changes criterion 1 and its test.
+
+### 6. Which form does a total have?
+
+- **Taken:** text with two decimal places, as `1234.50`.
+- **The other options:** a number in cents, as `123450`; a plain number, as `1234.5`.
+- **Who decided:** your ruling of 2026-10-02 in `docs/rulings/money.md`: "Money leaves the system as text with two decimal places, never as a float."
+- **Why:** the ruling answers the question, so nobody else was asked.
+- **To change it:** change the ruling first. This task follows it.
+
+### 7. Where does the code go?
+
+- **Taken:** a new module, `shop/export.py`.
+- **The other option:** a new function in `shop/orders.py`.
+- **Who decided:** the task's agent.
+- **Why:** `shop/orders.py` holds the code of the order page. The export has its own tests and no code of the page.
+- **To change it:** say where. The change moves one module and does not change the behavior.
+
+---
+
+Sources: built.md and decisions.md of the invented task `csv-export-of-the-orders`, an illustration made by hand · generated 2026-11-18
+</textarea>
+</details>
+<!-- /agdoc:md -->
+<footer>Sources: built.md and decisions.md of the invented task <code>csv-export-of-the-orders</code>, an illustration made by hand · generated 2026-11-18</footer>
+</main>
+</body>
+</html>

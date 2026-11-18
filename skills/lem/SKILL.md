@@ -363,7 +363,8 @@ once, without waiting for the watch.
 While a task is `open` with a pull request, keep one watch of the forge in the background, never
 two: `run-in-background` with `lem land watch`. It looks once every
 60 seconds with one call for all the pull
-requests, and ends when the owner merged or closed one, or when the forge calls a pull request
+requests, reads the list of open tasks again at each look, so that a pull request opened after
+it started is watched too, and ends when the owner merged or closed one, or when the forge calls a pull request
 conflicting that it did not call so before; its end wakes you, and you take step 9 of
 `stages/land.md`, which starts it again while a task is still open. Start it after a proposal
 (`stages/land.md`, step 6), and when a session of yours starts while a task is open with a pull
