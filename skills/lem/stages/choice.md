@@ -22,10 +22,7 @@ its choices need no answer.
    answers (`advice`: each one's pick, or that none fits, with its reasons) beside the personas'
    (`said`), then what the choice is, the options, the recommended one with its reason, and the
    time the wait ends, in his clock (`deadline` is in UTC). The lead ran the persona panel
-   (`lem-panel`) before the ask, so it is not run again here. The question gate (`lem-gate`) sits
-   at this card: its judge, in shadow mode, logs its verdict beside his answer, its framing check
-   reads the card before it goes out, and after his answer its last step asks whether the answer
-   is a durable ruling. Its card step is this card. After that time the lead takes the option both experts
+   (`lem-panel`) before the ask, so it is not run again here. After that time the lead takes the option both experts
    picked (`experts_pick`), or the recommended one when they split, and the pull request is not
    green for it either way: say which of the two it will be. A choice with `irreversible` set has
    no such time: say which of the four kinds it is, that the experts' answers are advice only,

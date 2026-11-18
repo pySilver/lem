@@ -33,7 +33,6 @@ COMMANDS = {
     "corrections": ("skills/lem/scripts/corrections.py", "the queue of the owner's corrections, for a retro"),
     "experts": ("skills/lem-ask-expert/scripts/experts.py", "the experts' brief of one question, and the record of their answers"),
     "cast": ("skills/lem-panel/scripts/cast.py", "the persona panel's cast and profile, and a panel's run folder"),
-    "gate-log": ("skills/lem-gate/scripts/gate-log.py", "the question gate's log"),
 }
 
 

@@ -26,8 +26,8 @@ Return exactly one verdict, on the first line, then its cite:
   verdict.
 - checkable — the code, a probe on the test stack, a test or an existing rule settles it. Name
   which, and what it would show for each option.
-- cheap — a wrong pick can be reversed later at little cost, and no shopper, merchant or operator
-  would notice it in the meantime. Say what reversing costs and why nobody would notice.
+- cheap — a wrong pick can be reversed later at little cost, and no person of the project would
+  notice it in the meantime. Say what reversing costs and why nobody would notice.
 - held — only the owner can answer: it is about intent, taste, or a trade-off between costs to
   different people that no ruling covers.
 

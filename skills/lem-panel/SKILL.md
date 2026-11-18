@@ -215,8 +215,7 @@ agree and where they split. The full card goes below. A card placed as the secon
 five-step case was not seen: the owner typed "Consult this with personas first" on a page that
 held it (mybaze, 2026-11-12).
 
-Record the answer in `PANEL_DIR/answer.md`. Whether the answer is a durable ruling is the
-question gate's call, not the panel's.
+Record the answer in `PANEL_DIR/answer.md`.
 
 ## Reading acceptance criteria
 

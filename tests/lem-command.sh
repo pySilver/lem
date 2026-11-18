@@ -40,7 +40,9 @@ for name in $names; do
   [ "$code" = 7 ] && [ "$err" = "err $name" ] || routed="no: $name exited $code with $err"
   [ "$routed" = yes ] || break
 done
-if [ "$routed" = yes ] && [ -n "$names" ] && [ "$(wc -w <<<"$names")" -ge 10 ]; then
+# every name of the table, so that a help that lists fewer does not pass on the names it kept
+count=$("$PY" -I -c 'import runpy, sys; print(len(runpy.run_path(sys.argv[1])["COMMANDS"]))' "$LEM")
+if [ "$routed" = yes ] && [ -n "$names" ] && [ "$(wc -w <<<"$names" | tr -d ' ')" = "$count" ]; then
   pass "each name of lem ($(wc -w <<<"$names" | tr -d ' ')) runs its own script with the arguments as they came, a space and a quote in them, its stdin, its stdout and stderr apart, and its exit status, and Python with -B"
 else
   fail "lem's names and what each passes through: $routed ($names)"
@@ -116,7 +118,7 @@ if [ -z "$caches" ]; then pass "lem leaves no __pycache__, also of the scripts t
 import re, sys
 from pathlib import Path
 root = Path(sys.argv[1])
-names = "project|land|criteria|decisions|board|doctor|corrections|experts|cast|gate-log"
+names = "project|land|criteria|decisions|board|doctor|corrections|experts|cast"
 # `python3 SKILL_DIR/scripts/land.py`, `bash SKILL_DIR/scripts/run.sh`, also across a line break
 path_form = re.compile(r"(?:python3|bash)\s+\S*scripts/[\w-]+\.(?:py|sh)")
 # `land.py merged SLUG`, `project.py --repo W tasks`, also across a line break

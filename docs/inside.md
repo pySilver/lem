@@ -84,7 +84,7 @@ agents run it, and you do not type it. Because it is one command, the permission
 - `lem NAME ARGS...` runs one script, for example `lem land start SLUG` or `lem project show`.
 - `lem NAME --help` gives the help of that script.
 - `lem help` lists the names: `project`, `land`, `criteria`, `decisions`, `board`, `doctor`,
-  `corrections`, `experts`, `cast` and `gate-log`.
+  `corrections`, `experts` and `cast`.
 - `lem version` prints the folder of the plugin, and its commit when that folder is a git clone.
 
 Two other commands stand alone: `lem-ask`, the question page, and `lem-jev`, the client of the
@@ -130,7 +130,6 @@ removes a worktree.
 - `watch.js`: the result of the last look of the watch at the open pull requests;
 - `landing.lock`: the lock of the one task in the landing;
 - `alone.lock`: the lock of the commands under `checks.alone`;
-- `decide-gate.jsonl`: the log of the question gate;
 - `backlog.js`: the backlog for the board;
 - `corrections.jsonl`, `corrections-reviews.jsonl`, `corrections.log` and `corrections-claims/`:
   the correction queue;
@@ -282,7 +281,7 @@ Each skill that comes with Lem has the id `lem-<name>`. You start some of them w
 | Skill | What Lem uses it for |
 | --- | --- |
 | `lem-ask` | each question that asks you to choose or to approve, as a page |
-| `lem-gate` | the question gate: it decides if a question must go to you at all. It starts in shadow mode: it logs its verdict next to your answer, and decides nothing |
+| `lem-gate` | the question gate: the first level of the ladder. It decides a question when a ruling of yours, a test or a rule answers it, or when a wrong pick is cheap to reverse |
 | `lem-panel` | the personas of the project: an agent answers as each person that a decision affects |
 | `lem-ask-expert` | each choice that waits for you: two experts answer it at the same time, and they change no file |
 | `lem-linear` | the tickets of Linear. Lem checks the connection in `/lem init`, and again when it reads a ticket |

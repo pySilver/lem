@@ -1,103 +1,44 @@
 ---
 name: lem-gate
-description: "Lem's question gate: checks whether a question must reach the owner. Lem's stages load it; it is no call of the owner's."
+description: "Lem's question gate: the first level of the ladder of a decision in doubt. Lem's stages load it; it is no call of the owner's."
 disable-model-invocation: true
 ---
 
 # The question gate
 
-```text
-a question for the user
-  -> judge: has the user already ruled?      yes -> decided: quote the ruling
-  -> checkable by a probe, a test or a rule?  yes -> sent back: probe it, test it, follow the rule
-  -> reversible and cheap?                    yes -> an agent decides, and says so
-  -> held, and each option costs something?   yes -> persona panel (panel), which makes the card
-  -> Jev: is the card framed for the user?    no  -> back to the card's author
-  -> the user answers
-  -> Jev: is the answer a durable ruling?     yes -> a ruling file; no -> this task only
-```
-
-## Shadow mode
-
-Until the user says the judge may act alone, it is in **shadow mode**: every question still
-reaches the user, and the judge's verdict is only logged beside the answer. The point is to measure
-the judge before trusting it. The user reads the comparison after about a week of runs and then
-decides; `scripts/gate-log.py report` prints it. In shadow mode, never tell the user the judge's
-verdict before they answer, or the answer stops being an independent check.
+The first level of a lead's ladder (`stages/ladder.md` in the `lem` skill): before the personas,
+the dialectic and the experts spend anything on a decision, a judge looks whether it needs them
+at all. The owner kept it as a hidden part that decides: "Sounds useful and it should stay as
+hidden feature. Decisions taken that way lands in `decisions.md` artifact at PR time"
+(2026-11-18).
 
 ## Steps
 
-### 1. Write the question down
+1. **Write the question down**, in a file of the task directory: the decision in one sentence,
+   the options, the context an outsider needs, and where it came from (the plan, the task). No
+   pick of the lead's: the judge reads the question as it stands.
+2. **The judge**: a fresh Opus subagent (`subagent_type: "general-purpose"`, `model: "opus"`),
+   read-only, with the prompt in
+   `references/judge.md`. It returns one verdict with its cite:
+   - **decided**: a recorded ruling answers it: the file, the heading and the sentence.
+   - **checkable**: a test or an existing rule answers it: which, and what it shows. The lead
+     runs that check and takes the option it shows.
+   - **cheap**: a wrong pick can be reversed later at little cost, and nobody would notice it in
+     the meantime: why. The lead's pick is taken.
+   - **held**: only the owner, or the next levels of the ladder, can answer it.
 
-One file, `QUESTION_FILE`: the question in one sentence, the options, the context an outsider
-needs, and where it came from (the plan, task and exchange). It goes in the folder
-`lem gate-log dir` makes and prints, as `<NNN>-<slug>.md`, and
-its card goes beside it. That folder is in Lem's state folder, which git does not show, so a question
-leaves no file git sees. Pick an `ID`: the file's stem.
-
-### 2. The judge
-
-A fresh Opus subagent (`subagent_type: "general-purpose"`, `model: "opus"`), read-only, with the
-prompt in `references/judge.md`. It returns one verdict with its cite:
-
-- **decided** — a recorded ruling answers it: the file, the heading and the sentence.
-- **checkable** — a probe, a test or an existing rule answers it: which, and what it would show.
-- **cheap** — it can be reversed later at little cost and no user would notice a wrong pick in the
-  meantime: why.
-- **held** — only the user can answer it.
-
-When the judge finds the question already framed somewhere (a backlog item with its options and
-a recommendation), the card starts from that framing, with every option it lists, instead of from
-the draft: on a 2026-11-07 test the judge found a draft that had dropped one of the item's options.
-
-Log it: `lem gate-log ask --id ID --question "<one sentence>"
---verdict <verdict> --cite "<cite>"`. In shadow mode, go on to step 3 whatever the verdict.
-
-Once the user has let the judge act alone (they say so; record it as a ruling): on **decided**,
-quote the ruling and go on without asking; on **checkable**, do the check; on **cheap**, decide,
-and tell the user in one line with the reason. Only **held** goes on to step 3.
-
-### 3. The card
-
-A question the judge called **held** whose options each cost something goes through the persona
-panel (`lem-panel`), which writes the card and runs the framing check. The panel asks the
-project's own personas; a project with none has a setup that is not finished, and the panel says
-so and stops. That holds for a
-technical fork as much as for one users would see: the panel brings the people who run and build
-the system to a technical question, and its practice scout checks the facts an option turns on,
-so the card's recommendation is not the asking agent's view alone. In shadow mode the verdict only
-picks which card is made; the question still reaches the user either way, and the card never shows
-the verdict. Any other question still goes out as a card in the panel's format (the question in
-user terms, the options, the recommendation and what it costs, the strongest dissent, "wrong if",
-the undo cost), and gets the same framing check through `lem-jev`, the command Lem's plugin
-puts on PATH, with the spec in `lem-panel`'s `references/messages.md`.
-
-### 4. Ask the user
-
-In agterm with the `lem-ask` skill, otherwise as plain text. Then log the answer:
-`lem gate-log answer --id ID --answer "<the user's choice and their words>"`.
-
-### 5. Is the answer a durable ruling?
-
-Ask Jev with the spec in `references/durable.md`. A **durable** answer is a rule for later cases:
-it binds work beyond this task. **This task** answers one choice inside one task: a size for this
-change, an order of tasks, a one-off scope call.
-
-On **durable**, write it in the project's rulings folder (in mybaze, `docs/rulings/<slug>.md`,
-the format its AGENTS.md "Where things live" row names): the ruling in one sentence, the user's
-words verbatim, why, how to apply. First check the folder for a ruling it overturns; the new file
-names that one in `supersedes:` and the old file is `git rm`'d. Commit it with the work in hand,
-tell the user in the same message ("recorded as `docs/rulings/<slug>.md`"), and add `--ruling
-<slug>` to a second `lem gate-log answer` line. The user can undo it by saying so; Jev's call is a
-sorting aid, and a user's "that was only for this task" wins.
+   When the judge finds the question already framed somewhere (a backlog item with its options
+   and a recommendation), the options start from that framing, with every option it lists: on a
+   2026-11-07 test the judge found a draft that had dropped one of the item's options.
+3. **The verdict.** decided, checkable or cheap settle the decision: `lem decisions log SLUG --by
+   gate --why "CITE"`, with the option taken. held goes on to the personas.
 
 ## What the gate does not do
 
-It never answers intent or taste for the user, never hides a question it judged **held**, and in
-shadow mode never skips one. It does not run on a question of an interview (an onboarding, a
-`lem-interview-me` round): such a question asks what the user wants, so no ruling, probe or cheap
-pick can answer it, and its answer goes where the interview's stage puts it, not into a ruling
-file. On the first onboarding through Lem (2026-11-15) five interview questions went through
-the gate, and 11m 54s passed between the owner's first answer and the second question (that
-session's status line, as another session read it). It does not argue a ruling: a recorded ruling is reopened only by the
-user.
+It never answers intent or taste for the owner, and never settles a question it judged held. It
+does not run on a question of an interview (an onboarding, a `lem-interview-me` round): such a
+question asks what the owner wants, so no ruling, check or cheap pick can answer it. On the first
+onboarding through Lem (2026-11-15) five interview questions went through the gate, and 11m 54s
+passed between the owner's first answer and the second question (that session's status line, as
+another session read it). It does not argue a ruling: a recorded ruling is reopened only by the
+owner.

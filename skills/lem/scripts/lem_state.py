@@ -2,7 +2,7 @@
 
 Every script that reads or writes Lem's state asks `folder()` for its place, and nothing else
 names it. The state is the tasks, the event log, the board's files, the watch's last look at the
-forge, the landing lock, the correction queue with its log and claims, and the question gate's log.
+forge, the landing lock, and the correction queue with its log and claims.
 
 The main checkout is the first worktree git lists, where the settings are read from too. A task's
 builder runs in a worktree of its own and still writes its state there: a worktree's removal does

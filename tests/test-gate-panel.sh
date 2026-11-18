@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# gate's shadow log, offline: gate-log.py records the judge's verdict and the user's answer
-# in Lem's state folder (which git never shows), refuses an unknown verdict and an answer to a
-# question it never logged, and reports both side by side. Then panel's cast.py: the cast
+# The persona panel's cast.py, offline: the cast
 # comes from the project alone (none there means no panel; the user's and the built-in cast only start one), a checkout older than its default
 # branch's cast reads that cast, the project's profile comes from the checkout or the default branch
 # and never from a generic layer, init copies a cast down, and run-dir makes a folder git ignores.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-LOG=$PWD/skills/lem-gate/scripts/gate-log.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
@@ -18,50 +15,7 @@ git -C "$WORK" init -q
 fails=0
 pass() { printf 'ok   %s\n' "$1"; }
 fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
-gate() { "$PY" -B "$LOG" "$@" --repo "$WORK"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
-
-# a log from before it moved under Lem's folder: the first call takes it from there, with its questions
-printf '%s\n' '{"kind": "ask", "ts": "2026-11-01T00:00:00Z", "id": "000-old", "question": "An older question?", "verdict": "held", "cite": "none"}' > "$WORK/.git/decide-gate.jsonl"
-gate ask --id 001-size --question "Which size?" --verdict held --cite "no ruling covers it"
-gate ask --id 002-gmc --question "May an approved promotion be edited?" --verdict decided --cite "promotions-follow-merchant-center.md"
-gate answer --id 002-gmc --answer "only the end time"
-if [ -f "$WORK/.lem/state/decide-gate.jsonl" ] && [ ! -e "$WORK/.git/decide-gate.jsonl" ] && grep -q '"000-old"' "$WORK/.lem/state/decide-gate.jsonl" \
-  && [ -z "$(git -C "$WORK" status --porcelain --untracked-files=all)" ]; then
-  pass "the log lives in Lem's state folder, which git does not show, and a log in the oldest place is moved there with its questions"
-else
-  fail "the log lives in the state folder: $(ls -A "$WORK/.git" "$WORK/.lem/state" 2>&1)"
-fi
-# Text that is not UTF-8, in an argument or in the log, and a line that was cut off: named, no traceback.
-latin_arg=$(gate ask --id 003-latin --question $'caf\xe9?' --verdict held --cite x 2>&1 || true)
-cp "$WORK/.lem/state/decide-gate.jsonl" "$WORK/.git/gate.kept" && printf '{"kind": "ask", "id": "cut' >> "$WORK/.lem/state/decide-gate.jsonl"
-cut_line=$(gate report 2>&1 || true)
-mv "$WORK/.git/gate.kept" "$WORK/.lem/state/decide-gate.jsonl"
-if grep -qF "the argument b'caf\\xe9?' is not UTF-8 text" <<<"$latin_arg" && grep -qF "decide-gate.jsonl:5 does not read as JSON" <<<"$cut_line" \
-  && ! grep -q Traceback <<<"$latin_arg$cut_line" && [ "$(grep -c '' "$WORK/.lem/state/decide-gate.jsonl")" = 4 ]; then
-  pass "an argument that is not UTF-8 and a line of the log that does not read are named, and nothing is written"
-else
-  fail "the gate log and text that does not read: $latin_arg / $cut_line"
-fi
-if [ "$(status_of gate ask --id 003 --question q --verdict maybe)" = 1 ]; then pass "an unknown verdict is refused"; else fail "an unknown verdict is refused"; fi
-if [ "$(status_of gate answer --id 404 --answer x)" = 1 ]; then pass "an answer to a question never logged is refused"; else fail "an answer to a question never logged is refused"; fi
-out=$(gate report)
-if grep -q 'owner: only the end time' <<<"$out" && grep -q 'owner: (not answered yet)' <<<"$out" && grep -q '3 questions, 1 answered' <<<"$out" && grep -q 'An older question?' <<<"$out"; then
-  pass "the report puts each verdict beside its answer and counts them"
-else
-  fail "the report puts each verdict beside its answer: $out"
-fi
-dir=$(gate dir)
-if [ "$dir" = "$WORK/.lem/state/questions" ] && [ -d "$dir" ] && [ "$(gate dir)" = "$dir" ] && [ -z "$(git -C "$WORK" status --porcelain --untracked-files=all)" ]; then
-  pass "the folder for the question files is in the state folder, and git shows nothing of it"
-else
-  fail "the folder for the question files: $dir"
-fi
-git -C "$WORK" -c user.name=t -c user.email=t@t commit -q --allow-empty -m start
-git -C "$WORK" worktree add -q "$WORK-wt" -b side
-if [ "$("$PY" -B "$LOG" dir --repo "$WORK-wt")" = "$dir" ]; then pass "a worktree gets the same folder as its main checkout"; else fail "the question folder from a worktree"; fi
-git -C "$WORK" worktree remove --force "$WORK-wt"
-if [ -d "$(dirname "$LOG")/__pycache__" ]; then fail "the script left no __pycache__"; else pass "the script left no __pycache__"; fi
 
 CAST=$PWD/skills/lem-panel/scripts/cast.py
 PANEL=$(cd "$(mktemp -d)" && pwd -P)

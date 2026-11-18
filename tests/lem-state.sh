@@ -36,18 +36,6 @@ else
   fail "the state outside a repository: $err / $corr_err"
 fi
 
-# The question gate's log is in the state folder too, and an older log of the gate there is moved with it.
-GL=$WORK/old-gate
-git init -q -b main "$GL" && commit "$GL" start
-mkdir -p "$GL/.git/lem" && printf '%s\n' '{"id": "001-old", "kind": "ask", "question": "q", "verdict": "held", "cite": "c"}' > "$GL/.git/lem/decide-gate.jsonl"
-questions=$("$PY" -B "$PWD/skills/lem-gate/scripts/gate-log.py" dir --repo "$GL" 2>"$WORK/gate.err")
-if [ "$questions" = "$GL/.lem/state/questions" ] && [ -d "$questions" ] && [ -f "$GL/.lem/state/decide-gate.jsonl" ] && [ ! -e "$GL/.git/lem" ] \
-  && grep -qF "gate-log.py: moved Lem's state from $GL/.git/lem to $GL/.lem/state (renamed)" "$WORK/gate.err" && [ -z "$(git -C "$GL" status --porcelain --untracked-files=all)" ]; then
-  pass "the question gate keeps its log and its question files in the state folder, and moves an older one there with a line on stderr"
-else
-  fail "the gate's folder: $questions / $(cat "$WORK/gate.err")"
-fi
-
 # A task runs with the owner until his words say otherwise: `mode` writes one event for each task the words reach,
 # `tasks` gives the newest, and a task with none, as an older Lem's, runs with him.
 MO=$WORK/mode-repo
