@@ -43,10 +43,9 @@ flowchart TD
     direct --> merged
 ```
 
-- **GitHub, with pull requests** (the default). Click Merge on GitHub: the rules of your base
-  branch guard the merge, and Lem does not run its checks again. Type `/lem land <task>` when the
-  base moved and Lem's checks are your only checks: Lem rebases the branch and runs them again
-  first.
+- **GitHub, with pull requests** (the default). A merge on GitHub merges the pull request as it
+  is, under the rules of your base branch. `/lem land <task>` first runs the checks again if the
+  base moved.
 - **GitHub, with no pull requests** (`branch.propose = "merge"`), for a developer who works alone.
   `/lem land <task>` puts the task on the base branch and pushes it to GitHub.
 - **Another host**, for example GitLab. Lem opens pull requests on GitHub only. `/lem land <task>`
