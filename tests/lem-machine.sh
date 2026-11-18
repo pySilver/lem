@@ -70,9 +70,11 @@ if [ "$(status_of doctor)" = 1 ] && [ "$(row agterm found <<<"$out")" = "True" ]
 else
   fail "doctor with agterm, no skill: $out"
 fi
-# The skills an agent needs beside the commands: in a skills folder, or as a plugin the agent installed.
+# The skills an agent needs beside the commands: in a skills folder, or as a plugin the agent installed. The
+# three recipes of the agterm cookbook that Lem needs are skills of the user here; a check below takes them away.
 mkdir -p "$FAKEHOME/.agents/skills/agterm" "$FAKEHOME/.agents/skills/mailbox-chat" "$FAKEHOME/.claude/plugins" "$FAKEHOME/.config/cronn"
 touch "$FAKEHOME/.agents/skills/agterm/SKILL.md" "$FAKEHOME/.agents/skills/mailbox-chat/SKILL.md"
+for recipe in webrev agdoc backlog; do mkdir -p "$FAKEHOME/.claude/skills/$recipe" && touch "$FAKEHOME/.claude/skills/$recipe/SKILL.md"; done
 printf '%s\n' '{"version": 2, "plugins": {"revmux@some-market": [{"scope": "user"}], "other@x": []}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
 out=$(doctor || true)
 if [ "$(status_of doctor)" = 1 ] && [ "$(row 'revmux skill' detail <<<"$out")" = "the plugin revmux@some-market" ] && [ "$(row 'mailbox-chat skill' detail <<<"$out")" = "$FAKEHOME/.agents/skills/mailbox-chat" ] \
@@ -150,15 +152,31 @@ ln -s "$PWD/agents/lem-builder.md" "$FAKEHOME/.claude/agents/lem-builder.md"
 home_only=$(doctor | field '(d["ok"], next(t for t in d["tools"] if t["name"] == "lem-builder agent")["found"])' || true)
 rm -r "$FAKEHOME/.claude/agents"
 printf '%s\n' '{"version": 2, "plugins": {"lem@lem": [{"scope": "user"}]}}' > "$FAKEHOME/.claude/plugins/installed_plugins.json"
+# The three recipes of the agterm cookbook that Lem needs are required, each with its guide: webrev and agdoc as
+# skills of the user, the backlog as a skill of the user or of the repository.
+recipes() { (doctor || true) | field '(d["ok"], [(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["name"] in ("webrev skill", "agdoc skill", "backlog skill")], [t["need"] for t in d["tools"] if t["name"] in ("webrev skill", "agdoc skill", "backlog skill")])'; }
+mv "$FAKEHOME/.claude/skills" "$WORK/skills-away"
+none_yet=$(recipes)
+mkdir -p "$FAKEHOME/.claude/skills" "$MACHINE/.claude/skills/backlog" && mv "$WORK/skills-away/webrev" "$WORK/skills-away/agdoc" "$FAKEHOME/.claude/skills/"
+touch "$MACHINE/.claude/skills/backlog/SKILL.md"
+in_project=$( (doctor || true) | row 'backlog skill' detail)
+rm -r "$MACHINE/.claude" && mv "$WORK/skills-away/backlog" "$FAKEHOME/.claude/skills/" && rmdir "$WORK/skills-away"
+for_user=$( (doctor || true) | row 'backlog skill' detail)
+if [ "$none_yet" = "(False, [('webrev skill', False, 'annotate-document'), ('agdoc skill', False, 'html-doc-overlay'), ('backlog skill', False, 'backlog-picker')], ['required', 'required', 'required'])" ] \
+  && [ "$in_project" = "$MACHINE/.claude/skills/backlog" ] && [ "$for_user" = "$FAKEHOME/.claude/skills/backlog" ]; then
+  pass "webrev, agdoc and the backlog recipe are required, each with its guide, and the backlog's skill counts for the user or for the repository"
+else
+  fail "the recipes Lem needs: $none_yet / $in_project / $for_user"
+fi
 out=$(doctor)
 if [ "$home_only" = "(False, False)" ] && [ "$(field 'd["ok"]' <<<"$out")" = "True" ] && [ "$(field '[t["name"] for t in d["tools"] if "jev" in t["name"]]' <<<"$out")" = "[]" ] && [ "$(row 'lem-builder agent' detail <<<"$out")" = "lem:lem-builder, from the plugin lem@lem" ] && [ "$(row cronn found <<<"$out")" = "False" ] \
   && [ "$(row plannotator found <<<"$out")" = "False" ] && [ "$(row plannotator need <<<"$out")" = "optional" ] && [ "$(row codex found <<<"$out")" = "False" ] \
   && [ "$(field '[t["name"] for t in d["tools"] if t["name"] == "codex persona agent"]' <<<"$out")" = "[]" ] \
   && [ "$(row plannotator without_it <<<"$out" | grep -c 'webrev is the default')" = 1 ] \
   && [ "$(field '[(t["name"], t["found"], t["guide"].rsplit("/", 1)[1]) for t in d["tools"] if t["need"] == "recommended"]' <<<"$out")" \
-    = "[('webrev skill', False, 'annotate-document'), ('agdoc skill', False, 'html-doc-overlay'), ('plannotator-tui', False, 'annotate-in-plannotator-tui')]" ] \
+    = "[('plannotator-tui', False, 'annotate-in-plannotator-tui')]" ] \
   && [ ! -e "$PWD/skills/lem-webrev" ]; then
-  pass "a builder file in the home is not Lem's; with git, the review tool, agterm, the mailbox, their skills, Claude Code and Lem's plugin the check passes; absent optional tools only change their rows, each recommended tool, none of them a part of Lem, has a row with its guide, and no row speaks of a jev command"
+  pass "a builder file in the home is not Lem's; with git, the review tool, agterm, the mailbox, the cookbook's recipes, their skills, Claude Code and Lem's plugin the check passes; absent optional tools only change their rows, the recommended tool, no part of Lem, has a row with its guide, and no row speaks of a jev command"
 else
   fail "doctor with the required set: $out"
 fi

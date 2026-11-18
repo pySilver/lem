@@ -73,7 +73,8 @@ review, and a person merges it. [docs/flow.md](docs/flow.md) describes each step
 
 ## Install
 
-Lem needs macOS, agterm, Claude Code, git, Python 3.11 or newer, the mailbox chat and revmux.
+Lem needs macOS, agterm, Claude Code, git, Python 3.11 or newer, the mailbox chat, revmux, and
+three recipes of the agterm cookbook: webrev, agdoc and the backlog recipe.
 Codex is optional. [docs/install.md](docs/install.md#what-lem-needs) has a link to each tool.
 
 Run these two commands at the root of your repository:

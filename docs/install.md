@@ -16,8 +16,9 @@ Lem runs on macOS only, because agterm is a terminal for macOS.
 | the [mailbox chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat) and its skill | required | the messages between Lem and a lead, and between the defender and the reviewer. The recipe puts `mailbox-chat.py` on your `PATH` |
 | [revmux](https://github.com/umputun/revmux) and the revmux skill | required | the review rounds before a pull request |
 | the [GitHub CLI](https://cli.github.com) `gh`, signed in | required with a remote on GitHub | the pull requests, and the watch of the open pull requests |
-| [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document) | recommended | the markup of a plan or a document on a page |
-| [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) | recommended | a page about the issue, the plan or the change of the session |
+| [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document) | required | the markup of a plan or a document on a page |
+| [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) | required | a page about the issue, the plan or the change of the session |
+| the [backlog recipe](https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker) | required | your own view of the items in `docs/backlog/`: its `backlog` skill and its picker. Install the skill for your user (`~/.claude/skills/backlog`) or for the repository (`.claude/skills/backlog`) |
 | [plannotator-tui](https://github.com/umputun/agterm/tree/master/cookbook/annotate-in-plannotator-tui) | recommended | the markup of the output of a pane, or of the newest reply of an agent |
 | [Codex](https://github.com/openai/codex) | optional | a reviewer of a second model family, the second expert, and half of each persona panel |
 | the Codex persona agent | optional | the second model family of a persona panel, in `~/.codex/agents/persona.toml` |
@@ -25,11 +26,12 @@ Lem runs on macOS only, because agterm is a terminal for macOS.
 | [plannotator](https://github.com/backnotprop/plannotator) | optional | another tool to mark up a plan, if you name it in `tools.annotate` |
 | an [OpenRouter](https://openrouter.ai) key, `OPENROUTER_API_KEY` | optional | the Jev decision model, for the correction queue and the check of a question card |
 
-Lem does not include the recommended tools. `/lem init` installs one only after your yes. Without
-webrev, you read a file as plain text and give your notes in the conversation. Without agdoc
-or plannotator-tui, no step of Lem changes. Without Codex, the reviewer is a second Claude, one
+Lem does not include the recipes of the agterm cookbook. webrev, agdoc and the backlog recipe are
+required: each row of the machine check gives the address of its guide. Lem does not include the
+recommended tool either, and `/lem init` installs it only after your yes. Without plannotator-tui,
+no step of Lem changes. Without Codex, the reviewer is a second Claude, one
 expert does not answer, and a persona panel has one model family. Without an OpenRouter key, the
-three uses of Jev give no result.
+two uses of Jev give no result.
 
 `/lem init` runs the machine check for you. The check shows one row for each tool, and says what
 Lem cannot do without that tool. To run it yourself in Claude Code, ask the agent to run

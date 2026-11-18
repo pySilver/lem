@@ -4,8 +4,10 @@
 Onboarding runs it first, so a repository is never set up for a flow its machine cannot run. It
 prints one row per tool as JSON and exits 1 when a required one is absent. An optional tool that
 is absent is not an error: its row says what the skill does without it, and onboarding tells the
-owner that. A recommended tool is one Lem does not bring and a developer is better off with: its
-row has the guide to install it by, and Lem installs it only on the developer's yes. Four rows
+owner that. A recipe of the agterm cookbook that Lem needs (webrev, agdoc, the backlog) is
+required, and its row has the guide to install it by. A recommended tool is one Lem does not bring
+and a developer is better off with: its row has the guide too, and Lem installs it only on the
+developer's yes. Four rows
 are about the repository it runs in and never fail the check: its personas, the correction hook
 when more than one place registers it there, the permission mode a builder in the background
 meets there, and Lem's plugin when it is installed for the user and so loads in every repository.
@@ -45,7 +47,7 @@ def python() -> dict:
     }
 
 
-# The guides of the tools Lem recommends and never copies in: recipes of the agterm cookbook.
+# The guides of the recipes of the agterm cookbook that Lem needs or recommends, and never copies in.
 COOKBOOK = "https://github.com/umputun/agterm/tree/master/cookbook/"
 
 
@@ -459,13 +461,17 @@ def main() -> None:
               "an agent has the review tool and no instructions for it; install the skill that comes with revmux (its README says how)"),
         *agterm(),
         gh(),
-        # The recommended tools: none is copied into Lem, each has a guide the developer follows,
-        # and Lem installs one only on the developer's yes.
-        skill("webrev", "the owner marks up a plan, a draft or any document as a rendered page, and the notes come back to the agent; "
-              "the default of tools.annotate", "the owner reads the file as it is and gives the notes in the conversation",
-              need="recommended", guide=COOKBOOK + "annotate-document"),
+        # The recipes of the agterm cookbook that Lem needs: none is copied into Lem, and each has
+        # the guide the developer installs it by.
+        skill("webrev", "the owner marks up a plan, a draft or any document as a rendered page, and the notes come back to the agent",
+              "Lem cannot open a plan or a document for the owner to mark up; install the recipe from its guide",
+              guide=COOKBOOK + "annotate-document"),
         skill("agdoc", "a page about the issue, the plan or the change in hand, for the owner's own reading",
-              "no stage needs it; the owner reads the same in the conversation", need="recommended", guide=COOKBOOK + "html-doc-overlay"),
+              "Lem cannot make a page for the owner to read; install the recipe from its guide", guide=COOKBOOK + "html-doc-overlay"),
+        skill("backlog", "the owner's own view of the backlog items in docs/backlog/, and the picker that adds and opens them",
+              "the owner has no tool of his own for the backlog; install the recipe from its guide, for the user (~/.claude/skills/backlog) "
+              "or for this repository (.claude/skills/backlog)", guide=COOKBOOK + "backlog-picker"),
+        # The recommended tool: Lem installs it only on the developer's yes.
         {**tool("plannotator-tui", "recommended", "the owner marks up what a pane printed, or an agent's newest reply, from two agterm chords",
                 "no stage needs it", "plannotator-tui", ["--version"]), "guide": COOKBOOK + "annotate-in-plannotator-tui"},
         tool("plannotator", "optional", "another way to mark up a plan or a draft, for an owner who names it in tools.annotate",
@@ -473,7 +479,7 @@ def main() -> None:
         {
             "name": "OpenRouter key", "need": "optional", "found": bool(os.environ.get("OPENROUTER_API_KEY")), "detail": None,
             "used_for": "the Jev decision model, which the correction queue and a card's framing check ask",
-            "without_it": "none of the three gets an answer, and the correction hook logs each message as a failure; "
+            "without_it": "neither gets an answer, and the correction hook logs each message as a failure; "
                           "put OPENROUTER_API_KEY into the environment the agent starts with",
         },
         *codex(),
