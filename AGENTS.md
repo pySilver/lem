@@ -467,6 +467,20 @@ build that follows.
   `decisions.md` is committed on the branch: "idk, if task folder isn't committed than no. its
   just a file that will load a context to my brain when I will have a time too look at the PR, to
   decide whether I like it or not and second artifact file should tell what and why build here".
+- **Not every section of the settings stays** (his note on the plan, 2026-11-18): "I also have
+  doubts all sections of the settings should stay ... paths.styleguide - is it really part of the
+  Lem or harness setup itself? paths.lessons vs paths.rules (wft? which is what? why?)
+  paths.backlog - coookbook covers this. [checks] - thats git hook job. [tools] - goes away?".
+  The answer is the session's, task 1b of the plan, which he passed with no note: the settings go
+  from 40 keys to 25; Lem's own files and the folders of other tools have one place each and no
+  key; the rules for the code are the harness's folder, and Lem only names the matching files to
+  the agents that load nothing by themselves; `[tools]` goes; and `[checks]` stays with
+  `commands`, `setup` and `alone`, because a test suite is no git hook's job and "green" must be
+  what a script saw. His two rulings that this reopens, on his own question: "A developer may ask
+  with a tool of their own" (`tools.ask`, `tools.annotate`) and the linked folders of an adopted
+  project (`init --existing link`).
+- **The tests are to be useful and fast**: "Please make all kind test actually useful and not
+  painfully slow. I can't wait to use Lem!" (the same page). Task 1a of the plan.
 - **In doubt, a decision climbs a ladder of opinions, and a count decides, not a model.** His
   order: "Lead -> Personas -> Experts -> Dialectic (or Dialectic before Experts as its cheaper...)",
   and "Next level follows if no clear consensus reached or owner wants to check all possible
