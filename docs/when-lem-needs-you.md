@@ -64,7 +64,7 @@ person something. It climbs a ladder, one level at a time, until a level settles
 2. **The personas** vote: agents answer as each person that the decision affects.
 3. **Two agents** argue for and against the option with the most votes.
 4. **Two experts** answer: the newest Fable of Anthropic, and the newest Astra of OpenAI through
-   Codex. Without Codex, the second expert is a second Claude model.
+   Codex. Without Codex, one expert answers alone.
 
 When the gate or the personas settle a decision, Lem tells you in one line, and nothing waits. Any
 other decision comes to you as a card, with one example that goes wrong and the answer of each
@@ -88,6 +88,6 @@ whether it approved the criteria.
 > Two things always wait for you, also while you are away:
 >
 > - **The merge.** Lem merges nothing for you while you are away.
-> - **A step that nobody can undo.** Examples: it deletes data in a database, it sends an email to
->   a customer, it changes a live system, or it spends money. Lem builds the rest of the task, does
->   not take that step, and asks you on a card.
+> - **A step that nobody can undo.** A plan rarely has one. Examples: a migration that deletes
+>   data in a shared database, a release that publishes a package, a message to a customer. Lem
+>   never takes such a step by itself: it builds the rest of the task, and asks you on a card.
