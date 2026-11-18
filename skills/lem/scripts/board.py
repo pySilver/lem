@@ -176,12 +176,12 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
     # The main checkout names the repository; a worktree's folder is named after its task.
     # `gates` is how many commands one run of the checks has, so the page knows when a run is complete
     # (the key keeps the step's older name, which a board page already open reads); `alone` how many
-    # of them are `checks.alone`, which do not run after a red command.
+    # of them are `checks.serial`, which do not run after a red command.
     meta = {
         "repo": Path(settings["main"]).name, "base": settings["branch"]["base"], "session": session,
-        "gates": len(settings["checks"]["commands"]) + len(settings["checks"]["alone"]),
-        # the commands of `checks.alone`, which run last and only when the others passed
-        "alone": len(settings["checks"]["alone"]),
+        "gates": len(settings["checks"]["commands"]) + len(settings["checks"]["serial"]),
+        # the commands of `checks.serial`, which run last and only when the others passed
+        "alone": len(settings["checks"]["serial"]),
     }
     if keep_session:
         # A run that opens nothing only writes the files again. The session the board names is the

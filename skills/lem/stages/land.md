@@ -3,8 +3,8 @@
 Lem's stage. It takes a task from `ready` to a pull request, and from the owner's merge, or its
 own where the project allows that, to a clean end. Nothing reaches the base branch without the
 machine checks and a review by an agent that did not build it. One task is in this stage at a
-time: the checks are about one tip on one base, and two at once would each be tested without the
-other.
+time, for two reasons: the whole suite runs on the computer one time at a time, and one task in
+`landing` is one clear state for the board and for a session that takes over.
 
 A task on the fast track lands by five steps and no more: `start`, `base`, `checks`, the review at its
 floor, which is one read by the review agent itself, and `propose`. It has no polish pass (step
@@ -76,9 +76,9 @@ one finds what the run before it finished.
      each with its output in a file of the task directory. The step keeps the exact last line of
      each and logs each result for the board. Do not read the output files. This is the one run
      of the whole suite: no builder runs it.
-   - Then, when they all passed, each command of `checks.alone`, the ones that need the machine to
-     themselves, under the repository's one lock for them (`lem project alone`): the step waits
-     while a builder or another task's check holds it.
+   - Then, when they all passed, each command of `checks.serial`, the tests that two tasks cannot
+     run at the same time, under the repository's one lock for them (`lem project serial`): the
+     step waits while a builder or another task's check holds it.
    - What the commands wrote that git neither tracks nor ignores (a `__pycache__` in a
      repository with no rule for it) is their output, not the tree they judged: the step removes
      each such file that was not there before the run, and the folders it empties, and names them

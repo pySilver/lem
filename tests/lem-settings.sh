@@ -25,8 +25,8 @@ project --repo "$NEW" init --base main >/dev/null
 # The template names every key show prints under [checks], each with its line in the file init writes.
 shown_keys=$(project --repo "$NEW" show | field 'sorted(d["checks"])')
 template_keys=$("$PY" -I -c 'import sys, tomllib; print(sorted(tomllib.load(open(sys.argv[1], "rb"))["checks"]))' "$NEW/.lem/project.toml")
-if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['alone', 'commands', 'setup']" ]; then
-  pass "the settings init writes name every key show prints under [checks]: the commands, their setup and the ones that run alone"
+if [ "$shown_keys" = "$template_keys" ] && [ "$shown_keys" = "['commands', 'serial', 'setup']" ]; then
+  pass "the settings init writes name every key show prints under [checks]: the commands, their setup and the serial ones"
 else
   fail "the [checks] keys of the template: $template_keys, of show: $shown_keys"
 fi
@@ -178,9 +178,9 @@ settings '[branch]' 'base = "master"'
 settings '[branch]' 'base = "master"' 'history = "keep"'
 kept_history=$(project --repo "$OLD" show | field 'd["branch"]["history"]')
 settings '[branch]' 'base = "master"'
-if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], sorted(d["checks"]))')" = "('squash', ['alone', 'commands', 'setup'])" ] && grep -q '^history = "squash"$' "$NEW/.lem/project.toml" \
+if [ "$(project --repo "$OLD" show | field '(d["branch"]["history"], sorted(d["checks"]))')" = "('squash', ['commands', 'serial', 'setup'])" ] && grep -q '^history = "squash"$' "$NEW/.lem/project.toml" \
   && [ "$kept_history" = keep ]; then
-  pass "a task lands as one commit unless the settings say its own commits, a file that says keep keeps them, and the checks are the commands, their setup and the ones that run alone"
+  pass "a task lands as one commit unless the settings say its own commits, a file that says keep keeps them, and the checks are the commands, their setup and the serial ones"
 else
   fail "history and the keys of the checks"
 fi
@@ -248,11 +248,11 @@ else
   fail "older seat tables: $old_reviewer / $old_planner / $old_agentless"
 fi
 # The checks: [gate] is their older name, refused with the lines to write in its place.
-settings '[gate]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'alone = ["npx playwright test"]' 'bar = ["x"]'
+settings '[gate]' 'commands = ["make test", "make lint"]' 'ignores = ["docs/*"]' 'serial = ["npx playwright test"]' 'bar = ["x"]'
 gate_err=$(project --repo "$OLD" show 2>&1 || true)
 # shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
 if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF "[gate] is called [checks] now" <<<"$gate_err" && ! grep -qF "[seats" <<<"$gate_err" \
-  && grep -qF "Write these lines in place of the [gate] table:" <<<"$gate_err" && [ "$(printf '%s\n' "$gate_err" | sed -n 2,4p)" = "$(printf '%s\n' '[checks]' 'commands = ["make test", "make lint"]' 'alone = ["npx playwright test"]')" ] \
+  && grep -qF "Write these lines in place of the [gate] table:" <<<"$gate_err" && [ "$(printf '%s\n' "$gate_err" | sed -n 2,4p)" = "$(printf '%s\n' '[checks]' 'commands = ["make test", "make lint"]' 'serial = ["npx playwright test"]')" ] \
   && grep -qxF 'Delete these lines too, whose settings are gone:' <<<"$gate_err" \
   && grep -qxF -- '- delete `ignores = ["docs/*"]` under [checks]: the checks run again whenever the base branch moves' <<<"$gate_err" \
   && grep -qF -- '- delete `bar = ["x"]` under [checks]: Lem looks for a lowered bar with its own marks' <<<"$gate_err"; then

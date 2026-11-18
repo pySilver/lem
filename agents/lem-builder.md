@@ -51,9 +51,9 @@ What holds for every builder, unless your job says otherwise as above:
 4. **Check what you changed.** Run the tests of the files you wrote or edited and of their direct
    callers, and the formatter, the linter and the type checker the project's `AGENTS.md` names.
    Never the whole suite, whatever your brief says: it runs one time, in the checks before the
-   pull request. A test of a suite that needs the machine to itself (one the settings list under
-   `checks.alone`, or one that belongs to such a suite) you run through the `lem project alone` line
-   your brief gives, never bare: it waits while another run holds the machine.
+   pull request. A test of a suite that two tasks cannot run at the same time (one the settings
+   list under `checks.serial`, or one that belongs to such a suite) you run through the `lem
+   project serial` line your brief gives, never bare: it waits while another run holds the lock.
 5. **Commit your own work** on the task's branch. The message has the form the project's
    `AGENTS.md` or its commit hook gives; with neither, a semantic message (`type(scope):
    subject`). When a hook refuses a commit, its message names the form it wants: write the

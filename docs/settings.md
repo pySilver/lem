@@ -28,14 +28,14 @@ Each path is relative to the root of the repository.
 
 ## `[checks]`
 
-The checks must pass before a pull request. Put your tests here, and a linter only when no git hook
-runs it.
+During the build, each builder runs only the tests of its own change. Before the pull request, Lem
+runs the commands below one time, in the worktree of the task.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `checks.commands` | `[]` | the whole suite, run one time before the pull request. With none, only the task that adds them can land |
-| `checks.setup` | `[]` | what a fresh worktree needs before Lem runs the test of each criterion there, for example `"uv sync"` or `"npm ci"` |
-| `checks.alone` | `[]` | the commands that need the computer to themselves, for example an end-to-end suite with fixed ports |
+| `checks.commands` | `[]` | your tests, the whole suite. Add a linter only when no git hook runs it. With no command, only the task that adds one can land |
+| `checks.serial` | `[]` | the tests that two tasks cannot run at the same time, for example an end-to-end suite with fixed ports. They run after `checks.commands`, one at a time for all tasks. Keep them out of `checks.commands` |
+| `checks.setup` | `[]` | what a new worktree needs before its tests can run, for example `"uv sync"` or `"npm ci"` |
 
 ## `[flow]`
 

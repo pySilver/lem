@@ -107,8 +107,8 @@ and proves nothing. Only the criterion's own list of files tells the two apart, 
 every file the base run lacked (`run_without`), for the one who reads the change.
 
 A test that needs the machine to itself runs under the repository's one lock for such commands,
-through `lem project alone`: a test whose command starts with the words of a command of the
-settings' `checks.alone`, whose last word may be a folder of the test's path (`npx playwright test
+through `lem project serial`: a test whose command starts with the words of a command of the
+settings' `checks.serial`, whose last word may be a folder of the test's path (`npx playwright test
 e2e/export.spec.ts` under `npx playwright test`, `sh tests/e2e/b.sh` under `sh tests/e2e`), so
 that two checks of two tasks, or a check and a builder, never run such a suite at one moment.
 
@@ -448,7 +448,7 @@ def unstarted(command: str, where: Path) -> bool:
 
 def needs_alone(command: str, alone: list[str]) -> bool:
     """Whether a test belongs to a suite that needs the machine to itself: its command starts with
-    the words of one of the settings' `checks.alone`, the last of which may also be a folder of the
+    the words of one of the settings' `checks.serial`, the last of which may also be a folder of the
     test's path (`sh tests/e2e` holds `sh tests/e2e/export.sh`). Words, so that a test's own file
     or filter after the suite's command still counts, and `npx playwright` never matches `npx play`."""
     try:
@@ -551,14 +551,14 @@ def cmd_red(task: Task) -> dict:
                         continue
             child.clear()
 
-        alone = task.settings["checks"]["alone"]
+        alone = task.settings["checks"]["serial"]
 
         def outcome(command: str, where: Path, test: bool = False) -> int:
             # through a shell, as the commands of the checks run: a test command is a line the project would type;
             # a test of a suite that needs the machine to itself runs under its lock, which project.py holds
             line: str | list[str] = command
             if test and needs_alone(command, alone):
-                line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "alone", "--", command]
+                line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "serial", "--", command]
             proc = subprocess.Popen(line, shell=isinstance(line, str), cwd=where, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
             child.append(proc)
             code = proc.wait()

@@ -35,7 +35,8 @@ a team that adopts Lem may have its own.
                                     make the task's worktree there, on BRANCH: a branch that exists
                                     as it is, a new one from origin's base branch after a fetch
                                     (from the local base branch with no remote, or when origin
-                                    does not answer), with no upstream
+                                    does not answer), with no upstream; then run checks.setup in
+                                    it one time, so that its tests can run
     lem project state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
     lem project tasks               every task's ask, status and newest state block, as JSON
@@ -50,9 +51,9 @@ a team that adopts Lem may have its own.
                                     line while OTHER has not ended. No count of tasks stops a start:
                                     each start by day is the owner's own request
     lem project state-dir           the folder that holds every task, the event log and the night reports
-    lem project alone -- COMMAND ...
-                                    run one command that needs the machine to itself, under the
-                                    repository's one lock for such commands
+    lem project serial -- COMMAND ...
+                                    run one test command that two tasks cannot run at the same
+                                    time (checks.serial), under the repository's one lock for them
     lem project waiting             everything that waits for the owner, as JSON: each choice of a task,
                                     each task whose criteria or a step of his hold it, each pull
                                     request with green or not, each task marked with the night that
@@ -178,12 +179,16 @@ read on that one. Before any commit of the base holds the file (an onboarding, o
 the working tree is read. `show` says which in `settings_from`.
 
 `[checks]` holds the machine checks of a landing: `commands`, the whole suite, `setup` and
-`alone`. `checks.alone` names the commands that need the machine to themselves: an end-to-end suite that
-uses fixed ports, one database or a browser. `alone` runs any command under one lock for the
-repository, `alone.lock` in the state folder, apart from the landing's lock, since a builder takes
-this one too: the checks of a landing run each `checks.alone` command through it after
-`checks.commands` pass, `lem criteria red` runs a criterion's test of such a suite through it, and a
-builder runs such a test through it in its worktree. It waits while another run holds the lock
+`serial`. `checks.setup` is what a new worktree needs before its tests can run (`uv sync`, `npm
+ci`): `worktree` runs it one time in a worktree that it makes, and `lem criteria red` in each of its
+two fresh worktrees; its output goes to `setup.log` in the task directory. `checks.serial` names the
+tests that two tasks cannot run at the same time: an end-to-end suite that uses fixed ports, one
+database or a browser. `serial` runs any command under one lock for the repository, `alone.lock`
+in the state folder, apart from the landing's lock, since a builder takes this one too: the checks
+of a landing run each `checks.serial` command through it after `checks.commands` pass, `lem
+criteria red` runs a criterion's test of such a suite through it, and a builder runs such a test
+through it in its worktree. Builders of other tasks go on meanwhile: the lock holds only these
+commands. It waits while another run holds the lock
 and says so on stderr with the holder's line, passes the command's exit status through (128 and
 the signal's number for a command a signal ended), and ends the command's process group when it
 is stopped. The lock is the kernel's: it goes with the process that holds it, however that ends,
@@ -398,15 +403,16 @@ OLD_CALLS = {"correction": "small", "usual": "full"}
 # The states in which the task loads the machine: a lead builds, or the checks run and a builder may
 # repair a conflict or a red check.
 RUNNING = ("building", "landing")
-# The lock of the commands that need the machine to themselves (`alone`), in the state folder. Not the
-# landing's `landing.lock`: a builder takes this one too, while another task holds the landing line.
+# The lock of the tests that two tasks cannot run at the same time (`serial`, `checks.serial`), in the
+# state folder. Not the landing's `landing.lock`: a builder takes this one too, while another task
+# holds the landing line.
 ALONE_LOCK = "alone.lock"
 # The first line of a state block: the time in UTC, the status, one line of text.
 STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[a-z]+): (?P<text>.+)")
 TABLES: dict[str, tuple[str, ...]] = {
     "paths": ("plans", "plan_file", "rulings", "ruling_file"),
     "branch": ("base", "land", "history", "propose", "protected"),
-    "checks": ("commands", "setup", "alone"),
+    "checks": ("commands", "setup", "serial"),
     "flow": ("topics",),
     "seats": ("reviewer", "planner", "experts"),
     "corrections": ("collect",),
@@ -478,20 +484,21 @@ propose = "pull-request"
 protected = []
 
 [checks]
-# The machine checks of a landing, each run at the root of the task's worktree: the whole suite,
-# which runs here one time, before the pull request, and in no builder. A linter and a type
-# checker belong in a git hook, which runs at each commit; a test suite belongs here, since a hook
-# must be fast and "green" must be what this script saw.
+# During the build, each builder runs only the tests of its own change. Before the pull request,
+# Lem runs these commands one time, at the root of the task's worktree: the whole suite. A linter
+# and a type checker belong in a git hook, which runs at each commit; a test suite belongs here,
+# since a hook must be fast and "green" must be what Lem saw.
 commands = []
-# What a fresh worktree of this project needs before its tests can start: install the packages,
-# copy an environment file. The check that each criterion's tests fail on the base commit runs in a
-# worktree of its own and runs these there first. Leave it empty when the tests start as they are.
+# What a new worktree needs before its tests can run: install the packages, copy an environment
+# file ("uv sync", "npm ci"). Lem runs these one time in each worktree it makes for a task, and in
+# the two worktrees of the check that each criterion's tests fail on the base commit. Leave it
+# empty when the tests run as they are.
 setup = []
-# Commands that need the machine to themselves: an end-to-end suite that uses fixed ports, one
-# database or a browser. The checks run each after `commands` pass, under one lock for the
-# repository, and a builder runs a test of such a suite through `project.py alone`. `commands` is
-# the whole suite without them, which runs one time, before the pull request.
-alone = []
+# The tests that two tasks cannot run at the same time: an end-to-end suite that uses fixed ports,
+# one database or a browser. They run after `commands`, one at a time for all tasks, under one lock
+# for the repository, and a builder runs a test of such a suite through `lem project serial`. Keep
+# them out of `commands`.
+serial = []
 
 [flow]
 # What must never go wrong in this project, each as one sentence in the owner's words: "a
@@ -1162,7 +1169,7 @@ def load(root: Path) -> dict:
         "checks": {
             "commands": commands(raw.get("checks", {}).get("commands", []), "checks.commands"),
             "setup": commands(raw.get("checks", {}).get("setup", []), "checks.setup"),
-            "alone": commands(raw.get("checks", {}).get("alone", []), "checks.alone"),
+            "serial": commands(raw.get("checks", {}).get("serial", []), "checks.serial"),
         },
         # read from the main checkout's settings, in a task's worktree too
         "flow": flow,
@@ -1656,7 +1663,34 @@ def cmd_worktree(root: Path, settings: dict, slug: str, branch: str) -> None:
     if made.returncode != 0:
         raise SettingsError(f"git could not make the worktree {place} on {branch}: {said(made)}")
     commit = subprocess.run(["git", "-C", str(place), "rev-parse", "HEAD"], capture_output=True, text=True, check=False).stdout.strip()
-    print(json.dumps({"task": slug, "worktree": str(place), "branch": branch, "made": True, "from": start, "commit": commit}, indent=2))
+    setup = worktree_setup(root, settings, slug, place)
+    print(json.dumps({"task": slug, "worktree": str(place), "branch": branch, "made": True, "from": start, "commit": commit, "setup": setup}, indent=2))
+
+
+def worktree_setup(root: Path, settings: dict, slug: str, place: Path) -> list[dict]:
+    """Run `checks.setup` one time in a worktree just made, so that its tests can run: without it a
+    task on the fast track whose builder runs no test reaches the checks with no packages, and the
+    checks fail on what the change did not cause (a probe on 2026-11-18: `setup = ["npm ci"]`, a
+    README fix, and the checks red on a missing package). Each command's output goes to
+    `setup.log` in the task directory (beside the worktree for a slug with none). A command that
+    fails stops the rest and is refused with its exit; the worktree stays, made."""
+    done: list[dict] = []
+    if not settings["checks"]["setup"]:
+        return done
+    directory = state_root(root) / "tasks" / slug
+    log = directory / "setup.log" if directory.is_dir() else place.parent / f"{slug}.setup.log"
+    with log.open("w", encoding="utf-8") as out:
+        for command in settings["checks"]["setup"]:
+            out.write(f"$ {command}\n")
+            out.flush()
+            code = subprocess.run(command, shell=True, cwd=place, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, check=False).returncode
+            done.append({"command": command, "exit": code})
+            if code != 0:
+                raise SettingsError(
+                    f"`{command}` of checks.setup failed in the new worktree {place} (exit {code}; its output is in {log}), so its tests cannot run. "
+                    f"The worktree stays: correct the command in {SETTINGS}, then run it there by hand",
+                )
+    return done
 
 
 def task_directory(root: Path, slug: str) -> Path:
@@ -2388,12 +2422,12 @@ def cmd_owner(root: Path, status: str, words: str | None) -> dict:
             "tasks": [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"] if away else without, "taken": taken}
 
 
-def cmd_alone(root: Path, words: list[str]) -> int:
+def cmd_serial(root: Path, words: list[str]) -> int:
     """Run one command under the repository's lock for commands that need the machine to
     themselves, and give its exit status back. Another run that holds the lock is waited for."""
     words = words[1:] if words[:1] == ["--"] else words
     if not words or not any(word.strip() for word in words):
-        raise SettingsError("alone takes the command to run: `lem project alone -- COMMAND ...`, or one quoted line for the shell")
+        raise SettingsError("serial takes the command to run: `lem project serial -- COMMAND ...`, or one quoted line for the shell")
     shown = words[0] if len(words) == 1 else " ".join(words)
     path = state_root(root) / ALONE_LOCK
     try:
@@ -2406,7 +2440,7 @@ def cmd_alone(root: Path, words: list[str]) -> int:
         except BlockingIOError:
             handle.seek(0)
             holder = handle.read().strip() or "its holder wrote no line yet"
-            print(f"project.py: the machine is held by a command that needs it alone ({holder}); this one waits", file=sys.stderr, flush=True)
+            print(f"project.py: another serial test holds the lock ({holder}); this one waits", file=sys.stderr, flush=True)
             fcntl.flock(handle, fcntl.LOCK_EX)
         handle.seek(0)
         handle.truncate()
@@ -2567,8 +2601,8 @@ def main(argv: list[str] | None = None) -> None:
     commands.add_parser("may-start").add_argument("slug")
     commands.add_parser("state-dir")
     commands.add_parser("waiting", help="everything that waits for the owner, as JSON")
-    alone = commands.add_parser("alone", help="run one command that needs the machine to itself, under the repository's one lock")
-    alone.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
+    serial = commands.add_parser("serial", help="run one test command that two tasks cannot run at the same time, under the repository's one lock")
+    serial.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     commands.add_parser("may-nap")
     args = parser.parse_args(argv)
     if problem := unreadable_argument(sys.argv[1:] if argv is None else argv):
@@ -2610,8 +2644,8 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "waiting":
             print(json.dumps(cmd_waiting(root), indent=2))
             return
-        if args.command == "alone":
-            sys.exit(cmd_alone(root, args.words))
+        if args.command == "serial":
+            sys.exit(cmd_serial(root, args.words))
         if args.command == "may-nap":
             cmd_may_nap(root)
             return

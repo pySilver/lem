@@ -34,10 +34,10 @@ you the start of one, write the state `blocked` with that refusal, and stop.
      change. The owner: "what worked for us is to run only subset of tests during plan execution,
      not the whole suite that takes ages. whole test suite run at the very late stage"
      (2026-11-17);
-   - when the settings' `checks.alone` names commands (`lem project show`), those commands, and the
+   - when the settings' `checks.serial` names commands (`lem project show`), those commands, and the
      line that runs a test of such a suite: `lem project --repo WORKTREE
-     alone -- COMMAND`, with `SKILL_DIR` and `WORKTREE` written out. Such a test needs the machine
-     to itself (fixed ports, one database, a browser), and four builders may run at one moment, so
+     serial -- COMMAND`, with `SKILL_DIR` and `WORKTREE` written out. Two tasks cannot run such a
+     test at the same time (fixed ports, one database, a browser), and several builders may run at one moment, so
      it runs under that one lock and never bare: "e2e is a bit of different beast as it may have
      troubles to execute when multiple worktrees wants them" (the owner, the same day).
    The rest a builder has with it: what it checks before it reports, how it commits, what it
@@ -172,8 +172,9 @@ owner reads.
   branch that the base run lacked, which the check takes for the change: a helper of a test in that
   list means the test's failure proved nothing, and the helper belongs among the criterion's files.
   Repair what the check names before the task is `ready`, and give its last line here. A project
-  whose tests need more than a fresh worktree has says what in the settings' `checks.setup`; when that
-  is missing, it is an outside defect for your report, not yours to set;
+  whose tests need more than a fresh worktree has says what in the settings' `checks.setup`, which
+  `lem project worktree` runs in each worktree it makes; when that is missing, it is an outside
+  defect for your report, not yours to set;
 - **not verified**: what you could not or did not check;
 - **decisions**: each one taken without the owner, with why and what it would take to undo, by
   its number in `lem decisions list SLUG`. Each is in that record before the report: the pull

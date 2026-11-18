@@ -82,9 +82,9 @@ change must do. When you find that an existing test itself is wrong, change noth
 and say in your reply which test, what it expects and why that is wrong.
 
 - *A command of the checks.* Read its output file. Run the command on the base branch too, in a way that
-  leaves the worktree as it was. A command of `checks.alone` (`lem project --repo WORKTREE show`)
-  needs the machine to itself: run it, on the branch and on the base, through `lem
-  project --repo WORKTREE alone -- COMMAND`, never bare (`SKILL_DIR` is
+  leaves the worktree as it was. A command of `checks.serial` (`lem project --repo WORKTREE show`)
+  is one that two tasks cannot run at the same time: run it, on the branch and on the base, through `lem
+  project --repo WORKTREE serial -- COMMAND`, never bare (`SKILL_DIR` is
   the directory above this file's). A failure the change caused, you fix and commit. A failure
   the base already has, you do not fix here and do not hide: say so, with the last line of the
   command on the base and on the branch.

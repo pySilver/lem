@@ -58,8 +58,8 @@ with no interview, read or plan.
 
 The machine checks have no model in them. `checks` runs the settings' `checks.commands`, the whole
 suite, which runs here one time and in no builder; then, when they all passed, each command of
-`checks.alone`, the ones that need the machine to themselves (an end-to-end suite on fixed ports, one
-database, a browser), each under the repository's one lock for them through `lem project alone`,
+`checks.serial`, the tests that two tasks cannot run at the same time (an end-to-end suite on fixed
+ports, one database, a browser), each under the repository's one lock for them through `lem project serial`,
 which waits while a builder or another check holds it; then `lem criteria red` (each criterion's tests pass on the branch and fail on the base commit), then the
 bar. A change lowers the bar when it adds a lint or type suppression, a skipped test or a mark
 that runs one test alone, a test that runs again until it passes, deletes a test file or moves it
@@ -1368,9 +1368,10 @@ def cmd_checks(task: Task) -> dict:
     there = untracked(task)
     # the start of the checks: the board draws them from here to their last result
     # The commands that need the machine to themselves come after the others, each under the
-    # repository's one lock for them (`project.py alone`), and only when the others passed.
+    # repository's one lock for them (`project.py serial`), and only when the others passed. The field
+    # of their result and of their `gate` event is `alone`, the name the board reads.
     # The output folder and the events keep the step's older name, `gate`, which the board reads.
-    alone = task.settings["checks"]["alone"]
+    alone = task.settings["checks"]["serial"]
     script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands) + len(alone)}")
     results = []
     running: list[subprocess.Popen] = []
@@ -1386,7 +1387,7 @@ def cmd_checks(task: Task) -> dict:
             output = logs / f"{number:02d}.log"
             line: str | list[str] = command
             if apart:
-                line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "alone", "--", command]
+                line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "serial", "--", command]
             with output.open("w", encoding="utf-8") as handle:
                 # a group of its own, as criteria.py runs a test: what the command starts ends with it
                 proc = subprocess.Popen(line, shell=not apart, cwd=task.worktree, stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
@@ -2324,7 +2325,7 @@ def small_text(task: Task, notes: str, state: dict) -> str:
     out += criteria_lines(found, held)
     out += [change_line(task, change) for change in found["history"]]
     out += ["", "## Checks", ""]
-    out += [f"- check, `{command['command']}`{' (alone, under the lock)' if command.get('alone') else ''}: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
+    out += [f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('alone') else ''}: {command['last'] or 'exit ' + str(command['exit'])}" for command in checks.get("commands", [])]
     own = builder_filed(task)
     if own:
         out.append("- filed in the backlog by the builder: " + ", ".join(f"`{path}`" for path in own))
@@ -2388,7 +2389,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out += ["", "## Checks", ""]
     for command in checks.get("commands", []):
         code = command["exit"]
-        out.append(f"- check, `{command['command']}`{' (alone, under the lock)' if command.get('alone') else ''}: {command['last'] or f'exit {code}'}")
+        out.append(f"- check, `{command['command']}`{' (serial, under the lock)' if command.get('alone') else ''}: {command['last'] or f'exit {code}'}")
     tests = checked_criteria(checks)["tests"]
     without = checked_criteria(checks).get("without_a_test", [])
     out.append(f"- the tests of the criteria: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} {'criterion has' if len(without) == 1 else 'criteria have'} no test" if without else ""))

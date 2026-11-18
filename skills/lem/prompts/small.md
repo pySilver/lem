@@ -14,9 +14,9 @@ is the directory above this file's. This file and your standing rules are all yo
    holds it`. The checks run the whole suite one time before the pull request, and that is the
    proof; you do not run it.
 4. **Check** the tests of your files and of their direct callers, and the formatter, linter and
-   type checker the project's `AGENTS.md` names. A test that the settings' `checks.alone` lists
-   (`lem project --repo WORKTREE show`), or that belongs to such a suite, needs the machine to
-   itself: run it through `lem project --repo WORKTREE alone -- COMMAND`,
+   type checker the project's `AGENTS.md` names. A test that the settings' `checks.serial` lists
+   (`lem project --repo WORKTREE show`), or that belongs to such a suite, two tasks cannot run at
+   the same time: run it through `lem project --repo WORKTREE serial -- COMMAND`,
    never bare.
 5. **Does the fast track still fit?** Read `flow.topics` in `lem project --repo WORKTREE show`, the sentences of
    what must never go wrong here. Stop when the change could reach one (in doubt, it could), needs

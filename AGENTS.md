@@ -931,7 +931,7 @@ bash tests/lem-old-tasks.sh    # tasks the scripts of an older commit took to op
 bash tests/lem-land-local.sh   # the landing with no remote, in two blocks of about equal time: decisions, criteria and the read here,
 bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and what makes a request careful here
 bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path or wraps a call
-bash tests/lem-alone.sh        # the commands that need the machine to themselves (checks.alone): lem project alone, its one lock, and the checks that use it
+bash tests/lem-serial.sh       # the tests two tasks cannot run at once (checks.serial): lem project serial, its one lock, the checks that use it; and checks.setup in a new worktree
 bash tests/lem-naps.sh         # the naps: the [naps] settings and lem project may-nap
 bash tests/lem-picker.sh       # the task picker: its rows, a pick, Escape and its refusals, with a stand-in for agtermctl
 bash tests/test-gate-panel.sh  # the panel's cast, in its one place

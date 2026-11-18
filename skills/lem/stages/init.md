@@ -136,11 +136,14 @@ Then edit `.lem/project.toml` with the three answers and the assumptions of step
   propose only the test commands: the hooks run the formatter, the linter and the type check at
   each commit of a builder, and the checks need not run them again ("test runs only", the owner,
   2026-11-17). With no hooks, propose the linter and the type check the repository has as well;
-- `checks.alone`, only when `examined.md` shows a sign of a suite that needs the machine to itself:
-  the test command of that suite, your guess from the file the sign is in, out of
+- `checks.serial`, only when `examined.md` shows a sign of a suite that two tasks cannot run at
+  the same time: the test command of that suite, your guess from the file the sign is in, out of
   `checks.commands`. The checks run it after `checks.commands` pass, under one lock for the
   repository, and a builder runs a test of it through the same lock. With no sign it stays empty
   and nothing about it is said;
+- `checks.setup`: what a new worktree needs before its tests can run (`uv sync`, `npm ci`), from
+  the lock files and the test configuration in `examined.md`. `lem project worktree` runs it one
+  time in each worktree it makes;
 - the sentences of what must never go wrong (`flow.topics`) the owner confirmed;
 - `branch.land = "owner"`: a person merges, until he says otherwise;
 - `branch.propose`: a pull request where the remote is GitHub;
@@ -176,7 +179,7 @@ one out or change another key of the file:
 - `Bash(mailbox-chat.py *)`, `Bash(revmux *)`, and `Bash(codex exec *)` for the experts;
 - `Edit(/.lem/worktrees/**)`, the worktrees' one place (`/` is the root of the project in a rule
   of its settings file);
-- one rule for each command of `checks.commands`, `checks.alone` and `checks.setup`, the command
+- one rule for each command of `checks.commands`, `checks.serial` and `checks.setup`, the command
   as written: `Bash(COMMAND)`. A command joined with `&&` needs each of its parts allowed, so
   write one rule for each part.
 
@@ -187,7 +190,7 @@ through the forge's pull request, under the forge's own rules, and with `"merge"
 wants none.
 
 Run each command of the checks once, at the root, for the last line the hand-over page shows, and each
-`checks.alone` command through `lem project alone -- COMMAND`. Then look at
+`checks.serial` command through `lem project serial -- COMMAND`. Then look at
 what they left that git neither tracks nor ignores (`git status --porcelain --untracked-files=all`):
 a cache of Python's bytecode, a coverage file, a build folder. Propose an ignore line for each kind
 in the repository's ignore file, `.gitignore` when it has none, in the onboarding's commit, and
@@ -268,8 +271,8 @@ recommended option, not green. And the allow list: the rules written into `.clau
 in one line with their count and the mode a new session starts in ("change allow none"). With git hooks, one line says, in these words, why the
 checks have only tests: "the git hooks run the rest at each commit of a builder" (the hook files;
 "change checks add COMMAND"). With a sign of a suite that needs the machine to itself, one line
-names your guess for `checks.alone` with the file the sign is in ("change alone COMMAND", "change
-alone none"): that line is the one question about it, and it waits for no answer either. He
+names your guess for `checks.serial` with the file the sign is in ("change serial COMMAND", "change
+serial none"): that line is the one question about it, and it waits for no answer either. He
 corrects one with "change" and what; nothing on the list waits for an answer. With `branch.propose = "pull-request"` one line of it says, in these
 words, what his "land" approves: "Lem pushes each task's branch and opens its pull request
 without asking" (`branch.propose`; "change propose merge"). That line makes the settings his
