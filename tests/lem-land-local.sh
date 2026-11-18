@@ -185,7 +185,7 @@ polish_local criterion-departs 2>/dev/null && local_land checks criterion-depart
 text=$LOCAL/.lem/state/tasks/criterion-departs/pr.md
 agent=$(local_land land criterion-departs --by agent 2>&1 || true)
 if grep -qF "criterion 2 of 20261115-criterion-departs.md says 'The file ends with a line break.', and the expected criterion 2 is 'The file has one line.'" <<<"$unrecorded" \
-  && grep -qF "choice 1 is waits: a criterion changes after a choice that was answered or taken by timeout" <<<"$early" \
+  && grep -qF "choice 1 waits: a criterion changes after a choice that was answered or taken by timeout" <<<"$early" \
   && [ "$(sed -n 1p "$text" 2>/dev/null)" = '**Not green.**' ] \
   && [ "$(sed -n 3p "$text")" = '- criterion 2 was removed during the build: A second line holds the date now, after choice 1 (The one-line rule), where the owner took "no such rule"' ] \
   && [ "$(sed -n 4p "$text")" = '- criterion 2 was added during the build: The importer reads whole lines only.' ] \

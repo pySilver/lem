@@ -513,7 +513,9 @@ def cmd_criterion(task: Task, args: argparse.Namespace) -> dict:
         if args.choice is not None:
             choice = task.one(args.choice, known)
             if choice["state"] not in ("answered", "timeout", "settled"):
-                raise DecisionError(f"choice {args.choice} is {choice['state']}: a criterion changes after a choice that was answered or taken by timeout, or that the experts settled")
+                # the state as a verb: a choice that "waits", a decision that "is taken"
+                said = "waits" if choice["state"] == "waits" else f"is {choice['state']}"
+                raise DecisionError(f"choice {args.choice} {said}: a criterion changes after a choice that was answered or taken by timeout, or that the experts settled")
         lines = task.lines()
         # the same computation the check of the criteria makes, with this change last: a wrong record never enters
         task.changes([*lines, line])
