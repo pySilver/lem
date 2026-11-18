@@ -162,14 +162,12 @@ text is used.
 
 `skills/lem-ask-expert/` was written for Lem on 2026-11-16. No text of another source is used.
 
-## lem-dialectic, lem-root-cause, lem-release, lem-last-tag and lem-pr-review
+## lem-dialectic and lem-root-cause
 
 `skills/lem-dialectic/` and `skills/lem-root-cause/` (there `root-cause-investigator`) are copied
-from the `thinking-tools` plugin with their name, the command in their examples and one sentence
-of their description changed, and `skills/lem-release/` (there `new`), `skills/lem-last-tag/` and
-`skills/lem-pr-review/` (there `pr`) from the `release-tools` and `review` plugins, renamed and with
-their script paths and one cross-reference changed, of [umputun/cc-thingz](https://github.com/umputun/cc-thingz), as of commit
-68d29a4 (2026-11-03).
+from the `thinking-tools` plugin of [umputun/cc-thingz](https://github.com/umputun/cc-thingz), as of
+commit 68d29a4 (2026-11-03), with their name, the command in their examples and one sentence of
+their description changed.
 
 ```
 MIT License

@@ -84,8 +84,7 @@ agents run it, and you do not type it. Because it is one command, the permission
 - `lem NAME ARGS...` runs one script, for example `lem land start SLUG` or `lem project show`.
 - `lem NAME --help` gives the help of that script.
 - `lem help` lists the names: `project`, `land`, `criteria`, `decisions`, `board`, `doctor`,
-  `corrections`, `experts`, `cast`, `gate-log`, `triage`, `release-platform`, `release-version`
-  and `release-notes`.
+  `corrections`, `experts`, `cast`, `gate-log` and `triage`.
 - `lem version` prints the folder of the plugin, and its commit when that folder is a git clone.
 
 Two other commands stand alone: `lem-ask`, the question page, and `lem-jev`, the client of the

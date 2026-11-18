@@ -117,19 +117,19 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | `nap` | a nap now, on the owner's word, also when the naps are off: a fresh agent reads the recent tasks, dreams, and writes the dream down; Lem tells him its name when it ends. Where the settings have the naps on (`naps.on`), Lem also naps by itself after a task ends | `stages/nap.md` |
 | `status <task>` | the board of one task | `stages/status.md` |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.1-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
-| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `backlog`, `release`, `last-tag`, `pr-review`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
+| a call of a skill Lem ships | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. A shipped skill starts only this way, never by itself. The owner calls `interview-me`, `backlog`, `dialectic` and `root-cause` this way; `ask`, `ask-expert`, `gate`, `panel` and `linear` load the same way, and Lem's stages use those by themselves (`/lem linear MBZ-12` reads one ticket). See below for a line that only starts with such a word | that skill |
 | anything else | an ask in plain words: `/lem the report dates must stay whole` is `new` with that sentence | `stages/new.md` |
 
 A skill's name at the start of a line does not make the line a call of that skill. It is a call
 when the name stands alone or is followed by what that skill takes: a slug, a path, a number, a
-statement to argue, a question in words. `/lem release notes are wrong on the site` and `/lem backlog is slow to open`
+statement to argue, a question in words. `/lem root-cause analysis of the logs is slow` and `/lem backlog is slow to open`
 are sentences about the project, so each is an ask and opens a task. `/lem ask` takes a question
 the owner wants put to himself as a page ("`/lem ask` which of the two layouts"), and `/lem ask`
 alone puts the last open question an agent asked in this conversation on a page, with what he
 needs to answer it there (the `lem-ask` skill says how); "`/lem` ask
 the payment provider for a sandbox key" is a task. When you cannot tell which
 of the two a line is, ask the owner once in the terminal, in one line, before anything runs: a
-skill such as `lem-release` changes files.
+skill runs at once, and an ask opens a task.
 
 A task runs on from `new` to its pull request without the owner, unless a stage file names a stop.
 Between two of the owner's messages Lem only waits: a lead that stops wakes it, and so does a

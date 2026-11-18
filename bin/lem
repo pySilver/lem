@@ -35,9 +35,6 @@ COMMANDS = {
     "cast": ("skills/lem-panel/scripts/cast.py", "the persona panel's cast and profile, and a panel's run folder"),
     "gate-log": ("skills/lem-gate/scripts/gate-log.py", "the question gate's log"),
     "triage": ("skills/lem-backlog/scripts/triage.py", "the backlog's sort by who can act on each item"),
-    "release-platform": ("skills/lem-release/scripts/detect-platform.sh", "the forge of the release: github, gitlab or gitea"),
-    "release-version": ("skills/lem-release/scripts/calc-version.sh", "the next version from the last tag: major, minor or hotfix"),
-    "release-notes": ("skills/lem-release/scripts/get-notes.sh", "the release notes since the last tag, for a forge"),
 }
 
 
@@ -80,8 +77,6 @@ def main() -> None:
     script = os.path.join(ROOT, COMMANDS[name][0])
     if not os.path.isfile(script):
         sys.exit(f"lem: {script} is not there: the plugin's folder {ROOT} is not whole; install the plugin again")
-    if script.endswith(".sh"):
-        os.execvp("bash", ["bash", script, *rest])
     python = sys.executable or "python3"
     os.execv(python, [python, "-B", script, *rest])
 

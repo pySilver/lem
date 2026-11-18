@@ -31,7 +31,7 @@ And three roles a stage names instead of a skill id, because the id differs per 
 
 A stage may name a skill this repository ships by its id, which is the same in every agent:
 `lem-interview-me`, `lem-ask`, `lem-backlog`, `lem-dialectic`, `lem-root-cause`,
-`lem-release`, `lem-last-tag`, `lem-pr-review`, `lem-gate`, `lem-panel`, `lem-linear`, `lem-ask-expert`. Each id starts with
+`lem-gate`, `lem-panel`, `lem-linear`, `lem-ask-expert`. Each id starts with
 `lem-`, so it cannot collide with another skill in an agent that keeps all skills in one flat list.
 
 Each agent's file answers every row, or says the capability is absent and what the stage does

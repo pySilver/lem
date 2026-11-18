@@ -23,11 +23,8 @@ commands = runpy.run_path(sys.argv[1])["COMMANDS"]
 for name, (path, _) in commands.items():
     target = Path(sys.argv[2]) / path
     target.parent.mkdir(parents=True, exist_ok=True)
-    if path.endswith(".sh"):
-        target.write_text('printf "%s|" "$@"; printf " stdin=%s bytecode=- ' + name + '\\n" "$(cat)"; echo "err ' + name + '" >&2; exit 7\n')
-    else:
-        target.write_text("import sys\nprint('|'.join(sys.argv[1:]) + '|', 'stdin=' + sys.stdin.read().strip(), 'bytecode=' + str(sys.flags.dont_write_bytecode), '" + name + "')\n"
-                          "print('err " + name + "', file=sys.stderr)\nsys.exit(7)\n")
+    target.write_text("import sys\nprint('|'.join(sys.argv[1:]) + '|', 'stdin=' + sys.stdin.read().strip(), 'bytecode=' + str(sys.flags.dont_write_bytecode), '" + name + "')\n"
+                      "print('err " + name + "', file=sys.stderr)\nsys.exit(7)\n")
 PY
 routed=yes
 for name in $names; do
@@ -37,26 +34,26 @@ for name in $names; do
   set -e
   err=$(cat "$WORK/err")
   case "$out" in
-    *"--repo|a b|x\"y| stdin=in put bytecode="[1-]" $name") ;;
+    *"--repo|a b|x\"y| stdin=in put bytecode=1 $name") ;;
     *) routed="no: $name gave $out" ;;
   esac
   [ "$code" = 7 ] && [ "$err" = "err $name" ] || routed="no: $name exited $code with $err"
   [ "$routed" = yes ] || break
 done
-if [ "$routed" = yes ] && [ -n "$names" ] && [ "$(wc -w <<<"$names")" -ge 14 ]; then
+if [ "$routed" = yes ] && [ -n "$names" ] && [ "$(wc -w <<<"$names")" -ge 10 ]; then
   pass "each name of lem ($(wc -w <<<"$names" | tr -d ' ')) runs its own script with the arguments as they came, a space and a quote in them, its stdin, its stdout and stderr apart, and its exit status, and Python with -B"
 else
   fail "lem's names and what each passes through: $routed ($names)"
 fi
 
 # each name of the real plugin names a script that is there, and the real script answers through
-# lem; cast takes no --help (it reads this checkout's settings first), and the release tools no flag
+# lem; cast takes no --help (it reads this checkout's settings first)
 real=yes
 for name in $names; do
   file=$("$PY" -I -c 'import runpy, sys; print(runpy.run_path(sys.argv[1])["COMMANDS"][sys.argv[2]][0])' "$LEM" "$name")
   [ -f "$PWD/$file" ] || { real="no: $name names $file"; break; }
   case "$name" in
-    cast | release-*) ;;
+    cast) ;;
     *) said=$("$LEM" "$name" --help 2>&1 || true)
        grep -qF "usage: lem $name" <<<"$said" || { real="no: lem $name --help shows no usage of lem $name: $(head -n 1 <<<"$said")"; break; } ;;
   esac
@@ -67,14 +64,10 @@ own=$("$LEM" land --help 2>&1 || true)
 if ! grep -qF "lem land start: error: the following arguments are required: slug" <<<"$wrong" || ! grep -qxF "    lem land start SLUG [--conflicting]" <<<"$own"; then
   real="no: a usage error or the usage text of lem land names another command: $wrong"
 fi
-set +e
-"$LEM" release-version >/dev/null 2>"$WORK/release"
-release_code=$?
-set -e
-if [ "$real" = yes ] && [ "$release_code" = 1 ] && grep -qF "release type required" "$WORK/release"; then
-  pass "each name of lem names a script of this checkout, each Python one with an --help answers with its own usage in the name the developer types, as does a usage error, and a release tool runs with bash"
+if [ "$real" = yes ]; then
+  pass "each name of lem names a script of this checkout, and each one with an --help answers with its own usage in the name the developer types, as does a usage error"
 else
-  fail "lem's scripts: $real / $release_code / $(cat "$WORK/release")"
+  fail "lem's scripts: $real"
 fi
 
 # help: lem alone, lem help and lem --help list every name with a line each, and exit 0
@@ -124,7 +117,7 @@ import re, sys
 from pathlib import Path
 root = Path(sys.argv[1])
 names = "project|land|criteria|decisions|board|doctor|corrections|experts|cast|gate-log|triage"
-# `python3 SKILL_DIR/scripts/land.py`, `bash SKILL_DIR/scripts/get-notes.sh`, also across a line break
+# `python3 SKILL_DIR/scripts/land.py`, `bash SKILL_DIR/scripts/run.sh`, also across a line break
 path_form = re.compile(r"(?:python3|bash)\s+\S*scripts/[\w-]+\.(?:py|sh)")
 # `land.py merged SLUG`, `project.py --repo W tasks`, also across a line break
 short_form = re.compile(rf"`(?:{names})\.py\s+[-a-z\[]")

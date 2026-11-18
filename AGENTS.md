@@ -930,8 +930,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `real-task-*` is the board of the first task that ran through Lem (2026-11-15), over its real
   event log, and only `docs/examples.md` shows it, with its date.
 - `skills/lem-ask/`, `skills/lem-backlog/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`,
-  `skills/lem-root-cause/`, `skills/lem-release/`, `skills/lem-last-tag/`, `skills/lem-pr-review/`,
-  `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-ask-expert/`: the
+  `skills/lem-root-cause/`, `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`,
+  `skills/lem-ask-expert/`: the
   skills Lem names and ships. `lem-ask-expert` is Lem's own, written under the rules above, with
   `scripts/experts.py` (the experts' brief and their answers: for a choice of a task into its
   record, and for a question in words into a folder of its own in `.lem/state/experts/`).

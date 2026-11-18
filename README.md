@@ -162,9 +162,6 @@ starts by itself because of what you write. You type its `/lem` name, or a stage
 | `/lem backlog` | you want to see, add or do work for later | `/lem backlog` |
 | `/lem dialectic` | a plan rests on a claim that you doubt | `/lem dialectic this table stays below one million rows` |
 | `/lem root-cause` | a defect comes back after two fixes | `/lem root-cause the import stops at row 5000` |
-| `/lem release` | you make a release | `/lem release` |
-| `/lem last-tag` | you want the commits since the last release | `/lem last-tag` |
-| `/lem pr-review` | a pull request from another person needs your review | `/lem pr-review 42` |
 | `/lem ask-expert` | you want two other models to answer a question | `/lem ask-expert which of the two queue designs fails better under load?` |
 | `/lem linear` | you want to read one Linear ticket | `/lem linear MBZ-12` |
 | `/lem panel` | you want the personas to read a text | `/lem panel docs/backlog/export-drops-custom-columns.md` |
