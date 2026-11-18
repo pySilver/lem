@@ -2128,7 +2128,7 @@ def waited(decision: dict) -> str:
 
 def without_owner(task: Task) -> str | None:
     """The line that says when the task ran without the owner, from the spans `lem project tasks`
-    gives (the owner's away and active, a night's mark, an older Lem's "go alone"), with the words that
+    gives (the owner's away and back, a night's mark, an older Lem's "go alone"), with the words that
     started and ended each; none for a task that always ran with him."""
     def said(words: dict) -> str:
         return f"{'the owner' if words.get('by') == 'owner' else 'Lem'}: \"{words.get('words')}\""

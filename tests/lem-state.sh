@@ -37,7 +37,7 @@ else
 fi
 
 # The owner says whether he is there, and Lem assumes nothing: `owner away` makes every open task run without him,
-# and one opened while he is away too, from its opening; `owner active` takes them back, also a task an older Lem's
+# and one opened while he is away too, from its opening; `owner back` takes them back, also a task an older Lem's
 # "go alone" put so; `waiting` says first that he is away and since when; an ended task is no task of his "away".
 MO=$WORK/mode-repo
 git init -q -b main "$MO" && commit "$MO" start && project --repo "$MO" init --base main >/dev/null
@@ -56,9 +56,9 @@ sleep 1
 project --repo "$MO" task-dir new-task --ask "Opened while he is away." >/dev/null && project --repo "$MO" state new-task building "it builds" >/dev/null
 opened=$(project --repo "$MO" tasks | field "[t['without_owner'][0]['from'] > '$away_since' and t['without_owner'][0]['started']['words'] == \"I'm away\" for t in d if t['slug'] == 'new-task'][0]")
 during=$(modes)
-back=$(project --repo "$MO" owner active --words "/lem im-back" | field '(d["away"], d["written"], d["tasks"])')
+back=$(project --repo "$MO" owner back --words "/lem im-back" | field '(d["away"], d["written"], d["tasks"])')
 after=$(modes)
-there=$(project --repo "$MO" owner active --words "I'm back" | field 'd["written"]')
+there=$(project --repo "$MO" owner back --words "I'm back" | field 'd["written"]')
 wrong=$(project --repo "$MO" owner sideways --words "go" 2>&1 || true)
 nowords=$(status_of project --repo "$MO" owner away --words " ")
 nowords_text=$(project --repo "$MO" owner away --words " " 2>&1 || true)
@@ -73,11 +73,11 @@ if [ "$before" = "[('gift-note', 'with-owner', 0), ('landed-task', 'with-owner',
   && [ "$opened" = True ] \
   && [ "$back" = "(False, True, ['gift-note', 'new-task', 'other-task'])" ] \
   && [ "$after" = "[('gift-note', 'with-owner', 1), ('landed-task', 'with-owner', 0), ('new-task', 'with-owner', 1), ('other-task', 'with-owner', 1)]" ] \
-  && [ "$there" = False ] && grep -qF "the owner is away or active, not 'sideways'" <<<"$wrong" && [ "$nowords" = 1 ] \
+  && [ "$there" = False ] && grep -qF "the owner is away or back, not 'sideways'" <<<"$wrong" && [ "$nowords" = 1 ] \
   && grep -qF '("I'"'"'m away", "/lem im-back")' <<<"$nowords_text" \
   && grep -qF "task.mode is written by \`lem project owner\` and \`task-dir --night\` only" <<<"$forged" && [ "$events" = 2 ] \
   && [ "$old_code" = 1 ] && grep -qF "lem project owner away --words" <<<"$old_command"; then
-  pass "the owner says whether he is there: away makes every open task run without him, one opened while he is away from its opening, active takes them all back with an older Lem's \"go alone\", the list says that he is away, an ended task stays out of it, nothing is written for words that change nothing, and the mode command of an older Lem is refused with what to run now"
+  pass "the owner says whether he is there: away makes every open task run without him, one opened while he is away from its opening, back takes them all back with an older Lem's \"go alone\", the list says that he is away, an ended task stays out of it, nothing is written for words that change nothing, and the mode command of an older Lem is refused with what to run now"
 else
   fail "the owner's status: $before / $after_old / $away / $again / $listed / $opened / $during / $back / $after / $there / $wrong / $nowords / $forged / $events / $old_command"
 fi

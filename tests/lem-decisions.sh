@@ -62,7 +62,7 @@ else
 fi
 # While the owner is there a choice waits past any time, also one an older Lem asked whose deadline passed, and the
 # clock's timeout is gone. When he says he is away, each choice that waits is taken at once with the ladder's pick, but
-# a step a later "no" cannot reverse; his answer after it is late, and after he is active again the next choice waits again.
+# a step a later "no" cannot reverse; his answer after it is late, and after he is back again the next choice waits again.
 old_wait "$dfile" 3
 still=$(decide wait gift-note 3 --seconds 1 | field '(d["ended"], d["state"])')
 gone=$(decide timeout gift-note 3 2>&1 || true)
@@ -70,7 +70,7 @@ gone_code=$(status_of decide timeout gift-note 3)
 away=$(project --repo "$DC" owner away --words "I'm away" | field '(d["written"], [(t["task"], t["id"], t["chose"]) for t in d["taken"]])')
 taken=$(dlist 'next((c["state"], c["chose"], c.get("early")) for c in d if c["id"] == 3)')
 never=$(dlist 'next(c["state"] for c in d if c["id"] == 4)')
-project --repo "$DC" owner active --words "/lem im-back" >/dev/null
+project --repo "$DC" owner back --words "/lem im-back" >/dev/null
 same=$(decide answer gift-note 3 --chose "the last column" | field '(d["kind"], d["taken"], d["next"])')
 if [ "$still" = "('still waits', 'waits')" ] && [ "$gone_code" = 1 ] && grep -qF "a choice has no time limit now: it waits for the owner's answer while he is there" <<<"$gone" \
   && [ "$away" = "(True, [('gift-note', 3, 'the last column')])" ] && [ "$taken" = "('timeout', 'the last column', True)" ] && [ "$never" = waits ] \
@@ -188,7 +188,7 @@ late_log=$(decide log dropped-task --what "The name of the column" --chose gift_
 late_ask=$(decide ask landed-task "${CASE[@]}" --what "The footer" --option "a footer" --option "none" --recommended "none" --why w --said s 2>&1 || true)
 late_answer=$(decide answer dropped-task 1 --chose "email nobody" 2>&1 || true)
 late_away=$(project --repo "$DC" owner away --words "I'm away" | field 'd["taken"]')
-project --repo "$DC" owner active --words "I'm back" >/dev/null
+project --repo "$DC" owner back --words "I'm back" >/dev/null
 if grep -qF "dropped-task is dropped" <<<"$late_log" && grep -qF "landed-task is landed" <<<"$late_ask" && grep -qF "dropped-task is dropped" <<<"$late_answer" \
   && [ "$late_away" = "[]" ] && [ "$(status_of decide log dropped-task --what w --chose c --why y --by lead)" = 1 ] \
   && [ "$(cat "$DC/.lem/state/tasks/dropped-task/decisions.jsonl" "$DC/.lem/state/tasks/landed-task/decisions.jsonl" | grep -c '')" = "$ended_lines" ]; then
@@ -247,7 +247,7 @@ rt=$!
 sleep 2
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 wait "$ra" || true; wait "$rt" || true
-project --repo "$DC" owner active --words "I'm back" >/dev/null
+project --repo "$DC" owner back --words "I'm back" >/dev/null
 raced=$(grep -c '"kind": "timeout"' "$rfile" || true)/$(grep -c '"kind": "answered"' "$rfile" || true)/$(decide list race-task | field '(d[0]["state"], d[0].get("chose"), d[0].get("late", {}).get("chose"))' || true)
 if [ "$raced" = "1/0/('timeout', 'by number', 'by date')" ] || [ "$raced" = "0/1/('answered', 'by date', None)" ]; then
   pass "an answer and the owner's away that start at one time leave one outcome, whichever takes the lock first"
@@ -383,7 +383,7 @@ printf '%s\n' 'not json' > "$WQ/.lem/state/retros/2026-11-18.json"
 listed=$(wq waiting)
 wq owner away --words "I'm away" >/dev/null
 away_list=$(wq waiting | field '(d["owner"]["away"], d["owner"]["words"], d["owner"]["since"] is not None, d["choices"], d["count"])' 2>&1 || true)
-wq owner active --words "/lem im-back" >/dev/null
+wq owner back --words "/lem im-back" >/dev/null
 shape=$(field '([(c["task"], c["id"]) for c in d["choices"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"], t["conflict"]) for t in d["pull_requests"]], [(t["task"], t["plan"]) for t in d["drafts"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
 if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], [('drafted-one', '$dtree/docs/plans/2026-11-17-drafted-one.md')], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 8)" ] \
   && [ "$(field 'd["owner"]' <<<"$listed")" = "{'away': False, 'since': None, 'words': None}" ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ] \
@@ -395,7 +395,7 @@ fi
 
 # A night's task is told from a day's task by the night's mark, and the night's brake counts its pull requests that
 # nobody merged or closed: two here, beside a day's request, one the night opened that merged and one whose request
-# was closed. A night's task runs without the owner until he says he is active, which keeps the mark; a night that is
+# was closed. A night's task runs without the owner until he says he is back, which keeps the mark; a night that is
 # no date is refused.
 for slug in night-small night-full night-merged night-closed; do
   wq task-dir "$slug" --ask "The backlog item of $slug." --night 2026-11-18 >/dev/null
@@ -405,7 +405,7 @@ wq state night-small open "pull request https://github.com/acme/shop/pull/8" "gr
 printf '%s\n' '{"proposed": "def5678", "pr": {"number": 8, "url": "https://github.com/acme/shop/pull/8"}, "not_green": []}' > "$WQ/.lem/state/tasks/night-small/landing.json"
 wq state night-full open "pull request https://github.com/acme/shop/pull/9" "not green: the owner did not approve the criteria" >/dev/null
 printf '%s\n' '{"proposed": "0a1b2c3", "pr": {"number": 9, "url": "https://github.com/acme/shop/pull/9"}, "not_green": ["the owner did not approve the criteria"]}' > "$WQ/.lem/state/tasks/night-full/landing.json"
-wq owner active --words "/lem im-back" >/dev/null
+wq owner back --words "/lem im-back" >/dev/null
 wq state night-merged landed "main 1234567..89abcde" >/dev/null
 wq state night-closed dropped "the pull request was closed on the forge" >/dev/null
 other_form=$(wq task-dir night-other --ask "The backlog item of night-other." --night "the night run" 2>&1 || true)
@@ -415,7 +415,7 @@ if [ "$nightly" = "([('night-full', False, '2026-11-18'), ('night-small', True, 
   && [ "$marked" = "[('night-closed', '2026-11-18'), ('night-full', '2026-11-18'), ('night-merged', '2026-11-18'), ('night-small', '2026-11-18'), ('proposed-one', None)]" ] \
   && grep -qF -- "--night is the night's date, YYYY-MM-DD, not 'the night run'" <<<"$other_form" && [ "$night_mode" = alone ] \
   && [ "$(wq tasks | field '[t["mode"] for t in d if t["slug"] == "night-small"][0]')" = with-owner ]; then
-  pass "a task the night opened runs without the owner and carries the night's date in tasks and in waiting, also after he says he is active, which takes it back; the brake counts the night's pull requests that nobody merged or closed; and a night that is no date is refused"
+  pass "a task the night opened runs without the owner and carries the night's date in tasks and in waiting, also after he says he is back, which takes it back; the brake counts the night's pull requests that nobody merged or closed; and a night that is no date is refused"
 else
   fail "the night's pull requests: $nightly / $marked / $other_form / $night_mode"
 fi

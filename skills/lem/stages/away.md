@@ -2,13 +2,12 @@
 
 Read when the owner says that he is away or back again, and at no other time. He says whether
 he is there, and Lem assumes nothing: "Owner either tells dnd or not, no assumptions" (2026-11-18).
-`/lem im-away` and `/lem im-back` are his words, and so are the older words that `SKILL.md` sends
-here and a plain sentence that plainly says the same ("I'm away", "I'm back", "I'm here again").
+`/lem im-away` and `/lem im-back` are his words, and so is a plain sentence that plainly says the
+same ("I'm away", "I'm back", "I'm here again").
 When his words are not that plain ("I have to go, carry on"), ask once in the terminal: "Mark you
 away until you say /lem im-back? (y/n)".
 His words go into the record as he typed them; no script can tell who typed, so write them only
-for words he typed in this session. A text for him says "without you", never "alone": `lem project
-alone` is the lock of the machine.
+for words he typed in this session. A text for him says "without you", never "alone".
 
 ## Away
 
@@ -41,7 +40,7 @@ he did not approve the criteria.
 
 ## Back
 
-`lem project owner active --words "HIS WORDS"`: every task that ran without him comes back to him,
+`lem project owner back --words "HIS WORDS"`: every task that ran without him comes back to him,
 a night's too. Then one line for each such task: how many decisions were taken without him,
 whether its criteria were approved without him, and `/lem status SLUG` for the rest. Nothing is
 undone: a choice taken while he was away stands, and a wish of his that differs is a correction

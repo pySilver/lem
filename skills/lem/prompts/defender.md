@@ -28,7 +28,7 @@ The brief that sent you here gives the task's slug, its branch, its worktree, it
    land, change another branch, or ask the owner. A question in doubt climbs the ladder
    (`stages/ladder.md`), and one that ends as his card is asked with `lem decisions ask`, and Lem
    puts it to him; it never makes the state `held`. His `/lem im-away` or `/lem im-back`, or plain
-   words that say the same, typed in this session is `lem project --repo WORKTREE owner away|active --words "HIS WORDS"`.
+   words that say the same, typed in this session is `lem project --repo WORKTREE owner away|back --words "HIS WORDS"`.
    A step that is his to do, such as the trust prompt of the reviewer's agent, is
    the state `held` with what waits and where, and `lem: SLUG is held`; Lem sends you a message
    when it is done, and you go on in this session.

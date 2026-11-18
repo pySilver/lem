@@ -1982,7 +1982,7 @@ function criteriaHead(t, now) {
       h('span', {class: 'fi'}, icon(a.by === 'owner' ? 'check' : a.by === 'read' ? 'users' : 'user')),
       h('div', {class: 'rtext'}, h('b', {}, head),
         r && a.by === 'owner' ? (r.order < a.order ? ' after the personas’ read' : ' before the personas’ read was in') : '',
-        a.by === 'lem' ? h('span', {class: 'sub'}, 'You may still say “standard”: then the personas read it, and your approval replaces this one.') : '',
+        a.by === 'lem' ? h('span', {class: 'sub'}, 'You may still say “/lem standard-track”: then the personas read it, and your approval replaces this one.') : '',
         a.by === 'read' ? h('span', {class: 'sub'}, 'The whole request was written, and nobody was confused: the build started, and you can still stop it or change a criterion.') : '',
         a.number > 1 || a.replaces != null ? h('span', {class: 'sub'}, `approval ${a.number}${typeof a.replaces === 'number' ? `; it replaces approval ${a.replaces}` : a.replaces ? '; it replaces an earlier approval' : ''}`) : ''),
       h('span', {class: 'rtime'}, stamp(a.ts, now)))));

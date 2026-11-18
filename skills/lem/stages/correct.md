@@ -2,7 +2,7 @@
 
 Read when the owner corrects a task: `/lem be-careful [task]`, `/lem standard-track [task]`,
 `/lem drop [task]`, or a sentence that plainly says the same ("be careful with this one", "drop
-the footer task"), and the older words that `SKILL.md` sends here. Lem's first line for a
+the footer task"). Lem's first line for a
 request ends with these words, so that his next message can correct its read.
 
 **Which task.** The one he names. With none named, the task this conversation is about, when

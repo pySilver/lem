@@ -41,8 +41,8 @@ a team that adopts Lem may have its own.
     lem project state SLUG STATUS LINE...
                                     put a new block at the top of the task's state.md, with the time
     lem project tasks               every task's ask, status and newest state block, as JSON
-    lem project owner away|active --words TEXT
-                                    the owner says that he is away, or active again: his words as typed.
+    lem project owner away|back --words TEXT
+                                    the owner says that he is away, or back again: his words as typed.
                                     Away takes at once each choice that waits for him and is no
                                     irreversible step (`lem decisions away`)
     lem project log SLUG EVENT [key=value ...] [key:=json ...]
@@ -108,11 +108,11 @@ careful or large plan. `owner`, which `owner` writes with no task, as `away:=tru
 by=owner words=TEXT`: the owner's status, there (the default) or away, whose newest event holds.
 `task.mode` is the night's mark, which `task-dir --night` writes, as `mode=alone by=lem words="the
 night of YYYY-MM-DD"`. A task runs without the owner while he is away, and a night's task from its
-mark until he says he is active; `tasks` gives each task `mode` (`alone` or `with-owner`, now),
+mark until he says he is back; `tasks` gives each task `mode` (`alone` or `with-owner`, now),
 `mode_since` and `without_owner`, each span of it with the words that started and ended it, and
 the night's date as `night` (null for a task of the day). A `task.mode` event an older Lem wrote for
 the owner's "go alone" (`by=owner`, or `mode=with-owner` for "I am back") still reads so, and
-ends at his next "active" too.
+ends at his next "back" too.
 And `criteria.read`, which Lem or the lead writes after the personas read the acceptance
 criteria, as `by=lem|lead asked:=N answered:=N families:='["FAMILY", ...]' silent:='[{"name": ...,
 "why": ...}]' criteria:=N flagged:=N split:=true|false digest=DIGEST`: who ran the read, how many
@@ -2155,7 +2155,7 @@ OWNER = "owner"
 
 def nights(modes: list[dict]) -> dict[str, str]:
     """The night that opened each task, as its date, from the first `task.mode` event Lem wrote in
-    the night's words. The owner's "active" later does not take it away."""
+    the night's words. The owner's "back" later does not take it away."""
     found: dict[str, str] = {}
     for record in modes:
         night = NIGHT_WORDS.fullmatch(str(record.get("words", ""))) if record.get("event") == "task.mode" and record.get("by") == "lem" else None
@@ -2176,7 +2176,7 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
     """The spans in which a task ran without the owner, oldest first, each with the words that
     started it and the words that ended it (`to` is null for a span that runs now). A span runs
     while the owner is away, and while the task's own mark holds: a night's, or the "go alone" of an
-    older Lem (a `task.mode` event `alone`, which its `with-owner` ended). The owner's "active" ends
+    older Lem (a `task.mode` event `alone`, which its `with-owner` ended). The owner's "back" ends
     both. No span starts before `first`, the task's first event, since a task opened while he is
     away runs without him from its opening."""
     def said(record: dict) -> dict:
@@ -2200,7 +2200,7 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
             spans.append({"from": max(start["ts"], first or start["ts"]), "to": None, "started": said(start), "ended": None})
         elif not start and spans and spans[-1]["to"] is None:
             if first and record["ts"] < first:
-                # an away and an active that both came before the task opened are no span of it
+                # an away and a back that both came before the task opened are no span of it
                 spans.pop()
             else:
                 spans[-1].update(to=max(record["ts"], spans[-1]["from"]), ended=said(record))
@@ -2413,11 +2413,11 @@ def cmd_waiting(root: Path) -> dict:
 
 
 def cmd_owner(root: Path, status: str, words: str | None) -> dict:
-    """Write the owner's status, away or active, with his words as typed. Nothing is written when it
-    changes nothing: away while he is away, active while he is there and no task runs without him.
+    """Write the owner's status, away or back, with his words as typed. Nothing is written when it
+    changes nothing: away while he is away, back while he is there and no task runs without him.
     Away takes at once each choice that waits for him and is no irreversible step."""
-    if status not in ("away", "active"):
-        raise SettingsError(f"the owner is away or active, not {status!r}: `lem project owner away --words \"I'm away\"`")
+    if status not in ("away", "back"):
+        raise SettingsError(f"the owner is away or back, not {status!r}: `lem project owner away --words \"I'm away\"` or `lem project owner back --words \"I'm back\"`")
     if not words or not words.strip():
         raise SettingsError("--words are the owner's words as typed (\"I'm away\", \"/lem im-back\"); no script can tell who typed, so they are his only")
     now = owner_now(events_named(root, OWNER))
@@ -2602,8 +2602,8 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("lines", nargs="+", metavar="LINE")
     state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
     commands.add_parser("tasks")
-    owner = commands.add_parser("owner", help="the owner says that he is away, or active again")
-    owner.add_argument("status", metavar="away|active")
+    owner = commands.add_parser("owner", help="the owner says that he is away, or back again")
+    owner.add_argument("status", metavar="away|back")
     owner.add_argument("--words", help="the owner's words as typed")
     # the command of an older Lem's "go alone", which a session that read the stage text before may still run
     commands.add_parser("mode").add_argument("rest", nargs=argparse.REMAINDER)
@@ -2643,7 +2643,7 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "mode":
             raise SettingsError(
                 "the owner's status is one for the repository now, not a mode of each task: `lem project owner away --words \"HIS WORDS\"` "
-                "or `lem project owner active --words \"HIS WORDS\"` (`stages/away.md`); a night marks its task with `lem project task-dir SLUG --ask TEXT --night YYYY-MM-DD`",
+                "or `lem project owner back --words \"HIS WORDS\"` (`stages/away.md`); a night marks its task with `lem project task-dir SLUG --ask TEXT --night YYYY-MM-DD`",
             )
         if args.command == "owner":
             print(json.dumps(cmd_owner(root, args.status, args.words)))
