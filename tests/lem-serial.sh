@@ -165,6 +165,7 @@ printf '%s\n' '[branch]' 'base = "main"' '[checks]' 'setup = ["echo half; exit 4
 project --repo "$SU" task-dir other-fix >/dev/null
 failed=$(project --repo "$SU" worktree other-fix docs/other-fix 2>&1 || true)
 failed_code=$(status_of project --repo "$SU" worktree other-fix docs/other-fix)
+# shellcheck disable=SC2016  # the backticks are the message's own
 if [ "$made" = "(True, [{'command': 'mkdir -p deps && touch deps/ok && echo installed', 'exit': 0}])" ] && grep -qx installed "$directory/setup.log" \
   && [ "$setup_checks" = "(True, [('test -f deps/ok && echo 1 passed', 0)])" ] && [ "$again" = "(False, False)" ] \
   && grep -qF '`echo half; exit 4` of checks.setup failed in the new worktree' <<<"$failed" && grep -qF "(exit 4; its output is in $SU/.lem/state/tasks/other-fix/setup.log)" <<<"$failed" \

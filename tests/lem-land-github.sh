@@ -190,6 +190,7 @@ squashed=$(git -C "$gh_other" rev-parse HEAD)
 gh_set "d['prs']['$updated_pr'].update(state='MERGED', merge='$squashed')"
 gh_land merged pr-updated >/dev/null
 updated_clean=$(gh_land clean pr-updated 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the message's own
 if grep -qF "the forge merged ${update:0:9}, which is not the tip of fix/pr-updated and which this checkout does not hold: a commit made on the forge after the tip, as its \"Update branch\" makes" <<<"$updated_clean" \
   && ! grep -qF "the branch has commits after it" <<<"$updated_clean" \
   && grep -qF '`git branch -D fix/pr-updated` removes it' <<<"$updated_clean" && [ -n "$(git -C "$GHS" branch --list fix/pr-updated)" ]; then
