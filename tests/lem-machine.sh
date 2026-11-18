@@ -307,7 +307,8 @@ if [ -n "$old" ]; then
     fail "the scripts under $old: $rows / $said"
   fi
 else
-  printf 'SKIP the hook under an old python3: none found\n'
+  skip "the hook under a python3 before 3.11: none found"
+  skip "the other scripts under a python3 before 3.11: none found"
 fi
 sed -i.bak 's/^collect = false$/collect = true/' "$CQ/.lem/project.toml" && rm "$CQ/.lem/project.toml.bak"
 out=$(event "never push without asking" s1 | hook hook; echo "exit=$?")

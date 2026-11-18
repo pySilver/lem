@@ -846,8 +846,12 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
 ## Checks
 
 ```bash
-bash tests/all.sh              # every suite below at the same time, one log each, a line of ok and FAIL per suite
+bash tests/all.sh              # every suite below at the same time, one log each, a line of ok, FAIL and SKIP per suite
 ```
+
+Each suite says how many checks it holds (`collected N`, `tests/checks.sh`), and a check that
+cannot run here prints a `SKIP` line of its own. A suite whose `ok` and `SKIP` lines do not add up
+to that count fails, and so does one that runs over its time limit (`LEM_TEST_LIMIT`, 30 minutes).
 
 One suite alone:
 
@@ -864,7 +868,7 @@ bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, in their o
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs
 bash tests/test-board.sh       # the board over a repository whose tasks stand in every lane; loads its pages in headless Chrome when one is installed
-shellcheck tests/*.sh
+bash tests/shellcheck.sh       # ShellCheck over tests/*.sh, one check for each file, or over the files named
 ```
 
 A change to a script comes with its test. A change to a stage file has no test: its test is a
@@ -942,7 +946,9 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   and the copies a panel read; `lem_state.py` names it. `.revmux/`: the review tool's profiles, lenses and project
   profile for this repository.
 - `tests/`: the suites of the Checks above; `all.sh` runs them all, `lib.sh` is what each
-  `lem-*.sh` block sources. `.github/workflows/ci.yml` runs them when someone starts it by hand.
+  `lem-*.sh` block sources, `checks.sh` is how every suite counts its checks, and `suites.sh` and
+  `limit.py` are what `all.sh` and `test-lem.sh` share. `.github/workflows/ci.yml` runs them when
+  someone starts it by hand.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
   plugin `lem`, the one way Lem installs: the manifest, a marketplace file that lists the one
   plugin, `bin/lem`, Lem's one command, which runs the script a name stands for (`lem project

@@ -5,19 +5,19 @@
 # comes from the project alone (none there means no panel; the user's and the built-in cast only start one), a checkout older than its default
 # branch's cast reads that cast, the project's profile comes from the checkout or the default branch
 # and never from a generic layer, init copies a cast down, and run-dir makes a folder git ignores.
-set -euo pipefail
+set -eEuo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source-path=SCRIPTDIR source=checks.sh
+. tests/checks.sh
+collected
 LOG=$PWD/skills/lem-gate/scripts/gate-log.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
-trap 'rm -rf "$WORK"' EXIT
+trap 'stopped; rm -rf "$WORK" "$WORK-wt"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 git -C "$WORK" init -q
 
-fails=0
-pass() { printf 'ok   %s\n' "$1"; }
-fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
 gate() { "$PY" -B "$LOG" "$@" --repo "$WORK"; }
 status_of() { set +e; "$@" >/dev/null 2>&1; local code=$?; set -e; echo "$code"; }
 
@@ -299,5 +299,7 @@ else
   fail "the shipped skills' frontmatter: $shipped"
 fi
 
+results_add_up
+finished=yes
 [ "$fails" -eq 0 ] || { printf '%d failure(s)\n' "$fails"; exit 1; }
 printf 'all passed\n'

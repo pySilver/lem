@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # lem-ask: the spec checks, the guards, file-sourced blocks, and every shipped template and demo
 # rendering without a runtime error. Opens no overlay and no browser window.
-set -euo pipefail
+set -eEuo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source-path=SCRIPTDIR source=checks.sh
+. tests/checks.sh
 B=skills/lem-ask/bin/lem-ask
 SKILL=skills/lem-ask
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+trap 'stopped; rm -rf "$WORK"' EXIT
 # The real interpreter, resolved before HOME moves: a version-manager shim reads its config from HOME.
 # Every call below passes -B: importing bin/lem-ask must not leave a __pycache__ in the plugin (and -I
 # ignores PYTHONDONTWRITEBYTECODE).
@@ -27,10 +29,14 @@ for f in "$MERMAID_CACHE"/mermaid-*.min.js; do
   if [ -f "$f" ]; then cp "$f" "$HOME/.cache/lem-ask/"; fi
 done
 
-fails=0
 skipped=0
-pass() { printf 'ok   %s\n' "$1"; }
-fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
+# The checks of this file: each call of pass in it, but five of them run once for each item, so
+# they count each item: every template and demo rendered, every call of expect (and of bad and
+# stub, which call it) and of check below; and before the pages are loaded, each page and each
+# markdown case. A call whose name is a variable is a helper's own, inside its definition.
+helpers=$(grep -cE '^[[:space:]]*(bad|expect|check|stub) "[^$]' "$SUITE_FILE")
+specs=("$SKILL"/templates/*.json "$SKILL"/demos/*.json)
+collected "$(($(count_checks "$SUITE_FILE") - 5 + helpers + ${#specs[@]}))"
 
 # expect NAME CODE STATUS -- CMD...: CMD exits CODE and prints JSON whose status is STATUS.
 expect() {
@@ -51,7 +57,7 @@ if "$PY" -I -B -c 'import ast,sys; ast.parse(open(sys.argv[1]).read(), sys.argv[
 if [ -x "$B" ]; then pass "bin/lem-ask is executable"; else fail "bin/lem-ask is executable"; fi
 
 # Every template and demo renders.
-for f in "$SKILL"/templates/*.json "$SKILL"/demos/*.json; do
+for f in "${specs[@]}"; do
   n=$(basename "$f" .json)
   if "$PY" -I -B "$B" render "$f" -o "$WORK/$n.html" >/dev/null 2>"$WORK/$n.err"; then pass "render $n"; else fail "render $n: $(cat "$WORK/$n.err")"; fi
 done
@@ -352,7 +358,7 @@ bad "a whole long file as code" "{\"prompt\": \"p\", \"context\": {\"code\": {\"
 if command -v node >/dev/null; then
   if node --check "$SKILL/runtime/ask.js"; then pass "ask.js parses"; else fail "ask.js parses"; fi
 else
-  printf 'SKIP ask.js syntax: node is not installed\n'
+  skip "ask.js parses: node is not installed"
 fi
 DOMCHECK=$(cat <<'PY'
 import sys
@@ -414,23 +420,29 @@ chrome=""
 for c in google-chrome chromium chromium-browser "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
   if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then chrome=$c; break; fi
 done
+pages=()
+for f in "$WORK"/*.html; do
+  case $(basename "$f" .html) in bad) ;; *) pages+=("$f") ;; esac
+done
+read -ra mdnames <<<"$MDNAMES"
+collected "$((${#pages[@]} + ${#mdnames[@]}))"
 if [ -n "$chrome" ]; then
-  for f in "$WORK"/*.html; do
+  for f in "${pages[@]}"; do
     n=$(basename "$f" .html)
-    case $n in bad) continue ;; esac
     # No network means no mermaid bundle, and diagrams show as source by design: say so, don't pass it.
     diagrams=required
     if grep -q 'mermaid unavailable' "$WORK/$n.err" 2>/dev/null; then
       diagrams=skip
       skipped=$((skipped + 1))
-      printf 'SKIP diagrams on %s: the mermaid bundle could not be downloaded\n' "$n"
     fi
     "$chrome" --headless=new --disable-gpu --no-sandbox --no-first-run --use-mock-keychain --user-data-dir="$WORK/chrome" \
       --virtual-time-budget=4000 --dump-dom "file://$f" > "$WORK/$n.dom" 2>/dev/null || true
-    if why=$("$PY" -I -B -c "$DOMCHECK" "$WORK/$n.dom" "$diagrams"); then
-      pass "page loads: $n"
-    else
+    if ! why=$("$PY" -I -B -c "$DOMCHECK" "$WORK/$n.dom" "$diagrams"); then
       fail "page loads: $n ($why)"
+    elif [ "$diagrams" = skip ]; then
+      skip "page loads: $n: the mermaid bundle could not be downloaded, so its diagrams were not checked"
+    else
+      pass "page loads: $n"
     fi
   done
   if "$PY" -I -B - "$WORK/qctx.dom" <<'PY'
@@ -586,7 +598,7 @@ print(f"markdown {case}: " + ("; ".join(bad) if bad else said))
 sys.exit(bool(bad))
 PY
 )
-  for n in $MDNAMES; do
+  for n in "${mdnames[@]}"; do
     if why=$("$PY" -I -B -c "$MDCHECK" "$WORK/$n.dom" "$n"); then pass "$why"; else fail "$why"; fi
   done
   # At 900 px a wide table scrolls inside its own box and the page stays as wide as its window; the
@@ -602,9 +614,15 @@ PY
     fail "a wide table or a long path: $why"
   fi
 else
-  printf 'SKIP page loads: no Chrome or Chromium found\n'
+  for f in "${pages[@]}"; do skip "page loads: $(basename "$f" .html): no Chrome or Chromium found"; done
+  for n in "${mdnames[@]}"; do skip "markdown $n: no Chrome or Chromium found"; done
+  skip "a question's own context and body are shown: no Chrome or Chromium found"
+  skip "a page of one question shows that question's context: no Chrome or Chromium found"
+  skip "at 900 px a wide table scrolls inside its own box: no Chrome or Chromium found"
 fi
 
+results_add_up
+finished=yes
 if [ "$fails" -gt 0 ]; then
   printf '%d lem-ask check(s) failed\n' "$fails"
   exit 1
