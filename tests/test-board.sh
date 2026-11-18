@@ -857,7 +857,7 @@ sys.exit(not dom.index("The two model families split") < dom.index("1 of 2 crite
   draw task-correction-one
   # shellcheck disable=SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-correction-one.dom" "The fast track: Lem approved its one criterion in your name" \
-    'You may still say “standard”' "The personas do not read the one criterion of a task on the fast track." "fast track, because the request is one sentence." \
+    'You may still say “/lem standard-track”' "The personas do not read the one criterion of a task on the fast track." "fast track, because the request is one sentence." \
     "One builder makes the change" "!a correction" "!correction, because" "!one-rule"); then
     pass "a small change's Acceptance criteria card says that Lem approved its one criterion in your name, that you may call it full, and that the personas do not read it; the size of its criteria is a small change, and no text says correction"
   else

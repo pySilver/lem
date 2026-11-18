@@ -1,6 +1,6 @@
 ---
 name: lem-ask-expert
-description: "Lem's experts: two models of two families answer one question, read-only, at the same time, or one alone on a machine without Codex. The owner calls it as `/lem ask-expert` with a question in words, or alone for the open question; Lem's stages call it at a decision in doubt and for a choice that waits."
+description: "Lem's experts: two models of two families, or one without Codex, answer one question, read-only, at the same time. The owner calls it as `/lem ask-expert` with a question in words, or alone for the open question; Lem's stages call it at a decision in doubt and for a choice that waits."
 disable-model-invocation: true
 argument-hint: '[question in words]'
 ---
