@@ -7,187 +7,117 @@
 
 # Lem
 
-Lem turns a request into a pull request. You type what you want in plain words. Coding agents plan
-the change, build it, test it and review it in your repository. The first line of each pull
-request says green or not green, and you can merge a green one without a read.
+Type a request in plain words, and get a pull request whose first line says green or not green.
+Agents plan, build, test and review the change in your repository, and you merge a green one
+without a read.
 
-Lem is for experienced developers who work with coding agents every day. It is a plugin for Claude
-Code on macOS, and it runs in the [agterm](https://agterm.com) terminal.
+Lem is a Claude Code plugin for macOS, and it runs in the [agterm](https://agterm.com) terminal.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/screens/board-dark.png">
-    <img src="assets/screens/board-light.png" alt="The board of all tasks: what waits for you on top, then the tasks in lanes by who acts next, and where the time went" width="900">
+    <img src="assets/screens/board-light.png" alt="The board of all tasks, in lanes by who acts next" width="900">
   </picture>
 </p>
 
-*The board: one page that shows all tasks. This picture shows demo data, and the page says that
-the tasks are examples.*
+*The board shows each task in a lane by who acts next. The picture shows demo data.*
 
-## What you type, and what happens
+## Two real requests
 
-Here are three examples. Each one shows the first line of Lem's answer.
-[The words you meet](#the-words-you-meet) explains the terms.
+### A small change
 
-**A small change.** You type `/lem the date column must never wrap`.
-
-> fix, small: "the date column never wraps". Branch fix/date-column-nowrap. One builder, the
-> checks, one read, then the pull request. Nothing waits for you; say "full" to give it acceptance
-> criteria.
-
-**A full change.** You type `/lem let an export hold the gift note`.
-
-> feat, full: "an export holds the gift note". Branch feat/gift-note-in-export. An interview now,
-> then acceptance criteria for your yes; after that it runs to the pull request without you.
-
-**A bug.** You type `/lem the invoice total skips credit notes`.
-
-> fix: "the total skips credit notes". Branch fix/total-skips-credit-notes. A builder finds the
-> cause first, and I tell you what it found: then it is a small fix, a full fix, or no bug.
-
-```mermaid
-flowchart LR
-    req([You type /lem and a request]) --> size{Type and size}
-    size -- small change --> one[One builder] --> read[The checks and one read]
-    size -- full change --> you[Interview, acceptance criteria, your yes] --> build[A lead and a builder for each task] --> full[Polish pass, the checks, a review]
-    size -- bug or question --> inv[An investigator finds the cause] -- a change --> size
-    inv -- no change --> ans([An answer])
-    read --> pr([A pull request: green or not green])
-    full --> pr
+```text
+/lem the README shows one example of a heading, 3-9 Mar 2026, below the first paragraph
 ```
 
-A change that can affect what must never go wrong in your project is careful. It gets the full
-review, and a person merges it. [docs/flow.md](docs/flow.md) describes each step.
+Lem answers at once:
 
-## What Lem promises
+> docs, small: "the README shows one example of a heading, `3-9 Mar 2026`, below its first
+> paragraph". The branch is `docs/readme-shows-a-heading-example`. One builder now makes the
+> change. Then the checks run, one review reads it, and it goes to a pull request. Nothing waits
+> for you. Say "full" if you want acceptance criteria for it.
 
-- Nothing merges before the checks and a review by an agent that did not build the change.
-- The first line of each pull request says green or not green. Each reason comes on the next lines.
-- A green pull request needs no read from you.
-- A full change builds only after you say yes to its acceptance criteria. The one exception is a
-  complete request that you wrote yourself, for example a ticket: it builds when no persona has a
-  doubt.
-- A step that nobody can undo waits for your approval.
-- After a merge, Lem rebases each open pull request that has a conflict with the new base.
-- Lem never overwrites a commit that it did not push.
+[Pull request #5](https://github.com/pySilver/lem-scratch/pull/5) opened 3 minutes and 41 seconds
+after the request. Its first line:
+
+> **Green.** The checks passed with the bar where it was, the review left no must-fix, no
+> criterion changed, and no decision was taken by timeout or by the experts.
+
+### A full change
+
+```text
+/lem the shop can read a heading back into its two dates, for the import of old reports
+```
+
+> feat, full: "the shop can read a heading back into its two dates". The branch is
+> `feat/heading-reads-back-into-dates`. First an interview, then acceptance criteria for your yes.
+> After that, the task runs to the pull request without you.
+
+Lem asked its questions one at a time, each with its guess. Then it wrote four acceptance criteria,
+each a rule in plain words with a real example: "`3-9 Mar 2026` reads as 3 Mar 2026 to 9 Mar
+2026". Two personas, the people that the change affects, read them before the yes. Then agents
+built and reviewed the change with no question.
+[Pull request #6](https://github.com/pySilver/lem-scratch/pull/6) opened 26 minutes after the
+request, green.
 
 ## Install
 
-Lem runs on macOS, in the [agterm](https://agterm.com) terminal, with
-[Claude Code](https://code.claude.com/docs).
+Lem needs agterm, Claude Code, git, Python 3.11, revmux, cronn and four recipes of the agterm
+cookbook. Codex is optional, and highly recommended. [Install](docs/install.md) lists each tool.
 
-| You need | Lem uses it for |
-| --- | --- |
-| git, Python 3.11 or newer, and the [GitHub CLI](https://cli.github.com) for a repository on GitHub | branches, worktrees and pull requests |
-| [revmux](https://github.com/umputun/revmux) | the review before each pull request |
-| [cronn](https://cronn.umputun.dev) | the scheduled retro, which turns your corrections into lessons, and the night plan |
-| Four recipes of the agterm cookbook: the [mailbox chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat), [webrev](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document), [agdoc](https://github.com/umputun/agterm/tree/master/cookbook/html-doc-overlay) and the [backlog recipe](https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker) | the messages between agents, and the pages that Lem shows you |
-
-[Codex](https://github.com/openai/codex) is not required, but we recommend it highly. With Codex,
-a second model family reviews each change, talks about each careful plan, and answers as the
-second expert. Without it, Claude reviews the work of Claude.
-
-`/lem init` checks each tool and tells you how to install a missing one.
-[docs/install.md](docs/install.md#what-lem-needs) has the full list.
-
-Run these two commands at the root of your repository:
+At the root of your repository:
 
 ```bash
 claude plugin marketplace add pySilver/lem --scope project
 claude plugin install lem@lem --scope project
 ```
 
-Then set up the repository:
+Then start Claude Code in agterm there, and type `/lem init`. Answer three questions, read the page
+that Lem shows, and type `land`.
 
-1. Start Claude Code in agterm, at the root of the repository.
-2. Type `/lem init`.
-3. Answer three questions: what the product is, who a change affects, and what must never go wrong.
-4. Read the page that Lem shows. To correct an assumption, type `change` and the correction.
-5. Type `land`. That word puts the settings on your base branch, and the setup is done.
+## What you type
 
-Now type `/lem` and a small request.
-
-To update Lem, run `claude plugin marketplace update lem` and `claude plugin update lem@lem --scope
-project`. Then start a new session. To remove Lem, follow
-[these steps](docs/install.md#remove-lem-from-a-repository).
-
-## Every day
-
-| You type | What it does |
+| You type | What happens |
 | --- | --- |
-| `/lem <request>` | opens a task, and tells you its type and size |
-| `/lem plan <request>` | stops after the plan, so that you can read it. `/lem <request>` does not stop there: you approve the acceptance criteria, which say what to build, and the plan only says how |
-| `/lem build [task or plan file]` | builds a plan that waits. With no argument, it lists the plans that wait |
-| `/lem`, `/lem status` | lists what waits for you, always in one order: choices, criteria for your yes, other held tasks, pull requests, night plans, retro proposals. Say "open them" to answer each plan and proposal with approve, reject or later |
-| `/lem status <task>` | opens the board of one task |
-| `/lem land <task>` | tells Lem to merge an open pull request |
-| "full", "careful" or "drop", in plain words with no command, for example "make the footer task full" | changes a task that is open. "Full" makes a small change a full change, with acceptance criteria for your yes. "Careful" gives the task the full review and a merge by a person. "Drop" stops the task. Name the task when more than one is open |
-| `/lem learn` | puts your correction into the file that owns the step |
-| `/lem reviewer codex/gpt-6.1-sol:high` | sets the reviewer of the plan talk on this computer: agent, model, effort. `default` resets it |
-| `/lem init` | sets up a repository |
+| `/lem <request>` | Lem opens a task, and tells you its type and size |
+| `/lem` | the list of what waits for you, and the board |
+| `/lem status <task>` | the board of one task |
+| `/lem plan <request>` | a full change that stops after its plan. `/lem build` builds it |
+| `/lem land <task>`, or "land it" | Lem merges the pull request |
+| "full", "careful" or "drop" | a small change becomes full; a task gets the full review and a merge by a person; a task stops |
+| "go alone", "go alone for all", "I am back" | one task, or every task, goes on without you until you come back |
+| `/lem learn` | Lem puts your correction into the file that owns the step |
 
-Lem starts `/lem land` when a task is ready. Scheduled jobs can start `/lem retro` each morning and
-`/lem night` each night.
+Lem starts `/lem land` itself when a task is ready. Scheduled jobs that you accept at setup start
+`/lem retro` each morning and `/lem night` each night.
 
-## The words you meet
+## What you can rely on
 
-- **Task**: one request, with its own branch and worktree.
-- **Type**: a Conventional Commits type, `feat`, `fix`, `docs`, `refactor`, `perf`, `test` or
-  `chore`; or `question`, which ends with an answer and commits nothing.
-- **Acceptance criterion**: one rule of your request in plain words, with one real example. Each
-  criterion gets a test.
-- **Topic**: one sentence about what must never go wrong in your project.
-- **Small change**: one plain change with one acceptance criterion. It affects no topic and has no
-  open question. One builder makes it.
-- **Full change**: any other request. It gets an interview, acceptance criteria, a plan and a
-  lead.
-- **Builder**: an agent that Lem starts in a new context for one job. A **lead** plans a full
-  change and gives each task of the plan to a new builder.
-- **Investigator**: an agent with one job: it finds the cause of a bug, or the answer to a
-  question. It reads the code and its history, runs the tests, and uses the root-cause method. For
-  a bug, it writes a test that fails. It changes no behavior.
-- **Interview**: Lem asks you one question at a time, each with its guess.
-- **Personas**: the people that a change affects. Agents read the criteria from the point of view
-  of each person.
-- **Careful**: the mark of a change that can affect a topic.
-- **Plan talk**: two agents argue the plan of a careful or large change before a builder writes
-  code.
-- **Polish pass**: after the build of a full change, a new builder removes what the build left
-  behind.
-- **The checks**: your test commands, the test of each criterion, and the check of the bar.
-- **The bar**: how strict your tests and linters are. Each of these lowers it: a new suppression,
-  a skipped or deleted test, fewer assertions, or a weaker test setting.
-- **Review**: an agent that did not build the change reads it. "One read" is the smallest
-  review: one agent reads the change one time.
-- **Green**: a pull request that you can merge without a read.
-- **Nap**: an optional short run in the background. An agent reads the recent tasks and leaves a
-  note for the retro.
-- **Retro**: a job that reads the landed tasks, the correction queue and the notes of the naps. It
-  proposes where a repeated correction of yours goes.
+- Nothing merges before your tests pass and an agent that did not build the change reviews it.
+- After an interview, nothing builds before your yes to the acceptance criteria, unless you say
+  "go alone".
+- A change that can affect what you said must never go wrong gets the full review and a merge
+  by a person.
+- A step that nobody can undo always waits for you.
+- Lem never pushes over a commit that it did not push.
+- Lem writes no secret into a file or a commit.
 
-## The skills Lem ships
+## Skills you can call
 
-A task needs none of these. They help you when you take part in the work yourself. No skill
-starts by itself because of what you write. You type its `/lem` name, or a stage of Lem loads it.
+| Example | Use it when |
+| --- | --- |
+| `/lem interview-me a faster export` | your request is not clear to you yet |
+| `/lem dialectic this table stays below one million rows` | a plan rests on a claim that you doubt |
+| `/lem root-cause the import stops at row 5000` | a defect comes back after two fixes |
+| `/lem ask-expert` | you want two other models on the open question, or on the one that you type |
+| `/lem panel docs/backlog/export-drops-custom-columns.md` | you want the personas to read a text |
+| `/lem linear ABC-12` | you want to read one Linear ticket |
 
-| You type | Use it when | Example |
-| --- | --- | --- |
-| `/lem interview-me` | your request is not clear to you yet | `/lem interview-me a faster export` |
-| `/lem dialectic` | a plan rests on a claim that you doubt | `/lem dialectic this table stays below one million rows` |
-| `/lem root-cause` | a defect comes back after two fixes | `/lem root-cause the import stops at row 5000` |
-| `/lem ask-expert` | you want two other models to answer a question | `/lem ask-expert which of the two queue designs fails better under load?` |
-| `/lem linear` | you want to read one Linear ticket | `/lem linear MBZ-12` |
-| `/lem panel` | you want the personas to read a text | `/lem panel docs/backlog/export-drops-custom-columns.md` |
+## Guides
 
-`/lem ask-expert` with no question takes the open question of the conversation. If it cannot find
-the question, it asks you.
-
-## More
-
-- [How one task goes](docs/flow.md)
-- [The settings](docs/settings.md)
-- [Inside Lem](docs/inside.md)
-- [Install and remove](docs/install.md)
-- [Lem beside your own setup](docs/compatibility.md)
-- [Examples](docs/examples.md)
-- [Linear](docs/linear.md)
+- [How a task goes](docs/flow.md)
+- [When Lem needs you](docs/when-lem-needs-you.md)
+- [The pull request](docs/pull-request.md)
+- [Install, update, remove](docs/install.md)
+- [Settings](docs/settings.md)
+- [Connect Linear](docs/linear.md)
