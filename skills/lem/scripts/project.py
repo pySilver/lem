@@ -2318,8 +2318,6 @@ def main(argv: list[str] | None = None) -> None:
     owner = commands.add_parser("owner", help="the owner says that he is away, or back again")
     owner.add_argument("status", metavar="away|back")
     owner.add_argument("--words", help="the owner's words as typed")
-    # the command of an older Lem's "go alone", which a session that read the stage text before may still run
-    commands.add_parser("mode").add_argument("rest", nargs=argparse.REMAINDER)
     step = commands.add_parser("ticket-step")
     step.add_argument("slug")
     step.add_argument("step")
@@ -2353,11 +2351,6 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "tasks":
             print(json.dumps(read_tasks(root), indent=2))
             return
-        if args.command == "mode":
-            raise SettingsError(
-                "the owner's status is one for the repository now, not a mode of each task: `lem project owner away --words \"HIS WORDS\"` "
-                "or `lem project owner back --words \"HIS WORDS\"` (`stages/away.md`); a night marks its task with `lem project task-dir SLUG --ask TEXT --night YYYY-MM-DD`",
-            )
         if args.command == "owner":
             print(json.dumps(cmd_owner(root, args.status, args.words)))
             return

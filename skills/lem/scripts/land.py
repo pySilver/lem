@@ -3205,8 +3205,6 @@ def main(argv: list[str] | None = None) -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("base", "checks", "merged", "clean"):
         commands.add_parser(name).add_argument("slug")
-    # the step's older name, refused with the name of now: a session that read an older stage text may still type it
-    commands.add_parser("gate", help="the older name of `checks`, refused with it").add_argument("slug")
     start = commands.add_parser("start")
     start.add_argument("slug")
     start.add_argument("--conflicting", action="store_true", help="for an open task the forge calls conflicting, with no merge of a task to name")
@@ -3234,8 +3232,6 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "watch":
             print(json.dumps(cmd_watch(Path(args.repo), max(1, args.every)), indent=2))
             return
-        if args.command == "gate":
-            raise LandError(f"`lem land gate` is `lem land checks` now, with the same steps: run `lem land checks {args.slug}`")
         task = Task(Path(args.repo), args.slug)
         if args.command == "start":
             result = cmd_start(task, args.conflicting)

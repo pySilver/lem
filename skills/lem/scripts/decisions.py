@@ -733,9 +733,6 @@ def main(argv: list[str] | None = None) -> None:
     answer.add_argument("--words", help="the owner's answer as given, when it is not the option's text")
     answer.add_argument("--why", help="the owner's own reason, in the owner's words, when one was given; never the recommendation's")
     commands.add_parser("away")
-    # an older lead's text runs `timeout` after a wait that has no end now: it is told what holds
-    timeout = commands.add_parser("timeout")
-    timeout.add_argument("rest", nargs="*")
     advise = commands.add_parser("advise")
     advise.add_argument("slug")
     advise.add_argument("id", type=int)
@@ -753,11 +750,6 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(f"decisions.py: the argument {os.fsencode(arg)!r} is not UTF-8 text; give it in UTF-8")
     repo = Path(args.repo)
     try:
-        if args.command == "timeout":
-            raise DecisionError(
-                "a choice has no time limit now: it waits for the owner's answer while he is there, and `lem project owner away` takes it at once "
-                "when he says he is away. Go on with what does not depend on it; `lem decisions wait SLUG ID` returns when it is answered or taken",
-            )
         if args.command == "pending":
             result: object = cmd_pending(repo, args.slug)
         elif args.command == "away":
