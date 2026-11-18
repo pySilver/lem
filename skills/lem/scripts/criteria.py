@@ -720,7 +720,7 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
     return {**record, "file": str(task.approved_file)}
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem criteria", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the repository (default: the current one)")
     parser.add_argument("step", choices=("approve", "approved", "digest", "show", "record", "red"))
@@ -728,7 +728,7 @@ def main() -> None:
     parser.add_argument("--file", help="with approve: the criteria the owner approved, in the form above and with no test lines; with digest: the criteria to mark")
     parser.add_argument("--small", action="store_true", help="with approve: Lem approves a small change's one criterion in the owner's name")
     parser.add_argument("--read", action="store_true", help="with approve: the lead of a full change from a complete request freezes the criteria a read in which nobody was confused read")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         if args.file is not None and args.step not in ("approve", "digest"):
             raise CriteriaError("--file goes with `approve` and `digest`")

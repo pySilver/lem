@@ -2914,7 +2914,7 @@ def cmd_clean(task: Task) -> dict:
     return {"task": task.slug, **removed}
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem land", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -2944,7 +2944,7 @@ def main() -> None:
     land.add_argument("slug")
     land.add_argument("--by", required=True, choices=BY, help="who merges: the owner's word, or the agent where the settings and the request allow it")
     land.add_argument("--message", help="the subject of the one commit, when branch.history is \"squash\"")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         if args.command == "watch":
             print(json.dumps(cmd_watch(Path(args.repo), max(1, args.every)), indent=2))

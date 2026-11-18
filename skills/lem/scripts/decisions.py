@@ -694,7 +694,7 @@ def cmd_settle(task: Task, number: int) -> dict:
     return task.add(make)[0]
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem decisions", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -756,8 +756,8 @@ def main() -> None:
     settle.add_argument("id", type=int)
     settle.add_argument("--away", action="store_true", help="the owner is away, as the owner's own words or away channel say")
     commands.add_parser("list").add_argument("slug")
-    args = parser.parse_args()
-    for arg in sys.argv[1:]:
+    args = parser.parse_args(argv)
+    for arg in sys.argv[1:] if argv is None else argv:
         try:
             arg.encode("utf-8")
         except UnicodeEncodeError:

@@ -2342,7 +2342,7 @@ def cmd_may_nap(root: Path) -> None:
     print(json.dumps(answer, indent=2))
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem project", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -2387,8 +2387,8 @@ def main() -> None:
     alone = commands.add_parser("alone", help="run one command that needs the machine to itself, under the repository's one lock")
     alone.add_argument("words", nargs=argparse.REMAINDER, metavar="-- COMMAND")
     commands.add_parser("may-nap")
-    args = parser.parse_args()
-    if problem := unreadable_argument(sys.argv[1:]):
+    args = parser.parse_args(argv)
+    if problem := unreadable_argument(sys.argv[1:] if argv is None else argv):
         sys.exit(f"project.py: {problem}")
     try:
         root = repo_root(Path(args.repo))
