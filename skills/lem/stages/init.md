@@ -337,12 +337,13 @@ to this repository, each a session started in it with nobody at the terminal:
 
 - a retro each morning (`/lem retro`), so a correction that came back is moved before the next
   day's work;
-- a night plan (`/lem night`), which leaves the owner a plan each morning for one backlog item
-  that needs no decision.
+- a night run (`/lem night`), which takes the smallest backlog items without the owner and
+  leaves their pull requests for the morning.
 
 Offer a job only when its first run has something to read, and say what that is. A retro reads
 landed tasks and the correction queue: in a repository with neither, say that it is worth adding
-after the first landing or once the queue is on, and add nothing now.
+after the first landing or once the queue is on, and add nothing now. A night run reads the
+backlog: with no item in it, say the same of the first item.
 
 Add a job only on the owner's yes, through the `cronn` skill when it is installed, and name the
 job after the repository. When the step is refused to you, give the owner the command. A scheduled job starts an agent that nobody watches: that choice is
