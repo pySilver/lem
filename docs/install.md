@@ -65,7 +65,8 @@ script in `AGENTS.md` that prepares a worktree.
 | `.lem/project.local.toml` | no | the settings of this computer |
 | `.lem/worktrees/`, `.lem/state/` | no | the worktrees, the tasks and the board |
 
-If your repository keeps one of these in another folder, move it with `git mv`.
+The [settings](settings.md#paths) can name another folder for the plans and for the rulings. Each
+other path is fixed: if your repository keeps one in another folder, move it with `git mv`.
 
 ## The correction queue
 
