@@ -7,7 +7,7 @@ This page describes each step of a task, from your request to the merge. The
 ```mermaid
 flowchart TD
     req([You type /lem and a request]) --> look{Lem names the type and the size,<br/>and reads the request against each topic}
-    look -- a bug or a question --> inv[A builder investigates it first]
+    look -- a bug or a question --> inv[An investigator finds the cause first:<br/>it reads the code and its history, and runs the tests]
     look -- small change --> small[One builder makes the change.<br/>No lead, no plan, no wait for you]
     look -- full change --> ctx{Is the whole context written,<br/>for example in a complete ticket?}
     ctx -- no --> interview[The interview, one question at a time.<br/>A scout reads the code at the same time]
@@ -364,7 +364,7 @@ moved after the checks, the checks run again first.
 
 ```mermaid
 flowchart TD
-    bug([A bug: something is wrong today]) --> inv[A new builder, the investigator, examines it.<br/>For a bug: a test that fails, and the cause<br/>as a file and a symbol. It changes no behavior]
+    bug([A bug: something is wrong today]) --> inv[A new agent, the investigator, examines it<br/>with the root-cause method: the code, its history, the tests.<br/>For a bug: a test that fails, and the cause<br/>as a file and a symbol. It changes no behavior]
     question([A question]) --> inv
     inv --> report[Its report: reproduced or not,<br/>the cause or the answer,<br/>and what comes next]
     report -- one rule removes the cause --> smallfix[A small change.<br/>The test of the investigator is its test]

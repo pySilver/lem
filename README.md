@@ -50,7 +50,7 @@ flowchart LR
     req([You type /lem and a request]) --> size{Type and size}
     size -- small change --> one[One builder] --> read[The checks and one read]
     size -- full change --> you[Interview, acceptance criteria, your yes] --> build[A lead and a builder for each task] --> full[Polish pass, the checks, a review]
-    size -- bug or question --> inv[A builder finds the cause] -- a change --> size
+    size -- bug or question --> inv[An investigator finds the cause] -- a change --> size
     inv -- no change --> ans([An answer])
     read --> pr([A pull request: green or not green])
     full --> pr
@@ -142,6 +142,9 @@ Lem starts `/lem land` when a task is ready. Scheduled jobs can start `/lem retr
   lead.
 - **Builder**: an agent that Lem starts in a new context for one job. A **lead** plans a full
   change and gives each task of the plan to a new builder.
+- **Investigator**: an agent with one job: it finds the cause of a bug, or the answer to a
+  question. It reads the code and its history, runs the tests, and uses the root-cause method. For
+  a bug, it writes a test that fails. It changes no behavior.
 - **Interview**: Lem asks you one question at a time, each with its guess.
 - **Personas**: the people that a change affects. Agents read the criteria from the point of view
   of each person.
