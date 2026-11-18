@@ -348,10 +348,6 @@ writes the tab's file at every run, and the page reads it when the tab opens and
 after an item was filed, taken or removed, run `lem board --no-open`, which writes the file again
 and opens nothing.
 
-When the project has a nap, the board of all tasks has a third tab, Dreams: the newest naps, each
-with its dream, the thing made from it and its waking note (`stages/nap.md`). `board.py` writes its
-file at every run, as it writes the backlog's.
-
 Before a status, and at each of your turns, find out what merged. The owner merges and closes
 pull requests on the forge, and the forge tells Lem nothing by itself: for each `open` task whose `proposal` in `lem project
 tasks` has a `pull_request`, run `lem land merged SLUG`. One that is

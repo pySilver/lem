@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# The naps (stages/nap.md): the settings of `[naps]`, `lem project may-nap`, which says whether a nap
-# may start and removes the old ones, and the feed of the board's Dreams tab, `naps.js`. No agent
-# naps here: a nap's folder is written by hand, the way a nap's agent leaves it.
+# The naps (stages/nap.md): the settings of `[naps]` and `lem project may-nap`, which says whether a nap
+# may start and removes the old ones. No agent naps here: a nap's folder is written by hand, the way a
+# nap's agent leaves it.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-BOARD=$PWD/skills/lem/scripts/board.py
 NP=$WORK/nap-repo
 git init -q -b main "$NP" && commit "$NP" start
 project --repo "$NP" init --base main >/dev/null
@@ -122,38 +121,6 @@ else
 fi
 rm -f "$NAPS/2026-01-02-0000-a-link"
 
-# The board's feed: the naps newest first, each as text, `</` split so no text ends the script tag,
-# a link in a nap not followed, a folder with no time left out, and the examples only with --demo.
-TAG=$(ago 1)-the-tag
-mkdir -p "$NAPS/$TAG"
-printf '# The tag\n\nIt said </script><b>hello</b>.\n' > "$NAPS/$TAG/dream.md"
-ln -s /etc/hosts "$NAPS/$TAG/hosts.txt"
-printf '<svg xmlns="http://www.w3.org/2000/svg"/>\n' > "$NAPS/$TAG/tag.svg"
-printf '<html></html>\n' > "$NAPS/$TAG/tag.html"
-board_feed() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$BOARD" --repo "$NP" --no-open "$@" >/dev/null; }
-feed() { "$PY" -c 'import json, re, sys; print(json.dumps(json.loads(re.fullmatch(r"lemNaps\((.*)\);\n", open(sys.argv[1]).read(), re.S).group(1))))' "$NAPS/../naps.js"; }
-board_feed
-plain=$(feed)
-board_feed --demo
-demo=$(feed)
-EMPTY=$WORK/no-naps
-git init -q -b main "$EMPTY" && commit "$EMPTY" start && project --repo "$EMPTY" init --base main >/dev/null
-env -u AGTERM_SESSION_ID -u AGTERM_SOCKET "$PY" -B "$BOARD" --repo "$EMPTY" --no-open >/dev/null
-if [ "$(field '[n["name"] for n in d["naps"]]' <<<"$plain")" = "['$TAG', '$LONG']" ] \
-  && ! grep -qF '</script' "$NAPS/../naps.js" && grep -qF '<\/script><b>hello<\/b>' "$NAPS/../naps.js" \
-  && [ "$(field 'd["naps"][0]["dream"]' <<<"$plain")" = "It said </script><b>hello</b>." ] \
-  && [ "$(field 'd["naps"][0]["title"]' <<<"$plain")" = "The tag" ] && [ "$(field 'd["naps"][1]["title"]' <<<"$plain")" = "Long ago" ] \
-  && [ "$(field '[(m["file"], m["kind"]) for m in d["naps"][0]["made"]]' <<<"$plain")" = "[('tag.html', 'file'), ('tag.svg', 'picture')]" ] \
-  && [ "$(field 'd["naps"][1]["made"]' <<<"$plain")" = "[{'file': 'thing.txt', 'kind': 'text', 'text': 'x'}]" ] \
-  && [ "$(field 'd["examples"]' <<<"$plain")" = False ] && [ "$(field 'd["examples"]' <<<"$demo")" = True ] \
-  && [ "$(field '[n["name"] for n in d["naps"] if n["example"]]' <<<"$demo")" = "['2026-11-17-1347-white-paper-in-february']" ] \
-  && [ -f "$NAPS/../demo-naps/2026-11-17-1347-white-paper-in-february/dream.md" ] \
-  && grep -qx 'lemNaps({"read": "[0-9TZ:-]*", "naps": \[\], "more": 0, "examples": false});' "$EMPTY/.lem/state/naps.js"; then
-  pass "board.py writes the Dreams tab's naps.js: newest first, each nap's text with its </ split, a link in a nap not followed, a picture and a page told apart, the example naps only in a folder of examples, and no nap where there is none"
-else
-  fail "the naps' feed: $plain"
-fi
-
 # One person says no to the naps on their machine, since a nap spends their tokens: Lem's call is refused
 # with that reason; the machine's file can never switch them on.
 printf '%s\n' '[naps]' 'on = false' > "$NP/.lem/project.local.toml"
@@ -174,7 +141,7 @@ fi
 if git -C "$NP" status --porcelain --untracked-files=all -- . ':!.lem/project.toml' | grep -q .; then
   fail "a nap changes nothing git sees: $(git -C "$NP" status --porcelain --untracked-files=all)"
 else
-  pass "a nap, its record and the board's feed change nothing git sees in the repository"
+  pass "a nap and its record change nothing git sees in the repository"
 fi
 
 finish

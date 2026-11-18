@@ -274,10 +274,6 @@
   .bl-actions .go { border-color: color-mix(in srgb, var(--you) 60%, transparent); background: color-mix(in srgb, var(--you) 14%, transparent); }
   .bl-note { color: var(--dim); }
   .bl-note.bad { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); }
-  /* the dreams: lem.css's page to read (.doc), one box for each nap, one under the other */
-  .dreams { display: flex; flex-direction: column; gap: 14px; }
-  /* a nap's name is a title to read, not the label of a card (h2 above) */
-  .dreams h2 { text-transform: none; letter-spacing: normal; color: var(--fg); }
 </style>
 </head>
 <body>
@@ -401,12 +397,6 @@
     <div class="foot"><span><kbd>/</kbd> filter · <kbd>J</kbd> <kbd>K</kbd> move · <kbd>Enter</kbd> open or close · <kbd>S</kbd> start a task · <kbd>R</kbd> read again · <kbd>T</kbd> the tasks</span></div>
   </section>
 
-  <section id="dreams" class="dreams doc" hidden>
-    <div id="dr-sum" class="dim small"></div>
-    <div id="dr-list" class="dreams"></div>
-    <div class="foot"><span><kbd>T</kbd> the tasks · <kbd>B</kbd> the backlog</span></div>
-  </section>
-
   <section id="hero" class="hero" data-tasks>
     <div id="now" class="card now"></div>
     <div id="progress" class="card"></div>
@@ -476,8 +466,6 @@
 // The board of all tasks has a second tab, the backlog, from backlog.js (board.py: the items of the
 // backlog folder). Items change rarely, so that file is read when the tab opens and on a key, not
 // every two seconds, and the tab says when it was written. `#backlog` in the address opens there.
-// A third tab, Dreams, is there when a nap is: naps.js (board.py: the newest naps, each as text), read
-// at the start and when the tab opens. `#dreams` opens there.
 //
 // No wait turns amber or red by its length here. The monitor this page follows had limits measured
 // on its own runs; three small tasks ran through Lem (2026-11-15), too few to take a limit from.
@@ -493,7 +481,7 @@ let bannersOpen = false;
 const START_VIEW = (decodeURIComponent(location.pathname.split('/').at(-1)).match(/^task-([a-z0-9-]+)\.html$/) ?? [])[1] ?? null;
 let view = START_VIEW;
 // which tab of the board of all tasks is open; the board of one task has no tabs
-let tab = !START_VIEW && ['#backlog', '#dreams'].includes(location.hash) ? location.hash.slice(1) : 'tasks';
+let tab = !START_VIEW && location.hash === '#backlog' ? 'backlog' : 'tasks';
 
 // Who acts in each status, in the words of SKILL.md's table.
 const STATUS = {
@@ -2209,7 +2197,7 @@ function setTab(next) {
   if (view || tab === next) return;
   tab = next;
   history.replaceState(null, '', next === 'tasks' ? location.pathname + location.search : `#${next}`);
-  if (next === 'backlog') readBacklog(); else if (next === 'dreams') readNaps(); else render();
+  if (next === 'backlog') readBacklog(); else render();
   window.scrollTo(0, 0);
 }
 
@@ -2254,55 +2242,6 @@ async function startTask(slug) {
   renderBacklog();
 }
 
-// ---- the dreams tab ----
-//
-// The naps (stages/nap.md), newest first: each one's dream, the one thing made from it and its waking
-// note. A nap's text is an agent's and nobody reviewed it, so it goes into the page as text and never
-// as markup, and a made thing that is neither text nor a picture is a link the reader opens himself.
-// The tab is drawn again only when naps.js gave something new: a redraw takes a text selection away.
-let naps = null;
-let napsProblem = null;
-let drDrawn = '';
-const napPath = (folder, file) => [...String(folder).split('/'), file].map(encodeURIComponent).join('/');
-// a paragraph of a dream is one block of text, its line breaks those of a file wrapped at 80 columns
-const paragraphs = text => String(text ?? '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => h('p', {}, p.replace(/\s*\n\s*/g, ' ')));
-
-function madeOf(nap, made) {
-  if (made.kind === 'file') return [h('p', {}, 'It made ', h('a', {href: napPath(nap.folder, made.file)}, made.file), h('span', {class: 'dim'}, ', a file this page does not show: open it to see it.'))];
-  return [h('p', {class: 'dim small'}, `It made ${made.file}:`),
-    made.kind === 'picture' ? h('img', {src: napPath(nap.folder, made.file), alt: `${made.file}: what the nap made from its dream`}) : h('pre', {}, made.text)];
-}
-
-function napBox(nap) {
-  const when = Date.parse(nap.time);
-  return h('article', {class: 'box', 'data-nap': nap.name},
-    h('h2', {}, nap.title, h('span', {class: 'n'}, `${Number.isNaN(when) ? '' : stamp(when, Date.now())}${nap.example ? ' · an example' : ''}`)),
-    nap.dream != null ? paragraphs(nap.dream) : h('p', {class: 'dim'}, 'This nap wrote no dream.md.'),
-    (nap.made ?? []).flatMap(made => madeOf(nap, made)),
-    nap.waking != null ? h('blockquote', {}, h('p', {}, h('b', {}, 'Waking')), paragraphs(nap.waking))
-      : h('blockquote', {}, h('p', {}, 'No waking note: the nap did not wake, or it is still asleep.')));
-}
-
-function renderDreams() {
-  const list = naps?.naps ?? [];
-  $('dr-sum').replaceChildren(
-    napsProblem ? h('span', {class: 'error'}, `${napsProblem} · `) : '',
-    naps ? `${plural(list.length, 'nap')}${naps.more ? `, the newest of ${naps.more + list.length}` : ''}, newest first`
-      + `${naps.examples ? ' · the naps marked as an example are examples, written by a trial run and not in this repository' : ''}`
-      + ` · read ${stamp(Date.parse(naps.read), Date.now())}` : '');
-  $('dr-list').replaceChildren(...(list.length ? list.map(napBox) : [h('p', {class: 'dim'}, napsProblem ?? 'No nap yet.')]));
-}
-
-async function readNaps() {
-  const got = await readScript('naps.js', 'lemNaps', 0);
-  // no naps.js is no problem: a board.py from before the naps wrote this folder, and there is no tab
-  if (got.records?.length) { naps = got.records.at(-1); napsProblem = null; }
-  else if (got.missing) naps = null;
-  else napsProblem = got.problem;
-  drDrawn = null;
-  render();
-}
-
 function render() {
   const now = Date.now();
   const m = derive(now);
@@ -2317,15 +2256,10 @@ function render() {
 
   if (view) tab = 'tasks';
   const tabButton = (key, label, count) => keyed(`${key}:${tab === key}:${count ?? ''}`, h('button', {class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(tab === key), 'data-tab': key}, label, count != null ? h('em', {}, count) : null));
-  patch($('tabs'), view ? [] : [tabButton('tasks', 'Tasks', m.list.filter(x => !x.closed).length), tabButton('backlog', 'Backlog', backlog ? backlog.items.filter(it => it.worth !== 'no').length : null),
-    naps?.naps?.length || tab === 'dreams' ? tabButton('dreams', 'Dreams', naps?.naps?.length ?? null) : null]);
+  patch($('tabs'), view ? [] : [tabButton('tasks', 'Tasks', m.list.filter(x => !x.closed).length), tabButton('backlog', 'Backlog', backlog ? backlog.items.filter(it => it.worth !== 'no').length : null)]);
   $('tabs').hidden = Boolean(view);
   $('backlog').hidden = tab !== 'backlog';
-  $('dreams').hidden = tab !== 'dreams';
   for (const n of document.querySelectorAll('[data-tasks]')) n.hidden = tab !== 'tasks';
-  const dreamt = tab === 'dreams' ? `${naps?.read}|${napsProblem}` : '';
-  if (tab === 'dreams' && dreamt !== drDrawn) renderDreams();
-  drDrawn = dreamt;
   // The backlog is drawn again only when what it shows from outside changed: this function runs
   // every second, and a redraw takes the focus and a text selection away from the reader.
   const lemNow = paneOf(meta.session);
@@ -2437,7 +2371,7 @@ function render() {
   ]);
   tick(now);
 
-  const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (tab === 'backlog' ? `Backlog · ${repo} · ` : tab === 'dreams' ? `Dreams · ${repo} · ` : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.lane.build.filter(x => x.status === 'building').length} build · ${m.forOwner.length} for you`);
+  const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (tab === 'backlog' ? `Backlog · ${repo} · ` : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.lane.build.filter(x => x.status === 'building').length} build · ${m.forOwner.length} for you`);
   if (title !== lastTitle) document.title = lastTitle = title;
 }
 
@@ -2543,8 +2477,6 @@ document.addEventListener('keydown', ev => {
   if (ev.target.closest('input, select, textarea')) return;
   if (tab !== 'backlog') {
     if (ev.code === 'KeyB') { ev.preventDefault(); setTab('backlog'); }
-    else if (ev.code === 'KeyD' && naps?.naps?.length) { ev.preventDefault(); setTab('dreams'); }
-    else if (ev.code === 'KeyT' && tab === 'dreams') { ev.preventDefault(); setTab('tasks'); }
     return;
   }
   const act = fn => { ev.preventDefault(); fn(); };
@@ -2566,10 +2498,8 @@ await pollFiles();
 await pollTree();
 // once at the start, for the count on the tab; after that only when the tab opens or on its key
 if (!view) await readBacklog();
-// the same for the naps: the Dreams tab is there only when one is
-if (!view) await readNaps();
 render();
-// `#backlog` or `#dreams` in the address is a tab, not a place: the browser's jump to the section of
+// `#backlog` in the address is a tab, not a place: the browser's jump to the section of
 // that name would scroll the header and the tabs away
 if (tab !== 'tasks') window.scrollTo(0, 0);
 setInterval(pollTree, TREE_EVERY_MS);

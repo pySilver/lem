@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The board of a normal afternoon in one shop, for the README's pictures and for a look at the page.
 
-    python3 tests/board-showcase.py DIR             the pictures, into DIR: board-*, task-*, backlog-*, dreams-*, light and dark
+    python3 tests/board-showcase.py DIR             the pictures, into DIR: board-*, task-*, backlog-*, light and dark
     python3 tests/board-showcase.py DIR --measure   also where the lanes start at 900, 1400 and 1800 px, as JSON
 
 The fixture of tests/test-board.sh is a stress case (30 tasks, more places taken than the limit, 12
@@ -364,11 +364,10 @@ def main() -> None:
         env = {k: v for k, v in os.environ.items() if not k.startswith(("AGTERM_", "AGT_"))}
         for extra in (["--demo"], ["--task", "order-date-on-invoice"]):
             subprocess.run([*board, *extra], check=True, capture_output=True, env=env)
-        # the backlog and the naps were read at NOW too, where the page's clock stands
-        for name in ("backlog.js", "naps.js"):
-            feed = shop.dir / name
-            if feed.is_file():
-                feed.write_text(re.sub(r'"read": "[^"]*"', f'"read": "{NOW.strftime("%Y-%m-%dT%H:%M:%SZ")}"', feed.read_text(), count=1))
+        # the backlog was read at NOW too, where the page's clock stands
+        feed = shop.dir / "backlog.js"
+        if feed.is_file():
+            feed.write_text(re.sub(r'"read": "[^"]*"', f'"read": "{NOW.strftime("%Y-%m-%dT%H:%M:%SZ")}"', feed.read_text(), count=1))
         # a session of Lem watches the open pull request, as it does while one is open: its last look
         # was 40 seconds before NOW, in the form `land.py watch` writes
         looked = (NOW - timedelta(seconds=40)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -377,7 +376,7 @@ def main() -> None:
         if "--measure" in sys.argv:
             print(json.dumps({f"{w}x900": measure(binary, profile, shop.dir, "board", w, 900) for w in (900, 1400, 1800)}
                              | {"task 1400x900": measure(binary, profile, shop.dir, "task-order-date-on-invoice", 1400, 900)}, indent=2))
-        shots = {"board": ("board", ""), "task": ("task-order-date-on-invoice", ""), "backlog": ("board", "#backlog"), "dreams": ("board", "#dreams")}
+        shots = {"board": ("board", ""), "task": ("task-order-date-on-invoice", ""), "backlog": ("board", "#backlog")}
         for name, (page, hash_) in shots.items():
             for theme in ("light", "dark"):
                 # the picture ends with the page: its height is measured first, in the same theme

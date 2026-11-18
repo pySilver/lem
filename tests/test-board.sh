@@ -1436,58 +1436,18 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
     fail "the demo banner: $why"
   fi
 
-  # The Dreams tab (stages/nap.md): only when a nap is, newest first, the example nap of --demo marked
-  # as one, and a nap's text drawn as text. One nap tries to run a script and to put an element into
-  # the page; its picture is drawn, its page is a link, and its link to a file outside is not followed.
-  dreamless=$(grep -c 'data-tab="dreams"' "$WORK/board.dom" || true)
+  # A nap makes no page (stages/nap.md): with a nap in the state folder the board has no tab for it and
+  # board.py writes no file of the naps.
   N1=$STATE/naps/2026-11-16-0900-the-older-one
-  N2=$STATE/naps/2026-11-17-1200-the-script-in-the-dream
-  mkdir -p "$N1" "$N2" "$STATE/naps/not-a-nap"
+  mkdir -p "$N1"
   printf '%s\n' '# The older one' '' 'A field, and a line held over it.' > "$N1/dream.md"
   printf '%s\n' '# Waking' '' 'Nothing.' > "$N1/waking.md"
-  printf '%s\n' '# The script in the dream' '' "A door with <script>document.title = 'pwned'</script> on it," \
-    'and </script><img src="x" onerror="document.body.dataset.pwned = 1"> under the mat.' > "$N2/dream.md"
-  printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><script>document.body.dataset.pwned = 2</script><rect width="40" height="20" fill="#b4902e"/></svg>' > "$N2/door.svg"
-  printf '%s\n' '<!doctype html><title>the door</title><script>document.body.dataset.pwned = 3</script>' > "$N2/door.html"
-  ln -s /etc/hosts "$N2/hosts.txt"
-  printf '%s\n' '# Waking' '' 'The door was a test.' > "$N2/waking.md"
-  board --no-open >/dev/null && draw board dreams
-  # shellcheck disable=SC2016  # the regular expressions are Python's
-  if why=$("$PY" -I -c 'import re, sys
-dom, dreamless = open(sys.argv[1], encoding="utf-8").read(), sys.argv[2]
-body = re.sub(r"(?s)<script\b.*?</script>", "", dom)
-tab = re.search(r"<button[^>]*data-tab=\"dreams\"[^>]*>Dreams<em>(\d+)</em>", dom)
-order = [m for m in re.findall(r"data-nap=\"([^\"]+)\"", dom)]
-wrong = []
-if dreamless != "0": wrong.append("a board with no nap has the tab")
-if not tab or tab.group(1) != "3": wrong.append(f"the tab: {tab and tab.group(0)}")
-if order != ["2026-11-17-1347-white-paper-in-february", "2026-11-17-1200-the-script-in-the-dream", "2026-11-16-0900-the-older-one"]: wrong.append(f"the order: {order}")
-if "pwned" in re.sub(r"(?s)<article[^>]*data-nap=\"2026-11-17-1200[^\"]*\".*?</article>", "", body) or "data-pwned" in dom: wrong.append("a script of a nap ran")
-if "&lt;script&gt;document.title = \x27pwned\x27&lt;/script&gt;" not in body or "<img src=\"x\"" in body: wrong.append("the dream is not drawn as text")
-if body.count("<img") != 1 or "src=\"naps/2026-11-17-1200-the-script-in-the-dream/door.svg\"" not in body: wrong.append("the picture")
-if "href=\"naps/2026-11-17-1200-the-script-in-the-dream/door.html\"" not in body: wrong.append("the link to the page it made")
-if "hosts.txt" in body or "localhost" in body: wrong.append("a link out of the nap was followed")
-if "not-a-nap" in body: wrong.append("a folder with no time is shown")
-example = re.search(r"(?s)data-nap=\"2026-11-17-1347[^\"]*\".*?</article>", body)
-if not example or "an example" not in example.group(0) or "It made the-last-day-of-february.md:" not in example.group(0): wrong.append("the example nap")
-if "the naps marked as an example are examples" not in body: wrong.append("the summary does not say there are examples")
-print("; ".join(wrong)); sys.exit(bool(wrong))' "$WORK/board-dreams.dom" "$dreamless"); then
-    pass "the Dreams tab is there only when a nap is: newest first, an example marked, a nap's text drawn as text, its picture shown, its page a link, a link out of it not followed, and no script of it run"
+  board --no-open >/dev/null && draw board napped
+  if ! grep -q 'data-tab="dreams"' "$WORK/board-napped.dom" && ! grep -q 'A field, and a line held over it' "$WORK/board-napped.dom" \
+    && [ ! -e "$STATE/naps.js" ] && grep -q 'data-tab="backlog"' "$WORK/board-napped.dom"; then
+    pass "a nap makes no page: the board has no tab for it, shows none of its words, and board.py writes no file of the naps"
   else
-    fail "the Dreams tab: $why"
-  fi
-  # A picture of the tab, to look at, in a light and a dark theme.
-  if [ -n "${LEM_BOARD_SHOTS:-}" ]; then
-    mkdir -p "$LEM_BOARD_SHOTS"
-    cp "$STATE/board.html" "$WORK/dreams-light.html"
-    for theme in light dark; do
-      if [ "$theme" = dark ]; then
-        "$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("<head>", "<head><style>:root { --agterm-background: #15181c; --agterm-foreground: #dde1e6; }</style>", 1))' "$STATE/board.html"
-      fi
-      headless --hide-scrollbars --window-size=1400,1900 --virtual-time-budget=5000 --screenshot="$LEM_BOARD_SHOTS/dreams-1400-$theme.png" "file://$STATE/board.html#dreams"
-      printf 'shot %s\n' "$LEM_BOARD_SHOTS/dreams-1400-$theme.png"
-    done
-    cp "$WORK/dreams-light.html" "$STATE/board.html"
+    fail "a nap on the board: $(grep -o 'data-tab="[a-z]*"' "$WORK/board-napped.dom" | tr '\n' ' ') / $(ls "$STATE")"
   fi
   # The pictures of this stress case, to look at: three widths, a light and a dark theme. The README's
   # pictures come from tests/board-showcase.py, a normal afternoon.

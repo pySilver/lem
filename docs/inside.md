@@ -264,28 +264,19 @@ A nap costs one short agent session, and no measurement shows that naps help.
 
 - Lem takes a nap when a task ended or when only your approval is left, if the last nap is
   `naps.gap_hours` old. Nothing waits for the nap.
-- A nap is a new agent in the background. It reads the records of the recent tasks, dreams, makes
-  one thing, and writes a waking note.
+- A nap is a new agent in the background. It reads the records of the recent tasks and writes a
+  waking note.
 - The nap runs no command. It reads and writes only in the state folder, and it changes nothing in
   the repository.
-- Each nap has a folder `.lem/state/naps/TIME-WORDS/` with `dream.md`, the thing it made, and
-  `waking.md`. Lem removes a folder that is older than `naps.keep_days`.
-- The board gets a third tab, Dreams, when a nap exists. It shows the newest naps.
-- The retro reads the waking notes since the last retro. A note is only a candidate for a lesson.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/dreams-dark.png">
-    <img src="../assets/screens/dreams-light.png" alt="The Dreams tab of the board: the newest naps, each with its dream, the thing it made and its waking note" width="900">
-  </picture>
-</p>
-
-*The Dreams tab of the board, with demo data. The nap is an example.*
+- Each nap has a folder `.lem/state/naps/TIME-WORDS/` with its `waking.md`. Lem removes a folder
+  that is older than `naps.keep_days`.
+- No page shows a nap. The retro reads the waking notes since the last retro. A note is only a
+  candidate for a lesson.
 
 ## The skills that Lem uses by itself
 
-Each skill that comes with Lem has the id `lem-<name>`, and `/lem <name>` starts it. No skill
-starts by itself because of what you write. Lem uses these skills without a command from you:
+Each skill that comes with Lem has the id `lem-<name>`. You start some of them with `/lem <name>`
+(the README lists them). No skill starts by itself because of what you write. Lem uses these skills without a command from you:
 
 | Skill | What Lem uses it for |
 | --- | --- |

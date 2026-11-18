@@ -519,8 +519,8 @@ ask = "{ask}"
 TEMPLATE += f"""
 [naps]
 # Now and then, when a task has ended or Lem waits for the owner, Lem takes a nap: a fresh agent
-# reads the recent tasks, dreams, and writes the dream down in .lem/state/naps/, which the board's
-# Dreams tab shows and the retro reads. It costs an agent's session of some minutes, a few times a
+# reads the recent tasks, dreams, and writes the dream down in .lem/state/naps/, which the retro
+# reads. It costs an agent's session of some minutes, a few times a
 # day while Lem works, and nobody has shown that it helps.
 on = false
 # How many days a nap is kept. A guess, from the owner's "a week or a month (?)".

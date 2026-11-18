@@ -829,7 +829,7 @@ bash tests/lem-land-local.sh   # the landing with no remote, in two blocks of ab
 bash tests/lem-land-review.sh  # and the polish pass, the review, the bar and what makes a request careful here
 bash tests/lem-command.sh      # the command lem: each name, its arguments, stdin and exit status, help, and that no text names a script by its path or wraps a call
 bash tests/lem-alone.sh        # the commands that need the machine to themselves (checks.alone): lem project alone, its one lock, and the checks that use it
-bash tests/lem-naps.sh         # the naps: the [naps] settings, lem project may-nap, and the feed of the board's Dreams tab
+bash tests/lem-naps.sh         # the naps: the [naps] settings and lem project may-nap
 bash tests/test-gate-panel.sh  # the gate's log and the panel's cast, with the paths a project's settings name
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, settle --away, and the brief; no expert runs
@@ -890,9 +890,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
 - The naps, an optional part: `skills/lem/prompts/nap.md` is the nap's brief, written after the
   owner's own nap routine and kept in its voice (a change to it is tried with one real nap, and
   its dream is read: a brief that makes a report of it is wrong); `skills/lem/stages/nap.md` starts
-  one; `project.py may-nap` says whether one may; the board's third tab, Dreams, shows them; and
-  `skills/lem/assets/demo-naps/` holds the example nap `board.py --demo` shows, a real nap of a
-  trial run. `tests/lem-naps.sh` is their block.
+  one; `project.py may-nap` says whether one may; no page shows them, and the retro reads their
+  waking notes. `tests/lem-naps.sh` is their block.
 - `docs/`: the reference pages the README links, each in STE like the README and each with one
   job: `flow.md` (how one task goes, for each size, with the plan talk and the diagrams),
   `settings.md` (every setting with its default, one to one with `project.py`), `inside.md` (the

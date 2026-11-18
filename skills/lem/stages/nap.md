@@ -23,8 +23,8 @@ for Lem but the owner's word, and the settings' `naps.on` is true.
    state-dir` prints. Its brief is `prompts/nap.md`, whole and unchanged: it is written to the nap
    the way the owner's routine is written to his, and a line of Lem's added to it turns a dream
    into a report. Then go on at once with what you were doing; nothing waits for the nap.
-3. **When it ends**, run `lem board --no-open`, so that the board's Dreams
-   tab has it, and do nothing else with it. Lem does not read a dream, and acts on none.
+3. **When it ends**, do nothing with it. No page shows it: the retro reads its waking note
+   (`stages/learn.md`). Lem does not read a dream, and acts on none.
 
 What is Lem's and not the routine's: the nap's files stay in its own folder under `naps/` in the
 state folder, which git never sees; nothing in the repository changes and nothing is committed;

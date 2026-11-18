@@ -143,8 +143,8 @@ Lem starts `/lem land` when a task is ready. Scheduled jobs can start `/lem retr
 - **Review**: an agent that did not build the change reads it. "One read" is the smallest
   review: one agent reads the change one time.
 - **Green**: a pull request that you can merge without a read.
-- **Nap**: an optional short run in the background. An agent reads the recent tasks, writes a
-  dream, and leaves a note for the retro.
+- **Nap**: an optional short run in the background. An agent reads the recent tasks and leaves a
+  note for the retro.
 - **Retro**: a job that reads the landed tasks, the correction queue and the notes of the naps. It
   proposes where a repeated correction of yours goes.
 
