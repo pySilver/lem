@@ -31,7 +31,8 @@ read_in "$LOCAL" local-change
 local_land start local-change >/dev/null && local_land base local-change >/dev/null && polish_in "$LOCAL" local-change && local_land checks local-change >/dev/null && local_land read local-change --record "$(clean 1)" >/dev/null
 local_land propose local-change --title "fix: x" --notes "$NOTES" >/dev/null
 err=$(local_land land local-change --by agent 2>&1 || true)
-out=$(local_land land local-change --by owner)
+# an agent's merge of it would leave nothing for the owner's: that is this check's FAIL, not a stop of the block
+out=$(local_land land local-change --by owner) || true
 if grep -q "the request is not green (criterion 1 changed during the build: y is taken by another file.), so a person merges it" <<<"$err" \
   && [ "$(sed -n 1p "$LOCAL/.lem/state/tasks/local-change/pr.md")" = '**Not green.**' ] && [ "$(sed -n 3p "$LOCAL/.lem/state/tasks/local-change/pr.md")" = '- criterion 1 changed during the build: y is taken by another file.' ] \
   && grep -qxF -- '- criterion 1: was "The file holds the word y.", now "The file holds the word the owner asked for.". y is taken by another file. By the personas: Both personas picked x.' "$LOCAL/.lem/state/tasks/local-change/pr.md" \
