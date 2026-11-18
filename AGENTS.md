@@ -901,7 +901,7 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   else's word is his.
 - **A night ends as pull requests, and a task without the owner covers what a night was**
   (2026-11-18), on his "its actually got to be a PR to merge, not a plan". A night takes backlog
-  items, the smallest first, up to `flow.max_tasks`, marks each as the night's with `task-dir
+  items, the smallest first, four at most and one after another, marks each as the night's with `task-dir
   --night DATE`, which runs it without the owner, and from there every path is the one a day has. So the night's own path is
   gone: `night: yes` in a brief, the refusal of `lem decisions ask` for it, the draft that ended on
   a decision, the three tries. The sentences above that describe them ("A night plan asks no such
@@ -960,8 +960,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   (a bug and a question), `start.md` (the start of a lead, `/lem build` and the queue),
   `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner); and the
   polish pass, step 3 of `land.md`, is `polish.md`, which only the standard track reads. `away.md` is
-  what Lem does when the owner says `/lem away` or `/lem active`, `correct.md` what it does at his
-  `/lem careful`, `standard` or `drop` of a task, and `ladder.md` the ladder of a decision in doubt, which only a lead or a defender reads, at such a
+  what Lem does when the owner says `/lem im-away` or `/lem im-back`, `correct.md` what it does at his
+  `/lem be-careful`, `standard-track` or `drop` of a task, and `ladder.md` the ladder of a decision in doubt, which only a lead or a defender reads, at such a
   decision. `pages.md` is the owner's page of a task on the standard track, after step 6 of `land.md`: `land.py
   propose` writes `built.md` and `decisions.md` into the task directory from the records the pull
   request's text reads (never on the fast track, never committed), and Lem makes one page of the
@@ -971,15 +971,16 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `.lem/state/` of the main checkout, and moves the `.git/lem/` of an older Lem there once; every
   script that touches the state asks it, directly or through `project.py state-dir`),
   `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
-  and finds a plan of the older name `YYYYMMDD-<slug>.md`), `lem_sibling.py` (how `land.py`,
+  and a ruling's from `paths.ruling_file`, and finds a plan of the older name `YYYYMMDD-<slug>.md`), `lem_sibling.py` (how `land.py`,
   `criteria.py` and `decisions.py` run a command of a sibling: in their own process, as its
   `main(argv)`, except the commands in its `APART`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
   (`PLACES`), the one refusal of a settings file of an older form (`older_form`), task state, a
-  the owner's status (away or active) and from it each task's mode, the event log, and `waiting`, the one list of what waits for the owner),
+  the owner's status (away or back) and from it each task's mode, the event log, and `waiting`, the one list of what waits for the owner),
   `doctor.py` (the machine, with the three recipes of the agterm cookbook Lem needs, webrev, agdoc
   and the backlog, and a row when more than one place registers the correction hook),
-  `board.py` (opens the board), `picker.py` (`lem picker`: agterm's picker over the tasks, which
+  `board.py` (opens the board, and with `--page FILE` any page of Lem to read, each as a page
+  companion of the session's group and never over the session), `picker.py` (`lem picker`: agterm's picker over the tasks, which
   an agterm chord starts and which opens the board of the one picked; the `task picker` row of
   `doctor.py` gives the owner its keymap line, with the folder of Lem's marketplace clone, whose
   path an update does not move), `land.py` (the landing, one refusable step at a time: the
@@ -987,7 +988,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   of the open pull requests on the forge),
   `corrections.py` (the optional queue of the owner's corrections: its hook, which claims each
   message so that a hook registered in two places judges it once, and what a retro reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
-  the plugin puts on the Bash tool's `PATH` as the `lem-jev` command), `criteria.py` (a task's acceptance criteria, read from the top of
+  the plugin puts on the Bash tool's `PATH` as the `lem-jev` command; its key is `JEV_API_KEY` and its address `JEV_API_URL`, OpenRouter's by default), `criteria.py` (a task's acceptance criteria, read from the top of
   its plan, or on the fast track from `criteria.md` in its task directory, and the check that
   each one's tests pass on the branch and fail on the base commit; it still reads the `stories.md`,
   `stories.json` and `## Stories` of a task an older Lem proposed),
