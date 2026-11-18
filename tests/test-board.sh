@@ -21,6 +21,10 @@ WORK=$(cd "$(mktemp -d)" && pwd -P)
 trap 'stopped; rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# A stand-in for Codex on PATH, so that both experts of the default seats answer here (`here` in `lem project show`),
+# whatever this machine has.
+mkdir -p "$WORK/standin" && printf '%s\n' '#!/bin/sh' 'exit 0' > "$WORK/standin/codex" && chmod +x "$WORK/standin/codex"
+export PATH="$WORK/standin:$PATH"
 
 R=$WORK/shop
 STATE=$R/.lem/state

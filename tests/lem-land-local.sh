@@ -148,6 +148,25 @@ if grep -qF "choice 1 of expert-change waits for the owner (Where the word goes)
 else
   fail "the experts' choices in the landing: $held / $agent / $(cat "$text" 2>/dev/null)"
 fi
+
+# Without Codex on the machine one expert answers alone, and its pick settles the level: the record names one adviser,
+# and the pull request and decisions.md say "one expert", not green for it.
+task_in "$LOCAL" one-expert-change o.txt o
+read_in "$LOCAL" one-expert-change
+local_land start one-expert-change >/dev/null && local_land base one-expert-change >/dev/null && polish_in "$LOCAL" one-expert-change && local_land checks one-expert-change >/dev/null && local_land read one-expert-change --record "$(clean 1)" >/dev/null
+alone_log=$(env PATH="$NOCODEX" "$PY" -B "$DECISIONS" --repo "$LOCAL" log one-expert-change --what "The word's case" --chose "upper case" --by experts \
+  --why "Fable: the header is in upper case." --option "lower case" --option "upper case" | field 'd["advisers"]' 2>&1 || true)
+local_land propose one-expert-change --title "fix: o" --notes "$NOTES" >/dev/null
+otext=$LOCAL/.lem/state/tasks/one-expert-change/pr.md
+odecided=$LOCAL/.lem/state/tasks/one-expert-change/decisions.md
+if [ "$alone_log" = "['fable']" ] && [ "$(sed -n 1p "$otext")" = '**Not green.**' ] \
+  && grep -qxF -- "- decision 1 was taken without the owner (The word's case): \"upper case\", by one expert" "$otext" \
+  && grep -qxF -- "- The word's case: \"upper case\", by one expert. Fable: the header is in upper case." "$otext" \
+  && grep -qF '| 1 | The word'"'"'s case | upper case | one expert model; **not green** |' "$odecided"; then
+  pass "with no Codex one expert answers alone: its pick settles, the record names the one adviser, and the pull request and decisions.md say one expert, not green"
+else
+  fail "one expert alone in the landing: $alone_log / $(cat "$otext" 2>/dev/null) / $(cat "$odecided" 2>/dev/null)"
+fi
 project --repo "$LOCAL" state expert-change dropped "the test is over" >/dev/null
 
 # Approved criteria in the landing: a criterion the build added or removed is not green, like a changed one; and the

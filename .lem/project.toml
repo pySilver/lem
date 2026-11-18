@@ -75,8 +75,9 @@ reviewer = "codex/gpt-6.2-sol:high"
 # The defender of a careful or large plan in its talk with the reviewer, in a companion session
 # Lem opens for the talk and closes after it. Only "claude" for now.
 planner = "claude/opus:high"
-# The two experts who answer a choice that waits for the owner, at the same moment and read-only:
-# two model families, so that their agreement is worth more than two of one.
+# The experts who answer a choice that waits for the owner, at the same moment and read-only: two
+# model families, so that their agreement is worth more than two of one. Where the machine has one
+# of their agents, that expert answers alone.
 experts = ["claude/fable:high", "codex/gpt-6.2-astra:high"]
 
 [corrections]

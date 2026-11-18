@@ -1,6 +1,6 @@
 ---
 name: lem-ask-expert
-description: "Lem's two experts: two models of two families answer one question, read-only, at the same time. The owner calls it as `/lem ask-expert` with a question in words, or alone for the open question; Lem's stages call it at a decision in doubt and for a choice that waits."
+description: "Lem's experts: two models of two families answer one question, read-only, at the same time, or one alone on a machine without Codex. The owner calls it as `/lem ask-expert` with a question in words, or alone for the open question; Lem's stages call it at a decision in doubt and for a choice that waits."
 disable-model-invocation: true
 argument-hint: '[question in words]'
 ---
@@ -16,8 +16,9 @@ then provide context directly in command `/lem ask-expert what would be the best
 kind of problem` or just type the `/lem ask-expert` and assume the skill knows what to ask from the
 context", 2026-11-17).
 
-Who they are is the settings' `seats.experts`, two seats `agent/model:effort`, which `lem project
-show` prints with Lem's default where the project and this machine name none. For a question in
+Who they are is the settings' `seats.experts`, one or two seats `agent/model:effort`, which `lem
+project show` prints with Lem's default where the project and this machine name none, each `here`
+when its agent is on this machine. Only those answer: without Codex, one expert answers alone. For a question in
 words an expert's name is the last word of its model; for a choice of a task it is its place in
 the record, below. The script prints each one with its name, its seat, its agent, its model and
 its effort.
@@ -91,8 +92,8 @@ Their advice goes on the owner's card, and decides nothing by itself; the record
 the rules of `decisions.py`:
 
 - when he says that he is away (`lem project owner away`), the choice is taken with the option
-  both picked, and the recommended option when they split, when one found none fits, or when one
-  did not answer;
+  both picked (or the one expert's, where one answers alone), and the recommended option when they
+  split, when one found none fits, or when one did not answer;
 - a choice the experts decided is never green: the pull request has a line with their pick and
   both reasons, and he reads it before he merges;
 - a step that a later "no" cannot reverse (`--irreversible`) takes advice for his card, and is
@@ -134,4 +135,4 @@ advice in two places, `fable` and `astra`, the names `lem decisions` knows: the 
    to the owner on the choice's own options, as step 4 above.
 
 `lem decisions list SLUG` and `lem decisions pending SLUG` show the advice under each choice
-(`advice`), and `experts_pick` is the option both picked, or null.
+(`advice`), and `experts_pick` is the option every expert picked, or null.

@@ -70,7 +70,7 @@ later "no" cannot reverse waits for the owner's word however long that takes.
     lem decisions away
                             what `lem project owner away` runs: each choice that waits, of each
                             task that runs without the owner now, and that is no irreversible
-                            step, is taken now: the experts' shared pick when both picked the
+                            step, is taken now: the experts' pick when every expert picked the
                             same option, the ladder's pick (`--recommended`) otherwise
     lem decisions list SLUG  every decision of the task, each as it stands now
 
@@ -112,14 +112,16 @@ outside the repository, beyond what the settings already allow, such as the trac
 `person` (it sends something to a person), `money` (it spends money). The lead says which; no
 code can tell.
 
-The experts are two agents of two model families, the settings' `seats.experts`; the owner asked
-for them as the way out when the owner is not there to answer (2026-11-16). On the ladder they are
-a level before any card, and their shared pick is logged `--by experts`. `advise` keeps their
-advice on a choice that waits, in two places, `fable` for the first seat and `astra` for the
-second, whatever model sits there: when the owner asks for all opinions on a card, and on a choice
-an older lead asked. When the owner goes away their shared pick is taken (`by: experts`, with both
-reasons), and the recommended option when they split or one is missing (`by: timeout`). Either way
-the pull request is not green for it. A `settled` line, which an older Lem wrote when
+The experts are the settings' `seats.experts` whose agent is on this machine (`here` in `lem
+project show`): two agents of two model families, or, on a machine with one of the agents, one
+expert alone; the owner asked for them as the way out when the owner is not there to answer
+(2026-11-16). On the ladder they are a level before any card, and their pick is logged `--by
+experts`: both picked it, or the one expert did. `advise` keeps their advice on a choice that
+waits, in two places, `fable` for the first seat and `astra` for the second, whatever model sits
+there. `ask` and `log --by experts` write which places answer on this machine (`advisers`), so that
+the record says one expert or two. When the owner goes away their pick is taken (`by: experts`,
+with each reason), and the recommended option when they split or one of them did not advise (`by:
+timeout`). Either way the pull request is not green for it. A `settled` line, which an older Lem wrote when
 the owner was away, still reads as the experts' pick; a later change may drop it once no task with
 such a line is open.
 
@@ -370,11 +372,18 @@ def changed(line: dict) -> dict:
     return {("criterion" if key == "story" else key): ("criterion" if key == "kind" else value) for key, value in line.items()}
 
 
+def advisers(decision: dict) -> list[str]:
+    """The places of the experts who answer a decision: the ones `ask` or `log` found on the machine."""
+    return list(decision.get("advisers") or EXPERTS)
+
+
 def shared(decision: dict) -> str | None:
-    """The option both experts picked, or None: one is missing, one found none fits, or they split."""
+    """The option every expert of the decision picked: both, or the one expert alone. None when one
+    is missing, one found none fits, or they split."""
     advice = decision.get("advice", {})
-    picks = {advice[name].get("pick") for name in EXPERTS if name in advice}
-    if len(advice) < len(EXPERTS) or len(picks) != 1 or None in picks:
+    names = advisers(decision)
+    picks = {advice[name].get("pick") for name in names if name in advice}
+    if any(name not in advice for name in names) or len(picks) != 1 or None in picks:
         return None
     return picks.pop()
 
@@ -386,7 +395,7 @@ def ending(number: int, decision: dict, at: str) -> dict:
     pick = shared(decision)
     if pick is None:
         return {"id": number, "at": at, "kind": "timeout", "chose": decision["recommended"], "by": "timeout", "early": True}
-    return {"id": number, "at": at, "kind": "timeout", "chose": pick, "by": "experts", "experts": {name: decision["advice"][name]["why"] for name in EXPERTS}, "early": True}
+    return {"id": number, "at": at, "kind": "timeout", "chose": pick, "by": "experts", "experts": {name: decision["advice"][name]["why"] for name in advisers(decision)}, "early": True}
 
 
 def text(value: str | None, flag: str) -> str:
@@ -457,6 +466,8 @@ def cmd_log(task: Task, args: argparse.Namespace) -> dict:
     if args.unsettled and args.by != "lead":
         raise DecisionError("--unsettled is the lead's pick that no level settled: it goes with --by lead")
     line = {"at": stamp(now()), "kind": "taken", "what": text(args.what, "--what"), "chose": chose, "why": text(args.why, "--why"), "by": args.by}
+    if args.by == "experts":
+        line["advisers"] = experts_here(task.repo)
     for key in ("said", "undo"):
         # an empty value is refused, never dropped
         if getattr(args, key) is not None:
@@ -534,6 +545,15 @@ def steps(value: str | None) -> str:
     return "\n".join(lines)
 
 
+def experts_here(repo: Path) -> list[str]:
+    """The places of the settings' experts whose agent is on this machine: both, or the one that can
+    answer (`here` in `lem project show`)."""
+    found = [expert["place"] for expert in json.loads(script("project.py", repo, "show"))["seats"]["experts"] if expert.get("here", True)]
+    if not found:
+        raise DecisionError("no expert of the settings' seats.experts can answer on this machine: name a seat of an agent it has, as experts = [\"claude/fable:high\"]")
+    return found
+
+
 def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
     case = steps(args.case)
     if args.case_was not in CASE_WAS:
@@ -549,6 +569,7 @@ def cmd_ask(task: Task, args: argparse.Namespace) -> dict:
         "at": stamp(now()), "kind": "asked", "what": text(args.what, "--what"), "case": case, "case_was": args.case_was, "cause": cause,
         "options": options, "recommended": recommended,
         "why": text(args.why, "--why"), "said": text(args.said, "--said"), "irreversible": args.irreversible,
+        "advisers": experts_here(task.repo),
     }
 
     def make(known: list[dict]) -> list[dict]:

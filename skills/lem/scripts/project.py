@@ -16,7 +16,8 @@ a team that adopts Lem may have its own.
     lem project init [--base NAME] [--codex yes|no]
                                     write .lem/project.toml, with a whole seat for each of the
                                     three: the reviewer on Codex and two experts, or with
-                                    `--codex no` (the machine check found no Codex) on Claude
+                                    `--codex no` (the machine check found no Codex) the
+                                    reviewer on Claude and one expert
     lem project reviewer AGENT[/MODEL[:EFFORT]]
                                     who reviews on this machine, until `reviewer default`
     lem project reviewer default    the project's own reviewer again
@@ -196,8 +197,10 @@ so a file a dead run left blocks nothing. One word list after `--` runs as it is
 runs in the shell, as a command of the checks does.
 
 A seat is one string, `agent/model:effort`: `seats.reviewer`, the agent in the reviewer's pane;
-`seats.planner`, the defender of a plan talk; and `seats.experts`, the two experts of a choice
-that waits for the owner. `init` writes each of the three whole (the owner, 2026-11-18: "I think
+`seats.planner`, the defender of a plan talk; and `seats.experts`, the one or two experts of a
+choice that waits for the owner. `show` marks each expert `here` when its agent is on this
+machine (Claude Code always, Codex when its command is on PATH): only those answer, so without
+Codex the default's one Claude expert answers alone. `init` writes each of the three whole (the owner, 2026-11-18: "I think
 it should be explicitly `agent/model:effort` in all 3"). The effort may be left out
 (`codex/gpt-6.2-sol`), and so may the model (`codex`, `codex:high`): the part left out is that agent's own default, and Lem passes nothing for it. `show`
 gives each seat parsed, as `agent`, `model`, `effort` and the `seat` as written; a file with no
@@ -328,10 +331,13 @@ PLANNER = "claude/opus:high"
 # The reviewer's seat that `init` writes for each agent: Codex when the machine has it, since two
 # model families disagree more usefully than one family twice, and Claude otherwise.
 REVIEWER_SEATS = {"codex": "codex/gpt-6.2-sol:high", "claude": "claude/opus:high"}
-# The experts of a choice that waits for the owner: two, because the record of a choice holds two
-# answers (`decisions.py advise --expert fable|astra`): the first seat answers in the place named
-# `fable`, the second in the place named `astra`. The default is the newest Fable of Anthropic as a
-# Claude Code subagent and the newest Astra of OpenAI through Codex, each at high effort.
+# The experts of a choice that waits for the owner: one or two seats, and the record of a choice keeps
+# their answers in two places (`decisions.py advise --expert fable|astra`): the first seat answers in
+# the place named `fable`, the second in the place named `astra`. The default is the newest Fable of
+# Anthropic as a Claude Code subagent and the newest Astra of OpenAI through Codex, each at high
+# effort. An expert answers only where its agent is on the machine (`here`): without Codex, one
+# expert answers alone (the owner, 2026-11-18, of a second Claude model in its place: "Sound pointless
+# and should be degraded to a single expert then").
 EXPERTS = ("claude/fable:high", "codex/gpt-6.2-astra:high")
 EXPERT_PLACES = ("fable", "astra")
 # seat -> (the agents that may sit in it, why only those, an example of the line)
@@ -520,8 +526,9 @@ reviewer = "{reviewer}"
 # The defender of a careful or large plan in its talk with the reviewer, in a companion session
 # Lem opens for the talk and closes after it. Only "claude" for now.
 planner = "{planner}"
-# The two experts who answer a choice that waits for the owner, at the same moment and read-only:
-# two model families, so that their agreement is worth more than two of one.
+# The experts who answer a choice that waits for the owner, at the same moment and read-only: two
+# model families, so that their agreement is worth more than two of one. Where the machine has one
+# of their agents, that expert answers alone.
 experts = [{experts}]
 
 [corrections]
@@ -944,20 +951,28 @@ def seat(raw: dict, name: Path, which: str = "reviewer") -> dict | None:
     return parse_seat(given, f"{name}: seats.{which}", agents, why, example)
 
 
+def agent_here(agent: str) -> bool:
+    """Whether an expert of this agent can answer on this machine: Claude Code is where Lem runs and
+    starts its expert as a subagent; Codex needs its command."""
+    return agent == "claude" or shutil.which(agent) is not None
+
+
 def experts_of(raw: dict, name: Path) -> list[dict] | None:
-    """The two experts one file names, checked; None when the file names none."""
+    """The one or two experts one file names, checked, each with its place in a choice's record and
+    whether its agent is on this machine (`here`); None when the file names none."""
     given = raw.get("seats", {}).get("experts")
     if given is None:
         return None
-    if not isinstance(given, list) or len(given) != len(EXPERT_PLACES):
+    if not isinstance(given, list) or not 1 <= len(given) <= len(EXPERT_PLACES):
         raise SettingsError(
-            f'{name}: seats.experts = {given!r} must be a list of two seats, "{SEAT_FORM}" each, as experts = [{", ".join(toml_string(one) for one in EXPERTS)}]: '
-            "a choice's record holds the answers of two experts",
+            f'{name}: seats.experts = {given!r} must be a list of one or two seats, "{SEAT_FORM}" each, as experts = [{", ".join(toml_string(one) for one in EXPERTS)}]: '
+            "a choice's record holds the answers of two experts at most",
         )
-    return [
+    found = [
         {**parse_seat(one, f"{name}: seats.experts[{number}]", REVIEWERS, "the agents the harness starts an expert with", EXPERTS[number]), "place": place}
         for number, (one, place) in enumerate(zip(given, EXPERT_PLACES))
     ]
+    return [{**expert, "here": agent_here(expert["agent"])} for expert in found]
 
 
 def file_pattern_of(raw: dict, name: Path, key: str = "plan_file") -> str:
@@ -1271,7 +1286,8 @@ def cmd_init(root: Path, base: str | None, codex: str) -> None:
     # a whole seat for each of the three, of the agents the machine has
     file.write_text(TEMPLATE.format(
         plans=PATHS["plans"], plan_file=PLAN_FILE, rulings=PATHS["rulings"], ruling_file=RULING_FILE, base=base,
-        reviewer=REVIEWER_SEATS["codex" if codex == "yes" else "claude"], planner=PLANNER, experts=", ".join(toml_string(one) for one in EXPERTS),
+        reviewer=REVIEWER_SEATS["codex" if codex == "yes" else "claude"], planner=PLANNER,
+        experts=", ".join(toml_string(one) for one in EXPERTS if codex == "yes" or one.startswith("claude")),
     ), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
     # too, for a repository whose ignore file is older than it)

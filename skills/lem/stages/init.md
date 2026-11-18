@@ -264,10 +264,10 @@ opens a text for you to mark up with webrev", with no word that changes it, sinc
 rule of his that names another asker would otherwise meet Lem's page turn by turn and wonder
 which one holds. The three models a task runs on: the builder on Opus at high effort
 (`agents/lem-builder.md`; a project's own `lem-builder.md` in `.claude/agents/` replaces it), and
-the two experts, Fable through Claude Code and GPT-6 Astra through Codex (`seats.experts`; "change
-experts SEAT SEAT"), with a word when the machine check found no Codex: then the second expert and
-the panel's second family do not answer, and a choice the experts would settle ends on the
-recommended option, not green. And the allow list: the rules written into `.claude/settings.json`,
+the experts, the newest Fable of Anthropic through Claude Code and the newest Astra of OpenAI
+through Codex (`seats.experts`; "change experts SEAT SEAT"), with a word when the machine check
+found no Codex: then one expert answers alone and its pick settles a choice the experts take, not
+green, and the panel's second family does not answer. And the allow list: the rules written into `.claude/settings.json`,
 in one line with their count and the mode a new session starts in ("change allow none"). With git hooks, one line says, in these words, why the
 checks have only tests: "the git hooks run the rest at each commit of a builder" (the hook files;
 "change checks add COMMAND"). With a sign of a suite that needs the machine to itself, one line

@@ -598,17 +598,22 @@ const leadOf = t => (t.lead === 'session' ? 'session' : t.lead === 'small' ? 'sm
 // The two experts of the lem-ask-expert skill, by the names decisions.py keeps their advice under.
 const EXPERTS = {fable: 'Fable', astra: 'Astra'};
 const expertName = key => EXPERTS[key] ?? key;
-// The option both experts picked, as decisions.py `shared` reads it: none when one is missing, one
-// found that none fits, or they split.
+// The experts who answer a choice: both places, or the one expert the machine had (`advisers`).
+const advisersOf = d => d.advisers ?? Object.keys(EXPERTS);
+// The option every expert of the choice picked, as decisions.py `shared` reads it: none when one is
+// missing, one found that none fits, or they split.
 function sharedPick(d) {
-  const picks = Object.keys(EXPERTS).map(key => d.advice[key]);
+  const picks = advisersOf(d).map(key => d.advice[key]);
   return picks.every(a => a && a.pick != null) && new Set(picks.map(a => a.pick)).size === 1 ? picks[0].pick : null;
 }
-// What the owner's "away" takes of a choice that waits, and why: the experts' shared pick, or the
+// The experts' pick in words: both picked it, or the one expert did.
+const pickWord = d => (advisersOf(d).length === 1 ? 'the one expert’s pick' : 'the experts’ shared pick');
+const pickedWord = d => (advisersOf(d).length === 1 ? 'the one expert picked it' : 'both picked it');
+// What the owner's "away" takes of a choice that waits, and why: the experts' pick, or the
 // recommended option.
 function endOf(d) {
   const pick = sharedPick(d);
-  return pick != null ? `“${pick}”, the experts’ shared pick` : `“${d.recommended}”, the recommended option`;
+  return pick != null ? `“${pick}”, ${pickWord(d)}` : `“${d.recommended}”, the recommended option`;
 }
 // One expert's advice, on a choice that waits (now) or on one that was taken (then).
 const adviceLine = (key, a, then) => (a.pick != null
@@ -1051,7 +1056,7 @@ function decisionEvent(t, e) {
       options: e.options ?? [], recommended: e.recommended ?? null, irreversible: e.irreversible ?? null,
       // an older Lem's question has its wait and its deadline: its timeout, when the record has one, came at that end
       wait: e.wait_minutes ?? null, deadline: e.deadline ? new Date(e.deadline).getTime() : null,
-      state: kind === 'taken' ? 'taken' : 'waits', ended: null, late: null, advice: {}, experts: null, away: false,
+      state: kind === 'taken' ? 'taken' : 'waits', ended: null, late: null, advice: {}, experts: null, away: false, advisers: e.advisers ?? null,
     });
     return;
   }
@@ -1121,7 +1126,7 @@ function answerOf(t, c = t.asks[0]) {
   if (c) {
     return c.irreversible
       ? `${askedHow(`choice ${c.id}`)}. Answer it there: it waits for your word, also while you are away.`
-      : `${askedHow(`choice ${c.id}`)}. Answer it there: it waits for your answer. If you say you are away, the build goes on with ${sharedPick(c) != null ? 'the experts’ shared pick' : 'the recommended action'}.`;
+      : `${askedHow(`choice ${c.id}`)}. Answer it there: it waits for your answer. If you say you are away, the build goes on with ${sharedPick(c) != null ? pickWord(c) : 'the recommended action'}.`;
   }
   if (t.status === 'open') return /^pull request\b/.test(t.text) ? 'Merge the pull request, or tell Lem in its session to land it.' : 'Tell Lem in its session to land it.';
   // a read in which no persona answered puts nothing on top of the criteria
@@ -2012,7 +2017,7 @@ function buildDecisions(t, now) {
           h('span', {class: 'sub'}, `recommended: ${d.recommended}, because ${d.why}`),
           d.said ? h('span', {class: 'sub'}, `the personas: ${d.said}`) : '',
           // the experts' advice, one line each, and a line for one whose advice has not come
-          Object.keys(d.advice).length ? Object.keys(EXPERTS).map(key => h('span', {class: 'sub'}, d.advice[key] ? adviceLine(key, d.advice[key], false) : `${expertName(key)}: no advice yet`))
+          Object.keys(d.advice).length ? advisersOf(d).map(key => h('span', {class: 'sub'}, d.advice[key] ? adviceLine(key, d.advice[key], false) : `${expertName(key)}: no advice yet`))
             : h('span', {class: 'sub'}, 'No expert advised on it yet.'),
           h('span', {class: 'sub'}, d.irreversible ? `It waits for your answer, also while you are away: ${IRREVERSIBLE[d.irreversible] ?? d.irreversible}. The experts advise on it and never take it. The rest of the plan goes on.`
             : `It waits for your answer. If you say you are away, the build goes on with ${endOf(d)}.`),
@@ -2032,7 +2037,7 @@ function buildDecisions(t, now) {
     const how = d.kind === 'taken' ? `taken by ${BY_WHOM[d.by] ?? d.by}, because ${d.why}`
       : d.state === 'answered' ? `answered by you${d.instead ? ', with none of the options' : ''}${d.words ? `: “${d.words}”` : ''}${d.ownerWhy ? `, because ${d.ownerWhy}` : ''}`
         : d.state === 'settled' ? `taken by the experts at ${hhmm(d.ended)}, while you were away: both picked it. The pull request is not green for it.`
-          : d.early ? `taken ${d.by === 'experts' ? 'by the experts, as both picked it,' : 'as the recommended option'} at ${hhmm(d.ended)}, as the task ran without you. The pull request is not green for it.`
+          : d.early ? `taken ${d.by === 'experts' ? `by the experts, as ${pickedWord(d)},` : 'as the recommended option'} at ${hhmm(d.ended)}, as the task ran without you. The pull request is not green for it.`
           : d.by === 'experts' ? `taken by the experts at the end of the wait, at ${hhmm(d.ended)}: no answer came in ${d.wait ?? '?'} minutes, and both picked it. The pull request is not green for it.`
             : `taken by the timeout at ${hhmm(d.ended)}: no answer came in ${d.wait ?? '?'} minutes. The recommended action stands, and the pull request is not green for it.`;
     // The experts' reasons: from the line that took their pick, else from their advice. Advice that

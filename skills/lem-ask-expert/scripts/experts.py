@@ -2,8 +2,10 @@
 """The experts' brief of one question, and the record of their answers.
 
 Two experts of two model families answer one question from the same brief, at the same moment,
-read-only. Who they are is the settings' `seats.experts`, two seats `agent/model:effort` that
-`lem project show` prints; `--seat`, once for each expert, names them for one call instead. A
+read-only, or one expert alone on a machine with one of their agents. Who they are is the
+settings' `seats.experts`, one or two seats `agent/model:effort` that `lem project show` prints,
+each that is `here` (its agent is on this machine); `--seat`, once for each expert, names them for
+one call instead. A
 choice of a task keeps their advice in two places, `fable` for the first seat and `astra` for the
 second, whatever model sits there, and that place is the expert's name. For a question in words
 an expert's name is the last word of its model that holds a letter (`opus`, `sol`), or its place
@@ -138,7 +140,9 @@ def seats(repo: Path, given: list[str], by_place: bool = False) -> list[dict]:
     if given:
         experts = [parse_seat(seat, "--seat", PLACES[number] if number < len(PLACES) else None) for number, seat in enumerate(given)]
     else:
-        named = json.loads(script("project.py", repo, "show"))["seats"]["experts"]
+        named = [seat for seat in json.loads(script("project.py", repo, "show"))["seats"]["experts"] if seat.get("here", True)]
+        if not named:
+            raise ExpertError("no expert of the settings' seats.experts can answer on this machine: name a seat of an agent it has, or give --seat")
         experts = [{key: seat.get(key) for key in ("seat", "agent", "model", "effort", "place")} for seat in named]
     for expert in experts:
         expert["name"] = expert["place"] if by_place else name_of(expert["model"]) if expert["model"] else expert["place"] or expert["agent"]
@@ -194,18 +198,18 @@ def worktree(repo: Path, slug: str) -> Path:
 
 
 def choice_experts(repo: Path, given: list[str]) -> list[dict]:
-    """The two experts of a choice of a task, each named by its place in the record, whatever
+    """The one or two experts of a choice of a task, each named by its place in the record, whatever
     model sits there."""
-    experts = seats(repo, given, by_place=True) if len(given) in (0, len(PLACES)) else None
-    if experts is None or [expert["place"] for expert in experts] != list(PLACES):
+    experts = seats(repo, given, by_place=True) if len(given) <= len(PLACES) else None
+    if experts is None or any(expert["place"] not in PLACES for expert in experts):
         raise ExpertError(
-            f"a choice of a task has {len(PLACES)} experts, and its record keeps their advice as {' and '.join(PLACES)}: "
-            f"give --seat {len(PLACES)} times, the first for {PLACES[0]} and the second for {PLACES[1]}, or leave it out for the settings' seats.experts",
+            f"a choice of a task has one or {len(PLACES)} experts, and its record keeps their advice as {' and '.join(PLACES)}: "
+            f"give --seat once or {len(PLACES)} times, the first for {PLACES[0]} and the second for {PLACES[1]}, or leave it out for the settings' seats.experts",
         )
     return experts
 
 
-def brief_text(slug: str, number: int, found: dict, criteria: dict, place: Path, files: list[Path]) -> str:
+def brief_text(slug: str, number: int, found: dict, criteria: dict, place: Path, files: list[Path], count: int = 2) -> str:
     options = "\n".join(f"{n}. {option}" for n, option in enumerate(found["options"], start=1))
     told = "\n".join(f"{criterion['n']}. {criterion['text']}" for criterion in criteria["criteria"]) or "none: the plan has no acceptance criteria"
     kind = f"\n\nSize: {criteria['size']}" + (f", because {criteria['why']}" if criteria.get("why") else "") if criteria.get("size") else ""
@@ -218,12 +222,13 @@ def brief_text(slug: str, number: int, found: dict, criteria: dict, place: Path,
     run = (
         f"\nThe run that ends badly, as the lead {found['case_was']} it:\n\n{found['case']}\n\nWhy it can happen: {found['cause']}\n"
     ) if found.get("case") else ""
+    who = "You are one of two experts who answer it from this brief, each on their own" if count > 1 else "You are the one expert who answers it from this brief"
+    taken = "the option both experts picked is taken; when you split, the recommended option is" if count > 1 else "your pick is taken; when none fits, the recommended option is"
     return f"""# Choice {number} of {slug}: the experts' brief
 
 A task met a choice that is the owner's, in its plan or in its build, and the personas left it
-unclear, so it waits for the owner. You are one of two experts who answer it from this brief, each on their own. Your answer
-goes on the owner's card during the wait. When no answer comes in time, the option both experts
-picked is taken; when you split, the recommended option is.
+unclear, so it waits for the owner. {who}. Your answer goes on the owner's card during the wait.
+When the owner says he is away, {taken}.
 
 Read only. Change no file, run nothing that writes, and commit nothing. The task's worktree is
 `{place}`.
@@ -271,7 +276,7 @@ def cmd_choice_brief(repo: Path, slug: str, number: int, names: list[str], given
     advised = found.get("advice", {})
     ask = [expert["name"] for expert in experts if expert["name"] not in advised]
     if not ask:
-        raise ExpertError(f"choice {number} of {slug} has the advice of both experts already: `lem decisions list {slug}` shows it")
+        raise ExpertError(f"choice {number} of {slug} has the advice of every expert already: `lem decisions list {slug}` shows it")
     place = worktree(repo, slug)
     try:
         criteria = json.loads(script("criteria.py", repo, "show", slug))
@@ -281,7 +286,7 @@ def cmd_choice_brief(repo: Path, slug: str, number: int, names: list[str], given
     directory = task_directory(repo, slug) / "experts"
     directory.mkdir(parents=True, exist_ok=True)
     brief = directory / f"choice-{number}.brief.md"
-    brief.write_text(brief_text(slug, number, found, criteria, place, files), encoding="utf-8")
+    brief.write_text(brief_text(slug, number, found, criteria, place, files, len(experts)), encoding="utf-8")
     answers = {expert["name"]: str(directory / f"choice-{number}.{expert['name']}.md") for expert in experts}
     return {
         "task": slug, "choice": number, "brief": str(brief), "worktree": str(place),
@@ -325,7 +330,7 @@ def cmd_choice_record(repo: Path, slug: str, number: int, expert: str, given: li
     if expert not in names:
         raise ExpertError(f"--expert {expert} is none of the experts ({', '.join(names)})")
     got = read_answer(task_directory(repo, slug) / "experts" / f"choice-{number}.{expert}.md", expert, options=True,
-                      one_left="with one expert's advice the end of the wait takes the recommended option")
+                      one_left="with an expert's advice missing, the owner's away takes the recommended option")
     if got.get("none"):
         return json.loads(script("decisions.py", repo, "advise", slug, str(number), "--expert", expert, "--none", "--why", got["why"]))
     return json.loads(script("decisions.py", repo, "advise", slug, str(number), "--expert", expert, "--pick", got["pick"], "--why", got["why"]))
@@ -373,11 +378,12 @@ def free_brief_text(question: str, context: str, options: list[str], place: Path
     else:
         offered = "\nNo options were given: answer the question itself.\n"
         forms = "this form"
+    asks = (f"The owner asks {count} experts of different model families one question, and each answers it from\nthis brief on their own."
+            if count > 1 else "The owner asks one expert this question, and you answer it from this brief.")
+    beside = " beside the others'" if count > 1 else ""
     return f"""# A question for the experts
 
-The owner asks {count} experts of different model families one question, and each answers it from
-this brief on their own. Your answer goes to the owner beside the others'. It decides nothing by
-itself.
+{asks} Your answer goes to the owner{beside}. It decides nothing by itself.
 
 Read only. Change no file, run nothing that writes, and commit nothing. The checkout is
 `{place}`.

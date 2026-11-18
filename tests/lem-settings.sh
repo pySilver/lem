@@ -61,13 +61,14 @@ else
 fi
 if [ "$(status_of project --repo "$NEW" init --base main)" = 1 ]; then pass "init refuses a settings file that already exists"; else fail "second init"; fi
 # Without Codex on the machine, init writes the reviewer's seat on Claude.
-NOCODEX=$WORK/no-codex
-git init -q -b main "$NOCODEX"
-project --repo "$NOCODEX" init --base main --codex no >/dev/null
-if grep -qxF 'reviewer = "claude/opus:high"' "$NOCODEX/.lem/project.toml" && [ "$(project --repo "$NOCODEX" show | field 'd["seats"]["reviewer"]["seat"]')" = "claude/opus:high" ]; then
-  pass "init with --codex no, for a machine with no Codex, writes the reviewer's whole seat on Claude"
+BARE=$WORK/no-codex
+git init -q -b main "$BARE"
+project --repo "$BARE" init --base main --codex no >/dev/null
+if grep -qxF 'reviewer = "claude/opus:high"' "$BARE/.lem/project.toml" && grep -qxF 'experts = ["claude/fable:high"]' "$BARE/.lem/project.toml" \
+  && [ "$(project --repo "$BARE" show | field '(d["seats"]["reviewer"]["seat"], [(e["seat"], e["place"], e["here"]) for e in d["seats"]["experts"]])')" = "('claude/opus:high', [('claude/fable:high', 'fable', True)])" ]; then
+  pass "init with --codex no, for a machine with no Codex, writes the reviewer's whole seat on Claude and one expert, which answers alone in the first place"
 else
-  fail "init without Codex: $(grep -A1 '^reviewer' "$NOCODEX/.lem/project.toml")"
+  fail "init without Codex: $(grep -A1 '^reviewer' "$BARE/.lem/project.toml")"
 fi
 
 OLD=$WORK/old
@@ -192,19 +193,27 @@ settings '[seats]' 'reviewer = "codex:high"'
 no_model=$(project --repo "$OLD" show | field '(d["seats"]["reviewer"]["agent"], d["seats"]["reviewer"]["model"], d["seats"]["reviewer"]["effort"])' 2>&1 || true)
 settings '[branch]' 'base = "master"'
 unset=$(project --repo "$OLD" show | field '(d["seats"]["reviewer"], d["seats"]["planner"]["agent"], [e["seat"] for e in d["seats"]["experts"]])' 2>&1 || true)
+# each expert says whether its agent is on this machine: Claude Code always, Codex where its command is on PATH
+here=$(project --repo "$OLD" show | field '[(e["place"], e["here"]) for e in d["seats"]["experts"]]' 2>&1 || true)
+here_without=$(env PATH="$NOCODEX" "$PY" -B "$PROJECT" --repo "$OLD" show | field '[(e["place"], e["here"]) for e in d["seats"]["experts"]]' 2>&1 || true)
+settings '[seats]' 'experts = ["codex/gpt-6.2-astra:high"]'
+alone_codex=$(project --repo "$OLD" show | field '[(e["seat"], e["place"]) for e in d["seats"]["experts"]]' 2>&1 || true)
+settings '[branch]' 'base = "master"'
 if [ "$seats" = "({'agent': 'codex', 'model': 'gpt-6.1-sol', 'effort': 'high', 'seat': 'codex/gpt-6.1-sol:high'}, {'agent': 'claude', 'model': 'opus', 'effort': None, 'seat': 'claude/opus'}, [('claude', 'fable', 'high', 'fable'), ('codex', None, None, 'astra')])" ] \
   && [ "$no_model" = "('codex', None, 'high')" ] \
+  && [ "$here" = "[('fable', True), ('astra', True)]" ] && [ "$here_without" = "[('fable', True), ('astra', False)]" ] \
+  && [ "$alone_codex" = "[('codex/gpt-6.2-astra:high', 'fable')]" ] \
   && [ "$unset" = "({'agent': None, 'model': None, 'effort': None, 'seat': None}, 'claude', ['claude/fable:high', 'codex/gpt-6.2-astra:high'])" ] \
   && grep -qxF 'plan_file = "YYYY-MM-DD-<slug>.md"' "$NEW/.lem/project.toml" && grep -qxF 'reviewer = "codex/gpt-6.2-sol:high"' "$NEW/.lem/project.toml" \
   && grep -qxF 'planner = "claude/opus:high"' "$NEW/.lem/project.toml" \
   && grep -qxF 'experts = ["claude/fable:high", "codex/gpt-6.2-astra:high"]' "$NEW/.lem/project.toml"; then
-  pass "a seat is one string agent/model:effort, shown parsed: the effort or the model may be left out, the experts are two in the record's two places; init writes the three seats whole, and with no seat the reviewer is unset, the defender is Opus at high and the experts are Fable and Astra at high"
+  pass "a seat is one string agent/model:effort, shown parsed: the effort or the model may be left out, the experts are one or two in the record's places, each here when its agent is on the machine; init writes the three seats whole, and with no seat the reviewer is unset, the defender is Opus at high and the experts are Fable and Astra at high"
 else
-  fail "seats: $seats / $no_model / $unset"
+  fail "seats: $seats / $no_model / $unset / $here / $here_without / $alone_codex"
 fi
 refused=""
 for bad in 'reviewer = ""' 'reviewer = "codex /gpt"' 'reviewer = "gemini/pro:high"' 'reviewer = "codex/"' 'reviewer = "codex/gpt:"' 'reviewer = "/gpt:high"' \
-           'reviewer = 3' 'planner = "codex/gpt:high"' 'experts = ["claude/fable"]' 'experts = "claude/fable"' 'experts = ["claude/fable", "gemini"]'; do
+           'reviewer = 3' 'planner = "codex/gpt:high"' 'experts = []' 'experts = ["claude", "codex", "claude/opus"]' 'experts = "claude/fable"' 'experts = ["claude/fable", "gemini"]'; do
   settings '[seats]' "$bad"
   err=$(project --repo "$OLD" show 2>&1 || true)
   if [ "$(status_of project --repo "$OLD" show)" != 1 ] || grep -q Traceback <<<"$err" || ! grep -q "agent/model:effort\|must be claude\|must be claude or codex" <<<"$err"; then refused="$refused [$bad: $err]"; fi
@@ -214,7 +223,7 @@ no_effort=$(project --repo "$OLD" show 2>&1 || true)
 settings '[seats]' 'planner = "codex/gpt:high"'
 planner_codex=$(project --repo "$OLD" show 2>&1 || true)
 if [ -z "$refused" ] && grep -qF "names no effort after the \`:\`" <<<"$no_effort" && grep -qF "checked in Claude Code only" <<<"$planner_codex"; then
-  pass "a seat is refused empty, with a space, for an agent that cannot sit there, with a / or a : and nothing after it, and the experts as anything but two seats; each refusal names the form"
+  pass "a seat is refused empty, with a space, for an agent that cannot sit there, with a / or a : and nothing after it, and the experts as anything but one or two seats; each refusal names the form"
 else
   fail "seat refusals:$refused / $no_effort / $planner_codex"
 fi

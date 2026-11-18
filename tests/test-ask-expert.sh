@@ -14,6 +14,13 @@ WORK=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+# A stand-in for Codex on PATH, so that both experts of the default seats answer here (`here` in `lem project show`),
+# whatever this machine has; a check of one expert alone runs with a PATH that has no codex.
+mkdir -p "$WORK/standin" && printf '%s\n' '#!/bin/sh' 'exit 0' > "$WORK/standin/codex" && chmod +x "$WORK/standin/codex"
+export PATH="$WORK/standin:$PATH"
+# NOCODEX: a PATH with git and no codex, for a check of one expert alone
+mkdir -p "$WORK/nocodex" && ln -s "$(command -v git)" "$WORK/nocodex/git"
+NOCODEX=$WORK/nocodex
 
 fails=0
 pass() { printf 'ok   %s\n' "$1"; }
@@ -163,6 +170,31 @@ else
   fail "the owner's away and the experts: $lateanswer / $with_him / $taken / $listed / $ended / $untouched"
 fi
 
+# Without Codex on the machine the one expert that can answer answers alone: a choice asked there names one adviser, its
+# pick is the experts' pick, and the owner's away takes it, by: experts with its one reason. Two that split take none (above).
+KEEP_SLUG=$SLUG KEEP_RECORD=$RECORD
+SLUG=gift-one RECORD=$EX/.lem/state/tasks/gift-one/decisions.jsonl
+project --repo "$EX" task-dir "$SLUG" >/dev/null && project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
+alone_ask=$(env PATH="$NOCODEX" "$PY" -B "$DECISIONS" --repo "$EX" ask "$SLUG" --what "The note's font" "${CASE[@]}" --option "the last column" --option "after the price" \
+  --recommended "the last column" --why "w" --said "The two personas split." | field '(d["id"], d["advisers"])' || true)
+c12=$(cut -d, -f1 <<<"$alone_ask" | tr -d '( ')
+alone_pick=$(decide advise "$SLUG" "$c12" --expert fable --pick "after the price" --why "A printed note reads better beside the price." | field 'd["experts_pick"]' || true)
+old_mode "$SLUG" alone
+alone_taken=$(decide away | field '[(t["id"], t["chose"], t["by"]) for t in d["taken"]]' || true)
+old_mode "$SLUG" with-owner
+alone_listed=$(decide list "$SLUG" | field 'next((c["state"], c["by"], c["experts"]) for c in d if c["id"] == '"$c12"')' || true)
+alone_brief=$(env PATH="$NOCODEX" "$PY" -B "$EXPERTS" --repo "$EX" brief --question "Which font for the note?" || true)
+alone_names=$(field '[e["name"] for e in d["experts"]]' <<<"$alone_brief" || true)
+alone_file=$(field 'd["brief"]' <<<"$alone_brief" || true)
+SLUG=$KEEP_SLUG RECORD=$KEEP_RECORD
+if [ "$alone_ask" = "($c12, ['fable'])" ] && [ "$alone_pick" = "after the price" ] && [ "$alone_taken" = "[($c12, 'after the price', 'experts')]" ] \
+  && [ "$alone_listed" = "('timeout', 'experts', {'fable': 'A printed note reads better beside the price.'})" ] \
+  && [ "$alone_names" = "['fable']" ] && grep -qF "The owner asks one expert this question" "$alone_file"; then
+  pass "with no Codex on the machine one expert answers alone: the choice names one adviser, its pick is the experts' pick, the owner's away takes it by the experts with its one reason, and a question in words has one expert"
+else
+  fail "one expert alone: $alone_ask / $alone_pick / $alone_taken / $alone_listed / $alone_names / $alone_file"
+fi
+
 # A record of an older Lem: a `settled` line, which `settle --away` wrote, still reads as the experts' pick, and an answer
 # after it is late. And a lead's wait on a choice with both experts' shared pick, when the task runs without the owner:
 # the wait takes that pick at once, early; an irreversible step is never taken so.
@@ -220,7 +252,7 @@ rest=$(experts brief "$SLUG" "$c17" | field '(d["ask"], d["advised"])' || true)
 forbrief=$(grep -c "cannot be undone by a later \"no\" (data)" "$TASKDIR/experts/choice-$c17.brief.md" || true)
 if [ "$holds" = yes ] && [ "$paths" = "('$brief', '$TASKDIR/experts/choice-$c16.fable.md', '$TASKDIR/experts/choice-$c16.astra.md', ['fable', 'astra'], '$tree')" ] \
   && grep -qF -- "--file missing.sh is not in the task's worktree" <<<"$nofile" && [ "$nofilecode" = 1 ] \
-  && grep -qF "choice $c16 of $SLUG does not wait: it is answered" <<<"$answered" && grep -qF "has the advice of both experts already" <<<"$alladvised" \
+  && grep -qF "choice $c16 of $SLUG does not wait: it is answered" <<<"$answered" && grep -qF "has the advice of every expert already" <<<"$alladvised" \
   && [ "$rest" = "(['astra'], ['fable'])" ] && [ "$forbrief" = 1 ]; then
   pass "the skill's brief file holds the choice word for word, the run that ends badly with its cause, the recommended option and the personas, the task's criteria and its plan, the files the choice is about and the answer's form; it names the experts still to ask, and is refused for a choice that does not wait or that both advised"
 else
@@ -312,17 +344,17 @@ seated=$(experts brief --question "Which store?" --seat claude/opus:high --seat 
 noform=$(experts brief --question "Which store?" --seat claude-opus 2>&1 || true)
 noagent=$(experts brief --question "Which store?" --seat gemini/pro:high --seat claude/fable:high 2>&1 || true)
 same=$(experts brief --question "Which store?" --seat claude/fable:high --seat claude/fable:max 2>&1 || true)
-nochoice=$(experts brief "$SLUG" "$c18" --seat claude/opus:high 2>&1 || true)
+nochoice=$(experts brief "$SLUG" "$c18" --seat claude/opus:high --seat codex/gpt-6.2-sol --seat claude/fable 2>&1 || true)
 neither=$(experts brief 2>&1 || true)
 both=$(experts brief "$SLUG" "$c18" --question "Which store?" 2>&1 || true)
 alone=$(experts brief --question "Which store?" --option "Redis" 2>&1 || true)
 mixed=$(experts brief "$SLUG" "$c18" --option "Redis" --option "a table" 2>&1 || true)
 if [ "$seated" = "[('opus', 'opus', 'high'), ('sol', 'gpt-6.1-sol', 'xhigh')]" ] && grep -qF "'claude-opus' is no seat: write it as agent/model:effort" <<<"$noform" \
   && grep -qF "names the agent 'gemini': an expert is started by claude or codex" <<<"$noagent" && grep -qF "two experts are named fable" <<<"$same" \
-  && grep -qF "a choice of a task has 2 experts, and its record keeps their advice as fable and astra: give --seat 2 times" <<<"$nochoice" \
+  && grep -qF "a choice of a task has one or 2 experts, and its record keeps their advice as fable and astra: give --seat once or 2 times" <<<"$nochoice" \
   && grep -qF "brief takes a task's SLUG N or --question TEXT, one of the two" <<<"$neither" && grep -qF "one of the two" <<<"$both" \
   && grep -qF "one --option is no choice" <<<"$alone" && grep -qF -- "--context and --option belong to a question in words" <<<"$mixed"; then
-  pass "--seat names the experts for one call, by the last word of each model; a seat not written agent/model:effort, an agent the harness does not know, two experts of one name, one --seat for a task's choice and a brief with no question or two are refused"
+  pass "--seat names the experts for one call, by the last word of each model; a seat not written agent/model:effort, an agent the harness does not know, two experts of one name, three --seat for a task's choice and a brief with no question or two are refused"
 else
   fail "the experts' seats: $seated / $noform / $noagent / $same / $nochoice / $neither / $both / $alone / $mixed"
 fi

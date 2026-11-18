@@ -128,7 +128,7 @@ track, which has no plan, and the track is no choice of this section.
 3. **Go on with the work that does not depend on the choice.** Between two of your tasks, and
    before you start one that depends on it, run `lem decisions --repo WORKTREE wait SLUG N`. It
    returns when the owner answered, when the task runs without him (he said he is away; it then
-   takes the ladder's pick, on a choice the experts advised the option both picked, and the pull
+   takes the ladder's pick, on a choice the experts advised the option every expert picked, and the pull
    request is not green for it), or after nine minutes: run it again while it says `still
    waits`, when nothing else is left to do. `lem decisions list SLUG` shows each decision as it
    stands; an answer that came after it was taken and differs from what was taken is the owner's correction:

@@ -53,7 +53,7 @@ A seat is one string, `agent/model:effort`. A part that you leave out takes the 
 | --- | --- | --- |
 | `seats.reviewer` | `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk: `claude` or `codex` |
 | `seats.planner` | `"claude/opus:high"` | the agent that defends the plan in the plan talk: only `claude` |
-| `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the two experts of a decision in doubt |
+| `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | one or two experts of a decision in doubt. Without Codex, one expert answers alone |
 
 ## `[corrections]`
 

@@ -2090,12 +2090,12 @@ def not_green(task: Task, state: dict) -> list[str]:
             continue
         if decision["state"] == "taken":
             # past the personas, with no answer of his: the dialectic, the experts, or the lead's pick that no level settled
-            who = "the lead's pick, which no level of the ladder settled" if decision.get("unsettled") else f"by {TAKEN_BY[decision['by']]}"
+            who = "the lead's pick, which no level of the ladder settled" if decision.get("unsettled") else f"by {taken_by(decision)}"
             reasons.append(f"decision {decision['id']} was taken without the owner ({decision['what']}): \"{decision['chose']}\", {who}")
         # the experts' shared pick, taken while he was away (`settled`, an older Lem's), when he went away, or at the end of an older Lem's wait
         elif decision.get("by") == "experts" and decision["state"] in ("timeout", "settled"):
             reasons.append(
-                f"choice {decision['id']} was taken by the experts ({decision['what']}): \"{decision['chose']}\", the option both picked, {waited(decision)}. "
+                f"choice {decision['id']} was taken by {taken_by(decision)} ({decision['what']}): \"{decision['chose']}\", {picked(decision)}, {waited(decision)}. "
                 f"{experts_said(decision)}{later(decision, '; the owner answered later with')}",
             )
         else:
@@ -2171,8 +2171,24 @@ def reason(text: str) -> str:
 
 
 def experts_said(decision: dict) -> str:
-    """Both experts' reasons for the pick they shared, as the record keeps them."""
-    return f"Fable: {reason(decision['experts']['fable'])}. Astra: {reason(decision['experts']['astra'])}"
+    """Each expert's reason for the pick, as the record keeps them: both, or the one expert's."""
+    return ". ".join(f"{name.capitalize()}: {reason(why)}" for name, why in decision["experts"].items())
+
+
+def one_expert(decision: dict) -> bool:
+    """Whether one expert answered alone: the machine had one of the agents (`advisers`), or the
+    record of the pick holds one reason."""
+    return len(decision.get("advisers") or decision.get("experts") or "ab") == 1
+
+
+def taken_by(decision: dict) -> str:
+    """Who took a decision, for a line of the pull request: one expert is named as one."""
+    return "one expert" if decision.get("by") == "experts" and one_expert(decision) else TAKEN_BY[decision["by"]]
+
+
+def picked(decision: dict) -> str:
+    """The pick of the experts: the option both picked, or the one expert's."""
+    return "the one expert's pick" if one_expert(decision) else "the option both picked"
 
 
 def later(decision: dict, lead: str) -> str:
@@ -2199,7 +2215,7 @@ def decided(decision: dict) -> str:
     head = f"- {decision['what']}: "
     if decision["state"] == "waits":
         return head + "waits for the owner."
-    line = head + f"\"{decision['chose']}\", by {TAKEN_BY[decision['by']]}"
+    line = head + f"\"{decision['chose']}\", by {taken_by(decision)}"
     if decision.get("unsettled"):
         line = head + f"\"{decision['chose']}\", the lead's pick, which no level of the ladder settled"
     if decision["state"] == "answered" and decision.get("instead"):
@@ -2217,7 +2233,7 @@ def decided(decision: dict) -> str:
         # their reasons are the reasons of the option taken; the recommendation's is about another one, or the same
         when = waited(decision).removesuffix(" ended with no answer")
         also = "it is also the recommended" if decision["chose"] == decision["recommended"] else f"the recommended was \"{decision['recommended']}\""
-        line += f", the option both picked, {when}; {also}. {experts_said(decision)}." + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
+        line += f", {picked(decision)}, {when}; {also}. {experts_said(decision)}." + (f" {later(decision, 'The owner answered later with')}." if "late" in decision else "")
     elif decision["state"] == "timeout" and decision.get("early"):
         line = head + f"\"{decision['chose']}\", the ladder's pick, taken {waited(decision)}. {decision['why']}"
         line += f" {later(decision, 'The owner answered later with')}." if "late" in decision else ""
@@ -2448,7 +2464,7 @@ PAGES = ("built.md", "decisions.md")
 # Who took a decision, in the order of decisions.md: the ones the owner most likely wants to change first.
 WHO = {
     "waits": "waits for the owner", "unsettled": "no level: the lead's pick stands", "away": EARLY_BY, "timeout": "the timeout of an older Lem's wait",
-    "experts": "two expert models", "dialectic": "the dialectic", "personas": "the personas", "lead": "the lead", "lem": "Lem",
+    "experts": "two expert models", "expert": "one expert model", "dialectic": "the dialectic", "personas": "the personas", "lead": "the lead", "lem": "Lem",
     "gate": "the gate", "owner": "the owner",
 }
 # Who approved the criteria, for the line above them; the fast track's `lem` has no page.
@@ -2515,7 +2531,9 @@ def kind_of(decision: dict) -> str:
     if decision["state"] == "waits" or decision.get("unsettled"):
         return "waits" if decision["state"] == "waits" else "unsettled"
     if decision["state"] in ("timeout", "settled"):
-        return "experts" if decision["by"] == "experts" else "away" if decision.get("early") else "timeout"
+        return ("expert" if one_expert(decision) else "experts") if decision["by"] == "experts" else "away" if decision.get("early") else "timeout"
+    if decision["state"] == "taken" and decision["by"] == "experts" and one_expert(decision):
+        return "expert"
     return "owner" if decision["state"] == "answered" else decision["by"]
 
 

@@ -37,7 +37,9 @@ record shows later which level changes picks and which never does.
 4. **The experts.** The `lem-ask-expert` skill with the question in words (`lem experts --repo
    WORKTREE brief --question TEXT --context TEXT --option TEXT ...`, with each confirmed break in
    the context), then `record --folder` for each answer, which prints whether they agree. Both
-   for one option: settled, `--by experts`.
+   for one option: settled, `--by experts`. On a machine with one of their agents (no Codex), one
+   expert answers alone, and its pick settles: `--by experts`, which the record and the pull
+   request name as one expert.
 5. **Else your pick stands**: `--by lead --unsettled`.
 
 ## The end

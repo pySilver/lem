@@ -675,8 +675,8 @@ git -C "$PPL" worktree remove --force "$WORK/people-wt"
 codexless=$(doctor | row codex without_it)
 codex_need=$(doctor | row codex need)
 if [ "$codex_need" = optional ] && grep -qF "highly recommended, since without it Claude reviews the work of Claude" <<<"$codexless" \
-  && grep -qF "an expert whose seat names codex (the second of seats.experts by default, GPT-6 Astra) does not answer" <<<"$codexless" \
-  && grep -qF "its pull request is not green for it" <<<"$codexless" && grep -qF "a persona panel has the answers of one model family" <<<"$codexless"; then
+  && grep -qF "an expert whose seat names codex (by default the second of seats.experts, the newest Astra of OpenAI) does not answer, so the one expert that can answer" <<<"$codexless" \
+  && grep -qF "answers alone and its pick settles a choice the experts take" <<<"$codexless" && grep -qF "a persona panel has the answers of one model family" <<<"$codexless"; then
   pass "with no Codex the codex row stays optional and says it is highly recommended, since without it Claude reviews the work of Claude: the reviewer is a second Claude, the second expert does not answer so a choice ends not green, and a panel has one model family"
 else
   fail "the codex row without codex: $codexless"

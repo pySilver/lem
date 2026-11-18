@@ -191,9 +191,9 @@
       <li>Lem pushes each task's branch and opens its pull request without asking <span class="dim">(<code>branch.propose = "pull-request"</code>)</span>: <code>change propose merge</code></li>
       <!-- always: how Lem asks, the three models, and the allow list -->
       <li>Lem asks with its own page, <code>lem-ask</code>, with the options side by side, and opens a text for you to mark up with webrev</li>
-      <li>a task runs on three models: the builder on Opus at high effort, and the experts Fable and GPT-6 Astra, through Codex <span class="dim">(<code>agents/lem-builder.md</code>, <code>seats.experts</code>)</span>: <code>change experts SEAT SEAT</code></li>
+      <li>a task runs on three models: the builder on Opus at high effort, and the experts, the newest Fable of Anthropic and the newest Astra of OpenAI through Codex <span class="dim">(<code>agents/lem-builder.md</code>, <code>seats.experts</code>)</span>: <code>change experts SEAT SEAT</code></li>
       <!-- only when the machine check found no Codex -->
-      <li>no Codex here: the second expert and the panel's second family do not answer, and a choice the experts would settle ends on the recommended option, not green <span class="dim">(the machine check's <code>codex</code> row)</span></li>
+      <li>no Codex here: one expert answers alone and its pick settles a choice the experts take, not green, and the panel's second family does not answer <span class="dim">(the machine check's <code>codex</code> row)</span></li>
       <li>N rules in <code>.claude/settings.json</code> let a builder in the background run Lem's commands, git's and the checks' without a question; a new session here starts in MODE <span class="dim">(<code>permissions.allow</code>)</span>: <code>change allow none</code>
         <ul class="dim mono">
           <li>Bash(lem *), Bash(lem-ask *), Bash(lem-jev *)</li>
