@@ -23,7 +23,7 @@ Type `/lem status <task>` to open it.
 
 ## Merge it
 
-Merge it on GitHub, as you do with any other. Then Lem removes the worktree and the branch of the
+Merge it on GitHub, as you do with any other: GitHub merges it as it is. Then Lem removes the worktree and the branch of the
 task, and updates its Linear ticket if it has one. The next task that waits can start.
 
 To let Lem merge, type `/lem land <task>`, or say "land it". Lem merges through GitHub, so the rules
@@ -32,7 +32,7 @@ of your base branch apply. If the base moved after the checks, the checks run ag
 | Setting | What changes |
 | --- | --- |
 | `branch.land = "agent"` | Lem merges a green pull request itself, if the review said not careful and the task does not run without you |
-| `branch.history = "squash"` | one commit lands for the task |
+| `branch.history = "keep"` | the commits of the branch land, and not one commit for the task |
 | `branch.propose = "merge"` | no pull request: "land it" merges the branch into the base branch |
 
 While Lem's session is open, it looks at its pull requests one time each minute, with the GitHub
