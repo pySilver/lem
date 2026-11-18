@@ -120,7 +120,7 @@ project`. Then start a new session. To remove Lem, follow
 | `/lem`, `/lem status` | lists what waits for you, always in one order: choices, criteria for your yes, other held tasks, pull requests, night plans, retro proposals. Say "open them" to answer each plan and proposal with approve, reject or later |
 | `/lem status <task>` | opens the board of one task |
 | `/lem land <task>` | tells Lem to merge an open pull request |
-| `full`, `careful`, `drop` | makes a small change a full change, marks a task careful, or stops it |
+| "full", "careful" or "drop", in plain words with no command, for example "make the footer task full" | changes a task that is open. "Full" makes a small change a full change, with acceptance criteria for your yes. "Careful" gives the task the full review and a merge by a person. "Drop" stops the task. Name the task when more than one is open |
 | `/lem learn` | puts your correction into the file that owns the step |
 | `/lem reviewer codex/gpt-6.1-sol:high` | sets the reviewer of the plan talk on this computer: agent, model, effort. `default` resets it |
 | `/lem init` | sets up a repository |
