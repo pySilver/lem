@@ -429,8 +429,8 @@ says yes, in those words. One person says no for themselves with `collect = fals
 The hook comes with the plugin, in its `hooks/hooks.json`, and nobody registers anything. It
 starts on each message in every repository where the plugin is on.
 
-A settings file can still hold the hook that an install of Lem before the plugin wrote there
-(`~/.claude/settings.json`, or a checkout's `.claude/settings.local.json`). Beside the plugin it
+A settings file may name the hook too (`~/.claude/settings.json`, or a checkout's
+`.claude/settings.local.json`). Beside the plugin it
 starts a second copy for each message; the first copy claims the message, so it is still judged
 once, and the machine check's `correction hook` row names each such file with the entry to delete
 from it by hand. Say that in one line, and do not edit the file: it is the owner's.

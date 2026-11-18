@@ -17,9 +17,9 @@ a `project personas` row that says how many the panel finds, from the checkout o
 branch. Look at it with the status: with none, say so and name the step, `/lem init`, which
 asks who a decision here affects and writes them without touching the settings that exist; with
 one, say that a panel needs a second person who would notice other things. A `correction hook`
-row is there only when a settings file still holds the hook that an install of Lem before the
-plugin wrote, beside the plugin: say each file and the entry its `without_it` says to delete by
-hand, in one line, and ask nothing. Each message is still judged once, so it waits for no answer.
+row is there only when a settings file also names the hook, beside the plugin: say each file and
+the entry its `without_it` says to delete by hand, in one line, and ask nothing. Each message is
+still judged once, so it waits for no answer.
 
 Then say what waits for him, as one list in one order, the same at every bare `/lem`:
 
@@ -38,27 +38,20 @@ task codes, one line each, and leave out a kind that has none:
 3. `held`: each task that waits for a step of his or one more fact, with that step;
 4. `pull_requests`: each open pull request, its address (or that its branch is ready to land),
    and green or each reason it is not; a task with a `night` says "of the night";
-5. `drafts`: each plan an older night drafted, with its plan's path;
-6. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
+5. `retros`: "the retro of DATE proposes N changes" for each file; a file with a `problem` is
    named with it.
 
 When `count` is 0, say "nothing waits for you" in one line. Then, after the list, what builds and
 what each other task waits on, what landed today, and what was answered today with its answer in
 one line, from `lem project tasks`.
 
-A draft and a retro's proposals are his to answer, and they wait until he says so: on his word
-("open them", "the drafts"), `ask-owner` with one page that holds each of them as a question of
-its own, each with the three answers approve, reject and later. A retro's proposal shows the
-move it would make, with the file, the change and the case that asks for it, as the retro wrote
-it. A draft shows its plan's acceptance criteria and the night report's verdict on it. Then, for
-each answer:
-
-- a draft: approve builds it (`/lem build` with its task), reject drops it (`lem project state
-  SLUG dropped "the owner rejected the night's draft"`, with its worktree and branch removed as
-  `clean` does), later leaves it `drafted`;
-- a retro's proposal: approve makes the move as `stages/learn.md` says, reject records it as
-  rejected there, later keeps it. Rewrite the retro's file with the proposals answered later
-  only, and remove it when none is left, so that the list names what still waits.
+A retro's proposals are his to answer, and they wait until he says so: on his word ("open
+them"), `ask-owner` with one page that holds each of them as a question of its own, each with
+the three answers approve, reject and later. A proposal shows the move it would make, with the
+file, the change and the case that asks for it, as the retro wrote it. For each answer: approve
+makes the move as `stages/learn.md` says, reject records it as rejected there, later keeps it.
+Rewrite the retro's file with the proposals answered later only, and remove it when none is left,
+so that the list names what still waits.
 
 A dropped, landed or answered task has no choice that waits. A task whose status is null has a
 state nobody wrote through the script: say so. A task with a `ticket_owed` ended, and its ticket in

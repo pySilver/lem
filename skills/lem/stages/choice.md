@@ -36,7 +36,7 @@ that was dropped or landed while a choice waited is under `ended`, and its choic
    refuses the plan until it does. When you cannot tell what he decided, ask him again. A lead in a
    session gets the answer as one message too; a builder that leads finds it at its next
    `lem decisions wait`.
-3. **An answer after the choice was taken** (his "away" took it, or the timeout of an older Lem)
+3. **An answer after the choice was taken** (his "away" took it, or the task ran without him)
    is written down the same way, and the script says it is late: what was taken stands. When
    the answer differs from it, it is his correction: tell the lead while the task builds, and
    after that it is a new ask. The pull request names it either way.

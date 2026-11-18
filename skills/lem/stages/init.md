@@ -37,8 +37,7 @@ A required tool that is absent stops the onboarding: say which, what it is used 
 installed, and end. Every other row is no question now: an optional tool that is absent is one
 line of the hand-over page (the row's `without_it`), and a recommended tool that is absent, a cronn
 that does not run, the task picker and the correction queue are offers in the short list at the end of that page (step 6). A
-`correction hook` row (a settings file that still holds the hook an install of Lem before the
-plugin wrote) is one line of that page too, with each file and the entry its guide says to delete
+`correction hook` row (a settings file that also names the hook) is one line of that page too, with each file and the entry its guide says to delete
 by hand.
 
 ## 2. Examine the project

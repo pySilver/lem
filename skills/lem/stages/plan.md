@@ -116,7 +116,7 @@ forge calls it conflicting.
    project's lessons (`lem project path lessons`). `lem project rules
    FILE ...` prints those rule files, the ones with no scope of their own too: do not
    match a file's `paths:` by eye.
-   When the branch already holds a plan (an older night's draft, a builder that stopped at the plan), do
+   When the branch already holds a plan (a builder that stopped at the plan), do
    not write another: read it against the code as it is now, and commit a fix for what the code
    has outgrown.
 2. **Is the task careful?** Two tests, and one yes is enough:

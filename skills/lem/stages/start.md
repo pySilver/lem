@@ -9,8 +9,7 @@ that is started again after it stopped.
    `landing`, `open`, `landed`, `answered` or `dropped` gets no lead at all, and the step says so:
    it is no task to queue.
 2. **The worktree.** When the task has one, use it. When it has none, make it at the path in the
-   brief: from the task's branch when that branch exists (an older night's draft, a task whose worktree
-   was removed), otherwise from the settings' base branch. Use the project's own worktree script
+   brief: from the task's branch when that branch exists (a task whose worktree was removed), otherwise from the settings' base branch. Use the project's own worktree script
    when `AGENTS.md` names one, since it sets up what a plain worktree lacks (a test database, an
    environment), and give it the base as origin has it after `git fetch origin BASE`; otherwise
    `lem project worktree SLUG BRANCH`, which takes a branch that exists as
@@ -47,14 +46,12 @@ the decisions and the commits on the branch; that is the whole handover.
 
 ## `/lem build`
 
-`/lem build <task>` is for a task whose state is `drafted` or `planned`: change its brief to
-`stop after the plan: no`, take out the `night: yes` line of an older night's draft, and start
-its lead. When its `report.md` or a state block of it says `needs a session:` and `lem project
+`/lem build <task>` is for a task whose state is `planned`: change its brief to `stop after the
+plan: no`, and start its lead. When its `report.md` or a state block of it says `needs a session:` and `lem project
 tasks` gives it no `talk`, change the brief to `lead: session` first: that start opens the plan
 talk's companion at once, where a builder would only stop at the plan again. A path to a plan file names its task too: the
-file's name is the settings' `paths.plan_file` (`YYYY-MM-DD-<slug>.md` unless they say otherwise;
-a plan of an older Lem is `YYYYMMDD-<slug>.md`), and the slug is the task's. With no name, list the tasks in those
-two states (`lem project tasks`), each with its ask and its plan's path, and ask which one: a
+file's name is the settings' `paths.plan_file` (`YYYY-MM-DD-<slug>.md` unless they say otherwise),
+and the slug is the task's. With no name, list the tasks in that state (`lem project tasks`), each with its ask and its plan's path, and ask which one: a
 fixed choice, so it stays in the terminal. One such task needs no question.
 
 ## The queue

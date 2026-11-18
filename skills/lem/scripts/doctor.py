@@ -168,8 +168,7 @@ def lem_plugin(home: Path, root: Path | None) -> str | None:
     return None
 
 
-# The correction hook in a settings file, in any form: the one an install of Lem before the plugin
-# wrote (`python3 /PATH/corrections.py hook`, with a timeout of 10), or one added by hand.
+# The correction hook in a settings file, in any form (`python3 /PATH/corrections.py hook`), added by hand.
 HOOK_FORM = re.compile(r"corrections\.py['\"]?\s+hook\b")
 
 
@@ -206,12 +205,11 @@ def hook_places(home: Path, root: Path | None) -> list[dict]:
 def correction_hook() -> list[dict]:
     """A row when the correction hook is registered in more than one place for this repository; no row otherwise.
 
-    The hook comes with Lem's plugin. A second place is a settings file that still holds the hook
-    an install of Lem before the plugin wrote there, and no command of Lem's takes it out: the
-    guide names each entry to delete by hand. Its need is `project`, as the personas' row: it is
-    about what this repository gets, and it never fails the machine check. The hook judges each
-    message once however often it starts, so the row is about telling the truth, not about a
-    wrong queue.
+    The hook comes with Lem's plugin. A second place is a settings file that names the hook too,
+    and no command of Lem's takes it out: the guide names each entry to delete by hand. Its need is
+    `project`, as the personas' row: it is about what this repository gets, and it never fails the
+    machine check. The hook judges each message once however often it starts, so the row is about
+    telling the truth, not about a wrong queue.
     """
     roots = checkout_roots()
     places = hook_places(Path.home(), roots[0] if roots else None)
@@ -221,7 +219,7 @@ def correction_hook() -> list[dict]:
     if len(extra) < len(places):
         fix = "The plugin brings the hook, so remove each other place: " + "; ".join(f"{place['where']}: {place['remove']}" for place in extra)
     else:
-        # no plugin among them: the settings files are all an older install's, and the plugin is what brings the hook now
+        # no plugin among them: the plugin is what brings the hook
         fix = "The hook comes with Lem's plugin: install it, and remove each of these: " + "; ".join(f"{place['where']}: {place['remove']}" for place in extra)
     return [{
         "name": "correction hook", "need": "project", "found": False,
@@ -313,9 +311,8 @@ def stable_lem(home: Path) -> tuple[Path, str] | None:
     """A folder of Lem whose path outlives an update of the plugin, with what keeps it new, or None. The plugin's own folder
     is named by its commit and changes with each update, so it is never this. First the clone of
     Lem's marketplace, which Claude Code pulls before it copies a new folder of the plugin, so it is
-    the newest Lem on the machine; the scripts of a newer Lem read the records of an older one
-    (AGENTS.md). Else this checkout, when it is a clone of Lem's repository, as for a contributor
-    who loads it with `claude --plugin-dir`."""
+    the newest Lem on the machine. Else this checkout, when it is a clone of Lem's repository, as
+    for a contributor who loads it with `claude --plugin-dir`."""
     try:
         known = json.loads((home / PLUGINS / "known_marketplaces.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
