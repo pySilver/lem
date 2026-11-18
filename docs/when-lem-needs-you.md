@@ -20,7 +20,7 @@ you are away, its first line says so.
 4. the open pull requests, each green or with its reasons;
 5. the changes that the morning retro proposes.
 
-Say "open them" to approve, reject or delay each one on one page.
+Say "open them" to approve, reject or delay each one.
 
 ## The board
 
@@ -60,7 +60,7 @@ person something. It climbs a ladder, one level at a time, until a level settles
 
 1. **The question gate** settles it with a ruling of yours, a test or a rule. A ruling is a
    decision of yours about the product that holds for later tasks. `/lem learn` writes one into
-   `docs/rulings/`. The gate also settles a decision whose wrong pick is cheap to undo.
+   the rulings folder of [your settings](settings.md#paths). The gate also settles a decision whose wrong pick is cheap to undo.
 2. **The personas** vote: agents answer as each person that the decision affects.
 3. **Two agents** argue for and against the option with the most votes.
 4. **Two experts** answer: the newest Fable of Anthropic, and the newest Astra of OpenAI through
