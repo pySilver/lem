@@ -5,9 +5,7 @@ comment when the task ends. Lem supports no other tracker.
 
 ## Connect the server
 
-Linear has an MCP server, `https://mcp.linear.app/mcp`, and a read-only one,
-`https://mcp.linear.app/mcp/readonly` ([Linear's guide](https://linear.app/docs/mcp)). Lem needs
-the first, because it writes to tickets.
+Lem reads and writes tickets through Linear's MCP server, `https://mcp.linear.app/mcp`.
 
 1. Add the server for your user, so that the worktree of each task gets it too:
 
@@ -52,7 +50,4 @@ and Lem uses the branch name that Linear gives. `/lem linear ABC-12` only reads 
 
 ## When it does not connect
 
-- A session with nobody at the terminal cannot sign in. Add `--header "Authorization: Bearer
-  <key>"` with a Linear API key to `claude mcp add`. Keep the key out of the repository.
-- An internal server error when you connect: run `rm -rf ~/.mcp-auth`, and connect again.
-- A connection that does not answer: disconnect it in Claude Code, and connect it again.
+[Linear's guide to its MCP server](https://linear.app/docs/mcp) has the steps for each problem.
