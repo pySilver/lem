@@ -24,12 +24,16 @@ Lem is a Claude Code plugin for macOS, and it runs in the [agterm](https://agter
 
 ## What it looks like
 
+A task takes one of two tracks. The fast track is for one plain change with no open question: one
+builder makes it, and nothing waits for you. The standard track is for every other request: an
+interview, acceptance criteria for your yes, a plan, and a larger review.
+
 ```mermaid
 flowchart LR
   request[Your request] --> read{Lem reads it}
-  read -->|small| builder[One builder]
+  read -->|fast track| builder[One builder]
   builder --> checks[Checks and one review]
-  read -->|full| talk[Interview, criteria, your yes]
+  read -->|standard track| talk[Interview, criteria, your yes]
   talk --> build[Build and review]
   checks --> pr[Pull request: green or not green]
   build --> pr
@@ -39,16 +43,17 @@ Two examples of the form, not logs:
 
 ```text
 you  /lem the footer says Terms, not Terms and Conditions
-lem  docs, small: "the footer says Terms". Branch docs/footer-says-terms. One builder,
-     the checks, one read, then the pull request. Nothing waits for you.
-     Wrong read? /lem full, /lem careful.
+lem  docs: "the footer says Terms". Branch docs/footer-says-terms. Fast track: one
+     builder, the checks, one read, then the pull request. Nothing waits for you.
+     Wrong read? /lem standard, /lem careful.
 lem  The pull request is open. Green.
 ```
 
 ```text
 you  /lem the export holds the gift note of an order
-lem  feat, full: "an export holds the gift note". Branch feat/gift-note-in-export.
-     An interview now, then acceptance criteria for your yes. Wrong read? /lem careful.
+lem  feat: "an export holds the gift note". Branch feat/gift-note-in-export.
+     Standard track: an interview now, then acceptance criteria for your yes.
+     Wrong read? /lem careful.
 lem  An order with two notes: both in one cell, with a semicolon? My guess: yes.
 you  yes
 lem  The acceptance criteria, which two personas read:
@@ -80,12 +85,12 @@ page, and type "land" to accept the setup. Then type `/lem` and your first reque
 
 | You type | What happens |
 | --- | --- |
-| `/lem <request>` | Lem opens a task, and tells you its type and size |
+| `/lem <request>` | Lem opens a task, and tells you its type and track |
 | `/lem` | the list of what waits for you, and the board |
 | `/lem status <task>` | the board of one task |
-| `/lem plan <request>` | a full change that stops after its plan. `/lem build` builds it |
+| `/lem plan <request>` | a task on the standard track that stops after its plan. `/lem build` builds it |
 | `/lem land <task>`, or "land it" | Lem merges the pull request |
-| `/lem careful`, `/lem full`, `/lem drop` | you change a task: careful until the merge, full until its pull request, or stopped |
+| `/lem careful`, `/lem standard`, `/lem drop` | you change a task: careful until the merge, the standard track until its pull request, or stopped |
 | `/lem away`, `/lem active` | the tasks go on without you, or wait for you again |
 | `/lem learn` | Lem puts your correction into the file that owns the step |
 
@@ -97,8 +102,8 @@ jobs run `/lem retro` each morning and `/lem night` each night.
 - Nothing merges before your tests pass and an agent that did not build the change reviews it.
 - After an interview, nothing builds before your yes to the acceptance criteria, unless you are
   away.
-- A change that can affect what you said must never go wrong gets the full review and a merge
-  by a person.
+- Every reviewer reads a change that can affect what you said must never go wrong, and a person
+  merges it.
 - A step that nobody can undo always waits for you.
 - Lem never pushes over a commit that it did not push.
 

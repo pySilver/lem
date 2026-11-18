@@ -2,11 +2,11 @@
 
 ## Three points
 
-1. **A full change**: you answer the interview, and say yes to the acceptance criteria.
+1. **The standard track**: you answer the interview, and say yes to the acceptance criteria.
 2. **A decision in doubt** that the personas did not settle: you pick an option on a card.
 3. **The pull request**: you merge it.
 
-A small change, one rule that one builder makes, needs you only at its pull request. Lem takes every other decision itself, and the
+On the fast track, one builder makes one rule, and Lem needs you only at its pull request. Lem takes every other decision itself, and the
 pull request lists each one with its reason, so that you can reverse it.
 
 ## What waits for you
@@ -47,7 +47,7 @@ The second tab shows the backlog. "Start a task" on an item opens a task for it.
 
 A scheduled job runs `/lem night`. Lem takes the smallest backlog items, up to `flow.max_tasks`,
 and runs each one without you to its pull request. In the morning, `/lem` shows these pull
-requests and the report of the night. A full change of the night is not green, because you did
+requests and the report of the night. A task of the night on the standard track is not green, because you did
 not approve its criteria. Lem leaves out an item near what must never go wrong. When two pull
 requests of earlier nights are still open, the night opens nothing.
 

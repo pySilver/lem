@@ -23,7 +23,7 @@ works, and this file says how to change it.
   is a file of its own.** `SKILL.md` holds what is true in every stage. A rule that one stage
   needs goes in that stage. A part of a stage that only one of its paths needs (the interview,
   an investigation, the polish pass) is a file beside it, and the step that chooses the path
-  names that file in one line: a small change reads nothing that only a full change needs.
+  names that file in one line: a task on the fast track reads nothing that only the standard track needs.
 - **Lem's stages and a lead's stages stay apart.** `plan` and `build` are a lead's; the others
   are Lem's. A step that reads a task's code or its diff goes to a lead or to a fresh agent,
   never into `new`, `land` or `review`.
@@ -347,9 +347,10 @@ replaces an earlier ruling, this is the ruling now.
   Commits ("I am a big fan of Semantic Commits ... maybe our path should be somehow related to
   that schema"), and picked "Type and size apart: small or full" on a page. The type is a
   Conventional Commits type, `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `chore`, and
-  `question` for a task that commits nothing. The size is a small change or a full change, and
-  careful is a mark on top. Lem's first line says both ("fix, small"). The kind `correction` is
-  gone: small is a size, never a type.
+  `question` for a task that commits nothing. The track is the fast track or the standard track
+  (`small` and `full` in the records), and careful is a mark on top. Lem's first line says both
+  ("fix: ... Fast track: ..."). The kind `correction` is gone: the fast track is a track, never a
+  type.
 - **One approved line of a task is an acceptance criterion**: "should we use `User Story` or
   `Usecase` to avoid confusions? Stories are sometimes taken as "epic task"", and on the page he
   picked "Acceptance criterion". Every text a person reads, and the names of the script, the
@@ -519,9 +520,9 @@ build that follows.
   a command that would affect the plan, and even when plan is already completed it will do the
   right thing, for example it will run the proper review", and of "drop": "but still - Lem
   should understand what plan is affected the current one or something else". So the three are
-  commands that take a task, `/lem careful`, `/lem full`, `/lem drop` (`stages/correct.md`): a
+  commands that take a task, `/lem careful`, `/lem standard`, `/lem drop` (`stages/correct.md`): a
   task with an open pull request that is called careful goes through the full review again;
-  "full" holds until a small change is proposed; and Lem asks which task when more than one
+  `standard` holds until a task on the fast track is proposed; and Lem asks which task when more than one
   could be meant.
 - **The README shows the interaction, and links to no run** (the same day): "Having examples of
   execution in Readme in a form of links to some repo is plain stupid. I would rather show
@@ -944,12 +945,12 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   files beside it: `interview.md` (the interview and the acceptance criteria), `investigate.md`
   (a bug and a question), `start.md` (the start of a lead, `/lem build` and the queue),
   `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner); and the
-  polish pass, step 3 of `land.md`, is `polish.md`, which only a full change reads. `away.md` is
+  polish pass, step 3 of `land.md`, is `polish.md`, which only the standard track reads. `away.md` is
   what Lem does when the owner says `/lem away` or `/lem active`, `correct.md` what it does at his
-  `/lem careful`, `full` or `drop` of a task, and `ladder.md` the ladder of a decision in doubt, which only a lead or a defender reads, at such a
-  decision. `pages.md` is the owner's page of a full change, after step 6 of `land.md`: `land.py
+  `/lem careful`, `standard` or `drop` of a task, and `ladder.md` the ladder of a decision in doubt, which only a lead or a defender reads, at such a
+  decision. `pages.md` is the owner's page of a task on the standard track, after step 6 of `land.md`: `land.py
   propose` writes `built.md` and `decisions.md` into the task directory from the records the pull
-  request's text reads (never for a small change, never committed), and Lem makes one page of the
+  request's text reads (never on the fast track, never committed), and Lem makes one page of the
   two with `make-page` and the brief `templates/page-brief.md`, which `/lem status SLUG` opens.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `lem_state.py` (the one place that names a repository's state folder,
@@ -970,7 +971,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `corrections.py` (the optional queue of the owner's corrections: its hook, which claims each
   message so that a hook registered in two places judges it once, and what a retro reads), `jev.py` (the client of the Jev decision model, which the hook runs by its path and
   the plugin puts on the Bash tool's `PATH` as the `lem-jev` command), `criteria.py` (a task's acceptance criteria, read from the top of
-  its plan, or for a small change from `criteria.md` in its task directory, and the check that
+  its plan, or on the fast track from `criteria.md` in its task directory, and the check that
   each one's tests pass on the branch and fail on the base commit; it still reads the `stories.md`,
   `stories.json` and `## Stories` of a task an older Lem proposed),
   `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, with
@@ -982,10 +983,10 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   and the blocks of a page to read. `handover.html` is the pattern of the onboarding's page.
   A new page for the owner links `lem.css` and brings no style of its own.
 - `skills/lem/templates/`: the shapes onboarding fills, and `page-brief.md`, the brief of the owner's
-  page of a full change.
+  page of a task on the standard track.
 - `skills/lem/prompts/`: the standing briefs of a task's lead, of a plan talk's defender, of the
   scout of an interview, of the investigator of a bug or a question (`investigator.md`), of the
-  one builder of a small change (`small.md`), of the builders of a landing, of the agent that
+  one builder of the fast track (`small.md`), of the builders of a landing, of the agent that
   routes and runs a review before a change is proposed, and of the reviewer in the other pane.
 - The naps, an optional part: `skills/lem/prompts/nap.md` is the nap's brief, written after the
   owner's own nap routine and kept in its voice (a change to it is tried with one real nap, and

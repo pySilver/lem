@@ -14,11 +14,11 @@ A pull request is not green when one of these is true:
 - Lem took a decision of yours while you were away;
 - the personas did not answer, two times, when they read the criteria;
 - the change brings the first checks into a project that had none;
-- a small change turned out to be careful: it can affect what must never go wrong.
+- a task on the fast track turned out to be careful: it can affect what must never go wrong.
 
 You can merge a green pull request without a read.
 
-For a full change, Lem also makes a page that tells what was built, why, and who took each decision.
+On the standard track, Lem also makes a page that tells what was built, why, and who took each decision.
 Type `/lem status <task>` to open it.
 
 ## Merge it

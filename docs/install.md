@@ -57,7 +57,7 @@ script in `AGENTS.md` that prepares a worktree.
 | `.lem/profile.md` | yes | what the product is |
 | `.lem/personas/` | yes | the people that a change affects |
 | `.lem/lessons.md` | yes | how agents work here. A line that starts with a stage name, such as `new:`, corrects that stage of Lem |
-| `docs/plans/` | yes | the plan of each full change |
+| `docs/plans/` | yes | the plan of each task on the standard track |
 | `docs/backlog/` | yes | work for later |
 | `docs/rulings/` | yes | your decisions about the product |
 | `.claude/rules/` | yes | your rules for the code. Lem reads them, and writes none |
