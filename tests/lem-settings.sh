@@ -246,6 +246,17 @@ if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -qF ".lem/project.t
 else
   fail "the place keys of an older Lem: $paths_err"
 fi
+# The style guide's older key: its folder may hold the draft README.md an older /lem init wrote, which holds no rule, and
+# Claude Code loads every .md file of .claude/rules as a rule; so the refusal says to delete such a file before the move.
+settings '[branch]' 'base = "master"' '[paths]' 'styleguide = ".lem/styleguide"'
+guide_err=$(project --repo "$OLD" show 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's own marks
+if [ "$(status_of project --repo "$OLD" show)" = 1 ] \
+  && grep -qxF -- '- delete `styleguide = ".lem/styleguide"` under [paths], and move the rule files of .lem/styleguide to .claude/rules first: delete each file in .lem/styleguide that holds no rule, such as the draft README.md an older `/lem init` wrote there (`git rm .lem/styleguide/README.md`), since Claude Code loads every .md file of .claude/rules as a rule in each session, then `git mv .lem/styleguide .claude/rules`: .claude/rules is its one place, with no setting' <<<"$guide_err"; then
+  pass "the style guide's older key is refused with the move to .claude/rules and, before it, the delete of a file with no rule, the draft README.md of an older init named"
+else
+  fail "the style guide's older key: $guide_err"
+fi
 
 # A file with keys and a table of several kinds that are gone is refused once, with every line to delete, the move of a
 # place that names another, and last the commit and push. A task branch's own copy is read without them, with one line.
@@ -1130,9 +1141,10 @@ older_code=$(status_of project --repo "$FRESH" rules app/x.py)
 mkdir -p "$FRESH/.claude/rules"
 beside=$(project --repo "$FRESH" rules app/x.py 2>&1 || true)
 # shellcheck disable=SC2016  # the backticks are the refusal's or the page's own marks
-if [ "$none" = "(False, [])" ] && [ "$older_code" = 1 ] && grep -qF 'Move them there: `mkdir -p .claude && git mv .lem/styleguide .claude/rules`' <<<"$older" \
-  && grep -qF 'Move them there: `git mv .lem/styleguide/* .claude/rules/`' <<<"$beside" && [ -f "$FRESH/.lem/styleguide/python.md" ]; then
-  pass "a project with no rules gets no rule and no error, and rule files in the folder an older Lem kept them in are refused with the move to .claude/rules, which nothing makes by itself"
+if [ "$none" = "(False, [])" ] && [ "$older_code" = 1 ] && grep -qF 'Then move the rule files there: `mkdir -p .claude && git mv .lem/styleguide .claude/rules`' <<<"$older" \
+  && grep -qF 'Then move the rule files there: `git mv .lem/styleguide/* .claude/rules/`' <<<"$beside" && [ -f "$FRESH/.lem/styleguide/python.md" ] \
+  && grep -qF 'First delete each file in .lem/styleguide that holds no rule, such as the draft README.md an older `/lem init` wrote there (`git rm .lem/styleguide/README.md`), since Claude Code loads every .md file of .claude/rules as a rule in each session.' <<<"$older"; then
+  pass "a project with no rules gets no rule and no error, and rule files in the folder an older Lem kept them in are refused with the delete of a file with no rule, the draft README.md of an older init named, and then the move to .claude/rules, which nothing makes by itself"
 else
   fail "the rules of an older Lem's folder: $none / $older / $beside"
 fi

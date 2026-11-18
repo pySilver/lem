@@ -270,6 +270,12 @@ PLACES: dict[str, str] = {
 PATHS = {"plans": "docs/plans"}
 # The keys an older Lem had under [paths] for what is a place now: the key -> its place's name.
 OLD_PATH_KEYS = {**{name: name for name in PLACES if name != "rules"}, "styleguide": "rules"}
+# What a move of `.lem/styleguide` into `.claude/rules` takes out first: an older `/lem init` wrote a
+# draft README.md with no rule there, and Claude Code loads every .md file of `.claude/rules` as a rule.
+NO_RULE = (
+    "delete each file in .lem/styleguide that holds no rule, such as the draft README.md an older `/lem init` wrote there "
+    "(`git rm .lem/styleguide/README.md`), since Claude Code loads every .md file of .claude/rules as a rule in each session"
+)
 LAND = ("owner", "agent")
 # How a task's branch reaches the base branch: its own commits, or one commit for the whole branch.
 HISTORY = ("keep", "squash")
@@ -726,6 +732,8 @@ def old_path_line(key: str, value: object) -> str:
         return f"- delete {line}: {place} is its one place, with no setting"
     if key == "worktrees":
         move = f"move each task's worktree from {given} to {place} first, with `git worktree move {given}/SLUG {place}/SLUG`"
+    elif key == "styleguide":
+        move = f"move the rule files of {given} to {place} first: {NO_RULE}, then `git mv {given} {place}`"
     else:
         move = f"move {given} to {place} first, with `git mv {given} {place}`"
     return f"- delete {line}, and {move}: {place} is its one place, with no setting"
@@ -1231,7 +1239,7 @@ def rules_folder(settings: dict) -> Path:
         move = f"git mv .lem/styleguide/* {PLACES['rules']}/" if folder.is_dir() else f"mkdir -p {Path(PLACES['rules']).parent} && git mv .lem/styleguide {PLACES['rules']}"
         raise SettingsError(
             f".lem/styleguide holds rule files, and Lem reads the rules for the code from {PLACES['rules']} only, the folder Claude Code loads by itself. "
-            f"Move them there: `{move}`, then commit the move",
+            f"First {NO_RULE}. Then move the rule files there: `{move}`, and commit the move",
         )
     return folder
 
