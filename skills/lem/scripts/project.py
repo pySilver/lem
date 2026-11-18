@@ -5,12 +5,13 @@ Every project keeps its own settings in its repository: the machine checks of a 
 never go wrong there, who lands, the seats, the tracker. `.lem/project.toml` at the root of the
 checkout names them. What Lem reads beside them has one place each and no setting (`PLACES`): Lem's
 own files under `.lem/` (the profile, the personas, the lessons, the worktrees), the rules for the
-code in the harness's folder (`.claude/rules`), the review tool's folder (`.revmux`), the backlog
-(`docs/backlog`) and the rulings (`docs/rulings`). Only the plans folder and the name of a plan's
-file are settings. A project that keeps one of them in another place moves it there.
+code in the harness's folder (`.claude/rules`), the review tool's folder (`.revmux`) and the
+backlog (`docs/backlog`). A project that keeps one of them in another place moves it there. The
+plans folder and the rulings folder, and the name of a file in each, are settings (`[paths]`):
+a team that adopts Lem may have its own.
 
     lem project show                everything, resolved, as JSON
-    lem project path NAME           one path, absolute: plans, or a place of PLACES
+    lem project path NAME           one path, absolute: plans, rulings, or a place of PLACES
     lem project may-land BRANCH     exit 1 unless tasks of this project may land on BRANCH
     lem project init [--base NAME] [--reviewer claude|codex]
                                     write .lem/project.toml
@@ -59,6 +60,9 @@ file are settings. A project that keeps one of them in another place moves it th
     lem project plan-file SLUG [--date YYYY-MM-DD]
                                     the name a task's plan takes (`paths.plan_file`), and the plan
                                     of the task the plans folder holds, as JSON
+    lem project ruling-file SLUG [--date YYYY-MM-DD]
+                                    the name a ruling takes (`paths.ruling_file`) in the rulings
+                                    folder, and the ruling of that slug the folder holds, as JSON
     lem project may-nap             whether a nap may start now, as JSON, and when it may, the nap is
                                     written down as started; it also removes the naps older than
                                     30 days (`NAPS_KEEP_DAYS`)
@@ -202,6 +206,10 @@ line on stderr (`now_form`).
 A plan's file is named by `paths.plan_file`, a pattern of the tokens `YYYY`, `MM`, `DD` and
 `<slug>`, `YYYY-MM-DD-<slug>.md` unless the settings say otherwise. A task's plan is found by it; a plan named `YYYYMMDD-<slug>.md`, as an older Lem
 named it, is found too: `lem_plans` is the one place that builds and finds the name, and `plan-file` prints both.
+A ruling's file is named the same way by `paths.ruling_file`, `<slug>.md` unless the settings say
+otherwise, in the folder `paths.rulings` (`docs/rulings`), and `ruling-file` prints it. A settings
+file of an older Lem that names `rulings` under [paths] reads again, with its value: the rulings
+folder was a setting before it was a fixed place, and is one again.
 
 `waiting` is the one list of what waits for the owner, which a bare `/lem` says: his status first
 (`owner`: `away`, `since` and his `words`), then the choices of
@@ -275,10 +283,11 @@ PLACES: dict[str, str] = {
     "rules": ".claude/rules",
     "review": ".revmux",
     "backlog": "docs/backlog",
-    "rulings": "docs/rulings",
 }
-# The settings of [paths]: the plans folder, and the name of a plan's file (`plan_file`).
-PATHS = {"plans": "docs/plans"}
+# The folders of [paths], which a team may name for itself (the owner, 2026-11-18: "all 3 should be
+# configurable: rulings location, plans location, plan file names format, rulings file names
+# format"): the plans and the rulings. The name of a file in each is `plan_file` and `ruling_file`.
+PATHS = {"plans": "docs/plans", "rulings": "docs/rulings"}
 # The keys an older Lem had under [paths] for what is a place now: the key -> its place's name.
 OLD_PATH_KEYS = {**{name: name for name in PLACES if name != "rules"}, "styleguide": "rules"}
 # What a move of `.lem/styleguide` into `.claude/rules` takes out first: an older `/lem init` wrote a
@@ -320,8 +329,11 @@ SEATS = {
 # `[seats.reviewer]` with `plan_effort` as its effort, and `effort`, the effort for the review of a
 # diff, which no step used (audit W7, 2026-11-16); `[seats.planner]` with `effort`.
 OLD_SEAT_EFFORT = {"reviewer": "plan_effort", "planner": "effort"}
-# A plan's file name: its default, and its tokens; `lem_plans` builds and finds the name.
+# A plan's and a ruling's file name: their defaults, and their tokens; `lem_plans` builds and finds the name.
 PLAN_FILE = lem_plans.PLAN_FILE
+RULING_FILE = lem_plans.RULING_FILE
+# each pattern of [paths] -> (its default, the folder key it names a file in, what such a file is)
+FILE_PATTERNS = {"plan_file": (PLAN_FILE, "plans", "plan"), "ruling_file": (RULING_FILE, "rulings", "ruling")}
 PLAN_TOKENS = lem_plans.TOKENS
 # a task's slug: plain words joined by hyphens, e.g. report-dates-stay-whole
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
@@ -387,7 +399,7 @@ STATE_LINE = re.compile(r"(?P<since>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z) (?P<status>[
 # reported it on 2026-11-14). The right number depends on the machine and on the project's tests.
 MAX_TASKS = 4
 TABLES: dict[str, tuple[str, ...]] = {
-    "paths": ("plans", "plan_file"),
+    "paths": ("plans", "plan_file", "rulings", "ruling_file"),
     "branch": ("base", "land", "history", "propose", "protected"),
     "checks": ("commands", "setup", "alone"),
     "flow": ("topics", "max_tasks"),
@@ -433,12 +445,16 @@ TEMPLATE = """\
 
 [paths]
 # The folder of the plans, relative to the root of the checkout. Lem's own files are in .lem/, the
-# rules for the code in .claude/rules, the review tool's folder is .revmux, the backlog is
-# docs/backlog and the rulings are docs/rulings: each has that one place, and no line here.
+# rules for the code in .claude/rules, the review tool's folder is .revmux and the backlog is
+# docs/backlog: each has that one place, and no line here.
 plans = "{plans}"
 # The name of a plan's file in the plans folder: YYYY, MM and DD are the day the plan was
 # written, <slug> is the task's. A plan named YYYYMMDD-<slug>.md is found too.
 plan_file = "{plan_file}"
+# The folder of the owner's rulings, the decisions about the product that outlive a task, and the
+# name of a ruling's file there, with the same tokens.
+rulings = "{rulings}"
+ruling_file = "{ruling_file}"
 
 [branch]
 # The branch a task starts from and lands on.
@@ -941,19 +957,20 @@ def experts_of(raw: dict, name: Path) -> list[dict] | None:
     ]
 
 
-def plan_file_of(raw: dict, name: Path) -> str:
-    """The pattern of a plan's file name, checked: the tokens it may hold, `<slug>` once, a name
-    and not a path, and a markdown file."""
-    pattern = raw.get("paths", {}).get("plan_file", PLAN_FILE)
-    where = f"{name}: paths.plan_file"
+def file_pattern_of(raw: dict, name: Path, key: str = "plan_file") -> str:
+    """The pattern of a plan's or a ruling's file name (`FILE_PATTERNS`), checked: the tokens it may
+    hold, `<slug>` once, a name and not a path, and a markdown file."""
+    default, folder, what = FILE_PATTERNS[key]
+    pattern = raw.get("paths", {}).get(key, default)
+    where = f"{name}: paths.{key}"
     if not isinstance(pattern, str) or not pattern.strip():
-        raise SettingsError(f'{where} = {pattern!r} must be a file name in quotes, as plan_file = "{PLAN_FILE}"')
+        raise SettingsError(f'{where} = {pattern!r} must be a file name in quotes, as {key} = "{default}"')
     if pattern.count("<slug>") != 1:
-        raise SettingsError(f'{where} = {pattern!r} must hold <slug> once, where the task\'s slug goes, as plan_file = "{PLAN_FILE}": without it no plan can be told from another task\'s')
+        raise SettingsError(f'{where} = {pattern!r} must hold <slug> once, where the {what}\'s slug goes, as {key} = "{default}": without it no {what} can be told from another')
     if "/" in pattern or "\\" in pattern:
-        raise SettingsError(f"{where} = {pattern!r} is a file name in the plans folder, with no folder in it; paths.plans names the folder")
+        raise SettingsError(f"{where} = {pattern!r} is a file name in the {folder} folder, with no folder in it; paths.{folder} names the folder")
     if not pattern.endswith(".md"):
-        raise SettingsError(f"{where} = {pattern!r} must end with .md: a plan is a markdown file")
+        raise SettingsError(f"{where} = {pattern!r} must end with .md: a {what} is a markdown file")
     if re.search(r"<(?!slug>)[^>]*>", pattern):
         raise SettingsError(f"{where} = {pattern!r} holds a token Lem does not know; it knows YYYY, MM, DD and <slug>")
     twice = [token for token in PLAN_TOKENS if pattern.count(token) > 1]
@@ -1069,8 +1086,9 @@ def load(root: Path) -> dict:
             raise SettingsError(f"{SETTINGS}: paths.{name} must be a string")
         resolved = inside(root, relative, f"paths.{name}")
         paths[name] = {"path": str(resolved), "exists": resolved.exists()}
-    # a pattern, not a path: the name of a plan's file in the plans folder
-    paths["plan_file"] = {"pattern": plan_file_of(raw, SETTINGS)}
+    # a pattern, not a path: the name of a plan's file in the plans folder, and of a ruling's in the rulings folder
+    for key in FILE_PATTERNS:
+        paths[key] = {"pattern": file_pattern_of(raw, SETTINGS, key)}
     # what Lem reads beside the settings, each in its one place: no setting names them
     places = {name: {"path": str(root.resolve() / place), "exists": (root / place).exists()} for name, place in PLACES.items()}
 
@@ -1178,16 +1196,18 @@ def load(root: Path) -> dict:
 
 
 def cmd_path(settings: dict, name: str) -> None:
-    if name == "plan_file":
-        raise SettingsError("paths.plan_file is the pattern of a plan's name, not a path: `lem project plan-file SLUG` prints the name of a task's plan")
-    found = {**settings["places"], "plans": settings["paths"]["plans"]}
+    if name in FILE_PATTERNS:
+        what = FILE_PATTERNS[name][2]
+        raise SettingsError(f"paths.{name} is the pattern of a {what}'s name, not a path: `lem project {what}-file SLUG` prints the name of a {what}'s file")
+    found = {**settings["places"], **{key: settings["paths"][key] for key in PATHS}}
     if name not in found:
         raise SettingsError(f"no path named {name!r}{nearest(name, tuple(found))}")
     print(found[name]["path"])
 
 
-def cmd_plan_file(settings: dict, slug: str, day: str | None) -> None:
-    """The name a task's plan takes, written today or on DAY, and the plan the plans folder holds now."""
+def cmd_plan_file(settings: dict, slug: str, day: str | None, key: str = "plan_file") -> None:
+    """The name a task's plan takes, written today or on DAY, and the plan the plans folder holds
+    now; with `ruling_file`, the same for a ruling in the rulings folder."""
     if not SLUG.fullmatch(slug):
         raise SettingsError(f"slug {slug!r} must be lower-case words joined by hyphens")
     day = day or datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -1195,9 +1215,9 @@ def cmd_plan_file(settings: dict, slug: str, day: str | None) -> None:
         datetime.strptime(day, "%Y-%m-%d")
     except ValueError as error:
         raise SettingsError(f"--date {day!r} is not a day as YYYY-MM-DD") from error
-    pattern = settings["paths"]["plan_file"]["pattern"]
-    folder = Path(settings["paths"]["plans"]["path"])
-    found = lem_plans.found(folder, pattern, slug)
+    pattern = settings["paths"][key]["pattern"]
+    folder = Path(settings["paths"][FILE_PATTERNS[key][1]]["path"])
+    found = lem_plans.found(folder, pattern, slug, older=key == "plan_file")
     name = lem_plans.name(pattern, slug, day)
     print(json.dumps({"slug": slug, "pattern": pattern, "name": name, "path": str(folder / name), "found": str(found) if found else None}, indent=2))
 
@@ -1263,7 +1283,7 @@ def cmd_init(root: Path, base: str | None, reviewer: str | None) -> None:
     file.parent.mkdir(exist_ok=True)
     agent = f'reviewer = "{reviewer}"' if reviewer else '# reviewer = "codex/gpt-6.1-sol:high"'
     file.write_text(TEMPLATE.format(
-        plans=PATHS["plans"], plan_file=PLAN_FILE, base=base, reviewer=agent, experts=", ".join(toml_string(one) for one in EXPERTS),
+        plans=PATHS["plans"], plan_file=PLAN_FILE, rulings=PATHS["rulings"], ruling_file=RULING_FILE, base=base, reviewer=agent, experts=", ".join(toml_string(one) for one in EXPERTS),
         max_tasks=MAX_TASKS,
     ), encoding="utf-8")
     # one machine's own settings and Lem's state are never committed (the state folder hides itself
@@ -2543,6 +2563,9 @@ def main(argv: list[str] | None = None) -> None:
     plan_file = commands.add_parser("plan-file", help="the name a task's plan takes, and the plan the plans folder holds")
     plan_file.add_argument("slug")
     plan_file.add_argument("--date", metavar="YYYY-MM-DD", help="the day the plan is written (default: today, in UTC)")
+    ruling_file = commands.add_parser("ruling-file", help="the name a ruling takes, and the ruling of that slug the rulings folder holds")
+    ruling_file.add_argument("slug")
+    ruling_file.add_argument("--date", metavar="YYYY-MM-DD", help="the day the ruling is written (default: today, in UTC)")
     rules = commands.add_parser("rules")
     rules.add_argument("files", nargs="*", metavar="FILE")
     rules.add_argument("--range", dest="commits", metavar="BASE..TIP", help="also the files this range of commits changes")
@@ -2635,6 +2658,8 @@ def main(argv: list[str] | None = None) -> None:
             cmd_worktree(root, settings, args.slug, args.branch)
         elif args.command == "plan-file":
             cmd_plan_file(settings, args.slug, args.date)
+        elif args.command == "ruling-file":
+            cmd_plan_file(settings, args.slug, args.date, "ruling_file")
         elif args.command == "may-land":
             cmd_may_land(settings, args.branch)
         else:

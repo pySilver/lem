@@ -30,7 +30,8 @@ it:
    - what a review should catch or stop raising: the lens, the review profile or the
      rejected-findings list (`lem project path review`). That folder is the review tool's own:
      Lem never moves, links or reshapes it, and a lesson still writes a line into a file there;
-   - a decision about the product that outlives the task: a ruling (`lem project path rulings`);
+   - a decision about the product that outlives the task: a ruling, a file in the rulings folder
+     (`lem project path rulings`) named as `lem project ruling-file SLUG` prints it (`name`);
    - a command shape a pattern can match: a hook or a commit check of the repository that refuses
      it and names the replacement;
    - none of these: one line in the project's lessons file (`lem project path lessons`), which the

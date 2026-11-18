@@ -2,12 +2,16 @@
 
 [paths]
 # The folder of the plans, relative to the root of the checkout. Lem's own files are in .lem/, the
-# rules for the code in .claude/rules, the review tool's folder is .revmux, the backlog is
-# docs/backlog and the rulings are docs/rulings: each has that one place, and no line here.
+# rules for the code in .claude/rules, the review tool's folder is .revmux and the backlog is
+# docs/backlog: each has that one place, and no line here.
 plans = "docs/plans"
 # The name of a plan's file in the plans folder: YYYY, MM and DD are the day the plan was
 # written, <slug> is the task's. A plan named YYYYMMDD-<slug>.md is found too.
 plan_file = "YYYY-MM-DD-<slug>.md"
+# The folder of the owner's rulings, the decisions about the product that outlive a task, and the
+# name of a ruling's file there, with the same tokens. Lem's own rulings are in AGENTS.md.
+rulings = "docs/rulings"
+ruling_file = "<slug>.md"
 
 [branch]
 # The branch a task starts from and lands on.

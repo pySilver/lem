@@ -18,7 +18,7 @@ with each option, and a `--level` for each level that ran with what it answered,
 record shows later which level changes picks and which never does.
 
 0. **The gate.** The `lem-gate` skill (`load-skill`) asks its judge. It settles the decision when
-   a ruling of the owner's answers it (a file of `docs/rulings`, or a line of the project's agent
+   a ruling of the owner's answers it (a file of the rulings folder, `lem project path rulings`, or a line of the project's agent
    document), when a test or a rule answers it, or when a wrong pick is cheap to reverse and
    nobody would notice it meanwhile: `--by gate`, with the cite in `--why`. `held` goes on.
 1. **You** write the options, each as what a person would see and what it costs, your pick, and

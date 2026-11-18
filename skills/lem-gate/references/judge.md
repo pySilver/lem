@@ -11,7 +11,8 @@ Read QUESTION_FILE: the question, its options and context.
 
 Then search the project at REPO for whether it is already answered. Look in this order, and grep
 before you read whole files:
-1. the owner's rulings: docs/rulings/*.md (each has an `area:` line; grep the area and the
+1. the owner's rulings: the .md files of the rulings folder, which `lem project --repo REPO path
+   rulings` prints (docs/rulings unless the settings say otherwise; each has an `area:` line; grep the area and the
    question's key words);
 2. the review profile's rejected findings and settled designs: .revmux/profile.md;
 3. the backlog: docs/backlog/*.md (an item may record the decision or the open question);

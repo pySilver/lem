@@ -13,6 +13,8 @@ Each path is relative to the root of the repository.
 | --- | --- | --- |
 | `paths.plans` | `"docs/plans"` | the folder of the plans |
 | `paths.plan_file` | `"YYYY-MM-DD-<slug>.md"` | the name of a plan file |
+| `paths.rulings` | `"docs/rulings"` | the folder of your rulings |
+| `paths.ruling_file` | `"<slug>.md"` | the name of a ruling file, with the same parts |
 
 ## `[branch]`
 
