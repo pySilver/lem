@@ -22,7 +22,7 @@ In doubt, it first asks one question, with its guess. `/lem standard-track` and
 `/lem be-careful` correct the line.
 
 - **Type**: a Conventional Commits type such as `feat` or `fix`, or `question`, which commits
-  nothing. Only you can change it.
+  nothing.
 - **Careful** comes first when the request can affect what must never go wrong:
   `Careful: this changes how a customer is charged. feat: ...`
 
@@ -61,7 +61,7 @@ and no persona has a doubt, the build starts at once. Say "interview me" to get 
 ## A bug or a question
 
 When your words do not show the cause of a bug, an agent called the investigator looks first. It
-writes a test that fails, and finds the cause with the `root-cause` skill of Lem: it asks why
+writes a test that fails, and finds the cause with Lem's `root-cause` skill: it asks why
 until the answer is a file and a symbol. It changes no behavior. Then:
 
 - one rule removes the cause: the fast track, with that test;
@@ -69,7 +69,7 @@ until the answer is a file and a symbol. It changes no behavior. Then:
 - no bug: Lem tells you what the code does and why;
 - no way to reproduce it: Lem tells you each try, and asks for one more fact.
 
-A question gets the same work, and ends with its answer.
+A question gets the same work.
 
 ## Careful
 
@@ -78,7 +78,7 @@ the wrong amount". Lem reads each request, plan and diff against them. When it i
 change is careful. `/lem be-careful` marks a task, also an open one: every reviewer reads it again.
 
 Every reviewer reads a careful change, and a person merges it. When its plan is careful, or has
-more than three parts, two agents argue the plan before any code. You can watch this plan talk.
+more than three parts, two agents argue the plan before any code, and you can watch.
 
 ## The checks and the review
 
