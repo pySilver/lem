@@ -1248,6 +1248,19 @@ def tasks_of(plan: str) -> int:
 
 def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     """Where the change lowers the bar, each with the reason the plan gives for that file, or none."""
+    # -M: a file that moved is one file, so its tests are not counted as gone and come again
+    return bar_of(
+        git(task.worktree, "diff", "-U0", "-M", base, tip),
+        git(task.worktree, "diff", "--name-status", "-M", base, tip).splitlines(),
+        plan,
+        changed(task, base, tip),
+    )
+
+
+def bar_of(diff: str, rows: list[str], plan: str, files: list[str]) -> dict:
+    """The bar's result from what git gave: `diff` is `git diff -U0 -M`, `rows` the lines of
+    `git diff --name-status -M`, `files` every changed path; `plan` is the plan's text, or "" when
+    there is none."""
     section = re.search(r"(?ms)^##\s+The bar\s*$(.*?)(?=^##\s|\Z)", plan)
     reasons = {found.group(1).strip(): found.group(2).strip() for found in re.finditer(r"(?m)^-\s+`?([^`:\n]+?)`?:\s+(\S.*)$", section.group(1))} if section else {}
     lowered: list[dict] = []
@@ -1262,8 +1275,7 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     thresholds: dict[str, dict[str, list[tuple[float, str]]]] = {}
     file = old = ""
     marks: list[re.Pattern] = []
-    # -M: a file that moved is one file, so its tests are not counted as gone and come again
-    for line in git(task.worktree, "diff", "-U0", "-M", base, tip).splitlines():
+    for line in diff.splitlines():
         if line.startswith("--- "):
             old = line[6:] if line.startswith("--- a/") else ""
         elif line.startswith("+++ "):
@@ -1303,7 +1315,6 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
         if after is None or after < before:
             said = f"{name} went from {before:g} to {after:g}" if after is not None else f"{name} ({before:g}) is gone"
             lowered.append({"file": where, "what": said, "line": ""})
-    rows = git(task.worktree, "diff", "--name-status", "-M", base, tip).splitlines()
     edited = []
     for row in rows:
         status, name, *moved = row.split("\t")
@@ -1320,8 +1331,26 @@ def bar(task: Task, base: str, tip: str, plan: str) -> dict:
     for entry in lowered:
         entry["reason"] = reasons.get(entry["file"])
     covered = {suffix for suffixes in BAR for suffix in suffixes}
-    not_covered = sorted({Path(name).suffix.lower() for name in changed(task, base, tip)} - covered - set(DOCS) - set(DATA))
+    not_covered = sorted({Path(name).suffix.lower() for name in files} - covered - set(DOCS) - set(DATA))
     return {"lowered": lowered, "not_covered": not_covered, "edited": sorted(edited, key=lambda entry: entry["file"])}
+
+
+def bar_refusal(lowered: list[dict], small: bool) -> str | None:
+    """The checks' refusal of a bar lowered with no reason, or None. The fast track gives no reason:
+    it has no plan, and a lowered bar never takes the fast track."""
+    unexplained = [entry for entry in lowered if not entry["reason"]]
+    if not unexplained:
+        return None
+    named = "; ".join(f"{entry['file']} ({entry['what']})" for entry in unexplained[:5])
+    if small:
+        return (
+            f"a task on the fast track does not lower the bar: {named}. Take the mark out; when the change needs it, it takes the standard track, "
+            f"and Lem tells the developer so and takes that track, whose plan gives the reason under `## The bar`"
+        )
+    return (
+        f"the change lowers the bar with no reason given: {named}. Take the mark out, or give the reason in the task's plan "
+        "under `## The bar` as `- PATH: REASON`, where the one who reads the change sees it"
+    )
 
 
 def cmd_checks(task: Task) -> dict:
@@ -1439,19 +1468,10 @@ def cmd_checks(task: Task) -> dict:
     now = change(task)
     result["bar"] = bar(task, now["base"], tip, plan)
     result["size"] = {"files": len(now["files"]), "lines": now["lines"], "in_parts": now["lines"] > READ_AT}
-    unexplained = [entry for entry in result["bar"]["lowered"] if not entry["reason"]]
-    if unexplained:
+    refused = bar_refusal(result["bar"]["lowered"], found["small"])
+    if refused:
         print(json.dumps(result, indent=2))
-        named = "; ".join(f"{entry['file']} ({entry['what']})" for entry in unexplained[:5])
-        if found["small"]:
-            raise LandError(
-                f"a task on the fast track does not lower the bar: {named}. Take the mark out; when the change needs it, it takes the standard track, "
-                f"and Lem tells the developer so and takes that track, whose plan gives the reason under `## The bar`",
-            )
-        raise LandError(
-            f"the change lowers the bar with no reason given: {named}. Take the mark out, or give the reason in the task's plan "
-            "under `## The bar` as `- PATH: REASON`, where the one who reads the change sees it",
-        )
+        raise LandError(refused)
     task.keep(gated=tip, tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"), checks={"commands": results, "criteria": result["criteria"], "bar": result["bar"], "size": result["size"]})
     return result
 
