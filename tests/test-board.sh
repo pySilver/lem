@@ -2018,7 +2018,8 @@ iso = lambda minutes: (now - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%
 state = lambda minutes, task, status, text, ask, lines=(): {"ts": iso(minutes), "event": "task.state", "task": task, "status": status, "text": text, "lines": list(lines), "ask": ask}
 def decision(minutes, kind, task, number, **rest):
     return {"ts": iso(minutes), "event": f"decision.{kind}", "task": task, "id": number, "at": iso(minutes), **rest}
-owner = lambda minutes, away, words: {"ts": iso(minutes), "event": "owner", "away": away, "by": "owner", "words": words}
+# the owner's status is the machine's mark, whose copy the page reads from owner.js, never from events.js
+owner = lambda minutes, away, words: {"ts": iso(minutes), "event": "owner", "task": None, "away": away, "by": "owner", "words": words}
 experts = {"fable": "the invoice is a page of the shop", "astra": "the printer prints in color"}
 # land.py's own lines (not_green): a choice the experts took, a decision past the personas, a choice taken as the recommended option
 by_experts = ('choice 2 was taken by the experts (The color of the logo): "the green of the shop", both picked it, at once, as the task ran without the owner. '
@@ -2036,9 +2037,7 @@ events = [
     decision(100, "asked", "logo-color", 2, what="The color of the logo", options=["black", "the green of the shop"], recommended="black", why="a black logo prints on every printer"),
     decision(99, "advised", "logo-color", 2, expert="fable", pick="the green of the shop", why=experts["fable"]),
     decision(98, "advised", "logo-color", 2, expert="astra", pick="the green of the shop", why=experts["astra"]),
-    owner(90, True, "/lem im-away"),
     decision(90, "timeout", "logo-color", 2, chose="the green of the shop", by="experts", experts=experts, early=True),
-    owner(60, False, "/lem im-back"),
     state(50, "logo-color", "landing", "the checks start", "Print the logo in the shop's color"),
     {"ts": iso(40), "event": "proposed", "task": "logo-color", "green": False, "not_green": [by_experts], "tip": "abc123456"},
     state(40, "logo-color", "open", "pull request https://github.com/acme/shop/pull/4", "Print the logo in the shop's color"),
@@ -2056,6 +2055,8 @@ events = [
     decision(18, "advised", "long-lines", 1, expert="astra", pick="the month first", why="the accountant's spreadsheet is in English"),
 ]
 open(f"{out}/events.js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(e)});\n" for e in events))
+marks = [owner(90, True, "/lem im-away"), owner(60, False, "/lem im-back")]
+open(f"{out}/owner.js", "w", encoding="utf-8").write("".join(f"lemOwner({json.dumps(m)});\n" for m in marks))
 open(f"{out}/meta.js", "w", encoding="utf-8").write("lemMeta(" + json.dumps({"repo": "shop", "base": "main", "session": "LEM1", "gates": 1, "serial": 0}) + ");\n")
 open(f"{out}/backlog.js", "w", encoding="utf-8").write("lemBacklog(" + json.dumps({"folder": "docs/backlog", "read": iso(1), "items": []}) + ");\n")
 told = {"written": iso(1), "tasks": {"logo-color": {"outcome": "The invoice prints the logo in the green of the shop, on every printer of the shop.",
@@ -2646,15 +2647,19 @@ sys.exit(bool(wrong))' "$WORK/board-standin.dom"); then
   fi
   # While the owner is away the head of the board says so, with the command that ends it. Last, since his
   # away takes each choice that waits.
+  # His status is the machine's mark in the home directory, and the page reads its copy, owner.js, which
+  # `lem board` writes at each run: it is removed first, so the run's own copy is the one drawn. No `owner`
+  # event is in events.js.
   project owner away --words "/lem im-away" >/dev/null
-  # The page still takes his status from the `owner` events of events.js, which no script writes now: the mark's newest
-  # record goes there by hand until the page reads the board's copy of the mark.
-  printf 'lemEvent(%s);\n' "$(tail -n 1 "$XDG_CONFIG_HOME/lem/owner.jsonl")" >> "$STATE/events.js"
+  rm -f "$STATE/owner.js"
   board --no-open >/dev/null && draw board away
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/board-away.dom" "the tasks go on without you until /lem im-back" "!/lem active"); then
-    pass "while the owner is away, the head of the board says that the tasks go on without him until /lem im-back"
+  copied=$("$PY" -I -c 'import json, re, sys; print([(r["away"], r["words"]) for r in (json.loads(m) for m in re.findall(r"(?m)^lemOwner\((.*)\);$", open(sys.argv[1]).read()))])' "$STATE/owner.js" 2>&1 || true)
+  in_events=$(grep -c '"event": "owner"' "$STATE/events.js" || true)
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/board-away.dom" "You are away since" "the tasks go on without you until /lem im-back" "!/lem active") \
+    && [ "$copied" = "[(True, '/lem im-away')]" ] && [ "$in_events" = 0 ]; then
+    pass "while the owner is away, the head of the board says since when and that the tasks go on without him until /lem im-back, from the copy of the machine's mark that lem board writes beside the page, owner.js, with no owner event in events.js"
   else
-    fail "the head of the board while the owner is away: $why"
+    fail "the head of the board while the owner is away: ${why:-drawn} / owner.js: $copied / owner events in events.js: $in_events"
   fi
 fi
 

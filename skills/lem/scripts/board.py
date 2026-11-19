@@ -19,6 +19,10 @@ the base branch, the session that opened the board, and how many commands one ru
 the checks has, `gates`, so the page knows when a run is complete). A file:// page cannot read a file with
 fetch and it can load a script, so each of them is one.
 
+The owner's status, away or there, is the machine's mark in the home directory, which the page
+cannot read; `owner.js` beside it is the mark's copy, one `lemOwner({...});` line for each record,
+which this script writes at every run, as `lem project owner` and its watch do.
+
 The board's tab "Backlog" reads `backlog.js`, which this script writes at every run:
 each item of the settings' backlog folder in the main checkout, with its `worth`, its `where` and
 whether that still resolves, and whether git has it committed. Items change rarely, so the page reads that file when
@@ -67,6 +71,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
+# project.py's own read of the owner's mark, so that the board's copy of it is written as `owner` writes it
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(SCRIPTS))
+import project as lem_project  # noqa: E402
 ASSET = SCRIPTS.parent / "assets" / "board.html"
 # the look every page of Lem shares, and the script that picks its palette; the board links both,
 # so they go beside the page
@@ -286,6 +294,12 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
     if marker.is_file():
         meta["demo"] = True
     (state / "meta.js").write_text(f"lemMeta({json.dumps(meta, ensure_ascii=False)});\n", encoding="utf-8")
+    # The owner's status is the machine's mark in the home directory, which a file:// page cannot
+    # read: its copy goes beside the page at every run, as `lem project owner` and its watch write it.
+    try:
+        lem_project.owner_copy(Path(settings["main"]), lem_project.owner_records())
+    except lem_project.SettingsError as error:
+        raise BoardError(str(error)) from error
     # `</` is split so that no item's text can end the script tag the page loads this file with
     items = json.dumps(backlog(settings), ensure_ascii=False).replace("</", "<\\/")
     (state / "backlog.js").write_text(f"lemBacklog({items});\n", encoding="utf-8")

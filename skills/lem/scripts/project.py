@@ -46,6 +46,12 @@ a team that adopts Lem may have its own.
                                     kept in the machine's mark, so every repository on this machine
                                     reads them. Away takes at once each choice of this repository that
                                     waits for him and is no irreversible step (`lem decisions away`)
+    lem project owner watch --seen N [--every SECONDS]
+                                    look at the machine's mark every 5 seconds, and end with his
+                                    status as JSON (`away`, `since`, `words`, `seen`) as soon as the
+                                    mark holds another number of records than N, owner.seen of
+                                    `waiting`: at once when it does at the start. It writes nothing
+                                    to the mark; Lem's session keeps it in the background
     lem project log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
     lem project may-start SLUG      exit 1 for a task in `landing`, `open` or an ended state, which
@@ -107,7 +113,9 @@ the machine's mark, `owner.jsonl` in `$XDG_CONFIG_HOME/lem`, or in `~/.config/le
 variable is not set, one record in the form of an event, `event` `owner` with no task and
 `away`, `by` `owner`, his `words` and the `repo` he typed it in. Every repository on this machine
 reads it, its newest record holds, and with no mark he is there. `owner` writes the folder and the
-file, and no other command of Lem's writes in the home directory.
+file, and no other command of Lem's writes in the home directory. The board cannot read a file
+there, so `owner`, `owner watch` (at its start and at its end) and `lem board` write a copy of the
+mark whole into the state folder, `owner.js`, one `lemOwner({...});` line for each record.
 `task.mode` is the night's mark, which `task-dir --night` writes, as `mode=alone by=lem words="the
 night of YYYY-MM-DD"`. A task runs without the owner while he is away, and a night's task from its
 mark until it ends, whatever his status; `tasks` gives each task `mode` (`alone` or `with-owner`, now),
@@ -254,6 +262,7 @@ import re
 import signal
 import shutil
 import subprocess
+import time
 import tomllib
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -1938,6 +1947,27 @@ def append_owner(root: Path, away: bool, words: str) -> dict:
     return record
 
 
+# The board's copy of the machine's mark, in a repository's state folder beside `events.js`: a page
+# reads only files beside it, so it cannot read the mark in the home directory.
+OWNER_COPY = "owner.js"
+# How many seconds the watch of the mark waits between two looks at it. A guess (2026-11-19), not a
+# measurement: an away typed in another repository reaches this one's waiting choices within
+# seconds, and one read of a file of a few lines every 5 seconds costs nothing.
+OWNER_WATCH_SECONDS = 5
+
+
+def owner_copy(root: Path, records: list[dict]) -> None:
+    """Write the board's copy of the mark whole, one `lemOwner({...});` line for each record: a
+    temporary file and a rename, so that the page never reads half of it. Nothing reads it but the page."""
+    state = state_root(root)
+    # `</` is split so that no words of his can end a script tag that holds the line
+    text = "".join(f"lemOwner({json.dumps(record, ensure_ascii=False)});\n".replace("</", "<\\/") for record in records)
+    # the process's id in the name: two writers at one moment never write one new file
+    fresh = state / f"{OWNER_COPY}.{os.getpid()}.new"
+    fresh.write_text(text, encoding="utf-8")
+    fresh.replace(state / OWNER_COPY)
+
+
 def merged(events: list[dict], marks: list[dict]) -> list[dict]:
     """A repository's events and the records of the owner's mark in one list, in the order of `ts`.
     A `ts` has whole seconds, so the sort is stable over the repository's list followed by the
@@ -2211,15 +2241,20 @@ def cmd_owner(root: Path, status: str, words: str | None) -> dict:
     `tasks` are this repository's: after an away the tasks that run without him, after a back the
     ones that came back to him (a night's task does not)."""
     if status not in ("away", "back"):
-        raise SettingsError(f"the owner is away or back, not {status!r}: `lem project owner away --words \"I'm away\"` or `lem project owner back --words \"I'm back\"`")
+        raise SettingsError(f"the owner is away or back, not {status!r}: `lem project owner away --words \"I'm away\"` or `lem project owner back --words \"I'm back\"`"
+                            " (`lem project owner watch --seen N` watches his status)")
     if not words or not words.strip():
         raise SettingsError("--words are the owner's words as typed (\"I'm away\", \"/lem im-back\"); no script can tell who typed, so they are his only")
-    now = owner_now(owner_records())
+    marks = owner_records()
+    now = owner_now(marks)
     away = status == "away"
     without = [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"]
     if now["away"] == away:
+        # the board's copy is written again all the same: a copy that an older read replaced is current after it
+        owner_copy(root, marks)
         return {**now, "written": False, "tasks": without, "taken": []}
     record = append_owner(root, away, words.strip())
+    owner_copy(root, owner_records())
     taken: list = []
     if away:
         ran = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "away"],
@@ -2230,6 +2265,36 @@ def cmd_owner(root: Path, status: str, words: str | None) -> dict:
     after = [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"]
     return {"away": away, "since": record["ts"], "words": record["words"], "written": True,
             "tasks": after if away else [slug for slug in without if slug not in after], "taken": taken}
+
+
+def cmd_owner_watch(root: Path, seen: int, every: int = OWNER_WATCH_SECONDS) -> dict:
+    """Look at the machine's mark once every EVERY seconds, and end with the owner's status as soon
+    as the mark holds another number of records than SEEN, the count `waiting` gave as `owner.seen`:
+    at once when that is so at the start, so that no change is lost between Lem's read and this
+    start. The count is the cursor and no time is, since a `ts` has whole seconds and an away and a
+    back can share one; the mark is only appended to, so a new record always changes the count. It
+    writes nothing to the mark, and the board's copy at its start and at its end. Lem acts on its result."""
+    if seen < 0:
+        raise SettingsError(f"--seen is the number of records in the owner's mark, 0 or more, not {seen}: `lem project waiting` gives it as owner.seen")
+    marks = owner_records()
+    owner_copy(root, marks)
+
+    def stopped(*_: object) -> None:
+        raise KeyboardInterrupt
+
+    before = (signal.signal(signal.SIGTERM, stopped), signal.signal(signal.SIGINT, stopped))
+    try:
+        while len(marks) == seen:
+            time.sleep(every)
+            marks = owner_records()
+    except KeyboardInterrupt:
+        owner_copy(root, owner_records())
+        raise SettingsError("the watch of the owner's status was stopped; Lem starts it again with --seen from owner.seen of `lem project waiting`") from None
+    finally:
+        signal.signal(signal.SIGTERM, before[0])
+        signal.signal(signal.SIGINT, before[1])
+    owner_copy(root, marks)
+    return {**owner_now(marks), "seen": len(marks)}
 
 
 def cmd_serial(root: Path, words: list[str]) -> int:
@@ -2396,9 +2461,12 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("lines", nargs="+", metavar="LINE")
     state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
     commands.add_parser("tasks")
-    owner = commands.add_parser("owner", help="the owner says that he is away, or back again, for every repository on this machine")
-    owner.add_argument("status", metavar="away|back")
-    owner.add_argument("--words", help="the owner's words as typed")
+    owner = commands.add_parser("owner", help="the owner says that he is away, or back again, for every repository on this machine; watch waits for his next word")
+    owner.add_argument("status", metavar="away|back|watch")
+    owner.add_argument("--words", help="the owner's words as typed (away and back)")
+    owner.add_argument("--seen", type=int, metavar="N", help="watch: the number of records in the owner's mark, owner.seen of `lem project waiting`")
+    owner.add_argument("--every", type=int, default=OWNER_WATCH_SECONDS, metavar="SECONDS",
+                       help=f"watch: seconds between two looks at the mark (default {OWNER_WATCH_SECONDS}); for a test that cannot wait")
     step = commands.add_parser("ticket-step")
     step.add_argument("slug")
     step.add_argument("step")
@@ -2432,7 +2500,16 @@ def main(argv: list[str] | None = None) -> None:
         if args.command == "tasks":
             print(json.dumps(read_tasks(root), indent=2))
             return
+        if args.command == "owner" and args.status == "watch":
+            if args.seen is None:
+                raise SettingsError("watch takes --seen N, the number of records in the owner's mark: `lem project waiting` gives it as owner.seen")
+            if args.words is not None:
+                raise SettingsError("watch takes no --words: it reads the owner's status, and only away and back write it")
+            print(json.dumps(cmd_owner_watch(root, args.seen, max(1, args.every))))
+            return
         if args.command == "owner":
+            if args.seen is not None:
+                raise SettingsError(f"--seen belongs to watch, not to {args.status}: `lem project owner watch --seen N`")
             print(json.dumps(cmd_owner(root, args.status, args.words)))
             return
         if args.command == "log":

@@ -377,6 +377,8 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     binary = chrome()
     work = Path(tempfile.mkdtemp(prefix="lem-showcase-"))
+    # the owner's status of this afternoon: no mark, so he is there, whatever the machine's own mark says
+    os.environ["XDG_CONFIG_HOME"] = str(work / "config")
     try:
         shop = Shop(work)
         afternoon(shop)
