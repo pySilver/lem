@@ -430,16 +430,20 @@ holder=$!
 soon test -s "$WORK/alock.out"
 "$PY" -B "$CRITERIA" --repo "$D2" approve late-approve --file "$WORK/late-approve.md" --alone > "$WORK/late-approve.out" 2>&1 &
 approver=$!
-sleep 1
+# at_lock PID: the approval PID has the lock's file open, which it opens only to wait for the lock: a sign in place of a
+# second of waiting, so that a late start of the approval cannot read his back before it reaches the lock
+at_lock() { lsof -t "$D2/.lem/state/tasks/late-approve/criteria.lock" 2>/dev/null | grep -qx "$1"; }
+soon at_lock "$approver"
+at_lock "$approver" && waited=yes || waited=no
 project --repo "$DC" owner back --words "I'm back" >/dev/null
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 wait "$approver" || true
 if [ "$far" = "('taken without the owner: the task runs without him now', '2026-11-19', 'timeout')" ] && [ "$took" -lt 30 ] && [ "$far_never" = "still waits" ] \
-  && [ "$night_mode" = "[('night-dates', 'alone'), ('report-dates', 'with-owner')]" ] && [ "$night_asked" = ISO ] \
+  && [ "$night_mode" = "[('night-dates', 'alone'), ('report-dates', 'with-owner')]" ] && [ "$night_asked" = ISO ] && [ "$waited" = yes ] \
   && grep -qF "late-approve runs with the owner" "$WORK/late-approve.out" && [ ! -e "$D2/.lem/state/tasks/late-approve/criteria.json" ]; then
   pass "the owner's away in one repository takes a choice a lead waits on in another within seconds, never an irreversible step there; his back in the first leaves a task the night opened in the other without him, and its choice is taken at once; an approval without him that waited for its lock while he came back is refused"
 else
-  fail "the owner's status across two repositories: $far / $took / $far_never / $night_mode / $night_asked / $(cat "$WORK/far-wait.out" "$WORK/late-approve.out")"
+  fail "the owner's status across two repositories: $far / $took / $far_never / $night_mode / $night_asked / at the lock: $waited / $(cat "$WORK/far-wait.out" "$WORK/late-approve.out")"
 fi
 
 finish

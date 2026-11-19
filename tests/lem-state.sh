@@ -116,6 +116,9 @@ fi
 
 # The pull request's line of the time without the owner, for a task of the second repository: the span from his away in
 # the first to his back in the second.
+# the log's time is to the second: the task opens after the back above, which a back in its own second would end at
+# its opening, a span of no length
+sleep 1
 on "$SECOND" task-dir span-task --ask "Put the word into the file." >/dev/null && on "$SECOND" state span-task building "lead: builder" >/dev/null
 sleep 1
 away_at=$(on "$FIRST" owner away --words "I'm away" | field 'd["since"]')
@@ -135,37 +138,49 @@ fi
 # it with exit 1, and it is refused outside a repository and without a count it can take.
 watch_in() { XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" --repo "$SECOND" owner watch "$@"; }
 copy_of() { "$PY" -I -c 'import json, re, sys; print([(r["away"], r["ts"], r["words"]) for r in (json.loads(m) for m in re.findall(r"(?m)^lemOwner\((.*)\);$", open(sys.argv[1]).read()))][-1:])' "$SECOND/.lem/state/owner.js" 2>&1 || true; }
+# at_once ARGS...: the watch of the second repository with a clock that refuses a wait, so that "at once" is no count of
+# seconds: a watch that sleeps before its next look ends here with that message
+at_once() {
+  XDG_CONFIG_HOME=$MACHINE "$PY" -B -c 'import sys, time, types
+sys.path.insert(0, sys.argv[1])
+import project
+def refused(seconds): sys.exit(f"the watch waited {seconds} s for its next look")
+project.time = types.SimpleNamespace(**{**{name: getattr(time, name) for name in dir(time) if not name.startswith("_")}, "sleep": refused})
+project.main(sys.argv[2:])' "$PWD/skills/lem/scripts" --repo "$SECOND" owner watch "$@"
+}
+# watching PID: the watch PID wrote the second repository's owner.js at its start, which nothing else writes in this
+# check, and sleeps in its loop, where a stop has its own answer: a sign in place of a second of waiting
+watching() { [ -e "$SECOND/.lem/state/owner.js" ] && case $(ps -o stat= -p "$1" 2>/dev/null | tr -d ' ') in S* | I*) true ;; *) false ;; esac; }
 seen=$(on "$SECOND" waiting | field 'd["owner"]["seen"]')
-started=$(date +%s)
+rm -f "$SECOND/.lem/state/owner.js"
 XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" --repo "$SECOND" owner watch --seen "$seen" --every 1 > "$WORK/watch.out" 2>&1 &
 watcher=$!
-sleep 1
+soon watching "$watcher"
 copy_before=$(copy_of)
 away_at=$(on "$FIRST" owner away --words "/lem im-away" | field 'd["since"]')
+started=$(date +%s)
 watched=0
 wait "$watcher" || watched=$?
 took=$(( $(date +%s) - started ))
 heard=$(field '(d["away"], d["since"], d["words"], d["seen"])' < "$WORK/watch.out" 2>&1 || true)
 copy_after=$(copy_of)
 lines=$(grep -c '' "$MACHINE/lem/owner.jsonl")
-started=$(date +%s)
-stale=$(watch_in --seen 0 | field '(d["away"], d["since"], d["seen"])')
-stale_took=$(( $(date +%s) - started ))
-# a back and an away in one second: the second starts again until both commands fall in it, three times at most
-pair=different
-for _ in 1 2 3; do
-  "$PY" -I -c 'import time; time.sleep(1 - time.time() % 1)'
-  before_pair=$(on "$SECOND" waiting | field 'd["owner"]["seen"]')
-  back_ts=$(on "$FIRST" owner back --words "/lem im-back" | field 'd["since"]')
-  again_ts=$(on "$SECOND" owner away --words "I'm away" | field 'd["since"]')
-  if [ "$back_ts" = "$again_ts" ]; then pair=same; break; fi
-done
-paired=$(watch_in --seen "$before_pair" | field '(d["away"], d["since"], d["seen"])')
+at_once --seen 0 > "$WORK/stale.out" 2>&1 || true
+stale=$(field '(d["away"], d["since"], d["seen"])' < "$WORK/stale.out" 2>/dev/null || cat "$WORK/stale.out")
+# a back and an away in one second share their `ts`: two lines of the mark's form with one time, as two commands in one
+# second write them, so that no two commands have to fall in one second here
+before_pair=$(on "$SECOND" waiting | field 'd["owner"]["seen"]')
+again_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+"$PY" -I -c 'import json, sys; mark, ts, first, second = sys.argv[1:]; open(mark, "a").write("".join(json.dumps({"ts": ts, "event": "owner", "task": None, "away": away, "by": "owner", "words": words, "repo": repo}) + "\n" for away, words, repo in ((False, "/lem im-back", first), (True, "/lem im-away", second))))' \
+  "$MACHINE/lem/owner.jsonl" "$again_ts" "$FIRST" "$SECOND"
+at_once --seen "$before_pair" > "$WORK/paired.out" 2>&1 || true
+paired=$(field '(d["away"], d["since"], d["seen"])' < "$WORK/paired.out" 2>/dev/null || cat "$WORK/paired.out")
 kept=$(grep -c '' "$MACHINE/lem/owner.jsonl")
 # the command itself in the background, not a function, so that the stop reaches it
+rm -f "$SECOND/.lem/state/owner.js"
 XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" --repo "$SECOND" owner watch --seen "$kept" > "$WORK/watch-stop.out" 2>&1 &
 stopper=$!
-sleep 1
+soon watching "$stopper"
 kill -TERM "$stopper"
 stopped_code=0
 wait "$stopper" || stopped_code=$?
@@ -174,13 +189,13 @@ negative=$(watch_in --seen -1 2>&1 || true)
 outside=$(cd "$WORK/no-repo" && XDG_CONFIG_HOME=$MACHINE "$PY" -B "$PROJECT" owner watch --seen 0 2>&1 || true)
 if [ "$watched" = 0 ] && [ "$took" -lt 15 ] && [ "$heard" = "(True, '$away_at', '/lem im-away', $((seen + 1)))" ] \
   && [ "$copy_before" != "$copy_after" ] && [ "$copy_after" = "[(True, '$away_at', '/lem im-away')]" ] \
-  && [ "$stale" = "(True, '$away_at', $lines)" ] && [ "$stale_took" -le 2 ] && [ "$(grep -c '' "$MACHINE/lem/owner.jsonl")" = "$kept" ] \
-  && [ "$pair" = same ] && [ "$paired" = "(True, '$again_ts', $((before_pair + 2)))" ] && [ "$kept" = "$((before_pair + 2))" ] \
+  && [ "$stale" = "(True, '$away_at', $lines)" ] && [ "$(grep -c '' "$MACHINE/lem/owner.jsonl")" = "$kept" ] \
+  && [ "$paired" = "(True, '$again_ts', $((before_pair + 2)))" ] && [ "$kept" = "$((before_pair + 2))" ] \
   && [ "$stopped_code" = 1 ] && grep -qF "the watch of the owner's status was stopped" "$WORK/watch-stop.out" \
   && grep -qF "watch takes --seen N" <<<"$no_seen" && grep -qF "0 or more, not -1" <<<"$negative" && grep -qF "is not inside a git checkout" <<<"$outside"; then
   pass "the watch of the owner's mark in one repository ends after his away in another with that record, and its owner.js then holds it; a count that is no longer the mark's ends it at once, as an away and a back written in one second do; it writes nothing to the mark, a stop ends it with exit 1, and it is refused outside a repository and without a count"
 else
-  fail "the watch of the owner's mark: $watched / ${took}s / $heard / $copy_before / $copy_after / $stale / ${stale_took}s / $pair $back_ts $again_ts / $paired / $kept / $stopped_code $(cat "$WORK/watch-stop.out") / $no_seen / $negative / $outside"
+  fail "the watch of the owner's mark: $watched / ${took}s / $heard / $copy_before / $copy_after / $stale / $again_ts $paired / $kept / $stopped_code $(cat "$WORK/watch-stop.out") / $no_seen / $negative / $outside"
 fi
 
 finish
