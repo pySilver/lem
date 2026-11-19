@@ -398,6 +398,8 @@ else
   fail "a careful plan with no plan talk: $talkless"
 fi
 project --repo "$SHOP" log careful-plan plan.talk reviewer=codex turns:=6 questions:=3 settled:=2 open:=1 repaired:=1 design:=0 unargued:=0 root:=1 layer:=0 shared:=0 >/dev/null
+# the request came from a bug: its investigation before the build found the cause and its place
+project --repo "$SHOP" log careful-plan investigation type=fix call=full "line=the total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
 land --repo "$SHOP" propose careful-plan --title "fix: six" --notes "$MIG" >/dev/null
 text=$SHOP/.lem/state/tasks/careful-plan/pr.md
 if [ "$(grep 'plan talk' "$text" || true)" = "- the plan talk: codex argued the plan with its defender, 6 turns; 2 positions settled by the two, 1 left open; 3 questions in the reviewer's first list, 1 repaired by the defender, 0 of the open ones a design choice, 0 raised after the list and not argued, 1 repaired at the cause, 0 layers over a cited decision, 0 decisions two questions named" ] \
@@ -407,28 +409,16 @@ if [ "$(grep 'plan talk' "$text" || true)" = "- the plan talk: codex argued the 
 else
   fail "the plan talk in the text of a careful plan: $(cat "$text" 2>/dev/null)"
 fi
-project --repo "$SHOP" state careful-plan dropped "the test is over" >/dev/null
-
-# A request that came from a bug names, in its checks, the cause the investigation
-# before the build found and where; a question's answer, or no investigation, gives no such line.
-open_task bug-cause seven.txt seven
-project --repo "$SHOP" log bug-cause investigation type=fix call=full "line=the total adds the refund as a payment" where=billing/invoice.py:total reproduced:=true >/dev/null
-checked bug-cause && read_clean bug-cause && propose bug-cause
-open_task question-cause eight.txt eight
-project --repo "$SHOP" log question-cause investigation type=question call=answer "line=the export reads the totals of the night before" >/dev/null
-checked question-cause && read_clean question-cause && propose question-cause
-text=$SHOP/.lem/state/tasks/bug-cause/pr.md
+# A request that came from a bug names, in its checks, the cause the investigation before the build found and where.
+# That a question's answer, or no investigation, gives no such line is a case of tests/unit/test_land_text.py.
 if grep -qxF -- "- the cause, as the investigation before the build found it: the total adds the refund as a payment (billing/invoice.py:total)" "$text" \
   && ! grep -qF "$SHOP" "$text" \
-  && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c '^- the cause, as the investigation')" = 1 ] \
-  && ! grep -q 'the cause, as the investigation' "$SHOP/.lem/state/tasks/question-cause/pr.md" \
-  && ! grep -q 'the cause, as the investigation' "$SHOP/.lem/state/tasks/careful-plan/pr.md"; then
-  pass "a request that came from a bug names in its checks the cause its investigation found, with its place and no path of this machine; one after a question's answer, or with no investigation, has no such line"
+  && [ "$(sed -n '/^## Checks$/,/^## Decisions of the build$/p' "$text" | grep -c '^- the cause, as the investigation')" = 1 ]; then
+  pass "a request that came from a bug names in its checks the cause its investigation found, with its place and no path of this machine"
 else
-  fail "the cause of a bug in the text: $(cat "$text" 2>/dev/null) / $(grep 'cause' "$SHOP/.lem/state/tasks/question-cause/pr.md" 2>/dev/null)"
+  fail "the cause of a bug in the text: $(cat "$text" 2>/dev/null)"
 fi
-project --repo "$SHOP" state bug-cause dropped "the test is over" >/dev/null
-project --repo "$SHOP" state question-cause dropped "the test is over" >/dev/null
+project --repo "$SHOP" state careful-plan dropped "the test is over" >/dev/null
 
 # A file that moved on the base counts as a change of the path it left.
 open_task moved-file extra.txt four
