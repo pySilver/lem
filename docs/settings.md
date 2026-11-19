@@ -73,11 +73,7 @@ Leave this table out with no tracker. [Connect Linear](linear.md) tells you how 
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `tracker.kind` | required | `"linear"` |
-| `tracker.server` | `"linear"` | the name of the Linear MCP server |
-| `tracker.moves` | `"lem"` | who moves a ticket: `lem`, or `tracker` for the automation of Linear |
-| `tracker.started` | the status of the type `started` | the status of a ticket whose work started. Write it when the team has two of that type |
-| `tracker.landed` | the status of the type `completed` | the same, for work that landed |
+| `tracker.kind` | required | `"linear"`, the one key of the table |
 
 ## `.lem/project.local.toml`
 
