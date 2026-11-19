@@ -277,6 +277,20 @@ each file with its own `WORK` (3), and `seen` in `owner` of `waiting` (5); task 
 its test (5) and the board criterion 7 covers (8); task 3, `seen` in place of `since` (5), the
 night's session and step 2 of `away.md` (6); "Left to Lem before the merge", the count (7).
 
+The two design choices after the talk, by the ladder of `stages/ladder.md`; the question gate
+settled both, and no card went to the owner (`lem decisions list away-for-the-whole-machine`):
+
+- Question 1, decision 3: the gate's judge answered "cheap". Both options move one re-read a few
+  lines in `cmd_land` at the same cost, `branch.land` is "owner" in this repository, and the window
+  between them is one `git fetch`. The plan's position stands: the re-read after the forge's
+  answer, before `may_merge`. The judge noted that the re-read after `Task.fetch` fits "Lem owns
+  each merge" at the same cost; that is the decision's undo.
+- Question 2, decision 4: the gate's judge answered "cheap". A change of criterion 3 is out, since
+  the owner approved it with the variable in it; AGENTS.md "Lem is a companion, not a gate", (4),
+  caps the case at one sentence, and task 4 already names `$XDG_CONFIG_HOME/lem` in
+  `docs/install.md`. The plan stands as written. The judge leaned to one more sentence in a guide;
+  that is the decision's undo.
+
 ## Decisions of the plan
 
 The lead of the build logs each with `lem decisions log --by lead`, as the plan talk leaves it, so
