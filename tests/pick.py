@@ -13,8 +13,8 @@ suite (`bash tests/all.sh`). The Chrome suites, test-board, test-ask and test-si
 their own files, not for a script they also start. The whole suite runs once before the base branch
 moves: this list is for the turns before that.
 
-The map was read from the suites' text on 2026-11-18 (the scripts each one starts, and the files of
-this repository it reads), not measured by a trace. A script's change reaches every suite that runs
+The map was read from the suites' text on 2026-11-18, and the row of test-site on 2026-11-19 (the
+scripts each one starts, and the files of this repository it reads), not measured by a trace. A script's change reaches every suite that runs
 a script that calls it: land.py, criteria.py and decisions.py call their siblings in their own
 process (`skills/lem/scripts/lem_sibling.py`).
 """
