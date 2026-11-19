@@ -487,26 +487,31 @@ for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-pat
 SHOWN=$(cat <<'PY'
 import re, sys
 from html.parser import HTMLParser
+VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
 class P(HTMLParser):
-    def __init__(self):
-        super().__init__(); self.skip = 0; self.text = []; self.title = ""; self.in_title = False
+    def __init__(self, visible):
+        super().__init__(); self.skip = 0; self.text = []; self.title = ""; self.in_title = False; self.visible = visible; self.hidden = []
     def handle_starttag(self, tag, attrs):
         self.skip += tag in ("script", "style"); self.in_title = tag == "title" and not self.skip
+        if tag not in VOID: self.hidden.append("hidden" in dict(attrs))
     def handle_endtag(self, tag):
         self.skip -= tag in ("script", "style"); self.in_title = False
+        if tag not in VOID and self.hidden: self.hidden.pop()
     def handle_data(self, data):
         if self.in_title and not self.title: self.title = data
-        elif not self.skip: self.text.append(data)
-p = P(); p.feed(open(sys.argv[1], encoding="utf-8").read())
+        elif not self.skip and not (self.visible and any(self.hidden)): self.text.append(data)
+# "@visible": only the text the owner sees, none under an element with `hidden` (the panel of another tab)
+wants = [w for w in sys.argv[2:] if w != "@visible"]
+p = P("@visible" in sys.argv[2:]); p.feed(open(sys.argv[1], encoding="utf-8").read())
 shown = " ".join(" ".join(p.text).split())
 # "!TEXT" must not be on the page, "~PATTERN" is a regular expression that must match it, and
 # "=N:TEXT" is a text that is on the page N times
-missing = [want for want in sys.argv[2:] if want[0] not in "!~=" and want not in shown and want not in p.title]
-for want in [w for w in sys.argv[2:] if w.startswith("=")]:
+missing = [want for want in wants if want[0] not in "!~=" and want not in shown and want not in p.title]
+for want in [w for w in wants if w.startswith("=")]:
     n, _, text = want[1:].partition(":")
     if shown.count(text) != int(n): missing.append(f"{text!r} is on the page {shown.count(text)} times, not {n}")
-missing += [f"no match of {want[1:]!r}" for want in sys.argv[2:] if want.startswith("~") and not re.search(want[1:], shown)]
-missing += [f"no {want[1:]!r}" for want in sys.argv[2:] if want.startswith("!") and (want[1:] in shown or want[1:] in p.title)]
+missing += [f"no match of {want[1:]!r}" for want in wants if want.startswith("~") and not re.search(want[1:], shown)]
+missing += [f"no {want[1:]!r}" for want in wants if want.startswith("!") and (want[1:] in shown or want[1:] in p.title)]
 if "PROBLEM" in p.title or "does not parse" in shown: missing.append(f"no problem on the page (title {p.title!r})")
 print("; ".join(missing))
 sys.exit(bool(missing))
@@ -693,8 +698,8 @@ fi
 if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # shellcheck disable=SC1111  # the curly quotes around a state's own line are the page's
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "#short" \
-    "Waits for you=Gift note export|Choice 6 waits for you: A note longer than the cell · 25m" \
-    "Waits for you=Held choice|~Choice 1 waits for you: Refund the 12 duplicate orders now · [0-9][0-9ms ]*" \
+    "Waits for you=Gift note export|Building: task 2 of 3" \
+    "Waits for you=Held choice|Choice 1 waits for you" \
     "Waits for you=Held question|The investigation waits for one more fact" \
     "Waits for you=Trust prompt|The reviewer's trust prompt waits for your yes" \
     "Building=Approved again" "Building=Restored read" "Building=Unread change" \
@@ -706,7 +711,7 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
     "Building=Correction one|One builder makes the change" "Building=Changed then approved" "Building=Rare path" \
     "Checks and review=Ready one|Ready for its checks: the report is written" "Checks and review=In checks|The checks start" "Checks and review=Red gate" \
     "Done=Landed one|Landed: main: pull request #7 is merged" "Done=Timed out" "Building=Queued after"); then
-    pass "each task is in the lane of who acts, and its card says in one line where it is, in your words and not the lane's title again; no card has a paragraph of where you answer"
+    pass "each task is in the lane of who acts, and its card says in one line its state, in your words and not the lane's title again, also when a choice waits; no card has a paragraph of where you answer"
   else
     fail "the lanes: $why"
   fi
@@ -737,25 +742,47 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   else
     fail "the counts of the lanes: $why"
   fi
-  # Each banner is read alone, so that a card's text elsewhere on the page cannot stand in for one.
-  # The first wait, choice 6, is the large card's, with where you answer, and no banner's.
-  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
-    "^Choice 7 waits for you: Gift note export · The note of a cancelled order · 5m 00s$" \
-    "^Choice 4 waits for you: Gift note export · Email the merchants about the new column · 27m$" \
-    "^Waits for you: Criteria wait · the criteria wait for you · [0-9][0-9ms ]*$" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
-    "!Lem puts" "!Lem shows you" "!Answer it there" "!^Choice [123] waits for you: Expert advice" "!left" "!no end" "!wait is over") \
+  # Each banner is read alone, so that a card's text elsewhere on the page cannot stand in for one. A
+  # banner is only for a blocked task: what waits for the owner is a row of "Waits for you". The first
+  # wait, choice 6, is the large card's, with where you answer, said once on the Tasks tab.
+  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" "#1" "^Blocked: Blocked one · the base moved and the rebase has a conflict · " \
+    "!^Choice" "!^Waits for you" "!Lem puts" "!Lem shows you") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" now \
       "You · choice 6 of the task|Gift note export|A note longer than the cell|25m|since it was asked|Where you answer: Lem puts choice 6 to you as a page in its session. Answer it there: it waits for your answer. If you say you are away, the build goes on with the recommended action.") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "=1:Lem puts choice 6 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the acceptance criteria" "!Demo data"); then
-    pass "the large card has the first wait with where you answer, said once on the page; the banners are the waits after it, one line each with how long it waits, with no count-down and no end of a wait"
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" @visible "=1:Lem puts choice 6 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the acceptance criteria" "!Demo data"); then
+    pass "the large card has the first wait with where you answer, said once on the Tasks tab; a banner is only for a blocked task, and no banner repeats what waits for you"
   else
     fail "the banners: $why"
   fi
-  # Ten banners would fill a screen: the first three are shown, and one line counts the rest.
-  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" "#3" "=^8 more: 7 wait for you, 1 blocked · Show them" "^Blocked: Blocked one"); then
-    pass "past three banners the rest fold under one line that counts what waits for the owner and what is blocked, so the lanes stay on the first screen"
+  # "Waits for you" has a row for each thing the owner does, each with its verb and where he answers.
+  # A task that waits on two things has two rows; a held task whose choice waits has one, its choice's.
+  draw board waits
+  # shellcheck disable=SC1111  # the curly quotes around a pick are the page's
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/board-waits.dom" waits-rows \
+      "A note longer than the cell|Answer choice 6|Gift note export|Where you answer: Lem puts choice 6 to you" \
+      "The note of a cancelled order|Answer choice 7|Gift note export" \
+      "Email the merchants about the new column|Answer choice 4|it waits for your word, also while you are away" \
+      "Refund the 12 duplicate orders now|Answer choice 1|Held choice" \
+      "The font of the invoice|Answer choice 4|Expert advice|the experts: Fable “serif” · Astra “serif”" \
+      "Round the totals of the monthly report|Approve the criteria|Criteria wait|Lem shows you the acceptance criteria" \
+      "Show the delivery date on the order page|Approve the criteria|No persona answered" \
+      "Which currency rounds half up|The investigation waits for one more fact" \
+      "Move the review to Codex|The reviewer's trust prompt waits for your yes" \
+      "Move the reports to a queue|Read the plan|build it or drop it" \
+      "Sort the export by date|Merge the pull request|Not green: criterion 1 changed during the build" \
+      "Fix the typo in the invoice|Tell Lem to land it|Green|!Merge") \
+    && why=$("$PY" -I -c 'import re, sys
+dom = open(sys.argv[1], encoding="utf-8").read()
+area = dom[dom.index("id=\"waits-rows\""):dom.index("id=\"backlog\"")]
+rows = area.count("<div class=\"wrow ")
+tab = re.search(r"data-tab=\"waits\"[^>]*>Waits for you<em[^>]*>(\d+)</em>", dom)
+held = area.count("data-open=\"held-choice\"")
+wrong = ([f"{rows} rows, not 14"] if rows != 14 else []) + ([f"the tab counts {tab.group(1) if tab else None}, the rows are {rows}"] if not tab or int(tab.group(1)) != rows else []) \
+  + ([f"Held choice has {held // 2} rows"] if held != 2 else [])
+print("; ".join(wrong)); sys.exit(bool(wrong))' "$WORK/board-waits.dom"); then
+    pass "the Waits for you tab has a row for each thing you do, with its verb and where you answer: each choice, the criteria, what a held task's state asks, a plan, a merge or a landing; a held task whose choice waits is one row, and the tab counts the rows"
   else
-    fail "the fold of the banners: $why"
+    fail "the rows of Waits for you: $why"
   fi
   # Each number once: the title and the lanes count the tasks; a chip says what no other place says.
   # The board of all tasks has no ring and no grid, and no count of places: no setting limits the tasks.
@@ -1017,7 +1044,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     fail "the read's approval: $why"
   fi
 
-  # The experts' advice. Each check reads one row of one card, or one banner, so that a text of
+  # The experts' advice. Each check reads one row of one card, or of Waits for you, so that a text of
   # another choice or of the activity cannot stand in for it.
   draw "task-$X"
   # shellcheck disable=SC1111,SC1112  # the curly quotes around a pick are the page's
@@ -1027,10 +1054,10 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
       "1. The paper size|!Fable picks|!waits for you") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" now \
       "2 choices wait for you|The font of the invoice|the experts: Fable “serif” · Astra “serif”|if you say you are away, the build goes on with “serif”, the experts’ shared pick") \
-    && why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
-      "^Choice 4 waits for you: Expert advice · The font of the invoice · [0-9][0-9ms ]*$" \
-      "^Choice 5 waits for you: Expert advice · The size of the total · [0-9][0-9ms ]*$"); then
-    pass "a choice that waits shows each expert's advice in its own row of the Decisions card, a pick or none fits with its reasons, and its row and the head of its board say that the owner's away takes the experts' shared pick when both agree, else the recommended option; its banner says how long it waits"
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/board-waits.dom" waits-rows \
+      "The font of the invoice|~^Answer choice 4 Expert advice · Print the invoice for the post The font of the invoice · recommended: sans · the experts: Fable “serif” · Astra “serif” .* [0-9][0-9ms ]* since it was asked Open the task$" \
+      "The size of the total|~^Answer choice 5 Expert advice .* the experts: Fable none fits · Astra “12 pt” .* [0-9][0-9ms ]* since it was asked Open the task$"); then
+    pass "a choice that waits shows each expert's advice in its own row of the Decisions card, a pick or none fits with its reasons, and its row and the head of its board say that the owner's away takes the experts' shared pick when both agree, else the recommended option; its row of Waits for you says how long it waits"
   else
     fail "the experts' advice on a choice that waits: $why"
   fi
@@ -1303,7 +1330,7 @@ if check == "cards":
 elif check == "likeit":
     p = read(args[0])
     lane = next(n for n in p.root.all() if "lane" in n.cls() and any("lane-head" in k.cls() and k.text().startswith("Waits for you") for k in n.kids if not isinstance(k, str)))
-    choices = [k for k in lane.all() if "tc-text" in k.cls() and k.text().startswith("Choice ")]
+    choices = [k for k in lane.all() if "tc-wait" in k.cls()]
     others = len(choices) - 1
     now = next(n for n in p.root.all() if n.attrs.get("id") == "now").text()
     said = re.search(r"(\d+) more tasks? like it", now)
@@ -1634,6 +1661,211 @@ PY
     pass "the onboarding page has the board's header, fonts and colors, in light and in dark, from agterm and from the system"
   else
     fail "one look for every page of Lem: $why"
+  fi
+
+  # The board of all tasks with two choices that wait, on a task whose ask is 300 characters long and
+  # that builds while they wait, one task whose criteria wait and one green pull request, in a folder
+  # of its own beside the skill's files, so that no lane of the fixture changes. A stand-in for agterm's
+  # bridge names Lem's session: what runs in it (`fg`) and whether a read of the sessions fails
+  # (`treeFails`) are the probe's to change.
+  STAY=$WORK/stay
+  mkdir -p "$STAY"
+  STAY_FIXTURE=$(cat <<'PY'
+import json, sys
+from datetime import datetime, timedelta, timezone
+assets, out = sys.argv[1:]
+now = datetime.now(timezone.utc)
+iso = lambda minutes: (now - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+words = ("The export keeps every date of an order whole when the merchant opens the file in a spreadsheet that reads the dates in a locale "
+         "other than the one the store uses, and the totals of each month add up to the same sum in the report, the invoice and the export, "
+         "so that an accountant who checks the three finds no difference at all")
+long_ask = words[:299].rstrip() + "."
+long_ask = long_ask + "." * (300 - len(long_ask))
+assert len(long_ask) == 300, len(long_ask)
+long_choice = ("The order of the day and the month in the date column, which a spreadsheet in another locale reads as a month and a day "
+               "when the day is twelve or less, so that the third of May reads as the fifth of March")
+state = lambda minutes, task, status, text, ask, lines=(): {"ts": iso(minutes), "event": "task.state", "task": task, "status": status, "text": text, "lines": list(lines), "ask": ask}
+asked = lambda minutes, task, number, what, options: {"ts": iso(minutes), "event": "decision.asked", "task": task, "id": number, "at": iso(minutes), "what": what,
+                                                      "options": options, "recommended": options[0], "why": "the personas split"}
+events = [
+    state(60, "sort-the-export", "landing", "the checks start", "Sort the export by date"),
+    {"ts": iso(50), "event": "proposed", "task": "sort-the-export", "green": True, "not_green": [], "tip": "abc123456"},
+    state(50, "sort-the-export", "open", "pull request https://github.com/acme/shop/pull/3", "Sort the export by date", ["green"]),
+    state(40, "dates-stay-whole", "building", "task 1 of 2", long_ask),
+    asked(30, "dates-stay-whole", 1, long_choice, ["the day first", "the month first"]),
+    asked(20, "dates-stay-whole", 2, "The name of the date column", ["ordered", "date"]),
+    state(25, "round-the-totals", "held", "the criteria wait for the owner", "Round the totals once"),
+    state(10, "trim-the-notes", "landing", "the checks start", "Trim the order notes"),
+]
+open(f"{out}/events.js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(e)});\n" for e in events))
+open(f"{out}/meta.js", "w", encoding="utf-8").write("lemMeta(" + json.dumps({"repo": "shop", "base": "main", "session": "LEM1", "gates": 1, "serial": 0}) + ");\n")
+item = {"slug": "which-currency", "path": "docs/backlog/which-currency.md", "title": "Which currency rounds half up", "worth": "yes", "where": "", "where_problem": "",
+        "added": "2026-11-02", "state": "", "body": "The refund of order 1042 rounds 0.125 to 0.13. The cart rounds half to even. One of the two is wrong."}
+open(f"{out}/backlog.js", "w", encoding="utf-8").write("lemBacklog(" + json.dumps({"folder": "docs/backlog", "read": iso(1), "items": [item]}) + ");\n")
+for name in ("lem.css", "lem.js"):
+    open(f"{out}/{name}", "w", encoding="utf-8").write(open(f"{assets}/{name}", encoding="utf-8").read())
+bridge = ("<script>globalThis.fg = ['/bin/zsh']; globalThis.treeFails = false; globalThis.agterm = {request: async cmd => {"
+          " if (cmd !== 'tree') return {}; if (globalThis.treeFails) throw new Error('the socket is gone');"
+          " return {tree: {workspaces: [{sessions: [{id: 'LEM1', status: 'idle', foreground: globalThis.fg}]}]}}; }};</script>")
+board = open(f"{assets}/board.html", encoding="utf-8").read()
+assert board.count("<head>") == 1
+open(f"{out}/board.html", "w", encoding="utf-8").write(board.replace("<head>", "<head>" + bridge, 1))
+open(f"{out}/probe.html", "w", encoding="utf-8").write("""<!doctype html><meta charset="utf-8"><iframe id="f" src="board.html#waits" style="width:1400px;height:900px;border:0"></iframe><pre id="out"></pre>
+<script>
+const wait = ms => new Promise(done => setTimeout(done, ms));
+(async () => {
+  await wait(1500);
+  const w = document.getElementById('f').contentWindow, d = w.document, log = {};
+  const box = n => n.getBoundingClientRect();
+  const chosen = () => d.querySelector('#tabs [aria-selected="true"]')?.dataset.tab ?? null;
+  const shown = () => ['waits', 'backlog', 'lanes-section'].filter(id => d.getElementById(id) && !d.getElementById(id).hidden);
+  // where a button stands in its card: how far from the card's right edge, and from its left edge
+  const side = (card, button) => { const c = box(card), b = box(button); return {right: Math.round(c.right - b.right), left: Math.round(b.left - c.left), width: Math.round(c.width)}; };
+  log.first = [chosen(), shown()];
+  await wait(2500);
+  log.later = [chosen(), shown()];
+  log.rows = [...d.querySelectorAll('#waits-rows .wrow')].map(row => ({verb: row.querySelector('.wverb').textContent, button: side(row, row.querySelector('.wside button'))}));
+  // the tasks: the cards of the lane "Waits for you"
+  d.querySelector('[data-tab="tasks"]').click(); await wait(300);
+  const lane = [...d.querySelectorAll('#lanes .lane')].find(l => l.querySelector('.lane-head').textContent.startsWith('Waits for you'));
+  const cards = [...lane.querySelectorAll('.tcard')];
+  const cut = n => n.scrollHeight > n.clientHeight + 1;
+  const measure = () => cards.map(c => {
+    const part = sel => c.querySelector(sel), ask = part('.tc-ask > span');
+    return {title: part('.tc-title').textContent, height: Math.round(box(c).height * 10) / 10, titleCut: cut(part('.tc-title')),
+      state: part('.tc-text').textContent, stateCut: cut(part('.tc-text')) || !part('.tc-text').getClientRects().length,
+      mark: part('.tc-wait')?.textContent ?? null, markTitle: part('.tc-wait')?.title ?? null,
+      ask: ask ? {height: Math.round(box(ask).height * 10) / 10, cut: cut(ask), line: parseFloat(w.getComputedStyle(ask).lineHeight)} : null};
+  });
+  log.cards = measure();
+  log.focusable = cards.map(c => { c.focus(); const took = d.activeElement === c && c.tabIndex >= 0; c.blur(); return took; });
+  const long = cards.find(c => c.querySelector('.tc-title').textContent === 'Dates stay whole');
+  w.focus(); long.focus({focusVisible: true});
+  log.focused = {visible: long.matches(':focus-visible'), cards: measure()};
+  long.blur();
+  log.hover = [...d.styleSheets].flatMap(sheet => { try { return [...sheet.cssRules]; } catch { return []; } })
+    .some(rule => /\\.tcard:is\\(:hover, :focus-visible\\) \\.tc-ask/.test(rule.selectorText ?? '') && rule.style.getPropertyValue('-webkit-line-clamp') === 'unset');
+  const now = d.getElementById('now');
+  log.band = side(now, now.querySelector('button[data-open]'));
+  // the backlog: a sentence of an item's body, then the command of its foot, selected while what runs
+  // in Lem's session changes and while a read of the sessions fails
+  d.querySelector('[data-tab="backlog"]').click(); await wait(800);
+  d.querySelector('[data-bl-toggle="which-currency"]').click(); await wait(300);
+  const sel = w.getSelection();
+  const pick = range => { sel.removeAllRanges(); sel.addRange(range); return sel.toString(); };
+  const still = want => [sel.toString() === want && sel.rangeCount > 0 && sel.getRangeAt(0).startContainer.isConnected, chosen()];
+  const foot = () => d.querySelector('.bl-actions').textContent;
+  const sentence = d.createRange(), text = d.querySelector('.bl-text').firstChild;
+  sentence.setStart(text, 0); sentence.setEnd(text, 'The refund of order 1042 rounds 0.125 to 0.13.'.length);
+  const said = pick(sentence);
+  log.body = [said];
+  w.fg = ['/opt/homebrew/bin/claude']; await wait(3500); log.body.push(still(said), foot());
+  w.treeFails = true; await wait(3500); log.body.push(still(said), foot());
+  w.treeFails = false; w.fg = ['/bin/zsh']; await wait(3500);
+  const command = d.createRange(); command.selectNodeContents(d.querySelector('.bl-actions code'));
+  const cmd = pick(command);
+  log.code = [cmd];
+  w.fg = ['/opt/homebrew/bin/claude']; await wait(3500); log.code.push(still(cmd), foot());
+  const item = d.querySelector('.bl-item');
+  log.ask = side(item, d.querySelector('[data-bl-ask]'));
+  w.treeFails = true; await wait(3500); log.code.push(still(cmd), foot());
+  w.treeFails = false; await wait(3500);
+  d.querySelector('[data-bl-ask]').click(); await wait(100);
+  const start = d.querySelector('[data-bl-start]'), cancel = d.querySelector('[data-bl-cancel]');
+  log.confirm = {start: side(item, start), cancel: side(item, cancel), between: Math.round(box(cancel).left - box(start).right)};
+  document.getElementById('out').textContent = JSON.stringify(log);
+})().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
+</script>""")
+PY
+)
+  "$PY" -I -c "$STAY_FIXTURE" "$PWD/skills/lem/assets" "$STAY"
+  "$PY" -I -c "$STOP" "$STAY/board.html" "$NOW"
+  headless --virtual-time-budget=5000 --dump-dom "file://$STAY/board.html#waits" > "$WORK/stay-waits.dom"
+  # watch.js as land.py watch writes it, with the pull request's entry: the forge's word on HEAD
+  stay_watch() { "$PY" -I -c 'import json, sys
+entry = {"task": "sort-the-export", "pr": 3, "url": "https://github.com/acme/shop/pull/3", "state": "OPEN", "mergeable": "CONFLICTING", "head": sys.argv[2], "since": None}
+open(sys.argv[1], "w").write("lemWatch(" + json.dumps({"checked": "2026-11-19T09:00:00Z", "every": 60, "looks": 1, "open": [entry], "ended": None}) + ");\n")' "$STAY/watch.js" "$1"; }
+  stay_watch abc123456def7890abc123456def7890abc12345 && headless --virtual-time-budget=5000 --dump-dom "file://$STAY/board.html#waits" > "$WORK/stay-conflict.dom"
+  stay_watch 0ff1ce0ff1ce0ff1ce0ff1ce0ff1ce0ff1ce0ff1 && headless --virtual-time-budget=5000 --dump-dom "file://$STAY/board.html#waits" > "$WORK/stay-older.dom"
+  rm -f "$STAY/watch.js"
+  # The test of criterion 4: the count 4 and the four rows, each with its verb, on the tab the address
+  # opens; only the text of that tab is read, none of the panels the other tabs hide.
+  # shellcheck disable=SC1112  # the curly quotes are the page's
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/stay-waits.dom" @visible "Waits for you 4" "Answer choice 1" "Answer choice 2" "Approve the criteria" "Merge the pull request" \
+      "!Building: task 1 of 2" "!The criteria wait for you" "!Which currency rounds half up") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/stay-waits.dom" waits-rows "The order of the day and the month|Answer choice 1|Dates stay whole|recommended: the day first" \
+      "The name of the date column|Answer choice 2|Dates stay whole" "Round the totals once|Approve the criteria|Lem shows you the acceptance criteria" \
+      "Sort the export by date|Merge the pull request|Green|Merge the pull request, or tell Lem in its session to land it.") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/stay-conflict.dom" @visible "Waits for you 4" "It conflicts with the base" "Lem brings it onto the base first" "!Merge" "!merge") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/stay-older.dom" waits-rows "Sort the export by date|Merge the pull request|!conflicts"); then
+    pass "Waits for you counts 4 for two choices, criteria that wait and a green pull request, each row with its verb: answer the choice, approve the criteria, merge the pull request; a pull request the forge calls conflicting on the proposed head has no merge verb, and on an older head it keeps it"
+  else
+    fail "Waits for you: $why"
+  fi
+  headless --allow-file-access-from-files --virtual-time-budget=40000 --dump-dom "file://$STAY/probe.html" > "$WORK/stay-probe.dom"
+  STAY_CHECK=$(cat <<'PY'
+import html, json, re, sys
+check, path = sys.argv[1:]
+found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(path, encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}
+wrong = [d["error"]] if "error" in d else []
+# at the right: the button's right edge 24 px or less from its card's, and the button in the card's right half
+right = lambda s: s["right"] <= 24 and s["left"] > s["width"] / 2
+if not wrong and check == "cards":
+    cards = {c["title"]: c for c in d["cards"]}
+    long, short = cards.get("Dates stay whole"), cards.get("Round the totals")
+    if not long or not short: wrong.append(f"the lane holds {list(cards)}")
+    else:
+        if len({c["height"] for c in d["cards"]}) != 1: wrong.append(f"the cards' heights are {[(c['title'], c['height']) for c in d['cards']]}")
+        if long["state"] != "Building: task 1 of 2" or short["state"] != "The criteria wait for you": wrong.append(f"the state lines are {long['state']!r} and {short['state']!r}")
+        if any(c["stateCut"] or c["titleCut"] for c in d["cards"]): wrong.append(f"a title or a state line is cut: {d['cards']}")
+        if long["mark"] != "2 choices wait" or "The order of the day and the month" not in (long["markTitle"] or "") or "The name of the date column" not in (long["markTitle"] or ""):
+            wrong.append(f"the wait mark is {long['mark']!r} with the hover {long['markTitle']!r}")
+        if short["mark"] is not None: wrong.append(f"a card with no choice has the mark {short['mark']!r}")
+        ask = long["ask"] or {}
+        if not ask.get("cut") or ask.get("height", 0) > 2 * ask.get("line", 0) + 1: wrong.append(f"the long ask is not cut after two lines: {ask}")
+        if (short["ask"] or {}).get("cut"): wrong.append(f"the short ask is cut: {short['ask']}")
+        if not all(d["focusable"]) or len(d["focusable"]) != len(d["cards"]): wrong.append(f"a card does not take the focus: {d['focusable']}")
+        after = {c["title"]: c for c in d["focused"]["cards"]}
+        whole = after["Dates stay whole"]["ask"] or {}
+        if not d["focused"]["visible"] or whole.get("cut", True) or whole.get("height", 0) <= ask.get("height", 0): wrong.append(f"the long ask with the focus does not show whole: {whole}")
+        if [c["height"] for c in d["focused"]["cards"]] != [c["height"] for c in d["cards"]]: wrong.append(f"the focus changed a card's height: {d['focused']['cards']}")
+        if not d["hover"]: wrong.append("no hover shows the whole ask")
+elif not wrong and check == "stays":
+    if d["first"] != ["waits", ["waits"]] or d["later"] != ["waits", ["waits"]]: wrong.append(f"the tab Waits for you: {d['first']} then, two draws later, {d['later']}")
+    body, code = d["body"], d["code"]
+    if not body[0].startswith("The refund of order 1042") or body[1] != [True, "backlog"] or body[3] != [True, "backlog"]: wrong.append(f"the selected sentence: {body}")
+    if not code[0].startswith("/lem new ") or code[1] != [True, "backlog"] or code[3] != [True, "backlog"]: wrong.append(f"the selected command: {code}")
+    # the words beside them did change: an agent runs, then the read of the sessions failed
+    if "Start a task" not in body[2] or "not open in this window" not in body[4] or "Start a task" not in code[2] or "not open in this window" not in code[4]:
+        wrong.append(f"the foot did not change with the session: {body[2]!r} / {body[4]!r} / {code[2]!r} / {code[4]!r}")
+elif not wrong and check == "actions":
+    places = {**{f"row {r['verb']}": r["button"] for r in d["rows"]}, "the large card": d["band"], "Start a task": d["ask"], "Cancel": d["confirm"]["cancel"]}
+    if len(d["rows"]) != 4: wrong.append(f"{len(d['rows'])} rows")
+    wrong += [f"{name} stands at {s}, not at the right" for name, s in places.items() if not right(s)]
+    if not (d["confirm"]["start"]["left"] > d["confirm"]["start"]["width"] / 2 and 0 <= d["confirm"]["between"] <= 16):
+        wrong.append(f"Start is not beside Cancel at the right: {d['confirm']}")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  # The test of criterion 2.
+  if why=$("$PY" -I -c "$STAY_CHECK" cards "$WORK/stay-probe.dom"); then
+    pass "in one lane a card with a one-line ask and a card with a 300-character ask whose task builds while two choices wait have one height; only the ask is cut, after two lines; each says its state and the long one has the wait mark; Tab reaches each card, and the long ask shows whole on the focus and on a hover with no card changing its height"
+  else
+    fail "the cards' shape: $why"
+  fi
+  # The test of criterion 4, its second half.
+  if why=$("$PY" -I -c "$STAY_CHECK" stays "$WORK/stay-probe.dom"); then
+    pass "the tab the owner chose stays chosen through the draw of every second, and a sentence or a command selected in the backlog stays selected when an agent in Lem's session starts and when a read of the sessions fails"
+  else
+    fail "the chosen tab and a selection in the backlog: $why"
+  fi
+  # The test of criterion 1, the cards' actions.
+  if why=$("$PY" -I -c "$STAY_CHECK" actions "$WORK/stay-probe.dom"); then
+    pass "every card with an action has it at the right: \"Open the task\" on each row of Waits for you and on the large card, the backlog's \"Start a task\", and Start with Cancel beside it"
+  else
+    fail "the side of the cards' actions: $why"
   fi
 
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.
