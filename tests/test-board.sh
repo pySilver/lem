@@ -2174,6 +2174,16 @@ PY
   ocommit "$OW/status-boards-steady-look" "docs(backlog): the pictures of the landing page" docs/backlog/landing-page-pictures.md
   echo "The README, with no typo" > "$OW/quiet-change/README.md" && ocommit "$OW/quiet-change" "docs: the typo" README.md
   printf '%s\n' "---" "worth: later" "added: 2026-11-19" "---" "# An item of the base" > "$O/docs/backlog/on-main.md" && ocommit "$O" "docs(backlog): an item of the base" docs/backlog/on-main.md
+  # A task that filed an item and landed with a fast-forward merge, its worktree still there: after the
+  # merge git shows no item its branch adds against the base, which says nothing of what it filed.
+  oproject task-dir kept-after-merge --ask "Note the wrapped footer in the backlog" >/dev/null
+  oproject state kept-after-merge building "lead: builder" "type: docs, because the ask files a note" >/dev/null
+  git -C "$O" worktree add -q -b docs/kept-after-merge "$OW/kept-after-merge"
+  mkdir -p "$OW/kept-after-merge/docs/backlog"
+  printf '%s\n' "---" "worth: later" "added: 2026-11-19" "---" "# The footer wraps on A5" > "$OW/kept-after-merge/docs/backlog/footer-wraps.md"
+  ocommit "$OW/kept-after-merge" "docs(backlog): the footer wraps" docs/backlog/footer-wraps.md
+  git -C "$O" merge -q --ff-only docs/kept-after-merge
+  oproject state kept-after-merge landed "main: merged" >/dev/null
   STEADY_EVENTS=$(cat <<'JSONL'
 {"ts": "2026-11-19T09:51:23Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 1, "at": "2026-11-19T09:51:23Z", "what": "what the redesign leaves out of scope", "chose": "the question page (skills/lem-ask/runtime/ask.css) and the agdoc page of a task (page.html) keep their own look; the onboarding page follows, since it links lem.css", "why": "the ask names the status screens, and he confirmed they are the board; the agdoc page is his approved sample (2026-11-18)", "by": "lem", "undo": "a new task for the question page's look"}
 {"ts": "2026-11-19T10:22:43Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 2, "at": "2026-11-19T10:22:43Z", "what": "plan talk question 1: which owner event makes the board say 'while you were away' for a choice taken without him", "chose": "B: the newest owner event at or before the choice's time (the same second counts) says away; otherwise 'while the task ran without you'", "why": "gate, checkable: project.py cmd_owner writes the owner event and then runs decisions.py cmd_away at once, and both stamps are whole seconds (append_event, decisions.py stamp), so the choice his own away takes shares that second; under A that choice, the case criterion 5 names, would read 'while the task ran without you'. No path takes a choice in the second of a 'back' event.", "by": "gate", "undo": "change one comparison in the board's away test, board.html; nothing is written", "options": ["A: the newest owner event strictly before the choice's time says away", "B: the newest owner event at or before the choice's time says away"], "levels": {"gate": "checkable"}}
@@ -2189,6 +2199,15 @@ open(f"{state}/events.js", "a", encoding="utf-8").write("".join(f"lemEvent({json
   oboard --no-open --task status-boards-steady-look >/dev/null
   headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-status-boards-steady-look.html" > "$WORK/steady-look.dom"
   headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-quiet-change.html" > "$WORK/steady-quiet.dom"
+  oboard --no-open --task kept-after-merge >/dev/null
+  headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-kept-after-merge.html" > "$WORK/steady-kept.dom"
+  # A task that starts after board.py last wrote overview.js, whose board the owner opens in place: a
+  # copy of the page, as a click on its card in the open board shows it, with no run of board.py.
+  oproject task-dir started-later --ask "Keep the dates whole in the export" >/dev/null
+  oproject state started-later building "lead: builder" "type: fix, because the export cuts the dates" >/dev/null
+  printf '%s\n' "# started-later" "" "## Outcome" "" "Every date of the export is whole." > "$OS/tasks/started-later/task.md"
+  cp "$OS/task-quiet-change.html" "$OS/task-started-later.html"
+  headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-started-later.html" > "$WORK/steady-later.dom"
   cat > "$OS/probe.html" <<'HTML'
 <!doctype html><meta charset="utf-8"><iframe id="f" src="task-status-boards-steady-look.html" style="width:1400px;height:900px;border:0"></iframe><pre id="out"></pre>
 <script>
@@ -2288,6 +2307,22 @@ sys.exit(got != want)' "$OS/overview.js"); then
     pass "Overview says which backlog items the task's branch filed against its merge base, with each title: a branch that adds docs/backlog/landing-page-pictures.md shows 1 backlog item filed and its title, a branch that adds none says no backlog item filed, and an item of the base is neither's"
   else
     fail "the backlog items a task filed: $why"
+  fi
+  # Criteria 11 and 12 for a task that started after board.py last ran: its board says that its outcome
+  # and its filed items are not read yet, and how they are, and never draws the gap as a task with no outcome.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-later.dom" @visible "What we are building" "The export cuts the dates" \
+      "its outcome and its backlog items are not read yet" "lem board --no-open" "!no backlog item filed" "!Every date of the export is whole"); then
+    pass "the board of a task that started after board.py last ran says that its outcome and its filed items are not read yet, and that lem board --no-open reads them"
+  else
+    fail "a task that started after board.py last ran: $why"
+  fi
+  # A task that ended says nothing of filed items when git shows none: after a merge that is no squash,
+  # the branch adds nothing against the base, whatever it filed.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-kept.dom" @visible "What we are building" "The ask files a note" \
+      "!no backlog item filed" "!backlog items filed" "!not read yet"); then
+    pass "the board of a task that landed with a merge that is no squash, its worktree still there, does not say that it filed no backlog item"
+  else
+    fail "a landed task whose worktree is still there: $why"
   fi
 
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.

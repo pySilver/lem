@@ -305,7 +305,7 @@
   .b-line b { color: var(--fg); font-weight: 650; }
   .b-look .ic:first-child { color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
   .b-items { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; width: 100%; color: var(--fg); }
-  .b-items .cmd { font: 13px var(--mono); color: var(--dim); }
+  .b-items .cmd, .b-line .cmd { font: 13px var(--mono); color: var(--dim); }
 
   /* A decision of the task is one folded row, in the backlog's form: closed, its note on one line (whole
      in its hover), what was chosen and by whom; opened, its context in labelled parts. An important one
@@ -2059,18 +2059,23 @@ function buildVerdict(t, owners) {
 // "What we are building", first on the overview: the goal of the task (the reason of its type line),
 // what the owner gets (the outcome of its task.md, from overview.js), a line to the decisions he should
 // look at when an important one exists, and the backlog items its branch filed, with when board.py
-// looked. A task whose worktree is gone has no line of filed items: nothing tells them.
+// looked. A task whose worktree is gone has no line of filed items: nothing tells them. Nor has a task
+// that ended when git shows none: after a merge that is no squash its branch adds nothing against the
+// base, whatever it filed. A task that overview.js does not hold yet (it started after board.py last
+// ran) says so, with the command that reads it.
 function buildBuilding(t) {
   const told = overview?.tasks?.[t.slug] ?? null;
   const goal = t.type?.why ?? '';
   const paragraphs = String(told?.outcome ?? '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
   const important = importantOf(t).length;
-  const filed = Array.isArray(told?.filed) ? told.filed : null;
-  if (!goal && !paragraphs.length && !important && !filed) return null;
+  const filed = Array.isArray(told?.filed) && (told.filed.length || !t.closed) ? told.filed : null;
+  if (told && !goal && !paragraphs.length && !important && !filed) return null;
   const written = overview?.written ? Date.parse(overview.written) : 0;
   const lines = [
     important ? h('button', {class: 'btn b-look', type: 'button', 'data-goto-tab': 'criteria', title: 'Open the tab Criteria and decisions · key 2'},
       icon('alert'), `${plural(important, 'important decision')} ${important === 1 ? 'waits' : 'wait'} for a look`, ' ', icon('arrow')) : '',
+    told ? '' : h('div', {class: 'b-line'}, h('b', {}, 'its outcome and its backlog items are not read yet'),
+      h('span', {}, written ? `· the board read the tasks at ${stamp(written, Date.now())}; ` : '· ', h('span', {class: 'cmd'}, 'lem board --no-open'), ' reads them')),
     filed ? h('div', {class: 'b-line'}, h('b', {}, filed.length ? `${plural(filed.length, 'backlog item')} filed` : 'no backlog item filed'),
       written ? h('span', {}, `· the branch as of ${stamp(written, Date.now())}`) : '',
       filed.length ? h('ul', {class: 'b-items'}, filed.map(item => h('li', {title: item.path}, item.title, h('span', {class: 'cmd'}, ` · ${item.path}`)))) : '') : '',
