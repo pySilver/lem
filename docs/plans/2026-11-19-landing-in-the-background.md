@@ -176,6 +176,14 @@ Read in the code at `28d3c81`:
      around them taken off as `cmd_checks` takes it, and that line as the command printed it,
      with no white space around it, so that the two forms are one; with the run's `seconds` over
      600 (criterion 5). The overdue line is held by the unit cases of task 1.
+   - For each of those criteria the report opens with one line, held or not held, by the
+     criterion's own numbers, with the times under it: criterion 1 is held when the answer came
+     less than 4 min 26 s after `gate.start` and before `gate.end`; criterion 3 is held when, ten
+     minutes after `gate.end`, the board shows the task at its review or in its "Pull request"
+     band, where it draws an `open` task that is a branch ready to land with no GitHub remote
+     (`board.html`, `stageOf`; `project.py`, the `open` state), and the line says that the local
+     copy has no GitHub pull request. This reading of criterion 3 is decision 8 of the task's
+     record, which the pull request lists as taken without the owner.
    - The builder closes the session and removes the clone and its worktrees at the end. A run it
      cannot hold to the end is said in its report as such, with where it stopped: no criterion is
      marked as held by a run that did not happen.
@@ -286,6 +294,15 @@ The list, as the reviewer gave it, and how each question ended:
      from `review.start`.
    - the reviewer's position: at the time the criterion names, the board of such a run can show
      neither outcome, and the times can show an answer that misses the criterion's case.
+   - the ladder: the gate held it and added two options (two runs, each built for one
+     criterion's case; new words for criterion 3 first); a check of the panel's brief found that
+     the board already draws an `open` task with no GitHub remote in its "Pull request" band
+     (`board.html`, `stageOf`; `project.py`, the `open` state); the personas split (the
+     developer: a held line for each criterion, sure; the teammate: new words for criterion 3,
+     leaning, else the held lines with the reading listed); the dialectic found no break of the
+     held lines. The owner had said he was away (17:10:59Z, "complete everything /lem dnd"), so
+     `lem decisions ask` took the ladder's pick: task 3's report gives a held or not-held line
+     for each criterion, and the pull request is not green for that choice (decision 8).
 
 The mechanisms the repairs added:
 
