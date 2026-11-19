@@ -1,0 +1,39 @@
+name: Pages
+
+# Started by hand only (the Actions tab, or `gh workflow run Pages`), after the source of Pages is set
+# to "GitHub Actions". It publishes site/ with the logo and the board pictures of assets/, copied at
+# the same paths, so the page names them as assets/... and site/ holds no picture of its own.
+# tests/test-site.sh runs the step "Make the folder to publish" as it is written here.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/configure-pages@v6
+      - name: Make the folder to publish
+        run: |
+          mkdir -p _site/assets/screens
+          cp site/* _site/
+          cp assets/lem.svg assets/lem-night.svg _site/assets/
+          cp assets/screens/board-light.png assets/screens/board-dark.png _site/assets/screens/
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+      - name: Publish to Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
