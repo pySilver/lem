@@ -9,6 +9,9 @@ request ends with these words, so that his next message can correct its read.
 exactly one fits: say which task you took in your answer. When more than one could be meant, ask
 once in the terminal, in one line, with the open tasks named. Never guess between two tasks.
 
+**A task in `landing`.** Before `standard-track` or `drop` does anything to it, `lem land checks
+SLUG --stop`: it stops the task's checks when they run, and does nothing when they do not.
+
 ## be-careful
 
 Careful at any time before the merge, whatever its lead called it. At once, add the line

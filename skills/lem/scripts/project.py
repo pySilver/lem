@@ -1704,7 +1704,7 @@ def read_form(fields: dict) -> None:
 # `interview.start` ends at the first `criteria.read.start` or `criteria.approved` after it, the
 # scout at `scout`, the read at `criteria.read`, an investigation at `investigation`, a builder's
 # job at the next state block or step of the landing after it, the polish pass at `polish`, the
-# checks at their last `gate` or `task.red`, and the review at `review`.
+# checks at `gate.end`, and the review at `review`.
 BUILDER_JOBS = ("the small change", "the repair of a conflict with the base", "the repair of a failed check", "the fix of a review's findings")
 TASK_JOB = re.compile(r"task [1-9]\d* of [1-9]\d*")
 STARTS: dict[str, tuple[str, dict[str, tuple[str, ...] | None]]] = {

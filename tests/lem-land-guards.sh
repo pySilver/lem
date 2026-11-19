@@ -9,8 +9,8 @@
 GRD=$WORK/guards
 git init -q -b main "$GRD" && ident "$GRD"
 project --repo "$GRD" init --base main >/dev/null
-# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit
-grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" > "$GRD/.lem/project.toml"; }
+# grd_settings COMMANDS: the settings with these gate commands, a TOML list's items; HISTORY=squash for one commit, SERIAL for checks.serial
+grd_settings() { printf '%s\n' '[branch]' 'base = "main"' 'land = "agent"' "history = \"${HISTORY:-keep}\"" '[checks]' "commands = [$1]" "serial = [${SERIAL:-}]" > "$GRD/.lem/project.toml"; }
 grd_settings '"true"'
 mkdir -p "$GRD/tests" && printf '%s\n' 'def test_old():' '    assert 1 + 1 == 2' > "$GRD/tests/test_old.py"
 git -C "$GRD" add -A && git -C "$GRD" commit -q -m "chore: start"
@@ -352,6 +352,113 @@ else
 fi
 kill "$left" "$held" 2>/dev/null || true
 project --repo "$GRD" state gate-group dropped "the test is over" >/dev/null
+
+# One step of a task at a time, and the checks know their own run. Every step that names a task holds the task's one
+# step lock: while the checks run, a second run of them is refused because they already run, and base, read and propose
+# wait for their end, also on a tip that passed before, whose result the run cleared at its start. While a step holds
+# the lock as another would, the checks are refused with its name. Each run ends with one gate.end and its line.
+# gate_ends SLUG: each gate.end of the task, as (result, seconds is a whole number, say)
+gate_ends() { "$PY" -c 'import json, sys; print([(e["result"], isinstance(e["seconds"], int), e["say"]) for e in map(json.loads, open(sys.argv[1])) if e["event"] == "gate.end" and e["task"] == sys.argv[2]])' "$GRD/.lem/state/events.jsonl" "$1"; }
+starts_of() { grep -c "\"event\": \"gate.start\", \"task\": \"$1\"" "$GRD/.lem/state/events.jsonl" || true; }
+small_task_in "$GRD" one-step o1.txt o
+g start one-step >/dev/null && g base one-step >/dev/null
+grd_settings '"false"'
+red_say=$(g checks one-step 2>/dev/null | field 'd["say"]' || true)
+grd_settings '"true"'
+passed=$(g checks one-step | field '(d["result"], d["say"])')
+grd_settings "\"touch $WORK/slow.started; while [ ! -f $WORK/slow.go ]; do sleep 0.1; done\""
+"$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/slow.out" 2>&1 &
+slow_pid=$!
+soon test -f "$WORK/slow.started"
+second=$(g checks one-step 2>&1 || true)
+during_base=$(g base one-step 2>&1 || true)
+during_read=$(g read one-step 2>&1 || true)
+during_propose=$(g propose one-step --title "fix: o" --notes "$NOTES" 2>&1 || true)
+during_status=$(g checks one-step --status | field '(d["running"], d["pid"], isinstance(d["seconds"], int), d["overdue"])')
+during_gated=$(kept_in "$GRD" one-step gated)
+touch "$WORK/slow.go"
+wait "$slow_pid" || true
+after_status=$(g checks one-step --status | field '(d["running"], d["ended"]["result"], d["ended"]["resumed"].startswith("one-step: its last run of the checks ended at "), isinstance(d["last_seconds"], int))')
+# a step that holds the lock, as `read` would: the checks are refused with its name
+"$PY" -c 'import fcntl, json, os, sys, time
+h = open(sys.argv[1], "a+"); fcntl.flock(h, fcntl.LOCK_EX); h.seek(0); h.truncate()
+h.write(json.dumps({"step": "read", "pid": os.getpid(), "since": "2026-11-19T10:18:18Z"}) + "\n"); h.flush(); open(sys.argv[2], "w").close()
+while not os.path.exists(sys.argv[3]): time.sleep(0.05)' "$GRD/.lem/state/tasks/one-step/step.lock" "$WORK/held.ready" "$WORK/held.go" &
+holder_pid=$!
+soon test -f "$WORK/held.ready"
+held_checks=$(g checks one-step 2>&1 || true)
+touch "$WORK/held.go"
+wait "$holder_pid" || true
+read_after=$(g read one-step | field 'd["due"]' 2>&1 || true)
+grd_settings '"true"'
+if [ "$red_say" = "one-step: the checks are red on false; a builder repairs it, nothing for you" ] \
+  && [ "$passed" = "('passed', 'one-step: the checks passed; the review runs, nothing for you')" ] \
+  && grep -qF "the checks of one-step already run" <<<"$second" && grep -qF "a second run is refused" <<<"$second" \
+  && grep -qF "\`lem land checks one-step --status\` says whether they still run" <<<"$second" \
+  && grep -qF "the checks of one-step run" <<<"$during_base" && grep -qF "their end comes first" <<<"$during_base" \
+  && grep -qF "the checks of one-step run" <<<"$during_read" && grep -qF "the checks of one-step run" <<<"$during_propose" \
+  && [ "$during_status" = "(True, $slow_pid, True, False)" ] && [ "$during_gated" = None ] \
+  && [ "$after_status" = "(False, 'passed', True, True)" ] \
+  && grep -qF "\`lem land read one-step\`" <<<"$held_checks" && [ "$read_after" = review ] \
+  && [ "$(gate_ends one-step)" = "[('red', True, 'one-step: the checks are red on false; a builder repairs it, nothing for you'), ('passed', True, 'one-step: the checks passed; the review runs, nothing for you'), ('passed', True, 'one-step: the checks passed; the review runs, nothing for you')]" ] \
+  && [ "$(starts_of one-step)" = 3 ]; then
+  pass "while the checks run, a second run is refused because they already run, base, read and propose wait for their end on a tip that passed before, and --status says they run; while another step holds the lock the checks are refused with its name; each run ends with one gate.end and its line"
+else
+  fail "one step of a task at a time: $red_say / $passed / $second / $during_base / $during_read / $during_propose / $during_status / $during_gated / $after_status / $held_checks / $read_after / $(gate_ends one-step)"
+fi
+
+# The stop: --stop ends a run during a command of the checks, during a serial command whose own cleanup takes seconds, and
+# during the criteria's tests, with no process of it left, no worktree of the criteria's check, no result, the lock free and
+# a gate.end of stopped. With no run it stops nothing and is no error.
+idle_stop=$(g checks one-step --stop | field 'd["stopped"]')
+grd_settings "\"sleep 64 > /dev/null 2>&1 & echo \$! > $WORK/stop.pid; wait\""
+"$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/stop.out" 2>&1 &
+stop_pid=$!
+soon test -s "$WORK/stop.pid"
+stopped_plain=$(g checks one-step --stop | field '(d["stopped"], d["ended"]["result"])')
+wait "$stop_pid" || true
+gone_soon "$(cat "$WORK/stop.pid")"
+plain_left=$(kill -0 "$(cat "$WORK/stop.pid")" 2>/dev/null && echo alive || echo ended)
+plain_gated=$(kept_in "$GRD" one-step gated)
+# a serial command that ignores a term: its wrapper kills it after three seconds, and the checks wait for that wrapper
+SERIAL="\"trap '' TERM; sleep 65 & echo \$! > $WORK/serial.pid; wait\"" grd_settings '"true"'
+"$PY" -B "$LAND" --repo "$GRD" checks one-step > "$WORK/serial.out" 2>&1 &
+serial_gate=$!
+soon test -s "$WORK/serial.pid"
+stopped_serial=$(g checks one-step --stop | field 'd["stopped"]')
+wait "$serial_gate" || true
+serial_left=$(kill -0 "$(cat "$WORK/serial.pid")" 2>/dev/null && echo alive || echo ended)
+grd_settings '"true"'
+# the lock is free after the stops: the next step of the task runs
+base_free=$(g base one-step >/dev/null 2>&1 && echo free || echo held)
+project --repo "$GRD" state one-step dropped "the test is over" >/dev/null
+# a criterion's test that runs a minute: the stop reaches it through the check of the criteria, which removes its worktrees
+small_task_in "$GRD" crit-stop c1.txt c
+ctree=$(wt crit-stop)
+printf '%s\n' "touch $WORK/crit.started; sleep 66 & echo \$! > $WORK/crit.pid; wait" "grep -qx c c1.txt" > "$ctree/tests/crit-stop.sh"
+git -C "$ctree" commit -q -am "test: a slow test"
+g start crit-stop >/dev/null && g base crit-stop >/dev/null
+"$PY" -B "$LAND" --repo "$GRD" checks crit-stop > "$WORK/crit.out" 2>&1 &
+crit_gate=$!
+soon test -s "$WORK/crit.pid"
+stopped_crit=$(g checks crit-stop --stop | field '(d["stopped"], d["ended"]["result"])')
+wait "$crit_gate" || true
+gone_soon "$(cat "$WORK/crit.pid")"
+crit_left=$(kill -0 "$(cat "$WORK/crit.pid")" 2>/dev/null && echo alive || echo ended)
+red_trees=$(find "$(dirname "$ctree")" -maxdepth 1 -name 'crit-stop.red-*' | grep -c '' || true)
+crit_free=$(g checks crit-stop --status | field '(d["running"], d["ended"]["say"])')
+if [ "$idle_stop" = False ] && [ "$stopped_plain" = "(True, 'stopped')" ] && [ "$plain_left" = ended ] && [ "$plain_gated" = None ] \
+  && grep -qF "one-step: the checks were stopped; the landing waits for your word" "$WORK/stop.out" && grep -qF "the checks were stopped" "$WORK/stop.out" \
+  && [ "$stopped_serial" = True ] && [ "$serial_left" = ended ] \
+  && [ "$stopped_crit" = "(True, 'stopped')" ] && [ "$crit_left" = ended ] && [ "$red_trees" = 0 ] && [ "$(kept_in "$GRD" crit-stop gated)" = None ] \
+  && [ "$crit_free" = "(False, 'crit-stop: the checks were stopped; the landing waits for your word')" ] \
+  && [ "$(gate_ends crit-stop)" = "[('stopped', True, 'crit-stop: the checks were stopped; the landing waits for your word')]" ] && [ "$base_free" = free ]; then
+  pass "--stop ends the checks during a command, during a serial command that takes its wrapper's cleanup to end, and during the criteria's tests, with no process left, no worktree of the criteria's check, no result kept, the lock free and a gate.end of stopped; with no run it stops nothing"
+else
+  fail "the stop of the checks: $idle_stop / $stopped_plain $plain_left $plain_gated / $stopped_serial $serial_left $base_free / $stopped_crit $crit_left $red_trees $crit_free / $(cat "$WORK/stop.out" "$WORK/serial.out" "$WORK/crit.out")"
+fi
+kill "$(cat "$WORK/stop.pid")" "$(cat "$WORK/serial.pid")" "$(cat "$WORK/crit.pid")" 2>/dev/null || true
+project --repo "$GRD" state crit-stop dropped "the test is over" >/dev/null
 
 # A branch with nothing of its own: base says so with the step that ends the task, and clean deletes the branch
 # of a dropped task that holds no commit of its own, while one with commits stays.
