@@ -171,7 +171,8 @@ Read in the code at `ac05a78`, and in the scout's report (`scout.md` of the task
 
 ## Decisions of the plan
 
-Each logged with `lem decisions log --by lead`.
+The lead of the build logs each with `lem decisions log --by lead`, as the plan talk leaves it, so
+that the record holds no decision the talk reversed.
 
 - **The mark is a log of each away and back, not a file of the status now.** Criterion 7 asks
   another repository for the span from 14:05 to 16:30 after he is back, and only the times of both
