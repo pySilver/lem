@@ -1031,10 +1031,15 @@ def backlog_of(task: Task) -> str:
 def covers(task: Task, read: dict, now: dict) -> bool:
     """Whether a review that was recorded still covers the change as it is now: the change it
     reviewed, or that change as each rebase `base` made with no conflict carried it onto a new base."""
-    return any(covers_one(task, seen, now) for seen in [read, *read.get("carried", [])])
+    return covered(backlog_of(task), read, now)
 
 
-def covers_one(task: Task, read: dict, now: dict) -> bool:
+def covered(folder: str, read: dict, now: dict) -> bool:
+    """`covers`, with the backlog folder given: the rule alone, which reads no file."""
+    return any(covers_one(folder, seen, now) for seen in [read, *read.get("carried", [])])
+
+
+def covers_one(folder: str, read: dict, now: dict) -> bool:
     """Whether one form of a reviewed change covers the change as it is now. It does when the
     change is the same, or when the change is the reviewed one plus new files of the backlog
     folder and nothing else: `file` writes the defects a review saw outside the change there after
@@ -1043,7 +1048,6 @@ def covers_one(task: Task, read: dict, now: dict) -> bool:
     if read["patch"] == now["patch"]:
         return True
     was = read.get("contents")
-    folder = backlog_of(task)
     if was is None:
         return False
     extra = [path for path in now["contents"] if path not in was]
@@ -1564,16 +1568,19 @@ def due(task: Task) -> dict:
     now = change(task)
     found = criteria_of(task)
     kept = task.kept()
-    reads = kept.get("reads", [])
+    # the fast track has no plan, and is the one task of its builder
+    tasks = 1 if found["small"] else tasks_of(Path(found["plan"]).read_text(encoding="utf-8"))
+    return due_of(now, kept.get("reads", []), kept.get("resolution"), careful(task, now), tasks, found["small"], backlog_of(task))
+
+
+def due_of(now: dict, reads: list[dict], resolution: dict | None, why_careful: list[str], tasks: int, small: bool, folder: str) -> dict:
+    """`due` from what it read: the change as `change` gives it, the kept reviews and resolution,
+    each reason the request is careful, the plan's count of tasks, the track, and the backlog folder."""
     answered = [read for read in reads if read["answered"]]
     # The read of a conflict's resolution is no round: the two rounds are of the change itself.
     rounds = [read for read in answered if read.get("of") != "resolution"]
-    why_careful = careful(task, now)
-    # the fast track has no plan, and is the one task of its builder
-    tasks = 1 if found["small"] else tasks_of(Path(found["plan"]).read_text(encoding="utf-8"))
-    facts = {"round": len(rounds) + 1, "careful": why_careful, "tasks": tasks, "small": found["small"], "lines": now["lines"], "in_parts": now["lines"] > READ_AT, "resolution": None, **now}
+    facts = {"round": len(rounds) + 1, "careful": why_careful, "tasks": tasks, "small": small, "lines": now["lines"], "in_parts": now["lines"] > READ_AT, "resolution": None, **now}
     silent = len(reads) - max((index for index, read in enumerate(reads) if read["answered"]), default=-1) - 1
-    resolution = kept.get("resolution")
     if resolution and resolution["covered"] and resolution["read"] is None and resolution["patch"] == now["patch"]:
         # A builder resolved a conflict with the base, after a review covered the change: what the
         # review saw stands, and what the builder chose where the two sides met gets one read, or
@@ -1608,7 +1615,7 @@ def due(task: Task) -> dict:
     if last:
         if last["must_fix"]:
             unmet.append(f"the last one left {last['must_fix']} must-fix")
-        if not covers(task, last, now):
+        if not covered(folder, last, now):
             unmet.append("nobody reviewed what changed after it")
         # the read of a resolution is as large as the resolution; the change itself was reviewed by the round before it
         sized = rounds[-1] if last.get("of") == "resolution" and rounds else last
@@ -2550,8 +2557,10 @@ def kind_of(decision: dict) -> str:
     return "owner" if decision["state"] == "answered" else decision["by"]
 
 
-def built_text(task: Task, name: str, notes: str, reasons: list[str], branch: str, pr: dict | None) -> str:
-    """built.md: what the owner asked, what was built, why he wants it, and what was not built."""
+def built_text(task: Task, name: str, notes: str, reasons: list[str], branch: str, pr: dict | None, files: list[str], items: list[dict]) -> str:
+    """built.md: what the owner asked, what was built, why he wants it, and what was not built;
+    `files` are the paths the change touches, as `changed` gives them, and `items` what
+    `branch_items` gives."""
     found = criteria_of(task)
     kept = task.kept()
     task_md = text_of(task.directory / "task.md")
@@ -2578,13 +2587,12 @@ def built_text(task: Task, name: str, notes: str, reasons: list[str], branch: st
     out += [f"{criterion['n']}. {criterion['text']}" for criterion in found["criteria"]] if proven else criteria_lines(found, held)
     if found["history"]:
         out += ["", "Criteria that changed during the build:", "", *(change_line(task, change) for change in found["history"])]
-    files = changed(task, git(task.worktree, "merge-base", "HEAD", task.onto), "HEAD")
     shown = ", ".join(f"`{file}`" for file in files[:12]) + (f", and {len(files) - 12} more" if len(files) > 12 else "")
     out += ["", f"The change touches {len(files)} file{'' if len(files) == 1 else 's'}: {shown}.", ""]
     why = part(task_md, "outcome")
     if why:
         out += ["## Why the owner wants it", "", why, ""]
-    filed = [f"- `{item['item']}`" + (f": {item['title']}" if item["title"] else "") for item in branch_items(task)]
+    filed = [f"- `{item['item']}`" + (f": {item['title']}" if item["title"] else "") for item in items]
     filed += [f"- `{defect['item']}`: {defect['title']}" for read in kept.get("reads", []) if read["answered"] for defect in outside_of(read) if defect.get("item")]
     missing = [
         (label, body) for label, body in (
@@ -2640,7 +2648,8 @@ def write_pages(task: Task, title: str, notes: str, reasons: list[str], branch: 
     """Write both files into the task directory, whole, at each proposal of a task on the standard track."""
     built, decisions = (task.directory / file for file in PAGES)
     name = title_of(task, title)
-    write_whole(built, built_text(task, name, notes, reasons, branch, pr))
+    files = changed(task, git(task.worktree, "merge-base", "HEAD", task.onto), "HEAD")
+    write_whole(built, built_text(task, name, notes, reasons, branch, pr, files, branch_items(task)))
     write_whole(decisions, decisions_text(task, name, reasons, branch, pr))
     return [str(built), str(decisions)]
 

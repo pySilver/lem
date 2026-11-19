@@ -137,38 +137,34 @@ else
 fi
 local_land land guide-change --by owner >/dev/null && local_land clean guide-change >/dev/null
 
-# A review is of the change as it is: a change of one space is another change. And a floor that rises
-# after a review, because the owner says careful, asks for the larger review.
-task_in "$LOCAL" spaces s.txt word
-tree=$(project --repo "$LOCAL" worktree-dir spaces)
-echo 'value = "a b"' > "$tree/v.py" && app_py new old > "$tree/app.py"
-git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: a value"
-local_land start spaces >/dev/null && local_land base spaces >/dev/null && polish_in "$LOCAL" spaces && local_land checks spaces >/dev/null
-local_land read spaces --record "$(clean 1)" >/dev/null
-same=$(local_land read spaces | field 'd["due"]')
-# the same edit in the next function of the file: every line of the diff is the same, with its
-# context, and only its place is not
-app_py old new > "$tree/app.py"
-git -C "$tree" commit -q -am "fix: the other function" && local_land checks spaces >/dev/null
-moved=$(local_land read spaces | field '(d["due"], d["round"])')
-git -C "$tree" revert --no-edit HEAD >/dev/null && local_land checks spaces >/dev/null
-back=$(local_land read spaces | field 'd["due"]')
-task_dir=$(project --repo "$LOCAL" task-dir spaces)
-printf '%s\n' 'slug: spaces' 'careful: the owner says so' > "$task_dir/brief.md"
-raised=$(local_land read spaces | field '(d["due"], d["floor"])')
-rm "$task_dir/brief.md"
-echo 'value = "ab"' > "$tree/v.py" && git -C "$tree" commit -q -am "fix: no space" && local_land checks spaces >/dev/null
-spaced=$(local_land read spaces | field '(d["due"], d["round"])')
-local_land read spaces --record "$(clean 2)" >/dev/null
-printf '%s\n' 'slug: spaces' 'careful: the owner says so' > "$task_dir/brief.md"
-late=$(local_land read spaces | field 'd["due"] + ": " + d["why"]')
-if [ "$same" = none ] && [ "$moved" = "('review', 2)" ] && [ "$back" = none ] && [ "$raised" = "('review', 'full')" ] && [ "$spaced" = "('review', 2)" ] \
-  && [ "$late" = "owner: two rounds reviewed it: it was one read, and this change gets the project's full set at the least (the request is careful: the owner says so)" ]; then
-  pass "a change of one space after a review, or the same edit in another place of the file, is a change nobody reviewed, and a change that came back to what was reviewed is not; and when the owner calls a reviewed task careful, the one read no longer counts: the full set is due, or after two rounds the request is not green for it"
+# A review is of the change as it is, and the change is known by its id, which land.change takes from
+# git: on real commits of one repository, a change of one space is another change, and so is the same
+# edit in another place of a file; a change that came back to what was reviewed is the same. Which review
+# that makes due, and the floor that rises when the owner says careful after a review, are cases of
+# tests/unit/test_land_text.py (`due_of`).
+SPACES=$WORK/spaces
+git init -q -b main "$SPACES" && ident "$SPACES"
+app_py old old > "$SPACES/app.py" && git -C "$SPACES" add -A && git -C "$SPACES" commit -q -m "chore: start"
+git -C "$SPACES" switch -q -c fix/spaces
+echo 'value = "a b"' > "$SPACES/v.py" && app_py new old > "$SPACES/app.py" && git -C "$SPACES" add -A && git -C "$SPACES" commit -q -m "fix: a value"
+# change_id: the id land.change gives the change of the branch from main, as it is now
+change_id() {
+  "$PY" -B -c 'import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); import land
+task = land.Task.__new__(land.Task); task.worktree, task.onto = Path(sys.argv[2]), "main"; print(land.change(task)["patch"])' "$(dirname "$LAND")" "$SPACES"
+}
+reviewed=$(change_id)
+# the same edit in the next function of the file: every line of the diff is the same, with its context, and only its place is not
+app_py old new > "$SPACES/app.py" && git -C "$SPACES" commit -q -am "fix: the other function"
+moved=$(change_id)
+git -C "$SPACES" revert --no-edit HEAD >/dev/null
+back=$(change_id)
+echo 'value = "ab"' > "$SPACES/v.py" && git -C "$SPACES" commit -q -am "fix: no space"
+spaced=$(change_id)
+if [ -n "$reviewed" ] && [ "$moved" != "$reviewed" ] && [ "$back" = "$reviewed" ] && [ "$spaced" != "$reviewed" ] && [ "$spaced" != "$moved" ]; then
+  pass "a change of one space, or the same edit in another place of the file, is another change by its id, and a change that came back to what was reviewed is the same change"
 else
-  fail "a review is of the change as it is: $same / $moved / $back / $raised / $spaced / $late"
+  fail "the id of a change: $reviewed / $moved / $back / $spaced"
 fi
-project --repo "$LOCAL" state spaces dropped "the test is over" >/dev/null
 
 # The bar, through the real commands: a change that adds a suppression is refused at the checks until the
 # plan gives the file's reason, and then the request is still not green. What lowers the bar, and which
