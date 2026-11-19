@@ -7,13 +7,21 @@ careful: no, because no task changes a record, a script that writes one, the tex
 Size: full, because the change redraws the whole board page and `lem.css`, which every page of Lem links, and it adds tabs to both boards.
 
 1. Each button of the board has one fixed place, whatever the length of the texts beside it: on the board of one task, "All tasks" and the button to Lem's session stay at the top right both for the title "fix: the dates stay whole" and for a title of 160 characters, in a window 900 px wide and in one 1400 px wide; a long title wraps to two lines at most and shows whole when the owner points at it or moves the focus to it; the button to Lem's session says that it goes to Lem's session; and every card that has an action ("Open the task", "Start a task" in the backlog) has it at the same side.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 2. A card does not change its shape with the length of its text: two task cards in one lane, one with an ask of one line and one with an ask of 300 characters, have the same height. Only the ask is cut, after its last whole line; the card's state and a mark that something waits for the owner always show. The Tab key reaches each card, and the long ask shows whole when the owner points at the card or moves the focus to it.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 3. The board takes Lem's own light or dark palette from agterm's background: with the background `#15181c` it draws dark with the night logo, with `#ffffff` and with Solarized light's `#fdf6e3` it draws light with the day logo, and with Solarized's `#002b36` its cards and text use Lem's dark palette and no Solarized color. Opened outside agterm, with no background to read, it follows the system's light or dark setting. In both palettes body text and the small labels (lane names, times, status words) have a contrast of at least 4.5 to 1 against their background.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 4. The board of all tasks has three tabs, "Tasks", "Waits for you" and "Backlog": with two choices that wait, one task whose criteria wait for the owner's yes and one green pull request, "Waits for you" shows the count 4 and lists those four, each row saying what the owner does there: answer a choice, approve the criteria, or merge the pull request. The tab the owner chose stays chosen when the page draws itself again every second, and so does a text he selected in the backlog.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 5. The board of one task has four tabs, "Overview", "Criteria and decisions", "Checks and review" and "Timeline", and its first view says green or not green with its reasons in plain words: a task whose pull request is not green because the experts took choice 2 shows on "Overview", with no click, "not green: two outside experts chose option 2 while you were away". The tab the owner chose stays chosen when the page draws itself again.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 6. Every page of Lem that links `lem.css` has the board's look: the onboarding page shows the same header, fonts and colors as the board, in light and in dark.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 7. The pictures of the board in the README and in `docs/when-lem-needs-you.md` show the new board, in light and in dark, and each caption says that the picture shows example tasks.
+   - no test: what a picture shows is read by a person's eye, and no suite reads the README or the guides; the builder of task 4 read each of the six pictures in light and in dark
 8. The backlog item `docs/backlog/board-as-a-tabbed-interface.md` is closed by this change: its file is removed.
+   - no test: the removal of one file, which the branch's diff shows
 
 ## What exists
 
