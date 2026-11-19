@@ -294,6 +294,49 @@
   .bl-note { color: var(--dim); }
   .bl-note.bad { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); }
 
+  /* "What we are building", first on a task's overview: a section of the landing page, its eyebrow, a
+     heading (the goal of the task) and a paragraph (what the owner gets), then a line for the
+     decisions to look at and one for the backlog items the branch filed. */
+  .building { display: flex; flex-direction: column; gap: 10px; }
+  .b-goal { margin: 0; font-size: 22px; line-height: 1.3; font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere; }
+  .b-text { margin: 0; max-width: 76ch; overflow-wrap: anywhere; }
+  .b-lines { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 15px; }
+  .b-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; color: var(--dim); }
+  .b-line b { color: var(--fg); font-weight: 650; }
+  .b-look .ic:first-child { color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
+  .b-items { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; width: 100%; color: var(--fg); }
+  .b-items .cmd { font: 13px var(--mono); color: var(--dim); }
+
+  /* A decision of the task is one folded row, in the backlog's form: closed, its note on one line (whole
+     in its hover), what was chosen and by whom; opened, its context in labelled parts. An important one
+     (it makes the pull request not green, or it went past the personas) carries a mark and stands first. */
+  .dec { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--card); overflow: hidden; box-shadow: inset 3px 0 0 var(--actor); }
+  .dec + .dec, .row + .dec, .dec + .row { margin-top: 10px; }
+  .dec-head { appearance: none; background: none; border: 0; width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit;
+    display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; align-items: start; padding: 14px 18px; }
+  .dec-head:hover { background: var(--card-hi); }
+  .dec-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-top: 1px; }
+  .dec-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .dec-what { min-width: 0; font-weight: 650; font-size: 16px; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* what was chosen: two lines at most while the row is closed, whole when it is open */
+  .dec-chose { font-size: 15px; line-height: 1.5; color: var(--dim); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .dec-head[aria-expanded="true"] .dec-chose { -webkit-line-clamp: unset; }
+  .dec-chose b { color: var(--fg); font-weight: 600; }
+  .dec-by { font-size: 14px; color: var(--dim); }
+  .dec-mark { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: var(--r-sm); font-size: 13px; font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--you) 55%, transparent); background: color-mix(in srgb, var(--you) 9%, var(--card)); }
+  .dec-mark .ic { width: 13px; height: 13px; color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
+  .dec-body { border-top: 1px solid var(--line); padding: 14px 18px 18px 60px; display: grid; grid-template-columns: minmax(7em, max-content) minmax(0, 1fr); gap: 10px 18px; font-size: 15px; line-height: 1.55; }
+  .dec-body[hidden] { display: none; }
+  .dec-part { display: contents; }
+  .dec-label { font: 650 12px/1.9 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .dec-says { min-width: 0; overflow-wrap: anywhere; }
+  .dec-says ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+  .dec-says .chosen { font-weight: 650; }
+  .dec-says .chosen .ic { width: 13px; height: 13px; margin-right: 4px; vertical-align: -1px; color: color-mix(in srgb, var(--ok) 58%, var(--fg)); }
+  .dec-says .sub { color: var(--dim); }
+  @media (max-width: 760px) { .dec-body { grid-template-columns: minmax(0, 1fr); padding-left: 18px; } }
+
   /* "Waits for you": one row for each thing the owner does, its verb first and its button at the right */
   .wrows { display: flex; flex-direction: column; gap: 12px; }
   .wrow {
@@ -534,6 +577,8 @@
 
   <!-- Each panel names the tab that shows it: data-tasks on the board of all tasks, data-task-tab on
        the board of one task. A tab hides the other panels and never removes them. -->
+  <section id="building" class="card building" data-task-tab="overview" aria-label="What we are building" hidden></section>
+
   <section id="verdict" class="card verdict" data-task-tab="overview" role="status" aria-label="Green or not green" hidden></section>
 
   <section id="hero" class="hero" data-tasks data-task-tab="overview">
@@ -613,10 +658,13 @@
 // rarely, so backlog.js is read when its tab opens and on a key, not every two seconds, and the tab
 // says when it was written. `#waits` or `#backlog` in the address opens there.
 //
-// The board of one task has four: "Overview" (green or not green with its reasons in plain words,
-// buildVerdict, then the large card and the phases), "Criteria and decisions", "Checks and review" and
+// The board of one task has four: "Overview" ("What we are building", buildBuilding, then green or not
+// green with its reasons in plain words, buildVerdict, then the large card and the phases), "Criteria
+// and decisions" (each decision one folded row, the important ones first), "Checks and review" and
 // "Timeline" (where the time went, and the activity). A task opens on its overview, the keys 1 to 4
-// choose a tab, and "All tasks" goes back to the tab of the board of all tasks he left.
+// choose a tab, and "All tasks" goes back to the tab of the board of all tasks he left. What we are
+// building reads overview.js (board.py: each task's outcome from its task.md, and the backlog items
+// its branch filed), which the page reads with meta.js; it says when the file was written.
 //
 // No wait turns amber or red by its length here. The monitor this page follows had limits measured
 // on its own runs; three small tasks ran through Lem (2026-11-15), too few to take a limit from.
@@ -702,7 +750,13 @@ const SMALL_PHASES = ['Change', 'Checks', 'Review', 'Proposed', 'Landed'];
 // then what only waits for his word.
 const OWNER_ORDER = ['choice', 'held', 'planned', 'open'];
 // Who took a decision, in the page's words to the owner.
-const BY_WHOM = {lead: 'the agent', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout', experts: 'the experts'};
+const BY_WHOM = {lead: 'the agent', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout', experts: 'the experts',
+  gate: 'the question gate', dialectic: 'the dialectic'};
+// The levels of the ladder a decision climbed (stages/ladder.md), in their order, as a record's `levels`
+// names them; a level the record names that is not here comes after them, by its own name.
+const LADDER = [['gate', 'The question gate'], ['lead', 'The agent'], ['personas', 'The personas'], ['dialectic', 'The dialectic'], ['experts', 'The experts']];
+// The levels past the personas: a decision one of them answered, or took, went past the personas.
+const PAST_PERSONAS = ['dialectic', 'experts'];
 // Who works on a task, from its state lines, in words a developer needs no glossary for: the page
 // never says "lead" or "defender". `lead: session` is the companion Lem opens for a careful or large
 // plan's talk, which builds nothing; `lead: builder` after a plan talk is the agent that builds the
@@ -800,6 +854,10 @@ let treeProblem = null;
 let backlog = null;
 let backlogProblem = null;
 const bl = {q: '', open: new Set(), cursor: null, confirm: null, sent: new Map(), reading: false};
+// what overview.js last gave (board.py: each task's outcome and the backlog items its branch filed), or null
+let overview = null;
+// the decisions the owner opened, as `SLUG:ID`: they stay open through the draw of every second
+const decOpen = new Set();
 
 // ---- reading the three files ----
 //
@@ -1187,6 +1245,8 @@ function decisionEvent(t, e) {
       id: e.id, kind, ts, what: e.what, chose: e.chose ?? null, why: e.why, by: e.by ?? null, said: e.said ?? null, undo: e.undo ?? null,
       options: e.options ?? [], recommended: e.recommended ?? null, irreversible: e.irreversible ?? null,
       state: kind === 'taken' ? 'taken' : 'waits', ended: null, late: null, advice: {}, experts: null, advisers: e.advisers ?? null,
+      // what each level of the ladder said, {level: words}, as the record has it
+      levels: e.levels && typeof e.levels === 'object' ? e.levels : null,
     });
     return;
   }
@@ -1994,6 +2054,32 @@ function buildVerdict(t, owners) {
     h('ul', {class: 'v-list'}, plain.map(r => h('li', {title: r.title ?? null}, ...reason(r)))));
 }
 
+// "What we are building", first on the overview: the goal of the task (the reason of its type line),
+// what the owner gets (the outcome of its task.md, from overview.js), a line to the decisions he should
+// look at when an important one exists, and the backlog items its branch filed, with when board.py
+// looked. A task whose worktree is gone has no line of filed items: nothing tells them.
+function buildBuilding(t) {
+  const told = overview?.tasks?.[t.slug] ?? null;
+  const goal = t.type?.why ?? '';
+  const paragraphs = String(told?.outcome ?? '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+  const important = importantOf(t).length;
+  const filed = Array.isArray(told?.filed) ? told.filed : null;
+  if (!goal && !paragraphs.length && !important && !filed) return null;
+  const written = overview?.written ? Date.parse(overview.written) : 0;
+  const lines = [
+    important ? h('button', {class: 'btn b-look', type: 'button', 'data-goto-tab': 'criteria', title: 'Open the tab Criteria and decisions · key 2'},
+      icon('alert'), `${plural(important, 'important decision')} ${important === 1 ? 'waits' : 'wait'} for a look`, ' ', icon('arrow')) : '',
+    filed ? h('div', {class: 'b-line'}, h('b', {}, filed.length ? `${plural(filed.length, 'backlog item')} filed` : 'no backlog item filed'),
+      written ? h('span', {}, `· the branch as of ${stamp(written, Date.now())}`) : '',
+      filed.length ? h('ul', {class: 'b-items'}, filed.map(item => h('li', {title: item.path}, item.title, h('span', {class: 'cmd'}, ` · ${item.path}`)))) : '') : '',
+  ].filter(Boolean);
+  return keyed(`b:${t.slug}`, h('div', {class: 'building'},
+    h('div', {class: 'eyebrow'}, 'What we are building'),
+    goal ? h('h3', {class: 'b-goal'}, cap(goal)) : '',
+    paragraphs.map(text => h('p', {class: 'b-text'}, text)),
+    lines.length ? h('div', {class: 'b-lines'}, lines) : ''));
+}
+
 function buildTaskNow(t) {
   const pane = paneOf(t.session);
   const c = t.asks[0];
@@ -2220,12 +2306,93 @@ function criteriaHead(t, now) {
   return rows;
 }
 
-// Each decision of the build: the choices that wait for the owner first, then every one in the
-// record's order with what was chosen, by whom and why.
+// Why a decision is important (decision 9 of the plan that built this), or null: it makes the pull
+// request not green (a choice taken without the owner, or a decision a `decision N ` or `choice N `
+// line of the newest proposal names), or it went past the personas (the dialectic or the experts took
+// it, or answered at its level). A decision of the owner, the gate, the personas, the agent or Lem is
+// not, and neither is a choice that still waits: it stands first by itself.
+function importance(t, d) {
+  if (d.kind === 'asked' && d.state === 'waits') return null;
+  const named = (t.proposal?.reasons ?? []).some(line => line.startsWith(`decision ${d.id} `) || line.startsWith(`choice ${d.id} `));
+  const notGreen = d.state === 'timeout' || named;
+  const past = PAST_PERSONAS.includes(d.by) ? d.by : PAST_PERSONAS.find(level => String(d.levels?.[level] ?? '').trim()) ?? null;
+  if (!notGreen && !past) return null;
+  return [notGreen && 'it makes the pull request not green', past && `it went past the personas: ${PAST_PERSONAS.includes(d.by) ? `${BY_WHOM[d.by]} took it` : `${BY_WHOM[past]} answered it`}`]
+    .filter(Boolean).join(', and ');
+}
+const importantOf = t => t.choices.filter(d => importance(t, d));
+
+// The option a decision took, by its place in its options, or -1: the same text, or, as a lead writes a
+// choice it took after the talk ("D: the backlog is patched by keys, ..." for the option "D: the
+// backlog is patched by keys down to the foot's parts"), the same short label before a colon.
+const LABEL = /^([A-Za-z0-9]{1,3}):\s/;
+function chosenAt(d) {
+  if (d.chose == null) return -1;
+  const same = d.options.indexOf(d.chose);
+  if (same >= 0) return same;
+  const label = String(d.chose).match(LABEL)?.[1];
+  const found = label ? d.options.findIndex(option => String(option).match(LABEL)?.[1] === label) : -1;
+  return found >= 0 && d.options.filter(option => String(option).match(LABEL)?.[1] === label).length === 1 ? found : -1;
+}
+
+// One labelled part of a decision's opened row; nothing when it has nothing to say.
+const decPart = (key, label, ...says) => (says.flat().some(x => x != null && x !== '' && x !== false)
+  ? keyed(key, h('div', {class: 'dec-part'}, h('span', {class: 'dec-label'}, label), h('div', {class: 'dec-says'}, ...says))) : null);
+
+// A decision taken (by an agent, the owner, or without him) as one folded row: closed, its note on one
+// line and what was chosen on two at most, each whole in its hover, then by whom and when; opened,
+// what was chosen whole, and its context. The row, its head
+// and its body are patched in place (`data-deep`), so the row the owner opened stays open, keeps the
+// focus on its head, and keeps a sentence he selected in it.
+function decisionRow(t, d, now) {
+  const id = `${t.slug}:${d.id}`;
+  const open = decOpen.has(id);
+  const why = importance(t, d);
+  const timeout = d.state === 'timeout';
+  const late = d.late ? [`Your answer came at ${hhmm(d.late.ts)}, after it was taken: “${d.late.chose}”${d.late.words ? ` (${d.late.words})` : ''}. `,
+    d.late.chose === d.chose ? 'It is what was taken.' : 'It differs from what was taken: a correction for the agent that builds it.'] : [];
+  const how = d.kind === 'taken' ? `taken by ${BY_WHOM[d.by] ?? d.by}, because ${d.why}`
+    : d.state === 'answered' ? `answered by you${d.instead ? ', with none of the options' : ''}${d.words ? `: “${d.words}”` : ''}${d.ownerWhy ? `, because ${d.ownerWhy}` : ''}`
+      : `taken ${d.by === 'experts' ? `by the experts, as ${pickedWord(d)},` : 'as the recommended option'} at ${hhmm(d.ended)}, as the task ran without you. The pull request is not green for it.`;
+  const who = d.kind === 'taken' ? `by ${BY_WHOM[d.by] ?? d.by}` : d.state === 'answered' ? 'by you'
+    : d.by === 'experts' ? 'by the experts, while the task ran without you' : 'as the recommended option, while the task ran without you';
+  // The experts' reasons: from the line that took their pick, else from their advice. Advice that
+  // did not decide (a split, or none fits) is shown as theirs, beside what was taken.
+  const reasons = d.experts ?? Object.fromEntries(Object.entries(d.advice).map(([key, a]) => [key, a.why]));
+  const experts = d.by === 'experts' && Object.keys(reasons).length ? Object.entries(reasons).map(([key, text]) => adviceLine(key, {pick: d.chose, why: text}, true))
+    : d.kind === 'asked' && Object.keys(d.advice).length ? [`the experts ${sharedPick(d) == null && Object.keys(d.advice).length > 1 ? 'split' : 'advised'}: ${adviceLines(d, true).join(' · ')}`] : [];
+  const levels = d.levels ? [...LADDER.filter(([key]) => key in d.levels), ...Object.keys(d.levels).filter(key => !LADDER.some(([k]) => k === key)).map(key => [key, cap(key)])] : [];
+  const list = items => (items.length ? h('ul', {}, items) : null);
+  return keyed(`d:${d.id}:${d.state}:${Boolean(d.late)}`, h('div', {class: `dec a-${timeout ? 'bad' : why ? 'you' : 'done'}${why ? ' important' : ''}`, 'data-dec': id, 'data-deep': ''},
+    keyed('head', h('button', {class: 'dec-head', type: 'button', 'data-dec-toggle': id, 'aria-expanded': String(open), 'data-deep': ''},
+      keyed('icon', h('span', {class: 'fi'}, icon(timeout ? 'clock' : why ? 'alert' : d.by === 'owner' || d.state === 'answered' ? 'user' : d.by === 'personas' ? 'users' : 'check'))),
+      keyed('main', h('span', {class: 'dec-main'},
+        h('span', {class: 'dec-top'}, why ? h('span', {class: 'dec-mark', title: `Important: ${why}`}, icon('alert'), 'important') : '',
+          h('span', {class: 'dec-what', title: d.what}, `${d.id}. ${d.what}`)),
+        h('span', {class: 'dec-chose', title: d.chose ?? null}, '→ ', h('b', {}, d.chose ?? '')),
+        h('span', {class: 'dec-by'}, `${who} · ${stamp(d.ended ?? d.ts, now)}`))))),
+    keyed('body', h('div', {class: 'dec-body', hidden: !open, 'data-deep': ''},
+      decPart('note', 'The decision', d.what),
+      decPart('how', 'How and why', how),
+      decPart('options', 'Options', list(d.options.map((option, k) => k === chosenAt(d)
+        ? h('li', {class: 'chosen'}, icon('check'), option, h('span', {class: 'sub'}, ' · chosen'))
+        : h('li', {}, option, option === d.recommended ? h('span', {class: 'sub'}, ' · recommended') : ''))),
+        d.chose != null && d.options.length && chosenAt(d) < 0 ? h('div', {class: 'sub'}, `chosen, none of these: “${d.chose}”`) : ''),
+      decPart('ladder', 'The ladder', list(levels.map(([key, name]) => h('li', {}, h('b', {}, `${name}: `), String(d.levels[key]))))),
+      decPart('experts', 'The experts', list(experts.map(line => h('li', {}, line)))),
+      decPart('personas', 'The personas', d.said ?? ''),
+      decPart('important', 'Important', why ? cap(why) : ''),
+      decPart('undo', 'To undo', d.undo ?? ''),
+      decPart('late', 'Your answer', late)))));
+}
+
+// Each decision of the build: the choices that wait for the owner first, then the important ones,
+// then every other one, each group in the record's order, each one folded row.
 function buildDecisions(t, now) {
   if (!t.choices.length && !t.orphans.length) return [keyed('empty', h('div', {class: 'empty'}, 'Each decision the build takes, and each choice that waits for you, comes here'))];
   const waiting = new Set(t.waiting);
-  const rows = [...t.waiting, ...t.choices.filter(d => !waiting.has(d))].map(d => {
+  const rest = t.choices.filter(d => !waiting.has(d));
+  const rows = [...t.waiting, ...rest.filter(d => importance(t, d)), ...rest.filter(d => !importance(t, d))].map(d => {
     if (waiting.has(d)) {
       return keyed(`d:${d.id}:waits`, h('div', {class: 'row a-you'}, h('span', {class: 'fi'}, icon('help')),
         h('div', {class: 'rtext'}, h('b', {}, `Choice ${d.id} waits for you: `), d.what,
@@ -2247,22 +2414,7 @@ function buildDecisions(t, now) {
         h('span', {class: 'rtime'}, stamp(d.ts, now))));
     }
     // A choice the timeout or the experts took is marked alike: neither is his answer, and each keeps the request from green.
-    const timeout = d.state === 'timeout';
-    const late = d.late ? [h('span', {class: 'sub'}, `Your answer came at ${hhmm(d.late.ts)}, after it was taken: “${d.late.chose}”${d.late.words ? ` (${d.late.words})` : ''}. `,
-      d.late.chose === d.chose ? 'It is what was taken.' : 'It differs from what was taken: a correction for the agent that builds it.')] : [];
-    const how = d.kind === 'taken' ? `taken by ${BY_WHOM[d.by] ?? d.by}, because ${d.why}`
-      : d.state === 'answered' ? `answered by you${d.instead ? ', with none of the options' : ''}${d.words ? `: “${d.words}”` : ''}${d.ownerWhy ? `, because ${d.ownerWhy}` : ''}`
-        : `taken ${d.by === 'experts' ? `by the experts, as ${pickedWord(d)},` : 'as the recommended option'} at ${hhmm(d.ended)}, as the task ran without you. The pull request is not green for it.`;
-    // The experts' reasons: from the line that took their pick, else from their advice. Advice that
-    // did not decide (a split, or none fits) is shown as theirs, beside what was taken.
-    const reasons = d.experts ?? Object.fromEntries(Object.entries(d.advice).map(([key, a]) => [key, a.why]));
-    const experts = d.by === 'experts'
-      ? Object.entries(reasons).map(([key, why]) => h('span', {class: 'sub'}, adviceLine(key, {pick: d.chose, why}, true)))
-      : d.kind === 'asked' && Object.keys(d.advice).length ? [h('span', {class: 'sub'}, `the experts ${sharedPick(d) == null && Object.keys(d.advice).length > 1 ? 'split' : 'advised'}: ${adviceLines(d, true).join(' · ')}`)] : [];
-    return keyed(`d:${d.id}:${d.state}:${Boolean(d.late)}`, h('div', {class: `row a-${timeout ? 'bad' : 'done'}`}, h('span', {class: 'fi'}, icon(timeout ? 'clock' : d.by === 'owner' ? 'user' : d.by === 'personas' ? 'users' : 'check')),
-      h('div', {class: 'rtext'}, h('b', {}, `${d.id}. `), d.what, ' → ', h('b', {}, d.chose), h('span', {class: 'sub'}, how), experts,
-        d.said ? h('span', {class: 'sub'}, `the personas: ${d.said}`) : '', d.undo ? h('span', {class: 'sub'}, `to undo: ${d.undo}`) : '', late),
-      h('span', {class: 'rtime'}, stamp(d.ended ?? d.ts, now))));
+    return decisionRow(t, d, now);
   });
   for (const o of t.orphans) {
     rows.push(keyed(`orphan:${o.id}:${o.kind}:${o.ts}`, h('div', {class: 'row a-bad'}, h('span', {class: 'fi'}, icon('alert')),
@@ -2537,6 +2689,9 @@ function render() {
       meta.base && !['answered', 'dropped'].includes(t.status) ? chip('base', 'flag', '', 'lands on ', h('b', {}, meta.base)) : null,
       ...tags(t).map((n, i) => keyed(`tag:${i}`, n)),
     ] : []);
+    const building = t ? buildBuilding(t) : null;
+    patch($('building'), building ? [building] : []);
+    if (!building) $('building').hidden = true;
     const verdict = t ? buildVerdict(t, m.owners) : null;
     $('verdict').className = `card verdict a-${verdict?.actor ?? 'quiet'}`;
     patch($('verdict'), verdict ? [keyed('v', verdict.node)] : []);
@@ -2550,7 +2705,7 @@ function render() {
 
     patch($('decisions'), t ? buildDecisions(t, now) : []);
     $('decisions-sum').textContent = t?.choices.length ? [t.asks.length && `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''} for you`,
-      `${t.choices.filter(d => d.state !== 'waits').length} taken`].filter(Boolean).join(' · ') : '';
+      `${t.choices.filter(d => d.state !== 'waits').length} taken`, importantOf(t).length && `${importantOf(t).length} important`].filter(Boolean).join(' · ') : '';
     patch($('gate'), t ? buildGate(t, now) : []);
     $('gate-sum').textContent = t?.gates.length ? (t.gateBad ? `${t.gateBad} of ${t.gates.length} red` : `${plural(t.gates.length, 'command')} green`) : '';
   } else {
@@ -2663,6 +2818,10 @@ async function pollFiles() {
   const about = await readScript('meta.js', 'lemMeta', 0);
   if (about.records?.length) { meta = about.records.at(-1); delete problems.meta; }
   else problems.meta = about.problem ?? 'meta.js is missing or empty: open the board with board.py';
+  // no overview.js is no problem: a folder written before board.py wrote it has none, and the overview then says less
+  const told = await readScript('overview.js', 'lemOverview', 0);
+  if (told.problem) problems.overview = told.problem; else delete problems.overview;
+  overview = told.records?.at(-1) ?? (told.missing ? null : overview);
   // no watch.js is no problem: no watch ran yet, and the chip of the pull requests says that nobody watches
   const looked = await readScript('watch.js', 'lemWatch', 0);
   if (looked.problem) problems.watch = looked.problem; else delete problems.watch;
@@ -2694,6 +2853,9 @@ document.addEventListener('click', async ev => {
   }
   const pick = (name, fn) => { const node = ev.target.closest(`[data-bl-${name}]`); if (node) fn(node.dataset[`bl${name[0].toUpperCase()}${name.slice(1)}`]); return Boolean(node); };
   if (ev.target.closest('[data-tab]')) return setTab(ev.target.closest('[data-tab]').dataset.tab);
+  if (ev.target.closest('[data-goto-tab]')) return setTab(ev.target.closest('[data-goto-tab]').dataset.gotoTab);
+  const fold = ev.target.closest('[data-dec-toggle]');
+  if (fold) { const id = fold.dataset.decToggle; decOpen.has(id) ? decOpen.delete(id) : decOpen.add(id); render(); return; }
   if (ev.target.closest('#bl-read')) return void readBacklog();
   if (pick('ask', askToStart)) return;
   if (pick('cancel', () => { bl.confirm = null; renderBacklog(); })) return;

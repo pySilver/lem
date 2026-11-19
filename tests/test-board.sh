@@ -849,8 +849,8 @@ open(sys.argv[1] + "/meta.js", "w").write("lemMeta(" + json.dumps({"repo": "shop
     "Choice 4 waits for you: Email the merchants about the new column" "It waits for your answer, also while you are away: it sends something to a person. The experts advise on it and never take it." \
     "Choice 6 waits for you: A note longer than the cell" 'If you say you are away, the build goes on with “all of it”, the recommended option.' "!wait over" "!left" "!its wait is over" \
     "5. The header of the column → Gift note" "taken as the recommended option at " "as the task ran without you. The pull request is not green for it." \
-    "1. The name of the new column → gift_note" "taken by the agent, because the other columns of the export are in snake case" "to undo: rename the column" \
-    "2. Two notes on one order → both notes, with a semicolon between them" "taken by the personas, because a merchant reads both" "the personas: The merchant and the accountant both picked the semicolon." \
+    "1. The name of the new column → gift_note" "taken by the agent, because the other columns of the export are in snake case" "To undo rename the column" \
+    "2. Two notes on one order → both notes, with a semicolon between them" "taken by the personas, because a merchant reads both" "The personas The merchant and the accountant both picked the semicolon." \
     "3. Where the note goes in the row → the last column" 'answered by you: “last, like the other new columns”' \
     "3 choices wait for you" "since it was asked · if you say you are away, the build goes on with"); then
     pass "the board of one task has a Decisions card: each choice that waits with what your away would take, an irreversible one that waits also then, one taken without you, and each taken one with what, by whom and why"
@@ -1897,7 +1897,7 @@ long_what = ("The order of the day and the month in the date column of every exp
              "and a day when the day is twelve or less, so that the third of May reads as the fifth of March and the totals of each month move")
 long_line = "the export writes the dates in the store's own locale and the spreadsheet of the accountant reads them in its own locale "
 events = [
-    state(120, "logo-color", "building", "lead: session", "Print the logo in the shop's color", ["session: T1"]),
+    state(120, "logo-color", "building", "lead: session", "Print the logo in the shop's color", ["session: T1", "type: feat, because the printed invoice should look like the shop"]),
     state(118, "logo-color", "building", "plan committed, 2 tasks", "Print the logo in the shop's color"),
     decision(110, "asked", "logo-color", 1, what="The paper size", options=["A4", "Letter"], recommended="Letter", why="the printer has Letter in its tray"),
     decision(105, "answered", "logo-color", 1, chose="A4", words="A4"),
@@ -1926,6 +1926,9 @@ events = [
 open(f"{out}/events.js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(e)});\n" for e in events))
 open(f"{out}/meta.js", "w", encoding="utf-8").write("lemMeta(" + json.dumps({"repo": "shop", "base": "main", "session": "LEM1", "gates": 1, "serial": 0}) + ");\n")
 open(f"{out}/backlog.js", "w", encoding="utf-8").write("lemBacklog(" + json.dumps({"folder": "docs/backlog", "read": iso(1), "items": []}) + ");\n")
+told = {"written": iso(1), "tasks": {"logo-color": {"outcome": "The invoice prints the logo in the green of the shop, on every printer of the shop.",
+                                                    "filed": [{"path": "docs/backlog/logo-on-receipts.md", "title": "The logo on the receipts is still black"}]}}}
+open(f"{out}/overview.js", "w", encoding="utf-8").write("lemOverview(" + json.dumps(told) + ");\n")
 for name in ("lem.css", "lem.js"):
     open(f"{out}/{name}", "w", encoding="utf-8").write(open(f"{assets}/{name}", encoding="utf-8").read())
 bridge = ("<script>globalThis.agterm = {request: async cmd => cmd !== 'tree' ? {} : {tree: {workspaces: [{sessions: ["
@@ -1980,7 +1983,7 @@ wrong = [d["error"]] if "error" in d else []
 if not wrong:
     o, tl, key, back, long = d["open"], d["timeline"], d["key"], d["back"], d["long"]
     if o['tabs'] != ["Overview", "Criteria and decisions", "Checks and review", "Timeline"]: wrong.append(f"the tabs of a task are {o['tabs']}")
-    if o["tab"] != "overview" or o["panels"] != ["verdict", "hero"] or not o["seen"]: wrong.append(f"the first view: {o}")
+    if o["tab"] != "overview" or o["panels"] != ["building", "verdict", "hero"] or not o["seen"]: wrong.append(f"the first view: {o}")
     # the line is only in the panel of another tab now: the check of what he sees does not find it
     if tl["tab"] != "timeline" or tl["panels"] != ["tl-card", "feed-card"] or tl["seen"] or not tl["there"]: wrong.append(f"the Timeline tab, two draws later: {tl}")
     if key["tab"] != "checks" or key["panels"] != ["checks-panel"]: wrong.append(f"the key 3: {key}")
@@ -2065,6 +2068,7 @@ function measure(d, w) {
     for (const tab of tabs) {
       d.querySelector(`#tabs [data-tab="${tab}"]`).click(); await wait(500);
       if (tab === 'backlog') { d.querySelector('[data-bl-toggle]')?.click(); await wait(300); }
+      if (tab === 'criteria') { d.querySelector('[data-dec-toggle]')?.click(); await wait(300); }
       frame.tabs[tab] = measure(d, w);
       if (tab === 'tasks') {
         const lane = [...d.querySelectorAll('#lanes .lane')].find(l => l.querySelector('.lane-head').textContent.startsWith('Waits for you'));
@@ -2139,6 +2143,155 @@ PY
     pass "the board reads as the landing page: body text at 16 px with a line of 1.6, no text under 12 px and none under 4.5:1 on any tab of either board in either palette, the landing page's warm backgrounds and its ochre accent, the small labels as its eyebrows, and a card of Waits for you with its title and ask at 16 px in a card of 14 px radius and 20px 20px 22px padding ($why)"
   else
     fail "the landing page's look: $why"
+  fi
+
+  # The tests of criteria 10, 11 and 12, in a repository of their own with two tasks, each with a
+  # worktree: the task that built this board, with four of its decisions as its record has them (1 by
+  # Lem, 2 by the question gate, 4 by the experts after the whole ladder, 11 by the owner) and a branch
+  # that adds docs/backlog/landing-page-pictures.md, and a task whose branch adds no item. An item that
+  # lands on the base after both branches left it was filed by neither. board.py writes overview.js from
+  # their task.md and their branches, and the page draws it.
+  O=$WORK/steady
+  oproject() { "$PY" -B "$SCRIPTS/project.py" --repo "$O" "$@"; }
+  oboard() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$SCRIPTS/board.py" --repo "$O" "$@"; }
+  ocommit() { git -C "$1" add -- "${@:3}" && git -C "$1" commit -q -m "$2"; }
+  OW=$O/.lem/worktrees
+  git init -q -b main "$O" && git -C "$O" config user.name t && git -C "$O" config user.email t@t
+  echo one > "$O/app.txt" && ocommit "$O" "chore: start" app.txt
+  oproject init --base main >/dev/null
+  git -C "$O" add -A && git -C "$O" commit -q -m "chore: the settings"
+  OS=$(oproject state-dir)
+  oproject task-dir status-boards-steady-look --ask "I would like to improve our status screens (plan, task). It has to be world class." >/dev/null
+  oproject task-dir quiet-change --ask "Fix the typo in the README" >/dev/null
+  oproject state status-boards-steady-look building "lead: builder" "type: feat, because the ask wants a new look for the status screens" >/dev/null
+  oproject state quiet-change building "lead: builder" "type: docs, because the README has a typo" >/dev/null
+  printf '%s\n' "# status-boards-steady-look" "" "## Type" "" "feat, because the ask wants a new look." "" "## Outcome" "" \
+    "The owner opens the board of all tasks or the board of one task and sees one steady layout in a" \
+    "modern developer tool's look: no card changes its shape with its text." "" "## Done when" "" "- The criteria hold." \
+    > "$OS/tasks/status-boards-steady-look/task.md"
+  git -C "$O" worktree add -q -b feat/status-boards-steady-look "$OW/status-boards-steady-look"
+  git -C "$O" worktree add -q -b docs/quiet-change "$OW/quiet-change"
+  mkdir -p "$OW/status-boards-steady-look/docs/backlog" "$O/docs/backlog"
+  printf '%s\n' "---" "worth: later" "where: site/index.html" "added: 2026-11-19" "---" "# The pictures of the \`site/\` landing page show the new board" "" \
+    "After this change lands, the pictures of the landing page show the new board." > "$OW/status-boards-steady-look/docs/backlog/landing-page-pictures.md"
+  ocommit "$OW/status-boards-steady-look" "docs(backlog): the pictures of the landing page" docs/backlog/landing-page-pictures.md
+  echo "The README, with no typo" > "$OW/quiet-change/README.md" && ocommit "$OW/quiet-change" "docs: the typo" README.md
+  printf '%s\n' "---" "worth: later" "added: 2026-11-19" "---" "# An item of the base" > "$O/docs/backlog/on-main.md" && ocommit "$O" "docs(backlog): an item of the base" docs/backlog/on-main.md
+  STEADY_EVENTS=$(cat <<'JSONL'
+{"ts": "2026-11-19T09:51:23Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 1, "at": "2026-11-19T09:51:23Z", "what": "what the redesign leaves out of scope", "chose": "the question page (skills/lem-ask/runtime/ask.css) and the agdoc page of a task (page.html) keep their own look; the onboarding page follows, since it links lem.css", "why": "the ask names the status screens, and he confirmed they are the board; the agdoc page is his approved sample (2026-11-18)", "by": "lem", "undo": "a new task for the question page's look"}
+{"ts": "2026-11-19T10:22:43Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 2, "at": "2026-11-19T10:22:43Z", "what": "plan talk question 1: which owner event makes the board say 'while you were away' for a choice taken without him", "chose": "B: the newest owner event at or before the choice's time (the same second counts) says away; otherwise 'while the task ran without you'", "why": "gate, checkable: project.py cmd_owner writes the owner event and then runs decisions.py cmd_away at once, and both stamps are whole seconds (append_event, decisions.py stamp), so the choice his own away takes shares that second; under A that choice, the case criterion 5 names, would read 'while the task ran without you'. No path takes a choice in the second of a 'back' event.", "by": "gate", "undo": "change one comparison in the board's away test, board.html; nothing is written", "options": ["A: the newest owner event strictly before the choice's time says away", "B: the newest owner event at or before the choice's time says away"], "levels": {"gate": "checkable"}}
+{"ts": "2026-11-19T10:30:30Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 4, "at": "2026-11-19T10:30:30Z", "what": "plan talk question 4: how the backlog keeps a text the owner selected when an outside fact changes (an agent in Lem's session stops or starts, a read of agterm's sessions fails)", "chose": "D: the backlog is patched by keys with patch() and keyed(), as render() patches the task panels, down to the foot's parts: a node whose markup did not change keeps its place, so a selection in a body or in an unchanged <code> command survives every draw, and only the words that changed are swapped", "why": "experts, both for D (Fable and GPT 6.2 Astra): criterion 4 gives no exception, and only D holds it on every draw; A and C still replace the whole group when a sessions read fails, B loses the <code> command the foot tells the owner to copy (the break the dialectic confirmed). patch() (board.html 817-835) already keeps a keyed block whose markup did not change. Both name the condition: patch() compares a parent's direct children, so the group, the item, .bl-body and .bl-actions are each patched at their own level, with the note, the button and the <code> as keyed parts.", "by": "experts", "advisers": ["fable", "astra"], "undo": "a later change of board.html's backlog drawing; nothing is written by the board", "options": ["A: keep today's rule: the backlog is drawn again whole when what it shows from outside changes", "B: only the foot lines whose text changes are drawn again", "C: one band above the backlog says no agent runs; agentRuns leaves the redraw key", "D: the backlog is patched by keys down to the foot's parts"], "levels": {"gate": "held: criterion 4 is the owner's words, and A reads an exception into it", "lead": "A, the plan as it stands", "personas": "split: developer B (leaning), newcomer C (leaning); none for A", "dialectic": "one break of B confirmed: a selected <code> command in a changed foot is lost; option D named", "experts": "D, both"}}
+{"ts": "2026-11-19T12:37:59Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 11, "at": "2026-11-19T12:37:59Z", "what": "the board's look: density, palette and accent", "chose": "the landing page's style (site/style.css): 16 px body text with line height 1.6, more space, its warm backgrounds and ochre accent; it replaces the Linear or Vercel look and the lead's indigo accent (decision 5)", "why": "it too dense to my taste: lots of useful text but the font is small and not so much space ... I would really love the same style for our dahsboards", "by": "owner", "undo": "the tokens in lem.css"}
+JSONL
+)
+  "$PY" -I -c 'import json, sys
+state, rows = sys.argv[1], [line for line in sys.argv[2].splitlines() if line.strip()]
+open(f"{state}/events.jsonl", "a", encoding="utf-8").write("".join(row + "\n" for row in rows))
+open(f"{state}/events.js", "a", encoding="utf-8").write("".join(f"lemEvent({json.dumps(json.loads(row), ensure_ascii=False)});\n" for row in rows))' "$OS" "$STEADY_EVENTS"
+  oboard --no-open --task quiet-change >/dev/null
+  oboard --no-open --task status-boards-steady-look >/dev/null
+  headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-status-boards-steady-look.html" > "$WORK/steady-look.dom"
+  headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-quiet-change.html" > "$WORK/steady-quiet.dom"
+  cat > "$OS/probe.html" <<'HTML'
+<!doctype html><meta charset="utf-8"><iframe id="f" src="task-status-boards-steady-look.html" style="width:1400px;height:900px;border:0"></iframe><pre id="out"></pre>
+<script>
+const wait = ms => new Promise(done => setTimeout(done, ms));
+(async () => {
+  await wait(1500);
+  const d = document.getElementById('f').contentWindow.document, log = {};
+  const words = text => text.split(/\s+/).filter(Boolean).join(' ');
+  // the text the owner sees in a node: none under an element with `hidden`
+  const visible = node => { const out = [], walk = d.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.parentElement && !n.parentElement.closest('[hidden], script, style')) out.push(n.data);
+    return words(out.join(' ')); };
+  const chosen = () => d.querySelector('#tabs [aria-selected="true"]')?.dataset.tab ?? null;
+  const rows = () => [...d.querySelectorAll('#decisions > *')].map(n => ({id: n.dataset.dec ?? null, important: n.classList.contains('important'),
+    mark: n.querySelector('.dec-mark')?.textContent.trim() ?? null, what: n.querySelector('.dec-what')?.title ?? null,
+    head: words(n.querySelector('.dec-head')?.textContent ?? ''), open: n.querySelector('.dec-head')?.getAttribute('aria-expanded') ?? null,
+    hidden: n.querySelector('.dec-body')?.hidden ?? null, body: visible(n.querySelector('.dec-body') ?? n)}));
+  log.first = chosen();
+  // the line of What we are building takes him to the decisions
+  (d.querySelector('#building [data-goto-tab]') ?? d.querySelector('#tabs [data-tab="criteria"]')).click(); await wait(400);
+  log.line = Boolean(d.querySelector('#building [data-goto-tab]'));
+  log.goto = chosen();
+  log.closed = rows();
+  const head = d.querySelector('[data-dec-toggle="status-boards-steady-look:4"]');
+  if (head) { head.click(); await wait(2500); }
+  log.opened = rows();
+  log.same = Boolean(head) && d.querySelector('[data-dec-toggle="status-boards-steady-look:4"]') === head;
+  document.getElementById('out').textContent = JSON.stringify(log);
+})().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
+</script>
+HTML
+  headless --allow-file-access-from-files --virtual-time-budget=12000 --dump-dom "file://$OS/probe.html" > "$WORK/steady-probe.dom"
+  STEADY_CHECK=$(cat <<'PY'
+import html, json, re, sys
+found = re.search(r'<pre id="out">(.*?)</pre>', open(sys.argv[1], encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}
+wrong = [d["error"]] if "error" in d else []
+if not wrong:
+    closed, opened = d["closed"], d["opened"]
+    ids = [r["id"] for r in closed]
+    if ids != [f"status-boards-steady-look:{n}" for n in (4, 1, 2, 11)]: wrong.append(f"the rows stand in the order {ids}, not 4 first, then 1, 2 and 11")
+    first = closed[0] if closed else {}
+    if not first.get("important") or first.get("mark") != "important": wrong.append(f"decision 4 has no mark: {first}")
+    if not (first.get("what") or "").startswith("plan talk question 4: how the backlog keeps a text") or "→ D: the backlog is patched by keys" not in first.get("head", "") \
+        or "by the experts" not in first.get("head", ""): wrong.append(f"decision 4 closed does not show its note, what was chosen and by whom: {first}")
+    gate = next((r for r in closed if r["id"] == "status-boards-steady-look:2"), {})
+    if gate.get("important") or gate.get("mark") or "by the question gate" not in gate.get("head", "") or "→ B: the newest owner event" not in gate.get("head", ""):
+        wrong.append(f"decision 2 is not a plain folded row by the question gate: {gate}")
+    if any(r["important"] for r in closed[1:]): wrong.append(f"another row is marked: {[r['id'] for r in closed if r['important']]}")
+    if any(r["hidden"] is not True or r["open"] != "false" or r["body"] for r in closed): wrong.append(f"a row shows its context before it is opened: {closed}")
+    four = opened[0] if opened else {}
+    wants = ["How and why", "taken by the experts, because experts, both for D", "Options", "A: keep today's rule", "D: the backlog is patched by keys down to the foot's parts · chosen",
+             "The ladder", "The question gate: held: criterion 4 is the owner's words", "The agent: A, the plan as it stands", "The personas: split: developer B (leaning)",
+             "The dialectic: one break of B confirmed", "The experts: D, both", "Important", "It went past the personas: the experts took it",
+             "To undo", "a later change of board.html's backlog drawing"]
+    if four.get("hidden") is not False or four.get("open") != "true": wrong.append(f"decision 4 is not open two draws after the click: {four}")
+    missing = [w for w in wants if w not in four.get("body", "")]
+    if missing: wrong.append(f"the opened decision 4 lacks {missing}: {four.get('body')!r}")
+    body = four.get("body", "")
+    ladder = ["The question gate:", "The agent:", "The personas: split", "The dialectic:", "The experts: D"]
+    if not missing and [body.index(level) for level in ladder] != sorted(body.index(level) for level in ladder): wrong.append(f"the ladder is not in its order: {body!r}")
+    if any(r["hidden"] is not True for r in opened[1:]): wrong.append("a row the owner did not open is open")
+    if not d["same"]: wrong.append("the head of the opened row is a new node: the focus would leave it")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  # The test of criterion 10.
+  if why=$("$PY" -I -c "$STEADY_CHECK" "$WORK/steady-probe.dom"); then
+    pass "each decision on the task's decisions tab is one folded row with its note, what was chosen and by whom, and opens to its context: why, the options with the chosen one, what each level of the ladder said and how to undo it; the experts' choice of decision 4 stands first with the mark important, the question gate's decision 2 is a plain folded row below it, and an opened row stays open through the draw of every second"
+  else
+    fail "the decisions in folded rows: $why"
+  fi
+  # The test of criterion 11.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-look.dom" @visible "What we are building" "The ask wants a new look for the status screens" \
+      "The owner opens the board of all tasks or the board of one task and sees one steady layout in a modern developer tool's look: no card changes its shape with its text." \
+      "1 important decision waits for a look" "!Done when" "!plan talk question 4") \
+    && why=$("$PY" -I -c 'import html, json, re, sys
+d = json.loads(html.unescape(re.search(r"<pre id=\"out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S).group(1)))
+ok = d.get("first") == "overview" and d.get("goto") == "criteria" and d.get("line") is True
+print("" if ok else "the board opens on its overview, and its line goes to the decisions tab: not so in " + json.dumps({k: d.get(k) for k in ("first", "goto", "line", "error")}))
+sys.exit(not ok)' "$WORK/steady-probe.dom"); then
+    pass "Overview holds What we are building: the goal of the task from its type line, what the owner gets from the outcome of its task.md, and a line that says 1 important decision waits for a look and takes him to the decisions tab"
+  else
+    fail "What we are building: $why"
+  fi
+  # The test of criterion 12.
+  # shellcheck disable=SC2016  # the backticks are the item's own
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-look.dom" @visible "1 backlog item filed" "The pictures of the site/ landing page show the new board" \
+      "docs/backlog/landing-page-pictures.md" "!no backlog item filed" "!An item of the base") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-quiet.dom" @visible "no backlog item filed" "!1 backlog item filed" "!An item of the base" "!landing-page-pictures") \
+    && why=$("$PY" -I -c 'import json, re, sys
+d = json.loads(re.fullmatch(r"lemOverview\((.*)\);\n", open(sys.argv[1], encoding="utf-8").read(), re.S).group(1))["tasks"]
+want = {"status-boards-steady-look": [{"path": "docs/backlog/landing-page-pictures.md", "title": "The pictures of the site/ landing page show the new board"}], "quiet-change": []}
+got = {slug: d.get(slug, {}).get("filed") for slug in want}
+print("" if got == want else f"overview.js says {got}")
+sys.exit(got != want)' "$OS/overview.js"); then
+    pass "Overview says which backlog items the task's branch filed against its merge base, with each title: a branch that adds docs/backlog/landing-page-pictures.md shows 1 backlog item filed and its title, a branch that adds none says no backlog item filed, and an item of the base is neither's"
+  else
+    fail "the backlog items a task filed: $why"
   fi
 
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.

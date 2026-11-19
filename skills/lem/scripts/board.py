@@ -26,6 +26,13 @@ the tab opens and on a key, and it says when the file was written. A run with `-
 it again without touching agterm, and keeps the session the board already names: the tab's one
 action types an ask into that session, so only a run that opens the board says which one it is.
 
+The board of one task reads `overview.js`, which this script writes at every run too, beside
+`meta.js`: for each task of the state folder, what the owner gets (the `## Outcome` of its
+`task.md`, which Lem writes at `new`) and the backlog items its branch adds against the merge base
+with the base branch, each with its title. The branch is the one checked out in the task's
+worktree; a task whose worktree is gone has no such list, since nothing tells it. The page cannot
+read `task.md` or ask git, so it reads that file with `meta.js`, and says when it was written.
+
 The page, the stylesheet it links (`assets/lem.css`, the look every page of Lem shares) and the
 script that gives that look Lem's light or dark palette (`assets/lem.js`) are copied into the
 state folder at every open, so an older checkout gets the current ones.
@@ -114,6 +121,85 @@ def where_problem(root: Path, where: str) -> str:
     return f"not in the file: {'.'.join(missing)}" if missing else ""
 
 
+def parse_item(text: str) -> tuple[dict[str, str], str, str]:
+    """A backlog item in its format (agents/lem-builder.md, rule 6): the fields of its head between two
+    `---` lines that the board reads (`worth`, `where`, `added`), the title of its `# TITLE` line
+    without backticks ("" with none), and its body without the head and the title line."""
+    fields: dict[str, str] = {}
+    body = text
+    if text.startswith("---"):
+        head, mark, rest = text[3:].partition("\n---")
+        if mark:
+            body = rest.split("\n", 1)[1] if "\n" in rest else ""
+            for line in head.splitlines():
+                key, colon, value = line.partition(":")
+                if colon and key.strip() in ("worth", "where", "added"):
+                    fields[key.strip()] = value.strip().strip("\"'")
+    title = re.search(r"(?m)^#\s+(.+)$", body)
+    if title:
+        body = body[: title.start()] + body[title.end():]
+    return fields, (title.group(1).replace("`", "").strip() if title else ""), body
+
+
+def outcome(text: str) -> str:
+    """What the owner gets, from a task.md: its `## Outcome` section, to the next heading of the same
+    level or above, with each paragraph's lines joined into one and the paragraphs apart by a blank
+    line. "" when the file has no such section, or an empty one."""
+    found = re.search(r"(?ms)^##[ \t]+Outcome[ \t]*\n(.*?)(?=^#{1,2}[ \t]|\Z)", text)
+    if not found:
+        return ""
+    paragraphs = re.split(r"\n[ \t]*\n", found.group(1).strip())
+    return "\n\n".join(" ".join(line.strip() for line in paragraph.splitlines() if line.strip()) for paragraph in paragraphs if paragraph.strip())
+
+
+def filed(worktree: Path, onto: str, folder: str) -> list[dict] | None:
+    """The backlog items the branch checked out in a task's worktree adds against its merge base with
+    `onto`, each with its path and its title, as git has them in the branch's newest commit; None when
+    the worktree is gone or git cannot tell (no base, no merge base): nothing then says that none was filed."""
+    if not onto or not (worktree / ".git").exists():
+        return None
+
+    def git(*args: str) -> str | None:
+        ran = subprocess.run(["git", "-C", str(worktree), *args], capture_output=True, text=True, check=False)
+        return ran.stdout if ran.returncode == 0 else None
+
+    base = git("merge-base", "HEAD", onto)
+    added = git("diff", "--name-only", "--diff-filter=A", "--no-renames", "-z", base.strip(), "HEAD", "--", folder) if base else None
+    if added is None:
+        return None
+    items = []
+    # the items of the folder itself, as the board's tab "Backlog" reads them: a file in a folder under it is no item
+    for path in sorted(name for name in added.split("\0") if name.endswith(".md") and name.rpartition("/")[0] == folder):
+        text = git("show", f"HEAD:{path}") or ""
+        items.append({"path": path, "title": parse_item(text)[1] or Path(path).stem})
+    return items
+
+
+def overview(settings: dict, state: Path) -> dict:
+    """What the board of one task shows in "What we are building", for each task of the state folder:
+    its outcome from task.md, and the backlog items its branch filed (`filed`). It changes nothing."""
+    main, root = Path(settings["main"]), Path(settings["root"])
+    # the main checkout's places, as land.py finds a task's worktree; a run from a worktree has its own root
+    worktrees = main / Path(settings["places"]["worktrees"]["path"]).relative_to(root)
+    folder = Path(settings["places"]["backlog"]["path"]).relative_to(root).as_posix()
+    base = settings["branch"]["base"]
+    # the ref a landing compares the branch with (land.py `onto`)
+    remote = subprocess.run(["git", "-C", str(main), "remote", "get-url", "origin"], capture_output=True, text=True, check=False).returncode == 0
+    onto = (f"origin/{base}" if remote else base) if base else ""
+    feed: dict = {"written": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "tasks": {}}
+    tasks = state / "tasks"
+    for directory in sorted(tasks.iterdir() if tasks.is_dir() else []):
+        if not directory.is_dir() or not SLUG.fullmatch(directory.name):
+            continue
+        request = directory / "task.md"
+        try:
+            text = request.read_text(encoding="utf-8", errors="replace") if request.is_file() else ""
+        except OSError:
+            text = ""
+        feed["tasks"][directory.name] = {"outcome": outcome(text), "filed": filed(worktrees / directory.name, onto, folder)}
+    return feed
+
+
 def backlog(settings: dict) -> dict:
     """The items of the backlog folder, as the board's tab "Backlog" shows them. It reads and changes nothing."""
     main = Path(settings["main"])
@@ -147,22 +233,10 @@ def backlog(settings: dict) -> dict:
                 "state": "unreadable", "body": f"This item cannot be read: {error.strerror or error}.",
             })
             continue
-        fields: dict[str, str] = {}
-        body = text
-        if text.startswith("---"):
-            head, mark, rest = text[3:].partition("\n---")
-            if mark:
-                body = rest.split("\n", 1)[1] if "\n" in rest else ""
-                for line in head.splitlines():
-                    key, colon, value = line.partition(":")
-                    if colon and key.strip() in ("worth", "where", "added"):
-                        fields[key.strip()] = value.strip().strip("\"'")
-        title = re.search(r"(?m)^#\s+(.+)$", body)
-        if title:
-            body = body[: title.start()] + body[title.end():]
+        fields, title, body = parse_item(text)
         where = fields.get("where", "")
         feed["items"].append({
-            "slug": file.stem, "path": rel, "title": (title.group(1) if title else file.stem).replace("`", "").strip(),
+            "slug": file.stem, "path": rel, "title": title or file.stem,
             "worth": fields.get("worth") if fields.get("worth") in ("yes", "later", "no") else "unset",
             "where": where, "where_problem": where_problem(main, where) if where else "",
             "added": fields.get("added", ""), "state": changed.get(rel, ""),
@@ -215,6 +289,8 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
     # `</` is split so that no item's text can end the script tag the page loads this file with
     items = json.dumps(backlog(settings), ensure_ascii=False).replace("</", "<\\/")
     (state / "backlog.js").write_text(f"lemBacklog({items});\n", encoding="utf-8")
+    told = json.dumps(overview(settings, state), ensure_ascii=False).replace("</", "<\\/")
+    (state / "overview.js").write_text(f"lemOverview({told});\n", encoding="utf-8")
     page = state / (f"task-{slug}.html" if slug else "board.html")
     shutil.copyfile(ASSET, page)
     shutil.copyfile(STYLE, state / STYLE.name)
