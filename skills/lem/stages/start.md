@@ -1,7 +1,7 @@
 # Start a lead
 
-Every start goes this way: a new task, `/lem build`, a queued task whose turn came, and a lead
-that is started again after it stopped.
+Every start goes this way: a new task, `/lem build`, a queued task whose turn came, a task whose
+wait the owner answered in a companion, and a lead that is started again after it stopped.
 
 1. **May it start?** `lem project may-start SLUG`, with the slug of the task whose lead starts.
    No count of tasks stops a start. On exit 1 for a task queued `after:` a task that has not
@@ -67,6 +67,14 @@ with the line `the base is green again`, and joins the landing line. Take the `q
 the order of their state's time, leave out each one whose `after:` task is not `landed`,
 `answered` or `dropped`, and start a lead, or the investigator of a bug or a question
 (`stages/investigate.md`), for each one that is left.
+
+Then each task that `lem companion due` gives under `start`, at this turn as at each of your
+turns: the owner's answer is on record, and no lead runs since. For approved criteria, of an
+interview or of a wait for his yes, take step 7 of "Open the task" (`stages/new.md`) from the ask
+in `task.md`, which may queue it `after:` another task, and then step 8 with the brief that is
+written already. For an answered choice, start a fresh lead, as `stages/stopped.md` says. Say
+"the build of SLUG started" in one line for each, or for one that step 7 queued, which task it
+waits for, and nothing more.
 
 Last, a nap. When a task ended in this turn (`landed`, `answered` or `dropped`), or nothing is left
 for you but the owner's word, and `naps.on` is true in `lem project show`, run `lem

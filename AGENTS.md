@@ -143,7 +143,9 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   was named huddle then; it is `lem-ask` now, his call `/lem ask` and the command `lem-ask` ("I
   like your solution for huddle, then name and the way out. `/lem ask` is awesome", 2026-11-15).
   A project's settings may name another way to ask (`tools.ask`), which the same sentence of his
-  approves.
+  approves. Since his rulings of 2026-11-19 (below) the page opens in a need's companion under
+  Lem's session, never over Lem's own: his page for the criteria in the companion of the interview
+  or of the criteria, and the card of a choice in the companion of that choice.
 - **A shipped skill's name follows `/lem`** ("/lem interview-me sounds perfect like a callout
   command"). The form that was built from it, the id `lem-<name>` and the dispatcher in
   `SKILL.md`, is the starting session's design and open to him.
@@ -281,6 +283,10 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   issue the reviewer finds in a changed decision is a hold of the same question, so such a
   question closes as a design choice, and the card compares the kept decision and its mechanisms
   with the reversed one, its tasks, its acceptance criteria and each issue raised against it.
+  Since 2026-11-19 (below) the card of a talk's choice opens in no plan talk's companion: the
+  defender tells Lem `lem: SLUG choice N waits`, Lem opens that choice's own companion
+  (`SLUG · choice N`), and gives the defender his answer as one message. The talk stays a
+  companion of Lem's session with the reviewer in its split pane, as before.
 - **Lem tells the type of a request, asks when it is unclear, and a bug is investigated
   first**: of a small fix taken as a correction with no scout, "Well typically the
   root-cause-investigation is needed to unerstand what triggers the bug that we aim to correct,
@@ -690,6 +696,51 @@ His notes of 2026-11-19, in the session and on the Linear page; a quote is his w
   not proved). A chart in `README.md` or `docs/` writes each node's and each edge's text in double
   quotes, and is drawn once before it is committed.
 
+His rulings of 2026-11-19 on where he answers Lem; a quote is his words. He had held two
+interviews at once that morning, in two sessions he opened by hand, and asked whether one Lem
+across all his repositories would serve better. The experts' answers are in
+`.lem/state/experts/2026-11-19-142351-how-many-lem-sessions-should-the/`, and
+`docs/plans/2026-11-19-interview-in-a-companion.md` is the build that follows.
+
+- **One Lem session for each repository, and no global Lem.** Both experts (Fable and Astra) and
+  the session found no place for a Lem across repositories: each repository loads its own
+  permission rules, hooks and `.claude/rules`, and its state, board and landing lock belong to its
+  checkout. To setup B, one Lem session that holds the board, the asks, the status and the landing
+  and never waits for him in the foreground, he answered "Ok (B)". So "One Lem for one repository" (2026-11-14) stands, as
+  one session.
+- **A companion opens only when something waits for him, and closes when he answered.** His ask:
+  "Each interview runs in a companion session forked from Lem's conversation, and closes after my
+  yes to the criteria; Lem only takes asks, starts leads, lands and reports", with the reason:
+  "Naturally I don't want to sit and wait for personas reivews or anything when there is a work to
+  discuss, unrelated to what we are discussing in first session most of the time. Its pure waste
+  of time if we wait. This is why I manually opened a second session." On a page he picked "After
+  your yes to the criteria" for its close, on Fable's recommendation, and setup B, his "Ok (B)",
+  gives a companion to each thing that waits for his words: an interview, criteria that wait only
+  for his yes, and the card of one choice of a lead. B replaced a card that waited in the
+  background over Lem's session, since a second card in one session fails (`lem-ask` exit 5,
+  `busy`). The form is the session's design: `lem companion open` names each in the sidebar
+  (`SLUG · interview`, `SLUG · criteria`, `SLUG · choice N`) and takes no focus, the board's
+  "Waits for you" opens the one that waits, nothing opens while he is away, and at `/lem im-back`
+  one opens for each step that a later "no" cannot reverse.
+- **A companion is a fresh agent, with the talk copied in.** His ask said "forked from Lem's
+  conversation"; on the page he then picked "A fresh agent, with the talk copied in" over a fork of
+  Lem's conversation, which would have carried every other task and Lem's duties at each
+  turn. The form is the session's design: `lem companion talk` copies the turns of Lem's session
+  that led to the ask, word for word, from Claude Code's transcript into the task's `talk.md`, and
+  the companion (`prompts/companion.md`) reads that and the task's files, knows no other task, and
+  takes no ask, starts no lead and lands nothing.
+- **A companion tells Lem with an agterm pane message.** His first word was "if group messaging
+  isn't there yet - use default claude code communication bus. It will block making Codex 1st
+  class citizen, but its fine for now. We will find a workaround for Codex later then."; on the
+  page he then picked "agterm pane message", which woke an idle Lem before (agterm 0.41.1) and
+  reaches a Codex pane too. The option he picked keeps the task's files as the truth: the message
+  only wakes Lem, which reads the files at each turn and starts the lead of an approved task that
+  has no lead. The form is the session's design: `lem companion due` at each of Lem's turns.
+
+The session's design, after these: a companion runs only on the owner's machine and asks nothing
+of a teammate, and the copied talk stays in Lem's untracked state folder and never reaches git or
+a pull request.
+
 Designs taken on 2026-11-14 and 2026-11-15 after a question of the owner's. They are open to
 him, and they are not his rulings until he says so:
 
@@ -1061,6 +1112,7 @@ bash tests/lem-command.sh      # the command lem: each name, its arguments, stdi
 bash tests/lem-serial.sh       # the tests two tasks cannot run at once (checks.serial): lem project serial, its one lock, the checks that use it; and checks.setup in a new worktree
 bash tests/lem-naps.sh         # the naps: the [naps] settings and lem project may-nap
 bash tests/lem-picker.sh       # the task picker: its rows, a pick, Escape and its refusals, with a stand-in for agtermctl
+bash tests/lem-companion.sh    # the companion of a need: open, list, close and due, two at once, and its files in the state folder git ignores, with a stand-in for agtermctl
 bash tests/test-gate-panel.sh  # the panel's cast, in its one place
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, its end when the task runs without the owner, and the brief; no expert runs
@@ -1084,7 +1136,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
 - `skills/lem/SKILL.md`: the entry point and what holds in every stage.
 - `skills/lem/stages/`: one file per subcommand, and `talk.md`, the plan talk of a careful or
   large plan, which only its defender reads. The parts of `new.md` that only one path reads are
-  files beside it: `interview.md` (the interview and the acceptance criteria), `investigate.md`
+  files beside it: `interview.md` (the interview and the acceptance criteria), `open-interview.md`
+  (how Lem copies the talk and opens the interview's companion), `investigate.md`
   (a bug and a question), `start.md` (the start of a lead, `/lem build` and the queue),
   `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner); and the
   polish pass, step 3 of `land.md`, is `polish.md`, which only the standard track reads. `away.md` is
@@ -1099,7 +1152,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `.lem/state/` of the main checkout; every script that touches the state asks it, directly or through `project.py state-dir`),
   `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
   and a ruling's from `paths.ruling_file`), `lem_sibling.py` (how `land.py`,
-  `criteria.py` and `decisions.py` run a command of a sibling: in their own process, as its
+  `criteria.py`, `decisions.py` and `companion.py` run a command of a sibling: in their own process, as its
   `main(argv)`, except the commands in its `APART`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
   (`PLACES`), task state, a
@@ -1110,7 +1163,13 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   companion of the session's group and never over the session), `picker.py` (`lem picker`: agterm's picker over the tasks, which
   an agterm chord starts and which opens the board of the one picked; the `task picker` row of
   `doctor.py` gives the owner its keymap line, with the folder of Lem's marketplace clone, whose
-  path an update does not move), `land.py` (the landing, one refusable step at a time: the
+  path an update does not move), `companion.py` (`lem companion`: the companion of one need that
+  waits for the owner, an interview, criteria for his yes or one choice, which it opens under Lem's
+  session with no focus and a fixed name in the sidebar, lists and closes, with `talk`, the copy of
+  the turns of Lem's session that led to the ask into `talk.md`, and `due`, what Lem owes at each
+  turn from the files: the companions to open and close and the leads to start;
+  `tests/lem-companion.sh` is its block),
+  `land.py` (the landing, one refusable step at a time: the
   machine checks, the review's floor and its record, the pull request, the merge, and the watch
   of the open pull requests on the forge),
   `corrections.py` (the optional queue of the owner's corrections: its hook, which claims each
@@ -1137,10 +1196,11 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   owner links `lem.css` and `lem.js` and brings no style of its own.
 - `skills/lem/templates/`: the shapes onboarding fills, and `page-brief.md`, the brief of the owner's
   page of a task on the standard track.
-- `skills/lem/prompts/`: the standing briefs of a task's lead, of a plan talk's defender, of the
-  scout of an interview, of the investigator of a bug or a question (`investigator.md`), of the
-  one builder of the fast track (`small.md`), of the builders of a landing, of the agent that
-  routes and runs a review before a change is proposed, and of the reviewer in the other pane.
+- `skills/lem/prompts/`: the standing briefs of a task's lead, of a plan talk's defender, of a
+  need's companion (`companion.md`), of the scout of an interview, of the investigator of a bug or
+  a question (`investigator.md`), of the one builder of the fast track (`small.md`), of the
+  builders of a landing, of the agent that routes and runs a review before a change is proposed,
+  and of the reviewer in the other pane.
 - The naps, an optional part: `skills/lem/prompts/nap.md` is the nap's brief, written after the
   owner's own nap routine and kept in its voice (a change to it is tried with one real nap, and
   its dream is read: a brief that makes a report of it is wrong); `skills/lem/stages/nap.md` starts

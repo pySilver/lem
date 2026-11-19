@@ -45,6 +45,23 @@ When `count` is 0, say "nothing waits for you" in one line. Then, after the list
 what each other task waits on, what landed today, and what was answered today with its answer in
 one line, from `lem project tasks`.
 
+**Open what waits.** A bare `/lem` is his word to answer: open the companion of each need the list
+names, also one whose companion he closed with no answer, with `--asked`, which says that he asked:
+
+```bash
+lem companion open SLUG --need choice --choice N --asked
+```
+
+The need is `choice` with its number for each of `choices`; `interview` for a `held` task whose
+line is `the interview waits for the owner` and for `the criteria wait for the owner: the small
+change is a full change`; and `criteria` for every other line of `criteria`. Say each `say` line
+as it is. One whose companion runs is not opened twice: the command prints that one. One it
+refuses says why and the fix: an interview with no copy of the talk gets it first
+(`stages/open-interview.md`). `/lem status SLUG` opens each need of that task, and `/lem status
+SLUG choice N` that one choice, the same way. While he is away nothing opens, and the list's first
+line says why. A pull request and a retro's proposals open no companion: he reads the one on the
+forge and answers the other below, on his word.
+
 A retro's proposals are his to answer, and they wait until he says so: on his word ("open
 them"), `ask-owner` with one page that holds each of them as a question of its own, each with
 the three answers approve, reject and later. A proposal shows the move it would make, with the

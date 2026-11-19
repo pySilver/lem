@@ -41,7 +41,7 @@ flowchart LR
   build --> pr
 ```
 
-Two examples:
+Two examples. They are illustrations, not the output of a run:
 
 ```text
 you  /lem the footer says Terms, not Terms and Conditions
@@ -54,14 +54,28 @@ lem  The pull request is open. Green.
 ```text
 you  /lem the export holds the gift note of an order
 lem  feat: "an export holds the gift note". Branch feat/gift-note-in-export.
-     Standard track: an interview now, then acceptance criteria for your yes.
+     Standard track: an interview in a companion now, then acceptance criteria for your yes.
      Wrong read? /lem be-careful.
+lem  The interview of gift-note-in-export is open in "gift-note-in-export · interview"
+     under this session.
+```
+
+The interview runs in a companion session under Lem's session. Lem's own session takes your next
+request at once. In the companion:
+
+```text
 lem  An order with two notes: both in one cell, with a semicolon? My guess: yes.
 you  yes
 lem  The acceptance criteria, which two personas read:
      1. Order 1042 with the note "for Ania" has that text in its row.
      2. An order with no note has an empty cell.
 you  yes
+```
+
+The companion closes after your yes. In Lem's session:
+
+```text
+lem  The build of gift-note-in-export started.
 lem  The pull request is open. Green.
 ```
 

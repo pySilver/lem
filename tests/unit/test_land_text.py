@@ -316,6 +316,68 @@ class TheRead(Proposal):
         self.assertEqual(said, "- the criteria changed after the personas' read, by the owner's approval 2, and the change was not read")
 
 
+class TheWait(Proposal):
+    """The criteria that waited for the owner's yes, and the approval that ended the wait, in the line
+    of the read: the events as `lem project state` and `lem criteria approve` log them."""
+
+    WAITED = "2026-11-18T09:30:00Z"
+    YES = "2026-11-18T10:05:00Z"
+    AGAIN = "2026-11-19T08:00:00Z"
+    READ = {"event": "criteria.read", "by": "lead", "asked": 2, "answered": 2, "families": ["opus", "sol"], "silent": [], "criteria": 2, "flagged": 0, "split": False, "ts": AT}
+
+    def held(self, text: str = "the criteria wait for the owner: a request someone else wrote", at: str = WAITED) -> dict:
+        return {"event": "task.state", "ts": at, "status": "held", "text": text, "lines": []}
+
+    @staticmethod
+    def approved(by: str, number: int, at: str) -> dict:
+        return {"event": "criteria.approved", "ts": at, "by": by, "number": number}
+
+    def line(self, events: tuple[dict, ...], found: dict) -> str:
+        read = {**self.READ, "digest": found["criteria_digest"]}
+        return land.read_line(read, found, waited=land.criteria_waited([read, *events]))
+
+    def test_a_wait_and_the_owners_yes(self) -> None:
+        said = self.line((self.held(), self.approved("owner", 1, self.YES)), found_of(approved=approval("owner", at=self.YES)))
+        self.assertTrue(said.endswith("; nobody confused; the criteria waited for the owner's yes from 2026-11-18 09:30 UTC, and the owner gave it on 2026-11-18 10:05 UTC"), said)
+
+    def test_a_later_approval_with_no_wait_leaves_the_first_as_the_end(self) -> None:
+        first = {key: value for key, value in approval("owner", at=self.YES).items() if key not in ("history", "task", "text")}
+        events = (self.held(), self.approved("owner", 1, self.YES), {"event": "task.state", "ts": LATER, "status": "building", "text": "lead: builder", "lines": []}, self.approved("owner", 2, self.AGAIN))
+        said = self.line(events, found_of(approved=approval("owner", 2, at=self.AGAIN, history=(first,))))
+        self.assertTrue(said.endswith("and the owner gave it on 2026-11-18 10:05 UTC; the owner approved them again on 2026-11-19"), said)
+
+    def test_a_wait_that_ended_without_him_and_his_later_approval(self) -> None:
+        first = {key: value for key, value in approval("alone", at=self.YES).items() if key not in ("history", "task", "text")}
+        events = (self.held(), self.approved("alone", 1, self.YES), self.approved("owner", 2, self.AGAIN))
+        said = self.line(events, found_of(approved=approval("owner", 2, at=self.AGAIN, history=(first,))))
+        self.assertTrue(said.endswith(
+            "the criteria waited for the owner's yes from 2026-11-18 09:30 UTC, and the wait ended without the owner: "
+            "approved on 2026-11-18 10:05 UTC while the task ran without the owner; the owner approved them on 2026-11-19"), said)
+        self.assertNotIn("gave it", said)
+
+    def test_an_approval_with_no_wait_keeps_the_line_of_today(self) -> None:
+        events = (self.held("the interview waits for the owner"), self.approved("owner", 1, self.YES))
+        said = self.line(events, found_of(approved=approval("owner", at=self.YES)))
+        self.assertTrue(said.endswith("; nobody confused; the owner approved them on 2026-11-18"), said)
+        self.assertNotIn("waited", said)
+
+    def test_the_fast_tracks_grown_change_is_no_wait(self) -> None:
+        events = (self.held("the criteria wait for the owner: the small change is a full change"), self.approved("owner", 1, self.YES))
+        self.assertIsNone(land.criteria_waited(list(events)))
+
+    def test_the_newest_wait_counts_and_an_approval_before_it_ends_nothing(self) -> None:
+        events = [self.approved("owner", 1, AT), self.held(at=LATER)]
+        self.assertIsNone(land.criteria_waited(events))
+        events.append(self.approved("alone", 2, self.AGAIN))
+        self.assertEqual(land.criteria_waited(events), {"from": LATER, "end": events[-1]})
+
+    def test_the_text_of_a_proposal_reads_the_wait_from_the_log(self) -> None:
+        found = found_of(approved=approval("owner", at=self.YES))
+        task = self.task(found=found, events=({**self.READ, "digest": found["criteria_digest"]}, self.held(), self.approved("owner", 1, self.YES)))
+        text = land.pr_text(task, "", self.state())
+        self.assertIn("the criteria waited for the owner's yes from 2026-11-18 09:30 UTC, and the owner gave it on 2026-11-18 10:05 UTC", text)
+
+
 class TheText(Proposal):
     """The whole text of a proposal: green or not first, then the checks and the decisions of the build."""
 

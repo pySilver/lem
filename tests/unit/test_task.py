@@ -41,5 +41,19 @@ class MayLand(unittest.TestCase):
         self.assertIn("land on 'main', not on 'feature'", self.refused("feature", "[branch]", 'base = "main"'))
 
 
+class TrackOf(unittest.TestCase):
+    """The track of a task, from the newest of its state lines that tells it (state.md, newest block first)."""
+
+    def test_an_interview_above_the_fast_tracks_builder_is_the_standard_track(self):
+        # `/lem standard-track` of a task whose small change had started: its interview waits now
+        state = "2026-11-19T10:00Z held: the interview waits for the owner\ntype: feat, because the export gets a note\n\n2026-11-19T09:50Z building: small change: one builder"
+        self.assertEqual(project.track_of(state), "standard")
+
+    def test_the_fast_tracks_builder_and_a_lead(self):
+        self.assertEqual(project.track_of("2026-11-19T09:50Z building: small change: one builder"), "fast")
+        self.assertEqual(project.track_of("2026-11-19T09:50Z building: lead: builder\n\n2026-11-19T09:40Z building: small change: one builder"), "standard")
+        self.assertIsNone(project.track_of("2026-11-19T09:50Z queued: it waits for a free place"))
+
+
 if __name__ == "__main__":
     unittest.main()

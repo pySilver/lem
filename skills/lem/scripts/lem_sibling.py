@@ -1,5 +1,5 @@
-"""One command of a sibling script, run in this process: the one way `land.py`, `criteria.py` and
-`decisions.py` call `project.py`, `criteria.py` and `decisions.py`.
+"""One command of a sibling script, run in this process: the one way `land.py`, `criteria.py`,
+`decisions.py` and `companion.py` call `project.py`, `criteria.py` and `decisions.py`.
 
 A command of a sibling used to be a new `python3`, which compiled the script again, imported the
 standard library again and asked git again where the checkout is: in the suite at cfc4831 that
