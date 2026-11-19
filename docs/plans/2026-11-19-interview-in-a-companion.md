@@ -7,15 +7,28 @@ careful: yes, because the change moves where the owner's yes to the criteria and
 Size: full, because the change moves where the owner answers Lem, adds a session kind, a message from a companion to Lem and the board's way to a companion, and records his rulings.
 
 1. Two standard-track asks typed one after the other in Lem's session have two interviews open at the same time, each in a companion of Lem's session: the owner types `/lem the export holds the gift note` and then `/lem the report dates stay whole`; the sidebar shows `gift-note-in-export · interview` and `report-dates-stay-whole · interview` under Lem's session, and Lem answers his next message at once. When a companion opens, Lem says one line in its session that names it as the sidebar shows it ("the interview of gift-note-in-export is open in `gift-note-in-export · interview` under this session"), and a new companion never takes the keyboard focus.
+   - test: `bash tests/lem-companion.sh` in `tests/lem-companion.sh`
 2. An interview's companion is a fresh agent, not a fork of Lem's conversation: it reads the ask, the task's file, the turns of the talk in Lem's session that led to the ask, copied word for word into the task directory, and the scout's report; it knows no other task. Lem copies every turn of its talk about this ask, from the turn where the topic began; the companion first says what it got (the ask and the copied turns); the copy stays in Lem's state folder and never reaches git or a pull request.
+   - test: `python3 -B -m unittest tests.unit.test_companion.Talk` in `tests/unit/test_companion.py`
+   - test: `bash tests/lem-companion.sh` in `tests/lem-companion.sh`
 3. His yes in the companion is his approval, and Lem starts the lead with no message from him: he approves the criteria of `gift-note-in-export` in its companion; `lem criteria approved gift-note-in-export` shows his approval; the companion tells Lem and closes, Lem's session says one line "the build of gift-note-in-export started", and the board shows the lead building. When the companion's message is lost, Lem starts the lead at its next turn from the task's files, and meanwhile the board shows the task as approved with no lead.
+   - test: `python3 -B -m unittest tests.unit.test_companion.Due tests.unit.test_companion.Approvals` in `tests/unit/test_companion.py`
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`
 4. A choice of a lead that waits for him opens a companion with its card already shown, and he can discuss it there: choice 2 of `gift-note-in-export` opens `gift-note-in-export · choice 2`; he asks there "what do the experts say?" and gets the answer from the choice's record; his answer is written to the record, the lead goes on with it, and the companion closes. Two choices of two tasks are two companions open at the same time. A companion that opens never takes the keyboard focus, and the card names the experts in a few words, from the settings' experts.
+   - test: `bash tests/lem-companion.sh` in `tests/lem-companion.sh`
 5. A card he closes with no answer leaves the choice in the list of what waits, and nobody takes it while he is there. The way to open it again is a row of the board's "Waits for you" or `/lem` in Lem's session, and the card shows that way before it is closed.
+   - test: `python3 -B -m unittest tests.unit.test_companion.Due` in `tests/unit/test_companion.py`
 6. Criteria that wait only for his yes open a companion too: a ticket a teammate wrote, read by the personas, opens `SLUG · criteria` with the criteria and the personas' read; his yes there approves them. The pull request says that the criteria waited for the owner's yes and when he gave it.
+   - test: `bash tests/lem-companion.sh` in `tests/lem-companion.sh`
+   - test: `python3 -B -m unittest tests.unit.test_land_text.TheWait` in `tests/unit/test_land_text.py`
 7. The board leads him to what waits: each row of "Waits for you" opens the companion that waits for him, and the board shows each open companion with its task. The row of a choice whose companion was closed opens a new companion for it.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`
 8. A companion does its one need and nothing else: it takes no ask, starts no lead, lands nothing and watches no pull request. A companion that gets an ask gives the exact line to paste into Lem's session, with that session named as the sidebar shows it.
+   - no test: what a companion does with an ask is a sentence of its brief, `skills/lem/prompts/companion.md`; no script holds what an agent does
 9. A fast-track ask, a green pull request and the retro's proposals open no companion. While he is away no companion opens, since the ladder takes every choice and `--alone` approves held criteria; a step that a later "no" cannot reverse still waits for him, and at `/lem im-back` one companion opens for each such step.
+   - test: `python3 -B -m unittest tests.unit.test_companion.Due tests.unit.test_companion.Refusals` in `tests/unit/test_companion.py`
 10. `AGENTS.md` holds his rulings of 2026-11-19 in his words: one Lem session for each repository and no global Lem; a companion only when something waits for him, which closes when he answered; a fresh companion with the talk copied in; a companion tells Lem with an agterm pane message. After his quoted words, one sentence marked as the session's design says that a companion runs only on the owner's machine and asks nothing of a teammate, and that the copied talk stays in Lem's untracked state folder and never reaches git or a pull request.
+   - no test: the criterion is sentences of `AGENTS.md`
 
 ## What is there today
 
