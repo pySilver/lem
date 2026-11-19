@@ -757,13 +757,12 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # "Waits for you" has a row for each thing the owner does, each with its verb and where he answers.
   # A task that waits on two things has two rows; a held task whose choice waits has one, its choice's.
   draw board waits
-  # shellcheck disable=SC1111  # the curly quotes around a pick are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/board-waits.dom" waits-rows \
       "A note longer than the cell|Answer choice 6|Gift note export|Where you answer: Lem puts choice 6 to you" \
       "The note of a cancelled order|Answer choice 7|Gift note export" \
       "Email the merchants about the new column|Answer choice 4|it waits for your word, also while you are away" \
       "Refund the 12 duplicate orders now|Answer choice 1|Held choice" \
-      "The font of the invoice|Answer choice 4|Expert advice|the experts: Fable “serif” · Astra “serif”" \
+      'The font of the invoice|Answer choice 4|Expert advice|the experts: Fable “serif” · Astra “serif”' \
       "Round the totals of the monthly report|Approve the criteria|Criteria wait|Lem shows you the acceptance criteria" \
       "Show the delivery date on the order page|Approve the criteria|No persona answered" \
       "Which currency rounds half up|The investigation waits for one more fact" \
@@ -1792,7 +1791,6 @@ open(sys.argv[1], "w").write("lemWatch(" + json.dumps({"checked": "2026-11-19T09
   rm -f "$STAY/watch.js"
   # The test of criterion 4: the count 4 and the four rows, each with its verb, on the tab the address
   # opens; only the text of that tab is read, none of the panels the other tabs hide.
-  # shellcheck disable=SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/stay-waits.dom" @visible "Waits for you 4" "Answer choice 1" "Answer choice 2" "Approve the criteria" "Merge the pull request" \
       "!Building: task 1 of 2" "!The criteria wait for you" "!Which currency rounds half up") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/stay-waits.dom" waits-rows "The order of the day and the month|Answer choice 1|Dates stay whole|recommended: the day first" \
@@ -1998,9 +1996,8 @@ sys.exit(bool(wrong))
 PY
 )
   # The test of criterion 5: the plain reason on the first view, read only where no `hidden` hides it.
-  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/tabs-logo.dom" @visible "not green: two outside experts chose option 2 while you were away" \
-      "choice 2 · The color of the logo · “the green of the shop”" "!while the task ran without you" "!choice 2 was taken by the experts") \
+      'choice 2 · The color of the logo · “the green of the shop”' "!while the task ran without you" "!choice 2 was taken by the experts") \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/tabs-night.dom" @visible "not green, for 2 reasons:" \
       'decision 2 was taken without the owner (The font of the label): "sans", by the dialectic' \
       "Lem took the recommended option of choice 1 while the task ran without you" "!while you were away" "!choice 1 was taken without the owner") \
@@ -2279,7 +2276,6 @@ sys.exit(not ok)' "$WORK/steady-probe.dom"); then
     fail "What we are building: $why"
   fi
   # The test of criterion 12.
-  # shellcheck disable=SC2016  # the backticks are the item's own
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-look.dom" @visible "1 backlog item filed" "The pictures of the site/ landing page show the new board" \
       "docs/backlog/landing-page-pictures.md" "!no backlog item filed" "!An item of the base") \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-quiet.dom" @visible "no backlog item filed" "!1 backlog item filed" "!An item of the base" "!landing-page-pictures") \
