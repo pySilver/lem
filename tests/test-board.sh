@@ -798,7 +798,7 @@ open(sys.argv[1], "w").write("lemWatch(" + json.dumps(record) + ");\n")' "$STATE
   # The read of a builder's resolution of a conflict is no round: the task's board names it apart. A folder of its own,
   # so that no lane or time card of the fixture changes.
   mkdir -p "$WORK/resolved"
-  cp "$STATE/board.html" "$WORK/resolved/task-resolved.html" && cp "$STATE/lem.css" "$WORK/resolved/"
+  cp "$STATE/board.html" "$WORK/resolved/task-resolved.html" && cp "$STATE/lem.css" "$STATE/lem.js" "$WORK/resolved/"
   "$PY" -I -c 'import json, sys
 at = sys.argv[2]
 common = {"kind": "read", "verdict": "clean", "must_fix": 0, "should": 0, "nit": 0, "answered": ["codex"], "silent": [], "ran": [], "left_out": [], "tip": "abc1234"}
@@ -1427,6 +1427,215 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
     fail "where the owner answers: $why"
   fi
 
+  # Lem's look (lem.css and lem.js), drawn from the skill's own files in a folder of its own, so that no
+  # lane of the fixture changes: the head of a task's board with a short and a 160-character title at 900
+  # and 1400 px, Lem's palette under five agterm themes and under the system's light and dark, and the
+  # onboarding page beside the board. agterm's theme stylesheet goes in as agterm writes it
+  # (HtmlOverlayTheme.stylesheet), with the scheme its own rule gives the background (Rec. 601 luminance
+  # under 0.5 is dark, ThemeBrightness.isDark); a stand-in for agterm's bridge names Lem's session.
+  STEADY=$WORK/steady
+  mkdir -p "$STEADY"
+  STEADY_FIXTURE=$(cat <<'PY'
+import json, sys
+from datetime import datetime, timedelta, timezone
+assets, out = sys.argv[1:]
+short = "the-dates-stay-whole"
+long_words = "the export keeps every date of an order whole when the merchant opens the file in a spreadsheet that reads the dates in a locale other than the one a store uses"
+assert len(long_words) == 160, len(long_words)
+long_slug = long_words.replace(" ", "-")
+now = datetime.now(timezone.utc)
+iso = lambda minutes: (now - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+state = lambda minutes, task, status, text, ask: {"ts": iso(minutes), "event": "task.state", "task": task, "status": status, "text": text, "lines": [], "ask": ask}
+events = [
+    state(30, short, "building", "task 1 of 2", "Keep the dates whole in the export"),
+    state(25, long_slug, "held", "the criteria wait for the owner", "Dates in the export read the same in every locale"),
+    state(20, "in-checks", "landing", "the checks start", "Round the totals once"),
+    state(90, "landed-one", "landing", "the checks start", "Name the column"),
+    state(60, "landed-one", "landed", "main: pull request #7 is merged", "Name the column"),
+]
+open(f"{out}/events.js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(e)});\n" for e in events))
+open(f"{out}/meta.js", "w", encoding="utf-8").write("lemMeta(" + json.dumps({"repo": "shop", "base": "main", "session": "LEM1", "gates": 1, "serial": 0}) + ");\n")
+for name in ("lem.css", "lem.js"):
+    open(f"{out}/{name}", "w", encoding="utf-8").write(open(f"{assets}/{name}", encoding="utf-8").read())
+board = open(f"{assets}/board.html", encoding="utf-8").read()
+handover = open(f"{assets}/handover.html", encoding="utf-8").read()
+bridge = "<script>globalThis.agterm = {request: async cmd => cmd === 'tree' ? {tree: {workspaces: [{sessions: [{id: 'LEM1', status: 'idle'}]}]}} : {}};</script>"
+def dark(hex_):
+    r, g, b = (int(hex_[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.299 * r + 0.587 * g + 0.114 * b < 0.5
+def theme(background, foreground):
+    look = f"color-scheme: {'dark' if dark(background) else 'light'}; color: {foreground}; "
+    return f"<style id=\"agterm-theme\">:where(html) {{ {look}--agterm-background: {background}; --agterm-foreground: {foreground}; }}</style>"
+def page(name, text, head=""):
+    assert text.count("<head>") == 1
+    open(f"{out}/{name}.html", "w", encoding="utf-8").write(text.replace("<head>", "<head>" + head, 1))
+# the backgrounds of the criterion, and an installed light theme just under the middle of relative luminance
+themes = {"15181c": "#dde1e6", "ffffff": "#1e1e1e", "fdf6e3": "#657b83", "002b36": "#839496", "d8b590": "#2b2118"}
+frames = []
+for slug, size in ((short, "short"), (long_slug, "long")):
+    page(f"task-{slug}", board, bridge)
+    frames += [{"id": f"head-{size}-{width}", "src": f"task-{slug}.html", "width": width, "kind": "head"} for width in (900, 1400)]
+for bg, fg in themes.items():
+    page(f"board-{bg}", board, theme(f"#{bg}", fg) + bridge)
+    page(f"handover-{bg}", handover, theme(f"#{bg}", fg))
+    frames += [{"id": f"board-{bg}", "src": f"board-{bg}.html", "width": 1400, "kind": "look", "agterm": [f"#{bg}", fg]},
+               {"id": f"handover-{bg}", "src": f"handover-{bg}.html", "width": 1400, "kind": "look", "agterm": [f"#{bg}", fg]}]
+    if bg in ("15181c", "ffffff"):
+        page(f"task-look-{bg}", board.replace("<head>", "<head>" + theme(f"#{bg}", fg), 1), bridge)
+page("board-system", board, bridge)
+page("handover-system", handover)
+system = [{"id": "board-system", "src": "board-system.html", "width": 1400, "kind": "look", "agterm": []},
+          {"id": "handover-system", "src": "handover-system.html", "width": 1400, "kind": "look", "agterm": []}]
+PROBE = """<!doctype html><meta charset="utf-8"><body><pre id="out"></pre>
+<script>
+const FRAMES = %s;
+for (const f of FRAMES) {
+  const node = document.createElement('iframe');
+  node.id = f.id; node.src = f.src; node.style.cssText = `width:${f.width}px;height:900px;border:0;display:block`;
+  document.body.append(node);
+}
+const ctx = Object.assign(document.createElement('canvas'), {width: 1, height: 1}).getContext('2d', {willReadFrequently: true});
+const rgba = css => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = 'rgba(0, 0, 0, 0)'; ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255]; };
+const over = (top, under) => [0, 1, 2].map(i => top[i] * top[3] + under[i] * (1 - top[3])).concat(1);
+const lum = c => { const l = c.slice(0, 3).map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+const box = n => { const r = n.getBoundingClientRect(); return {left: r.left, right: r.right, top: r.top, height: r.height}; };
+function head(f, d, w) {
+  const top = d.querySelector('header.top'), h1 = d.getElementById('title');
+  const buttons = () => [...d.querySelectorAll('#top-right button')].map(b => ({text: b.textContent.trim(), ...box(b)}));
+  const hover = [...d.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch { return []; } })
+    .some(r => /h1[^,]*:hover/.test(r.selectorText ?? '') && /:focus/.test(r.selectorText ?? '') && r.style.getPropertyValue('-webkit-line-clamp') === 'unset');
+  const out = {header: box(top), buttons: buttons(), title: h1.textContent, lineHeight: parseFloat(w.getComputedStyle(h1).lineHeight),
+    tabIndex: h1.tabIndex, hover, before: {...box(h1), clipped: h1.scrollHeight > h1.clientHeight + 1}};
+  w.focus(); h1.focus({focusVisible: true});
+  out.after = {...box(h1), whole: h1.scrollHeight <= h1.clientHeight + 1, focused: h1.matches(':focus-visible')};
+  out.buttonsFocused = buttons();
+  h1.blur();
+  return out;
+}
+function look(f, d, w) {
+  const cs = n => w.getComputedStyle(n), root = d.documentElement;
+  const background = n => { const layers = []; for (let m = n; m; m = m.parentElement) { const c = rgba(cs(m).backgroundColor); if (c[3] > 0) layers.push(c); if (c[3] === 1) break; }
+    return layers.reverse().reduce((under, c) => over(c, under), [255, 255, 255, 1]); };
+  const low = [], colors = new Set();
+  let least = 99;
+  for (const n of d.body.querySelectorAll('*')) {
+    if (n.closest('svg, script, style, [hidden]')) continue;
+    const s = cs(n);
+    for (const c of [s.color, s.backgroundColor, s.borderTopColor]) { const v = rgba(c); if (v[3] > 0) colors.add(v.slice(0, 3).join(',')); }
+    if (![...n.childNodes].some(c => c.nodeType === 3 && c.data.trim()) || !n.getClientRects().length || s.visibility !== 'visible') continue;
+    const bg = background(n), r = ratio(over(rgba(s.color), bg), bg);
+    least = Math.min(least, r);
+    if (r < 4.5) low.push(`${n.tagName.toLowerCase()}.${[...n.classList].join('.')} "${n.textContent.trim().slice(0, 40)}" ${r.toFixed(2)}`);
+  }
+  const pick = (sel, ...props) => { const n = d.querySelector(sel); return n ? Object.fromEntries(props.map(p => [p, cs(n).getPropertyValue(p)])) : null; };
+  return {palette: root.dataset.palette ?? null, scheme: cs(root).colorScheme, tokenBg: cs(root).getPropertyValue('--bg').trim(),
+    logo: [...d.querySelectorAll('.mark > svg')].filter(s => cs(s).display !== 'none').map(s => s.getAttribute('aria-labelledby')),
+    body: pick('body', 'background-color', 'color', 'font-family'), h1: pick('h1', 'font-size', 'font-weight', 'font-family', 'line-height', 'color'),
+    eyebrow: pick('.eyebrow', 'font-size', 'font-weight', 'letter-spacing', 'color'), mark: pick('.mark', 'width', 'height', 'border-radius', 'box-shadow'),
+    chip: pick('.chip:not(.ok):not(.bad):not(.you)', 'font-size', 'border-radius', 'color', 'background-color', 'border-top-color'),
+    least: Math.round(least * 100) / 100, low, colors: [...colors]};
+}
+setTimeout(() => {
+  const out = {};
+  for (const f of FRAMES) {
+    const w = document.getElementById(f.id).contentWindow, d = w.document;
+    try { out[f.id] = {...f, ...(f.kind === 'head' ? head(f, d, w) : look(f, d, w))}; } catch (err) { out[f.id] = {error: String(err)}; }
+  }
+  document.getElementById('out').textContent = JSON.stringify(out);
+}, 4000);
+</script>"""
+looked = frames + [{"id": f"task-look-{bg}", "src": f"task-look-{bg}.html", "width": 1400, "kind": "look", "agterm": [f"#{bg}", themes[bg]]} for bg in ("15181c", "ffffff")]
+open(f"{out}/probe.html", "w", encoding="utf-8").write(PROBE % json.dumps(looked + system))
+open(f"{out}/probe-dark.html", "w", encoding="utf-8").write(PROBE % json.dumps(system))
+PY
+)
+  "$PY" -I -c "$STEADY_FIXTURE" "$PWD/skills/lem/assets" "$STEADY"
+  # the system's setting: light for the first draw, dark for the second, whatever this machine says
+  headless --allow-file-access-from-files --blink-settings=preferredColorScheme=1 --virtual-time-budget=9000 --dump-dom "file://$STEADY/probe.html" > "$WORK/steady.dom"
+  headless --allow-file-access-from-files --blink-settings=preferredColorScheme=0 --virtual-time-budget=9000 --dump-dom "file://$STEADY/probe-dark.html" > "$WORK/steady-dark.dom"
+  STEADY_CHECK=$(cat <<'PY'
+import html, json, re, sys
+check, light, dark = sys.argv[1:]
+def read(path):
+    found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(path, encoding="utf-8").read(), re.S)
+    return json.loads(html.unescape(found.group(1))) if found and found.group(1) else {}
+got, got_dark = read(light), read(dark)
+wrong = []
+if not got or not got_dark:
+    print(f"the probe printed nothing ({len(got)} and {len(got_dark)} frames)"); sys.exit(1)
+for name, frame in [*got.items(), *(("dark " + k, v) for k, v in got_dark.items())]:
+    if "error" in frame: wrong.append(f"{name}: {frame['error']}")
+rgb = lambda hex_: ",".join(str(int(hex_[i:i + 2], 16)) for i in (1, 3, 5))
+if check == "head":
+    for width in (900, 1400):
+        short, long_ = got.get(f"head-short-{width}", {}), got.get(f"head-long-{width}", {})
+        for size, f in (("short", short), ("long", long_)):
+            names = [b["text"] for b in f.get("buttons", [])]
+            if names != ["All tasks", "Go to Lem’s session (idle)"]: wrong.append(f"{size} at {width}: the buttons are {names}"); continue
+            right = f["header"]["right"]
+            if any(abs(b["right"] - right) > 1 for b in f["buttons"]): wrong.append(f"{size} at {width}: a button is not at the right edge {right}: {f['buttons']}")
+            if abs(f["buttons"][0]["top"] - f["header"]["top"]) > 1: wrong.append(f"{size} at {width}: the first button is not at the top {f['header']['top']}: {f['buttons'][0]}")
+            if f["buttonsFocused"] != f["buttons"]: wrong.append(f"{size} at {width}: the focus on the title moved a button: {f['buttonsFocused']}")
+        if short.get("buttons") and long_.get("buttons") and any(abs(a[k] - b[k]) > 0.5 for a, b in zip(short["buttons"], long_["buttons"]) for k in ("left", "right", "top")):
+            wrong.append(f"at {width} the buttons stand elsewhere for the long title: {short['buttons']} / {long_['buttons']}")
+        if long_:
+            if len(long_["title"]) != 160: wrong.append(f"the long title has {len(long_['title'])} characters")
+            # at 900 px the title needs more than two lines, so it is cut there; at 1400 px two may hold it
+            if long_["before"]["height"] > 2 * long_["lineHeight"] + 1 or (width == 900 and not long_["before"]["clipped"]):
+                wrong.append(f"at {width} the long title takes more than two lines, or is not cut where it needs more: {long_['before']}, line {long_['lineHeight']}")
+            if not (long_["after"]["focused"] and long_["after"]["whole"]) or (long_["before"]["clipped"] and long_["after"]["height"] <= long_["before"]["height"]):
+                wrong.append(f"at {width} the long title with the focus does not show whole: {long_['after']}")
+            if long_["tabIndex"] != 0 or not long_["hover"]: wrong.append(f"the title takes no focus ({long_['tabIndex']}) or no hover shows it whole ({long_['hover']})")
+        if short and short["before"]["clipped"]: wrong.append(f"at {width} the short title is cut: {short['before']}")
+elif check == "palette":
+    want = {"15181c": "dark", "ffffff": "light", "fdf6e3": "light", "002b36": "dark", "d8b590": "light"}
+    night = lambda f: f.get("logo") == ["c2mn-title c2mn-desc"]
+    day = lambda f: f.get("logo") == ["c2m-title c2m-desc"]
+    tokens = {}
+    for bg, palette in want.items():
+        f = got.get(f"board-{bg}", {})
+        if f.get("palette") != palette or f.get("scheme") != palette: wrong.append(f"#{bg}: the palette is {f.get('palette')} ({f.get('scheme')}), not {palette}")
+        if not (night(f) if palette == "dark" else day(f)): wrong.append(f"#{bg}: the header shows {f.get('logo')}")
+        tokens.setdefault(palette, set()).add(f.get("tokenBg"))
+        # Lem's light card is white too, so the colors are compared under the other themes
+        agterm = {rgb(c) for c in f.get("agterm", [])} if bg != "ffffff" else set()
+        if agterm & set(f.get("colors", [])): wrong.append(f"#{bg}: the board draws a color of agterm's theme: {sorted(agterm & set(f.get('colors', [])))}")
+        if f.get("body", {}).get("background-color") in (f"rgb({rgb('#' + bg).replace(',', ', ')})",): wrong.append(f"#{bg}: the page's background is agterm's")
+    if any(len(v) != 1 for v in tokens.values()) or tokens.get("dark") == tokens.get("light"): wrong.append(f"the palettes' backgrounds are {tokens}")
+    system_light, system_dark = got.get("board-system", {}), got_dark.get("board-system", {})
+    if system_light.get("palette") != "light" or not day(system_light): wrong.append(f"outside agterm, under the system's light: {system_light.get('palette')}, {system_light.get('logo')}")
+    if system_dark.get("palette") != "dark" or not night(system_dark): wrong.append(f"outside agterm, under the system's dark: {system_dark.get('palette')}, {system_dark.get('logo')}")
+    for name, f in [*got.items(), ("dark board-system", system_dark)]:
+        if name.startswith("head-") or "handover" in name: continue
+        if f.get("least", 0) < 4.5 or f.get("low"): wrong.append(f"{name}: text under 4.5:1 (least {f.get('least')}): {f.get('low', [])[:6]}")
+elif check == "pages":
+    same = ("body", "h1", "eyebrow", "mark", "chip", "logo", "palette")
+    for name, b, o in (("light", got.get("board-ffffff"), got.get("handover-ffffff")), ("dark", got.get("board-15181c"), got.get("handover-15181c")),
+                       ("the system's light", got.get("board-system"), got.get("handover-system")), ("the system's dark", got_dark.get("board-system"), got_dark.get("handover-system"))):
+        if not b or not o: wrong.append(f"{name}: a page was not drawn"); continue
+        for key in same:
+            if b.get(key) is None or b.get(key) != o.get(key): wrong.append(f"{name}: the {key} of the board is {b.get(key)}, of the onboarding page {o.get(key)}")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  if why=$("$PY" -I -c "$STEADY_CHECK" head "$WORK/steady.dom" "$WORK/steady-dark.dom"); then
+    pass "on a task's board \"All tasks\" and \"Go to Lem’s session\" stand at the top right for a short and a 160-character title at 900 and 1400 px; the long title takes two lines and shows whole on the focus and on a hover, with no button moved"
+  else
+    fail "the head of a task's board: $why"
+  fi
+  if why=$("$PY" -I -c "$STEADY_CHECK" palette "$WORK/steady.dom" "$WORK/steady-dark.dom"); then
+    pass "the board takes Lem's own palette from agterm's scheme: dark with the night logo on #15181c and #002b36, light with the day logo on #ffffff, #fdf6e3 and #d8b590, no color of agterm's, the system's setting outside agterm, and text of 4.5:1 or more in both"
+  else
+    fail "Lem's light and dark: $why"
+  fi
+  if why=$("$PY" -I -c "$STEADY_CHECK" pages "$WORK/steady.dom" "$WORK/steady-dark.dom"); then
+    pass "the onboarding page has the board's header, fonts and colors, in light and in dark, from agterm and from the system"
+  else
+    fail "one look for every page of Lem: $why"
+  fi
+
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.
   board --no-open --demo >/dev/null
   board --no-open --task "$L" >/dev/null
@@ -1460,7 +1669,7 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
       cp "$STATE/$page.html" "$WORK/light.html"
       for theme in light dark; do
         if [ "$theme" = dark ]; then
-          "$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("<head>", "<head><style>:root { --agterm-background: #15181c; --agterm-foreground: #dde1e6; }</style>", 1))' "$STATE/$page.html"
+          "$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("<head>", "<head><style id=\"agterm-theme\">:where(html) { color-scheme: dark; color: #dde1e6; --agterm-background: #15181c; --agterm-foreground: #dde1e6; }</style>", 1))' "$STATE/$page.html"
         fi
         for width in 900 1400 1800; do
           headless --hide-scrollbars --window-size="$width,2400" --virtual-time-budget=5000 --screenshot="$LEM_BOARD_SHOTS/$page-$width-$theme.png" "file://$STATE/$page.html"

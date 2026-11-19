@@ -244,10 +244,10 @@ Commit the settings and the generated files on a branch of their own, `chore/lem
 It is not landed yet: the owner's read of the drafts is the review.
 
 `show-page` one page to the owner, a companion beside the session, built from the pattern `SKILL_DIR/assets/handover.html`: copy
-that file and `SKILL_DIR/assets/lem.css` into the onboarding's directory, put the facts in the
+that file, `SKILL_DIR/assets/lem.css` and `SKILL_DIR/assets/lem.js` into the onboarding's directory, put the facts in the
 place of its words in capitals and of its example rows, repeat a block as the content needs and
 remove a section that has nothing to say. Keep its classes and add no style of your own. The
-stylesheet is the one the board uses, so the page looks like the same tool; the first
+stylesheet and the script are the ones the board uses, so the page looks like the same tool, in the same light or dark; the first
 onboarding's page was written by hand, and the owner found it "a bit old school" (2026-11-15).
 Its title names the repository and its first line is the
 root as an absolute path: every other path on the page is relative to it, and a page without it

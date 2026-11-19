@@ -26,8 +26,9 @@ the tab opens and on a key, and it says when the file was written. A run with `-
 it again without touching agterm, and keeps the session the board already names: the tab's one
 action types an ask into that session, so only a run that opens the board says which one it is.
 
-The page and the stylesheet it links (`assets/lem.css`, the look every page of Lem shares) are
-copied into the state folder at every open, so an older checkout gets the current ones.
+The page, the stylesheet it links (`assets/lem.css`, the look every page of Lem shares) and the
+script that gives that look Lem's light or dark palette (`assets/lem.js`) are copied into the
+state folder at every open, so an older checkout gets the current ones.
 A copy named `task-SLUG.html` opens on that task.
 
 It opens as a page companion of the top session of the asking session's group: it sits indented
@@ -60,8 +61,10 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
 ASSET = SCRIPTS.parent / "assets" / "board.html"
-# the look every page of Lem shares; the board links it, so it goes beside the page
+# the look every page of Lem shares, and the script that picks its palette; the board links both,
+# so they go beside the page
 STYLE = SCRIPTS.parent / "assets" / "lem.css"
+PALETTE = SCRIPTS.parent / "assets" / "lem.js"
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 TINT = "green"
 
@@ -215,6 +218,7 @@ def prepare(repo: str, slug: str | None, session: str, demo: bool = False, keep_
     page = state / (f"task-{slug}.html" if slug else "board.html")
     shutil.copyfile(ASSET, page)
     shutil.copyfile(STYLE, state / STYLE.name)
+    shutil.copyfile(PALETTE, state / PALETTE.name)
     return page, meta["repo"]
 
 

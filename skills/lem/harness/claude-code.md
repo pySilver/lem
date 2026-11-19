@@ -374,7 +374,7 @@ An HTML file opened as a page companion of this session's group, the way the boa
 as an overlay that covers Lem's session: `lem board --page FILE --name NAME`, with the file's
 absolute path and a short name for the sidebar (the task's slug and what the page is, as
 `gift-note page`). It opens the page with read access to the folder that holds it, so the page
-reads the `lem.css` beside it, and a second call with the same file reloads its companion. It
+reads the `lem.css` and `lem.js` beside it, and a second call with the same file reloads its companion. It
 prints the companion's id, which `agtermctl session close --target ID` closes when the page is
 done with. Outside agterm it refuses: give the owner the file's path to read. A question that
 waits for an answer (`ask-owner`, the `lem-ask` page) and a text to mark up still open over the
