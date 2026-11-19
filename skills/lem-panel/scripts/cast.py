@@ -6,9 +6,9 @@ Usage: lem cast [--repo DIR]
        lem cast run-dir SLUG [--repo DIR]
 
 With no command it prints the cast as JSON: the layer it came from, where in that layer (`source`),
-its directory, its index (README.md, or null), each persona's stem and path, and the project's
-profile (`profile`: its path and source, or null). A cast is a folder with any persona file, a
-`*.md` other than README.md, and a panel has one source of it:
+its directory, its index (README.md, or null), each persona, and the project's profile (`profile`:
+its path and source, or null). A cast is a folder with any persona file, a `*.md` other than
+README.md, and a panel has one source of it:
 
   project   the personas path of the project's settings (.lem/personas/ unless they say
             otherwise) in the checkout, or else on the repository's default branch
@@ -41,6 +41,26 @@ stands in for it. A checkout without one reads the default branch's, as for the 
 the state folder (personas-profile/<blob id>.md, one file per version of the profile); with
 neither, `profile` is null.
 
+Each persona is its stem, its file (`path`), and what the panel starts it with:
+
+  seats       the seats it answers on, each `seat` (`agent/model:effort`), `agent`, `model`,
+              `effort` (null when the seat leaves it out) and `name`, which its answer files carry
+  left_out    its seats whose agent is not on this machine (a `codex` seat without Codex)
+  seats_from  `file` when its file names them, or `default`: once on Opus and once on the paired
+              Codex's `persona` agent (`opus` and `sol`), as every panel ran before
+  person      the file its agent reads as who it is: the file itself, or, when the file has a
+              frontmatter, its text without it, written once in the state folder (personas-person/)
+
+A persona's file names its seats in a frontmatter, each as the settings write a seat, and nothing
+else is in it:
+
+  ---
+  seats: ["claude/opus:high", "codex/gpt-6.2-sol:high"]
+  ---
+
+A seat that the settings would refuse, a key that is not `seats` and a frontmatter that is never
+closed stop the command with the file and the line to write.
+
 `init` copies a starting cast, the user's or else the built-in one, into the project's personas
 folder so the project has its own people to rewrite. It refuses a checkout whose personas folder already holds any file, and one whose default branch
 already has a cast, which a rebase brings in instead.
@@ -61,8 +81,10 @@ if sys.version_info < (3, 11):
     sys.exit(f"cast.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import datetime
+import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -71,6 +93,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lem" / "scripts"))
 import lem_state  # noqa: E402
+import project  # noqa: E402  (the one reader of a seat, `agent/model:effort`, and whether its agent is here)
 
 # Where a project keeps its personas, its profile and its panels' files, relative to the checkout:
 # each has one place, which configure() takes from `project.py show` (`places`).
@@ -79,6 +102,116 @@ PROJECT_PROFILE = Path(".lem") / "profile.md"
 RUNS = Path(".lem") / "runs"
 BUILT_IN = Path(__file__).resolve().parent.parent / "cast"
 PROJECT_SETTINGS = Path(__file__).resolve().parents[2] / "lem" / "scripts" / "project.py"
+
+# A persona's own seats, in the frontmatter of its file: the one key, the agents that can answer as
+# a persona, and the line to write.
+SEATS_KEY = "seats"
+PERSONA_AGENTS = ("claude", "codex")
+SEATS_LINE = 'seats: ["claude/opus:high", "codex/gpt-6.2-sol:high"]'
+# The seats of a persona whose file names none: the panel as it ran before a persona could name its
+# own, once on Opus and once on the other family through the paired Codex's `persona` agent, whose
+# model that agent's own definition names. Their names are the answer files' (`<stem>.opus.md`,
+# `<stem>.sol.md`).
+DEFAULT_SEATS = (
+    {"seat": "claude/opus", "agent": "claude", "model": "opus", "effort": None, "name": "opus"},
+    {"seat": "codex", "agent": "codex", "model": None, "effort": None, "name": "sol"},
+)
+
+
+class CastError(Exception):
+    pass
+
+
+def frontmatter(text: str, path: Path) -> tuple[dict[str, str], str]:
+    """A persona file's frontmatter, as its keys and their raw values, and the file without it.
+
+    A file whose first line is `---` opens one, and the next `---` line closes it. Each line inside
+    is `key: value`; a blank line and a `#` comment are skipped. A file with no frontmatter gives {}
+    and its whole text."""
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].rstrip("\r\n") != "---":
+        return {}, text
+    end = next((n for n, line in enumerate(lines[1:], start=1) if line.rstrip("\r\n") == "---"), None)
+    if end is None:
+        raise CastError(f"{path} opens a frontmatter with `---` on its first line and no `---` line closes it: close it, or take the first line out")
+    meta: dict[str, str] = {}
+    for number, line in enumerate(lines[1:end], start=2):
+        bare = line.strip()
+        if not bare or bare.startswith("#"):
+            continue
+        key, colon, value = bare.partition(":")
+        key = key.strip()
+        if not colon or not key:
+            raise CastError(f"{path}, line {number}: {bare!r} is no `key: value` line; a persona's frontmatter holds one line, {SEATS_LINE}")
+        if key != SEATS_KEY:
+            raise CastError(f"{path}, line {number}: the frontmatter of a persona knows only `{SEATS_KEY}`, not {key!r}; write {SEATS_LINE}, or take the line out")
+        if key in meta:
+            raise CastError(f"{path}, line {number}: `{key}` is written twice; keep one line, {SEATS_LINE}")
+        meta[key] = value.strip()
+    return meta, "".join(lines[end + 1 :]).lstrip("\r\n")
+
+
+def seat_name(seat: dict) -> str:
+    """A seat's name, which its answer files carry: the last word of its model that holds a letter
+    (`gpt-6.2-sol` is sol), or its agent when it names no model; the experts' names follow the same rule."""
+    if not seat["model"]:
+        return seat["agent"]
+    words = [word for word in re.split(r"[-_.]", seat["model"].lower()) if re.search(r"[a-z]", word)]
+    return words[-1] if words else seat["model"].lower()
+
+
+def seats_of(meta: dict[str, str], path: Path, here=project.agent_here) -> dict[str, object]:
+    """The seats a persona answers on: its file's `seats`, each checked as a seat of the settings is,
+    or the panel's DEFAULT_SEATS when its file names none. A seat whose agent is not on this machine
+    (`here`) is left out, as the panel leaves out its second family without Codex."""
+    raw = meta.get(SEATS_KEY)
+    if raw is None:
+        named, source = [dict(seat) for seat in DEFAULT_SEATS], "default"
+    else:
+        try:
+            given = json.loads(raw)
+        except ValueError:
+            given = None
+        if not isinstance(given, list) or not given:
+            raise CastError(
+                f"{path}: seats: {raw} is not a list of one seat or more in double quotes: write {SEATS_LINE}, "
+                "or take the line out for the panel's own two seats"
+            )
+        named, source = [], "file"
+        for number, text in enumerate(given):
+            try:
+                seat = project.parse_seat(text, f"{path}: seats[{number}]", PERSONA_AGENTS, "the agents a persona is started with", "claude/opus:high")
+            except project.SettingsError as error:
+                raise CastError(f"{error}. The line is {SEATS_LINE}") from error
+            named.append({**seat, "name": seat_name(seat)})
+        names = [seat["name"] for seat in named]
+        twice = sorted({name for name in names if names.count(name) > 1})
+        if twice:
+            raise CastError(
+                f"{path}: two seats are named {', '.join(twice)} ({', '.join(seat['seat'] for seat in named)}): each answer file carries "
+                "the last word of its seat's model, so give models whose last words differ"
+            )
+    return {
+        "seats": [{**seat, "here": True} for seat in named if here(seat["agent"])],
+        "left_out": [{**seat, "here": False} for seat in named if not here(seat["agent"])],
+        "seats_from": source,
+    }
+
+
+def persona(root: Path, path: Path, here=project.agent_here) -> dict[str, object]:
+    """One persona as the panel reads it: its stem and file, its seats, and `person`, the file a
+    persona's agent reads as who it is: the file itself, or, when it has a frontmatter, its text
+    without it, written once in Lem's state folder."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise CastError(f"{path} is not UTF-8 text (byte {error.start} does not read): save it as UTF-8") from error
+    meta, body = frontmatter(text, path)
+    found = {"stem": path.stem, "path": str(path), **seats_of(meta, path, here)}
+    if body == text:
+        return {**found, "person": str(path)}
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
+    return {**found, "person": str(state_file(root, "personas-person", f"{path.stem}-{digest}.md", body.encode("utf-8")))}
 
 
 def fail(message: str) -> None:
@@ -269,6 +402,11 @@ def resolve(root: Path) -> dict[str, object]:
             "No generic cast answers in their place",
         )
         raise AssertionError
+    # each persona's seats and the text its agent reads, from the files of the cast that was found
+    try:
+        found_cast["personas"] = [persona(root, Path(str(one["path"]))) for one in found_cast["personas"]]  # type: ignore[union-attr]
+    except CastError as error:
+        fail(str(error))
     return found_cast
 
 

@@ -6,7 +6,9 @@ for the people who actually use, run and pay for the product, and add one for an
 a decision turns on.
 
 One file per persona. A file says who the person is, what they want, what they notice and what they
-never see. It holds no system internals: the panel brief supplies the evidence.
+never see. It holds no system internals: the panel brief supplies the evidence. A file may open with
+a frontmatter that names the seats the person answers on, `seats: ["claude/opus:high"]` between two
+`---` lines; with none, the person answers on the panel's own two seats.
 
 | Persona | File |
 |---|---|

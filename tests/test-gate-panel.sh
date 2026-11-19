@@ -59,6 +59,29 @@ if [ "$(profile_of "$REPO")" = "none" ]; then pass "a project with no profile ge
 printf '# Profile\n' >"$REPO/.lem/profile.md"
 if [ "$(profile_of "$REPO")" = "checkout" ]; then pass "the checkout's profile is read, beside the project's cast"; else fail "checkout profile: $(profile_of "$REPO")"; fi
 
+# A persona's file names its seats in a frontmatter, which its agent does not read; a file with none answers on the panel's two seats.
+SEATED=$PANEL/seated
+git init -q -b main "$SEATED" && mkdir -p "$SEATED/.lem/personas"
+printf '%s\n' '---' 'seats: ["claude/opus:high", "claude/fable:max"]' '---' '# Clerk' '' 'Counts the till.' >"$SEATED/.lem/personas/clerk.md"
+printf '# Owner\n' >"$SEATED/.lem/personas/owner.md"
+seated=$(cast --repo "$SEATED" | "$PY" -c '
+import json, pathlib, sys
+c = {p["stem"]: p for p in json.load(sys.stdin)["personas"]}
+clerk, owner = c["clerk"], c["owner"]
+print([s["seat"] for s in clerk["seats"]], clerk["seats_from"], pathlib.Path(clerk["person"]).read_text(), owner["person"] == owner["path"],
+      owner["seats_from"], sorted(s["name"] for s in owner["seats"] + owner["left_out"]))' 2>&1 || true)
+printf '%s\n' '---' 'seats: ["gemini/pro:high"]' '---' '# Clerk' >"$SEATED/.lem/personas/clerk.md"
+wrong=$(cast --repo "$SEATED" 2>&1 || true)
+if [ "$seated" = "['claude/opus:high', 'claude/fable:max'] file # Clerk
+
+Counts the till.
+ True default ['opus', 'sol']" ] && [ "$(status_of cast --repo "$SEATED")" = 1 ] && grep -qF "$SEATED/.lem/personas/clerk.md: seats[0] = 'gemini/pro:high'" <<<"$wrong" \
+  && grep -qF 'seats: ["claude/opus:high", "codex/gpt-6.2-sol:high"]' <<<"$wrong"; then
+  pass "a persona's frontmatter names its seats and its agent reads the file without it; a file with none answers on Opus and Sol; a seat the settings would refuse stops the cast with the file and the line to write"
+else
+  fail "a persona's seats: $seated / $wrong"
+fi
+
 # A worktree branched before the cast still finds the cast and the profile on the default branch, in
 # their one place, and init there does not start a second cast.
 CUSTOM=$PANEL/custom
