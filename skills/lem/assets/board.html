@@ -2022,7 +2022,7 @@ function plainReason(t, line, owners) {
   const d = id ? t.choices.find(x => x.id === Number(id)) : null;
   if (!d || d.state !== 'timeout' || d.ended == null) return {text: line};
   const when = awayAt(owners, d.ended) ? 'while you were away' : 'while the task ran without you';
-  const option = d.options.indexOf(d.chose) + 1;
+  const option = chosenAt(d) + 1;
   const experts = Object.keys(d.experts ?? {}).length;
   const text = d.by !== 'experts' ? `Lem took the recommended option of choice ${d.id} ${when}`
     : option > 0 && EXPERT_COUNT[experts] ? `${EXPERT_COUNT[experts]} chose option ${option} ${when}` : null;
