@@ -632,8 +632,10 @@
 // The board of one repository's tasks, and the board of one task. It draws two files that sit
 // beside it in the state folder: events.js (project.py: every state block, gate result, review
 // and proposal, and what criteria.py, decisions.py and land.py log through it) and meta.js
-// (board.py: the repository, the base branch, Lem's session), and a third when it is there:
-// watch.js (land.py watch: when the pull requests of the open tasks were last looked at on the forge).
+// (board.py: the repository, the base branch, Lem's session), and two more when they are there:
+// watch.js (land.py watch: when the pull requests of the open tasks were last looked at on the forge)
+// and overview.js (board.py: each task's outcome and the backlog items its branch filed). The tab
+// "Backlog" reads backlog.js on its own clock, below.
 // A copy named task-SLUG.html opens on that task; any other name opens on all tasks.
 //
 // A decision of the build is the events with its `id` (decisions.py): `decision.taken` or
@@ -675,7 +677,7 @@ const DONE_SHOWN = 6;
 
 const START_VIEW = (decodeURIComponent(location.pathname.split('/').at(-1)).match(/^task-([a-z0-9-]+)\.html$/) ?? [])[1] ?? null;
 let view = START_VIEW;
-// which tab of the board of all tasks is open; the board of one task has no tabs
+// which tab of the board of all tasks is open; the board of one task keeps its own in taskTab
 const TABS = ['tasks', 'waits', 'backlog'];
 let tab = !START_VIEW && TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'tasks';
 // The board of one task has four tabs of its own, and a task opens on its overview. `tab` keeps the
