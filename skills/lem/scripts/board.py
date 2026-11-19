@@ -19,7 +19,7 @@ the base branch, the session that opened the board, and how many commands one ru
 the checks has, `gates`, so the page knows when a run is complete). A file:// page cannot read a file with
 fetch and it can load a script, so each of them is one.
 
-The board's second tab is the backlog, from `backlog.js`, which this script writes at every run:
+The board's tab "Backlog" reads `backlog.js`, which this script writes at every run:
 each item of the settings' backlog folder in the main checkout, with its `worth`, its `where` and
 whether that still resolves, and whether git has it committed. Items change rarely, so the page reads that file when
 the tab opens and on a key, and it says when the file was written. A run with `--no-open` writes
@@ -115,7 +115,7 @@ def where_problem(root: Path, where: str) -> str:
 
 
 def backlog(settings: dict) -> dict:
-    """The items of the backlog folder, as the board's second tab shows them. It reads and changes nothing."""
+    """The items of the backlog folder, as the board's tab "Backlog" shows them. It reads and changes nothing."""
     main = Path(settings["main"])
     # the main checkout's copy: a task's worktree has the backlog as its branch left it
     folder = main / Path(settings["places"]["backlog"]["path"]).relative_to(settings["root"])

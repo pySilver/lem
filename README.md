@@ -22,7 +22,7 @@ becomes a full agent of Lem.
   </picture>
 </p>
 
-*The board. The picture shows demo data.*
+*The board of all tasks. The picture shows example tasks.*
 
 ## What it looks like
 

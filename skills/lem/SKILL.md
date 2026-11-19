@@ -330,14 +330,18 @@ lem board --task SLUG # the board of one task
 ```
 
 The board opens as a page beside the sessions it shows, under Lem's session or under the top of
-its group, and stays there: each task in the lane of who acts
-on it, with its lead, its newest commit, the result of its checks, its newest review and, once it is
-proposed, green or not green; and where each task's time went. A task's own board adds its
-state blocks, each command of the checks and each review with who answered.
-It reads the event log by itself every two seconds, so open it once, and again after agterm was
-started again.
+its group, and stays there. The board of all tasks has three tabs (keys T, W and B): "Tasks", each
+task in the lane of who acts on it, with its lead, its newest commit, the result of its checks, its
+newest review and, once it is proposed, green or not green, and where each task's time went;
+"Waits for you", one row for each thing the owner does, with its verb (answer a choice, approve the
+criteria, merge the pull request) and where he does it; and "Backlog". A task's own board has four
+(keys 1 to 4): "Overview", which says green or not green with its reasons in plain words, the large
+card and the phases; "Criteria and decisions"; "Checks and review", each command of the checks and
+each review with who answered; and "Timeline", its time and its activity. It reads the event log by
+itself every two seconds, so open it once, and again after agterm was started again. It draws in
+Lem's own light or dark, as agterm's theme is light or dark, and outside agterm as the system is.
 
-The board of all tasks has a second tab, the backlog: the items of the backlog path in groups by
+The tab "Backlog" holds the items of the backlog path in groups by
 each item's own `worth`, with an item whose place in the code is gone marked as such. An item's one
 action there, "start a task", types `/lem new PATH` into Lem's session, which is the ask
 `stages/new.md` takes for a backlog item; the owner confirms it on the page first. `board.py`
