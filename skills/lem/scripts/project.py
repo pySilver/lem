@@ -1944,17 +1944,21 @@ def type_of(text: str) -> dict | None:
 FAST_BUILDER = "small change: one builder"
 FAST_GREW = re.compile(r"\bthe small change is a full change$")
 LEAD_LINE = re.compile(r"lead: (builder|session)\b")
+# The state line of a task whose interview waits for the owner (`stages/new.md`, step 5).
+INTERVIEW_WAIT = "the interview waits for the owner"
 
 
 def track_of(text: str) -> str | None:
     """The track of a task, `fast` or `standard`, from the newest of its state lines that tells it
     (state.md is newest block first); None while nothing has: an investigation before its call, or a
     task queued before its first builder. Criteria that wait for the owner's yes are the standard
-    track's: the fast track's one criterion is approved in his name."""
+    track's: the fast track's one criterion is approved in his name. So is an interview: only the
+    standard track has one, also for a task that `/lem standard-track` moved off the fast track,
+    whose older block names its one builder."""
     for line in text.splitlines():
         found = STATE_LINE.fullmatch(line.strip())
         said = found["text"] if found else line.strip()
-        if FAST_GREW.search(said) or LEAD_LINE.match(said) or said.startswith(CRITERIA_WAIT):
+        if FAST_GREW.search(said) or LEAD_LINE.match(said) or said.startswith(CRITERIA_WAIT) or said.startswith(INTERVIEW_WAIT):
             return "standard"
         if said == FAST_BUILDER:
             return "fast"

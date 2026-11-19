@@ -16,6 +16,7 @@ suites=(lem-settings lem-machine lem-state lem-decisions lem-land-shop lem-land-
 suites+=(lem-naps)
 suites+=(lem-command)
 suites+=(lem-picker)
+suites+=(lem-companion)
 suites+=(unit)
 suites+=(test-site)
 if [ -n "${LEM_TEST_LOGS:-}" ]; then
