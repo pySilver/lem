@@ -163,7 +163,8 @@ The list, as the reviewer gave it in its first turn:
    the choice. The defender checked it and had no refutation. **A design choice**: the plan's
    rule (the newest `owner` event strictly before the choice's time), against the reviewer's
    (an `owner` event of the same second counts too). Taken up after the talk by `stages/plan.md`,
-   step 5; its outcome is in the task's decisions.
+   step 5: the gate found it checkable in the code and took the reviewer's rule (decision 2 of the
+   task's record); decision 4 of the plan says it.
 2. **Decision 5, "Waits for you": one action counted twice, and a merge verb on a conflicting
    request.** A task `held` with "choice N waits for the owner" is the same action as its choice,
    and `watch.js` can call an open request `CONFLICTING`. Repaired once (one row for a held task
@@ -175,7 +176,9 @@ The list, as the reviewer gave it in its first turn:
    `project.py` `proposal` checks it. The defender checked it and had no refutation. **A design
    choice**: the plan's rule (`CONFLICTING` in `watch.js`), against the reviewer's (only when
    the entry's `head` is the head of the newest proposal, the `tip` of its `proposed` event).
-   Taken up after the talk by `stages/plan.md`, step 5.
+   Taken up after the talk by `stages/plan.md`, step 5: the gate found it checkable ("Lem owns
+   the truth of its words … each state on the board", `AGENTS.md`) and took the reviewer's rule
+   (decision 3 of the task's record); decision 5 of the plan says it.
 3. **Decision 3, the palette's cutoff.** The middle of relative luminance does not match
    agterm's own light or dark: the installed Desert Morning, `#d8b590`, falls under it while
    agterm calls it light. Settled: decision 3 changed, so that `lem.js` takes the `color-scheme`
@@ -196,7 +199,12 @@ The list, as the reviewer gave it in its first turn:
    exception for a changed action text beside the selection. **A design choice**: the plan's
    rule (the backlog drawn again whole when what it shows changed, `agentRuns` included),
    against the reviewer's (a selection survives that draw too). Taken up after the talk by
-   `stages/plan.md`, step 5.
+   `stages/plan.md`, step 5: the gate held it; the personas split (the developer for redrawing
+   only the changed foot lines, the newcomer for one band above the backlog), none for the plan's
+   rule; the dialectic confirmed a break of the developer's option (a selected command in a
+   changed foot is lost); both experts picked a fourth design, the backlog patched by keys down
+   to the foot's parts (decision 4 of the task's record, by the experts); decision 2 of the plan
+   says it.
 5. **Task 2, cards of one height: what shows when a task builds while a long choice waits.**
    `cardLine` puts the choice's text in the place of the state, `.tc-text` cuts it after two
    lines, and `tags` adds a badge for each further choice. Settled: task 2 gives the card a fixed
@@ -238,16 +246,27 @@ and its reload as read in its source (question 3).
    board. Rests on: the criteria, which name the two boards apart (4 and 5), and the size of
    `board.html`.
 2. **A tab hides its panel and never removes it.** Every panel stays in the page, and the panels
-   of the other tabs carry `hidden`. Each panel keeps the redraw it has today: the panels of tasks
-   are patched by keys every second, and the backlog is drawn again only when what it shows from
-   outside changed (`blDrawn` in `render()`, which calls `renderBacklog`), so a text the owner
-   selected there stays selected. Nothing the owner could see before is gone, a change of tab
+   of the other tabs carry `hidden`. The panels of tasks are patched by keys every second, as
+   today. The backlog is patched by keys too, with `patch()` and `keyed()`, down to the foot's
+   parts, in the place of today's `replaceChildren` of the whole group: a node whose markup did not
+   change keeps its place, so a selection in an item's body or in an unchanged `<code>` command of
+   its foot survives every draw, also when an agent in Lem's session stops or starts and when a
+   read of agterm's sessions fails, and only the words that changed are swapped. `patch()`
+   compares a parent's direct children, so the group, the item (its `cur` class and
+   `aria-expanded` set in place), `.bl-body` and `.bl-actions` are each patched at their own level,
+   with the note, the button and the `<code>` of `itemActions()` as keyed parts. The test of
+   criterion 4 selects a sentence of a body and a command of a foot, changes whether an agent runs
+   and makes a read of the sessions fail, and finds both selections still there; the Start journey
+   of `tests/lem-settings.sh` still passes (`askToStart()` gives the Start button the focus after
+   the draw). Settled after the talk by the experts, both for this design, decision 4 of the
+   task's record. Nothing the owner could see before is gone, a change of tab
    draws nothing again, and `test-board.sh`, which reads the DOM, still finds each part. Because a
    hidden panel is in the DOM, the `SHOWN` helper of `test-board.sh`, which reads every text but
    `script` and `style`, cannot tell what the owner sees on a tab: each check of what a tab shows
    (criteria 4 and 5) skips the text under an element with `hidden`, as a form of `SHOWN` or a
    helper beside it. Rests on: the owner's direction "No information goes away: the tabs handle
-   the density" (`directions.md`), `render()`, which patches by keys, and `blDrawn`.
+   the density" (`directions.md`), criterion 4, and `patch()`, which keeps a keyed block whose
+   markup did not change.
 3. **The palette is the one agterm chose, and a small script that every page of Lem loads beside
    `lem.css` takes it.** agterm already tells a file page whether its theme is light or dark: its
    theme stylesheet, put into the page at document start, sets `color-scheme: dark` or `light` on
@@ -278,8 +297,10 @@ and its reload as read in its source (question 3).
    the place of the chosen text in the choice's `options`, counted from 1, and the row names the
    choice beside it. A choice taken as the recommended option while he was away is "Lem took the
    recommended option of choice N while you were away". "While you were away" is said only when
-   the owner's status was away at the time the choice was taken: the newest `owner` event before
-   that time says `away` (the events `derive()` already reads for the header, line 848). A choice
+   the owner's status was away at the time the choice was taken: the newest `owner` event at or
+   before that time (the same second counts, since `cmd_owner` writes it and `cmd_away` takes the
+   choice in one second; settled after the talk by the gate, decision 2 of the task's record) says
+   `away` (the events `derive()` already reads for the header, line 848). A choice
    taken at once in a task that ran without him while he was there, which is a night's task
    (`stages/night.md`, step 3; `decisions.py`, the `timeout` of a task that runs without the
    owner), says "while the task ran without you" in its place. Only the lines of `not_green` that
@@ -302,8 +323,10 @@ and its reload as read in its source (question 3).
    row, as the banners do today (`buildBanners` draws a held task's row only for `status ===
    'held' && !asks.length`); `cmd_waiting` counts such a task twice, under `choices` and under
    `held`, which is a defect outside this task. A proposal whose pull request the forge calls
-   conflicting with the base (its entry in `open` of `watch.js` has `mergeable: CONFLICTING`, the
-   same look of the forge that `cmd_watch` writes) says that it conflicts with the base and that
+   conflicting with the base (its entry in `open` of `watch.js` has `mergeable: CONFLICTING` and a
+   `head` that is the head of the task's newest proposal, the `tip` of its newest `proposed`
+   event, as `project.py` `proposal` checks the forge's head; settled after the talk by the gate,
+   decision 3 of the task's record) says that it conflicts with the base and that
    Lem brings it onto the base first (`stages/land.md`, step 9), and gives no merge verb; it is
    still counted, since its merge waits for him after that. It is `lem project waiting` without
    the retro proposals, which the board has no file for, and with the plans to read. Rests on:
