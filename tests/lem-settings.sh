@@ -209,8 +209,9 @@ if [ "$(field 'd[0]["ask"]' <<<"$out")" = "Keep report dates whole." ] && [ "$(f
 else
   fail "state and tasks: $out / $(cat "$dir/state.md")"
 fi
-err=$(project --repo "$OLD" state report-dates-stay-whole build "task 3" 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" state report-dates-stay-whole build "task 3")" = 1 ] && grep -q "did you mean 'building'" <<<"$err" \
+code=0
+err=$(project --repo "$OLD" state report-dates-stay-whole build "task 3" 2>&1) || code=$?
+if [ "$code" = 1 ] && grep -q "did you mean 'building'" <<<"$err" \
   && [ "$(status_of project --repo "$OLD" state no-such-task ready "report written")" = 1 ] \
   && [ "$(status_of project --repo "$OLD" state report-dates-stay-whole ready "report written" "")" = 1 ] \
   && [ "$(status_of project --repo "$OLD" state report-dates-stay-whole ready)" != 0 ] && [ "$(grep -c '' "$dir/state.md")" = 4 ]; then
@@ -362,8 +363,9 @@ else
   fail "reviewer default: $out / $(cat "$OLD/.lem/project.local.toml")"
 fi
 printf '%s\n' '[checks]' 'commands = []' > "$OLD/.lem/project.local.toml"
-err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" show)" = 1 ] && grep -q "\[checks\] is the project's rule" <<<"$err" \
+code=0
+err=$(project --repo "$OLD" show 2>&1) || code=$?
+if [ "$code" = 1 ] && grep -q "\[checks\] is the project's rule" <<<"$err" \
   && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ]; then
   pass "the machine's own file may not hold the checks or any other rule of the project"
 else
@@ -375,16 +377,18 @@ off=$(project --repo "$OLD" show | field '(d["corrections"]["collect"], d["local
 project --repo "$OLD" reviewer claude >/dev/null && project --repo "$OLD" reviewer default >/dev/null
 kept=$(grep -c '^collect = false$' "$OLD/.lem/project.local.toml")
 printf '%s\n' '[corrections]' 'collect = true' > "$OLD/.lem/project.local.toml"
-err=$(project --repo "$OLD" show 2>&1 || true)
-if [ "$off" = "(False, [])" ] && [ "$kept" = 1 ] && [ "$(status_of project --repo "$OLD" show)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] \
+code=0
+err=$(project --repo "$OLD" show 2>&1) || code=$?
+if [ "$off" = "(False, [])" ] && [ "$kept" = 1 ] && [ "$code" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] \
   && grep -q "It may say .collect = false." <<<"$err" && grep -q "only .lem/project.toml, which everybody reads in git, switches the queue on" <<<"$err"; then
   pass "the machine's own file may say no to the correction queue and keeps that line through a rewrite; a yes there is refused with the reason"
 else
   fail "corrections in the local file: $off / $kept / $err"
 fi
 printf '%s\n' '[seats]' 'planner = 42' > "$OLD/.lem/project.local.toml"
-err=$(project --repo "$OLD" reviewer claude 2>&1 || true)
-if [ "$(status_of project --repo "$OLD" reviewer claude)" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer default)" = 1 ] \
+code=0
+err=$(project --repo "$OLD" reviewer claude 2>&1) || code=$?
+if [ "$code" = 1 ] && [ "$(status_of project --repo "$OLD" reviewer default)" = 1 ] \
   && grep -q "project.py: .lem/project.local.toml: seats.planner = 42 must be" <<<"$err" && ! grep -q Traceback <<<"$err" \
   && [ "$(cat "$OLD/.lem/project.local.toml")" = "$(printf '%s\n' '[seats]' 'planner = 42')" ]; then
   pass "a wrong value already in the machine's own file is refused with its fix, and the file is left as it was"
