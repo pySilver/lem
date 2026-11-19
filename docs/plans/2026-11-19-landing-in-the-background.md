@@ -166,8 +166,10 @@ Read in the code at `28d3c81`:
      message and of its answer beside the run's `gate.start` and `gate.end` (criterion 1); the
      `say` line on the screen, and that no question came with it (criterion 2); the task's state
      ten minutes after `gate.end` (criterion 3); and the `last` of the twelve-minute command in
-     `landing.json` beside the last non-blank line of its output file, with the run's `seconds`
-     over 600 (criterion 5). The overdue line is held by the unit cases of task 1.
+     `landing.json` beside the last non-blank line of its output file, both with the white space
+     around them taken off as `cmd_checks` takes it, and that line as the command printed it,
+     with no white space around it, so that the two forms are one; with the run's `seconds` over
+     600 (criterion 5). The overdue line is held by the unit cases of task 1.
    - The builder closes the session and removes the clone and its worktrees at the end. A run it
      cannot hold to the end is said in its report as such, with where it stopped: no criterion is
      marked as held by a run that did not happen.
