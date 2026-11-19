@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # The task picker (picker.py), offline: a stand-in for agtermctl on PATH records each call and
 # answers the picker as the owner would, in a throwaway repository with tasks in several states.
+# No Python of the block writes bytecode: with tests/clock on PYTHONPATH, one call without -B would leave
+# tests/clock/__pycache__ in the repository.
+export PYTHONDONTWRITEBYTECODE=1
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
