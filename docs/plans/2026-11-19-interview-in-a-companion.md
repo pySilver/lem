@@ -60,15 +60,41 @@ Read in the code at `28d3c81`:
    says what is due.** Serves criteria 1, 2, 3, 4, 5, 6 and 9. Files: new
    `skills/lem/scripts/companion.py`, `bin/lem` (its `COMMANDS`), new `tests/unit/test_companion.py`,
    new `tests/lem-companion.sh` (a block with a stand-in for `agtermctl`, as `tests/lem-picker.sh`
-   has), `tests/pick.py` (the map), `tests/test-lem.sh` only if a new block must be named there.
+   has), `tests/pick.py` (the map), and the block's name in both arrays that name the blocks,
+   `suites` in `tests/all.sh` and `blocks` in `tests/test-lem.sh`, as `lem-picker` is named there
+   (Q11).
    - *A need* is one of three, and each has one fixed name in the sidebar: `interview`
      (`SLUG · interview`), `criteria` (`SLUG · criteria`) and `choice N` (`SLUG · choice N`).
+   - *Which need waits*, from the task's newest state block, one rule for `open`, `due`, the board
+     and the pull request: `held` with `the interview waits for the owner`, and `held` with
+     `the criteria wait for the owner: the small change is a full change` (`FAST_GREW`, the fast
+     track's builder found a full change, `stages/new.md` "The fast track" step 3), are an
+     `interview` (Q7); `held` with any other `CRITERIA_WAIT` line is `criteria`; `held` with
+     `choice N waits for the owner`, and every choice N that `lem decisions pending` lists as
+     waiting, is `choice N`. A wait is *answered* when the record holds his word after the state
+     block that opened it: a `criteria.approved` event by `owner` or `alone` after that block for
+     an interview or criteria, or choice N no longer `waits` in `lem decisions list` for a
+     choice. An answered wait opens nothing.
+   - `lem companion talk SLUG --from TEXT` writes `talk.md` (Q4): the turns of Lem's own Claude
+     Code session, word for word, from the owner's turn whose text starts with TEXT to the
+     newest turn, each with who said it (the owner or Lem) and only the text blocks (no tool
+     call, no tool output). It reads the session's transcript, the file
+     `~/.claude/projects/*/ID.jsonl` with `ID` from `CLAUDE_CODE_SESSION_ID`, which Claude Code
+     gives the Bash tool, as `corrections.py` `last_agent_text` reads the transcript a hook is
+     given. The transcript keeps the turns from before a compaction (one of this project's
+     transcripts holds 495 owner records before its first `compact_boundary`, read 2026-11-19),
+     so a copy is word for word also after one. It refuses with exit 1 and the fix when the
+     variable is not set, the file is not there, or no owner turn starts with TEXT. The format
+     is the harness's: `harness/claude-code.md` names the file and the variable, and the script
+     keeps the read in one function that names the harness.
    - `lem companion open SLUG --need interview|criteria|choice --choice N`: refuses with exit 1
      and the fix for a task on the fast track (`track` `fast`), a task that ended, a need that
-     does not wait (no `held` with `the interview waits for the owner` for `interview`, no
-     `CRITERIA_WAIT` line for `criteria`, no choice N that `waits` for `choice`), an `interview`
-     with no `talk.md` in the task directory (the copied turns, criterion 2), and any need while
-     the owner is away except a choice that is `irreversible` (criterion 9). A need whose
+     does not wait or whose wait is answered (the rule above), an `interview` with no `talk.md`
+     in the task directory (the copied turns, criterion 2), any need while the owner is away
+     (his status, `lem project waiting`'s `owner`; criterion 9), and, with him there, any need of
+     a task whose `mode` is `alone` except a choice that is `irreversible`: a night's task runs
+     without him while he is there (`stages/night.md` step 3), and its criteria and its other
+     choices are taken without him as today (Q3). A need whose
      companion still runs in agterm's tree is not opened twice: the command prints that one. It
      writes `companion-NEED.md` into the task directory (the brief: `Read SKILL_DIR/prompts/companion.md
      and follow it.`, the task, the need, the task directory, the main checkout, `coordinator:`
@@ -81,22 +107,36 @@ Read in the code at `28d3c81`:
      interview of SLUG is open in `SLUG · interview` under this session" (for a choice, "choice N
      of SLUG is open in ..."; for criteria, "the criteria of SLUG are open in ...").
    - `lem companion close SLUG --need ...`: closes the session when it runs and logs
-     `companion.close` with why (`answered`, `gone`, `dropped`); it exits 0 when nothing runs.
+     `companion.close` with why (`answered`, `dismissed`, `gone`, `dropped`); it exits 0 when
+     nothing runs. `dismissed` is a card he closed with no answer (Q8).
    - `lem companion list`: each companion that `companion.open` names and agterm's tree still has,
      with its task, need and name. The board reads the same events.
    - `lem companion due`: nothing opens or starts here, it says what Lem owes, from the files:
-     `open`, each need that waits for the owner and has no live companion (with him there; while
-     he is away only the irreversible choices; so after `/lem im-back` one entry for each such step
-     and for each other need); `start`, each task `queued` with the line
-     `the criteria are approved: Lem starts its lead` (criterion 3's recovery, also when the
-     companion's message was lost); `close`, each live companion whose need no longer waits.
+     `open`, each need that waits for the owner, is not answered, has no live companion and
+     would not be refused by `open`, and whose newest `companion.close` is not `dismissed`
+     (criterion 5: nobody opens a card he closed until he asks; Q8); so nothing while he is
+     away, and after `/lem im-back` one entry for each need, irreversible steps among them
+     (criterion 9); `start`, each task whose wait is answered and that has no `lead:` state
+     block after the answer: his yes to the criteria (an interview or criteria), or his answer
+     to the choice a lead stopped `held` for (`stages/build.md` step 4, `choice N waits for the
+     owner`; Q5). This is criterion 3's recovery from the record itself, the approval and the
+     answer as the scripts wrote them, so a companion that stops after `lem criteria approve`
+     and before anything else, or a lost message, still gives the start (Q1); `close`, each
+     live companion whose need no longer waits or is answered.
+   - `lem companion open` with `--asked`, which bare `/lem`, `/lem status SLUG` and a board row
+     pass (his word), opens a need whose newest close was `dismissed`; without it, `open`
+     refuses such a need with the line that names the way back (Q8).
    - The rules that take facts (which need waits, `due` from a list of tasks, events and live
      sessions, the names, the refusals) are functions with unit cases; the block runs `open`,
      `list`, `close` and `due` against the stand-in and checks the `agtermctl` arguments it got
      (`--no-select`, `--parent`, the name), two companions of two tasks open at once, and that
      `talk.md` and `companion-*.md` are in the state folder that git ignores
-     (`git check-ignore`). Run `python3 -B -m unittest discover -s tests/unit` and
-     `bash tests/lem-companion.sh`.
+     (`git check-ignore`). Unit cases for `due`: an approval with the `held` block still newest
+     gives `start` and no `open`; a choice a lead stopped for, answered, gives `start`; a
+     dismissed card gives no `open`, and `--asked` opens it; a night's task with him there opens
+     only its irreversible choice; `FAST_GREW` is an `interview`. `talk` over a fixture
+     transcript with a `compact_boundary` copies the turns from before it. Run
+     `python3 -B -m unittest discover -s tests/unit` and `bash tests/lem-companion.sh`.
 
 2. **The companion's agent: one need, the task's files, and its end.** Serves criteria 2, 3, 4, 5,
    6 and 8. Files: new `skills/lem/prompts/companion.md`, `skills/lem/harness/claude-code.md`
@@ -105,35 +145,57 @@ Read in the code at `28d3c81`:
    (the capability names a need's companion), `skills/lem/stages/interview.md` (its actor is the
    companion: who runs each step, the read on one model family, the end of step 7).
    - The brief opens with what the companion is for, and that it knows one task: it reads
-     `task.md`, `ask.txt`, `talk.md`, `directions.md` and `scout.md` of its task directory and no
-     other, and its first words to the owner say what it got: the ask and how many turns of the
-     talk were copied, with the first one.
+     `task.md`, `ask.txt`, `talk.md`, `directions.md`, `scout.md` (for a `FAST_GREW` interview the
+     builder's `report.md` stands in for it, as `stages/new.md` "The fast track" step 3 says; Q7),
+     `criteria.md` and `criteria-read.md` of its task directory and no other task's, and its
+     first words to the owner say what it got: the ask and how many turns of the talk were
+     copied, with the first one. A turn of the copy that also speaks of another task is copied
+     whole, since criterion 2 asks for every turn about this ask; the brief says that the
+     companion acts on its own task only and treats the rest of such a turn as context.
+   - *A fresh companion goes on from the files* (Q6): it asks nothing that `directions.md`
+     already holds, and when `criteria.md` and `criteria-read.md` are there it goes on from step 6
+     of `stages/interview.md`. So the companion writes each direction into `directions.md` as he
+     names it, not after the last question (step 3 there), and the personas' answers of step 5,
+     each persona and family with its words, into `criteria-read.md` beside the `criteria.read`
+     event, as a lead puts them into its `report.md` today. When he leaves with no words of
+     away, the companion's page waits and the state stays `held` with `the interview waits for the
+     owner`: in a companion the line `the criteria wait for the owner` of `stages/interview.md`'s
+     last paragraph is not written, since the need is still the interview and a closed companion
+     opens again from the files above.
    - *interview*: it starts the scout and the interview as `stages/interview.md` step 1 says
      (the scout is its builder, and its reply comes to it), runs steps 2 to 7 there, and after his
-     yes typed in it, `lem criteria approve SLUG --file FILE` (by `owner`); then it writes the
-     brief of `stages/new.md` step 6 with Lem's address from its own brief, writes the state
-     `queued` with the line `the criteria are approved: Lem starts its lead`, never a `lead:` line
-     (`READ_SKIP` in `land.py` reads that line as the end of the interview), sends
-     `lem: SLUG criteria approved` to Lem's pane (`tell-coordinator`), and closes itself with
-     `lem companion close`.
+     yes typed in it, `lem criteria approve SLUG --file FILE` (by `owner`). That record is the
+     whole handoff (Q1, Q2): it writes no brief and no `lead:` line (`READ_SKIP` in `land.py`
+     reads that line as the end of the interview). Then the state `queued` with the line
+     `the criteria are approved: Lem starts its lead`, which is for the board and the status and
+     which no start reads, `lem: SLUG criteria approved` to Lem's pane (`tell-coordinator`), and
+     `lem companion close --why answered`. A stop after the approval and before the close loses
+     nothing: `due` gives the start from the approval.
    - *choice*: it shows the card through `ask-owner` in its own session, built as
      `stages/choice.md` step 1 says, with the experts named in a few words from the settings'
      `seats.experts` and one line on the card: "Close this card and the choice still waits: its
      row in the board's Waits for you, or /lem in `LEM SESSION NAME`, opens it again". It answers
-     "what do the experts say?" from the choice's record (`advice`). His answer goes into the
-     record with `lem decisions answer` as step 2 there says; then the line
-     `lem: SLUG choice N answered`, and it closes itself. A card he closes with no answer leaves
-     the choice as it is: the companion says the way back in one line and closes, and takes
-     nothing.
+     "what do the experts say?" from the choice's record (Q9): the experts' level of `said`, which
+     the ladder writes there (`stages/build.md` step 2, `decisions.py` `ask`), and `advice` when
+     the record holds it. When neither holds an answer of the experts, it says that the ladder
+     settled before the experts' level, and his "ask them" runs `lem experts brief SLUG N` and
+     `record SLUG N`, which keep their advice on his card (`stages/ladder.md`, "All opinions").
+     His answer goes into the record with `lem decisions answer` as step 2 there says; then the
+     line `lem: SLUG choice N answered`, and `lem companion close --why answered`. A card he
+     closes with no answer leaves the choice as it is: the companion says the way back in one
+     line, closes with `--why dismissed`, and takes nothing.
    - *criteria*: it shows the criteria with the personas' read from the lead's `report.md` on one
      page, as `stages/interview.md` step 6 says; his yes there is `lem criteria approve --file`,
      then the same `queued` line, the message and the close as for the interview.
    - What it never does (criterion 8): take an ask, start a lead, land, watch a pull request. An
      ask typed there gets the exact line to paste, `/lem THE ASK AS TYPED`, and the name of Lem's
      session from `lem session:`.
-   - His `/lem im-away` typed in a companion is his word as everywhere:
-     `lem project owner away --words`, and the interview goes on without him as
-     `stages/away.md` step 3 says, in the companion, which then ends as above with `--alone`.
+   - His `/lem im-away` typed in a companion is his word as everywhere (Q3):
+     `lem project owner away --words`, then the line `lem: the owner is away` to Lem's pane, so
+     that Lem takes `stages/away.md` for every other task and every other open companion; its own
+     interview goes on without him as `stages/away.md` step 3 says, in the companion, which then
+     ends as above with `--alone`, and its own card closes, since `lem project owner away` took
+     its choice. His `/lem im-back` there is the same with `back`.
    - No test: these are a brief and stage texts, whose test is the real task of this plan's last
      section; the script's refusals of task 1 hold what a script can.
 
@@ -143,20 +205,31 @@ Read in the code at `28d3c81`:
    Subcommands rows "a lead stopped" and "a choice waits" and a row for a companion's line, "What
    holds in every stage": the three points are answered in a companion, and at each turn
    `lem companion due`), `skills/lem/stages/new.md` (step 5's line for the standard track with an
-   interview names the companion; step 4 and after step 5: Lem copies the turns of its talk about
-   this ask, from the turn where the topic began, word for word into `talk.md`, runs
-   `lem companion open SLUG --need interview`, says its `say`, and goes back to the owner's next
-   message), `skills/lem/stages/choice.md` (a choice opens its companion; Lem shows no card in its
-   own session), `skills/lem/stages/stopped.md` (`held` with `the criteria wait for the owner`
-   opens `--need criteria`; a companion's line is a wake-up and the fact is the files),
-   `skills/lem/stages/start.md` ("The queue": a task `queued` with
-   `the criteria are approved: Lem starts its lead` gets its lead, and Lem says "the build of SLUG
-   started"), `skills/lem/stages/status.md` (bare `/lem` opens a companion for each `open` of
-   `due`; `/lem status SLUG` opens the one of that task), `skills/lem/stages/away.md` (away: no
-   companion opens, and each open one gets one message that he is away; back: `due` opens one for
-   each irreversible step and each other need), `skills/lem/stages/investigate.md` (a full fix's
-   interview opens its companion too), `skills/lem/stages/correct.md` (a drop closes the task's
-   companions).
+   interview names the companion; after step 5: Lem writes the brief of step 6 now, before the
+   companion opens, with every line it knows from the ask (`stop after the plan: yes` for
+   `/lem plan <what>`, `request by: someone else`), so that `be-careful` during the interview
+   writes its line into that brief as `stages/correct.md` says (Q2); then
+   `lem companion talk SLUG --from "THE OWNER'S FIRST TURN ON THIS ASK"` with the start of the
+   turn where the topic began, `lem companion open SLUG --need interview`, its `say`, and back to
+   the owner's next message), `skills/lem/stages/choice.md` (a choice opens its companion; Lem
+   shows no card in its own session), `skills/lem/stages/stopped.md` (`held` with a
+   `CRITERIA_WAIT` line opens `--need criteria`, and with `FAST_GREW` `--need interview`; `held`
+   with `choice N waits for the owner` starts its lead when `due` gives `start` for it (Q5); a
+   companion's line is a wake-up and the fact is the files), `skills/lem/stages/start.md` ("The
+   queue": each `start` of `lem companion due` gets its lead: for an approved interview or
+   criteria, step 7 of "Open the task" from the ask in `task.md`, which may queue it `after:`
+   another task, and step 8 with the brief already written (Q2); for an answered choice, a
+   fresh lead as `stages/stopped.md` says; and Lem says "the build of SLUG started"),
+   `skills/lem/stages/status.md` (bare `/lem` opens a companion with `--asked` for each need that
+   waits, dismissed ones too; `/lem status SLUG` opens the one of that task, and
+   `/lem status SLUG choice N` that choice's (Q8)), `skills/lem/stages/away.md` (away: no
+   companion opens, and each open one gets one message that he is away; his words in a
+   companion come as the line `lem: the owner is away` and take the same steps (Q3); back: `due`
+   opens one for each irreversible step and each other need), `skills/lem/stages/investigate.md`
+   (a full fix's interview opens its companion too), `skills/lem/stages/correct.md`
+   (`standard-track`: the state `held` with `the interview waits for the owner`, then the
+   interview's companion as after step 5 of `stages/new.md`, with the builder's report as the
+   scout's when its builder ran (Q7); a drop closes the task's companions).
    - A fast-track ask, a green pull request and the retro's proposals open no companion
      (criterion 9): `new.md` "The fast track" and `status.md` say so where they act.
    - No test: stage texts; task 1's `due` and refusals hold the rules a script can.
@@ -167,21 +240,29 @@ Read in the code at `28d3c81`:
    - Each row of "Waits for you" (the banners, the large card and a task's own board) whose need
      has a live companion has a jump to it, by the `session` of its newest `companion.open` that
      no `companion.close` followed and that `paneOf` finds. A row whose companion is gone types
-     `/lem status SLUG` into Lem's session, the way the backlog tab's action types its line, with
-     the same confirm and the same fallback text when no agent runs there (criterion 7).
+     `/lem status SLUG` into Lem's session, and the row of a choice `/lem status SLUG choice N`,
+     so that of two choices of one task the row opens its own (Q8), the way the backlog tab's
+     action types its line, with the same confirm and the same fallback text when no agent runs
+     there (criterion 7).
    - Each task card shows its open companion by its name (`SLUG · interview`) with that jump.
-   - A task `queued` with `the criteria are approved: Lem starts its lead` shows as approved with
-     no lead (criterion 3), in Lem's lane.
+   - A task whose wait is answered and that has no lead after the answer (task 1's rule: a
+     `criteria.approved` event by `owner` or `alone` after its `held` block, whether or not the
+     companion's `queued` line followed) shows as approved with no lead (criterion 3), in Lem's
+     lane (Q1). The fixture holds both: an approval with `held` still newest, and with `queued`.
    - Test in `tests/test-board.sh` over a fixture with a live and a closed companion: the rows,
      the jump target and the typed line. Run `bash tests/test-board.sh`.
 
 5. **The pull request says that the criteria waited for the owner's yes, and when he gave it.**
    Serves criterion 6. Files: `skills/lem/scripts/land.py` (`read_line` and what it is given),
    `tests/unit/test_land_text.py` or `tests/unit/test_land.py`.
-   - When the task's state had `the criteria wait for the owner` before his approval (a request
-     somebody else wrote, or criteria a persona doubted), the line ends "the criteria waited for
-     the owner's yes, which he gave on DATE at HH:MM UTC" in place of "the owner approved them on
-     DATE". Unit cases on the function for both cases and for an approval with no such wait.
+   - The wait is the newest `held` state block with a `CRITERIA_WAIT` line other than
+     `FAST_GREW` (a request somebody else wrote, or criteria a persona doubted; a `FAST_GREW` task
+     went to an interview), and its end is the first `criteria.approved` by `owner` after that
+     block (Q10). When there is such a pair, the line ends "the criteria waited for the owner's
+     yes from DATE at HH:MM UTC, which he gave on DATE at HH:MM UTC", and a later approval of his
+     adds "; he approved them again on DATE" in place of "the owner approved them on DATE". Unit
+     cases on the function: a wait and its approval; a wait, its approval and a later approval
+     with no wait, which names the first as the end; an approval with no such wait.
      Run `python3 -B -m unittest discover -s tests/unit`.
 
 6. **The documents: his rulings and the guides.** Serves criterion 10. Files: `AGENTS.md` (his
@@ -204,21 +285,25 @@ Each is logged with `--by lead` in `lem decisions list interview-in-a-companion`
   harness file: the name in the sidebar, no focus, one companion for each need, the refusal while
   he is away and the record for the board must hold the same way each time, and only a script can
   be tested for that. It assumes that `agtermctl` belongs in a script as it does in `board.py`.
-- Lem writes the copy of its talk itself, from its own context, into `talk.md`; no script reads
-  Claude Code's own transcript, whose format is the harness's and not Lem's. It assumes that an
-  agent copies turns of its own context word for word; the companion's first words show what it
-  got, so a short copy is seen at once (criterion 2).
-- After his yes the companion writes the state `queued` with
-  `the criteria are approved: Lem starts its lead`, and Lem's queue starts the lead. `queued`
-  with no `after:` line already starts at the next look at the queue (`cmd_may_start`), so no new
-  status is needed, and no `lead:` line is written before a lead runs (`READ_SKIP`).
+- `lem companion talk` copies the talk from Lem's own Claude Code transcript into `talk.md`
+  (task 1), since a compaction leaves a summary in the agent's context and the turns in the
+  transcript (the talk's Q4). The transcript's format is the harness's: `harness/claude-code.md`
+  names it, as `corrections.py` already reads it for the hook. Lem chooses only the turn where
+  the topic began.
+- The approval or the answer on record is the whole handoff of a companion (the talk's Q1, Q2
+  and Q5): `lem companion due` gives the start from it, and Lem writes the lead's brief when it
+  opens the task and takes step 7 and step 8 of "Open the task" after the answer, as today.
+  The companion's state `queued` with `the criteria are approved: Lem starts its lead` is for the
+  board and the status only, and no `lead:` line is written before a lead runs (`READ_SKIP`).
 - The companion runs on the owner's default Claude: no seat and no model flag, since no setting
   names one and a new key is the owner's.
 - The companion starts in the main checkout and edits no tracked file; it writes only through
-  `lem` (the criteria, the decisions, the state, `directions.md` and `task.md` in the task
-  directory).
-- A row of the board whose companion is gone types `/lem status SLUG`, and bare `/lem` opens one
-  for each need that is due: no new command of his.
+  `lem` (the criteria, the decisions, the state) and in its task directory (`directions.md`,
+  `task.md` and `criteria-read.md`).
+- A row of the board whose companion is gone types `/lem status SLUG`, or
+  `/lem status SLUG choice N` for a choice, and bare `/lem` opens one for each need that waits,
+  dismissed ones too: no new command of his. At Lem's other turns `due` opens no card he closed
+  (the talk's Q8).
 - The scout of an interview is the companion's builder, so its reply comes to the companion and
   not to Lem.
 - At `/lem im-away` an open companion gets one agterm message; an interview goes on there without
