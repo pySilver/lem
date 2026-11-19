@@ -43,8 +43,11 @@ else
   fail "local landing: $err / $out"
 fi
 local_land clean local-change >/dev/null
-# A choice that waits for the owner holds the proposal; one taken while he was away is not green, and a late answer
-# that differs is said.
+# The choices of one task through the real commands: a choice that waits for the owner holds the proposal, an
+# irreversible one too, with no word of his "away"; his own decision that is none of the options settles one; a choice
+# the owner's away takes, by the ladder or by both experts, and a decision of one expert alone (no Codex on the
+# machine) make the request not green, and no agent merges it. What each line of the text says, for each kind of
+# record, is a case of tests/unit/test_land_text.py; here the writers and the real pr.md and decisions.md meet.
 task_in "$LOCAL" waited-change w.txt w
 read_in "$LOCAL" waited-change
 local_land start waited-change >/dev/null && local_land base waited-change >/dev/null && polish_in "$LOCAL" waited-change && local_land checks waited-change >/dev/null && local_land read waited-change --record "$(clean 1)" >/dev/null
@@ -57,110 +60,34 @@ away_and_back() { project --repo "$LOCAL" owner away --words "I'm away" >/dev/nu
 away_and_back
 wdec ask waited-change "${CASE[@]}" --what "Tell the merchants" --option "send the email" --option "send nothing" --recommended "send nothing" --why "Nothing they see changes." --said "The two personas split." --irreversible person >/dev/null
 forever=$(local_land propose waited-change --title "fix: w" --notes "$NOTES" 2>&1 || true)
-wdec answer waited-change 3 --chose "send the email" --words "Yes, send it." --why "The merchants asked for it." >/dev/null
+wdec answer waited-change 3 --instead "Email only the beta testers." --why "They asked to hear first." >/dev/null
+# both experts pick the same option of a choice that waits, and the owner's away takes it
 wdec ask waited-change "${CASE[@]}" --what "The case of the word" --option "lower case" --option "upper case" --recommended "lower case" --why "The test reads it so." --said "The two personas split." >/dev/null
-away_and_back && wdec answer waited-change 4 --chose "upper case" --words "Make it upper case." --why "The header is in upper case." >/dev/null
-wdec answer waited-change 2 --chose "the first line" --why "The importer reads the first line." >/dev/null
-# a choice the personas left unclear: the owner takes the recommended option in time
-wdec ask waited-change "${CASE[@]}" --what "Which line holds the word" --option "the only line" --option "the second line" --recommended "the second line" --why "A header goes first." \
-  --said "The two personas split." >/dev/null
-wdec answer waited-change 5 --chose "the second line" >/dev/null
-# the owner decides what none of the options says: an irreversible step that would otherwise wait for ever, and one more
-wdec ask waited-change "${CASE[@]}" --what "Email the customers" --option "email all customers" --option "email nobody" --recommended "email nobody" --why "Nobody asked for it." \
-  --said "The two personas split." --irreversible person >/dev/null
-wdec answer waited-change 6 --instead "Email only the beta testers." --why "They asked to hear first." >/dev/null
-wdec ask waited-change "${CASE[@]}" --what "The word's line ending" --option "a line break" --option "no line break" --recommended "a line break" --why "Every file ends so." \
-  --said "The two personas split." >/dev/null
-wdec answer waited-change 7 --instead "A line break, and a second line with the date." >/dev/null
+wdec advise waited-change 4 --expert fable --pick "upper case" --why "The header is in upper case." >/dev/null
+wdec advise waited-change 4 --expert astra --pick "upper case" --why "The other words of the header are in upper case." >/dev/null
+away_and_back
+alone_log=$(env PATH="$NOCODEX" "$PY" -B "$DECISIONS" --repo "$LOCAL" log waited-change --what "The word's line ending" --chose "a line break" --by experts \
+  --why "Fable: every file ends so." --option "a line break" --option "no line break" | field 'd["advisers"]' 2>&1 || true)
 instead_pending=$(wdec pending waited-change | field '[c["id"] for c in d["waiting"]]')
 local_land propose waited-change --title "fix: w" --notes "$NOTES" >/dev/null
 text=$LOCAL/.lem/state/tasks/waited-change/pr.md
+decided=$LOCAL/.lem/state/tasks/waited-change/decisions.md
 agent=$(local_land land waited-change --by agent 2>&1 || true)
 if grep -qF "choice 2 of waited-change waits for the owner (Where the word goes): a request is never proposed over an open question of the owner's" <<<"$waiting" \
   && grep -qF "lem decisions answer waited-change 2 --chose OPTION --words TEXT" <<<"$waiting" && grep -qF "when the owner says he is away, \`lem project owner away\` takes the ladder's pick" <<<"$waiting" \
-  && grep -qF "choice 3 of waited-change waits for the owner (Tell the merchants)" <<<"$forever" && grep -qF "lem decisions answer waited-change 3 --chose OPTION --words TEXT" <<<"$forever" \
-  && ! grep -qF "owner away" <<<"$forever" && [ "$(status_in "$LOCAL" waited-change)" = open ] \
+  && grep -qF "choice 3 of waited-change waits for the owner (Tell the merchants)" <<<"$forever" && ! grep -qF "owner away" <<<"$forever" \
+  && [ "$instead_pending" = "[]" ] && [ "$alone_log" = "['fable']" ] && [ "$(status_in "$LOCAL" waited-change)" = open ] \
   && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
-  && [ "$(sed -n 3p "$text")" = "- choice 2 was taken without the owner (Where the word goes): \"the first line\", the recommended option, at once, as the task ran without the owner; the owner answered later with the same (the owner's reason: The importer reads the first line)" ] \
-  && [ "$(sed -n 4p "$text")" = "- choice 4 was taken without the owner (The case of the word): \"lower case\", the recommended option, at once, as the task ran without the owner; the owner answered later with \"upper case\", which differs (the owner's words: \"Make it upper case.\"; the owner's reason: The header is in upper case)" ] \
-  && [ -z "$(sed -n 5p "$text")" ] && [ "$instead_pending" = "[]" ] \
-  && [ "$(grep '^## ' "$text" | tr '\n' '|')" = "## The request|## Acceptance criteria|## Checks|## Decisions of the build|## Decisions|## Left open|## Worth a look|## Filed in the backlog|## Not done|" ] \
-  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- The name of the file: \"w.txt\", by the lead. The other files have one letter.
-- Where the word goes: \"the first line\", the ladder's pick, taken at once, as the task ran without the owner. A reader sees it at once. The owner answered later with the same (the owner's reason: The importer reads the first line).
-- Tell the merchants: \"send the email\", by the owner, over the recommended \"send nothing\" (recommended because: Nothing they see changes). The owner's words: \"Yes, send it.\" The owner's reason: The merchants asked for it.
-- The case of the word: \"lower case\", the ladder's pick, taken at once, as the task ran without the owner. The test reads it so. The owner answered later with \"upper case\", which differs (the owner's words: \"Make it upper case.\"; the owner's reason: The header is in upper case).
-- Which line holds the word: \"the second line\", by the owner, as recommended. A header goes first.
-- Email the customers: \"Email only the beta testers.\", by the owner, none of the options; the recommended was \"email nobody\" (recommended because: Nobody asked for it). The owner's reason: They asked to hear first.
-- The word's line ending: \"A line break, and a second line with the date.\", by the owner, none of the options; the recommended was \"a line break\" (recommended because: Every file ends so). The owner gave no reason." ] \
+  && [ "$(sed -n '3,5p' "$text" | cut -c1-38 | tr '\n' '|')" = "- choice 2 was taken without the owner|- choice 4 was taken by the experts (T|- decision 5 was taken without the own|" ] \
+  && [ -z "$(sed -n 6p "$text")" ] \
+  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep -c '^- ')" = 5 ] \
+  && grep -qF '| 5 | The word'"'"'s line ending | a line break | one expert model; **not green** |' "$decided" \
   && grep -qF "the request is not green (choice 2 was taken without the owner" <<<"$agent"; then
-  pass "a request is never proposed over a choice that waits for the owner, irreversible or not; each choice taken without the owner is a line of its own that is not green, with a late answer, the same or not, and his own words and reason; an answered choice is no cause of not green by itself; a decision of the owner's that is none of the options settles its choice, also an irreversible one, so the request is proposed; and the text lists each decision of the record with who took it and its reason, the recommendation's reason never as the owner's"
+  pass "a request is never proposed over a choice that waits for the owner, irreversible or not, and his decision that is none of the options settles one; a choice his away took, by the ladder or by both experts, and a decision of one expert alone are each a line of the text that is not green, the text lists each decision of the record, decisions.md names the one expert, and no agent merges it"
 else
-  fail "decisions in the landing: $waiting / $forever / $agent / $(cat "$text" 2>/dev/null)"
+  fail "decisions in the landing: $waiting / $forever / $alone_log / $agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$LOCAL" state waited-change dropped "the test is over" >/dev/null
-
-# A choice the experts took while the owner was away is not green: its line names their pick and both reasons. A
-# choice whose experts split took the recommended option.
-task_in "$LOCAL" expert-change e.txt e
-read_in "$LOCAL" expert-change
-local_land start expert-change >/dev/null && local_land base expert-change >/dev/null && polish_in "$LOCAL" expert-change && local_land checks expert-change >/dev/null && local_land read expert-change --record "$(clean 1)" >/dev/null
-# eask WHAT FIRST SECOND RECOMMENDED WHY: a choice for the owner that the personas left unclear
-eask() { wdec ask expert-change "${CASE[@]}" --what "$1" --option "$2" --option "$3" --recommended "$4" --why "$5" --said "The two personas split." >/dev/null; }
-# eadvise ID FABLE_PICK FABLE_WHY ASTRA_PICK ASTRA_WHY: both experts' advice on choice ID
-eadvise() {
-  wdec advise expert-change "$1" --expert fable --pick "$2" --why "$3" >/dev/null
-  wdec advise expert-change "$1" --expert astra --pick "$4" --why "$5" >/dev/null
-}
-eask "Where the word goes" "the first line" "the last line" "the first line" "A reader sees it at once."
-eadvise 1 "the last line" "A reader of the file looks at its end first." "the last line" "The importer reads the last line."
-held=$(local_land propose expert-change --title "fix: e" --notes "$NOTES" 2>&1 || true)
-eask "The case of the word" "lower case" "upper case" "lower case" "The test reads it so."
-eadvise 2 "upper case" "The header is in upper case." "upper case" "The other words of the header are in upper case."
-eask "The word's line ending" "a line break" "no line break" "a line break" "Every file ends so."
-eadvise 3 "a line break" "Every file ends so." "no line break" "The importer reads the last byte."
-eask "The name of the file" "e.txt" "word.txt" "word.txt" "A name says what the file holds."
-eadvise 4 "word.txt" "A name says what the file holds." "word.txt" "Nobody guesses what e.txt holds."
-away_and_back && wdec answer expert-change 2 --chose "lower case" --why "The test reads it so." >/dev/null
-local_land propose expert-change --title "fix: e" --notes "$NOTES" >/dev/null
-text=$LOCAL/.lem/state/tasks/expert-change/pr.md
-agent=$(local_land land expert-change --by agent 2>&1 || true)
-if grep -qF "choice 1 of expert-change waits for the owner (Where the word goes)" <<<"$held" \
-  && grep -qF "\`lem project owner away\` takes the ladder's pick, and the request is not green for it" <<<"$held" \
-  && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
-  && [ "$(sed -n 3p "$text")" = "- choice 1 was taken by the experts (Where the word goes): \"the last line\", the option both picked, at once, as the task ran without the owner. Fable: A reader of the file looks at its end first. Astra: The importer reads the last line" ] \
-  && [ "$(sed -n 4p "$text")" = "- choice 2 was taken by the experts (The case of the word): \"upper case\", the option both picked, at once, as the task ran without the owner. Fable: The header is in upper case. Astra: The other words of the header are in upper case; the owner answered later with \"lower case\", which differs (the owner's reason: The test reads it so)" ] \
-  && [ "$(sed -n 5p "$text")" = "- choice 3 was taken without the owner (The word's line ending): \"a line break\", the recommended option, at once, as the task ran without the owner" ] \
-  && [ "$(sed -n 6p "$text")" = "- choice 4 was taken by the experts (The name of the file): \"word.txt\", the option both picked, at once, as the task ran without the owner. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds" ] \
-  && [ -z "$(sed -n 7p "$text")" ] \
-  && [ "$(sed -n '/^## Decisions of the build$/,/^## Decisions$/p' "$text" | grep '^- ')" = "- Where the word goes: \"the last line\", by the experts, the option both picked, at once, as the task ran without the owner; the recommended was \"the first line\". Fable: A reader of the file looks at its end first. Astra: The importer reads the last line.
-- The case of the word: \"upper case\", by the experts, the option both picked, at once, as the task ran without the owner; the recommended was \"lower case\". Fable: The header is in upper case. Astra: The other words of the header are in upper case. The owner answered later with \"lower case\", which differs (the owner's reason: The test reads it so).
-- The word's line ending: \"a line break\", the ladder's pick, taken at once, as the task ran without the owner. Every file ends so.
-- The name of the file: \"word.txt\", by the experts, the option both picked, at once, as the task ran without the owner; it is also the recommended. Fable: A name says what the file holds. Astra: Nobody guesses what e.txt holds." ] \
-  && grep -qF "the request is not green (choice 1 was taken by the experts" <<<"$agent" && [ "$(status_in "$LOCAL" expert-change)" = open ]; then
-  pass "a choice the experts took while the owner was away is a line of its own that is not green, with their pick, both reasons and a late answer of his; the text lists it as taken by the experts; a choice whose experts split took the recommended option; and a request held by a choice that waits says what the owner's away takes"
-else
-  fail "the experts' choices in the landing: $held / $agent / $(cat "$text" 2>/dev/null)"
-fi
-
-# Without Codex on the machine one expert answers alone, and its pick settles the level: the record names one adviser,
-# and the pull request and decisions.md say "one expert", not green for it.
-task_in "$LOCAL" one-expert-change o.txt o
-read_in "$LOCAL" one-expert-change
-local_land start one-expert-change >/dev/null && local_land base one-expert-change >/dev/null && polish_in "$LOCAL" one-expert-change && local_land checks one-expert-change >/dev/null && local_land read one-expert-change --record "$(clean 1)" >/dev/null
-alone_log=$(env PATH="$NOCODEX" "$PY" -B "$DECISIONS" --repo "$LOCAL" log one-expert-change --what "The word's case" --chose "upper case" --by experts \
-  --why "Fable: the header is in upper case." --option "lower case" --option "upper case" | field 'd["advisers"]' 2>&1 || true)
-local_land propose one-expert-change --title "fix: o" --notes "$NOTES" >/dev/null
-otext=$LOCAL/.lem/state/tasks/one-expert-change/pr.md
-odecided=$LOCAL/.lem/state/tasks/one-expert-change/decisions.md
-if [ "$alone_log" = "['fable']" ] && [ "$(sed -n 1p "$otext")" = '**Not green.**' ] \
-  && grep -qxF -- "- decision 1 was taken without the owner (The word's case): \"upper case\", by one expert" "$otext" \
-  && grep -qxF -- "- The word's case: \"upper case\", by one expert. Fable: the header is in upper case." "$otext" \
-  && grep -qF '| 1 | The word'"'"'s case | upper case | one expert model; **not green** |' "$odecided"; then
-  pass "with no Codex one expert answers alone: its pick settles, the record names the one adviser, and the pull request and decisions.md say one expert, not green"
-else
-  fail "one expert alone in the landing: $alone_log / $(cat "$otext" 2>/dev/null) / $(cat "$odecided" 2>/dev/null)"
-fi
-project --repo "$LOCAL" state expert-change dropped "the test is over" >/dev/null
 
 # Approved criteria in the landing: a criterion the build added or removed is not green, like a changed one; and the
 # checks hold one line on the personas' read of the criteria, from its event, with his approval.
