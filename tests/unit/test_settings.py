@@ -176,38 +176,29 @@ class Paths(Refuses):
 
 
 class Tracker(Refuses):
-    """No table is no tracker; a table needs its kind only; each status name may stand alone."""
+    """No table is no tracker; a table has one key, its kind, and any other key is unknown."""
 
     def tracker(self, *lines: str) -> dict | None:
         return settings("[tracker]", *lines)["tracker"] if lines else settings()["tracker"]
 
     def test_the_tables_it_takes(self):
         self.assertIsNone(self.tracker())
-        self.assertEqual(self.tracker('kind = "linear"'), {"kind": "linear", "server": "linear", "moves": "lem", "started": None, "landed": None})
-        self.assertEqual(
-            self.tracker('kind = "linear"', 'server = "linear-work"', 'moves = "lem"', 'started = "In Progress"', 'landed = "Done"'),
-            {"kind": "linear", "server": "linear-work", "moves": "lem", "started": "In Progress", "landed": "Done"},
-        )
-        found = self.tracker('kind = "linear"', 'started = "In Progress"')
-        self.assertEqual((found["started"], found["landed"]), ("In Progress", None))
-        found = self.tracker('kind = "linear"', 'landed = "Shipped"')
-        self.assertEqual((found["started"], found["landed"]), (None, "Shipped"))
-        found = self.tracker('kind = "linear"', 'moves = "tracker"')
-        self.assertEqual((found["moves"], found["started"]), ("tracker", None))
+        self.assertEqual(self.tracker('kind = "linear"'), {"kind": "linear"})
 
     def test_the_tables_it_refuses(self):
         for lines, names in (
             (('kind = "jira"',), ("tracker.kind", "'jira'", "linear")),
-            (('server = "x"', 'moves = "lem"'), ("[tracker] needs kind",)),
-            (('kind = "linear"', 'moves = "tracker"', 'landed = "Done"'), ('tracker.moves = "tracker"', "landed say nothing")),
-            (('kind = "linear"', 'moves = "tracker"', 'started = "In Progress"'), ('tracker.moves = "tracker"', "started say nothing")),
-            (('kind = "linear"', 'moves = "both"'), ("tracker.moves", "'both'", "lem, tracker")),
-            (('kind = "linear"', 'server = ""'), ("tracker.server",)),
-            (('kind = "linear"', 'started = "Done"', 'landed = "done"'), ("tracker.started and tracker.landed",)),
-            (('kind = "linear"', 'moves = "tracker"', 'started = "In Progress"', 'landed = "Done"'), ("started and landed say nothing",)),
+            (('kind = ""',), ("tracker.kind",)),
+            ((), ("[tracker] needs kind",)),
         ):
             with self.subTest(lines=lines):
-                self.assertNames(self.refused_settings("[tracker]", *lines), *names)
+                self.assertNames(self.refused(settings, "[tracker]", *lines), *names)
+
+    def test_a_key_that_went_is_unknown(self):
+        # Lem keeps no reading of the table's older form: a file that still names a status or a server is refused like any unknown key
+        for key in ('server = "linear"', 'moves = "lem"', 'started = "In Progress"', 'landed = "Done"'):
+            with self.subTest(key=key):
+                self.assertNames(self.refused_settings("[tracker]", 'kind = "linear"', key), str(FILE), f"unknown key tracker.{key.split()[0]}")
 
 
 class Seats(Refuses):

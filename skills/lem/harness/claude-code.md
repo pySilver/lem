@@ -60,7 +60,9 @@ Do not load a skill whose instructions are already in context.
   folder: it puts PATH in the place of the user's own config folder (revmux v0.2.7, 2026-11-15).
 - the tracker: the skill the settings' `tracker.kind` names, `lem-linear` for `linear`. The
   tracker's server is an MCP server, and Claude Code shows its tools as `mcp__SERVER__NAME`, with
-  the settings' `tracker.server` as SERVER. A session that was running when the server was added
+  the name the server was added under as SERVER (`linear` in `docs/linear.md`; a second
+  workspace is a second server with a name of its own, and the skill says which one a ticket
+  takes). A session that was running when the server was added
   does not have them, and a new one does (seen on 2026-11-14 with the Linear server). In a new
   session they may be listed by name only and load on their first use, through the tool search
   (seen on 2026-11-15). A builder

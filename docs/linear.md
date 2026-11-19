@@ -1,7 +1,7 @@
 # Connect Linear
 
-Lem, or an automation of Linear, moves a ticket when its work starts and when it lands. Lem adds a
-comment when the task ends. Lem supports no other tracker.
+Lem moves a ticket when its work starts and when it lands. Lem adds a comment when the task ends.
+Lem supports no other tracker.
 
 ## Connect the server
 
@@ -16,32 +16,29 @@ Lem reads and writes tickets through Linear's MCP server, `https://mcp.linear.ap
 2. Start a session, type `/mcp`, and select `linear`.
 3. Sign in to Linear in the browser.
 
-`claude mcp list` shows whether the server is connected. A team can use `--scope project` instead: it
-writes the address into `.mcp.json`, and each person still signs in.
+`claude mcp list` shows whether the server is connected. For a second workspace, add a second
+server with a different name. Lem uses the server that has the team of the ticket.
 
 ## Fill the settings
 
-When your repository shows Linear, for example ticket keys in branch names, `/lem init` proposes
-the `[tracker]` table and checks it. To add it yourself:
+When your repository shows Linear, `/lem init` adds this table. To add it yourself:
 
 ```toml
 [tracker]
 kind = "linear"
 ```
 
-The key of a ticket names its team. Lem moves a ticket to the one status of the type `started` or
-`completed`. When your team has two statuses of a type, `/lem init` asks which one, and writes it
-as `started = "In Progress"`. [Settings](settings.md#tracker) has the other keys.
+The table has no other setting. The key of a ticket names its team. Lem moves the ticket to the
+team's status of the type `started` or `completed`. A ticket that is already there stays as it is.
+An automation of Linear can also move the ticket, and Lem does not move it back.
 
 ## Start a task from a ticket
 
-Type `/lem new` and the ticket's key or its address: `/lem new ABC-12`. The ticket is the request,
-and Lem uses the branch name that Linear gives. `/lem linear ABC-12` only reads the ticket.
+Type `/lem new` and the key or the address of the ticket: `/lem new ABC-12`. The ticket is the
+request, and Lem uses the branch name from Linear. `/lem read ABC-12` only shows the ticket.
 
-- Lem writes through the connection of the person who signed in, so Linear shows that person as
-  the author. The last line of each comment from Lem names the task: `lem: <task> landed`.
-- One connection is one workspace. For a second workspace, add a second server with its own
-  name, and write that name as `server`.
+Lem writes through the connection of the person who signed in. The last line of each comment from
+Lem names the task: `lem: <task> landed`.
 
 ## When it does not connect
 
