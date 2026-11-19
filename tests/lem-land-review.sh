@@ -180,6 +180,7 @@ echo 'import os  # noqa: F401' > "$tree/calc.py" && echo 'test -f calc.py' > "$t
 git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: with a mark"
 local_land start bar-change >/dev/null && local_land base bar-change >/dev/null && polish_in "$LOCAL" bar-change
 refused=$(local_land checks bar-change 2>&1 || true)
+# shellcheck disable=SC2016  # the backticks are the refusal's own marks around the plan's section
 if grep -qF "calc.py (# noqa)" <<<"$refused" && grep -qF '`## The bar`' <<<"$refused" && [ "$(kept_in "$LOCAL" bar-change gated)" = None ] \
   && [ "$(status_of local_land read bar-change)" = 1 ]; then
   pass "a change that adds a suppression is refused at the checks, which name the file, its mark and the plan's section for the reason, and no review starts"
