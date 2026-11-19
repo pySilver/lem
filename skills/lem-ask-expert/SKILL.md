@@ -23,6 +23,14 @@ words an expert's name is the last word of its model; for a choice of a task it 
 the record, below. The script prints each one with its name, its seat, its agent, its model and
 its effort.
 
+Every brief also says who the code is for: the project's profile by its path, and each persona by
+its file, its first heading and its "Who they are", short enough to read in a minute (the owner:
+"experts should have a context of personas I think, so they can also reason about what kind of
+users builded code are expected", 2026-11-19). An expert weighs an option by what it does to these
+people and still decides as an engineer; no expert answers as a persona. The script takes them from
+`lem cast`, so a project with no personas, whose setup is not finished, gets no brief, and the
+refusal says what `lem cast` said.
+
 `SKILL_DIR` is this skill's directory. `CHECKOUT` is the checkout the question is about: the
 task's worktree when it belongs to a task, else the one this session works in.
 
@@ -113,7 +121,7 @@ advice in two places, `fable` and `astra`, the names `lem decisions` knows: the 
    `--file` names a file the choice is about, relative to the worktree, once for each. The script
    writes `experts/choice-N.brief.md` in the task's directory: the choice, its options word for
    word, the recommended one and why, what the personas said, the task's acceptance criteria and
-   its plan, the files, and the form of an answer. It prints the brief's path, each expert with its
+   its plan, the files, who the code is for, and the form of an answer. It prints the brief's path, each expert with its
    seat and its answer file, and the experts still to ask (`ask`). It refuses a choice that does not
    wait, and one that every expert advised already.
 
