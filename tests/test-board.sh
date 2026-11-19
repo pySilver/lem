@@ -433,6 +433,38 @@ project state silent-read held "the criteria wait for the owner" >/dev/null
 task queued-after "Cache the product images"
 project state queued-after queued "waits for the task that caches the product list" "after: building-one" >/dev/null
 
+# The companions under Lem's session, each of one need of a task (companion.py): an interview whose
+# companion runs, one whose session agterm's tree lost with no close, criteria whose card the owner
+# closed with no answer, and two choices of one task, the first with its companion running and the
+# second closed though its session is still in the tree (draw_standin's tree holds C0MPA1, C0MPA3 and
+# C0MPA4). And an interview the owner approved in its companion, which wrote no state after his yes:
+# the held block is still the newest, and no lead started.
+task interview-live "Show the gift note on the packing slip"
+project state interview-live held "the interview waits for the owner" "type: feat, because the slip gets a line" >/dev/null
+project log interview-live companion.open need=interview session=C0MPA1 "name=interview-live · interview" >/dev/null
+task interview-lost "Print the gift note in German"
+project state interview-lost held "the interview waits for the owner" >/dev/null
+project log interview-lost companion.open need=interview session=C0FA11 "name=interview-lost · interview" >/dev/null
+task criteria-gone "Print the returns label"
+project state criteria-gone held "the criteria wait for the owner" >/dev/null
+project log criteria-gone companion.open need=criteria session=C0MPA2 "name=criteria-gone · criteria" >/dev/null
+project log criteria-gone companion.close need=criteria session=C0MPA2 why=dismissed >/dev/null
+task two-choices "Wrap the gifts in paper"
+project state two-choices building "lead: builder" >/dev/null
+decide ask two-choices "${CASE[@]}" --what "The paper of the wrap" --option "plain" --option "printed" --recommended "plain" --why "it fits every gift" --said "The two personas split." >/dev/null
+decide ask two-choices "${CASE[@]}" --what "A ribbon on the wrap" --option "a ribbon" --option "none" --recommended "none" --why "a ribbon costs a minute a parcel" --said "The two personas split." >/dev/null
+project log two-choices companion.open need=choice choice:=1 session=C0MPA3 "name=two-choices · choice 1" >/dev/null
+project log two-choices companion.open need=choice choice:=2 session=C0MPA4 "name=two-choices · choice 2" >/dev/null
+project log two-choices companion.close need=choice choice:=2 session=C0MPA4 why=dismissed >/dev/null
+task approved-no-lead "Show the tracking link in the email"
+project state approved-no-lead held "the interview waits for the owner" "type: feat, because the email gets a link" >/dev/null
+project log approved-no-lead companion.open need=interview session=C0MPA5 "name=approved-no-lead · interview" >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the email gets a link.' '' '1. The email of order 1042 links to its tracking page.' > "$WORK/tracking.md"
+digest=$(criteria digest approved-no-lead --file "$WORK/tracking.md" | field 'd["digest"]')
+project log approved-no-lead criteria.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+criteria approve approved-no-lead --file "$WORK/tracking.md" >/dev/null
+project log approved-no-lead companion.close need=interview session=C0MPA5 why=answered >/dev/null
+
 # The backlog of the main checkout: an item whose place is gone, one whose place is there, one whose
 # file cannot be read by anyone, and one decided against.
 mkdir -p "$R/docs/backlog"
@@ -449,7 +481,7 @@ NOW=$("$PY" -I -c 'from datetime import datetime, timedelta, timezone; print((da
 fed=$(grep -c '"task": "gift-note-export"' "$STATE/events.js" || true)
 retime_all
 
-if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 37 ] && [ "$fed" = 15 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.jsonl")" = 15 ]; then
+if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 39 ] && [ "$fed" = 15 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.jsonl")" = 15 ]; then
   pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log, as the scripts fed it, holds each event of a task"
 else
   fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events, $fed events of gift-note-export in the board's copy"
@@ -482,7 +514,9 @@ else
   fail "a backlog item with an unreadable place: ${why:-$(tail -1 "$WORK/board.err")}"
 fi
 for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts "$K" talk-runs "$M" "$A" cart-total-wrong silent-read queued-after queued-one \
-  "$S" gate-runs held-choice held-question trust-prompt criteria-wait plan-for-you open-pr ready-to-land; do board --no-open --task "$slug" >/dev/null; done
+  "$S" gate-runs held-choice held-question trust-prompt criteria-wait plan-for-you open-pr ready-to-land interview-live interview-lost criteria-gone two-choices approved-no-lead; do
+  board --no-open --task "$slug" >/dev/null
+done
 
 SHOWN=$(cat <<'PY'
 import re, sys
@@ -686,6 +720,56 @@ draw() {
   "$PY" -I -c "$STOP" "$STATE/$1.html" "$NOW"
   headless --virtual-time-budget=5000 --dump-dom "file://$STATE/$1.html${2:+#$2}" > "$WORK/$1${2:+-$2}.dom"
 }
+# draw_standin PAGE [LINE]: the page as agterm shows it, into PAGE-standin.dom: a stand-in for agterm's
+# bridge (`agterm`) answers its tree with Lem's session LEM1, where the agent runs, and the companions
+# C0MPA1, C0MPA3 and C0MPA4, and keeps every other request. With LINE it then presses the row whose line
+# that is: its button and Cancel, its button and Start, and its button once more, and writes what each
+# showed and what was typed into <pre id="standin">. Only a page opened with `?standin` has the stand-in.
+STANDIN=$(cat <<'PY'
+import sys
+page = sys.argv[1]
+text = open(page, encoding="utf-8").read()
+mark = "<script>/* the fixture's agterm */"
+script = mark + r""" if (new URLSearchParams(location.search).has('standin')) {
+  const press = new URLSearchParams(location.search).get('standin');
+  const typed = [];
+  const tree = {tree: {workspaces: [{sessions: [{id: 'LEM1', name: 'shop', foreground: ['claude']}, {id: 'C0MPA1'}, {id: 'C0MPA3'}, {id: 'C0MPA4'}]}]}};
+  globalThis.agterm = {request: async (cmd, o) => { if (cmd === 'tree') return tree; typed.push([cmd, o]); return {}; }};
+  setTimeout(async () => {
+    const wait = ms => new Promise(done => setTimeout(done, ms));
+    const at = name => document.querySelector(`[data-wl-${name}="${CSS.escape(press)}"]`);
+    // the text of the row's action, its text nodes one word apart, as a reader sees the buttons apart
+    const words = n => { const walk = document.createTreeWalker(n, NodeFilter.SHOW_TEXT), out = []; for (let t = walk.nextNode(); t; t = walk.nextNode()) out.push(t.data); return out.join(' ').replace(/\s+/g, ' ').trim(); };
+    const shows = () => { const n = [...document.querySelectorAll('.wl-actions')].find(x => x.textContent.includes(press)); return n ? words(n) : null; };
+    const out = {};
+    if (press) {
+      out.before = shows();
+      at('ask')?.click(); await wait(300);
+      out.confirm = shows(); out.focus = document.activeElement?.dataset?.wlStart ?? null;
+      at('cancel')?.click(); await wait(300);
+      out.cancelled = [shows(), typed.length];
+      at('ask')?.click(); await wait(300);
+      at('start')?.click(); await wait(500);
+      out.sent = shows();
+      at('ask')?.click(); await wait(300);
+      out.again = [Boolean(at('start')), typed.length];
+    }
+    out.typed = typed;
+    const pre = document.createElement('pre'); pre.id = 'standin'; pre.textContent = JSON.stringify(out); document.body.append(pre);
+  }, 2500);
+}</script>"""
+if mark not in text:
+    text = text.replace("<head>", f"<head>{script}", 1)
+open(page, "w", encoding="utf-8").write(text)
+PY
+)
+draw_standin() {
+  "$PY" -I -c "$STOP" "$STATE/$1.html" "$NOW"
+  "$PY" -I -c "$STANDIN" "$STATE/$1.html"
+  local line
+  line=$("$PY" -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "${2:-}")
+  headless --virtual-time-budget=9000 --dump-dom "file://$STATE/$1.html?standin=$line" > "$WORK/$1-standin.dom"
+}
 
 # Every check from here on reads a page Chrome drew: with none, or with a Chrome that cannot start
 # (a sandbox that forbids it) and so says nothing about the page, each says so in a SKIP line.
@@ -710,7 +794,9 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
     "Building=Building one|Task 1 of 2" "Building=Queued one|Queued: waits for its turn" "Building=Blocked one|Blocked: the base moved and the rebase has a conflict" \
     "Building=Correction one|One builder makes the change" "Building=Changed then approved" "Building=Rare path" \
     "Checks and review=Ready one|Ready for its checks: the report is written" "Checks and review=In checks|The checks start" "Checks and review=Red gate" \
-    "Done=Landed one|Landed: main: pull request #7 is merged" "Done=Timed out" "Building=Queued after"); then
+    "Done=Landed one|Landed: main: pull request #7 is merged" "Done=Timed out" "Building=Queued after" \
+    "Waits for you=Interview live|The interview waits for you" "Waits for you=Criteria gone|The criteria wait for you" \
+    "Building=Approved no lead|Approved: your yes to the criteria is on record: Lem starts its lead"); then
     pass "each task is in the lane of who acts, and its card says in one line its state, in your words and not the lane's title again, also when a choice waits; no card has a paragraph of where you answer"
   else
     fail "the lanes: $why"
@@ -721,9 +807,10 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
   for want in "held-question|It waits on what its state says: “the investigation waits for one more fact”. Lem tells you in its session what to do and where." \
     "trust-prompt|It waits on what its state says: “the reviewer's trust prompt waits for your yes”. Lem tells you in its session what to do and where." \
-    "held-choice|Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, also while you are away." \
-    "criteria-wait|Lem shows you the acceptance criteria, with the personas’ read on top, as a page in its session. Approve or change them there." \
-    "silent-read|Lem shows you the acceptance criteria as a page in its session. No persona answered the read of them. Approve or change them there." \
+    "held-choice|Choice 1 opens in its companion, “held-choice · choice 1”, under Lem’s session. Answer it there: it waits for your word, also while you are away." \
+    "criteria-wait|The acceptance criteria, with the personas’ read on top, open in its companion, “criteria-wait · criteria”, under Lem’s session. Approve or change them there." \
+    "silent-read|The acceptance criteria open in its companion, “silent-read · criteria”, under Lem’s session. No persona answered the read of them. Approve or change them there." \
+    "interview-live|The interview runs in its companion, “interview-live · interview”, under Lem’s session. Answer its questions there, and approve the criteria at its end." \
     "plan-for-you|Read the plan, then tell Lem in its session: build it or drop it." \
     "open-pr|Merge the pull request, or tell Lem in its session to land it." \
     "ready-to-land|Tell Lem in its session to land it."; do
@@ -737,38 +824,45 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   fi
   # The head of a lane counts the cards under it, and the page's title counts what the lanes hold.
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "#counts") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "11 wait for you, 10 build, 6 in checks and review, 2 queued, 1 blocked"); then
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "15 wait for you, 10 build, 6 in checks and review, 2 queued, 1 blocked, 1 approved, with no lead yet"); then
     pass "the head of each lane counts the cards under it, and the title's numbers add up to the lanes: a task that builds while a choice waits for the owner is counted once, where it waits"
   else
     fail "the counts of the lanes: $why"
   fi
   # Each banner is read alone, so that a card's text elsewhere on the page cannot stand in for one. A
   # banner is only for a blocked task: what waits for the owner is a row of "Waits for you". The first
-  # wait, choice 6, is the large card's, with where you answer, said once on the Tasks tab.
+  # wait, choice 6, is the large card's, with where you answer, said once on the Tasks tab, and the line
+  # that opens its companion.
+  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" "#1" "^Blocked: Blocked one · the base moved and the rebase has a conflict · " \
-    "!^Choice" "!^Waits for you" "!Lem puts" "!Lem shows you") \
+    "!^Choice" "!^Waits for you" "!Lem puts" "!Lem shows you" "!opens in its companion") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" now \
-      "You · choice 6 of the task|Gift note export|A note longer than the cell|25m|since it was asked|Where you answer: Lem puts choice 6 to you as a page in its session. Answer it there: it waits for your answer. If you say you are away, the build goes on with the recommended action.") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" @visible "=1:Lem puts choice 6 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the acceptance criteria" "!Demo data"); then
-    pass "the large card has the first wait with where you answer, said once on the Tasks tab; a banner is only for a blocked task, and no banner repeats what waits for you"
+      "You · choice 6 of the task|Gift note export|A note longer than the cell|25m|since it was asked|Where you answer: Choice 6 opens in its companion, “gift-note-export · choice 6”, under Lem’s session. Answer it there: it waits for your answer. If you say you are away, the build goes on with the recommended action.|Lem’s session is not open in this window. To open its companion, type in it: /lem status gift-note-export choice 6") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" @visible "=1:Choice 6 opens in its companion" "=0:Choice 4 opens in its companion" "=0:The acceptance criteria, with the personas’ read on top, open" "!Demo data"); then
+    pass "the large card has the first wait with where you answer, said once on the Tasks tab, and the line that opens its companion; a banner is only for a blocked task, and no banner repeats what waits for you"
   else
     fail "the banners: $why"
   fi
   # "Waits for you" has a row for each thing the owner does, each with its verb and where he answers.
   # A task that waits on two things has two rows; a held task whose choice waits has one, its choice's.
+  # A row of a need that a companion answers has the line that opens it (criterion 7); a task whose
+  # criteria he approved, with no lead yet, has no row (criterion 3).
   draw board waits
+  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/board-waits.dom" waits-rows \
-      "A note longer than the cell|Answer choice 6|Gift note export|Where you answer: Lem puts choice 6 to you" \
-      "The note of a cancelled order|Answer choice 7|Gift note export" \
-      "Email the merchants about the new column|Answer choice 4|it waits for your word, also while you are away" \
+      "A note longer than the cell|Answer choice 6|Gift note export|Where you answer: Choice 6 opens in its companion|type in it: /lem status gift-note-export choice 6" \
+      "The note of a cancelled order|Answer choice 7|Gift note export|type in it: /lem status gift-note-export choice 7" \
+      "Email the merchants about the new column|Answer choice 4|it waits for your word, also while you are away|type in it: /lem status gift-note-export choice 4" \
       "Refund the 12 duplicate orders now|Answer choice 1|Held choice" \
       'The font of the invoice|Answer choice 4|Expert advice|the experts: Fable “serif” · Astra “serif”' \
-      "Round the totals of the monthly report|Approve the criteria|Criteria wait|Lem shows you the acceptance criteria" \
+      "Round the totals of the monthly report|Approve the criteria|Criteria wait|The acceptance criteria, with the personas’ read on top, open in its companion, “criteria-wait · criteria”|type in it: /lem status criteria-wait" \
       "Show the delivery date on the order page|Approve the criteria|No persona answered" \
-      "Which currency rounds half up|The investigation waits for one more fact" \
+      "Show the gift note on the packing slip|The interview waits for you|Interview live|The interview runs in its companion, “interview-live · interview”" \
+      "Print the returns label|Approve the criteria|Criteria gone|type in it: /lem status criteria-gone" \
+      "Which currency rounds half up|The investigation waits for one more fact|!/lem status" \
       "Move the review to Codex|The reviewer's trust prompt waits for your yes" \
-      "Move the reports to a queue|Read the plan|build it or drop it" \
-      "Sort the export by date|Merge the pull request|Not green: criterion 1 changed during the build" \
+      "Move the reports to a queue|Read the plan|build it or drop it|!/lem status" \
+      "Sort the export by date|Merge the pull request|Not green: criterion 1 changed during the build|!/lem status" \
       "Fix the typo in the invoice|Tell Lem to land it|Green|!Merge") \
     && why=$("$PY" -I -c 'import re, sys
 dom = open(sys.argv[1], encoding="utf-8").read()
@@ -776,10 +870,10 @@ area = dom[dom.index("id=\"waits-rows\""):dom.index("id=\"backlog\"")]
 rows = area.count("<div class=\"wrow ")
 tab = re.search(r"data-tab=\"waits\"[^>]*>Waits for you<em[^>]*>(\d+)</em>", dom)
 held = area.count("data-open=\"held-choice\"")
-wrong = ([f"{rows} rows, not 14"] if rows != 14 else []) + ([f"the tab counts {tab.group(1) if tab else None}, the rows are {rows}"] if not tab or int(tab.group(1)) != rows else []) \
-  + ([f"Held choice has {held // 2} rows"] if held != 2 else [])
+wrong = ([f"{rows} rows, not 19"] if rows != 19 else []) + ([f"the tab counts {tab.group(1) if tab else None}, the rows are {rows}"] if not tab or int(tab.group(1)) != rows else []) \
+  + ([f"Held choice has {held // 2} rows"] if held != 2 else []) + (["a row for the task approved with no lead"] if "data-open=\"approved-no-lead\"" in area else [])
 print("; ".join(wrong)); sys.exit(bool(wrong))' "$WORK/board-waits.dom"); then
-    pass "the Waits for you tab has a row for each thing you do, with its verb and where you answer: each choice, the criteria, what a held task's state asks, a plan, a merge or a landing; a held task whose choice waits is one row, and the tab counts the rows"
+    pass "the Waits for you tab has a row for each thing you do, with its verb and where you answer: each choice, the interview, the criteria, what a held task's state asks, a plan, a merge or a landing; a row a companion answers has the line that opens it; a held task whose choice waits is one row, one approved with no lead has none, and the tab counts the rows"
   else
     fail "the rows of Waits for you: $why"
   fi
@@ -1050,14 +1144,14 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
   draw "task-$X"
   # shellcheck disable=SC1111,SC1112  # the curly quotes around a pick are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" decisions \
-      "Choice 4 waits for you: The font of the invoice|Fable picks “serif”, because a printed invoice reads better in serif|Astra picks “serif”, because the letters of the shop are in serif|If you say you are away, the build goes on with “serif”, the experts’ shared pick.|Where you answer: Lem puts choice 4 to you as a page in its session. Answer it there: it waits for your answer. If you say you are away, the build goes on with the experts’ shared pick.|!the recommended option" \
+      "Choice 4 waits for you: The font of the invoice|Fable picks “serif”, because a printed invoice reads better in serif|Astra picks “serif”, because the letters of the shop are in serif|If you say you are away, the build goes on with “serif”, the experts’ shared pick.|Where you answer: Choice 4 opens in its companion, “expert-advice · choice 4”, under Lem’s session. Answer it there: it waits for your answer. If you say you are away, the build goes on with the experts’ shared pick.|!the recommended option" \
       "Choice 5 waits for you: The size of the total|Fable finds that none of the options fits, because the total should be bold, not bigger|Astra picks “12 pt”, because the other lines are 12 pt|If you say you are away, the build goes on with “14 pt”, the recommended option.|the build goes on with the recommended action.|!the experts’ shared pick" \
       "1. The paper size|!Fable picks|!waits for you") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" now \
       "2 choices wait for you|The font of the invoice|the experts: Fable “serif” · Astra “serif”|if you say you are away, the build goes on with “serif”, the experts’ shared pick") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board-waits.dom" waits-rows \
-      "The font of the invoice|~^Answer choice 4 Expert advice · Print the invoice for the post The font of the invoice · recommended: sans · the experts: Fable “serif” · Astra “serif” .* [0-9][0-9ms ]* since it was asked Open the task$" \
-      "The size of the total|~^Answer choice 5 Expert advice .* the experts: Fable none fits · Astra “12 pt” .* [0-9][0-9ms ]* since it was asked Open the task$"); then
+      "The font of the invoice|~^Answer choice 4 Expert advice · Print the invoice for the post The font of the invoice · recommended: sans · the experts: Fable “serif” · Astra “serif” .* type in it: /lem status expert-advice choice 4 [0-9][0-9ms ]* since it was asked Open the task$" \
+      "The size of the total|~^Answer choice 5 Expert advice .* the experts: Fable none fits · Astra “12 pt” .* type in it: /lem status expert-advice choice 5 [0-9][0-9ms ]* since it was asked Open the task$"); then
     pass "a choice that waits shows each expert's advice in its own row of the Decisions card, a pick or none fits with its reasons, and its row and the head of its board say that the owner's away takes the experts' shared pick when both agree, else the recommended option; its row of Waits for you says how long it waits"
   else
     fail "the experts' advice on a choice that waits: $why"
@@ -1443,14 +1537,14 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
   else
     fail "the phases at 1300 px: $why"
   fi
-  # Where the owner answers: Lem's own page in its session, on the large card of the board and on the task's own board.
+  # Where the owner answers: a companion of Lem's session, on the large card of the board and on the task's own board.
   draw task-held-choice && draw task-criteria-wait
-  # shellcheck disable=SC1112  # the curly quote is the page's
+  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-held-choice.dom" now \
-      "Where you answer: Lem puts choice 1 to you as a page in its session. Answer it there: it waits for your word, also while you are away.") \
+      "Where you answer: Choice 1 opens in its companion, “held-choice · choice 1”, under Lem’s session. Answer it there: it waits for your word, also while you are away.") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-criteria-wait.dom" now \
-      "Where you answer: Lem shows you the acceptance criteria, with the personas’ read on top, as a page in its session. Approve or change them there."); then
-    pass "where the owner answers is Lem's own page in its session, on the board of a task with a choice and of one whose criteria wait"
+      "Where you answer: The acceptance criteria, with the personas’ read on top, open in its companion, “criteria-wait · criteria”, under Lem’s session. Approve or change them there."); then
+    pass "where the owner answers is the companion of the need under Lem's session, named as the sidebar shows it, on the board of a task with a choice and of one whose criteria wait"
   else
     fail "where the owner answers: $why"
   fi
@@ -1794,7 +1888,7 @@ open(sys.argv[1], "w").write("lemWatch(" + json.dumps({"checked": "2026-11-19T09
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/stay-waits.dom" @visible "Waits for you 4" "Answer choice 1" "Answer choice 2" "Approve the criteria" "Merge the pull request" \
       "!Building: task 1 of 2" "!The criteria wait for you" "!Which currency rounds half up") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/stay-waits.dom" waits-rows "The order of the day and the month|Answer choice 1|Dates stay whole|recommended: the day first" \
-      "The name of the date column|Answer choice 2|Dates stay whole" "Round the totals once|Approve the criteria|Lem shows you the acceptance criteria" \
+      "The name of the date column|Answer choice 2|Dates stay whole" "Round the totals once|Approve the criteria|The acceptance criteria" "Round the totals once|open in its companion" \
       "Sort the export by date|Merge the pull request|Green|Merge the pull request, or tell Lem in its session to land it.") \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/stay-conflict.dom" @visible "Waits for you 4" "It conflicts with the base" "Lem brings it onto the base first" "!Merge" "!merge") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/stay-older.dom" waits-rows "Sort the export by date|Merge the pull request|!conflicts"); then
@@ -2373,6 +2467,84 @@ sys.exit(got != want)' "$OS/overview.js"); then
     pass "the board of a task that landed with a merge that is no squash, its worktree still there, does not say that it filed no backlog item"
   else
     fail "a landed task whose worktree is still there: $why"
+  fi
+
+  # The way from a row that waits for the owner to the companion that answers it (criterion 7), as agterm
+  # shows the page: Lem's session is LEM1 in meta.js, as board.py writes it inside agterm.
+  "$PY" -I -c 'import json, re, sys; p = sys.argv[1]; d = json.loads(re.fullmatch(r"lemMeta\((.*)\);\n", open(p).read(), re.S).group(1)); d["session"] = "LEM1"; open(p, "w").write("lemMeta(%s);\n" % json.dumps(d))' "$STATE/meta.js"
+  # JUMPS DOM 'TARGET=LABEL' ... '!TARGET' ...: a jump to the session TARGET whose text starts with LABEL,
+  # and no jump to a TARGET marked "!"; 'ask=LINE' a button that asks to type LINE, '!ask=LINE' none.
+  JUMPS=$(cat <<'PY'
+import html, re, sys
+dom = open(sys.argv[1], encoding="utf-8").read()
+text = lambda s: " ".join(html.unescape(re.sub(r"<[^>]+>", " ", s)).split())
+jumps = [(target, text(inner)) for target, inner in re.findall(r'<(?:button|span)[^>]*\bdata-jump="([^"]*)"[^>]*>(.*?)</(?:button|span)>', dom, re.S)]
+asks = {html.unescape(line) for line in re.findall(r'data-wl-ask="([^"]*)"', dom)}
+wrong = []
+for want in sys.argv[2:]:
+    no = want.startswith("!")
+    key, _, label = want.lstrip("!").partition("=")
+    if key == "ask":
+        if (label in asks) == no: wrong.append(f"{'a' if no else 'no'} button that types {label!r} (the lines: {sorted(asks)})")
+    elif no and any(target == key for target, _ in jumps):
+        wrong.append(f"a jump to {key}: {[j for j in jumps if j[0] == key]}")
+    elif not no and not any(target == key and said.startswith(label) for target, said in jumps):
+        wrong.append(f"no jump to {key} that says {label!r} (the jumps: {jumps})")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  draw_standin board "/lem status gift-note-export choice 6"
+  draw_standin task-two-choices
+  draw_standin task-approved-no-lead
+  # shellcheck disable=SC1112  # the curly quotes are the page's
+  if why=$("$PY" -I -B -c "$JUMPS" "$WORK/board-standin.dom" "C0MPA1=Go to interview-live · interview" "C0MPA1=interview-live · interview" \
+      "C0MPA3=Go to two-choices · choice 1" "!C0MPA4" "!C0FA11" "!C0MPA2" "!C0MPA5" \
+      "ask=/lem status two-choices choice 2" "ask=/lem status criteria-gone" "ask=/lem status interview-lost" "!ask=/lem status interview-live" "!ask=/lem status two-choices choice 1" "!ask=/lem status approved-no-lead" "!ask=/lem status gift-note-export choice 6") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/board-standin.dom" waits-rows \
+      "Show the gift note on the packing slip|The interview waits for you|Go to interview-live · interview|!/lem status" \
+      "The paper of the wrap|Answer choice 1|Two choices|Go to two-choices · choice 1|!/lem status" \
+      "A ribbon on the wrap|Answer choice 2|Two choices|It types /lem status two-choices choice 2 into Lem’s session. Open its companion|!Go to two-choices" \
+      "Print the returns label|Approve the criteria|Criteria gone|It types /lem status criteria-gone into Lem’s session. Open its companion") \
+    && why=$("$PY" -I -B -c "$JUMPS" "$WORK/task-two-choices-standin.dom" "C0MPA3=Go to two-choices · choice 1" "C0MPA3=two-choices · choice 1" "!C0MPA4" "ask=/lem status two-choices choice 2") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-two-choices-standin.dom" decisions \
+      "Choice 1 waits for you: The paper of the wrap|Go to two-choices · choice 1|!/lem status" \
+      "Choice 2 waits for you: A ribbon on the wrap|It types /lem status two-choices choice 2 into Lem’s session. Open its companion|!Go to"); then
+    pass "each row that waits for the owner jumps to its companion while that runs, and shows it on the task's card; a row whose companion closed or left the tree, also with its session still there, offers its own /lem status line, a choice's with its number"
+  else
+    fail "the rows' way to their companion: $why"
+  fi
+  # The typed line, of the large card's choice: asked first with the focus on Start, Cancel types nothing,
+  # Start types the one line into Lem's session, and a line that was typed is not offered again.
+  # shellcheck disable=SC1112  # the curly quote is the page's
+  if why=$("$PY" -I -c 'import html, json, re, sys
+found = re.search(r"<pre id=\"standin\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the stand-in wrote nothing"}
+line = "/lem status gift-note-export choice 6"
+wrong = [name for name, ok in {
+    "no error": "error" not in d,
+    "the button and its line": d.get("before") == f"It types {line} into Lem’s session. Open its companion",
+    "asked first, with the focus on Start": d.get("confirm") == f"This types {line} into Lem’s session, and Lem opens its companion. Start Cancel Esc" and d.get("focus") == line,
+    "Cancel types nothing": d.get("cancelled") == [f"It types {line} into Lem’s session. Open its companion", 0],
+    "Start types the one line into Lem": d.get("typed") == [["session.type", {"target": "LEM1", "args": {"text": line + "\n"}}]],
+    "the row says it was typed": str(d.get("sent", "")).startswith("Typed into Lem’s session at ") and str(d.get("sent", "")).endswith(f"{line} Go to Lem’s session"),
+    "a typed line is not offered again": d.get("again") == [False, 1],
+}.items() if not ok]
+print("; ".join(wrong) + (f" ({json.dumps(d, ensure_ascii=False)[:700]})" if wrong else ""))
+sys.exit(bool(wrong))' "$WORK/board-standin.dom"); then
+    pass "a row whose companion is gone types its /lem status line into Lem's session as the backlog's action does: asked first, Cancel types nothing, Start types it one time"
+  else
+    fail "the typed line of a row: $why"
+  fi
+  # Approved in the companion, which writes no state after his yes, and no lead yet (criterion 3): the task is
+  # Lem's, in the Building lane, and no row asks the owner for it.
+  # shellcheck disable=SC1111  # the curly quotes are the page's
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-approved-no-lead-standin.dom" now \
+      "Lem acts|Approved: its lead has not started yet|your yes to the criteria is on record: Lem starts its lead|!Where you answer|!Open its companion") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board-standin.dom" "1 approved, with no lead yet"); then
+    pass "criteria approved in a companion with no lead after them show as approved, with no lead yet, in Lem's hands and in no row that waits for the owner"
+  else
+    fail "approved with no lead: $why"
   fi
 
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.
