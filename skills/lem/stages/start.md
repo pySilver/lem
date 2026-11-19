@@ -18,7 +18,9 @@ that is started again after it stopped.
    says so in one line. `lem project worktree-dir` already made the folder for worktrees one that
    git ignores. The worktree is in the checkout, not in the task's
    state directory, which is in the main checkout's state folder (`.lem/state/`): the state has
-   to outlive the worktree.
+   to outlive the worktree. Then `lem board --no-open`: a task's board reads its outcome and the
+   items its branch filed only from the file that command writes, so a task that starts after the board
+   opened shows them.
 3. **The lead.** Write a lead's `coordinator:` and `socket:` lines again with your own
    values when they are not yours (a brief written by a Lem before you, or one with no such
    lines): a lead tells the session those lines name. The fast track's brief has none: its

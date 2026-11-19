@@ -350,9 +350,9 @@ each item's own `worth`, with an item whose place in the code is gone marked as 
 action there, "start a task", types `/lem new PATH` into Lem's session, which is the ask
 `stages/new.md` takes for a backlog item; the owner confirms it on the page first. `board.py`
 writes the tab's file at every run, and the page reads it when the tab opens and on a key; it
-writes the file of each task's outcome and filed items at every run too. So after an item was
-filed, taken or removed, run `lem board --no-open`, which writes both files again and opens
-nothing.
+writes the file of each task's outcome and filed items at every run too. So when a task starts
+(`stages/start.md`, step 2) and after an item was filed, taken or removed, run `lem board
+--no-open`, which writes both files again and opens nothing.
 
 Before a status, and at each of your turns, find out what merged. The owner merges and closes
 pull requests on the forge, and the forge tells Lem nothing by itself: for each `open` task whose `proposal` in `lem project
