@@ -41,7 +41,7 @@ flowchart LR
   build --> pr
 ```
 
-Two examples:
+Two examples. They are illustrations, not the output of a run:
 
 ```text
 you  /lem the footer says Terms, not Terms and Conditions
