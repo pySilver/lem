@@ -2007,6 +2007,140 @@ PY
     fail "the board of one task, its tabs and its first view: $why"
   fi
 
+  # The test of criterion 9: the board reads as Lem's landing page does (site/style.css). Each tab of
+  # the board of all tasks (the folder of criterion 4) and of the board of one task (the folder of
+  # criterion 5), in Lem's light and in its dark palette, as agterm's theme stylesheet chooses it: the
+  # computed size of every text that shows (none under 12 px, the timeline's SVG text too), its
+  # contrast (4.5:1 or more, as criterion 3 asks of the first tab), the body's 16 px and 1.6, the
+  # page's background and its accent, the eyebrows of the small labels, and a card of the lane
+  # "Waits for you": its title and its ask at 16 px, and the radius and padding of the landing page's
+  # cards (.points li: 14 px, 20px 20px 22px).
+  LOOK9_FIXTURE=$(cat <<'PY'
+import glob, json, os, shutil, sys
+stay, tabs = sys.argv[1:]
+theme = lambda scheme, background, foreground: (f"<style id=\"agterm-theme\">:where(html) {{ color-scheme: {scheme}; color: {foreground}; "
+                                                f"--agterm-background: {background}; --agterm-foreground: {foreground}; }}</style>")
+themes = {"light": theme("light", "#ffffff", "#1e1e1e"), "dark": theme("dark", "#15181c", "#dde1e6")}
+PROBE = """<!doctype html><meta charset="utf-8"><body><pre id="out"></pre>
+<script>
+const FRAMES = %s;
+const wait = ms => new Promise(done => setTimeout(done, ms));
+const ctx = Object.assign(document.createElement('canvas'), {width: 1, height: 1}).getContext('2d', {willReadFrequently: true});
+const rgba = css => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = 'rgba(0, 0, 0, 0)'; ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255]; };
+const over = (top, under) => [0, 1, 2].map(i => top[i] * top[3] + under[i] * (1 - top[3])).concat(1);
+const lum = c => { const l = c.slice(0, 3).map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+function measure(d, w) {
+  const cs = n => w.getComputedStyle(n);
+  const background = n => { const layers = []; for (let m = n; m; m = m.parentElement) { const c = rgba(cs(m).backgroundColor); if (c[3] > 0) layers.push(c); if (c[3] === 1) break; }
+    return layers.reverse().reduce((under, c) => over(c, under), [255, 255, 255, 1]); };
+  const small = [], low = [];
+  let least = 99, smallest = 99, texts = 0;
+  for (const n of d.body.querySelectorAll('*')) {
+    if (n.closest('script, style, [hidden], title, desc')) continue;
+    const s = cs(n);
+    if (![...n.childNodes].some(c => c.nodeType === 3 && c.data.trim()) || !n.getClientRects().length || s.visibility !== 'visible' || s.display === 'none') continue;
+    const label = `${n.tagName.toLowerCase()}.${[...n.classList].join('.')} "${n.textContent.trim().slice(0, 40)}"`;
+    const size = parseFloat(s.fontSize);
+    texts += 1; smallest = Math.min(smallest, size);
+    if (size < 12) small.push(`${label} ${size}px`);
+    if (n.closest('svg')) continue;
+    const bg = background(n), r = ratio(over(rgba(s.color), bg), bg);
+    least = Math.min(least, r);
+    if (r < 4.5) low.push(`${label} ${r.toFixed(2)}`);
+  }
+  return {texts, smallest, small, least: Math.round(least * 100) / 100, low};
+}
+(async () => {
+  const out = {};
+  for (const f of FRAMES) {
+    const node = Object.assign(document.createElement('iframe'), {src: f.src});
+    node.style.cssText = 'width:1400px;height:900px;border:0;display:block';
+    document.body.append(node);
+    await wait(1500);
+    const w = node.contentWindow, d = w.document, cs = n => w.getComputedStyle(n), root = d.documentElement, body = cs(d.body);
+    const frame = {palette: root.dataset.palette ?? null, bg: cs(root).getPropertyValue('--bg').trim(), accent: cs(root).getPropertyValue('--accent').trim(),
+      body: {size: body.fontSize, line: body.lineHeight, background: body.backgroundColor}, tabs: {}};
+    const tabs = [...d.querySelectorAll('#tabs .tab')].map(t => t.dataset.tab);
+    for (const tab of tabs) {
+      d.querySelector(`#tabs [data-tab="${tab}"]`).click(); await wait(500);
+      if (tab === 'backlog') { d.querySelector('[data-bl-toggle]')?.click(); await wait(300); }
+      frame.tabs[tab] = measure(d, w);
+      if (tab === 'tasks') {
+        const lane = [...d.querySelectorAll('#lanes .lane')].find(l => l.querySelector('.lane-head').textContent.startsWith('Waits for you'));
+        const card = lane?.querySelector('.tcard'), s = card && cs(card);
+        frame.card = card ? {title: cs(card.querySelector('.tc-title')).fontSize, ask: cs(card.querySelector('.tc-ask > span')).fontSize,
+          padding: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(' '), radius: s.borderTopLeftRadius} : null;
+      }
+      const eyebrows = [...d.querySelectorAll('.eyebrow, .lane-head, .card-head h2')].filter(n => n.getClientRects().length && !n.closest('[hidden]'));
+      frame.eyebrows = [...(frame.eyebrows ?? []), ...eyebrows.map(n => { const s = cs(n); return {what: n.textContent.trim().slice(0, 30), size: s.fontSize, upper: s.textTransform, mono: /monospace/.test(s.fontFamily), spaced: parseFloat(s.letterSpacing) > 0}; })];
+    }
+    out[f.id] = frame;
+    node.remove();
+  }
+  document.getElementById('out').textContent = JSON.stringify(out);
+})().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
+</script>"""
+# each palette in a folder of its own, beside the page's data, since the page's name says which board it is
+for folder, page, kind in ((stay, "board.html", "all"), (tabs, "task-logo-color.html", "one")):
+    text = open(f"{folder}/{page}", encoding="utf-8").read()
+    frames = []
+    for palette, style in themes.items():
+        os.makedirs(f"{folder}/look9-{palette}", exist_ok=True)
+        for data in glob.glob(f"{folder}/*.js") + glob.glob(f"{folder}/*.css"):
+            shutil.copy(data, f"{folder}/look9-{palette}/")
+        open(f"{folder}/look9-{palette}/{page}", "w", encoding="utf-8").write(text.replace("<head>", "<head>" + style, 1))
+        frames.append({"id": f"{kind}-{palette}", "src": f"look9-{palette}/{page}"})
+    open(f"{folder}/look9-probe.html", "w", encoding="utf-8").write(PROBE % json.dumps(frames))
+PY
+)
+  "$PY" -I -c "$LOOK9_FIXTURE" "$STAY" "$TABS"
+  headless --allow-file-access-from-files --virtual-time-budget=30000 --dump-dom "file://$STAY/look9-probe.html" > "$WORK/look9-all.dom"
+  headless --allow-file-access-from-files --virtual-time-budget=30000 --dump-dom "file://$TABS/look9-probe.html" > "$WORK/look9-one.dom"
+  LOOK9_CHECK=$(cat <<'PY'
+import html, json, re, sys
+got, wrong = {}, []
+for path in sys.argv[1:]:
+    found = re.search(r'<pre id="out">(.*?)</pre>', open(path, encoding="utf-8").read(), re.S)
+    d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": f"the probe printed nothing ({path})"}
+    if "error" in d: wrong.append(d["error"])
+    else: got.update(d)
+# the landing page's background, color-mix(in srgb, var(--you) 5%, Canvas), over Chrome's light and dark Canvas
+you = (0xb4, 0x90, 0x2e)
+page = lambda canvas: "rgb({}, {}, {})".format(*(round(a * .05 + b * .95) for a, b in zip(you, canvas)))
+want = {"light": page((255, 255, 255)), "dark": page((18, 18, 18))}
+tabs = {"all": ["tasks", "waits", "backlog"], "one": ["overview", "criteria", "checks", "timeline"]}
+for kind, names in tabs.items():
+    for palette in want:
+        name = f"{kind}-{palette}"
+        f = got.get(name)
+        if not f: wrong.append(f"{name}: not drawn"); continue
+        if f["palette"] != palette: wrong.append(f"{name}: the palette is {f['palette']}")
+        if f["body"]["size"] != "16px" or f["body"]["line"] != "25.6px": wrong.append(f"{name}: the body is {f['body']['size']} with a line of {f['body']['line']}, not 16px and 25.6px")
+        if f["body"]["background"] != want[palette]: wrong.append(f"{name}: the background is {f['body']['background']}, not the landing page's {want[palette]}")
+        if f["accent"].lower() != "#b4902e": wrong.append(f"{name}: the accent is {f['accent']}, not the ochre #b4902e")
+        if sorted(f["tabs"]) != sorted(names): wrong.append(f"{name}: the tabs measured are {sorted(f['tabs'])}")
+        for tab, m in f["tabs"].items():
+            if m["texts"] < 5: wrong.append(f"{name} {tab}: only {m['texts']} texts show")
+            if m["small"]: wrong.append(f"{name} {tab}: text under 12 px: {m['small'][:5]}")
+            if m["low"]: wrong.append(f"{name} {tab}: text under 4.5:1 (least {m['least']}): {m['low'][:5]}")
+        flat = [e for e in f["eyebrows"] if not (e["size"] == "12px" and e["upper"] == "uppercase" and e["mono"] and e["spaced"])]
+        if not f["eyebrows"] or flat: wrong.append(f"{name}: a small label is not the landing page's eyebrow: {flat[:4] or 'none measured'}")
+    card = (got.get("all-light") or {}).get("card")
+    if kind == "all" and card != {"title": "16px", "ask": "16px", "padding": "20px 20px 22px 20px", "radius": "14px"}:
+        wrong.append(f"the card of the lane Waits for you: {card}")
+# on a pass, the least contrast of each palette over every tab of both boards, for the line that says it passed
+least = {palette: min((m["least"] for name, f in got.items() if name.endswith(palette) for m in f["tabs"].values()), default=0) for palette in want}
+print("; ".join(wrong) or f"least {least['light']}:1 in light, {least['dark']}:1 in dark")
+sys.exit(bool(wrong))
+PY
+)
+  if why=$("$PY" -I -c "$LOOK9_CHECK" "$WORK/look9-all.dom" "$WORK/look9-one.dom"); then
+    pass "the board reads as the landing page: body text at 16 px with a line of 1.6, no text under 12 px and none under 4.5:1 on any tab of either board in either palette, the landing page's warm backgrounds and its ochre accent, the small labels as its eyebrows, and a card of Waits for you with its title and ask at 16 px in a card of 14 px radius and 20px 20px 22px padding ($why)"
+  else
+    fail "the landing page's look: $why"
+  fi
+
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.
   board --no-open --demo >/dev/null
   board --no-open --task "$L" >/dev/null
