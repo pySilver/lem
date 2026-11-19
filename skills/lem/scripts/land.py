@@ -1615,11 +1615,11 @@ def checks_status(task: Task) -> dict:
     seconds = seconds_since(since) if isinstance(since, str) else None
     overdue = holder is not None and is_overdue(seconds, last)
     own = [end for end in ends if end.get("task") == task.slug]
-    other = holder_of(task.directory / STEP_LOCK)
+    lock_holder = holder_of(task.directory / STEP_LOCK)
     return {
         "task": task.slug, "running": holder is not None, "pid": holder["pid"] if holder else None, "since": since, "seconds": seconds,
         # the step that holds the lock when it is not the checks: a step of the task waits for it too
-        "step": other["step"] if other and other["step"] != "checks" and alive(other["pid"]) else None,
+        "step": lock_holder["step"] if lock_holder and lock_holder["step"] != "checks" and alive(lock_holder["pid"]) else None,
         "last_seconds": last, "overdue": overdue, "say": overdue_say(task.slug, seconds, last) if overdue else None,
         "ended": ended_of(own[-1] if own else None, task.slug),
     }
@@ -1628,14 +1628,17 @@ def checks_status(task: Task) -> dict:
 def checks_stop(task: Task) -> dict:
     """Stop the task's checks: a term to the process the lock names, only while the lock is held by
     `checks`, and a wait until that run let it go. With no run, nothing is stopped and that is no error."""
+    def stop_result(pid: int | None) -> dict:
+        return {"task": task.slug, "stopped": pid is not None, "pid": pid, "ended": checks_status(task)["ended"]}
+
     holder = running_checks(task)
     if holder is None:
-        return {"task": task.slug, "stopped": False, "pid": None, "ended": checks_status(task)["ended"]}
+        return stop_result(None)
     pid = holder["pid"]
     try:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
-        return {"task": task.slug, "stopped": False, "pid": None, "ended": checks_status(task)["ended"]}
+        return stop_result(None)
     except PermissionError as error:
         raise LandError(f"the checks of {task.slug} run in process {pid}, which this user may not stop ({error.strerror}); the user that started them stops them") from error
     deadline = time.monotonic() + STOP_WAIT
@@ -1643,7 +1646,7 @@ def checks_stop(task: Task) -> dict:
         now = holder_of(task.directory / STEP_LOCK)
         # the run takes its line away last, after its commands ended and its result is kept
         if not alive(pid) or now is None or now["pid"] != pid:
-            return {"task": task.slug, "stopped": True, "pid": pid, "ended": checks_status(task)["ended"]}
+            return stop_result(pid)
         time.sleep(0.1)
     raise LandError(
         f"the checks of {task.slug} were asked to stop, and process {pid} still runs after {STOP_WAIT} s; "
