@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Lem: a request in plain words, a pull request that says green or not green</title>
+<meta name="description" content="Lem is a plugin for Claude Code that works closely with agterm. Type a request in plain words, and get a pull request whose first line says green or not green.">
+<link rel="icon" href="assets/lem.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+
+<section id="start" class="opening">
+  <nav class="top" aria-label="Pages">
+    <a href="#flow">How a task goes</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/pySilver/lem">GitHub</a>
+  </nav>
+  <h1 class="logo">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/lem-night.svg">
+      <img src="assets/lem.svg" alt="Lem: a tall hooded figure holds one line, and four figures hang from it" width="560" height="202">
+    </picture>
+  </h1>
+  <p class="lead">Type a request in plain words, and get a pull request whose first line says green or not green.</p>
+  <p class="sub">Agents plan, build, test and review the change in your repository. Lem is a plugin for Claude Code that works closely with agterm.</p>
+  <div class="install" aria-label="Install">
+    <div class="cmd"><code>claude plugin marketplace add pySilver/lem --scope project</code><button class="copy" type="button">Copy</button></div>
+    <div class="cmd"><code>claude plugin install lem@lem --scope project</code><button class="copy" type="button">Copy</button></div>
+  </div>
+  <p class="needs">Lem needs <a href="https://agterm.com">agterm</a>. Run the two lines in your repository, then type <code>/lem init</code>.</p>
+</section>
+
+<section id="flow">
+  <p class="eyebrow">01 · How a task goes</p>
+  <h2>Two tracks to one pull request</h2>
+  <p class="intro">Lem reads each request, and tells you its type and its track in one line.</p>
+  <div class="flow">
+    <div class="track fast">
+      <h3>Fast track</h3>
+      <ol class="steps">
+        <li class="step"><b>Your request</b></li>
+        <li class="step"><b>One builder</b> <span>makes the change</span></li>
+        <li class="step"><b>Checks and one read</b></li>
+        <li class="step you"><b>Pull request</b> <span>you merge it</span></li>
+      </ol>
+    </div>
+    <div class="track standard">
+      <h3>Standard track</h3>
+      <ol class="steps">
+        <li class="step"><b>Your request</b></li>
+        <li class="step you"><b>Interview</b> <span>you answer</span></li>
+        <li class="step you"><b>Acceptance criteria</b> <span>you say yes</span></li>
+        <li class="step"><b>Plan and build</b> <span>a builder for each part</span></li>
+        <li class="step"><b>Checks and a review</b></li>
+        <li class="step you"><b>Pull request</b> <span>you merge it</span></li>
+      </ol>
+    </div>
+    <p class="legend"><i class="dot" aria-hidden="true"></i>You act here.</p>
+  </div>
+  <div class="columns">
+    <div class="text">
+      <p><b>The fast track</b> is for one plain change with no open question: a typo, a rename, the fix of one rule. One builder makes it, and nothing waits for you.</p>
+      <p><b>The standard track</b> is for every other request: an interview, acceptance criteria for your yes, a plan, and a larger review.</p>
+      <p>On both tracks, the checks run your tests, and an agent that did not build the change reviews it. The first line of the pull request says green or not green. Green means you can merge without a read.</p>
+    </div>
+    <figure class="dialog">
+      <div class="msgs">
+        <p class="msg"><span class="who you">you</span> <span class="said">/lem the footer says Terms, not Terms and Conditions</span></p>
+        <p class="msg"><span class="who lem">lem</span> <span class="said">docs: "the footer says Terms". Branch docs/footer-says-terms. Fast track: one builder, the checks, one read, then the pull request. Nothing waits for you.</span></p>
+        <p class="msg"><span class="who lem">lem</span> <span class="said">The pull request is open. Green.</span></p>
+      </div>
+      <figcaption>An illustration of a request on the fast track.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="needs">
+  <p class="eyebrow">02 · When Lem needs you</p>
+  <h2>Three points, and Lem does the rest</h2>
+  <ol class="points">
+    <li><b>The interview</b> <span>On the standard track, Lem asks one question at a time, each with its guess. You answer, or say yes to the guess.</span></li>
+    <li><b>Your yes to the acceptance criteria</b> <span>Each criterion is a rule in plain words with one real example. Nothing builds before your yes.</span></li>
+    <li><b>The merge</b> <span>You merge the pull request. On the fast track, this is the only point.</span></li>
+  </ol>
+  <div class="columns">
+    <div class="text">
+      <p>Lem takes every other decision itself. The pull request lists each one with its reason.</p>
+      <p>Type <code>/lem im-away</code>, and the tasks go on without you. Lem merges nothing for you while you are away. Type <code>/lem im-back</code> when you are back.</p>
+    </div>
+    <figure class="dialog">
+      <div class="msgs">
+        <p class="msg"><span class="who you">you</span> <span class="said">/lem the export holds the gift note of an order</span></p>
+        <p class="msg"><span class="who lem">lem</span> <span class="said">feat: "an export holds the gift note". Standard track: an interview now, then acceptance criteria for your yes.</span></p>
+        <p class="msg"><span class="who lem">lem</span> <span class="said">An order with two notes: both in one cell, with a semicolon? My guess: yes.</span></p>
+        <p class="msg"><span class="who you">you</span> <span class="said">yes</span></p>
+        <p class="msg"><span class="who lem">lem</span> <span class="said">The acceptance criteria, which two personas read:</span></p>
+        <p class="msg sub-msg"><span class="who"></span> <span class="said">1. Order 1042 with the note "for Ania" has that text in its row.</span></p>
+        <p class="msg sub-msg"><span class="who"></span> <span class="said">2. An order with no note has an empty cell.</span></p>
+        <p class="msg"><span class="who you">you</span> <span class="said">yes</span></p>
+        <p class="msg"><span class="who lem">lem</span> <span class="said">The pull request is open. Green.</span></p>
+      </div>
+      <figcaption>An illustration of a request on the standard track.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="board">
+  <p class="eyebrow">03 · The board</p>
+  <h2>Every task in one place</h2>
+  <p class="intro">The board puts each task in a lane by who acts next. Type <code>/lem</code> to open it, with the list of what waits for you.</p>
+  <figure class="shot">
+    <div class="frame">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/screens/board-dark.png">
+        <img src="assets/screens/board-light.png" alt="The board of all tasks, in lanes by who acts next" width="1440" height="1625">
+      </picture>
+    </div>
+    <figcaption>The board of all tasks. The picture shows demo data.</figcaption>
+  </figure>
+</section>
+
+<section id="install">
+  <p class="eyebrow">04 · Install</p>
+  <h2>Start in your repository</h2>
+  <p class="intro">At the root of your repository:</p>
+  <div class="install" aria-label="Install">
+    <div class="cmd"><code>claude plugin marketplace add pySilver/lem --scope project</code><button class="copy" type="button">Copy</button></div>
+    <div class="cmd"><code>claude plugin install lem@lem --scope project</code><button class="copy" type="button">Copy</button></div>
+  </div>
+  <div class="text after">
+    <p>Then start Claude Code in agterm there, and type <code>/lem init</code>. Answer three questions, read Lem's page, and type "land". Then type your first request.</p>
+    <p><a href="https://github.com/pySilver/lem/blob/main/docs/install.md#what-you-need">Install</a> lists the tools that Lem needs, and <code>/lem init</code> checks each one. Codex is optional and highly recommended: with it, a second model family reviews the larger changes.</p>
+    <p class="keeps">Lem keeps its settings in the <code>.lem/</code> folder of your repository, in git. To remove Lem, follow the steps in <a href="https://github.com/pySilver/lem/blob/main/docs/install.md#remove">Remove</a>.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <nav class="guides" aria-label="Guides">
+    <p class="eyebrow">Guides</p>
+    <ul>
+      <li><a href="https://github.com/pySilver/lem/blob/main/docs/flow.md">How a task goes</a></li>
+      <li><a href="https://github.com/pySilver/lem/blob/main/docs/when-lem-needs-you.md">When Lem needs you</a></li>
+      <li><a href="https://github.com/pySilver/lem/blob/main/docs/pull-request.md">The pull request</a></li>
+      <li><a href="https://github.com/pySilver/lem/blob/main/docs/install.md">Install, update, remove</a></li>
+      <li><a href="https://github.com/pySilver/lem/blob/main/docs/settings.md">Settings</a></li>
+      <li><a href="https://github.com/pySilver/lem/blob/main/docs/linear.md">Connect Linear</a></li>
+    </ul>
+  </nav>
+  <p class="repo"><a href="https://github.com/pySilver/lem">The repository on GitHub</a></p>
+</footer>
+
+<script>
+/* the copy buttons, and nothing else: each copies the line of its own row */
+for (const button of document.querySelectorAll("button.copy")) {
+  button.addEventListener("click", async () => {
+    const line = button.parentElement.querySelector("code");
+    try {
+      await navigator.clipboard.writeText(line.textContent);
+      button.textContent = "Copied";
+    } catch {
+      getSelection().selectAllChildren(line);
+      button.textContent = "Selected";
+    }
+    setTimeout(() => { button.textContent = "Copy"; }, 1600);
+  });
+}
+</script>
+</body>
+</html>

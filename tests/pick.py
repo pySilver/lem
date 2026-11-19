@@ -9,12 +9,12 @@ It prints one command for each suite to run, `bash tests/NAME.sh` (the unit leve
 `python3 -B -m unittest discover -s tests/unit`), then `bash tests/shellcheck.sh`
 with the suite files that changed, and lines that start with `#` for what it found: a file no
 suite reads is named with "nothing reads it", and a file the map does not know runs the whole
-suite (`bash tests/all.sh`). The Chrome suites, test-board and test-ask, run only for their own
-files, not for a script they also start. The whole suite runs once before the base branch moves:
-this list is for the turns before that.
+suite (`bash tests/all.sh`). The Chrome suites, test-board, test-ask and test-site, run only for
+their own files, not for a script they also start. The whole suite runs once before the base branch
+moves: this list is for the turns before that.
 
-The map was read from the suites' text on 2026-11-18 (the scripts each one starts, and the files of
-this repository it reads), not measured by a trace. A script's change reaches every suite that runs
+The map was read from the suites' text on 2026-11-18, and the row of test-site on 2026-11-19 (the
+scripts each one starts, and the files of this repository it reads), not measured by a trace. A script's change reaches every suite that runs
 a script that calls it: land.py, criteria.py and decisions.py call their siblings in their own
 process (`skills/lem/scripts/lem_sibling.py`).
 """
@@ -35,7 +35,7 @@ EVERYTHING = "all"
 # The suites that are not a file tests/NAME.sh of their own: the map's check, and the unit level,
 # one file for each script in tests/unit/, which tests/all.sh runs as `python3 -B tests/unit`.
 COMMANDS = {"pick": "python3 tests/pick.py --check", "unit": "python3 -B -m unittest discover -s tests/unit", EVERYTHING: "bash tests/all.sh"}
-CHROME = ("test-board", "test-ask")
+CHROME = ("test-board", "test-ask", "test-site")
 
 # (the files, the suites that read them). A file pattern is fnmatch's over the path from the root,
 # where `*` also crosses a `/`; a suite may be a pattern over the suites' names. A row with no suite
@@ -65,10 +65,12 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("skills/lem/prompts/*", "skills/lem/stages/*"), ("lem-decisions", "lem-command")),
     (("skills/*/SKILL.md",), ("test-gate-panel",)),
     (("skills/*", "agents/*"), ("lem-command",)),
+    # Lem's page on GitHub Pages, and the workflow whose copy step the suite runs
+    (("site/*", ".github/workflows/pages.yml"), ("test-site",)),
     (("docs/settings.md", "assets/night.py", "assets/lem.svg", "assets/lem-night.svg", "assets/lem-mark.svg", "assets/lem-mark-night.svg"), ("lem-settings",)),
     # The suites' own code.
     (("tests/lib.sh",), ("lem-*",)),
-    (("tests/checks.sh",), ("lem-*", "test-board", "test-ask", "test-gate-panel", "shellcheck")),
+    (("tests/checks.sh",), ("lem-*", "test-board", "test-ask", "test-site", "test-gate-panel", "shellcheck")),
     (("tests/suites.sh", "tests/limit.py", "tests/all.sh", "tests/test-lem.sh"), (EVERYTHING,)),
     (("tests/pick.py",), ("pick",)),
     # What no suite reads.
@@ -77,7 +79,8 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
 ]
 # The files the Chrome suites are run for: each row that names one of them is all of their own.
 CHROME_OWN = {"test-board": ("skills/lem/scripts/board.py", "skills/lem/assets/*", "tests/checks.sh"),
-              "test-ask": ("skills/lem-ask/*", "bin/lem-ask", "tests/checks.sh")}
+              "test-ask": ("skills/lem-ask/*", "bin/lem-ask", "tests/checks.sh"),
+              "test-site": ("site/*", ".github/workflows/pages.yml", "tests/checks.sh")}
 
 
 def suites() -> list[str]:
