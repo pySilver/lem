@@ -97,5 +97,5 @@ collect = true
 [naps]
 # Now and then, when a task has ended or Lem waits for the owner, Lem takes a nap: a fresh agent
 # reads the recent tasks, dreams, and writes the dream down in .lem/state/naps/, which the retro
-# reads. Off here.
-on = false
+# reads. On here, on the owner's word (2026-11-19).
+on = true
