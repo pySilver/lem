@@ -1,7 +1,8 @@
 # Settings
 
 `.lem/project.toml` holds the settings of a project, in git, and `/lem init` writes it. Lem reads
-the rules that guard a change from your main checkout, so a task branch cannot change them. An unknown key or a wrong value stops Lem, and the message names
+the rules that guard a change (the topics, the checks, who merges) from your main checkout, so a
+task branch cannot change them. An unknown key or a wrong value stops Lem, and the message names
 the fix.
 
 ## `[paths]`
@@ -44,12 +45,14 @@ runs the commands below one time, in the worktree of the task.
 
 ## `[seats]`
 
-A seat is `agent/model:effort`. A part that you leave out takes the agent's default. A persona file can name its seats in its frontmatter: `seats: ["claude/opus:high"]`.
+A seat is one string, `agent/model:effort`. A part that you leave out takes the default of the agent.
+A persona names its own seats in the frontmatter of its file, in the same form:
+`seats: ["claude/opus:high"]`. A persona file without it uses the seats of the panel.
 
 | Setting | Default | Use |
 | --- | --- | --- |
 | `seats.reviewer` | `"codex/gpt-6.2-sol:high"`, or `"claude/opus:high"` without Codex | the reviewer of the plan talk |
-| `seats.planner` | `"claude/opus:high"` | the defender in the plan talk: only `claude` |
+| `seats.planner` | `"claude/opus:high"` | the defender of the plan in the plan talk: only `claude` |
 | `seats.experts` | `["claude/fable:high", "codex/gpt-6.2-astra:high"]` | the experts of a decision in doubt. Without Codex, one answers alone |
 
 ## `[corrections]`
