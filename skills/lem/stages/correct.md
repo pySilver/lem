@@ -43,8 +43,8 @@ the interview (`stages/interview.md`), the personas' read, and his approval, whi
 fast track's. A builder that runs then finishes, and its commits stay on the branch for the lead;
 wait for its stop (its reply wakes you), since its last state would stand over yours. Then write the state `held` with
 the line `the interview waits for the owner`, the lead's brief of step 6 of "Open the task"
-(`stages/new.md`) over the fast track's, and open the interview's companion as "The interview's
-companion" there says, the copy of the talk first. When its builder ran, the companion reads the
+(`stages/new.md`) over the fast track's, and open the interview's companion as
+`stages/open-interview.md` says, the copy of the talk first. When its builder ran, the companion reads the
 builder's `report.md` as the scout's report. A
 move from the fast track to the standard track is his or its builder's; a change of the type is his
 only. Once its pull request exists (the task is `open` or ended), say in one line that the track no

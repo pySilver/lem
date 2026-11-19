@@ -56,8 +56,8 @@ The need is `choice` with its number for each of `choices`; `interview` for a `h
 line is `the interview waits for the owner` and for `the criteria wait for the owner: the small
 change is a full change`; and `criteria` for every other line of `criteria`. Say each `say` line
 as it is. One whose companion runs is not opened twice: the command prints that one. One it
-refuses says why and the fix: an interview with no copy of the talk gets it first (`stages/new.md`,
-"The interview's companion"). `/lem status SLUG` opens each need of that task, and `/lem status
+refuses says why and the fix: an interview with no copy of the talk gets it first
+(`stages/open-interview.md`). `/lem status SLUG` opens each need of that task, and `/lem status
 SLUG choice N` that one choice, the same way. While he is away nothing opens, and the list's first
 line says why. A pull request and a retro's proposals open no companion: he reads the one on the
 forge and answers the other below, on his word.

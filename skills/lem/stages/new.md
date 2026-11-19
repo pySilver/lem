@@ -114,7 +114,7 @@ beside this one, and the step that chooses the path names it.
      who write a team's tickets are the team.
    - *the standard track with an interview*, for every other ask: the interview, then the criteria he
      approves, in a companion of this session while you take his next ask: after step 6, open it
-     as "The interview's companion" below says; steps 7 and 8 wait for his yes.
+     as `stages/open-interview.md` says (read it then); steps 7 and 8 wait for his yes.
    Write the task's first state block now, with the type line of step 1, so that the status and
    the board show the task from its first moment. With an interview it is `held` with the line
    `the interview waits for the owner`:
@@ -184,41 +184,6 @@ beside this one, and the step that chooses the path names it.
    has not opened it yet (`SKILL.md`, Status); it stays in the sidebar beside your session. Then go back to the
    owner's next message. Do not wait for the lead and do not watch it.
 
-## The interview's companion
-
-The standard track with an interview, after step 6 of "Open the task", and each other path that
-comes to an interview (a fix whose investigation calls it `full`, a fast-track task that takes the
-standard track). The interview runs in a companion of this session: a fresh agent that reads the
-task's files and knows no other task (`prompts/companion.md`), starts the scout, asks him the
-questions, has the personas read the criteria and takes his yes, as `stages/interview.md` says.
-This session never runs the interview while he is there.
-
-1. **Copy the talk.** The companion is no fork of this conversation, so the turns that led to the
-   ask go to it as a file:
-
-   ```bash
-   lem companion talk SLUG --from "THE FIRST WORDS OF HIS TURN WHERE THE TOPIC BEGAN"
-   ```
-
-   The turn is the one where he began to speak of this ask, also when the `/lem` line came later;
-   type its first words as he typed them, a `/lem` line as it is. Add one `--leave "FIRST WORDS"`
-   for each turn of his in between that is another topic: it is left out with your answers to
-   it. The command copies the turns word for word from this session's own transcript into
-   `talk.md` in the task directory, also those from before a compaction, and refuses with the fix
-   when no turn of his starts with those words.
-2. **Open it**: `lem companion open SLUG --need interview`. It opens `SLUG · interview` under this
-   session, with no focus, and prints `say`: say that line as it is ("the interview of SLUG is
-   open in `SLUG · interview` under this session"), and nothing more. When it refuses, its message
-   names the fix.
-3. **Back to his next message.** Do not wait for the companion and do not watch it: its scout is
-   its own builder, and the scout's reply comes to it. When he approves the criteria there, the
-   companion tells you `lem: SLUG criteria approved` and closes. At that turn, or at the next one
-   when the line was lost, `lem companion due` gives the task under `start`, and its lead starts
-   from step 7 of "Open the task" (`stages/start.md`, "The queue").
-
-While he is away no companion opens, and `open` says so. The interview then runs without him in
-this session, as step 3 of `stages/away.md` says, with no question to him.
-
 ## The fast track
 
 One criterion, his own sentence made exact, nothing careful and no question open: one builder makes
@@ -261,7 +226,7 @@ nothing of it waits for him before its pull request.
      found a topic in reach, a second rule, a decision the criterion does not settle, a lowered bar,
      or more than one plain change. Tell him in one line that it takes the standard track and why, from
      the report. Write the lead's brief of step 6 of "Open the task" over the fast track's, then
-     open the interview's companion as "The interview's companion" above says, the copy of the
+     open the interview's companion as `stages/open-interview.md` says, the copy of the
      talk first: the companion reads the builder's `report.md` as the scout's report, and its
      commits stay on the branch for the lead. His approval of the criteria on the standard track
      replaces the fast track's.

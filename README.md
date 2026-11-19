@@ -54,7 +54,7 @@ lem  The pull request is open. Green.
 ```text
 you  /lem the export holds the gift note of an order
 lem  feat: "an export holds the gift note". Branch feat/gift-note-in-export.
-     Standard track: an interview now, then acceptance criteria for your yes.
+     Standard track: an interview in a companion now, then acceptance criteria for your yes.
      Wrong read? /lem be-careful.
 lem  The interview of gift-note-in-export is open in "gift-note-in-export · interview"
      under this session.

@@ -61,7 +61,7 @@ task.
      lower the total, or stand as a line of its own?"). Write the state `held` with the line `the
      interview waits for the owner` first: the investigator's place is free again. Then write the
      lead's `brief.md` as step 6 of "Open the task" says, and open the interview's
-     companion as "The interview's companion" in `stages/new.md` says, the copy of the talk
+     companion as `stages/open-interview.md` says, the copy of the talk
      first: the companion reads `investigation.md` as the scout's report.
    - *not a bug*: tell him what the code does in his case and why, as one run (`SKILL.md`, "What
      the owner has to understand is told as one run"), with where each step was read. Write the

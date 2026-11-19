@@ -1136,7 +1136,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
 - `skills/lem/SKILL.md`: the entry point and what holds in every stage.
 - `skills/lem/stages/`: one file per subcommand, and `talk.md`, the plan talk of a careful or
   large plan, which only its defender reads. The parts of `new.md` that only one path reads are
-  files beside it: `interview.md` (the interview and the acceptance criteria), `investigate.md`
+  files beside it: `interview.md` (the interview and the acceptance criteria), `open-interview.md`
+  (how Lem copies the talk and opens the interview's companion), `investigate.md`
   (a bug and a question), `start.md` (the start of a lead, `/lem build` and the queue),
   `stopped.md` (when a lead stops) and `choice.md` (when a choice waits for the owner); and the
   polish pass, step 3 of `land.md`, is `polish.md`, which only the standard track reads. `away.md` is
@@ -1151,7 +1152,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `.lem/state/` of the main checkout; every script that touches the state asks it, directly or through `project.py state-dir`),
   `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
   and a ruling's from `paths.ruling_file`), `lem_sibling.py` (how `land.py`,
-  `criteria.py` and `decisions.py` run a command of a sibling: in their own process, as its
+  `criteria.py`, `decisions.py` and `companion.py` run a command of a sibling: in their own process, as its
   `main(argv)`, except the commands in its `APART`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
   (`PLACES`), task state, a

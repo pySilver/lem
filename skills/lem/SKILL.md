@@ -168,7 +168,7 @@ runs in the background, a task's checks or the watch.
   needs' companions; nothing opens or starts by itself, and a line from a companion that was lost
   changes nothing it does not see. For each entry of `open`, `lem companion open SLUG --need NEED`
   (with `--choice N` for a choice), and say its `say` line as it is; of `talk`, the copy of the
-  talk first (`stages/new.md`, "The interview's companion"), then the open; of `start`, its lead
+  talk first (`stages/open-interview.md`), then the open; of `start`, its lead
   (`stages/start.md`, "The queue"); of `close`, `lem companion close SLUG --need NEED --why WHY`
   with the entry's `why`, and of `gone` the same with `--why gone`; of `away`, `stages/away.md`.
 - **Decisions are logged, and the owner can overturn each.** Each decision made without the
