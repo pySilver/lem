@@ -284,7 +284,7 @@ def transcript_turns(path: Path) -> list[dict]:
     turns: list[dict] = []
     lem_open = False
     prompts = origins = 0
-    for number, raw in enumerate(path.read_bytes().splitlines(), 1):
+    for raw in path.read_bytes().splitlines():
         try:
             record = json.loads(raw.decode("utf-8", errors="replace"))
         except ValueError:
