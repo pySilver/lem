@@ -366,6 +366,40 @@ The list, as the reviewer gave it:
 11. **The new block joins the full check.** Repaired: `suites` in `tests/all.sh` and `blocks` in
     `tests/test-lem.sh`. Closed. Settled by the two, not checked by the review.
 
+Where the seven design choices went (`stages/plan.md`, step 5; the task runs without the owner,
+so each log is the end, and `lem decisions list interview-in-a-companion` holds each). The plan's
+text above is as the talk left it; the lead that builds reads each decision below as the plan's,
+in place of the option the text describes:
+
+- question 1: option B, by the gate (checkable; decision 20). The companion writes no state after
+  the approval; `due.start` finds the newest `held` block with an approval after it, read from
+  `criteria.json` as well as the event; the board and the status read the same rule.
+- question 3: option C, by the dialectic (decision 26). At each turn Lem reads the files as they
+  are: each interview or criteria that wait for the owner while his status says away get the away
+  steps, the message to its companion among them, with a record of which companions it told; at
+  `/lem im-back` each irreversible step opens, also one whose card he closed. Not green.
+- question 4: option C, by the dialectic (decision 27). The copy is every turn from the one where
+  the topic began to the newest, minus the turns Lem names to leave out as another topic, and the
+  companion's first words name each left-out turn by its time and first words. In every option
+  the copy leaves out records the owner did not type (the skill body `/lem` loads, task
+  notifications, agterm mail), copies a `/lem` line as he typed it, and takes the newer of two
+  owner turns a start text matches: the brief check of the panel found that the transcript holds
+  such records as owner records (2026-11-19). Untested: whether `CLAUDE_CODE_SESSION_ID` follows a
+  `/clear`. Not green.
+- question 6: option B, by the gate (checkable; decision 21). The companion also keeps each answer
+  that sets the outcome in a notes file of the task directory as it comes, and the resume reads
+  the owner's logged word to skip the read (`READ_SKIP` in `decisions.jsonl`).
+- question 7: option B, by the gate (checkable; decision 19). `/lem standard-track` writes a line
+  that `track_of` reads as the standard track (or `track_of` reads the interview's `held` line as
+  standard), and both paths run `lem companion talk` before `lem companion open`.
+- question 9: option B, by the gate (checkable; decision 22). The empty case reads the experts'
+  level of `said` as it is before it says that the ladder settled earlier.
+- question 10: option B, by the gate (checkable; decision 23). The end of the wait is the first
+  approval after the block by anyone (`owner` or `alone`); the line names his yes and its time
+  only when that approval is his, and otherwise says that the wait ended without him.
+
+Decisions 24 and 25 record that the talk changed decisions 15 and 16.
+
 The mechanisms the repairs added, with the decision each sits on:
 
 - `lem companion due`'s `start` over the record (questions 1, 2, 5): on the changed decision 16,
