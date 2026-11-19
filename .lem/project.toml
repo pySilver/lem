@@ -29,15 +29,15 @@ protected = []
 [checks]
 # During the build, each builder runs only the tests of its own change. Before the pull request,
 # Lem runs these commands one time, at the root of the task's worktree.
-# tests/all.sh runs every suite of the repository and ShellCheck at the same time; its last line
-# says whether all passed, which is what the landing shows of each command.
-commands = ["bash tests/all.sh"]
+# The unit level comes first: it takes under a second and fails before the suites start.
+commands = ["python3 -B -m unittest discover -s tests/unit"]
 # What a new worktree needs before its tests can run ("uv sync", "npm ci"). Lem runs these one
 # time in each worktree it makes for a task. None here: the tests need only Python and git.
 setup = []
-# The tests that two tasks cannot run at the same time: an end-to-end suite that uses fixed ports,
-# one database or a browser. None here: tests/all.sh runs the Chrome suites beside the others.
-serial = []
+# The tests that two tasks cannot run at the same time. tests/all.sh runs every suite of the
+# repository at the same time and takes every core of the machine (9.8 of 10 cores in one run,
+# 2026-11-19), so two tasks run it one after the other. Its last line says whether all passed.
+serial = ["bash tests/all.sh"]
 
 [flow]
 # What must never go wrong in this project, each as one sentence in the owner's words. No code
