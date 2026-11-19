@@ -1,6 +1,6 @@
 # The status boards: one steady look, with tabs, in Lem's own light and dark
 
-careful: no, because no task changes a record, a script that writes one, the text of a pull request or a git act: the board reads `events.js`, `meta.js` and `backlog.js` and writes nothing, `land.py`'s green and its reasons are untouched, and the board's one action (the backlog's "Start a task", which types `/lem new PATH` into Lem's session) keeps its code and its test in `tests/lem-settings.sh`.
+careful: no, because no task changes a record, a script that writes one, the text of a pull request or a git act: the board reads `events.js`, `meta.js` and `backlog.js` and writes nothing, `land.py`'s green and its reasons are untouched, and the board's one action (the backlog's "Start a task", which types `/lem new PATH` into Lem's session) keeps its code and its test in `tests/lem-settings.sh`. Tasks 5 to 7 keep that: `board.py` writes one more file of the board's own beside `meta.js` and `backlog.js`, from `task.md` and a read of git, and the decisions tab only shows the record.
 
 ## Acceptance criteria
 
@@ -22,6 +22,10 @@ Size: full, because the change redraws the whole board page and `lem.css`, which
    - no test: what a picture shows is read by a person's eye, and no suite reads the README or the guides; the builder of task 4 read each of the six pictures in light and in dark
 8. The backlog item `docs/backlog/board-as-a-tabbed-interface.md` is closed by this change: its file is removed.
    - no test: the removal of one file, which the branch's diff shows
+9. The board reads as easily as Lem's landing page (https://pysilver.github.io/lem/, `site/style.css`): body text is 16 px with a line height of 1.6, no text of the board is smaller than 12 px, and the board uses the landing page's warm light and dark backgrounds and its ochre accent: a task card in the lane "Waits for you" shows its title and its ask at 16 px, with the same space around them as a card of the landing page.
+10. Each decision on the task's decisions tab is one folded row that shows a short note, what was chosen and by whom, and opens to its full context, formatted: why, the options, what each level of the ladder said, and how to undo it. A decision that makes the pull request not green, or that went past the personas, is marked important and stands first: in this task the experts' choice on how the backlog keeps a selected text stands first with the mark, and the question gate's choice on "while you were away" is a plain folded row below it.
+11. "Overview" holds "What we are building", a section in the landing page's style: the goal of the task and what the owner gets, from the task's outcome, and a line that recommends the decisions tab when an important decision exists, with their count: this task's Overview says that 1 important decision waits for a look.
+12. "Overview" says whether the task filed backlog items, with the title of each: a branch that adds `docs/backlog/landing-page-pictures.md` shows "1 backlog item filed" and that item's title; a branch that adds none says "no backlog item filed".
 
 ## What exists
 
@@ -150,6 +154,79 @@ Each task is built by a fresh builder in the worktree, in this order: all four e
    Serves criteria 7 and 8. Files: `tests/board-showcase.py`, `assets/screens/*.png`, `README.md`,
    `docs/when-lem-needs-you.md`, `skills/lem/SKILL.md`, `AGENTS.md`,
    `docs/backlog/board-as-a-tabbed-interface.md`.
+
+Tasks 5 to 7 come from the owner's approval 2 (2026-11-19, after tasks 1 to 4 were built), which
+added criteria 9 to 12 and the direction that the board takes the look of Lem's landing page
+(`directions.md`; decision 11 of the task's record, by the owner). They came after the plan talk
+and were not talked through: the review before the pull request reads them. They run one after
+another, after task 4, since each edits `board.html` or the pictures of what the one before drew.
+
+5. **The landing page's look.** `lem.css` keeps its parts (the header, one button, one card, one
+   tab bar, one chip) and takes the look of `site/style.css` (on `origin/main`, read with `git
+   show origin/main:site/style.css`; the owner's screenshots are `look/site-light.png` and
+   `look/site-dark.png` in the task directory): the warm light and dark backgrounds, which that
+   file mixes from the ochre `#b4902e` into the browser's `Canvas`, written in `lem.css` as fixed
+   values of Lem's own two palettes, so that criterion 3 still holds (no agterm or Solarized
+   color, the night logo in dark); the ochre as the one accent, in the place of the indigo of
+   decision 5 of the record; body text at 16 px with a line height of 1.6 and no text under 12 px
+   on either board, on any tab, in either palette; the monospace eyebrows of `.eyebrow` (12 px,
+   upper case, spaced) for the small labels; the cards' radius and padding of `.points li` (14 px,
+   `20px 20px 22px`) for a task card, so that a card in the lane "Waits for you" shows its title
+   and its ask at 16 px with that space; more space between the parts of a page, as its sections
+   have. Criteria 1, 2, 3 and 6 still hold at the larger type: the header's buttons at the top
+   right at 900 and 1400 px, the cards of a lane of one height with only the ask cut, a contrast of
+   4.5 to 1 or more for body text and the small labels in both palettes (`site/style.css`'s
+   `--faint` at 46% would fail it, so the board's faint text is darker), and the onboarding page in
+   the same look. The checks of criterion 9 measure the computed sizes: the body's 16 px and 1.6,
+   every text that shows on each tab of both boards at 12 px or more, the background and the accent
+   of each palette, and the title, the ask and the padding of a card in "Waits for you".
+   Serves criterion 9, and keeps 1, 2, 3 and 6. Files: `skills/lem/assets/lem.css`,
+   `skills/lem/assets/board.html` (its own `<style>` and any size it sets), `skills/lem/assets/handover.html`
+   when a part of it sets a size, `tests/test-board.sh`.
+6. **The board of one task: decisions in folded rows, "What we are building", and the backlog
+   items the task filed.** On "Criteria and decisions" each decision is one folded row, in the
+   backlog's form (its fonts, its fold, a short note in view and the formatted context hidden):
+   closed, it shows a short note (the decision's `what` on one line, whole in its hover), what was
+   chosen and by whom; opened, the why, the options with the chosen one marked, what each level of
+   the ladder said (the `levels` of the record's event, which `decisionEvent()` keeps today only in
+   part: it drops `levels`), the experts' reasons and the personas' words where the record has
+   them, and how to undo it. The rows the owner opened stay open through the redraw of every
+   second, as the backlog keeps its open item. A decision is important (decision 9) when it makes
+   the pull request not green or went past the personas, and an important one carries a mark and
+   stands first, after the choices that still wait for him, which keep their place at the top. On
+   "Overview", above what is there, "What we are building", a section in the landing page's style
+   (an eyebrow, a heading, a paragraph): the goal of the task (the `why` of its type line, `type:
+   TYPE, because WHY`) and what the owner gets (the `## Outcome` of the task's `task.md`); when an
+   important decision exists, a line that says how many wait for a look ("1 important decision
+   waits for a look") and takes him to the decisions tab; and a line of the backlog items the
+   task's branch adds against the base, "N backlog item(s) filed" with each item's title, or "no
+   backlog item filed" (decision 10). The page cannot read `task.md` or ask git, so `board.py`
+   writes what it needs into a file beside the page at each run (decision 10), and the page says
+   when that file was written, as the backlog tab says it of `backlog.js`. The fixture of the
+   checks holds this task's decisions as the record has them: decision 4, by the experts, stands
+   first with the mark; decision 2, by the gate, is a plain folded row below it; and Overview says
+   that 1 important decision waits for a look. A rule that takes facts and returns a result (the
+   outcome read from a `task.md`, an item's title) is a unit case in `tests/unit/`; the items a
+   branch adds are a fact only git shows, a check in `tests/test-board.sh` over a branch that adds
+   `docs/backlog/landing-page-pictures.md` and one that adds none.
+   Serves criteria 10, 11 and 12. Files: `skills/lem/assets/board.html`,
+   `skills/lem/scripts/board.py`, `tests/test-board.sh`, `tests/unit/test_board.py` (new) and
+   `tests/pick.py` when its map names the unit files by script.
+7. **The pictures again, the documents, and the backlog item for the landing page.** The pictures
+   in `assets/screens/` are made again with `tests/board-showcase.py`, light and dark, so that they
+   show the board of tasks 5 and 6 (criterion 7 holds for the board as it is at the end); the
+   showcase's data shows "What we are building" on the task's "Overview". The documents tasks 5
+   and 6 make false are corrected: `AGENTS.md` "Layout" (the line of `lem.css`, and the file
+   `board.py` now writes beside `backlog.js`), the docstring of `board.py` when task 6 did not, and
+   any sentence a `grep` for the board's look, "Overview" or the decisions tab finds in
+   `README.md`, `docs/` and `skills/lem/SKILL.md`; `README.md` and `docs/` stay in ASD-STE100 and
+   under their word limits, and the rulings in `AGENTS.md` keep their words. The backlog item the
+   owner asked for is filed on this branch in a commit of its own, `docs/backlog/landing-page-pictures.md`
+   in the item format of `agents/lem-builder.md` rule 6: after this change lands, the pictures of
+   the landing page (`site/`) show the new board.
+   Serves criterion 7 again. Files: `tests/board-showcase.py`, `assets/screens/*.png`, `AGENTS.md`,
+   `skills/lem/scripts/board.py`, `README.md`, `docs/when-lem-needs-you.md`, `skills/lem/SKILL.md`,
+   `docs/backlog/landing-page-pictures.md`.
 
 ## Plan talk
 
@@ -341,6 +418,39 @@ and its reload as read in its source (question 3).
    `cmd_waiting` in `project.py`, `forOwner` in `derive()`, `buildBanners` and `watch.js`.
 6. **Out of scope**, by Lem's decision 1 of this task: the question page
    (`skills/lem-ask/runtime/ask.css`) and the agdoc page of a task keep their own look.
+7. **The landing page's look replaces the Linear or Vercel look**, by the owner's word (decision
+   11 of the task's record, approval 2): the neutral grays and the indigo accent of task 1
+   (decision 5 of the record) give way to the warm backgrounds and the ochre accent of
+   `site/style.css`. The ochre is also the hue of the actor "you" (`--you`), which marks what
+   waits for the owner; decision 5 had chosen indigo to stay apart from the six actor hues. The
+   owner's direction names the ochre, so it is the accent, and the marks of what waits for him keep
+   their word and their icon beside the color, so that a color never stands alone. Rests on:
+   `directions.md` and the owner's words in decision 11.
+8. **Lem's own palettes stay fixed values.** `site/style.css` mixes its colors into the
+   browser's `Canvas`, which follows the system. The board keeps two palettes of its own that
+   agterm's light or dark chooses (decision 3, criterion 3), so the landing page's mixes are
+   computed once over a white and a dark canvas and written as values. Rests on: criterion 3 and
+   decision 3.
+9. **Which decision is important.** Criterion 10 names two kinds: one that makes the pull request
+   not green, and one that went past the personas. In the record that is a decision `by` the
+   experts or the dialectic, a choice taken without the owner (`state: timeout`), a decision whose
+   `levels` has an answer of a level after the personas (the dialectic or the experts), and a
+   decision a `decision N ` or `choice N ` line of the newest proposal's `not_green` names. A
+   decision by the owner, by the gate, by the personas, by the lead or by Lem is not important. In
+   this task that gives decision 4 alone, as criteria 10 and 11 say. Rests on: `not_green()` and
+   `without_him()` in `land.py` (decision 4 of this plan), `stages/ladder.md`.
+10. **What "What we are building" and the filed backlog items read.** The goal is the `why` of the
+   task's type line, which the board already reads (`typeLine`, into `t.type`); what the owner gets is the `##
+   Outcome` section of `task.md` in the task directory, which Lem writes at `new`. The filed items
+   are the files the task's branch adds under the backlog folder against the merge base with the
+   base branch, each with the title of its `# TITLE` line; the branch is the one checked out in
+   the task's worktree (`places.worktrees` of the settings, then the slug). A task whose worktree
+   is gone (landed, dropped) shows no backlog line, since nothing tells it. `board.py` writes
+   both into a file beside the page at each run, as it writes `backlog.js`, and the page reads it
+   with `meta.js`; Lem's `lem board --no-open` after an item was filed (`SKILL.md`, "Status")
+   writes it again, and the line says when it was written, so a stale "no backlog item filed" says
+   its time. Rests on: `board.py` `prepare`, `stages/new.md` (`task.md`), `project.py`
+   `places.worktrees`.
 
 ## What this plan will not verify
 
@@ -349,4 +459,6 @@ and its reload as read in its source (question 3).
   owner changes the terminal's theme, is read in the agterm source (decision 3) and checked by no
   test here.
 - How the board looks to the eye: the tests measure places, heights, contrast and texts. The
-  pictures of task 4 are where a person looks.
+  pictures of tasks 4 and 7 are where a person looks; "reads as easily as the landing page" in
+  criterion 9 is held by its measures (sizes, line height, colors, padding), not by an eye.
+- Tasks 5 to 7 were not talked through: they came after the plan talk, with approval 2.
