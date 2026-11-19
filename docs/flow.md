@@ -5,7 +5,7 @@ flowchart TD
     req(["/lem and a request"]) --> track{"Type and track"}
     track -- "fast track" --> one["One builder makes the change"]
     track -- "a bug with no clear cause, or a question" --> inv["An investigator finds the cause or the answer"]
-    track -- "standard track" --> crit["Interview, acceptance criteria, your yes"]
+    track -- "standard track" --> crit["Interview in a companion, criteria, your yes"]
     inv -- "one rule fixes it" --> one
     inv -- "no bug, or an answer" --> stop(["An answer, and nothing to merge"])
     inv -- "a larger fix" --> crit
@@ -41,14 +41,14 @@ standard track starts. `/lem standard-track` does the same before the pull reque
 
 ## The standard track
 
-1. **Interview.** Lem asks one question at a time, each with its guess. If you name a library or
-   an approach, the plan uses it.
-2. **Acceptance criteria.** Each one is a rule in plain words with one real example, and each gets
-   a test.
+1. **Interview.** Lem opens the interview in a companion session, and gives you its name. You
+   answer one question at a time, each with its guess. If you name a library or an approach, the
+   plan uses it.
+2. **Acceptance criteria.** Each is a rule in plain words with one real example, and gets a test.
 3. **The personas read them.** A persona is a person that a change affects, as your setup
    describes them. Agents read the criteria as each person, and a doubt shows next to its criterion.
 4. **Your yes.** Nothing builds before it, unless you are
-   [away](when-lem-needs-you.md#away).
+   [away](when-lem-needs-you.md#away). The companion then closes, and the build starts.
 5. **The plan.** An agent commits a short plan to `docs/plans/`, and a new builder makes each part.
 6. **The polish pass.** A new builder removes leftovers, such as a comment that is now false. It
    fixes a small defect outside the task, and files a larger one in `docs/backlog/`.
@@ -59,8 +59,8 @@ and no persona has a doubt, the build starts at once. Say "interview me" to get 
 ## A bug or a question
 
 When your words do not show the cause of a bug, an agent called the investigator looks first. It
-writes a test that fails, and finds the cause with Lem's `root-cause` skill: it asks why
-until the answer is a file and a symbol. It changes no behavior. Then:
+writes a test that fails, and finds the cause with Lem's `root-cause` skill. It changes no
+behavior. Then:
 
 - one rule removes the cause: the fast track, with that test;
 - the fix needs more: the standard track, with an interview that starts from the cause;
@@ -76,7 +76,7 @@ the wrong amount". Lem reads each request, plan and diff against them. When it i
 change is careful. `/lem be-careful` marks a task, also an open one: every reviewer reads it again.
 
 Every reviewer reads a careful change, and a person merges it. When its plan is careful, or has
-more than three parts, two agents argue the plan before any code, and you can watch.
+more than three parts, two agents argue it before any code, and you can watch.
 
 ## The checks and the review
 
@@ -86,5 +86,5 @@ on the branch and fail on the old code. The bar, how strict your tests are, must
 new suppression, no skipped or deleted test, no fewer assertions.
 
 The review is as large as the change: one read on the fast track, more reviewers for a larger
-change. A careful change gets all of them. A builder fixes each must-fix, in two rounds at most. Then
+change. A builder fixes each must-fix, in two rounds at most. Then
 Lem opens [the pull request](pull-request.md).

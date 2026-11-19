@@ -294,7 +294,8 @@ that leads sends no line when it stops: its reply wakes Lem, and a line too woul
 pending`, never the line's claim. Mail is kept in memory only, so a pane that was restarted has
 lost it. A lost end of a task costs nothing but time: the state block is on disk, and `/lem
 status` shows it. A lost choice costs the owner part of his wait, so Lem also runs
-`lem decisions pending` at each of its turns (`stages/choice.md`).
+`lem companion due` at each of its turns, which reads `lem decisions pending` (`SKILL.md`,
+`stages/choice.md`).
 
 A builder runs as a subagent inside Lem's own session, so its line goes from Lem's pane to Lem's
 pane: the sender `agtermctl` takes by default (`--as`, from the `AGTERM_SESSION_ID` and
@@ -303,8 +304,8 @@ sender's own pane, and the mailbox chat's waiter for Claude Code, which wakes an
 any mail of its pane between two turns and reads no sender (`mailbox-chat.py`, its `Waiter`). A
 line from a companion, and one from a background command of Lem's own session, reached the idle
 Lem as a turn of its own (agterm 0.41.1, 2026-11-14 to 2026-11-16); a line a builder sends is not
-checked yet, so `lem decisions pending` at each of Lem's turns is what makes sure that no choice
-is missed.
+checked yet, so `lem companion due` at each of Lem's turns, which reads `lem decisions pending`
+and the task's files, is what makes sure that no choice and no approval is missed.
 
 ## second-opinion
 
