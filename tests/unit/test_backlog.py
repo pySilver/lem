@@ -26,6 +26,8 @@ E = {"where": "src/json.py:parse", "title": "An item from before", "what": "pars
 # A repository that is not on disk, with the backlog folder in its one place. `covers_one` reads
 # only the folder of the task it is given.
 TASK = SimpleNamespace(settings={"root": "/lem-unit/repo", "places": {"backlog": {"path": "/lem-unit/repo/docs/backlog"}}})
+# the folder as `covers` gives it to `covers_one`: from the task's settings, by the script's own function
+FOLDER = land.backlog_of(TASK)
 NONE = "0" * 40
 
 
@@ -114,28 +116,28 @@ class Covers(unittest.TestCase):
     """`land.covers_one` and `land.covers`: whether a review still covers the change after it."""
 
     def test_the_same_change(self) -> None:
-        self.assertTrue(land.covers_one(TASK, REVIEWED, {**REVIEWED}))
+        self.assertTrue(land.covers_one(FOLDER,REVIEWED, {**REVIEWED}))
 
     def test_a_new_item_in_the_backlog_folder_keeps_the_review(self) -> None:
-        self.assertTrue(land.covers_one(TASK, REVIEWED, now(**{"docs/backlog/new.md": entry(NONE, "c" * 40)})))
+        self.assertTrue(land.covers_one(FOLDER,REVIEWED, now(**{"docs/backlog/new.md": entry(NONE, "c" * 40)})))
 
     def test_an_item_that_was_on_the_base_edited_or_deleted_asks_for_another(self) -> None:
-        self.assertFalse(land.covers_one(TASK, REVIEWED, now(**{"docs/backlog/existing.md": entry("d" * 40, "e" * 40)})))
-        self.assertFalse(land.covers_one(TASK, REVIEWED, now(**{"docs/backlog/existing.md": entry("d" * 40, NONE)})))
+        self.assertFalse(land.covers_one(FOLDER,REVIEWED, now(**{"docs/backlog/existing.md": entry("d" * 40, "e" * 40)})))
+        self.assertFalse(land.covers_one(FOLDER,REVIEWED, now(**{"docs/backlog/existing.md": entry("d" * 40, NONE)})))
 
     def test_a_new_file_outside_the_folder_asks_for_another(self) -> None:
-        self.assertFalse(land.covers_one(TASK, REVIEWED, now(**{"docs/new.md": entry(NONE, "c" * 40)})))
-        self.assertFalse(land.covers_one(TASK, REVIEWED, now(**{"docs/backlog-old/new.md": entry(NONE, "c" * 40)})))
+        self.assertFalse(land.covers_one(FOLDER,REVIEWED, now(**{"docs/new.md": entry(NONE, "c" * 40)})))
+        self.assertFalse(land.covers_one(FOLDER,REVIEWED, now(**{"docs/backlog-old/new.md": entry(NONE, "c" * 40)})))
 
     def test_a_reviewed_file_that_changed_again_asks_for_another(self) -> None:
         changed = now(**{"docs/backlog/new.md": entry(NONE, "c" * 40)})
         changed["contents"]["app.txt"] = entry("a" * 40, "f" * 40)
-        self.assertFalse(land.covers_one(TASK, REVIEWED, changed))
+        self.assertFalse(land.covers_one(FOLDER,REVIEWED, changed))
 
     def test_a_record_with_no_contents_covers_only_the_same_change(self) -> None:
         bare = {"patch": "reviewed"}
-        self.assertTrue(land.covers_one(TASK, bare, {**REVIEWED}))
-        self.assertFalse(land.covers_one(TASK, bare, now(**{"docs/backlog/new.md": entry(NONE, "c" * 40)})))
+        self.assertTrue(land.covers_one(FOLDER,bare, {**REVIEWED}))
+        self.assertFalse(land.covers_one(FOLDER,bare, now(**{"docs/backlog/new.md": entry(NONE, "c" * 40)})))
 
     def test_a_form_a_rebase_carried_covers_too(self) -> None:
         rebased = {"patch": "rebased", "contents": {"app.txt": entry("1" * 40, "2" * 40)}}
