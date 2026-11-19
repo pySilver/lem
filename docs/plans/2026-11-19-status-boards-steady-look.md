@@ -19,13 +19,18 @@ Size: full, because the change redraws the whole board page and `lem.css`, which
 6. Every page of Lem that links `lem.css` has the board's look: the onboarding page shows the same header, fonts and colors as the board, in light and in dark.
    - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 7. The pictures of the board in the README and in `docs/when-lem-needs-you.md` show the new board, in light and in dark, and each caption says that the picture shows example tasks.
-   - no test: what a picture shows is read by a person's eye, and no suite reads the README or the guides; the builder of task 4 read each of the six pictures in light and in dark
+   - no test: what a picture shows is read by a person's eye, and no suite reads the README or the guides; the builders of tasks 4 and 7 read each of the six pictures in light and in dark
 8. The backlog item `docs/backlog/board-as-a-tabbed-interface.md` is closed by this change: its file is removed.
    - no test: the removal of one file, which the branch's diff shows
 9. The board reads as easily as Lem's landing page (https://pysilver.github.io/lem/, `site/style.css`): body text is 16 px with a line height of 1.6, no text of the board is smaller than 12 px, and the board uses the landing page's warm light and dark backgrounds and its ochre accent: a task card in the lane "Waits for you" shows its title and its ask at 16 px, with the same space around them as a card of the landing page.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 10. Each decision on the task's decisions tab is one folded row that shows a short note, what was chosen and by whom, and opens to its full context, formatted: why, the options, what each level of the ladder said, and how to undo it. A decision that makes the pull request not green, or that went past the personas, is marked important and stands first: in this task the experts' choice on how the backlog keeps a selected text stands first with the mark, and the question gate's choice on "while you were away" is a plain folded row below it.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 11. "Overview" holds "What we are building", a section in the landing page's style: the goal of the task and what the owner gets, from the task's outcome, and a line that recommends the decisions tab when an important decision exists, with their count: this task's Overview says that 1 important decision waits for a look.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_board.py` in `tests/unit/test_board.py`
 12. "Overview" says whether the task filed backlog items, with the title of each: a branch that adds `docs/backlog/landing-page-pictures.md` shows "1 backlog item filed" and that item's title; a branch that adds none says "no backlog item filed".
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 
 ## What exists
 
