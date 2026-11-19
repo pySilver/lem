@@ -47,7 +47,9 @@ Read in the code at `ac05a78`, and in the scout's report (`scout.md` of the task
 
 1. **The one mark, and every script reads it.** Serves criteria 1, 2, 3, 4, 6, 7 (its pull
    request part) and 8. Files: `skills/lem/scripts/lem_state.py`, `skills/lem/scripts/project.py`
-   (with its `--help` text of `owner` and of the event log), `tests/lib.sh`, `tests/all.sh`, the
+   (with its `--help` text of `owner` and of the event log), `skills/lem/scripts/criteria.py`
+   (`cmd_approve`), `skills/lem/scripts/land.py` (`may_merge`), `tests/lib.sh`, `tests/all.sh`,
+   `tests/test-board.sh`, `tests/test-ask-expert.sh`, the
    unit cases in `tests/unit/` (a new case file or `test_task.py`), `tests/lem-state.sh`,
    `tests/lem-decisions.sh`, and each other block or unit case whose checks call `owner` or read
    an `owner` event from a repository's log (`grep -rn "owner away\|owner back\|\"owner\"" tests`).
@@ -68,7 +70,8 @@ Read in the code at `ac05a78`, and in the scout's report (`scout.md` of the task
      no longer ends a night (below). It still runs `decisions.py away` for its own repository
      after an `away`, and gives `tasks` and `taken` of its own repository as today. `cmd_log`
      keeps refusing an `owner` event in a repository's log.
-   - *The reads*: `cmd_waiting` gives `owner` from the mark. `read_tasks` takes the repository's
+   - *The reads*: `cmd_waiting` gives `owner` from the mark, with `seen`, the number of records
+     in it, which the watch of task 2 takes. `read_tasks` takes the repository's
      `task.mode` and `task.state` events from its log and the mark's records, and puts them in
      one list in the order of `ts`; on the same second, the repository's events come first (a
      stable sort of the repository's list followed by the mark's). The cut of an ended task at its
@@ -77,10 +80,22 @@ Read in the code at `ac05a78`, and in the scout's report (`scout.md` of the task
    - *The night*: in `runs_without_owner` a `back` ends the span that `away` started and never a
      task's own mark: a night's task runs without him until it ends, whatever his status (the
      interview, `directions.md`). The docstrings of `runs_without_owner` and `nights` say so.
-   - *The tests never touch the home directory*: `tests/lib.sh` exports `XDG_CONFIG_HOME` as a
-     folder of its own under `$WORK`, which every block sources, and `tests/all.sh` exports one
-     under its own temporary folder before it starts the suites, for the suites that do not
-     source `lib.sh` (`unit`, `test-*`). A unit case that reaches the mark sets
+   - *The readers act on the mode as it is at the act*: with the mark, another repository's
+     session can change the mode while a command of this one runs. `decisions.py` already reads
+     the mode again under its lock (`Task.add` calls `read_status`, which sets `mode`). So
+     `criteria.py` `cmd_approve` reads the task's mode again under `criteria.lock`, before its
+     `--alone` check, and `land.py` `may_merge` reads the task's record again (`lem project
+     tasks`) after the forge's answer and before its check of `mode`. The decision it sits on:
+     "every script reads the mark directly", with `decisions.py` `Task.add` as the existing code
+     it follows. Its cost: one more read of `lem project tasks` for each merge by an agent and
+     each `--alone` approval.
+   - *The tests never touch the home directory*: every file of `tests/` that makes a `WORK`
+     folder of its own exports `XDG_CONFIG_HOME` as a folder under that `WORK` on the next line:
+     `tests/lib.sh`, which every block sources, and each `test-*.sh` that sets `WORK=` itself
+     (`grep -ln '^WORK=' tests/*.sh`; today `test-board.sh` and `test-ask-expert.sh` reach the
+     mark, and a developer runs each alone, as the Checks of AGENTS.md list them). `tests/all.sh`
+     exports one under its own temporary folder before it starts the suites, for a suite with no
+     `WORK` of its own. A unit case that reaches the mark sets
      `XDG_CONFIG_HOME` to a temporary folder in its `setUp` and puts it back after, since `python3
      -B -m unittest discover -s tests/unit` runs without `all.sh`. Check, before the export,
      which suites call a real `gh`, `codex` or `claude` that reads its own settings under
@@ -108,11 +123,14 @@ Read in the code at `ac05a78`, and in the scout's report (`scout.md` of the task
    (its board part). Files: `skills/lem/scripts/project.py`, `skills/lem/scripts/board.py`,
    `skills/lem/assets/board.html`, `tests/lem-state.sh`, `tests/test-board.sh` and the fixture or
    demo data that gives the board an `owner` event (`board.py --demo`, `tests/board-showcase.py`).
-   - *The watch*: `lem project owner watch --seen SINCE`, where `SINCE` is the `since` that
-     `lem project waiting` gave as `owner.since` (or `none`). It looks at the mark once every 5
-     seconds and ends with exit 0 and the status as JSON (`away`, `since`, `words`) as soon as the
-     newest record's `ts` is not `SINCE`, at once when that is so at its start: so no change is
-     lost between Lem's read of the status and the watch's start. It is built after `lem land
+   - *The watch*: `lem project owner watch --seen N`, where `N` is the number of records in the
+     mark, which `lem project waiting` gives as `owner.seen` (0 with no mark). It looks at the
+     mark once every 5 seconds and ends with exit 0 and the status as JSON (`away`, `since`,
+     `words`, `seen`) as soon as the mark holds another number of records than `N`, at once when
+     that is so at its start: so no change is lost between Lem's read of the status and the
+     watch's start. The count is the cursor and a time is not, because a `ts` has whole seconds
+     and two records can share one; the mark is only appended to and nothing removes a line (the
+     plan's first decision), so a new record always changes the count. It is built after `lem land
      watch` (`land.py`), which a Lem session already keeps in the background, and is refused
      outside a repository like every command of `project.py`. It writes nothing to the mark.
      The interval is a guess, not a measurement, and the code says so beside it.
@@ -122,10 +140,18 @@ Read in the code at `ac05a78`, and in the scout's report (`scout.md` of the task
      `board.py` `prepare` at each run. `board.html` reads it with `readScript` in `pollFiles`
      beside `watch.js`, takes the header's `away` from its newest record, and no longer from the
      `owner` events of `events.js`. A missing `owner.js` is no problem: he is there.
+   - *Which board criterion 7 covers*: the board of a repository where Lem's session runs, as
+     the task's outcome says ("every repository on this machine where Lem runs a task"). That
+     session keeps the watch, so `owner.js` there is written again at each change of the mark. A
+     board of a repository where no Lem session runs shows the mark as of its last `lem board`,
+     and no task builds there: a lead and a builder are subagents of Lem's session. A copy that
+     one writer replaced with an older read is written again at the watch's next start, which Lem
+     makes after each end.
    - *Tests that hold the criteria*: the watch, started in the second repository with the
-     `since` it read, ends within 15 seconds after `away` in the first, with `away` true and that
+     `seen` it read, ends within 15 seconds after `away` in the first, with `away` true and that
      record's `ts`, and the second repository's `owner.js` then holds the record (5, and the board
-     part of 7); started with a `since` that is no longer the newest, it ends at once. The board
+     part of 7); started with a `seen` that is no longer the count, it ends at once; an `away` and
+     a `back` written in the same second end it too. The board
      test gives the page an `owner.js` with an `away` record and an `events.js` with no `owner`
      event, and the header says "You are away since" (7), where headless Chrome runs.
 
@@ -140,14 +166,24 @@ Read in the code at `ac05a78`, and in the scout's report (`scout.md` of the task
    - The mark is the machine's: his `/lem im-away` and `/lem im-back` in any repository hold in
      every repository on this machine, and a repository has no status of its own.
    - Lem's session keeps one watch of the mark in the background, from its start, never two:
-     before it starts one, it reads `owner.since` of `lem project waiting` and passes it as
+     before it starts one, it reads `owner.seen` of `lem project waiting` and passes it as
      `--seen`. Its end wakes Lem. An end with `away`: Lem takes steps 2 to 5 of "Away" in
      `stages/away.md`, as if he had typed it here, after `lem decisions away` for this repository
      in place of step 1, with the words of the mark for what the record needs. An end with
-     `back`: the lines of "Back". Then it starts the watch again with the new `since`. The steps
+     `back`: the lines of "Back". Then it starts the watch again with the new `seen`. The steps
      act on what waits now, so an end for a status that this session wrote itself does no harm:
      what was settled waits no more.
    - A session that starts while the mark says away takes the same steps once.
+   - The session that `/lem night` started keeps no watch of the mark and takes no steps of
+     `stages/away.md` on it: every task it opens runs without him whatever the mark says
+     (`directions.md`), and a task of the day is the day session's to act on. So two Lem
+     sessions of one repository never both act on one change of the mark.
+   - `stages/away.md` step 2 takes a task `held` with the line `the criteria wait for the owner`
+     and nothing after it. A task whose line is `the criteria wait for the owner: the small
+     change is a full change` goes on with an interview (`stages/new.md`, "When it stops"), so
+     while he is away it takes step 3, the interview without him: its `criteria.md` says
+     `Size: small`, which `criteria.py approve --alone` refuses. This step of `away.md` already
+     reads every task `held` this way today; the watch only runs it more often.
    - A night's task runs without him until it ends, and his `back` does not change it.
    - A stage file has no test (AGENTS.md, "Checks"); the commit names this task.
 
@@ -208,7 +244,12 @@ repository's: an `away` with the words "dnd" at 10:06:08Z and a `back` at 12:20:
 in one of those spans and has not landed (`status-boards-steady-look`, building) would then show
 no such span in its pull request. The maintaining session copies those events into the mark, in
 the order of their `ts`, before the merge, by hand, as AGENTS.md has it for a change of a record's
-form.
+form. On 2026-11-19 at 14:19 UTC only this repository's log held `owner` events: 2 in
+`lem/.lem/state/events.jsonl`, 0 in `mybaze` and 0 in `sandbox/lem-scratch` (`grep -c '"event":
+"owner"'` on each log). So the copy is those two lines, and no two histories are merged. The
+session counts again before the merge; when another log holds `owner` events by then, it copies
+only the log of the repository whose open task needs its spans, and says in the pull request
+which spans the other repositories' open tasks lose.
 
 ## Not verified
 
