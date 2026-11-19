@@ -480,3 +480,7 @@ Each is logged with `--by lead` in `lem decisions list interview-in-a-companion`
 - The whole path in a real run: two asks in Lem's session, two interviews at once, a yes in each,
   a choice in a companion. No test of a script holds it; it is the stage files' test, after the
   merge.
+
+## The bar
+
+- tests/test-board.sh: two checks expect lines of the page that hold curly quotes (“…”), which ShellCheck reads as a mistyped quote (SC1111). The quotes are the page's own text, so each check carries `# shellcheck disable=SC1111`, as the other checks of the file that read the page do.
