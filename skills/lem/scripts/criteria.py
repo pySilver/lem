@@ -282,12 +282,30 @@ def against(read: dict, changes: dict, name: str, slug: str) -> None:
         raise CriteriaError(f"{name} lacks criterion {len(now) + 1}, {expected[len(now)]!r}, which the expected criteria hold. {fix}")
 
 
+def project_now(repo: Path) -> tuple[dict, list[dict], Path]:
+    """The settings, every task as the state files say now, and the state folder, with the settings
+    loaded once and handed to the functions of `project.py` that need them."""
+    path = SCRIPTS / "project.py"
+    if not lem_sibling.in_form(path):
+        # a stand-in in project.py's place (a test's copy of the scripts) answers each command as a process
+        settings = json.loads(script("project.py", repo, "show"))
+        if settings["settings"] is None:
+            raise CriteriaError("this repository has no .lem/project.toml; `/lem init` writes it")
+        return settings, json.loads(script("project.py", repo, "tasks")), Path(script("project.py", repo, "state-dir").strip())
+    project = lem_sibling.module(path)
+    try:
+        root = project.repo_root(repo)
+        settings = project.load(root)
+        if settings["settings"] is None:
+            raise CriteriaError("this repository has no .lem/project.toml; `/lem init` writes it")
+        return settings, project.read_tasks(root, settings), project.state_root(root)
+    except project.SettingsError as error:
+        raise CriteriaError(str(error)) from error
+
+
 class Task:
     def __init__(self, repo: Path, slug: str) -> None:
-        self.settings = json.loads(script("project.py", repo, "show"))
-        if self.settings["settings"] is None:
-            raise CriteriaError("this repository has no .lem/project.toml; `/lem init` writes it")
-        tasks = json.loads(script("project.py", repo, "tasks"))
+        self.settings, tasks, state = project_now(repo)
         record = next((task for task in tasks if task["slug"] == slug), None)
         if record is None:
             raise CriteriaError(f"no task {slug!r}; the tasks are: {', '.join(task['slug'] for task in tasks) or 'none yet'}")
@@ -297,7 +315,7 @@ class Task:
         self.main = Path(self.settings["main"])
         root = Path(self.settings["root"]).resolve()
         self.worktree = self.main / Path(self.settings["places"]["worktrees"]["path"]).relative_to(root) / slug
-        self.directory = Path(script("project.py", repo, "state-dir").strip()) / "tasks" / slug
+        self.directory = state / "tasks" / slug
         self.plans = self.worktree / Path(self.settings["paths"]["plans"]["path"]).relative_to(root)
         self.approved_file = self.directory / "criteria.json"
         # the one criterion of a task on the fast track, with its test line: it has no plan, and no commit holds this file
