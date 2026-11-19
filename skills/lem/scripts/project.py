@@ -848,13 +848,24 @@ def load(root: Path) -> dict:
     else:
         # in a task's worktree the file is the branch's copy
         raw = read_settings(file, SETTINGS, tuple(TABLES))
+    local = read_settings(main / LOCAL, LOCAL, LOCAL_TABLES)
+    on_base = raw if main.resolve() == root.resolve() else base_raw()
+    return decide(root, main, raw, local, on_base, committed)
+
+
+def decide(root: Path, main: Path, raw: dict, local: dict, on_base: dict, committed: dict | None) -> dict:
+    """The settings from the tables `load` read: the tracked file's (`raw`, the branch's copy in a
+    task's worktree), this machine's own file's, and the base branch's copy (`on_base`, the same
+    table as `raw` in the main checkout), with `committed` the commit of the base it came from, or
+    None for the working tree. Every value is checked here; it refuses with a SettingsError."""
+    file = root / SETTINGS
     local_file = main / LOCAL
-    local = read_settings(local_file, LOCAL, LOCAL_TABLES)
+    base_file = Path(f"{committed['branch']}:{SETTINGS}") if committed else main / SETTINGS
     # What must never go wrong, and the owner's wait, are the base branch's: the branch that a
     # rule guards does not get to lift it. The branch's own table is still checked.
     flow = flow_of(raw, SETTINGS)
     if main.resolve() != root.resolve():
-        flow = flow_of(base_raw(), base_file)
+        flow = flow_of(on_base, base_file)
     overridden = []
 
     paths = {}
@@ -943,7 +954,7 @@ def load(root: Path) -> dict:
     # branch's too: a task's branch that switches them on has not been agreed to yet.
     naps = naps_of(raw, SETTINGS)
     if main.resolve() != root.resolve():
-        naps = naps_of(base_raw(), base_file)
+        naps = naps_of(on_base, base_file)
     if local_naps_off(local):
         if naps["on"]:
             overridden.append("naps.on")
