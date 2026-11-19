@@ -123,8 +123,7 @@ Decisions the owner took on 2026-11-14. Each is reopened only by asking him. A q
   approval and always runs. The form is
   the session's design: his word is the decision `decisions.py log SLUG --by owner --what "the
   personas' read of the criteria" --chose "no read: the criteria name only the developer"`, with his
-  answer in `--why` (the texts an older Lem wrote with "stories" still count for a task it took that
-  far); `land.py` (`READ_SKIP`) takes a full change with no `criteria.read` only when an
+  answer in `--why`; `land.py` (`READ_SKIP`) takes a full change with no `criteria.read` only when an
   approval of his follows that decision and both come before the first state that names a lead
   (`lead: builder` or `lead: session`), which is how the script tells an interview from a
   complete request, and its checks then say "the criteria: not read by the personas, on his word (DATE); he
@@ -883,7 +882,7 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   the criteria and no polish pass was asked: the probe's plan went through the gate, the read and
   `propose` green, and `land --by agent` landed it. A one-rule ask is a small change, with its
   criterion in the task directory, approved by Lem with `--small`. `criteria.py` and `land.py` refuse a
-  plan file that says `Size: small` (or `Kind: correction`, the line of an older Lem), and a night that meets an item that is one plain change drafts no plan and
+  plan file that says `Size: small`, and a night that meets an item that is one plain change drafts no plan and
   names it in the night report as ready to start as a small change.
 - **The checks remove what their own commands leave** (R3, the first run). `python3 -m unittest`
   left two `__pycache__` folders in a repository with no `.gitignore`, the gate refused the tree,
@@ -992,8 +991,7 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
   a decision, the three tries. The sentences above that describe them ("A night plan asks no such
   decision", "a night that meets an item that is one plain change drafts no plan", "a report of
   that night ... that names a draft still `drafted`") and `settle --away` in his ruling on the
-  experts tell the form before. A task `drafted` by an older night still shows in the list and
-  can be approved or rejected. The brake counts a night's pull requests that nobody merged or
+  experts tell the form before, and the state `drafted` is gone with it. The brake counts a night's pull requests that nobody merged or
   closed: with two or more, the night opens nothing.
 
 ## Checks
