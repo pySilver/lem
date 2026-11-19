@@ -1124,12 +1124,16 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
 - `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both. The
   board of all tasks has the tabs "Tasks", "Waits for you" (a row for each thing the owner does)
   and "Backlog" (the items in groups by their own `worth`); the board of one task has "Overview"
-  (green or not green first), "Criteria and decisions", "Checks and review" and "Timeline". A tab
-  hides the other panels and removes none. `lem.css` beside it is the look every page of Lem
-  shares, a small design system: Lem's own light and dark palettes, its type, its header, and one
-  button, card, tab bar and chip. `lem.js` beside them sets the palette mark from the
-  `color-scheme` that agterm's theme stylesheet puts on the page, or from the system's setting
-  outside agterm. `handover.html` is the pattern of the onboarding's page. A new page for the
+  ("What we are building", then green or not green), "Criteria and decisions" (each decision a
+  folded row, the important ones marked and first), "Checks and review" and "Timeline". A tab
+  hides the other panels and removes none. The page draws the files beside it: `events.js`, which
+  `project.py` appends to, and `meta.js`, `backlog.js` and `overview.js` (each task's outcome from
+  its `task.md`, and the backlog items its branch adds), which `board.py` writes. `lem.css` beside
+  it is the look every page of Lem shares, a small design system in the look of Lem's landing page
+  (`site/style.css`): Lem's own warm light and dark palettes with the ochre accent, body text at
+  16 px, monospace eyebrows for the small labels, its header, and one button, card, tab bar and
+  chip. `lem.js` beside them sets the palette mark from the `color-scheme` that agterm's theme
+  stylesheet puts on the page, or from the system's setting outside agterm. `handover.html` is the pattern of the onboarding's page. A new page for the
   owner links `lem.css` and `lem.js` and brings no style of its own.
 - `skills/lem/templates/`: the shapes onboarding fills, and `page-brief.md`, the brief of the owner's
   page of a task on the standard track.

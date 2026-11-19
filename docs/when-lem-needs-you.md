@@ -26,7 +26,7 @@ Say "open them" to approve, reject or delay each one.
 
 The board of all tasks has three tabs: **Tasks**, in lanes by who acts next; **Waits for you**, a
 row for each thing that you do; and **Backlog**, with "Start a task" on each item.
-`/lem status <task>` opens the board of one task, with green or not green first.
+`/lem status <task>` opens a task's board: what it builds, then green or not green.
 
 <p align="center">
   <picture>
