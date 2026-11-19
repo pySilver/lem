@@ -534,25 +534,51 @@ def script(name: str, repo: Path, *args: str, check: bool = True) -> subprocess.
     return ran
 
 
+def project_now(repo: Path) -> tuple[dict, list[dict], Path]:
+    """What a landing reads of the repository before its step: the main checkout's settings, every
+    task as the state files say now, and the state folder. Refused before anything else: settings
+    that do not read, no settings file, and what `may-land` refuses (a protected branch, a missing
+    base, a wrong target). The settings are loaded once and handed to the functions of `project.py`
+    that need them; nothing git answered is kept past this one call."""
+    path = SCRIPTS / "project.py"
+    if not lem_sibling.in_form(path):
+        # a stand-in in project.py's place (a test's copy of the scripts) answers each command as a process
+        settings = json.loads(script("project.py", repo, "show").stdout)
+        if Path(settings["root"]).resolve() != Path(settings["main"]).resolve():
+            settings = json.loads(script("project.py", Path(settings["main"]), "show").stdout)
+        if settings["settings"] is None:
+            raise LandError("this repository has no .lem/project.toml; `/lem init` writes it")
+        script("project.py", repo, "may-land", str(settings["branch"]["base"]))
+        return settings, json.loads(script("project.py", repo, "tasks").stdout), Path(script("project.py", repo, "state-dir").stdout.strip())
+    project = lem_sibling.module(path)
+    try:
+        root = project.repo_root(repo)
+        here = project.load(root)
+        settings = here
+        if root.resolve() != Path(here["main"]).resolve():
+            # Run from a task's worktree, the landing still reads the main checkout's settings: the
+            # branch it lands does not get to choose its checks or what is careful. The worktree's own
+            # load stays, for what only it answers: it refuses a branch whose settings do not read,
+            # and `may-land` and the tasks' tracker read the branch's tables there, as their commands do.
+            settings = project.load(Path(here["main"]))
+        if settings["settings"] is None:
+            raise LandError("this repository has no .lem/project.toml; `/lem init` writes it")
+        project.may_land(here, str(settings["branch"]["base"]))
+        return settings, project.read_tasks(root, here), project.state_root(root)
+    except project.SettingsError as error:
+        raise LandError(str(error)) from error
+
+
 class Task:
     """One task as the landing needs it: its settings, its worktree, its branch and what it kept."""
 
     def __init__(self, repo: Path, slug: str) -> None:
-        self.settings = json.loads(script("project.py", repo, "show").stdout)
-        if Path(self.settings["root"]).resolve() != Path(self.settings["main"]).resolve():
-            # Run from a task's worktree, the landing still reads the main checkout's settings:
-            # the branch it lands does not get to choose its checks or what is careful.
-            self.settings = json.loads(script("project.py", Path(self.settings["main"]), "show").stdout)
-        if self.settings["settings"] is None:
-            raise LandError("this repository has no .lem/project.toml; `/lem init` writes it")
+        self.settings, tasks, state = project_now(repo)
         self.slug = slug
         self.base = self.settings["branch"]["base"]
-        # Refused here, before anything else: a protected branch, a missing base, a wrong target.
-        script("project.py", repo, "may-land", str(self.base))
-        tasks = json.loads(script("project.py", repo, "tasks").stdout)
         self.repo = repo
         self.read_states(tasks)
-        self.directory = Path(script("project.py", repo, "state-dir").stdout.strip()) / "tasks" / slug
+        self.directory = state / "tasks" / slug
         # -z: a NUL ends each field and an empty field ends each worktree, so a path with a line break stays whole
         listed = run(["git", "-C", str(repo), "worktree", "list", "--porcelain", "-z"]).stdout
         entries = [block.split("\0") for block in listed.split("\0\0") if block.strip("\0")]

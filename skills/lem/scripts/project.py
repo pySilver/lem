@@ -1015,6 +1015,12 @@ def cmd_plan_file(settings: dict, slug: str, day: str | None, key: str = "plan_f
 
 def cmd_may_land(settings: dict, target: str) -> None:
     """Exit 1 unless TARGET is the branch this project's tasks land on."""
+    print(may_land(settings, target))
+
+
+def may_land(settings: dict, target: str) -> str:
+    """What `may-land` says of TARGET with these settings, or its refusal as a SettingsError. The
+    landing calls it with the settings it loaded; whether the branch exists is asked of git each time."""
     branch = settings["branch"]
     if target in branch["protected"]:
         raise SettingsError(f"{target!r} is protected in {SETTINGS}: nothing lands on it or is pushed to it")
@@ -1025,7 +1031,7 @@ def cmd_may_land(settings: dict, target: str) -> None:
     found = subprocess.run(["git", "-C", settings["root"], "rev-parse", "--verify", "--quiet", f"refs/heads/{target}"], capture_output=True, text=True, check=False)
     if found.returncode != 0:
         raise SettingsError(f"branch.base = {target!r} is no branch of this repository; correct it in {SETTINGS}, or make the branch first")
-    print(f"{target}: tasks land here; the {branch['land']} lands")
+    return f"{target}: tasks land here; the {branch['land']} lands"
 
 
 def default_branch(root: Path) -> str | None:
@@ -1976,7 +1982,9 @@ def track_of(text: str) -> str | None:
     return None
 
 
-def read_tasks(root: Path) -> list[dict]:
+def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
+    """Every task of the repository as its state files say now. `settings` is `load(root)` when the
+    caller read it already; only a task with a ticket needs them."""
     tasks = []
     talks = newest_events(root, "plan.talk")
     investigations = newest_events(root, "investigation")
@@ -2033,7 +2041,7 @@ def read_tasks(root: Path) -> list[dict]:
         })
     if any(task["ticket"] for task in tasks):
         # only a project with a ticket needs its settings here; a broken settings file then stops this, loudly
-        tracker = load(root)["tracker"]
+        tracker = (settings or load(root))["tracker"]
         for task in tasks:
             if task["ticket"]:
                 task["ticket_owed"] = ticket_owed(task["status"], task["ticket_steps"], tracker)
@@ -2046,7 +2054,7 @@ def cmd_may_start(settings: dict, root: Path, slug: str) -> None:
     start: by day each start is the owner's own request (the owner, 2026-11-18: "Why block him?"),
     and a night works its items one after another."""
     task_directory(root, slug)
-    tasks = read_tasks(root)
+    tasks = read_tasks(root, settings)
     status = next((task["status"] for task in tasks if task["slug"] == slug), None)
     if status in ENDED:
         raise SettingsError(f"the task {slug!r} is {status}: an ended task gets no lead, and new work for it is a new ask (`/lem new`) with a slug of its own")
