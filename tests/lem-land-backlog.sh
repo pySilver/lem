@@ -41,21 +41,6 @@ if [ "$added" = none ] && [ "$edited" = review ] && [ "$removed" = review ]; the
 else
   fail "backlog items after a review: $added / $edited / $removed"
 fi
-# A review names each defect it saw outside the change, and `lem land file` files each one as an item
-# of the backlog: a count of them is no record, and is refused; 0 is no defect.
-blg_task outside-form
-checked_in "$BLG" outside-form
-counted=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 2}')" 2>&1 >/dev/null || true)
-unnamed=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": [{"where": "app.txt"}]}')" 2>&1 >/dev/null || true)
-none=$(land --repo "$BLG" read outside-form --record "$(record 1 '{"kind": "read", "answered": ["codex"], "outside": 0}')" | field '(d["recorded"]["outside"], d["to_file"])')
-if grep -q '.outside. is the list of the defects' <<<"$counted" && grep -q '"where"' <<<"$counted" && grep -q '.outside. is the list of the defects' <<<"$unnamed" \
-  && [ "$none" = "([], [])" ]; then
-  pass "a record names each defect outside the change, with where, title and what: a count is refused, and 0 is no defect"
-else
-  fail "the form of the outside defects: $counted / $unnamed / $none"
-fi
-project --repo "$BLG" state outside-form dropped "the test is over" >/dev/null
-
 # Two rounds that saw two different defects give two items, each filed by the script in a commit of
 # its own; a second run files nothing; propose waits for each one, and the pull request names them.
 A='{"where": "src/json.py:parse", "title": "Empty input crashes the parser", "what": "parse with an empty string raises IndexError, on the base commit too."}'

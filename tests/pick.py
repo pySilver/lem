@@ -5,7 +5,8 @@
                                           and the files git does not track yet
     python3 tests/pick.py --check         the map's own check, a suite of tests/all.sh
 
-It prints one command for each suite to run, `bash tests/NAME.sh`, then `bash tests/shellcheck.sh`
+It prints one command for each suite to run, `bash tests/NAME.sh` (the unit level's is
+`python3 -B -m unittest discover -s tests/unit`), then `bash tests/shellcheck.sh`
 with the suite files that changed, and lines that start with `#` for what it found: a file no
 suite reads is named with "nothing reads it", and a file the map does not know runs the whole
 suite (`bash tests/all.sh`). The Chrome suites, test-board and test-ask, run only for their own
@@ -31,15 +32,18 @@ TESTS = ROOT / "tests"
 
 # The name that runs everything: a change to how the suites run is checked by a run of them all.
 EVERYTHING = "all"
-# The suites that are not a file tests/NAME.sh of their own.
-COMMANDS = {"pick": "python3 tests/pick.py --check", EVERYTHING: "bash tests/all.sh"}
+# The suites that are not a file tests/NAME.sh of their own: the map's check, and the unit level,
+# one file for each script in tests/unit/, which tests/all.sh runs as `python3 -B tests/unit`.
+COMMANDS = {"pick": "python3 tests/pick.py --check", "unit": "python3 -B -m unittest discover -s tests/unit", EVERYTHING: "bash tests/all.sh"}
 CHROME = ("test-board", "test-ask")
 
 # (the files, the suites that read them). A file pattern is fnmatch's over the path from the root,
 # where `*` also crosses a `/`; a suite may be a pattern over the suites' names. A row with no suite
 # names files nothing reads. A suite's own file, tests/NAME.sh, runs that suite and is in no row.
 MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
-    # Lem's scripts, and the suites that run them, directly or through a script that calls them.
+    # Lem's scripts, and the suites that run them, directly or through a script that calls them. The
+    # unit level calls their functions, and every file of it is its own.
+    (("skills/lem/scripts/*", "tests/unit/*"), ("unit",)),
     (("skills/lem/scripts/project.py", "skills/lem/scripts/lem_state.py", "skills/lem/scripts/lem_plans.py"),
      ("lem-*", "test-ask-expert", "test-gate-panel")),
     (("skills/lem/scripts/lem_sibling.py", "skills/lem/scripts/decisions.py", "skills/lem/scripts/criteria.py"),
@@ -74,9 +78,9 @@ CHROME_OWN = {"test-board": ("skills/lem/scripts/board.py", "skills/lem/assets/*
 
 
 def suites() -> list[str]:
-    """Every suite there is: each tests/lem-*.sh and tests/test-*.sh but test-lem.sh, which runs the blocks; shellcheck; pick."""
+    """Every suite there is: each tests/lem-*.sh and tests/test-*.sh but test-lem.sh, which runs the blocks; shellcheck; pick; unit."""
     found = sorted(path.stem for pattern in ("lem-*.sh", "test-*.sh") for path in TESTS.glob(pattern) if path.stem != "test-lem")
-    return [*found, "shellcheck", "pick"]
+    return [*found, "shellcheck", "pick", "unit"]
 
 
 def expand(names: tuple[str, ...], known: list[str]) -> set[str]:
