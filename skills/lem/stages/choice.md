@@ -31,8 +31,9 @@ choice that is no irreversible step, and an irreversible one opens at `/lem im-b
    the ladder answered (`said`), and the experts' answers when the record holds them (`advice`),
    with the experts named in a few words from the settings' `seats.experts`; then what the choice
    is, the options, and the ladder's pick (`recommended`) with its reason. The choice waits for his
-   answer with no time limit, and the rest of the task goes on; say so, and that his "away" takes
-   the ladder's pick and the pull request is then not green for it. Say too how it opens again
+   answer with no time limit, and the rest of the task goes on; say so, and that his "away", typed
+   in any repository on this machine, takes the ladder's pick and the pull request is then not
+   green for it. Say too how it opens again
    when he closes the card with no answer: its row in the board's "Waits for you", or `/lem` in
    Lem's session, by the name the sidebar shows; such a close takes nothing, and the choice still
    waits. The levels ran before the card, so none runs again here, unless he asks for all
@@ -57,4 +58,6 @@ choice that is no irreversible step, and an irreversible one opens at `/lem im-b
    is written down the same way, and the script says it is late: what was taken stands. When
    the answer differs from it, it is his correction: tell the lead while the task builds, and
    after that it is a new ask. The pull request names it either way.
-4. **When he leaves or comes back** (`/lem im-away`, `/lem im-back`): `stages/away.md`.
+4. **When he leaves or comes back** (`/lem im-away`, `/lem im-back`), here or in another
+   repository on this machine, where only the end of the watch of his mark tells you:
+   `stages/away.md`.
