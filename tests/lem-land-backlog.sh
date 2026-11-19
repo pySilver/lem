@@ -102,7 +102,7 @@ if [ "$first" = "('review', [(1, 'Empty input crashes the parser'), (1, 'An item
   && [ "$(sed -n 6p "$item_d")" = "# An item from before" ] \
   && grep -qx "parse of a document with no root returns None, on the base commit too." "$item_d" \
   && grep -qxF -e "Seen outside the change by review round 1 of task two-defects ($day_from); the base commit has it." -e "Seen outside the change by review round 1 of task two-defects ($day_to); the base commit has it." "$item_d" \
-  && grep -qF '(one read; answered: codex): must-fix, 1 must-fix, 0 should, 0 nit; it saw 2 defects outside the change, filed as `docs/backlog/empty-input-crashes-the-parser.md`, `docs/backlog/an-item-from-before-json-parse.md`' "$text" \
+  && grep -qF "(one read; answered: codex): must-fix, 1 must-fix, 0 should, 0 nit; it saw 2 defects outside the change, filed as \`docs/backlog/empty-input-crashes-the-parser.md\`, \`docs/backlog/an-item-from-before-json-parse.md\`" "$text" \
   && grep -qF "it saw 4 defects outside the change, filed as \`$item_b\`" "$text" \
   && [ "$logged" = "[['docs/backlog/empty-input-crashes-the-parser.md', 'docs/backlog/an-item-from-before-json-parse.md'], ['$item_b', 'docs/backlog/an-item-from-before-json-parse-2.md', 'docs/backlog/empty-input-crashes-the-parser.md', 'docs/backlog/an-item-from-before-json-parse.md'], ['$item_b']]" ]; then
   pass "two rounds that saw defects outside the change give their items in the backlog's format, each round's committed alone by land.py file; a second run files nothing; propose waits for each, and the pull request names each item"
