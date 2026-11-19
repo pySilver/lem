@@ -83,7 +83,9 @@ Read in the code at `28d3c81`:
      more than three times `last_seconds`; `say`, the one line for the owner when they are overdue
      ("SLUG: the checks run for 14 min, three times their last run of 4 min 26 s; \"stop the
      checks\" stops them"); and `ended`, the newest `gate.end` of this task (its time, its tip,
-     its `result` and its `say`), or null. A look at the lock never makes a real start fail: read
+     its `result`, its `say`, and `resumed`, the line for a session that did not start the run:
+     "SLUG: its last run of the checks ended at TIME, RESULT; the landing goes on from its first
+     step, as after a cut-off"), or null. A look at the lock never makes a real start fail: read
      the process id from the file and test the lock without holding it in a way a start meets.
    - *`--stop`.* `lem land checks SLUG --stop` sends SIGTERM to the process the lock names, only
      while the lock is held by `checks`, waits until the lock is free, and prints whether it
@@ -128,8 +130,12 @@ Read in the code at `28d3c81`:
      step 9, that path's read and its `propose` with the last proposal's title); `red` or
      `refused`, the repair builder, as step 4 says today; `stopped`, nothing, since the word that
      stopped it (a drop, a track change, "stop the checks") says what comes next. A session that
-     did not start the run (one that started after it) says the `say` of `ended` once and takes
-     the landing up by the stage's rule for a session before it that was cut off. A step of the
+     did not start the run (one that started after it) says the `resumed` line of `ended` once,
+     never the run's own `say`, whose next step was that of the session that saw the run end, and
+     takes the landing up by the stage's rule for a session before it that was cut off. Criterion
+     2's "as the step printed them" is the line of the session that saw the run end; the
+     `resumed` line is for a session that did not, so that no line names a next step that is not
+     the landing's next step now. A step of the
      task that the step lock refuses while the checks run is not sent again: it waits for their
      end. `start`, `base`, `read` and `propose` stay in the foreground: they are short (not
      measured), and only the checks are named in the criteria. While the checks run, at each of
@@ -237,6 +243,8 @@ The list, as the reviewer gave it, and how each question ended:
      wait on a short step.
    - the reviewer's position: the plan itself admits a second session at this step (criterion
      7), and nothing ties the id to the current holder, so the signal is not safe as designed.
+   - the ladder: the gate judged it cheap (a reversal stays inside `land.py`, and no developer
+     sees either difference), so the kept decision stands (`lem decisions list`, decision 6).
 4. **A session that did not start the run cannot tell which result to act on, nor whether its
    next step already ran.** The end of a run was repaired at the cause: `gate.end` with `result`
    (`passed`, `red`, `refused`, `stopped`), `seconds`, `tip` and `say`; task 2 acts by `result`
@@ -250,6 +258,11 @@ The list, as the reviewer gave it, and how each question ended:
      lines 301 to 305; `board.html` reads it).
    - the reviewer's position: the line a new session says can name a next step that is not the
      next step of the landing as it is now.
+   - the ladder: the gate judged it checkable by the rule "Lem owns the truth of its words"
+     (`AGENTS.md`, "Lem is a companion, not a gate"), which the kept line breaks; so task 1's
+     `ended` has a `resumed` line, and task 2 has a session that did not start the run say that
+     line, which names the result as past and the next step as it is now (`lem decisions list`,
+     decision 7).
 5. **The continuation after a green end of a task brought onto the base in step 9.** Settled:
    task 2 sends a passed end to the step after the checks in the path that ran them; for a session
    that did not start the run, the cut-off rule is the scope, and `synced`, `title` and
