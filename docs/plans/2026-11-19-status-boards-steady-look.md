@@ -143,6 +143,93 @@ Each task is built by a fresh builder in the worktree, in this order: all four e
    `docs/when-lem-needs-you.md`, `skills/lem/SKILL.md`, `AGENTS.md`,
    `docs/backlog/board-as-a-tabbed-interface.md`.
 
+## Plan talk
+
+Argued on 2026-11-19 in the task's companion session: the reviewer was Codex, GPT 6.2 Sol at high
+effort, as its pane's status line showed (a fresh pane, 5% of its context used); the defender
+was Claude Code, Opus 5.5 at high effort, as the task's state gives (`defender: Opus 5.5, high`).
+Two families. 7 turns, 5 questions, under the bound of 22 that the rules give for 5 questions.
+
+The list, as the reviewer gave it in its first turn:
+
+1. **Decision 4, the reasons of "not green": a `decision N` line and a night's choice.** The plan
+   replaced every line that begins with `choice N ` or `decision N `, but gave words only for a
+   `timeout` choice, and a night's task takes its choice at once while the owner's status is
+   there, so "while you were away" would be false. Repaired once (only `choice N ` lines are
+   replaced; "while you were away" only when the newest `owner` event before the choice's time
+   says away, else "while the task ran without you"). The reviewer: `holds, layer over D4`: the
+   `owner` event and the choice that `cmd_away` takes share one whole second (`project.py`
+   `append_event`, `decisions.py` `stamp`), so "strictly before" misses the away that caused
+   the choice. The defender checked it and had no refutation. **A design choice**: the plan's
+   rule (the newest `owner` event strictly before the choice's time), against the reviewer's
+   (an `owner` event of the same second counts too). Taken up after the talk by `stages/plan.md`,
+   step 5; its outcome is in the task's decisions.
+2. **Decision 5, "Waits for you": one action counted twice, and a merge verb on a conflicting
+   request.** A task `held` with "choice N waits for the owner" is the same action as its choice,
+   and `watch.js` can call an open request `CONFLICTING`. Repaired once (one row for a held task
+   whose choice waits, as `buildBanners` does; a request that `watch.js` calls `CONFLICTING`
+   gets no merge verb). The reviewer: `holds, layer over D5`: after Lem repairs the conflict
+   and proposes again, `watch.js` still says `CONFLICTING` for the old head until the next watch
+   looks, which with two conflicting requests is the length of the second repair (`stages/land.md`,
+   step 9, starts the watch again last); `cmd_watch` records each entry's `head`, and
+   `project.py` `proposal` checks it. The defender checked it and had no refutation. **A design
+   choice**: the plan's rule (`CONFLICTING` in `watch.js`), against the reviewer's (only when
+   the entry's `head` is the head of the newest proposal, the `tip` of its `proposed` event).
+   Taken up after the talk by `stages/plan.md`, step 5.
+3. **Decision 3, the palette's cutoff.** The middle of relative luminance does not match
+   agterm's own light or dark: the installed Desert Morning, `#d8b590`, falls under it while
+   agterm calls it light. Settled: decision 3 changed, so that `lem.js` takes the `color-scheme`
+   agterm's theme stylesheet sets on `html` (`HtmlOverlayTheme.stylesheet`,
+   `ThemeBrightness.isDark`) and Lem computes no luminance; a changed theme reloads the file page
+   (`applyTheme`). The reviewer: `closed, at the cause`. Settled by the two, not checked by the
+   review.
+4. **Decision 2, the redraw: a selection in the backlog and a check that reads hidden text.**
+   The plan drew every panel on every redraw, and the `SHOWN` helper of `test-board.sh` reads
+   text under `hidden`. Repaired once (each panel keeps its redraw of today, the backlog by
+   `blDrawn`; each check of what a tab shows skips text under `hidden`). The reviewer: `holds,
+   layer over D2`: when Lem's session goes back to the shell, `agentRuns(lemNow)` in the
+   backlog's key changes, `renderBacklog` replaces the whole group, and a selected sentence of an
+   item's body is lost on that draw. The defender refuted it: that draw changes what each item
+   shows ("Start a task" becomes "No agent runs in Lem's session now…", `board.html` lines
+   2082-2083), and criterion 4 names the redraw of every second. The reviewer: `holds` a second
+   time: the draw comes from the `setInterval(render, 1000)` call, and the criterion gives no
+   exception for a changed action text beside the selection. **A design choice**: the plan's
+   rule (the backlog drawn again whole when what it shows changed, `agentRuns` included),
+   against the reviewer's (a selection survives that draw too). Taken up after the talk by
+   `stages/plan.md`, step 5.
+5. **Task 2, cards of one height: what shows when a task builds while a long choice waits.**
+   `cardLine` puts the choice's text in the place of the state, `.tc-text` cuts it after two
+   lines, and `tags` adds a badge for each further choice. Settled: task 2 gives the card a fixed
+   order of rows (a state line never replaced, one wait mark, the choice's text in the hover and
+   in its row) and lanes of equal rows (`grid-auto-rows: 1fr`), with a test of that input. The
+   reviewer: `closed, at the cause`. Settled by the two, not checked by the review.
+
+Mechanisms a repair added, with the decision each sits on and the reviewer's word:
+
+- the away test of a choice's plain line (question 1): a layer over decision 4, which rests on
+  criterion 5's words and the `owner` events the board reads; `holds`, a design choice.
+- the row of a conflicting request with no merge verb (question 2): a layer over decision 5,
+  which rests on `cmd_waiting` and `watch.js`; `holds`, a design choice.
+- the check of what a tab shows that skips text under `hidden` (question 4): a layer over
+  decision 2, which rests on the owner's direction "No information goes away" and `render()`;
+  the reviewer called the check itself an answer to the false pass, and the question held on the
+  selection.
+- the read of agterm's `color-scheme` by `lem.js` (question 3): at the cause, decision 3 changed.
+- the fixed rows of a card and the lane of equal rows (question 5): at the cause, task 2 changed.
+
+No question was raised after the first turn. No addition was refused as unpriced.
+
+What changed in the plan, by question and by task: task 1 takes agterm's `color-scheme` and puts
+agterm's stylesheet into its tests, with `#d8b590` (question 3); task 2 has the card's fixed
+rows, one wait mark and lanes of equal rows, and its test of a long choice (question 5); task 3's
+check of the line of criterion 5 skips hidden text (question 4); task 4's pictures give dark by
+agterm's stylesheet (question 3); decision 2 keeps each panel's redraw of today and names the
+hidden-aware check (question 4); decision 3 is the palette agterm chose (question 3); decision 4
+replaces only `choice N ` lines and says "while you were away" only for an away span
+(question 1); decision 5 counts a held task with a waiting choice once and gives a conflicting
+request no merge verb (question 2); "What this plan will not verify" names agterm's stylesheet
+and its reload as read in its source (question 3).
+
 ## Decisions the plan takes
 
 1. **Four tasks, one after another.** The two boards are two outcomes with criteria of their own,
