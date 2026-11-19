@@ -11,7 +11,7 @@ A pull request is not green when one of these is true:
 - your tests got less strict (the bar went down), even with a reason in the plan;
 - the review left a must-fix after two rounds, or no reviewer answered;
 - a criterion changed during the build;
-- Lem took a decision of yours while you were away;
+- Lem took a decision of yours without you: while you were away, or in a night task;
 - the personas did not answer, two times, when they read the criteria;
 - the change brings the first checks into a project that had none;
 - a task on the fast track turned out to be careful: it can affect what must never go wrong.

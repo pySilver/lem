@@ -7,7 +7,7 @@
 3. **The pull request**: you merge it.
 
 On the fast track, Lem needs you only at the pull request. Lem takes every other decision itself,
-and the pull request lists each one with its reason.
+and the pull request lists each with its reason.
 
 You answer the first two points in a companion: a session under Lem's session for one thing that
 waits for you, such as `gift-note-in-export · interview` in the sidebar. It closes after your
@@ -49,9 +49,10 @@ In agterm, a chord lists the tasks, with what waits for you first. Pick one, and
 ## At night
 
 A scheduled job runs `/lem night`. Lem takes the smallest backlog items, four at most, and runs
-them one after the other, each without you to its pull request. In the morning, `/lem` shows them
-with the report of the night. On the standard track, such a pull request is not green, because you
-did not approve its criteria. Lem leaves out an item near what must never go wrong. With two night pull requests still open, the night opens nothing.
+them one after the other, each without you to its pull request, also after `/lem im-back`. In the
+morning, `/lem` shows them with the report of the night. On the standard track, such a pull request
+is not green, because you did not approve its criteria. Lem leaves out an item near what must never
+go wrong. With two night pull requests open, the night opens nothing.
 
 ## A decision in doubt
 
@@ -73,22 +74,21 @@ answer of each level. The card waits for your answer with no time limit, and the
 
 ## Away
 
-Type `/lem im-away`, or say "I'm away". Only your word changes it. While you
-are away, no companion opens, and every task goes on without you:
+Type `/lem im-away`, or say "I'm away". It holds in every repository on this computer, and only
+your word changes it. While you are away, no companion opens, and every task goes on without you:
 
 - each choice that waits is taken at once, with the ladder's pick;
 - an interview goes on: Lem takes its own guess for each question, and writes it down;
 - the personas read the criteria, the ladder settles each criterion that a persona doubted, and
   Lem approves the criteria without you.
 
-The pull request is then not green, and it lists each decision that Lem took for you. Type
-`/lem im-back` when you are back. For each task, Lem tells you how many decisions it took, and
-whether it approved the criteria.
+The pull request is then not green, and lists each decision that Lem took. Type
+`/lem im-back` when you are back. Lem then tells you, for each task, what it decided without you.
 
 > [!IMPORTANT]
-> Two things always wait for you, also while you are away:
+> Two things wait for you also while you are away:
 >
-> - **The merge.** Lem merges nothing for you while you are away.
+> - **The merge.** Lem merges nothing while you are away.
 > - **A step that nobody can undo**, such as a migration that deletes shared data. Lem builds the
 >   rest of the task, and asks you on a card. While you are away, its companion opens at
 >   `/lem im-back`.

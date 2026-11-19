@@ -497,8 +497,8 @@ build that follows.
   15min automatic timeout - to have more explicit: Owner either tells dnd or not, no assumptions.
   In the future there might be some external connectors that would tell that owner is dnd, but
   thats a backlog item story. Command suggestion: with `/lem dnd`, `/lem online` (suggest better
-  keyword, something chat app related?)". So his being there is one status of the repository, not
-  a switch of each task, and it replaces "go alone", "go alone for all" and "I am back"; while he
+  keyword, something chat app related?)". So his being there is one status of the machine (his
+  interview of 2026-11-19, below), not a switch of each task, and it replaces "go alone", "go alone for all" and "I am back"; while he
   is there, a choice of his waits for his answer with no time limit, and `flow.decision_wait`
   goes. This replaces his ruling of 2026-11-16 that a choice "waits for him 15 minutes at most".
   The keywords are his: to the session's `/lem away` and `/lem back` he wrote "Lets follow Slack:
@@ -661,7 +661,8 @@ Where a note replaces an earlier ruling, this is the ruling now.
   consider using the WebAwesome (we have a professional license)"
   (`docs/backlog/board-as-a-tabbed-interface.md`).
 
-His notes of 2026-11-19, in the session and on the Linear page; a quote is his words.
+His notes of 2026-11-19, in the session, on the Linear page and in the interview on his away
+status; a quote is his words.
 
 - **The tests are chosen by what can fail, and a task is quick.** Of three builders that took 49,
   99 and 115 minutes the day before: "Why the hell it takes so long!?", "thats still enormous
@@ -695,6 +696,22 @@ His notes of 2026-11-19, in the session and on the Linear page; a quote is his w
   version reads an unquoted label in another way (a label that starts with `/` is the likely one;
   not proved). A chart in `README.md` or `docs/` writes each node's and each edge's text in double
   quotes, and is drawn once before it is committed.
+- **His away status is one mark of the machine, and a night task always runs without him** (his
+  interview of 2026-11-19, `docs/plans/2026-11-19-away-for-the-whole-machine.md`). To "Is the
+  machine's mark the only mark?" he answered "y". Of the night: "Night run is an exceptional
+  unattented type of run and should not be affected by the state of my availability. It should
+  always run unattended. Even when I'm up at night and doing something in other sessions." Of the
+  place: "I belive something should live in `~/.config/lem` to support that". So `/lem im-away` and
+  `/lem im-back`, typed in any repository, hold in every repository on the machine, no repository
+  has a status of its own, and his `back` never ends a night task's time without him. The form is
+  the session's: `owner.jsonl` in `$XDG_CONFIG_HOME/lem`, or in `~/.config/lem` when the variable
+  is unset (a relative value is refused), one line appended for each away and each back and none
+  removed, so that another repository still reads the span of a task that ran without him; Lem's
+  session in each repository keeps one watch of it (`lem project owner watch`) and acts on its end
+  as on his word there, and the session of a night keeps none; the board reads `owner.js`, a copy
+  in the state folder; and every test suite sets `XDG_CONFIG_HOME` under its own folder. Each
+  repository's Lem still runs only its own tasks and reads one more fact, the mark: that is how
+  the change keeps "One Lem for one repository".
 
 His rulings of 2026-11-19 on where he answers Lem; a quote is his words. He had held two
 interviews at once that morning, in two sessions he opened by hand, and asked whether one Lem
@@ -1149,14 +1166,18 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   two with `make-page` and the brief `templates/page-brief.md`, which `/lem status SLUG` opens.
 - `skills/lem/harness/`: the capability contract and one file per agent.
 - `skills/lem/scripts/`: `lem_state.py` (the one place that names a repository's state folder,
-  `.lem/state/` of the main checkout; every script that touches the state asks it, directly or through `project.py state-dir`),
+  `.lem/state/` of the main checkout, and the machine's mark of the owner's status, `owner.jsonl`
+  in `$XDG_CONFIG_HOME/lem` or `~/.config/lem`; every script that touches the state or the mark
+  asks it, directly or through `project.py state-dir`),
   `lem_plans.py` (the one place that builds and finds a plan's file name from `paths.plan_file`,
   and a ruling's from `paths.ruling_file`), `lem_sibling.py` (how `land.py`,
   `criteria.py`, `decisions.py` and `companion.py` run a command of a sibling: in their own process, as its
   `main(argv)`, except the commands in its `APART`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
   (`PLACES`), task state, a
-  the owner's status (away or back) and from it each task's mode, the event log, and `waiting`, the one list of what waits for the owner),
+  the owner's status (away or back), read from the machine's mark, with its watch (`lem project
+  owner watch`) and `owner.js`, the board's copy of it in the state folder, and from it each task's
+  mode, the event log, and `waiting`, the one list of what waits for the owner),
   `doctor.py` (the machine, with the three recipes of the agterm cookbook Lem needs, webrev, agdoc
   and the backlog, and a row when more than one place registers the correction hook),
   `board.py` (opens the board, and with `--page FILE` any page of Lem to read, each as a page
@@ -1186,8 +1207,9 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   ("What we are building", then green or not green), "Criteria and decisions" (each decision a
   folded row, the important ones marked and first), "Checks and review" and "Timeline". A tab
   hides the other panels and removes none. The page draws the files beside it: `events.js`, which
-  `project.py` appends to, and `meta.js`, `backlog.js` and `overview.js` (each task's outcome from
-  its `task.md`, and the backlog items its branch adds), which `board.py` writes. `lem.css` beside
+  `project.py` appends to, `meta.js`, `backlog.js` and `overview.js` (each task's outcome from
+  its `task.md`, and the backlog items its branch adds), which `board.py` writes, and `owner.js`,
+  the copy of the machine's mark, from which its header says that the owner is away. `lem.css` beside
   it is the look every page of Lem shares, a small design system in the look of Lem's landing page
   (`site/style.css`): Lem's own warm light and dark palettes with the ochre accent, body text at
   16 px, monospace eyebrows for the small labels, its header, and one button, card, tab bar and
@@ -1210,7 +1232,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   800 words: `flow.md` (how a task goes, for each size, with the one diagram),
   `when-lem-needs-you.md` (the three points, what waits, the board, the ladder, away),
   `pull-request.md` (what green means, the merge, a conflict, a drop), `install.md` (what Lem
-  needs, the install and the setup, what Lem keeps in a repository, the update, the removal) and
+  needs, the install and the setup, what Lem keeps in a repository and outside it, the update, the removal) and
   `linear.md` (how a project connects Linear; `skills/lem-linear` points to it); and
   `settings.md`, the reference: one table for each table of the settings, one to one with
   `project.py` (`tests/lem-settings.sh` checks it). How Lem works inside is in this file and the
