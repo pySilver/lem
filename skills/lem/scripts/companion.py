@@ -55,6 +55,7 @@ if sys.version_info < (3, 11):
     sys.exit(f"companion.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH")
 
 import argparse
+import importlib
 import json
 import os
 import pwd
@@ -67,8 +68,8 @@ SCRIPTS = Path(__file__).resolve().parent
 SKILL = SCRIPTS.parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
-import lem_sibling  # noqa: E402
-import project  # noqa: E402
+lem_sibling = importlib.import_module("lem_sibling")
+project = importlib.import_module("project")
 
 NEEDS = ("interview", "criteria", "choice")
 CHOICE_WAIT = re.compile(r"choice ([1-9]\d*) waits for the owner")

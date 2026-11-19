@@ -5,6 +5,7 @@ transcript. What agterm and the files show is checked in tests/lem-companion.sh.
     python3 -B -m unittest discover -s tests/unit
 """
 
+import importlib
 import json
 import sys
 import tempfile
@@ -13,7 +14,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / "scripts"))
-import companion  # noqa: E402
+companion = importlib.import_module("companion")
 
 HELD = "2026-11-19T10:00:00Z"
 THERE = {"away": False, "since": None, "words": None}
