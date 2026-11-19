@@ -5,6 +5,13 @@ report itself, which you write into `report.md`. The defender of a plan talk sen
 that starts with `lem:` and names the task. Either is only a wake-up. The fact is the task's
 newest state block: `lem project tasks`, then read the task's `report.md`.
 
+A need's companion sends one line as it ends: `lem: SLUG criteria approved` or `lem: SLUG choice
+N answered`. It writes no state, and the line is a wake-up too: the fact is the record, and
+`lem companion due` reads it, as at each of your turns (`SKILL.md`). Its `start` gives the lead
+(`stages/start.md`, "The queue"), its `close` the companion that did not close itself. `lem: the
+owner is away` and `lem: the owner is back` are his words typed in a companion, which recorded
+them: `stages/away.md`.
+
 A lead whose agent refused it the write of `report.md` says so in its state (`report in the
 reply`), and its reply is the whole report. Write that text into `report.md` word for word, with
 one line at the top that says who copied it and why. Change nothing in it. The harness file says
@@ -28,7 +35,7 @@ these comes "The queue", the last section of that file:
     (`open-task-session`), change the brief to `lead: builder`, and start a lead; the builder
     leads the build of the talked plan, one fresh builder for each of its tasks
     (`stages/plan.md`, step 3). Each question the talk left open climbed its ladder in the
-    companion; one that ended as his card waits in `lem decisions pending`: ask it as
+    companion; one that ended as his card waits in `lem decisions pending`: its companion opens as
     `stages/choice.md` says. No record: the defender ended without its last step, so
     send it one message that says so, and close nothing.
   - *The owner asked for the plan only*: show the owner the plan to mark up
@@ -40,10 +47,14 @@ these comes "The queue", the last section of that file:
     criteria a persona doubted, or
     that met a rule it could not write without a guess, or whose request somebody else wrote,
     puts the criteria and the answers on top
-    of its report. Put them to him as step 6 of `stages/interview.md` says,
-    with the lead's read as the result on top, freeze his answer with step 7, and start a lead: it
-    copies the approved criteria. A task on the fast track whose builder found that it needs the
-    standard track goes to him as `stages/new.md` says in "The fast track", step 3;
+    of its report. Open their companion, `lem companion open SLUG --need criteria`, and say its
+    `say` line: it puts them to him on one page as step 6 of `stages/interview.md` says, with the
+    lead's read as the result on top, and freezes his yes with step 7. When `lem companion due`
+    then gives the task under `start`, start a lead: it copies the approved criteria. While he
+    is away no companion opens, and step 2 of `stages/away.md` settles them. A task on
+    the fast track whose builder found that it needs the standard track (`the criteria wait for
+    the owner: the small change is a full change`) is an interview, not criteria: its companion
+    opens as `stages/new.md` says in "The fast track", step 3;
 
   - *one more fact*: the investigation's, as `stages/investigate.md` says;
   - *a step that is his to do*, and no decision at all: a trust prompt of the reviewer's agent, a
@@ -52,7 +63,9 @@ these comes "The queue", the last section of that file:
     for a defender whose companion is still open that is one message to it, and otherwise a
     fresh lead that reads the state and goes on;
   - *choice N waits for the owner*: an irreversible step that every task left depends on. It is
-    in `lem decisions pending` and asked as `stages/choice.md` says; start a lead after his answer.
+    in `lem decisions pending`, and its companion opens as `stages/choice.md` says; start a lead
+    when `lem companion due` gives the task under `start`, which it does once his answer is on
+    record, also when the companion's line was lost.
 - **`blocked`**: the report says what the lead could not settle and what it tried. A missing
   tool, a base branch that does not build, a conflict with another task: settle it, then start a
   lead. An approach that failed twice goes to a fresh builder with a different approach, as

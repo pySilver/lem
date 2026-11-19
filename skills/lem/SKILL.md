@@ -19,7 +19,9 @@ checks and one read review it, it has no polish pass, and it waits for nothing b
 three touches: the interview, while a scout reads the code around his ask; the criteria, which the
 personas read before he does and which he approves, so that they are the contract in plain
 language and become the tests; and the pull request, which he merges without a read when it is
-green. A task on the standard track from a complete request (a ticket that says what is wanted, a settled
+green. He answers the interview, his yes to the criteria and a choice that waits for him in a
+companion of Lem's session, one for each such need, which opens when it waits and closes when he
+answered, so that Lem's own session takes his next ask at once. A task on the standard track from a complete request (a ticket that says what is wanted, a settled
 backlog item) has no interview, and its criteria wait for him only when a persona doubts them.
 Lem names the type of each request from its words, a Conventional Commits type (`feat`, `fix`,
 `docs`, `refactor`, `perf`, `test`, `chore`) or `question`, and its track, and says both in one
@@ -46,8 +48,8 @@ its reason.
 **Lem** is the one session of a repository in which the owner types `/lem`. It takes the asks,
 opens the tasks, starts each task's lead, takes one branch at a time through the checks and the
 review to a pull request, and tells the owner. It holds no task's details. Of a task it reads three things: the ask it wrote
-down, the newest state block and the report file; and during an interview the scout's report,
-or for a bug the investigator's, which gives facts of the code for the criteria and nothing else. It does not read the plan's reasoning, the diff
+down, the newest state block and the report file; and for a bug the investigator's report,
+which gives facts of the code for the criteria and nothing else. It does not read the plan's reasoning, the diff
 or what a builder printed, and it writes no code. Lem is the only context that knows every
 task. When it fills with one task's code, it loses the others.
 
@@ -64,17 +66,27 @@ writes the plan and stops at it; the defender and the reviewer argue it through 
 before any code; the defender repairs the plan, writes down how the talk went, and stops. Lem
 closes the companion, and a fresh builder leads the build of the talked plan like any other.
 
+**A need's companion** is a fresh agent in a session under Lem's that `lem companion open` starts
+for one thing that waits for the owner, named for it in the sidebar: an interview (`SLUG ·
+interview`), criteria for his yes (`SLUG · criteria`) or a choice (`SLUG · choice N`). It reads
+its task's files, with the turns of Lem's talk that led to the ask (`talk.md`), does that one need
+with him (`prompts/companion.md`), writes his answer through `lem`, tells Lem in one line and
+closes. It takes no ask, starts no lead and lands nothing: Lem starts the lead from the record.
+
 Each task of a plan gets a builder with a context of its own. Every task on the standard track starts with a
 builder as its lead, also one the owner calls careful in the ask: there is no talk before there
 is a plan. The plan says whether it is careful or large (`stages/plan.md`), because only the plan
-names the files and the tasks. A lead and a defender answer to Lem and never ask the owner, so
-the owner has one place to answer.
+names the files and the tasks. A lead and a defender answer to Lem and never ask the owner: what
+waits for him opens in a need's companion.
 
 A lead's standing brief is `prompts/lead.md`, and a defender's is `prompts/defender.md`, which
 `prompts/lead.md` sends it to. If your first message named either file, your stages are
 `stages/plan.md` and `stages/build.md` (a defender's, `stages/talk.md` and step 5 of
 `stages/plan.md` for the talk's open questions), and the subcommands below are Lem's. When the owner types `/lem` in a
 lead's or a defender's session, say that the ask belongs in Lem's session, and change nothing.
+If your first message named `prompts/companion.md`, you are a need's companion: follow that file,
+whose stages are the ones its need names. A `/lem` typed there is no subcommand of yours, and that
+file says what you do with one.
 
 ## Before any subcommand
 
@@ -107,19 +119,20 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 
 | Subcommand | Does | Read |
 | --- | --- | --- |
-| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and says its track in one line. The fast track: one builder and the landing, and nothing waits. The standard track: interviews the owner while a scout reads the code, has the personas read the criteria and takes his yes to them, and starts its lead; a ticket or an item whose whole context is written skips the interview. A bug whose cause the ask does not show is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
+| `new <what>` | opens the task (its worktree, its branch, the ask in the owner's words) and says its track in one line. The fast track: one builder and the landing, and nothing waits. The standard track: opens the interview in a companion, where a scout reads the code, the personas read the criteria and he gives his yes, and starts its lead after it; a ticket or an item whose whole context is written skips the interview. A bug whose cause the ask does not show is investigated first, and a question ends with its answer. `<what>` may be a tracker's ticket, by its id or its URL | `stages/new.md` |
 | `plan <what>` | as `new`, and the lead stops at the committed plan for the owner to read. A plan is the standard track's, so the ask takes the standard track, and Lem's line says so | `stages/new.md` |
 | `build [<task> or <plan file>]` | starts a lead on a task whose plan waits: a plan the owner read. With no name it lists those tasks and asks which | `stages/start.md` |
-| a lead stopped | its reply or its message arrived: act on the task's newest state. An investigator's reply is its report, and a scout's belongs to its interview | `stages/stopped.md`; an investigator's `stages/investigate.md`, a scout's `stages/interview.md` |
-| a choice waits | the line `lem: SLUG choice N waits` arrived, or the `waiting` list of `lem decisions pending` names a choice: run that command at each of your turns, since a line can be lost | `stages/choice.md` |
+| a lead stopped | its reply or its message arrived: act on the task's newest state, and a `held` one opens the companion of what waits for the owner. An investigator's reply is its report | `stages/stopped.md`; an investigator's `stages/investigate.md` |
+| a choice waits | the line `lem: SLUG choice N waits` arrived, or `lem companion due` names a choice: open its companion | `stages/choice.md` |
+| a companion's line | `lem: SLUG criteria approved` or `lem: SLUG choice N answered` arrived from a need's companion: a wake-up, and the fact is `lem companion due`; `lem: the owner is away` or `back` is his word, typed there | `stages/stopped.md`; away or back, `stages/away.md` |
 | `im-away`, `im-back` | the owner says that he is away, and every task goes on without him, or that he is back | `stages/away.md` |
 | `be-careful`, `standard-track`, `drop` `[<task>]` | the owner corrects a task: careful until its merge, the standard track until its pull request exists, or not wanted | `stages/correct.md` |
 | `land` | the oldest ready task: the polish pass on the standard track (the fast track has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
 | `init` | onboarding: checks the machine, examines the project, interviews the owner, writes the settings and the draft profiles | `stages/init.md` |
 | `night` | unattended: takes backlog items, the smallest first, four at most (`/lem night N` takes N), and runs them one after another without the owner, each to its pull request | `stages/night.md` |
-| bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, those of the night with the night's report, each retro's proposals; and the board of all tasks, with what builds. A proposal he answers with approve, reject or later, all on one page | `stages/status.md` |
-| `status <task>` | the board of one task | `stages/status.md` |
+| bare `/lem`, `status` | the one list of what waits for the owner, the same every time: each choice of a task, each task whose criteria wait for his yes, each pull request with green or not, those of the night with the night's report, each retro's proposals; and the board of all tasks, with what builds; it opens the companion of each need that waits. A proposal he answers with approve, reject or later, all on one page | `stages/status.md` |
+| `status <task>`, `status <task> choice N` | the board of one task, and the companion of what of it waits, or of that one choice | `stages/status.md` |
 | `read <ticket>` | reads one ticket of the tracker, by its id (`/lem read MBZ-12`) or its URL, and says what it holds; it opens no task and writes nothing to the ticket. With no tracker in `lem project show`, say that the project has none | the tracker's skill (`load-skill` the one `tracker.kind` names), its "read" |
 | `reviewer AGENT/MODEL:EFFORT`, `reviewer default` | who sits in the reviewer's pane on this machine for now, as one seat (`/lem reviewer codex/gpt-6.2-sol:high`; the effort, or the model and the effort, may be left out for the agent's own default), and the project's own reviewer again: `lem project reviewer` with the same words. Say what `lem project show` then gives as the seat | the harness file, `second-opinion` |
 | a helper | `/lem interview-me` loads `lem-interview-me` (`load-skill`): read `SKILL_DIR/../lem-interview-me/SKILL.md` by its path and follow it, with the rest of the line as its arguments. In this session plain words start one too, with or without `/lem`: "let's brainstorm this" or "interview me about X" (`interview-me`), "argue both sides of ..." (`dialectic`), "why does this keep breaking" (`root-cause`), "what would the experts say" (`ask-expert`), "how would the users take this" (`panel`). Outside this session a shipped skill never starts by itself. Lem's stages load `ask-expert`, `panel`, `linear`, `lem-ask` and `lem-gate` themselves: Lem opens its question page each time it asks him, and the gate is the first level of the ladder | that skill |
@@ -133,14 +146,15 @@ interview about this first, before I open a task? (y/n)". Never a page for this.
 
 A task runs on from `new` to its pull request without the owner, unless a stage file names a stop.
 Between two of the owner's messages Lem only waits: a lead that stops wakes it, and so do a
-lead whose choice waits for the owner and the end of a command Lem runs in the background, a
-task's checks or the watch.
+lead whose choice waits for the owner, a need's companion that ends, and the end of a command Lem
+runs in the background, a task's checks or the watch.
 
 ## What holds in every stage
 
 - **The owner is needed at three points.** The interview and his yes to the criteria (`new`), a
   decision in doubt that went past the personas, and the pull request; a task on the fast track needs him at
-  its pull request only. A lead takes a decision in doubt up a ladder of opinions (the gate, the
+  its pull request only. He answers the first two in a need's companion, never in your session:
+  you open it, say its one line, and go back to his next message. A lead takes a decision in doubt up a ladder of opinions (the gate, the
   personas, the dialectic, the experts; `stages/ladder.md`, the lead's). One that the gate or the
   personas settled is logged: at each of your turns, say each decision taken in a task that runs
   with him since your last turn (`lem decisions list SLUG`), once, in one line, and wait for
@@ -150,6 +164,13 @@ task's checks or the watch.
   merge of a task that runs without him. Every other decision is yours: decide
   from the code, the settings and the rulings, write it in the decisions log, and go on.
   A red test, a failed command or a moving base branch is the work, never a reason to stop.
+- **At each of your turns, `lem companion due`.** It reads the files and says what you owe the
+  needs' companions; nothing opens or starts by itself, and a line from a companion that was lost
+  changes nothing it does not see. For each entry of `open`, `lem companion open SLUG --need NEED`
+  (with `--choice N` for a choice), and say its `say` line as it is; of `talk`, the copy of the
+  talk first (`stages/new.md`, "The interview's companion"), then the open; of `start`, its lead
+  (`stages/start.md`, "The queue"); of `close`, `lem companion close SLUG --need NEED --why WHY`
+  with the entry's `why`, and of `gone` the same with `--why gone`; of `away`, `stages/away.md`.
 - **Decisions are logged, and the owner can overturn each.** Each decision made without the
   owner, each choice that went to him and his answer, through `scripts/decisions.py`: what, what
   was chosen, by whom, why, and what it would take to undo. It writes `decisions.jsonl` in the
@@ -228,23 +249,33 @@ shared by every worktree, never committed and not removed with a worktree. It ho
   them. `ticket.txt` holds the id of the tracker's ticket, for a task that came from one, and
   `ticket-steps.txt` what Lem did to that ticket; `lem project tasks` gives both, and
   `ticket_owed`: what an ended task's ticket still waits for.
-- `scout.md`: the scout's report of the interview, facts of the code around the ask. Lem writes
-  it from the scout's reply, and reads it: it is the one place where knowledge of the code
-  comes up to Lem, and only for the criteria.
+- `talk.md`: the turns of Lem's session that led to the ask, word for word, which `lem companion
+  talk` copies for the interview's companion. Like every file here, it never reaches git or a
+  pull request.
+- `companion-NEED.md`: the brief of a need's companion (`companion-interview.md`,
+  `companion-criteria.md`, `companion-choice-N.md`), which `lem companion open` writes.
+- `interview-notes.md`: each answer of the owner's that sets the outcome, one line each, which
+  the interview's companion writes as it comes, so that a companion after it asks nothing again.
+- `criteria-read.md`: the personas' answers of the read of the criteria, each persona and family
+  with its words, which the interview writes beside its `criteria.read` event, so that a
+  companion after it puts his page up from it with no second read.
+- `scout.md`: the scout's report of the interview, facts of the code around the ask. The
+  interview's companion writes it from the scout's reply, and only the criteria use it.
 - `investigation.md`: the investigator's report of a bug or a question: reproduced or not and
   how, the cause and its place or the answer, what else the cause reaches, and its call of what
   follows (`prompts/investigator.md`). The investigator writes it, or Lem from its reply. Lem
   reads it as it reads the scout's report, and it stands in for that report in the interview
   of a bug.
 - `directions.md`: what the owner named in the interview (a technology, a library, an approach,
-  an option he picked), one line each in his words. Lem writes it; the plan follows it.
+  an option he picked), one line each in his words. The interview's companion writes it; the
+  plan follows it.
 - `outside.md`: the defects outside the request that the interview found, one line each with its
-  place. Lem writes it; the landing's polish pass fixes or files each one.
+  place. The interview's companion writes it; the landing's polish pass fixes or files each one.
 - `criteria.json`: the criteria the owner approved, word for word, with a digest, who approved them
   and when, and the number of the approval, with the earlier approvals under `history`. For a
   task on the standard track from a complete request the lead's read freezes them there too (`by: read`), which is never his yes. Only `lem criteria approve` writes it; `lem criteria approved SLUG` prints it, and the
   plan's criteria must be those, with the test lines added.
-- `criteria.md`: the criteria as Lem writes them for his yes. On the fast track it is the one
+- `criteria.md`: the criteria as Lem or the interview's companion writes them for his yes. On the fast track it is the one
   criterion, approved in his name, with the test line its builder adds under it, and it stands in
   for a plan: a task on the fast track commits no plan, and `criteria.py` and `land.py` read the criterion
   here when the branch has no plan file. On the standard track the criteria are read only from its plan.
@@ -287,7 +318,7 @@ command when it is one. The status says who acts next:
 | `queued` | the ask is written and no lead runs: it needs the result of the task its `after:` line names | Lem, when a lead stops or that task ends |
 | `building` | a lead plans or builds, or an investigator examines a bug or a question | the lead, or the investigator |
 | `planned` | the plan is committed and nothing builds it | Lem opens the plan talk's companion, or starts a builder after the talk, or the owner reads the plan |
-| `held` | it waits for the owner on what is no decision with options: the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or an irreversible choice that every task left depends on | the owner, through Lem |
+| `held` | it waits for the owner on what is no decision with options: the criteria that wait for his yes, one more fact an investigation needs, a step that is his to do, or an irreversible choice that every task left depends on | the owner: in a companion for the criteria or a choice, through Lem for the rest |
 | `blocked` | the lead stopped on something it could not settle | Lem |
 | `ready` | the report is written and the branch waits for its checks | Lem |
 | `landing` | the checks and the review run on it, or a builder repairs what they showed | Lem |
@@ -307,8 +338,8 @@ another form.
 A stage's start is an event too, so that the board's time card has a start and an end for each
 span (the owner's pick of 2026-11-17). Each has a fixed form that `lem project log` checks, and
 the event that already ends the stage ends it. Logged by the agent that runs the stage, where its
-stage text says: `interview.start` (Lem, before the first question; it ends at the first
-`criteria.read.start` or `criteria.approved` after it), `scout.start` and `scout` (Lem, as the
+stage text says: `interview.start` (the interview's companion, before the first question; it ends at the first
+`criteria.read.start` or `criteria.approved` after it), `scout.start` and `scout` (the same, as the
 scout starts and when its report is written), `criteria.read.start by=lem|lead` (it ends at
 `criteria.read`), `investigation.start type=fix|question` (it ends at `investigation`), and
 `builder.start job=JOB` for a builder's job, `task N of M`, `the small change` (the fast track's builder), `the repair of a

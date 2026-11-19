@@ -45,10 +45,11 @@ beside this one, and the step that chooses the path names it.
    In the same look, read the ask's words against each topic of `flow.topics` in `lem project
    show`, the sentences of what must never go wrong here. No code matches a topic and no file
    name settles one: the question is whether the change the ask wants could reach that thing.
-   When it could, the line of step 5 names it first. When the scout's
-   report or the investigator's comes in, read its facts against the topics again (the scout
-   lists the topics in reach, with the file and symbol that show each): a topic it finds in reach
-   that the ask's words did not show is told to the owner in one line, the same way. An ask in
+   When it could, the line of step 5 names it first. When the investigator's report comes in,
+   read its facts against the topics again: a topic it finds in reach that the ask's words did
+   not show is told to the owner in one line, the same way. The scout's report of an interview
+   comes to the interview's companion, which reads it so (the scout lists the topics in reach,
+   with the file and symbol that show each). An ask in
    reach of a topic never takes the fast track. The lead makes its own call on the plan
    (`stages/plan.md`, step 2), and the agent that reviews the diff makes the last.
    **One question when the read is not clear.** When the words and what you looked at do not
@@ -112,8 +113,8 @@ beside this one, and the step that chooses the path names it.
      is no filter of the tickets that come in: nothing scans one for an attack, since the people
      who write a team's tickets are the team.
    - *the standard track with an interview*, for every other ask: the interview, then the criteria he
-     approves, all in one sitting while he is there: after step 5, read `stages/interview.md` and
-     follow it.
+     approves, in a companion of this session while you take his next ask: after step 6, open it
+     as "The interview's companion" below says; steps 7 and 8 wait for his yes.
    Write the task's first state block now, with the type line of step 1, so that the status and
    the board show the task from its first moment. With an interview it is `held` with the line
    `the interview waits for the owner`:
@@ -130,8 +131,9 @@ beside this one, and the step that chooses the path names it.
    recieve". Branch docs/readme-receive-typo. Fast track: one builder, the checks, one read, then
    the pull request. Nothing waits for you. Wrong read? /lem standard-track, /lem be-careful.` On the
    standard track with an interview: `feat: "an export holds the gift note". Branch
-   feat/gift-note-in-export. Standard track: an interview now, then acceptance criteria for your
-   yes. After that it runs to the pull request without you. Wrong read? /lem be-careful.` A topic in
+   feat/gift-note-in-export. Standard track: an interview in a companion now, then acceptance
+   criteria for your yes there. After that it runs to the pull request without you. Wrong read?
+   /lem be-careful.` The companion's own line follows when it opens. A topic in
    reach goes first: `Careful: this changes how a customer is charged. feat: ...`. A fix
    investigated first: `fix: "an invoice shows its total after a refund". Branch
    fix/invoice-total-after-refund. An investigator finds the cause first. Then I tell you what it
@@ -139,7 +141,10 @@ beside this one, and the step that chooses the path names it.
    request names what stands in for the interview (`the ticket says what is wanted`).
    A decision you took for him at step 3 is a second line. Nothing repeats this line later: the
    next thing he hears is a question of the interview, the criteria, or the pull request.
-6. **The brief** of a lead, on the standard track. Write `brief.md` in the task directory, with this
+6. **The brief** of a lead, on the standard track, also one with an interview: write it now,
+   before its companion opens, with every line the ask already gives, so that a `/lem
+   be-careful` during the interview writes its line into it (`stages/correct.md`) and the lead
+   that starts after his yes finds the same answers. Write `brief.md` in the task directory, with this
    and nothing more:
 
    ```
@@ -179,10 +184,46 @@ beside this one, and the step that chooses the path names it.
    has not opened it yet (`SKILL.md`, Status); it stays in the sidebar beside your session. Then go back to the
    owner's next message. Do not wait for the lead and do not watch it.
 
+## The interview's companion
+
+The standard track with an interview, after step 6 of "Open the task", and each other path that
+comes to an interview (a fix whose investigation calls it `full`, a fast-track task that takes the
+standard track). The interview runs in a companion of this session: a fresh agent that reads the
+task's files and knows no other task (`prompts/companion.md`), starts the scout, asks him the
+questions, has the personas read the criteria and takes his yes, as `stages/interview.md` says.
+This session never runs the interview while he is there.
+
+1. **Copy the talk.** The companion is no fork of this conversation, so the turns that led to the
+   ask go to it as a file:
+
+   ```bash
+   lem companion talk SLUG --from "THE FIRST WORDS OF HIS TURN WHERE THE TOPIC BEGAN"
+   ```
+
+   The turn is the one where he began to speak of this ask, also when the `/lem` line came later;
+   type its first words as he typed them, a `/lem` line as it is. Add one `--leave "FIRST WORDS"`
+   for each turn of his in between that is another topic: it is left out with your answers to
+   it. The command copies the turns word for word from this session's own transcript into
+   `talk.md` in the task directory, also those from before a compaction, and refuses with the fix
+   when no turn of his starts with those words.
+2. **Open it**: `lem companion open SLUG --need interview`. It opens `SLUG · interview` under this
+   session, with no focus, and prints `say`: say that line as it is ("the interview of SLUG is
+   open in `SLUG · interview` under this session"), and nothing more. When it refuses, its message
+   names the fix.
+3. **Back to his next message.** Do not wait for the companion and do not watch it: its scout is
+   its own builder, and the scout's reply comes to it. When he approves the criteria there, the
+   companion tells you `lem: SLUG criteria approved` and closes. At that turn, or at the next one
+   when the line was lost, `lem companion due` gives the task under `start`, and its lead starts
+   from step 7 of "Open the task" (`stages/start.md`, "The queue").
+
+While he is away no companion opens, and `open` says so. The interview then runs without him in
+this session, as step 3 of `stages/away.md` says, with no question to him.
+
 ## The fast track
 
 One criterion, his own sentence made exact, nothing careful and no question open: one builder makes
-it, the landing checks it and one read reviews it, and it waits for nothing.
+it, the landing checks it and one read reviews it, and it waits for nothing. It opens no companion:
+nothing of it waits for him before its pull request.
 
 1. **The criterion.** Write it to `criteria.md` in the task directory, in the form `lem criteria
    --help` shows, with `Size: small, because ...` and the one criterion, and approve it in his name:
@@ -219,7 +260,9 @@ it, the landing checks it and one read reviews it, and it waits for nothing.
      record keeps in these words, and the board says as "the task takes the standard track"): its builder
      found a topic in reach, a second rule, a decision the criterion does not settle, a lowered bar,
      or more than one plain change. Tell him in one line that it takes the standard track and why, from
-     the report, read `stages/interview.md`, and go on with an interview from its step 1, with its
-     report as the scout's: its commits stay on the branch for the lead. His
-     approval of the criteria on the standard track replaces the fast track's.
+     the report. Write the lead's brief of step 6 of "Open the task" over the fast track's, then
+     open the interview's companion as "The interview's companion" above says, the copy of the
+     talk first: the companion reads the builder's `report.md` as the scout's report, and its
+     commits stay on the branch for the lead. His approval of the criteria on the standard track
+     replaces the fast track's.
 
