@@ -90,12 +90,12 @@
   .hero:not(.one) .now { overflow: hidden; }
   .hero:not(.one) .now > div { min-height: 0; }
   .hero:not(.one) .now-in { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-  .hero:not(.one) .now-next { flex-wrap: nowrap; }
   .hero:not(.one) .now-next > span:not(.right) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* The foot is one line, and the last update gives way first. A choice's note is too long for one
-     line: there the last update has a line of its own above the time, and the button one below it. */
+  /* The foot is one line where its parts fit, and wraps where they do not: the last update, the time
+     with its note, and the button each stay whole, the time of a task that ended on an earlier day
+     ("Nov 16 23:02") too. A choice's note is too long for one line: there the last update has a
+     line of its own above the time, and the button one below it. */
   .hero:not(.one) .now-next:not(.apart) .timer-row { flex: none; }
-  .hero:not(.one) .now-next.apart { flex-wrap: wrap; }
   .hero:not(.one) .now-next.apart > span.ago { flex-basis: 100%; }
   .hero:not(.one) .now-next .right { align-self: flex-end; }
   .now-next .right { flex: none; }

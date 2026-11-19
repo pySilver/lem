@@ -2053,6 +2053,10 @@ events = [
     decision(20, "asked", "long-lines", 1, what=long_what, options=["the day first", "the month first"], recommended="the day first", why="the store is in Europe"),
     decision(19, "advised", "long-lines", 1, expert="fable", pick="the day first", why="every customer of the shop is in Europe"),
     decision(18, "advised", "long-lines", 1, expert="astra", pick="the month first", why="the accountant's spreadsheet is in English"),
+    # a task that landed three days ago and whose session is still open: its foot says the day and
+    # the time it landed, the longest time a foot shows
+    state(3 * 1440 + 200, "landed-earlier", "building", "lead: session", "Print the totals once", ["session: T4"]),
+    state(3 * 1440, "landed-earlier", "landed", "merged as abc1234", "Print the totals once"),
 ]
 open(f"{out}/events.js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(e)});\n" for e in events))
 marks = [owner(90, True, "/lem im-away"), owner(60, False, "/lem im-back")]
@@ -2065,10 +2069,10 @@ open(f"{out}/overview.js", "w", encoding="utf-8").write("lemOverview(" + json.du
 for name in ("lem.css", "lem.js"):
     open(f"{out}/{name}", "w", encoding="utf-8").write(open(f"{assets}/{name}", encoding="utf-8").read())
 bridge = ("<script>globalThis.agterm = {request: async cmd => cmd !== 'tree' ? {} : {tree: {workspaces: [{sessions: ["
-          "{id: 'LEM1', status: 'idle', foreground: ['/bin/zsh']}, {id: 'T1', status: 'idle'}, {id: 'T3', status: 'working'}]}]}}};</script>")
+          "{id: 'LEM1', status: 'idle', foreground: ['/bin/zsh']}, {id: 'T1', status: 'idle'}, {id: 'T3', status: 'working'}, {id: 'T4', status: 'idle'}]}]}}};</script>")
 board = open(f"{assets}/board.html", encoding="utf-8").read()
 assert board.count("<head>") == 1
-for page in ("board", "task-logo-color", "task-night-labels"):
+for page in ("board", "task-logo-color", "task-night-labels", "task-landed-earlier"):
     open(f"{out}/{page}.html", "w", encoding="utf-8").write(board.replace("<head>", "<head>" + bridge, 1))
 open(f"{out}/probe.html", "w", encoding="utf-8").write("""<!doctype html><meta charset="utf-8"><iframe id="f" src="board.html#waits" style="width:1400px;height:900px;border:0"></iframe><pre id="out"></pre>
 <script>
@@ -2076,7 +2080,9 @@ const wait = ms => new Promise(done => setTimeout(done, ms));
 const PHRASE = 'not green: two outside experts chose option 2 while you were away';
 (async () => {
   await wait(1500);
-  const w = document.getElementById('f').contentWindow, d = w.document, log = {};
+  // `w` and `d` change once, when the frame loads the board of the task that landed on an earlier day
+  let w = document.getElementById('f').contentWindow, d = w.document;
+  const log = {};
   const words = text => text.split(/\\s+/).filter(Boolean).join(' ');
   // the text the owner sees: none under an element with `hidden`, the panel of another tab
   const visible = () => { const out = [], walk = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT);
@@ -2092,8 +2098,11 @@ const PHRASE = 'not green: two outside experts chose option 2 while you were awa
   // scrolls, its note ("in this state") whole beside it; and the last update before it at the foot's
   // left, on its line or on a line above, smaller and thinner than the foot's other text
   const foot = (now, c) => { const next = now.querySelector('.now-next'), timer = next?.querySelector('.timer'), ago = next?.querySelector('.ago'), t = timer?.getBoundingClientRect(), a = ago?.getBoundingClientRect(), css = ago ? w.getComputedStyle(ago) : null;
-    const note = next?.querySelector('.note'), n = note?.getBoundingClientRect();
+    const note = next?.querySelector('.note'), n = note?.getBoundingClientRect(), button = next?.querySelector('.right button'), b = button?.getBoundingClientRect();
+    const inside = r => r.width > 0 && r.left >= c.left && r.right <= c.right && r.top >= c.top && r.bottom <= c.bottom;
+    const whole = (node, r) => Boolean(node) && inside(r) && node.scrollWidth <= node.clientWidth + 1;
     return {inFoot: Boolean(timer), inBody: Boolean(now.querySelector('.now-in .timer')), shown: Boolean(t) && t.top >= c.top && t.bottom <= c.bottom && t.width > 0,
+      timerWhole: whole(timer, t), button: b ? {text: button.textContent.trim(), whole: whole(button, b), right: Math.round(c.right - b.right)} : null, agoWidth: a ? Math.round(a.width) : null,
       note: n ? {width: Math.round(n.width), whole: n.width > 0 && note.scrollWidth <= note.clientWidth + 1 && note.scrollHeight <= note.clientHeight + 1 && n.top >= c.top && n.bottom <= c.bottom && n.right <= c.right} : null,
       text: timer ? words(timer.parentElement.textContent) : '', agoLeft: Boolean(a && t) && a.width > 0 && (a.right <= t.left || a.bottom <= t.top) && Math.abs(a.left - next.getBoundingClientRect().left) < 2,
       agoSize: css ? parseFloat(css.fontSize) : null, agoWeight: css ? Number(css.fontWeight) : null}; };
@@ -2120,6 +2129,21 @@ const PHRASE = 'not green: two outside experts chose option 2 while you were awa
   d.querySelector('#top-right [data-open=""]').click(); await wait(400);
   d.querySelector('#waits-rows .btn[data-open="logo-color"]').click(); await wait(400);
   log.narrow.open = card();
+  // the two cards at 1100 px, the narrowest window of two columns the criterion names
+  document.getElementById('f').style.width = '1100px'; await wait(400);
+  log.n1100 = {open: card()};
+  d.querySelector('#top-right [data-open=""]').click(); await wait(400);
+  d.querySelector('#waits-rows .btn[data-open="long-lines"]').click(); await wait(400);
+  log.n1100.long = card();
+  // a task that landed three days ago, with its session still open: its foot says a day and a time
+  const f = document.getElementById('f');
+  await new Promise(done => { f.addEventListener('load', done, {once: true}); f.src = 'task-landed-earlier.html'; });
+  await wait(1200);
+  w = f.contentWindow; d = w.document;
+  f.style.width = '1200px'; await wait(400);
+  log.landed = {w1200: card()};
+  f.style.width = '1100px'; await wait(400);
+  log.landed.w1100 = card();
   document.getElementById('out').textContent = JSON.stringify(log);
 })().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
 </script>""")
@@ -2128,7 +2152,7 @@ PY
   "$PY" -I -c "$TABS_FIXTURE" "$PWD/skills/lem/assets" "$TABS"
   headless --virtual-time-budget=5000 --dump-dom "file://$TABS/task-logo-color.html" > "$WORK/tabs-logo.dom"
   headless --virtual-time-budget=5000 --dump-dom "file://$TABS/task-night-labels.html" > "$WORK/tabs-night.dom"
-  headless --allow-file-access-from-files --virtual-time-budget=12000 --dump-dom "file://$TABS/probe.html" > "$WORK/tabs-probe.dom"
+  headless --allow-file-access-from-files --virtual-time-budget=16000 --dump-dom "file://$TABS/probe.html" > "$WORK/tabs-probe.dom"
   TABS_CHECK=$(cat <<'PY'
 import html, json, re, sys
 found = re.search(r'<pre id="out">(.*?)</pre>', open(sys.argv[1], encoding="utf-8").read(), re.S)
@@ -2182,12 +2206,24 @@ if not wrong:
         if not f["agoLeft"] or (f["agoSize"] or 99) > 13 or (f["agoWeight"] or 999) > 400: wrong.append(f"the last update on {name}: {f}")
     for name, f in cards[::2]:
         if "in this state" not in f["text"]: wrong.append(f"the time on {name} does not say it is the time in this state: {f['text']!r}")
+    # every part of the foot whole and inside the card, down to 1100 px, also for a task that landed
+    # on an earlier day, whose time is a day and a time ("Nov 16 23:02")
+    landed = (("a task that landed on an earlier day at 1200 px", d["landed"]["w1200"]["foot"]), ("a task that landed on an earlier day at 1100 px", d["landed"]["w1100"]["foot"]))
+    narrow = (("a short card at 1100 px", d["n1100"]["open"]["foot"]), ("a card whose text scrolls at 1100 px", d["n1100"]["long"]["foot"]))
+    for name, f in cards + narrow + landed:
+        if not f["timerWhole"]: wrong.append(f"the time on {name} is cut or outside the card: {f}")
+        if not f["button"] or f["button"]["text"] != "Go to the session" or not f["button"]["whole"]: wrong.append(f"Go to the session on {name} is cut or outside the card: {f}")
+        if not f["agoWidth"]: wrong.append(f"the last update on {name} has no width: {f}")
+    for name, f in narrow + landed:
+        if not f["note"] or not f["note"]["whole"] or not f["agoLeft"]: wrong.append(f"the note or the last update on {name}: {f}")
+    for name, f in landed:
+        if not re.match(r"\S+ \S+ \d{2}:\d{2} ?after ", f["text"]): wrong.append(f"the time on {name} is not a day and a time: {f['text']!r}")
 print("; ".join(wrong))
 sys.exit(bool(wrong))
 PY
 )
   if why=$("$PY" -I -c "$CARD_CHECK" "$WORK/tabs-probe.dom"); then
-    pass "the first view of a task: the label in the ring of plan tasks keeps 8 px or more to the ring's stroke on both sides, and the time in this state stands in the large card's foot with its note whole, in view also when the card's text scrolls and at 1200 px, with the last update at the foot's left in small, thin text"
+    pass "the first view of a task: the label in the ring of plan tasks keeps 8 px or more to the ring's stroke on both sides, and the time in this state stands in the large card's foot with its note whole, in view also when the card's text scrolls and at 1200 px, with the last update at the foot's left in small, thin text; at 1200 and 1100 px the time, the note and the whole \"Go to the session\" stay inside the card and the last update keeps a width, also for a task that landed on an earlier day, whose time is a day and a time"
   else
     fail "the ring's label and the time in this state on the first view: $why"
   fi
