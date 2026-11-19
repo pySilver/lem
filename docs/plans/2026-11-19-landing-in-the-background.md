@@ -7,12 +7,20 @@ careful: yes, because task 1 changes when the landing reads the result of the ch
 Size: full, because the landing's longest step moves out of Lem's foreground, Lem must pick the landing up again when it ends, and the change is careful.
 
 1. While a task's checks run, Lem's session answers the owner: in a landing whose checks take 4 min 26 s, as `lem-landing-page`'s did on 2026-11-19, a message he types one minute after the checks start gets its answer before they end. When that message is `/lem drop SLUG` or `/lem standard-track SLUG` for the task whose checks run, Lem stops the checks first, then follows `stages/correct.md`.
+   - test: `bash tests/lem-land-guards.sh` in `tests/lem-land-guards.sh`, `tests/lib.sh`, `tests/checks.sh`
 2. Each time the checks end, Lem says one line with no question, also in the middle of a talk about another topic: the result and the next step, as the step printed them, for example "landing-in-the-background: the checks passed; the review runs, nothing for you". The other lines that `stages/land.md` owes the owner stay as they are.
+   - test: `python3 -B -m unittest tests.unit.test_land.ChecksSay` in `tests/unit/test_land.py`
 3. When the checks end while Lem's session is idle between two of the owner's messages, the landing still goes on: with the owner silent for ten minutes after the checks end, the board shows the task at its review or with its pull request open. The background command is the plain `lem land checks SLUG`, which the permission rule `Bash(lem *)` covers.
+   - no test: a session's behavior while it is idle; task 3's one real run with this branch's plugin holds it, in the task's report `reports/03-real-run.md`
 4. A landing never proposes a task before its checks ended and passed: a task whose checks fail (in this repository `bash tests/all.sh`) gets a repair builder, as today, and no pull request.
+   - test: `bash tests/lem-land-guards.sh` in `tests/lem-land-guards.sh`, `tests/lib.sh`, `tests/checks.sh`
 5. A check suite that runs longer than ten minutes completes and is read: a suite of twelve minutes ends with its exact last line in the landing's record, and is not cut off at the Bash tool's ten-minute limit. When the checks run three times longer than their last finished run, Lem says so in one line at its next turn, with no question, and "stop the checks" stops them.
+   - test: `python3 -B -m unittest tests.unit.test_land.Overdue` in `tests/unit/test_land.py`
+   - test: `python3 -B -m unittest tests.unit.test_land.LastRun` in `tests/unit/test_land.py`
 6. One task lands at a time, as today: with two tasks `ready`, the second one's checks start only after the first one is proposed.
+   - no test: the change keeps behavior; the suite holds it
 7. The checks of one task run once at a time: while `lem land checks landing-in-the-background` runs, a second start of the same checks (from a new or compacted Lem session) is refused with a message that says they already run.
+   - test: `python3 -B -m unittest tests.unit.test_land.HeldRefusal` in `tests/unit/test_land.py`
 
 ## What is there today
 
