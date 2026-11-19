@@ -29,8 +29,13 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "skills" / "lem" / "scripts"
 NOW = datetime(2026, 11, 17, 15, 30, tzinfo=timezone.utc)
 CHROMES = ("google-chrome", "chromium", "chromium-browser", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
-# The dark theme as agterm gives it to a page: its background and its text color.
-DARK = ":root { --agterm-background: #15181c; --agterm-foreground: #dde1e6; }"
+# A light and a dark theme as agterm gives them to a page: the stylesheet it puts into a file page, whose
+# color-scheme on html is what lem.js reads to choose Lem's own palette (agterm's background alone chooses
+# nothing). The form is the line tests/test-board.sh puts into its pages.
+THEMES = {
+    "light": ":where(html) { color-scheme: light; color: #1d1f21; --agterm-background: #ffffff; --agterm-foreground: #1d1f21; }",
+    "dark": ":where(html) { color-scheme: dark; color: #dde1e6; --agterm-background: #15181c; --agterm-foreground: #dde1e6; }",
+}
 WIDTH = 1440
 
 
@@ -320,7 +325,8 @@ def page_copy(state: Path, page: str, dark: bool, probe: bool) -> Path:
     if not pristine.is_file():
         shutil.copyfile(target, pristine)
     text = pristine.read_text()
-    head = CLOCK.format(now=NOW.strftime("%Y-%m-%dT%H:%M:%SZ")) + (f"<style>{DARK}</style>" if dark else "")
+    theme = THEMES["dark" if dark else "light"]
+    head = CLOCK.format(now=NOW.strftime("%Y-%m-%dT%H:%M:%SZ")) + f'<style id="agterm-theme">{theme}</style>'
     text = text.replace("<head>", f"<head>{head}", 1)
     if probe:
         text = text.replace("</body>", f"{PROBE}</body>", 1)
@@ -376,6 +382,7 @@ def main() -> None:
         if "--measure" in sys.argv:
             print(json.dumps({f"{w}x900": measure(binary, profile, shop.dir, "board", w, 900) for w in (900, 1400, 1800)}
                              | {"task 1400x900": measure(binary, profile, shop.dir, "task-order-date-on-invoice", 1400, 900)}, indent=2))
+        # the board of all tasks on its tabs Tasks and Backlog, and the board of one task on its first tab, Overview
         shots = {"board": ("board", ""), "task": ("task-order-date-on-invoice", ""), "backlog": ("board", "#backlog")}
         for name, (page, hash_) in shots.items():
             for theme in ("light", "dark"):
