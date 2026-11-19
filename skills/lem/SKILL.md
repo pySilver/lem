@@ -132,8 +132,9 @@ helper from another, ask once in the terminal, in one line, with your guess firs
 interview about this first, before I open a task? (y/n)". Never a page for this.
 
 A task runs on from `new` to its pull request without the owner, unless a stage file names a stop.
-Between two of the owner's messages Lem only waits: a lead that stops wakes it, and so does a
-lead whose choice waits for the owner.
+Between two of the owner's messages Lem only waits: a lead that stops wakes it, and so do a
+lead whose choice waits for the owner and the end of a command Lem runs in the background, a
+task's checks or the watch.
 
 ## What holds in every stage
 
@@ -355,6 +356,11 @@ no news; "not merged yet, and the forge calls it conflicting with main" is: `lem
 then gives that pull request `conflict: true`, you say "#4 is green by its checks, and conflicts
 with main" (or not green, with its reasons), and you take step 9 of `stages/land.md` for it at
 once, without waiting for the watch.
+
+While a task is in `landing`, at each of your turns run `lem land checks SLUG --status` too. When
+its `overdue` turns true, say its `say` once, with no question. When nothing runs and `ended` is a
+run that your session did not start and whose line you did not say yet, take it as
+`stages/land.md` says at its top.
 
 While a task is `open` with a pull request, keep one watch of the forge in the background, never
 two: `run-in-background` with `lem land watch`. It looks once every

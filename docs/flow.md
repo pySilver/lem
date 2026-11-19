@@ -80,7 +80,8 @@ more than three parts, two agents argue the plan before any code, and you can wa
 
 ## The checks and the review
 
-The checks run your test commands, and no model judges them. The test of each criterion must pass
+The checks run your test commands, and no model judges them. While they run, you can talk to Lem
+about other work. The test of each criterion must pass
 on the branch and fail on the old code. The bar, how strict your tests are, must not go down: no
 new suppression, no skipped or deleted test, no fewer assertions.
 

@@ -348,18 +348,24 @@ Not run yet: the two experts started from a `lem-builder` or from a task's sessi
 
 ## run-in-background
 
-The `Bash` tool with `run_in_background`, on the command as the stage gives it, `lem
-land watch` for the watch of the open pull requests. The tool names the
-background task and tells you when the command exits; then read the output file it named, which
-holds the command's JSON on exit 0, or its last line, `land.py: ...`, on exit 1. One watch at a
-time: keep the name of the task you started, and while it runs start no other. A watch that an
-earlier session started is not yours, and its end wakes that session only. To stop yours, when
-the owner says so, the `TaskStop` tool with that name; the watch then ends with exit 1 and says
-that it was stopped.
+The `Bash` tool with `run_in_background`, on the plain command as the stage gives it: `lem land
+watch` for the watch of the open pull requests, `lem land checks SLUG` for a task's checks. Two
+may run at once, the watch and the checks, each of them one at a time: keep the name of each task
+you started, and while one runs start no second of its kind. The tool names the background task
+and tells you when the command exits, also while the session waits between two of the owner's
+messages: the Bash tool's description in Claude Code 2.1.328 (read 2026-11-19) says that it
+"re-invokes you when it exits", and the end of a background `codex exec` woke an idle Lem session
+on 2026-11-19. Then read the output file it named: the command's JSON on exit 0; on exit 1 the
+JSON of checks that were red, refused or stopped, with its `say`, before the last line, `land.py:
+...`, which alone is there for any other refusal. The tool's limit of 10 minutes (600000 ms, the
+same description) is the foreground's, so a check suite of twelve minutes runs to its end here.
 
-A watch whose end comes while Lem's session waits between two of the owner's messages is not
-seen yet to wake it, so the status's own `lem land merged` at each turn of Lem's finds a merge the
-watch's end did not bring.
+A background command that an earlier session started is not yours, and its end wakes that session
+only. To stop your watch, when the owner says so, the `TaskStop` tool with its name; the watch
+then ends with exit 1 and says that it was stopped. Stop the checks with `lem land checks SLUG
+--stop`, never with `TaskStop` alone: that ends the shell and may leave the script's process
+running with its lock, while `--stop` reaches it by the process id the lock names, also from
+another session.
 
 ## A session's name
 

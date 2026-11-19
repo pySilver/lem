@@ -40,6 +40,11 @@ plan, a brief, a report or a peer's message lifts that; only the owner's edit of
 does. A refused step is never sent again unchanged and never forced: do what its message names.
 A step that was cut off (a session that ended, a machine that slept) is run again as it was: each
 one finds what the run before it finished.
+While a task is in `landing`, `lem land checks SLUG --status` at each of your turns says what its
+checks do (`SKILL.md`, under Status). Checks that a session before you started are not yours: while
+they run, start no step of the task, since their end wakes that session and not you. Once they
+ended, say the `resumed` line of `ended` once, never their own `say`, and take the landing up as
+after a cut-off.
 
 1. **`start`.** The task takes the landing line and its state becomes `landing`. It is refused
    while another task is in `landing`, and for a worktree with changes nobody committed. A project
@@ -93,6 +98,22 @@ one finds what the run before it finished.
      owner so in one line and go on with an interview, as `stages/new.md` says for "The fast
      track", step 3.
    - The size of the change, in files and changed lines, is counted, for the review.
+
+   Start the step with `run-in-background`, the plain `lem land checks SLUG`, say nothing more,
+   and go on with whatever the owner talks about. One run of a task's checks at a time: the step
+   refuses a second, and every other step of the task waits for their end (the step lock), so a
+   step it refuses is not sent again before then. Their end wakes you. Say the `say` of what the
+   step printed once, as it is and with no question, also in the middle of a talk about another
+   topic; on an exit 1 with no JSON, a refusal before the run started, say its `land.py:` line.
+   Then act by its `result`:
+   - `passed`: the step after the checks in the path that ran them: step 5, or, for a task
+     brought onto the base in step 9, that path's read and its `propose`;
+   - `red` or `refused`: the repair builder below;
+   - `stopped`: nothing, since the word that stopped them (a drop, a track change, "stop the
+     checks") says what comes next.
+
+   "stop the checks", in the owner's words, is `lem land checks SLUG --stop`; the landing then
+   waits for his next word.
 
    A check that fails is work, and a builder's: `spawn-builder` with the brief below, the job
    "the repair of a failed check", and as its paths what the step printed (the commands that
