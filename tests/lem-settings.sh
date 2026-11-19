@@ -1329,10 +1329,10 @@ out=$(board --repo "$WORK/wt" --no-open)
 named=$(cat "$OLD/.lem/state/meta.js")
 board --repo "$OLD" --no-open >/dev/null
 if [ "$(field 'd["page"]' <<<"$out")" = "$OLD/.lem/state/board.html" ] && cmp -s "$OLD/.lem/state/board.html" "$PWD/skills/lem/assets/board.html" \
-  && cmp -s "$OLD/.lem/state/lem.css" "$PWD/skills/lem/assets/lem.css" \
+  && cmp -s "$OLD/.lem/state/lem.css" "$PWD/skills/lem/assets/lem.css" && cmp -s "$OLD/.lem/state/lem.js" "$PWD/skills/lem/assets/lem.js" \
   && [ "$named" = 'lemMeta({"repo": "old", "base": null, "session": "", "gates": 0, "serial": 0});' ] \
   && [ "$(cat "$OLD/.lem/state/meta.js")" = 'lemMeta({"repo": "old", "base": "master", "session": "", "gates": 0, "serial": 0});' ]; then
-  pass "board --no-open writes the page and the stylesheet it links into the shared state folder, from a worktree too, with the repository's name and its base"
+  pass "board --no-open writes the page, the stylesheet it links and the script of its palette into the shared state folder, from a worktree too, with the repository's name and its base"
 else
   fail "board --no-open: $out / $named / $(cat "$OLD/.lem/state/meta.js" 2>&1)"
 fi
@@ -1414,20 +1414,28 @@ if [ "$night" = 0 ]; then
 else
   fail "a night logo differs from what assets/night.py writes from the day file: run it again"
 fi
-if sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$PWD/skills/lem/assets/board.html" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark.svg"; then
-  pass "the mark in the board's header is the logo's own file, line for line"
+# Each page's header carries the two marks, the day one and then the night one, each its logo file line for line.
+marks=()
+for page in board handover; do
+  sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$PWD/skills/lem/assets/$page.html" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark.svg" || marks+=("$page: the day mark")
+  sed -n '/^<!-- lem-mark-night:/,/^<!-- \/lem-mark-night -->/p' "$PWD/skills/lem/assets/$page.html" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark-night.svg" || marks+=("$page: the night mark")
+  [ "$(grep -n '^<!-- lem-mark' "$PWD/skills/lem/assets/$page.html" | head -2 | cut -d' ' -f2 | tr '\n' ' ')" = "lem-mark: lem-mark-night: " ] || marks+=("$page: the day mark is not first")
+done
+if [ "${#marks[@]}" -eq 0 ]; then
+  pass "the header of the board and of the onboarding page carries the day mark and then the night mark, each the logo's own file, line for line"
 else
-  fail "the mark inside board.html differs from assets/lem-mark.svg: copy the file between the two lem-mark comments again"
+  fail "the marks inside the pages differ from assets/lem-mark.svg and assets/lem-mark-night.svg (copy each file between its two comments again): ${marks[*]}"
 fi
-# Every page of Lem has one look: the pattern of the onboarding's page links the board's stylesheet and brings no style of its own.
+# Every page of Lem has one look: the pattern of the onboarding's page links the board's stylesheet and its palette's script
+# and brings no style of its own, and no page takes a color of agterm's theme.
 PATTERN=$PWD/skills/lem/assets/handover.html
-if sed -n '/^<!-- lem-mark:/,/^<!-- \/lem-mark -->/p' "$PATTERN" | sed '1d;$d' | cmp -s - "$PWD/assets/lem-mark.svg" \
-  && [ "$(grep -c '<link rel="stylesheet" href="lem.css">' "$PATTERN")" = 1 ] && [ "$(grep -c '<link rel="stylesheet" href="lem.css">' "$PWD/skills/lem/assets/board.html")" = 1 ] \
+if [ "$(grep -c '<link rel="stylesheet" href="lem.css">' "$PATTERN")" = 1 ] && [ "$(grep -c '<link rel="stylesheet" href="lem.css">' "$PWD/skills/lem/assets/board.html")" = 1 ] \
+  && [ "$(grep -c '<script src="lem.js"></script>' "$PATTERN")" = 1 ] && [ "$(grep -c '<script src="lem.js"></script>' "$PWD/skills/lem/assets/board.html")" = 1 ] \
   && ! grep -q '<style\| style="' "$PATTERN" && grep -q '^\.doc \.box {' "$PWD/skills/lem/assets/lem.css" && grep -q -- '--you: #' "$PWD/skills/lem/assets/lem.css" \
-  && ! grep -q -- '--you: #' "$PWD/skills/lem/assets/board.html"; then
-  pass "the onboarding's page pattern and the board link one stylesheet, which alone holds Lem's colors; the pattern brings no style of its own and carries the logo's own mark"
+  && ! grep -q -- '--you: #' "$PWD/skills/lem/assets/board.html" && ! grep -q -- '--agterm-' "$PWD/skills/lem/assets/lem.css" "$PWD/skills/lem/assets/board.html" "$PATTERN"; then
+  pass "the onboarding's page pattern and the board link one stylesheet, which alone holds Lem's colors, and one script for its palette; the pattern brings no style of its own, and no page reads agterm's colors"
 else
-  fail "the pattern of the onboarding's page and the shared stylesheet"
+  fail "the pattern of the onboarding's page, the shared stylesheet and its script"
 fi
 
 SHOWN=$(cat <<'PY'

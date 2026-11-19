@@ -24,12 +24,9 @@ Say "open them" to approve, reject or delay each one.
 
 ## The board
 
-The board puts each task in a lane by who acts next.
-`/lem status <task>` opens the board of one task, with its criteria and their tests, its checks,
-its review, and its times.
-
-In agterm, a chord lists the tasks, with what waits for you first. Pick one, and its board opens.
-`/lem init` gives you the keymap line.
+The board of all tasks has three tabs: **Tasks**, in lanes by who acts next; **Waits for you**, a
+row for each thing that you do; and **Backlog**, with "Start a task" on each item.
+`/lem status <task>` opens a task's board: what it builds, then green or not green.
 
 <p align="center">
   <picture>
@@ -38,12 +35,13 @@ In agterm, a chord lists the tasks, with what waits for you first. Pick one, and
   </picture>
 </p>
 
-*The board of one task. The picture shows demo data.*
+*The board of one task. The picture shows example tasks.*
+
+In agterm, a chord lists the tasks, with what waits for you first. Pick one, and its board opens.
+`/lem init` gives you the keymap line.
 
 A "Queued" task waits for the result of another task. A "Blocked" task stopped at a problem that
 its agent could not solve. "Landed", "Answered" and "Dropped" tasks are done.
-
-The second tab shows the backlog, and "Start a task" opens a task for an item.
 
 ## At night
 

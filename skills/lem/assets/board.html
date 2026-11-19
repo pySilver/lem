@@ -5,54 +5,49 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lem board</title>
 <link rel="stylesheet" href="lem.css">
+<script src="lem.js"></script>
 <style>
-  /* a little tighter than a page to read, so that the lanes start in the upper third of a window */
-  .page { gap: 12px; padding-top: 16px; }
-  .top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-  .pill { display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 550; border: 1px solid var(--line); background: var(--card); color: var(--ink); white-space: nowrap; }
-  .pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  /* The board's own parts, on the tokens of lem.css; the header, the button, the card, the tab bar
+     and the chip are lem.css's. Text at 16 px as on the landing page, the small labels as its
+     monospace eyebrows (12 px, upper case, spaced), and no text under 12 px. */
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 550; line-height: 1.5; border: 1px solid var(--line); background: var(--card); color: var(--ink); white-space: nowrap; }
+  .pill i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .pill.live i { animation: ping 2s ease-out infinite; }
   .pill span { color: var(--fg); }
-  .jump {
-    appearance: none; font-size: 12px; font-weight: 600; color: var(--fg); cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 8px;
-    background: color-mix(in srgb, var(--fg) 7%, transparent); border: 1px solid var(--line-strong);
-  }
-  .jump:hover { background: color-mix(in srgb, var(--fg) 13%, transparent); }
-  .jump .ic { width: 13px; height: 13px; }
-  .jump.back .ic { transform: rotate(180deg); }
 
-  .banner { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 12px; border: 1px solid; font-weight: 550; }
-  .banner .ic { width: 16px; height: 16px; }
-  .banner.attention { color: color-mix(in srgb, var(--you) 58%, var(--fg)); border-color: color-mix(in srgb, var(--you) 60%, transparent); background: color-mix(in srgb, var(--you) 14%, transparent); }
-  .banner.problem { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); border-color: color-mix(in srgb, var(--bad) 65%, transparent); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  /* a banner is a card with its actor as a bar at its left edge, never as its surface */
+  .banner { --actor: var(--quiet); --ink: color-mix(in srgb, var(--actor) 58%, var(--fg)); display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--card); box-shadow: inset 3px 0 0 var(--actor); font-size: 15px; font-weight: 550; color: var(--ink); }
+  .banner .ic { width: 18px; height: 18px; }
+  .banner.attention { --actor: var(--you); }
+  .banner.problem { --actor: var(--bad); }
   .banner span { color: var(--fg); flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .banner .sub { color: var(--dim); font-weight: 400; }
-  .banner.demo { padding-block: 6px; color: var(--fg); border-style: dashed; border-color: var(--line-strong); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--fg) 7%, transparent) 0 12px, transparent 12px 24px); }
-  .banners { display: flex; flex-direction: column; gap: 8px; }
+  .banner.demo { padding-block: 8px; color: var(--fg); box-shadow: none; border-style: dashed; border-color: var(--line-strong); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--fg) 7%, transparent) 0 12px, transparent 12px 24px); }
+  .banners { display: flex; flex-direction: column; gap: 10px; }
   .banners:empty { display: none; }
-  /* past three banners the rest fold under one line that counts them */
-  .banner-fold { display: flex; flex-direction: column; gap: 8px; }
-  .fold-toggle {
-    appearance: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 12px; text-align: left;
-    font: inherit; font-weight: 550; color: var(--fg); background: transparent; border: 1px dashed color-mix(in srgb, var(--you) 60%, transparent);
-  }
-  .fold-toggle:hover { background: color-mix(in srgb, var(--you) 8%, transparent); }
-  .fold-toggle .ic { width: 16px; height: 16px; color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
-  .fold-toggle b { color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
-  .fold-rest { display: flex; flex-direction: column; gap: 8px; }
-  .fold-rest[hidden] { display: none; }
 
-  .card { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; min-width: 0; }
-  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; margin-bottom: 12px; }
-  h2 { margin: 0; font-size: 11px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  /* a card's name: the landing page's eyebrow */
+  h2 { margin: 0; font: 650 12px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 
-  .hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
-  .cols { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-  .stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  /* the board of all tasks has only the activity here: it takes the whole width */
-  .cols.one, .hero.one { grid-template-columns: minmax(0, 1fr); }
-  @media (max-width: 1080px) { .hero, .cols { grid-template-columns: minmax(0, 1fr); } }
+  /* two cards of one width: the phases' labels at 13 px need the room beside the ring */
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+  .stack { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  /* the board of all tasks has only its large card here: it takes the whole width */
+  .hero.one { grid-template-columns: minmax(0, 1fr); }
+  @media (max-width: 1080px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+
+  /* Green or not green, first on the board of one task: its word, then each reason in plain words.
+     Its actor is the bar at its left edge: green, the owner's for not green, quiet before a proposal. */
+  .verdict { --actor: var(--quiet); --ink: color-mix(in srgb, var(--actor) 58%, var(--fg)); padding: 16px 22px; box-shadow: inset 3px 0 0 var(--actor); }
+  .verdict.a-done { --actor: var(--ok); }
+  .verdict.a-you { --actor: var(--you); }
+  .v-line { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 14px; align-items: start; }
+  .v-text { min-width: 0; padding-top: 1px; overflow-wrap: anywhere; }
+  .v-word { color: var(--ink); font-weight: 680; }
+  .v-text .sub, .v-list .sub { color: var(--dim); font-size: 14px; }
+  .v-list { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; line-height: 1.55; }
+  .v-list li::marker { color: var(--ink); }
 
   /* now */
   .now { overflow: hidden; border-color: color-mix(in srgb, var(--actor) 38%, var(--line)); display: flex; flex-direction: column; }
@@ -62,45 +57,57 @@
     background: radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--actor) 15%, transparent), transparent 58%);
   }
   .now.a-you, .now.a-bad { background: color-mix(in srgb, var(--actor) 7%, var(--card)); }
-  .now-in { position: relative; display: flex; gap: 18px; align-items: flex-start; }
+  .now-in { position: relative; display: flex; gap: 20px; align-items: flex-start; }
   .avatar {
-    width: 58px; height: 58px; border-radius: 17px; flex: none; display: grid; place-items: center;
+    width: 60px; height: 60px; border-radius: 18px; flex: none; display: grid; place-items: center;
     color: var(--ink); background: color-mix(in srgb, var(--actor) 20%, transparent);
     border: 1px solid color-mix(in srgb, var(--actor) 48%, transparent);
     animation: halo 2s ease-out infinite;
   }
-  .avatar .ic { width: 27px; height: 27px; }
+  .avatar .ic { width: 28px; height: 28px; }
   .still .avatar { animation: none; }
   .now-body { min-width: 0; flex: 1; }
-  .now-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--ink); }
-  .now-head { font-size: 19px; line-height: 1.3; font-weight: 680; margin-top: 2px; overflow-wrap: anywhere; }
-  .now-status { margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
-  .now-ctx { margin-top: 3px; color: var(--dim); overflow-wrap: anywhere; }
-  .timer-row { display: flex; align-items: baseline; gap: 14px; margin-top: 12px; flex-wrap: wrap; }
-  .timer { font: 680 42px/1 -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .now-eyebrow { font: 650 12px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink); }
+  .now-head { font-size: 22px; line-height: 1.3; font-weight: 700; letter-spacing: -.01em; margin-top: 4px; overflow-wrap: anywhere; }
+  .now-status { margin-top: 6px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+  .now-ctx { margin-top: 4px; color: var(--dim); overflow-wrap: anywhere; }
+  .timer-row { display: flex; align-items: baseline; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+  .timer { font: 700 46px/1 var(--sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
   .a-you .timer, .a-bad .timer { color: var(--ink); }
-  .note { font-size: 12px; color: var(--dim); }
-  .now-next { position: relative; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; font-size: 12px; color: var(--dim); }
-  .now-next .lbl { font-size: 10.5px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+  .note { font-size: 14px; color: var(--dim); }
+  .now-next { position: relative; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; font-size: 14px; color: var(--dim); }
+  .now-next .lbl { font: 650 12px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
   .now-next .right { margin-left: auto; }
   .now-spacer { height: 16px; }
-  /* a task that ended: its large card is as tall as what it says, and the card beside it is the row's height */
-  .hero.closed { align-items: start; }
-  .hero.closed .now-spacer { height: 12px; }
-  /* the board of all tasks: the large card is one band, its count-down and its button at the right */
-  .now.brief { padding: 8px 16px; }
+  /* The large card of one task has one height whatever its lines, and the card beside it the same:
+     what does not fit scrolls inside it, and its foot, with "Go to the session" at its right, stays at its bottom. */
+  .hero:not(.one) { grid-auto-rows: 400px; }
+  .hero:not(.one) > .card { height: 100%; overflow-y: auto; }
+  .hero:not(.one) .now { overflow: hidden; }
+  .hero:not(.one) .now > div { min-height: 0; }
+  .hero:not(.one) .now-in { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .hero:not(.one) .now-next { flex-wrap: nowrap; }
+  .hero:not(.one) .now-next > span:not(.right) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hero:not(.one) .now-next .lbl { flex: none; }
+  .now-next .right { flex: none; }
+  /* the board of all tasks: the large card is one band, its count-down and its button at the right.
+     Its actor is a bar at its left edge and the ring of its icon, never its surface. */
+  .now.brief { padding: 16px 22px; border-color: var(--line); box-shadow: inset 3px 0 0 var(--actor); }
+  .now.brief::before { display: none; }
+  .now.brief.a-you, .now.brief.a-bad { background: var(--card); }
+  .now.brief .avatar { background: var(--card-hi); border-color: color-mix(in srgb, var(--actor) 48%, var(--line)); }
   .now.brief .now-in { align-items: center; }
-  .now.brief .avatar { width: 44px; height: 44px; border-radius: 13px; }
-  .now.brief .avatar .ic { width: 21px; height: 21px; }
-  .now.brief .now-head { font-size: 17px; }
+  .now.brief .avatar { width: 48px; height: 48px; border-radius: 14px; }
+  .now.brief .avatar .ic { width: 22px; height: 22px; }
+  .now.brief .now-head { font-size: 19px; }
   .now-what { font-weight: 600; color: var(--ink); }
-  .now-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
+  .now-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; text-align: right; }
   .now.brief .timer-row { margin-top: 0; gap: 10px; justify-content: flex-end; }
-  .now.brief .timer { font-size: 30px; }
+  .now.brief .timer { font-size: 32px; }
   @media (max-width: 760px) { .now.brief .now-in { flex-wrap: wrap; } .now-side { flex-direction: row; align-items: center; width: 100%; justify-content: space-between; } }
 
   /* progress */
-  .prog { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 20px; align-items: center; }
+  .prog { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px 24px; align-items: center; }
   .ring-wrap { position: relative; width: 116px; height: 116px; }
   .ring { display: block; }
   .ring circle { fill: none; stroke-width: 10; }
@@ -108,13 +115,14 @@
   .ring .cur { stroke: var(--lead); animation: breathe 2s ease-in-out infinite; }
   .ring .todo { stroke: color-mix(in srgb, var(--fg) 12%, transparent); }
   .ring-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
-  .ring-center b { font: 700 25px/1 var(--mono); letter-spacing: -.03em; }
-  .ring-center span { font-size: 10.5px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
+  .ring-center b { font: 700 26px/1 var(--mono); letter-spacing: -.03em; }
+  /* in the sans face: its words fit inside the ring, where the monospace eyebrow ran onto the stroke */
+  .ring-center span { font: 650 12px/1.3 var(--sans); color: var(--dim); letter-spacing: .05em; text-transform: uppercase; margin-top: 4px; }
   .phases { display: flex; align-items: flex-start; }
   /* Each phase is as wide as its words and shares the rest, and its right padding keeps two labels
      apart: in equal columns at 1300 px "task 2 of 2" and "2 green" stood 3 px apart, and "Proposed"
      ran into "Landed". */
-  .phase { flex: 1 1 auto; min-width: 0; position: relative; padding: 20px 10px 0 0; font-size: 11.5px; color: var(--faint); }
+  .phase { flex: 1 1 auto; min-width: 0; position: relative; padding: 22px 10px 0 0; font-size: 13px; line-height: 1.4; color: var(--faint); }
   .phase::before { content: ""; position: absolute; top: 6px; left: 14px; right: 0; height: 2px; background: var(--line); }
   .phase:last-child { flex: 0 0 auto; }
   .phase:last-child::before { display: none; }
@@ -123,25 +131,26 @@
   .phase.past i { background: var(--ok); border-color: var(--ok); }
   .phase.cur { color: var(--fg); font-weight: 600; }
   .phase.cur i { border-color: var(--actor); background: color-mix(in srgb, var(--actor) 35%, var(--card)); animation: halo 2s ease-out infinite; }
-  .phase small { display: block; font-weight: 400; color: var(--dim); font-size: 11px; }
-  .stats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .phase small { display: block; font-weight: 400; color: var(--dim); font-size: 12px; }
+  .stats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 20px; padding-top: 16px; border-top: 1px solid var(--line); }
   .stat { min-width: 0; }
-  .stat .sk { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); font-weight: 650; }
-  .stat .sv { font: 650 16px/1.3 var(--mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; margin-top: 1px; }
-  .stat .ss { font-size: 11px; line-height: 1.35; color: var(--dim); }
+  .stat .sk { font: 650 12px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .stat .sv { font: 650 18px/1.3 var(--mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; margin-top: 2px; }
+  /* two lines at most, so the card keeps its height; the whole text is the stat's hover */
+  .stat .ss { font-size: 13px; line-height: 1.45; color: var(--dim); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .stat.ok .sv { color: color-mix(in srgb, var(--ok) 58%, var(--fg)); } .stat.you .sv { color: color-mix(in srgb, var(--you) 58%, var(--fg)); } .stat.bad .sv { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); }
 
   /* timeline */
-  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .legend i { width: 9px; height: 9px; border-radius: 3px; background: var(--actor); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--dim); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--actor); }
   .legend i.s-queued { background: color-mix(in srgb, var(--quiet) 45%, transparent); }
   .legend i.s-ready { background: color-mix(in srgb, var(--gate) 45%, transparent); }
   .tl-svg { display: block; overflow: visible; }
-  .tl-svg .lane-label { font: 550 11.5px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; fill: var(--dim); }
+  .tl-svg .lane-label { font: 550 13px var(--sans); fill: var(--dim); }
   .tl-svg .track { fill: color-mix(in srgb, var(--fg) 4%, transparent); }
   .tl-svg .grid { stroke: var(--line); stroke-dasharray: 2 4; }
-  .tl-svg .axis { font: 10.5px var(--mono); fill: var(--dim); }
+  .tl-svg .axis { font: 12px var(--mono); fill: var(--dim); }
   .tl-svg .seg { fill: var(--actor); }
   .tl-svg .seg.s-queued { fill: color-mix(in srgb, var(--quiet) 45%, transparent); }
   .tl-svg .seg.s-ready { fill: color-mix(in srgb, var(--gate) 45%, transparent); }
@@ -149,63 +158,78 @@
   .tl-svg .end { fill: var(--actor); stroke: var(--card); stroke-width: 1.5; }
   .tl-svg .nowline { stroke: var(--line-strong); stroke-width: 1.5; }
   .tl-svg a { cursor: pointer; }
-  .tl-empty, .empty { padding: 22px 0; text-align: center; color: var(--faint); }
+  .tl-empty, .empty { padding: 24px 0; text-align: center; color: var(--faint); }
   /* where the time of one task went: a row for each actor, a band for each stage behind them */
   #tl-wrap { position: relative; }
-  .legend .whole { color: var(--fg); font-family: var(--mono); font-size: 11.5px; }
-  .legend em { font-style: normal; font-family: var(--mono); color: var(--fg); font-size: 11.5px; }
+  .legend .whole { color: var(--fg); font-family: var(--mono); font-size: 13px; }
+  .legend em { font-style: normal; font-family: var(--mono); color: var(--fg); font-size: 13px; }
   .tl-svg .band { fill: transparent; }
   .tl-svg .band.odd { fill: color-mix(in srgb, var(--fg) 3.5%, transparent); }
   .tl-svg .band.hot { fill: color-mix(in srgb, var(--actor) 12%, transparent); stroke: color-mix(in srgb, var(--actor) 50%, transparent); stroke-width: 1; }
-  .tl-svg .band-label { font: 600 10.5px var(--mono); fill: var(--dim); pointer-events: none; }
+  .tl-svg .band-label { font: 600 12px var(--mono); fill: var(--dim); pointer-events: none; }
   .tl-svg .mark { stroke: var(--card); stroke-width: 1.5; }
   .tl-svg [data-head] { cursor: default; }
-  .tl-note { margin-top: 10px; font-size: 11.5px; color: var(--faint); max-width: 120ch; }
+  .tl-note { margin-top: 12px; font-size: 14px; color: var(--faint); max-width: 110ch; }
   .tl-note:empty { display: none; }
   .tip {
-    position: absolute; z-index: 5; pointer-events: none; width: max-content; max-width: 340px;
-    padding: 8px 11px; border-radius: 10px; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere;
-    background: color-mix(in srgb, var(--fg) 10%, var(--bg)); border: 1px solid var(--line-strong);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, .3);
+    position: absolute; z-index: 5; pointer-events: none; width: max-content; max-width: 360px;
+    padding: 10px 13px; border-radius: var(--r); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere;
+    background: var(--card); border: 1px solid var(--line-strong);
+    box-shadow: var(--shadow-pop);
   }
-  .tip .tt { display: flex; align-items: center; gap: 7px; font-weight: 650; }
-  .tip .tt i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .tip .tt { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+  .tip .tt i { width: 9px; height: 9px; border-radius: 2px; flex: none; }
   .tip .ts { color: var(--dim); }
-  .tip .td { color: var(--dim); font-family: var(--mono); font-size: 11.5px; }
+  .tip .td { color: var(--dim); font-family: var(--mono); font-size: 13px; }
 
   /* the board's columns */
-  .lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; align-items: start; }
   @media (max-width: 1180px) { .lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 640px) { .lanes { grid-template-columns: minmax(0, 1fr); } }
-  .lane { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .lane-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; font-size: 11px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
+  .lane { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  /* The cards of a lane share one height: equal rows, as tall as the tallest card. A longer title or a
+     row of tags that wraps makes every card of the lane taller together; only the ask is cut. */
+  .lane-cards { display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; gap: 14px; }
+  /* a lane's name: the landing page's eyebrow */
+  .lane-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; font: 650 12px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
   .lane-head i { width: 8px; height: 8px; border-radius: 3px; background: var(--actor); }
-  .lane-head em { margin-left: auto; font: 600 11.5px var(--mono); font-style: normal; letter-spacing: 0; color: var(--fg); }
-  .lane-empty { border: 1px dashed var(--line-strong); border-radius: 14px; padding: 18px 14px; text-align: center; color: var(--faint); font-size: 12px; }
+  .lane-head em { margin-left: auto; font: 600 13px var(--mono); font-style: normal; letter-spacing: 0; color: var(--fg); }
+  .lane-empty { border: 1px dashed var(--line-strong); border-radius: var(--r-lg); padding: 22px 18px; text-align: center; color: var(--faint); font-size: 14px; }
+  /* A card's rows, in one order: the title, the ask, the state line, then the wait mark and the tags at
+     its foot. Its actor is the bar at its left edge. Its radius and its padding are the landing page's
+     cards' (.points li: 14 px, 20px 20px 22px), and its title and its ask are body text, 16 px. */
   .tcard {
-    appearance: none; text-align: left; cursor: pointer; width: 100%; display: flex; flex-direction: column; gap: 8px;
-    background: var(--card); border: 1px solid color-mix(in srgb, var(--actor) 30%, var(--line)); border-radius: 14px; padding: 13px 14px 12px;
-    position: relative; overflow: hidden;
+    appearance: none; text-align: left; cursor: pointer; width: 100%; height: 100%; display: flex; flex-direction: column; gap: 10px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 20px 22px;
+    position: relative; box-shadow: inset 3px 0 0 var(--actor);
   }
-  .tcard::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--actor); }
   .tcard:hover { background: var(--card-hi); }
-  .tcard.s-queued, .tcard.s-dropped { border-style: dashed; }
-  .tcard.s-queued::before, .tcard.s-dropped::before { background: transparent; }
+  .tcard:is(:hover, :focus-visible) { z-index: 2; }
+  .tcard.s-queued, .tcard.s-dropped { border-style: dashed; box-shadow: none; }
   .tcard.s-dropped .tc-title { color: var(--faint); text-decoration: line-through; }
-  .tc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-  .tc-title { font-weight: 640; font-size: 13.5px; line-height: 1.35; overflow-wrap: anywhere; min-width: 0; }
-  .tc-time { flex: none; font: 12px var(--mono); color: var(--dim); white-space: nowrap; padding-top: 1px; }
-  .tc-ask { color: var(--dim); font-size: 12px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tc-text { font-size: 12.5px; line-height: 1.4; color: var(--ink); font-weight: 560; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .tc-title { font-weight: 650; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; min-width: 0; }
+  .tc-time { flex: none; font: 13px/1.6 var(--mono); color: var(--dim); white-space: nowrap; }
+  /* The ask is cut after its last whole line of two, and shows whole when the owner points at the card
+     or moves the focus to it: it then lies over what is under it, so no card changes its height. The
+     slot keeps the place of the two lines with an invisible copy of the text (data-ask). */
+  .tc-ask { position: relative; display: grid; color: var(--dim); font-size: 16px; line-height: 1.6; }
+  .tc-ask::before, .tc-ask > span { grid-area: 1 / 1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+  .tc-ask::before { content: attr(data-ask); visibility: hidden; }
+  .tcard:is(:hover, :focus-visible) .tc-ask > span {
+    position: absolute; inset: -6px -10px auto; z-index: 3; padding: 6px 10px; -webkit-line-clamp: unset; overflow: visible;
+    color: var(--fg); background: var(--card); border-radius: var(--r-sm); box-shadow: 0 0 0 1px var(--line-strong), var(--shadow-pop);
+  }
+  .tc-text { font-size: 15px; line-height: 1.5; color: var(--ink); font-weight: 560; overflow-wrap: anywhere; }
   .tc-row:empty { display: none; }
-  .tc-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tc-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
   .tag {
     --c: var(--quiet);
-    display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 11.5px; max-width: 100%;
+    display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: var(--r-sm); font-size: 13px; max-width: 100%;
     background: color-mix(in srgb, var(--c) 11%, transparent); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .tag .ic { width: 12px; height: 12px; color: color-mix(in srgb, var(--c) 58%, var(--fg)); }
+  .tag .ic { width: 13px; height: 13px; color: color-mix(in srgb, var(--c) 58%, var(--fg)); }
   .tag.c-lead { --c: var(--lead); } .tag.c-ok { --c: var(--ok); } .tag.c-bad { --c: var(--bad); } .tag.c-gate { --c: var(--gate); } .tag.c-you { --c: var(--you); } .tag.c-lem { --c: var(--lem); }
   .tag.live {
     border-color: var(--c);
@@ -220,60 +244,115 @@
   .mini { position: relative; height: 5px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--fg) 6%, transparent); }
   .mini span { position: absolute; top: 0; bottom: 0; left: 0; background: var(--ok); border-radius: 3px; }
   .mini span.cur { background: var(--lead); animation: breathe 2s ease-in-out infinite; }
-  .more { padding: 0 4px; font-size: 12px; color: var(--faint); }
+  .more { padding: 0 4px; font-size: 14px; color: var(--faint); }
 
   /* lists: state blocks, gate commands, reviews, activity */
   .rows { display: flex; flex-direction: column; }
-  .row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 6px 0; position: relative; }
+  .row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 10px 0; position: relative; }
   .row + .row { border-top: 1px solid var(--line); }
-  .fi { position: relative; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; color: var(--ink); background: color-mix(in srgb, var(--actor) 18%, var(--card)); border: 1px solid color-mix(in srgb, var(--actor) 32%, transparent); }
-  .fi .ic { width: 12px; height: 12px; }
-  .rtext { font-size: 12.5px; line-height: 1.4; padding-top: 3px; min-width: 0; overflow-wrap: anywhere; }
+  .fi { position: relative; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; color: var(--ink); background: color-mix(in srgb, var(--actor) 18%, var(--card)); border: 1px solid color-mix(in srgb, var(--actor) 32%, transparent); }
+  .fi .ic { width: 14px; height: 14px; }
+  .rtext { font-size: 15px; line-height: 1.55; padding-top: 2px; min-width: 0; overflow-wrap: anywhere; }
   .rtext b { color: var(--ink); }
   .rtext .sub { display: block; color: var(--dim); }
-  .rtext .cmd { font-family: var(--mono); font-size: 11.5px; }
-  .rtime { font: 11px var(--mono); color: var(--dim); white-space: nowrap; padding-top: 5px; text-align: right; }
-  .rlink { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font-weight: 600; text-align: left; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
-  .feed { max-height: 460px; overflow: auto; margin: 0 -10px; padding: 0 10px; }
+  .rtext .cmd { font-family: var(--mono); font-size: 13px; }
+  .rtime { font: 13px var(--mono); color: var(--dim); white-space: nowrap; padding-top: 5px; text-align: right; }
+  .rlink { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font-weight: 600; text-align: left; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+  .feed { max-height: 520px; overflow: auto; margin: 0 -10px; padding: 0 10px; }
 
-  .foot { display: flex; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; font-size: 11.5px; color: var(--dim); }
+  .foot { display: flex; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; font-size: 13px; color: var(--dim); }
   .foot .error { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); font-weight: 600; }
 
-  /* the two tabs, and the backlog */
-  .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); padding: 0 2px; }
-  .tab {
-    appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 7px; padding: 2px 12px 7px; font-size: 13px; font-weight: 600; color: var(--dim);
-  }
-  .tab:hover { color: var(--fg); }
-  .tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--you); }
-  .tab em { font: 600 11.5px var(--mono); font-style: normal; color: var(--dim); }
-  kbd { font: 600 10.5px var(--mono); padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line-strong); color: var(--dim); background: var(--card); }
-  .backlog { display: flex; flex-direction: column; gap: 14px; }
-  .bl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  /* the backlog */
+  kbd { font: 600 12px var(--mono); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line-strong); color: var(--dim); background: var(--card); }
+  .backlog { display: flex; flex-direction: column; gap: 18px; }
+  .bl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
   .bl-bar input {
-    flex: 1 1 260px; min-width: 0; font: inherit; color: var(--fg); padding: 7px 11px; border-radius: 9px;
+    flex: 1 1 280px; min-width: 0; font: inherit; color: var(--fg); padding: 9px 14px; border-radius: var(--r);
     background: var(--card); border: 1px solid var(--line-strong);
   }
-  .bl-bar input:focus-visible { outline: 2px solid var(--gate); outline-offset: 1px; }
-  .bl-group { display: flex; flex-direction: column; gap: 8px; }
+  .bl-bar input:focus-visible { outline-offset: 1px; }
+  .bl-group { display: flex; flex-direction: column; gap: 10px; }
   .bl-group.recessive .bl-item { border-style: dashed; }
   .bl-group.recessive .bl-title { color: var(--dim); }
-  .bl-item { background: var(--card); border: 1px solid color-mix(in srgb, var(--actor) 26%, var(--line)); border-radius: 12px; overflow: hidden; }
-  .bl-item.cur { box-shadow: 0 0 0 2px color-mix(in srgb, var(--gate) 70%, transparent); }
-  .bl-head { appearance: none; background: none; border: 0; width: 100%; text-align: left; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; padding: 10px 14px; }
+  .bl-item { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+  .bl-item.cur { box-shadow: 0 0 0 2px var(--accent); }
+  .bl-head { appearance: none; background: none; border: 0; width: 100%; text-align: left; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 16px 20px; }
   .bl-head:hover { background: var(--card-hi); }
-  .bl-title { font-weight: 640; font-size: 13.5px; line-height: 1.35; overflow-wrap: anywhere; }
-  .bl-where { grid-column: 1; font: 12px var(--mono); color: var(--dim); overflow-wrap: anywhere; }
+  .bl-title { font-weight: 650; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
+  .bl-where { grid-column: 1; font: 13px/1.5 var(--mono); color: var(--dim); overflow-wrap: anywhere; }
   .bl-where.stale { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); display: flex; align-items: center; gap: 6px; }
-  .bl-side { grid-row: 1 / span 2; grid-column: 2; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 5px; max-width: 46ch; }
-  .bl-body { border-top: 1px solid var(--line); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 12px; }
-  .bl-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.55; max-width: 96ch; }
-  .bl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 12.5px; }
-  .bl-actions code { font: 12px var(--mono); padding: 2px 7px; border-radius: 6px; background: var(--card-hi); border: 1px solid var(--line); overflow-wrap: anywhere; }
-  .bl-actions .go { border-color: color-mix(in srgb, var(--you) 60%, transparent); background: color-mix(in srgb, var(--you) 14%, transparent); }
+  .bl-side { grid-row: 1 / span 2; grid-column: 2; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; max-width: 46ch; }
+  .bl-body { border-top: 1px solid var(--line); padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .bl-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.6; max-width: 90ch; }
+  /* the words and the command at the left, the buttons at the right, as on every card with an action */
+  .bl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 14px; }
+  .bl-actions code { font: 13px var(--mono); padding: 2px 8px; border-radius: var(--r-sm); background: var(--card-hi); border: 1px solid var(--line); overflow-wrap: anywhere; }
+  .bl-go { margin-left: auto; display: inline-flex; gap: 8px; }
+  .btn.go { background: var(--accent-ink); border-color: var(--accent-ink); color: var(--bg); }
+  .btn.go:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
   .bl-note { color: var(--dim); }
   .bl-note.bad { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); }
+
+  /* "What we are building", first on a task's overview: a section of the landing page, its eyebrow, a
+     heading (the goal of the task) and a paragraph (what the owner gets), then a line for the
+     decisions to look at and one for the backlog items the branch filed. */
+  .building { display: flex; flex-direction: column; gap: 10px; }
+  .b-goal { margin: 0; font-size: 22px; line-height: 1.3; font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere; }
+  .b-text { margin: 0; max-width: 76ch; overflow-wrap: anywhere; }
+  .b-lines { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 15px; }
+  .b-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; color: var(--dim); }
+  .b-line b { color: var(--fg); font-weight: 650; }
+  .b-look .ic:first-child { color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
+  .b-items { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; width: 100%; color: var(--fg); }
+  .b-items .cmd, .b-line .cmd { font: 13px var(--mono); color: var(--dim); }
+
+  /* A decision of the task is one folded row, in the backlog's form: closed, its note on one line (whole
+     in its hover), what was chosen and by whom; opened, its context in labelled parts. An important one
+     (it makes the pull request not green, or it went past the personas) carries a mark and stands first. */
+  .dec { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--card); overflow: hidden; box-shadow: inset 3px 0 0 var(--actor); }
+  .dec + .dec, .row + .dec, .dec + .row { margin-top: 10px; }
+  .dec-head { appearance: none; background: none; border: 0; width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit;
+    display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; align-items: start; padding: 14px 18px; }
+  .dec-head:hover { background: var(--card-hi); }
+  .dec-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-top: 1px; }
+  .dec-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .dec-what { min-width: 0; font-weight: 650; font-size: 16px; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* what was chosen: two lines at most while the row is closed, whole when it is open */
+  .dec-chose { font-size: 15px; line-height: 1.5; color: var(--dim); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .dec-head[aria-expanded="true"] .dec-chose { -webkit-line-clamp: unset; }
+  .dec-chose b { color: var(--fg); font-weight: 600; }
+  .dec-by { font-size: 14px; color: var(--dim); }
+  .dec-mark { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: var(--r-sm); font-size: 13px; font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--you) 55%, transparent); background: color-mix(in srgb, var(--you) 9%, var(--card)); }
+  .dec-mark .ic { width: 13px; height: 13px; color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
+  .dec-body { border-top: 1px solid var(--line); padding: 14px 18px 18px 60px; display: grid; grid-template-columns: minmax(7em, max-content) minmax(0, 1fr); gap: 10px 18px; font-size: 15px; line-height: 1.55; }
+  .dec-body[hidden] { display: none; }
+  .dec-part { display: contents; }
+  .dec-label { font: 650 12px/1.9 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .dec-says { min-width: 0; overflow-wrap: anywhere; }
+  .dec-says ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+  .dec-says .chosen { font-weight: 650; }
+  .dec-says .chosen .ic { width: 13px; height: 13px; margin-right: 4px; vertical-align: -1px; color: color-mix(in srgb, var(--ok) 58%, var(--fg)); }
+  .dec-says .sub { color: var(--dim); }
+  @media (max-width: 760px) { .dec-body { grid-template-columns: minmax(0, 1fr); padding-left: 18px; } }
+
+  /* "Waits for you": one row for each thing the owner does, its verb first and its button at the right */
+  .wrows { display: flex; flex-direction: column; gap: 12px; }
+  .wrow {
+    display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 4px 14px; align-items: start; padding: 18px 20px;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: inset 3px 0 0 var(--actor);
+  }
+  .wbody { min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; }
+  .wverb { font-size: 16px; font-weight: 650; color: var(--ink); padding-top: 1px; }
+  /* the task's ask in one line here, whole in its hover and on the card of the task */
+  .wtask { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wtask .sub { color: var(--dim); }
+  .wwhere { color: var(--dim); }
+  .wside { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; text-align: right; }
+  .wtime { font: 13px var(--mono); color: var(--dim); white-space: nowrap; }
+  /* the count of the tab when something waits for the owner: his color, as a mark */
+  .tab em.you { color: color-mix(in srgb, var(--you) 58%, var(--fg)); }
 </style>
 </head>
 <body>
@@ -282,7 +361,7 @@
   <header class="top">
     <div class="ident">
       <div class="mark">
-<!-- lem-mark: a copy of assets/lem-mark.svg; tests/test-lem.sh fails when the two differ -->
+<!-- lem-mark: a copy of assets/lem-mark.svg, the day mark, shown in the light palette; tests/lem-settings.sh fails when the two differ -->
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="8 2 244 244" role="img" aria-labelledby="c2m-title c2m-desc">
 <title id="c2m-title">Lem</title>
 <desc id="c2m-desc">A tall hooded coat with nothing in its hood stands in a cut field and holds one long line in both hands. Strands hang from the line to four smaller hooded figures.</desc>
@@ -376,9 +455,103 @@
 </g>
 </svg>
 <!-- /lem-mark -->
+<!-- lem-mark-night: a copy of assets/lem-mark-night.svg, shown in the dark palette; it stays second (lem.css) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="8 2 244 244" role="img" aria-labelledby="c2mn-title c2mn-desc">
+<title id="c2mn-title">Lem</title>
+<desc id="c2mn-desc">A tall hooded coat with nothing in its hood stands in a cut field and holds one long line in both hands. Strands hang from the line to four smaller hooded figures.</desc>
+<defs>
+  <linearGradient id="c2mn-sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0e1a21"/><stop offset="1" stop-color="#24383d"/></linearGradient>
+  <linearGradient id="c2mn-field" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#4b4226"/><stop offset="1" stop-color="#5d5230"/></linearGradient>
+  <clipPath id="c2mn-clip"><rect x="9.5" y="3.5" width="241" height="241" rx="21"/></clipPath>
+</defs>
+<rect x="8.75" y="2.75" width="242.5" height="242.5" rx="22" fill="#24383d" stroke="#3c4a4a" stroke-width="1.5" stroke-opacity=".7"/>
+<g clip-path="url(#c2mn-clip)">
+  <path d="M0 0H260V130H0Z" fill="url(#c2mn-sky)"/>
+  <path d="M0 127Q130 123 260 127V260H0Z" fill="url(#c2mn-field)"/>
+  <!-- cut stalks -->
+  <path d="M22 150l1-4M60 170l-1-4M95 148l1-4M176 152l1-4M240 166l-1-4M14 216l1-4M236 226l-1-4M206 244l1-4" fill="none" stroke="#2b2616" stroke-width="1" opacity=".5"/>
+  <path d="M44 160l1-3M120 142l1-3M222 180l-1-3M24 240l1-3" fill="none" stroke="#94864e" stroke-width="1.2" opacity=".8"/>
+
+  <!-- long shadows fall toward the viewer -->
+  <path d="M101 229L160 229L92 262L22 262Z" fill="#161c17" opacity=".6"/>
+  <path d="M61 238L80 238L58 254L36 254Z" fill="#161c17" opacity=".6"/>
+  <path d="M181 238L200 238L178 254L156 254Z" fill="#161c17" opacity=".6"/>
+  <path d="M27 204L41 204L25 216L9 216Z" fill="#161c17" opacity=".6"/>
+  <path d="M219 204L233 204L217 216L201 216Z" fill="#161c17" opacity=".6"/>
+
+  <!-- the coat -->
+  <path d="M117 72L105 86L109 112L100 228L111 231L121 228L130 231L140 228L150 231L160 228L151 112L155 86L143 72L130 83Z" fill="#7c8880"/>
+  <path d="M130 83L143 72L155 86L151 112L160 228L150 231L140 228L130 231Z" fill="#4f5f5b"/>
+  <path d="M151 112L160 228L150 231L146.500 154Z" fill="#33423f"/>
+  <path d="M109 112L100 228L111 231L113.500 154Z" fill="#a3ab9f"/>
+  <path d="M121 77L130 97L139 77L130 84Z" fill="#1b2a2b"/>
+  <path d="M130 97L130.500 230" fill="none" stroke="#27383a" stroke-width="1.200"/>
+  <path d="M137.500 172L147 170L148 183L138.500 185Z" fill="#44544f" stroke="#2c3c3a" stroke-width=".7"/>
+  <g fill="#d6cfb0"><circle cx="133.500" cy="140" r="1.300"/><circle cx="133.700" cy="164" r="1.300"/><circle cx="134" cy="188" r="1.300"/></g>
+  <path d="M118.500 120L113 226M141.500 120L147.500 226M117.500 74L116 108M142.500 74L144 108" fill="none" stroke="#c5c8b4" stroke-width=".9" opacity=".7"/>
+
+  <!-- the cowl, with nothing in it -->
+  <path d="M131 12C121 16 113 32 113 52C113 60 114 66 117 72L130 83L143 72C146 65 147 58 146.500 50C146 33 140 18 131 12Z" fill="#8c968c"/>
+  <path d="M131 12C140 18 146 33 146.500 50C147 58 146 65 143 72L130 83L132 46Z" fill="#52625d"/>
+  <path d="M130.500 23C123.500 28 119.500 40 119.500 52C119.500 58 121 63 124 67L130 73L136.500 67C139.500 62 141 57 140.500 50C140 39 136.500 28 130.500 23Z" fill="#070e10"/>
+  <path d="M130.500 23C136.500 28 140 39 140.500 50C141 57 139.500 62 136.500 67L130 73L134.500 62C137 53 135.500 36 130.500 23Z" fill="#132226"/>
+  <path d="M114 55L117.500 70M146 55L143 70" fill="none" stroke="#c5c8b4" stroke-width=".9" opacity=".7"/>
+
+  <!-- the line -->
+  <path d="M0 97C40 106 80 107 118 105.500L142 105.500C180 107 220 106 260 98" fill="none" stroke="#d8d0b2" stroke-width="2.800"/>
+
+  <!-- sleeves, and fingers laid over the line -->
+  <path d="M105 86L97 124L104 146L118 114L122 100L112 97Z" fill="#939c90"/>
+  <path d="M155 86L163 124L156 146L142 114L138 100L148 97Z" fill="#44544f"/>
+  <path d="M118 114L122 100L125.500 101.500L123.500 112Z" fill="#0c1719"/>
+  <path d="M142 114L138 100L134.500 101.500L136.500 112Z" fill="#0c1719"/>
+  <path d="M120.500 100.500L126.500 100L127 104.500L121 105Z" fill="#e3dcc0"/>
+  <path d="M139.500 100.500L133.500 100L133 104.500L139 105Z" fill="#bdb598"/>
+  <path d="M122 104L121.700 110.500M124.200 104L124.200 111.500M126.300 104L126.600 110" fill="none" stroke="#e3dcc0" stroke-width="1.300" stroke-linecap="round"/>
+  <path d="M138 104L138.300 110.500M135.800 104L135.800 111.500M133.700 104L133.400 110" fill="none" stroke="#bdb598" stroke-width="1.300" stroke-linecap="round"/>
+  <path d="M101 122L112 100M159 122L148 100" fill="none" stroke="#c5c8b4" stroke-width=".9" opacity=".7"/>
+
+  <!-- strands from the line, each on a peg -->
+  <path d="M44 103.500L44 174M83.500 106.700L83.500 196M176.500 106.500L176.500 196M216 106L216 174" fill="none" stroke="#a9ad99" stroke-width="2"/>
+  <g fill="#b0703b" stroke="#3a2416" stroke-width=".5">
+    <path d="M42 98l4 .2-.3 10-3.800-.2z"/><path d="M81.500 101.500l4-.1.1 10-3.900.1z"/><path d="M174.500 101.300l4 .2-.3 10-3.800-.2z"/><path d="M214 101l4-.1.1 10-3.900.1z"/>
+  </g>
+
+  <!-- the smaller ones, each with a hand on its strand -->
+  <g transform="translate(70 238)">
+    <path d="M-9 0L-5 -28C-4 -31 3 -32 5 -29L11 0L4 2L-2 -1Z" fill="#a56638"/>
+    <path d="M5 -29L11 0L4 2L2 -28Z" fill="#6e4326"/>
+    <path d="M1 -27L12 -43L14.500 -41L6 -22Z" fill="#a56638"/>
+    <path d="M-6 -29C-10 -37 -8 -46 -1 -49C4 -51 9 -47 9 -41C9 -36 7 -32 4 -29Z" fill="#b87644"/>
+    <path d="M4 -47C8 -46 9.500 -42 9 -38C8.500 -35 7 -33 5 -32C3 -35 2 -42 4 -47Z" fill="#120c0a"/>
+  </g>
+  <g transform="translate(190 238)">
+    <path d="M9 0L5 -28C4 -31 -3 -32 -5 -29L-11 0L-4 2L2 -1Z" fill="#a56638"/>
+    <path d="M5 -28L9 0L2 -1L2 -29Z" fill="#6e4326"/>
+    <path d="M-1 -27L-12 -43L-14.500 -41L-6 -22Z" fill="#a56638"/>
+    <path d="M6 -29C10 -37 8 -46 1 -49C-4 -51 -9 -47 -9 -41C-9 -36 -7 -32 -4 -29Z" fill="#b87644"/>
+    <path d="M-4 -47C-8 -46 -9.500 -42 -9 -38C-8.500 -35 -7 -33 -5 -32C-3 -35 -2 -42 -4 -47Z" fill="#120c0a"/>
+  </g>
+  <g transform="translate(34 204) scale(.72)">
+    <path d="M-9 0L-5 -28C-4 -31 3 -32 5 -29L11 0L4 2L-2 -1Z" fill="#a56638"/>
+    <path d="M5 -29L11 0L4 2L2 -28Z" fill="#6e4326"/>
+    <path d="M1 -27L12 -43L14.500 -41L6 -22Z" fill="#a56638"/>
+    <path d="M-6 -29C-10 -37 -8 -46 -1 -49C4 -51 9 -47 9 -41C9 -36 7 -32 4 -29Z" fill="#b87644"/>
+    <path d="M4 -47C8 -46 9.500 -42 9 -38C8.500 -35 7 -33 5 -32C3 -35 2 -42 4 -47Z" fill="#120c0a"/>
+  </g>
+  <g transform="translate(226 204) scale(.72)">
+    <path d="M9 0L5 -28C4 -31 -3 -32 -5 -29L-11 0L-4 2L2 -1Z" fill="#a56638"/>
+    <path d="M5 -28L9 0L2 -1L2 -29Z" fill="#6e4326"/>
+    <path d="M-1 -27L-12 -43L-14.500 -41L-6 -22Z" fill="#a56638"/>
+    <path d="M6 -29C10 -37 8 -46 1 -49C-4 -51 -9 -47 -9 -41C-9 -36 -7 -32 -4 -29Z" fill="#b87644"/>
+    <path d="M-4 -47C-8 -46 -9.500 -42 -9 -38C-8.500 -35 -7 -33 -5 -32C-3 -35 -2 -42 -4 -47Z" fill="#120c0a"/>
+  </g>
+</g>
+</svg>
+<!-- /lem-mark-night -->
       </div>
       <div class="eyebrow"><span id="beacon" class="beacon"></span><span id="eyebrow">Lem</span></div>
-      <h1 id="title">Waiting for the first task</h1>
+      <div class="title" data-title="Waiting for the first task"><h1 id="title" tabindex="0">Waiting for the first task</h1></div>
       <p id="ask" class="ask"></p>
       <div id="meta" class="meta"></div>
     </div>
@@ -387,17 +560,28 @@
 
   <nav id="tabs" class="tabs" role="tablist" aria-label="What the board shows"></nav>
 
-  <section id="backlog" class="backlog" hidden>
+  <section id="waits" class="wrows" role="tabpanel" aria-label="Waits for you" hidden>
+    <div id="waits-rows" class="wrows"></div>
+    <div class="foot"><span>One row for each thing you do · <kbd>T</kbd> tasks · <kbd>W</kbd> waits for you · <kbd>B</kbd> backlog</span></div>
+  </section>
+
+  <section id="backlog" class="backlog" role="tabpanel" aria-label="Backlog" hidden>
     <div class="bl-bar">
       <input id="bl-q" type="search" placeholder="Filter the items" aria-label="Filter the items of the backlog" autocomplete="off" spellcheck="false">
       <span id="bl-sum" class="dim small"></span>
-      <button id="bl-read" class="jump" type="button">Read again <kbd>R</kbd></button>
+      <button id="bl-read" class="btn" type="button">Read again <kbd>R</kbd></button>
     </div>
     <div id="bl-groups" class="backlog"></div>
-    <div class="foot"><span><kbd>/</kbd> filter · <kbd>J</kbd> <kbd>K</kbd> move · <kbd>Enter</kbd> open or close · <kbd>S</kbd> start a task · <kbd>R</kbd> read again · <kbd>T</kbd> the tasks</span></div>
+    <div class="foot"><span><kbd>/</kbd> filter · <kbd>J</kbd> <kbd>K</kbd> move · <kbd>Enter</kbd> open or close · <kbd>S</kbd> start a task · <kbd>R</kbd> read again · <kbd>T</kbd> tasks · <kbd>W</kbd> waits for you</span></div>
   </section>
 
-  <section id="hero" class="hero" data-tasks>
+  <!-- Each panel names the tab that shows it: data-tasks on the board of all tasks, data-task-tab on
+       the board of one task. A tab hides the other panels and never removes them. -->
+  <section id="building" class="card building" data-task-tab="overview" aria-label="What we are building" hidden></section>
+
+  <section id="verdict" class="card verdict" data-task-tab="overview" role="status" aria-label="Green or not green" hidden></section>
+
+  <section id="hero" class="hero" data-tasks data-task-tab="overview">
     <div id="now" class="card now"></div>
     <div id="progress" class="card"></div>
   </section>
@@ -406,36 +590,40 @@
     <div id="lanes" class="lanes"></div>
   </section>
 
-  <section class="card" data-tasks>
+  <section id="crit-panel" class="stack" data-task-tab="criteria" role="tabpanel" aria-label="Criteria and decisions" hidden>
+    <section id="criteria-card" class="card">
+      <div class="card-head"><h2>Acceptance criteria</h2><div id="criteria-sum" class="dim small"></div></div>
+      <div id="criteria" class="rows"></div>
+    </section>
+    <section id="decisions-card" class="card">
+      <div class="card-head"><h2>Decisions</h2><div id="decisions-sum" class="dim small"></div></div>
+      <div id="decisions" class="rows"></div>
+    </section>
+    <div class="lane-empty panel-empty" hidden>The task ended with no criteria and no decision on record</div>
+  </section>
+
+  <section id="checks-panel" class="stack" data-task-tab="checks" role="tabpanel" aria-label="Checks and review" hidden>
+    <section id="gate-card" class="card">
+      <div class="card-head"><h2>Checks</h2><div id="gate-sum" class="dim small"></div></div>
+      <div id="gate" class="rows"></div>
+    </section>
+    <section id="review-card" class="card">
+      <div class="card-head"><h2>Review</h2><div id="review-sum" class="dim small"></div></div>
+      <div id="review" class="rows"></div>
+    </section>
+    <div class="lane-empty panel-empty" hidden>The task ended with no checks and no review on record</div>
+  </section>
+
+  <section id="tl-card" class="card" data-tasks data-task-tab="timeline">
     <div class="card-head"><h2>Where the time went</h2><div id="legend" class="legend"></div></div>
     <div id="tl-wrap"><div id="timeline"></div><div id="tip" class="tip" hidden></div></div>
     <div id="tl-note" class="tl-note"></div>
   </section>
 
-  <div id="cols" class="cols" data-tasks>
-    <div id="stack" class="stack">
-      <section id="criteria-card" class="card">
-        <div class="card-head"><h2>Acceptance criteria</h2><div id="criteria-sum" class="dim small"></div></div>
-        <div id="criteria" class="rows"></div>
-      </section>
-      <section id="decisions-card" class="card">
-        <div class="card-head"><h2>Decisions</h2><div id="decisions-sum" class="dim small"></div></div>
-        <div id="decisions" class="rows"></div>
-      </section>
-      <section id="gate-card" class="card">
-        <div class="card-head"><h2>Checks</h2><div id="gate-sum" class="dim small"></div></div>
-        <div id="gate" class="rows"></div>
-      </section>
-      <section id="review-card" class="card">
-        <div class="card-head"><h2>Review</h2><div id="review-sum" class="dim small"></div></div>
-        <div id="review" class="rows"></div>
-      </section>
-    </div>
-    <section class="card">
-      <div class="card-head"><h2>Activity</h2><div id="feed-sum" class="dim small"></div></div>
-      <div id="feed" class="feed rows"></div>
-    </section>
-  </div>
+  <section id="feed-card" class="card" data-tasks data-task-tab="timeline">
+    <div class="card-head"><h2>Activity</h2><div id="feed-sum" class="dim small"></div></div>
+    <div id="feed" class="feed rows"></div>
+  </section>
 
   <footer id="foot" class="foot"></footer>
 </main>
@@ -444,8 +632,10 @@
 // The board of one repository's tasks, and the board of one task. It draws two files that sit
 // beside it in the state folder: events.js (project.py: every state block, gate result, review
 // and proposal, and what criteria.py, decisions.py and land.py log through it) and meta.js
-// (board.py: the repository, the base branch, Lem's session), and a third when it is there:
-// watch.js (land.py watch: when the pull requests of the open tasks were last looked at on the forge).
+// (board.py: the repository, the base branch, Lem's session), and two more when they are there:
+// watch.js (land.py watch: when the pull requests of the open tasks were last looked at on the forge)
+// and overview.js (board.py: each task's outcome and the backlog items its branch filed). The tab
+// "Backlog" reads backlog.js on its own clock, below.
 // A copy named task-SLUG.html opens on that task; any other name opens on all tasks.
 //
 // A decision of the build is the events with its `id` (decisions.py): `decision.taken` or
@@ -463,9 +653,20 @@
 // start to its record. A stage whose start is not in the log (the personas' read, a plan talk) is a
 // mark where it ended.
 //
-// The board of all tasks has a second tab, the backlog, from backlog.js (board.py: the items of the
-// backlog folder). Items change rarely, so that file is read when the tab opens and on a key, not
-// every two seconds, and the tab says when it was written. `#backlog` in the address opens there.
+// The board of all tasks has three tabs: the tasks in their lanes, "Waits for you" (one row for each
+// thing the owner does, waitsOf) and the backlog, from backlog.js (board.py: the items of the backlog
+// folder). A tab hides the panels of the others and never removes them, and every panel is patched by
+// keys, so a change of tab draws nothing again and a text selected in a panel stays. Items change
+// rarely, so backlog.js is read when its tab opens and on a key, not every two seconds, and the tab
+// says when it was written. `#waits` or `#backlog` in the address opens there.
+//
+// The board of one task has four: "Overview" ("What we are building", buildBuilding, then green or not
+// green with its reasons in plain words, buildVerdict, then the large card and the phases), "Criteria
+// and decisions" (each decision one folded row, the important ones first), "Checks and review" and
+// "Timeline" (where the time went, and the activity). A task opens on its overview, the keys 1 to 4
+// choose a tab, and "All tasks" goes back to the tab of the board of all tasks he left. What we are
+// building reads overview.js (board.py: each task's outcome from its task.md, and the backlog items
+// its branch filed), which the page reads with meta.js; it says when the file was written.
 //
 // No wait turns amber or red by its length here. The monitor this page follows had limits measured
 // on its own runs; three small tasks ran through Lem (2026-11-15), too few to take a limit from.
@@ -473,15 +674,16 @@
 const FEED_EVERY_MS = 2000;
 const TREE_EVERY_MS = 3000;
 const DONE_SHOWN = 6;
-// Past this many banners the rest fold under one line: on 2026-11-16 thirteen banners filled the
-// first screen of a board of 40 tasks and pushed its lanes below it (audit of the board, that day).
-const BANNERS_SHOWN = 3;
-let bannersOpen = false;
 
 const START_VIEW = (decodeURIComponent(location.pathname.split('/').at(-1)).match(/^task-([a-z0-9-]+)\.html$/) ?? [])[1] ?? null;
 let view = START_VIEW;
-// which tab of the board of all tasks is open; the board of one task has no tabs
-let tab = !START_VIEW && location.hash === '#backlog' ? 'backlog' : 'tasks';
+// which tab of the board of all tasks is open; the board of one task keeps its own in taskTab
+const TABS = ['tasks', 'waits', 'backlog'];
+let tab = !START_VIEW && TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'tasks';
+// The board of one task has four tabs of its own, and a task opens on its overview. `tab` keeps the
+// tab of the board of all tasks meanwhile, so that "All tasks" goes back to the one he left.
+const TASK_TABS = ['overview', 'criteria', 'checks', 'timeline'];
+let taskTab = 'overview';
 
 // Who acts in each status, in the words of SKILL.md's table.
 const STATUS = {
@@ -550,7 +752,13 @@ const SMALL_PHASES = ['Change', 'Checks', 'Review', 'Proposed', 'Landed'];
 // then what only waits for his word.
 const OWNER_ORDER = ['choice', 'held', 'planned', 'open'];
 // Who took a decision, in the page's words to the owner.
-const BY_WHOM = {lead: 'the agent', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout', experts: 'the experts'};
+const BY_WHOM = {lead: 'the agent', personas: 'the personas', owner: 'you', lem: 'Lem', timeout: 'the timeout', experts: 'the experts',
+  gate: 'the question gate', dialectic: 'the dialectic'};
+// The levels of the ladder a decision climbed (stages/ladder.md), in their order, as a record's `levels`
+// names them; a level the record names that is not here comes after them, by its own name.
+const LADDER = [['gate', 'The question gate'], ['lead', 'The agent'], ['personas', 'The personas'], ['dialectic', 'The dialectic'], ['experts', 'The experts']];
+// The levels past the personas: a decision one of them answered, or took, went past the personas.
+const PAST_PERSONAS = ['dialectic', 'experts'];
 // Who works on a task, from its state lines, in words a developer needs no glossary for: the page
 // never says "lead" or "defender". `lead: session` is the companion Lem opens for a careful or large
 // plan's talk, which builds nothing; `lead: builder` after a plan talk is the agent that builds the
@@ -648,7 +856,10 @@ let treeProblem = null;
 let backlog = null;
 let backlogProblem = null;
 const bl = {q: '', open: new Set(), cursor: null, confirm: null, sent: new Map(), reading: false};
-let blDrawn = '';
+// what overview.js last gave (board.py: each task's outcome and the backlog items its branch filed), or null
+let overview = null;
+// the decisions the owner opened, as `SLUG:ID`: they stay open through the draw of every second
+const decOpen = new Set();
 
 // ---- reading the three files ----
 //
@@ -814,7 +1025,11 @@ function define(node) {
 }
 
 // A block whose markup has not changed keeps its node, so a running animation, a text selection and
-// a hover survive the once-a-second render; only the blocks that did change are swapped.
+// a hover survive the once-a-second render; only the blocks that did change are swapped. A block
+// marked `data-deep` whose markup changed keeps its node too: its attributes are set in place and its
+// children, each with a key of its own, are patched at their own level, so a part of it that did not
+// change keeps its node (the backlog, down to the parts of an item's foot). A node a parent brought in
+// has no signature of its own yet, and its markup is its signature then: the backlog sets no style.
 const SIGNATURE = new WeakMap();
 function patch(parent, nodes) {
   const old = new Map([...parent.children].map(c => [c.dataset.key, c]));
@@ -824,7 +1039,15 @@ function patch(parent, nodes) {
     if (glossary) define(n);
     const signature = n.outerHTML;
     const kept = old.get(n.dataset.key);
-    if (kept && SIGNATURE.get(kept) === signature) { old.delete(n.dataset.key); return kept; }
+    if (kept && (SIGNATURE.get(kept) ?? kept.outerHTML) === signature) { old.delete(n.dataset.key); return kept; }
+    if (kept && 'deep' in n.dataset && kept.tagName === n.tagName) {
+      for (const a of [...kept.attributes]) if (!n.hasAttribute(a.name)) kept.removeAttribute(a.name);
+      for (const a of [...n.attributes]) if (kept.getAttribute(a.name) !== a.value) kept.setAttribute(a.name, a.value);
+      patch(kept, [...n.children]);
+      SIGNATURE.set(kept, signature);
+      old.delete(n.dataset.key);
+      return kept;
+    }
     SIGNATURE.set(n, signature);
     phase(n);
     return n;
@@ -844,8 +1067,10 @@ function derive(now) {
   const tasks = new Map();
   // the owner's status, from the newest `owner` event: away since then, or there (null)
   let away = null;
+  // every change of his status, for what a choice taken without him says (awayAt)
+  const owners = [];
   for (const e of events) {
-    if (e.event === 'owner' && !e.task) away = e.away ? {since: at(e), words: e.words ?? ''} : null;
+    if (e.event === 'owner' && !e.task) { away = e.away ? {since: at(e), words: e.words ?? ''} : null; owners.push({ts: at(e), away: e.away === true}); }
     if (!e.task) continue;
     let t = tasks.get(e.task);
     if (!t) tasks.set(e.task, t = {
@@ -987,7 +1212,7 @@ function derive(now) {
 
   const by = status => list.filter(t => t.status === status).sort((a, b) => a.since - b.since);
   const m = {
-    now, list, away,
+    now, list, away, owners,
     // proposed: a pull request is open or the branch is ready to land, and it waits for the merge
     proposed: by('open'),
     building: by('building'), queued: by('queued'), ready: by('ready'), landing: by('landing'), blocked: by('blocked'),
@@ -1022,6 +1247,8 @@ function decisionEvent(t, e) {
       id: e.id, kind, ts, what: e.what, chose: e.chose ?? null, why: e.why, by: e.by ?? null, said: e.said ?? null, undo: e.undo ?? null,
       options: e.options ?? [], recommended: e.recommended ?? null, irreversible: e.irreversible ?? null,
       state: kind === 'taken' ? 'taken' : 'waits', ended: null, late: null, advice: {}, experts: null, advisers: e.advisers ?? null,
+      // what each level of the ladder said, {level: words}, as the record has it
+      levels: e.levels && typeof e.levels === 'object' ? e.levels : null,
     });
     return;
   }
@@ -1037,7 +1264,7 @@ function decisionEvent(t, e) {
 
 // ---- blocks shared by both views ----
 
-const jump = (target, label) => h('button', {class: 'jump', type: 'button', 'data-jump': target}, label, ' ', icon('arrow'));
+const jump = (target, label) => h('button', {class: 'btn', type: 'button', 'data-jump': target}, label, ' ', icon('arrow'));
 const open = (slug, ...kids) => h('button', {class: 'rlink', type: 'button', 'data-open': slug}, ...kids);
 
 function paneOf(id) {
@@ -1050,18 +1277,19 @@ function statusPill(t) {
   return h('span', {class: `pill a-${t.info.actor}${t.info.live ? ' live' : ''}`}, h('i'), t.info.label, ' ', h('span', {}, live(t.since), t.closed ? ' ago' : ''));
 }
 
-// The tags of a task: each one says something a developer acts on. On a lane card (`card`) the line
-// above the tags already names the first choice that waits and the task of the plan, so the card
-// leaves those out. The newest commit is the task board's "Last commit", and no tag repeats it.
+// The tags of a task: each one says something a developer acts on. On a lane card (`card`) the wait
+// mark (waitMark) stands for the choices that wait, and the state line above the tags already names
+// the task of the plan, so the card leaves those out. The newest commit is the task board's "Last
+// commit", and no tag repeats it.
 function tags(t, card = false) {
   const out = [];
   if (t.type) out.push(h('span', {class: 'tag', title: `The type of the request, as Lem took it from the request: ${t.type.type}, because ${t.type.why}`}, icon('flag'), h('span', {}, t.type.type)));
-  for (const c of t.waiting.filter(x => !(card && x === t.asks[0]))) out.push(h('span', {class: `tag c-you${t.asks.includes(c) ? ' live' : ''}`, title: `${c.what}\nrecommended: ${c.recommended}`}, icon('help'),
+  for (const c of card ? [] : t.waiting) out.push(h('span', {class: `tag c-you${t.asks.includes(c) ? ' live' : ''}`, title: `${c.what}\nrecommended: ${c.recommended}`}, icon('help'),
     h('span', {}, `choice ${c.id} waits`)));
   const lead = t.lead ? LEAD[leadOf(t)] : null;
   if (lead?.chip) out.push(h('span', {class: `tag c-lead${t.status === 'building' ? ' live' : ''}`, title: lead.title},
     icon(t.lead === 'session' ? 'split' : 'code'), h('span', {}, lead.chip)));
-  if (t.progress && t.status === 'building' && !(card && !t.asks.length && taskLine({status: t.status, text: t.text, lines: []})))
+  if (t.progress && t.status === 'building' && !(card && taskLine({status: t.status, text: t.text, lines: []})))
     out.push(h('span', {class: 'tag', title: 'The task of the plan that is built now'}, icon('layers'), h('span', {}, `task ${t.progress.n} of ${t.progress.of}`)));
   if (t.criteria) out.push(h('span', {class: 'tag', title: t.criteria.list.map(st => `${st.n}. ${st.text}`).join('\n')}, icon('file'),
     h('span', {}, criteriaCount(t.criteria.list.length))));
@@ -1103,43 +1331,17 @@ function answerOf(t, c = t.asks[0]) {
   if (t.status === 'planned') return 'Read the plan, then tell Lem in its session: build it or drop it.';
   return `Tell Lem in its session: /lem build ${t.slug}, or drop it.`;
 }
-const toLem = () => { const lem = paneOf(meta.session); return lem ? jump(lem.id, 'Go to Lem') : null; };
-
 function buildBanners(m) {
   const out = [];
   if (meta.demo) out.push(keyed('demo', h('div', {class: 'banner demo'}, icon('alert'),
     h('span', {}, h('b', {}, 'Demo data. '), 'These tasks are examples and not real work. Nothing on this page waits for you.'))));
-  // A banner is for what stops work or runs out: a choice whose wait runs, a held task and a
-  // blocked task. A draft waits in its lane. The large card above the lanes has the most pressing
-  // one, with where you answer, so its banner would say it a second time: the banners are the waits
-  // after it, one line each. Past the first three they fold under one line.
+  // A banner is for a task that is blocked and that the large card does not already show. What waits
+  // for the owner is a row of "Waits for you", which says all a banner said: what, of which task, and
+  // since when.
   const focus = view ? null : focusOf(m);
-  const inCard = focus ? (focus.t.asks.length ? `choice:${focus.t.slug}:${focus.t.asks[0].id}` : `task:${focus.t.slug}`) : '';
-  const waits = [];
-  for (const t of view ? [] : m.forOwner.filter(x => x.asks.length)) {
-    for (const c of t.asks.filter(x => `choice:${t.slug}:${x.id}` !== inCard)) {
-      waits.push(keyed(`choice:${t.slug}:${c.id}`, h('div', {class: 'banner attention'}, icon('help'),
-        h('span', {}, h('b', {}, `Choice ${c.id} waits for you: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${c.what} · `, live(c.ts))),
-        toLem())));
-    }
-  }
-  for (const t of view ? [] : m.forOwner.filter(x => x.status === 'held' && !x.asks.length && `task:${x.slug}` !== inCard)) {
-    waits.push(keyed(`you:${t.slug}:${t.status}`, h('div', {class: 'banner attention'}, icon('user'),
-      h('span', {}, h('b', {}, `${t.info.label}: `), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.shown} · `, live(t.since))), toLem())));
-  }
-  for (const t of view ? [] : m.blocked.filter(x => `task:${x.slug}` !== inCard)) {
-    waits.push(keyed(`blocked:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
+  for (const t of view ? [] : m.blocked.filter(x => x !== focus?.t)) {
+    out.push(keyed(`blocked:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
       h('span', {}, h('b', {}, 'Blocked: '), open(t.slug, t.title), h('span', {class: 'sub'}, ` · ${t.shown} · `, live(t.since))))));
-  }
-  out.push(...waits.slice(0, BANNERS_SHOWN));
-  const rest = waits.slice(BANNERS_SHOWN);
-  if (rest.length) {
-    const yours = rest.filter(n => n.classList.contains('attention')).length, blocked = rest.length - yours;
-    const what = [yours && `${yours} wait${yours === 1 ? 's' : ''} for you`, blocked && `${blocked} blocked`].filter(Boolean).join(', ');
-    out.push(keyed(`fold:${bannersOpen}:${rest.map(n => n.dataset.key).join(',')}`, h('div', {class: 'banner-fold'},
-      h('button', {class: 'fold-toggle', type: 'button', 'data-fold': '', 'aria-expanded': String(bannersOpen)}, icon('layers'),
-        h('span', {}, `${rest.length} more: ${what} · `, h('b', {}, bannersOpen ? 'Hide them' : 'Show them'))),
-      h('div', {class: 'fold-rest', hidden: !bannersOpen}, rest))));
   }
   for (const t of m.unknown) {
     out.push(keyed(`unknown:${t.slug}`, h('div', {class: 'banner problem'}, icon('alert'),
@@ -1671,7 +1873,7 @@ function buildBoardNow(m) {
         h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, live(c ? c.ts : t.since)),
           h('span', {class: 'note'}, c ? 'since it was asked' : 'in this state',
             others > 0 ? ` · ${plural(others, 'more task')} like it` : '')),
-        h('button', {class: 'jump', type: 'button', 'data-open': t.slug}, 'Open the task', ' ', icon('arrow'))))));
+        h('button', {class: 'btn', type: 'button', 'data-open': t.slug}, 'Open the task', ' ', icon('arrow'))))));
 }
 
 function ring(done, current, total, big, small) {
@@ -1683,12 +1885,11 @@ function ring(done, current, total, big, small) {
 }
 const stat = (label, value, sub, cls = '') => h('div', {class: `stat ${cls}`, title: sub ?? ''}, h('div', {class: 'sk'}, label), h('div', {class: 'sv'}, value), h('div', {class: 'ss'}, sub ?? ''));
 
-// The one line of a card, in words: the first choice that waits for you, how long, the
-// answer of an answered task, or what the newest state block says. The lane's title is not said
-// again: in "Building" a card says "Task 2 of 3", not "Building: task 2 of 3".
+// The state line of a card, in words: the answer of an answered task, or what the newest state block
+// says. It always says the task's state: a choice that waits is the wait mark under it, never this
+// line. The lane's title is not said again: in "Building" a card says "Task 2 of 3", not "Building:
+// task 2 of 3"; in "Waits for you" a task that builds while a choice waits says "Building: task 2 of 3".
 function cardLine(t, lane) {
-  const c = t.asks[0];
-  if (c) return [`Choice ${c.id} waits for you: ${c.what} · `, live(c.ts)];
   if (t.status === 'answered' && t.investigation) return `${CALLS[t.investigation.call]?.card ?? t.investigation.call}: ${t.investigation.line}`;
   const label = t.info.label === lane.title ? '' : t.info.label;
   if (!t.shown) return t.info.label;
@@ -1697,17 +1898,25 @@ function cardLine(t, lane) {
   return label ? `${label}: ${said}` : cap(said);
 }
 
-// A card is short: the task's name, its ask in one line, one line of where it is, and the tags.
-// Where you answer is on the large card for the most pressing wait and on the task's own board.
+// One mark for the choices of a task that wait for the owner, with each choice's text in its hover;
+// "Waits for you" has a row for each.
+function waitMark(t) {
+  if (!t.asks.length) return null;
+  return h('span', {class: 'tag c-you live tc-wait', title: t.asks.map(c => `Choice ${c.id}: ${c.what}`).join('\n')}, icon('help'),
+    h('span', {}, t.asks.length === 1 ? `choice ${t.asks[0].id} waits` : `${t.asks.length} choices wait`));
+}
+
+// A card has one shape: the task's name, its ask cut after two lines, its state line, and at its foot
+// the wait mark and the tags. Where you answer is a row of "Waits for you", and on the task's own board.
 function taskCard(t, lane) {
   const pane = paneOf(t.session);
   return keyed(`c:${t.slug}`, h('button', {class: `tcard s-${t.status} a-${t.info.actor}`, type: 'button', 'data-open': t.slug, title: 'Open the board of this task'},
     h('div', {class: 'tc-top'}, h('div', {class: 'tc-title'}, t.title), h('div', {class: 'tc-time'}, t.closed ? '' : live(t.since))),
-    t.ask ? h('div', {class: 'tc-ask', title: t.ask}, t.ask) : '',
+    t.ask ? h('div', {class: 'tc-ask', 'data-ask': t.ask}, h('span', {}, t.ask)) : '',
     h('div', {class: 'tc-text'}, cardLine(t, lane)),
     t.progress && t.status === 'building' ? h('div', {class: 'mini'}, h('span', {style: `width:${(100 * (t.progress.n - 1)) / t.progress.of}%`}),
       h('span', {class: 'cur', style: `left:${(100 * (t.progress.n - 1)) / t.progress.of}%;width:${100 / t.progress.of}%`})) : '',
-    h('div', {class: 'tc-row'}, tags(t, true), pane?.status ? h('span', {class: 'tag', title: 'The agent status agterm shows for the task’s session'}, icon('cpu'), h('span', {}, `session ${pane.status}`)) : '')));
+    h('div', {class: 'tc-row'}, waitMark(t), tags(t, true), pane?.status ? h('span', {class: 'tag', title: 'The agent status agterm shows for the task’s session'}, icon('cpu'), h('span', {}, `session ${pane.status}`)) : '')));
 }
 
 function buildLanes(m) {
@@ -1721,12 +1930,162 @@ function buildLanes(m) {
     if (hidden) tasks = tasks.slice(0, DONE_SHOWN);
     return keyed(`lane:${lane.key}`, h('div', {class: `lane a-${lane.actor}`},
       h('div', {class: 'lane-head'}, h('i'), lane.title, h('em', {}, tasks.length + hidden)),
-      tasks.length ? tasks.map(t => taskCard(t, lane)).map(c => { phase(c); return c; }) : h('div', {class: 'lane-empty'}, lane.empty),
+      tasks.length ? h('div', {class: 'lane-cards'}, tasks.map(t => taskCard(t, lane)).map(c => { phase(c); return c; })) : h('div', {class: 'lane-empty'}, lane.empty),
       hidden ? h('div', {class: 'more'}, `and ${plural(hidden, 'older task')}`) : ''));
   });
 }
 
+// ---- "Waits for you" ----
+
+// Green by the proposal's record, or by the line `green` its state block carries (stages/land.md).
+const isGreen = t => (t.proposal ? t.proposal.green : t.blocks.at(-1).lines.some(line => line === 'green'));
+// Why a proposal is not green: the proposal's reasons, or the `not green: ...` line of its state block.
+const notGreenWhy = t => (t.proposal ? t.proposal.reasons
+  : t.blocks.at(-1).lines.filter(line => /^not green\b/.test(line)).map(line => line.replace(/^not green:?\s*/, '')));
+// Two heads name one commit when one starts with the other: a proposal keeps nine characters of its
+// tip, and the forge gives the whole head.
+const sameHead = (a, b) => Boolean(a && b) && (String(a).startsWith(b) || String(b).startsWith(a));
+// The forge calls the pull request conflicting with the base: an entry of the newest watch (watch.js)
+// says so of the head of the task's newest proposal, which project.py `proposal` checks the same way.
+// The forge's word on an older head says nothing of the head Lem proposed since.
+function conflicts(t) {
+  const entry = (watch?.open ?? []).find(x => x.task === t.slug);
+  return entry?.mergeable === 'CONFLICTING' && sameHead(entry.head, t.proposal?.tip);
+}
+// The rows of "Waits for you": one for each thing the owner does, as `lem project waiting` lists them
+// (without the retro's proposals, which the board has no file for, and with the plans he reads): each
+// choice that waits, each held task with no choice that waits (its criteria, or what its state line
+// says), each plan its lead gave him to read, and each proposal that waits for his merge. A held task
+// whose choice waits is the row of that choice and no second row. A proposal the forge calls
+// conflicting is counted, since its merge waits for him once Lem has brought it onto the base.
+const WAIT_ORDER = {choice: 0, criteria: 1, held: 1, plan: 2, merge: 3};
+function waitsOf(m) {
+  const rows = [];
+  for (const t of m.list.filter(x => !x.closed)) {
+    for (const c of t.asks) rows.push({kind: 'choice', key: `choice:${t.slug}:${c.id}`, t, c, since: c.ts});
+    if (t.status === 'held' && !t.asks.length) rows.push({kind: t.criteriaWait ? 'criteria' : 'held', key: `held:${t.slug}`, t, since: t.since});
+    if (t.status === 'planned' && /\bowner\b/.test(t.text)) rows.push({kind: 'plan', key: `plan:${t.slug}`, t, since: t.since});
+    if (t.status === 'open') rows.push({kind: 'merge', key: `merge:${t.slug}`, t, since: t.since, conflict: conflicts(t)});
+  }
+  return rows.sort((a, b) => WAIT_ORDER[a.kind] - WAIT_ORDER[b.kind] || a.since - b.since);
+}
+// One row: what the owner does, of which task, what it is about, where he answers, how long it has
+// waited, and the button that opens the task, at the right as on every card with an action.
+function waitRow(w) {
+  const {t, c} = w;
+  const pull = /^pull request\b/.test(t.text);
+  const say = {
+    choice: () => ({verb: `Answer choice ${c.id}`, icon: 'help',
+      about: [c.what, h('span', {class: 'sub'}, ` · recommended: ${c.recommended}`),
+        Object.keys(c.advice).length ? h('span', {class: 'sub'}, ` · the experts: ${Object.keys(EXPERTS).filter(key => c.advice[key])
+          .map(key => `${expertName(key)} ${c.advice[key].pick != null ? `“${c.advice[key].pick}”` : 'none fits'}`).join(' · ')}`) : ''],
+      where: answerOf(t, c), note: 'since it was asked'}),
+    criteria: () => ({verb: 'Approve the criteria', icon: 'file', about: '', where: answerOf(t), note: 'in this state'}),
+    held: () => ({verb: cap(t.shown || t.info.label), icon: 'user', about: '', where: answerOf(t), note: 'in this state'}),
+    plan: () => ({verb: 'Read the plan', icon: 'file', about: '', where: answerOf(t), note: 'in this state'}),
+    merge: () => (w.conflict
+      ? {verb: 'It conflicts with the base', icon: 'alert', actor: 'bad',
+        about: 'The forge calls the pull request conflicting with the base, on the head Lem proposed.',
+        where: 'Nothing to do now: Lem brings it onto the base first, and then it waits for you again.', note: 'since it was proposed'}
+      : {verb: pull ? 'Merge the pull request' : 'Tell Lem to land it', icon: 'branch',
+        about: isGreen(t) ? `Green: ${GREEN.toLowerCase()}` : `Not green: ${notGreenWhy(t).join(' · ') || 'no reason is on record'}`,
+        where: answerOf(t), note: 'since it was proposed'}),
+  }[w.kind]();
+  return keyed(`w:${w.key}:${w.conflict ? 'conflict' : ''}`, h('div', {class: `wrow a-${say.actor ?? 'you'}`, 'data-wait': w.kind},
+    h('span', {class: 'fi'}, icon(say.icon)),
+    h('div', {class: 'wbody'},
+      h('div', {class: 'wverb'}, say.verb),
+      h('div', {class: 'wtask', title: t.ask ?? null}, open(t.slug, t.title), t.ask ? h('span', {class: 'sub'}, ` · ${t.ask}`) : ''),
+      say.about ? h('div', {class: 'wabout'}, say.about) : '',
+      h('div', {class: 'wwhere'}, h('b', {}, 'Where you answer: '), say.where)),
+    h('div', {class: 'wside'},
+      h('span', {class: 'wtime'}, live(w.since), ` ${say.note}`),
+      h('button', {class: 'btn', type: 'button', 'data-open': t.slug}, 'Open the task', ' ', icon('arrow')))));
+}
+
 // ---- the board of one task ----
+
+// Whether the owner was away at a moment: the newest `owner` event at or before it says away. The
+// same second counts: project.py writes his `owner` event and takes each choice that waits in one
+// whole second (decision 2 of the task that built this).
+function awayAt(owners, ms) {
+  return owners.findLast(o => o.ts <= ms)?.away === true;
+}
+const EXPERT_COUNT = {1: 'one outside expert', 2: 'two outside experts'};
+// One reason of not green in plain words. Only a line of land.py that begins with `choice N ` (a
+// choice that waited for the owner and was taken without him) is said again, from the choice's
+// record: who chose, which option, and whether he was away. Every other reason is land.py's own
+// words, which are plain already, and so is a choice whose record is not in the log. The whole line
+// of land.py stays in the hover.
+function plainReason(t, line, owners) {
+  const id = line.match(/^choice (\d+) /)?.[1];
+  const d = id ? t.choices.find(x => x.id === Number(id)) : null;
+  if (!d || d.state !== 'timeout' || d.ended == null) return {text: line};
+  const when = awayAt(owners, d.ended) ? 'while you were away' : 'while the task ran without you';
+  const option = chosenAt(d) + 1;
+  const experts = Object.keys(d.experts ?? {}).length;
+  const text = d.by !== 'experts' ? `Lem took the recommended option of choice ${d.id} ${when}`
+    : option > 0 && EXPERT_COUNT[experts] ? `${EXPERT_COUNT[experts]} chose option ${option} ${when}` : null;
+  return text ? {text, about: `choice ${d.id} · ${d.what} · “${d.chose}”`, title: line} : {text: line};
+}
+// What the proposal said: green, or each reason it is not, from its record or from the lines of its
+// state block (isGreen, notGreenWhy); none before a proposal.
+function verdictOf(t) {
+  if (t.proposal) return {green: t.proposal.green, reasons: t.proposal.reasons};
+  const lines = t.blocks.at(-1).lines;
+  if (!lines.some(line => line === 'green' || /^not green\b/.test(line))) return null;
+  return {green: isGreen(t), reasons: notGreenWhy(t)};
+}
+// The first line of the board of one task: green or not green, with each reason in plain words, so
+// that he sees it with no click. Before a proposal it says when the word comes; a task that ended
+// with nothing proposed has no such line.
+function buildVerdict(t, owners) {
+  const v = verdictOf(t);
+  if (!v && t.closed) return null;
+  const line = (actor, name, ...kids) => ({actor, node: h('div', {class: 'v-line'}, h('span', {class: 'fi'}, icon(name)), h('div', {class: 'v-text'}, ...kids))});
+  if (!v) return line('quiet', 'clock', h('b', {class: 'v-word'}, 'not proposed yet:'), ' green or not green comes with the proposal, after the checks and the review');
+  if (v.green) return line('done', 'check', h('b', {class: 'v-word'}, 'green:'), ` ${GREEN[0].toLowerCase()}${GREEN.slice(1)}`);
+  const plain = v.reasons.map(r => plainReason(t, r, owners));
+  const reason = r => [r.text, r.about ? h('span', {class: 'sub'}, ` · ${r.about}`) : ''];
+  if (plain.length <= 1) {
+    const one = line('you', 'alert', h('b', {class: 'v-word'}, 'not green:'), ' ', ...(plain.length ? reason(plain[0]) : ['no reason is on record']));
+    if (plain[0]?.title) one.node.querySelector('.v-text').title = plain[0].title;
+    return one;
+  }
+  return line('you', 'alert', h('b', {class: 'v-word'}, `not green, for ${plain.length} reasons:`),
+    h('ul', {class: 'v-list'}, plain.map(r => h('li', {title: r.title ?? null}, ...reason(r)))));
+}
+
+// "What we are building", first on the overview: the goal of the task (the reason of its type line),
+// what the owner gets (the outcome of its task.md, from overview.js), a line to the decisions he should
+// look at when an important one exists, and the backlog items its branch filed, with when board.py
+// looked. A task whose worktree is gone has no line of filed items: nothing tells them. Nor has a task
+// that ended when git shows none: after a merge that is no squash its branch adds nothing against the
+// base, whatever it filed. A task that overview.js does not hold yet (it started after board.py last
+// ran) says so, with the command that reads it.
+function buildBuilding(t) {
+  const told = overview?.tasks?.[t.slug] ?? null;
+  const goal = t.type?.why ?? '';
+  const paragraphs = String(told?.outcome ?? '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+  const important = importantOf(t).length;
+  const filed = Array.isArray(told?.filed) && (told.filed.length || !t.closed) ? told.filed : null;
+  if (told && !goal && !paragraphs.length && !important && !filed) return null;
+  const written = overview?.written ? Date.parse(overview.written) : 0;
+  const lines = [
+    important ? h('button', {class: 'btn b-look', type: 'button', 'data-goto-tab': 'criteria', title: 'Open the tab Criteria and decisions · key 2'},
+      icon('alert'), `${plural(important, 'important decision')} ${important === 1 ? 'waits' : 'wait'} for a look`, ' ', icon('arrow')) : '',
+    told ? '' : h('div', {class: 'b-line'}, h('b', {}, 'its outcome and its backlog items are not read yet'),
+      h('span', {}, written ? `· the board read the tasks at ${stamp(written, Date.now())}; ` : '· ', h('span', {class: 'cmd'}, 'lem board --no-open'), ' reads them')),
+    filed ? h('div', {class: 'b-line'}, h('b', {}, filed.length ? `${plural(filed.length, 'backlog item')} filed` : 'no backlog item filed'),
+      written ? h('span', {}, `· the branch as of ${stamp(written, Date.now())}`) : '',
+      filed.length ? h('ul', {class: 'b-items'}, filed.map(item => h('li', {title: item.path}, item.title, h('span', {class: 'cmd'}, ` · ${item.path}`)))) : '') : '',
+  ].filter(Boolean);
+  return keyed(`b:${t.slug}`, h('div', {class: 'building'},
+    h('div', {class: 'eyebrow'}, 'What we are building'),
+    goal ? h('h3', {class: 'b-goal'}, cap(goal)) : '',
+    paragraphs.map(text => h('p', {class: 'b-text'}, text)),
+    lines.length ? h('div', {class: 'b-lines'}, lines) : ''));
+}
 
 function buildTaskNow(t) {
   const pane = paneOf(t.session);
@@ -1954,12 +2313,93 @@ function criteriaHead(t, now) {
   return rows;
 }
 
-// Each decision of the build: the choices that wait for the owner first, then every one in the
-// record's order with what was chosen, by whom and why.
+// Why a decision is important (decision 9 of the plan that built this), or null: it makes the pull
+// request not green (a choice taken without the owner, or a decision a `decision N ` or `choice N `
+// line of the newest proposal names), or it went past the personas (the dialectic or the experts took
+// it, or answered at its level). A decision of the owner, the gate, the personas, the agent or Lem is
+// not, and neither is a choice that still waits: it stands first by itself.
+function importance(t, d) {
+  if (d.kind === 'asked' && d.state === 'waits') return null;
+  const named = (t.proposal?.reasons ?? []).some(line => line.startsWith(`decision ${d.id} `) || line.startsWith(`choice ${d.id} `));
+  const notGreen = d.state === 'timeout' || named;
+  const past = PAST_PERSONAS.includes(d.by) ? d.by : PAST_PERSONAS.find(level => String(d.levels?.[level] ?? '').trim()) ?? null;
+  if (!notGreen && !past) return null;
+  return [notGreen && 'it makes the pull request not green', past && `it went past the personas: ${PAST_PERSONAS.includes(d.by) ? `${BY_WHOM[d.by]} took it` : `${BY_WHOM[past]} answered it`}`]
+    .filter(Boolean).join(', and ');
+}
+const importantOf = t => t.choices.filter(d => importance(t, d));
+
+// The option a decision took, by its place in its options, or -1: the same text, or, as a lead writes a
+// choice it took after the talk ("D: the backlog is patched by keys, ..." for the option "D: the
+// backlog is patched by keys down to the foot's parts"), the same short label before a colon.
+const LABEL = /^([A-Za-z0-9]{1,3}):\s/;
+function chosenAt(d) {
+  if (d.chose == null) return -1;
+  const same = d.options.indexOf(d.chose);
+  if (same >= 0) return same;
+  const label = String(d.chose).match(LABEL)?.[1];
+  const found = label ? d.options.findIndex(option => String(option).match(LABEL)?.[1] === label) : -1;
+  return found >= 0 && d.options.filter(option => String(option).match(LABEL)?.[1] === label).length === 1 ? found : -1;
+}
+
+// One labelled part of a decision's opened row; nothing when it has nothing to say.
+const decPart = (key, label, ...says) => (says.flat().some(x => x != null && x !== '' && x !== false)
+  ? keyed(key, h('div', {class: 'dec-part'}, h('span', {class: 'dec-label'}, label), h('div', {class: 'dec-says'}, ...says))) : null);
+
+// A decision taken (by an agent, the owner, or without him) as one folded row: closed, its note on one
+// line and what was chosen on two at most, each whole in its hover, then by whom and when; opened,
+// what was chosen whole, and its context. The row, its head
+// and its body are patched in place (`data-deep`), so the row the owner opened stays open, keeps the
+// focus on its head, and keeps a sentence he selected in it.
+function decisionRow(t, d, now) {
+  const id = `${t.slug}:${d.id}`;
+  const open = decOpen.has(id);
+  const why = importance(t, d);
+  const timeout = d.state === 'timeout';
+  const late = d.late ? [`Your answer came at ${hhmm(d.late.ts)}, after it was taken: “${d.late.chose}”${d.late.words ? ` (${d.late.words})` : ''}. `,
+    d.late.chose === d.chose ? 'It is what was taken.' : 'It differs from what was taken: a correction for the agent that builds it.'] : [];
+  const how = d.kind === 'taken' ? `taken by ${BY_WHOM[d.by] ?? d.by}, because ${d.why}`
+    : d.state === 'answered' ? `answered by you${d.instead ? ', with none of the options' : ''}${d.words ? `: “${d.words}”` : ''}${d.ownerWhy ? `, because ${d.ownerWhy}` : ''}`
+      : `taken ${d.by === 'experts' ? `by the experts, as ${pickedWord(d)},` : 'as the recommended option'} at ${hhmm(d.ended)}, as the task ran without you. The pull request is not green for it.`;
+  const who = d.kind === 'taken' ? `by ${BY_WHOM[d.by] ?? d.by}` : d.state === 'answered' ? 'by you'
+    : d.by === 'experts' ? 'by the experts, while the task ran without you' : 'as the recommended option, while the task ran without you';
+  // The experts' reasons: from the line that took their pick, else from their advice. Advice that
+  // did not decide (a split, or none fits) is shown as theirs, beside what was taken.
+  const reasons = d.experts ?? Object.fromEntries(Object.entries(d.advice).map(([key, a]) => [key, a.why]));
+  const experts = d.by === 'experts' && Object.keys(reasons).length ? Object.entries(reasons).map(([key, text]) => adviceLine(key, {pick: d.chose, why: text}, true))
+    : d.kind === 'asked' && Object.keys(d.advice).length ? [`the experts ${sharedPick(d) == null && Object.keys(d.advice).length > 1 ? 'split' : 'advised'}: ${adviceLines(d, true).join(' · ')}`] : [];
+  const levels = d.levels ? [...LADDER.filter(([key]) => key in d.levels), ...Object.keys(d.levels).filter(key => !LADDER.some(([k]) => k === key)).map(key => [key, cap(key)])] : [];
+  const list = items => (items.length ? h('ul', {}, items) : null);
+  return keyed(`d:${d.id}:${d.state}:${Boolean(d.late)}`, h('div', {class: `dec a-${timeout ? 'bad' : why ? 'you' : 'done'}${why ? ' important' : ''}`, 'data-dec': id, 'data-deep': ''},
+    keyed('head', h('button', {class: 'dec-head', type: 'button', 'data-dec-toggle': id, 'aria-expanded': String(open), 'data-deep': ''},
+      keyed('icon', h('span', {class: 'fi'}, icon(timeout ? 'clock' : why ? 'alert' : d.by === 'owner' || d.state === 'answered' ? 'user' : d.by === 'personas' ? 'users' : 'check'))),
+      keyed('main', h('span', {class: 'dec-main'},
+        h('span', {class: 'dec-top'}, why ? h('span', {class: 'dec-mark', title: `Important: ${why}`}, icon('alert'), 'important') : '',
+          h('span', {class: 'dec-what', title: d.what}, `${d.id}. ${d.what}`)),
+        h('span', {class: 'dec-chose', title: d.chose ?? null}, '→ ', h('b', {}, d.chose ?? '')),
+        h('span', {class: 'dec-by'}, `${who} · ${stamp(d.ended ?? d.ts, now)}`))))),
+    keyed('body', h('div', {class: 'dec-body', hidden: !open, 'data-deep': ''},
+      decPart('note', 'The decision', d.what),
+      decPart('how', 'How and why', how),
+      decPart('options', 'Options', list(d.options.map((option, k) => k === chosenAt(d)
+        ? h('li', {class: 'chosen'}, icon('check'), option, h('span', {class: 'sub'}, ' · chosen'))
+        : h('li', {}, option, option === d.recommended ? h('span', {class: 'sub'}, ' · recommended') : ''))),
+        d.chose != null && d.options.length && chosenAt(d) < 0 ? h('div', {class: 'sub'}, `chosen, none of these: “${d.chose}”`) : ''),
+      decPart('ladder', 'The ladder', list(levels.map(([key, name]) => h('li', {}, h('b', {}, `${name}: `), String(d.levels[key]))))),
+      decPart('experts', 'The experts', list(experts.map(line => h('li', {}, line)))),
+      decPart('personas', 'The personas', d.said ?? ''),
+      decPart('important', 'Important', why ? cap(why) : ''),
+      decPart('undo', 'To undo', d.undo ?? ''),
+      decPart('late', 'Your answer', late)))));
+}
+
+// Each decision of the build: the choices that wait for the owner first, then the important ones,
+// then every other one, each group in the record's order, each one folded row.
 function buildDecisions(t, now) {
   if (!t.choices.length && !t.orphans.length) return [keyed('empty', h('div', {class: 'empty'}, 'Each decision the build takes, and each choice that waits for you, comes here'))];
   const waiting = new Set(t.waiting);
-  const rows = [...t.waiting, ...t.choices.filter(d => !waiting.has(d))].map(d => {
+  const rest = t.choices.filter(d => !waiting.has(d));
+  const rows = [...t.waiting, ...rest.filter(d => importance(t, d)), ...rest.filter(d => !importance(t, d))].map(d => {
     if (waiting.has(d)) {
       return keyed(`d:${d.id}:waits`, h('div', {class: 'row a-you'}, h('span', {class: 'fi'}, icon('help')),
         h('div', {class: 'rtext'}, h('b', {}, `Choice ${d.id} waits for you: `), d.what,
@@ -1981,22 +2421,7 @@ function buildDecisions(t, now) {
         h('span', {class: 'rtime'}, stamp(d.ts, now))));
     }
     // A choice the timeout or the experts took is marked alike: neither is his answer, and each keeps the request from green.
-    const timeout = d.state === 'timeout';
-    const late = d.late ? [h('span', {class: 'sub'}, `Your answer came at ${hhmm(d.late.ts)}, after it was taken: “${d.late.chose}”${d.late.words ? ` (${d.late.words})` : ''}. `,
-      d.late.chose === d.chose ? 'It is what was taken.' : 'It differs from what was taken: a correction for the agent that builds it.')] : [];
-    const how = d.kind === 'taken' ? `taken by ${BY_WHOM[d.by] ?? d.by}, because ${d.why}`
-      : d.state === 'answered' ? `answered by you${d.instead ? ', with none of the options' : ''}${d.words ? `: “${d.words}”` : ''}${d.ownerWhy ? `, because ${d.ownerWhy}` : ''}`
-        : `taken ${d.by === 'experts' ? `by the experts, as ${pickedWord(d)},` : 'as the recommended option'} at ${hhmm(d.ended)}, as the task ran without you. The pull request is not green for it.`;
-    // The experts' reasons: from the line that took their pick, else from their advice. Advice that
-    // did not decide (a split, or none fits) is shown as theirs, beside what was taken.
-    const reasons = d.experts ?? Object.fromEntries(Object.entries(d.advice).map(([key, a]) => [key, a.why]));
-    const experts = d.by === 'experts'
-      ? Object.entries(reasons).map(([key, why]) => h('span', {class: 'sub'}, adviceLine(key, {pick: d.chose, why}, true)))
-      : d.kind === 'asked' && Object.keys(d.advice).length ? [h('span', {class: 'sub'}, `the experts ${sharedPick(d) == null && Object.keys(d.advice).length > 1 ? 'split' : 'advised'}: ${adviceLines(d, true).join(' · ')}`)] : [];
-    return keyed(`d:${d.id}:${d.state}:${Boolean(d.late)}`, h('div', {class: `row a-${timeout ? 'bad' : 'done'}`}, h('span', {class: 'fi'}, icon(timeout ? 'clock' : d.by === 'owner' ? 'user' : d.by === 'personas' ? 'users' : 'check')),
-      h('div', {class: 'rtext'}, h('b', {}, `${d.id}. `), d.what, ' → ', h('b', {}, d.chose), h('span', {class: 'sub'}, how), experts,
-        d.said ? h('span', {class: 'sub'}, `the personas: ${d.said}`) : '', d.undo ? h('span', {class: 'sub'}, `to undo: ${d.undo}`) : '', late),
-      h('span', {class: 'rtime'}, stamp(d.ended ?? d.ts, now))));
+    return decisionRow(t, d, now);
   });
   for (const o of t.orphans) {
     rows.push(keyed(`orphan:${o.id}:${o.kind}:${o.ts}`, h('div', {class: 'row a-bad'}, h('span', {class: 'fi'}, icon('alert')),
@@ -2069,45 +2494,56 @@ function shownItems() {
 const groupsOf = items => BY_WORTH.map(g => ({...g, items: items.filter(g.test)})).filter(g => g.items.length);
 const orderOf = items => groupsOf(items).flatMap(g => g.items.map(it => it.slug));
 
+// The foot of an open item: the words and the command at the left, the buttons at the right. Each part
+// has a key of its own, so a part that did not change keeps its node when another does: a command the
+// owner selected to copy stays selected when an agent in Lem's session stops or starts, or when a read
+// of agterm's sessions fails, and only the words beside it change.
 function itemActions(it) {
   const cmd = commandFor(it);
   const sent = bl.sent.get(it.slug);
   const lem = paneOf(meta.session);
-  if (sent?.ok) return [h('span', {class: 'bl-note'}, `Typed into Lem’s session at ${hhmm(sent.at)}: `), h('code', {}, cmd), lem ? jump(lem.id, 'Go to Lem') : null];
-  if (sent?.pending) return [h('span', {class: 'bl-note'}, 'Typing into Lem’s session… '), h('code', {}, cmd)];
-  if (!SAFE_PATH.test(it.path)) return [h('span', {class: 'bl-note bad'}, 'The name of this file has a character that is not typed into a session. Start the task yourself in Lem’s session.')];
-  const failed = sent ? h('span', {class: 'bl-note bad'}, `It was not typed (${sent.why}). Type it yourself in Lem’s session: `) : null;
-  if (failed) return [failed, h('code', {}, cmd)];
+  const note = (text, bad = false) => keyed('note', h('span', {class: `bl-note${bad ? ' bad' : ''}`}, text));
+  const code = keyed('code', h('code', {}, cmd));
+  const buttons = (key, ...kids) => keyed(`go:${key}`, h('span', {class: 'bl-go'}, ...kids));
+  if (sent?.ok) return [note(`Typed into Lem’s session at ${hhmm(sent.at)}: `), code, lem ? buttons('jump', jump(lem.id, 'Go to Lem’s session')) : null];
+  if (sent?.pending) return [note('Typing into Lem’s session… '), code];
+  if (!SAFE_PATH.test(it.path)) return [note('The name of this file has a character that is not typed into a session. Start the task yourself in Lem’s session.', true)];
+  if (sent) return [note(`It was not typed (${sent.why}). Type it yourself in Lem’s session: `, true), code];
   // typed only into a session where an agent runs: at a bare shell prompt the line would be a shell command
   const ready = typeof agterm !== 'undefined' && agentRuns(lem);
-  if (!ready) return [h('span', {class: 'bl-note'}, lem ? 'No agent runs in Lem’s session now. To start a task, type there: ' : 'Lem’s session is not open in this window. To start a task, type in it: '), h('code', {}, cmd)];
-  if (bl.confirm === it.slug) return [
-    h('span', {}, 'This types ', h('code', {}, cmd), ' into Lem’s session, and Lem opens a task for the item.'),
-    h('button', {class: 'jump go', type: 'button', 'data-bl-start': it.slug}, 'Start'),
-    h('button', {class: 'jump', type: 'button', 'data-bl-cancel': it.slug}, 'Cancel ', h('kbd', {}, 'Esc')),
-  ];
-  return [h('button', {class: 'jump', type: 'button', 'data-bl-ask': it.slug}, 'Start a task ', h('kbd', {}, 'S')), h('span', {class: 'bl-note'}, 'as '), h('code', {}, cmd)];
+  if (!ready) return [note(lem ? 'No agent runs in Lem’s session now. To start a task, type there: ' : 'Lem’s session is not open in this window. To start a task, type in it: '), code];
+  if (bl.confirm === it.slug) return [note('This types '), code, keyed('after', h('span', {class: 'bl-note'}, ' into Lem’s session, and Lem opens a task for the item.')),
+    buttons('confirm', h('button', {class: 'btn go', type: 'button', 'data-bl-start': it.slug}, 'Start'),
+      h('button', {class: 'btn', type: 'button', 'data-bl-cancel': it.slug}, 'Cancel ', h('kbd', {}, 'Esc')))];
+  return [note('It types '), code, keyed('after', h('span', {class: 'bl-note'}, ' into Lem’s session.')), buttons('ask', h('button', {class: 'btn', type: 'button', 'data-bl-ask': it.slug}, 'Start a task ', h('kbd', {}, 'S')))];
 }
 
+// An item, its head and its open body are patched in place (`data-deep`): the item's `cur` class and
+// its head's `aria-expanded` are set on the nodes that are there, and a sentence the owner selected in
+// its body stays selected.
 function itemRow(it) {
   const days = daysOld(it.added);
   const open = bl.open.has(it.slug);
   const tag = (text, title, c) => h('span', {class: 'tag', title, style: c ? `--c: var(--${c})` : null}, h('span', {}, text));
-  return h('div', {class: `bl-item${bl.cursor === it.slug ? ' cur' : ''}`, 'data-bl-item': it.slug},
-    h('button', {class: 'bl-head', type: 'button', 'data-bl-toggle': it.slug, 'aria-expanded': String(open)},
-      h('span', {class: 'bl-title'}, it.title),
-      h('span', {class: 'bl-side'},
+  return keyed(`i:${it.slug}`, h('div', {class: `bl-item${bl.cursor === it.slug ? ' cur' : ''}`, 'data-bl-item': it.slug, 'data-deep': ''},
+    keyed('head', h('button', {class: 'bl-head', type: 'button', 'data-bl-toggle': it.slug, 'aria-expanded': String(open), 'data-deep': ''},
+      keyed('title', h('span', {class: 'bl-title'}, it.title)),
+      keyed('side', h('span', {class: 'bl-side'},
         it.state === 'unreadable' ? tag('cannot be read', 'The file of this item is a link to nothing, a folder, or not readable', 'bad')
           : it.state ? tag(it.state === 'new' ? 'new, not committed' : 'edited, not committed', 'git does not have this version of the item yet', 'gate') : null,
-        days != null ? tag(days === 0 ? 'today' : `${days} d`, `added ${it.added}`) : null),
-      it.where ? (it.where_problem
+        days != null ? tag(days === 0 ? 'today' : `${days} d`, `added ${it.added}`) : null)),
+      keyed('where', it.where ? (it.where_problem
         ? h('span', {class: 'bl-where stale', title: 'The place this item points at is not there any more. The item may be done, or the code moved.'}, icon('alert'), h('span', {}, `${it.where} · ${it.where_problem}`))
-        : h('span', {class: 'bl-where'}, it.where)) : h('span', {class: 'bl-where'}, 'no place in the code named')),
-    open ? h('div', {class: 'bl-body'},
-      h('div', {class: 'bl-text'}, it.body || 'The item has no text below its title.'),
-      h('div', {class: 'bl-actions'}, ...itemActions(it))) : null);
+        : h('span', {class: 'bl-where'}, it.where)) : h('span', {class: 'bl-where'}, 'no place in the code named')))),
+    open ? keyed('body', h('div', {class: 'bl-body', 'data-deep': ''},
+      keyed('text', h('div', {class: 'bl-text'}, it.body || 'The item has no text below its title.')),
+      keyed('actions', h('div', {class: 'bl-actions', 'data-deep': ''}, ...itemActions(it))))) : null));
 }
 
+// The backlog is patched by keys, level by level (patch, `data-deep`): the groups, each group's items,
+// each item's head and body, and the parts of its foot. It draws on every render while its tab is
+// open, and a node whose markup did not change keeps its place, so the focus and a text selection stay.
+let blSum = '';
 function renderBacklog() {
   const all = backlog?.items ?? [];
   const items = shownItems();
@@ -2115,15 +2551,17 @@ function renderBacklog() {
   if (bl.cursor && !order.includes(bl.cursor)) bl.cursor = null;
   const stale = all.filter(it => it.where_problem).length;
   const broken = all.filter(it => it.state === 'unreadable').length;
-  $('bl-sum').replaceChildren(
-    bl.reading ? 'reading… ' : '',
-    backlogProblem ? h('span', {class: 'error'}, `${backlogProblem} · `) : '',
-    backlog ? `${bl.q.trim() ? `${items.length} of ${all.length}` : plural(all.length, 'item')} in ${backlog.folder} · ${stale ? `${plural(stale, 'item')} ${stale === 1 ? 'names' : 'name'} a place that is gone or cannot be read` : 'every place named is there'} ${broken ? ` · ${broken} cannot be read` : ''} · sorted by the worth of each item · read ${stamp(new Date(backlog.read).getTime(), Date.now())}` : '');
-  const groups = groupsOf(items).map(g => h('div', {class: `bl-group a-${g.actor}${g.recessive ? ' recessive' : ''}`},
-    h('div', {class: 'lane-head'}, h('i', {}), g.name, h('em', {}, g.items.length)),
-    g.items.map(itemRow)));
-  $('bl-groups').replaceChildren(...(groups.length ? groups : [h('div', {class: 'lane-empty'},
-    !backlog ? (backlogProblem ?? 'The backlog was not read yet.') : all.length ? 'No item has these words.' : `No item in ${backlog.folder}. The polish pass of a landing files items, and /backlog adds one.`)]));
+  const sum = [bl.reading ? 'reading… ' : '', backlogProblem ? `${backlogProblem} · ` : '',
+    backlog ? `${bl.q.trim() ? `${items.length} of ${all.length}` : plural(all.length, 'item')} in ${backlog.folder} · ${stale ? `${plural(stale, 'item')} ${stale === 1 ? 'names' : 'name'} a place that is gone or cannot be read` : 'every place named is there'} ${broken ? ` · ${broken} cannot be read` : ''} · sorted by the worth of each item · read ${stamp(new Date(backlog.read).getTime(), Date.now())}` : ''];
+  if (sum.join('\n') !== blSum) {
+    blSum = sum.join('\n');
+    $('bl-sum').replaceChildren(sum[0], sum[1] ? h('span', {class: 'error'}, sum[1]) : '', sum[2]);
+  }
+  const groups = groupsOf(items).map(g => keyed(`g:${g.key}`, h('div', {class: `bl-group a-${g.actor}${g.recessive ? ' recessive' : ''}`, 'data-deep': ''},
+    keyed('head', h('div', {class: 'lane-head'}, h('i', {}), g.name, h('em', {}, g.items.length))),
+    g.items.map(itemRow))));
+  patch($('bl-groups'), groups.length ? groups : [keyed('empty', h('div', {class: 'lane-empty'},
+    !backlog ? (backlogProblem ?? 'The backlog was not read yet.') : all.length ? 'No item has these words.' : `No item in ${backlog.folder}. The polish pass of a landing files items, and /backlog adds one.`))]);
 }
 
 async function readBacklog() {
@@ -2134,13 +2572,18 @@ async function readBacklog() {
   bl.reading = false;
   if (got.records?.length) { backlog = got.records.at(-1); backlogProblem = null; }
   else backlogProblem = got.problem ?? 'backlog.js is missing: open the board with board.py again';
-  // drawn again whatever the read gave: the same file a second time still ends the "reading" note
-  blDrawn = null;
   render();
 }
 
 function setTab(next) {
-  if (view || tab === next) return;
+  if (view) {
+    if (!TASK_TABS.includes(next) || taskTab === next) return;
+    taskTab = next;
+    render();
+    window.scrollTo(0, 0);
+    return;
+  }
+  if (!TABS.includes(next) || tab === next) return;
   tab = next;
   history.replaceState(null, '', next === 'tasks' ? location.pathname + location.search : `#${next}`);
   if (next === 'backlog') readBacklog(); else render();
@@ -2188,6 +2631,12 @@ async function startTask(slug) {
   renderBacklog();
 }
 
+// The head's title, and the invisible copy of it that keeps the place of its two lines (lem.css `.title`).
+function setTitle(text) {
+  $('title').textContent = text;
+  $('title').parentElement.dataset.title = text;
+}
+
 function render() {
   const now = Date.now();
   const m = derive(now);
@@ -2202,28 +2651,43 @@ function render() {
     + (m.away ? ` · You are away since ${stamp(m.away.since, now)}: the tasks go on without you until /lem im-back` : '');
   patch($('banners'), buildBanners(m));
 
-  if (view) tab = 'tasks';
-  const tabButton = (key, label, count) => keyed(`${key}:${tab === key}:${count ?? ''}`, h('button', {class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(tab === key), 'data-tab': key}, label, count != null ? h('em', {}, count) : null));
-  patch($('tabs'), view ? [] : [tabButton('tasks', 'Tasks', m.list.filter(x => !x.closed).length), tabButton('backlog', 'Backlog', backlog ? backlog.items.filter(it => it.worth !== 'no').length : null)]);
-  $('tabs').hidden = Boolean(view);
-  $('backlog').hidden = tab !== 'backlog';
-  for (const n of document.querySelectorAll('[data-tasks]')) n.hidden = tab !== 'tasks';
-  // The backlog is drawn again only when what it shows from outside changed: this function runs
-  // every second, and a redraw takes the focus and a text selection away from the reader.
-  const lemNow = paneOf(meta.session);
-  const outside = tab === 'backlog' ? `${backlog?.read}|${backlogProblem}|${bl.reading}|${lemNow?.id}|${agentRuns(lemNow)}` : '';
-  if (tab === 'backlog' && outside !== blDrawn) renderBacklog();
-  blDrawn = outside;
+  // Three tabs on the board of all tasks and four on the board of one task, each with its count where
+  // one helps; a tab hides the panels of the others and never removes them.
+  const waits = view ? [] : waitsOf(m);
+  const shownTab = view ? taskTab : tab;
+  const tabButton = (key, label, count, cls = null, title = null) => keyed(`${key}:${shownTab === key}:${count ?? ''}:${title ?? ''}`,
+    h('button', {class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(shownTab === key), 'data-tab': key, title}, label, count != null ? h('em', {class: cls}, count) : null));
+  // the lane "Waits for you" counts tasks, and this tab the things you do in them
+  const waitTitle = `${plural(waits.length, 'thing')} you do, in ${plural(new Set(waits.map(w => w.t)).size, 'task')} · key W`;
+  patch($('tabs'), view ? (t ? [tabButton('overview', 'Overview', null, null, 'Green or not green, what runs now, the phases and the numbers · key 1'),
+    tabButton('criteria', 'Criteria and decisions', t.asks.length || null, 'you', t.asks.length ? `${plural(t.asks.length, 'choice')} ${t.asks.length === 1 ? 'waits' : 'wait'} for you · key 2` : 'Key 2'),
+    tabButton('checks', 'Checks and review', null, null, 'Key 3'),
+    tabButton('timeline', 'Timeline', null, null, 'Where the time went, and the activity · key 4')] : [])
+    : [tabButton('tasks', 'Tasks', m.list.filter(x => !x.closed).length, null, 'Key T'),
+      tabButton('waits', 'Waits for you', waits.length, waits.length ? 'you' : null, waitTitle),
+      tabButton('backlog', 'Backlog', backlog ? backlog.items.filter(it => it.worth !== 'no').length : null, null, 'Key B')]);
+  $('tabs').setAttribute('aria-label', view ? 'What the board of this task shows' : 'What the board shows');
+  $('tabs').hidden = Boolean(view && !t);
+  $('backlog').hidden = Boolean(view) || tab !== 'backlog';
+  $('waits').hidden = Boolean(view) || tab !== 'waits';
+  // A panel shows on its tab: data-tasks on the board of all tasks, data-task-tab on the board of one
+  // task. A task with no state yet has its banner and no panel.
+  for (const n of document.querySelectorAll('[data-tasks], [data-task-tab]')) n.hidden = view ? (t ? n.dataset.taskTab !== taskTab : n.id !== 'feed-card') : tab !== 'tasks' || !('tasks' in n.dataset);
+  // "Waits for you" is patched on every render, shown or not, so a change of tab draws nothing again.
+  if (!view) patch($('waits-rows'), waits.length ? waits.map(waitRow) : [keyed('empty', h('div', {class: 'lane-empty'}, 'Nothing waits for you'))]);
+  // The backlog is patched by keys on every render while its tab is open: only the parts whose
+  // words changed are swapped, so the focus and a text selection stay.
+  if (!view && tab === 'backlog') renderBacklog();
 
   const lem = paneOf(meta.session);
   const right = [];
-  if (view) right.push(keyed('back', h('button', {class: 'jump back', type: 'button', 'data-open': ''}, icon('arrow'), ' ', 'All tasks')));
-  if (lem) right.push(keyed(`lem:${lem.status ?? ''}`, jump(lem.id, `Go to Lem${lem.status ? ` (${lem.status})` : ''}`)));
+  if (view) right.push(keyed('back', h('button', {class: 'btn back', type: 'button', 'data-open': ''}, icon('arrow'), ' ', 'All tasks')));
+  if (lem) right.push(keyed(`lem:${lem.status ?? ''}`, jump(lem.id, `Go to Lem’s session${lem.status ? ` (${lem.status})` : ''}`)));
   patch($('top-right'), right);
 
   const chip = (key, name, cls, ...kids) => keyed(key, h('span', {class: `chip ${cls}`}, icon(name), ...kids));
   if (view) {
-    $('title').textContent = t?.title ?? titleOf(view);
+    setTitle(t?.title ?? titleOf(view));
     $('ask').textContent = t?.ask ?? '';
     patch($('meta'), t ? [
       keyed(`st:${t.status}`, statusPill(t)),
@@ -2232,6 +2696,13 @@ function render() {
       meta.base && !['answered', 'dropped'].includes(t.status) ? chip('base', 'flag', '', 'lands on ', h('b', {}, meta.base)) : null,
       ...tags(t).map((n, i) => keyed(`tag:${i}`, n)),
     ] : []);
+    const building = t ? buildBuilding(t) : null;
+    patch($('building'), building ? [building] : []);
+    if (!building) $('building').hidden = true;
+    const verdict = t ? buildVerdict(t, m.owners) : null;
+    $('verdict').className = `card verdict a-${verdict?.actor ?? 'quiet'}`;
+    patch($('verdict'), verdict ? [keyed('v', verdict.node)] : []);
+    if (!verdict) $('verdict').hidden = true;
     $('now').className = `card now a-${t?.info.actor ?? 'quiet'}`;
     patch($('now'), t ? [buildTaskNow(t)] : []);
     patch($('progress'), t ? [buildTaskProgress(t)] : []);
@@ -2241,7 +2712,7 @@ function render() {
 
     patch($('decisions'), t ? buildDecisions(t, now) : []);
     $('decisions-sum').textContent = t?.choices.length ? [t.asks.length && `${t.asks.length} wait${t.asks.length === 1 ? 's' : ''} for you`,
-      `${t.choices.filter(d => d.state !== 'waits').length} taken`].filter(Boolean).join(' · ') : '';
+      `${t.choices.filter(d => d.state !== 'waits').length} taken`, importantOf(t).length && `${importantOf(t).length} important`].filter(Boolean).join(' · ') : '';
     patch($('gate'), t ? buildGate(t, now) : []);
     $('gate-sum').textContent = t?.gates.length ? (t.gateBad ? `${t.gateBad} of ${t.gates.length} red` : `${plural(t.gates.length, 'command')} green`) : '';
   } else {
@@ -2250,13 +2721,11 @@ function render() {
     const parts = [m.forOwner.length && `${m.forOwner.length} wait${m.forOwner.length === 1 ? 's' : ''} for you`, inBuild('building') && `${inBuild('building')} build${inBuild('building') === 1 ? 's' : ''}`,
       m.lane.checks.length && `${m.lane.checks.length} in checks and review`, inBuild('queued') && `${inBuild('queued')} queued`,
       inBuild('planned') && `${inBuild('planned')} wait for their plan talk`, inBuild('blocked') && `${inBuild('blocked')} blocked`].filter(Boolean);
-    $('title').textContent = parts.length ? parts.join(', ') : m.list.length ? 'Nothing runs' : 'Waiting for the first task';
+    setTitle(parts.length ? parts.join(', ') : m.list.length ? 'Nothing runs' : 'Waiting for the first task');
     $('ask').textContent = '';
     // Each number once: the title counts the lanes, each lane counts its cards, and a chip says only
     // what no other place says: how many proposed requests are not green, what landed today.
-    // green by the proposal's record, or by the line `green` its state block carries (stages/land.md)
-    const green = x => (x.proposal ? x.proposal.green : x.blocks.at(-1).lines.some(line => line === 'green'));
-    const notGreen = m.proposed.filter(x => !green(x)).length;
+    const notGreen = m.proposed.filter(x => !isGreen(x)).length;
     patch($('meta'), [
       meta.base ? chip('base', 'branch', '', 'tasks land on ', h('b', {}, meta.base)) : null,
       m.proposed.length ? chip(`proposed:${m.proposed.length}:${notGreen}`, 'branch', notGreen ? 'you' : '', h('b', {}, m.proposed.length), ' proposed', notGreen ? ` · ${notGreen} not green` : ', green') : null,
@@ -2275,18 +2744,17 @@ function render() {
   // the board of all tasks has no progress card: its numbers are in the title, the chips and the lanes
   $('progress').hidden = !view;
   $('hero').classList.toggle('one', !view);
-  $('hero').classList.toggle('closed', Boolean(view && t?.closed));
-  // The board of all tasks has only the activity in this row, across the page. A card of a task
-  // that ended with nothing in it is not drawn: an answered task has no criteria, checks or review.
-  $('cols').classList.toggle('one', !view);
-  $('stack').hidden = !view;
+  // A card of a task that ended with nothing in it is not drawn: an answered task has no criteria,
+  // checks or review. A tab whose cards are all gone says so in one line.
   const empty = id => t?.closed && [...$(id).children].every(n => n.dataset.key === 'empty');
   for (const id of ['criteria', 'decisions', 'gate']) { const none = empty(id); if (none) patch($(id), []); $(`${id}-card`).hidden = !view || none; }
 
   // On the board the timeline holds the tasks that are open and the ones that closed today, a row
-  // for each by its state; the board of one task has a row for each actor that held its work.
+  // for each by its state; the board of one task has a row for each actor that held its work. On
+  // another tab the card is drawn for the width the tab bar has, the width the card takes on its own.
+  const tlWidth = $('tl-wrap').clientWidth || Math.max(0, $('tabs').clientWidth - 38);
   if (view && t) {
-    const {card, model, rows} = buildTimeCard(m, t, $('tl-wrap').clientWidth);
+    const {card, model, rows} = buildTimeCard(m, t, tlWidth);
     patch($('legend'), buildTimeLegend(model, rows));
     patch($('timeline'), [card]);
     // one short line under the card; the rest is the hover of the legend
@@ -2297,13 +2765,14 @@ function render() {
   } else {
     const shown = view ? [] : m.list.filter(x => !x.closed || dayKey(x.since) === dayKey(now)).sort((a, b) => a.first - b.first);
     patch($('legend'), buildLegend(m, shown));
-    patch($('timeline'), [buildTimeline(m, shown, $('tl-wrap').clientWidth)]);
+    patch($('timeline'), [buildTimeline(m, shown, tlWidth)]);
     $('tl-note').textContent = '';
     $('legend').removeAttribute('title');
   }
 
   patch($('review'), view && t ? buildReview(t, now) : []);
   { const none = empty('review'); if (none) patch($('review'), []); $('review-card').hidden = !view || none; }
+  for (const panel of [$('crit-panel'), $('checks-panel')]) panel.querySelector('.panel-empty').hidden = [...panel.querySelectorAll(':scope > .card')].some(n => !n.hidden);
   $('review-sum').textContent = view && t?.reviews.length ? [plural(t.reviews.filter(r => r.of !== 'resolution').length, 'round'), t.reviews.some(r => r.of === 'resolution') && 'a read of a resolution'].filter(Boolean).join(' · ') : '';
   const feed = view ? events.filter(e => e.task === view) : events;
   patch($('feed'), buildFeed(m, feed));
@@ -2316,7 +2785,7 @@ function render() {
   ]);
   tick(now);
 
-  const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (tab === 'backlog' ? `Backlog · ${repo} · ` : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.lane.build.filter(x => x.status === 'building').length} build · ${m.forOwner.length} for you`);
+  const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (view ? '' : tab === 'backlog' ? `Backlog · ${repo} · ` : tab === 'waits' ? `Waits for you · ${repo} · ` : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.lane.build.filter(x => x.status === 'building').length} build · ${m.forOwner.length} for you`);
   if (title !== lastTitle) document.title = lastTitle = title;
 }
 
@@ -2356,6 +2825,10 @@ async function pollFiles() {
   const about = await readScript('meta.js', 'lemMeta', 0);
   if (about.records?.length) { meta = about.records.at(-1); delete problems.meta; }
   else problems.meta = about.problem ?? 'meta.js is missing or empty: open the board with board.py';
+  // no overview.js is no problem: a folder written before board.py wrote it has none, and the overview then says less
+  const told = await readScript('overview.js', 'lemOverview', 0);
+  if (told.problem) problems.overview = told.problem; else delete problems.overview;
+  overview = told.records?.at(-1) ?? (told.missing ? null : overview);
   // no watch.js is no problem: no watch ran yet, and the chip of the pull requests says that nobody watches
   const looked = await readScript('watch.js', 'lemWatch', 0);
   if (looked.problem) problems.watch = looked.problem; else delete problems.watch;
@@ -2387,15 +2860,19 @@ document.addEventListener('click', async ev => {
   }
   const pick = (name, fn) => { const node = ev.target.closest(`[data-bl-${name}]`); if (node) fn(node.dataset[`bl${name[0].toUpperCase()}${name.slice(1)}`]); return Boolean(node); };
   if (ev.target.closest('[data-tab]')) return setTab(ev.target.closest('[data-tab]').dataset.tab);
+  if (ev.target.closest('[data-goto-tab]')) return setTab(ev.target.closest('[data-goto-tab]').dataset.gotoTab);
+  const fold = ev.target.closest('[data-dec-toggle]');
+  if (fold) { const id = fold.dataset.decToggle; decOpen.has(id) ? decOpen.delete(id) : decOpen.add(id); render(); return; }
   if (ev.target.closest('#bl-read')) return void readBacklog();
   if (pick('ask', askToStart)) return;
   if (pick('cancel', () => { bl.confirm = null; renderBacklog(); })) return;
   if (pick('start', slug => startTask(slug))) return;
   if (pick('toggle', slug => { bl.open.has(slug) ? bl.open.delete(slug) : bl.open.add(slug); bl.cursor = slug; bl.confirm = null; renderBacklog(); })) return;
-  if (ev.target.closest('[data-fold]')) { bannersOpen = !bannersOpen; return void render(); }
   const task = ev.target.closest('[data-open]');
   if (task) {
     view = task.dataset.open || null;
+    // a task opens on its overview; "All tasks" goes back to the tab of the board of all tasks he left
+    taskTab = 'overview';
     window.scrollTo(0, 0);
     render();
   }
@@ -2406,7 +2883,13 @@ $('tl-wrap').addEventListener('mouseleave', () => showTip(null));
 $('bl-q').addEventListener('input', ev => { bl.q = ev.target.value; bl.confirm = null; renderBacklog(); });
 // Letters go by the physical key (code), so they work in every keyboard layout.
 document.addEventListener('keydown', ev => {
-  if (ev.metaKey || ev.ctrlKey || ev.altKey || view) return;
+  if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  // the board of one task: a tab by its number
+  if (view) {
+    const to = TASK_TABS[{Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3}[ev.code]];
+    if (to && ev.target instanceof Element && !ev.target.closest('input, select, textarea')) { ev.preventDefault(); setTab(to); }
+    return;
+  }
   const q = $('bl-q');
   if (!(ev.target instanceof Element)) return;
   if (ev.target === q) {
@@ -2415,18 +2898,19 @@ document.addEventListener('keydown', ev => {
     return;
   }
   if (ev.target.closest('input, select, textarea')) return;
-  if (tab !== 'backlog') {
-    if (ev.code === 'KeyB') { ev.preventDefault(); setTab('backlog'); }
-    return;
-  }
   const act = fn => { ev.preventDefault(); fn(); };
-  if (bl.confirm && ev.key === 'Escape') return act(() => { bl.confirm = null; renderBacklog(); });
   // a focused button or link answers Enter and Space itself
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.closest('button, a')) return;
-  // while the question is open, Enter belongs to its two buttons and does nothing anywhere else
-  if (bl.confirm && ev.key === 'Enter') return void ev.preventDefault();
-  if (ev.code === 'KeyT') act(() => setTab('tasks'));
-  else if (ev.code === 'KeyR') act(readBacklog);
+  if (tab === 'backlog') {
+    if (bl.confirm && ev.key === 'Escape') return act(() => { bl.confirm = null; renderBacklog(); });
+    // while the question is open, Enter belongs to its two buttons and does nothing anywhere else
+    if (bl.confirm && ev.key === 'Enter') return void ev.preventDefault();
+  }
+  // a tab by its first letter, on every tab
+  const to = {KeyT: 'tasks', KeyW: 'waits', KeyB: 'backlog'}[ev.code];
+  if (to) return act(() => setTab(to));
+  if (tab !== 'backlog') return;
+  if (ev.code === 'KeyR') act(readBacklog);
   else if (ev.key === '/' || ev.code === 'Slash') act(() => { q.focus(); q.select(); });
   else if (ev.code === 'KeyJ' || ev.key === 'ArrowDown') act(() => moveCursor(1));
   else if (ev.code === 'KeyK' || ev.key === 'ArrowUp') act(() => moveCursor(-1));

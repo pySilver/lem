@@ -1121,11 +1121,20 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `decisions.py` (a task's decisions in `decisions.jsonl`: each one taken without the owner, with
   the level of the ladder that took it, and each choice that waits for his answer with no time
   limit, which `lem decisions away` takes when he says he is away; the landing reads it).
-- `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both, and
-  on the board of all tasks a second tab for the backlog, its items in groups by their own `worth`.
-  `lem.css` beside it is the look every page of Lem shares: its colors, its type, its header
-  and the blocks of a page to read. `handover.html` is the pattern of the onboarding's page.
-  A new page for the owner links `lem.css` and brings no style of its own.
+- `skills/lem/assets/board.html`: the board of all tasks and of one task, one page for both. The
+  board of all tasks has the tabs "Tasks", "Waits for you" (a row for each thing the owner does)
+  and "Backlog" (the items in groups by their own `worth`); the board of one task has "Overview"
+  ("What we are building", then green or not green), "Criteria and decisions" (each decision a
+  folded row, the important ones marked and first), "Checks and review" and "Timeline". A tab
+  hides the other panels and removes none. The page draws the files beside it: `events.js`, which
+  `project.py` appends to, and `meta.js`, `backlog.js` and `overview.js` (each task's outcome from
+  its `task.md`, and the backlog items its branch adds), which `board.py` writes. `lem.css` beside
+  it is the look every page of Lem shares, a small design system in the look of Lem's landing page
+  (`site/style.css`): Lem's own warm light and dark palettes with the ochre accent, body text at
+  16 px, monospace eyebrows for the small labels, its header, and one button, card, tab bar and
+  chip. `lem.js` beside them sets the palette mark from the `color-scheme` that agterm's theme
+  stylesheet puts on the page, or from the system's setting outside agterm. `handover.html` is the pattern of the onboarding's page. A new page for the
+  owner links `lem.css` and `lem.js` and brings no style of its own.
 - `skills/lem/templates/`: the shapes onboarding fills, and `page-brief.md`, the brief of the owner's
   page of a task on the standard track.
 - `skills/lem/prompts/`: the standing briefs of a task's lead, of a plan talk's defender, of the
@@ -1170,10 +1179,12 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   builder's standing rules; `harness/claude-code.md` says how it is used and overridden.
 - `assets/lem.svg`: the logo, and `assets/lem-mark.svg`: the figure alone, for an icon.
   `assets/lem-night.svg` and `assets/lem-mark-night.svg` are the same drawings in the night
-  palette, written by `assets/night.py`; the README shows the night one in a dark theme.
+  palette, written by `assets/night.py`; the README shows the night one in a dark theme, and
+  the header of each page of Lem shows the night mark in its dark palette.
 - `assets/screens/`: the pictures of the board, for a light and a dark theme, at two device
-  pixels for each pixel. `board-*`, `task-*` and `backlog-*` are renders of
-  `skills/lem/assets/board.html` over the data of `board.py --demo`; the README shows `board-*`,
+  pixels for each pixel. `board-*` (the tab "Tasks"), `task-*` (the board of one task on
+  "Overview") and `backlog-*` are renders of `skills/lem/assets/board.html` over the data of
+  `board.py --demo`, made by `tests/board-showcase.py`; the README shows `board-*`,
   `docs/when-lem-needs-you.md` shows `task-*`, and no page shows `backlog-*`.
 - `site/`: Lem's page on GitHub Pages, `index.html` and `style.css` and no picture of its own. Its
   text is written from the README and the guides, in their STE; its look is the board's, with the

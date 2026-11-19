@@ -487,26 +487,31 @@ for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-pat
 SHOWN=$(cat <<'PY'
 import re, sys
 from html.parser import HTMLParser
+VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
 class P(HTMLParser):
-    def __init__(self):
-        super().__init__(); self.skip = 0; self.text = []; self.title = ""; self.in_title = False
+    def __init__(self, visible):
+        super().__init__(); self.skip = 0; self.text = []; self.title = ""; self.in_title = False; self.visible = visible; self.hidden = []
     def handle_starttag(self, tag, attrs):
         self.skip += tag in ("script", "style"); self.in_title = tag == "title" and not self.skip
+        if tag not in VOID: self.hidden.append("hidden" in dict(attrs))
     def handle_endtag(self, tag):
         self.skip -= tag in ("script", "style"); self.in_title = False
+        if tag not in VOID and self.hidden: self.hidden.pop()
     def handle_data(self, data):
         if self.in_title and not self.title: self.title = data
-        elif not self.skip: self.text.append(data)
-p = P(); p.feed(open(sys.argv[1], encoding="utf-8").read())
+        elif not self.skip and not (self.visible and any(self.hidden)): self.text.append(data)
+# "@visible": only the text the owner sees, none under an element with `hidden` (the panel of another tab)
+wants = [w for w in sys.argv[2:] if w != "@visible"]
+p = P("@visible" in sys.argv[2:]); p.feed(open(sys.argv[1], encoding="utf-8").read())
 shown = " ".join(" ".join(p.text).split())
 # "!TEXT" must not be on the page, "~PATTERN" is a regular expression that must match it, and
 # "=N:TEXT" is a text that is on the page N times
-missing = [want for want in sys.argv[2:] if want[0] not in "!~=" and want not in shown and want not in p.title]
-for want in [w for w in sys.argv[2:] if w.startswith("=")]:
+missing = [want for want in wants if want[0] not in "!~=" and want not in shown and want not in p.title]
+for want in [w for w in wants if w.startswith("=")]:
     n, _, text = want[1:].partition(":")
     if shown.count(text) != int(n): missing.append(f"{text!r} is on the page {shown.count(text)} times, not {n}")
-missing += [f"no match of {want[1:]!r}" for want in sys.argv[2:] if want.startswith("~") and not re.search(want[1:], shown)]
-missing += [f"no {want[1:]!r}" for want in sys.argv[2:] if want.startswith("!") and (want[1:] in shown or want[1:] in p.title)]
+missing += [f"no match of {want[1:]!r}" for want in wants if want.startswith("~") and not re.search(want[1:], shown)]
+missing += [f"no {want[1:]!r}" for want in wants if want.startswith("!") and (want[1:] in shown or want[1:] in p.title)]
 if "PROBLEM" in p.title or "does not parse" in shown: missing.append(f"no problem on the page (title {p.title!r})")
 print("; ".join(missing))
 sys.exit(bool(missing))
@@ -693,8 +698,8 @@ fi
 if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # shellcheck disable=SC1111  # the curly quotes around a state's own line are the page's
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "#short" \
-    "Waits for you=Gift note export|Choice 6 waits for you: A note longer than the cell · 25m" \
-    "Waits for you=Held choice|~Choice 1 waits for you: Refund the 12 duplicate orders now · [0-9][0-9ms ]*" \
+    "Waits for you=Gift note export|Building: task 2 of 3" \
+    "Waits for you=Held choice|Choice 1 waits for you" \
     "Waits for you=Held question|The investigation waits for one more fact" \
     "Waits for you=Trust prompt|The reviewer's trust prompt waits for your yes" \
     "Building=Approved again" "Building=Restored read" "Building=Unread change" \
@@ -706,7 +711,7 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
     "Building=Correction one|One builder makes the change" "Building=Changed then approved" "Building=Rare path" \
     "Checks and review=Ready one|Ready for its checks: the report is written" "Checks and review=In checks|The checks start" "Checks and review=Red gate" \
     "Done=Landed one|Landed: main: pull request #7 is merged" "Done=Timed out" "Building=Queued after"); then
-    pass "each task is in the lane of who acts, and its card says in one line where it is, in your words and not the lane's title again; no card has a paragraph of where you answer"
+    pass "each task is in the lane of who acts, and its card says in one line its state, in your words and not the lane's title again, also when a choice waits; no card has a paragraph of where you answer"
   else
     fail "the lanes: $why"
   fi
@@ -737,25 +742,46 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   else
     fail "the counts of the lanes: $why"
   fi
-  # Each banner is read alone, so that a card's text elsewhere on the page cannot stand in for one.
-  # The first wait, choice 6, is the large card's, with where you answer, and no banner's.
-  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
-    "^Choice 7 waits for you: Gift note export · The note of a cancelled order · 5m 00s$" \
-    "^Choice 4 waits for you: Gift note export · Email the merchants about the new column · 27m$" \
-    "^Waits for you: Criteria wait · the criteria wait for you · [0-9][0-9ms ]*$" "!^Choice 6" "!Choice 5 waits for you: Gift note export" "!^Waits for you: Held choice" \
-    "!Lem puts" "!Lem shows you" "!Answer it there" "!^Choice [123] waits for you: Expert advice" "!left" "!no end" "!wait is over") \
+  # Each banner is read alone, so that a card's text elsewhere on the page cannot stand in for one. A
+  # banner is only for a blocked task: what waits for the owner is a row of "Waits for you". The first
+  # wait, choice 6, is the large card's, with where you answer, said once on the Tasks tab.
+  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" "#1" "^Blocked: Blocked one · the base moved and the rebase has a conflict · " \
+    "!^Choice" "!^Waits for you" "!Lem puts" "!Lem shows you") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" now \
       "You · choice 6 of the task|Gift note export|A note longer than the cell|25m|since it was asked|Where you answer: Lem puts choice 6 to you as a page in its session. Answer it there: it waits for your answer. If you say you are away, the build goes on with the recommended action.") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "=1:Lem puts choice 6 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the acceptance criteria" "!Demo data"); then
-    pass "the large card has the first wait with where you answer, said once on the page; the banners are the waits after it, one line each with how long it waits, with no count-down and no end of a wait"
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" @visible "=1:Lem puts choice 6 to you" "=0:Lem puts choice 4 to you" "=0:Lem shows you the acceptance criteria" "!Demo data"); then
+    pass "the large card has the first wait with where you answer, said once on the Tasks tab; a banner is only for a blocked task, and no banner repeats what waits for you"
   else
     fail "the banners: $why"
   fi
-  # Ten banners would fill a screen: the first three are shown, and one line counts the rest.
-  if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" "#3" "=^8 more: 7 wait for you, 1 blocked · Show them" "^Blocked: Blocked one"); then
-    pass "past three banners the rest fold under one line that counts what waits for the owner and what is blocked, so the lanes stay on the first screen"
+  # "Waits for you" has a row for each thing the owner does, each with its verb and where he answers.
+  # A task that waits on two things has two rows; a held task whose choice waits has one, its choice's.
+  draw board waits
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/board-waits.dom" waits-rows \
+      "A note longer than the cell|Answer choice 6|Gift note export|Where you answer: Lem puts choice 6 to you" \
+      "The note of a cancelled order|Answer choice 7|Gift note export" \
+      "Email the merchants about the new column|Answer choice 4|it waits for your word, also while you are away" \
+      "Refund the 12 duplicate orders now|Answer choice 1|Held choice" \
+      'The font of the invoice|Answer choice 4|Expert advice|the experts: Fable “serif” · Astra “serif”' \
+      "Round the totals of the monthly report|Approve the criteria|Criteria wait|Lem shows you the acceptance criteria" \
+      "Show the delivery date on the order page|Approve the criteria|No persona answered" \
+      "Which currency rounds half up|The investigation waits for one more fact" \
+      "Move the review to Codex|The reviewer's trust prompt waits for your yes" \
+      "Move the reports to a queue|Read the plan|build it or drop it" \
+      "Sort the export by date|Merge the pull request|Not green: criterion 1 changed during the build" \
+      "Fix the typo in the invoice|Tell Lem to land it|Green|!Merge") \
+    && why=$("$PY" -I -c 'import re, sys
+dom = open(sys.argv[1], encoding="utf-8").read()
+area = dom[dom.index("id=\"waits-rows\""):dom.index("id=\"backlog\"")]
+rows = area.count("<div class=\"wrow ")
+tab = re.search(r"data-tab=\"waits\"[^>]*>Waits for you<em[^>]*>(\d+)</em>", dom)
+held = area.count("data-open=\"held-choice\"")
+wrong = ([f"{rows} rows, not 14"] if rows != 14 else []) + ([f"the tab counts {tab.group(1) if tab else None}, the rows are {rows}"] if not tab or int(tab.group(1)) != rows else []) \
+  + ([f"Held choice has {held // 2} rows"] if held != 2 else [])
+print("; ".join(wrong)); sys.exit(bool(wrong))' "$WORK/board-waits.dom"); then
+    pass "the Waits for you tab has a row for each thing you do, with its verb and where you answer: each choice, the criteria, what a held task's state asks, a plan, a merge or a landing; a held task whose choice waits is one row, and the tab counts the rows"
   else
-    fail "the fold of the banners: $why"
+    fail "the rows of Waits for you: $why"
   fi
   # Each number once: the title and the lanes count the tasks; a chip says what no other place says.
   # The board of all tasks has no ring and no grid, and no count of places: no setting limits the tasks.
@@ -798,7 +824,7 @@ open(sys.argv[1], "w").write("lemWatch(" + json.dumps(record) + ");\n")' "$STATE
   # The read of a builder's resolution of a conflict is no round: the task's board names it apart. A folder of its own,
   # so that no lane or time card of the fixture changes.
   mkdir -p "$WORK/resolved"
-  cp "$STATE/board.html" "$WORK/resolved/task-resolved.html" && cp "$STATE/lem.css" "$WORK/resolved/"
+  cp "$STATE/board.html" "$WORK/resolved/task-resolved.html" && cp "$STATE/lem.css" "$STATE/lem.js" "$WORK/resolved/"
   "$PY" -I -c 'import json, sys
 at = sys.argv[2]
 common = {"kind": "read", "verdict": "clean", "must_fix": 0, "should": 0, "nit": 0, "answered": ["codex"], "silent": [], "ran": [], "left_out": [], "tip": "abc1234"}
@@ -822,8 +848,8 @@ open(sys.argv[1] + "/meta.js", "w").write("lemMeta(" + json.dumps({"repo": "shop
     "Choice 4 waits for you: Email the merchants about the new column" "It waits for your answer, also while you are away: it sends something to a person. The experts advise on it and never take it." \
     "Choice 6 waits for you: A note longer than the cell" 'If you say you are away, the build goes on with “all of it”, the recommended option.' "!wait over" "!left" "!its wait is over" \
     "5. The header of the column → Gift note" "taken as the recommended option at " "as the task ran without you. The pull request is not green for it." \
-    "1. The name of the new column → gift_note" "taken by the agent, because the other columns of the export are in snake case" "to undo: rename the column" \
-    "2. Two notes on one order → both notes, with a semicolon between them" "taken by the personas, because a merchant reads both" "the personas: The merchant and the accountant both picked the semicolon." \
+    "1. The name of the new column → gift_note" "taken by the agent, because the other columns of the export are in snake case" "To undo rename the column" \
+    "2. Two notes on one order → both notes, with a semicolon between them" "taken by the personas, because a merchant reads both" "The personas The merchant and the accountant both picked the semicolon." \
     "3. Where the note goes in the row → the last column" 'answered by you: “last, like the other new columns”' \
     "3 choices wait for you" "since it was asked · if you say you are away, the build goes on with"); then
     pass "the board of one task has a Decisions card: each choice that waits with what your away would take, an irreversible one that waits also then, one taken without you, and each taken one with what, by whom and why"
@@ -921,6 +947,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   await wait(1500);
   const w = document.getElementById('f').contentWindow, d = w.document, log = {};
+  // the time card is on the tab Timeline
+  d.querySelector('[data-tab="timeline"]').click(); await wait(300);
   const hover = node => {
     const box = node.getBoundingClientRect();
     node.dispatchEvent(new w.MouseEvent('mousemove', {bubbles: true, clientX: box.left + Math.min(4, box.width / 2), clientY: box.top + box.height / 2}));
@@ -1017,7 +1045,7 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
     fail "the read's approval: $why"
   fi
 
-  # The experts' advice. Each check reads one row of one card, or one banner, so that a text of
+  # The experts' advice. Each check reads one row of one card, or of Waits for you, so that a text of
   # another choice or of the activity cannot stand in for it.
   draw "task-$X"
   # shellcheck disable=SC1111,SC1112  # the curly quotes around a pick are the page's
@@ -1027,10 +1055,10 @@ print("; ".join(wrong) or "ok", "" if not wrong else json.dumps(d))' "$WORK/prob
       "1. The paper size|!Fable picks|!waits for you") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-$X.dom" now \
       "2 choices wait for you|The font of the invoice|the experts: Fable “serif” · Astra “serif”|if you say you are away, the build goes on with “serif”, the experts’ shared pick") \
-    && why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" \
-      "^Choice 4 waits for you: Expert advice · The font of the invoice · [0-9][0-9ms ]*$" \
-      "^Choice 5 waits for you: Expert advice · The size of the total · [0-9][0-9ms ]*$"); then
-    pass "a choice that waits shows each expert's advice in its own row of the Decisions card, a pick or none fits with its reasons, and its row and the head of its board say that the owner's away takes the experts' shared pick when both agree, else the recommended option; its banner says how long it waits"
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/board-waits.dom" waits-rows \
+      "The font of the invoice|~^Answer choice 4 Expert advice · Print the invoice for the post The font of the invoice · recommended: sans · the experts: Fable “serif” · Astra “serif” .* [0-9][0-9ms ]* since it was asked Open the task$" \
+      "The size of the total|~^Answer choice 5 Expert advice .* the experts: Fable none fits · Astra “12 pt” .* [0-9][0-9ms ]* since it was asked Open the task$"); then
+    pass "a choice that waits shows each expert's advice in its own row of the Decisions card, a pick or none fits with its reasons, and its row and the head of its board say that the owner's away takes the experts' shared pick when both agree, else the recommended option; its row of Waits for you says how long it waits"
   else
     fail "the experts' advice on a choice that waits: $why"
   fi
@@ -1202,16 +1230,16 @@ sys.exit(bool(wrong))' "$WORK/board.dom" "$WORK/task-$P.dom" "$WORK/task-$S.dom"
     fail "the order of the activity: $why"
   fi
   # A task that ended says no "yet": nothing more comes for it.
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$S.dom" "!yet" "none" "no commit of its branch is on record" "no test of it is on record: the plan’s criteria were never recorded") \
-    && grep -q 'id="hero" class="hero closed"' "$WORK/task-$S.dom" && ! grep -q 'id="hero" class="hero closed"' "$WORK/task-$G.dom"; then
-    pass "the board of a task that ended says no \"yet\" (no decision, no commit, no test on record) and its large card is as tall as what it says"
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$S.dom" "!yet" "none" "no commit of its branch is on record" "no test of it is on record: the plan’s criteria were never recorded"); then
+    pass "the board of a task that ended says no \"yet\" (no decision, no commit, no test on record)"
   else
-    fail "a task that ended: ${why:-the large card}"
+    fail "a task that ended: $why"
   fi
-  # The board of all tasks: its activity takes the whole width, and its legend has one entry for each
-  # look of a bar, so three statuses drawn in one color are one entry.
-  if grep -q 'id="cols" class="cols one"' "$WORK/board.dom" && grep -Eq 'id="stack" class="stack" hidden' "$WORK/board.dom" \
-    && ! grep -q 'id="cols" class="cols one"' "$WORK/task-$G.dom" \
+  # The board of all tasks: its activity is a card of its own across the page, with none of a task's
+  # panels beside it, and its legend has one entry for each look of a bar, so three statuses drawn in
+  # one color are one entry.
+  if grep -Eq '<section id="feed-card" class="card" data-tasks(="")? data-task-tab="timeline">' "$WORK/board.dom" \
+    && grep -Eq 'id="crit-panel"[^>]* hidden' "$WORK/board.dom" && grep -Eq 'id="checks-panel"[^>]* hidden' "$WORK/board.dom" \
     && why=$("$PY" -I -c 'import html, re, sys
 dom = open(sys.argv[1], encoding="utf-8").read()
 area = dom[dom.index("id=\"legend\""):]
@@ -1303,7 +1331,7 @@ if check == "cards":
 elif check == "likeit":
     p = read(args[0])
     lane = next(n for n in p.root.all() if "lane" in n.cls() and any("lane-head" in k.cls() and k.text().startswith("Waits for you") for k in n.kids if not isinstance(k, str)))
-    choices = [k for k in lane.all() if "tc-text" in k.cls() and k.text().startswith("Choice ")]
+    choices = [k for k in lane.all() if "tc-wait" in k.cls()]
     others = len(choices) - 1
     now = next(n for n in p.root.all() if n.attrs.get("id") == "now").text()
     said = re.search(r"(\d+) more tasks? like it", now)
@@ -1427,6 +1455,876 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
     fail "where the owner answers: $why"
   fi
 
+  # Lem's look (lem.css and lem.js), drawn from the skill's own files in a folder of its own, so that no
+  # lane of the fixture changes: the head of a task's board with a short and a 160-character title at 900
+  # and 1400 px, Lem's palette under five agterm themes and under the system's light and dark, and the
+  # onboarding page beside the board. agterm's theme stylesheet goes in as agterm writes it
+  # (HtmlOverlayTheme.stylesheet), with the scheme its own rule gives the background (Rec. 601 luminance
+  # under 0.5 is dark, ThemeBrightness.isDark); a stand-in for agterm's bridge names Lem's session.
+  STEADY=$WORK/steady
+  mkdir -p "$STEADY"
+  STEADY_FIXTURE=$(cat <<'PY'
+import json, sys
+from datetime import datetime, timedelta, timezone
+assets, out = sys.argv[1:]
+short = "the-dates-stay-whole"
+long_words = "the export keeps every date of an order whole when the merchant opens the file in a spreadsheet that reads the dates in a locale other than the one a store uses"
+assert len(long_words) == 160, len(long_words)
+long_slug = long_words.replace(" ", "-")
+now = datetime.now(timezone.utc)
+iso = lambda minutes: (now - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+state = lambda minutes, task, status, text, ask: {"ts": iso(minutes), "event": "task.state", "task": task, "status": status, "text": text, "lines": [], "ask": ask}
+events = [
+    state(30, short, "building", "task 1 of 2", "Keep the dates whole in the export"),
+    state(25, long_slug, "held", "the criteria wait for the owner", "Dates in the export read the same in every locale"),
+    state(20, "in-checks", "landing", "the checks start", "Round the totals once"),
+    state(90, "landed-one", "landing", "the checks start", "Name the column"),
+    state(60, "landed-one", "landed", "main: pull request #7 is merged", "Name the column"),
+]
+open(f"{out}/events.js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(e)});\n" for e in events))
+open(f"{out}/meta.js", "w", encoding="utf-8").write("lemMeta(" + json.dumps({"repo": "shop", "base": "main", "session": "LEM1", "gates": 1, "serial": 0}) + ");\n")
+for name in ("lem.css", "lem.js"):
+    open(f"{out}/{name}", "w", encoding="utf-8").write(open(f"{assets}/{name}", encoding="utf-8").read())
+board = open(f"{assets}/board.html", encoding="utf-8").read()
+handover = open(f"{assets}/handover.html", encoding="utf-8").read()
+bridge = "<script>globalThis.agterm = {request: async cmd => cmd === 'tree' ? {tree: {workspaces: [{sessions: [{id: 'LEM1', status: 'idle'}]}]}} : {}};</script>"
+def dark(hex_):
+    r, g, b = (int(hex_[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.299 * r + 0.587 * g + 0.114 * b < 0.5
+def theme(background, foreground):
+    look = f"color-scheme: {'dark' if dark(background) else 'light'}; color: {foreground}; "
+    return f"<style id=\"agterm-theme\">:where(html) {{ {look}--agterm-background: {background}; --agterm-foreground: {foreground}; }}</style>"
+def page(name, text, head=""):
+    assert text.count("<head>") == 1
+    open(f"{out}/{name}.html", "w", encoding="utf-8").write(text.replace("<head>", "<head>" + head, 1))
+# the backgrounds of the criterion, and an installed light theme just under the middle of relative luminance
+themes = {"15181c": "#dde1e6", "ffffff": "#1e1e1e", "fdf6e3": "#657b83", "002b36": "#839496", "d8b590": "#2b2118"}
+frames = []
+for slug, size in ((short, "short"), (long_slug, "long")):
+    page(f"task-{slug}", board, bridge)
+    frames += [{"id": f"head-{size}-{width}", "src": f"task-{slug}.html", "width": width, "kind": "head"} for width in (900, 1400)]
+for bg, fg in themes.items():
+    page(f"board-{bg}", board, theme(f"#{bg}", fg) + bridge)
+    page(f"handover-{bg}", handover, theme(f"#{bg}", fg))
+    frames += [{"id": f"board-{bg}", "src": f"board-{bg}.html", "width": 1400, "kind": "look", "agterm": [f"#{bg}", fg]},
+               {"id": f"handover-{bg}", "src": f"handover-{bg}.html", "width": 1400, "kind": "look", "agterm": [f"#{bg}", fg]}]
+    if bg in ("15181c", "ffffff"):
+        page(f"task-look-{bg}", board.replace("<head>", "<head>" + theme(f"#{bg}", fg), 1), bridge)
+page("board-system", board, bridge)
+page("handover-system", handover)
+system = [{"id": "board-system", "src": "board-system.html", "width": 1400, "kind": "look", "agterm": []},
+          {"id": "handover-system", "src": "handover-system.html", "width": 1400, "kind": "look", "agterm": []}]
+PROBE = """<!doctype html><meta charset="utf-8"><body><pre id="out"></pre>
+<script>
+const FRAMES = %s;
+for (const f of FRAMES) {
+  const node = document.createElement('iframe');
+  node.id = f.id; node.src = f.src; node.style.cssText = `width:${f.width}px;height:900px;border:0;display:block`;
+  document.body.append(node);
+}
+const ctx = Object.assign(document.createElement('canvas'), {width: 1, height: 1}).getContext('2d', {willReadFrequently: true});
+const rgba = css => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = 'rgba(0, 0, 0, 0)'; ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255]; };
+const over = (top, under) => [0, 1, 2].map(i => top[i] * top[3] + under[i] * (1 - top[3])).concat(1);
+const lum = c => { const l = c.slice(0, 3).map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+const box = n => { const r = n.getBoundingClientRect(); return {left: r.left, right: r.right, top: r.top, height: r.height}; };
+function head(f, d, w) {
+  const top = d.querySelector('header.top'), h1 = d.getElementById('title');
+  const buttons = () => [...d.querySelectorAll('#top-right button')].map(b => ({text: b.textContent.trim(), ...box(b)}));
+  const hover = [...d.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch { return []; } })
+    .some(r => /h1[^,]*:hover/.test(r.selectorText ?? '') && /:focus/.test(r.selectorText ?? '') && r.style.getPropertyValue('-webkit-line-clamp') === 'unset');
+  const out = {header: box(top), buttons: buttons(), title: h1.textContent, lineHeight: parseFloat(w.getComputedStyle(h1).lineHeight),
+    tabIndex: h1.tabIndex, hover, before: {...box(h1), clipped: h1.scrollHeight > h1.clientHeight + 1}};
+  w.focus(); h1.focus({focusVisible: true});
+  out.after = {...box(h1), whole: h1.scrollHeight <= h1.clientHeight + 1, focused: h1.matches(':focus-visible')};
+  out.buttonsFocused = buttons();
+  h1.blur();
+  return out;
+}
+function look(f, d, w) {
+  const cs = n => w.getComputedStyle(n), root = d.documentElement;
+  const background = n => { const layers = []; for (let m = n; m; m = m.parentElement) { const c = rgba(cs(m).backgroundColor); if (c[3] > 0) layers.push(c); if (c[3] === 1) break; }
+    return layers.reverse().reduce((under, c) => over(c, under), [255, 255, 255, 1]); };
+  const low = [], colors = new Set();
+  let least = 99;
+  for (const n of d.body.querySelectorAll('*')) {
+    if (n.closest('svg, script, style, [hidden]')) continue;
+    const s = cs(n);
+    for (const c of [s.color, s.backgroundColor, s.borderTopColor]) { const v = rgba(c); if (v[3] > 0) colors.add(v.slice(0, 3).join(',')); }
+    if (![...n.childNodes].some(c => c.nodeType === 3 && c.data.trim()) || !n.getClientRects().length || s.visibility !== 'visible') continue;
+    const bg = background(n), r = ratio(over(rgba(s.color), bg), bg);
+    least = Math.min(least, r);
+    if (r < 4.5) low.push(`${n.tagName.toLowerCase()}.${[...n.classList].join('.')} "${n.textContent.trim().slice(0, 40)}" ${r.toFixed(2)}`);
+  }
+  const pick = (sel, ...props) => { const n = d.querySelector(sel); return n ? Object.fromEntries(props.map(p => [p, cs(n).getPropertyValue(p)])) : null; };
+  return {palette: root.dataset.palette ?? null, scheme: cs(root).colorScheme, tokenBg: cs(root).getPropertyValue('--bg').trim(),
+    logo: [...d.querySelectorAll('.mark > svg')].filter(s => cs(s).display !== 'none').map(s => s.getAttribute('aria-labelledby')),
+    body: pick('body', 'background-color', 'color', 'font-family'), h1: pick('h1', 'font-size', 'font-weight', 'font-family', 'line-height', 'color'),
+    eyebrow: pick('.eyebrow', 'font-size', 'font-weight', 'letter-spacing', 'color'), mark: pick('.mark', 'width', 'height', 'border-radius', 'box-shadow'),
+    chip: pick('.chip:not(.ok):not(.bad):not(.you)', 'font-size', 'border-radius', 'color', 'background-color', 'border-top-color'),
+    least: Math.round(least * 100) / 100, low, colors: [...colors]};
+}
+setTimeout(() => {
+  const out = {};
+  for (const f of FRAMES) {
+    const w = document.getElementById(f.id).contentWindow, d = w.document;
+    try { out[f.id] = {...f, ...(f.kind === 'head' ? head(f, d, w) : look(f, d, w))}; } catch (err) { out[f.id] = {error: String(err)}; }
+  }
+  document.getElementById('out').textContent = JSON.stringify(out);
+}, 4000);
+</script>"""
+looked = frames + [{"id": f"task-look-{bg}", "src": f"task-look-{bg}.html", "width": 1400, "kind": "look", "agterm": [f"#{bg}", themes[bg]]} for bg in ("15181c", "ffffff")]
+open(f"{out}/probe.html", "w", encoding="utf-8").write(PROBE % json.dumps(looked + system))
+open(f"{out}/probe-dark.html", "w", encoding="utf-8").write(PROBE % json.dumps(system))
+PY
+)
+  "$PY" -I -c "$STEADY_FIXTURE" "$PWD/skills/lem/assets" "$STEADY"
+  # the system's setting: light for the first draw, dark for the second, whatever this machine says
+  headless --allow-file-access-from-files --blink-settings=preferredColorScheme=1 --virtual-time-budget=9000 --dump-dom "file://$STEADY/probe.html" > "$WORK/steady.dom"
+  headless --allow-file-access-from-files --blink-settings=preferredColorScheme=0 --virtual-time-budget=9000 --dump-dom "file://$STEADY/probe-dark.html" > "$WORK/steady-dark.dom"
+  STEADY_CHECK=$(cat <<'PY'
+import html, json, re, sys
+check, light, dark = sys.argv[1:]
+def read(path):
+    found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(path, encoding="utf-8").read(), re.S)
+    return json.loads(html.unescape(found.group(1))) if found and found.group(1) else {}
+got, got_dark = read(light), read(dark)
+wrong = []
+if not got or not got_dark:
+    print(f"the probe printed nothing ({len(got)} and {len(got_dark)} frames)"); sys.exit(1)
+for name, frame in [*got.items(), *(("dark " + k, v) for k, v in got_dark.items())]:
+    if "error" in frame: wrong.append(f"{name}: {frame['error']}")
+rgb = lambda hex_: ",".join(str(int(hex_[i:i + 2], 16)) for i in (1, 3, 5))
+if check == "head":
+    for width in (900, 1400):
+        short, long_ = got.get(f"head-short-{width}", {}), got.get(f"head-long-{width}", {})
+        for size, f in (("short", short), ("long", long_)):
+            names = [b["text"] for b in f.get("buttons", [])]
+            if names != ["All tasks", "Go to Lem’s session (idle)"]: wrong.append(f"{size} at {width}: the buttons are {names}"); continue
+            right = f["header"]["right"]
+            if any(abs(b["right"] - right) > 1 for b in f["buttons"]): wrong.append(f"{size} at {width}: a button is not at the right edge {right}: {f['buttons']}")
+            if abs(f["buttons"][0]["top"] - f["header"]["top"]) > 1: wrong.append(f"{size} at {width}: the first button is not at the top {f['header']['top']}: {f['buttons'][0]}")
+            if f["buttonsFocused"] != f["buttons"]: wrong.append(f"{size} at {width}: the focus on the title moved a button: {f['buttonsFocused']}")
+        if short.get("buttons") and long_.get("buttons") and any(abs(a[k] - b[k]) > 0.5 for a, b in zip(short["buttons"], long_["buttons"]) for k in ("left", "right", "top")):
+            wrong.append(f"at {width} the buttons stand elsewhere for the long title: {short['buttons']} / {long_['buttons']}")
+        if long_:
+            if len(long_["title"]) != 160: wrong.append(f"the long title has {len(long_['title'])} characters")
+            # at 900 px the title needs more than two lines, so it is cut there; at 1400 px two may hold it
+            if long_["before"]["height"] > 2 * long_["lineHeight"] + 1 or (width == 900 and not long_["before"]["clipped"]):
+                wrong.append(f"at {width} the long title takes more than two lines, or is not cut where it needs more: {long_['before']}, line {long_['lineHeight']}")
+            if not (long_["after"]["focused"] and long_["after"]["whole"]) or (long_["before"]["clipped"] and long_["after"]["height"] <= long_["before"]["height"]):
+                wrong.append(f"at {width} the long title with the focus does not show whole: {long_['after']}")
+            if long_["tabIndex"] != 0 or not long_["hover"]: wrong.append(f"the title takes no focus ({long_['tabIndex']}) or no hover shows it whole ({long_['hover']})")
+        if short and short["before"]["clipped"]: wrong.append(f"at {width} the short title is cut: {short['before']}")
+elif check == "palette":
+    want = {"15181c": "dark", "ffffff": "light", "fdf6e3": "light", "002b36": "dark", "d8b590": "light"}
+    night = lambda f: f.get("logo") == ["c2mn-title c2mn-desc"]
+    day = lambda f: f.get("logo") == ["c2m-title c2m-desc"]
+    tokens = {}
+    for bg, palette in want.items():
+        f = got.get(f"board-{bg}", {})
+        if f.get("palette") != palette or f.get("scheme") != palette: wrong.append(f"#{bg}: the palette is {f.get('palette')} ({f.get('scheme')}), not {palette}")
+        if not (night(f) if palette == "dark" else day(f)): wrong.append(f"#{bg}: the header shows {f.get('logo')}")
+        tokens.setdefault(palette, set()).add(f.get("tokenBg"))
+        # Lem's light card is white too, so the colors are compared under the other themes
+        agterm = {rgb(c) for c in f.get("agterm", [])} if bg != "ffffff" else set()
+        if agterm & set(f.get("colors", [])): wrong.append(f"#{bg}: the board draws a color of agterm's theme: {sorted(agterm & set(f.get('colors', [])))}")
+        if f.get("body", {}).get("background-color") in (f"rgb({rgb('#' + bg).replace(',', ', ')})",): wrong.append(f"#{bg}: the page's background is agterm's")
+    if any(len(v) != 1 for v in tokens.values()) or tokens.get("dark") == tokens.get("light"): wrong.append(f"the palettes' backgrounds are {tokens}")
+    system_light, system_dark = got.get("board-system", {}), got_dark.get("board-system", {})
+    if system_light.get("palette") != "light" or not day(system_light): wrong.append(f"outside agterm, under the system's light: {system_light.get('palette')}, {system_light.get('logo')}")
+    if system_dark.get("palette") != "dark" or not night(system_dark): wrong.append(f"outside agterm, under the system's dark: {system_dark.get('palette')}, {system_dark.get('logo')}")
+    for name, f in [*got.items(), ("dark board-system", system_dark)]:
+        if name.startswith("head-") or "handover" in name: continue
+        if f.get("least", 0) < 4.5 or f.get("low"): wrong.append(f"{name}: text under 4.5:1 (least {f.get('least')}): {f.get('low', [])[:6]}")
+elif check == "pages":
+    same = ("body", "h1", "eyebrow", "mark", "chip", "logo", "palette")
+    for name, b, o in (("light", got.get("board-ffffff"), got.get("handover-ffffff")), ("dark", got.get("board-15181c"), got.get("handover-15181c")),
+                       ("the system's light", got.get("board-system"), got.get("handover-system")), ("the system's dark", got_dark.get("board-system"), got_dark.get("handover-system"))):
+        if not b or not o: wrong.append(f"{name}: a page was not drawn"); continue
+        for key in same:
+            if b.get(key) is None or b.get(key) != o.get(key): wrong.append(f"{name}: the {key} of the board is {b.get(key)}, of the onboarding page {o.get(key)}")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  if why=$("$PY" -I -c "$STEADY_CHECK" head "$WORK/steady.dom" "$WORK/steady-dark.dom"); then
+    pass "on a task's board \"All tasks\" and \"Go to Lem’s session\" stand at the top right for a short and a 160-character title at 900 and 1400 px; the long title takes two lines and shows whole on the focus and on a hover, with no button moved"
+  else
+    fail "the head of a task's board: $why"
+  fi
+  if why=$("$PY" -I -c "$STEADY_CHECK" palette "$WORK/steady.dom" "$WORK/steady-dark.dom"); then
+    pass "the board takes Lem's own palette from agterm's scheme: dark with the night logo on #15181c and #002b36, light with the day logo on #ffffff, #fdf6e3 and #d8b590, no color of agterm's, the system's setting outside agterm, and text of 4.5:1 or more in both"
+  else
+    fail "Lem's light and dark: $why"
+  fi
+  if why=$("$PY" -I -c "$STEADY_CHECK" pages "$WORK/steady.dom" "$WORK/steady-dark.dom"); then
+    pass "the onboarding page has the board's header, fonts and colors, in light and in dark, from agterm and from the system"
+  else
+    fail "one look for every page of Lem: $why"
+  fi
+
+  # The board of all tasks with two choices that wait, on a task whose ask is 300 characters long and
+  # that builds while they wait, one task whose criteria wait and one green pull request, in a folder
+  # of its own beside the skill's files, so that no lane of the fixture changes. A stand-in for agterm's
+  # bridge names Lem's session: what runs in it (`fg`) and whether a read of the sessions fails
+  # (`treeFails`) are the probe's to change.
+  STAY=$WORK/stay
+  mkdir -p "$STAY"
+  STAY_FIXTURE=$(cat <<'PY'
+import json, sys
+from datetime import datetime, timedelta, timezone
+assets, out = sys.argv[1:]
+now = datetime.now(timezone.utc)
+iso = lambda minutes: (now - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+words = ("The export keeps every date of an order whole when the merchant opens the file in a spreadsheet that reads the dates in a locale "
+         "other than the one the store uses, and the totals of each month add up to the same sum in the report, the invoice and the export, "
+         "so that an accountant who checks the three finds no difference at all")
+long_ask = words[:299].rstrip() + "."
+long_ask = long_ask + "." * (300 - len(long_ask))
+assert len(long_ask) == 300, len(long_ask)
+long_choice = ("The order of the day and the month in the date column, which a spreadsheet in another locale reads as a month and a day "
+               "when the day is twelve or less, so that the third of May reads as the fifth of March")
+state = lambda minutes, task, status, text, ask, lines=(): {"ts": iso(minutes), "event": "task.state", "task": task, "status": status, "text": text, "lines": list(lines), "ask": ask}
+asked = lambda minutes, task, number, what, options: {"ts": iso(minutes), "event": "decision.asked", "task": task, "id": number, "at": iso(minutes), "what": what,
+                                                      "options": options, "recommended": options[0], "why": "the personas split"}
+events = [
+    state(60, "sort-the-export", "landing", "the checks start", "Sort the export by date"),
+    {"ts": iso(50), "event": "proposed", "task": "sort-the-export", "green": True, "not_green": [], "tip": "abc123456"},
+    state(50, "sort-the-export", "open", "pull request https://github.com/acme/shop/pull/3", "Sort the export by date", ["green"]),
+    state(40, "dates-stay-whole", "building", "task 1 of 2", long_ask),
+    asked(30, "dates-stay-whole", 1, long_choice, ["the day first", "the month first"]),
+    asked(20, "dates-stay-whole", 2, "The name of the date column", ["ordered", "date"]),
+    state(25, "round-the-totals", "held", "the criteria wait for the owner", "Round the totals once"),
+    state(10, "trim-the-notes", "landing", "the checks start", "Trim the order notes"),
+]
+open(f"{out}/events.js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(e)});\n" for e in events))
+open(f"{out}/meta.js", "w", encoding="utf-8").write("lemMeta(" + json.dumps({"repo": "shop", "base": "main", "session": "LEM1", "gates": 1, "serial": 0}) + ");\n")
+item = {"slug": "which-currency", "path": "docs/backlog/which-currency.md", "title": "Which currency rounds half up", "worth": "yes", "where": "", "where_problem": "",
+        "added": "2026-11-02", "state": "", "body": "The refund of order 1042 rounds 0.125 to 0.13. The cart rounds half to even. One of the two is wrong."}
+open(f"{out}/backlog.js", "w", encoding="utf-8").write("lemBacklog(" + json.dumps({"folder": "docs/backlog", "read": iso(1), "items": [item]}) + ");\n")
+for name in ("lem.css", "lem.js"):
+    open(f"{out}/{name}", "w", encoding="utf-8").write(open(f"{assets}/{name}", encoding="utf-8").read())
+bridge = ("<script>globalThis.fg = ['/bin/zsh']; globalThis.treeFails = false; globalThis.agterm = {request: async cmd => {"
+          " if (cmd !== 'tree') return {}; if (globalThis.treeFails) throw new Error('the socket is gone');"
+          " return {tree: {workspaces: [{sessions: [{id: 'LEM1', status: 'idle', foreground: globalThis.fg}]}]}}; }};</script>")
+board = open(f"{assets}/board.html", encoding="utf-8").read()
+assert board.count("<head>") == 1
+open(f"{out}/board.html", "w", encoding="utf-8").write(board.replace("<head>", "<head>" + bridge, 1))
+open(f"{out}/probe.html", "w", encoding="utf-8").write("""<!doctype html><meta charset="utf-8"><iframe id="f" src="board.html#waits" style="width:1400px;height:900px;border:0"></iframe><pre id="out"></pre>
+<script>
+const wait = ms => new Promise(done => setTimeout(done, ms));
+(async () => {
+  await wait(1500);
+  const w = document.getElementById('f').contentWindow, d = w.document, log = {};
+  const box = n => n.getBoundingClientRect();
+  const chosen = () => d.querySelector('#tabs [aria-selected="true"]')?.dataset.tab ?? null;
+  const shown = () => ['waits', 'backlog', 'lanes-section'].filter(id => d.getElementById(id) && !d.getElementById(id).hidden);
+  // where a button stands in its card: how far from the card's right edge, and from its left edge
+  const side = (card, button) => { const c = box(card), b = box(button); return {right: Math.round(c.right - b.right), left: Math.round(b.left - c.left), width: Math.round(c.width)}; };
+  log.first = [chosen(), shown()];
+  await wait(2500);
+  log.later = [chosen(), shown()];
+  log.rows = [...d.querySelectorAll('#waits-rows .wrow')].map(row => ({verb: row.querySelector('.wverb').textContent, button: side(row, row.querySelector('.wside button'))}));
+  // the tasks: the cards of the lane "Waits for you"
+  d.querySelector('[data-tab="tasks"]').click(); await wait(300);
+  const lane = [...d.querySelectorAll('#lanes .lane')].find(l => l.querySelector('.lane-head').textContent.startsWith('Waits for you'));
+  const cards = [...lane.querySelectorAll('.tcard')];
+  const cut = n => n.scrollHeight > n.clientHeight + 1;
+  const measure = () => cards.map(c => {
+    const part = sel => c.querySelector(sel), ask = part('.tc-ask > span');
+    return {title: part('.tc-title').textContent, height: Math.round(box(c).height * 10) / 10, titleCut: cut(part('.tc-title')),
+      state: part('.tc-text').textContent, stateCut: cut(part('.tc-text')) || !part('.tc-text').getClientRects().length,
+      mark: part('.tc-wait')?.textContent ?? null, markTitle: part('.tc-wait')?.title ?? null,
+      ask: ask ? {height: Math.round(box(ask).height * 10) / 10, cut: cut(ask), line: parseFloat(w.getComputedStyle(ask).lineHeight)} : null};
+  });
+  log.cards = measure();
+  log.focusable = cards.map(c => { c.focus(); const took = d.activeElement === c && c.tabIndex >= 0; c.blur(); return took; });
+  const long = cards.find(c => c.querySelector('.tc-title').textContent === 'Dates stay whole');
+  w.focus(); long.focus({focusVisible: true});
+  log.focused = {visible: long.matches(':focus-visible'), cards: measure()};
+  long.blur();
+  log.hover = [...d.styleSheets].flatMap(sheet => { try { return [...sheet.cssRules]; } catch { return []; } })
+    .some(rule => /\\.tcard:is\\(:hover, :focus-visible\\) \\.tc-ask/.test(rule.selectorText ?? '') && rule.style.getPropertyValue('-webkit-line-clamp') === 'unset');
+  const now = d.getElementById('now');
+  log.band = side(now, now.querySelector('button[data-open]'));
+  // the backlog: a sentence of an item's body, then the command of its foot, selected while what runs
+  // in Lem's session changes and while a read of the sessions fails
+  d.querySelector('[data-tab="backlog"]').click(); await wait(800);
+  d.querySelector('[data-bl-toggle="which-currency"]').click(); await wait(300);
+  const sel = w.getSelection();
+  const pick = range => { sel.removeAllRanges(); sel.addRange(range); return sel.toString(); };
+  const still = want => [sel.toString() === want && sel.rangeCount > 0 && sel.getRangeAt(0).startContainer.isConnected, chosen()];
+  const foot = () => d.querySelector('.bl-actions').textContent;
+  const sentence = d.createRange(), text = d.querySelector('.bl-text').firstChild;
+  sentence.setStart(text, 0); sentence.setEnd(text, 'The refund of order 1042 rounds 0.125 to 0.13.'.length);
+  const said = pick(sentence);
+  log.body = [said];
+  w.fg = ['/opt/homebrew/bin/claude']; await wait(3500); log.body.push(still(said), foot());
+  w.treeFails = true; await wait(3500); log.body.push(still(said), foot());
+  w.treeFails = false; w.fg = ['/bin/zsh']; await wait(3500);
+  const command = d.createRange(); command.selectNodeContents(d.querySelector('.bl-actions code'));
+  const cmd = pick(command);
+  log.code = [cmd];
+  w.fg = ['/opt/homebrew/bin/claude']; await wait(3500); log.code.push(still(cmd), foot());
+  const item = d.querySelector('.bl-item');
+  log.ask = side(item, d.querySelector('[data-bl-ask]'));
+  w.treeFails = true; await wait(3500); log.code.push(still(cmd), foot());
+  w.treeFails = false; await wait(3500);
+  d.querySelector('[data-bl-ask]').click(); await wait(100);
+  const start = d.querySelector('[data-bl-start]'), cancel = d.querySelector('[data-bl-cancel]');
+  log.confirm = {start: side(item, start), cancel: side(item, cancel), between: Math.round(box(cancel).left - box(start).right)};
+  document.getElementById('out').textContent = JSON.stringify(log);
+})().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
+</script>""")
+PY
+)
+  "$PY" -I -c "$STAY_FIXTURE" "$PWD/skills/lem/assets" "$STAY"
+  "$PY" -I -c "$STOP" "$STAY/board.html" "$NOW"
+  headless --virtual-time-budget=5000 --dump-dom "file://$STAY/board.html#waits" > "$WORK/stay-waits.dom"
+  # watch.js as land.py watch writes it, with the pull request's entry: the forge's word on HEAD
+  stay_watch() { "$PY" -I -c 'import json, sys
+entry = {"task": "sort-the-export", "pr": 3, "url": "https://github.com/acme/shop/pull/3", "state": "OPEN", "mergeable": "CONFLICTING", "head": sys.argv[2], "since": None}
+open(sys.argv[1], "w").write("lemWatch(" + json.dumps({"checked": "2026-11-19T09:00:00Z", "every": 60, "looks": 1, "open": [entry], "ended": None}) + ");\n")' "$STAY/watch.js" "$1"; }
+  stay_watch abc123456def7890abc123456def7890abc12345 && headless --virtual-time-budget=5000 --dump-dom "file://$STAY/board.html#waits" > "$WORK/stay-conflict.dom"
+  stay_watch 0ff1ce0ff1ce0ff1ce0ff1ce0ff1ce0ff1ce0ff1 && headless --virtual-time-budget=5000 --dump-dom "file://$STAY/board.html#waits" > "$WORK/stay-older.dom"
+  rm -f "$STAY/watch.js"
+  # The test of criterion 4: the count 4 and the four rows, each with its verb, on the tab the address
+  # opens; only the text of that tab is read, none of the panels the other tabs hide.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/stay-waits.dom" @visible "Waits for you 4" "Answer choice 1" "Answer choice 2" "Approve the criteria" "Merge the pull request" \
+      "!Building: task 1 of 2" "!The criteria wait for you" "!Which currency rounds half up") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/stay-waits.dom" waits-rows "The order of the day and the month|Answer choice 1|Dates stay whole|recommended: the day first" \
+      "The name of the date column|Answer choice 2|Dates stay whole" "Round the totals once|Approve the criteria|Lem shows you the acceptance criteria" \
+      "Sort the export by date|Merge the pull request|Green|Merge the pull request, or tell Lem in its session to land it.") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/stay-conflict.dom" @visible "Waits for you 4" "It conflicts with the base" "Lem brings it onto the base first" "!Merge" "!merge") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/stay-older.dom" waits-rows "Sort the export by date|Merge the pull request|!conflicts"); then
+    pass "Waits for you counts 4 for two choices, criteria that wait and a green pull request, each row with its verb: answer the choice, approve the criteria, merge the pull request; a pull request the forge calls conflicting on the proposed head has no merge verb, and on an older head it keeps it"
+  else
+    fail "Waits for you: $why"
+  fi
+  headless --allow-file-access-from-files --virtual-time-budget=40000 --dump-dom "file://$STAY/probe.html" > "$WORK/stay-probe.dom"
+  STAY_CHECK=$(cat <<'PY'
+import html, json, re, sys
+check, path = sys.argv[1:]
+found = re.search(r"<pre id=\"out\">(.*?)</pre>", open(path, encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}
+wrong = [d["error"]] if "error" in d else []
+# at the right: the button's right edge 24 px or less from its card's, and the button in the card's right half
+right = lambda s: s["right"] <= 24 and s["left"] > s["width"] / 2
+if not wrong and check == "cards":
+    cards = {c["title"]: c for c in d["cards"]}
+    long, short = cards.get("Dates stay whole"), cards.get("Round the totals")
+    if not long or not short: wrong.append(f"the lane holds {list(cards)}")
+    else:
+        if len({c["height"] for c in d["cards"]}) != 1: wrong.append(f"the cards' heights are {[(c['title'], c['height']) for c in d['cards']]}")
+        if long["state"] != "Building: task 1 of 2" or short["state"] != "The criteria wait for you": wrong.append(f"the state lines are {long['state']!r} and {short['state']!r}")
+        if any(c["stateCut"] or c["titleCut"] for c in d["cards"]): wrong.append(f"a title or a state line is cut: {d['cards']}")
+        if long["mark"] != "2 choices wait" or "The order of the day and the month" not in (long["markTitle"] or "") or "The name of the date column" not in (long["markTitle"] or ""):
+            wrong.append(f"the wait mark is {long['mark']!r} with the hover {long['markTitle']!r}")
+        if short["mark"] is not None: wrong.append(f"a card with no choice has the mark {short['mark']!r}")
+        ask = long["ask"] or {}
+        if not ask.get("cut") or ask.get("height", 0) > 2 * ask.get("line", 0) + 1: wrong.append(f"the long ask is not cut after two lines: {ask}")
+        if (short["ask"] or {}).get("cut"): wrong.append(f"the short ask is cut: {short['ask']}")
+        if not all(d["focusable"]) or len(d["focusable"]) != len(d["cards"]): wrong.append(f"a card does not take the focus: {d['focusable']}")
+        after = {c["title"]: c for c in d["focused"]["cards"]}
+        whole = after["Dates stay whole"]["ask"] or {}
+        if not d["focused"]["visible"] or whole.get("cut", True) or whole.get("height", 0) <= ask.get("height", 0): wrong.append(f"the long ask with the focus does not show whole: {whole}")
+        if [c["height"] for c in d["focused"]["cards"]] != [c["height"] for c in d["cards"]]: wrong.append(f"the focus changed a card's height: {d['focused']['cards']}")
+        if not d["hover"]: wrong.append("no hover shows the whole ask")
+elif not wrong and check == "stays":
+    if d["first"] != ["waits", ["waits"]] or d["later"] != ["waits", ["waits"]]: wrong.append(f"the tab Waits for you: {d['first']} then, two draws later, {d['later']}")
+    body, code = d["body"], d["code"]
+    if not body[0].startswith("The refund of order 1042") or body[1] != [True, "backlog"] or body[3] != [True, "backlog"]: wrong.append(f"the selected sentence: {body}")
+    if not code[0].startswith("/lem new ") or code[1] != [True, "backlog"] or code[3] != [True, "backlog"]: wrong.append(f"the selected command: {code}")
+    # the words beside them did change: an agent runs, then the read of the sessions failed
+    if "Start a task" not in body[2] or "not open in this window" not in body[4] or "Start a task" not in code[2] or "not open in this window" not in code[4]:
+        wrong.append(f"the foot did not change with the session: {body[2]!r} / {body[4]!r} / {code[2]!r} / {code[4]!r}")
+elif not wrong and check == "actions":
+    places = {**{f"row {r['verb']}": r["button"] for r in d["rows"]}, "the large card": d["band"], "Start a task": d["ask"], "Cancel": d["confirm"]["cancel"]}
+    if len(d["rows"]) != 4: wrong.append(f"{len(d['rows'])} rows")
+    wrong += [f"{name} stands at {s}, not at the right" for name, s in places.items() if not right(s)]
+    if not (d["confirm"]["start"]["left"] > d["confirm"]["start"]["width"] / 2 and 0 <= d["confirm"]["between"] <= 16):
+        wrong.append(f"Start is not beside Cancel at the right: {d['confirm']}")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  # The test of criterion 2.
+  if why=$("$PY" -I -c "$STAY_CHECK" cards "$WORK/stay-probe.dom"); then
+    pass "in one lane a card with a one-line ask and a card with a 300-character ask whose task builds while two choices wait have one height; only the ask is cut, after two lines; each says its state and the long one has the wait mark; Tab reaches each card, and the long ask shows whole on the focus and on a hover with no card changing its height"
+  else
+    fail "the cards' shape: $why"
+  fi
+  # The test of criterion 4, its second half.
+  if why=$("$PY" -I -c "$STAY_CHECK" stays "$WORK/stay-probe.dom"); then
+    pass "the tab the owner chose stays chosen through the draw of every second, and a sentence or a command selected in the backlog stays selected when an agent in Lem's session starts and when a read of the sessions fails"
+  else
+    fail "the chosen tab and a selection in the backlog: $why"
+  fi
+  # The test of criterion 1, the cards' actions.
+  if why=$("$PY" -I -c "$STAY_CHECK" actions "$WORK/stay-probe.dom"); then
+    pass "every card with an action has it at the right: \"Open the task\" on each row of Waits for you and on the large card, the backlog's \"Start a task\", and Start with Cancel beside it"
+  else
+    fail "the side of the cards' actions: $why"
+  fi
+
+  # The board of one task: four tabs, and green or not green on its first view. Three tasks in a folder
+  # of their own: the experts took choice 2, option 2, in the very second the owner said he was away,
+  # and he came back before the proposal; a night's task whose choice was taken at once while he was
+  # there, beside a decision of the dialectic; and a task whose large card has many long lines. A
+  # stand-in for agterm's bridge gives each task a session.
+  TABS=$WORK/tabs
+  mkdir -p "$TABS"
+  TABS_FIXTURE=$(cat <<'PY'
+import json, sys
+from datetime import datetime, timedelta, timezone
+assets, out = sys.argv[1:]
+now = datetime.now(timezone.utc).replace(microsecond=0)
+iso = lambda minutes: (now - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+state = lambda minutes, task, status, text, ask, lines=(): {"ts": iso(minutes), "event": "task.state", "task": task, "status": status, "text": text, "lines": list(lines), "ask": ask}
+def decision(minutes, kind, task, number, **rest):
+    return {"ts": iso(minutes), "event": f"decision.{kind}", "task": task, "id": number, "at": iso(minutes), **rest}
+owner = lambda minutes, away, words: {"ts": iso(minutes), "event": "owner", "away": away, "by": "owner", "words": words}
+experts = {"fable": "the invoice is a page of the shop", "astra": "the printer prints in color"}
+# land.py's own lines (not_green): a choice the experts took, a decision past the personas, a choice taken as the recommended option
+by_experts = ('choice 2 was taken by the experts (The color of the logo): "the green of the shop", both picked it, at once, as the task ran without the owner. '
+              'Fable: the invoice is a page of the shop · Astra: the printer prints in color')
+by_dialectic = 'decision 2 was taken without the owner (The font of the label): "sans", by the dialectic'
+recommended = 'choice 1 was taken without the owner (The size of the label): "A6", the recommended option, at once, as the task ran without the owner'
+long_what = ("The order of the day and the month in the date column of every export, which a spreadsheet in another locale reads as a month "
+             "and a day when the day is twelve or less, so that the third of May reads as the fifth of March and the totals of each month move")
+long_line = "the export writes the dates in the store's own locale and the spreadsheet of the accountant reads them in its own locale "
+events = [
+    state(120, "logo-color", "building", "lead: session", "Print the logo in the shop's color", ["session: T1", "type: feat, because the printed invoice should look like the shop"]),
+    state(118, "logo-color", "building", "plan committed, 2 tasks", "Print the logo in the shop's color"),
+    decision(110, "asked", "logo-color", 1, what="The paper size", options=["A4", "Letter"], recommended="Letter", why="the printer has Letter in its tray"),
+    decision(105, "answered", "logo-color", 1, chose="A4", words="A4"),
+    decision(100, "asked", "logo-color", 2, what="The color of the logo", options=["black", "the green of the shop"], recommended="black", why="a black logo prints on every printer"),
+    decision(99, "advised", "logo-color", 2, expert="fable", pick="the green of the shop", why=experts["fable"]),
+    decision(98, "advised", "logo-color", 2, expert="astra", pick="the green of the shop", why=experts["astra"]),
+    owner(90, True, "/lem im-away"),
+    decision(90, "timeout", "logo-color", 2, chose="the green of the shop", by="experts", experts=experts, early=True),
+    owner(60, False, "/lem im-back"),
+    state(50, "logo-color", "landing", "the checks start", "Print the logo in the shop's color"),
+    {"ts": iso(40), "event": "proposed", "task": "logo-color", "green": False, "not_green": [by_experts], "tip": "abc123456"},
+    state(40, "logo-color", "open", "pull request https://github.com/acme/shop/pull/4", "Print the logo in the shop's color"),
+    state(300, "night-labels", "building", "lead: builder", "Label the parcels"),
+    decision(290, "asked", "night-labels", 1, what="The size of the label", options=["A6", "A5"], recommended="A6", why="the printer takes A6"),
+    decision(290, "timeout", "night-labels", 1, chose="A6", by="timeout", early=True),
+    decision(280, "taken", "night-labels", 2, what="The font of the label", chose="sans", by="dialectic", why="it reads at a glance"),
+    state(200, "night-labels", "landing", "the checks start", "Label the parcels"),
+    {"ts": iso(190), "event": "proposed", "task": "night-labels", "green": False, "not_green": [by_dialectic, recommended], "tip": "def456789"},
+    state(190, "night-labels", "open", "pull request https://github.com/acme/shop/pull/5", "Label the parcels"),
+    state(30, "long-lines", "building", "lead: session", "Keep every date of an order whole in the export",
+          ["session: T3", "task 1 of 3", long_line * 2, long_line * 3, long_line * 2]),
+    decision(20, "asked", "long-lines", 1, what=long_what, options=["the day first", "the month first"], recommended="the day first", why="the store is in Europe"),
+    decision(19, "advised", "long-lines", 1, expert="fable", pick="the day first", why="every customer of the shop is in Europe"),
+    decision(18, "advised", "long-lines", 1, expert="astra", pick="the month first", why="the accountant's spreadsheet is in English"),
+]
+open(f"{out}/events.js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(e)});\n" for e in events))
+open(f"{out}/meta.js", "w", encoding="utf-8").write("lemMeta(" + json.dumps({"repo": "shop", "base": "main", "session": "LEM1", "gates": 1, "serial": 0}) + ");\n")
+open(f"{out}/backlog.js", "w", encoding="utf-8").write("lemBacklog(" + json.dumps({"folder": "docs/backlog", "read": iso(1), "items": []}) + ");\n")
+told = {"written": iso(1), "tasks": {"logo-color": {"outcome": "The invoice prints the logo in the green of the shop, on every printer of the shop.",
+                                                    "filed": [{"path": "docs/backlog/logo-on-receipts.md", "title": "The logo on the receipts is still black"}]}}}
+open(f"{out}/overview.js", "w", encoding="utf-8").write("lemOverview(" + json.dumps(told) + ");\n")
+for name in ("lem.css", "lem.js"):
+    open(f"{out}/{name}", "w", encoding="utf-8").write(open(f"{assets}/{name}", encoding="utf-8").read())
+bridge = ("<script>globalThis.agterm = {request: async cmd => cmd !== 'tree' ? {} : {tree: {workspaces: [{sessions: ["
+          "{id: 'LEM1', status: 'idle', foreground: ['/bin/zsh']}, {id: 'T1', status: 'idle'}, {id: 'T3', status: 'working'}]}]}}};</script>")
+board = open(f"{assets}/board.html", encoding="utf-8").read()
+assert board.count("<head>") == 1
+for page in ("board", "task-logo-color", "task-night-labels"):
+    open(f"{out}/{page}.html", "w", encoding="utf-8").write(board.replace("<head>", "<head>" + bridge, 1))
+open(f"{out}/probe.html", "w", encoding="utf-8").write("""<!doctype html><meta charset="utf-8"><iframe id="f" src="board.html#waits" style="width:1400px;height:900px;border:0"></iframe><pre id="out"></pre>
+<script>
+const wait = ms => new Promise(done => setTimeout(done, ms));
+const PHRASE = 'not green: two outside experts chose option 2 while you were away';
+(async () => {
+  await wait(1500);
+  const w = document.getElementById('f').contentWindow, d = w.document, log = {};
+  const words = text => text.split(/\\s+/).filter(Boolean).join(' ');
+  // the text the owner sees: none under an element with `hidden`, the panel of another tab
+  const visible = () => { const out = [], walk = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.parentElement && !n.parentElement.closest('[hidden], script, style')) out.push(n.data);
+    return words(out.join(' ')); };
+  const chosen = () => d.querySelector('#tabs [aria-selected="true"]')?.dataset.tab ?? null;
+  const tabs = () => [...d.querySelectorAll('#tabs .tab')].map(b => b.firstChild.textContent);
+  const panels = () => [...d.querySelectorAll('#waits, #backlog, [data-tasks], [data-task-tab]')].filter(n => !n.hidden).map(n => n.id);
+  // the large card: its height, and where "Go to the session" stands from its right and its bottom edge
+  const card = () => { const now = d.getElementById('now'), c = now.getBoundingClientRect(), b = now.querySelector('.now-next .right button'), r = b?.getBoundingClientRect(), body = now.querySelector('.now-in');
+    return {height: Math.round(c.height), more: body.scrollHeight > body.clientHeight + 1, button: r ? {text: b.textContent.trim(), right: Math.round(c.right - r.right), bottom: Math.round(c.bottom - r.bottom)} : null}; };
+  log.start = chosen();
+  d.querySelector('#waits-rows .btn[data-open="logo-color"]').click(); await wait(400);
+  log.open = {tab: chosen(), tabs: tabs(), panels: panels(), seen: visible().includes(PHRASE), card: card()};
+  d.querySelector('[data-tab="timeline"]').click(); await wait(2500);
+  log.timeline = {tab: chosen(), panels: panels(), seen: visible().includes(PHRASE), there: words(d.getElementById('verdict').textContent).includes(PHRASE)};
+  d.body.dispatchEvent(new w.KeyboardEvent('keydown', {code: 'Digit3', key: '3', bubbles: true})); await wait(300);
+  log.key = {tab: chosen(), panels: panels()};
+  d.querySelector('#top-right [data-open=""]').click(); await wait(400);
+  log.back = {tab: chosen(), panels: panels()};
+  d.querySelector('#waits-rows .btn[data-open="long-lines"]').click(); await wait(400);
+  log.long = {tab: chosen(), card: card()};
+  document.getElementById('out').textContent = JSON.stringify(log);
+})().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
+</script>""")
+PY
+)
+  "$PY" -I -c "$TABS_FIXTURE" "$PWD/skills/lem/assets" "$TABS"
+  headless --virtual-time-budget=5000 --dump-dom "file://$TABS/task-logo-color.html" > "$WORK/tabs-logo.dom"
+  headless --virtual-time-budget=5000 --dump-dom "file://$TABS/task-night-labels.html" > "$WORK/tabs-night.dom"
+  headless --allow-file-access-from-files --virtual-time-budget=12000 --dump-dom "file://$TABS/probe.html" > "$WORK/tabs-probe.dom"
+  TABS_CHECK=$(cat <<'PY'
+import html, json, re, sys
+found = re.search(r'<pre id="out">(.*?)</pre>', open(sys.argv[1], encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}
+wrong = [d["error"]] if "error" in d else []
+if not wrong:
+    o, tl, key, back, long = d["open"], d["timeline"], d["key"], d["back"], d["long"]
+    if o['tabs'] != ["Overview", "Criteria and decisions", "Checks and review", "Timeline"]: wrong.append(f"the tabs of a task are {o['tabs']}")
+    if o["tab"] != "overview" or o["panels"] != ["building", "verdict", "hero"] or not o["seen"]: wrong.append(f"the first view: {o}")
+    # the line is only in the panel of another tab now: the check of what he sees does not find it
+    if tl["tab"] != "timeline" or tl["panels"] != ["tl-card", "feed-card"] or tl["seen"] or not tl["there"]: wrong.append(f"the Timeline tab, two draws later: {tl}")
+    if key["tab"] != "checks" or key["panels"] != ["checks-panel"]: wrong.append(f"the key 3: {key}")
+    if d['start'] != "waits" or back["tab"] != "waits" or back["panels"] != ["waits"]: wrong.append(f"All tasks goes back to {back}, from {d['start']}")
+    if long['tab'] != "overview": wrong.append(f"another task opens on {long['tab']}")
+    a, b = o["card"], long["card"]
+    if not long["card"]["more"] or a["more"]: wrong.append(f"the long card has no more lines than fit, or the short one has: {a} / {b}")
+    if a['height'] != b['height']: wrong.append(f"the large card is {a['height']} px high for a few lines and {b['height']} px for many")
+    if not a["button"] or not b["button"] or a["button"] != b["button"] or a["button"]["text"] != "Go to the session": wrong.append(f"Go to the session stands at {a['button']} and at {b['button']}")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  # The test of criterion 5: the plain reason on the first view, read only where no `hidden` hides it.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/tabs-logo.dom" @visible "not green: two outside experts chose option 2 while you were away" \
+      'choice 2 · The color of the logo · “the green of the shop”' "!while the task ran without you" "!choice 2 was taken by the experts") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/tabs-night.dom" @visible "not green, for 2 reasons:" \
+      'decision 2 was taken without the owner (The font of the label): "sans", by the dialectic' \
+      "Lem took the recommended option of choice 1 while the task ran without you" "!while you were away" "!choice 1 was taken without the owner") \
+    && why=$("$PY" -I -c "$TABS_CHECK" "$WORK/tabs-probe.dom"); then
+    pass "the board of one task has the tabs Overview, Criteria and decisions, Checks and review and Timeline; its first view says \"not green: two outside experts chose option 2 while you were away\" for choice 2 the experts took in the second he went away, and \"while the task ran without you\" for a night's choice; the chosen tab stays through the draw of every second, a hidden panel's line is not what he sees, All tasks goes back to the tab he left, and the large card has one height with Go to the session in one place"
+  else
+    fail "the board of one task, its tabs and its first view: $why"
+  fi
+
+  # The test of criterion 9: the board reads as Lem's landing page does (site/style.css). Each tab of
+  # the board of all tasks (the folder of criterion 4) and of the board of one task (the folder of
+  # criterion 5), in Lem's light and in its dark palette, as agterm's theme stylesheet chooses it: the
+  # computed size of every text that shows (none under 12 px, the timeline's SVG text too), its
+  # contrast (4.5:1 or more, as criterion 3 asks of the first tab), the body's 16 px and 1.6, the
+  # page's background and its accent, the eyebrows of the small labels, and a card of the lane
+  # "Waits for you": its title and its ask at 16 px, and the radius and padding of the landing page's
+  # cards (.points li: 14 px, 20px 20px 22px).
+  LOOK9_FIXTURE=$(cat <<'PY'
+import glob, json, os, shutil, sys
+stay, tabs = sys.argv[1:]
+theme = lambda scheme, background, foreground: (f"<style id=\"agterm-theme\">:where(html) {{ color-scheme: {scheme}; color: {foreground}; "
+                                                f"--agterm-background: {background}; --agterm-foreground: {foreground}; }}</style>")
+themes = {"light": theme("light", "#ffffff", "#1e1e1e"), "dark": theme("dark", "#15181c", "#dde1e6")}
+PROBE = """<!doctype html><meta charset="utf-8"><body><pre id="out"></pre>
+<script>
+const FRAMES = %s;
+const wait = ms => new Promise(done => setTimeout(done, ms));
+const ctx = Object.assign(document.createElement('canvas'), {width: 1, height: 1}).getContext('2d', {willReadFrequently: true});
+const rgba = css => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = 'rgba(0, 0, 0, 0)'; ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255]; };
+const over = (top, under) => [0, 1, 2].map(i => top[i] * top[3] + under[i] * (1 - top[3])).concat(1);
+const lum = c => { const l = c.slice(0, 3).map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+function measure(d, w) {
+  const cs = n => w.getComputedStyle(n);
+  const background = n => { const layers = []; for (let m = n; m; m = m.parentElement) { const c = rgba(cs(m).backgroundColor); if (c[3] > 0) layers.push(c); if (c[3] === 1) break; }
+    return layers.reverse().reduce((under, c) => over(c, under), [255, 255, 255, 1]); };
+  const small = [], low = [];
+  let least = 99, smallest = 99, texts = 0;
+  for (const n of d.body.querySelectorAll('*')) {
+    if (n.closest('script, style, [hidden], title, desc')) continue;
+    const s = cs(n);
+    if (![...n.childNodes].some(c => c.nodeType === 3 && c.data.trim()) || !n.getClientRects().length || s.visibility !== 'visible' || s.display === 'none') continue;
+    const label = `${n.tagName.toLowerCase()}.${[...n.classList].join('.')} "${n.textContent.trim().slice(0, 40)}"`;
+    const size = parseFloat(s.fontSize);
+    texts += 1; smallest = Math.min(smallest, size);
+    if (size < 12) small.push(`${label} ${size}px`);
+    if (n.closest('svg')) continue;
+    const bg = background(n), r = ratio(over(rgba(s.color), bg), bg);
+    least = Math.min(least, r);
+    if (r < 4.5) low.push(`${label} ${r.toFixed(2)}`);
+  }
+  return {texts, smallest, small, least: Math.round(least * 100) / 100, low};
+}
+(async () => {
+  const out = {};
+  for (const f of FRAMES) {
+    const node = Object.assign(document.createElement('iframe'), {src: f.src});
+    node.style.cssText = 'width:1400px;height:900px;border:0;display:block';
+    document.body.append(node);
+    await wait(1500);
+    const w = node.contentWindow, d = w.document, cs = n => w.getComputedStyle(n), root = d.documentElement, body = cs(d.body);
+    const frame = {palette: root.dataset.palette ?? null, bg: cs(root).getPropertyValue('--bg').trim(), accent: cs(root).getPropertyValue('--accent').trim(),
+      body: {size: body.fontSize, line: body.lineHeight, background: body.backgroundColor}, tabs: {}};
+    const tabs = [...d.querySelectorAll('#tabs .tab')].map(t => t.dataset.tab);
+    for (const tab of tabs) {
+      d.querySelector(`#tabs [data-tab="${tab}"]`).click(); await wait(500);
+      if (tab === 'backlog') { d.querySelector('[data-bl-toggle]')?.click(); await wait(300); }
+      if (tab === 'criteria') { d.querySelector('[data-dec-toggle]')?.click(); await wait(300); }
+      frame.tabs[tab] = measure(d, w);
+      if (tab === 'tasks') {
+        const lane = [...d.querySelectorAll('#lanes .lane')].find(l => l.querySelector('.lane-head').textContent.startsWith('Waits for you'));
+        const card = lane?.querySelector('.tcard'), s = card && cs(card);
+        frame.card = card ? {title: cs(card.querySelector('.tc-title')).fontSize, ask: cs(card.querySelector('.tc-ask > span')).fontSize,
+          padding: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(' '), radius: s.borderTopLeftRadius} : null;
+      }
+      const eyebrows = [...d.querySelectorAll('.eyebrow, .lane-head, .card-head h2')].filter(n => n.getClientRects().length && !n.closest('[hidden]'));
+      frame.eyebrows = [...(frame.eyebrows ?? []), ...eyebrows.map(n => { const s = cs(n); return {what: n.textContent.trim().slice(0, 30), size: s.fontSize, upper: s.textTransform, mono: /monospace/.test(s.fontFamily), spaced: parseFloat(s.letterSpacing) > 0}; })];
+    }
+    out[f.id] = frame;
+    node.remove();
+  }
+  document.getElementById('out').textContent = JSON.stringify(out);
+})().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
+</script>"""
+# each palette in a folder of its own, beside the page's data, since the page's name says which board it is
+for folder, page, kind in ((stay, "board.html", "all"), (tabs, "task-logo-color.html", "one")):
+    text = open(f"{folder}/{page}", encoding="utf-8").read()
+    frames = []
+    for palette, style in themes.items():
+        os.makedirs(f"{folder}/look9-{palette}", exist_ok=True)
+        for data in glob.glob(f"{folder}/*.js") + glob.glob(f"{folder}/*.css"):
+            shutil.copy(data, f"{folder}/look9-{palette}/")
+        open(f"{folder}/look9-{palette}/{page}", "w", encoding="utf-8").write(text.replace("<head>", "<head>" + style, 1))
+        frames.append({"id": f"{kind}-{palette}", "src": f"look9-{palette}/{page}"})
+    open(f"{folder}/look9-probe.html", "w", encoding="utf-8").write(PROBE % json.dumps(frames))
+PY
+)
+  "$PY" -I -c "$LOOK9_FIXTURE" "$STAY" "$TABS"
+  headless --allow-file-access-from-files --virtual-time-budget=30000 --dump-dom "file://$STAY/look9-probe.html" > "$WORK/look9-all.dom"
+  headless --allow-file-access-from-files --virtual-time-budget=30000 --dump-dom "file://$TABS/look9-probe.html" > "$WORK/look9-one.dom"
+  LOOK9_CHECK=$(cat <<'PY'
+import html, json, re, sys
+got, wrong = {}, []
+for path in sys.argv[1:]:
+    found = re.search(r'<pre id="out">(.*?)</pre>', open(path, encoding="utf-8").read(), re.S)
+    d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": f"the probe printed nothing ({path})"}
+    if "error" in d: wrong.append(d["error"])
+    else: got.update(d)
+# the landing page's background, color-mix(in srgb, var(--you) 5%, Canvas), over Chrome's light and dark Canvas
+you = (0xb4, 0x90, 0x2e)
+page = lambda canvas: "rgb({}, {}, {})".format(*(round(a * .05 + b * .95) for a, b in zip(you, canvas)))
+want = {"light": page((255, 255, 255)), "dark": page((18, 18, 18))}
+tabs = {"all": ["tasks", "waits", "backlog"], "one": ["overview", "criteria", "checks", "timeline"]}
+for kind, names in tabs.items():
+    for palette in want:
+        name = f"{kind}-{palette}"
+        f = got.get(name)
+        if not f: wrong.append(f"{name}: not drawn"); continue
+        if f["palette"] != palette: wrong.append(f"{name}: the palette is {f['palette']}")
+        if f["body"]["size"] != "16px" or f["body"]["line"] != "25.6px": wrong.append(f"{name}: the body is {f['body']['size']} with a line of {f['body']['line']}, not 16px and 25.6px")
+        if f["body"]["background"] != want[palette]: wrong.append(f"{name}: the background is {f['body']['background']}, not the landing page's {want[palette]}")
+        if f["accent"].lower() != "#b4902e": wrong.append(f"{name}: the accent is {f['accent']}, not the ochre #b4902e")
+        if sorted(f["tabs"]) != sorted(names): wrong.append(f"{name}: the tabs measured are {sorted(f['tabs'])}")
+        for tab, m in f["tabs"].items():
+            if m["texts"] < 5: wrong.append(f"{name} {tab}: only {m['texts']} texts show")
+            if m["small"]: wrong.append(f"{name} {tab}: text under 12 px: {m['small'][:5]}")
+            if m["low"]: wrong.append(f"{name} {tab}: text under 4.5:1 (least {m['least']}): {m['low'][:5]}")
+        flat = [e for e in f["eyebrows"] if not (e["size"] == "12px" and e["upper"] == "uppercase" and e["mono"] and e["spaced"])]
+        if not f["eyebrows"] or flat: wrong.append(f"{name}: a small label is not the landing page's eyebrow: {flat[:4] or 'none measured'}")
+    card = (got.get("all-light") or {}).get("card")
+    if kind == "all" and card != {"title": "16px", "ask": "16px", "padding": "20px 20px 22px 20px", "radius": "14px"}:
+        wrong.append(f"the card of the lane Waits for you: {card}")
+# on a pass, the least contrast of each palette over every tab of both boards, for the line that says it passed
+least = {palette: min((m["least"] for name, f in got.items() if name.endswith(palette) for m in f["tabs"].values()), default=0) for palette in want}
+print("; ".join(wrong) or f"least {least['light']}:1 in light, {least['dark']}:1 in dark")
+sys.exit(bool(wrong))
+PY
+)
+  if why=$("$PY" -I -c "$LOOK9_CHECK" "$WORK/look9-all.dom" "$WORK/look9-one.dom"); then
+    pass "the board reads as the landing page: body text at 16 px with a line of 1.6, no text under 12 px and none under 4.5:1 on any tab of either board in either palette, the landing page's warm backgrounds and its ochre accent, the small labels as its eyebrows, and a card of Waits for you with its title and ask at 16 px in a card of 14 px radius and 20px 20px 22px padding ($why)"
+  else
+    fail "the landing page's look: $why"
+  fi
+
+  # The tests of criteria 10, 11 and 12, in a repository of their own with two tasks, each with a
+  # worktree: the task that built this board, with four of its decisions as its record has them (1 by
+  # Lem, 2 by the question gate, 4 by the experts after the whole ladder, 11 by the owner) and a branch
+  # that adds docs/backlog/landing-page-pictures.md, and a task whose branch adds no item. An item that
+  # lands on the base after both branches left it was filed by neither. board.py writes overview.js from
+  # their task.md and their branches, and the page draws it.
+  O=$WORK/steady
+  oproject() { "$PY" -B "$SCRIPTS/project.py" --repo "$O" "$@"; }
+  oboard() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$SCRIPTS/board.py" --repo "$O" "$@"; }
+  ocommit() { git -C "$1" add -- "${@:3}" && git -C "$1" commit -q -m "$2"; }
+  OW=$O/.lem/worktrees
+  git init -q -b main "$O" && git -C "$O" config user.name t && git -C "$O" config user.email t@t
+  echo one > "$O/app.txt" && ocommit "$O" "chore: start" app.txt
+  oproject init --base main >/dev/null
+  git -C "$O" add -A && git -C "$O" commit -q -m "chore: the settings"
+  OS=$(oproject state-dir)
+  oproject task-dir status-boards-steady-look --ask "I would like to improve our status screens (plan, task). It has to be world class." >/dev/null
+  oproject task-dir quiet-change --ask "Fix the typo in the README" >/dev/null
+  oproject state status-boards-steady-look building "lead: builder" "type: feat, because the ask wants a new look for the status screens" >/dev/null
+  oproject state quiet-change building "lead: builder" "type: docs, because the README has a typo" >/dev/null
+  printf '%s\n' "# status-boards-steady-look" "" "## Type" "" "feat, because the ask wants a new look." "" "## Outcome" "" \
+    "The owner opens the board of all tasks or the board of one task and sees one steady layout in a" \
+    "modern developer tool's look: no card changes its shape with its text." "" "## Done when" "" "- The criteria hold." \
+    > "$OS/tasks/status-boards-steady-look/task.md"
+  git -C "$O" worktree add -q -b feat/status-boards-steady-look "$OW/status-boards-steady-look"
+  git -C "$O" worktree add -q -b docs/quiet-change "$OW/quiet-change"
+  mkdir -p "$OW/status-boards-steady-look/docs/backlog" "$O/docs/backlog"
+  printf '%s\n' "---" "worth: later" "where: site/index.html" "added: 2026-11-19" "---" "# The pictures of the \`site/\` landing page show the new board" "" \
+    "After this change lands, the pictures of the landing page show the new board." > "$OW/status-boards-steady-look/docs/backlog/landing-page-pictures.md"
+  ocommit "$OW/status-boards-steady-look" "docs(backlog): the pictures of the landing page" docs/backlog/landing-page-pictures.md
+  echo "The README, with no typo" > "$OW/quiet-change/README.md" && ocommit "$OW/quiet-change" "docs: the typo" README.md
+  printf '%s\n' "---" "worth: later" "added: 2026-11-19" "---" "# An item of the base" > "$O/docs/backlog/on-main.md" && ocommit "$O" "docs(backlog): an item of the base" docs/backlog/on-main.md
+  # A task that filed an item and landed with a fast-forward merge, its worktree still there: after the
+  # merge git shows no item its branch adds against the base, which says nothing of what it filed.
+  oproject task-dir kept-after-merge --ask "Note the wrapped footer in the backlog" >/dev/null
+  oproject state kept-after-merge building "lead: builder" "type: docs, because the ask files a note" >/dev/null
+  git -C "$O" worktree add -q -b docs/kept-after-merge "$OW/kept-after-merge"
+  mkdir -p "$OW/kept-after-merge/docs/backlog"
+  printf '%s\n' "---" "worth: later" "added: 2026-11-19" "---" "# The footer wraps on A5" > "$OW/kept-after-merge/docs/backlog/footer-wraps.md"
+  ocommit "$OW/kept-after-merge" "docs(backlog): the footer wraps" docs/backlog/footer-wraps.md
+  git -C "$O" merge -q --ff-only docs/kept-after-merge
+  oproject state kept-after-merge landed "main: merged" >/dev/null
+  STEADY_EVENTS=$(cat <<'JSONL'
+{"ts": "2026-11-19T09:51:23Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 1, "at": "2026-11-19T09:51:23Z", "what": "what the redesign leaves out of scope", "chose": "the question page (skills/lem-ask/runtime/ask.css) and the agdoc page of a task (page.html) keep their own look; the onboarding page follows, since it links lem.css", "why": "the ask names the status screens, and he confirmed they are the board; the agdoc page is his approved sample (2026-11-18)", "by": "lem", "undo": "a new task for the question page's look"}
+{"ts": "2026-11-19T10:22:43Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 2, "at": "2026-11-19T10:22:43Z", "what": "plan talk question 1: which owner event makes the board say 'while you were away' for a choice taken without him", "chose": "B: the newest owner event at or before the choice's time (the same second counts) says away; otherwise 'while the task ran without you'", "why": "gate, checkable: project.py cmd_owner writes the owner event and then runs decisions.py cmd_away at once, and both stamps are whole seconds (append_event, decisions.py stamp), so the choice his own away takes shares that second; under A that choice, the case criterion 5 names, would read 'while the task ran without you'. No path takes a choice in the second of a 'back' event.", "by": "gate", "undo": "change one comparison in the board's away test, board.html; nothing is written", "options": ["A: the newest owner event strictly before the choice's time says away", "B: the newest owner event at or before the choice's time says away"], "levels": {"gate": "checkable"}}
+{"ts": "2026-11-19T10:30:30Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 4, "at": "2026-11-19T10:30:30Z", "what": "plan talk question 4: how the backlog keeps a text the owner selected when an outside fact changes (an agent in Lem's session stops or starts, a read of agterm's sessions fails)", "chose": "D: the backlog is patched by keys with patch() and keyed(), as render() patches the task panels, down to the foot's parts: a node whose markup did not change keeps its place, so a selection in a body or in an unchanged <code> command survives every draw, and only the words that changed are swapped", "why": "experts, both for D (Fable and GPT 6.2 Astra): criterion 4 gives no exception, and only D holds it on every draw; A and C still replace the whole group when a sessions read fails, B loses the <code> command the foot tells the owner to copy (the break the dialectic confirmed). patch() (board.html 817-835) already keeps a keyed block whose markup did not change. Both name the condition: patch() compares a parent's direct children, so the group, the item, .bl-body and .bl-actions are each patched at their own level, with the note, the button and the <code> as keyed parts.", "by": "experts", "advisers": ["fable", "astra"], "undo": "a later change of board.html's backlog drawing; nothing is written by the board", "options": ["A: keep today's rule: the backlog is drawn again whole when what it shows from outside changes", "B: only the foot lines whose text changes are drawn again", "C: one band above the backlog says no agent runs; agentRuns leaves the redraw key", "D: the backlog is patched by keys down to the foot's parts"], "levels": {"gate": "held: criterion 4 is the owner's words, and A reads an exception into it", "lead": "A, the plan as it stands", "personas": "split: developer B (leaning), newcomer C (leaning); none for A", "dialectic": "one break of B confirmed: a selected <code> command in a changed foot is lost; option D named", "experts": "D, both"}}
+{"ts": "2026-11-19T12:37:59Z", "event": "decision.taken", "task": "status-boards-steady-look", "id": 11, "at": "2026-11-19T12:37:59Z", "what": "the board's look: density, palette and accent", "chose": "the landing page's style (site/style.css): 16 px body text with line height 1.6, more space, its warm backgrounds and ochre accent; it replaces the Linear or Vercel look and the lead's indigo accent (decision 5)", "why": "it too dense to my taste: lots of useful text but the font is small and not so much space ... I would really love the same style for our dahsboards", "by": "owner", "undo": "the tokens in lem.css"}
+JSONL
+)
+  "$PY" -I -c 'import json, sys
+state, rows = sys.argv[1], [line for line in sys.argv[2].splitlines() if line.strip()]
+open(f"{state}/events.jsonl", "a", encoding="utf-8").write("".join(row + "\n" for row in rows))
+open(f"{state}/events.js", "a", encoding="utf-8").write("".join(f"lemEvent({json.dumps(json.loads(row), ensure_ascii=False)});\n" for row in rows))' "$OS" "$STEADY_EVENTS"
+  oboard --no-open --task quiet-change >/dev/null
+  oboard --no-open --task status-boards-steady-look >/dev/null
+  headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-status-boards-steady-look.html" > "$WORK/steady-look.dom"
+  headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-quiet-change.html" > "$WORK/steady-quiet.dom"
+  oboard --no-open --task kept-after-merge >/dev/null
+  headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-kept-after-merge.html" > "$WORK/steady-kept.dom"
+  # A task that starts after board.py last wrote overview.js, whose board the owner opens in place: a
+  # copy of the page, as a click on its card in the open board shows it, with no run of board.py.
+  oproject task-dir started-later --ask "Keep the dates whole in the export" >/dev/null
+  oproject state started-later building "lead: builder" "type: fix, because the export cuts the dates" >/dev/null
+  printf '%s\n' "# started-later" "" "## Outcome" "" "Every date of the export is whole." > "$OS/tasks/started-later/task.md"
+  cp "$OS/task-quiet-change.html" "$OS/task-started-later.html"
+  headless --virtual-time-budget=5000 --dump-dom "file://$OS/task-started-later.html" > "$WORK/steady-later.dom"
+  cat > "$OS/probe.html" <<'HTML'
+<!doctype html><meta charset="utf-8"><iframe id="f" src="task-status-boards-steady-look.html" style="width:1400px;height:900px;border:0"></iframe><pre id="out"></pre>
+<script>
+const wait = ms => new Promise(done => setTimeout(done, ms));
+(async () => {
+  await wait(1500);
+  const d = document.getElementById('f').contentWindow.document, log = {};
+  const words = text => text.split(/\s+/).filter(Boolean).join(' ');
+  // the text the owner sees in a node: none under an element with `hidden`
+  const visible = node => { const out = [], walk = d.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.parentElement && !n.parentElement.closest('[hidden], script, style')) out.push(n.data);
+    return words(out.join(' ')); };
+  const chosen = () => d.querySelector('#tabs [aria-selected="true"]')?.dataset.tab ?? null;
+  const rows = () => [...d.querySelectorAll('#decisions > *')].map(n => ({id: n.dataset.dec ?? null, important: n.classList.contains('important'),
+    mark: n.querySelector('.dec-mark')?.textContent.trim() ?? null, what: n.querySelector('.dec-what')?.title ?? null,
+    head: words(n.querySelector('.dec-head')?.textContent ?? ''), open: n.querySelector('.dec-head')?.getAttribute('aria-expanded') ?? null,
+    hidden: n.querySelector('.dec-body')?.hidden ?? null, body: visible(n.querySelector('.dec-body') ?? n)}));
+  log.first = chosen();
+  // the line of What we are building takes him to the decisions
+  (d.querySelector('#building [data-goto-tab]') ?? d.querySelector('#tabs [data-tab="criteria"]')).click(); await wait(400);
+  log.line = Boolean(d.querySelector('#building [data-goto-tab]'));
+  log.goto = chosen();
+  log.closed = rows();
+  const head = d.querySelector('[data-dec-toggle="status-boards-steady-look:4"]');
+  if (head) { head.click(); await wait(2500); }
+  log.opened = rows();
+  log.same = Boolean(head) && d.querySelector('[data-dec-toggle="status-boards-steady-look:4"]') === head;
+  document.getElementById('out').textContent = JSON.stringify(log);
+})().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
+</script>
+HTML
+  headless --allow-file-access-from-files --virtual-time-budget=12000 --dump-dom "file://$OS/probe.html" > "$WORK/steady-probe.dom"
+  STEADY_CHECK=$(cat <<'PY'
+import html, json, re, sys
+found = re.search(r'<pre id="out">(.*?)</pre>', open(sys.argv[1], encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}
+wrong = [d["error"]] if "error" in d else []
+if not wrong:
+    closed, opened = d["closed"], d["opened"]
+    ids = [r["id"] for r in closed]
+    if ids != [f"status-boards-steady-look:{n}" for n in (4, 1, 2, 11)]: wrong.append(f"the rows stand in the order {ids}, not 4 first, then 1, 2 and 11")
+    first = closed[0] if closed else {}
+    if not first.get("important") or first.get("mark") != "important": wrong.append(f"decision 4 has no mark: {first}")
+    if not (first.get("what") or "").startswith("plan talk question 4: how the backlog keeps a text") or "→ D: the backlog is patched by keys" not in first.get("head", "") \
+        or "by the experts" not in first.get("head", ""): wrong.append(f"decision 4 closed does not show its note, what was chosen and by whom: {first}")
+    gate = next((r for r in closed if r["id"] == "status-boards-steady-look:2"), {})
+    if gate.get("important") or gate.get("mark") or "by the question gate" not in gate.get("head", "") or "→ B: the newest owner event" not in gate.get("head", ""):
+        wrong.append(f"decision 2 is not a plain folded row by the question gate: {gate}")
+    if any(r["important"] for r in closed[1:]): wrong.append(f"another row is marked: {[r['id'] for r in closed if r['important']]}")
+    if any(r["hidden"] is not True or r["open"] != "false" or r["body"] for r in closed): wrong.append(f"a row shows its context before it is opened: {closed}")
+    four = opened[0] if opened else {}
+    wants = ["How and why", "taken by the experts, because experts, both for D", "Options", "A: keep today's rule", "D: the backlog is patched by keys down to the foot's parts · chosen",
+             "The ladder", "The question gate: held: criterion 4 is the owner's words", "The agent: A, the plan as it stands", "The personas: split: developer B (leaning)",
+             "The dialectic: one break of B confirmed", "The experts: D, both", "Important", "It went past the personas: the experts took it",
+             "To undo", "a later change of board.html's backlog drawing"]
+    if four.get("hidden") is not False or four.get("open") != "true": wrong.append(f"decision 4 is not open two draws after the click: {four}")
+    missing = [w for w in wants if w not in four.get("body", "")]
+    if missing: wrong.append(f"the opened decision 4 lacks {missing}: {four.get('body')!r}")
+    body = four.get("body", "")
+    ladder = ["The question gate:", "The agent:", "The personas: split", "The dialectic:", "The experts: D"]
+    if not missing and [body.index(level) for level in ladder] != sorted(body.index(level) for level in ladder): wrong.append(f"the ladder is not in its order: {body!r}")
+    if any(r["hidden"] is not True for r in opened[1:]): wrong.append("a row the owner did not open is open")
+    if not d["same"]: wrong.append("the head of the opened row is a new node: the focus would leave it")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  # The test of criterion 10.
+  if why=$("$PY" -I -c "$STEADY_CHECK" "$WORK/steady-probe.dom"); then
+    pass "each decision on the task's decisions tab is one folded row with its note, what was chosen and by whom, and opens to its context: why, the options with the chosen one, what each level of the ladder said and how to undo it; the experts' choice of decision 4 stands first with the mark important, the question gate's decision 2 is a plain folded row below it, and an opened row stays open through the draw of every second"
+  else
+    fail "the decisions in folded rows: $why"
+  fi
+  # The test of criterion 11.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-look.dom" @visible "What we are building" "The ask wants a new look for the status screens" \
+      "The owner opens the board of all tasks or the board of one task and sees one steady layout in a modern developer tool's look: no card changes its shape with its text." \
+      "1 important decision waits for a look" "!Done when" "!plan talk question 4") \
+    && why=$("$PY" -I -c 'import html, json, re, sys
+d = json.loads(html.unescape(re.search(r"<pre id=\"out\">(.*?)</pre>", open(sys.argv[1], encoding="utf-8").read(), re.S).group(1)))
+ok = d.get("first") == "overview" and d.get("goto") == "criteria" and d.get("line") is True
+print("" if ok else "the board opens on its overview, and its line goes to the decisions tab: not so in " + json.dumps({k: d.get(k) for k in ("first", "goto", "line", "error")}))
+sys.exit(not ok)' "$WORK/steady-probe.dom"); then
+    pass "Overview holds What we are building: the goal of the task from its type line, what the owner gets from the outcome of its task.md, and a line that says 1 important decision waits for a look and takes him to the decisions tab"
+  else
+    fail "What we are building: $why"
+  fi
+  # The test of criterion 12.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-look.dom" @visible "1 backlog item filed" "The pictures of the site/ landing page show the new board" \
+      "docs/backlog/landing-page-pictures.md" "!no backlog item filed" "!An item of the base") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-quiet.dom" @visible "no backlog item filed" "!1 backlog item filed" "!An item of the base" "!landing-page-pictures") \
+    && why=$("$PY" -I -c 'import json, re, sys
+d = json.loads(re.fullmatch(r"lemOverview\((.*)\);\n", open(sys.argv[1], encoding="utf-8").read(), re.S).group(1))["tasks"]
+want = {"status-boards-steady-look": [{"path": "docs/backlog/landing-page-pictures.md", "title": "The pictures of the site/ landing page show the new board"}], "quiet-change": []}
+got = {slug: d.get(slug, {}).get("filed") for slug in want}
+print("" if got == want else f"overview.js says {got}")
+sys.exit(got != want)' "$OS/overview.js"); then
+    pass "Overview says which backlog items the task's branch filed against its merge base, with each title: a branch that adds docs/backlog/landing-page-pictures.md shows 1 backlog item filed and its title, a branch that adds none says no backlog item filed, and an item of the base is neither's"
+  else
+    fail "the backlog items a task filed: $why"
+  fi
+  # Criteria 11 and 12 for a task that started after board.py last ran: its board says that its outcome
+  # and its filed items are not read yet, and how they are, and never draws the gap as a task with no outcome.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-later.dom" @visible "What we are building" "The export cuts the dates" \
+      "its outcome and its backlog items are not read yet" "lem board --no-open" "!no backlog item filed" "!Every date of the export is whole"); then
+    pass "the board of a task that started after board.py last ran says that its outcome and its filed items are not read yet, and that lem board --no-open reads them"
+  else
+    fail "a task that started after board.py last ran: $why"
+  fi
+  # A task that ended says nothing of filed items when git shows none: after a merge that is no squash,
+  # the branch adds nothing against the base, whatever it filed.
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/steady-kept.dom" @visible "What we are building" "The ask files a note" \
+      "!no backlog item filed" "!backlog items filed" "!not read yet"); then
+    pass "the board of a task that landed with a merge that is no squash, its worktree still there, does not say that it filed no backlog item"
+  else
+    fail "a landed task whose worktree is still there: $why"
+  fi
+
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.
   board --no-open --demo >/dev/null
   board --no-open --task "$L" >/dev/null
@@ -1460,7 +2358,7 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
       cp "$STATE/$page.html" "$WORK/light.html"
       for theme in light dark; do
         if [ "$theme" = dark ]; then
-          "$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("<head>", "<head><style>:root { --agterm-background: #15181c; --agterm-foreground: #dde1e6; }</style>", 1))' "$STATE/$page.html"
+          "$PY" -I -c 'import sys; p = sys.argv[1]; s = open(p).read(); open(p, "w").write(s.replace("<head>", "<head><style id=\"agterm-theme\">:where(html) { color-scheme: dark; color: #dde1e6; --agterm-background: #15181c; --agterm-foreground: #dde1e6; }</style>", 1))' "$STATE/$page.html"
         fi
         for width in 900 1400 1800; do
           headless --hide-scrollbars --window-size="$width,2400" --virtual-time-budget=5000 --screenshot="$LEM_BOARD_SHOTS/$page-$width-$theme.png" "file://$STATE/$page.html"
