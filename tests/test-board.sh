@@ -833,7 +833,7 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # banner is only for a blocked task: what waits for the owner is a row of "Waits for you". The first
   # wait, choice 6, is the large card's, with where you answer, said once on the Tasks tab, and the line
   # that opens its companion.
-  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
+  # shellcheck disable=SC1111  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$BANNERS" "$WORK/board.dom" "#1" "^Blocked: Blocked one · the base moved and the rebase has a conflict · " \
     "!^Choice" "!^Waits for you" "!Lem puts" "!Lem shows you" "!opens in its companion") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board.dom" now \
@@ -848,7 +848,7 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # A row of a need that a companion answers has the line that opens it (criterion 7); a task whose
   # criteria he approved, with no lead yet, has no row (criterion 3).
   draw board waits
-  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
+  # shellcheck disable=SC1111  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/board-waits.dom" waits-rows \
       "A note longer than the cell|Answer choice 6|Gift note export|Where you answer: Choice 6 opens in its companion|type in it: /lem status gift-note-export choice 6" \
       "The note of a cancelled order|Answer choice 7|Gift note export|type in it: /lem status gift-note-export choice 7" \
@@ -1539,7 +1539,7 @@ sys.exit(not ok)' "$WORK/phases.dom"); then
   fi
   # Where the owner answers: a companion of Lem's session, on the large card of the board and on the task's own board.
   draw task-held-choice && draw task-criteria-wait
-  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
+  # shellcheck disable=SC1111  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-held-choice.dom" now \
       "Where you answer: Choice 1 opens in its companion, “held-choice · choice 1”, under Lem’s session. Answer it there: it waits for your word, also while you are away.") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-criteria-wait.dom" now \
@@ -2497,7 +2497,6 @@ PY
   draw_standin board "/lem status gift-note-export choice 6"
   draw_standin task-two-choices
   draw_standin task-approved-no-lead
-  # shellcheck disable=SC1112  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$JUMPS" "$WORK/board-standin.dom" "C0MPA1=Go to interview-live · interview" "C0MPA1=interview-live · interview" \
       "C0MPA3=Go to two-choices · choice 1" "!C0MPA4" "!C0FA11" "!C0MPA2" "!C0MPA5" \
       "ask=/lem status two-choices choice 2" "ask=/lem status criteria-gone" "ask=/lem status interview-lost" "!ask=/lem status interview-live" "!ask=/lem status two-choices choice 1" "!ask=/lem status approved-no-lead" "!ask=/lem status gift-note-export choice 6") \
@@ -2538,7 +2537,6 @@ sys.exit(bool(wrong))' "$WORK/board-standin.dom"); then
   fi
   # Approved in the companion, which writes no state after his yes, and no lead yet (criterion 3): the task is
   # Lem's, in the Building lane, and no row asks the owner for it.
-  # shellcheck disable=SC1111  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/task-approved-no-lead-standin.dom" now \
       "Lem acts|Approved: its lead has not started yet|your yes to the criteria is on record: Lem starts its lead|!Where you answer|!Open its companion") \
     && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board-standin.dom" "1 approved, with no lead yet"); then
