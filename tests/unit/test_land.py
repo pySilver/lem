@@ -186,5 +186,121 @@ class BarRefusal(unittest.TestCase):
         self.assertIsNone(land.bar_refusal([], small=True))
 
 
+SLUG = "landing-in-the-background"
+
+
+def gate_end(task: str, result: str, seconds: int, ts: str = "2026-11-19T10:22:44Z") -> dict:
+    """One `gate.end` event as `lem project log` writes it."""
+    return {"ts": ts, "event": "gate.end", "task": task, "result": result, "seconds": seconds, "tip": "abc123456", "say": f"{task}: ..."}
+
+
+class ChecksSay(unittest.TestCase):
+    """`land.checks_say`: the one line for the owner at each end of a run of the checks, with no question."""
+
+    def test_a_passed_run_names_the_review(self) -> None:
+        self.assertEqual(land.checks_say(SLUG, "passed", next_due="review"), f"{SLUG}: the checks passed; the review runs, nothing for you")
+
+    def test_a_passed_run_with_no_review_due_names_the_proposal(self) -> None:
+        for due in ("none", "owner"):
+            self.assertEqual(land.checks_say(SLUG, "passed", next_due=due), f"{SLUG}: the checks passed; no review is due, so it is proposed, nothing for you")
+
+    def test_a_red_run_names_each_command_and_the_repair(self) -> None:
+        self.assertEqual(land.checks_say(SLUG, "red", red=["bash tests/all.sh"]), f"{SLUG}: the checks are red on bash tests/all.sh; a builder repairs it, nothing for you")
+        self.assertIn("on ruff check . and pytest -q;", land.checks_say(SLUG, "red", red=["ruff check .", "pytest -q"]))
+
+    def test_a_refused_run_names_what_was_refused(self) -> None:
+        said = land.checks_say(SLUG, "refused", refused="a criterion's test does not hold")
+        self.assertEqual(said, f"{SLUG}: the checks refused the change: a criterion's test does not hold; a builder repairs it, nothing for you")
+
+    def test_a_stopped_run_waits_for_the_owner(self) -> None:
+        self.assertEqual(land.checks_say(SLUG, "stopped"), f"{SLUG}: the checks were stopped; the landing waits for your word")
+
+    def test_no_line_asks_a_question(self) -> None:
+        lines = [land.checks_say(SLUG, "passed"), land.checks_say(SLUG, "red", red=["x"]), land.checks_say(SLUG, "refused"), land.checks_say(SLUG, "stopped")]
+        self.assertFalse(any("?" in line for line in lines))
+        self.assertTrue(all(line.startswith(f"{SLUG}: ") for line in lines))
+
+    def test_another_result_is_refused(self) -> None:
+        with self.assertRaises(ValueError):
+            land.checks_say(SLUG, "green")
+
+
+class Duration(unittest.TestCase):
+    """`land.duration`: seconds as a person reads them."""
+
+    def test_the_forms(self) -> None:
+        self.assertEqual([land.duration(n) for n in (26, 266, 840, 60)], ["26 s", "4 min 26 s", "14 min", "1 min"])
+
+
+class LastRun(unittest.TestCase):
+    """`land.last_seconds`: the length of the checks' last finished run, from the event log."""
+
+    def test_the_newest_passed_end_of_any_task(self) -> None:
+        events = [gate_end("one", "passed", 300), {"event": "gate", "task": "two", "exit": 0}, gate_end("two", "passed", 266), gate_end("two", "red", 20), gate_end("one", "stopped", 5)]
+        self.assertEqual(land.last_seconds(events), 266)
+
+    def test_no_passed_run_is_none(self) -> None:
+        self.assertIsNone(land.last_seconds([gate_end("one", "red", 20), gate_end("one", "refused", 400), {"event": "gate.start", "task": "one"}]))
+        self.assertIsNone(land.last_seconds([]))
+
+
+class Overdue(unittest.TestCase):
+    """`land.is_overdue` and `land.overdue_say`: checks that run more than three times as long as their last finished run."""
+
+    def test_more_than_three_times_is_overdue(self) -> None:
+        # the last run of lem-landing-page's checks: 4 min 26 s (2026-11-19)
+        self.assertTrue(land.is_overdue(840, 266))
+        self.assertFalse(land.is_overdue(798, 266))
+        self.assertFalse(land.is_overdue(120, 266))
+
+    def test_with_no_last_run_nothing_is_overdue(self) -> None:
+        self.assertFalse(land.is_overdue(10_000, None))
+        self.assertFalse(land.is_overdue(None, 266))
+
+    def test_the_line_says_both_lengths_and_the_stop(self) -> None:
+        self.assertEqual(land.overdue_say(SLUG, 840, 266),
+                         f'{SLUG}: the checks run for 14 min, more than three times their last run of 4 min 26 s; "stop the checks" stops them')
+
+
+class Resumed(unittest.TestCase):
+    """`land.resumed_line` and `land.ended_of`: what a session that did not start the run says of its end."""
+
+    def test_a_passed_end_is_past_and_the_landing_goes_on_from_its_first_step(self) -> None:
+        said = land.resumed_line(SLUG, gate_end(SLUG, "passed", 266))
+        self.assertEqual(said, f"{SLUG}: its last run of the checks ended at 2026-11-19 10:22 UTC, passed; the landing goes on from its first step, as after a cut-off")
+        self.assertNotIn("the review runs", said)
+
+    def test_a_stopped_end_waits_for_the_owner(self) -> None:
+        self.assertTrue(land.resumed_line(SLUG, gate_end(SLUG, "stopped", 30)).endswith("stopped; the landing waits for your word"))
+
+    def test_the_end_as_status_prints_it(self) -> None:
+        end = gate_end(SLUG, "red", 20)
+        self.assertEqual(land.ended_of(end, SLUG), {"at": end["ts"], "tip": "abc123456", "result": "red", "seconds": 20, "say": end["say"], "resumed": land.resumed_line(SLUG, end)})
+        self.assertIsNone(land.ended_of(None, SLUG))
+
+
+class HeldRefusal(unittest.TestCase):
+    """`land.held_refusal`: what a step of a task says when another step of it holds the task's step lock."""
+
+    HOLDER = {"step": "checks", "pid": 4242, "since": "2026-11-19T10:18:18Z"}
+
+    def test_a_second_run_of_the_checks_is_refused_because_they_already_run(self) -> None:
+        said = land.held_refusal(SLUG, "checks", self.HOLDER)
+        self.assertIn(f"the checks of {SLUG} already run (since 2026-11-19 10:18 UTC, in process 4242): a second run is refused", said)
+        self.assertIn(f"`lem land checks {SLUG} --status`", said)
+
+    def test_another_step_waits_for_the_end_of_the_checks(self) -> None:
+        said = land.held_refusal(SLUG, "read", self.HOLDER)
+        self.assertIn(f"the checks of {SLUG} run", said)
+        self.assertIn("their end comes first", said)
+        self.assertIn("the session that started them goes on when they end", said)
+
+    def test_a_step_that_holds_the_lock_is_named(self) -> None:
+        said = land.held_refusal(SLUG, "checks", {"step": "read", "pid": 7, "since": "2026-11-19T10:18:18Z"})
+        self.assertIn(f"`lem land read {SLUG}`", said)
+        self.assertIn("in process 7", said)
+        self.assertIsNotNone(land.held_refusal(SLUG, "checks", None))
+
+
 if __name__ == "__main__":
     unittest.main()

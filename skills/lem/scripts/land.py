@@ -16,6 +16,12 @@ may-land` about the settings' base branch, so a protected branch is never reache
                            after the polish builder: what it committed is checked, and logged
     lem land checks SLUG   the machine checks on the tip: every command of the checks, each
                            criterion's tests, the bar, the size in files and lines
+    lem land checks SLUG --status
+                           whether the checks run now, for how long, against their last finished
+                           run, and how their last run ended; it starts nothing
+    lem land checks SLUG --stop
+                           stop the checks that run now and wait for their end; with none, nothing
+                           is stopped, and that is no error
     lem land read SLUG     whether a review is due, the least it may be, and what a reviewer gets
     lem land read SLUG --record FILE
                            write down what the review was and what it found
@@ -45,8 +51,35 @@ a start and an end for each: `polish` logs `polish.start` when a pass starts (no
 second start of the same pass), `checks` logs `gate.start` before its first command, and `read`
 logs `review.start` once for the attempt that is due; `polish --done`, the results of the checks
 and `read --record` are their ends. The checks keep the names their step had before it was called
-the checks: the events `gate` and `gate.start`, the folder `gate/` of a task's directory and
+the checks: the events `gate`, `gate.start` and `gate.end`, the folder `gate/` of a task's directory and
 `gated` in `landing.json`, which open tasks, the board and `meta.js` read.
+
+One step of a task runs at a time. Every step here that names a task takes the task's one step
+lock (`step.lock` in its directory) before anything else it does, and holds it until it ends,
+however it ends; the first thing it writes there is its name, its process id and its start. A step
+of the same task meanwhile exits 1 and names the step that holds the lock, since when and in which
+process. While the checks hold it, a second `checks` is refused because they already run, and any
+other step says that their end comes first, so that nothing is proposed, read or rebased while they
+run. `checks --status`, `checks --stop` and `watch` take no lock: the first two look at the file
+and at the process it names, never at the lock, so a look never makes a real start fail. The
+commands a step runs do not get the lock's file, so a server one of them left behind does not hold
+it.
+
+A run of the checks is two events: `gate.start` and one `gate.end`, however it ends, with `result`
+(`passed` when the step keeps its result; `red` for a command of the checks that failed; `refused`
+for a criterion's test that does not hold, a lowered bar, a command that changed the tree, or an
+error of the step itself; `stopped` for a stop), `seconds` from its start, `tip`, and `say`, the one
+line for the owner, with the slug, the result and the next step, and no question ("SLUG: the checks
+passed; the review runs, nothing for you"). The step prints `say` in its JSON at every end after
+`gate.start`, a red, refused or stopped one before its exit 1. The run clears the result an earlier
+run kept before its first command, so a run cut off with no chance to clean up leaves none for its
+tip. `--status` gives `running` (the step lock is held by `checks`), `since` and `seconds` of the
+run, `last_seconds` (the `seconds` of the newest `gate.end` that passed, of any task, or null), and
+`overdue` with its `say` when the run is more than three times as long as that one
+(`OVERDUE_TIMES`); and `ended`, the newest `gate.end` of the task with `resumed`, the line for a
+session that did not start that run, which says its result as past and the next step as it is now.
+`--stop` sends a term to the process the lock names, only while `checks` holds it, waits until that
+run lets the lock go (`STOP_WAIT` at most), and says whether it stopped one (`stopped`).
 
 A task on the fast track has no plan: its one acceptance criterion is `criteria.md` in the task directory
 (`criteria.py` gives `small`), which the steps read in the plan's place. It is one task and never gets a polish
@@ -79,8 +112,11 @@ result says which (`not_covered`). The size of the change, in files and changed 
 
 Each command of the checks runs in a process group of its own, with no standard input; the group is ended
 when the command ends, so a server or a `sleep` it left behind does not outlive it, and when the
-checks are stopped (a signal, an interrupt) the command that runs is ended with its group and the
-step exits 1 with no result kept. Checks with no command to run are refused, since checks that ran nothing show nothing; so is one
+checks are stopped (a signal, an interrupt, `--stop`) the command that runs is ended with its group and the
+step exits 1 with no result kept. The step's handler of a stop holds from its first line to its
+last: a serial command's wrapper gets the time of its own cleanup before it is killed
+(`SERIAL_GRACE`), and `lem criteria red` gets the stop and is waited for, so that it ends its tests
+and removes its two worktrees itself. Checks with no command to run are refused, since checks that ran nothing show nothing; so is one
 whose command changed a tracked file or made a commit on the branch, since its result is then
 about another tree. A file its commands wrote that git neither tracks nor ignores (Python's bytecode
 in a repository with no rule for it) is the run's output, and nothing of it lands: the step notes
@@ -359,6 +395,7 @@ if sys.version_info < (3, 11):
     sys.exit(f"land.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
+import contextlib
 import fcntl
 import hashlib
 import json
@@ -367,9 +404,10 @@ import re
 import shutil
 import signal
 import subprocess
+import tempfile
 import tomllib
 import time
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -1383,7 +1421,334 @@ def bar_refusal(lowered: list[dict], small: bool) -> str | None:
     )
 
 
+# The task's one step lock: every step of `lem land` that names a task holds it for as long as it
+# runs, so that two steps of one task never run at one time, in either order: a proposal never
+# comes while its checks run, and `base` never rebases the worktree they run in. A file in the task
+# directory; the lock is the kernel's, and it goes with the process, however that ends.
+STEP_LOCK = "step.lock"
+
+# What a run of the checks ends as, in its `gate.end` event.
+RESULTS = ("passed", "red", "refused", "stopped")
+
+# The checks are overdue when they run more than this many times as long as their last finished run:
+# the owner's "three times longer than their last finished run" (criterion 5 of the plan
+# 2026-11-19-landing-in-the-background).
+OVERDUE_TIMES = 3
+
+# How long `checks --stop` waits for the run it stopped to end: the stop of a serial command takes
+# up to SERIAL_GRACE, and `criteria.py red` takes up to 3 s for each signal to each command it runs
+# (its `stop`). A guess with room, not a measurement.
+STOP_WAIT = 60
+
+# How long a serial command's wrapper (`project.py serial`) gets after a term before it is killed:
+# its own cleanup sends its command a term, waits 3 s, sends a kill and waits 3 s more (`cmd_serial`),
+# and one second is left for its exit. Any other command gets one second.
+SERIAL_GRACE = 7.0
+GRACE = 1.0
+
+
+def now_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def seconds_since(stamp: str, now: datetime | None = None) -> int:
+    """The whole seconds from a stamp of the form `now_utc` writes to now."""
+    then = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    return max(0, int(((now or datetime.now(timezone.utc)) - then).total_seconds()))
+
+
+def duration(seconds: int) -> str:
+    """Seconds in the words a person reads: `26 s`, `4 min 26 s`, `14 min`."""
+    minutes, rest = divmod(int(seconds), 60)
+    if not minutes:
+        return f"{rest} s"
+    return f"{minutes} min" + (f" {rest} s" if rest else "")
+
+
+def checks_say(slug: str, result: str, *, red: list[str] | None = None, refused: str | None = None, next_due: str | None = None) -> str:
+    """The one line for the owner at the end of a run of the checks: the slug, the result and the next
+    step, with no question. `red` names the commands that failed, `refused` what the checks refused,
+    and `next_due` is what `due` says after a passed run (`review`, `none` or `owner`)."""
+    if result == "passed":
+        if next_due in ("none", "owner"):
+            return f"{slug}: the checks passed; no review is due, so it is proposed, nothing for you"
+        return f"{slug}: the checks passed; the review runs, nothing for you"
+    if result == "red":
+        return f"{slug}: the checks are red on {' and '.join(red or ['a command'])}; a builder repairs it, nothing for you"
+    if result == "refused":
+        return f"{slug}: the checks refused the change: {refused or 'the step met an error'}; a builder repairs it, nothing for you"
+    if result == "stopped":
+        return f"{slug}: the checks were stopped; the landing waits for your word"
+    raise ValueError(f"a run of the checks ends as one of {', '.join(RESULTS)}, not {result!r}")
+
+
+def last_seconds(events: list[dict]) -> int | None:
+    """The length of the checks' last finished run: the `seconds` of the newest `gate.end` whose result
+    is `passed`, of any task. A red run stops before the serial commands, and would make the next run
+    look overdue; with no such run there is none."""
+    ends = [event for event in events if event.get("event") == "gate.end" and event.get("result") == "passed" and isinstance(event.get("seconds"), int)]
+    return ends[-1]["seconds"] if ends else None
+
+
+def is_overdue(seconds: int | None, last: int | None) -> bool:
+    """Whether a run that has gone on for `seconds` runs more than OVERDUE_TIMES as long as the last finished one."""
+    return seconds is not None and last is not None and seconds > OVERDUE_TIMES * last
+
+
+def overdue_say(slug: str, seconds: int, last: int) -> str:
+    return f"{slug}: the checks run for {duration(seconds)}, more than three times their last run of {duration(last)}; \"stop the checks\" stops them"
+
+
+def resumed_line(slug: str, end: dict) -> str:
+    """The line for a session that did not start the run: its result, as past, and the next step as it is
+    now, not as the session that saw the run end took it. A stopped run waits for the owner's word; after
+    any other, the landing goes on from its first step, as after a cut-off."""
+    result = end.get("result")
+    after = "the landing waits for your word" if result == "stopped" else "the landing goes on from its first step, as after a cut-off"
+    return f"{slug}: its last run of the checks ended at {utc(end['ts'])}, {result}; {after}"
+
+
+def ended_of(end: dict | None, slug: str) -> dict | None:
+    """The newest end of a task's checks, as `--status` and `--stop` print it."""
+    if end is None:
+        return None
+    return {"at": end["ts"], "tip": end.get("tip"), "result": end.get("result"), "seconds": end.get("seconds"), "say": end.get("say"), "resumed": resumed_line(slug, end)}
+
+
+def holder_of(path: Path) -> dict | None:
+    """The step the lock file names, its process and its start, or none: the holder writes the line
+    after it takes the lock and takes it away before it lets the lock go."""
+    try:
+        found = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(found, dict) or not isinstance(found.get("pid"), int) or not isinstance(found.get("step"), str):
+        return None
+    return found
+
+
+def alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def held_refusal(slug: str, step: str, holder: dict | None) -> str:
+    """Why a step of a task may not run now: another step of the same task holds its lock."""
+    if holder is None:
+        return f"another step of {slug} runs now and holds its lock ({STEP_LOCK} in its task directory); it ends first, then this step runs again"
+    when = f"since {utc(holder['since'])}, in process {holder['pid']}" if isinstance(holder.get("since"), str) else f"in process {holder['pid']}"
+    status = f"`lem land checks {slug} --status` says whether they still run"
+    if holder["step"] == "checks" and step == "checks":
+        return f"the checks of {slug} already run ({when}): a second run is refused. The session that started them goes on when they end; {status}"
+    if holder["step"] == "checks":
+        return f"the checks of {slug} run ({when}), and their end comes first: the session that started them goes on when they end, and this step waits for it; {status}"
+    return f"another step of {slug} runs now, `lem land {holder['step']} {slug}` ({when}); it ends first, then this step runs again"
+
+
+@contextlib.contextmanager
+def step_lock(task: Task, step: str):
+    """Hold the task's one step lock for as long as the step runs, however it ends, with the step's
+    name, process and start in its file; a step of the same task meanwhile is refused with that
+    holder. The commands a step starts do not get the lock's file (Popen closes it in them), so a
+    server a command left behind does not hold it."""
+    path = task.directory / STEP_LOCK
+    try:
+        handle = path.open("a+", encoding="utf-8")
+    except OSError as error:
+        raise LandError(
+            f"the step lock {path} cannot be opened ({error.strerror}); it holds no state, so remove it (`rm -r {path}`) and run `lem land {step} {task.slug}` again",
+        ) from error
+    with handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise LandError(held_refusal(task.slug, step, holder_of(path))) from None
+        handle.seek(0)
+        handle.truncate()
+        handle.write(json.dumps({"step": step, "pid": os.getpid(), "since": now_utc()}) + "\n")
+        handle.flush()
+        try:
+            yield
+        finally:
+            # the holder's line goes with the hold, so that a look at the file never names a step that ended
+            handle.seek(0)
+            handle.truncate()
+            handle.flush()
+
+
+def running_checks(task: Task) -> dict | None:
+    """The run of the task's checks that holds its step lock now, or none. A look at the file and at
+    the process it names, never at the lock itself, so that a look never makes a real start fail."""
+    holder = holder_of(task.directory / STEP_LOCK)
+    if holder is None or holder["step"] != "checks" or not alive(holder["pid"]):
+        return None
+    return holder
+
+
+def gate_ends(task: Task) -> list[dict]:
+    """Every end of a run of the checks in the repository's event log, of any task, oldest first."""
+    log = task.directory.parent.parent / "events.jsonl"
+    found = []
+    for line in log.read_text(encoding="utf-8").splitlines() if log.is_file() else []:
+        if '"gate.end"' not in line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if record.get("event") == "gate.end":
+            found.append(record)
+    return found
+
+
+def checks_status(task: Task) -> dict:
+    """Whether the task's checks run, for how long, against their last finished run, and how the last run ended."""
+    holder = running_checks(task)
+    ends = gate_ends(task)
+    last = last_seconds(ends)
+    since = holder.get("since") if holder else None
+    seconds = seconds_since(since) if isinstance(since, str) else None
+    overdue = holder is not None and is_overdue(seconds, last)
+    own = [end for end in ends if end.get("task") == task.slug]
+    other = holder_of(task.directory / STEP_LOCK)
+    return {
+        "task": task.slug, "running": holder is not None, "pid": holder["pid"] if holder else None, "since": since, "seconds": seconds,
+        # the step that holds the lock when it is not the checks: a step of the task waits for it too
+        "step": other["step"] if other and other["step"] != "checks" and alive(other["pid"]) else None,
+        "last_seconds": last, "overdue": overdue, "say": overdue_say(task.slug, seconds, last) if overdue else None,
+        "ended": ended_of(own[-1] if own else None, task.slug),
+    }
+
+
+def checks_stop(task: Task) -> dict:
+    """Stop the task's checks: a term to the process the lock names, only while the lock is held by
+    `checks`, and a wait until that run let it go. With no run, nothing is stopped and that is no error."""
+    holder = running_checks(task)
+    if holder is None:
+        return {"task": task.slug, "stopped": False, "pid": None, "ended": checks_status(task)["ended"]}
+    pid = holder["pid"]
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return {"task": task.slug, "stopped": False, "pid": None, "ended": checks_status(task)["ended"]}
+    except PermissionError as error:
+        raise LandError(f"the checks of {task.slug} run in process {pid}, which this user may not stop ({error.strerror}); the user that started them stops them") from error
+    deadline = time.monotonic() + STOP_WAIT
+    while time.monotonic() < deadline:
+        now = holder_of(task.directory / STEP_LOCK)
+        # the run takes its line away last, after its commands ended and its result is kept
+        if not alive(pid) or now is None or now["pid"] != pid:
+            return {"task": task.slug, "stopped": True, "pid": pid, "ended": checks_status(task)["ended"]}
+        time.sleep(0.1)
+    raise LandError(
+        f"the checks of {task.slug} were asked to stop, and process {pid} still runs after {STOP_WAIT} s; "
+        f"`lem land checks {task.slug} --stop` asks again, and `lem land checks {task.slug} --status` says whether they still run",
+    )
+
+
+def criteria_red(task: Task) -> subprocess.CompletedProcess:
+    """`lem criteria red` as a process of its own, as `lem_sibling` runs it (`APART`). On a stop of the
+    checks it gets a term and its end is waited for, so that its own handler ends its tests and
+    removes its two worktrees: it is never killed first, as `subprocess.run` does on an exception."""
+    args = [sys.executable, "-B", str(SCRIPTS / "criteria.py"), "--repo", str(task.main), "red", task.slug]
+    with tempfile.TemporaryFile("w+", encoding="utf-8") as out, tempfile.TemporaryFile("w+", encoding="utf-8") as err:
+        proc = subprocess.Popen(args, stdout=out, stderr=err, stdin=subprocess.DEVNULL)
+        try:
+            code = proc.wait()
+        except KeyboardInterrupt:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=STOP_WAIT)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            raise
+        out.seek(0)
+        err.seek(0)
+        return subprocess.CompletedProcess(args, code, out.read(), err.read())
+
+
 def cmd_checks(task: Task) -> dict:
+    """The machine checks on the tip. The step's SIGTERM handler holds from its first line to its last,
+    the criteria's tests and the bar included: a stop ends what runs and keeps no result."""
+    flags = {"stopping": False, "done": False}
+
+    def stopped(*_: object) -> None:
+        # one stop is enough: a second term, or one after the result is kept, changes nothing
+        if flags["stopping"] or flags["done"]:
+            return
+        flags["stopping"] = True
+        raise KeyboardInterrupt
+
+    before = signal.signal(signal.SIGTERM, stopped)
+    try:
+        return checks_run(task, flags)
+    finally:
+        signal.signal(signal.SIGTERM, before)
+
+
+def checks_run(task: Task, flags: dict) -> dict:
+    try:
+        tip, found, commands = checks_ready(task)
+    except KeyboardInterrupt:
+        raise LandError(f"the checks were stopped before their first command; `lem land checks {task.slug}` runs them again") from None
+    logs = task.directory / "gate"
+    logs.mkdir(exist_ok=True)
+    # The commands that need the machine to themselves come after the others, each under the
+    # repository's one lock for them (`project.py serial`), and only when the others passed. The field
+    # of their result and of their `gate` event is `serial`, which the board reads.
+    # The output folder and the events are named `gate`, which the board reads.
+    serial = task.settings["checks"]["serial"]
+    started = time.monotonic()
+    ended: list[str] = []
+
+    def end(result: str, say: str) -> None:
+        """The one `gate.end` of the run, however it ends."""
+        if not ended:
+            ended.append(result)
+            script("project.py", task.worktree, "log", task.slug, "gate.end", f"result={result}", f"seconds:={round(time.monotonic() - started)}", f"tip={tip[:9]}", f"say={say}")
+
+    # No result of an earlier run stays while this one runs: a run cut off with no chance to clean
+    # up (a kill) leaves none for its tip either.
+    task.keep(gated=None, tree=None)
+    # the start of the checks: the board draws them from here to their last result
+    script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands) + len(serial)}")
+    result: dict = {"task": task.slug, "tip": tip, "green": None, "commands": []}
+    try:
+        outcome, refusal = checks_body(task, flags, tip, found, commands, serial, logs, result)
+        flags["done"] = True
+    except KeyboardInterrupt:
+        # a stop: what ran is ended, and no result is kept
+        flags["done"] = True
+        task.keep(gated=None, tree=None)
+        result.update(result="stopped", say=checks_say(task.slug, "stopped"))
+        end("stopped", result["say"])
+        print(json.dumps(result, indent=2))
+        raise LandError(f"the checks were stopped, and the command that ran is ended with what it started; `lem land checks {task.slug}` runs them again") from None
+    except Exception:
+        # an error of the step itself (git, the event log): the run ends, refused, and the error is the step's exit
+        flags["done"] = True
+        task.keep(gated=None, tree=None)
+        result.update(result="refused", say=checks_say(task.slug, "refused"))
+        with contextlib.suppress(LandError):
+            # the error may be the event log's own: the step's error is the one to say
+            end("refused", result["say"])
+        print(json.dumps(result, indent=2))
+        raise
+    end(outcome, result["say"])
+    if refusal:
+        print(json.dumps(result, indent=2))
+        raise LandError(refusal)
+    return result
+
+
+def checks_ready(task: Task) -> tuple[str, dict, list[str]]:
+    """What the checks refuse before their first command, and what they run on: the tip, the criteria and the commands."""
     task.need_landing()
     task.need_worktree()
     if "base" not in task.kept():
@@ -1405,32 +1770,28 @@ def cmd_checks(task: Task) -> dict:
             f"the checks have no command to run, and checks that ran nothing show nothing: {NO_GATE} in the main checkout's .lem/project.toml, "
             f"and the branch brings none that the base commit lacks. Add the commands to checks.commands there, then run `lem land checks {task.slug}` again",
         )
-    logs = task.directory / "gate"
-    logs.mkdir(exist_ok=True)
+    return tip, found, commands
+
+
+def checks_body(task: Task, flags: dict, tip: str, found: dict, commands: list[str], serial: list[str], logs: Path, result: dict) -> tuple[str, str | None]:
+    """The run itself: the commands, the serial ones, the criteria's tests and the bar. It fills `result`
+    with what the step prints, its `say` among it, and gives back how the run ends and the refusal to
+    exit with, none for a passed run."""
     # What git does not know before the first command. `need_worktree` refused any such file, so
     # this is empty unless something wrote one since; it is taken all the same, so that the
     # removal after the run can never reach a file that was there before it.
     there = untracked(task)
-    # the start of the checks: the board draws them from here to their last result
-    # The commands that need the machine to themselves come after the others, each under the
-    # repository's one lock for them (`project.py serial`), and only when the others passed. The field
-    # of their result and of their `gate` event is `serial`, which the board reads.
-    # The output folder and the events are named `gate`, which the board reads.
-    serial = task.settings["checks"]["serial"]
-    script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands) + len(serial)}")
-    results = []
+    results = result["commands"]
     running: list[subprocess.Popen] = []
-
-    def stopped(*_: object) -> None:
-        raise KeyboardInterrupt
-
-    before = signal.signal(signal.SIGTERM, stopped)
+    grace = GRACE
+    output = logs / "01.log"
     try:
         for number, (command, apart) in enumerate([*((command, False) for command in commands), *((command, True) for command in serial)], start=1):
-            if apart and any(result["exit"] != 0 for result in results):
+            if apart and any(entry["exit"] != 0 for entry in results):
                 break
             output = logs / f"{number:02d}.log"
             line: str | list[str] = command
+            grace = SERIAL_GRACE if apart else GRACE
             if apart:
                 line = [sys.executable, "-B", str(SCRIPTS / "project.py"), "--repo", str(task.main), "serial", "--", command]
             with output.open("w", encoding="utf-8") as handle:
@@ -1438,19 +1799,15 @@ def cmd_checks(task: Task) -> dict:
                 proc = subprocess.Popen(line, shell=not apart, cwd=task.worktree, stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)  # noqa: S602
                 running.append(proc)
                 code = proc.wait()
-                end_group(running)
-            lines = [line for line in output.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
+                end_group(running, grace)
+            lines = [text for text in output.read_text(encoding="utf-8", errors="replace").splitlines() if text.strip()]
             last = lines[-1].strip() if lines else ""
             results.append({"command": command, "exit": code, "last": last, "output": str(output), **({"serial": True} if apart else {})})
             script("project.py", task.worktree, "log", task.slug, "gate", f"command={command}", f"exit:={code}", f"last={last}", f"tip={tip[:9]}", *(["serial:=true"] if apart else []))
-    except KeyboardInterrupt:
-        end_group(running)
-        task.keep(gated=None, tree=None)
-        raise LandError(f"the checks were stopped, and the command that ran is ended with what it started; `lem land checks {task.slug}` runs them again") from None
     finally:
-        end_group(running)
-        signal.signal(signal.SIGTERM, before)
-    green = all(result["exit"] == 0 for result in results)
+        # a stop ends the command that runs with its group; a serial command's wrapper gets the time of its own cleanup
+        end_group(running, grace)
+    green = all(entry["exit"] == 0 for entry in results)
     # A file the commands wrote that git neither tracks nor ignores (Python's bytecode in a
     # repository with no rule for it) is the run's output, and nothing of it lands: it goes, with
     # the folders it leaves empty, red or green, so that the next step finds the worktree clean.
@@ -1461,38 +1818,36 @@ def cmd_checks(task: Task) -> dict:
     if removed:
         with output.open("a", encoding="utf-8") as handle:
             handle.write(f"land.py removed what the commands of the checks left untracked: {', '.join(removed)}\n")
+    result.update(green=green, removed_untracked=removed, polish=task.kept().get("polish"))
     # A command of the checks that changed a tracked file, or made a commit, changed the tree it just judged.
     dirty = git(task.worktree, "status", "--porcelain")
     if green and dirty:
-        task.keep(gated=None, tree=None)
-        raise LandError(
+        result.update(result="refused", say=checks_say(task.slug, "refused", refused="a command of the checks changed what git tracks"))
+        return "refused", (
             f"a command of the checks changed what git tracks, so its result is about another tree:\n{dirty}\n"
-            f"put the files back (`git -C {task.worktree} checkout -- FILE`) and make the command change no tracked file, then run this again",
+            f"put the files back (`git -C {task.worktree} checkout -- FILE`) and make the command change no tracked file, then run this again"
         )
     moved = git(task.worktree, "rev-parse", "HEAD")
     if green and moved != tip:
-        task.keep(gated=None, tree=None)
-        raise LandError(
+        result.update(result="refused", say=checks_say(task.slug, "refused", refused="a command of the checks made a commit on the branch"))
+        return "refused", (
             f"a command of the checks made a commit on the branch ({tip[:9]}..{moved[:9]}), so its result is about another tree: "
-            f"make the command commit nothing, put the branch back with `git -C {task.worktree} reset --hard {tip}`, then run this again",
+            f"make the command commit nothing, put the branch back with `git -C {task.worktree} reset --hard {tip}`, then run this again"
         )
-    result = {"task": task.slug, "tip": tip, "green": green, "commands": results, "removed_untracked": removed, "polish": task.kept().get("polish")}
     if not green:
-        task.keep(gated=None, tree=None)
-        print(json.dumps(result, indent=2))
-        red = [r["command"] for r in results if r["exit"] != 0]
-        raise LandError(f"the checks are red on {len(red)} command(s): {'; '.join(red)}. A builder reads the output files; the checks are never edited to pass")
+        red = [entry["command"] for entry in results if entry["exit"] != 0]
+        result.update(result="red", say=checks_say(task.slug, "red", red=red))
+        return "red", f"the checks are red on {len(red)} command(s): {'; '.join(red)}. A builder reads the output files; the checks are never edited to pass"
     # The commands of the checks are green. Now what no command of the project checks: that each criterion is
     # held by a test that fails without the change, and that the change did not lower the bar.
-    task.keep(gated=None, tree=None)
-    held = script("criteria.py", task.main, "red", task.slug, check=False)
+    held = criteria_red(task)
     try:
         result["criteria"] = json.loads(held.stdout)
     except ValueError:
         result["criteria"] = None
     if held.returncode != 0:
-        print(json.dumps(result, indent=2))
-        raise LandError(f"{held.stderr.strip().removeprefix('criteria.py: ')}. A builder repairs the test or the plan; the check is never edited to pass")
+        result.update(result="refused", say=checks_say(task.slug, "refused", refused="the check of the criteria did not pass"))
+        return "refused", f"{held.stderr.strip().removeprefix('criteria.py: ')}. A builder repairs the test or the plan; the check is never edited to pass"
     # The fast track gives no reason for a lowered bar: it has no plan, and a lowered bar never takes the fast track.
     plan = "" if found["small"] else Path(found["plan"]).read_text(encoding="utf-8")
     now = change(task)
@@ -1500,22 +1855,31 @@ def cmd_checks(task: Task) -> dict:
     result["size"] = {"files": len(now["files"]), "lines": now["lines"], "in_parts": now["lines"] > READ_AT}
     refused = bar_refusal(result["bar"]["lowered"], found["small"])
     if refused:
-        print(json.dumps(result, indent=2))
-        raise LandError(refused)
+        result.update(result="refused", say=checks_say(task.slug, "refused", refused="the change lowers the bar with no reason given"))
+        return "refused", refused
+    try:
+        next_due = due(task)["due"]
+    except LandError:
+        # `read` says what stops it; the next step is still the review's
+        next_due = "review"
+    result.update(result="passed", say=checks_say(task.slug, "passed", next_due=next_due))
+    # From here a stop changes nothing: the run passed, and its result is kept whole.
+    flags["done"] = True
     task.keep(gated=tip, tree=git(task.worktree, "rev-parse", f"{tip}^{{tree}}"), checks={"commands": results, "criteria": result["criteria"], "bar": result["bar"], "size": result["size"]})
-    return result
+    return "passed", None
 
 
-def end_group(running: list[subprocess.Popen]) -> None:
+def end_group(running: list[subprocess.Popen], grace: float = GRACE) -> None:
     """End each command's process group and everything still in it: a term first, then a kill for
-    what is left a second later."""
+    what is left after `grace` seconds (a second, or the time of a serial wrapper's own cleanup)."""
     for proc in running:
-        for sign in (signal.SIGTERM, signal.SIGKILL):
+        for sign, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, GRACE)):
             try:
                 os.killpg(proc.pid, sign)
             except (ProcessLookupError, PermissionError):
                 break
-            for _ in range(20):
+            deadline = time.monotonic() + wait
+            while time.monotonic() < deadline:
                 try:
                     os.killpg(proc.pid, 0)
                 except (ProcessLookupError, PermissionError):
@@ -3254,11 +3618,40 @@ def cmd_clean(task: Task) -> dict:
     return {"task": task.slug, **removed}
 
 
+def step(task: Task, args: argparse.Namespace) -> dict:
+    """One step of a task's landing, which `main` runs under the task's step lock."""
+    if args.command == "start":
+        return cmd_start(task, args.conflicting)
+    if args.command == "base":
+        return cmd_base(task)
+    if args.command == "polish":
+        return cmd_polish(task, args.done)
+    if args.command == "checks":
+        return cmd_checks(task)
+    if args.command == "read":
+        return cmd_read(task, args.record)
+    if args.command == "file":
+        return cmd_file(task, args.again)
+    if args.command == "propose":
+        return cmd_propose(task, args.title, args.notes)
+    if args.command == "land":
+        return cmd_land(task, args.by, args.message)
+    if args.command == "merged":
+        return cmd_merged(task)
+    return cmd_clean(task)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lem land", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=".", help="a directory inside the checkout (default: the current one)")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("base", "checks", "merged", "clean"):
+    commands.add_parser("base").add_argument("slug")
+    checks = commands.add_parser("checks")
+    checks.add_argument("slug")
+    look = checks.add_mutually_exclusive_group()
+    look.add_argument("--status", action="store_true", help="whether the checks run now, for how long, and how their last run ended; starts nothing")
+    look.add_argument("--stop", action="store_true", help="stop the checks that run now, and wait for their end; with none, nothing is stopped")
+    for name in ("merged", "clean"):
         commands.add_parser(name).add_argument("slug")
     start = commands.add_parser("start")
     start.add_argument("slug")
@@ -3288,26 +3681,12 @@ def main(argv: list[str] | None = None) -> None:
             print(json.dumps(cmd_watch(Path(args.repo), max(1, args.every)), indent=2))
             return
         task = Task(Path(args.repo), args.slug)
-        if args.command == "start":
-            result = cmd_start(task, args.conflicting)
-        elif args.command == "base":
-            result = cmd_base(task)
-        elif args.command == "polish":
-            result = cmd_polish(task, args.done)
-        elif args.command == "checks":
-            result = cmd_checks(task)
-        elif args.command == "read":
-            result = cmd_read(task, args.record)
-        elif args.command == "file":
-            result = cmd_file(task, args.again)
-        elif args.command == "propose":
-            result = cmd_propose(task, args.title, args.notes)
-        elif args.command == "land":
-            result = cmd_land(task, args.by, args.message)
-        elif args.command == "merged":
-            result = cmd_merged(task)
+        if args.command == "checks" and (args.status or args.stop):
+            # a look and a stop take no lock: they are about the run that holds it
+            result = checks_stop(task) if args.stop else checks_status(task)
         else:
-            result = cmd_clean(task)
+            with step_lock(task, args.command):
+                result = step(task, args)
     except LandError as error:
         sys.exit(f"land.py: {error}")
     print(json.dumps(result, indent=2))
