@@ -294,7 +294,11 @@ neither line. The checks also hold one line on the personas' read of the criteri
 newest `criteria.read` event (`lem project log` gives its form): how many of the personas asked
 answered, in which model families, who did not answer and why, how many criteria they flagged,
 whether the families split, and when the owner approved them (`lem criteria approve`), or that the
-build started with no wait for the owner.
+build started with no wait for the owner. When the criteria waited for the owner's yes (the newest
+`held` state with a line `the criteria wait for the owner`, other than the fast track's builder's
+"the small change is a full change"), the line says when the wait began and how it ended: the first
+approval after it, the owner's or one made while the task ran without the owner, with its time, and
+a later approval of the owner's on its own.
 When the criteria the read names by their digest are not the plan's (which the checks make the expected
 ones), one more line says that they changed after the read, by a later approval of the owner's or by
 a change of the build, and that the change was not read; that line is no cause of not green. A
@@ -460,6 +464,14 @@ READ_FORM = "`by=lem|lead asked:=N answered:=N families:='[...]' silent:='[...]'
 # step 5): one decision of his that `decisions.py log --by owner` writes, known by these two texts
 # word for word.
 READ_SKIP = {"what": "the personas' read of the criteria", "chose": "no read: the criteria name only the developer"}
+# The state line of a task whose criteria wait for the owner's yes, as `project.py` writes it
+# (`CRITERIA_WAIT` there), and the one such line that is no wait for his yes: the fast track's
+# builder found a full change, and that task goes to an interview (`FAST_GREW` there). Copies, since
+# a stand-in may take project.py's place (`project_now`).
+CRITERIA_WAIT = "the criteria wait for the owner"
+FAST_GREW = re.compile(r"\bthe small change is a full change$")
+# The approvals that end such a wait: the owner's, or one made while the task ran without him.
+WAIT_ENDS = ("owner", "alone")
 # How many model families read the criteria, in the words of the pull request.
 FAMILIES = {1: "one model family", 2: "two model families"}
 # The form of the one event that records a plan talk, as `talk_form` in `project.py` checks it.
@@ -2170,14 +2182,53 @@ def approved_alone(found: dict, read: dict) -> bool:
     return any(approval["by"] == "alone" and approval["at"] >= read["ts"] for approval in found.get("approvals", []))
 
 
-def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dict | None = None) -> str:
-    """The personas' read of the criteria and his approval, as one line of the pull request's checks;
-    `skipped` is his word to skip the read with his approval after it, as `read_skipped` gives them."""
+def criteria_waited(events: list[dict]) -> dict | None:
+    """The newest wait of the task's criteria for the owner's yes, with the approval that ended it, from
+    the task's events oldest first; None when no such wait ended. The wait is the newest `held` state
+    whose line is a `CRITERIA_WAIT` one other than `FAST_GREW` (that task went to an interview), and
+    its end is the first approval after it that is the owner's or made while the task ran without him
+    (`WAIT_ENDS`), whoever gave it: an approval of his after Lem's is no end of that wait."""
+    waits = [
+        index for index, record in enumerate(events)
+        if record.get("event") == "task.state" and record.get("status") == "held"
+        and any(str(line).startswith(CRITERIA_WAIT) and not FAST_GREW.search(str(line)) for line in [record.get("text", ""), *record.get("lines", [])])
+    ]
+    if not waits:
+        return None
+    end = next(
+        (record for record in events[waits[-1] + 1:] if record.get("event") == "criteria.approved" and record.get("by") in WAIT_ENDS),
+        None,
+    )
+    return {"from": events[waits[-1]]["ts"], "end": end} if end else None
+
+
+def approval_said(found: dict, waited: dict | None) -> str:
+    """The part of the read's line that says who approved the criteria and when; empty when nobody
+    whose approval counts for the build did. With a wait for his yes (`criteria_waited`), the part
+    says when the wait began and whether his yes ended it, and names a later approval of his."""
     approval = found.get("approved")
+    if waited:
+        end = waited["end"]
+        said = f"the criteria waited for the owner's yes from {utc(waited['from'])}, " + (
+            f"and the owner gave it on {utc(end['ts'])}" if end["by"] == "owner"
+            else f"and the wait ended without the owner: approved on {utc(end['ts'])} while the task ran without the owner"
+        )
+        if approval and approval["by"] == "owner" and approval["number"] != end.get("number"):
+            said += f"; the owner approved them {'again ' if end['by'] == 'owner' else ''}on {approval['at'][:10]}"
+        return said
     # a plan is the standard track's: its criteria are the owner's approval, or the lead's freeze by a read, which is not his
-    approved = f"the owner approved them on {approval['at'][:10]}" if approval and approval["by"] == "owner" else ""
+    if approval and approval["by"] == "owner":
+        return f"the owner approved them on {approval['at'][:10]}"
     if approval and approval["by"] == "alone":
-        approved = f"approved on {approval['at'][:10]} while the task ran without the owner"
+        return f"approved on {approval['at'][:10]} while the task ran without the owner"
+    return ""
+
+
+def read_line(read: dict | None, found: dict, quiet_reads: int = 0, skipped: dict | None = None, waited: dict | None = None) -> str:
+    """The personas' read of the criteria and his approval, as one line of the pull request's checks;
+    `skipped` is his word to skip the read with his approval after it, as `read_skipped` gives them,
+    and `waited` the criteria's wait for his yes with its end, as `criteria_waited` gives them."""
+    approved = approval_said(found, waited)
     if read and not read["answered"]:
         # propose refuses the first such read, so this is the second in a row at the least
         return (
@@ -2798,7 +2849,7 @@ def pr_text(task: Task, notes: str, state: dict) -> str:
     out.append(f"- the tests of the criteria: {len(tests)} pass on the branch and fail on the base commit" + (f"; {len(without)} {'criterion has' if len(without) == 1 else 'criteria have'} no test" if without else ""))
     out.append(polished(kept.get("polish")))
     read = criteria_read_of(task)
-    out.append(read_line(read, found, unanswered(task), read_skipped(task)[0] if read is None else None))
+    out.append(read_line(read, found, unanswered(task), read_skipped(task)[0] if read is None else None, criteria_waited(events_of(task))))
     if unread(read, found):
         out.append(unread(read, found))
     if (task.directory / "scout.md").is_file():

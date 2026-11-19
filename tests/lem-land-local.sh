@@ -283,15 +283,18 @@ printf '%s\n' 'slug: their-ticket' > "$LOCAL/.lem/state/tasks/their-ticket/brief
 project --repo "$LOCAL" state their-ticket landing "the lead's report is in" "request by: someone else" >/dev/null
 by_state=$(local_land propose their-ticket --title "fix: h" --notes "$NOTES" 2>&1 || true)
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the ticket names the word and the file.' '' '1. The file holds the word the owner asked for.' > "$WORK/their.md"
+# the criteria wait for his yes, he gives it, and the landing goes on
+project --repo "$LOCAL" state their-ticket held "the criteria wait for the owner: a request someone else wrote" >/dev/null
 lcriteria approve their-ticket --file "$WORK/their.md" >/dev/null 2>&1 || true
+project --repo "$LOCAL" state their-ticket landing "the owner approved the criteria" >/dev/null
 proposed_their=$(local_land propose their-ticket --title "fix: h" --notes "$NOTES" 2>&1 || true)
 text=$LOCAL/.lem/state/tasks/their-ticket/pr.md
 if grep -qF "their-ticket is a complete request that someone else wrote, and no approval of the owner's came after the newest read of its criteria" <<<"$by_brief" \
   && grep -qF "a freeze by the read is not his yes" <<<"$by_brief" && grep -qF "lem criteria approve their-ticket --file FILE" <<<"$by_brief" \
   && grep -qF "their-ticket is a complete request that someone else wrote" <<<"$by_state" \
   && [ "$(status_in "$LOCAL" their-ticket)" = open ] && [ "$(sed -n 1p "$text" 2>/dev/null | cut -c1-10)" = '**Green.**' ] \
-  && grep -qxF -- "- the criteria were read by 2 of 2 personas asked, one model family (opus); nobody confused; the owner approved them on $(approved_day their-ticket)" "$text"; then
-  pass "a complete request that someone else wrote, by its brief or a state line, is not proposed with only the lead's freeze of a read in which nobody was confused; the owner's approval after the read lets it through, and the checks say that he approved the criteria"
+  && grep -qxE -- "- the criteria were read by 2 of 2 personas asked, one model family \(opus\); nobody confused; the criteria waited for the owner's yes from [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} UTC, and the owner gave it on $(approved_day their-ticket) [0-9]{2}:[0-9]{2} UTC" "$text"; then
+  pass "a complete request that someone else wrote, by its brief or a state line, is not proposed with only the lead's freeze of a read in which nobody was confused; the owner's approval after the read lets it through, and the checks say that the criteria waited for his yes and when he gave it"
 else
   fail "a complete request of someone else's: $by_brief / $by_state / $proposed_their / $(cat "$text" 2>/dev/null)"
 fi
