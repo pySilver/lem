@@ -77,10 +77,10 @@
   .note { font-size: 14px; color: var(--dim); }
   .now-next { position: relative; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; font-size: 14px; color: var(--dim); }
   .now-next .ago { font-size: 12px; font-weight: 300; color: var(--dim); }
-  /* the note gives way first: what it says after "since it was asked" the body says too */
-  .now-next .timer-row { margin-top: 0; flex: 0 4 auto; min-width: 0; flex-wrap: nowrap; }
+  /* the note beside the time stays whole, and wraps beside it when it is long */
+  .now-next .timer-row { margin-top: 0; flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; }
   .now-next .timer { flex: none; }
-  .now-next .note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .now-next .note { min-width: 0; }
   .now-next .right { margin-left: auto; }
   .now-spacer { height: 16px; }
   /* The large card of one task has one height whatever its lines, and the card beside it the same:
@@ -92,6 +92,12 @@
   .hero:not(.one) .now-in { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   .hero:not(.one) .now-next { flex-wrap: nowrap; }
   .hero:not(.one) .now-next > span:not(.right) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* The foot is one line, and the last update gives way first. A choice's note is too long for one
+     line: there the last update has a line of its own above the time, and the button one below it. */
+  .hero:not(.one) .now-next:not(.apart) .timer-row { flex: none; }
+  .hero:not(.one) .now-next.apart { flex-wrap: wrap; }
+  .hero:not(.one) .now-next.apart > span.ago { flex-basis: 100%; }
+  .hero:not(.one) .now-next .right { align-self: flex-end; }
   .now-next .right { flex: none; }
   /* the board of all tasks: the large card is one band, its count-down and its button at the right.
      Its actor is a bar at its left edge and the ring of its icon, never its surface. */
@@ -2109,7 +2115,7 @@ function buildTaskNow(t) {
           h('div', {class: 'now-ctx'}, h('b', {}, 'Where you answer: '), answerOf(t)))),
       h('div', {class: 'now-spacer'}),
       nowFoot(t, pane, live(c.ts), c.irreversible ? `since it was asked · it waits for your answer: ${IRREVERSIBLE[c.irreversible] ?? c.irreversible}`
-        : `since it was asked · if you say you are away, the build goes on with ${endOf(c)}`)));
+        : `since it was asked · if you say you are away, the build goes on with ${endOf(c)}`, true)));
   }
   const head = {
     queued: t.waitsAfter ? 'Waits for the task it needs' : 'Waits to start', building: t.investigating ? 'Its investigator examines it, before any criterion' : LEAD[leadOf(t)].head,
@@ -2137,11 +2143,12 @@ function buildTaskNow(t) {
 }
 
 // The foot of the large card, which never scrolls: the last update at its left in small, thin
-// text, the time in this state, and "Go to the session" at its right.
-function nowFoot(t, pane, time, note) {
-  return h('div', {class: 'now-next'},
+// text, the time in this state, and "Go to the session" at its right. A long note (`apart`) puts the
+// last update on a line of its own above the time, and the button on one below it.
+function nowFoot(t, pane, time, note, apart = false) {
+  return h('div', {class: apart ? 'now-next apart' : 'now-next'},
     h('span', {class: 'ago'}, 'last update ', h('span', {'data-ago': t.lastTs}), pane?.status ? ` · the session is ${pane.status}` : ''),
-    h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, time), h('span', {class: 'note', title: note}, note)),
+    h('div', {class: 'timer-row'}, h('span', {class: 'timer'}, time), h('span', {class: 'note'}, note)),
     pane ? h('span', {class: 'right'}, jump(pane.id, 'Go to the session')) : '');
 }
 
