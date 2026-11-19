@@ -464,6 +464,18 @@ digest=$(criteria digest approved-no-lead --file "$WORK/tracking.md" | field 'd[
 project log approved-no-lead criteria.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
 criteria approve approved-no-lead --file "$WORK/tracking.md" >/dev/null
 project log approved-no-lead companion.close need=interview session=C0MPA5 why=answered >/dev/null
+# A yes typed before the personas' read is in, which waits for the read; and the choice a lead stopped
+# for, answered, with no lead after it yet.
+task yes-before-read "Show the gift note in the invoice"
+project state yes-before-read held "the interview waits for the owner" "type: feat, because the invoice gets a line" >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the invoice gets a line.' '' '1. The invoice of order 1042 shows its gift note.' > "$WORK/invoice.md"
+criteria approve yes-before-read --file "$WORK/invoice.md" >/dev/null
+task choice-answered "Refund the late orders"
+project state choice-answered building "lead: builder" >/dev/null
+decide ask choice-answered "${CASE[@]}" --what "Refund the 3 late orders now" --option "refund them" --option "leave them" --recommended "leave them" --why "a refund cannot be taken back" \
+  --said "The two personas split." --irreversible money >/dev/null
+project state choice-answered held "choice 1 waits for the owner" >/dev/null
+decide answer choice-answered 1 --chose "refund them" >/dev/null
 
 # The backlog of the main checkout: an item whose place is gone, one whose place is there, one whose
 # file cannot be read by anyone, and one decided against.
@@ -481,7 +493,7 @@ NOW=$("$PY" -I -c 'from datetime import datetime, timedelta, timezone; print((da
 fed=$(grep -c '"task": "gift-note-export"' "$STATE/events.js" || true)
 retime_all
 
-if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 39 ] && [ "$fed" = 15 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.jsonl")" = 15 ]; then
+if [ "$(grep -c '"event": "decision.' "$STATE/events.jsonl")" = 41 ] && [ "$fed" = 15 ] && [ "$(grep -c '"task": "gift-note-export"' "$STATE/events.jsonl")" = 15 ]; then
   pass "the fixture is written by Lem's scripts: every decision is an event, and the board's copy of the log, as the scripts fed it, holds each event of a task"
 else
   fail "the fixture: $(grep -c '"event": "decision.' "$STATE/events.jsonl") decision events, $fed events of gift-note-export in the board's copy"
@@ -514,7 +526,8 @@ else
   fail "a backlog item with an unreadable place: ${why:-$(tail -1 "$WORK/board.err")}"
 fi
 for slug in "$G" "$L" correction-one "$T" red-gate clear-read-held "$C" rare-path read-first approved-again restored-read unread-change "$X" "$P" landing-starts "$K" talk-runs "$M" "$A" cart-total-wrong silent-read queued-after queued-one \
-  "$S" gate-runs held-choice held-question trust-prompt criteria-wait plan-for-you open-pr ready-to-land interview-live interview-lost criteria-gone two-choices approved-no-lead; do
+  "$S" gate-runs held-choice held-question trust-prompt criteria-wait plan-for-you open-pr ready-to-land interview-live interview-lost criteria-gone two-choices approved-no-lead \
+  yes-before-read choice-answered; do
   board --no-open --task "$slug" >/dev/null
 done
 
@@ -723,8 +736,10 @@ draw() {
 # draw_standin PAGE [LINE]: the page as agterm shows it, into PAGE-standin.dom: a stand-in for agterm's
 # bridge (`agterm`) answers its tree with Lem's session LEM1, where the agent runs, and the companions
 # C0MPA1, C0MPA3 and C0MPA4, and keeps every other request. With LINE it then presses the row whose line
-# that is: its button and Cancel, its button and Start, and its button once more, and writes what each
-# showed and what was typed into <pre id="standin">. Only a page opened with `?standin` has the stand-in.
+# that is: its button and Cancel, its button and Start, and its button once more; for a choice's line, Lem
+# then opens its companion C0MPA9 (an event in the next read of events.js, a session in the tree) and the
+# owner closes it with no answer. It writes what each step showed and what was typed into <pre id="standin">.
+# Only a page opened with `?standin` has the stand-in.
 STANDIN=$(cat <<'PY'
 import sys
 page = sys.argv[1]
@@ -733,7 +748,15 @@ mark = "<script>/* the fixture's agterm */"
 script = mark + r""" if (new URLSearchParams(location.search).has('standin')) {
   const press = new URLSearchParams(location.search).get('standin');
   const typed = [];
-  const tree = {tree: {workspaces: [{sessions: [{id: 'LEM1', name: 'shop', foreground: ['claude']}, {id: 'C0MPA1'}, {id: 'C0MPA3'}, {id: 'C0MPA4'}]}]}};
+  const nodes = [{id: 'LEM1', name: 'shop', foreground: ['claude']}, {id: 'C0MPA1'}, {id: 'C0MPA3'}, {id: 'C0MPA4'}];
+  const tree = {tree: {workspaces: [{sessions: nodes}]}};
+  // the events that come after those of the fixture, given to the page at each read of events.js after its records
+  const extra = [];
+  const add = document.head.appendChild;
+  document.head.appendChild = function (node) {
+    if (node.tagName === 'SCRIPT' && /\/events\.js\?/.test(node.src)) { const done = node.onload; node.onload = () => { for (const r of extra) window.lemEvent(r); done(); }; }
+    return add.call(this, node);
+  };
   globalThis.agterm = {request: async (cmd, o) => { if (cmd === 'tree') return tree; typed.push([cmd, o]); return {}; }};
   setTimeout(async () => {
     const wait = ms => new Promise(done => setTimeout(done, ms));
@@ -753,6 +776,20 @@ script = mark + r""" if (new URLSearchParams(location.search).has('standin')) {
       out.sent = shows();
       at('ask')?.click(); await wait(300);
       out.again = [Boolean(at('start')), typed.length];
+      const [, , slug, which, number] = press.split(' ');
+      if (which === 'choice') {
+        const stamp = ms => new Date(Date.now() + ms).toISOString().replace(/\.\d+Z$/, 'Z');
+        const need = {task: slug, need: 'choice', choice: Number(number), session: 'C0MPA9'};
+        nodes.push({id: 'C0MPA9'});
+        extra.push({ts: stamp(60000), event: 'companion.open', ...need, name: `${slug} · choice ${number}`});
+        // the next read of the files (every 2 s) and of the tree (every 3 s)
+        await wait(4000);
+        out.opened = [Boolean(document.querySelector('[data-jump="C0MPA9"]')), shows()];
+        nodes.pop();
+        extra.push({ts: stamp(120000), event: 'companion.close', ...need, why: 'dismissed'});
+        await wait(4000);
+        out.reopened = [Boolean(document.querySelector('[data-jump="C0MPA9"]')), shows(), Boolean(at('ask'))];
+      }
     }
     out.typed = typed;
     const pre = document.createElement('pre'); pre.id = 'standin'; pre.textContent = JSON.stringify(out); document.body.append(pre);
@@ -768,7 +805,7 @@ draw_standin() {
   "$PY" -I -c "$STANDIN" "$STATE/$1.html"
   local line
   line=$("$PY" -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "${2:-}")
-  headless --virtual-time-budget=9000 --dump-dom "file://$STATE/$1.html?standin=$line" > "$WORK/$1-standin.dom"
+  headless --virtual-time-budget=16000 --dump-dom "file://$STATE/$1.html?standin=$line" > "$WORK/$1-standin.dom"
 }
 
 # Every check from here on reads a page Chrome drew: with none, or with a Chrome that cannot start
@@ -796,7 +833,8 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
     "Checks and review=Ready one|Ready for its checks: the report is written" "Checks and review=In checks|The checks start" "Checks and review=Red gate" \
     "Done=Landed one|Landed: main: pull request #7 is merged" "Done=Timed out" "Building=Queued after" \
     "Waits for you=Interview live|The interview waits for you" "Waits for you=Criteria gone|The criteria wait for you" \
-    "Building=Approved no lead|Approved: your yes to the criteria is on record: Lem starts its lead"); then
+    "Building=Approved no lead|Approved: your yes to the criteria is on record: Lem starts its lead" \
+    "Waits for you=Yes before read|The interview waits for you" "Building=Choice answered|Answered: your answer to choice 1 is on record: Lem starts its lead"); then
     pass "each task is in the lane of who acts, and its card says in one line its state, in your words and not the lane's title again, also when a choice waits; no card has a paragraph of where you answer"
   else
     fail "the lanes: $why"
@@ -824,7 +862,7 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   fi
   # The head of a lane counts the cards under it, and the page's title counts what the lanes hold.
   if why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "#counts") \
-    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "15 wait for you, 10 build, 6 in checks and review, 2 queued, 1 blocked, 1 approved, with no lead yet"); then
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/board.dom" "16 wait for you, 10 build, 6 in checks and review, 2 queued, 1 blocked, 1 approved, with no lead yet, 1 answered, with no lead yet"); then
     pass "the head of each lane counts the cards under it, and the title's numbers add up to the lanes: a task that builds while a choice waits for the owner is counted once, where it waits"
   else
     fail "the counts of the lanes: $why"
@@ -846,7 +884,7 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
   # "Waits for you" has a row for each thing the owner does, each with its verb and where he answers.
   # A task that waits on two things has two rows; a held task whose choice waits has one, its choice's.
   # A row of a need that a companion answers has the line that opens it (criterion 7); a task whose
-  # criteria he approved, with no lead yet, has no row (criterion 3).
+  # criteria he approved, or whose held choice he answered, with no lead yet, has no row (criterion 3).
   draw board waits
   # shellcheck disable=SC1111  # the curly quotes are the page's
   if why=$("$PY" -I -B -c "$ROWS" "$WORK/board-waits.dom" waits-rows \
@@ -859,6 +897,7 @@ if [ -n "$chrome" ] && [ -s "$WORK/board.dom" ]; then
       "Show the delivery date on the order page|Approve the criteria|No persona answered" \
       "Show the gift note on the packing slip|The interview waits for you|Interview live|The interview runs in its companion, “interview-live · interview”" \
       "Print the returns label|Approve the criteria|Criteria gone|type in it: /lem status criteria-gone" \
+      "Show the gift note in the invoice|The interview waits for you|Yes before read|type in it: /lem status yes-before-read" \
       "Which currency rounds half up|The investigation waits for one more fact|!/lem status" \
       "Move the review to Codex|The reviewer's trust prompt waits for your yes" \
       "Move the reports to a queue|Read the plan|build it or drop it|!/lem status" \
@@ -870,10 +909,10 @@ area = dom[dom.index("id=\"waits-rows\""):dom.index("id=\"backlog\"")]
 rows = area.count("<div class=\"wrow ")
 tab = re.search(r"data-tab=\"waits\"[^>]*>Waits for you<em[^>]*>(\d+)</em>", dom)
 held = area.count("data-open=\"held-choice\"")
-wrong = ([f"{rows} rows, not 19"] if rows != 19 else []) + ([f"the tab counts {tab.group(1) if tab else None}, the rows are {rows}"] if not tab or int(tab.group(1)) != rows else []) \
-  + ([f"Held choice has {held // 2} rows"] if held != 2 else []) + (["a row for the task approved with no lead"] if "data-open=\"approved-no-lead\"" in area else [])
+wrong = ([f"{rows} rows, not 20"] if rows != 20 else []) + ([f"the tab counts {tab.group(1) if tab else None}, the rows are {rows}"] if not tab or int(tab.group(1)) != rows else []) \
+  + ([f"Held choice has {held // 2} rows"] if held != 2 else []) + [f"a row for {slug}, which has no lead yet" for slug in ("approved-no-lead", "choice-answered") if f"data-open=\"{slug}\"" in area]
 print("; ".join(wrong)); sys.exit(bool(wrong))' "$WORK/board-waits.dom"); then
-    pass "the Waits for you tab has a row for each thing you do, with its verb and where you answer: each choice, the interview, the criteria, what a held task's state asks, a plan, a merge or a landing; a row a companion answers has the line that opens it; a held task whose choice waits is one row, one approved with no lead has none, and the tab counts the rows"
+    pass "the Waits for you tab has a row for each thing you do, with its verb and where you answer: each choice, the interview, the criteria, what a held task's state asks, a plan, a merge or a landing; a row a companion answers has the line that opens it; a held task whose choice waits is one row, one approved or answered with no lead has none, and the tab counts the rows"
   else
     fail "the rows of Waits for you: $why"
   fi
@@ -2499,7 +2538,7 @@ PY
   draw_standin task-approved-no-lead
   if why=$("$PY" -I -B -c "$JUMPS" "$WORK/board-standin.dom" "C0MPA1=Go to interview-live · interview" "C0MPA1=interview-live · interview" \
       "C0MPA3=Go to two-choices · choice 1" "!C0MPA4" "!C0FA11" "!C0MPA2" "!C0MPA5" \
-      "ask=/lem status two-choices choice 2" "ask=/lem status criteria-gone" "ask=/lem status interview-lost" "!ask=/lem status interview-live" "!ask=/lem status two-choices choice 1" "!ask=/lem status approved-no-lead" "!ask=/lem status gift-note-export choice 6") \
+      "ask=/lem status two-choices choice 2" "ask=/lem status criteria-gone" "ask=/lem status interview-lost" "!ask=/lem status interview-live" "!ask=/lem status two-choices choice 1" "!ask=/lem status approved-no-lead" "ask=/lem status gift-note-export choice 6" "!ask=/lem status choice-answered choice 1" "!ask=/lem status choice-answered") \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/board-standin.dom" waits-rows \
       "Show the gift note on the packing slip|The interview waits for you|Go to interview-live · interview|!/lem status" \
       "The paper of the wrap|Answer choice 1|Two choices|Go to two-choices · choice 1|!/lem status" \
@@ -2528,10 +2567,12 @@ wrong = [name for name, ok in {
     "Start types the one line into Lem": d.get("typed") == [["session.type", {"target": "LEM1", "args": {"text": line + "\n"}}]],
     "the row says it was typed": str(d.get("sent", "")).startswith("Typed into Lem’s session at ") and str(d.get("sent", "")).endswith(f"{line} Go to Lem’s session"),
     "a typed line is not offered again": d.get("again") == [False, 1],
+    "the row jumps to the companion it opened": d.get("opened") == [True, None],
+    "closed with no answer, the row offers its line again": d.get("reopened") == [False, f"It types {line} into Lem’s session. Open its companion", True],
 }.items() if not ok]
 print("; ".join(wrong) + (f" ({json.dumps(d, ensure_ascii=False)[:700]})" if wrong else ""))
 sys.exit(bool(wrong))' "$WORK/board-standin.dom"); then
-    pass "a row whose companion is gone types its /lem status line into Lem's session as the backlog's action does: asked first, Cancel types nothing, Start types it one time"
+    pass "a row whose companion is gone types its /lem status line into Lem's session as the backlog's action does: asked first, Cancel types nothing, Start types it one time; the companion it opened is the row's jump, and when he closes that one with no answer the row offers its line again"
   else
     fail "the typed line of a row: $why"
   fi

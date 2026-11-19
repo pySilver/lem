@@ -767,6 +767,8 @@ const companionName = (slug, need, choice) => `${slug} · ${needWord(need, choic
 // Who answers a wait for the owner's yes to the criteria, in the records' words (companion.py APPROVERS):
 // the owner, or Lem and the lead for a task that runs without him.
 const APPROVERS = ['owner', 'alone'];
+// The owner's word to skip the personas' read of the criteria, in the two texts the landing knows it by (land.py READ_SKIP).
+const READ_SKIP = {what: "the personas' read of the criteria", chose: 'no read: the criteria name only the developer'};
 const UNKNOWN = {actor: 'bad', who: 'Nobody', label: 'No status', icon: 'alert', live: false};
 // The lanes are who acts: the owner, a lead and its builders, the machine checks and the review.
 const LANES = [
@@ -1228,21 +1230,33 @@ function derive(now) {
     // the need a companion answers, which the newest block holds the task for
     t.need = t.status === 'held' ? heldNeed(last.text) : null;
     // Criteria approved and no lead yet: the newest block is the wait of an interview or of the
-    // criteria, and an approval by the owner (or `alone`) came after it. A companion writes no state
-    // after the approval: Lem starts the lead at its next turn (`lem companion due`'s `start`), and
-    // until then the task is Lem's and waits for nobody else.
-    t.approved = t.need && t.need.need !== 'choice' ? t.approvals.findLast(a => APPROVERS.includes(a.by) && a.order > last.order) ?? null : null;
+    // criteria, and an approval by the owner (or `alone`) came after it; an interview's, after the
+    // newest read of its criteria since then, or his word to skip it (companion.py's one rule: a yes
+    // typed before the read waits for it). A companion writes no state after the approval: Lem
+    // starts the lead at its next turn (`lem companion due`'s `start`), and until then the task is
+    // Lem's and waits for nobody else.
+    const readIn = t.need?.need === 'interview'
+      ? [...t.reads.filter(r => r.order > last.order).map(r => r.ts),
+        ...[...t.decisions.values()].filter(d => d.kind === 'taken' && d.by === 'owner' && d.what === READ_SKIP.what && d.chose === READ_SKIP.chose && d.ts >= last.ts).map(d => d.ts)]
+      : null;
+    const floor = readIn === null ? -Infinity : readIn.length ? Math.max(...readIn) : Infinity;
+    t.approved = t.need && t.need.need !== 'choice' ? t.approvals.findLast(a => APPROVERS.includes(a.by) && a.order > last.order && a.ts >= floor) ?? null : null;
     if (t.approved) {
       t.criteriaWait = false;
       t.shown = t.approved.by === 'owner' ? 'your yes to the criteria is on record: Lem starts its lead' : 'the criteria were approved without you, as the task runs alone: Lem starts its lead';
     }
+    // The choice a lead stopped for, answered and no lead yet: the same start from the record.
+    const held = t.need?.need === 'choice' ? t.decisions.get(t.need.choice) : null;
+    t.answered = held && held.kind === 'asked' && held.state !== 'waits' ? held : null;
+    if (t.answered) t.shown = t.answered.state === 'answered' ? `your answer to choice ${t.answered.id} is on record: Lem starts its lead` : `choice ${t.answered.id} was taken without you: Lem starts its lead`;
     // a queued task waits for the task its `after:` line names
     t.waitsAfter = t.status === 'queued' && needsTask(last);
     // A planned task waits for the owner only when its lead said the owner reads the plan.
     // A proposed task waits for the owner's merge, and a task with a choice for him waits for him
     // while the rest of its plan goes on.
-    t.forOwner = t.asks.length > 0 || (t.status === 'held' && !t.approved) || t.status === 'open' || (t.status === 'planned' && /\bowner\b/.test(t.text));
+    t.forOwner = t.asks.length > 0 || (t.status === 'held' && !t.approved && !t.answered) || t.status === 'open' || (t.status === 'planned' && /\bowner\b/.test(t.text));
     if (t.approved && !t.forOwner) t.info = {actor: 'lem', who: 'Lem', label: 'Approved', icon: 'check', live: false};
+    if (t.answered && !t.forOwner) t.info = {actor: 'lem', who: 'Lem', label: 'Answered', icon: 'check', live: false};
     if (t.forOwner && t.info.actor !== 'you') t.info = {...t.info, actor: 'you', who: 'You'};
     // a builder that investigates a bug or a question works before any lead
     t.investigating = investigates(last);
@@ -1406,16 +1420,20 @@ const STATUS_LINE = /^\/lem status [a-z0-9-]+( choice [1-9]\d*)?$/;
 // The way from a row that waits for the owner to the companion that answers it: a jump to it while it
 // runs, else the line that opens a new one, typed into Lem's session as the backlog's action types its
 // line (stages/status.md: `/lem status SLUG`, and `/lem status SLUG choice N` for a choice, so that of
-// two choices of one task each row opens its own).
+// two choices of one task each row opens its own). A line that was typed is spent once a companion of
+// the need opened after it: when that one closes with no answer, the row offers its line again.
 function needAction(t, need, choice = null) {
   const c = companionOf(t, need, choice);
-  if (c) return h('div', {class: 'wl-actions'}, jump(c.pane.id, `Go to ${c.name}`));
   const cmd = `/lem status ${t.slug}${need === 'choice' ? ` choice ${choice}` : ''}`;
+  const sent = waitLine.sent.get(cmd), opened = t.companions.get(needWord(need, choice));
+  // the log's times are whole seconds
+  if (sent?.ok && opened && opened.ts >= Math.floor(sent.at / 1000) * 1000) waitLine.sent.delete(cmd);
+  if (c) return h('div', {class: 'wl-actions'}, jump(c.pane.id, `Go to ${c.name}`));
   if (!STATUS_LINE.test(cmd)) return h('div', {class: 'wl-actions'}, h('span', {class: 'bl-note'}, 'Type it yourself in Lem’s session: '), h('code', {}, cmd));
   return h('div', {class: 'wl-actions'}, lineActions({key: cmd, cmd, state: waitLine, attr: 'wl', purpose: 'To open its companion', says: 'Lem opens its companion', label: 'Open its companion'}));
 }
 // The need of a row of the task that waits for the owner: the choice it names, or the need of its held block.
-const rowNeed = (t, c = t.asks[0]) => (c ? {need: 'choice', choice: c.id} : t.need && !t.approved ? t.need : null);
+const rowNeed = (t, c = t.asks[0]) => (c ? {need: 'choice', choice: c.id} : t.need && !t.approved && !t.answered ? t.need : null);
 const rowAction = (t, c = t.asks[0]) => { const n = rowNeed(t, c); return n ? needAction(t, n.need, n.choice) : null; };
 
 function buildBanners(m) {
@@ -2050,14 +2068,15 @@ function conflicts(t) {
 // choice that waits, each held task with no choice that waits (its interview, its criteria, or what its
 // state line says), each plan its lead gave him to read, and each proposal that waits for his merge. A
 // held task whose choice waits is the row of that choice and no second row, and one whose criteria he
-// approved, with no lead yet, has none: it is Lem's (t.approved). A proposal the forge calls
+// approved or whose choice he answered, with no lead yet, has none: it is Lem's (t.approved,
+// t.answered). A proposal the forge calls
 // conflicting is counted, since its merge waits for him once Lem has brought it onto the base.
 const WAIT_ORDER = {choice: 0, criteria: 1, held: 1, plan: 2, merge: 3};
 function waitsOf(m) {
   const rows = [];
   for (const t of m.list.filter(x => !x.closed)) {
     for (const c of t.asks) rows.push({kind: 'choice', key: `choice:${t.slug}:${c.id}`, t, c, since: c.ts});
-    if (t.status === 'held' && !t.asks.length && !t.approved) rows.push({kind: t.criteriaWait ? 'criteria' : 'held', key: `held:${t.slug}`, t, since: t.since});
+    if (t.status === 'held' && !t.asks.length && !t.approved && !t.answered) rows.push({kind: t.criteriaWait ? 'criteria' : 'held', key: `held:${t.slug}`, t, since: t.since});
     if (t.status === 'planned' && /\bowner\b/.test(t.text)) rows.push({kind: 'plan', key: `plan:${t.slug}`, t, since: t.since});
     if (t.status === 'open') rows.push({kind: 'merge', key: `merge:${t.slug}`, t, since: t.since, conflict: conflicts(t)});
   }
@@ -2209,7 +2228,7 @@ function buildTaskNow(t) {
   const head = {
     queued: t.waitsAfter ? 'Waits for the task it needs' : 'Waits to start', building: t.investigating ? 'Its investigator examines it, before any criterion' : LEAD[leadOf(t)].head,
     planned: t.forOwner ? 'The plan waits for you' : t.talks.length ? 'The plan talk is done: the plan waits for the agent that builds it' : 'The plan waits for its talk companion',
-    held: t.approved ? 'Approved: its lead has not started yet' : t.need?.need === 'interview' ? 'The interview waits for you' : t.criteriaWait ? 'The criteria wait for your yes' : 'Waits for you', blocked: 'The agent stopped; Lem has to settle it', ready: 'Waits for its checks',
+    held: t.approved ? 'Approved: its lead has not started yet' : t.answered ? 'Answered: its lead has not started yet' : t.need?.need === 'interview' ? 'The interview waits for you' : t.criteriaWait ? 'The criteria wait for your yes' : 'Waits for you', blocked: 'The agent stopped; Lem has to settle it', ready: 'Waits for its checks',
     landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : t.landingStep ? stepRuns(t.landingStep) : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
     answered: 'Answered: it ended with a report and nothing to merge',
   }[t.status] ?? `Status "${t.status}"`;
@@ -2837,7 +2856,8 @@ function render() {
     const parts = [m.forOwner.length && `${m.forOwner.length} wait${m.forOwner.length === 1 ? 's' : ''} for you`, inBuild('building') && `${inBuild('building')} build${inBuild('building') === 1 ? 's' : ''}`,
       m.lane.checks.length && `${m.lane.checks.length} in checks and review`, inBuild('queued') && `${inBuild('queued')} queued`,
       inBuild('planned') && `${inBuild('planned')} wait for their plan talk`, inBuild('blocked') && `${inBuild('blocked')} blocked`,
-      m.lane.build.filter(x => x.approved).length && `${m.lane.build.filter(x => x.approved).length} approved, with no lead yet`].filter(Boolean);
+      m.lane.build.filter(x => x.approved).length && `${m.lane.build.filter(x => x.approved).length} approved, with no lead yet`,
+      m.lane.build.filter(x => x.answered).length && `${m.lane.build.filter(x => x.answered).length} answered, with no lead yet`].filter(Boolean);
     setTitle(parts.length ? parts.join(', ') : m.list.length ? 'Nothing runs' : 'Waiting for the first task');
     $('ask').textContent = '';
     // Each number once: the title counts the lanes, each lane counts its cards, and a chip says only
