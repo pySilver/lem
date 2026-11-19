@@ -999,7 +999,13 @@ scratch repository (R1 to R6) and the final audit of `636b24c` (A1 to A15).
 ```bash
 bash tests/all.sh              # every suite below at the same time, one log each, a line of ok, FAIL and SKIP per suite
 python3 tests/pick.py --base main  # the suites to run for what the branch changed (or name the files); all.sh still runs before main moves
+python3 -B -m unittest discover -s tests/unit  # the unit level: one file for each script, its rules called in one process; all.sh runs it as the suite unit
 ```
+
+The loop: the unit level after each edit; the blocks that `tests/pick.py` names once for a task, at
+its end; `tests/all.sh` once before `main` moves. A rule that takes facts and returns a result is a
+unit case, a call of its function; a fact only git can show is a check in a block, in a throwaway
+repository.
 
 Each suite says how many checks it holds (`collected N`, `tests/checks.sh`), and a check that
 cannot run here prints a `SKIP` line of its own. A suite whose `ok` and `SKIP` lines do not add up
@@ -1107,7 +1113,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   repository's Lem: the tasks, the event log, the night reports, the naps, the experts' folders
   and the copies a panel read; `lem_state.py` names it. `.revmux/`: the review tool's profiles, lenses and project
   profile for this repository.
-- `tests/`: the suites of the Checks above; `all.sh` runs them all, `lib.sh` is what each
+- `tests/`: the suites of the Checks above; `unit/` is the unit level, a `test_*.py` for each
+  script and `__main__.py`, its form as a suite; `all.sh` runs them all, `lib.sh` is what each
   `lem-*.sh` block sources, `checks.sh` is how every suite counts its checks, `suites.sh` and
   `limit.py` are what `all.sh` and `test-lem.sh` share, and `pick.py` holds the map of which suite
   reads which file. `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand.
