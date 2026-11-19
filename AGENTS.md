@@ -1065,6 +1065,7 @@ bash tests/test-gate-panel.sh  # the panel's cast, in its one place
 bash tests/test-ask.sh         # lem-ask's spec checks and every template; loads pages in headless Chrome when one is installed
 bash tests/test-ask-expert.sh  # the experts' advice in a choice's record, the end of the wait, its end when the task runs without the owner, and the brief; no expert runs
 bash tests/test-board.sh       # the board over a repository whose tasks stand in every lane; loads its pages in headless Chrome when one is installed
+bash tests/test-site.sh        # the page on GitHub Pages: runs pages.yml's copy step in a throwaway folder and reads the page there (its text, links, colors, the workflow); the first screen, the copy buttons and both themes in headless Chrome when one is installed
 bash tests/shellcheck.sh       # ShellCheck over tests/*.sh, one check for each file, or over the files named
 ```
 
@@ -1156,7 +1157,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   script and `__main__.py`, its form as a suite; `all.sh` runs them all, `lib.sh` is what each
   `lem-*.sh` block sources, `checks.sh` is how every suite counts its checks, `suites.sh` and
   `limit.py` are what `all.sh` and `test-lem.sh` share, and `pick.py` holds the map of which suite
-  reads which file. `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand.
+  reads which file. `.github/workflows/ci.yml` runs `all.sh` when someone starts it by hand, and
+  `.github/workflows/pages.yml` beside it publishes `site/` the same way.
 - `.claude-plugin/`, `bin/` and `hooks/`: what Claude Code reads to load this repository as the
   plugin `lem`, the one way Lem installs: the manifest, a marketplace file that lists the one
   plugin, `bin/lem`, Lem's one command, which runs the script a name stands for (`lem project
@@ -1173,6 +1175,16 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   pixels for each pixel. `board-*`, `task-*` and `backlog-*` are renders of
   `skills/lem/assets/board.html` over the data of `board.py --demo`; the README shows `board-*`,
   `docs/when-lem-needs-you.md` shows `task-*`, and no page shows `backlog-*`.
+- `site/`: Lem's page on GitHub Pages, `index.html` and `style.css` and no picture of its own. Its
+  text is written from the README and the guides, in their STE; its look is the board's, with the
+  six hues of `lem.css` copied at the same values into `style.css`, light or dark by the visitor's
+  theme and no switch; its one script is the copy buttons; it draws nothing from another host, and
+  its guide links are GitHub's pages of the guides. `.github/workflows/pages.yml`, started by hand
+  only, copies `site/*`, `assets/lem.svg`, `assets/lem-night.svg`,
+  `assets/screens/board-light.png` and `board-dark.png` into `_site/` at their repository paths
+  (so the page names them as `assets/...`) and publishes that folder. The plugin's install
+  carries the folder and the workflow, and the workflow never runs there. `tests/test-site.sh` runs the workflow's
+  copy step as written and reads the page in the folder it makes.
 - `skills/lem-ask/`, `skills/lem-interview-me/`, `skills/lem-dialectic/`, `skills/lem-root-cause/`,
   `skills/lem-gate/`, `skills/lem-panel/`, `skills/lem-linear/`, `skills/lem-ask-expert/`: the
   skills Lem names and ships. `lem-ask-expert` is Lem's own, written under the rules above, with
