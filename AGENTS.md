@@ -589,8 +589,8 @@ Where a note replaces an earlier ruling, this is the ruling now.
   for agterm's keymap, which is the owner's file and which Lem never edits.
 - **The Linear table is short**: "Do we really need all these settings for Linear integration?",
   and "Linear - yes, shorter, everything can be infered from Ticket ID". `[tracker]` needs only
-  `kind`. The team comes from the ticket's id, and the two statuses from Linear by their type; a
-  name goes into the settings only for a team with two statuses of one type. This replaces
+  `kind`. The team comes from the ticket's id, and the two statuses from Linear by their type
+  (the next day he took the last other keys out too, below). This replaces
   "Status names are carried by name in the settings". Of a connection that fails: "I think we
   should simply point to Linear MCP help page. We don't know exact problems and reasons here."
   No real ticket has run through it; of that gap, "put into backlog"
@@ -654,6 +654,41 @@ Where a note replaces an earlier ruling, this is the ruling now.
 - **The board as a tabbed interface is a backlog item**: "redesign board to a tabbed interface,
   consider using the WebAwesome (we have a professional license)"
   (`docs/backlog/board-as-a-tabbed-interface.md`).
+
+His notes of 2026-11-19, in the session and on the Linear page; a quote is his words.
+
+- **The tests are chosen by what can fail, and a task is quick.** Of three builders that took 49,
+  99 and 115 minutes the day before: "Why the hell it takes so long!?", "thats still enormous
+  amount of time for the skill repository! what those tests doing so long?", and "I demand quick
+  tasks run". He had an Opus subagent and Codex Astra asked two times what the tests of such a
+  repository should look like. Their answers agree, and the session took them: a rule that takes
+  facts and returns a result is a unit case, a call of its function (`tests/unit/`); a fact only
+  git can show is a check in a real repository; a journey is run once, not once for each input.
+  The loop of "Checks" is the other half: half of a builder's time had been test runs that the
+  session's own briefs asked for. A cache of git's answers inside one process (`perf/ask-once`)
+  was built that night and not taken: a Fable second opinion, Opus and Astra all said that a stale
+  answer in the code that merges costs more than the 0.1 s it gives a developer.
+- **`[tracker]` has one key**: of the keys that were left, "why the heck we need any other
+  settings for linear?". The form is the session's: which status a ticket gets is the agent's read
+  of the team's statuses by their type, and by their names where a type has two; in doubt it moves
+  nothing and says so in one line; a ticket already at the target is not moved, so no key says who
+  moves; and the server is the one the agent has, with no key that names it.
+- **`/lem read KEY` shows a ticket**: "`/lem linear ABC-12` looks odd, specifically when only
+  tracker is allowed. Maybe `/leam read ABC-12`?" The word names no tracker, so a second tracker
+  needs no new command.
+- **A persona's file names its models**: "`[seats]` in settings. We should also add settings for
+  models for personas (or its frontmatter settings per persona file? probably better idea)". So
+  `seats:` in a persona file's frontmatter, in the form of the settings' seats, and no key in the
+  settings; a file without it answers as the panel answers by itself.
+- **The experts know the personas**: "experts should have a context of personas I think, so they
+  can also reason about what kind of users builded code are expected". Their brief holds the
+  profile and each persona as context; an expert still answers as an engineer.
+- **Each label of a chart is quoted.** "all flowcharts needs to be checked, some are broken", and
+  after every label got quotes, "flowcharts now works, weird". The three charts drew without an
+  error in two versions of Mermaid on the session's machine before the change, so GitHub's own
+  version reads an unquoted label in another way (a label that starts with `/` is the likely one;
+  not proved). A chart in `README.md` or `docs/` writes each node's and each edge's text in double
+  quotes, and is drawn once before it is committed.
 
 Designs taken on 2026-11-14 and 2026-11-15 after a question of the owner's. They are open to
 him, and they are not his rulings until he says so:
