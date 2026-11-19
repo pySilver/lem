@@ -1952,10 +1952,25 @@ const PHRASE = 'not green: two outside experts chose option 2 while you were awa
   const panels = () => [...d.querySelectorAll('#waits, #backlog, [data-tasks], [data-task-tab]')].filter(n => !n.hidden).map(n => n.id);
   // the large card: its height, and where "Go to the session" stands from its right and its bottom edge
   const card = () => { const now = d.getElementById('now'), c = now.getBoundingClientRect(), b = now.querySelector('.now-next .right button'), r = b?.getBoundingClientRect(), body = now.querySelector('.now-in');
-    return {height: Math.round(c.height), more: body.scrollHeight > body.clientHeight + 1, button: r ? {text: b.textContent.trim(), right: Math.round(c.right - r.right), bottom: Math.round(c.bottom - r.bottom)} : null}; };
+    return {height: Math.round(c.height), more: body.scrollHeight > body.clientHeight + 1, button: r ? {text: b.textContent.trim(), right: Math.round(c.right - r.right), bottom: Math.round(c.bottom - r.bottom)} : null, foot: foot(now, c)}; };
+  // the time in this state: in the card's foot and inside the card's edges, not in its body that
+  // scrolls, its note ("in this state") whole beside it; and the last update before it at the foot's
+  // left, on its line or on a line above, smaller and thinner than the foot's other text
+  const foot = (now, c) => { const next = now.querySelector('.now-next'), timer = next?.querySelector('.timer'), ago = next?.querySelector('.ago'), t = timer?.getBoundingClientRect(), a = ago?.getBoundingClientRect(), css = ago ? w.getComputedStyle(ago) : null;
+    const note = next?.querySelector('.note'), n = note?.getBoundingClientRect();
+    return {inFoot: Boolean(timer), inBody: Boolean(now.querySelector('.now-in .timer')), shown: Boolean(t) && t.top >= c.top && t.bottom <= c.bottom && t.width > 0,
+      note: n ? {width: Math.round(n.width), whole: n.width > 0 && note.scrollWidth <= note.clientWidth + 1 && note.scrollHeight <= note.clientHeight + 1 && n.top >= c.top && n.bottom <= c.bottom && n.right <= c.right} : null,
+      text: timer ? words(timer.parentElement.textContent) : '', agoLeft: Boolean(a && t) && a.width > 0 && (a.right <= t.left || a.bottom <= t.top) && Math.abs(a.left - next.getBoundingClientRect().left) < 2,
+      agoSize: css ? parseFloat(css.fontSize) : null, agoWeight: css ? Number(css.fontWeight) : null}; };
+  // the label in the ring: its smallest space to the inner edge of the ring's stroke, left or right,
+  // at the label's top line and at its bottom line
+  const ringGap = () => { const svg = d.querySelector('.ring'), circle = svg.querySelector('circle.todo'), b = svg.getBoundingClientRect(), k = b.width / svg.viewBox.baseVal.width;
+    const inner = (circle.r.baseVal.value - parseFloat(w.getComputedStyle(circle).strokeWidth) / 2) * k, cx = b.left + circle.cx.baseVal.value * k, cy = b.top + circle.cy.baseVal.value * k;
+    const range = d.createRange(); range.selectNodeContents(d.querySelector('.ring-center span')); const r = range.getBoundingClientRect();
+    return Math.round(10 * Math.min(...[r.top, r.bottom].map(y => { const half = Math.sqrt(Math.max(0, inner * inner - (y - cy) ** 2)); return Math.min(r.left - (cx - half), cx + half - r.right); }))) / 10; };
   log.start = chosen();
   d.querySelector('#waits-rows .btn[data-open="logo-color"]').click(); await wait(400);
-  log.open = {tab: chosen(), tabs: tabs(), panels: panels(), seen: visible().includes(PHRASE), card: card()};
+  log.open = {tab: chosen(), tabs: tabs(), panels: panels(), seen: visible().includes(PHRASE), card: card(), ring: ringGap()};
   d.querySelector('[data-tab="timeline"]').click(); await wait(2500);
   log.timeline = {tab: chosen(), panels: panels(), seen: visible().includes(PHRASE), there: words(d.getElementById('verdict').textContent).includes(PHRASE)};
   d.body.dispatchEvent(new w.KeyboardEvent('keydown', {code: 'Digit3', key: '3', bubbles: true})); await wait(300);
@@ -1964,6 +1979,12 @@ const PHRASE = 'not green: two outside experts chose option 2 while you were awa
   log.back = {tab: chosen(), panels: panels()};
   d.querySelector('#waits-rows .btn[data-open="long-lines"]').click(); await wait(400);
   log.long = {tab: chosen(), card: card()};
+  // the same two cards in a narrower window, where the foot has less room than its words
+  document.getElementById('f').style.width = '1200px'; await wait(400);
+  log.narrow = {long: card()};
+  d.querySelector('#top-right [data-open=""]').click(); await wait(400);
+  d.querySelector('#waits-rows .btn[data-open="logo-color"]').click(); await wait(400);
+  log.narrow.open = card();
   document.getElementById('out').textContent = JSON.stringify(log);
 })().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
 </script>""")
@@ -2005,6 +2026,35 @@ PY
     pass "the board of one task has the tabs Overview, Criteria and decisions, Checks and review and Timeline; its first view says \"not green: two outside experts chose option 2 while you were away\" for choice 2 the experts took in the second he went away, and \"while the task ran without you\" for a night's choice; the chosen tab stays through the draw of every second, a hidden panel's line is not what he sees, All tasks goes back to the tab he left, and the large card has one height with Go to the session in one place"
   else
     fail "the board of one task, its tabs and its first view: $why"
+  fi
+
+  # The first view of a task: the ring's label keeps 8 px to the ring's stroke on both sides, and the
+  # time in this state stands in the large card's foot with its note whole ("in this state"), inside
+  # the card also when its text scrolls and in a window of 1200 px, with the last update at the foot's
+  # left in small, thin text. Read from the same probe.
+  CARD_CHECK=$(cat <<'PY'
+import html, json, re, sys
+found = re.search(r'<pre id="out">(.*?)</pre>', open(sys.argv[1], encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}
+wrong = [d["error"]] if "error" in d else []
+if not wrong:
+    if d["open"]["ring"] < 8: wrong.append(f"the ring's label is {d['open']['ring']} px from the ring's stroke")
+    cards = (("a short card", d["open"]["card"]["foot"]), ("a card whose text scrolls", d["long"]["card"]["foot"]),
+             ("a short card at 1200 px", d["narrow"]["open"]["foot"]), ("a card whose text scrolls at 1200 px", d["narrow"]["long"]["foot"]))
+    for name, f in cards:
+        if not f["inFoot"] or f["inBody"] or not f["shown"]: wrong.append(f"the time in this state on {name}: {f}")
+        if not f["note"] or not f["note"]["whole"]: wrong.append(f"the note beside the time on {name} is cut: {f}")
+        if not f["agoLeft"] or (f["agoSize"] or 99) > 13 or (f["agoWeight"] or 999) > 400: wrong.append(f"the last update on {name}: {f}")
+    for name, f in cards[::2]:
+        if "in this state" not in f["text"]: wrong.append(f"the time on {name} does not say it is the time in this state: {f['text']!r}")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  if why=$("$PY" -I -c "$CARD_CHECK" "$WORK/tabs-probe.dom"); then
+    pass "the first view of a task: the label in the ring of plan tasks keeps 8 px or more to the ring's stroke on both sides, and the time in this state stands in the large card's foot with its note whole, in view also when the card's text scrolls and at 1200 px, with the last update at the foot's left in small, thin text"
+  else
+    fail "the ring's label and the time in this state on the first view: $why"
   fi
 
   # The test of criterion 9: the board reads as Lem's landing page does (site/style.css). Each tab of
