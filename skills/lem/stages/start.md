@@ -30,8 +30,8 @@ that is started again after it stopped.
    project log SLUG builder.start "job=the small change"`; its state of
    `ready` or `held` is its end. The task's first block carries the type line of step 1 of "Open
    the task" (`stages/new.md`) too, when no block before it has one. For a task that came from a
-   ticket, the tracker then marks the ticket as started (its "start"); it writes nothing when the project's
-   settings say that the tracker moves its own tickets. Then, for a
+   ticket, the tracker then marks the ticket as started (its "start"), unless the ticket is there
+   already. Then, for a
    builder, `spawn-builder` with one line: `Read TASK_DIRECTORY/brief.md and follow it.` For
    `lead: session`, the plan talk's companion: `open-task-session` with the same file, its agent
    on the model and the effort of the settings' `seats.planner` when the seat names them; write the

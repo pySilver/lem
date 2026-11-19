@@ -1,6 +1,6 @@
 ---
 name: lem-linear
-description: "Lem's tracker skill for Linear: reads a ticket into a task, moves it and comments the landing. Lem's stages load it; the owner calls it as `/lem linear`."
+description: "Lem's tracker skill for Linear: reads a ticket into a task, moves it and comments the landing. Lem's stages load it; the owner reads one ticket with `/lem read KEY`."
 disable-model-invocation: true
 ---
 
@@ -18,53 +18,56 @@ asks for that ticket in his own words.
 ## The settings
 
 `lem project show` prints `tracker`. When it is null, the project has no tracker: say so and stop.
-The one exception is "check" at onboarding, before the table is written.
-
-| Key | Meaning |
-| --- | --- |
-| `kind` | `linear` |
-| `server` | the name the Linear MCP server has in the agent, `linear` by default (`docs/linear.md` of Lem's repository says how it is connected) |
-| `moves` | who moves a ticket's status: `lem` (the default), or `tracker` when Linear's own automation does it (its pull-request integration moves a ticket when a pull request opens, is reviewed and merges) |
-| `started`, `landed` | with `moves = "lem"`, each one optional: the name of the status a ticket gets, as the team spells it |
+The one exception is "check" at onboarding, before the table is written. The table has one key,
+`kind`, which is `linear` here. Everything else is read from the ticket and from Linear, never
+from a setting: the team, the server and the status.
 
 The team of a ticket is the letters of its id before the hyphen (`MBZ` in `MBZ-12`).
 
-> **The status.** For `started` or `landed`: the name the settings give, when they give one.
-> Otherwise `list_issue_statuses` with the ticket's team, and the one status whose type is
-> `started` (for `started`) or `completed` (for `landed`). A team can have two of a type (a
-> real team had "In Progress" and "In Review", both `started`, read on 2026-11-18). Then never
-> pick one: write nothing to the ticket, and tell the owner the line to add under `[tracker]`
-> in `.lem/project.toml`, with the names the team has (`started = "In Progress"`). The step
-> stays not written down.
+> **The status.** `list_issue_statuses` with the ticket's team, and the status whose type is
+> `started` when the work starts, or `completed` when it lands. A team can have two or more of a
+> type (a real team had "In Progress" and "In Review", both `started`, read on 2026-11-18). Then
+> take the one whose name says that the work began, never one that names a later step (a review,
+> a test, a release); for `completed`, the one that says done, never one that says cancelled or
+> duplicate (Linear gives those types of their own). When the names do not settle it, move
+> nothing, and tell the owner in one line, with the names. The step stays not written down.
+>
+> **A ticket that is already there.** A ticket whose status is already of the type it would get,
+> or of a later one (`completed` is later than `started`; `canceled` and `duplicate` are later
+> than both), is not moved, and the step is written down as done. So Lem and an automation of
+> Linear that moves a ticket by its pull request never work against each other, and nothing in
+> the settings says who moves.
 
 ## The server's tools
 
 The Linear server gives these tools, and your agent shows them under its own prefix for the
 server (the harness file says which, and whether a tool loads on its first use): `get_issue`,
-`get_team`, `list_issue_statuses`, `list_comments`, `save_issue`, `save_comment`. When your session
-cannot call them, the server was added after the session started, or it is not signed in: say
-that, name `docs/linear.md`, and stop. Never fall back to a guess of the ticket from its URL.
+`get_team`, `list_issue_statuses`, `list_comments`, `save_issue`, `save_comment`. The server is
+the Linear MCP server connected in your agent, whatever its name. With more than one (one for each
+workspace), use the one whose teams hold the ticket's team key: `get_team` with the key on each,
+and the one that answers. When your session cannot call them, the server was added after the
+session started, or it is not signed in: say that, name `docs/linear.md`, and stop. Never fall
+back to a guess of the ticket from its URL.
 
 What follows about each tool's answer was read from the real server on 2026-11-15, with one
 ticket of one team. The four procedures from "check" to "land" ran on that ticket the same day,
-with the two status names in the settings and a test of the workspace and the team that is gone
-now; the status by its type, "drop" and "answer" have not run yet.
+with the two status names in the settings of that day and a test of the workspace and the team
+that is gone now; the status by its type, "drop" and "answer" have not run yet.
 
 ## check
 
-Run it at onboarding, when the `[tracker]` settings change, and when the owner asks in words. It
+Run it at onboarding, when the `[tracker]` table is added, and when the owner asks in words. It
 is no command the owner has to know. It takes a team key: the one the repository shows, or the
 letters of a ticket id the owner gives.
 
-1. `get_team` with the key. An answer means that this connection sees the team; it returns the
-   team's `id`, `key` and `name`. No answer means that the connection is signed in to another
-   workspace, or that the key is wrong: say so and stop.
-2. With `moves = "lem"`: `list_issue_statuses` with the team's `id`. For `started` and `landed`,
-   a name the settings give has to be there, spelled the same. With no name, the team has to have
-   one status of the type (`started`, `completed`); with two or more, `/lem init` asks the owner
-   which one, once, and writes its name.
-3. Say the result in two lines: the team by its key and name; the two statuses, each as found,
-   absent, or one of two. Change nothing in Linear.
+1. `get_team` with the key, on the server as above. An answer means that this connection sees the
+   team; it returns the team's `id`, `key` and `name`. No answer from any server means that the
+   connection is signed in to another workspace, or that the key is wrong: say so and stop.
+2. `list_issue_statuses` with the team's `id`, and the status for `started` and for `completed`
+   as above.
+3. Say the result in two lines: the team by its key and name, with the server that sees it when
+   there are two; the two statuses, each as found, absent, or not settled by the names (with the
+   names). Ask nothing, write nothing to the settings, and change nothing in Linear.
 
 ## read
 
@@ -78,15 +81,15 @@ after `/issue/`.
    again with `parentId` among its `fields`, and once more for the parent's title. For an ask that
    was a URL, the URL in the answer has the same workspace (`linear.app/WORKSPACE/`); when it has
    another, the connection is signed in to another workspace: say so and stop.
-2. A ticket whose status is already the settings' `landed`, when they name one, or whose `statusType` is
-   `completed`, `canceled` or `duplicate`: say so and ask the owner whether the work is wanted
-   again. Do not start it by yourself.
+2. A ticket whose `statusType` is `completed`, `canceled` or `duplicate`: say so and ask the
+   owner whether the work is wanted again. Do not start it by yourself.
 3. The description is the ask. Do not improve it. When it is empty, the title is the ask, and
    `stages/new.md` decides whether that is clear enough. The discussion under the ticket is not
    part of the ask, and neither is an attachment or a picture: when the description points at
    one, say so to the owner, who says whether it counts.
 
-Reading writes nothing to Linear.
+Reading writes nothing to Linear. The owner's `/lem read KEY` (an id or a URL) is this procedure
+alone: give him what step 1 gives, in a few lines, and start nothing.
 
 ## What was done to a ticket is written down
 
@@ -111,14 +114,12 @@ is.
 
 ## start
 
-When the task's lead starts (`stages/start.md`), and only with `moves = "lem"`.
+When the task's lead starts (`stages/start.md`).
 
-1. The status `started`, as above.
+1. The status of the type `started`, as above. A ticket already there or later is left as it
+   is: write the step `started` down and stop.
 2. `save_issue` on the ticket with that status. Nothing else: not the assignee, not the labels,
-   not the description. A ticket that is already in that status is left as it is. Then write the
-   step `started` down.
-
-With `moves = "tracker"`, write nothing: Linear moves the ticket itself.
+   not the description. Then write the step `started` down.
 
 ## land
 
@@ -130,9 +131,9 @@ request is merged or the ready branch is on the base branch, and not before.
    base branch, and the last line of each gate command. A decision Lem
    took alone is written as Lem's ("decided without the owner: ..."), never as his. Its last
    line is `lem: SLUG landed`. Then write the step `commented` down.
-2. With `moves = "lem"`, unless `landed` is written down: `save_issue` with the status `landed`,
-   as above. Then write the step `landed` down.
-3. With `moves = "tracker"`: the comment only.
+2. Unless `landed` is written down: the status of the type `completed`, as above. A ticket
+   already there (an automation of Linear moves it when its pull request merges) is left as it
+   is; otherwise `save_issue` with that status. Then write the step `landed` down.
 
 A landed task's ticket is finished when `ticket_owed` is empty. Until then the landing still
 owes the ticket this procedure, and each step of it skips what is done.
@@ -167,7 +168,6 @@ the status changes. The comment's last line is what says that Lem wrote it; neve
 ## What this skill never does
 
 - It writes to no ticket but the one a task came from.
-- It creates no ticket, closes no ticket by another way than the status `landed`, and deletes
-  nothing.
+- It creates no ticket, closes no ticket by another way than "land", and deletes nothing.
 - It does not change the team's statuses, labels or settings.
 - It does not answer a comment on the ticket: what a person writes there is for the owner.

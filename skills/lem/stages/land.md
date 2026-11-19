@@ -248,7 +248,7 @@ one finds what the run before it finished.
    the landing, and nothing in it was changed; give the owner that line as it is, with git's own
    reason. A new task's worktree still starts from origin's base branch: only that checkout is behind.
 8. **After the merge.** For a task that came from a ticket (`ticket` in `lem project tasks`), the
-   tracker comments the landing on the ticket and moves it as the settings say (`load-skill` the
+   tracker comments the landing on the ticket and moves it, unless it is there already (`load-skill` the
    tracker, its "land"). Then **`clean`** removes the task's worktree and its branch, and the
    forge's copy of the branch when the pull request was merged there. For a ready branch it
    first checks that the base holds the branch's tip. It refuses a worktree with changes or
