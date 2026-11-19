@@ -17,8 +17,15 @@ fails=0
 oks=0
 skips=0
 CHECKS=0
-pass() { printf 'ok   %s\n' "$1"; oks=$((oks + 1)); }
-fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); }
+# LEM_TEST_TIMES=FILE: each check appends a line to FILE, the whole seconds since the check before
+# it in its suite, the suite and the check's text, so that one run shows where the time goes
+check_at=0
+timed() {
+  [ -n "${LEM_TEST_TIMES:-}" ] && printf '%s\t%s\t%s\n' "$((SECONDS - check_at))" "${0##*/}" "$1" >>"$LEM_TEST_TIMES"
+  check_at=$SECONDS
+}
+pass() { printf 'ok   %s\n' "$1"; oks=$((oks + 1)); timed "$1"; }
+fail() { printf 'FAIL %s\n' "$1"; fails=$((fails + 1)); timed "$1"; }
 # skip TEXT: a check that did not run, with why, in TEXT
 skip() { printf 'SKIP %s\n' "$1"; skips=$((skips + 1)); }
 

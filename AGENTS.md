@@ -1010,6 +1010,8 @@ repository.
 Each suite says how many checks it holds (`collected N`, `tests/checks.sh`), and a check that
 cannot run here prints a `SKIP` line of its own. A suite whose `ok` and `SKIP` lines do not add up
 to that count fails, and so does one that runs over its time limit (`LEM_TEST_LIMIT`, 30 minutes).
+With `LEM_TEST_TIMES=FILE` each check of a block appends its seconds to FILE, so one run shows
+which checks hold the time.
 
 One suite alone:
 
