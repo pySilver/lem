@@ -1944,7 +1944,7 @@ def type_of(text: str) -> dict | None:
 FAST_BUILDER = "small change: one builder"
 FAST_GREW = re.compile(r"\bthe small change is a full change$")
 LEAD_LINE = re.compile(r"lead: (builder|session)\b")
-# The state line of a task whose interview waits for the owner (`stages/new.md`, step 5).
+# The state line of a task whose interview waits for the owner (`stages/new.md`, step 4).
 INTERVIEW_WAIT = "the interview waits for the owner"
 
 

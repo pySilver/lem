@@ -264,8 +264,7 @@ shared by every worktree, never committed and not removed with a worktree. It ho
 - `investigation.md`: the investigator's report of a bug or a question: reproduced or not and
   how, the cause and its place or the answer, what else the cause reaches, and its call of what
   follows (`prompts/investigator.md`). The investigator writes it, or Lem from its reply. Lem
-  reads it as it reads the scout's report, and it stands in for that report in the interview
-  of a bug.
+  reads it, and it stands in for the scout's report in the interview of a bug.
 - `directions.md`: what the owner named in the interview (a technology, a library, an approach,
   an option he picked), one line each in his words. The interview's companion writes it; the
   plan follows it.
