@@ -4,8 +4,6 @@
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-# What a review saw outside the change is filed after it, as new items in the backlog folder: that asks
-# for no other review. Any other file does, an item that was on the base included.
 # backlog_repo NAME: a repository with one item in its backlog folder, docs/backlog, on the base
 backlog_repo() {
   local repo=$WORK/$1
@@ -18,29 +16,34 @@ backlog_repo() {
 blg_task() { task_in "$BLG" "$1" app.txt two && read_in "$BLG" "$1"; }
 # checked_in REPO SLUG: the task takes the landing line, its base, its polish pass and its gate
 checked_in() { land --repo "$1" start "$2" >/dev/null && land --repo "$1" base "$2" >/dev/null && polish_in "$1" "$2" && land --repo "$1" checks "$2" >/dev/null; }
-# reviewed_then REPO SLUG CHANGE: a task whose change one read reviewed, then CHANGE run in its
-# worktree and committed, and the checks again; prints what is due
-reviewed_then() {
-  local tree
-  task_in "$1" "$2" app.txt two
-  tree=$(project --repo "$1" worktree-dir "$2")
-  checked_in "$1" "$2"
-  land --repo "$1" read "$2" --record "$(clean 1)" >/dev/null
-  (cd "$tree" && sh -c "$3")
-  git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): after the review" && land --repo "$1" checks "$2" >/dev/null
-  land --repo "$1" read "$2" | field 'd["due"]'
-  project --repo "$1" state "$2" dropped "the test is over" >/dev/null
-}
 backlog_repo backlog-land
 BLG=$WORK/backlog-land
-added=$(reviewed_then "$BLG" new-item 'echo "# a defect from before" > docs/backlog/new.md')
-edited=$(reviewed_then "$BLG" edited-item 'echo more >> docs/backlog/existing.md')
-removed=$(reviewed_then "$BLG" removed-item 'rm docs/backlog/existing.md')
-if [ "$added" = none ] && [ "$edited" = review ] && [ "$removed" = review ]; then
-  pass "a new item in the backlog folder after a review keeps the review, and an edit or a deletion of an item that was on the base asks for another"
+
+# What a review saw outside the change is filed after it, as new items in the backlog folder: that asks
+# for no other review. Any other file does, an item that was on the base included. One task is reviewed
+# once, and each change after the review starts from the reviewed tip; the rest of the rule, a deletion
+# and a new file outside the folder among it, is tests/unit/test_backlog.py's.
+task_in "$BLG" after-review app.txt two
+tree=$(project --repo "$BLG" worktree-dir after-review)
+checked_in "$BLG" after-review
+land --repo "$BLG" read after-review --record "$(clean 1)" >/dev/null
+reviewed=$(git -C "$tree" rev-parse HEAD)
+# after_review CHANGE: CHANGE run in the reviewed worktree and committed, and the checks again; prints what is
+# due, then puts the worktree back on the reviewed tip
+after_review() {
+  (cd "$tree" && sh -c "$1")
+  git -C "$tree" add -A && git -C "$tree" commit -q -m "docs(backlog): after the review" && land --repo "$BLG" checks after-review >/dev/null
+  land --repo "$BLG" read after-review | field 'd["due"]'
+  git -C "$tree" reset -q --hard "$reviewed"
+}
+added=$(after_review 'echo "# a defect from before" > docs/backlog/new.md')
+edited=$(after_review 'echo more >> docs/backlog/existing.md')
+if [ "$added" = none ] && [ "$edited" = review ]; then
+  pass "a new item in the backlog folder after a review keeps the review, and an edit of an item that was on the base asks for another"
 else
-  fail "backlog items after a review: $added / $edited / $removed"
+  fail "backlog items after a review: $added / $edited"
 fi
+project --repo "$BLG" state after-review dropped "the test is over" >/dev/null
 # Two rounds that saw two different defects give two items, each filed by the script in a commit of
 # its own; a second run files nothing; propose waits for each one, and the pull request names them.
 A='{"where": "src/json.py:parse", "title": "Empty input crashes the parser", "what": "parse with an empty string raises IndexError, on the base commit too."}'
