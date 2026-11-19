@@ -47,50 +47,70 @@ Read in the code at `28d3c81`:
 
 ## Tasks
 
-1. **`lem land checks` knows its own run: one at a time, a status, a stop, a line for the owner,
-   and no review or proposal while it runs.** Serves criteria 1 (the stop), 2 (the line), 4, 5
-   (the overdue line and the stop) and 7. Files: `skills/lem/scripts/land.py` (its docstring,
-   which is `lem land --help`, too), `tests/unit/test_land.py`, `tests/lem-land-guards.sh`.
-   - *One run at a time.* `cmd_checks` takes a lock of its own before anything else it does
-     (before `gate.start` and before it touches `landing.json`): a non-blocking `flock` on a file
-     in the task directory (`checks.lock`), with the process id and the start time written into
-     it, held until the step ends however it ends. A second `lem land checks SLUG` while it is
-     held exits 1 with a message that says the checks of SLUG already run, since when and in which
-     process, that the session which started them goes on when they end, and that `lem land
-     checks SLUG --status` says whether they still run. The commands do not inherit the lock's
-     file (Popen's `close_fds`), so a server a command left behind does not hold it.
+1. **`lem land` runs one step of a task at a time, and `checks` knows its own run: a status, a
+   stop, an end on record and a line for the owner.** Serves criteria 1 (the stop), 2 (the line),
+   4, 5 (the overdue line and the stop) and 7. Files: `skills/lem/scripts/land.py` (its
+   docstring, which is `lem land --help`, too), `tests/unit/test_land.py`,
+   `tests/lem-land-guards.sh`.
+   - *One step of a task at a time.* Every step of `lem land` that names a task (`start`, `base`,
+     `polish`, `checks`, `read`, `file`, `propose`, `land`, `merged`, `clean`) takes the task's
+     one step lock before anything else it does (before `gate.start`, before a fetch, before it
+     touches `landing.json` or the worktree): a non-blocking `flock` on `step.lock` in the task
+     directory, held until the step ends however it ends. Its first act after the lock is to write
+     into the file the step's name, its process id and its start time. A step of the same task
+     while the lock is held exits 1 and names the step that holds it, since when and in which
+     process. When that step is `checks`, the message says that the checks of SLUG run, that their
+     end comes first, that the session which started them goes on when they end, and that `lem
+     land checks SLUG --status` says whether they still run; for a second `checks` it says that
+     they already run (criterion 7). `checks --status`, `checks --stop` and `watch` take no lock.
+     The commands do not inherit the lock's file (Popen's `close_fds`), so a server a command left
+     behind does not hold it.
    - *No result while it runs.* `cmd_checks` clears `gated` and `tree` before its first command,
-     and `read`, `propose` and `land` refuse while the task's checks run, with a message that
-     names the run and says that its end comes first. A test for criterion 4: a first run green on
-     a tip, then a second run on the same tip with a slow command; during it `read` is refused,
-     where the base commit lets it pass on the kept `gated`.
-   - *`--status`.* `lem land checks SLUG --status` prints JSON and starts nothing: `running`,
-     `since`, `seconds`; `last_seconds`, the length of the last finished run of the checks in this
-     repository, of any task, read from the event log (a `gate.start` followed by a `gate` event of
-     the same task and tip for each of its `commands`, each with exit 0; from `gate.start` to the
-     last of them), or null when there is none; `overdue`, true when the checks run and `seconds`
-     is more than three times `last_seconds`; `say`, the one line for the owner when they are
-     overdue ("SLUG: the checks run for 14 min, three times their last run of 4 min 26 s; \"stop
-     the checks\" stops them"); and `ended`, the last run of this task's checks that ended (its
-     time, its tip, green or not and its `say`), or null, so that a session which did not see the
-     end reads it. A look at the lock never makes a real start fail: read the process id from the
-     file and test it, or take the lock in a way a start does not meet.
+     so a run cut off with no chance to clean up leaves no result of an earlier run for its tip.
+     Tests for criterion 4, in both orders: during a slow run on a tip that passed before, `read`,
+     `propose` and `base` are refused, where the base commit lets `read` pass on the kept
+     `gated`; and while the test holds the task's step lock as another step would, `checks` is
+     refused.
+   - *The end of a run.* Every run that logged `gate.start` logs one `gate.end` event when it
+     ends, however it ends: `result` (`passed` when the step returns its JSON and keeps `gated`;
+     `red` for a command of the checks that failed; `refused` for a criterion's test that does
+     not hold, a lowered bar, or a command that changed the tree; `stopped` for a stop), `seconds`
+     from its `gate.start`, `tip`, and `say`. A run is that pair of events.
+   - *`--status`.* `lem land checks SLUG --status` prints JSON and starts nothing: `running`, true
+     when the step lock is held by `checks`; `since` and `seconds` of that run; `last_seconds`,
+     the `seconds` of the newest `gate.end` with `result` `passed` in this repository's event log,
+     of any task, or null when there is none; `overdue`, true when the checks run and `seconds` is
+     more than three times `last_seconds`; `say`, the one line for the owner when they are overdue
+     ("SLUG: the checks run for 14 min, three times their last run of 4 min 26 s; \"stop the
+     checks\" stops them"); and `ended`, the newest `gate.end` of this task (its time, its tip,
+     its `result` and its `say`), or null. A look at the lock never makes a real start fail: read
+     the process id from the file and test the lock without holding it in a way a start meets.
    - *`--stop`.* `lem land checks SLUG --stop` sends SIGTERM to the process the lock names, only
-     while the lock is held, waits for its end, and prints whether it stopped one (`stopped`).
-     With no run it exits 0 with `stopped: false`, so that `stages/correct.md` can call it for a
-     task in `landing` without a look first. The stopped run ends as today: the command and its
-     group end, `gated` and `tree` stay null, and the run's own exit says it was stopped.
-   - *`say`.* Every result the step prints, the JSON of a green run and the JSON it prints before
-     a red refusal (a red command, a criterion's test that does not hold, a lowered bar), has
-     `say`: one line with the slug, the result and the next step, with no question, as
-     "landing-in-the-background: the checks passed; the review runs, nothing for you" or
+     while the lock is held by `checks`, waits until the lock is free, and prints whether it
+     stopped one (`stopped`). With no run it exits 0 with `stopped: false`, so that
+     `stages/correct.md` can call it for a task in `landing` without a look first. A stop reaches
+     every process the run started, through each one's own cleanup, and the lock goes last:
+     `cmd_checks` keeps its SIGTERM handler from the lock to its last line, `criteria.py red` and
+     the bar included; on a stop during `criteria.py red` it sends that child SIGTERM and waits
+     for its end, so that its own handler ends its tests and removes its two worktrees (the
+     child is never killed first, as `subprocess.run` does on an exception); and `end_group`
+     gives the wrapper of a serial command the time of its own cleanup (`project.py serial`: a
+     term, three seconds, a kill) before it kills it. The stopped run then ends as today: `gated`
+     and `tree` stay null, and its exit says it was stopped.
+   - *`say`.* Every end of the step has `say`, in the JSON it prints and in its `gate.end`: one
+     line with the slug, the result and the next step, with no question, as
+     "landing-in-the-background: the checks passed; the review runs, nothing for you",
      "landing-in-the-background: the checks are red on bash tests/all.sh; a builder repairs it,
-     nothing for you". The same line is what `ended` keeps.
-   - Unit cases for the rules that take facts (the last run's length from a list of events, the
-     overdue call, the `say` lines); the block for what needs processes and git (a second start
-     refused while one runs, `--stop` ends a run and leaves `gated` null, `read` refused during a
-     run). Run `python3 -B -m unittest discover -s tests/unit` and `bash
-     tests/lem-land-guards.sh`, never `tests/all.sh`.
+     nothing for you", or "landing-in-the-background: the checks were stopped; the landing waits
+     for your word". A stopped or refused run prints its JSON with `say` before its exit 1, as a
+     red one does today.
+   - Unit cases for the rules that take facts (`last_seconds` from a list of events, the overdue
+     call, the `say` lines); the block for what needs processes and git (a second `checks`
+     refused while one runs; `base` and `read` refused during a run and `checks` refused while
+     the lock is held; `--stop` during a command of the checks and during the criteria' tests
+     ends the run with no process of it left, no `SLUG.red-*` worktree, `gated` null, the lock
+     free and a `gate.end` of `stopped`). Run `python3 -B -m unittest discover -s tests/unit`
+     and `bash tests/lem-land-guards.sh`, never `tests/all.sh`.
 
 2. **Lem runs the checks in the background and goes on when they end.** Serves criteria 1, 2,
    3, 5 and 6. Files: `skills/lem/stages/land.md` (step 4, and the stage's opening, which says
@@ -101,14 +121,21 @@ Read in the code at `28d3c81`:
    run-in-background"), `docs/flow.md`.
    - `stages/land.md`, step 4: Lem starts `lem land checks SLUG` with `run-in-background`, the
      plain command, says nothing more and goes on with whatever the owner talks about. One run of
-     the checks at a time, and the step refuses a second. When it ends, Lem reads what it printed,
-     says its `say` once (on exit 1 with no JSON, the step's own `land.py:` line), and goes on as
-     step 4 says today: green to step 5, red to the repair builder. `start`, `base`, `read` and
-     `propose` stay in the foreground: they are short (not measured), and only the checks are
-     named in the criteria. While the checks run, at each of Lem's turns, `lem land checks SLUG
-     --status`: its `say` once when `overdue` turns true; its `ended`, when Lem did not see the end
-     of the run (a session that started after it), is that end. "stop the checks" in the owner's
-     words is `lem land checks SLUG --stop`, and the landing then waits for his next word.
+     the checks at a time, and the step refuses a second. When the run its own session started
+     ends, Lem reads what it printed, says its `say` once (on exit 1 with no JSON, a refusal
+     before `gate.start`, the step's own `land.py:` line), and acts by its `result`: `passed`, the
+     step after the checks in the path that ran them (step 5; for a task brought onto the base in
+     step 9, that path's read and its `propose` with the last proposal's title); `red` or
+     `refused`, the repair builder, as step 4 says today; `stopped`, nothing, since the word that
+     stopped it (a drop, a track change, "stop the checks") says what comes next. A session that
+     did not start the run (one that started after it) says the `say` of `ended` once and takes
+     the landing up by the stage's rule for a session before it that was cut off. A step of the
+     task that the step lock refuses while the checks run is not sent again: it waits for their
+     end. `start`, `base`, `read` and `propose` stay in the foreground: they are short (not
+     measured), and only the checks are named in the criteria. While the checks run, at each of
+     Lem's turns, `lem land checks SLUG --status`: its `say` once when `overdue` turns true. "stop
+     the checks" in the owner's words is `lem land checks SLUG --stop`, and the landing then waits
+     for his next word.
    - `stages/correct.md`: `drop` and `standard-track` of a task in `landing` run `lem land checks
      SLUG --stop` first.
    - `harness/claude-code.md`: two background commands may run, the watch and the checks, each
@@ -119,8 +146,31 @@ Read in the code at `28d3c81`:
      script's process running with its lock.
    - `docs/flow.md`: one sentence in its STE, where it says that the checks run, that the owner
      can talk to Lem while they run.
-   - No test: a stage file's test is a real task (`AGENTS.md`, "Checks"), and this task's own
-     landing is that run for criteria 1, 2, 3 and 5.
+   - No test: a stage file's test is a real task (`AGENTS.md`, "Checks"), and task 3 is that run
+     for criteria 1, 2, 3 and 5.
+
+3. **One real run with this branch's plugin.** Serves criteria 1, 2, 3 and 5. No file of the
+   repository changes; the builder's report is the record, and the criteria's lines for 1, 2, 3
+   and 5 are `- no test:` lines that name it. This task's own landing runs on the installed
+   plugin, whose `bin/lem` runs the scripts of its own folder (`bin/lem`, `ROOT`), so it runs the
+   code before this change and is not the run.
+   - A throwaway clone of this repository at the branch's tip, outside the worktree, whose main
+     checkout's `.lem/project.toml` has as its one `checks.serial` command a command of twelve
+     minutes that ends with a known last line, and one task in it brought to `ready`.
+   - An agterm session of its own, opened by the builder, started in the clone with `claude
+     --plugin-dir WORKTREE`, so that its skill, its harness and its `lem` are this branch's. The
+     builder types into it with `agtermctl session type`, as the owner would: `/lem land`; one
+     message about another topic one minute after `gate.start`; then nothing for ten minutes
+     after `gate.end`.
+   - The report holds, from the clone's event log and the session's screen text: the time of the
+     message and of its answer beside the run's `gate.start` and `gate.end` (criterion 1); the
+     `say` line on the screen, and that no question came with it (criterion 2); the task's state
+     ten minutes after `gate.end` (criterion 3); and the `last` of the twelve-minute command in
+     `landing.json` beside the last non-blank line of its output file, with the run's `seconds`
+     over 600 (criterion 5). The overdue line is held by the unit cases of task 1.
+   - The builder closes the session and removes the clone and its worktrees at the end. A run it
+     cannot hold to the end is said in its report as such, with where it stopped: no criterion is
+     marked as held by a run that did not happen.
 
 ## Decisions
 
@@ -128,13 +178,15 @@ Read in the code at `28d3c81`:
   the tool that started the background command: a new or compacted session does not hold the
   first session's background task, and a stop of the shell alone may leave the Python process and
   its lock behind.
-- "Their last finished run" is the last run in this repository whose commands all ran and passed,
-  of any task: a red run stops before the serial commands and would make the next run look
-  overdue. With no such run there is no overdue line.
-- `read`, `propose` and `land` refuse while the checks run, and the checks clear their kept
-  result before their first command: with the checks in the background, Lem's session is free to
-  run another step of the same task, and criterion 4 says no proposal comes before the checks
-  ended.
+- "Their last finished run" is the newest `gate.end` in this repository whose `result` is
+  `passed`, of any task: a red run stops before the serial commands and would make the next run
+  look overdue, and only the end event marks a run as finished (the criteria' tests and the bar
+  come after the last `gate`). With no such run there is no overdue line.
+- Every step of a task's landing takes the task's one step lock, and the checks clear their kept
+  result before their first command: with the checks in the background, Lem's session (or a
+  second one, as criterion 7 names) is free to run another step of the same task, in either
+  order. Criterion 4 says no proposal comes before the checks ended, and `gate_holds` takes a kept
+  `gated == tip` as a pass; `base` and `clean` change the worktree the checks run in.
 - Only `checks` moves to the background. The other steps stay as they are.
 
 ## Not verified
@@ -143,7 +195,7 @@ Read in the code at `28d3c81`:
   owner gets an answer during the checks, whether an idle session wakes at their end, and
   whether a background command outlives ten minutes. No test in `tests/` holds them; the owner
   asked for quick test runs ("I demand quick tasks run", 2026-11-19), and the twelve-minute run
-  is one real run, as the task's directions say. This task's own landing is the first run of
-  1, 2 and 3.
+  is one real run, as the task's directions say: task 3, in a session that loads this branch's
+  plugin.
 - Criterion 6 is today's rule, which `tests/lem-land-guards.sh` already holds; the change keeps
   it.
