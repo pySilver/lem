@@ -17,13 +17,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "lem" / 
 companion = importlib.import_module("companion")
 
 HELD = "2026-11-19T10:00:00Z"
+# the personas' read of an interview's criteria, on record after the wait began
+READ = "2026-11-19T10:25:00Z"
 THERE = {"away": False, "since": None, "words": None}
 
 
 def task(slug: str = "gift-note", status: str = "held", line: str | None = "the interview waits for the owner", **more) -> dict:
     """One task's facts, as `gather` reads them: an interview that waits, unless MORE says otherwise."""
     return {"slug": slug, "status": status, "track": "standard", "mode": "with-owner", "line": line, "held_at": HELD,
-            "approvals": [], "choices": {}, "talk": True, **more}
+            "approvals": [], "reads": [], "choices": {}, "talk": True, **more}
 
 
 def choice(state: str = "waits", irreversible: str | None = None, at: str = HELD) -> dict:
@@ -65,10 +67,36 @@ class WhichNeedWaits(unittest.TestCase):
 
 class Due(unittest.TestCase):
     def test_an_approval_with_the_held_block_still_newest_gives_start_and_no_open(self):
-        approved = task(approvals=[{"at": "2026-11-19T10:30:00Z", "by": "owner"}])
+        approved = task(approvals=[{"at": "2026-11-19T10:30:00Z", "by": "owner"}], reads=[READ])
         found = companion.due(facts(approved))
         self.assertEqual(names(found["start"]), ["gift-note · interview"])
         self.assertEqual(found["open"], [])
+
+    def test_a_yes_before_the_read_is_in_starts_no_lead_and_keeps_the_companion(self):
+        # he typed yes while the personas still read: the read may flag a criterion he has not seen
+        early = task(approvals=[{"at": "2026-11-19T10:20:00Z", "by": "owner"}])
+        events = [opened("gift-note", "interview", "S-1")]
+        found = companion.due(facts(early, events=events, live={"S-1"}))
+        self.assertEqual((found["start"], found["close"]), ([], []))
+        self.assertIsNone(companion.refusal(early, "interview", None, facts(early, events=events, live={"S-1"}), asked=False))
+        # the read came in after his yes: it still waits for a yes after the read
+        self.assertEqual(companion.due(facts(task(approvals=early["approvals"], reads=[READ]), events=events, live={"S-1"}))["start"], [])
+        # a read from before the wait began is no read of these criteria
+        self.assertEqual(companion.due(facts(task(approvals=[{"at": "2026-11-19T10:30:00Z", "by": "owner"}], reads=["2026-11-19T09:00:00Z"])))["start"], [])
+
+    def test_a_yes_after_the_read_or_after_his_word_to_skip_it_starts_the_lead(self):
+        after_read = task(approvals=[{"at": "2026-11-19T10:20:00Z", "by": "owner"}, {"at": "2026-11-19T10:30:00Z", "by": "owner"}], reads=[READ])
+        self.assertEqual(names(companion.due(facts(after_read))["start"]), ["gift-note · interview"])
+        skip = {"ts": "2026-11-19T10:10:00Z", "event": "decision.taken", "task": "gift-note", "by": "owner", **companion.land.READ_SKIP}
+        other = {"ts": "2026-11-19T10:11:00Z", "event": "decision.taken", "task": "gift-note", "by": "lead", **companion.land.READ_SKIP}
+        self.assertEqual(companion.reads_of([skip, other, {"ts": READ, "event": "criteria.read", "task": "gift-note"}]), ["2026-11-19T10:10:00Z", READ])
+        skipped = task(approvals=[{"at": "2026-11-19T10:12:00Z", "by": "owner"}], reads=companion.reads_of([skip]))
+        self.assertEqual(names(companion.due(facts(skipped))["start"]), ["gift-note · interview"])
+
+    def test_criteria_that_wait_for_his_yes_were_read_before_the_wait(self):
+        # the lead ran the read and then stopped: his yes after the block answers it
+        criteria = task(line="the criteria wait for the owner: somebody else wrote the request", approvals=[{"at": "2026-11-19T10:30:00Z", "by": "owner"}])
+        self.assertEqual(names(companion.due(facts(criteria))["start"]), ["gift-note · criteria"])
 
     def test_an_approval_before_the_wait_answers_nothing(self):
         # the fast track's own approval, by Lem in his name, came before the builder found a full change
@@ -118,11 +146,20 @@ class Due(unittest.TestCase):
         self.assertEqual(names(companion.due(facts(stopped, events=events, back_at="2026-11-19T12:00:00Z"))["open"]), ["gift-note · choice 2"])
 
     def test_a_companion_whose_need_is_answered_or_dropped_is_closed(self):
-        approved = task(approvals=[{"at": "2026-11-19T10:30:00Z", "by": "alone"}])
+        approved = task(approvals=[{"at": "2026-11-19T10:30:00Z", "by": "alone"}], reads=[READ])
         dropped = task(slug="dropped-one", status="dropped", line="the owner dropped it")
         events = [opened("gift-note", "interview", "S-1"), opened("dropped-one", "interview", "S-2")]
         found = companion.due(facts(approved, dropped, events=events, live={"S-1", "S-2"}))
         self.assertEqual([(item["name"], item["why"]) for item in found["close"]], [("gift-note · interview", "answered"), ("dropped-one · interview", "dropped")])
+
+    def test_a_close_on_record_whose_session_still_runs_is_due_its_close_again(self):
+        # `lem companion close` logged the close, and agterm's `session close` then failed
+        events = [opened("gift-note", "choice", "S-1", number=1), closed("gift-note", "choice", "S-1", "dismissed", number=1)]
+        building = task(status="building", line="task 2 of 3", choices={1: choice()})
+        found = companion.due(facts(building, events=events, live={"S-1"}))
+        self.assertEqual([(item["name"], item["why"], item["session"]) for item in found["close"]], [("gift-note · choice 1", "dismissed", "S-1")])
+        self.assertEqual((found["open"], found["gone"]), ([], []))
+        self.assertEqual(companion.due(facts(building, events=events, live=set()))["close"], [])
 
     def test_an_interview_with_no_talk_is_due_its_talk_first(self):
         found = companion.due(facts(task(talk=False)))
@@ -137,7 +174,7 @@ class Approvals(unittest.TestCase):
             (Path(folder) / "criteria.json").write_text(json.dumps(record), encoding="utf-8")
             found = companion.approvals_of(Path(folder), [])
         self.assertEqual(sorted((item["at"], item["by"]) for item in found), [("2026-11-19T09:00:00Z", "lem"), ("2026-11-19T10:30:00Z", "owner")])
-        self.assertEqual(names(companion.due(facts(task(approvals=found)))["start"]), ["gift-note · interview"])
+        self.assertEqual(names(companion.due(facts(task(approvals=found, reads=[READ])))["start"]), ["gift-note · interview"])
 
 
 class Refusals(unittest.TestCase):
@@ -146,7 +183,7 @@ class Refusals(unittest.TestCase):
         self.assertEqual(companion.refusal(task(track="fast"), "interview", None, state, False)[0], "fast")
         self.assertEqual(companion.refusal(task(status="landed", line="main 1..2"), "interview", None, state, False)[0], "ended")
         self.assertEqual(companion.refusal(task(), "criteria", None, state, False)[0], "none")
-        approved = task(approvals=[{"at": "2026-11-19T10:30:00Z", "by": "owner"}])
+        approved = task(approvals=[{"at": "2026-11-19T10:30:00Z", "by": "owner"}], reads=[READ])
         self.assertEqual(companion.refusal(approved, "interview", None, state, False)[0], "answered")
 
 

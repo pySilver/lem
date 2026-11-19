@@ -14,7 +14,7 @@ CALLS=$WORK/calls
 TREE=$WORK/tree.json
 mkdir -p "$BIN"
 # The stand-in: each call one JSON line in CALLS; `tree` gives the sessions of TREE, `session new` adds one
-# (S-1, S-2, ...) under its --parent, `session close` takes its --target away.
+# (S-1, S-2, ...) under its --parent, `session close` takes its --target away, or fails with CLOSE_FAILS set.
 {
   printf '#!%s\n' "$PY"
   cat <<'STANDIN'
@@ -37,6 +37,8 @@ elif args[:2] == ["session", "new"]:
     json.dump(nodes, open(os.environ["TREE"], "w"))
     print(json.dumps({"result": {"id": made["id"]}}))
 elif args[:2] == ["session", "close"]:
+    if os.environ.get("CLOSE_FAILS"):
+        sys.exit("session close: the session did not answer")
     json.dump([node for node in nodes if node["id"] != value("--target")], open(os.environ["TREE"], "w"))
 STANDIN
 } > "$BIN/agtermctl"
@@ -48,7 +50,7 @@ git init -q -b main "$R" && ident "$R" && project --repo "$R" init --base main >
 STATE=$R/.lem/state
 # comp ARGS: lem companion as Lem's session runs it; AS=ID runs it from another session
 comp() {
-  env CALLS="$CALLS" TREE="$TREE" PATH="$BIN:$PATH" AGTERM_SESSION_ID="${AS:-S-LEM}" AGTERM_PANE_ID=P-LEM AGTERM_SOCKET="$WORK/agterm.sock" AGTERM_WINDOW_ID=W1 \
+  env CALLS="$CALLS" TREE="$TREE" CLOSE_FAILS="${CLOSE_FAILS:-}" PATH="$BIN:$PATH" AGTERM_SESSION_ID="${AS:-S-LEM}" AGTERM_PANE_ID=P-LEM AGTERM_SOCKET="$WORK/agterm.sock" AGTERM_WINDOW_ID=W1 \
     "$PY" -B "$COMPANION" --repo "$R" "$@"
 }
 pr() { project --repo "$R" "$@"; }
@@ -139,9 +141,22 @@ else
   fail "the brief, a second open, the list: $brief / $again / $listed / $(git -C "$R" status --porcelain --untracked-files=all)"
 fi
 
-# His yes in the companion: the approval on record gives the start, and the companion that runs is due its close.
+# His yes in the companion: a yes typed before the personas' read is in starts nothing and still waits for
+# him; after the read, the approval on record gives the start, waits for him no more, and the companion
+# that runs is due its close.
 printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the export gets a column.' '' '1. The export of order 1042 holds its gift note.' > "$WORK/criteria.md"
 "$PY" -B "$CRITERIA" --repo "$R" approve gift-note --file "$WORK/criteria.md" >/dev/null
+early=$(comp due | field '[[s["name"] for s in d["start"]], [c["name"] for c in d["close"]]]' 2>&1 || true)
+early_waits=$(pr waiting | field '[t["task"] for t in d["held"]]' 2>&1 || true)
+digest=$("$PY" -B "$CRITERIA" --repo "$R" digest gift-note --file "$WORK/criteria.md" | field 'd["digest"]')
+pr log gift-note criteria.read by=lem asked:=2 answered:=2 'families:=["opus"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+"$PY" -B "$CRITERIA" --repo "$R" approve gift-note --file "$WORK/criteria.md" >/dev/null
+waits=$(pr waiting | field '([t["task"] for t in d["held"] + d["criteria"]], d["count"])' 2>&1 || true)
+if [ "$early" = "[[], []]" ] && [ "$early_waits" = "['gift-note', 'report-dates']" ] && [ "$waits" = "(['report-dates'], 1)" ]; then
+  pass "a yes typed before the personas' read is in starts no lead and closes nothing; after the read his yes takes the task out of what waits for him"
+else
+  fail "the yes before the read: $early / $early_waits / $waits"
+fi
 owed=$(comp due 2>&1 || true)
 closed=$(comp close gift-note --need interview --why answered 2>&1 || true)
 twice=$(comp close gift-note --need interview --why answered 2>&1; echo "exit $?")
@@ -197,6 +212,20 @@ if [ "$(tail -n 1 <<<"$fast")" = "exit 1" ] && grep -qF "typo-fix is on the fast
   pass "a task on the fast track opens no companion; while the owner is away nothing opens, the card his away took is due its close, and each companion that runs is due one message until told-away records it"
 else
   fail "the fast track and away: $fast / $away_open / $told_due / $after_told"
+fi
+
+# A close that agterm did not carry out: the close is on record, the session still runs, and the next
+# close closes it with no second record.
+cart=$(field 'd["session"]' <<<"$asked" 2>&1 || true)
+failed=$(CLOSE_FAILS=1 comp close cart-total --need choice --choice 1 --why answered 2>&1; echo "exit $?")
+again_due=$(comp due | field '[(c["name"], c["why"]) for c in d["close"]]' 2>&1 || true)
+reclosed=$(comp close cart-total --need choice --choice 1 --why answered 2>&1 || true)
+if [ "$(tail -n 1 <<<"$failed")" = "exit 1" ] && grep -qF "the session did not answer" <<<"$failed" \
+  && [ "$again_due" = "[('cart-total · choice 1', 'answered')]" ] && [ "$(field '[d["closed"], d["ran"]]' <<<"$reclosed" 2>&1)" = "[True, True]" ] \
+  && ! grep -qF "\"$cart\"" "$TREE" && [ "$(grep -c "\"event\": \"companion.close\".*\"session\": \"$cart\"" "$STATE/events.jsonl")" = 1 ]; then
+  pass "a close whose session agterm did not close stays due its close, and the next close ends the session with no second record"
+else
+  fail "a failed close: $failed / $again_due / $reclosed / $(cat "$TREE")"
 fi
 
 finish

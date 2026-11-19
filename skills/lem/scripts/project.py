@@ -241,6 +241,7 @@ if sys.version_info < (3, 11):
 import argparse
 import difflib
 import fcntl
+import importlib
 import json
 import os
 import re
@@ -2102,7 +2103,14 @@ def cmd_waiting(root: Path) -> dict:
     def brief(task: dict) -> dict:
         return {"task": task["slug"], "ask": task["ask"], "since": task["since"], "night": task["night"]}
 
-    held = [task for task in tasks if task["status"] == "held"]
+    # a wait whose answer is on record waits for Lem's start of its lead, not for him (companion.py's one rule)
+    companion = importlib.import_module("companion")
+    try:
+        answered = companion.answered_holds(root)
+    except (companion.CompanionError, companion.project.SettingsError) as error:
+        # the module companion.py loads is this file's again when it runs as `lem project`
+        raise SettingsError(str(error)) from error
+    held = [task for task in tasks if task["status"] == "held" and task["slug"] not in answered]
     found = {
         # whether the owner said he is away, since when and in which words: the list says it first
         "owner": owner_now(events_named(root, OWNER)),

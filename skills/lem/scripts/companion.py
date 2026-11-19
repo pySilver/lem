@@ -20,7 +20,10 @@ any other line that starts `the criteria wait for the owner` is criteria; `held`
 waits for the owner`, and every choice that `lem decisions pending` lists, is choice N. A wait is
 answered when the record holds his word after the block that opened it: an approval of the criteria
 by `owner` or `alone` (the `criteria.approved` event, or `criteria.json` of the task directory), or
-choice N that no longer waits in `lem decisions list`. An answered wait opens nothing.
+choice N that no longer waits in `lem decisions list`. An interview's approval counts only after the
+personas' read of its criteria is in (`criteria.read`) or his word skipped it, both after the block:
+a yes he typed before the read freezes nothing, so no lead starts before a doubt reaches him. An
+answered wait opens nothing.
 
 `talk` copies the turns of Lem's Claude Code session word for word: from the newest owner turn
 whose text starts with TEXT to the newest turn, each with who said it and only its text, less each
@@ -41,7 +44,8 @@ default Claude with the brief `companion-NEED.md` of the task directory.
   open     each need that waits, is not answered, has no companion that runs, and `open` would open
   talk     each interview that would open but has no talk.md yet: `talk` first, then `open`
   start    each task whose newest block is the wait and whose wait is answered: its lead starts
-  close    each companion that runs and whose need no longer waits
+  close    each companion that runs and whose need no longer waits, and each whose close is logged
+           while its session still runs (agterm did not close it): its close again
   gone     each companion that is no longer in agterm's tree and has no `close`: log `--why gone`
   away     while the owner is away, each companion that runs and was not told since he went away
 """
@@ -70,6 +74,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
 lem_sibling = importlib.import_module("lem_sibling")
 project = importlib.import_module("project")
+# the owner's word to skip the personas' read, in the two texts the landing knows it by (READ_SKIP)
+land = importlib.import_module("land")
 
 NEEDS = ("interview", "criteria", "choice")
 CHOICE_WAIT = re.compile(r"choice ([1-9]\d*) waits for the owner")
@@ -79,6 +85,8 @@ ON_HIS_WORD = ("dismissed", "gone")
 # whose approval answers the wait of an interview or criteria: his own, or one made while the task ran without him
 APPROVERS = ("owner", "alone")
 EVENTS = ("companion.open", "companion.close", "companion.away")
+# what puts the personas' read of an interview's criteria on record: its record, or the owner's word to skip it
+READ_IN = ("criteria.read", "decision.taken")
 TALK = "talk.md"
 # the characters that the launch line cannot carry inside its two levels of quotes
 UNQUOTABLE = re.compile(r"['\"\\$`\n]")
@@ -119,7 +127,8 @@ def held_need(line: str | None) -> tuple[str, int | None] | None:
 
 def needs_of(task: dict) -> list[dict]:
     """Each need of the task, waiting or answered. `task` holds the facts `gather` reads: `status`,
-    `line` (the newest block's first line), `held_at`, `approvals`, `choices` (each decision of the
+    `line` (the newest block's first line), `held_at`, `approvals`, `reads` (when the personas' read
+    of the criteria, or his word to skip it, was put on record), `choices` (each decision of the
     task that matters here, by its id: its `state`, `irreversible` and `at`)."""
     out: list[dict] = []
     if task["status"] == "held" and (found := held_need(task["line"])):
@@ -131,7 +140,11 @@ def needs_of(task: dict) -> list[dict]:
                 out.append({"need": need, "choice": number, "since": task["held_at"], "irreversible": bool(record["irreversible"]),
                             "answered": record["state"] != "waits", "held": True})
         else:
-            answered = any(approval["by"] in APPROVERS and approval["at"] >= (task["held_at"] or "") for approval in task["approvals"])
+            since = task["held_at"] or ""
+            if need == "interview":
+                # his yes counts after the newest read since the wait began: one typed before it waits for it
+                since = max((at for at in task["reads"] if at >= since), default=None)
+            answered = since is not None and any(approval["by"] in APPROVERS and approval["at"] >= since for approval in task["approvals"])
             out.append({"need": need, "choice": None, "since": task["held_at"], "irreversible": False, "answered": answered, "held": True})
     for number, record in sorted(task["choices"].items()):
         if record["state"] == "waits" and not any(item["need"] == "choice" and item["choice"] == number for item in out):
@@ -141,8 +154,9 @@ def needs_of(task: dict) -> list[dict]:
 
 def companions_of(events: list[dict], live: set[str]) -> dict[str, dict]:
     """Each need's companion as the log and agterm's tree say: its newest `companion.open`, the
-    `companion.close` after it, the times Lem told it that the owner is away, and whether it runs.
-    One that is gone from the tree with no close ended as `gone`."""
+    `companion.close` after it, the times Lem told it that the owner is away, whether it runs (`live`:
+    no close and in the tree) and whether its session is still in the tree (`running`, also after a
+    close that agterm did not carry out). One that is gone from the tree with no close ended as `gone`."""
     found: dict[str, dict] = {}
     for record in events:
         key = key_of(record.get("task", ""), record.get("need", ""), record.get("choice"))
@@ -154,7 +168,8 @@ def companions_of(events: list[dict], live: set[str]) -> dict[str, dict]:
             found[key]["told"].append(record["ts"])
     for companion in found.values():
         opened = companion["open"]
-        companion["live"] = companion["close"] is None and str(opened.get("session", "")).upper() in live
+        companion["running"] = str(opened.get("session", "")).upper() in live
+        companion["live"] = companion["close"] is None and companion["running"]
         if companion["close"] is not None:
             companion["ended"], companion["ended_at"] = companion["close"].get("why"), companion["close"]["ts"]
         elif not companion["live"]:
@@ -241,6 +256,9 @@ def due(facts: dict) -> dict:
         item = {"need": opened.get("need"), "choice": opened.get("choice")}
         if companion["live"] and key not in wanted:
             out["close"].append(entry(slug, item, session=opened.get("session"), why="dropped" if statuses.get(slug) == "dropped" else "answered"))
+        elif companion["close"] is not None and companion["running"]:
+            # its close is on record and its session still runs: agterm's close failed, and it is closed again
+            out["close"].append(entry(slug, item, session=opened.get("session"), why=companion["close"].get("why")))
         elif companion["close"] is None and not companion["live"]:
             out["gone"].append(entry(slug, item, session=opened.get("session")))
         # a companion that is due its close gets no message: the away took its choice
@@ -479,10 +497,21 @@ def approvals_of(directory: Path, events: list[dict]) -> list[dict]:
     return found
 
 
+def reads_of(events: list[dict]) -> list[str]:
+    """When the personas' read of the task's criteria was put on record: each `criteria.read`, and
+    each word of the owner's to skip it (a `decision.taken` with the two texts of `READ_SKIP`)."""
+    return [
+        record["ts"] for record in events
+        if record.get("event") == "criteria.read"
+        or (record.get("event") == "decision.taken" and record.get("by") == "owner"
+            and record.get("what") == land.READ_SKIP["what"] and record.get("chose") == land.READ_SKIP["chose"])
+    ]
+
+
 def gather(root: Path, live: set[str]) -> dict:
     """The facts every rule here reads, from the task files, the event log and the decisions."""
     tasks = project.read_tasks(root)
-    events = project.events_named(root, "task.state", "criteria.approved", project.OWNER, *EVENTS)
+    events = project.events_named(root, "task.state", "criteria.approved", project.OWNER, *EVENTS, *READ_IN)
     waiting = sibling(root, "pending")["waiting"]
     state = project.state_root(root)
     facts_tasks = []
@@ -503,12 +532,21 @@ def gather(root: Path, live: set[str]) -> dict:
         facts_tasks.append({
             "slug": slug, "status": task["status"], "track": task["track"], "mode": task["mode"], "line": line, "held_at": held_at,
             "approvals": approvals_of(directory, [record for record in events if record.get("event") == "criteria.approved" and record.get("task") == slug]),
+            "reads": reads_of([record for record in events if record.get("event") in READ_IN and record.get("task") == slug]),
             "choices": choices, "talk": (directory / TALK).is_file(),
         })
     owners = [record for record in events if record.get("event") == project.OWNER and record.get("task") is None]
     back = next((record["ts"] for record in reversed(owners) if not record.get("away")), None)
     return {"tasks": facts_tasks, "owner": project.owner_now(owners), "back_at": back,
             "companions": companions_of([record for record in events if record.get("event") in EVENTS], live)}
+
+
+def answered_holds(root: Path) -> set[str]:
+    """The tasks whose newest block is a wait of the owner's whose answer is on record: they wait for
+    Lem's start of their lead, not for him (`lem project waiting` leaves them out). The same rule as
+    `due`'s `start`, with no look at agterm."""
+    return {task["slug"] for task in gather(root, set())["tasks"] if task["status"] == "held"
+            and any(item["held"] and item["answered"] for item in needs_of(task))}
 
 
 def live_ids(nodes: list[dict]) -> set[str]:
@@ -601,9 +639,13 @@ def cmd_close(root: Path, slug: str, need: str, choice: int | None, why: str) ->
     live = live_ids(sessions(place))
     companions = companions_of(project.events_named(root, *EVENTS), live)
     companion = companions.get(key_of(slug, need, choice))
-    if companion is None or companion["close"] is not None:
+    if companion is None or (companion["close"] is not None and not companion["running"]):
         return {"task": slug, "need": need, "choice": choice, "closed": False, "says": f"no companion of {slug}'s {need_name(need, choice)} is open"}
     session = companion["open"].get("session")
+    if companion["close"] is not None:
+        # its close is on record and agterm did not carry it out: the session is closed now, with no second log
+        ctl(place, "session", "close", "--target", str(session))
+        return {"task": slug, "need": need, "choice": choice, "closed": True, "session": session, "why": companion["close"].get("why"), "ran": True}
     # the log first: a companion that closes itself ends with its own session
     project.append_event(root, "companion.close", slug, {"need": need, **({"choice": choice} if choice is not None else {}), "session": session, "why": why})
     if companion["live"]:

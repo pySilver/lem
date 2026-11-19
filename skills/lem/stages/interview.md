@@ -122,10 +122,13 @@ each step writes as it comes and never after the last question.
    request this question is never asked: there the read is the only approval (`stages/plan.md`,
    step 1), and the landing refuses a word to skip it that comes after the lead started.
 6. **His yes.**
-   - *He typed it in the conversation before the read was in*: take it, and freeze the criteria
-     (step 7). When the read is in and nobody is confused and the families agree, say so in one
-     line and open no page. When a criterion is flagged or the families split, open the page below
-     for that.
+   - *He typed it in the conversation before the read was in*: take it, and wait for the read
+     before you freeze anything. When the read is in and nobody is confused and the families
+     agree, say so in one line, open no page, and freeze the criteria on that yes (step 7). When a
+     criterion is flagged or the families split, open the page below for that: his answer there is
+     his yes. An approval written before the read is in counts for nothing: `lem companion due`
+     takes his yes only after the read's record (or his word to skip it), so that no lead starts
+     before a doubt reaches him.
    - *Otherwise*, when the read is in, open one page through `ask-owner`:
      - the personas' result on top, for each persona and each model family, with a split
        between the families said first, in one line ("the Opus answers doubt criterion 1, the Sol

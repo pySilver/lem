@@ -45,8 +45,10 @@ commit, no state of the task.
    outcome into `interview-notes.md`, one line each, the question in a few words and his answer as
    he gave it; each direction into `directions.md` as he names it; and the personas' answers into
    `criteria-read.md` when the read is in. His yes is `lem criteria approve SLUG --file FILE` (step
-   7 there), and that record is the whole handoff: write no brief, no state and no `lead:` line,
-   and go to step 7 here.
+   7 there), once the read is in or he skipped it: a yes he types while the personas still read
+   waits for the read, as step 6 there says, and an approval written before the read starts no
+   lead. That record is the whole handoff: write no brief, no state and no `lead:` line, and go to
+   step 7 here.
 5. **Criteria that wait for his yes**: the lead's `report.md` holds them on top, with the
    personas' read. Write them into `criteria.md` in the form `lem criteria --help` shows, with no
    test lines, and put them to him on one page as step 6 of `stages/interview.md` says, the read's
