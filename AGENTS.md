@@ -1002,8 +1002,10 @@ python3 tests/pick.py --base main  # the suites to run for what the branch chang
 python3 -B -m unittest discover -s tests/unit  # the unit level: one file for each script, its rules called in one process; all.sh runs it as the suite unit
 ```
 
-The loop: the unit level after each edit; the blocks that `tests/pick.py` names once for a task, at
-its end; `tests/all.sh` once before `main` moves. A rule that takes facts and returns a result is a
+The loop: the unit level after each edit; while a task is in work, only the one block that holds
+the journey it changes; the blocks that `tests/pick.py` names once for a task, at its end;
+`tests/all.sh` once before `main` moves. A block is never run before a change to count it: the
+counts of the last full run are the before. A rule that takes facts and returns a result is a
 unit case, a call of its function; a fact only git can show is a check in a block, in a throwaway
 repository.
 

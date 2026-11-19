@@ -48,7 +48,7 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
      ("lem-*", "test-ask-expert", "test-gate-panel")),
     (("skills/lem/scripts/lem_sibling.py", "skills/lem/scripts/decisions.py", "skills/lem/scripts/criteria.py"),
      ("lem-land-*", "lem-decisions", "lem-serial", "lem-settings", "lem-state", "lem-machine", "lem-command", "lem-picker", "test-ask-expert")),
-    (("skills/lem/scripts/land.py",), ("lem-land-*", "lem-state", "lem-serial", "lem-machine", "lem-command")),
+    (("skills/lem/scripts/land.py",), ("lem-land-*", "lem-serial", "lem-command")),
     (("skills/lem/scripts/board.py", "skills/lem/assets/*"), ("test-board", "lem-settings", "lem-serial", "lem-machine", "lem-command", "lem-picker")),
     (("skills/lem/scripts/picker.py",), ("lem-picker", "lem-command")),
     (("skills/lem/scripts/corrections.py", "skills/lem/scripts/jev.py", "hooks/*", "bin/lem-jev"), ("lem-machine", "lem-state", "lem-command")),
