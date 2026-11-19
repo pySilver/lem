@@ -31,11 +31,22 @@
   h2 { margin: 0; font-size: 11px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
 
   .hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
-  .cols { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
   .stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  /* the board of all tasks has only the activity here: it takes the whole width */
-  .cols.one, .hero.one { grid-template-columns: minmax(0, 1fr); }
-  @media (max-width: 1080px) { .hero, .cols { grid-template-columns: minmax(0, 1fr); } }
+  /* the board of all tasks has only its large card here: it takes the whole width */
+  .hero.one { grid-template-columns: minmax(0, 1fr); }
+  @media (max-width: 1080px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+
+  /* Green or not green, first on the board of one task: its word, then each reason in plain words.
+     Its actor is the bar at its left edge: green, the owner's for not green, quiet before a proposal. */
+  .verdict { --actor: var(--quiet); --ink: color-mix(in srgb, var(--actor) 58%, var(--fg)); padding: 12px 16px; box-shadow: inset 3px 0 0 var(--actor); }
+  .verdict.a-done { --actor: var(--ok); }
+  .verdict.a-you { --actor: var(--you); }
+  .v-line { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 4px 12px; align-items: start; }
+  .v-text { min-width: 0; padding-top: 2px; font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
+  .v-word { color: var(--ink); font-weight: 680; }
+  .v-text .sub, .v-list .sub { color: var(--dim); font-size: 12.5px; }
+  .v-list { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45; }
+  .v-list li::marker { color: var(--ink); }
 
   /* now */
   .now { overflow: hidden; border-color: color-mix(in srgb, var(--actor) 38%, var(--line)); display: flex; flex-direction: column; }
@@ -67,9 +78,17 @@
   .now-next .lbl { font-size: 10.5px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
   .now-next .right { margin-left: auto; }
   .now-spacer { height: 16px; }
-  /* a task that ended: its large card is as tall as what it says, and the card beside it is the row's height */
-  .hero.closed { align-items: start; }
-  .hero.closed .now-spacer { height: 12px; }
+  /* The large card of one task has one height whatever its lines, and the card beside it the same:
+     what does not fit scrolls inside it, and its foot, with "Go to the session" at its right, stays at its bottom. */
+  .hero:not(.one) { grid-auto-rows: 340px; }
+  .hero:not(.one) > .card { height: 100%; overflow-y: auto; }
+  .hero:not(.one) .now { overflow: hidden; }
+  .hero:not(.one) .now > div { min-height: 0; }
+  .hero:not(.one) .now-in { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .hero:not(.one) .now-next { flex-wrap: nowrap; }
+  .hero:not(.one) .now-next > span:not(.right) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hero:not(.one) .now-next .lbl { flex: none; }
+  .now-next .right { flex: none; }
   /* the board of all tasks: the large card is one band, its count-down and its button at the right.
      Its actor is a bar at its left edge and the ring of its icon, never its surface. */
   .now.brief { padding: 8px 16px; border-color: var(--line); box-shadow: inset 3px 0 0 var(--actor); }
@@ -115,7 +134,8 @@
   .stat { min-width: 0; }
   .stat .sk { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); font-weight: 650; }
   .stat .sv { font: 650 16px/1.3 var(--mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; margin-top: 1px; }
-  .stat .ss { font-size: 11px; line-height: 1.35; color: var(--dim); }
+  /* two lines at most, so the card keeps its height; the whole text is the stat's hover */
+  .stat .ss { font-size: 11px; line-height: 1.35; color: var(--dim); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .stat.ok .sv { color: color-mix(in srgb, var(--ok) 58%, var(--fg)); } .stat.you .sv { color: color-mix(in srgb, var(--you) 58%, var(--fg)); } .stat.bad .sv { color: color-mix(in srgb, var(--bad) 58%, var(--fg)); }
 
   /* timeline */
@@ -508,7 +528,11 @@
     <div class="foot"><span><kbd>/</kbd> filter · <kbd>J</kbd> <kbd>K</kbd> move · <kbd>Enter</kbd> open or close · <kbd>S</kbd> start a task · <kbd>R</kbd> read again · <kbd>T</kbd> tasks · <kbd>W</kbd> waits for you</span></div>
   </section>
 
-  <section id="hero" class="hero" data-tasks>
+  <!-- Each panel names the tab that shows it: data-tasks on the board of all tasks, data-task-tab on
+       the board of one task. A tab hides the other panels and never removes them. -->
+  <section id="verdict" class="card verdict" data-task-tab="overview" role="status" aria-label="Green or not green" hidden></section>
+
+  <section id="hero" class="hero" data-tasks data-task-tab="overview">
     <div id="now" class="card now"></div>
     <div id="progress" class="card"></div>
   </section>
@@ -517,36 +541,40 @@
     <div id="lanes" class="lanes"></div>
   </section>
 
-  <section class="card" data-tasks>
+  <section id="crit-panel" class="stack" data-task-tab="criteria" role="tabpanel" aria-label="Criteria and decisions" hidden>
+    <section id="criteria-card" class="card">
+      <div class="card-head"><h2>Acceptance criteria</h2><div id="criteria-sum" class="dim small"></div></div>
+      <div id="criteria" class="rows"></div>
+    </section>
+    <section id="decisions-card" class="card">
+      <div class="card-head"><h2>Decisions</h2><div id="decisions-sum" class="dim small"></div></div>
+      <div id="decisions" class="rows"></div>
+    </section>
+    <div class="lane-empty panel-empty" hidden>The task ended with no criteria and no decision on record</div>
+  </section>
+
+  <section id="checks-panel" class="stack" data-task-tab="checks" role="tabpanel" aria-label="Checks and review" hidden>
+    <section id="gate-card" class="card">
+      <div class="card-head"><h2>Checks</h2><div id="gate-sum" class="dim small"></div></div>
+      <div id="gate" class="rows"></div>
+    </section>
+    <section id="review-card" class="card">
+      <div class="card-head"><h2>Review</h2><div id="review-sum" class="dim small"></div></div>
+      <div id="review" class="rows"></div>
+    </section>
+    <div class="lane-empty panel-empty" hidden>The task ended with no checks and no review on record</div>
+  </section>
+
+  <section id="tl-card" class="card" data-tasks data-task-tab="timeline">
     <div class="card-head"><h2>Where the time went</h2><div id="legend" class="legend"></div></div>
     <div id="tl-wrap"><div id="timeline"></div><div id="tip" class="tip" hidden></div></div>
     <div id="tl-note" class="tl-note"></div>
   </section>
 
-  <div id="cols" class="cols" data-tasks>
-    <div id="stack" class="stack">
-      <section id="criteria-card" class="card">
-        <div class="card-head"><h2>Acceptance criteria</h2><div id="criteria-sum" class="dim small"></div></div>
-        <div id="criteria" class="rows"></div>
-      </section>
-      <section id="decisions-card" class="card">
-        <div class="card-head"><h2>Decisions</h2><div id="decisions-sum" class="dim small"></div></div>
-        <div id="decisions" class="rows"></div>
-      </section>
-      <section id="gate-card" class="card">
-        <div class="card-head"><h2>Checks</h2><div id="gate-sum" class="dim small"></div></div>
-        <div id="gate" class="rows"></div>
-      </section>
-      <section id="review-card" class="card">
-        <div class="card-head"><h2>Review</h2><div id="review-sum" class="dim small"></div></div>
-        <div id="review" class="rows"></div>
-      </section>
-    </div>
-    <section class="card">
-      <div class="card-head"><h2>Activity</h2><div id="feed-sum" class="dim small"></div></div>
-      <div id="feed" class="feed rows"></div>
-    </section>
-  </div>
+  <section id="feed-card" class="card" data-tasks data-task-tab="timeline">
+    <div class="card-head"><h2>Activity</h2><div id="feed-sum" class="dim small"></div></div>
+    <div id="feed" class="feed rows"></div>
+  </section>
 
   <footer id="foot" class="foot"></footer>
 </main>
@@ -581,6 +609,11 @@
 // rarely, so backlog.js is read when its tab opens and on a key, not every two seconds, and the tab
 // says when it was written. `#waits` or `#backlog` in the address opens there.
 //
+// The board of one task has four: "Overview" (green or not green with its reasons in plain words,
+// buildVerdict, then the large card and the phases), "Criteria and decisions", "Checks and review" and
+// "Timeline" (where the time went, and the activity). A task opens on its overview, the keys 1 to 4
+// choose a tab, and "All tasks" goes back to the tab of the board of all tasks he left.
+//
 // No wait turns amber or red by its length here. The monitor this page follows had limits measured
 // on its own runs; three small tasks ran through Lem (2026-11-15), too few to take a limit from.
 // Colour says who acts, and a task that waits for the owner is the only one that asks for attention.
@@ -593,6 +626,10 @@ let view = START_VIEW;
 // which tab of the board of all tasks is open; the board of one task has no tabs
 const TABS = ['tasks', 'waits', 'backlog'];
 let tab = !START_VIEW && TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'tasks';
+// The board of one task has four tabs of its own, and a task opens on its overview. `tab` keeps the
+// tab of the board of all tasks meanwhile, so that "All tasks" goes back to the one he left.
+const TASK_TABS = ['overview', 'criteria', 'checks', 'timeline'];
+let taskTab = 'overview';
 
 // Who acts in each status, in the words of SKILL.md's table.
 const STATUS = {
@@ -966,8 +1003,10 @@ function derive(now) {
   const tasks = new Map();
   // the owner's status, from the newest `owner` event: away since then, or there (null)
   let away = null;
+  // every change of his status, for what a choice taken without him says (awayAt)
+  const owners = [];
   for (const e of events) {
-    if (e.event === 'owner' && !e.task) away = e.away ? {since: at(e), words: e.words ?? ''} : null;
+    if (e.event === 'owner' && !e.task) { away = e.away ? {since: at(e), words: e.words ?? ''} : null; owners.push({ts: at(e), away: e.away === true}); }
     if (!e.task) continue;
     let t = tasks.get(e.task);
     if (!t) tasks.set(e.task, t = {
@@ -1109,7 +1148,7 @@ function derive(now) {
 
   const by = status => list.filter(t => t.status === status).sort((a, b) => a.since - b.since);
   const m = {
-    now, list, away,
+    now, list, away, owners,
     // proposed: a pull request is open or the branch is ready to land, and it waits for the merge
     proposed: by('open'),
     building: by('building'), queued: by('queued'), ready: by('ready'), landing: by('landing'), blocked: by('blocked'),
@@ -1900,6 +1939,57 @@ function waitRow(w) {
 
 // ---- the board of one task ----
 
+// Whether the owner was away at a moment: the newest `owner` event at or before it says away. The
+// same second counts: project.py writes his `owner` event and takes each choice that waits in one
+// whole second (decision 2 of the task that built this).
+function awayAt(owners, ms) {
+  return owners.findLast(o => o.ts <= ms)?.away === true;
+}
+const EXPERT_COUNT = {1: 'one outside expert', 2: 'two outside experts'};
+// One reason of not green in plain words. Only a line of land.py that begins with `choice N ` (a
+// choice that waited for the owner and was taken without him) is said again, from the choice's
+// record: who chose, which option, and whether he was away. Every other reason is land.py's own
+// words, which are plain already, and so is a choice whose record is not in the log. The whole line
+// of land.py stays in the hover.
+function plainReason(t, line, owners) {
+  const id = line.match(/^choice (\d+) /)?.[1];
+  const d = id ? t.choices.find(x => x.id === Number(id)) : null;
+  if (!d || d.state !== 'timeout' || d.ended == null) return {text: line};
+  const when = awayAt(owners, d.ended) ? 'while you were away' : 'while the task ran without you';
+  const option = d.options.indexOf(d.chose) + 1;
+  const experts = Object.keys(d.experts ?? {}).length;
+  const text = d.by !== 'experts' ? `Lem took the recommended option of choice ${d.id} ${when}`
+    : option > 0 && EXPERT_COUNT[experts] ? `${EXPERT_COUNT[experts]} chose option ${option} ${when}` : null;
+  return text ? {text, about: `choice ${d.id} · ${d.what} · “${d.chose}”`, title: line} : {text: line};
+}
+// What the proposal said: green, or each reason it is not, from its record or from the lines of its
+// state block (isGreen, notGreenWhy); none before a proposal.
+function verdictOf(t) {
+  if (t.proposal) return {green: t.proposal.green, reasons: t.proposal.reasons};
+  const lines = t.blocks.at(-1).lines;
+  if (!lines.some(line => line === 'green' || /^not green\b/.test(line))) return null;
+  return {green: isGreen(t), reasons: notGreenWhy(t)};
+}
+// The first line of the board of one task: green or not green, with each reason in plain words, so
+// that he sees it with no click. Before a proposal it says when the word comes; a task that ended
+// with nothing proposed has no such line.
+function buildVerdict(t, owners) {
+  const v = verdictOf(t);
+  if (!v && t.closed) return null;
+  const line = (actor, name, ...kids) => ({actor, node: h('div', {class: 'v-line'}, h('span', {class: 'fi'}, icon(name)), h('div', {class: 'v-text'}, ...kids))});
+  if (!v) return line('quiet', 'clock', h('b', {class: 'v-word'}, 'not proposed yet:'), ' green or not green comes with the proposal, after the checks and the review');
+  if (v.green) return line('done', 'check', h('b', {class: 'v-word'}, 'green:'), ` ${GREEN[0].toLowerCase()}${GREEN.slice(1)}`);
+  const plain = v.reasons.map(r => plainReason(t, r, owners));
+  const reason = r => [r.text, r.about ? h('span', {class: 'sub'}, ` · ${r.about}`) : ''];
+  if (plain.length <= 1) {
+    const one = line('you', 'alert', h('b', {class: 'v-word'}, 'not green:'), ' ', ...(plain.length ? reason(plain[0]) : ['no reason is on record']));
+    if (plain[0]?.title) one.node.querySelector('.v-text').title = plain[0].title;
+    return one;
+  }
+  return line('you', 'alert', h('b', {class: 'v-word'}, `not green, for ${plain.length} reasons:`),
+    h('ul', {class: 'v-list'}, plain.map(r => h('li', {title: r.title ?? null}, ...reason(r)))));
+}
+
 function buildTaskNow(t) {
   const pane = paneOf(t.session);
   const c = t.asks[0];
@@ -2323,7 +2413,14 @@ async function readBacklog() {
 }
 
 function setTab(next) {
-  if (view || tab === next) return;
+  if (view) {
+    if (!TASK_TABS.includes(next) || taskTab === next) return;
+    taskTab = next;
+    render();
+    window.scrollTo(0, 0);
+    return;
+  }
+  if (!TABS.includes(next) || tab === next) return;
   tab = next;
   history.replaceState(null, '', next === 'tasks' ? location.pathname + location.search : `#${next}`);
   if (next === 'backlog') readBacklog(); else render();
@@ -2391,25 +2488,33 @@ function render() {
     + (m.away ? ` · You are away since ${stamp(m.away.since, now)}: the tasks go on without you until /lem im-back` : '');
   patch($('banners'), buildBanners(m));
 
-  if (view) tab = 'tasks';
-  // Three tabs, each with its count; a tab hides the panels of the others and never removes them.
+  // Three tabs on the board of all tasks and four on the board of one task, each with its count where
+  // one helps; a tab hides the panels of the others and never removes them.
   const waits = view ? [] : waitsOf(m);
-  const tabButton = (key, label, count, cls = null, title = null) => keyed(`${key}:${tab === key}:${count ?? ''}:${title ?? ''}`,
-    h('button', {class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(tab === key), 'data-tab': key, title}, label, count != null ? h('em', {class: cls}, count) : null));
+  const shownTab = view ? taskTab : tab;
+  const tabButton = (key, label, count, cls = null, title = null) => keyed(`${key}:${shownTab === key}:${count ?? ''}:${title ?? ''}`,
+    h('button', {class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(shownTab === key), 'data-tab': key, title}, label, count != null ? h('em', {class: cls}, count) : null));
   // the lane "Waits for you" counts tasks, and this tab the things you do in them
   const waitTitle = `${plural(waits.length, 'thing')} you do, in ${plural(new Set(waits.map(w => w.t)).size, 'task')} · key W`;
-  patch($('tabs'), view ? [] : [tabButton('tasks', 'Tasks', m.list.filter(x => !x.closed).length, null, 'Key T'),
-    tabButton('waits', 'Waits for you', waits.length, waits.length ? 'you' : null, waitTitle),
-    tabButton('backlog', 'Backlog', backlog ? backlog.items.filter(it => it.worth !== 'no').length : null, null, 'Key B')]);
-  $('tabs').hidden = Boolean(view);
+  patch($('tabs'), view ? (t ? [tabButton('overview', 'Overview', null, null, 'Green or not green, what runs now, the phases and the numbers · key 1'),
+    tabButton('criteria', 'Criteria and decisions', t.asks.length || null, 'you', t.asks.length ? `${plural(t.asks.length, 'choice')} ${t.asks.length === 1 ? 'waits' : 'wait'} for you · key 2` : 'Key 2'),
+    tabButton('checks', 'Checks and review', null, null, 'Key 3'),
+    tabButton('timeline', 'Timeline', null, null, 'Where the time went, and the activity · key 4')] : [])
+    : [tabButton('tasks', 'Tasks', m.list.filter(x => !x.closed).length, null, 'Key T'),
+      tabButton('waits', 'Waits for you', waits.length, waits.length ? 'you' : null, waitTitle),
+      tabButton('backlog', 'Backlog', backlog ? backlog.items.filter(it => it.worth !== 'no').length : null, null, 'Key B')]);
+  $('tabs').setAttribute('aria-label', view ? 'What the board of this task shows' : 'What the board shows');
+  $('tabs').hidden = Boolean(view && !t);
   $('backlog').hidden = Boolean(view) || tab !== 'backlog';
   $('waits').hidden = Boolean(view) || tab !== 'waits';
-  for (const n of document.querySelectorAll('[data-tasks]')) n.hidden = tab !== 'tasks';
+  // A panel shows on its tab: data-tasks on the board of all tasks, data-task-tab on the board of one
+  // task. A task with no state yet has its banner and no panel.
+  for (const n of document.querySelectorAll('[data-tasks], [data-task-tab]')) n.hidden = view ? (t ? n.dataset.taskTab !== taskTab : n.id !== 'feed-card') : tab !== 'tasks' || !('tasks' in n.dataset);
   // "Waits for you" is patched on every render, shown or not, so a change of tab draws nothing again.
   if (!view) patch($('waits-rows'), waits.length ? waits.map(waitRow) : [keyed('empty', h('div', {class: 'lane-empty'}, 'Nothing waits for you'))]);
   // The backlog is patched by keys on every render while its tab is open: only the parts whose
   // words changed are swapped, so the focus and a text selection stay.
-  if (tab === 'backlog') renderBacklog();
+  if (!view && tab === 'backlog') renderBacklog();
 
   const lem = paneOf(meta.session);
   const right = [];
@@ -2428,6 +2533,10 @@ function render() {
       meta.base && !['answered', 'dropped'].includes(t.status) ? chip('base', 'flag', '', 'lands on ', h('b', {}, meta.base)) : null,
       ...tags(t).map((n, i) => keyed(`tag:${i}`, n)),
     ] : []);
+    const verdict = t ? buildVerdict(t, m.owners) : null;
+    $('verdict').className = `card verdict a-${verdict?.actor ?? 'quiet'}`;
+    patch($('verdict'), verdict ? [keyed('v', verdict.node)] : []);
+    if (!verdict) $('verdict').hidden = true;
     $('now').className = `card now a-${t?.info.actor ?? 'quiet'}`;
     patch($('now'), t ? [buildTaskNow(t)] : []);
     patch($('progress'), t ? [buildTaskProgress(t)] : []);
@@ -2469,18 +2578,17 @@ function render() {
   // the board of all tasks has no progress card: its numbers are in the title, the chips and the lanes
   $('progress').hidden = !view;
   $('hero').classList.toggle('one', !view);
-  $('hero').classList.toggle('closed', Boolean(view && t?.closed));
-  // The board of all tasks has only the activity in this row, across the page. A card of a task
-  // that ended with nothing in it is not drawn: an answered task has no criteria, checks or review.
-  $('cols').classList.toggle('one', !view);
-  $('stack').hidden = !view;
+  // A card of a task that ended with nothing in it is not drawn: an answered task has no criteria,
+  // checks or review. A tab whose cards are all gone says so in one line.
   const empty = id => t?.closed && [...$(id).children].every(n => n.dataset.key === 'empty');
   for (const id of ['criteria', 'decisions', 'gate']) { const none = empty(id); if (none) patch($(id), []); $(`${id}-card`).hidden = !view || none; }
 
   // On the board the timeline holds the tasks that are open and the ones that closed today, a row
-  // for each by its state; the board of one task has a row for each actor that held its work.
+  // for each by its state; the board of one task has a row for each actor that held its work. On
+  // another tab the card is drawn for the width the tab bar has, the width the card takes on its own.
+  const tlWidth = $('tl-wrap').clientWidth || Math.max(0, $('tabs').clientWidth - 38);
   if (view && t) {
-    const {card, model, rows} = buildTimeCard(m, t, $('tl-wrap').clientWidth);
+    const {card, model, rows} = buildTimeCard(m, t, tlWidth);
     patch($('legend'), buildTimeLegend(model, rows));
     patch($('timeline'), [card]);
     // one short line under the card; the rest is the hover of the legend
@@ -2491,13 +2599,14 @@ function render() {
   } else {
     const shown = view ? [] : m.list.filter(x => !x.closed || dayKey(x.since) === dayKey(now)).sort((a, b) => a.first - b.first);
     patch($('legend'), buildLegend(m, shown));
-    patch($('timeline'), [buildTimeline(m, shown, $('tl-wrap').clientWidth)]);
+    patch($('timeline'), [buildTimeline(m, shown, tlWidth)]);
     $('tl-note').textContent = '';
     $('legend').removeAttribute('title');
   }
 
   patch($('review'), view && t ? buildReview(t, now) : []);
   { const none = empty('review'); if (none) patch($('review'), []); $('review-card').hidden = !view || none; }
+  for (const panel of [$('crit-panel'), $('checks-panel')]) panel.querySelector('.panel-empty').hidden = [...panel.querySelectorAll(':scope > .card')].some(n => !n.hidden);
   $('review-sum').textContent = view && t?.reviews.length ? [plural(t.reviews.filter(r => r.of !== 'resolution').length, 'round'), t.reviews.some(r => r.of === 'resolution') && 'a read of a resolution'].filter(Boolean).join(' · ') : '';
   const feed = view ? events.filter(e => e.task === view) : events;
   patch($('feed'), buildFeed(m, feed));
@@ -2510,7 +2619,7 @@ function render() {
   ]);
   tick(now);
 
-  const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (tab === 'backlog' ? `Backlog · ${repo} · ` : tab === 'waits' ? `Waits for you · ${repo} · ` : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.lane.build.filter(x => x.status === 'building').length} build · ${m.forOwner.length} for you`);
+  const title = (trouble.length ? 'PROBLEM · ' : '') + (meta.demo ? 'DEMO · ' : '') + (view ? '' : tab === 'backlog' ? `Backlog · ${repo} · ` : tab === 'waits' ? `Waits for you · ${repo} · ` : '') + (view ? `${t?.title ?? view} · ${t?.info.label ?? 'no state'}` : `Lem · ${m.lane.build.filter(x => x.status === 'building').length} build · ${m.forOwner.length} for you`);
   if (title !== lastTitle) document.title = lastTitle = title;
 }
 
@@ -2589,6 +2698,8 @@ document.addEventListener('click', async ev => {
   const task = ev.target.closest('[data-open]');
   if (task) {
     view = task.dataset.open || null;
+    // a task opens on its overview; "All tasks" goes back to the tab of the board of all tasks he left
+    taskTab = 'overview';
     window.scrollTo(0, 0);
     render();
   }
@@ -2599,7 +2710,13 @@ $('tl-wrap').addEventListener('mouseleave', () => showTip(null));
 $('bl-q').addEventListener('input', ev => { bl.q = ev.target.value; bl.confirm = null; renderBacklog(); });
 // Letters go by the physical key (code), so they work in every keyboard layout.
 document.addEventListener('keydown', ev => {
-  if (ev.metaKey || ev.ctrlKey || ev.altKey || view) return;
+  if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  // the board of one task: a tab by its number
+  if (view) {
+    const to = TASK_TABS[{Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3}[ev.code]];
+    if (to && ev.target instanceof Element && !ev.target.closest('input, select, textarea')) { ev.preventDefault(); setTab(to); }
+    return;
+  }
   const q = $('bl-q');
   if (!(ev.target instanceof Element)) return;
   if (ev.target === q) {

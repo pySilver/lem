@@ -948,6 +948,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   await wait(1500);
   const w = document.getElementById('f').contentWindow, d = w.document, log = {};
+  // the time card is on the tab Timeline
+  d.querySelector('[data-tab="timeline"]').click(); await wait(300);
   const hover = node => {
     const box = node.getBoundingClientRect();
     node.dispatchEvent(new w.MouseEvent('mousemove', {bubbles: true, clientX: box.left + Math.min(4, box.width / 2), clientY: box.top + box.height / 2}));
@@ -1229,16 +1231,16 @@ sys.exit(bool(wrong))' "$WORK/board.dom" "$WORK/task-$P.dom" "$WORK/task-$S.dom"
     fail "the order of the activity: $why"
   fi
   # A task that ended says no "yet": nothing more comes for it.
-  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$S.dom" "!yet" "none" "no commit of its branch is on record" "no test of it is on record: the plan’s criteria were never recorded") \
-    && grep -q 'id="hero" class="hero closed"' "$WORK/task-$S.dom" && ! grep -q 'id="hero" class="hero closed"' "$WORK/task-$G.dom"; then
-    pass "the board of a task that ended says no \"yet\" (no decision, no commit, no test on record) and its large card is as tall as what it says"
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/task-$S.dom" "!yet" "none" "no commit of its branch is on record" "no test of it is on record: the plan’s criteria were never recorded"); then
+    pass "the board of a task that ended says no \"yet\" (no decision, no commit, no test on record)"
   else
-    fail "a task that ended: ${why:-the large card}"
+    fail "a task that ended: $why"
   fi
-  # The board of all tasks: its activity takes the whole width, and its legend has one entry for each
-  # look of a bar, so three statuses drawn in one color are one entry.
-  if grep -q 'id="cols" class="cols one"' "$WORK/board.dom" && grep -Eq 'id="stack" class="stack" hidden' "$WORK/board.dom" \
-    && ! grep -q 'id="cols" class="cols one"' "$WORK/task-$G.dom" \
+  # The board of all tasks: its activity is a card of its own across the page, with none of a task's
+  # panels beside it, and its legend has one entry for each look of a bar, so three statuses drawn in
+  # one color are one entry.
+  if grep -Eq '<section id="feed-card" class="card" data-tasks(="")? data-task-tab="timeline">' "$WORK/board.dom" \
+    && grep -Eq 'id="crit-panel"[^>]* hidden' "$WORK/board.dom" && grep -Eq 'id="checks-panel"[^>]* hidden' "$WORK/board.dom" \
     && why=$("$PY" -I -c 'import html, re, sys
 dom = open(sys.argv[1], encoding="utf-8").read()
 area = dom[dom.index("id=\"legend\""):]
@@ -1866,6 +1868,143 @@ PY
     pass "every card with an action has it at the right: \"Open the task\" on each row of Waits for you and on the large card, the backlog's \"Start a task\", and Start with Cancel beside it"
   else
     fail "the side of the cards' actions: $why"
+  fi
+
+  # The board of one task: four tabs, and green or not green on its first view. Three tasks in a folder
+  # of their own: the experts took choice 2, option 2, in the very second the owner said he was away,
+  # and he came back before the proposal; a night's task whose choice was taken at once while he was
+  # there, beside a decision of the dialectic; and a task whose large card has many long lines. A
+  # stand-in for agterm's bridge gives each task a session.
+  TABS=$WORK/tabs
+  mkdir -p "$TABS"
+  TABS_FIXTURE=$(cat <<'PY'
+import json, sys
+from datetime import datetime, timedelta, timezone
+assets, out = sys.argv[1:]
+now = datetime.now(timezone.utc).replace(microsecond=0)
+iso = lambda minutes: (now - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+state = lambda minutes, task, status, text, ask, lines=(): {"ts": iso(minutes), "event": "task.state", "task": task, "status": status, "text": text, "lines": list(lines), "ask": ask}
+def decision(minutes, kind, task, number, **rest):
+    return {"ts": iso(minutes), "event": f"decision.{kind}", "task": task, "id": number, "at": iso(minutes), **rest}
+owner = lambda minutes, away, words: {"ts": iso(minutes), "event": "owner", "away": away, "by": "owner", "words": words}
+experts = {"fable": "the invoice is a page of the shop", "astra": "the printer prints in color"}
+# land.py's own lines (not_green): a choice the experts took, a decision past the personas, a choice taken as the recommended option
+by_experts = ('choice 2 was taken by the experts (The color of the logo): "the green of the shop", both picked it, at once, as the task ran without the owner. '
+              'Fable: the invoice is a page of the shop · Astra: the printer prints in color')
+by_dialectic = 'decision 2 was taken without the owner (The font of the label): "sans", by the dialectic'
+recommended = 'choice 1 was taken without the owner (The size of the label): "A6", the recommended option, at once, as the task ran without the owner'
+long_what = ("The order of the day and the month in the date column of every export, which a spreadsheet in another locale reads as a month "
+             "and a day when the day is twelve or less, so that the third of May reads as the fifth of March and the totals of each month move")
+long_line = "the export writes the dates in the store's own locale and the spreadsheet of the accountant reads them in its own locale "
+events = [
+    state(120, "logo-color", "building", "lead: session", "Print the logo in the shop's color", ["session: T1"]),
+    state(118, "logo-color", "building", "plan committed, 2 tasks", "Print the logo in the shop's color"),
+    decision(110, "asked", "logo-color", 1, what="The paper size", options=["A4", "Letter"], recommended="Letter", why="the printer has Letter in its tray"),
+    decision(105, "answered", "logo-color", 1, chose="A4", words="A4"),
+    decision(100, "asked", "logo-color", 2, what="The color of the logo", options=["black", "the green of the shop"], recommended="black", why="a black logo prints on every printer"),
+    decision(99, "advised", "logo-color", 2, expert="fable", pick="the green of the shop", why=experts["fable"]),
+    decision(98, "advised", "logo-color", 2, expert="astra", pick="the green of the shop", why=experts["astra"]),
+    owner(90, True, "/lem im-away"),
+    decision(90, "timeout", "logo-color", 2, chose="the green of the shop", by="experts", experts=experts, early=True),
+    owner(60, False, "/lem im-back"),
+    state(50, "logo-color", "landing", "the checks start", "Print the logo in the shop's color"),
+    {"ts": iso(40), "event": "proposed", "task": "logo-color", "green": False, "not_green": [by_experts], "tip": "abc123456"},
+    state(40, "logo-color", "open", "pull request https://github.com/acme/shop/pull/4", "Print the logo in the shop's color"),
+    state(300, "night-labels", "building", "lead: builder", "Label the parcels"),
+    decision(290, "asked", "night-labels", 1, what="The size of the label", options=["A6", "A5"], recommended="A6", why="the printer takes A6"),
+    decision(290, "timeout", "night-labels", 1, chose="A6", by="timeout", early=True),
+    decision(280, "taken", "night-labels", 2, what="The font of the label", chose="sans", by="dialectic", why="it reads at a glance"),
+    state(200, "night-labels", "landing", "the checks start", "Label the parcels"),
+    {"ts": iso(190), "event": "proposed", "task": "night-labels", "green": False, "not_green": [by_dialectic, recommended], "tip": "def456789"},
+    state(190, "night-labels", "open", "pull request https://github.com/acme/shop/pull/5", "Label the parcels"),
+    state(30, "long-lines", "building", "lead: session", "Keep every date of an order whole in the export",
+          ["session: T3", "task 1 of 3", long_line * 2, long_line * 3, long_line * 2]),
+    decision(20, "asked", "long-lines", 1, what=long_what, options=["the day first", "the month first"], recommended="the day first", why="the store is in Europe"),
+    decision(19, "advised", "long-lines", 1, expert="fable", pick="the day first", why="every customer of the shop is in Europe"),
+    decision(18, "advised", "long-lines", 1, expert="astra", pick="the month first", why="the accountant's spreadsheet is in English"),
+]
+open(f"{out}/events.js", "w", encoding="utf-8").write("".join(f"lemEvent({json.dumps(e)});\n" for e in events))
+open(f"{out}/meta.js", "w", encoding="utf-8").write("lemMeta(" + json.dumps({"repo": "shop", "base": "main", "session": "LEM1", "gates": 1, "serial": 0}) + ");\n")
+open(f"{out}/backlog.js", "w", encoding="utf-8").write("lemBacklog(" + json.dumps({"folder": "docs/backlog", "read": iso(1), "items": []}) + ");\n")
+for name in ("lem.css", "lem.js"):
+    open(f"{out}/{name}", "w", encoding="utf-8").write(open(f"{assets}/{name}", encoding="utf-8").read())
+bridge = ("<script>globalThis.agterm = {request: async cmd => cmd !== 'tree' ? {} : {tree: {workspaces: [{sessions: ["
+          "{id: 'LEM1', status: 'idle', foreground: ['/bin/zsh']}, {id: 'T1', status: 'idle'}, {id: 'T3', status: 'working'}]}]}}};</script>")
+board = open(f"{assets}/board.html", encoding="utf-8").read()
+assert board.count("<head>") == 1
+for page in ("board", "task-logo-color", "task-night-labels"):
+    open(f"{out}/{page}.html", "w", encoding="utf-8").write(board.replace("<head>", "<head>" + bridge, 1))
+open(f"{out}/probe.html", "w", encoding="utf-8").write("""<!doctype html><meta charset="utf-8"><iframe id="f" src="board.html#waits" style="width:1400px;height:900px;border:0"></iframe><pre id="out"></pre>
+<script>
+const wait = ms => new Promise(done => setTimeout(done, ms));
+const PHRASE = 'not green: two outside experts chose option 2 while you were away';
+(async () => {
+  await wait(1500);
+  const w = document.getElementById('f').contentWindow, d = w.document, log = {};
+  const words = text => text.split(/\\s+/).filter(Boolean).join(' ');
+  // the text the owner sees: none under an element with `hidden`, the panel of another tab
+  const visible = () => { const out = [], walk = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.parentElement && !n.parentElement.closest('[hidden], script, style')) out.push(n.data);
+    return words(out.join(' ')); };
+  const chosen = () => d.querySelector('#tabs [aria-selected="true"]')?.dataset.tab ?? null;
+  const tabs = () => [...d.querySelectorAll('#tabs .tab')].map(b => b.firstChild.textContent);
+  const panels = () => [...d.querySelectorAll('#waits, #backlog, [data-tasks], [data-task-tab]')].filter(n => !n.hidden).map(n => n.id);
+  // the large card: its height, and where "Go to the session" stands from its right and its bottom edge
+  const card = () => { const now = d.getElementById('now'), c = now.getBoundingClientRect(), b = now.querySelector('.now-next .right button'), r = b?.getBoundingClientRect(), body = now.querySelector('.now-in');
+    return {height: Math.round(c.height), more: body.scrollHeight > body.clientHeight + 1, button: r ? {text: b.textContent.trim(), right: Math.round(c.right - r.right), bottom: Math.round(c.bottom - r.bottom)} : null}; };
+  log.start = chosen();
+  d.querySelector('#waits-rows .btn[data-open="logo-color"]').click(); await wait(400);
+  log.open = {tab: chosen(), tabs: tabs(), panels: panels(), seen: visible().includes(PHRASE), card: card()};
+  d.querySelector('[data-tab="timeline"]').click(); await wait(2500);
+  log.timeline = {tab: chosen(), panels: panels(), seen: visible().includes(PHRASE), there: words(d.getElementById('verdict').textContent).includes(PHRASE)};
+  d.body.dispatchEvent(new w.KeyboardEvent('keydown', {code: 'Digit3', key: '3', bubbles: true})); await wait(300);
+  log.key = {tab: chosen(), panels: panels()};
+  d.querySelector('#top-right [data-open=""]').click(); await wait(400);
+  log.back = {tab: chosen(), panels: panels()};
+  d.querySelector('#waits-rows .btn[data-open="long-lines"]').click(); await wait(400);
+  log.long = {tab: chosen(), card: card()};
+  document.getElementById('out').textContent = JSON.stringify(log);
+})().catch(err => { document.getElementById('out').textContent = JSON.stringify({error: String(err)}); });
+</script>""")
+PY
+)
+  "$PY" -I -c "$TABS_FIXTURE" "$PWD/skills/lem/assets" "$TABS"
+  headless --virtual-time-budget=5000 --dump-dom "file://$TABS/task-logo-color.html" > "$WORK/tabs-logo.dom"
+  headless --virtual-time-budget=5000 --dump-dom "file://$TABS/task-night-labels.html" > "$WORK/tabs-night.dom"
+  headless --allow-file-access-from-files --virtual-time-budget=12000 --dump-dom "file://$TABS/probe.html" > "$WORK/tabs-probe.dom"
+  TABS_CHECK=$(cat <<'PY'
+import html, json, re, sys
+found = re.search(r'<pre id="out">(.*?)</pre>', open(sys.argv[1], encoding="utf-8").read(), re.S)
+d = json.loads(html.unescape(found.group(1))) if found and found.group(1) else {"error": "the probe printed nothing"}
+wrong = [d["error"]] if "error" in d else []
+if not wrong:
+    o, tl, key, back, long = d["open"], d["timeline"], d["key"], d["back"], d["long"]
+    if o['tabs'] != ["Overview", "Criteria and decisions", "Checks and review", "Timeline"]: wrong.append(f"the tabs of a task are {o['tabs']}")
+    if o["tab"] != "overview" or o["panels"] != ["verdict", "hero"] or not o["seen"]: wrong.append(f"the first view: {o}")
+    # the line is only in the panel of another tab now: the check of what he sees does not find it
+    if tl["tab"] != "timeline" or tl["panels"] != ["tl-card", "feed-card"] or tl["seen"] or not tl["there"]: wrong.append(f"the Timeline tab, two draws later: {tl}")
+    if key["tab"] != "checks" or key["panels"] != ["checks-panel"]: wrong.append(f"the key 3: {key}")
+    if d['start'] != "waits" or back["tab"] != "waits" or back["panels"] != ["waits"]: wrong.append(f"All tasks goes back to {back}, from {d['start']}")
+    if long['tab'] != "overview": wrong.append(f"another task opens on {long['tab']}")
+    a, b = o["card"], long["card"]
+    if not long["card"]["more"] or a["more"]: wrong.append(f"the long card has no more lines than fit, or the short one has: {a} / {b}")
+    if a['height'] != b['height']: wrong.append(f"the large card is {a['height']} px high for a few lines and {b['height']} px for many")
+    if not a["button"] or not b["button"] or a["button"] != b["button"] or a["button"]["text"] != "Go to the session": wrong.append(f"Go to the session stands at {a['button']} and at {b['button']}")
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
+  # The test of criterion 5: the plain reason on the first view, read only where no `hidden` hides it.
+  # shellcheck disable=SC1111,SC1112  # the curly quotes are the page's
+  if why=$("$PY" -I -B -c "$SHOWN" "$WORK/tabs-logo.dom" @visible "not green: two outside experts chose option 2 while you were away" \
+      "choice 2 · The color of the logo · “the green of the shop”" "!while the task ran without you" "!choice 2 was taken by the experts") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/tabs-night.dom" @visible "not green, for 2 reasons:" \
+      'decision 2 was taken without the owner (The font of the label): "sans", by the dialectic' \
+      "Lem took the recommended option of choice 1 while the task ran without you" "!while you were away" "!choice 1 was taken without the owner") \
+    && why=$("$PY" -I -c "$TABS_CHECK" "$WORK/tabs-probe.dom"); then
+    pass "the board of one task has the tabs Overview, Criteria and decisions, Checks and review and Timeline; its first view says \"not green: two outside experts chose option 2 while you were away\" for choice 2 the experts took in the second he went away, and \"while the task ran without you\" for a night's choice; the chosen tab stays through the draw of every second, a hidden panel's line is not what he sees, All tasks goes back to the tab he left, and the large card has one height with Go to the session in one place"
+  else
+    fail "the board of one task, its tabs and its first view: $why"
   fi
 
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.
