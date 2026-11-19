@@ -205,6 +205,78 @@ Read in the code at `ac05a78`, and in the scout's report (`scout.md` of the task
      which is how this change keeps "One Lem for one repository".
    - `docs/flow.md` line 51 and `docs/pull-request.md` line 14, when the wording no longer holds.
 
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, `GPT 6.2 Sol high` as its pane's status line showed
+it; the defender, Claude, Opus 5.5 at high effort (the `defender:` line of the task's state). Two
+families. 7 turns over the bound of 38 for its 9 questions: the request, the list, two answers of
+each side, and the close. The messages are `talk-01.md` to `talk-03.md` in the task directory.
+
+The list, numbered as the reviewer gave it:
+
+1. **A mode read before a long wait acts after the owner's status changed** (`land.py`
+   `cmd_land` and `may_merge`, `criteria.py` `cmd_approve`). Repaired: task 1, "The readers act
+   on the mode as it is at the act". The reviewer closed the approval half and held the merge half
+   twice: `Task.fetch` (`git fetch origin BASE`, no timeout) runs after `may_merge` and before
+   `gh pr merge`. **A design choice**: the plan's position, a re-read after the forge's answer and
+   before the fetch, since any read leaves a window up to the merge call and the same window
+   exists today through a lead's session (`prompts/lead.md` step 5); against the re-read after the
+   fetch, right before `gh pr merge`, where the permission is settled at the last local step.
+   Step 5 of `stages/plan.md` takes it; its result is below.
+2. **Two sessions with different `XDG_CONFIG_HOME` read two marks** (task 1, the place).
+   Refuted twice: criterion 3, approved word for word, names the variable; a session started
+   with another value moves git's and gh's settings too; AGENTS.md "Lem is a companion, not a
+   gate", (4). The reviewer held twice: criteria 1 and 2 promise that every repository follows one
+   command, and both paths can work as written while the repositories disagree. **A design
+   choice**: the plan as written, against a shared configuration path as a stated condition of
+   the promise, which changes no code and may change a criterion. Step 5 of `stages/plan.md`
+   takes it; its result is below.
+3. **A suite run alone writes the real mark** (`tests/test-board.sh` line 1489,
+   `tests/test-ask-expert.sh` line 68, neither sources `lib.sh`). Repaired: every file of `tests/`
+   that makes a `WORK` of its own exports `XDG_CONFIG_HOME` under it. Settled by the two, not
+   checked by the review.
+4. **What wakes an idle Lem in criterion 5** (the watch's end). Refuted: the Bash tool's
+   `run_in_background` re-invokes the session on exit, the reviewer found that contract in the
+   Claude Code 2.1.328 binary, and `lem land watch` relies on it already; the idle two-repository
+   case stays under "Not verified". Settled by the two, not checked by the review.
+5. **The watch's cursor is a whole-second `ts`**: an away and a back in one second share it.
+   Repaired at the cause: the cursor is the count of the mark's records (`owner.seen`, `--seen
+   N`), a restart passes the count the watch returned. The reviewer held once on the restart and
+   closed it on the plan's text. Settled by the two, not checked by the review.
+6. **Two Lem sessions of one repository both act on one change** (the night's session; a fast
+   task that grew sent to `approve --alone`). Repaired: the night's session keeps no watch, and
+   `stages/away.md` step 2 takes only the plain line `the criteria wait for the owner`. The
+   reviewer held once on a scheduled retro session and closed it on SKILL.md's "Two levels": the
+   watch and the start rule are the owner's Lem session's only. Settled by the two, not checked by
+   the review.
+7. **The copy of old events merges two repositories' histories**. Repaired with a count: only
+   this repository's log holds `owner` events (2; 0 in mybaze and in lem-scratch, counted by both
+   sides). The reviewer held once on the fallback and closed it "for the current cutover". Settled
+   by the two, not checked by the review.
+8. **A stale `owner.js` on a board** (three writers, and a board with no Lem session). Repaired:
+   task 2 names the board criterion 7 covers, a board of a repository where Lem's session runs. The
+   reviewer held once on a write by `board.py` `prepare` after the watch's restart and closed it as
+   not realistic. Settled by the two, not checked by the review.
+9. **The span of an ended task** (`read_tasks`, the cut at the newest event). Refuted: no reader
+   acts on an ended task's mode or spans; `land.py` `without_owner` is read only while the task is
+   landing. Settled by the two, not checked by the review.
+
+Mechanisms a repair added:
+
+- The re-read of the mode at the act (question 1): it sits on the decision "every script reads
+  the mark directly", and follows existing code, `decisions.py` `Task.add`, which reads the mode
+  again under its lock. The reviewer: a layer over that decision. It stays.
+- The count of records as the watch's cursor (question 5): it changed the decision that the watch
+  compares the newest `ts`. The reviewer: at the cause.
+
+Raised after the first turn and not argued: none. Additions refused as unpriced: none.
+
+What changed in the plan, by question and by task: task 1, the files `criteria.py`, `land.py`,
+`tests/test-board.sh`, `tests/test-ask-expert.sh`, the bullet on the re-read (1), the export in
+each file with its own `WORK` (3), and `seen` in `owner` of `waiting` (5); task 2, the cursor and
+its test (5) and the board criterion 7 covers (8); task 3, `seen` in place of `since` (5), the
+night's session and step 2 of `away.md` (6); "Left to Lem before the merge", the count (7).
+
 ## Decisions of the plan
 
 The lead of the build logs each with `lem decisions log --by lead`, as the plan talk leaves it, so
@@ -244,7 +316,7 @@ repository's: an `away` with the words "dnd" at 10:06:08Z and a `back` at 12:20:
 in one of those spans and has not landed (`status-boards-steady-look`, building) would then show
 no such span in its pull request. The maintaining session copies those events into the mark, in
 the order of their `ts`, before the merge, by hand, as AGENTS.md has it for a change of a record's
-form. On 2026-11-19 at 14:19 UTC only this repository's log held `owner` events: 2 in
+form. On 2026-11-19, before 14:21 UTC, only this repository's log held `owner` events: 2 in
 `lem/.lem/state/events.jsonl`, 0 in `mybaze` and 0 in `sandbox/lem-scratch` (`grep -c '"event":
 "owner"'` on each log). So the copy is those two lines, and no two histories are merged. The
 session counts again before the merge; when another log holds `owner` events by then, it copies
