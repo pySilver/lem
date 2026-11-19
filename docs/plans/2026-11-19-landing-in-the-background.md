@@ -201,3 +201,110 @@ Read in the code at `28d3c81`:
   plugin.
 - Criterion 6 is today's rule, which `tests/lem-land-guards.sh` already holds; the change keeps
   it.
+
+## Plan talk
+
+Who argued the plan: the reviewer, Codex, GPT 6.2 Sol at high effort (its pane's status line);
+the defender, Claude Code, Opus 5.5 at high effort (the `defender:` line of the task's state).
+Two families. 7 turns over 8 questions (the bound is 4 × 8 + 2 = 34). Agreement carries no
+authority: the review before the pull request reads each settled position as a claim.
+
+The list, as the reviewer gave it, and how each question ended:
+
+1. **A proposal could pass the old gate while a new run of the checks starts, and `base` could
+   rebase the worktree during a run.** Settled: every step of `lem land` that names a task takes
+   the task's one step lock (task 1, "One step of a task at a time"), which excludes both orders
+   and `cmd_base`; `cmd_propose`, `cmd_base` (`gated=None`) in `land.py`. Settled by the two, not
+   checked by the review.
+2. **A pull request closed on the forge during a run: `merged` and `clean` could remove the
+   worktree while the checks run.** Settled by the same lock: `cmd_merged` and `cmd_clean` wait
+   for the run's end, `cmd_propose` then meets the closed pull request, and `start_locked` still
+   sees the task in `landing`. Settled by the two, not checked by the review.
+3. **The stop by the process id in the lock may not reach the exact run, and did not reach the
+   criteria' tests or a serial command's cleanup.** The reach was repaired (task 1, "--stop": the
+   SIGTERM handler for the step's whole length, the child `criteria.py red` stopped through its
+   own handler, `end_group` that waits for `project.py serial`'s cleanup). What held a second
+   time: the process id has no link to the current holder of the lock, so a run that ends and a
+   step of another session that takes the lock before the TERM is sent makes `--stop` miss the
+   run and wait on the other step; and a stale id in the file may have been reused. A design
+   choice:
+   - kept: the stop by the process id the lock file names, only while the lock is held, as task 1
+     says. Its cite is `harness/claude-code.md`, "## run-in-background": a background command an
+     earlier session started is not the new session's, and only `TaskStop` in the session that
+     started it stops it through the tool. The defender's position: the race needs a second Lem
+     session of the same repository to start a step of the same task inside two calls of one
+     process, which is no realistic input here, and its worst outcome is `stopped: false` and a
+     wait on a short step.
+   - the reviewer's position: the plan itself admits a second session at this step (criterion
+     7), and nothing ties the id to the current holder, so the signal is not safe as designed.
+4. **A session that did not start the run cannot tell which result to act on, nor whether its
+   next step already ran.** The end of a run was repaired at the cause: `gate.end` with `result`
+   (`passed`, `red`, `refused`, `stopped`), `seconds`, `tip` and `say`; task 2 acts by `result`
+   for the run its own session started, and a session that did not start it says the `say` of
+   `ended` once and takes the landing up by the stage's cut-off rule. What held a second time:
+   task 2 makes no test of `builder.start` when it resumes; and after `cmd_base` clears the gate,
+   a new session can say an older `passed` line ("the review runs") whose next step is wrong for
+   the landing as it is now. A design choice:
+   - kept: `ended` is only said, never acted on; the cut-off rule (`stages/land.md`, lines 41 and
+     42) runs the steps again, and `builder.start` is on record for a reader (`stages/land.md`,
+     lines 301 to 305; `board.html` reads it).
+   - the reviewer's position: the line a new session says can name a next step that is not the
+     next step of the landing as it is now.
+5. **The continuation after a green end of a task brought onto the base in step 9.** Settled:
+   task 2 sends a passed end to the step after the checks in the path that ran them; for a session
+   that did not start the run, the cut-off rule is the scope, and `synced`, `title` and
+   `notes.md` are on disk. Settled by the two, not checked by the review.
+6. **The length of "their last finished run" was not a run that finished.** Settled by the same
+   `gate.end` as 4: `last_seconds` is the `seconds` of the newest `gate.end` with `result`
+   `passed`. Settled by the two, not checked by the review.
+7. **Which text is "the exact last line" of criterion 5.** The defender's refutation (the stage's
+   own term, `stages/land.md` step 4, and `cmd_checks`'s `last`) held as to the term; the repair
+   then made task 3 compare both forms with the white space taken off as `cmd_checks` takes it,
+   with a last line that has none. Settled by the two, not checked by the review.
+8. **Which run checks criteria 1, 2, 3 and 5.** Repaired at the cause: this task's own landing
+   runs on the installed plugin (`bin/lem`, `ROOT`), so task 3 is one real run in a session that
+   loads this branch's plugin. What held a second time: in a throwaway clone with no pull request
+   the review can end before the ten minutes of criterion 3, and the task is then `open` with no
+   pull request, which is neither outcome the criterion names at that time; and a twelve-minute
+   run lets an answer later than 4 min 26 s show in the report beside the criterion's case. A
+   design choice:
+   - kept: task 3 as written: its report records times and events, not a pass, so a reader sees
+     an answer after 4 min 26 s and a task past its review; `board.html` draws "The review runs"
+     from `review.start`.
+   - the reviewer's position: at the time the criterion names, the board of such a run can show
+     neither outcome, and the times can show an answer that misses the criterion's case.
+
+The mechanisms the repairs added:
+
+- the task's one step lock: sits on the decision "what keeps a proposal from coming before the
+  checks end" (Decisions, bullet 3), which rests on criterion 4 and `gate_holds`; the reviewer:
+  closed, at the cause.
+- `gate.end`: sits on the decision "their last finished run" (Decisions, bullet 2) and on
+  `--status`'s `ended`, which rested on the planner's choice; the reviewer: at the cause.
+- the stop's reach (the handler for the whole step, the stop of the criteria' child, the wait in
+  `end_group`): sits on the decision "the stop goes through the script" (Decisions, bullet 1);
+  the reviewer: holds, a layer over that decision, which closed as the design choice of 3.
+
+Raised, not argued:
+
+- A stopped run leaves the task in `landing`, and `skills/lem/assets/board.html` (lines 1346 to
+  1363) still draws "The checks run" from the prior `gate.start` or `gate`, since it does not read
+  `gate.end` (the reviewer, its second turn).
+
+Refused as unpriced: none.
+
+What changed in the plan, by question and by task:
+
+- task 1: the lock of `checks` alone became the task's one step lock over every step (1, 2); the
+  refusal list in `read`, `propose` and `land` went, and the tests cover both orders (1); a new
+  bullet, "The end of a run", with `gate.end` (4, 6); `--status` reads `gate.end` and the lock's
+  step (4, 6); `--stop` waits for the lock and reaches the criteria' child and the serial
+  wrapper's cleanup (3); `say` covers a stopped and a refused end (4); the block tests (1, 3).
+- task 2: the end acts by `result` for the run its own session started, a passed end goes to the
+  step after the checks in its path, step 9's included, and a session that did not start the run
+  only says `ended` (4, 5); a step that the lock refuses during the checks waits for their end
+  (1); its last line names task 3 (8).
+- task 3, new: one real run with this branch's plugin, with the last line compared as
+  `cmd_checks` keeps it (8, 7).
+- Decisions and Not verified: bullets 2 and 3 of Decisions follow 6 and 1; Not verified names
+  task 3 (8).
