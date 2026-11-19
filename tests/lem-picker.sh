@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # The task picker (picker.py), offline: a stand-in for agtermctl on PATH records each call and
 # answers the picker as the owner would, in a throwaway repository with tasks in several states.
+# No Python of the block writes bytecode: with tests/clock on PYTHONPATH, one call without -B would leave
+# tests/clock/__pycache__ in the repository.
+export PYTHONDONTWRITEBYTECODE=1
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -32,7 +35,8 @@ listed() { "$PY" -B "$PICKER" --repo "$1" --list; }
 PK=$WORK/pick-repo
 git init -q -b main "$PK" && ident "$PK" && commit "$PK" start && project --repo "$PK" init --base main >/dev/null
 pk() { project --repo "$PK" "$@"; }
-# backdate SLUG HOURS: the time of the task's newest state, written back by hand
+# backdate SLUG HOURS: the time of the task's newest state, written back by hand. Every task gets one, so no
+# row's age is the clock's: a minute that ends between the state writes and the list changes no row.
 backdate() { "$PY" -c 'import sys
 from datetime import datetime, timedelta, timezone
 path = sys.argv[1]
@@ -43,16 +47,22 @@ pk task-dir old-landed --ask "Rename the old export." >/dev/null && pk state old
 backdate old-landed 720
 pk task-dir fixed-total --ask "Show the total after a refund." >/dev/null && pk state fixed-total building "small change: one builder" >/dev/null && pk state fixed-total landed "main 89abcde..fedcba9" >/dev/null
 pk task-dir queued-one --ask "Cache the product list." >/dev/null && pk state queued-one queued "it waits for a free place" >/dev/null
+backdate queued-one 3
 backdate fixed-total 26
 pk task-dir big-export --ask "Export the gift notes, one column each." >/dev/null && pk state big-export building "lead: builder" "type: feat, because the export gets a column" >/dev/null
 backdate big-export 2
 pk task-dir typo-fix --ask "Fix the typo in the footer." >/dev/null && pk state typo-fix building "small change: one builder" "type: fix, because the footer is wrong" >/dev/null
+backdate typo-fix 1
 pk task-dir proposed-one --ask "Sort the orders by date." >/dev/null && pk state proposed-one building "small change: one builder" >/dev/null
 pk state proposed-one open "pull request https://github.com/acme/shop/pull/7" "green" >/dev/null
+backdate proposed-one 1
 printf '%s\n' '{"proposed": "abc1234", "pr": {"number": 7, "url": "https://github.com/acme/shop/pull/7"}, "not_green": []}' > "$PK/.lem/state/tasks/proposed-one/landing.json"
 pk task-dir his-step --ask "Move the reviewer to Codex." >/dev/null && pk state his-step held "the reviewer's pane waits for the owner's trust of the folder" >/dev/null
+backdate his-step 1
 pk task-dir his-criteria --ask "Add the gift note to the slip." >/dev/null && pk state his-criteria held "the criteria wait for the owner" "type: feat, because the slip gets a line" >/dev/null
+backdate his-criteria 1
 pk task-dir a-choice --ask "Put the note in the export." >/dev/null && pk state a-choice building "lead: builder" >/dev/null
+backdate a-choice 1
 "$PY" -B "$DECISIONS" --repo "$PK" ask a-choice "${CASE[@]}" --what "Where the note goes" --option "the last column" --option "after the price" --recommended "the last column" --why w --said s >/dev/null
 
 rows=$(listed "$PK" 2>&1 || true)
@@ -64,13 +74,13 @@ else
 fi
 
 said=$(field '"\n".join(r["label"] + " | " + r["subtitle"] for r in d)' <<<"$rows" 2>&1 || true)
-want="Put the note in the export. | Choice 1 waits for you · standard track · now
-Add the gift note to the slip. | Waits for you: the acceptance criteria · standard track · now
-Move the reviewer to Codex. | Waits for you · now
-Sort the orders by date. | Waits for the merge · fast track · now · #7 green
-Fix the typo in the footer. | Building · fast track · now
+want="Put the note in the export. | Choice 1 waits for you · standard track · 1h
+Add the gift note to the slip. | Waits for you: the acceptance criteria · standard track · 1h
+Move the reviewer to Codex. | Waits for you · 1h
+Sort the orders by date. | Waits for the merge · fast track · 1h · #7 green
+Fix the typo in the footer. | Building · fast track · 1h
 Export the gift notes, one column each. | Building · standard track · 2h
-Cache the product list. | Queued · now
+Cache the product list. | Queued · 3h
 Show the total after a refund. | Landed · fast track · 1d
 All tasks | the board of every task · 9 tasks"
 if [ "$said" = "$want" ]; then

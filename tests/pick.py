@@ -73,9 +73,9 @@ MAP: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (("tests/checks.sh",), ("lem-*", "test-board", "test-ask", "test-site", "test-gate-panel", "shellcheck")),
     (("tests/suites.sh", "tests/limit.py", "tests/all.sh", "tests/test-lem.sh"), (EVERYTHING,)),
     (("tests/pick.py",), ("pick",)),
-    # What no suite reads.
+    # What no suite reads; tests/clock/ is a late clock that a criterion's command puts on PYTHONPATH.
     (("docs/*", "README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "NOTICE", ".gitignore", ".lem/*", ".revmux/*", ".github/*",
-      "assets/*", "tests/board-showcase.py"), ()),
+      "assets/*", "tests/board-showcase.py", "tests/clock/*"), ()),
 ]
 # The files the Chrome suites are run for: each row that names one of them is all of their own.
 CHROME_OWN = {"test-board": ("skills/lem/scripts/board.py", "skills/lem/assets/*", "tests/checks.sh"),
