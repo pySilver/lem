@@ -32,7 +32,13 @@ field() { "$PY" -c 'import json, sys; d = json.load(sys.stdin); print(eval(sys.a
 EX=$WORK/experts-repo
 git init -q -b main "$EX" && git -C "$EX" config user.name t && git -C "$EX" config user.email t@t
 echo 'echo "1042,for Ania"' > "$EX/export.sh" && git -C "$EX" add -A && git -C "$EX" commit -q -m start
-project --repo "$EX" init --base main >/dev/null && git -C "$EX" add -A && git -C "$EX" commit -q -m "chore: the settings"
+project --repo "$EX" init --base main >/dev/null
+# the project's people, which every brief names: one with its own seats, one without
+mkdir -p "$EX/.lem/personas"
+printf '%s\n' '---' 'seats: ["claude/opus:high"]' '---' '# A merchant who sells gifts' '' '## Who they are' '' 'Sells gifts online and sends the CSV export to an accountant each week.' > "$EX/.lem/personas/merchant.md"
+printf '%s\n' '# The accountant of the shop' '' '## Who they are' '' 'Imports the export into the books each Monday.' > "$EX/.lem/personas/accountant.md"
+printf '%s\n' '# A gift shop' '' 'One merchant, a few hundred orders a week.' > "$EX/.lem/profile.md"
+git -C "$EX" add -A && git -C "$EX" commit -q -m "chore: the settings"
 SLUG=gift-note
 project --repo "$EX" task-dir "$SLUG" >/dev/null
 tree=$(project --repo "$EX" worktree-dir "$SLUG")
@@ -290,6 +296,28 @@ if [ "$(dirname "$QS/$folder")" = "$QS" ] && [ "$holds" = yes ] && [ -z "$(git -
   pass "a question in words gets a folder of its own in the state folder, which git does not show: the brief holds the question, what is decided, the options and the files; the default experts are fable and astra by their seats; record takes each answer once, refuses a pick that is no option, a wrong form and a stranger, and says when all share a pick"
 else
   fail "a question in words: $folder / $holds / $shape / $noption / $badform / $stranger / $half / $twice / $whole / $kept"
+fi
+
+# who the code is for: both briefs name the profile and each persona, and a project with no personas gets no brief
+people=yes
+for file in "$QS/$folder/brief.md" "$brief"; do
+  for want in "## Who the code is for" "The project's profile, \`$EX/.lem/profile.md\`, says what the product is and who uses it: read it first." \
+    "- **A merchant who sells gifts** (\`$EX/.lem/personas/merchant.md\`): Sells gifts online and sends the CSV export to an accountant each week." \
+    "- **The accountant of the shop** (\`$EX/.lem/personas/accountant.md\`): Imports the export into the books each Monday." \
+    "Weigh each option by what it does to these people. You still decide as an engineer"; do
+    grep -qF -- "$want" "$file" 2>/dev/null || { people="no: $file: $want"; break 2; }
+  done
+  ! grep -qF 'seats:' "$file" || { people="no: $file names a seat"; break; }
+done
+NOCAST=$WORK/no-cast
+git init -q -b main "$NOCAST" && git -C "$NOCAST" config user.name t && git -C "$NOCAST" config user.email t@t
+project --repo "$NOCAST" init --base main >/dev/null && git -C "$NOCAST" add -A && git -C "$NOCAST" commit -q -m start
+nocast=$("$PY" -B "$EXPERTS" --repo "$NOCAST" brief --question "Which store?" 2>&1 || true)
+if [ "$people" = yes ] && grep -qF "the brief says who the code is for, from the project's personas, and \`lem cast\` says: this project has no personas" <<<"$nocast" \
+  && [ -z "$(ls "$NOCAST/.lem/state/experts" 2>/dev/null)" ]; then
+  pass "a brief, of a question in words and of a task's choice, names the profile and each persona by its path, heading and who they are, without its seats, and tells the experts to weigh the options by these people; a project with no personas gets no brief"
+else
+  fail "who the code is for: $people / $nocast"
 fi
 
 # an open question has no options: the answer is in words, and two answers that differ are no split the script can see

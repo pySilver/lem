@@ -18,7 +18,7 @@ state folder, `experts/DATE-TIME-WORDS/`, with the brief, each expert's answer a
     lem experts brief --question TEXT [--context TEXT] [--option TEXT ...] [--file PATH ...]
                      make the folder and write `brief.md` in it: the question, what is being
                      decided (`--context`), the options word for word when there are any, the
-                     files that matter, and the form of an answer. Prints the folder's name, the
+                     files that matter, who the code is for, and the form of an answer. Prints the folder's name, the
                      brief's path, each expert with its seat and its answer file, and the checkout
                      the experts read. Folders older than KEEP_DAYS are removed first
     lem experts record --folder NAME --expert NAME
@@ -35,8 +35,14 @@ A choice of a task that waits for the owner, which Lem's stages give the experts
                      write `experts/choice-N.brief.md` in the task's directory: the choice (what,
                      the options word for word, the recommended one and why, what the personas
                      said), the task's acceptance criteria and its plan, the files the choice is
-                     about, and the form of an answer. Refused for a choice that does not wait, and
-                     when every expert advised already
+                     about, who the code is for, and the form of an answer. Refused for a choice
+                     that does not wait, and when every expert advised already
+
+Who the code is for is the same part in both briefs: the project's profile by its path, and each of
+its personas by its file's path, its first heading and its "Who they are" (WHO_WORDS words at most),
+from what `lem cast` prints, with the sentence that an expert weighs an option by what it does to
+these people and still decides as an engineer. A project with no personas has a setup that is not
+finished, and its brief is refused with what `lem cast` says.
     lem experts record SLUG N --expert NAME
                      read `experts/choice-N.NAME.md` and write it into the record with
                      `lem decisions advise`, under the same refusals as above
@@ -91,6 +97,13 @@ SEAT = re.compile(r"\A(?P<agent>[a-z]+)(?:/(?P<model>[A-Za-z0-9][A-Za-z0-9._-]*)
 # measurement: long enough for the owner to look back at an answer in the same piece of work.
 KEEP_DAYS = 30
 FOLDER = re.compile(r"\A\d{4}-\d{2}-\d{2}-\d{6}-[a-z0-9-]+\Z")
+# The persona panel's script, beside this skill in the same plugin: the one reader of the cast and
+# the profile, which a brief names so that an expert knows who the code is for.
+CAST = Path(__file__).resolve().parents[2] / "lem-panel" / "scripts" / "cast.py"
+# How many words of each persona's "Who they are" a brief carries. A guess, not a measurement: at
+# about 200 words a minute, the part of three or four personas reads in a minute.
+WHO_WORDS = 60
+WHO_HEADING = re.compile(r"\A#{2,6}\s+who they are\s*\Z", re.IGNORECASE)
 
 
 class ExpertError(Exception):
@@ -170,6 +183,74 @@ def named_files(place: Path, names: list[str], where: str) -> list[Path]:
     return files
 
 
+def who_they_are(text: str, stem: str) -> tuple[str, str]:
+    """A persona's first heading and its "Who they are" part, as one line of WHO_WORDS words at most,
+    cut at the end of a sentence. A file with no such part gives its first paragraph after the
+    heading that is not a quote or a comment; a file with no heading is named by its stem."""
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    lines = text.splitlines()
+    heading = next((line[2:].strip() for line in lines if line.startswith("# ")), stem)
+    who = next((n + 1 for n, line in enumerate(lines) if WHO_HEADING.match(line.strip())), None)
+    part: list[str] = []
+    if who is not None:
+        for line in lines[who:]:
+            if line.startswith("#"):
+                break
+            part.append(line.strip())
+    else:
+        first = next((n + 1 for n, line in enumerate(lines) if line.startswith("# ")), 0)
+        for line in lines[first:]:
+            bare = line.strip()
+            if not bare or bare.startswith("#"):
+                if part:
+                    break
+            elif not bare.startswith(">"):
+                part.append(bare)
+    sentences = re.split(r"(?<=[.!?])\s+", " ".join(" ".join(part).split()))
+    kept: list[str] = []
+    for sentence in sentences:
+        if kept and len(" ".join([*kept, sentence]).split()) > WHO_WORDS:
+            kept.append("…")
+            break
+        kept.append(sentence)
+    return heading, " ".join(kept).strip()
+
+
+def audience_text(found: dict) -> str:
+    """The part of a brief that says who the code is for, from what `lem cast` printed: the
+    profile's path and each persona's file, first heading and "Who they are"."""
+    profile = found.get("profile")
+    read_first = (f"The project's profile, `{profile['path']}`, says what the product is and who uses it: read it first."
+                  if profile else "The project has no profile, so the people below are all it says about who uses it.")
+    people = []
+    for persona in found["personas"]:
+        heading, who = who_they_are(Path(persona.get("person") or persona["path"]).read_text(encoding="utf-8"), persona["stem"])
+        people.append(f"- **{heading}** (`{persona['path']}`): {who or 'the file says who they are.'}")
+    listed = "\n".join(people)
+    return f"""## Who the code is for
+
+{read_first} The project's personas are the people a change here affects; each file says more:
+
+{listed}
+
+Weigh each option by what it does to these people. You still decide as an engineer: they are
+context, and you answer as none of them.
+"""
+
+
+def audience(repo: Path) -> str:
+    """Who the code is for, from the project's cast and profile, which the persona panel's script
+    finds. A project with no personas has a setup that is not finished, and its brief is refused."""
+    ran = subprocess.run([sys.executable, "-B", str(CAST), "--repo", str(repo)], capture_output=True, text=True, check=False)
+    if ran.returncode != 0:
+        said = ran.stderr.strip().removeprefix("cast: ") or "lem cast failed"
+        raise ExpertError(f"the brief says who the code is for, from the project's personas, and `lem cast` says: {said}")
+    try:
+        return audience_text(json.loads(ran.stdout))
+    except (OSError, UnicodeDecodeError) as error:
+        raise ExpertError(f"the brief reads each persona's file, and one does not read: {error}") from error
+
+
 def answer_form(options: list[str], pick_from: str) -> str:
     if options:
         return f"""    pick: ONE OPTION, COPIED WORD FOR WORD FROM {pick_from}
@@ -209,7 +290,7 @@ def choice_experts(repo: Path, given: list[str]) -> list[dict]:
     return experts
 
 
-def brief_text(slug: str, number: int, found: dict, criteria: dict, place: Path, files: list[Path], count: int = 2) -> str:
+def brief_text(slug: str, number: int, found: dict, criteria: dict, place: Path, files: list[Path], count: int = 2, people: str = "") -> str:
     options = "\n".join(f"{n}. {option}" for n, option in enumerate(found["options"], start=1))
     told = "\n".join(f"{criterion['n']}. {criterion['text']}" for criterion in criteria["criteria"]) or "none: the plan has no acceptance criteria"
     kind = f"\n\nSize: {criteria['size']}" + (f", because {criteria['why']}" if criteria.get("why") else "") if criteria.get("size") else ""
@@ -259,6 +340,7 @@ The task's acceptance criteria, the contract in the owner's words:{kind}
 
 {listed}
 
+{people}
 ## Your answer
 
 Your last message is your answer, in one of these two forms and nothing else: no heading, no
@@ -283,10 +365,11 @@ def cmd_choice_brief(repo: Path, slug: str, number: int, names: list[str], given
     except ExpertError as error:
         raise ExpertError(f"the brief needs the task's criteria and plan, and criteria.py says: {error}") from error
     files = named_files(place, names, "the task's worktree")
+    who = audience(repo)
     directory = task_directory(repo, slug) / "experts"
     directory.mkdir(parents=True, exist_ok=True)
     brief = directory / f"choice-{number}.brief.md"
-    brief.write_text(brief_text(slug, number, found, criteria, place, files, len(experts)), encoding="utf-8")
+    brief.write_text(brief_text(slug, number, found, criteria, place, files, len(experts), who), encoding="utf-8")
     answers = {expert["name"]: str(directory / f"choice-{number}.{expert['name']}.md") for expert in experts}
     return {
         "task": slug, "choice": number, "brief": str(brief), "worktree": str(place),
@@ -369,7 +452,7 @@ def new_folder(top: Path, question: str, at: datetime) -> Path:
     raise ExpertError(f"99 folders named {stem} are in {top}: remove some, then ask again")
 
 
-def free_brief_text(question: str, context: str, options: list[str], place: Path, files: list[Path], count: int) -> str:
+def free_brief_text(question: str, context: str, options: list[str], place: Path, files: list[Path], count: int, people: str = "") -> str:
     decided = f"\n## What is being decided\n\n{context.strip()}\n" if context.strip() else ""
     listed = "\n".join(f"- {file}" for file in files) or "- none named: read what the question points at"
     if options:
@@ -396,6 +479,7 @@ Read only. Change no file, run nothing that writes, and commit nothing. The chec
 
 {listed}
 
+{people}
 ## Your answer
 
 Your last message is your answer, in {forms} and nothing else: no heading, no quote marks, no
@@ -435,11 +519,12 @@ def cmd_free_brief(repo: Path, question: str, context: str, options: list[str], 
     experts = seats(repo, given)
     place = checkout(repo)
     files = named_files(place, names, "the checkout")
+    who = audience(repo)
     top = questions(repo)
     now = datetime.now(timezone.utc)
     removed = prune(top, now.timestamp())
     folder = new_folder(top, question, now)
-    (folder / "brief.md").write_text(free_brief_text(question, context, options, place, files, len(experts)), encoding="utf-8")
+    (folder / "brief.md").write_text(free_brief_text(question, context, options, place, files, len(experts), who), encoding="utf-8")
     record = {
         "question": question.strip(), "context": context.strip(), "options": options, "files": [str(file) for file in files],
         "asked": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "checkout": str(place),

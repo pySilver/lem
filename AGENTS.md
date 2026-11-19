@@ -1179,7 +1179,8 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `scripts/experts.py` (the experts' brief and their answers: for a choice of a task into its
   record, and for a question in words into a folder of its own in `.lem/state/experts/`).
   `lem-panel`'s `scripts/cast.py` keeps the copies of the cast and the profile a panel read in
-  Lem's state folder, `.lem/state/personas-cast/` and `personas-profile/`.
+  Lem's state folder, `.lem/state/personas-cast/` and `personas-profile/`, and in
+  `personas-person/` the text of a persona file without its frontmatter, which names its seats.
   `NOTICE` says where each came from.
 
 ## The shipped skills are copies, not yet under the rules above

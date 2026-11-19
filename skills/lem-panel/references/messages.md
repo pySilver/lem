@@ -1,8 +1,10 @@
 # Panel messages
 
-Each message names files by absolute path. Fill `PANEL_DIR`, `PERSONA_FILE`, `PERSONA` (the
-file's stem, or the slug of a question-specific persona), `PERSONAS` (the list of persona files
-with their stems), `CAST_LAYER` (the `layer` and `source` `scripts/cast.py` printed, as
+Each message names files by absolute path. Fill `PANEL_DIR`, `PERSONA_FILE` (the persona's
+`person` path that `scripts/cast.py` printed: its file without the frontmatter), `PERSONA` (the
+file's stem, or the slug of a question-specific persona), `PERSONAS` (the personas whose
+`seats_from` is `default` and whose `sol` seat is not left out, each as its `person` path with its
+stem), `CAST_LAYER` (the `layer` and `source` `scripts/cast.py` printed, as
 "project (checkout)", "project (master at 1a2b3c4d5)", "user" or "built-in"), `PROFILE_PATH`
 (the `profile` path `scripts/cast.py` printed, or "none") and the two profile fields below before
 sending:
@@ -31,7 +33,8 @@ the concrete case that refutes it, or with "brief holds" when you find none.
 
 ## Opus persona
 
-The prompt of one Opus persona subagent.
+The prompt of one Opus persona subagent, and of every seat a persona's own file names. The
+"Criteria read" and "Review" prompts of Opus are used the same way.
 
 ```
 You are one member of a persona panel. PROFILE_READ
@@ -154,8 +157,9 @@ The prompt of the fresh Opus subagent that writes the review.
 ```
 You moderate a persona panel's review; you did not take part in it. Read PROFILE_PATH if the
 project has one ("none" means it has not), then PANEL_DIR/brief.md and
-every file in PANEL_DIR/answers/ (<persona>.opus.md and <persona>.sol.md: each persona answered
-once per model family, independently). Write PANEL_DIR/review.md, and change no other file.
+every file in PANEL_DIR/answers/ (<persona>.<seat>.md, as <persona>.opus.md and <persona>.sol.md:
+each persona answered once on each of its seats, independently). Write PANEL_DIR/review.md, and
+change no other file.
 
 Write it in user terms, with no internal units; when a number matters, say it as a person would
 meet it. In this order:
@@ -167,8 +171,8 @@ meet it. In this order:
 4. Where they split: between personas, and between the two answers of one persona, which means
    the panel is unsure there.
 5. What would change the read: the fact that, if true, would move the verdict most.
-6. The cast: CAST_LAYER, "one model family only" if no .sol.md answers exist, and "no project
-   profile" if PROFILE_PATH is "none".
+6. The cast: CAST_LAYER, "one model family only" if every answer came from one agent (Claude
+   or Codex), and "no project profile" if PROFILE_PATH is "none".
 
 Reply with "written" when the review is in place.
 ```
@@ -214,8 +218,9 @@ The prompt of the fresh Opus subagent that writes the card.
 
 ```
 You moderate a persona panel; you did not take part in it. Read PROFILE_PATH if the project has one
-("none" means it has not), PANEL_DIR/brief.md, every file in PANEL_DIR/answers/ (<persona>.opus.md
-and <persona>.sol.md: each persona answered once per model family, independently),
+("none" means it has not), PANEL_DIR/brief.md, every file in PANEL_DIR/answers/ (<persona>.<seat>.md,
+as <persona>.opus.md and <persona>.sol.md: each persona answered once on each of its seats,
+independently),
 PANEL_DIR/facts.md and, if it exists, PANEL_DIR/practice.md, where the practice scout checked
 those facts on the web. The personas never saw either. A checked fact is evidence, never a vote:
 a contradicted fact can rule an option out, a confirmed one can support a persona's reason, and
