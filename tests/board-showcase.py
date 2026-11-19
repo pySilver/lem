@@ -8,6 +8,8 @@ The fixture of tests/test-board.sh is a stress case (30 tasks, 17 of them buildi
 waits): right for its checks, wrong for a picture. This one is seven tasks a team could have on one
 afternoon, written by Lem's own scripts (project.py, criteria.py) in a throwaway repository, with
 every count possible: three tasks that build or land, one wait for the owner, one pull request.
+The task of the picture of one task has a `task.md` with its outcome, and its polish pass files one
+backlog item on its branch, so that its "Overview" shows "What we are building" whole.
 The scripts write the events seconds apart, and their times are then moved to the minutes a run
 would have spaced them. The board is drawn with its clock stopped at NOW, marked as demo data
 (board.py --demo), and each picture is 1440 px wide at two device pixels for each pixel.
@@ -136,6 +138,10 @@ class Shop:
         (self.dir / "events.js").write_text("".join(f"lemEvent({json.dumps(row, ensure_ascii=False)});\n" for row in rows))
 
 
+FOOTER_ITEM = ("---\nworth: yes\nwhere: invoice/footer.py:footer\nadded: 2026-11-17\n---\n\n# The invoice footer wraps on A5\n\n"
+               "Seen in the polish pass of the order date: the footer's last line wraps when the invoice prints on A5.\n")
+
+
 def afternoon(shop: Shop) -> None:
     s = shop
     # A task on the fast track, built, checked, read once and proposed green: it waits for the merge.
@@ -214,6 +220,12 @@ def afternoon(shop: Shop) -> None:
     # A task on the standard track that landed today, from its interview to the merge.
     t = "order-date-on-invoice"
     s.task(t, "Print the order date on the invoice")
+    # task.md as Lem writes it at new: its outcome is what the board of one task shows in "What we are building"
+    (s.dir / "tasks" / t / "task.md").write_text("\n".join([
+        f"# {t}", "", "## The ask, verbatim", "", "Print the order date on the invoice", "",
+        "## Type", "", "feat, because the invoice gets a new line", "", "## Outcome", "",
+        "Each invoice says when its order was placed, under the order's number, in the shop's language.",
+        "A customer who asks about an old order finds the date on the paper they already have.", ""]))
     s.state(t, 330, "held", "the interview waits for the owner", "type: feat, because the invoice gets a new line")
     s.log(t, 329.5, "scout.start")
     s.log(t, 329, "interview.start")
@@ -254,8 +266,11 @@ def afternoon(shop: Shop) -> None:
     s.log(t, 244, "polish.start", f"before={before}")
     s.commit_in(tree, "style(invoice): one name for the date's format", {
         "invoice/date.py": 'DATE = "%-d %B %Y"\n\n\ndef ordered(order):\n    return f"Ordered {order.placed:%-d %B %Y}"\n\n\ndef language(order):\n    return order.shop.language\n'})
+    # the polish pass files a defect it saw outside the change, in a commit of its own: the board of the
+    # task lists it on "Overview", and the backlog of the main checkout has it once the task landed
+    s.commit_in(tree, "docs(backlog): the invoice footer wraps on A5", {"docs/backlog/invoice-footer-wraps.md": FOOTER_ITEM})
     tip = s.head(tree)
-    s.log(t, 236, "polish", f"before={before[:7]}", f"after={tip[:7]}", "commits:=1", "filed:=[]")
+    s.log(t, 236, "polish", f"before={before[:7]}", f"after={tip[:7]}", "commits:=2", 'filed:=["docs/backlog/invoice-footer-wraps.md"]')
     s.log(t, 235.5, "gate.start", f"tip={tip}", "commands:=2")
     s.log(t, 232, "gate", "command=make test", "exit:=0", "last=214 passed", f"tip={tip[:7]}")
     s.log(t, 231, "gate", "command=make lint", "exit:=0", "last=All checks passed", f"tip={tip[:7]}")
@@ -282,7 +297,7 @@ def afternoon(shop: Shop) -> None:
     folder.mkdir(parents=True)
     (s.repo / "invoice").mkdir()
     (s.repo / "invoice" / "footer.py").write_text("def footer(order):\n    return order.shop.address\n")
-    (folder / "invoice-footer-wraps.md").write_text("---\nworth: yes\nwhere: invoice/footer.py:footer\nadded: 2026-11-16\n---\n\n# The invoice footer wraps on A5\n\nSeen in the review of the order date: the footer's last line wraps when the invoice prints on A5.\n")
+    (folder / "invoice-footer-wraps.md").write_text(FOOTER_ITEM)
     (folder / "export-in-one-query.md").write_text("---\nworth: later\nadded: 2026-11-17\n---\n\n# Read the monthly export in one query\n\nThe investigation of the slow export found one query for each order. One query for the month would take the minute away.\n")
     s.git("add", "-A")
     s.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "docs: the backlog")
@@ -370,10 +385,16 @@ def main() -> None:
         env = {k: v for k, v in os.environ.items() if not k.startswith(("AGTERM_", "AGT_"))}
         for extra in (["--demo"], ["--task", "order-date-on-invoice"]):
             subprocess.run([*board, *extra], check=True, capture_output=True, env=env)
-        # the backlog was read at NOW too, where the page's clock stands
-        feed = shop.dir / "backlog.js"
-        if feed.is_file():
-            feed.write_text(re.sub(r'"read": "[^"]*"', f'"read": "{NOW.strftime("%Y-%m-%dT%H:%M:%SZ")}"', feed.read_text(), count=1))
+        # the backlog and the tasks' branches were read at NOW too, where the page's clock stands
+        stamp = NOW.strftime("%Y-%m-%dT%H:%M:%SZ")
+        for name, key in (("backlog.js", "read"), ("overview.js", "written")):
+            feed = shop.dir / name
+            if not feed.is_file():
+                sys.exit(f"board-showcase: board.py wrote no {name}")
+            text, count = re.subn(rf'"{key}": "[^"]*"', f'"{key}": "{stamp}"', feed.read_text(), count=1)
+            if not count:
+                sys.exit(f"board-showcase: {name} has no {key!r} time to stop at NOW")
+            feed.write_text(text)
         # a session of Lem watches the open pull request, as it does while one is open: its last look
         # was 40 seconds before NOW, in the form `land.py watch` writes
         looked = (NOW - timedelta(seconds=40)).strftime("%Y-%m-%dT%H:%M:%SZ")
