@@ -2,7 +2,7 @@
 # A small change: one criterion in the task directory, no plan on the branch, one builder, the checks
 # with the check of the criteria once, one read, and a short pull request. And what keeps the fast track
 # safe: a full change with no plan is refused, a careful small change is not green and no agent merges
-# it, and a small change does not lower the bar.
+# it. That a small change does not lower the bar is a case of tests/unit/test_land.py.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
@@ -145,18 +145,5 @@ else
   fail "a careful small change: $(grep -v "^ \|^[{}]" "$WORK/gate-edit.out") / $floor / $one_read / $careful_green / $by_agent / $(cat "$text" 2>/dev/null)"
 fi
 project --repo "$SMALL" state gate-edit dropped "the test is over" >/dev/null
-
-# A small change does not lower the bar: there is no plan for the reason, and a lowered bar takes the full change's path.
-tree=$(small_in skips-test small)
-printf '%s\n' 'import pytest' '' '@pytest.mark.skip' 'def test_old():' '    assert True' > "$tree/tests/test_old.py"
-built skips-test "$tree"
-s start skips-test >/dev/null && s base skips-test >/dev/null
-lowered=$(s checks skips-test 2>&1 || true)
-if grep -qF "a task on the fast track does not lower the bar: tests/test_old.py" <<<"$lowered" && grep -qF "it takes the standard track" <<<"$lowered" && [ "$(kept_in "$SMALL" skips-test gated)" = None ]; then
-  pass "a small change that lowers the bar is refused at the gate, with the full change's path named, since a small change has no plan to give the reason in"
-else
-  fail "a small change that lowers the bar: $(grep -v "^ \|^[{}]" <<<"$lowered")"
-fi
-project --repo "$SMALL" state skips-test dropped "the test is over" >/dev/null
 
 finish

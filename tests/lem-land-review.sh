@@ -170,46 +170,37 @@ else
 fi
 project --repo "$LOCAL" state spaces dropped "the test is over" >/dev/null
 
-# The bar: a suppression, a pattern of the project's own, a skipped module, fewer assertions, a test
-# that goes out of a Rust module and a deleted test file, each refused until the plan gives the
-# file's reason. A suppression that only got another space is not a new one.
+# The bar, through the real commands: a change that adds a suppression is refused at the checks until the
+# plan gives the file's reason, and then the request is still not green. What lowers the bar, and which
+# reason a file gets, are cases of tests/unit/test_land.py.
 task_in "$LOCAL" bar-change calc.py one
 read_in "$LOCAL" bar-change
 tree=$(project --repo "$LOCAL" worktree-dir bar-change)
 echo 'import os  # noqa: F401' > "$tree/calc.py" && echo 'test -f calc.py' > "$tree/tests/bar-change.sh" && echo 'puts 1 # rubocop:disable Style/X' > "$tree/x.rb"
-printf '%s\n' 'import pytest' 'pytestmark = pytest.mark.skip(reason="later")' 'def test_base():' '    assert 1 + 1 == 2' > "$tree/tests/test_base.py"
-printf '%s\n' 'import plugin  # noqa: F401' 'import other  # noqa' > "$tree/plug.py" && echo 'pub fn one() -> i32 { 1 }' > "$tree/lib.rs"
-git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: with marks"
+git -C "$tree" add -A && git -C "$tree" commit -q -m "fix: with a mark"
 local_land start bar-change >/dev/null && local_land base bar-change >/dev/null && polish_in "$LOCAL" bar-change
-out=$(local_land checks bar-change 2>/dev/null || true)
-err=$(local_land checks bar-change 2>&1 >/dev/null || true)
-git -C "$tree" rm -q tests/test_base.py && git -C "$tree" commit -q -m "fix: the old test goes"
-gone=$(local_land checks bar-change 2>/dev/null || true)
-if [ "$(field '(sorted((e["file"], e["what"], e["reason"]) for e in d["bar"]["lowered"]), d["bar"]["not_covered"], "own_patterns" in d["bar"])' <<<"$out")" \
-  = "([('calc.py', '# noqa', None), ('lib.rs', '1 assertion(s) fewer', None), ('plug.py', '# noqa', None), ('tests/test_base.py', '1 assertion(s) fewer', None), ('tests/test_base.py', 'pytest.mark.skip', None)], ['.rb'], False)" ] \
-  && grep -q "the change lowers the bar with no reason given" <<<"$err" && grep -q "## The bar" <<<"$err" && [ "$(kept_in "$LOCAL" bar-change gated)" = None ] \
-  && [ "$(field 'sorted((e["file"], e["what"]) for e in d["bar"]["lowered"] if e["file"].startswith("tests/"))' <<<"$gone")" = "[('tests/test_base.py', 'a test file is deleted')]" ] \
-  && [ "$(field '[e["line"] for e in d["bar"]["lowered"] if e["file"] == "plug.py"]' <<<"$out")" = "['import other  # noqa']" ] \
+refused=$(local_land checks bar-change 2>&1 || true)
+if grep -qF "calc.py (# noqa)" <<<"$refused" && grep -qF '`## The bar`' <<<"$refused" && [ "$(kept_in "$LOCAL" bar-change gated)" = None ] \
   && [ "$(status_of local_land read bar-change)" = 1 ]; then
-  pass "a change that adds a suppression, a skip of a whole module, fewer assertions, a test taken out of a Rust module or a deleted test file is refused until a reason is given; a suppression that was there and only got a space is none, and one that got wider is one; and the result names the kind of file the bar has no marks for"
+  pass "a change that adds a suppression is refused at the checks, which name the file, its mark and the plan's section for the reason, and no review starts"
 else
-  fail "the bar: $out / $err / $gone"
+  fail "the bar: $refused"
 fi
 plan=$tree/docs/plans/2026-11-15-bar-change.md
 # shellcheck disable=SC2016  # the backticks are the plan's own marks around a path
-printf '%s\n' '' '## The bar' '' '- calc.py: the import registers a plugin.' '- tests/test_base.py: the sum moved to another module with its test.' '- lib.rs: one() has its test in tests/one.rs now.' '- plug.py: E402 and F401 both hold for that import.' >> "$plan"
+printf '%s\n' '' '## The bar' '' '- calc.py: the import registers a plugin.' >> "$plan"
 git -C "$tree" commit -q -am "docs: why the bar is lower"
 out=$(local_land checks bar-change)
 small=$(local_land read bar-change | field 'd["floor"]')
 unsaid=$(local_land read bar-change --record "$(clean 1)" 2>&1 || true)
-local_land read bar-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}, {"name": "tests/test_base.py", "why": "the sum and its test are in the other module."}, {"name": "lib.rs", "why": "tests/one.rs is not in this change."}, {"name": "plug.py", "why": "name the two codes."}]}')" >/dev/null
+local_land read bar-change --record "$(record 1 '{"kind": "read", "answered": ["codex"], "bar": [{"name": "calc.py", "why": "the plugin is loaded by that import."}]}')" >/dev/null
 proposed=$(local_land propose bar-change --title "fix: marks" --notes "$NOTES")
 agent=$(local_land land bar-change --by agent 2>&1 || true)
 text=$LOCAL/.lem/state/tasks/bar-change/pr.md
 # shellcheck disable=SC2016
-if [ "$(field 'sorted(e["reason"] for e in d["bar"]["lowered"])' <<<"$out")" = "['E402 and F401 both hold for that import.', 'one() has its test in tests/one.rs now.', 'the import registers a plugin.', 'the sum moved to another module with its test.']" ] \
-  && [ "$small" = read ] && grep -q "the change lowers the bar in calc.py, lib.rs, plug.py, tests/test_base.py and the record says nothing of it" <<<"$unsaid" \
-  && [ "$(field '(d["green"], len(d["not_green"]))' <<<"$proposed")" = "(False, 4)" ] && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
+if [ "$(field '[(e["file"], e["reason"]) for e in d["bar"]["lowered"]]' <<<"$out")" = "[('calc.py', 'the import registers a plugin.')]" ] \
+  && [ "$small" = read ] && grep -qF "the change lowers the bar in calc.py and the record says nothing of it" <<<"$unsaid" \
+  && [ "$(field '(d["green"], len(d["not_green"]))' <<<"$proposed")" = "(False, 1)" ] && [ "$(sed -n 1p "$text")" = '**Not green.**' ] \
   && grep -q '^- the bar is lower in `calc.py` (# noqa)\. The builder: the import registers a plugin\. The review: the plugin is loaded by that import\.$' "$text" \
   && grep -q '^- the bar is lowered, with these reasons:$' "$text" && grep -q '^  - `calc.py` (# noqa): the import registers a plugin\.$' "$text" \
   && grep -q "^- the bar has no marks of its own for files of these kinds: .rb$" "$text" \
