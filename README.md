@@ -32,12 +32,12 @@ request: an interview, acceptance criteria for your yes, a plan, and a larger re
 
 ```mermaid
 flowchart LR
-  request[Your request] --> read{Lem reads it}
-  read -->|fast track| builder[One builder]
-  builder --> checks[Checks and one review]
-  read -->|standard track| talk[Interview, criteria, your yes]
-  talk --> build[Build and review]
-  checks --> pr[Pull request: green or not green]
+  request["Your request"] --> read{"Lem reads it"}
+  read -->|"fast track"| builder["One builder"]
+  builder --> checks["Checks and one review"]
+  read -->|"standard track"| talk["Interview, criteria, your yes"]
+  talk --> build["Build and review"]
+  checks --> pr["Pull request: green or not green"]
   build --> pr
 ```
 

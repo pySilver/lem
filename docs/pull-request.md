@@ -30,15 +30,15 @@ Each project has one way to merge. The remote and one setting decide it.
 
 ```mermaid
 flowchart TD
-    ready[A task is ready] --> host{Where is the remote?}
-    host -->|GitHub| wants{Pull requests?}
-    host -->|another host, or none| branch[The branch waits on your computer]
-    wants -->|yes, the default| pr[Lem opens a pull request]
-    wants -->|no| branch
-    pr --> button[Click Merge on GitHub]
-    pr --> viapr[Type /lem land]
-    branch --> direct[Type /lem land]
-    button --> merged([Merged: Lem removes the worktree and the branch])
+    ready["A task is ready"] --> host{"Where is the remote?"}
+    host -- "GitHub" --> wants{"Pull requests?"}
+    host -- "another host, or none" --> branch["The branch waits on your computer"]
+    wants -- "yes, the default" --> pr["Lem opens a pull request"]
+    wants -- "no" --> branch
+    pr --> button["Click Merge on GitHub"]
+    pr --> viapr["Type /lem land"]
+    branch --> direct["Type /lem land"]
+    button --> merged(["Merged: Lem removes the worktree and the branch"])
     viapr --> merged
     direct --> merged
 ```

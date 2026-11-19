@@ -2,17 +2,17 @@
 
 ```mermaid
 flowchart TD
-    req([/lem and a request]) --> track{Type and track}
-    track -- fast track --> one[One builder makes the change]
-    track -- standard track --> crit[Interview, acceptance criteria, your yes]
-    track -- a bug with no clear cause, or a question --> inv[An investigator finds the cause or the answer]
-    inv -- one rule fixes it --> one
-    inv -- a larger fix --> crit
-    inv -- no bug, or an answer --> stop([An answer, and nothing to merge])
-    crit --> plan[Plan, build, polish]
-    one --> checks[The checks and a review]
+    req(["/lem and a request"]) --> track{"Type and track"}
+    track -- "fast track" --> one["One builder makes the change"]
+    track -- "a bug with no clear cause, or a question" --> inv["An investigator finds the cause or the answer"]
+    track -- "standard track" --> crit["Interview, acceptance criteria, your yes"]
+    inv -- "one rule fixes it" --> one
+    inv -- "no bug, or an answer" --> stop(["An answer, and nothing to merge"])
+    inv -- "a larger fix" --> crit
+    one --> checks["The checks and a review"]
+    crit --> plan["Plan, build, polish"]
     plan --> checks
-    checks --> pr([Pull request: green or not green])
+    checks --> pr(["Pull request: green or not green"])
 ```
 
 ## The first line
