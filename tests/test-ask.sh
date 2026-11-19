@@ -9,6 +9,7 @@ cd "$(dirname "$0")/.."
 B=skills/lem-ask/bin/lem-ask
 SKILL=skills/lem-ask
 WORK=$(mktemp -d)
+export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'stopped; rm -rf "$WORK"' EXIT
 # The real interpreter, resolved before HOME moves: a version-manager shim reads its config from HOME.
 # Every call below passes -B: importing bin/lem-ask must not leave a __pycache__ in the plugin (and -I

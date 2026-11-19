@@ -18,6 +18,7 @@ cd "$(dirname "$0")/.."
 collected
 SCRIPTS=$PWD/skills/lem/scripts
 WORK=$(cd "$(mktemp -d)" && pwd -P)
+export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'stopped; rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
@@ -2645,7 +2646,11 @@ sys.exit(bool(wrong))' "$WORK/board-standin.dom"); then
   fi
   # While the owner is away the head of the board says so, with the command that ends it. Last, since his
   # away takes each choice that waits.
-  project owner away --words "/lem im-away" >/dev/null && board --no-open >/dev/null && draw board away
+  project owner away --words "/lem im-away" >/dev/null
+  # The page still takes his status from the `owner` events of events.js, which no script writes now: the mark's newest
+  # record goes there by hand until the page reads the board's copy of the mark.
+  printf 'lemEvent(%s);\n' "$(tail -n 1 "$XDG_CONFIG_HOME/lem/owner.jsonl")" >> "$STATE/events.js"
+  board --no-open >/dev/null && draw board away
   if why=$("$PY" -I -B -c "$SHOWN" "$WORK/board-away.dom" "the tasks go on without you until /lem im-back" "!/lem active"); then
     pass "while the owner is away, the head of the board says that the tasks go on without him until /lem im-back"
   else

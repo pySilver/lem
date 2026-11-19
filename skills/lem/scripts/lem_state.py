@@ -10,6 +10,11 @@ not take it, and a session that replaces another finds it. Git never tracks it: 
 `.gitignore` of `*`, which hides the folder and itself, as the worktrees folder does, with no change
 to a file git tracks. It is not in the git directory, because Codex's sandbox keeps `.git` read-only.
 
+One fact is the machine's and not a repository's: whether the owner is there or away. Its one place
+is `owner_mark()`, `owner.jsonl` in `config()`, a folder in the home directory, the one Lem keeps
+there. A read never makes that folder: only the write of the owner's status does, and nothing else
+of Lem's goes into it.
+
 This file loads under an old `python3` too, so that the correction hook, which imports it, can
 stay silent there.
 """
@@ -60,6 +65,27 @@ def main_checkout(start: Path, timeout: float | None = None) -> Path:
         raise StateError(f"git lists no worktree for {start}: Lem's state belongs to a repository, so run this inside its checkout")
     CHECKOUTS[key] = Path(first)
     return CHECKOUTS[key]
+
+
+def config() -> Path:
+    """Lem's folder in the home directory: `$XDG_CONFIG_HOME/lem` when that variable is set and not
+    empty, else `~/.config/lem`. Nothing here makes it."""
+    named = os.environ.get("XDG_CONFIG_HOME", "")
+    if not named:
+        return Path.home() / ".config" / "lem"
+    if not os.path.isabs(named):
+        # a relative path would be read from the folder each command starts in, so two repositories would read two marks
+        raise StateError(f"XDG_CONFIG_HOME is {named!r}, a relative path: Lem keeps the owner's status under it for every repository, so set it to an absolute path, or unset it for ~/.config")
+    return Path(named) / "lem"
+
+
+# The owner's status, the machine's: one line for each away and back he said, appended (`project.py owner`).
+OWNER_MARK = "owner.jsonl"
+
+
+def owner_mark() -> Path:
+    """The file of the owner's status, which every repository on this machine reads; it may not exist."""
+    return config() / OWNER_MARK
 
 
 def folder(start: Path, timeout: float | None = None) -> Path:

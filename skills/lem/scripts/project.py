@@ -42,9 +42,10 @@ a team that adopts Lem may have its own.
                                     put a new block at the top of the task's state.md, with the time
     lem project tasks               every task's ask, status and newest state block, as JSON
     lem project owner away|back --words TEXT
-                                    the owner says that he is away, or back again: his words as typed.
-                                    Away takes at once each choice that waits for him and is no
-                                    irreversible step (`lem decisions away`)
+                                    the owner says that he is away, or back again: his words as typed,
+                                    kept in the machine's mark, so every repository on this machine
+                                    reads them. Away takes at once each choice of this repository that
+                                    waits for him and is no irreversible step (`lem decisions away`)
     lem project log SLUG EVENT [key=value ...] [key:=json ...]
                                     append one event about a task to the log the board draws
     lem project may-start SLUG      exit 1 for a task in `landing`, `open` or an ended state, which
@@ -101,11 +102,15 @@ The rules of a talk keep it within 4 × questions + 2 turns; a record over that 
 it ran, and `log` adds the bound to it as `bound`, for the landing and the board to say that the
 talk went over. `tasks` gives each task
 its newest `plan.talk` as `talk`, the record Lem and a builder read before the build of a
-careful or large plan. `owner`, which `owner` writes with no task, as `away:=true|false
-by=owner words=TEXT`: the owner's status, there (the default) or away, whose newest event holds.
+careful or large plan. The owner's status is no event of a repository's log: `owner` appends it to
+the machine's mark, `owner.jsonl` in `$XDG_CONFIG_HOME/lem`, or in `~/.config/lem` when that
+variable is not set, one record in the form of an event, `event` `owner` with no task and
+`away`, `by` `owner`, his `words` and the `repo` he typed it in. Every repository on this machine
+reads it, its newest record holds, and with no mark he is there. `owner` writes the folder and the
+file, and no other command of Lem's writes in the home directory.
 `task.mode` is the night's mark, which `task-dir --night` writes, as `mode=alone by=lem words="the
 night of YYYY-MM-DD"`. A task runs without the owner while he is away, and a night's task from its
-mark until he says he is back; `tasks` gives each task `mode` (`alone` or `with-owner`, now),
+mark until it ends, whatever his status; `tasks` gives each task `mode` (`alone` or `with-owner`, now),
 `mode_since` and `without_owner`, each span of it with the words that started and ended it, and
 the night's date as `night` (null for a task of the day).
 And `criteria.read`, which Lem or the lead writes after the personas read the acceptance
@@ -203,7 +208,8 @@ otherwise, in the folder `paths.rulings` (`docs/rulings`), and `ruling-file` pri
 folder is a setting as the plans folder is.
 
 `waiting` is the one list of what waits for the owner, which a bare `/lem` says: his status first
-(`owner`: `away`, `since` and his `words`), then the choices of
+(`owner`: `away`, `since` and his `words`, from the machine's mark, and `seen`, the number of its
+records, from which a watch of the mark starts), then the choices of
 `lem decisions pending` (`choices`), the tasks `held` with the line `the criteria wait for the
 owner` (`criteria`) and the other `held` ones, a step of his or one more fact (`held`), each `open`
 task with its proposal (`pull_requests`, with `conflict`: true or false as the forge said it of the
@@ -1620,7 +1626,7 @@ def cmd_log(root: Path, slug: str, event: str, pairs: list[str]) -> None:
     if event == "task.state":
         raise SettingsError("task.state is written by `lem project state`, which also writes the state block")
     if event in ("task.mode", OWNER):
-        raise SettingsError(f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, and a night's mark is the night's")
+        raise SettingsError(f"{event} is written by `lem project owner` and `task-dir --night` only: the owner's status is his words, kept in the machine's mark and never in a repository's log, and a night's mark is the night's")
     fields: dict[str, object] = {}
     for pair in pairs:
         key, separator, raw = pair.partition("=")
@@ -1875,7 +1881,7 @@ OWNER = "owner"
 
 def nights(modes: list[dict]) -> dict[str, str]:
     """The night that opened each task, as its date, from the first `task.mode` event Lem wrote in
-    the night's words. The owner's "back" later does not take it away."""
+    the night's words. The owner's "back" later takes neither the date nor the night's span away."""
     found: dict[str, str] = {}
     for record in modes:
         night = NIGHT_WORDS.fullmatch(str(record.get("words", ""))) if record.get("event") == "task.mode" and record.get("by") == "lem" else None
@@ -1884,8 +1890,63 @@ def nights(modes: list[dict]) -> dict[str, str]:
     return found
 
 
+def owner_records() -> list[dict]:
+    """Every record of the owner's status in the machine's mark (`lem_state.owner_mark`), oldest
+    first: none when no mark is there, which reads as him being there. A read never makes the file."""
+    try:
+        mark = lem_state.owner_mark()
+    except lem_state.StateError as error:
+        raise SettingsError(str(error)) from error
+    if not mark.is_file():
+        return []
+    found = []
+    for number, line in enumerate(text_of(mark).splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError as error:
+            raise SettingsError(f"{mark}:{number} does not read as JSON ({error}); the file is written by `lem project owner`, never by hand") from error
+        if not isinstance(record, dict) or record.get("event") != OWNER or not isinstance(record.get("ts"), str):
+            raise SettingsError(f"{mark}:{number} is no record of the owner's status; the file is written by `lem project owner`, never by hand")
+        found.append(record)
+    return found
+
+
+def append_owner(root: Path, away: bool, words: str) -> dict:
+    """Append one record of the owner's status to the machine's mark, made with its folder when it
+    is absent. One short line in one write with O_APPEND: two repositories that write at once each
+    add their own line whole, so no lock is kept beside it."""
+    record = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": OWNER, "task": None, "away": away, "by": "owner", "words": words,
+              # where he typed it, for a reader of the file; no script acts on it
+              "repo": str(main_checkout(root))}
+    line = json.dumps(record, ensure_ascii=False) + "\n"
+    try:
+        data = line.encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise SettingsError(f"--words are not UTF-8 text ({line[max(0, error.start - 20):error.start]!r} comes before it); give the owner's words in UTF-8") from error
+    try:
+        mark = lem_state.owner_mark()
+    except lem_state.StateError as error:
+        raise SettingsError(str(error)) from error
+    mark.parent.mkdir(parents=True, exist_ok=True)
+    handle = os.open(mark, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    try:
+        os.write(handle, data)
+    finally:
+        os.close(handle)
+    return record
+
+
+def merged(events: list[dict], marks: list[dict]) -> list[dict]:
+    """A repository's events and the records of the owner's mark in one list, in the order of `ts`.
+    A `ts` has whole seconds, so the sort is stable over the repository's list followed by the
+    mark's: on the same second the repository's events come first, and each list keeps its order."""
+    return sorted([*events, *marks], key=lambda record: record["ts"])
+
+
 def owner_now(records: list[dict]) -> dict:
-    """The owner's status from the newest `owner` event: there, the default, or away since then."""
+    """The owner's status from the newest `owner` record: there, the default, or away since then."""
     newest = next((record for record in reversed(records) if record.get("event") == OWNER and record.get("task") is None), None)
     if newest is None or not newest.get("away"):
         return {"away": False, "since": newest["ts"] if newest else None, "words": newest.get("words") if newest else None}
@@ -1896,8 +1957,10 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
     """The spans in which a task ran without the owner, oldest first, each with the words that
     started it and the words that ended it (`to` is null for a span that runs now). A span runs
     while the owner is away, and while the task's own mark holds: a night's. The owner's "back" ends
-    both. No span starts before `first`, the task's first event, since a task opened while he is
-    away runs without him from its opening."""
+    the span his "away" started and never a night's: a night's task runs without him until it ends,
+    whatever his status. No span starts before `first`, the task's first event, since a task opened
+    while he is away runs without him from its opening. `records` are the task marks of the
+    repository's log and the records of the machine's mark, in the order of their `ts`."""
     def said(record: dict) -> dict:
         return {"by": record.get("by", "owner"), "words": record.get("words")}
 
@@ -1911,7 +1974,7 @@ def runs_without_owner(slug: str, records: list[dict], first: str | None) -> lis
             if record.get("away"):
                 away = away or record
             else:
-                away = own = None
+                away = None
         else:
             continue
         start = own or away
@@ -1972,8 +2035,8 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
     tasks = []
     talks = newest_events(root, "plan.talk")
     investigations = newest_events(root, "investigation")
-    # the owner's status, each task's own mark and its first state, in the log's order
-    presence = events_named(root, "task.mode", OWNER, "task.state")
+    # each task's own mark and its first and newest state, from the repository's log
+    presence = events_named(root, "task.mode", "task.state")
     opened: dict[str, str] = {}
     newest: dict[str, str] = {}
     for record in presence:
@@ -1981,6 +2044,9 @@ def read_tasks(root: Path, settings: dict | None = None) -> list[dict]:
         newest[record.get("task")] = record["ts"]
     presence = [record for record in presence if record.get("event") != "task.state"]
     night = nights(presence)
+    # and the owner's status, the machine's. An `owner` event a repository's log may still hold is not
+    # read: the mark is the one place of his status.
+    presence = merged(presence, owner_records())
     parent = state_root(root) / "tasks"
     for directory in sorted(d for d in (parent.iterdir() if parent.is_dir() else ()) if d.is_dir()):
         state = directory / "state.md"
@@ -2111,9 +2177,11 @@ def cmd_waiting(root: Path) -> dict:
         # the module companion.py loads is this file's again when it runs as `lem project`
         raise SettingsError(str(error)) from error
     held = [task for task in tasks if task["status"] == "held" and task["slug"] not in answered]
+    marks = owner_records()
     found = {
-        # whether the owner said he is away, since when and in which words: the list says it first
-        "owner": owner_now(events_named(root, OWNER)),
+        # whether the owner said he is away, since when and in which words, from the machine's mark: the list
+        # says it first; `seen` is the number of records in the mark, from which a watch of it starts
+        "owner": {**owner_now(marks), "seen": len(marks)},
         "choices": json.loads(asked.stdout)["waiting"],
         "criteria": [{**brief(task), "line": line(task)} for task in held if line(task).startswith(CRITERIA_WAIT)],
         "held": [{**brief(task), "line": line(task)} for task in held if not line(task).startswith(CRITERIA_WAIT)],
@@ -2136,20 +2204,22 @@ def cmd_waiting(root: Path) -> dict:
 
 
 def cmd_owner(root: Path, status: str, words: str | None) -> dict:
-    """Write the owner's status, away or back, with his words as typed. Nothing is written when it
-    changes nothing: away while he is away, back while he is there and no task runs without him.
-    Away takes at once each choice that waits for him and is no irreversible step."""
+    """Write the owner's status, away or back, with his words as typed, into the machine's mark, so
+    that every repository on this machine reads it. Nothing is written when it changes nothing:
+    away while he is away, back while he is there. Away takes at once each choice of this repository
+    that waits for him and is no irreversible step; the other repositories' Lem takes theirs.
+    `tasks` are this repository's: after an away the tasks that run without him, after a back the
+    ones that came back to him (a night's task does not)."""
     if status not in ("away", "back"):
         raise SettingsError(f"the owner is away or back, not {status!r}: `lem project owner away --words \"I'm away\"` or `lem project owner back --words \"I'm back\"`")
     if not words or not words.strip():
         raise SettingsError("--words are the owner's words as typed (\"I'm away\", \"/lem im-back\"); no script can tell who typed, so they are his only")
-    now = owner_now(events_named(root, OWNER))
+    now = owner_now(owner_records())
     away = status == "away"
-    tasks = read_tasks(root)
-    without = [task["slug"] for task in tasks if task["status"] not in ENDED and task["mode"] == "alone"]
-    if now["away"] == away and (away or not without):
+    without = [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"]
+    if now["away"] == away:
         return {**now, "written": False, "tasks": without, "taken": []}
-    record = append_event(root, OWNER, None, {"away": away, "by": "owner", "words": words.strip()})
+    record = append_owner(root, away, words.strip())
     taken: list = []
     if away:
         ran = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "away"],
@@ -2157,8 +2227,9 @@ def cmd_owner(root: Path, status: str, words: str | None) -> dict:
         if ran.returncode != 0:
             raise SettingsError(f"the owner is away now, and the choices that wait were not taken: {ran.stderr.strip().removeprefix('decisions.py: ')}; run `lem decisions away`")
         taken = json.loads(ran.stdout)["taken"]
+    after = [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"]
     return {"away": away, "since": record["ts"], "words": record["words"], "written": True,
-            "tasks": [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"] if away else without, "taken": taken}
+            "tasks": after if away else [slug for slug in without if slug not in after], "taken": taken}
 
 
 def cmd_serial(root: Path, words: list[str]) -> int:
@@ -2325,7 +2396,7 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("lines", nargs="+", metavar="LINE")
     state.add_argument("--start-over", action="store_true", help="ready over a task in landing or open: its landing starts over, as land.py's message says")
     commands.add_parser("tasks")
-    owner = commands.add_parser("owner", help="the owner says that he is away, or back again")
+    owner = commands.add_parser("owner", help="the owner says that he is away, or back again, for every repository on this machine")
     owner.add_argument("status", metavar="away|back")
     owner.add_argument("--words", help="the owner's words as typed")
     step = commands.add_parser("ticket-step")

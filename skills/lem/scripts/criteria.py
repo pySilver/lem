@@ -321,6 +321,16 @@ class Task:
         # the one criterion of a task on the fast track, with its test line: it has no plan, and no commit holds this file
         self.small_file = self.directory / "criteria.md"
 
+    def read_mode(self) -> str:
+        """The task's mode as the state files and the owner's mark say now: another repository's
+        session may mark the owner away or back while a command of this one runs."""
+        _, tasks, _ = project_now(self.repo)
+        record = next((task for task in tasks if task["slug"] == self.slug), None)
+        if record is None:
+            raise CriteriaError(f"the task {self.slug!r} is gone from the state folder while this command ran; nothing was approved")
+        self.mode = record.get("mode", "with-owner")
+        return self.mode
+
     def need_worktree(self) -> None:
         # the criteria are approved before the task has a worktree; its plan is read from one
         if not (self.worktree / ".git").exists():
@@ -666,7 +676,8 @@ def cmd_approve(task: Task, file: str, by: str, plan: bool = False) -> dict:
         if by in AUTOMATIC:
             first_contract(task, by)
         if by == "alone":
-            if task.mode != "alone":
+            # the mode at the approval, under the lock: the owner may have come back since the task was read
+            if task.read_mode() != "alone":
                 raise CriteriaError(f"{task.slug} runs with the owner: the owner's yes approves its criteria (`stages/interview.md`, step 7), and --alone is for a task that runs without the owner")
             kept = task.approved()
             # a fast-track task that turned out to need the standard track needs that path's approval; any other approval stands

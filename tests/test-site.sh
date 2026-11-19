@@ -14,6 +14,7 @@ cd "$(dirname "$0")/.."
 collected
 ROOT=$PWD
 WORK=$(cd "$(mktemp -d)" && pwd -P)
+export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'stopped; rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 STEP_NAME="Make the folder to publish"

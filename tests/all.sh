@@ -27,10 +27,14 @@ else
   LOGS=$(mktemp -d)
   keep=""
 fi
+# The owner's status (`lem_state.owner_mark`) of this run, for a suite with no WORK of its own, which
+# then exports its own: no suite reads or writes the home directory's.
+MARKS=$(mktemp -d) || exit 1
+export XDG_CONFIG_HOME="$MARKS/config"
 pids=()
 trap 'exit 143' TERM
 trap 'exit 130' INT
-trap 'kill ${pids[@]+"${pids[@]}"} 2>/dev/null; wait; [ -n "$keep" ] || rm -rf "$LOGS"' EXIT
+trap 'kill ${pids[@]+"${pids[@]}"} 2>/dev/null; wait; rm -rf "$MARKS"; [ -n "$keep" ] || rm -rf "$LOGS"' EXIT
 
 # run NAME COMMAND...: the suite's output into its log, then its exit and its seconds
 run() {

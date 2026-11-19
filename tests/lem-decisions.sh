@@ -339,12 +339,13 @@ mkdir -p "$WQ/.lem/state/retros"
 printf '%s\n' '{"title": "The retro of 2026-11-17", "questions": [{"id": "p1", "prompt": "Move the rule?", "options": ["approve", "reject", "later"]}, {"id": "p2", "prompt": "Drop the step?", "options": ["approve", "reject", "later"]}]}' > "$WQ/.lem/state/retros/2026-11-17.json"
 printf '%s\n' 'not json' > "$WQ/.lem/state/retros/2026-11-18.json"
 listed=$(wq waiting)
+seen=$(grep -c '' "$XDG_CONFIG_HOME/lem/owner.jsonl" 2>/dev/null || true)
 wq owner away --words "I'm away" >/dev/null
 away_list=$(wq waiting | field '(d["owner"]["away"], d["owner"]["words"], d["owner"]["since"] is not None, d["choices"], d["count"])' 2>&1 || true)
 wq owner back --words "/lem im-back" >/dev/null
 shape=$(field '([(c["task"], c["id"]) for c in d["choices"]], [(t["task"], t["line"]) for t in d["criteria"]], [(t["task"], t["line"]) for t in d["held"]], [(t["task"], t["pull_request"], t["green"], t["not_green"], t["conflict"]) for t in d["pull_requests"]], [(r["date"], r["proposals"], "problem" in r) for r in d["retros"]], d["count"])' <<<"$listed" 2>&1 || true)
 if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 7)" ] \
-  && [ "$(field 'd["owner"]' <<<"$listed")" = "{'away': False, 'since': None, 'words': None}" ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ] \
+  && [ "$(field '(d["owner"]["away"], d["owner"]["seen"])' <<<"$listed")" = "(False, $seen)" ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ] \
   && [ "$away_list" = "(True, \"I'm away\", True, [], 6)" ]; then
   pass "waiting lists in one JSON what waits for the owner: whether he is away, each choice as decisions.py pending gives it, the criteria and the steps that hold a task, each pull request with green or not and whether the forge calls it conflicting, and each retro's proposals, with a file that does not read named as such; while he is away it says so first, since when and in his words, and his choice is taken"
 else
@@ -353,8 +354,8 @@ fi
 
 # A night's task is told from a day's task by the night's mark, and the night's brake counts its pull requests that
 # nobody merged or closed: two here, beside a day's request, one the night opened that merged and one whose request
-# was closed. A night's task runs without the owner until he says he is back, which keeps the mark; a night that is
-# no date is refused.
+# was closed. A night's task runs without the owner until it ends, also after he went away and came back; a night that
+# is no date is refused.
 for slug in night-small night-full night-merged night-closed; do
   wq task-dir "$slug" --ask "The backlog item of $slug." --night 2026-11-18 >/dev/null
 done
@@ -363,7 +364,7 @@ wq state night-small open "pull request https://github.com/acme/shop/pull/8" "gr
 printf '%s\n' '{"proposed": "def5678", "pr": {"number": 8, "url": "https://github.com/acme/shop/pull/8"}, "not_green": []}' > "$WQ/.lem/state/tasks/night-small/landing.json"
 wq state night-full open "pull request https://github.com/acme/shop/pull/9" "not green: the owner did not approve the criteria" >/dev/null
 printf '%s\n' '{"proposed": "0a1b2c3", "pr": {"number": 9, "url": "https://github.com/acme/shop/pull/9"}, "not_green": ["the owner did not approve the criteria"]}' > "$WQ/.lem/state/tasks/night-full/landing.json"
-wq owner back --words "/lem im-back" >/dev/null
+wq owner away --words "I'm away" >/dev/null && wq owner back --words "/lem im-back" >/dev/null
 wq state night-merged landed "main 1234567..89abcde" >/dev/null
 wq state night-closed dropped "the pull request was closed on the forge" >/dev/null
 other_form=$(wq task-dir night-other --ask "The backlog item of night-other." --night "the night run" 2>&1 || true)
@@ -372,8 +373,8 @@ marked=$(wq tasks | field '[(t["slug"], t["night"]) for t in d if t["slug"].star
 if [ "$nightly" = "([('night-full', False, '2026-11-18'), ('night-small', True, '2026-11-18'), ('proposed-one', False, None)], 2)" ] \
   && [ "$marked" = "[('night-closed', '2026-11-18'), ('night-full', '2026-11-18'), ('night-merged', '2026-11-18'), ('night-small', '2026-11-18'), ('proposed-one', None)]" ] \
   && grep -qF -- "--night is the night's date, YYYY-MM-DD, not 'the night run'" <<<"$other_form" && [ "$night_mode" = alone ] \
-  && [ "$(wq tasks | field '[t["mode"] for t in d if t["slug"] == "night-small"][0]')" = with-owner ]; then
-  pass "a task the night opened runs without the owner and carries the night's date in tasks and in waiting, also after he says he is back, which takes it back; the brake counts the night's pull requests that nobody merged or closed; and a night that is no date is refused"
+  && [ "$(wq tasks | field '[t["mode"] for t in d if t["slug"] == "night-small"][0]')" = alone ]; then
+  pass "a task the night opened runs without the owner and carries the night's date in tasks and in waiting, also after he went away and said he is back; the brake counts the night's pull requests that nobody merged or closed; and a night that is no date is refused"
 else
   fail "the night's pull requests: $nightly / $marked / $other_form / $night_mode"
 fi
@@ -394,6 +395,51 @@ if [ "$no_report" = None ] && [ "$before" = None ] \
   pass "in the morning the list marks a task the night held and the night's pull requests with the night, beside a day's, and names last night's report and no older one"
 else
   fail "the morning: $no_report / $before / $morning"
+fi
+
+
+# The owner's status is the machine's: his away in one repository takes a choice that a lead waits on in another, and
+# an irreversible step there still waits; a task the night opened in the other repository runs without him after his
+# back too, and its choice is taken at once.
+D2=$WORK/second-repo
+git init -q -b main "$D2" && commit "$D2" start && project --repo "$D2" init --base main >/dev/null
+d2() { "$PY" -B "$DECISIONS" --repo "$D2" "$@"; }
+project --repo "$D2" task-dir report-dates >/dev/null && project --repo "$D2" state report-dates building "lead: builder" >/dev/null
+d2 ask report-dates "${CASE[@]}" --what "The date's form" --option "2026-11-19" --option "19.11.2026" --recommended "2026-11-19" --why "it sorts" --said "The personas split." >/dev/null
+d2 ask report-dates "${CASE[@]}" --what "Email the merchants" --option "send it" --option "send nothing" --recommended "send nothing" --why w --said s --irreversible person >/dev/null
+started=$(date +%s)
+"$PY" -B "$DECISIONS" --repo "$D2" wait report-dates 1 --seconds 30 > "$WORK/far-wait.out" 2>&1 &
+waiter=$!
+sleep 1
+project --repo "$DC" owner away --words "/lem im-away" >/dev/null
+wait "$waiter" || true
+took=$(( $(date +%s) - started ))
+far=$(field '(d["ended"], d["chose"], d["by"])' < "$WORK/far-wait.out" 2>&1 || true)
+far_never=$(d2 wait report-dates 2 --seconds 1 | field 'd["ended"]')
+project --repo "$D2" task-dir night-dates --ask "The backlog item of night-dates." --night 2026-11-19 >/dev/null
+project --repo "$DC" owner back --words "/lem im-back" >/dev/null
+night_mode=$(project --repo "$D2" tasks | field '[(t["slug"], t["mode"]) for t in d if t["slug"] in ("night-dates", "report-dates")]')
+night_asked=$(d2 ask night-dates "${CASE[@]}" --what "The night's date form" --option "ISO" --option "local" --recommended "ISO" --why "it sorts" --said s | field 'd["taken"]')
+# An approval without the owner reads his status again under its lock: here he comes back in the first repository while
+# the approval of the second waits for the lock, and it is refused.
+project --repo "$D2" task-dir late-approve >/dev/null && project --repo "$D2" state late-approve building "lead: builder" >/dev/null
+printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the report gets a new column.' '' '1. The report shows each date as 2026-11-19.' > "$WORK/late-approve.md"
+project --repo "$DC" owner away --words "I'm away" >/dev/null
+"$PY" -c 'import fcntl, sys, time; f = open(sys.argv[1], "w"); fcntl.flock(f, fcntl.LOCK_EX); print("held", flush=True); time.sleep(30)' "$D2/.lem/state/tasks/late-approve/criteria.lock" > "$WORK/alock.out" &
+holder=$!
+soon test -s "$WORK/alock.out"
+"$PY" -B "$CRITERIA" --repo "$D2" approve late-approve --file "$WORK/late-approve.md" --alone > "$WORK/late-approve.out" 2>&1 &
+approver=$!
+sleep 1
+project --repo "$DC" owner back --words "I'm back" >/dev/null
+kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
+wait "$approver" || true
+if [ "$far" = "('taken without the owner: the task runs without him now', '2026-11-19', 'timeout')" ] && [ "$took" -lt 30 ] && [ "$far_never" = "still waits" ] \
+  && [ "$night_mode" = "[('night-dates', 'alone'), ('report-dates', 'with-owner')]" ] && [ "$night_asked" = ISO ] \
+  && grep -qF "late-approve runs with the owner" "$WORK/late-approve.out" && [ ! -e "$D2/.lem/state/tasks/late-approve/criteria.json" ]; then
+  pass "the owner's away in one repository takes a choice a lead waits on in another within seconds, never an irreversible step there; his back in the first leaves a task the night opened in the other without him, and its choice is taken at once; an approval without him that waited for its lock while he came back is refused"
+else
+  fail "the owner's status across two repositories: $far / $took / $far_never / $night_mode / $night_asked / $(cat "$WORK/far-wait.out" "$WORK/late-approve.out")"
 fi
 
 finish
