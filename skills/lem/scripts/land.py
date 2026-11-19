@@ -49,7 +49,7 @@ branch, the base it was rebased on, the commit and tree the checks passed on, ea
 the pull request. Three steps log the start of what they start, so that the board's time card has
 a start and an end for each: `polish` logs `polish.start` when a pass starts (not again for a
 second start of the same pass), `checks` logs `gate.start` before its first command, and `read`
-logs `review.start` once for the attempt that is due; `polish --done`, the results of the checks
+logs `review.start` once for the attempt that is due; `polish --done`, the checks' `gate.end`
 and `read --record` are their ends. The checks keep the names their step had before it was called
 the checks: the events `gate`, `gate.start` and `gate.end`, the folder `gate/` of a task's directory and
 `gated` in `landing.json`, which open tasks, the board and `meta.js` read.
