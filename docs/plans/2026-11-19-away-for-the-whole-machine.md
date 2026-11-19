@@ -7,13 +7,26 @@ careful: yes, because two topics are in reach: "A decision that is the owner's i
 Size: full, because the owner's status moves from each repository's event log to one mark in the home directory, which every script that reads his status, the board and the landing read, and a wrong read takes his choices in every repository at once.
 
 1. One `/lem im-away`, typed in any repository, marks the owner away in every repository on the Mac: he types `/lem im-away` in the lem repository at 14:05, and `lem project waiting` in mybaze then says that he is away since 14:05.
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`, `tests/lib.sh`, `tests/checks.sh`
 2. One `/lem im-back`, typed in any repository, marks him back in every repository: he types `/lem im-back` in mybaze at 16:30, and `lem project waiting` in the lem repository then says that he is there.
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`, `tests/lib.sh`, `tests/checks.sh`
 3. No repository has an away status of its own. The one mark is kept under `~/.config/lem`, or under `$XDG_CONFIG_HOME/lem` when that variable is set, and a Mac with no mark reads him as there: on a new Mac where he never typed `/lem im-away`, every repository reads him as there.
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`, `tests/lib.sh`, `tests/checks.sh`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_owner.py` in `tests/unit/test_owner.py`
 4. A choice that waits for him in another repository is taken when he goes away: a lead in mybaze waits on choice 2 of `fix/report-dates`; he types `/lem im-away` in the lem repository; mybaze's choice 2 is then taken with the ladder's pick within seconds, and that pull request is not green for it. A step that a later "no" cannot reverse still waits for him, as today.
+   - test: `bash tests/lem-decisions.sh` in `tests/lem-decisions.sh`, `tests/lib.sh`, `tests/checks.sh`
 5. Lem's session in another repository acts on the mark with no message from him there: mybaze has a task whose acceptance criteria wait for his yes; he types `/lem im-away` in the lem repository; Lem in mybaze then approves those criteria without him and starts their lead, as if he had typed `/lem im-away` in mybaze.
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`, `tests/lib.sh`, `tests/checks.sh`
 6. A night task always runs without him, also while he is marked as there: a night task in mybaze builds at 02:00; he types `/lem im-back` in the lem repository at 02:10 because he works late; a choice of that night task is still taken without him, and does not wait for his answer.
+   - test: `bash tests/lem-decisions.sh` in `tests/lem-decisions.sh`, `tests/lib.sh`, `tests/checks.sh`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_owner.py` in `tests/unit/test_owner.py`
 7. The board and the pull request of a task in another repository show the time without him: after `/lem im-away` in the lem repository at 14:05, the board of mybaze says "You are away since 14:05", and a mybaze pull request whose task ran from 14:00 to 17:00 says that it ran without the owner from 14:05 to 16:30.
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`, `tests/lib.sh`, `tests/checks.sh`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_owner.py` in `tests/unit/test_owner.py`
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 8. Lem writes only its own mark in the home directory, and the test suites never touch it: a full run of `bash tests/all.sh` leaves `~/.config/lem` as it was before the run.
+   - test: `bash tests/lem-state.sh` in `tests/lem-state.sh`, `tests/lib.sh`, `tests/checks.sh`
+   - test: `python3 -B -m unittest discover -s tests/unit -p test_owner.py` in `tests/unit/test_owner.py`
 
 ## What the code does today
 
