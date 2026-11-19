@@ -277,6 +277,120 @@ Read in the code at `28d3c81`:
    `README.md` where it says that the interview is in Lem's session (STE).
    - No test: the sentences of documents.
 
+## Plan talk
+
+Argued on 2026-11-19 in the task's companion. The reviewer: Codex, GPT 6.2 Sol at high effort,
+as its pane's status line showed. The defender: Claude, Opus 5.5 at high effort, as the task's
+`defender:` state line gives it. Seven turns, 11 questions. The repairs are commit `f2d9bd4`;
+the record is the commit after it. Agreement carries no authority: the review before the pull
+request reads each settled position as a claim.
+
+The list, as the reviewer gave it:
+
+1. **An approval recorded before the `queued` line is lost** (Task 2's order of writes; Task 1's
+   `due.start` read only the `queued` line). Repaired at the cause: decision 16 changed, the
+   approval or the answer on record is the whole handoff and `due.start` reads it. The reviewer:
+   "holds, at the cause": (a) the companion's display `queued` can come after Lem's `building` or
+   Lem's `queued` with `after:`, and `cmd_state` accepts it (`project.py:1529-1537` refuses only
+   an ended state, `landing` and `open`); (b) after that `queued`, "the newest block" is not the
+   `held` block the rule reads; (c) `cmd_approve` writes `criteria.json` before it logs
+   `criteria.approved`, and the log can fail (a full disk) after the file is written. The
+   defender refuted (c) as one call under one lock; the reviewer held it, since an append can
+   fail alone. **A design choice**: the plan as it stands (the record is the handoff, with the
+   companion's display `queued` and the rule on the newest block and the event), against the
+   companion writing no state after the approval and the rule finding the newest `held` block
+   with the approval after it, read from `criteria.json` as well as the event. `stages/plan.md`,
+   step 5, takes it.
+2. **The handoff drops `after:`, `stop after the plan` and the careful mark** (Task 2 wrote the
+   brief; `cmd_may_start` reads `after:` only in the newest block). Repaired, at the cause (the
+   same decision as question 1): Lem writes `brief.md` when it opens the task, before the
+   companion, and takes steps 7 and 8 of "Open the task" after the answer. Closed. Settled by the
+   two, not checked by the review.
+3. **`/lem im-away` in one companion; irreversible cards while away; a night's task.** Repaired:
+   the companion records his word and sends `lem: the owner is away`, Lem takes `stages/away.md`;
+   `open` refuses every need while he is away and every need but an irreversible choice of a task
+   whose `mode` is `alone`. The reviewer held it: a lost message leaves the other interviews and
+   held criteria where they are, and a dismissed irreversible choice stays out of `due.open` at
+   `/lem im-back`, against criterion 9. No refutation. **A design choice**: the plan as it stands,
+   against Lem taking `stages/away.md` whenever the owner's status (`lem project waiting`'s
+   `owner`) changed since its last turn, and `/lem im-back` opening each irreversible step with
+   `--asked`.
+4. **The verbatim copy after a compaction; a turn about two tasks** (decision 15: the copy from
+   Lem's own context). Repaired at the cause: decision 15 changed, `lem companion talk` reads
+   Lem's transcript, which keeps the turns from before a compaction (495 owner records before the
+   first `compact_boundary` in one of this project's transcripts, read 2026-11-19). The reviewer:
+   "holds, at the cause": the copy from a start text to the newest turn takes unrelated turns in
+   between, against criterion 2's "every turn of its talk about this ask", and two owner turns
+   with the same start have no rule. No refutation. **A design choice**: the plan as it stands,
+   against `talk` taking only the turns Lem names (a list of start texts or the transcript's turn
+   ids), with the newest match of a start text.
+5. **What restarts a lead held for an irreversible choice after a lost message.** Repaired:
+   "answered" covers `choice N waits for the owner`, and `due.start` gives a fresh lead. Closed.
+   Settled by the two, not checked by the review.
+6. **A fresh companion after a closed one** (answers lost mid-interview; the interview's own
+   `the criteria wait for the owner` line with no lead's report). Repaired: each direction into
+   `directions.md` as he names it, the personas' answers into `criteria-read.md`, a resume from
+   those files, and no criteria-wait line in a companion. The reviewer: "holds, layer over the
+   decision to reopen a fresh interview companion from task files, which rests on criterion 7":
+   an answer that sets the outcome and is no direction is still lost, and the resume misses his
+   word to skip the read (`READ_SKIP`), which leaves no `criteria-read.md`. No refutation.
+   **A design choice**: the plan as it stands, against the companion keeping each answer, outcome
+   and direction, in a file as it comes, and the resume reading the `READ_SKIP` decision too.
+7. **The fast-to-standard paths into the interview companion.** Repaired: `FAST_GREW` is an
+   `interview` need with the builder's report as the scout's; `standard-track` writes the
+   interview's `held` line and opens its companion. The reviewer held it, and the defender
+   confirmed it by a call: `track_of` returns `fast` for `held: the interview waits for the
+   owner` above a `small change: one builder` block, so `open` refuses the `standard-track` path,
+   and the `FAST_GREW` path from `stopped.md` has no step that writes `talk.md`. No refutation.
+   **A design choice**: the plan as it stands, against `standard-track` writing a line that
+   `track_of` reads as standard, and both paths running `lem companion talk` before `open`.
+8. **A dismissed card, and which of two choices of one task opens.** Repaired: `close --why
+   dismissed`, `due.open` leaves such a need out, `open --asked` opens it on his word, and the row
+   of a choice types `/lem status SLUG choice N`. Closed, "layer over the decision to keep an
+   unanswered choice pending after dismissal, which rests on criteria 5 and 7". Settled by the
+   two, not checked by the review.
+9. **Where the experts' answers are** (`said`, not only `advice`). Repaired: the companion reads
+   the experts' level of `said` and `advice`, and runs the experts on his word when neither holds
+   an answer. The reviewer held it: a ladder that reached the experts and got no answer from
+   either is told as "settled before the experts". No refutation. **A design choice**: the plan as
+   it stands, against the empty case reading the experts' level of `said` as it is ("asked, no
+   answer") before it says the ladder settled earlier.
+10. **Which approval ends the wait in the pull request's line.** Repaired: the newest
+    `CRITERIA_WAIT` block other than `FAST_GREW`, and the first approval by `owner` after it. The
+    reviewer held it: after an `--alone` approval, a later approval of his is of other criteria,
+    and criterion 6 ties his yes to the criteria that waited. The defender refuted it with
+    criterion 6's words ("when he gave it") and the two rules' two questions; the reviewer held it
+    again. **A design choice**: the plan as it stands, against the end of the wait being the first
+    approval after the block by anyone (`owner` or `alone`), with the line saying his yes only when
+    that approval is his.
+11. **The new block joins the full check.** Repaired: `suites` in `tests/all.sh` and `blocks` in
+    `tests/test-lem.sh`. Closed. Settled by the two, not checked by the review.
+
+The mechanisms the repairs added, with the decision each sits on:
+
+- `lem companion due`'s `start` over the record (questions 1, 2, 5): on the changed decision 16,
+  which rests on the owner's direction "The task's files stay the truth: at each turn Lem starts
+  the lead of an approved task that has no lead" (`directions.md`). At the cause.
+- `lem companion talk` over the transcript (question 4): on the changed decision 15. At the cause;
+  the question stays open on its range rule.
+- `criteria-read.md` and the resume from the task's files (question 6): a layer over the decision to
+  reopen a fresh interview companion from the task's files, which rests on criterion 7. Open.
+- `close --why dismissed` with `open --asked`, and `/lem status SLUG choice N` (question 8): a
+  layer over the decision to keep an unanswered choice pending after a dismissal, which rests on
+  criteria 5 and 7. Closed, and it stays.
+
+Raised after the first turn: none. Additions refused as unpriced: none.
+
+What changed in the plan, by task: task 1 (the one rule of which need waits and when it is
+answered, `talk`, the refusals while he is away and for a task without him, `due`'s `start` from
+the record and its `open` with no dismissed card, `--asked`, the unit cases, both suite arrays);
+task 2 (what the companion reads, the resume from the files, `criteria-read.md`, the approval as
+the whole handoff, the experts' answers, `--why dismissed`, his away and back typed in a
+companion); task 3 (the brief before the companion, `talk`, `start` from `due`, `stopped.md`'s
+`FAST_GREW` and held choice, `status SLUG choice N`, `standard-track`, his words of away from a
+companion); task 4 (approved with no lead by the record's rule, the row of a choice); task 5 (the
+wait and its end); the decisions on the copy of the talk, the handoff and the board's rows.
+
 ## Decisions of the plan
 
 Each is logged with `--by lead` in `lem decisions list interview-in-a-companion`.
