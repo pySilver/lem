@@ -1924,8 +1924,11 @@ const SAYS = {
   'builder.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'A builder started', text: jobOf(e)}),
   'polish.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass started', text: `on ${e.before ?? '?'}`}),
   'gate.start': e => ({info: {actor: 'gate', icon: 'play'}, head: 'The checks started', text: `${plural(e.commands ?? 0, 'command')} on ${e.tip ?? '?'}`}),
-  'gate.end': e => ({info: e.result === 'passed' ? {actor: 'done', icon: 'check'} : e.result === 'stopped' ? {actor: 'lem', icon: 'x'} : {actor: 'bad', icon: 'alert'},
-    head: checksEndOf(e).head, text: sayOf(e) || `after ${span((e.seconds ?? 0) * 1000)} on ${e.tip ?? '?'}`, sub: sayOf(e) ? `after ${span((e.seconds ?? 0) * 1000)} on ${e.tip ?? '?'}` : ''}),
+  'gate.end': e => {
+    const said = sayOf(e), ran = `after ${span((e.seconds ?? 0) * 1000)} on ${e.tip ?? '?'}`;
+    return {info: e.result === 'passed' ? {actor: 'done', icon: 'check'} : e.result === 'stopped' ? {actor: 'lem', icon: 'x'} : {actor: 'bad', icon: 'alert'},
+      head: checksEndOf(e).head, text: said || ran, sub: said ? ran : ''};
+  },
   'review.start': e => ({info: {actor: 'gate', icon: 'eye'}, head: 'The review started', text: `attempt ${e.attempt ?? '?'} · ${KIND[e.floor] ?? e.floor}`}),
   'companion.open': e => ({info: {actor: 'you', icon: 'split'}, head: 'A companion opened', text: e.name ?? companionName(e.task, e.need, e.choice), sub: 'under Lem’s session'}),
   'companion.close': e => ({info: {actor: 'quiet', icon: 'split'}, head: 'A companion closed', text: companionName(e.task, e.need, e.choice), sub: CLOSED[e.why] ?? e.why ?? ''}),
