@@ -2187,6 +2187,28 @@ def retro_proposals(file: Path) -> dict:
     return {**entry, "proposals": None, "problem": "it holds no question in the form of the question page (`questions`, or one `prompt`)"}
 
 
+def waiting_brief(task: dict) -> dict:
+    """What the list of what waits says of every task it names."""
+    return {"task": task["slug"], "ask": task["ask"], "since": task["since"], "night": task["night"]}
+
+
+def holds_of(held: list[dict], choices: list[dict]) -> dict:
+    """The held tasks of the list of what waits: `criteria`, which wait for the owner's yes, and
+    `held`, a step of his. A held task with a choice that waits (`choice N waits for the owner`)
+    is that choice's: `choices` names it, so `held` does not name it again, as the board's tab
+    "Waits for you" makes one row of it (`waitsOf`)."""
+    asked = {choice["task"] for choice in choices}
+
+    def line(task: dict) -> str:
+        return STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]
+
+    return {
+        "criteria": [{**waiting_brief(task), "line": line(task)} for task in held if line(task).startswith(CRITERIA_WAIT)],
+        "held": [{**waiting_brief(task), "line": line(task)} for task in held
+                 if not line(task).startswith(CRITERIA_WAIT) and task["slug"] not in asked],
+    }
+
+
 def cmd_waiting(root: Path) -> dict:
     """Everything that waits for the owner, from the files that hold it: nothing here decides or writes."""
     # a broken settings file is an error here too
@@ -2196,12 +2218,6 @@ def cmd_waiting(root: Path) -> dict:
                            capture_output=True, text=True, check=False)
     if asked.returncode != 0:
         raise SettingsError(asked.stderr.strip().removeprefix("decisions.py: ") or "decisions.py pending failed")
-    def line(task: dict) -> str:
-        return STATE_LINE.fullmatch(task["state"].splitlines()[0])["text"]
-
-    def brief(task: dict) -> dict:
-        return {"task": task["slug"], "ask": task["ask"], "since": task["since"], "night": task["night"]}
-
     # a wait whose answer is on record waits for Lem's start of its lead, not for him (companion.py's one rule)
     companion = importlib.import_module("companion")
     try:
@@ -2211,15 +2227,15 @@ def cmd_waiting(root: Path) -> dict:
         raise SettingsError(str(error)) from error
     held = [task for task in tasks if task["status"] == "held" and task["slug"] not in answered]
     marks = owner_records()
+    choices = json.loads(asked.stdout)["waiting"]
     found = {
         # whether the owner said he is away, since when and in which words, from the machine's mark: the list
         # says it first; `seen` is the number of records in the mark, from which a watch of it starts
         "owner": {**owner_now(marks), "seen": len(marks)},
-        "choices": json.loads(asked.stdout)["waiting"],
-        "criteria": [{**brief(task), "line": line(task)} for task in held if line(task).startswith(CRITERIA_WAIT)],
-        "held": [{**brief(task), "line": line(task)} for task in held if not line(task).startswith(CRITERIA_WAIT)],
+        "choices": choices,
+        **holds_of(held, choices),
         "pull_requests": [
-            {**brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"],
+            {**waiting_brief(task), "pull_request": task["proposal"]["pull_request"], "green": task["proposal"]["green"], "not_green": task["proposal"]["not_green"],
              "conflict": task["proposal"]["conflict"]}
             for task in tasks if task["status"] == "open" and task["proposal"]
         ],

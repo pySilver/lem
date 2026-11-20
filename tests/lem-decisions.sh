@@ -331,6 +331,8 @@ fi
 wq() { project --repo "$WQ" "$@"; }
 for slug in a-choice his-criteria his-step proposed-one; do wq task-dir "$slug" --ask "The ask of $slug." >/dev/null; done
 "$PY" -B "$DECISIONS" --repo "$WQ" ask a-choice "${CASE[@]}" --what "Where the note goes" --option "the last column" --option "after the price" --recommended "the last column" --why w --said s >/dev/null
+# a lead that stops at its choice holds its task on it: the list names that choice once, under choices
+wq state a-choice held "choice 1 waits for the owner" >/dev/null
 wq state his-criteria held "the criteria wait for the owner" "type: feat, because the export gets a column" >/dev/null
 wq state his-step held "the reviewer's pane waits for the owner's trust of the folder" >/dev/null
 wq state proposed-one open "pull request https://github.com/acme/shop/pull/7" "not green: the bar is lower" >/dev/null
@@ -347,7 +349,7 @@ shape=$(field '([(c["task"], c["id"]) for c in d["choices"]], [(t["task"], t["li
 if [ "$shape" = "([('a-choice', 1)], [('his-criteria', 'the criteria wait for the owner')], [('his-step', \"the reviewer's pane waits for the owner's trust of the folder\")], [('proposed-one', 'https://github.com/acme/shop/pull/7', False, ['the bar is lower'], True)], [('2026-11-17', 2, False), ('2026-11-18', None, True)], 7)" ] \
   && [ "$(field '(d["owner"]["away"], d["owner"]["seen"])' <<<"$listed")" = "(False, $seen)" ] && [ "$(field 'd["pull_requests"][0]["ask"]' <<<"$listed")" = "The ask of proposed-one." ] \
   && [ "$away_list" = "(True, \"I'm away\", True, [], 6)" ]; then
-  pass "waiting lists in one JSON what waits for the owner: whether he is away, each choice as decisions.py pending gives it, the criteria and the steps that hold a task, each pull request with green or not and whether the forge calls it conflicting, and each retro's proposals, with a file that does not read named as such; while he is away it says so first, since when and in his words, and his choice is taken"
+  pass "waiting lists in one JSON what waits for the owner: whether he is away, each choice as decisions.py pending gives it, once also when it holds its task, the criteria and the steps that hold a task, each pull request with green or not and whether the forge calls it conflicting, and each retro's proposals, with a file that does not read named as such; while he is away it says so first, since when and in his words, and his choice is taken"
 else
   fail "waiting: $shape / $away_list / $listed"
 fi
