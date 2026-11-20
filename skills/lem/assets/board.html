@@ -1505,7 +1505,8 @@ function buildTimeline(m, tasks, width) {
     if (!view) svg.append(s('a', {'data-open': t.slug}, s('text', {class: 'lane-label', x: 0, y: y + 15}, label, s('title', {}, t.title))));
     svg.append(s('rect', {class: 'track', x: padL, y: y + 5, width: W - padL - padR, height: 14, rx: 4}));
     for (const g of t.segments) {
-      const info = STATUS[g.status] ?? UNKNOWN;
+      // the open segment of a landing whose checks were stopped, red or refused is Lem's, as its card says
+      const info = g.open && t.checksStop ? t.info : STATUS[g.status] ?? UNKNOWN;
       const x1 = x(g.start), x2 = x(g.open ? coarse : g.end);
       if (g.end === g.start && !g.open) {
         svg.append(s('circle', {class: `end a-${info.actor}`, cx: x1, cy: y + 12, r: 5}, s('title', {}, `${info.label} at ${stamp(g.start, m.now)}`)));
@@ -1692,10 +1693,12 @@ function timeOf(t, end) {
       if (repairing) add('builders', prev, x, 'A repair, and the checks again', 'no event tells the repair from the checks');
       else if (e.event === 'gate') add('checks', prev, x, `The checks: ${e.command ?? 'a command'}`, e.exit === 0 ? `green · ${e.last ?? ''}` : `exit ${e.exit} · ${e.last ?? ''}`);
       else if (e.event === 'task.red') add('checks', prev, x, 'The tests of the criteria, on the branch and on the base commit', e.ok ? 'each test holds its criterion' : 'a test does not hold its criterion');
-      // the end of a run of the checks, however it ended: the piece before it is the checks' own
+      // The end of a run of the checks, however it ended: the piece before it is the checks' own. It
+      // is drawn also with no width, since a refusal often shares its second with the event before it
+      // (the log keeps whole seconds), and its head is the one place that says how the run ended.
       else if (e.event === 'gate.end') {
-        add('checks', prev, x, checksEndOf(e).head, [e.result === 'refused' ? refusedOf(e) : '',
-          checks?.total != null ? `${checks.done} of ${plural(checks.total, 'command')} done` : '', Number.isFinite(e.seconds) ? span(e.seconds * 1000) : ''].filter(Boolean).join(' · '));
+        spans.push({row: 'checks', from: prev, to: Math.max(prev, x), head: checksEndOf(e).head, live: false, sub: [e.result === 'refused' ? refusedOf(e) : '',
+          checks?.total != null ? `${checks.done} of ${plural(checks.total, 'command')} done` : '', Number.isFinite(e.seconds) ? span(e.seconds * 1000) : ''].filter(Boolean).join(' · ')});
         checks = null;
       }
       else if (e.event === 'review') add('review', prev, x, `${e.of === 'resolution' ? 'Review of the conflict’s resolution' : `Review round ${e.round ?? '?'}`}: ${KIND[e.kind] ?? e.kind}`, `${e.verdict}${(e.answered ?? []).length ? ` · answered: ${e.answered.join(', ')}` : ''}`);

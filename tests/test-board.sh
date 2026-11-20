@@ -424,6 +424,8 @@ retime gate-runs now -20 -10 -5
 # Landings whose run of the checks ended, each with its `gate.end` in the form land.py's checks_run
 # logs it: stopped with no command done (criterion 1), refused before its first command ended, and
 # refused after one of its two commands ended (criterion 2). Each run starts 10 minutes before NOW.
+# The last refusal shares its second with the command before it, as land.py logs a refusal for a
+# command that changed a tracked file: the log keeps whole seconds.
 task stopped-checks "Trim the cart notes"
 project state stopped-checks ready "the report is written" >/dev/null
 project state stopped-checks landing "the checks start" >/dev/null
@@ -442,7 +444,7 @@ project state refused-after-one landing "the checks start" >/dev/null
 project log refused-after-one gate.start tip=abc123456 commands:=2 >/dev/null
 project log refused-after-one gate "command=make test" exit:=0 "last=14 passed" tip=abc1234 >/dev/null
 project log refused-after-one gate.end result=refused seconds:=180 tip=abc123456 "say=refused-after-one: the checks refused the change: make test changed the tracked file app.txt; a builder repairs it, nothing for you" >/dev/null
-retime refused-after-one now -20 -12 -10 -8 -7
+retime refused-after-one now -20 -12 -10 -8 -8
 
 # A read of the criteria in which no persona answered, and the criteria still wait for the owner.
 task silent-read "Show the delivery date on the order page"
@@ -1121,23 +1123,37 @@ print("; ".join(wrong))
 sys.exit(bool(wrong))
 PY
 )
+  # STILL DOM TITLE COUNT: the time line of all tasks has COUNT segments whose hover opens with TITLE, the
+  # open segment of a landing whose checks ended, and none of them breathes as work that runs.
+  STILL=$(cat <<'PY'
+import re, sys
+page, title, count = sys.argv[1:]
+dom = open(page, encoding="utf-8").read()
+segs = [(cls, said) for cls, said in re.findall(r'<rect class="(seg [^"]*)"[^>]*><title>([^<]*)</title>', dom) if said.startswith(title)]
+wrong = [] if len(segs) == int(count) else [f"{len(segs)} segments open their hover with {title!r}, not {count}"]
+wrong += [f"the segment {said!r} breathes" for cls, said in segs if "live" in cls.split()]
+print("; ".join(wrong))
+sys.exit(bool(wrong))
+PY
+)
   draw task-stopped-checks
   if why=$("$PY" -I -B -c "$ENDED" "$WORK/task-stopped-checks.dom" "The checks were stopped" "0 of 2 commands done" 4 "The checks were stopped: the landing waits for your word") \
     && ! grep -q 'data-head="The checks · The checks run' "$WORK/task-stopped-checks.dom" \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-stopped-checks.dom" now "The checks were stopped|/lem land starts them again|/lem drop stopped-checks drops the task|!The checks run|!Where you answer") \
     && why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "Checks and review=Stopped checks|The checks were stopped; the landing waits for your word. Tell Lem in its session: /lem land starts them again, /lem drop stopped-checks drops the task") \
+    && why=$("$PY" -I -B -c "$STILL" "$WORK/board.dom" "Checks stopped · Lem · " 1) \
     && why=$("$PY" -I -c 'import sys
 dom = open(sys.argv[1], encoding="utf-8").read()
 area = dom[dom.index("id=\"waits-rows\""):dom.index("id=\"backlog\"")]
 print("a row of Waits for you names it" if "data-open=\"stopped-checks\"" in area else ""); sys.exit("data-open=\"stopped-checks\"" in area)' "$WORK/board-waits.dom"); then
-    pass "a run of the checks that was stopped ends where it ended: its span of the checks to the stop, headed \"The checks were stopped\", Lem's wait for your word after it, and the task's large card and its card on the board say so with /lem land and /lem drop, with no row of Waits for you"
+    pass "a run of the checks that was stopped ends where it ended: its span of the checks to the stop, headed \"The checks were stopped\", Lem's wait for your word after it, and the task's large card, its card and its row of the time line on the board say so, the card with /lem land and /lem drop, with no row of Waits for you"
   else
     fail "a stopped run of the checks: ${why:-a span of the checks that runs}"
   fi
   draw task-refused-checks && draw task-refused-after-one
   ends=()
   why=$("$PY" -I -B -c "$ENDED" "$WORK/task-refused-checks.dom" "The checks refused the change" "a test does not hold criterion 2 · 0 of 2 commands done" 1 "After the checks refused the change: Lem starts a builder that repairs it") || ends+=("before a command: $why")
-  why=$("$PY" -I -B -c "$ENDED" "$WORK/task-refused-after-one.dom" "The checks refused the change" "make test changed the tracked file app.txt · 1 of 2 commands done" 1 "After the checks refused the change: Lem starts a builder that repairs it") || ends+=("after a command: $why")
+  why=$("$PY" -I -B -c "$ENDED" "$WORK/task-refused-after-one.dom" "The checks refused the change" "make test changed the tracked file app.txt · 1 of 2 commands done" 0 "After the checks refused the change: Lem starts a builder that repairs it") || ends+=("after a command: $why")
   grep -q 'data-head="The checks · The checks: make test"' "$WORK/task-refused-after-one.dom" || ends+=("after a command: its command's span")
   for page in refused-checks refused-after-one; do
     ! grep -q 'data-head="The checks · The checks run' "$WORK/task-$page.dom" || ends+=("$page: a span of checks that run")
@@ -1148,8 +1164,9 @@ sys.exit(f"data-open=\"{sys.argv[2]}\"" in dom[dom.index("id=\"waits-rows\""):do
   done
   why=$("$PY" -I -B -c "$LANES" "$WORK/board.dom" "Checks and review=Refused checks|The checks refused the change: a test does not hold criterion 2; a builder repairs it, nothing for you" \
     "Checks and review=Refused after one|The checks refused the change: make test changed the tracked file app.txt; a builder repairs it, nothing for you") || ends+=("the lanes: $why")
+  why=$("$PY" -I -B -c "$STILL" "$WORK/board.dom" "Checks refused · Lem · " 2) || ends+=("the time line of all tasks: $why")
   if [ "${#ends[@]}" -eq 0 ]; then
-    pass "a run that the checks refused ends where it ended, before or after its first command: its span of the checks to the refusal names what was refused, Lem's wait for the repair follows, and the task's large card and its card on the board say that a builder repairs it, with no row of Waits for you"
+    pass "a run that the checks refused ends where it ended, before or after its first command: its span of the checks to the refusal names what was refused, Lem's wait for the repair follows, and the task's large card, its card and its row of the time line on the board say that a builder repairs it, with no row of Waits for you"
   else
     fail "a refused run of the checks: ${ends[*]}"
   fi
