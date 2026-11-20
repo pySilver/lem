@@ -6,8 +6,8 @@ careful: no, because the change is how `skills/lem/assets/board.html` draws even
 
 Size: full, because three views of the board (the time card, the large card and the task's card) change for each way a run of the checks ends.
 
-1. A run of the checks that was stopped ends on the board where it ended. Task `trim-cart-notes` is in its landing; its checks started at 10:00 with 2 commands, finished none, and were stopped at 10:04 (`lem land checks trim-cart-notes --stop`). At 10:10 its time card shows the checks' span from 10:00 to 10:04 headed "The checks were stopped", and no span of the checks after 10:04; from 10:04 the time is Lem's, which waits for the owner's word. The task's large card and its card on the board say the same, and none of them says "The checks run".
-2. A run that the checks refused before their first command ends the same way. The same task's checks start at 10:00 with 2 commands and end refused at 10:01 with no command done: its time card shows the checks' span to 10:01 headed "The checks refused the change", and no span of the checks that runs after 10:01.
+1. A run of the checks that was stopped ends on the board where it ended. Task `trim-cart-notes` is in its landing; its checks started at 10:00 with 2 commands, finished none, and were stopped at 10:04 (`lem land checks trim-cart-notes --stop`). At 10:10 its time card shows the checks' span from 10:00 to 10:04 headed "The checks were stopped", and no span of the checks after 10:04; from 10:04 the time is Lem's, which waits for the owner's word, and the task is not in "Waits for you". The task's large card and its card on the board say "The checks were stopped" with his next step: `/lem land` starts the checks again, `/lem drop trim-cart-notes` drops the task; none of them says "The checks run".
+2. A run that the checks refused ends the same way, before or after its first command. The same task's checks start at 10:00 with 2 commands and end refused at 10:01 with no command done: its time card shows the checks' span to 10:01 headed "The checks refused the change", with what the checks refused, and no span of the checks that runs after 10:01; from 10:01 the time is Lem's while a builder repairs it. The task's large card and its card on the board say that the checks refused the change and that a builder repairs it, and none of them says "The checks run". A run refused at 10:03, after one of its two commands ended, is drawn the same way.
 3. A run that is still going is drawn as running, as today. A task whose checks started at 10:00 with 2 commands and have no end yet shows at 10:04 "The checks run: 0 of 2 commands done", as a span that runs to now.
 
 ## What is there today
@@ -59,24 +59,42 @@ Read in the code at `ffd8903`:
      later step of the landing, no state block of another status). While it is `stopped`, the
      task is Lem's wait for the owner's word on its large card and its card: an `info` with
      `actor: 'lem'`, `who: 'Lem'`, a label such as "Checks stopped" and `live: false`, and a
-     shown line "the checks were stopped: the landing waits for your word"; the large card's head
-     says the same, never "The checks and the review run on it". After `refused` or `red` the
-     large card's head names the result and that a builder repairs it. The task stays in the
-     lane `checks` and is not in "Waits for you": `lem project waiting` does not list it.
+     shown line that names the stop and his next step, "the checks were stopped: `/lem land`
+     starts them again, `/lem drop SLUG` drops the task" (in the form the board's other next
+     steps have, as `answerOf`'s "Tell Lem in its session: ..."); the large card's head says the
+     same, never "The checks and the review run on it". After `refused` or `red` the task's card
+     and the large card's head say the result and that a builder repairs it, in the same way (an
+     `info` of Lem's with `live: false`, a label such as "Checks refused" or "Checks red"). The
+     task stays in the lane `checks` and is not in "Waits for you": `lem project waiting` does not
+     list it.
+   - The checks' span of a refused run names what the checks refused: the `say` of its
+     `gate.end` holds it after "the checks refused the change: " (`land.py` `checks_say`), so
+     the span's sub takes that part, or the whole `say` when it has no such part.
+   - A run refused after one of its `gate` events ends the same way: its `gate` pieces stay, the
+     piece after the last `gate` ends at the `gate.end`, headed "The checks refused the change",
+     and the open piece after it is Lem's.
    - `SAYS` gets `gate.end`: its head by result, the `say` or the seconds and the tip as its text.
    - `tests/test-board.sh`: a task whose landing logs `gate.start commands:=2`, no `gate`, and
-     `gate.end result=stopped`; and one with `gate.end result=refused` after `gate.start` and no
-     `gate`. Each drawn: no `data-head="The checks · The checks run` in its page, a checks span
-     headed by the result, the open piece on Lem's row, and the large card's `now` row without
-     "The checks run" and, for the stopped one, with the owner's word. The board of all tasks
-     gives the stopped task's card the stopped line. `gate-runs` keeps its check as it is, which
-     holds criterion 3.
+     `gate.end result=stopped`; one with `gate.end result=refused` after `gate.start` and no
+     `gate`; and one with `gate.end result=refused` after `gate.start` and one `gate`. Each drawn:
+     no `data-head="The checks · The checks run` in its page, a checks span headed by the result
+     (the refused ones with what was refused), the open piece on Lem's row, and the large card's
+     `now` row without "The checks run": for the stopped one with `/lem land` and `/lem drop`, for
+     the refused ones with the repair. The board of all tasks gives the stopped task's card the
+     stopped line and a refused task's card the refused line, and lists neither under "Waits for
+     you". `gate-runs` keeps its check as it is, which holds criterion 3.
 
 ## Decisions
 
 - A stopped run is Lem's wait, not a row of "Waits for you": the owner's one list
   (`lem project waiting`) does not name a stopped landing, and the board's "Waits for you" is that
-  list. The words on the card say that the landing waits for his word.
+  list. The words on the card say that the landing waits for his word, and which word:
+  `/lem land` or `/lem drop SLUG`. Decision 2 of the task's record: the personas flagged the
+  criterion for the missing next step and asked for his row; the dialectic found that his row
+  breaks "What waits for the owner is one list"; both experts picked Lem's row with the next step
+  in words.
+- Criterion 2 says as much as criterion 1 for a refused run, and covers a refusal after a
+  command: decision 1 of the task's record, by the dialectic, after both personas flagged it.
 - `passed` and `red` ends are read as well as the two the item names, so that every `gate.end`
   ends its run the same way; a passed run's open piece stays Lem's between two steps, as today
   after the tests of the criteria.
