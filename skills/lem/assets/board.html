@@ -1154,7 +1154,7 @@ function derive(now) {
     else if (e.event !== 'task.state' && t.landingStep && !String(e.event).startsWith('decision.')) t.landingStep = null;
     // The newest end of a run of the checks, while the landing has not gone on since: a later step of
     // the landing, or a state block of another status, ends it.
-    if (e.event === 'gate.end') { t.checksEnd = {ts: at(e), result: e.result, seconds: e.seconds, tip: e.tip, say: e.say}; continue; }
+    if (e.event === 'gate.end') { t.checksEnd = {result: e.result, say: e.say}; continue; }
     if (LANDING_STARTS.includes(e.event) || CHECKS.includes(e.event)) t.checksEnd = null;
     if (e.event === 'review.filed') { t.filed.push({ts: at(e), items: e.items ?? [], tip: e.tip}); continue; }
     // the review read the diff against the topics and called it careful, which the plan's own call did not
