@@ -11,7 +11,7 @@ Size: full, because three views of the board (the time card, the large card and 
 2. A run that the checks refused ends the same way, before or after its first command. The same task's checks start at 10:00 with 2 commands and end refused at 10:01 with no command done: its time card shows the checks' span to 10:01 headed "The checks refused the change", with what the checks refused, and no span of the checks that runs after 10:01; from 10:01 the time is Lem's while a builder repairs it. The task's large card and its card on the board say that the checks refused the change and that a builder repairs it, and none of them says "The checks run". A run refused at 10:03, after one of its two commands ended, is drawn the same way.
    - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 3. A run that is still going is drawn as running, as today. A task whose checks started at 10:00 with 2 commands and have no end yet shows at 10:04 "The checks run: 0 of 2 commands done", as a span that runs to now.
-   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
+   - no test: the change keeps behavior; the suite holds it (the check of `gate-runs` in `tests/test-board.sh`, which passes on the base too)
 
 ## What is there today
 
@@ -85,7 +85,7 @@ Read in the code at `ffd8903`:
      `now` row without "The checks run": for the stopped one with `/lem land` and `/lem drop`, for
      the refused ones with the repair. The board of all tasks gives the stopped task's card the
      stopped line and a refused task's card the refused line, and lists neither under "Waits for
-     you". `gate-runs` keeps its check as it is, which holds criterion 3.
+     you". `gate-runs` keeps its check as it is, which the suite runs for criterion 3.
 
 ## Decisions
 
