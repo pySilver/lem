@@ -7,8 +7,11 @@ careful: no, because the change is how `skills/lem/assets/board.html` draws even
 Size: full, because three views of the board (the time card, the large card and the task's card) change for each way a run of the checks ends.
 
 1. A run of the checks that was stopped ends on the board where it ended. Task `trim-cart-notes` is in its landing; its checks started at 10:00 with 2 commands, finished none, and were stopped at 10:04 (`lem land checks trim-cart-notes --stop`). At 10:10 its time card shows the checks' span from 10:00 to 10:04 headed "The checks were stopped", and no span of the checks after 10:04; from 10:04 the time is Lem's, which waits for the owner's word, and the task is not in "Waits for you". The task's large card and its card on the board say "The checks were stopped" with his next step: `/lem land` starts the checks again, `/lem drop trim-cart-notes` drops the task; none of them says "The checks run".
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 2. A run that the checks refused ends the same way, before or after its first command. The same task's checks start at 10:00 with 2 commands and end refused at 10:01 with no command done: its time card shows the checks' span to 10:01 headed "The checks refused the change", with what the checks refused, and no span of the checks that runs after 10:01; from 10:01 the time is Lem's while a builder repairs it. The task's large card and its card on the board say that the checks refused the change and that a builder repairs it, and none of them says "The checks run". A run refused at 10:03, after one of its two commands ended, is drawn the same way.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 3. A run that is still going is drawn as running, as today. A task whose checks started at 10:00 with 2 commands and have no end yet shows at 10:04 "The checks run: 0 of 2 commands done", as a span that runs to now.
+   - test: `bash tests/test-board.sh` in `tests/test-board.sh`, `tests/checks.sh`
 
 ## What is there today
 
