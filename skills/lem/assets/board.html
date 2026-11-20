@@ -1113,7 +1113,7 @@ function derive(now) {
     if (!t) tasks.set(e.task, t = {
       slug: e.task, title: titleOf(e.task), ask: null, blocks: [], gates: [], reviews: [], proposal: null, criteria: null, red: null, lead: null, session: null, progress: null, commit: null, branch: null,
       events: [], decisions: new Map(), orphans: [], changes: [], approvals: [], reads: [], talks: [], talkStart: null, filed: [], missed: null, polish: null,
-      type: null, investigation: null, landingStep: null, companions: new Map(),
+      type: null, investigation: null, landingStep: null, checksEnd: null, companions: new Map(),
     });
     // every event of the task, in the order of the log: "Where the time went" reads them all
     t.events.push(e);
@@ -1152,6 +1152,10 @@ function derive(now) {
     // the newest step of the landing that started and has not ended yet, for the line of what runs now
     if (LANDING_STARTS.includes(e.event)) t.landingStep = e;
     else if (e.event !== 'task.state' && t.landingStep && !String(e.event).startsWith('decision.')) t.landingStep = null;
+    // The newest end of a run of the checks, while the landing has not gone on since: a later step of
+    // the landing, or a state block of another status, ends it.
+    if (e.event === 'gate.end') { t.checksEnd = {ts: at(e), result: e.result, seconds: e.seconds, tip: e.tip, say: e.say}; continue; }
+    if (LANDING_STARTS.includes(e.event) || CHECKS.includes(e.event)) t.checksEnd = null;
     if (e.event === 'review.filed') { t.filed.push({ts: at(e), items: e.items ?? [], tip: e.tip}); continue; }
     // the review read the diff against the topics and called it careful, which the plan's own call did not
     if (e.event === 'careful.missed') { t.missed = {ts: at(e), round: e.round, why: e.why}; continue; }
@@ -1178,6 +1182,7 @@ function derive(now) {
     if (e.event === 'proposed') { t.proposal = {ts: at(e), green: e.green === true, reasons: e.not_green ?? [], tip: e.tip}; continue; }
     if (e.event !== 'task.state') continue;
     t.landingStep = null;
+    if (e.status !== 'landing') t.checksEnd = null;
     const ts = at(e);
     const lines = [e.text, ...(e.lines ?? [])].map(String);
     // A landing that starts is a new run of the gate; the results of an earlier one are history.
@@ -1265,6 +1270,18 @@ function derive(now) {
     // a builder that investigates a bug or a question works before any lead
     t.investigating = investigates(last);
     if (t.investigating && !t.forOwner) t.info = {...t.info, who: 'The investigator', label: 'Investigating', icon: 'eye'};
+    // A landing whose run of the checks was stopped, red or refused, and that has not gone on since,
+    // is Lem's: it waits for the owner's word after a stop, and starts a builder that repairs it after
+    // the others (stages/land.md, step 4). A stop is no row of "Waits for you", which is the owner's
+    // one list (`lem project waiting`), so its next step is said here in words.
+    const ended = t.status === 'landing' && !t.forOwner && t.checksEnd && t.checksEnd.result !== 'passed' ? t.checksEnd : null;
+    t.checksStop = ended;
+    if (ended) {
+      const end = checksEndOf(ended);
+      t.info = {actor: 'lem', who: 'Lem', label: end.label, icon: ended.result === 'stopped' ? 'x' : 'alert', live: false};
+      const said = sayOf(ended) || (ended.result === 'stopped' ? 'the checks were stopped; the landing waits for your word' : `${end.head.toLowerCase()}; a builder repairs it, nothing for you`);
+      t.shown = ended.result === 'stopped' ? `${said}. Tell Lem in its session: /lem land starts them again, /lem drop ${t.slug} drops the task` : said;
+    }
     t.ownerRank = OWNER_ORDER.indexOf(t.asks.length ? 'choice' : t.status);
     t.lane = t.forOwner ? 'you' : t.closed ? 'done' : t.status === 'ready' || t.status === 'landing' ? 'checks' : 'build';
     t.segments = [];
@@ -1526,15 +1543,36 @@ const investigates = b => b.status === 'building' && [b.text, ...b.lines].some(l
 // The fast track's one builder makes it: the block's line FAST_BUILDER (stages/new.md).
 const smallBlock = b => b.status === 'building' && [b.text, ...b.lines].some(line => FAST_BUILDER.test(line));
 // The events that cut a landing. `polish` is the end of the polish pass (land.py polish --done),
-// which logs no start: its span runs from the event before it.
-const CHECKS = ['polish', 'gate', 'task.red', 'review', 'review.filed', 'proposed'];
+// which logs no start: its span runs from the event before it. `gate.end` is the end of a run of the
+// checks, however it ended (land.py checks_run).
+const CHECKS = ['polish', 'gate', 'task.red', 'gate.end', 'review', 'review.filed', 'proposed'];
+// How a run of the checks ended, by the `result` of its `gate.end` (land.py RESULTS): the head of its
+// span and of the task's large card, the label of a task whose landing stopped there, and what the
+// time after it is (stages/land.md, step 4: after a stop the landing waits for the owner's word, after
+// red or refused a builder repairs it, after a pass the next step comes).
+const CHECKS_END = {
+  passed: {head: 'The checks passed', label: 'Checks passed', after: 'Lem, between two steps of the landing'},
+  red: {head: 'The checks are red', label: 'Checks red', after: 'After the checks were red: Lem starts a builder that repairs it'},
+  refused: {head: 'The checks refused the change', label: 'Checks refused', after: 'After the checks refused the change: Lem starts a builder that repairs it'},
+  stopped: {head: 'The checks were stopped', label: 'Checks stopped', after: 'The checks were stopped: the landing waits for your word'},
+};
+const checksEndOf = e => CHECKS_END[e.result] ?? {head: `The checks ended: ${e.result ?? 'no result'}`, label: 'Checks ended', after: 'Lem, after the checks'};
+// The `say` of a `gate.end` without the task's name before it (land.py checks_say: "SLUG: ...").
+const sayOf = e => String(e.say ?? '').replace(/^[a-z0-9-]+: /, '');
+// What the checks refused, from the `say` of a refused run ("the checks refused the change: WHAT; a
+// builder repairs it, ..."), or the whole `say` when it has no such part.
+function refusedOf(e) {
+  const said = sayOf(e);
+  const found = said.match(/the checks refused the change: (.*?)(?:; a builder repairs it\b.*)?$/);
+  return found ? found[1] : said;
+}
 // The starts of the steps of a landing (land.py logs the first three, and a builder of the landing
 // the fourth): each ends at the next step's event (SKILL.md).
 const LANDING_STARTS = ['polish.start', 'gate.start', 'review.start', 'builder.start'];
 // A landing starts with the rebase onto the base and, for a task that is not on the fast track, the polish
 // pass; no event says which runs until the pass ends. A pass of an earlier landing still counts.
 const criteriaSize = t => t.criteria?.size ?? t.approvals.at(-1)?.size ?? null;
-const startsLanding = t => t.status === 'landing' && !t.gates.length && !t.polish && !t.landingStep && criteriaSize(t) !== 'small';
+const startsLanding = t => t.status === 'landing' && !t.gates.length && !t.polish && !t.landingStep && !t.checksEnd && criteriaSize(t) !== 'small';
 // What runs in a landing whose newest step started and has not ended.
 const STEP_RUNS = {'polish.start': 'The polish pass runs', 'gate.start': 'The checks run', 'review.start': 'The review runs'};
 // A builder's job as the page says it: the fast track's job (FAST_JOB) is "the change".
@@ -1613,9 +1651,12 @@ function timeOf(t, end) {
     const serialN = Number.isInteger(meta.serial) ? meta.serial : 0;
     const sameTip = (a, b) => Boolean(a && b) && (String(a).startsWith(b) || String(b).startsWith(a));
     let run = null, owed = false, prev = from, before = null, opened = null;
+    // the newest run of the checks that started: its commands, and how many of them ended
+    let checks = null;
     const job = e => cap(String(jobOf(e) ?? 'a job'));
     for (const e of inside) {
       const x = at(e);
+      if (e.event === 'gate.start') checks = {total: Number.isInteger(e.commands) ? e.commands : gates, done: 0};
       if (LANDING_STARTS.includes(e.event)) {
         if (opened?.event === 'builder.start') add('builders', prev, x, job(opened), 'a builder of the landing; its span ends at the next step');
         else if (!before) add('lem', prev, x, 'The rebase onto the base', 'Lem rebases the branch before the first step of the landing');
@@ -1643,6 +1684,7 @@ function timeOf(t, end) {
         if (!e.serial) run.plain++;
         run.failed ||= e.exit !== 0;
         run.done = gates != null && (run.count >= gates || (run.failed && !e.serial && run.plain >= gates - serialN));
+        if (checks) checks.done++;
       } else if (e.event === 'task.red') {
         repairing = !started && (owed || run?.failed) && Boolean(run) && !sameTip(run.tip, e.tip);
         if (!e.ok) owed = true;
@@ -1650,6 +1692,12 @@ function timeOf(t, end) {
       if (repairing) add('builders', prev, x, 'A repair, and the checks again', 'no event tells the repair from the checks');
       else if (e.event === 'gate') add('checks', prev, x, `The checks: ${e.command ?? 'a command'}`, e.exit === 0 ? `green · ${e.last ?? ''}` : `exit ${e.exit} · ${e.last ?? ''}`);
       else if (e.event === 'task.red') add('checks', prev, x, 'The tests of the criteria, on the branch and on the base commit', e.ok ? 'each test holds its criterion' : 'a test does not hold its criterion');
+      // the end of a run of the checks, however it ended: the piece before it is the checks' own
+      else if (e.event === 'gate.end') {
+        add('checks', prev, x, checksEndOf(e).head, [e.result === 'refused' ? refusedOf(e) : '',
+          checks?.total != null ? `${checks.done} of ${plural(checks.total, 'command')} done` : '', Number.isFinite(e.seconds) ? span(e.seconds * 1000) : ''].filter(Boolean).join(' · '));
+        checks = null;
+      }
       else if (e.event === 'review') add('review', prev, x, `${e.of === 'resolution' ? 'Review of the conflict’s resolution' : `Review round ${e.round ?? '?'}`}: ${KIND[e.kind] ?? e.kind}`, `${e.verdict}${(e.answered ?? []).length ? ` · answered: ${e.answered.join(', ')}` : ''}`);
       else if (e.event === 'review.filed') add('lem', prev, x, 'Lem files the defects outside the change', plural((e.items ?? []).length, 'item'));
       else add('lem', prev, x, 'Lem writes the pull request', e.green ? 'green' : 'not green');
@@ -1663,6 +1711,8 @@ function timeOf(t, end) {
       const [row, head] = last === 'builder.start' ? ['builders', job(before)]
         : last === 'polish.start' ? ['builders', 'The polish pass runs']
         : last === 'gate.start' ? ['checks', gates ? `The checks run: 0 of ${gates} commands done` : 'The checks run']
+        // after the end of a run the time is Lem's: its wait for the owner's word, for a repair, or between two steps
+        : last === 'gate.end' ? ['lem', checksEndOf(before).after]
         : last === 'review.start' ? ['review', `The review runs: ${KIND[before.floor] ?? before.floor ?? 'its floor'}`]
         : !last ? (startsLanding(t) ? ['lem', 'The landing starts: the rebase onto the base, then the polish pass, and no event says which runs yet'] : ['checks', 'The checks run'])
         : last === 'polish' ? (stepped ? between : ['checks', 'The checks run'])
@@ -1874,6 +1924,8 @@ const SAYS = {
   'builder.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'A builder started', text: jobOf(e)}),
   'polish.start': e => ({info: {actor: 'lead', icon: 'code'}, head: 'The polish pass started', text: `on ${e.before ?? '?'}`}),
   'gate.start': e => ({info: {actor: 'gate', icon: 'play'}, head: 'The checks started', text: `${plural(e.commands ?? 0, 'command')} on ${e.tip ?? '?'}`}),
+  'gate.end': e => ({info: e.result === 'passed' ? {actor: 'done', icon: 'check'} : e.result === 'stopped' ? {actor: 'lem', icon: 'x'} : {actor: 'bad', icon: 'alert'},
+    head: checksEndOf(e).head, text: sayOf(e) || `after ${span((e.seconds ?? 0) * 1000)} on ${e.tip ?? '?'}`, sub: sayOf(e) ? `after ${span((e.seconds ?? 0) * 1000)} on ${e.tip ?? '?'}` : ''}),
   'review.start': e => ({info: {actor: 'gate', icon: 'eye'}, head: 'The review started', text: `attempt ${e.attempt ?? '?'} · ${KIND[e.floor] ?? e.floor}`}),
   'companion.open': e => ({info: {actor: 'you', icon: 'split'}, head: 'A companion opened', text: e.name ?? companionName(e.task, e.need, e.choice), sub: 'under Lem’s session'}),
   'companion.close': e => ({info: {actor: 'quiet', icon: 'split'}, head: 'A companion closed', text: companionName(e.task, e.need, e.choice), sub: CLOSED[e.why] ?? e.why ?? ''}),
@@ -2006,7 +2058,8 @@ const stat = (label, value, sub, cls = '') => h('div', {class: `stat ${cls}`, ti
 // task 2 of 3"; in "Waits for you" a task that builds while a choice waits says "Building: task 2 of 3".
 function cardLine(t, lane) {
   if (t.status === 'answered' && t.investigation) return `${CALLS[t.investigation.call]?.card ?? t.investigation.call}: ${t.investigation.line}`;
-  const label = t.info.label === lane.title ? '' : t.info.label;
+  // the line of a landing whose checks ended says how they ended itself
+  const label = t.info.label === lane.title || t.checksStop ? '' : t.info.label;
   if (!t.shown) return t.info.label;
   // a pull request is its number here; the task's own board has its whole address
   const said = t.shown.replace(/\bhttps?:\/\/\S+\/pull\/(\d+)\b/g, '#$1');
@@ -2233,7 +2286,7 @@ function buildTaskNow(t) {
     queued: t.waitsAfter ? 'Waits for the task it needs' : 'Waits to start', building: t.investigating ? 'Its investigator examines it, before any criterion' : LEAD[leadOf(t)].head,
     planned: t.forOwner ? 'The plan waits for you' : t.talks.length ? 'The plan talk is done: the plan waits for the agent that builds it' : 'The plan waits for its talk companion',
     held: t.approved ? 'Approved: its lead has not started yet' : t.answered ? 'Answered: its lead has not started yet' : t.need?.need === 'interview' ? 'The interview waits for you' : t.criteriaWait ? 'The criteria wait for your yes' : 'Waits for you', blocked: 'The agent stopped; Lem has to settle it', ready: 'Waits for its checks',
-    landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : t.landingStep ? stepRuns(t.landingStep) : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
+    landing: startsLanding(t) ? 'It starts its landing: the rebase onto the base, then the polish pass, before the checks' : t.checksStop ? checksEndOf(t.checksStop).head : t.landingStep ? stepRuns(t.landingStep) : 'The checks and the review run on it', open: 'Proposed: it waits for the merge', landed: 'Landed', drafted: 'A night draft waits for your word', dropped: 'Dropped',
     answered: 'Answered: it ended with a report and nothing to merge',
   }[t.status] ?? `Status "${t.status}"`;
   // What the investigation found, on every task that had one: the answer of an answered task, the cause of a fix.
