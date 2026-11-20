@@ -55,5 +55,27 @@ class TrackOf(unittest.TestCase):
         self.assertIsNone(project.track_of("2026-11-19T09:50Z queued: it waits for a free place"))
 
 
+class HoldsOf(unittest.TestCase):
+    """The held tasks of `lem project waiting`: one choice of one held task is named once, under `choices`."""
+
+    @staticmethod
+    def held(slug: str, line: str) -> dict:
+        return {"slug": slug, "ask": f"The ask of {slug}.", "since": "2026-11-20T01:00Z", "night": None,
+                "state": f"2026-11-20T01:00Z held: {line}\ntype: feat, because the export gets a note"}
+
+    def test_a_held_task_whose_choice_waits_is_that_choice(self):
+        choices = [{"task": "gift-note", "id": 1, "state": "waits"}]
+        found = project.holds_of([self.held("gift-note", "choice 1 waits for the owner")], choices)
+        self.assertEqual((found["criteria"], found["held"]), ([], []))
+
+    def test_a_step_of_his_and_his_criteria_stay(self):
+        tasks = [self.held("his-step", "the reviewer's pane waits for the owner's trust of the folder"),
+                 self.held("his-criteria", "the criteria wait for the owner")]
+        found = project.holds_of(tasks, [{"task": "another-task", "id": 2, "state": "waits"}])
+        self.assertEqual([task["task"] for task in found["held"]], ["his-step"])
+        self.assertEqual([task["task"] for task in found["criteria"]], ["his-criteria"])
+        self.assertEqual(found["held"][0]["line"], "the reviewer's pane waits for the owner's trust of the folder")
+
+
 if __name__ == "__main__":
     unittest.main()
