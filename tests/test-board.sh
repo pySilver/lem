@@ -2587,6 +2587,35 @@ sys.exit(bool(wrong))' "$WORK/board-standin.dom"); then
   else
     fail "approved with no lead: $why"
   fi
+  # The large card of a repository whose one task is approved with no lead: that task, not "Nothing runs".
+  # A task that builds comes before it, as each that waits for the owner, is blocked or lands does.
+  Q=$WORK/approved-only
+  qproject() { "$PY" -B "$SCRIPTS/project.py" --repo "$Q" "$@"; }
+  qboard() { env -u AGTERM_SESSION_ID -u AGTERM_SOCKET -u AGT_SESSION_ID -u AGT_SOCKET "$PY" -B "$SCRIPTS/board.py" --repo "$Q" "$@"; }
+  git init -q -b main "$Q" && git -C "$Q" config user.name t && git -C "$Q" config user.email t@t
+  echo one > "$Q/app.txt" && git -C "$Q" add -A && git -C "$Q" commit -q -m "chore: start"
+  qproject init --base main >/dev/null
+  git -C "$Q" add -A && git -C "$Q" commit -q -m "chore: the settings"
+  QS=$(qproject state-dir)
+  qproject task-dir gift-note-in-export --ask "Put the gift note in the export" >/dev/null
+  qproject state gift-note-in-export held "the interview waits for the owner" "type: feat, because the export gets a column" >/dev/null
+  printf '%s\n' '## Acceptance criteria' '' 'Size: full, because the export gets a column.' '' '1. The export of order 1042 holds its gift note.' > "$WORK/export-note.md"
+  digest=$("$PY" -B "$SCRIPTS/criteria.py" --repo "$Q" digest gift-note-in-export --file "$WORK/export-note.md" | field 'd["digest"]')
+  qproject log gift-note-in-export criteria.read by=lem asked:=2 answered:=2 'families:=["opus", "sol"]' 'silent:=[]' criteria:=1 flagged:=0 split:=false "digest=$digest" >/dev/null
+  "$PY" -B "$SCRIPTS/criteria.py" --repo "$Q" approve gift-note-in-export --file "$WORK/export-note.md" >/dev/null
+  qboard --no-open >/dev/null
+  headless --virtual-time-budget=5000 --dump-dom "file://$QS/board.html" > "$WORK/approved-only.dom"
+  qproject task-dir wrap-in-paper --ask "Wrap the gifts in paper" >/dev/null
+  qproject state wrap-in-paper building "lead: builder" "type: feat, because the gifts get a wrap" >/dev/null
+  qboard --no-open >/dev/null
+  headless --virtual-time-budget=5000 --dump-dom "file://$QS/board.html" > "$WORK/approved-and-building.dom"
+  if why=$("$PY" -I -B -c "$ROWS" "$WORK/approved-only.dom" now "Gift note in export|Lem · Approved|Your yes to the criteria is on record: Lem starts its lead|!Nothing runs") \
+    && why=$("$PY" -I -B -c "$SHOWN" "$WORK/approved-only.dom" "!Every task has landed, was answered or was dropped.") \
+    && why=$("$PY" -I -B -c "$ROWS" "$WORK/approved-and-building.dom" now "Wrap in paper|!Gift note in export"); then
+    pass "with one task approved with no lead and no other task, the large card names that task and not Nothing runs; a task that builds comes before it"
+  else
+    fail "the large card of a task approved with no lead: $why"
+  fi
 
   # A board of example tasks says so on every page, and a picture of it is taken over that mark.
   board --no-open --demo >/dev/null

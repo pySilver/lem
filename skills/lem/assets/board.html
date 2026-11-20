@@ -1289,6 +1289,8 @@ function derive(now) {
     // proposed: a pull request is open or the branch is ready to land, and it waits for the merge
     proposed: by('open'),
     building: by('building'), queued: by('queued'), ready: by('ready'), landing: by('landing'), blocked: by('blocked'),
+    // held, with the criteria approved and no lead yet: Lem's to start, the oldest first
+    approved: list.filter(t => t.approved && !t.forOwner).sort((a, b) => a.since - b.since),
     // A choice runs out, a held task stops work, a plan and a night draft only wait: in that
     // order, the oldest first.
     forOwner: list.filter(t => t.forOwner).sort((a, b) => a.ownerRank - b.ownerRank || a.since - b.since),
@@ -1954,10 +1956,11 @@ function buildReview(t, now) {
 // ---- the board of all tasks ----
 
 function focusOf(m) {
-  const t = m.forOwner[0] ?? m.blocked[0] ?? m.landing[0] ?? m.building[0] ?? m.ready[0] ?? m.queued[0] ?? null;
+  const t = m.forOwner[0] ?? m.blocked[0] ?? m.landing[0] ?? m.building[0] ?? m.approved[0] ?? m.ready[0] ?? m.queued[0] ?? null;
   if (!t) return null;
-  // "like it": a wait of the same kind (a choice, a held task, a plan, a pull request), or the same status
-  const others = (m.forOwner.includes(t) ? m.forOwner.filter(x => x.ownerRank === t.ownerRank) : m[t.status] ?? []).length - 1;
+  // "like it": a wait of the same kind (a choice, a held task, a plan, a pull request), another task
+  // approved with no lead, or the same status
+  const others = (m.forOwner.includes(t) ? m.forOwner.filter(x => x.ownerRank === t.ownerRank) : m.approved.includes(t) ? m.approved : m[t.status] ?? []).length - 1;
   return {t, others};
 }
 
