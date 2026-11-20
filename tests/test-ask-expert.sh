@@ -182,7 +182,8 @@ else
 fi
 
 # A lead's wait on a choice with both experts' shared pick, when the task runs without the owner: the wait takes that
-# pick at once, early; an irreversible step is never taken so. A task of its own, since a night's mark holds until it ends.
+# pick at once, early, and leaves the task's other choice that waits; an irreversible step is never taken so. A task of
+# its own, since a night's mark holds until it ends.
 KEEP_SLUG=$SLUG KEEP_RECORD=$RECORD
 SLUG=gift-early RECORD=$EX/.lem/state/tasks/gift-early/decisions.jsonl
 project --repo "$EX" task-dir "$SLUG" >/dev/null && project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
@@ -190,12 +191,13 @@ c13=$(ask "The note's width")
 decide advise "$SLUG" "$c13" --expert fable --pick "after the price" --why "f" >/dev/null || true
 decide advise "$SLUG" "$c13" --expert astra --pick "after the price" --why "a" >/dev/null || true
 c14=$(ask "Email the accountants about the column" --irreversible person)
+c15=$(ask "The note's height")
 night "$SLUG"
 early=$(decide wait "$SLUG" "$c13" --seconds 30 | field '(d["chose"], d["by"], d["early"], sorted(d["experts"]))' || true)
 irreversible=$(decide wait "$SLUG" "$c14" --seconds 1 | field 'd["ended"]' || true)
+others=$(decide list "$SLUG" | field '[c["state"] for c in d if c["id"] == '"$c15"']' || true)
 SLUG=$KEEP_SLUG RECORD=$KEEP_RECORD
-others=$(decide list "$SLUG" | field '[c["state"] for c in d if c["id"] in (1, 2)]' || true)
-if [ "$early" = "('after the price', 'experts', True, ['astra', 'fable'])" ] && [ "$irreversible" = "still waits" ] && [ "$others" = "['waits', 'waits']" ]; then
+if [ "$early" = "('after the price', 'experts', True, ['astra', 'fable'])" ] && [ "$irreversible" = "still waits" ] && [ "$others" = "['waits']" ]; then
   pass "when the task runs without the owner, a wait takes the experts' shared pick of its own choice at once, marked early, and never an irreversible step"
 else
   fail "a choice taken early: $early / $irreversible / $others"
