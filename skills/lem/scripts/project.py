@@ -1884,7 +1884,8 @@ def newest_events(root: Path, event: str) -> dict[str, dict]:
 # The words of the `task.mode` event with which a night marks its task (`task-dir --night`,
 # `stages/night.md`): the one mark that tells a task of the night from a day's task.
 NIGHT_WORDS = re.compile(r"the night of (\d{4}-\d{2}-\d{2})")
-# The event of the owner's status, which names no task (`owner`).
+# The `event` of each record of the owner's status, which names no task (`owner`): a record of the
+# machine's mark, never of a repository's log, which `log` refuses it.
 OWNER = "owner"
 
 

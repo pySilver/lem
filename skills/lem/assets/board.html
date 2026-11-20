@@ -2125,9 +2125,9 @@ function waitRow(w) {
 
 // ---- the board of one task ----
 
-// Whether the owner was away at a moment: the newest `owner` event at or before it says away. The
-// same second counts: project.py writes his `owner` event and takes each choice that waits in one
-// whole second (decision 2 of the task that built this).
+// Whether the owner was away at a moment: the newest record of owner.js at or before it says away.
+// The same second counts: project.py appends his record to the machine's mark and takes each choice
+// that waits in one whole second (decision 2 of the task that built this).
 function awayAt(owners, ms) {
   return owners.findLast(o => o.ts <= ms)?.away === true;
 }
