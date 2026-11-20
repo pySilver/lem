@@ -62,6 +62,7 @@ if sys.version_info < (3, 11):
     sys.exit(f"board.py: Lem needs Python 3.11 or newer, and this python3 is {sys.version.split()[0]}; put a newer one first on PATH, or run this file with it")
 
 import argparse
+import importlib
 import json
 import os
 import re
@@ -74,7 +75,7 @@ SCRIPTS = Path(__file__).resolve().parent
 # project.py's own read of the owner's mark, so that the board's copy of it is written as `owner` writes it
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SCRIPTS))
-import project as lem_project  # noqa: E402
+lem_project = importlib.import_module("project")
 ASSET = SCRIPTS.parent / "assets" / "board.html"
 # the look every page of Lem shares, and the script that picks its palette; the board links both,
 # so they go beside the page
