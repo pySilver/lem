@@ -1910,7 +1910,9 @@ def owner_records() -> list[dict]:
     if not mark.is_file():
         return []
     found = []
-    for number, line in enumerate(text_of(mark).splitlines(), 1):
+    # split at "\n" alone: str.splitlines also breaks at U+2028, U+2029 and U+0085, which append_owner's
+    # json.dumps(ensure_ascii=False) leaves as they are in the owner's words
+    for number, line in enumerate(text_of(mark).split("\n"), 1):
         if not line.strip():
             continue
         try:
@@ -2234,13 +2236,24 @@ def cmd_waiting(root: Path) -> dict:
     return found
 
 
+def take_away(root: Path) -> list:
+    """Each choice of this repository that waits for the owner and is no irreversible step, taken
+    now that he is away (`lem decisions away`)."""
+    ran = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "away"],
+                         capture_output=True, text=True, check=False)
+    if ran.returncode != 0:
+        raise SettingsError(f"the owner is away now, and the choices that wait were not taken: {ran.stderr.strip().removeprefix('decisions.py: ')}; run `lem decisions away`")
+    return json.loads(ran.stdout)["taken"]
+
+
 def cmd_owner(root: Path, status: str, words: str | None) -> dict:
     """Write the owner's status, away or back, with his words as typed, into the machine's mark, so
     that every repository on this machine reads it. Nothing is written when it changes nothing:
     away while he is away, back while he is there. Away takes at once each choice of this repository
-    that waits for him and is no irreversible step; the other repositories' Lem takes theirs.
+    that waits for him and is no irreversible step, also when he was away already, since an away
+    typed in another repository took none of this one's; the other repositories' Lem takes theirs.
     `tasks` are this repository's: after an away the tasks that run without him, after a back the
-    ones that came back to him (a night's task does not)."""
+    ones that came back to him (a night's task does not), and none after a back while he was there."""
     if status not in ("away", "back"):
         raise SettingsError(f"the owner is away or back, not {status!r}: `lem project owner away --words \"I'm away\"` or `lem project owner back --words \"I'm back\"`"
                             " (`lem project owner watch --seen N` watches his status)")
@@ -2253,16 +2266,10 @@ def cmd_owner(root: Path, status: str, words: str | None) -> dict:
     if now["away"] == away:
         # the board's copy is written again all the same: a copy that an older read replaced is current after it
         owner_copy(root, marks)
-        return {**now, "written": False, "tasks": without, "taken": []}
+        return {**now, "written": False, "tasks": without if away else [], "taken": take_away(root) if away else []}
     record = append_owner(root, away, words.strip())
     owner_copy(root, owner_records())
-    taken: list = []
-    if away:
-        ran = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve().parent / "decisions.py"), "--repo", str(root), "away"],
-                             capture_output=True, text=True, check=False)
-        if ran.returncode != 0:
-            raise SettingsError(f"the owner is away now, and the choices that wait were not taken: {ran.stderr.strip().removeprefix('decisions.py: ')}; run `lem decisions away`")
-        taken = json.loads(ran.stdout)["taken"]
+    taken = take_away(root) if away else []
     after = [task["slug"] for task in read_tasks(root) if task["status"] not in ENDED and task["mode"] == "alone"]
     return {"away": away, "since": record["ts"], "words": record["words"], "written": True,
             "tasks": after if away else [slug for slug in without if slug not in after], "taken": taken}
@@ -2290,7 +2297,7 @@ def cmd_owner_watch(root: Path, seen: int, every: int = OWNER_WATCH_SECONDS) -> 
             marks = owner_records()
     except KeyboardInterrupt:
         owner_copy(root, owner_records())
-        raise SettingsError("the watch of the owner's status was stopped; Lem starts it again with --seen from owner.seen of `lem project waiting`") from None
+        raise SettingsError("the watch of the owner's status was stopped; start no other until the reason for the stop is gone") from None
     finally:
         signal.signal(signal.SIGTERM, before[0])
         signal.signal(signal.SIGINT, before[1])

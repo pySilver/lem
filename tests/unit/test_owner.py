@@ -73,6 +73,15 @@ class Mark(unittest.TestCase):
         self.assertEqual(project.owner_now(records), {"away": False, "since": "2026-11-19T16:30:00Z", "words": "/lem im-back"})
         self.assertEqual(project.owner_now(records[:1]), {"away": True, "since": "2026-11-19T14:05:00Z", "words": "/lem im-away"})
 
+    def test_his_words_may_hold_a_line_separator(self):
+        # the record as append_owner writes it: json.dumps with ensure_ascii=False keeps U+2028, U+2029 and U+0085 as they are
+        folder = Path(self.folder.name) / "lem"
+        folder.mkdir()
+        words = "away\u2028now\u2029and\x85later"
+        (folder / "owner.jsonl").write_text(project.json.dumps(mark("2026-11-19T14:05:00Z", True, words), ensure_ascii=False) + "\n", encoding="utf-8")
+        records = project.owner_records()
+        self.assertEqual(project.owner_now(records), {"away": True, "since": "2026-11-19T14:05:00Z", "words": words})
+
     def test_a_line_that_does_not_read_is_refused_with_its_place(self):
         folder = Path(self.folder.name) / "lem"
         folder.mkdir()

@@ -191,9 +191,9 @@ if [ "$watched" = 0 ] && [ "$took" -lt 15 ] && [ "$heard" = "(True, '$away_at', 
   && [ "$copy_before" != "$copy_after" ] && [ "$copy_after" = "[(True, '$away_at', '/lem im-away')]" ] \
   && [ "$stale" = "(True, '$away_at', $lines)" ] && [ "$(grep -c '' "$MACHINE/lem/owner.jsonl")" = "$kept" ] \
   && [ "$paired" = "(True, '$again_ts', $((before_pair + 2)))" ] && [ "$kept" = "$((before_pair + 2))" ] \
-  && [ "$stopped_code" = 1 ] && grep -qF "the watch of the owner's status was stopped" "$WORK/watch-stop.out" \
+  && [ "$stopped_code" = 1 ] && grep -qF "the watch of the owner's status was stopped; start no other until the reason for the stop is gone" "$WORK/watch-stop.out" \
   && grep -qF "watch takes --seen N" <<<"$no_seen" && grep -qF "0 or more, not -1" <<<"$negative" && grep -qF "is not inside a git checkout" <<<"$outside"; then
-  pass "the watch of the owner's mark in one repository ends after his away in another with that record, and its owner.js then holds it; a count that is no longer the mark's ends it at once, as an away and a back written in one second do; it writes nothing to the mark, a stop ends it with exit 1, and it is refused outside a repository and without a count"
+  pass "the watch of the owner's mark in one repository ends after his away in another with that record, and its owner.js then holds it; a count that is no longer the mark's ends it at once, as an away and a back written in one second do; it writes nothing to the mark, a stop ends it with exit 1 and asks for no second watch, and it is refused outside a repository and without a count"
 else
   fail "the watch of the owner's mark: $watched / ${took}s / $heard / $copy_before / $copy_after / $stale / $again_ts $paired / $kept / $stopped_code $(cat "$WORK/watch-stop.out") / $no_seen / $negative / $outside"
 fi

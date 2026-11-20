@@ -365,6 +365,7 @@ printf '%s\n' '{"proposed": "def5678", "pr": {"number": 8, "url": "https://githu
 wq state night-full open "pull request https://github.com/acme/shop/pull/9" "not green: the owner did not approve the criteria" >/dev/null
 printf '%s\n' '{"proposed": "0a1b2c3", "pr": {"number": 9, "url": "https://github.com/acme/shop/pull/9"}, "not_green": ["the owner did not approve the criteria"]}' > "$WQ/.lem/state/tasks/night-full/landing.json"
 wq owner away --words "I'm away" >/dev/null && wq owner back --words "/lem im-back" >/dev/null
+back_again=$(wq owner back --words "/lem im-back" | field '(d["written"], d["tasks"])' 2>&1 || true)
 wq state night-merged landed "main 1234567..89abcde" >/dev/null
 wq state night-closed dropped "the pull request was closed on the forge" >/dev/null
 other_form=$(wq task-dir night-other --ask "The backlog item of night-other." --night "the night run" 2>&1 || true)
@@ -373,10 +374,10 @@ marked=$(wq tasks | field '[(t["slug"], t["night"]) for t in d if t["slug"].star
 if [ "$nightly" = "([('night-full', False, '2026-11-18'), ('night-small', True, '2026-11-18'), ('proposed-one', False, None)], 2)" ] \
   && [ "$marked" = "[('night-closed', '2026-11-18'), ('night-full', '2026-11-18'), ('night-merged', '2026-11-18'), ('night-small', '2026-11-18'), ('proposed-one', None)]" ] \
   && grep -qF -- "--night is the night's date, YYYY-MM-DD, not 'the night run'" <<<"$other_form" && [ "$night_mode" = alone ] \
-  && [ "$(wq tasks | field '[t["mode"] for t in d if t["slug"] == "night-small"][0]')" = alone ]; then
-  pass "a task the night opened runs without the owner and carries the night's date in tasks and in waiting, also after he went away and said he is back; the brake counts the night's pull requests that nobody merged or closed; and a night that is no date is refused"
+  && [ "$(wq tasks | field '[t["mode"] for t in d if t["slug"] == "night-small"][0]')" = alone ] && [ "$back_again" = "(False, [])" ]; then
+  pass "a task the night opened runs without the owner and carries the night's date in tasks and in waiting, also after he went away and said he is back, and a second back writes nothing and names no task as come back; the brake counts the night's pull requests that nobody merged or closed; and a night that is no date is refused"
 else
-  fail "the night's pull requests: $nightly / $marked / $other_form / $night_mode"
+  fail "the night's pull requests: $nightly / $marked / $other_form / $night_mode / $back_again"
 fi
 
 # The morning: a task the night left held for the owner is marked with its night beside a day's, the night's pull
@@ -399,14 +400,15 @@ fi
 
 
 # The owner's status is the machine's: his away in one repository takes a choice that a lead waits on in another, and
-# an irreversible step there still waits; a task the night opened in the other repository runs without him after his
-# back too, and its choice is taken at once.
+# an irreversible step there still waits; his away typed in the other as well takes a choice there that no lead waits
+# on; a task the night opened in the other repository runs without him after his back too, and its choice is taken at once.
 D2=$WORK/second-repo
 git init -q -b main "$D2" && commit "$D2" start && project --repo "$D2" init --base main >/dev/null
 d2() { "$PY" -B "$DECISIONS" --repo "$D2" "$@"; }
 project --repo "$D2" task-dir report-dates >/dev/null && project --repo "$D2" state report-dates building "lead: builder" >/dev/null
 d2 ask report-dates "${CASE[@]}" --what "The date's form" --option "2026-11-19" --option "19.11.2026" --recommended "2026-11-19" --why "it sorts" --said "The personas split." >/dev/null
 d2 ask report-dates "${CASE[@]}" --what "Email the merchants" --option "send it" --option "send nothing" --recommended "send nothing" --why w --said s --irreversible person >/dev/null
+unwaited=$(d2 ask report-dates "${CASE[@]}" --what "The date's column" --option first --option last --recommended first --why "it is read first" --said "The personas split." | field 'd["id"]')
 started=$(date +%s)
 "$PY" -B "$DECISIONS" --repo "$D2" wait report-dates 1 --seconds 30 > "$WORK/far-wait.out" 2>&1 &
 waiter=$!
@@ -416,6 +418,8 @@ wait "$waiter" || true
 took=$(( $(date +%s) - started ))
 far=$(field '(d["ended"], d["chose"], d["by"])' < "$WORK/far-wait.out" 2>&1 || true)
 far_never=$(d2 wait report-dates 2 --seconds 1 | field 'd["ended"]')
+# no lead waits on the third choice and no watch runs here: his away typed here as well writes nothing and takes it
+here_too=$(project --repo "$D2" owner away --words "/lem im-away" | field '(d["written"], [(t["task"], t["id"], t["chose"]) for t in d["taken"]])' 2>&1 || true)
 project --repo "$D2" task-dir night-dates --ask "The backlog item of night-dates." --night 2026-11-19 >/dev/null
 project --repo "$DC" owner back --words "/lem im-back" >/dev/null
 night_mode=$(project --repo "$D2" tasks | field '[(t["slug"], t["mode"]) for t in d if t["slug"] in ("night-dates", "report-dates")]')
@@ -439,11 +443,12 @@ project --repo "$DC" owner back --words "I'm back" >/dev/null
 kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true
 wait "$approver" || true
 if [ "$far" = "('taken without the owner: the task runs without him now', '2026-11-19', 'timeout')" ] && [ "$took" -lt 30 ] && [ "$far_never" = "still waits" ] \
+  && [ "$here_too" = "(False, [('report-dates', $unwaited, 'first')])" ] \
   && [ "$night_mode" = "[('night-dates', 'alone'), ('report-dates', 'with-owner')]" ] && [ "$night_asked" = ISO ] && [ "$waited" = yes ] \
   && grep -qF "late-approve runs with the owner" "$WORK/late-approve.out" && [ ! -e "$D2/.lem/state/tasks/late-approve/criteria.json" ]; then
-  pass "the owner's away in one repository takes a choice a lead waits on in another within seconds, never an irreversible step there; his back in the first leaves a task the night opened in the other without him, and its choice is taken at once; an approval without him that waited for its lock while he came back is refused"
+  pass "the owner's away in one repository takes a choice a lead waits on in another within seconds, never an irreversible step there, and his away typed there as well takes a choice no lead waits on; his back in the first leaves a task the night opened in the other without him, and its choice is taken at once; an approval without him that waited for its lock while he came back is refused"
 else
-  fail "the owner's status across two repositories: $far / $took / $far_never / $night_mode / $night_asked / at the lock: $waited / $(cat "$WORK/far-wait.out" "$WORK/late-approve.out")"
+  fail "the owner's status across two repositories: $far / $took / $far_never / $here_too / $night_mode / $night_asked / at the lock: $waited / $(cat "$WORK/far-wait.out" "$WORK/late-approve.out")"
 fi
 
 finish
