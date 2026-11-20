@@ -1174,7 +1174,7 @@ claude --plugin-dir /path/to/lem   # the plugin from this folder, for this sessi
   `criteria.py`, `decisions.py` and `companion.py` run a command of a sibling: in their own process, as its
   `main(argv)`, except the commands in its `APART`),
   `project.py` (a repository's settings, the one place of each file Lem reads beside them
-  (`PLACES`), task state, a
+  (`PLACES`), task state,
   the owner's status (away or back), read from the machine's mark, with its watch (`lem project
   owner watch`) and `owner.js`, the board's copy of it in the state folder, and from it each task's
   mode, the event log, and `waiting`, the one list of what waits for the owner),
