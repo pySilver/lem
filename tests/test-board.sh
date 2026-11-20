@@ -1122,7 +1122,6 @@ sys.exit(bool(wrong))
 PY
 )
   draw task-stopped-checks
-  # shellcheck disable=SC1112  # the apostrophe in the page's text
   if why=$("$PY" -I -B -c "$ENDED" "$WORK/task-stopped-checks.dom" "The checks were stopped" "0 of 2 commands done" 4 "The checks were stopped: the landing waits for your word") \
     && ! grep -q 'data-head="The checks · The checks run' "$WORK/task-stopped-checks.dom" \
     && why=$("$PY" -I -B -c "$ROWS" "$WORK/task-stopped-checks.dom" now "The checks were stopped|/lem land starts them again|/lem drop stopped-checks drops the task|!The checks run|!Where you answer") \
