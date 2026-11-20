@@ -44,8 +44,8 @@ you answer.
 > With a remote on GitHub, Lem pushes the branch of each task and opens its pull request without
 > a question. Your `land` at the end of `/lem init` approves this.
 
-A worktree of a task has no `.env` file and no test database. If your tests need them, name a
-script in `AGENTS.md` that prepares a worktree.
+A worktree of a task has no `.env` file and no test database. If your tests need them, put the
+commands that prepare a worktree in [`checks.setup`](settings.md#checks).
 
 ## What Lem keeps
 
