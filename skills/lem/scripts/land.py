@@ -1731,7 +1731,7 @@ def checks_run(task: Task, flags: dict) -> dict:
     # No result of an earlier run stays while this one runs: a run cut off with no chance to clean
     # up (a kill) leaves none for its tip either.
     task.keep(gated=None, tree=None)
-    # the start of the checks: the board draws them from here to their last result
+    # the start of the checks: the board draws them from here to their `gate.end`
     script("project.py", task.worktree, "log", task.slug, "gate.start", f"tip={tip[:9]}", f"commands:={len(commands) + len(serial)}")
     result: dict = {"task": task.slug, "tip": tip, "green": None, "commands": []}
     try:
