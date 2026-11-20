@@ -509,9 +509,10 @@ def reads_of(events: list[dict]) -> list[str]:
 
 
 def gather(root: Path, live: set[str]) -> dict:
-    """The facts every rule here reads, from the task files, the event log and the decisions."""
+    """The facts every rule here reads, from the task files, the event log, the decisions and the
+    owner's status in the machine's mark."""
     tasks = project.read_tasks(root)
-    events = project.events_named(root, "task.state", "criteria.approved", project.OWNER, *EVENTS, *READ_IN)
+    events = project.events_named(root, "task.state", "criteria.approved", *EVENTS, *READ_IN)
     waiting = sibling(root, "pending")["waiting"]
     state = project.state_root(root)
     facts_tasks = []
@@ -535,7 +536,8 @@ def gather(root: Path, live: set[str]) -> dict:
             "reads": reads_of([record for record in events if record.get("event") in READ_IN and record.get("task") == slug]),
             "choices": choices, "talk": (directory / TALK).is_file(),
         })
-    owners = [record for record in events if record.get("event") == project.OWNER and record.get("task") is None]
+    # the owner's status is the machine's mark, which every repository on this machine reads
+    owners = project.owner_records()
     back = next((record["ts"] for record in reversed(owners) if not record.get("away")), None)
     return {"tasks": facts_tasks, "owner": project.owner_now(owners), "back_at": back,
             "companions": companions_of([record for record in events if record.get("event") in EVENTS], live)}
@@ -656,7 +658,7 @@ def cmd_close(root: Path, slug: str, need: str, choice: int | None, why: str) ->
 def cmd_told_away(root: Path, slug: str, need: str, choice: int | None) -> dict:
     place = agterm()
     project.task_directory(root, slug)
-    owner = project.owner_now([record for record in project.events_named(root, project.OWNER) if record.get("task") is None])
+    owner = project.owner_now(project.owner_records())
     if not owner["away"]:
         raise CompanionError("the owner is not away: Lem tells a companion only while his status says away (`lem project waiting` gives it)")
     companion = companions_of(project.events_named(root, *EVENTS), live_ids(sessions(place))).get(key_of(slug, need, choice))

@@ -14,12 +14,12 @@
 | [Codex](https://github.com/openai/codex): optional, highly recommended | a second model family. Without it, Claude reviews the work of Claude |
 | a key for the Jev decision model, `JEV_API_KEY`: required when [the correction queue](#the-correction-queue) is on | the correction queue, and a check of each question card |
 
-`/lem init` checks each tool, and tells you how to install one that is absent.
+`/lem init` checks each tool, and tells you how to install an absent one.
 
 ## Install
 
 Run these two commands at the root of your repository, and commit `.claude/settings.json`. Then
-each person who works in the repository gets Lem.
+each person in the repository gets Lem.
 
 ```bash
 claude plugin marketplace add pySilver/lem --scope project
@@ -37,17 +37,17 @@ claude plugin install lem@lem --scope project
 5. Type `land`. Lem puts its settings on your base branch.
 6. Type `/lem` and your first request, in one sentence.
 
-Lem assumes that Claude Code and Codex run in auto mode: a builder works in the background, and
-a permission prompt stops it until you answer.
+Lem assumes that Claude Code and Codex run in auto mode: a permission prompt stops a builder until
+you answer.
 
 > [!NOTE]
 > With a remote on GitHub, Lem pushes the branch of each task and opens its pull request without
 > a question. Your `land` at the end of `/lem init` approves this.
 
-A worktree of a task has no `.env` file and no test database. If your tests need them, name a
-script in `AGENTS.md` that prepares a worktree.
+A worktree of a task has no `.env` file and no test database. If your tests need them, put the
+commands that prepare a worktree in [`checks.setup`](settings.md#checks).
 
-## What Lem keeps in your repository
+## What Lem keeps
 
 | Path | In git | What it holds |
 | --- | --- | --- |
@@ -66,11 +66,14 @@ script in `AGENTS.md` that prepares a worktree.
 The [settings](settings.md#paths) can name another folder for the plans and the rulings. Move any
 other folder with `git mv`.
 
+Outside the repository, Lem keeps your away status for all your repositories in
+`~/.config/lem/owner.jsonl`, or `$XDG_CONFIG_HOME/lem/owner.jsonl` when that variable is set.
+
 ## The correction queue
 
 With this optional queue, a retro finds a correction that you gave two times or more. A hook sends
-each message that you type, with the agent's message before it, to the Jev decision model. It uses
-the key of the person who typed it. Commands that start with `/` stay local.
+each message that you type, with the agent's message before it, to the Jev decision model.
+Commands that start with `/` stay local.
 
 `corrections.collect = true` turns it on for each person in the repository. Each person then puts
 a key into the environment as `JEV_API_KEY`, and `/lem init` stops without one. The default
@@ -94,5 +97,6 @@ claude plugin update lem@lem --scope project
 4. Run `claude plugin marketplace remove lem --scope project`.
 5. Remove the allow rules of Lem from `.claude/settings.json`.
 6. Run `git rm -r .lem`, and commit with the change of step 5.
-7. Delete the folder `.lem/`, which still holds the files that git does not track.
-8. If no other repository uses Lem, delete `~/.cache/lem-ask/` and `$TMPDIR/lem-ask/`.
+7. Delete the folder `.lem/`, with the files that git does not track.
+8. If no other repository uses Lem, delete `~/.config/lem/` (or `$XDG_CONFIG_HOME/lem/`),
+   `~/.cache/lem-ask/` and `$TMPDIR/lem-ask/`.

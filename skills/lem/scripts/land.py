@@ -3285,6 +3285,9 @@ def may_merge(task: Task, by: str) -> None:
     """Who may merge. The owner's word is enough; an agent merges only what nobody has a reason to look at first."""
     if by == "owner":
         return
+    # The mode at the merge, read again after the forge's answer: another repository's session may
+    # have marked the owner away since this command read the task.
+    task.read_states()
     # without him, the merge is the one step that waits for him in every case
     if task.record.get("mode") == "alone":
         raise LandError(f"{task.slug} runs without the owner: an agent never merges it, whatever the settings say; it waits as `open` for the owner's word")

@@ -11,6 +11,7 @@ PROJECT=$PWD/skills/lem/scripts/project.py
 DECISIONS=$PWD/skills/lem/scripts/decisions.py
 EXPERTS=$PWD/skills/lem-ask-expert/scripts/experts.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
+export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 trap 'rm -rf "$WORK"' EXIT
 PY=$(python3 -I -c 'import sys; print(sys.executable)')
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
@@ -63,9 +64,8 @@ ask() {
   decide ask "$SLUG" --what "$what" "${CASE[@]}" --option "the last column" --option "after the price" --recommended "the last column" \
     --why "an import that reads the columns by place keeps working" --said "The merchant picked the last column, the accountant after the price." "$@" | field 'd["id"]'
 }
-# night SLUG: a night's mark on the task, so that it runs without the owner and only its choices go; back: his "back", which ends it
+# night SLUG: a night's mark on the task, so that it runs without the owner and only its choices go, until the task ends
 night() { project --repo "$EX" task-dir "$1" --ask "The backlog item of $1." --night 2026-11-18 >/dev/null; }
-back() { project --repo "$EX" owner back --words "I'm back" >/dev/null; }
 one() { decide list "$SLUG" | "$PY" -c 'import json, sys; print(json.dumps(next(c for c in json.load(sys.stdin) if c["id"] == int(sys.argv[1]))))' "$1"; }
 advised_lines() { grep -c "\"id\": $1, .*\"kind\": \"advised\"" "$RECORD" || true; }
 
@@ -144,7 +144,6 @@ c10=$(ask "The note's escape")
 with_him=$(decide away | field 'd["taken"]' || true)
 night "$SLUG"
 taken=$(decide away | field '[(t["id"], t["chose"], t["by"]) for t in d["taken"]]' || true)
-back
 listed=$(one "$c6" | field '(d["state"], d["chose"], d["by"], d.get("early"), d["experts"], sorted(d["advice"]))' || true)
 ended=$(decide wait "$SLUG" "$c6" --seconds 1 | field 'd["ended"]' || true)
 untouched=$(decide list "$KEEP_SLUG" | field '[c["state"] for c in d if c["id"] in (1, 2)]' || true)
@@ -169,7 +168,6 @@ c12=$(cut -d, -f1 <<<"$alone_ask" | tr -d '( ')
 alone_pick=$(decide advise "$SLUG" "$c12" --expert fable --pick "after the price" --why "A printed note reads better beside the price." | field 'd["experts_pick"]' || true)
 night "$SLUG"
 alone_taken=$(decide away | field '[(t["id"], t["chose"], t["by"]) for t in d["taken"]]' || true)
-back
 alone_listed=$(decide list "$SLUG" | field 'next((c["state"], c["by"], c["experts"]) for c in d if c["id"] == '"$c12"')' || true)
 alone_brief=$(env PATH="$NOCODEX" "$PY" -B "$EXPERTS" --repo "$EX" brief --question "Which font for the note?" || true)
 alone_names=$(field '[e["name"] for e in d["experts"]]' <<<"$alone_brief" || true)
@@ -184,17 +182,22 @@ else
 fi
 
 # A lead's wait on a choice with both experts' shared pick, when the task runs without the owner: the wait takes that
-# pick at once, early; an irreversible step is never taken so.
+# pick at once, early, and leaves the task's other choice that waits; an irreversible step is never taken so. A task of
+# its own, since a night's mark holds until it ends.
+KEEP_SLUG=$SLUG KEEP_RECORD=$RECORD
+SLUG=gift-early RECORD=$EX/.lem/state/tasks/gift-early/decisions.jsonl
+project --repo "$EX" task-dir "$SLUG" >/dev/null && project --repo "$EX" state "$SLUG" building 'lead: builder' >/dev/null
 c13=$(ask "The note's width")
 decide advise "$SLUG" "$c13" --expert fable --pick "after the price" --why "f" >/dev/null || true
 decide advise "$SLUG" "$c13" --expert astra --pick "after the price" --why "a" >/dev/null || true
 c14=$(ask "Email the accountants about the column" --irreversible person)
+c15=$(ask "The note's height")
 night "$SLUG"
 early=$(decide wait "$SLUG" "$c13" --seconds 30 | field '(d["chose"], d["by"], d["early"], sorted(d["experts"]))' || true)
 irreversible=$(decide wait "$SLUG" "$c14" --seconds 1 | field 'd["ended"]' || true)
-others=$(decide list "$SLUG" | field '[c["state"] for c in d if c["id"] in (1, 2)]' || true)
-back
-if [ "$early" = "('after the price', 'experts', True, ['astra', 'fable'])" ] && [ "$irreversible" = "still waits" ] && [ "$others" = "['waits', 'waits']" ]; then
+others=$(decide list "$SLUG" | field '[c["state"] for c in d if c["id"] == '"$c15"']' || true)
+SLUG=$KEEP_SLUG RECORD=$KEEP_RECORD
+if [ "$early" = "('after the price', 'experts', True, ['astra', 'fable'])" ] && [ "$irreversible" = "still waits" ] && [ "$others" = "['waits']" ]; then
   pass "when the task runs without the owner, a wait takes the experts' shared pick of its own choice at once, marked early, and never an irreversible step"
 else
   fail "a choice taken early: $early / $irreversible / $others"

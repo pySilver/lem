@@ -14,6 +14,7 @@ CRITERIA=$PWD/skills/lem/scripts/criteria.py
 DECISIONS=$PWD/skills/lem/scripts/decisions.py
 LAND=$PWD/skills/lem/scripts/land.py
 WORK=$(cd "$(mktemp -d)" && pwd -P)
+export XDG_CONFIG_HOME="$WORK/config"  # the owner's status (`lem_state.owner_mark`) of this run, never the home directory's
 # shellcheck source=tests/checks.sh
 . tests/checks.sh
 trap 'stopped; rm -rf "$WORK"' EXIT

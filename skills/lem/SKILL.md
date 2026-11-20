@@ -125,7 +125,7 @@ Read the stage file when the subcommand runs, and follow it. Do not read the oth
 | a lead stopped | its reply or its message arrived: act on the task's newest state, and a `held` one opens the companion of what waits for the owner. An investigator's reply is its report | `stages/stopped.md`; an investigator's `stages/investigate.md` |
 | a choice waits | the line `lem: SLUG choice N waits` arrived, or `lem companion due` names a choice: open its companion | `stages/choice.md` |
 | a companion's line | `lem: SLUG criteria approved` or `lem: SLUG choice N answered` arrived from a need's companion: a wake-up, and the fact is `lem companion due`; `lem: the owner is away` or `back` is his word, typed there | `stages/stopped.md`; away or back, `stages/away.md` |
-| `im-away`, `im-back` | the owner says that he is away, and every task goes on without him, or that he is back | `stages/away.md` |
+| `im-away`, `im-back` | the owner says that he is away, and every task goes on without him, or that he is back; his word holds in every repository on this machine, so the watch of his mark ends here when he says it in another | `stages/away.md` |
 | `be-careful`, `standard-track`, `drop` `[<task>]` | the owner corrects a task: careful until its merge, the standard track until its pull request exists, or not wanted | `stages/correct.md` |
 | `land` | the oldest ready task: the polish pass on the standard track (the fast track has none), the checks, the review, then a pull request that says green or not green, or a branch ready to land where there is no forge or the project wants no pull requests (`branch.propose = "merge"`). `land <task>` on the owner's word merges an open one | `stages/land.md` |
 | `learn`, `retro` | a correction becomes an edit of the file that owns the step | `stages/learn.md` |
@@ -147,7 +147,7 @@ interview about this first, before I open a task? (y/n)". Never a page for this.
 A task runs on from `new` to its pull request without the owner, unless a stage file names a stop.
 Between two of the owner's messages Lem only waits: a lead that stops wakes it, and so do a
 lead whose choice waits for the owner, a need's companion that ends, and the end of a command Lem
-runs in the background, a task's checks or the watch.
+runs in the background, a task's checks or one of the two watches (Status).
 
 ## What holds in every stage
 
@@ -160,7 +160,9 @@ runs in the background, a task's checks or the watch.
   with him since your last turn (`lem decisions list SLUG`), once, in one line, and wait for
   nothing. One that went past the personas is his card (`stages/choice.md`), which waits for
   his answer with no time limit. While he is away (`stages/away.md`) nothing waits for him: the
-  ladder's pick is taken, not green. A step that a later "no" cannot reverse waits for him in both modes, and so does the
+  ladder's pick is taken, not green. He is away or there for the whole machine: his `/lem im-away`
+  in another repository holds here too. A night's task runs without him until it ends, whatever
+  his status. A step that a later "no" cannot reverse waits for him in both modes, and so does the
   merge of a task that runs without him. Every other decision is yours: decide
   from the code, the settings and the rulings, write it in the decisions log, and go on.
   A red test, a failed command or a moving base branch is the work, never a reason to stop.
@@ -414,3 +416,17 @@ with exit 1 says why: nothing open to watch, `gh` missing or not signed in (tell
 line once, as it is), no forge in this project, or it was stopped. Start no other one until that
 reason is gone. The board says when the forge was last looked at, and that nobody watches when
 the watch's last look is older than three of its intervals.
+
+The owner's status is one mark of the machine, which every repository on it reads: his `/lem
+im-away` or `/lem im-back` in another repository holds in this one, and nothing tells this
+session but a watch. So keep one watch of the mark in the background, from the session's start,
+never two: read `owner` of `lem project waiting`, take "When the watch ends" of `stages/away.md`
+once when it says away, and `run-in-background` with `lem project owner watch --seen N`, N being
+its `seen`, the number of records in the mark. It looks at the mark once every 5 seconds (a guess,
+not a measurement) and ends with exit 0 and his status (`away`, `since`, `words`, `seen`) as soon
+as the mark holds another number of records than N, at once when it does at its start. Its end
+wakes you: take "When the watch ends" of `stages/away.md`, which starts it again. A watch that
+ends with exit 1 was stopped, or the mark has a line that does not read (its message names the
+file and the line): start no other until that reason is gone. A session that a scheduled job
+started (`/lem night`, `/lem retro`) keeps no watch of the mark and takes no step of
+`stages/away.md` on it, so two sessions of one repository never both act on one word of his.

@@ -27,10 +27,11 @@ Then say what waits for him, as one list in one order, the same at every bare `/
 lem project waiting
 ```
 
-While `owner` says that he is away, the list's first line says so and since when, in his clock:
-"You are away since 14:05; the tasks go on without you until /lem im-back." Then it gives each
-kind under its key, in this order, and you say them so, in plain names and never in
-task codes, one line each, and leave out a kind that has none:
+While `owner` says that he is away, the list's first line says so and since when, in his clock,
+and that it holds for the whole machine, since he may have said it in another repository: "You
+are away since 14:05, in every repository on this machine; the tasks go on without you until /lem im-back."
+Then it gives each kind under its key, in this order, and you say them so, in plain names and
+never in task codes, one line each, and leave out a kind that has none:
 
 1. `choices`: each choice of a task that waits for him, as `lem decisions pending` gives it: the
    task and the choice;

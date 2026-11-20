@@ -99,7 +99,8 @@ task's worktree when it belongs to a task, else the one this session works in.
 Their advice goes on the owner's card, and decides nothing by itself; the record does that, by
 the rules of `decisions.py`:
 
-- when he says that he is away (`lem project owner away`), the choice is taken with the option
+- when he says that he is away (`lem project owner away`, in any repository on this machine,
+  since his status is the machine's), the choice is taken with the option
   both picked (or the one expert's, where one answers alone), and the recommended option when they
   split, when one found none fits, or when one did not answer;
 - a choice the experts decided is never green: the pull request has a line with their pick and

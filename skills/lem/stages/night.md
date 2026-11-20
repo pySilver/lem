@@ -4,7 +4,9 @@
 is Lem for that night. It takes items of the backlog, the smallest first, and runs them one
 after another without the owner, each to its pull request: "night execution is just a fun thing to build something
 while nobody's looking and its actually got to be a PR to merge, not a plan" (2026-11-18).
-Nothing asks him.
+Nothing asks him. This session keeps no watch of the owner's mark and takes no step of
+`stages/away.md` on it: its tasks run without him whatever the mark says, and a task of the day
+is the day session's to act on.
 
 1. **The brake.** Count the pull requests of earlier nights that nobody merged or closed: the
    `pull_requests` of `lem project waiting` whose `night` is not null. With two or more, open
@@ -23,8 +25,8 @@ Nothing asks him.
    night runs", the owner, 2026-11-18).
 3. **One at a time, each without the owner.** In that order, open the next task as `stages/new.md` does,
    with the item's path as the ask and `--night YYYY-MM-DD` on its `lem project task-dir`, with
-   the night's date: it marks the task as the night's, and it runs without the owner until he
-   says `/lem im-back`. From there the task takes the path that `stages/new.md` chose, as any
+   the night's date: it marks the task as the night's, and it runs without the owner until it
+   ends, whatever his status: his `/lem im-back` does not change it. From there the task takes the path that `stages/new.md` chose, as any
    task that runs without the owner does (`stages/away.md`). A lead's brief carries `request by: someone else`, since nobody at the
    terminal read the item, so the criteria of a task on the standard track are approved with `--alone` and its pull
    request is not green for them. A line a stage file tells the owner goes into the night

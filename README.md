@@ -108,7 +108,7 @@ page, and type "land". Then type your first request.
 | `/lem plan <request>` | a standard-track task that stops after its plan. `/lem build` builds it |
 | `/lem land <task>` | Lem merges the pull request |
 | `/lem be-careful [task]`, `/lem standard-track [task]`, `/lem drop [task]` | you change a task: careful until the merge, the standard track until its pull request, or stopped. With no task named, Lem takes the task that you talk about and names it. If two fit, Lem asks |
-| `/lem im-away`, `/lem im-back` | the tasks go on without you, or wait for you again |
+| `/lem im-away`, `/lem im-back` | in every repository on this computer, the tasks go on without you, or wait for you again. A night task never waits for you |
 | `/lem learn` | Lem puts your correction into the file that owns the step |
 
 Plain words that say the same work too. With your yes at setup, `/lem retro` runs each morning and

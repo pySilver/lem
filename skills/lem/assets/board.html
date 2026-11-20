@@ -642,18 +642,20 @@
 // The board of one repository's tasks, and the board of one task. It draws two files that sit
 // beside it in the state folder: events.js (project.py: every state block, gate result, review
 // and proposal, and what criteria.py, decisions.py and land.py log through it) and meta.js
-// (board.py: the repository, the base branch, Lem's session), and two more when they are there:
-// watch.js (land.py watch: when the pull requests of the open tasks were last looked at on the forge)
-// and overview.js (board.py: each task's outcome and the backlog items its branch filed). The tab
-// "Backlog" reads backlog.js on its own clock, below.
+// (board.py: the repository, the base branch, Lem's session), and three more when they are there:
+// watch.js (land.py watch: when the pull requests of the open tasks were last looked at on the forge),
+// overview.js (board.py: each task's outcome and the backlog items its branch filed) and owner.js
+// (project.py: a copy of the owner's mark in the home directory, one record of his status for each
+// away and back he said, which the page cannot read where it is). The tab "Backlog" reads
+// backlog.js on its own clock, below.
 // A copy named task-SLUG.html opens on that task; any other name opens on all tasks.
 //
 // A decision of the build is the events with its `id` (decisions.py): `decision.taken` or
 // `decision.asked` opens it, and `decision.advised` (one expert's advice), `decision.answered`,
 // `decision.timeout` (the experts' shared pick or the recommended option, by its `by`, taken because
 // the task ran without the owner) and `decision.late` are joined to it by that number. A choice that
-// waits has no end: it waits for the owner's answer. The `owner` event, which names no task, is the
-// owner's status: away or there, which the header says.
+// waits has no end: it waits for the owner's answer. The newest record of owner.js is the owner's
+// status, the machine's and not this repository's: away or there, which the header says.
 //
 // A companion that answers one need of a task for the owner (companion.py: an interview, the criteria,
 // a choice) is its `companion.open`, which names its session, and the `companion.close` after it. A row
@@ -881,6 +883,8 @@ let events = [];
 let meta = {};
 // the newest look of the watch of the open pull requests (watch.js, land.py watch), or null when none ran
 let watch = null;
+// the records of the owner's status (owner.js, a copy of the machine's mark), oldest first; none is him there
+let owner = [];
 let problems = {};
 let lastGoodRead = 0;
 let sessions = null;
@@ -1098,12 +1102,12 @@ function phase(node) {
 
 function derive(now) {
   const tasks = new Map();
-  // the owner's status, from the newest `owner` event: away since then, or there (null)
-  let away = null;
+  // the owner's status, from the newest record of owner.js: away since then, or there (null)
+  const said = owner.at(-1);
+  const away = said?.away ? {since: at(said), words: said.words ?? ''} : null;
   // every change of his status, for what a choice taken without him says (awayAt)
-  const owners = [];
+  const owners = owner.map(o => ({ts: at(o), away: o.away === true}));
   for (const e of events) {
-    if (e.event === 'owner' && !e.task) { away = e.away ? {since: at(e), words: e.words ?? ''} : null; owners.push({ts: at(e), away: e.away === true}); }
     if (!e.task) continue;
     let t = tasks.get(e.task);
     if (!t) tasks.set(e.task, t = {
@@ -2121,9 +2125,9 @@ function waitRow(w) {
 
 // ---- the board of one task ----
 
-// Whether the owner was away at a moment: the newest `owner` event at or before it says away. The
-// same second counts: project.py writes his `owner` event and takes each choice that waits in one
-// whole second (decision 2 of the task that built this).
+// Whether the owner was away at a moment: the newest record of owner.js at or before it says away.
+// The same second counts: project.py appends his record to the machine's mark and takes each choice
+// that waits in one whole second (decision 2 of the task that built this).
 function awayAt(owners, ms) {
   return owners.findLast(o => o.ts <= ms)?.away === true;
 }
@@ -2970,6 +2974,10 @@ async function pollFiles() {
   const looked = await readScript('watch.js', 'lemWatch', 0);
   if (looked.problem) problems.watch = looked.problem; else delete problems.watch;
   watch = looked.records?.at(-1) ?? (looked.missing ? null : watch);
+  // no owner.js is no problem: he never said he is away on this machine, so he is there
+  const status = await readScript('owner.js', 'lemOwner', 0);
+  if (status.problem) problems.owner = status.problem; else delete problems.owner;
+  owner = status.records ?? (status.missing ? [] : owner);
   render();
   setTimeout(pollFiles, FEED_EVERY_MS);
 }
