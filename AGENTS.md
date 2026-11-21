@@ -297,6 +297,7 @@ and open to him. Each sentence is the text of a link to its file in `.lem/decisi
 
 - [The copied talk stays in Lem's untracked state folder and never reaches git or a pull request.](.lem/decisions/the-copied-talk-stays-in-lems-untracked-state-folder-and-never-reaches-git-or-a-pull-request.md)
 - [A task that ended stays ended](.lem/decisions/a-task-that-ended-stays-ended.md)
+- [The trials of 2026-11-21: a task's session takes the focus only for its own question and says its first line first, and the onboarding writes no allow rules and commits the plugin's file](.lem/decisions/the-trials-of-2026-11-21-a-tasks-session-takes-the-focus-only-for-its-own-question-and-says-its-first-line-first-and-the-onboarding-writes-no-allow-rules-and-commits-the-plugins-file.md)
 
 ### The board and the pages for him
 
