@@ -2347,9 +2347,15 @@ AFTER_LINE = re.compile(r"after: (?P<slug>[a-z0-9][a-z0-9-]*)")
 # line reads them, so `state` refuses a line that starts as one of them in another form (`fixed_form`);
 # the match of his words is greedy, so a double quote of his own stays inside them.
 ORDER_LINE = re.compile(r"the owner's order: \"(?P<words>.*)\"")
+# The line of a block that is the owner's order (`stages/new.md`, step 7 of "The request"), in whatever form the rest has.
+ORDER_START = "the owner's order:"
 THEN_LINE = re.compile(r"then: (?P<path>the interview|the fast track|the lead)")
 THEN_PATHS = {"the interview": "interview", "the fast track": "fast", "the lead": "complete"}
 FITS_LINE = "the one open task that fits his words"
+CAREFUL_LINE = re.compile(r"careful:\s*(?P<why>.+)", re.IGNORECASE)
+BRANCH_NAME = re.compile(r"[\w][\w./+-]*")
+SENTENCE = re.compile(r"(.+?[.!?])(?=\s|$)")
+FAST_STEPS = "Fast track: one builder, the checks, one read, then the pull request."
 
 
 def fixed_form(line: str) -> None:
@@ -2365,10 +2371,6 @@ def fixed_form(line: str) -> None:
                             f"`then: the fast track` or `then: the lead`")
     if text.startswith("the one open task") and text != FITS_LINE:
         raise SettingsError(f"the line {text!r} is not in its form: write it as `{FITS_LINE}`")
-CAREFUL_LINE = re.compile(r"careful:\s*(?P<why>.+)", re.IGNORECASE)
-BRANCH_NAME = re.compile(r"[\w][\w./+-]*")
-SENTENCE = re.compile(r"(.+?[.!?])(?=\s|$)")
-FAST_STEPS = "Fast track: one builder, the checks, one read, then the pull request."
 
 
 def correction(fast: bool, task: str | None) -> str:
@@ -2676,8 +2678,6 @@ def queued_refusal(slug: str, after: str, other: str | None) -> str:
 # The owner's words in the commands that the refusal of a task behind a dropped task prints: the agent
 # puts the words of his "start SLUG now" in their place, inside the single quotes that hold them.
 HIS_WORDS = "HIS WORDS"
-# The line of a block that is the owner's order (`stages/new.md`, step 7 of "The request"), in whatever form the rest has.
-ORDER_START = "the owner's order:"
 
 
 def after_in(lines: list[str]) -> str | None:
