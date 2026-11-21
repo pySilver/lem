@@ -10,6 +10,7 @@ area: The settings, the seats and the tracker
 The title is the rule as it stands. Where the paragraph below says otherwise, the line here holds.
 
 - 2026-11-18, [Not every section of the settings stays](../../docs/rulings/not-every-section-of-the-settings-stays.md): "the folders already there, linked": Lem's own files and the folders of other tools have one place each
+- 2026-11-18, [cronn is required, and Codex is highly recommended](../../docs/rulings/cronn-is-required-and-codex-is-highly-recommended.md): "cronn and the scheduled jobs" among the offers: cronn is no offer, since the machine check fails without it and `/lem init` stops for it; a cronn that does not run and each scheduled job stay offers (`stages/init.md`, step 1)
 - 2026-11-20, [A fresh merge agent reads every proposed task, and merges it or calls him](../../docs/rulings/a-fresh-merge-agent-reads-every-proposed-task-and-merges-it-or-calls-him.md): "who lands (`owner`)": the default is `"agent"`
 - 2026-11-20, [GitHub pull requests are the one way to land](../../docs/rulings/github-pull-requests-are-the-one-way-to-land.md): "a pull request where the remote is GitHub": GitHub pull requests are the one way to land
 
